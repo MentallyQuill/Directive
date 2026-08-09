@@ -127,6 +127,7 @@ assert.deepEqual(request.envelope, {
     baseRevision: settlement.revision,
     checkpointSequence: 1,
 });
+assert.deepEqual(request.pendingSourceContributionIds, activeContributions.map((item) => item.id));
 assert.equal(request.recentEvidence.length, 5, 'the 1,200-character aggregate cap may be stricter than the six-row cap');
 assert.ok(request.recentEvidence.length <= 6);
 assert.ok(request.recentEvidence.reduce((total, item) => total + item.excerpt.length, 0) <= 1200);
@@ -176,6 +177,22 @@ const validSeal = parseEpisodeEvaluationProposal(proposalFor({
     foregroundQuestion: null,
 }), { request });
 assert.equal(validSeal.ok, true);
+const laterCheckpointRequest = {
+    ...structuredClone(request),
+    pendingSourceContributionIds: ['contribution.active-5'],
+};
+assert.deepEqual(validateEpisodeEvaluationRequest(laterCheckpointRequest), { ok: true, errors: [] });
+const staleHistorySeal = parseEpisodeEvaluationProposal(proposalFor({
+    decision: 'seal',
+    boundaryReason: 'foreground-question-resolved',
+    significanceCriteria: ['commitment-created-or-resolved'],
+    summary: 'The older handover discussion is reinterpreted as complete.',
+    foregroundQuestion: null,
+    sourceContributionIds: ['contribution.active-1'],
+    effectIds: [],
+}), { request: laterCheckpointRequest });
+assert.equal(staleHistorySeal.ok, false);
+assert.match(staleHistorySeal.errors.join('\n'), /pending checkpoint/i);
 const validAbstain = parseEpisodeEvaluationProposal(proposalFor({
     decision: 'abstain',
     summary: null,

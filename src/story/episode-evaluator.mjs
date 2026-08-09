@@ -34,6 +34,7 @@ const REQUIRED_PROPOSAL_FIELDS = [...PROPOSAL_FIELDS];
 const REQUEST_FIELDS = new Set([
     'kind',
     'envelope',
+    'pendingSourceContributionIds',
     'workingCapsule',
     'recentEvidence',
     'visibleEffects',
@@ -170,6 +171,9 @@ export function validateEpisodeEvaluationRequest(value = {}) {
             errors.push('request envelope checkpointSequence must be a positive integer');
         }
     }
+    requestIdArray(value.pendingSourceContributionIds, {
+        label: 'request pendingSourceContributionIds', maximum: 128, errors,
+    });
     const capsuleOk = objectFieldErrors(value.workingCapsule, REQUEST_CAPSULE_FIELDS, 'request workingCapsule', errors);
     if (capsuleOk) {
         if (value.workingCapsule.kind !== 'directive.storyWorkingCapsule.v1') {
@@ -324,6 +328,7 @@ export function createEpisodeEvaluationRequest({ settlement = {} } = {}) {
             baseRevision: settlement.revision,
             checkpointSequence: episode.boundaryState.checkpointSequence,
         },
+        pendingSourceContributionIds: cloneJson(episode.boundaryState.sourceContributionIds),
         workingCapsule: {
             kind: capsule.kind,
             summary: capsule.summary,
@@ -459,6 +464,15 @@ function proposalErrors(value, request) {
         }
         if (value.foregroundQuestion !== null) errors.push('seal foregroundQuestion must be null');
         if (sourceContributionIds.length === 0) errors.push('seal requires sourceContributionIds');
+        const pendingSourceIds = new Set(request?.pendingSourceContributionIds || []);
+        const visibleEffectsById = new Map((request?.visibleEffects || []).map((effect) => [effect.id, effect]));
+        const citesPendingSource = sourceContributionIds.some((id) => pendingSourceIds.has(id));
+        const citesPendingEffect = effectIds.some((id) => (
+            visibleEffectsById.get(id)?.sourceContributionIds?.some((sourceId) => pendingSourceIds.has(sourceId))
+        ));
+        if (!citesPendingSource && !citesPendingEffect) {
+            errors.push('seal must cite evidence from the pending checkpoint');
+        }
     } else if (value.decision === 'abstain') {
         if (value.boundaryReason !== null) errors.push('abstain boundaryReason must be null');
         if ((value.significanceCriteria?.length || 0) > 0) errors.push('abstain significanceCriteria must be empty');
@@ -497,6 +511,7 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
         'Never use topic, keyword, speaker, sentiment, token count, or elapsed time as boundary evidence.',
         'Player text proves intent, speech, or commitment only. It does not prove that an attempted action succeeded. Accepted assistant evidence may establish depicted outcomes.',
         'Use only sourceContributionIds and effectIds supplied in the request. Do not invent facts, IDs, objectives, trackers, consequences, rewards, hidden state, or narration.',
+        'A seal must cite at least one pendingSourceContributionId, directly or through a cited visible effect sourced by it. Do not seal by merely reinterpreting older reviewed history.',
         `Allowed boundaryReason values for seal: ${SOFT_BOUNDARY_REASONS.join(', ')}.`,
         `Allowed significanceCriteria values for seal: ${LASTING_SIGNIFICANCE_CRITERIA.join(', ')}.`,
         'Return exactly one strict JSON object with no markdown, prose, rationale, or extra fields:',

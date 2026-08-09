@@ -306,7 +306,30 @@ function errorReasonCode(error) {
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_REJECTED') return 'evidence-rejected';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_STALE') return 'episode-review-stale';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_INVALID') return 'episode-review-invalid';
+    if (error?.code === 'DIRECTIVE_STATE_PERSISTENCE_FAILED') return 'persistence-failed';
+    if (error?.code === 'DIRECTIVE_STATE_PERSISTENCE_ROLLBACK_CONFLICT') return 'persistence-rollback-conflict';
     return 'settlement-failed';
+}
+
+function episodeReviewPreflightReason({ campaignState = {}, definition } = {}) {
+    const branchId = compact(campaignState?.campaignChatBinding?.saveId);
+    if (!branchId) return 'active-branch-unavailable';
+    const missionState = campaignState?.mission?.v1;
+    if (!missionState) return 'mission-state-unavailable';
+    if (missionState.branchId !== branchId) return 'mission-branch-mismatch';
+    if (campaignState?.storySettlement?.branchId !== branchId) return 'story-branch-mismatch';
+    const activePackage = campaignState?.activeCampaignPackage;
+    if (!activePackage
+        || activePackage.packageId !== definition?.packageBinding?.packageId
+        || activePackage.packageVersion !== definition?.packageBinding?.packageVersion) {
+        return 'active-package-mismatch';
+    }
+    try {
+        resolveV1MissionState({ campaignState, definition, branchId });
+    } catch (error) {
+        return errorReasonCode(error);
+    }
+    return null;
 }
 
 function safeEpisodeDiagnostics(diagnostics = {}) {
@@ -653,6 +676,13 @@ export function createV1MissionRuntime({
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return { ...resolved, reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement) };
+        const preflightReason = episodeReviewPreflightReason({ campaignState, definition: resolved.definition });
+        if (preflightReason) {
+            return {
+                ...unavailable(preflightReason, {}, { attempted: false }),
+                reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement),
+            };
+        }
         const reviewToken = createPendingEpisodeReviewToken(campaignState?.storySettlement);
         if (!reviewToken) {
             return {
@@ -722,8 +752,23 @@ export function createV1MissionRuntime({
                 diagnostics,
             };
         } catch (error) {
+            const reasonCode = errorReasonCode(error);
+            if (reasonCode === 'persistence-rollback-conflict') {
+                return {
+                    ok: false,
+                    attempted: true,
+                    status: 'indeterminate',
+                    reasonCode,
+                    diagnostics,
+                    committedRoots: ['storySettlement'],
+                    noChange: false,
+                    reviewToken: createPendingEpisodeReviewToken(getState()?.storySettlement),
+                    requiresReconciliation: true,
+                    retrySafe: false,
+                };
+            }
             return {
-                ...unavailable(errorReasonCode(error), diagnostics, { attempted: true }),
+                ...unavailable(reasonCode, diagnostics, { attempted: true }),
                 reviewToken: createPendingEpisodeReviewToken(getState()?.storySettlement),
             };
         }

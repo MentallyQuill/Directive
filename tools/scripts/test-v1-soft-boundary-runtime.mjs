@@ -129,14 +129,28 @@ function proposalFor(request, decision = 'continue') {
     return shared;
 }
 
-function createHarness({ state = createActiveCampaignState(), evaluator = null } = {}) {
+function createHarness({
+    state = createActiveCampaignState(),
+    evaluator = null,
+    persistError = null,
+    persistConflict = false,
+} = {}) {
     let campaignState = structuredClone(state);
     let persistCount = 0;
     let evaluationCount = 0;
     const gateway = createStateDeltaGateway({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
-        persist: async () => { persistCount += 1; },
+        persist: async () => {
+            persistCount += 1;
+            if (persistConflict) {
+                campaignState = {
+                    ...structuredClone(campaignState),
+                    commandBearing: { current: 99 },
+                };
+            }
+            if (persistError) throw persistError;
+        },
         now: () => '2026-08-09T16:00:00.000Z',
     });
     const evaluateEpisode = async ({ request }) => {
@@ -345,5 +359,52 @@ assert.equal(noPending.ok, true);
 assert.equal(noPending.status, 'no-pending-review');
 assert.equal(noPending.noChange, true);
 assert.equal(continueHarness.evaluationCount, 1, 'no pending checkpoint means no provider invocation');
+
+for (const [label, mutate, expectedReason] of [
+    ['mission branch', (state) => { state.mission.v1.branchId = 'save.wrong'; }, 'mission-branch-mismatch'],
+    ['story branch', (state) => { state.storySettlement.branchId = 'save.wrong'; }, 'story-branch-mismatch'],
+    ['active package', (state) => { state.activeCampaignPackage.packageVersion = '999.0.0'; }, 'active-package-mismatch'],
+]) {
+    const state = createActiveCampaignState();
+    mutate(state);
+    const harness = createHarness({ state });
+    const result = await harness.runtime.reviewPendingEpisode({ runtimeAssets });
+    assert.equal(result.ok, false, label);
+    assert.equal(result.reasonCode, expectedReason, label);
+    assert.equal(harness.evaluationCount, 0, `${label} drift must fail before exposing excerpts to the evaluator`);
+    assert.equal(harness.persistCount, 0, label);
+}
+
+const persistenceState = createActiveCampaignState();
+const persistenceBefore = structuredClone(persistenceState);
+const persistenceHarness = createHarness({
+    state: persistenceState,
+    persistError: new Error('SECRET-PERSISTENCE-FAILURE'),
+});
+const persistenceToken = persistenceHarness.runtime.pendingEpisodeReview();
+const persistenceFailure = await persistenceHarness.runtime.reviewPendingEpisode({ runtimeAssets });
+assert.equal(persistenceFailure.ok, false);
+assert.equal(persistenceFailure.reasonCode, 'persistence-failed');
+assert.deepEqual(persistenceFailure.reviewToken, persistenceToken);
+assert.deepEqual(persistenceHarness.campaignState, persistenceBefore, 'rejected persistence must restore in-memory state');
+assert.equal(persistenceHarness.persistCount, 1);
+assert.equal(JSON.stringify(persistenceFailure).includes('SECRET-PERSISTENCE-FAILURE'), false);
+
+const indeterminateHarness = createHarness({
+    persistConflict: true,
+    persistError: new Error('SECRET-CONCURRENT-PERSISTENCE-FAILURE'),
+});
+const indeterminate = await indeterminateHarness.runtime.reviewPendingEpisode({ runtimeAssets });
+assert.equal(indeterminate.ok, false);
+assert.equal(indeterminate.status, 'indeterminate');
+assert.equal(indeterminate.reasonCode, 'persistence-rollback-conflict');
+assert.equal(indeterminate.noChange, false);
+assert.deepEqual(indeterminate.committedRoots, ['storySettlement']);
+assert.equal(indeterminate.requiresReconciliation, true);
+assert.equal(indeterminate.retrySafe, false);
+assert.equal(indeterminate.reviewToken, null);
+assert.equal(indeterminateHarness.campaignState.storySettlement.episodes[0].workingCapsule.lastEvaluatedCheckpointSequence, 1);
+assert.equal(indeterminateHarness.campaignState.commandBearing.current, 99);
+assert.equal(JSON.stringify(indeterminate).includes('SECRET-CONCURRENT-PERSISTENCE-FAILURE'), false);
 
 console.log('V1 soft-boundary runtime tests passed.');

@@ -1465,11 +1465,12 @@ export function createStateDeltaGateway({
   }
 
   async function applyProposal(proposal = {}) {
+    const previous = cloneJson(getState());
     const result = Array.isArray(proposal.operations)
-      ? applyStateDeltaOperations({ campaignState: getState(), proposal, now, allowedDomains })
+      ? applyStateDeltaOperations({ campaignState: previous, proposal, now, allowedDomains })
       : {
           campaignState: applyTrackedStatePatch({
-            campaignState: getState(),
+            campaignState: previous,
             patch: proposal.patch,
             domains: proposal.domains,
             baseRevision: proposal.baseRevision,
@@ -1482,7 +1483,23 @@ export function createStateDeltaGateway({
         };
     const tracked = result.campaignState;
     setState(tracked);
-    if (typeof persist === 'function') await persist(tracked, proposal);
+    if (typeof persist === 'function') {
+      try {
+        await persist(tracked, proposal);
+      } catch (cause) {
+        if (hashStableJson(getState()) === hashStableJson(tracked)) {
+          setState(previous);
+          const error = new Error('State delta persistence failed; in-memory state was restored.');
+          error.code = 'DIRECTIVE_STATE_PERSISTENCE_FAILED';
+          error.cause = cause;
+          throw error;
+        }
+        const error = new Error('State delta persistence failed after concurrent state changed; automatic rollback was refused.');
+        error.code = 'DIRECTIVE_STATE_PERSISTENCE_ROLLBACK_CONFLICT';
+        error.cause = cause;
+        throw error;
+      }
+    }
     return { ...cloneJson(result), campaignState: cloneJson(tracked) };
   }
 
