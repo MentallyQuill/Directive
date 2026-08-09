@@ -77,6 +77,16 @@
           "required": ["packageId", "packageVersion", "packagePath", "immutableTemplate"],
           "properties": { "immutableTemplate": { "const": true } }
         },
+        "mission": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "v1": { "type": "object" }
+          }
+        },
+        "storySettlement": {
+          "$ref": "../story/story-settlement.schema.json"
+        },
         "worldState": {
           "type": "object",
           "required": ["regionId", "currentLocationId", "currentStardate", "elapsedHours", "locations", "factions", "actors", "fronts", "clocks"],

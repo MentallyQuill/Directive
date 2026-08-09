@@ -30,6 +30,8 @@ function rejectAll(claims, reasonCode) {
         acceptedClaims: [],
         rejectedClaims: claims.map((claim) => rejection(claim, reasonCode)),
         errors: [],
+        proposalRejected: true,
+        rejectionReasonCode: reasonCode,
     };
 }
 
@@ -147,5 +149,11 @@ export function validateMissionEvidenceProposal({
         acceptedClaims.push({ ...claim, evidenceKey: key });
     }
 
-    return { acceptedClaims, rejectedClaims, errors: [] };
+    return {
+        acceptedClaims,
+        rejectedClaims,
+        errors: [],
+        proposalRejected: false,
+        rejectionReasonCode: null,
+    };
 }

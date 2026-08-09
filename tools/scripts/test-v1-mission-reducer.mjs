@@ -52,6 +52,7 @@ const rescueOnly = reduceMissionEvidence({
 });
 assert.deepEqual(state, stateBefore);
 assert.equal(rescueOnly.state.revision, 1);
+assert.equal(rescueOnly.state.evidenceLog[0].claimId, 'claim.survivors-transferred');
 assert.equal(rescueOnly.state.status, 'terminal');
 assert.equal(rescueOnly.state.terminalDisposition, 'primarySuccess');
 assert.equal(rescueOnly.state.objectives['objective.hesperus-rescue'].disposition, 'completed');
@@ -144,6 +145,16 @@ const clockAdvanced = reduceMissionEvidence({
 assert.equal(clockAdvanced.state.status, 'active');
 assert.equal(clockAdvanced.state.clocks['clock.hesperus-life-support'].value, 20);
 assert.equal(clockAdvanced.transitionPacket, null);
+const reconstructedClock = reduceMissionEvidence({
+    definition,
+    state,
+    acceptedClaims: [{
+        ...timeAdvance(10, 'reconstructed'),
+        sourceContributionId: 'contribution.original-time-source',
+    }],
+    sourceContribution: null,
+});
+assert.equal(reconstructedClock.state.evidenceLog[0].sourceContributionId, 'contribution.original-time-source');
 const clockExpired = reduceMissionEvidence({
     definition,
     state: clockAdvanced.state,

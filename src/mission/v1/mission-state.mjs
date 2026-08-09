@@ -46,6 +46,7 @@ export function createMissionState({ definition = {}, branchId = 'main' } = {}) 
         outcomeDimensions: {},
         acceptedEvidenceKeys: [],
         evidenceLog: [],
+        invalidatedSourceContributionIds: [],
         terminalDisposition: null,
         transitionReceipt: null,
     };

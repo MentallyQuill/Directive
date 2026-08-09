@@ -172,13 +172,15 @@ export function reduceMissionEvidence({
     let changed = false;
     for (const claim of acceptedClaims) {
         if (!claim?.evidenceKey || state.acceptedEvidenceKeys.includes(claim.evidenceKey)) continue;
+        const contributionId = sourceContribution?.id || claim.sourceContributionId || null;
         state.acceptedEvidenceKeys.push(claim.evidenceKey);
         state.evidenceLog.push({
+            claimId: claim.claimId,
             evidenceKey: claim.evidenceKey,
             claimType: claim.claimType,
             targetId: claim.targetId,
             value: claim.value ?? null,
-            sourceContributionId: sourceContribution?.id || null,
+            sourceContributionId: contributionId,
         });
         applyClaim(definition, state, claim);
         effects.push({
@@ -186,7 +188,7 @@ export function reduceMissionEvidence({
             type: `mission.${claim.claimType}`,
             targetId: claim.targetId,
             value: claim.value ?? null,
-            sourceContributionIds: sourceContribution?.id ? [sourceContribution.id] : [],
+            sourceContributionIds: contributionId ? [contributionId] : [],
             playerVisibility: effectVisibility(index, state, claim),
             status: 'active',
         });

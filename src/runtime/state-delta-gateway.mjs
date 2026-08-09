@@ -20,6 +20,7 @@ export const DIRECTIVE_MUTABLE_STATE_DOMAINS = Object.freeze([
   'mission',
   'worldState',
   'timeLedger',
+  'storySettlement',
   'storyArcLedger',
   'questLedger',
   'dynamicQuestCatalog',
