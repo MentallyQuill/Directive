@@ -32,10 +32,12 @@ export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
 let activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
 let activeMobileSettingsSectionId = '';
+let activeSettingsShelf = 'general';
 
 export function resetSettingsPanelState() {
   activeSettingsSectionId = DEFAULT_SETTINGS_SECTION_ID;
   activeMobileSettingsSectionId = '';
+  activeSettingsShelf = 'general';
 }
 
 function selectSettingsSection(sectionId) {
@@ -1305,7 +1307,220 @@ function appendSettingsDisclosure(body, { key, title, render }) {
   return disclosure;
 }
 
+function createFrozenSettingsToggle({ title, detail, checked, ariaLabel, onChange }) {
+  const label = createElement('label', 'settings-control');
+  const copy = createElement('span', 'settings-control-copy');
+  const heading = createElement('strong'); heading.textContent = title;
+  const summary = createElement('small'); summary.textContent = detail;
+  copy.append(heading, summary);
+  const toggle = createElement('span', 'settings-toggle');
+  const input = createElement('input');
+  input.type = 'checkbox';
+  input.role = 'switch';
+  input.checked = checked;
+  input.setAttribute('aria-label', ariaLabel || title);
+  input.setAttribute('aria-checked', checked ? 'true' : 'false');
+  const track = createElement('span');
+  input.addEventListener('change', async () => {
+    input.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+    await onChange?.(input.checked);
+  });
+  toggle.append(input, track);
+  label.append(copy, toggle);
+  return label;
+}
+
+function createFrozenSettingsCommand(label, { primary = false, disabled = false, onClick } = {}) {
+  const button = createElement('button', `settings-command${primary ? ' primary' : ''}`);
+  button.type = 'button';
+  button.textContent = label;
+  button.disabled = disabled;
+  button.addEventListener('click', async () => onClick?.());
+  return button;
+}
+
+function appendFrozenGeneralSettings(page, actions) {
+  const preferences = getDirectiveGuidancePreferences();
+  const section = createElement('section', 'settings-section');
+  section.dataset.directiveTour = 'settings.guidance';
+  const head = createElement('header', 'settings-section-head');
+  const headCopy = createElement('div');
+  const title = createElement('h3', 'settings-section-title'); title.textContent = 'Interface';
+  const context = createElement('div', 'settings-section-context'); context.textContent = 'Guidance shown while playing';
+  headCopy.append(title, context); head.appendChild(headCopy);
+  const grid = createElement('div', 'settings-control-grid');
+  grid.append(
+    createFrozenSettingsToggle({
+      title: 'Tooltips', detail: 'Show labels for unfamiliar controls.', checked: !areDirectiveTooltipsDisabled(), ariaLabel: 'Show Directive tooltips',
+      onChange: (enabled) => setDirectiveTooltipsDisabled(!enabled)
+    }),
+    createFrozenSettingsToggle({
+      title: 'Tutorial Prompts', detail: 'Show contextual guidance for new systems.', checked: !preferences.tutorialPromptsDisabled, ariaLabel: 'Offer Directive tutorial prompts',
+      onChange: (enabled) => actions.setGuidancePreference?.({ key: 'tutorialPromptsDisabled', value: !enabled })
+    }),
+    createFrozenSettingsToggle({
+      title: 'Startup Tips', detail: 'Show one concise tip when Directive opens.', checked: !preferences.tipsDisabled, ariaLabel: 'Offer Directive startup tips',
+      onChange: (enabled) => actions.setGuidancePreference?.({ key: 'tipsDisabled', value: !enabled })
+    })
+  );
+  section.append(head, grid);
+  const help = createElement('details', 'settings-disclosure');
+  const helpSummary = createElement('summary'); helpSummary.textContent = 'Help & Tutorials';
+  const helpContent = createElement('div', 'settings-disclosure-content');
+  const row = createElement('div', 'settings-command-row');
+  row.append(
+    createFrozenSettingsCommand('Show Next Tip', { primary: true, disabled: typeof actions.showGuidanceTip !== 'function', onClick: () => actions.showGuidanceTip?.({ direction: 'next' }) }),
+    createFrozenSettingsCommand('Tutorial Library', { disabled: typeof actions.beginGuidanceTutorial !== 'function', onClick: () => actions.beginGuidanceTutorial?.({ tutorialId: 'tutorial.basic' }) }),
+    createFrozenSettingsCommand('Reset Tutorial Progress', { disabled: typeof actions.resetGuidanceProgress !== 'function', onClick: async () => { await actions.resetGuidanceProgress?.(); await actions.refresh?.(); } })
+  );
+  helpContent.appendChild(row); help.append(helpSummary, helpContent);
+  page.append(section, help);
+}
+
+function frozenProviderField(labelText, control) {
+  const field = createElement('div', 'provider-field');
+  const label = createElement('label'); label.textContent = labelText;
+  field.append(label, control);
+  return field;
+}
+
+function appendFrozenProvider(page, kind, view, actions) {
+  const providerConfiguration = view?.providerConfiguration || {};
+  const config = providerConfiguration.settings?.[kind] || {};
+  const status = providerConfiguration.status?.[kind] || {};
+  const profiles = asArray(providerConfiguration.profiles);
+  const panel = createElement('article', `provider-panel${kind === 'reasoning' ? ' reasoning' : ''}`);
+  const head = createElement('header', 'provider-head');
+  const copy = createElement('div');
+  const title = createElement('div', 'provider-title'); title.textContent = providerKindLabel(kind);
+  const purpose = createElement('div', 'provider-purpose');
+  purpose.textContent = kind === 'utility' ? 'Fast classification and state analysis' : 'Narrative planning and complex judgment';
+  copy.append(title, purpose);
+  const ready = createElement('span', 'provider-status'); ready.textContent = status.ready === false ? 'Setup' : 'Ready';
+  head.append(copy, ready);
+  const fields = createElement('div', 'provider-fields');
+  const profile = createElement('select', 'settings-select');
+  const configuredProfile = config.profileId || '';
+  const options = profiles.length ? profiles : [{ id: configuredProfile, label: configuredProfile || `${providerKindLabel(kind)} connection` }];
+  options.forEach((item) => {
+    const option = createElement('option'); option.value = item.id || ''; option.textContent = item.model ? `${item.label} / ${item.model}` : item.label; option.selected = option.value === configuredProfile; profile.appendChild(option);
+  });
+  const model = createElement('span', 'provider-model'); model.textContent = status.model || status.label || config.model || 'Host profile';
+  const numberFields = [
+    ['Temperature', 'temperature', config.temperature ?? (kind === 'utility' ? 0.1 : 0.7), '0', '2', '0.05'],
+    ['Top P', 'topP', config.topP ?? 0.95, '0', '1', '0.05'],
+    ['Maximum Tokens', 'maxTokens', config.maxTokens ?? 8192, '64', '131072', '64']
+  ];
+  const controls = { profile };
+  fields.append(frozenProviderField('Connection Profile', profile), frozenProviderField('Model', model));
+  numberFields.forEach(([labelText, key, value, min, max, step]) => {
+    const input = createElement('input', 'settings-input'); input.type = 'number'; input.value = String(value); input.min = min; input.max = max; input.step = step; controls[key] = input;
+    fields.appendChild(frozenProviderField(labelText, input));
+  });
+  const actionsRow = createElement('div', 'provider-actions');
+  const feedback = createElement('span', 'provider-feedback'); feedback.setAttribute('role', 'status');
+  actionsRow.append(
+    createFrozenSettingsCommand('Save Provider', { disabled: typeof actions.updateProviderSettings !== 'function', onClick: async () => {
+      await actions.updateProviderSettings?.({ kind, patch: { provider: 'profile', profileId: profile.value, temperature: Number(controls.temperature.value), topP: Number(controls.topP.value), maxTokens: Number(controls.maxTokens.value) } });
+      feedback.textContent = 'Saved'; feedback.classList.add('pass'); await actions.refresh?.();
+    } }),
+    createFrozenSettingsCommand('Test Provider', { primary: true, disabled: typeof actions.testProvider !== 'function', onClick: async () => {
+      const result = await actions.testProvider?.({ kind }); feedback.textContent = result?.ok === false ? (result?.error?.message || 'Test failed') : 'Provider ready'; feedback.classList.toggle('pass', result?.ok !== false);
+    } }),
+    feedback
+  );
+  panel.append(head, fields, actionsRow);
+  return panel;
+}
+
+function appendFrozenAdvancedSettings(page, view, actions) {
+  const preset = view?.directivePreset || {};
+  const presetRow = createElement('section', 'settings-preset');
+  const presetCopy = createElement('div');
+  const title = createElement('strong'); title.textContent = 'Directive Host Preset';
+  const status = createElement('span'); status.textContent = `${preset.status?.installedVersion || preset.installedVersion || preset.status?.installed || 'Directive-0.1.0-pre-alpha.10'} / ${preset.status?.pill || preset.status?.state || 'Current'}`;
+  presetCopy.append(title, status);
+  const presetActions = createElement('div', 'settings-command-row');
+  presetActions.append(
+    createFrozenSettingsCommand('Refresh Status', { disabled: typeof actions.refreshDirectivePresetStatus !== 'function', onClick: async () => { await actions.refreshDirectivePresetStatus?.(); await actions.refresh?.(); } }),
+    createFrozenSettingsCommand('Reinstall', { disabled: typeof actions.installDirectivePreset !== 'function', onClick: async () => { await actions.installDirectivePreset?.(); await actions.refresh?.(); } })
+  );
+  presetRow.append(presetCopy, presetActions);
+  const providers = createElement('div', 'provider-grid');
+  providers.append(appendFrozenProvider(page, 'utility', view, actions), appendFrozenProvider(page, 'reasoning', view, actions));
+  const routing = createElement('details', 'settings-disclosure');
+  const routingSummary = createElement('summary'); routingSummary.textContent = 'Advanced Model-Call Routing';
+  const routingContent = createElement('div', 'settings-disclosure-content');
+  [
+    ['Turn Reading & State Sidecars', 'Classification, extraction, and bounded tracking calls', 'Utility'],
+    ['Story Output & Command Bearing', 'Narrative generation and consequential command judgment', 'Reasoning'],
+    ['Context, Summaries & Authoring', 'Compression, campaign context, and creator assistance', 'Default mix']
+  ].forEach(([name, detail, lane]) => {
+    const group = createElement('div', 'routing-group'); const groupCopy = createElement('div'); const strong = createElement('strong'); strong.textContent = name; const span = createElement('span'); span.textContent = detail; groupCopy.append(strong, span); const laneLabel = createElement('span', 'routing-lane'); laneLabel.textContent = lane; group.append(groupCopy, laneLabel); routingContent.appendChild(group);
+  });
+  routing.append(routingSummary, routingContent);
+  const diagnostics = createElement('details', 'settings-disclosure'); diagnostics.dataset.directiveTour = 'settings.troubleshooting';
+  const diagnosticsSummary = createElement('summary'); diagnosticsSummary.textContent = 'Diagnostics';
+  const diagnosticsContent = createElement('div', 'settings-disclosure-content');
+  const card = createElement('div', 'diagnostics-export-card');
+  const cardCopy = createElement('div', 'diagnostics-export-copy'); const cardTitle = createElement('strong'); cardTitle.textContent = 'Support diagnostics'; const cardText = createElement('p'); cardText.textContent = 'Export structured runtime, tracking, provider, and storage evidence for troubleshooting. Story messages are excluded unless added below; system prompts, credentials, endpoints, and private reasoning are always excluded.'; cardCopy.append(cardTitle, cardText);
+  const options = createElement('div', 'diagnostics-options');
+  let includeStoryTranscript = false;
+  const transcript = createFrozenSettingsToggle({ title: 'Include Story Transcript', detail: 'Include player messages and generated replies from the full active conversation branch. This may contain private story content.', checked: false, onChange: (enabled) => { includeStoryTranscript = enabled; } }); transcript.className = 'diagnostics-option'; options.appendChild(transcript);
+  const exportActions = createElement('div', 'diagnostics-export-actions'); const feedback = createElement('span', 'diagnostics-export-feedback'); feedback.setAttribute('role', 'status');
+  exportActions.append(createFrozenSettingsCommand('Export Diagnostics', { primary: true, disabled: typeof actions.exportSupportDiagnostics !== 'function', onClick: async () => { const result = await actions.exportSupportDiagnostics?.({ includeStoryTranscript }); downloadJsonFile({ fileName: result?.fileName, jsonText: result?.jsonText }); feedback.textContent = 'Diagnostics exported'; feedback.classList.add('pass'); } }), feedback);
+  card.append(cardCopy, options, exportActions); diagnosticsContent.appendChild(card); diagnostics.append(diagnosticsSummary, diagnosticsContent);
+  page.append(presetRow, providers, routing, diagnostics);
+}
+
+function renderFrozenSettingsJournal(body, view, actions) {
+  const journal = createElement('section', 'settings-journal');
+  journal.setAttribute('aria-label', 'Settings');
+  const nav = createElement('nav', 'settings-shelf-nav');
+  nav.setAttribute('aria-label', 'Settings sections');
+  const scroll = createElement('div', 'settings-scroll');
+  const pages = new Map();
+  const rerender = () => {
+    for (const button of nav.children || []) {
+      const active = button.dataset.settingsShelf === activeSettingsShelf;
+      button.className = `settings-shelf-button${active ? ' active' : ''}`;
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    for (const [id, page] of pages) {
+      const active = id === activeSettingsShelf;
+      page.className = `settings-page${active ? ' active' : ''}`;
+      page.hidden = !active;
+    }
+  };
+  ['general', 'advanced'].forEach((id) => {
+    const button = createElement('button', 'settings-shelf-button');
+    button.type = 'button';
+    button.dataset.settingsShelf = id;
+    button.textContent = id === 'general' ? 'General' : 'Advanced';
+    button.addEventListener('click', () => { activeSettingsShelf = id; rerender(); });
+    nav.appendChild(button);
+  });
+
+  const general = createElement('div', 'settings-page');
+  general.dataset.settingsPage = 'general';
+  appendFrozenGeneralSettings(general, actions);
+  pages.set('general', general);
+
+  const advanced = createElement('div', 'settings-page');
+  advanced.dataset.settingsPage = 'advanced';
+  advanced.dataset.directiveTour = 'settings.advanced';
+  appendFrozenAdvancedSettings(advanced, view, actions);
+  pages.set('advanced', advanced);
+  scroll.append(general, advanced);
+  journal.append(nav, scroll);
+  rerender();
+  body.appendChild(journal);
+  return journal;
+}
+
 export function renderSettingsPanel(body, view, actions = {}) {
+  return renderFrozenSettingsJournal(body, view, actions);
+  /* Legacy production composition retained temporarily until conformance cleanup. */
   const state = view?.campaignState;
   const consoleSurface = createElement('div', 'directive-settings-console directive-lcars-console');
   const preferences = createElement('section', 'directive-settings-player-preferences');

@@ -98,6 +98,7 @@ import {
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
 import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
+import { buildSupportDiagnosticsExport } from './support-diagnostics-export.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
   createStateDeltaGateway,
@@ -10521,6 +10522,35 @@ export function createDirectiveRuntimeApp({
           ...cloneJson(result),
           jsonText: JSON.stringify(result.saveRecord, null, 2),
           view: viewEnvelope('settings')
+        };
+      });
+    },
+
+    async exportSupportDiagnostics({ includeStoryTranscript = false } = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        const view = viewEnvelope('settings');
+        const messages = includeStoryTranscript && typeof runtimeHost?.chat?.getRecentMessages === 'function'
+          ? await runtimeHost.chat.getRecentMessages({ limit: 100000, playerSafeOnly: true })
+          : [];
+        const exportedAt = new Date().toISOString();
+        const diagnostics = buildSupportDiagnosticsExport({
+          exportedAt,
+          extensionVersion: view.directivePreset?.status?.bundledVersion || view.directivePreset?.bundledVersion || '',
+          activeCampaignId: view.loadedSave?.campaignId || view.playerSafeCampaign?.campaign?.id || '',
+          activeSaveId: view.activeSaveId || '',
+          host: view.host || {},
+          storageDiagnostics: view.storageDiagnostics || {},
+          providerConfiguration: view.providerConfiguration || {},
+          tracking: view.chatNative?.tracking || {},
+          messages,
+          includeStoryTranscript
+        });
+        return {
+          kind: diagnostics.kind,
+          fileName: `directive-support-diagnostics-${exportedAt.replace(/[:.]/g, '-')}.json`,
+          exportedAt,
+          jsonText: JSON.stringify(diagnostics, null, 2)
         };
       });
     },

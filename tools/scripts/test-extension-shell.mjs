@@ -1153,7 +1153,7 @@ renderCampaignPanel(campaignBody, campaignView, {
   startCreatorDraft() {},
 });
 assert(campaignBody.querySelector('.campaign-journal'), 'Campaign should render the expanded master/detail surface');
-assert(campaignBody.querySelector('.directive-mobile-campaign-route'), 'Campaign should render the dedicated phone route surface');
+assert(campaignBody.querySelector('.mobile-campaign-accordion'), 'Campaign should render the approved phone accordion surface');
 assert.match(textOf(campaignBody), /Alpha Campaign/);
 assert.match(textOf(campaignBody), /Open Chat/);
 assert(campaignBody.querySelector('[aria-label="New Campaign"]'));
@@ -1489,7 +1489,7 @@ let missionBody = fakeDocument.createElement('div');
 renderMissionPanel(missionBody, missionThreadsView, {
   refresh() {}
 });
-assert(missionBody.querySelector('.directive-quest-journal'), 'Mission should render the unified quest journal');
+assert(missionBody.querySelector('.directive-mission-journal-host'), 'Mission should render the unified quest journal');
 assert.match(textOf(missionBody), /Current Quests|No Quest Selected/);
 assert.doesNotMatch(textOf(missionBody), /Continuity Matrix|Open Threads|Side Work|Recovery Console/);
 if (false) {
@@ -1576,10 +1576,10 @@ renderSettingsPanel(playerSettingsBody, missionThreadsView, {
   refresh() {},
   rebuildPromptContext() {}
 });
-assert(playerSettingsBody.querySelector('.directive-settings-player-preferences'), 'Settings should foreground player preferences');
-assert.equal(playerSettingsBody.querySelectorAll('.directive-settings-disclosure').length, 2, 'Settings should collapse advanced groups');
+assert(playerSettingsBody.querySelector('.settings-section'), 'Settings should foreground the approved Interface controls');
+assert.equal(playerSettingsBody.querySelectorAll('.settings-disclosure').length, 3, 'Settings should collapse help, routing, and diagnostics groups');
 assert.match(textOf(playerSettingsBody), /Advanced/);
-assert.match(textOf(playerSettingsBody), /Developer & Troubleshooting/);
+assert(playerSettingsBody.querySelector('[data-settings-page="advanced"]'), 'Settings should retain the Advanced shelf content');
 
 const acceptedAssignments = [
   {
@@ -1777,11 +1777,13 @@ resetCrewPanelState();
 const projectionCrewBody = fakeDocument.createElement('div');
 renderCrewPanel(projectionCrewBody, objectiveProjectionView);
 assert.match(textOf(projectionCrewBody), /Player Character/);
-assert.equal(projectionCrewBody.querySelectorAll('.directive-crew-row').length, 8);
-assert(projectionCrewBody.querySelector('[data-crew-id="imani-cross"]'), 'Crew journal should expose canonical crew ids');
-projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').click();
-assert.equal(projectionCrewBody.querySelector('[data-crew-id="imani-cross"]').getAttribute('aria-selected'), 'true');
-assert.match(textOf(projectionCrewBody.querySelector('.directive-crew-detail')), /Imani Cross/);
+assert.equal(projectionCrewBody.querySelectorAll('.people-row').length, 8);
+let imaniPeopleRow = projectionCrewBody.querySelectorAll('.people-row').find((row) => row.dataset.personId === 'imani-cross');
+assert(imaniPeopleRow, 'People journal should expose canonical person ids');
+imaniPeopleRow.click();
+imaniPeopleRow = projectionCrewBody.querySelectorAll('.people-row').find((row) => row.dataset.personId === 'imani-cross');
+assert.equal(imaniPeopleRow.getAttribute('aria-selected'), 'true');
+assert.match(textOf(projectionCrewBody.querySelector('.people-detail')), /Imani Cross/);
 if (false) {
 projectionCrewBody.querySelector('[data-directive-crew-subtab="crew"]').click();
 assert.equal(projectionCrewBody.querySelectorAll('.directive-crew-roster-row').length, 8);

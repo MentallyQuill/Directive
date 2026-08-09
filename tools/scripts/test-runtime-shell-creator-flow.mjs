@@ -734,27 +734,28 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'people').click();
-  assert(panel.querySelector('.directive-crew-journal'), 'People should temporarily render the existing unified roster journal');
+  assert(panel.querySelector('.directive-people-journal-host'), 'People should render the approved responsive people journal');
   assert.match(textOf(panel), /Talia Serrin/);
   assert.match(textOf(panel), /Mara Whitaker/);
   assert.match(textOf(panel), /Commanding Officer/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'ship').click();
-  assert(panel.querySelector('.directive-ship-journal'), 'Ship should render the focused status journal');
+  assert(panel.querySelector('.directive-ship-journal-host'), 'Ship should render the approved responsive status journal');
   assert.match(textOf(panel), /U\.S\.S\. Breckenridge/);
-  assert.match(textOf(panel), /Restrictions|Technical History/);
+  assert.match(textOf(panel), /Operational Issues/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'settings').click();
-  assert(panel.querySelector('.directive-settings-player-preferences'), 'Settings should foreground player preferences');
-  assert.equal(panel.querySelectorAll('.directive-settings-disclosure').length, 2);
+  assert.equal(panel.querySelector('.directive-route-name')?.textContent, 'Settings', 'route heading should track live navigation');
+  assert(panel.querySelector('.settings-journal'), 'Settings should render the approved settings shelves');
+  assert.equal(panel.querySelectorAll('.settings-shelf-button').length, 2);
   assert.match(textOf(panel), /Advanced/);
-  assert.match(textOf(panel), /Developer & Troubleshooting/);
+  assert.match(textOf(panel), /Help & Tutorials/);
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'mission').click();
-  assert(panel.querySelector('.directive-quest-journal'), 'Mission should return to the unified quest journal');
+  assert(panel.querySelector('.directive-mission-journal-host'), 'Mission should return to the approved responsive quest journal');
   return;
 
   assert.match(textOf(panel), /Mission/);

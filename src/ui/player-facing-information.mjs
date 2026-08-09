@@ -131,12 +131,28 @@ function projectQuest(source = {}, defaults = {}) {
     source.description,
     defaults.objective
   );
+  const tasks = asArray(source.tasks || source.checklist || source.formalObjectives)
+    .filter((task) => typeof task !== 'object' || recordVisibility(task))
+    .map((task, index) => ({
+      id: firstString(task?.id, task?.taskId, `${id}:task:${index + 1}`),
+      text: firstString(task?.text, task?.label, task?.title, task?.objective, task),
+      status: normalizeStatus(task?.status || task?.state, index === 0 ? 'active' : 'inactive')
+    }))
+    .filter((task) => task.text)
+    .map((task) => ({
+      ...task,
+      status: task.status === 'active' ? 'current' : task.status
+    }));
   return {
     id,
     category,
     status,
     title: firstString(source.title, source.name, source.label, id),
+    description: firstString(source.description, source.premise, source.situation, source.playerSummary, source.summary) || null,
     objective: objective || null,
+    objectiveDescription: firstString(source.objectiveDescription, source.currentObjective?.description, source.objective?.description) || null,
+    tasks,
+    context: source.context && typeof source.context === 'object' ? source.context : null,
     urgency: projectUrgency(source),
     knownFacts: [],
     people: [],
@@ -277,9 +293,23 @@ function projectCrew(campaignState = {}, records = [], coreProjections = {}, run
       id,
       name: firstString(source?.name, source?.label, source?.displayName, id),
       role: firstString(source?.role, source?.position, source?.billet, 'Crew member'),
+      category: firstString(source?.category, source?.group, source?.collection, source?.affiliation, "Ship's Company"),
+      affiliation: firstString(source?.affiliation, source?.organization, source?.faction) || null,
+      image: source?.image || source?.portrait || source?.portraitAsset || null,
+      service: source?.service && typeof source.service === 'object' ? {
+        organization: firstString(source.service.organization).toLowerCase(),
+        department: firstString(source.service.department).toLowerCase(),
+        rankCode: firstString(source.service.rankCode, source.service.rank).toLowerCase(),
+        rankLabel: firstString(source.service.rankLabel, source.service.rank) || null
+      } : null,
       availability: firstString(source?.availability, source?.status, source?.posture) || null,
       standing: firstString(source?.standing, source?.relationship, source?.relationshipLabel) || null,
       assignment: firstString(source?.assignment, source?.activeAssignment) || null,
+      involvement: source?.involvement && typeof source.involvement === 'object' ? source.involvement : null,
+      knownFacts: asArray(source?.knownFacts || source?.facts)
+        .filter((fact) => typeof fact !== 'object' || recordVisibility(fact))
+        .map((fact) => firstString(fact?.text, fact?.summary, fact?.label, fact)).filter(Boolean).slice(0, 8),
+      relationship: firstString(source?.relationshipSummary, source?.relationship, source?.standing) || null,
       history: linked.map((record) => ({ id: firstString(record.id, record.recordId), summary: recordSummary(record) }))
         .filter((entry) => entry.id && entry.summary).slice(0, 8)
     };
@@ -308,12 +338,33 @@ function projectShip(campaignState = {}, records = []) {
   return {
     id: shipId,
     name: firstString(source.name, source.label, campaignState?.shipName, 'Ship'),
+    className: firstString(source.class, source.className, source.shipClass) || null,
+    registry: firstString(source.registry, source.registryNumber) || null,
     condition: firstString(source.condition, source.status, source.operationalCondition) || null,
+    position: firstString(source.position, source.location, source.currentPosition) || null,
+    course: firstString(source.course, source.destination, source.currentCourse) || null,
+    flightStatus: firstString(source.flightStatus, source.flightCondition, source.movement) || null,
+    image: source.image || source.hero || null,
     capabilities: asArray(source.capabilities || source.systems).map((item) => ({
       id: firstString(item?.id, item?.key, item?.name),
       label: firstString(item?.label, item?.name, item?.key),
-      value: stableValue(item?.value ?? item?.status)
+      value: stableValue(item?.value ?? item?.status),
+      description: firstString(item?.playerSafeSummary, item?.playerSummary, item?.summary, item?.description) || null
     })).filter((item) => item.id && item.label),
+    issues: [...damageItems, ...asArray(source.activeRestrictions || source.restrictions), ...asArray(source.technicalDebt)]
+      .filter(recordVisibility)
+      .map((item) => ({
+        id: firstString(item?.id, item?.key, item?.name, item?.label),
+        title: firstString(item?.label, item?.name, item?.title, item),
+        effect: firstString(item?.playerSafeSummary, item?.playerSummary, item?.summary, item?.description, item?.effect) || null,
+        status: firstString(item?.status, 'active'),
+        severity: firstString(item?.severity) || null,
+        owner: firstString(item?.owner, item?.department) || null,
+        linkedAssignment: firstString(item?.linkedAssignmentTitle, item?.assignmentTitle) || null,
+        updatedAt: firstString(item?.updatedAt, item?.lastUpdatedAt) || null
+      }))
+      .filter((item) => item.id && item.title)
+      .filter((item, index, values) => values.findIndex((entry) => entry.id === item.id) === index),
     restrictions: asArray(source.restrictions || source.activeRestrictions).filter(recordVisibility).map((item) => firstString(item?.playerSafeSummary, item?.summary, item?.label, item?.name, item)).filter(Boolean),
     damage: damageItems.map((item) => ({
       id: firstString(item?.id, item?.key, item?.name),

@@ -12,6 +12,7 @@ import {
   currentChatEmptyMessage
 } from './current-chat-scope-copy.js';
 import { buildPlayerFacingInformation } from './player-facing-information.mjs';
+import { renderShipJournal } from './ship-journal.js';
 
 function asArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
@@ -337,5 +338,5 @@ export function renderShipPanel(body, view) {
     campaignState: state,
     runtimeView: view
   });
-  renderPlayerFacingShip(body, information);
+  renderShipJournal(body, information, view);
 }

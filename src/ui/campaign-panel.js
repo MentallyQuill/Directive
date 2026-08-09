@@ -9,14 +9,14 @@ import { bindRovingFocus, restoreFocus } from './expanded-interface-focus.js';
 import { renderCampaignBrowser } from './campaign-browser.js';
 
 let selectedCheckpointByCampaign = new Map();
-let mobileCampaignView = 'detail';
-let mobileCampaignId = '';
+let selectedCampaignId = '';
+let openMobileCampaignIds = new Set();
 let openMobileCheckpointByCampaign = new Map();
 
 export function resetCampaignPanelState() {
   selectedCheckpointByCampaign = new Map();
-  mobileCampaignView = 'detail';
-  mobileCampaignId = '';
+  selectedCampaignId = '';
+  openMobileCampaignIds = new Set();
   openMobileCheckpointByCampaign = new Map();
 }
 
@@ -35,7 +35,7 @@ function formatDate(value, fallback = 'Not yet played') {
 }
 
 function campaignStateLabel(campaign) {
-  if (campaign?.active) return 'Active Campaign';
+  if (campaign?.active) return 'Active';
   if (String(campaign?.status || '').toLowerCase() === 'complete') return 'Complete';
   return '';
 }
@@ -247,8 +247,8 @@ function createFacts(campaign) {
   const facts = createElement('div', 'campaign-facts');
   facts.append(
     createFact('Assignment', campaign.setting),
-    createFact('Current Chapter', campaign.chapter),
-    createFact('Last Played', formatDate(campaign.lastPlayedAt))
+    createFact('Chapter', campaign.chapter),
+    createFact('Last played', formatDate(campaign.lastPlayedAt))
   );
   return facts;
 }
@@ -256,7 +256,7 @@ function createFacts(campaign) {
 function createCampaignCommands(campaign, actions) {
   const row = createElement('div', 'campaign-command-row');
   if (campaign.active) {
-    row.appendChild(createCommand('Open Chat', '', async () => {
+    row.appendChild(createCommand('Open Chat', 'open-chat', async () => {
       await invoke(actions?.openCampaignChat, {
         saveId: campaign.activeTimeline?.saveId
       }, actions);
@@ -269,15 +269,19 @@ function createCampaignCommands(campaign, actions) {
 }
 
 function createCheckpointCommands(campaign, checkpoint, actions) {
-  const row = createElement('div', 'campaign-save-command-row');
   if (!checkpoint) {
-    const empty = createElement('p', 'campaign-save-actions-empty');
+    const empty = createElement('div', 'campaign-save-actions-empty');
     empty.textContent = campaign.checkpoints?.length
       ? 'Select a saved game to continue or delete it.'
       : 'No saved games yet.';
-    row.appendChild(empty);
-    return row;
+    return empty;
   }
+  if (campaign.active && checkpoint.current) {
+    const current = createElement('div', 'campaign-save-actions-empty');
+    current.textContent = 'Active timeline selected.';
+    return current;
+  }
+  const row = createElement('div', 'campaign-save-command-row');
   row.append(
     createCommand('Load Game', '', async () => {
       await invoke(actions?.loadCheckpoint, {
@@ -312,11 +316,16 @@ function createCheckpointRow(campaign, checkpoint, actions, {
     checkpoint.chapter,
     checkpoint.stardate ? `Stardate ${checkpoint.stardate}` : '',
     formatDate(checkpoint.createdAt, 'Saved game')
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' / ');
   copy.append(name, detail);
-  const marker = createElement('span', 'campaign-save-marker');
-  marker.textContent = selected ? 'Selected' : 'Saved';
-  row.append(copy, marker);
+  row.appendChild(copy);
+  if (mobile || (campaign.active && checkpoint.current)) {
+    const marker = createElement('span', 'campaign-save-marker');
+    marker.textContent = mobile
+      ? (campaign.active && checkpoint.current ? 'Current' : (selected ? 'Close' : 'View'))
+      : 'Current';
+    row.appendChild(marker);
+  }
   row.addEventListener('click', () => {
     if (mobile) {
       const next = selected ? '' : checkpoint.id;
@@ -337,6 +346,10 @@ function createCheckpointRow(campaign, checkpoint, actions, {
 }
 
 function createSaves(campaign, actions, rerender, { mobile = false } = {}) {
+  if (!mobile && !selectedCheckpointByCampaign.has(campaign.id)) {
+    const initial = asArray(campaign.checkpoints).find((entry) => entry.current) || asArray(campaign.checkpoints)[0];
+    if (initial) selectedCheckpointByCampaign.set(campaign.id, initial.id);
+  }
   const section = createElement('section', 'campaign-saves');
   const heading = createElement('div', 'campaign-saves-head');
   const title = createElement('span');
@@ -436,9 +449,9 @@ function createDesktopCampaigns(body, view, campaigns, selected, actions, rerend
     const title = createElement('strong');
     title.textContent = campaign.title;
     const player = createElement('span');
-    player.textContent = `${campaign.playerName} · ${campaign.playerRole}`;
+    player.textContent = campaign.playerName;
     const chapter = createElement('span');
-    chapter.textContent = campaign.chapter || campaign.setting || formatDate(campaign.lastPlayedAt);
+    chapter.textContent = formatDate(campaign.lastPlayedAt);
     copy.append(title, player, chapter);
     row.appendChild(copy);
     const state = campaignStateLabel(campaign);
@@ -447,8 +460,9 @@ function createDesktopCampaigns(body, view, campaigns, selected, actions, rerend
       badge.textContent = state.replace(' Campaign', '');
       row.appendChild(badge);
     }
-    row.addEventListener('click', async () => {
-      await invoke(actions?.selectCampaign, { campaignId: campaign.id }, actions);
+    row.addEventListener('click', () => {
+      selectedCampaignId = campaign.id;
+      rerender();
     });
     list.appendChild(row);
   }
@@ -539,16 +553,80 @@ function createMobileCampaigns(body, view, campaigns, selected, actions, rerende
   body.appendChild(route);
 }
 
+function createMobileCampaignAccordion(body, view, campaigns, selected, actions, rerender) {
+  const route = createElement('section', 'mobile-campaign-accordion');
+  route.dataset.routeView = 'campaign';
+  route.setAttribute('aria-label', 'Campaigns');
+  route.dataset.directiveTour = 'campaign.index';
+  const toolbar = createElement('div', 'campaign-index-head');
+  const label = createElement('span');
+  label.textContent = 'Campaigns';
+  const create = createElement('button', 'campaign-new-button');
+  create.type = 'button';
+  create.textContent = '+';
+  create.title = 'New Campaign';
+  create.setAttribute('aria-label', 'New Campaign');
+  create.addEventListener('click', (event) => openNewCampaignDialog(view, actions, event.currentTarget));
+  toolbar.append(label, create);
+  route.appendChild(toolbar);
+  campaigns.forEach((campaign) => {
+    const open = openMobileCampaignIds.has(campaign.id) || (!openMobileCampaignIds.size && campaign.id === selected?.id);
+    const item = createElement('article', `mobile-campaign-item${open ? ' is-open' : ''}`);
+    const head = createElement('div', 'mobile-campaign-head');
+    head.appendChild(createCampaignImage(view, campaign, 'thumb', 'mobile-campaign-image'));
+    const toggle = createElement('button', 'mobile-campaign-toggle');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const copy = createElement('span', 'mobile-campaign-toggle-copy');
+    const title = createElement('strong');
+    title.textContent = campaign.title;
+    const player = createElement('small');
+    player.textContent = `${campaign.playerName} / ${formatDate(campaign.lastPlayedAt)}`;
+    copy.append(title, player);
+    const badges = createElement('span', 'mobile-campaign-badges');
+    const state = createElement('span', 'mobile-campaign-badge');
+    state.textContent = campaignStateLabel(campaign) || 'Available';
+    const chevron = createElement('span', 'mobile-campaign-chevron');
+    chevron.textContent = '\u203a';
+    badges.append(state, chevron);
+    toggle.append(copy, badges);
+    toggle.addEventListener('click', () => {
+      if (open) openMobileCampaignIds.delete(campaign.id);
+      else openMobileCampaignIds.add(campaign.id);
+      selectedCampaignId = campaign.id;
+      rerender();
+    });
+    head.appendChild(toggle);
+    item.appendChild(head);
+    const detail = createElement('div', 'mobile-campaign-detail');
+    detail.hidden = !open;
+    detail.appendChild(createCampaignImage(view, campaign, 'hero', 'mobile-campaign-detail-image'));
+    detail.appendChild(createFacts(campaign));
+    if (campaign.premise) {
+      const premise = createElement('p', 'campaign-premise');
+      premise.textContent = campaign.premise;
+      detail.appendChild(premise);
+    }
+    detail.append(createCampaignCommands(campaign, actions), createSaves(campaign, actions, rerender, { mobile: true }));
+    item.appendChild(detail);
+    route.appendChild(item);
+  });
+  if (!campaigns.length) appendEmpty(route, 'No campaigns are available.');
+  body.appendChild(route);
+}
+
 export function renderCampaignPanel(body, view, actions) {
   const campaigns = asArray(view?.campaignIndex?.campaigns);
-  const selectedId = view?.campaignIndex?.selectedCampaignId;
-  const selected = campaigns.find((campaign) => campaign.id === selectedId) || campaigns[0] || null;
+  if (!selectedCampaignId || !campaigns.some((campaign) => campaign.id === selectedCampaignId)) {
+    selectedCampaignId = view?.campaignIndex?.selectedCampaignId || campaigns[0]?.id || '';
+  }
   const host = createElement('div', 'directive-expanded-campaign');
   const rerender = () => {
     host.replaceChildren?.();
     if (!host.replaceChildren) host.textContent = '';
+    const selected = campaigns.find((campaign) => campaign.id === selectedCampaignId) || campaigns[0] || null;
     createDesktopCampaigns(host, view, campaigns, selected, actions, rerender);
-    createMobileCampaigns(host, view, campaigns, selected, actions, rerender);
+    createMobileCampaignAccordion(host, view, campaigns, selected, actions, rerender);
   };
   rerender();
   body.appendChild(host);

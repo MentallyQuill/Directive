@@ -5,7 +5,7 @@ import { DIRECTIVE_BUNDLED_ICON_PACKS, resolveDirectiveIconSlot } from '../theme
 const RAIL_CODES = Object.freeze({
   campaign: 'CPN',
   mission: 'MSN',
-  people: 'PPL',
+  people: 'CRW',
   ship: 'SHP',
   settings: 'SYS'
 });
@@ -52,8 +52,7 @@ export function createDirectiveExpandedShell({
   routes = [],
   activeRouteId = '',
   onSelectRoute = null,
-  onClose = null,
-  onToggleFullscreen = null
+  onClose = null
 } = {}) {
   const activeRoute = routes.find((route) => route.id === activeRouteId) || routes[0] || {};
   const panel = createElement('section', 'directive-runtime-panel directive-runtime-shell directive-shell directive-expanded-shell');
@@ -88,26 +87,22 @@ export function createDirectiveExpandedShell({
   close.type = 'button';
   close.dataset.shellAction = 'close';
   close.setAttribute('aria-label', 'Close Directive');
-  close.textContent = '×';
+  close.textContent = '\u00d7';
   addTooltip(close, 'Close Directive');
   close.addEventListener('click', (event) => {
     event?.stopPropagation?.();
     onClose?.(event);
   });
-  const fullscreen = createElement('button', 'directive-fullscreen-action');
-  fullscreen.type = 'button';
-  fullscreen.dataset.shellAction = 'fullscreen';
-  fullscreen.setAttribute('aria-label', 'Toggle fullscreen');
-  fullscreen.setAttribute('aria-pressed', 'false');
-  fullscreen.textContent = '⛶';
-  addTooltip(fullscreen, 'Toggle fullscreen');
-  fullscreen.addEventListener('click', (event) => {
-    event?.stopPropagation?.();
-    onToggleFullscreen?.(event);
-  });
   const actions = createElement('div', 'directive-topbar-actions');
-  actions.append(fullscreen, close);
+  actions.append(close);
   topbar.append(identity, actions);
+
+  const heading = createElement('div', 'directive-route-heading');
+  const cap = createElement('span', 'directive-route-cap');
+  cap.setAttribute('aria-hidden', 'true');
+  const routeName = createElement('div', 'directive-route-name');
+  routeName.textContent = activeRoute.label || activeRoute.id || 'Directive';
+  heading.append(cap, routeName);
 
   const body = createElement('section', 'directive-runtime-body directive-route-body');
   body.dataset.directiveRuntimeBody = 'true';
@@ -123,7 +118,7 @@ export function createDirectiveExpandedShell({
     onActivate: (control) => control.click?.()
   });
 
-  workspace.append(topbar, body, nav);
+  workspace.append(topbar, heading, body, nav);
   panel.append(rail, workspace);
   return panel;
 }

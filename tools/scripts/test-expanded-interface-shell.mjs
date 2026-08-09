@@ -73,12 +73,18 @@ const all = [];
 const visit = (node) => { all.push(node); (node.children || []).forEach(visit); };
 visit(shell);
 assert.equal(all.some((node) => /command-spine|command-drawer|resize/.test(node.className)), false);
-assert.equal(all.some((node) => /directive-route-heading/.test(node.className)), false, 'expanded shell must not render a nested route-heading page layer');
+assert.equal(all.filter((node) => /directive-route-heading/.test(node.className)).length, 1, 'expanded shell must render the frozen route-heading layer exactly once');
 assert.equal(all.some((node) => node.dataset?.shellAction === 'back'), false);
 assert.equal(all.filter((node) => node.dataset?.shellAction === 'close').length, 1);
+assert.equal(all.filter((node) => node.dataset?.shellAction === 'fullscreen').length, 0, 'frozen shell has no fullscreen control');
 all.find((node) => node.dataset?.shellAction === 'close').click();
 assert.equal(closed, 1);
 assert.ok(all.some((node) => node.dataset?.directiveRuntimeBody === 'true'));
+assert.deepEqual(
+  all.filter((node) => /directive-lcars-rail-segment/.test(node.className)).map((node) => node.children[1]?.textContent),
+  ['CPN', 'MSN', 'CRW', 'SHP', 'SYS'],
+  'LCARS rail codes must match the frozen mockup'
+);
 
 const runtimeShellSource = fs.readFileSync(new URL('../../src/runtime/runtime-shell.js', import.meta.url), 'utf8');
 const runtimeMountSource = fs.readFileSync(new URL('../../src/extension/runtime-mount.js', import.meta.url), 'utf8');
@@ -86,19 +92,23 @@ const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.ur
 assert.match(runtimeShellSource, /createDirectiveExpandedShell/);
 assert.doesNotMatch(runtimeShellSource, /directive-command-spine-shell|directive-shell-layout/);
 assert.doesNotMatch(runtimeMountSource, /toggleDrawer|toggleFullscreen|resetLayout|command spine|route drawer|Directive drawer/i);
-assert.doesNotMatch(css, /directive-route-heading|directive-route-cap|directive-route-name/);
-assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50%\s*!important;[\s\S]*?left:\s*50%\s*!important;[\s\S]*?width:\s*min\(1120px,\s*calc\(100vw\s*-\s*64px\)\)\s*!important;[\s\S]*?height:\s*min\(860px,\s*calc\(100dvh\s*-\s*64px\)\)\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
+assert.match(css, /directive-route-heading|directive-route-cap|directive-route-name/);
+assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50%\s*!important;[\s\S]*?left:\s*50%\s*!important;[\s\S]*?width:\s*min\(940px,\s*calc\(100vw\s*-\s*32px\)\)\s*!important;[\s\S]*?height:\s*min\(900px,\s*calc\(100dvh\s*-\s*150px\)\)\s*!important;[\s\S]*?min-height:\s*min\(620px,\s*100dvh\)\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)\s*!important;/);
-assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{[\s\S]*?inset:\s*0\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100dvh\s*!important;/);
+assert.doesNotMatch(css, /\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{/);
 assert.match(css, /\.directive-runtime-overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0[\s\S]*?height:\s*100dvh/);
 assert.match(css, /\.directive-runtime-backdrop\s*\{[\s\S]*?pointer-events:\s*auto/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell::before,\s*\.directive-runtime-panel\.directive-expanded-shell::after\s*\{[\s\S]*?content:\s*none\s*!important;[\s\S]*?display:\s*none\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*40px\s+minmax\(0,\s*1fr\)/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s*!important;/);
+assert.match(css, /\.directive-expanded-shell \.directive-route-heading\s*\{[\s\S]*?height:\s*24px/);
+assert.match(css, /\.directive-expanded-shell \.directive-route-body\s*\{[\s\S]*?width:\s*100%\s*!important/);
+assert.match(css, /\.directive-expanded-shell \.directive-route-body\s*\{[\s\S]*?margin:\s*0\s*!important/);
+assert.match(css, /\.directive-expanded-shell \.directive-route-body\s*\{[\s\S]*?padding:\s*0\s*!important/);
 assert.match(css, /\.directive-expanded-shell \.directive-route-bar\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*absolute\s*!important;[\s\S]*?inset:\s*0\s*!important;/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{[\s\S]*?position:\s*absolute\s*!important;[\s\S]*?inset:\s*0\s*!important;/);
+assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?grid-template-columns:\s*24px\s+minmax\(0,\s*1fr\)/);
+assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?inset:\s*0\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100dvh\s*!important;/);
+assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-expanded-shell \.directive-lcars-rail\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-rows:\s*88px\s+112px\s+132px\s+minmax\(0,\s*1fr\)\s+108px/);
 assert.match(css, /scrollbar-width:\s*thin/);
 assert.match(css, /::-webkit-scrollbar\s*\{[\s\S]*?width:\s*7px/);
 

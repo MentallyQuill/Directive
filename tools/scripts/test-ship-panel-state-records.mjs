@@ -13,6 +13,11 @@ class FakeElement {
     this.textContent = '';
     this.className = '';
     this.title = '';
+    this.listeners = new Map();
+  }
+
+  addEventListener(type, listener) {
+    this.listeners.set(type, listener);
   }
 
   setAttribute(name, value) {
@@ -149,17 +154,17 @@ renderShipPanel(body, {
 const renderedText = textOf(body);
 assert.match(renderedText, /Maximum warp is temporarily restricted pending integrated validation/);
 assert.match(renderedText, /Command-network certificate compatibility issue remains open/);
-assert.match(renderedText, /Restrictions/);
-assert.match(renderedText, /Technical History/);
+assert.match(renderedText, /Operational Issues/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
 assert.doesNotMatch(renderedText, /Bridge Authority/);
 assert.doesNotMatch(renderedText, /Hidden restriction should not render|Hidden damage should not render|hidden implementation detail/);
 assert.equal(elementsByClass(body, 'directive-ship-readiness-folder').length, 0);
-assert.equal(elementsByClass(body, 'directive-ship-history').length, 1, 'technical history should remain collapsed by default');
-assert.ok(elementsByClass(body, 'directive-ship-detail-section').length > 0, 'ship facts should render in readable sections');
+assert.ok(elementsByClass(body, 'ship-issue').length > 0, 'player-safe ship state should render as operational issue records');
+assert.equal(elementsByClass(body, 'directive-ship-history').length, 0, 'retired technical-history composition should not render');
+assert.equal(elementsByClass(body, 'directive-ship-detail-section').length, 0, 'retired ship detail sections should not render');
 assert.equal(elementsByClass(body, 'directive-ship-command-card').length, 0);
 assert.equal(elementsByClass(body, 'directive-ship-caveat-card').length, 0);
 
 delete globalThis.document;
 
-console.log('Ship panel state record tests passed: player-facing restrictions and history render without hidden leakage');
+console.log('Ship panel state record tests passed: player-safe operational issues render without hidden leakage');

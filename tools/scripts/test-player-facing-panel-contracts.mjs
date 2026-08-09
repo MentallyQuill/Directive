@@ -162,11 +162,12 @@ assert.doesNotMatch(textOf(campaignBody), /Open Campaign Chat|Prompt Context|Lat
 
 const settingsBody = new FakeElement('div');
 renderSettingsPanel(settingsBody, { campaignState: {} }, {});
-assert.match(textOf(settingsBody), /Player Preferences/);
+assert.match(textOf(settingsBody), /General/);
+assert.match(textOf(settingsBody), /Interface/);
 assert.match(textOf(settingsBody), /Advanced/);
-assert.match(textOf(settingsBody), /Developer & Troubleshooting/);
+assert.match(textOf(settingsBody), /Diagnostics/);
 const settingsDisclosures = collect(settingsBody, (element) => element.tagName === 'DETAILS');
-assert.equal(settingsDisclosures.length, 2);
+assert.equal(settingsDisclosures.length, 3);
 assert.equal(settingsDisclosures.every((element) => element.open !== true), true);
 
 delete globalThis.document;

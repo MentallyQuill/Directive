@@ -19,6 +19,7 @@ import { renderMissionComponentsPanel } from './mission-components-panel.js';
 import { terminalDecisionLedgerView } from '../runtime/terminal-decision-ledger-view.mjs';
 import { buildPlayerFacingInformation } from './player-facing-information.mjs';
 import { renderMissionQuestJournal } from './mission-quest-journal.js';
+import { createPackageImage } from './directive-media.js';
 
 const OPEN_THREAD_STATUSES = new Set(['engaged', 'active']);
 const OPEN_THREAD_SUMMARY_COLLAPSE_LENGTH = 230;
@@ -1759,5 +1760,38 @@ export function renderMissionPanel(body, view, actions = {}) {
     if (reconciliation.children.length) alerts.appendChild(reconciliation);
   }
   if (alerts.children.length) body.appendChild(alerts);
+  const activePackage = activePackageForView(view);
+  const ship = activePackage?.ship || view?.playerSafeCampaign?.ship || state?.ship || {};
+  const activeQuest = information.quests?.find?.((quest) => quest.id === information.selectedQuestId)
+    || information.quests?.[0]
+    || null;
+  if (activeQuest) {
+    const hero = createPackageImage(activePackage, {
+      kind: 'ship.hero',
+      subjectId: ship.id || ship.name || activePackage?.packageId,
+      variant: 'hero'
+    }, {
+      wrapperClass: 'hero',
+      label: ship.name || activeQuest.title,
+      loading: 'eager'
+    });
+    const overlay = createElement('div', 'hero-overlay');
+    const copy = createElement('div', 'hero-copy');
+    const identity = createElement('div');
+    const kicker = createElement('div', 'hero-kicker');
+    kicker.textContent = `${String(activeQuest.category || 'quest').replace(/[-_]+/g, ' ')} quest`;
+    const title = createElement('div', 'hero-title');
+    title.textContent = activeQuest.title;
+    identity.append(kicker, title);
+    const status = createElement('div', 'hero-status');
+    status.textContent = activeQuest.status || 'Active';
+    copy.append(identity, status);
+    hero.append(overlay, copy);
+    body.appendChild(hero);
+    const rule = createElement('div', 'lcars-rule');
+    rule.setAttribute('aria-hidden', 'true');
+    rule.append(createElement('span'), createElement('span'), createElement('span'));
+    body.appendChild(rule);
+  }
   renderMissionQuestJournal(body, information, actions);
 }

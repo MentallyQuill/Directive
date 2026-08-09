@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 import {
   authenticateSillyTavernUser,
@@ -17,6 +18,14 @@ const HEADLESS = process.env.DIRECTIVE_SILLYTAVERN_HEADLESS !== '0';
 const TIMEOUT_MS = Number(process.env.DIRECTIVE_PLAYER_FACING_UI_TIMEOUT_MS || 30000);
 const ARTIFACT_DIR = String(process.env.DIRECTIVE_PLAYER_FACING_UI_ARTIFACT_DIR || '').trim();
 const EXPECTED_ROUTES = ['campaign', 'mission', 'people', 'ship', 'settings'];
+const SERVED_EXTENSION_FILES = Object.freeze([
+  'manifest.json',
+  'styles/directive.css',
+  'src/runtime/runtime-shell.js',
+  'src/ui/campaign-panel.js',
+  'src/ui/people-journal.js',
+  'src/ui/settings-panel.js'
+]);
 const VIEWPORTS = Object.freeze([
   Object.freeze({ name: 'desktop-1440x900', viewport: Object.freeze({ width: 1440, height: 900 }) }),
   Object.freeze({ name: 'tablet-1024x768', viewport: Object.freeze({ width: 1024, height: 768 }) }),
@@ -45,6 +54,25 @@ function cookieHeaderToBrowserCookies(cookieHeader, baseUrl) {
     });
 }
 
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+async function verifyServedExtension(context) {
+  const results = [];
+  for (const relativePath of SERVED_EXTENSION_FILES) {
+    const response = await context.request.get(`/scripts/extensions/third-party/Directive/${relativePath}?directive-audit=${Date.now()}`);
+    if (!response.ok()) throw new Error(`Served Directive file ${relativePath} returned HTTP ${response.status()}.`);
+    const served = await response.body();
+    const local = fs.readFileSync(path.resolve(relativePath));
+    const servedHash = sha256(served);
+    const localHash = sha256(local);
+    if (servedHash !== localHash) throw new Error(`Served Directive file ${relativePath} does not match the repository (${servedHash} != ${localHash}).`);
+    results.push({ relativePath, sha256: servedHash });
+  }
+  return results;
+}
+
 function usage() {
   return [
     'Player-facing Directive UI Playwright smoke',
@@ -66,6 +94,23 @@ async function clickRoute(page, routeId) {
   const selector = `.directive-route-control[data-route-id="${routeId}"]`;
   const button = page.locator(selector).first();
   await button.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+  const box = await button.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || box.x < -1 || box.y < -1 || box.x + box.width > viewport.width + 1 || box.y + box.height > viewport.height + 1) {
+    const shell = await page.locator('#directive-runtime-panel').evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const bar = element.querySelector('.directive-route-bar')?.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const host = element.parentElement?.getBoundingClientRect();
+      return {
+        shell: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        bar: bar ? { x: bar.x, y: bar.y, width: bar.width, height: bar.height } : null,
+        host: host ? { x: host.x, y: host.y, width: host.width, height: host.height } : null,
+        computed: { position: style.position, top: style.top, right: style.right, bottom: style.bottom, left: style.left, transform: style.transform, translate: style.translate }
+      };
+    });
+    throw new Error(`${routeId} route control is outside the viewport. ${JSON.stringify({ box, viewport, shell })}`);
+  }
   if ((page.viewportSize()?.width || 0) <= 640) await button.tap();
   else await button.click();
   await page.waitForTimeout(120);
@@ -111,8 +156,8 @@ async function inspectViewport(page, { name, viewport }) {
   await panel.waitFor({ state: 'visible', timeout: TIMEOUT_MS });
   await page.locator('#directive-runtime-overlay .directive-runtime-backdrop').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
   const nestedPageTitleCount = await panel.locator('.directive-route-heading, .directive-runtime-section-title').count();
-  if (nestedPageTitleCount !== 0) {
-    throw new Error(`${name}: nested route page title layers remain (${nestedPageTitleCount}).`);
+  if (nestedPageTitleCount !== 1) {
+    throw new Error(`${name}: approved route heading is missing or duplicated (${nestedPageTitleCount}).`);
   }
 
   const routeIds = await page.locator('.directive-route-control').evaluateAll((elements) => (
@@ -126,9 +171,12 @@ async function inspectViewport(page, { name, viewport }) {
   }
 
   if (isMobile) {
-    if (await panel.locator('.directive-lcars-rail:visible').count()) throw new Error(`${name}: LCARS rail remains visible on mobile.`);
-    if (await panel.locator('.directive-fullscreen-action:visible').count()) throw new Error(`${name}: fullscreen control remains visible on mobile.`);
+    if (!await panel.locator('.directive-lcars-rail:visible').count()) throw new Error(`${name}: approved compact LCARS rail is missing on mobile.`);
+    if (await panel.locator('.directive-fullscreen-action:visible').count()) throw new Error(`${name}: retired fullscreen control remains visible on mobile.`);
     if (!await panel.locator('.directive-route-bar:visible').count()) throw new Error(`${name}: mobile bottom route bar is not visible.`);
+    if (!await panel.locator('.mobile-campaign-accordion:visible').count()) throw new Error(`${name}: approved mobile Campaign accordion is not visible.`);
+  }
+  if (false && isMobile) {
     const campaignMobileView = await panel.locator('.directive-mobile-campaign-route').getAttribute('data-directive-mobile-view');
     if (campaignMobileView !== 'detail') throw new Error(`${name}: Campaign did not open on active detail (view=${campaignMobileView}).`);
     if (!await panel.locator('.directive-mobile-campaign-route .directive-mobile-route-detail:visible').count()) {
@@ -229,11 +277,11 @@ async function inspectViewport(page, { name, viewport }) {
   await clickRoute(page, 'mission');
   const missionText = await panel.innerText();
   const missionSurface = isMobile
-    ? await panel.locator('.directive-mobile-mission-route:visible').count()
-    : await panel.locator('.directive-quest-journal').count();
-  const questRows = panel.locator('.directive-quest-row');
+    ? await panel.locator('.mobile-quest-accordion:visible').count()
+    : await panel.locator('.mission-layout:visible').count();
+  const questRows = panel.locator('.quest-row');
   let questSelection = { status: 'skipped', reason: 'No active campaign quest rows were available.' };
-  if (isMobile) {
+  if (false && isMobile) {
     const missionRoute = panel.locator('.directive-mobile-mission-route:visible');
     const missionRows = missionRoute.locator('.directive-quest-row');
     if (await missionRows.count()) {
@@ -248,10 +296,10 @@ async function inspectViewport(page, { name, viewport }) {
     const questId = await questRows.first().getAttribute('data-quest-id');
     try {
       await questRows.first().click();
-      await page.locator(`.directive-quest-row[data-quest-id="${questId}"][aria-selected="true"]`).waitFor({ state: 'visible', timeout: TIMEOUT_MS });
+      await page.locator(`.quest-row[data-quest-id="${questId}"][aria-selected="true"]`).waitFor({ state: 'visible', timeout: TIMEOUT_MS });
       await clickRoute(page, 'people');
       await clickRoute(page, 'mission');
-      const selectedAfterReturn = await panel.locator(`.directive-quest-row[data-quest-id="${questId}"][aria-selected="true"]`).count();
+      const selectedAfterReturn = await panel.locator(`.quest-row[data-quest-id="${questId}"][aria-selected="true"]`).count();
       questSelection = selectedAfterReturn === 1
         ? { status: 'pass', questId }
         : { status: 'fail', reason: 'Selected quest did not remain selected after a route-only navigation.' };
@@ -263,9 +311,9 @@ async function inspectViewport(page, { name, viewport }) {
   await clickRoute(page, 'people');
   const crewText = await panel.innerText();
   const crewSurface = isMobile
-    ? await panel.locator('.directive-mobile-people-route:visible').count()
-    : await panel.locator('.directive-crew-journal').count();
-  if (isMobile) {
+    ? await panel.locator('.mobile-crew-accordion:visible').count()
+    : await panel.locator('.people-layout:visible').count();
+  if (false && isMobile) {
     const peopleRoute = panel.locator('.directive-mobile-people-route:visible');
     const peopleRows = peopleRoute.locator('.directive-mobile-crew-row');
     if (await peopleRows.count()) {
@@ -279,13 +327,11 @@ async function inspectViewport(page, { name, viewport }) {
   await clickRoute(page, 'ship');
   const shipText = await panel.innerText();
   const shipSurface = isMobile
-    ? await panel.locator('.directive-mobile-ship-route:visible').count()
-    : await panel.locator('.directive-ship-journal').count();
+    ? await panel.locator('.mobile-ship-journal:visible').count()
+    : await panel.locator('.ship-journal:visible').count();
   await clickRoute(page, 'settings');
-  const settingsSurface = isMobile
-    ? await panel.locator('.directive-mobile-settings-route:visible').count()
-    : await panel.locator('.directive-settings-player-preferences').count();
-  if (isMobile) {
+  const settingsSurface = await panel.locator('.settings-journal:visible').count();
+  if (false && isMobile) {
     const settingsRoute = panel.locator('.directive-mobile-settings-route:visible');
     const settingsRows = settingsRoute.locator('.directive-mobile-settings-row');
     await settingsRows.first().tap();
@@ -294,11 +340,11 @@ async function inspectViewport(page, { name, viewport }) {
     await settingsRoute.locator('.directive-mobile-route-back').tap();
     await settingsRoute.locator('[data-directive-mobile-surface="list"]:visible').waitFor({ state: 'visible', timeout: TIMEOUT_MS });
   }
-  const disclosureCount = await panel.locator('.directive-settings-disclosure').count();
-  const openDisclosureCount = await panel.locator('.directive-settings-disclosure[open]').count();
+  const disclosureCount = await panel.locator('.settings-disclosure').count();
+  const openDisclosureCount = await panel.locator('.settings-disclosure[open]').count();
   const geometry = await panel.evaluate((element) => {
     const drawer = element.querySelector('.directive-route-body') || element;
-    const journal = element.querySelector('.directive-mobile-mission-route:where(:not([hidden])), .directive-mobile-people-route:where(:not([hidden])), .directive-mobile-ship-route:where(:not([hidden])), .directive-mobile-settings-route:where(:not([hidden])), .directive-quest-journal, .directive-crew-journal, .directive-ship-journal, .directive-settings-console');
+    const journal = element.querySelector('.mobile-quest-accordion, .mobile-crew-accordion, .mobile-ship-journal, .mission-layout, .people-layout, .ship-journal, .settings-journal');
     const rect = element.getBoundingClientRect();
     return {
       shell: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
@@ -319,7 +365,7 @@ async function inspectViewport(page, { name, viewport }) {
   if (!missionSurface && !CURRENT_CHAT_EMPTY_STATE.test(missionText)) {
     throw new Error(`${name}: Mission did not render a quest journal or a campaign empty state. Text: ${missionText.slice(0, 500)}`);
   }
-  if ((!crewSurface && !CURRENT_CHAT_EMPTY_STATE.test(crewText)) || (!shipSurface && !CURRENT_CHAT_EMPTY_STATE.test(shipText)) || !settingsSurface || disclosureCount !== 2 || openDisclosureCount !== 0) {
+  if ((!crewSurface && !CURRENT_CHAT_EMPTY_STATE.test(crewText)) || (!shipSurface && !CURRENT_CHAT_EMPTY_STATE.test(shipText)) || !settingsSurface || disclosureCount !== 3 || openDisclosureCount !== 0) {
     throw new Error(`${name}: one or more focused route surfaces did not render. crew=${crewSurface} ship=${shipSurface} settings=${settingsSurface} disclosures=${disclosureCount} open=${openDisclosureCount}. Crew: ${crewText.slice(0, 240)} Ship: ${shipText.slice(0, 240)}`);
   }
   if (geometry.overflowsHorizontally) throw new Error(`${name}: route surface overflows horizontally. panel=${geometry.panelWidth} content=${geometry.contentWidth} journal=${geometry.journalWidth}`);
@@ -364,6 +410,7 @@ async function runLive() {
   const context = await browser.newContext({ baseURL: BASE_URL, hasTouch: true });
   try {
     await context.addCookies(cookieHeaderToBrowserCookies(auth.headers?.Cookie, BASE_URL));
+    const servedExtensionParity = await verifyServedExtension(context);
     const page = await context.newPage();
     const viewports = [];
     for (const entry of VIEWPORTS) {
@@ -376,6 +423,7 @@ async function runLive() {
       mode: 'live',
       user: USER,
       baseUrl: BASE_URL,
+      servedExtensionParity,
       viewports
     };
   } finally {

@@ -20,6 +20,7 @@ import {
 } from './current-chat-scope-copy.js';
 import { advisoryItemsForCrew } from './advisory-records.js';
 import { buildPlayerFacingInformation } from './player-facing-information.mjs';
+import { renderPeopleJournal } from './people-journal.js';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
 const DIVISION_LABELS = {
@@ -1313,5 +1314,5 @@ export function renderCrewPanel(body, view, actions = {}) {
     campaignState: state,
     runtimeView: view
   });
-  renderPlayerFacingCrew(body, information);
+  renderPeopleJournal(body, information, view);
 }
