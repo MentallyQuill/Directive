@@ -76,13 +76,13 @@ The interval contains:
 - Create: `tools/scripts/validate-ashes-v1-open-orders-1.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Bind `packageBinding.sourceId` to the exact False Colors transition target without adding a legacy quest template.
-- [ ] Bind the transition target to the existing `chapter-3-dead-letters` package template.
-- [ ] Prove every core/terminal disposition is reachable and no optional assignment participates directly in `closeWhen`.
-- [ ] Prove a normal conclusion requires two resolved assignments, broad coverage requires all three plus delegation, and overextension requires all three under direct command.
-- [ ] Prove decline and early departure are player-known decisions, not hidden failure inference.
-- [ ] Validate every preferred and fallback reporter against the authoritative crew dataset.
-- [ ] Prove no result requires a conspiracy reveal or a synthetic clock.
+- [x] Bind `packageBinding.sourceId` to the exact False Colors transition target without adding a legacy quest template.
+- [x] Bind the transition target to the existing `chapter-3-dead-letters` package template.
+- [x] Prove every core/terminal disposition is reachable and no optional assignment participates directly in `closeWhen`.
+- [x] Prove a normal conclusion requires two resolved assignments, broad coverage requires all three plus delegation, and overextension requires all three under direct command.
+- [x] Prove decline and early departure are player-known decisions, not hidden failure inference.
+- [x] Validate every preferred and fallback reporter against the authoritative crew dataset.
+- [x] Prove no result requires a conspiracy reveal or a synthetic clock.
 
 ## Task 4: Register and Activate the Interval
 
