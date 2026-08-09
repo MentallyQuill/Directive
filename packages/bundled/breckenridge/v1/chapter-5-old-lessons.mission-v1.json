@@ -42,7 +42,7 @@
       "initiallyTrue": true,
       "visibility": "discoverable",
       "playerText": {
-        "summary": "Holt's local cell initiated the convoy diversion, but the wider system expanded the operation and activated defenses beyond local intent; the recovered portable interface can influence scenarios but cannot simply command the entire network."
+        "summary": "Holt's local cell initiated the convoy diversion, but the wider system expanded the operation and activated defenses beyond local intent; a portable interface can influence scenarios but cannot simply command the entire network."
       }
     }
   ],
@@ -271,7 +271,7 @@
       "sourceRoles": ["user"],
       "when": {
         "all": [
-          { "factKnown": "fact.chapter5.orison-crisis" },
+          { "factKnown": "fact.chapter5.concentration-and-model-gap" },
           { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "pending" } }
         ]
       },

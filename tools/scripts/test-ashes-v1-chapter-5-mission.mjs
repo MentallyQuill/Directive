@@ -84,6 +84,7 @@ assert.deepEqual(scenarios.scenarios.map((scenario) => scenario.id), [
     'clean-success-dismissive-posture',
     'choices-alone-do-not-resolve',
     'sigma-choice-before-target-known',
+    'command-posture-before-model-gap',
     'assistant-owned-sigma-choice',
     'player-declared-traffic-result',
     'player-declared-operator-result',

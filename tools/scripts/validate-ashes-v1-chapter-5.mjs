@@ -110,6 +110,10 @@ const sigmaDecision = definition.evidencePolicies.find((policy) => policy.id ===
 if (!JSON.stringify(sigmaDecision?.when).includes('fact.chapter5.sigma-target-and-doctrine-model')) {
     errors.push('Sigma disposition can be recorded before the player knows its role');
 }
+const commandPosture = definition.evidencePolicies.find((policy) => policy.id === 'policy.chapter5.command-posture');
+if (!JSON.stringify(commandPosture?.when).includes('fact.chapter5.concentration-and-model-gap')) {
+    errors.push('Bronn posture can lock before the player learns that his model is relevant but incomplete');
+}
 if (JSON.stringify(definition.closeWhen).includes('outcome.chapter5.command-posture')) {
     errors.push('optional Bronn command posture can hang mission closure');
 }

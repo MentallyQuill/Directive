@@ -214,6 +214,11 @@
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
     },
     {
+      "id": "command-posture-before-model-gap",
+      "sequence": ["command-follow"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
       "id": "assistant-owned-sigma-choice",
       "steps": [
         { "claimId": "claim.chapter5.assistant-sigma-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "recoverOrIsolate", "sourceRole": "assistant" }
