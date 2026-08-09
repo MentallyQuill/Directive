@@ -146,6 +146,11 @@ export function validateStorySettlement(value = {}) {
             }
             validateBoundaryState(episode?.boundaryState, episode, errors, episodeId);
             validateEpisodeReferences(episode?.references, errors, episodeId);
+            const workingCapsuleResult = validateStoryWorkingCapsule(episode?.workingCapsule, {
+                episode,
+                settlementRevision: value.revision,
+            });
+            errors.push(...workingCapsuleResult.errors);
             if (episode?.hardBoundary !== undefined && episode.hardBoundary !== null) {
                 const boundaryResult = validateEpisodeHardBoundary(episode.hardBoundary, {
                     branchId: value.branchId,
@@ -389,3 +394,4 @@ import {
     EPISODE_BOUNDARY_STATE_KIND,
     validateEpisodeHardBoundary,
 } from './episode-boundary.mjs';
+import { validateStoryWorkingCapsule } from './working-capsule.mjs';

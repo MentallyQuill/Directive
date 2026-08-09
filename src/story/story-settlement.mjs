@@ -8,6 +8,12 @@ import {
     createEpisodeHardBoundary,
     createInitialEpisodeBoundaryState,
 } from './episode-boundary.mjs';
+import {
+    appendStoryWorkingEvidence,
+    createEmptyStoryWorkingCapsule,
+    repairStoryWorkingCapsule,
+    replaceStoryWorkingSemantics,
+} from './working-capsule.mjs';
 
 function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
@@ -27,6 +33,13 @@ function normalizedEpisodeReferences(references = {}) {
         participantIds: unique(references.participantIds),
         locationIds: unique(references.locationIds),
     };
+}
+
+function ensureWorkingCapsule(episode, updatedAtRevision) {
+    if (!episode.workingCapsule) {
+        episode.workingCapsule = createEmptyStoryWorkingCapsule({ updatedAtRevision });
+    }
+    return episode.workingCapsule;
 }
 
 export function openStoryEpisode(settlement, { episodeId, sceneId, references = {} } = {}) {
@@ -53,6 +66,7 @@ export function openStoryEpisode(settlement, { episodeId, sceneId, references = 
         hardBoundary: null,
         references: normalizedEpisodeReferences(references),
         characterMoments: [],
+        workingCapsule: createEmptyStoryWorkingCapsule({ updatedAtRevision: next.revision }),
     });
     return assertValid(next);
 }
@@ -64,8 +78,10 @@ export function acceptStoryContribution(settlement, contribution) {
         return structuredClone(settlement);
     }
     const next = structuredClone(settlement);
-    activeEpisode(next).contributions.push(structuredClone(contribution));
     next.revision += 1;
+    const nextEpisode = activeEpisode(next);
+    ensureWorkingCapsule(nextEpisode, next.revision);
+    nextEpisode.contributions.push(structuredClone(contribution));
     return assertValid(next);
 }
 
@@ -89,8 +105,57 @@ export function appendStoryEffects(settlement, effects = []) {
     }
     if (additions.length === 0) return structuredClone(settlement);
     const next = structuredClone(settlement);
-    activeEpisode(next).effects.push(...structuredClone(additions));
     next.revision += 1;
+    const nextEpisode = activeEpisode(next);
+    ensureWorkingCapsule(nextEpisode, next.revision);
+    nextEpisode.effects.push(...structuredClone(additions));
+    return assertValid(next);
+}
+
+export function observeStoryWorkingEvidence(settlement, {
+    branchId,
+    observations = [],
+} = {}) {
+    if (branchId !== settlement.branchId) throw new TypeError('working evidence branch does not match story settlement');
+    const episode = activeEpisode(settlement);
+    if (!episode) throw new TypeError('an active episode is required');
+    const currentCapsule = episode.workingCapsule || createEmptyStoryWorkingCapsule({
+        updatedAtRevision: episode.openedAtRevision,
+    });
+    const updatedAtRevision = settlement.revision + 1;
+    const workingCapsule = appendStoryWorkingEvidence(currentCapsule, {
+        episode,
+        observations,
+        updatedAtRevision,
+    });
+    if (episode.workingCapsule && JSON.stringify(workingCapsule) === JSON.stringify(episode.workingCapsule)) {
+        return structuredClone(settlement);
+    }
+    const next = structuredClone(settlement);
+    next.revision = updatedAtRevision;
+    activeEpisode(next).workingCapsule = workingCapsule;
+    return assertValid(next);
+}
+
+export function replaceStoryWorkingCapsule(settlement, options = {}) {
+    const episode = activeEpisode(settlement);
+    if (!episode) throw new TypeError('an active episode is required');
+    const currentCapsule = episode.workingCapsule || createEmptyStoryWorkingCapsule({
+        updatedAtRevision: episode.openedAtRevision,
+    });
+    const updatedAtRevision = settlement.revision + 1;
+    const workingCapsule = replaceStoryWorkingSemantics(currentCapsule, {
+        ...options,
+        episode,
+        updatedAtRevision,
+    });
+    const comparable = { ...workingCapsule, updatedAtRevision: currentCapsule.updatedAtRevision };
+    if (episode.workingCapsule && JSON.stringify(comparable) === JSON.stringify(currentCapsule)) {
+        return structuredClone(settlement);
+    }
+    const next = structuredClone(settlement);
+    next.revision = updatedAtRevision;
+    activeEpisode(next).workingCapsule = workingCapsule;
     return assertValid(next);
 }
 
@@ -112,6 +177,7 @@ export function checkpointStoryEpisode(settlement, {
     const next = structuredClone(settlement);
     next.revision += 1;
     const nextEpisode = activeEpisode(next);
+    ensureWorkingCapsule(nextEpisode, next.revision);
     const start = Math.max(0, previous.contributionCountAtLastReview);
     nextEpisode.boundaryState = {
         kind: previous.kind,
@@ -151,6 +217,7 @@ export function sealStoryEpisode(settlement, {
     nextEpisode.summary = summary;
     nextEpisode.unresolvedConsequences = structuredClone(unresolvedConsequences);
     nextEpisode.characterMoments = structuredClone(characterMoments);
+    delete nextEpisode.workingCapsule;
     next.activeEpisode = null;
     next.receipts.push({
         kind: STORY_SETTLEMENT_RECEIPT_KIND,
@@ -356,12 +423,31 @@ export function invalidateStorySources(settlement, {
             episode.effects = episode.effects.filter(
                 (effect) => !(effect.sourceContributionIds || []).some((id) => invalidated.has(id)),
             );
-            const stillReferenced = new Set(episode.effects.flatMap((effect) => effect.sourceContributionIds || []));
-            episode.contributions = episode.contributions.filter((item) => stillReferenced.has(item.id));
+            episode.contributions = episode.contributions.filter((item) => !invalidated.has(item.id));
             episode.unresolvedConsequences = [];
-            if (episode.effects.length === 0) {
+            if (episode.boundaryState) {
+                const survivingContributionIds = new Set(episode.contributions.map((item) => item.id));
+                episode.boundaryState.contributionCountAtLastReview = Math.min(
+                    episode.boundaryState.contributionCountAtLastReview,
+                    episode.contributions.length,
+                );
+                episode.boundaryState.effectCountAtLastReview = Math.min(
+                    episode.boundaryState.effectCountAtLastReview,
+                    episode.effects.length,
+                );
+                episode.boundaryState.sourceContributionIds = episode.boundaryState.sourceContributionIds.filter(
+                    (id) => survivingContributionIds.has(id),
+                );
+            }
+            if (episode.contributions.length === 0 && episode.effects.length === 0) {
                 activeEpisodeIdsToRemove.add(episode.id);
                 next.activeEpisode = null;
+            } else if (episode.workingCapsule) {
+                episode.workingCapsule = repairStoryWorkingCapsule(episode.workingCapsule, {
+                    episode,
+                    invalidatedContributionIds: pending,
+                    updatedAtRevision: next.revision,
+                });
             }
         } else {
             const replacement = replacementForEpisode(next, episode, invalidated, summarizeEffects);

@@ -246,6 +246,65 @@
         }
       }
     },
+    "workingEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contributionId", "role", "textHash", "excerpt"],
+      "properties": {
+        "contributionId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant", "runtime", "adjudicator"]
+        },
+        "textHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32,128}$"
+        },
+        "excerpt": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "workingCapsule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "summary",
+        "foregroundQuestion",
+        "sourceContributionIds",
+        "effectIds",
+        "recentEvidence",
+        "observedContributionCount",
+        "lastEvaluatedCheckpointSequence",
+        "needsReview",
+        "updatedAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.storyWorkingCapsule.v1" },
+        "summary": { "type": "string", "maxLength": 768 },
+        "foregroundQuestion": { "type": ["string", "null"], "minLength": 1, "maxLength": 240 },
+        "sourceContributionIds": {
+          "type": "array",
+          "maxItems": 128,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "effectIds": {
+          "type": "array",
+          "maxItems": 128,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "recentEvidence": {
+          "type": "array",
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/workingEvidence" }
+        },
+        "observedContributionCount": { "type": "integer", "minimum": 0 },
+        "lastEvaluatedCheckpointSequence": { "type": "integer", "minimum": 0 },
+        "needsReview": { "type": "boolean" },
+        "updatedAtRevision": { "type": "integer", "minimum": 0 }
+      }
+    },
     "episode": {
       "type": "object",
       "additionalProperties": false,
@@ -300,6 +359,7 @@
           "type": "array",
           "items": { "$ref": "#/$defs/characterMoment" }
         },
+        "workingCapsule": { "$ref": "#/$defs/workingCapsule" },
         "supersedesEpisodeId": {
           "type": ["string", "null"],
           "pattern": "^[a-z0-9][a-z0-9._:-]*$"

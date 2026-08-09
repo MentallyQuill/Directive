@@ -19,6 +19,9 @@ assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
 assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
 assert.equal(schema.$defs.episodeReferences.additionalProperties, false);
 assert.equal(schema.$defs.characterMoment.additionalProperties, false);
+assert.equal(schema.$defs.workingCapsule.additionalProperties, false);
+assert.equal(schema.$defs.workingEvidence.additionalProperties, false);
+assert.equal(schema.$defs.episode.properties.workingCapsule.$ref, '#/$defs/workingCapsule');
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
@@ -96,6 +99,18 @@ const references = {
     participantIds: ['mara-whitaker'],
     locationIds: ['bridge'],
 };
+const workingCapsule = {
+    kind: 'directive.storyWorkingCapsule.v1',
+    summary: '',
+    foregroundQuestion: null,
+    sourceContributionIds: [],
+    effectIds: [],
+    recentEvidence: [],
+    observedContributionCount: 0,
+    lastEvaluatedCheckpointSequence: 0,
+    needsReview: false,
+    updatedAtRevision: 1,
+};
 
 assert.equal(validateStorySettlement({
     ...empty,
@@ -107,6 +122,30 @@ assert.equal(validateStorySettlement({
     activeEpisode: 'episode.alpha',
     episodes: [{ ...openEpisode, references }],
 }).ok, true);
+assert.equal(validateStorySettlement({
+    ...empty,
+    revision: 1,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, workingCapsule }],
+}).ok, true);
+assert.match(validateStorySettlement({
+    ...empty,
+    revision: 1,
+    episodes: [{
+        ...openEpisode,
+        status: 'sealed',
+        sealedAtRevision: 1,
+        boundaryReason: 'scene-change',
+        summary: 'A sealed scene.',
+        workingCapsule,
+    }],
+}).errors.join('\n'), /terminal episodes cannot retain workingCapsule/);
+assert.match(validateStorySettlement({
+    ...empty,
+    revision: 1,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, workingCapsule: { ...workingCapsule, rawTranscript: 'forbidden' } }],
+}).errors.join('\n'), /workingCapsule contains unknown field: rawTranscript/);
 assert.match(validateStorySettlement({
     ...empty,
     activeEpisode: 'episode.alpha',

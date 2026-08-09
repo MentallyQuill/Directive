@@ -35,6 +35,8 @@ assert.deepEqual(opened.episodes[0].boundaryState, {
     decision: 'continue',
     sourceContributionIds: [],
 });
+assert.equal(opened.episodes[0].workingCapsule.kind, 'directive.storyWorkingCapsule.v1');
+assert.deepEqual(opened.episodes[0].workingCapsule.recentEvidence, []);
 
 assert.deepEqual(openStoryEpisode(opened, {
     episodeId: 'episode.bridge-handover',
@@ -147,6 +149,7 @@ assert.equal(sealed.episodes[0].status, 'sealed');
 assert.equal(sealed.episodes[0].sealedAtRevision, 4);
 assert.equal(sealed.receipts.length, 1);
 assert.equal(sealed.receipts[0].disposition, 'sealed');
+assert.equal(Object.hasOwn(sealed.episodes[0], 'workingCapsule'), false);
 assert.throws(
     () => sealStoryEpisode(contributed, {
         boundaryReason: 'scene-change',
