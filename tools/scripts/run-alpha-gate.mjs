@@ -82,6 +82,7 @@ const checks = [
   'test-v1-mission-package-linter.mjs',
   'validate-ashes-v1-prelude.mjs',
   'validate-ashes-v1-chapter-1.mjs',
+  'validate-ashes-v1-chapter-2.mjs',
   'test-v1-story-settlement.mjs',
   'test-v1-working-capsule.mjs',
   'test-v1-episode-evaluator.mjs',

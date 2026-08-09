@@ -90,13 +90,13 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 - Create: `tools/scripts/validate-ashes-v1-chapter-2.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Run the package linter with Open Orders I recognized as an authored package target.
-- [ ] Prove every core objective disposition and terminal mission disposition is reachable in at least one fixture.
-- [ ] Prove optional partnership never participates in `closeWhen`.
-- [ ] Prove the conditional-required security objective has a mandatory player-visible discovery route.
-- [ ] Prove no closure path depends on director-only truth, an undisclosed fact, a hidden clock, or a fixed phase order.
-- [ ] Prove medical success is independent of testimony and political concessions.
-- [ ] Add the validator to the complete alpha gate and run focused validation.
+- [x] Run the package linter with Open Orders I recognized as the exact authored legacy mission target.
+- [x] Prove every core objective disposition and terminal mission disposition is reachable in at least one fixture.
+- [x] Prove optional partnership never participates in `closeWhen`.
+- [x] Prove the conditional-required security objective has a mandatory player-visible discovery route.
+- [x] Prove no closure path depends on director-only truth, an undisclosed fact, a hidden clock, or a fixed phase order.
+- [x] Prove medical success is independent of testimony and political concessions.
+- [x] Add the validator to the complete alpha gate and run focused validation.
 
 ## Task 4: Register and Activate the Real Successor
 
