@@ -246,6 +246,18 @@ Effects that current play depends on apply immediately after validation. This in
 
 Character memory and narrative relationship interpretation normally wait for episode sealing so the whole encounter can be evaluated together. A relationship mechanic may change immediately when an accepted outcome explicitly requires it, but the system does not create a per-turn prose memory.
 
+## Fair Discovery and Crew Initiative Binding
+
+[Fair Discovery and Crew Initiative](2026-08-09-fair-discovery-and-crew-initiative-design.md) is a binding companion contract for hidden facts, competent crew reporting, conditional objectives, and consequence fairness.
+
+It does not add a semantic authority or ledger. Authored campaign data owns truth and reveal routes; the campaign knowledge projection owns player-character knowledge; Command Competence owns routine professional work and bounded Duty Reports; Mission Director and deterministic reducers own decision evaluation; Story Settlement accepts disclosed knowledge and resulting effects into the same episode custody used by every other semantic development.
+
+Hidden information may create credible causal developments in the world. It may not create evaluative punishment, objective failure, Command Bearing judgment, relationship judgment, or mission blockage until sufficient player-visible knowledge has settled. Conditional objectives derive visibility from committed knowledge and remain absent while their facts are hidden.
+
+Scheduling a disclosure is not evidence that the player received it. Required decision knowledge needs a provable player-visible disclosure bound to the selected response and accepted-pair source settlement. Swipes, edits, deletions, replacements, and branches invalidate dependent knowledge and objective projections through the same source-custody rules as episode evidence.
+
+Story Settlement records a meaningful disclosure and its consequences as part of the active episode. It must not create a separate event for the fact, report, objective activation, NPC reaction, and relationship effect.
+
 ## Aggregate-First Projection Policy
 
 Every accepted meaning follows this order:

@@ -132,6 +132,8 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Timekeeping System](architecture/TIMEKEEPING_SYSTEM.md): deterministic stardate/ship-time display, prompt and model boundaries, current implementation map, and validated time-adjudication layer.
 - [Persistence And Continuity](architecture/PERSISTENCE_AND_CONTINUITY.md): authoritative state, storage domains, hidden simulation state, save model, and continuity boundaries.
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
+- [Unified Story Settlement and Episode Tracking](superpowers/specs/2026-08-08-unified-story-settlement-design.md): approved architecture for one semantic story authority, aggregate-first projections, accepted-pair settlement, and low-noise episode memory.
+- [Fair Discovery and Crew Initiative](superpowers/specs/2026-08-09-fair-discovery-and-crew-initiative-design.md): approved V1 contract for spoiler-safe hidden information, competent crew reporting, conditional objectives, and fair consequence evaluation.
 
 ## Testing
 
