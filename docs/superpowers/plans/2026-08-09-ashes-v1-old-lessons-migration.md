@@ -1,6 +1,6 @@
 # Ashes V1: Old Lessons Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content, exact package identity, deterministic mission authority, runtime activation, source custody, adversarial review, and documentation. It does not authorize player-facing UI changes or narrator-prompt cutover.
+> Status: implemented and deterministic-gate certified within the approved non-UI scope. UI, narrator cutover, open-world scheduling, Open Orders II migration, legacy retirement, and live certification remain incomplete.
 
 **Goal:** Make `chapter-5-old-lessons` the seventh V1-native Ashes journey entry without revealing that Sigma-4 is the actual target, that Pale Lantern models familiar Starfleet doctrine, that Holt's cell began the diversion, or that the system expanded the operation before accepted play establishes those findings.
 
@@ -104,35 +104,35 @@ Old Lessons defines no mission clock. The source says extraction, platform escal
 
 ### Task 1: Lock the mission contract in RED
 
-- [ ] Create `tests/fixtures/mission/v1/chapter-5-old-lessons-scenarios.fixture.json`.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-5-mission.mjs` and register it in the alpha gate.
-- [ ] Assert exact package/Colony identity, empty legacy graph, spoiler-safe opening, three objectives, three reports, four dimensions, no clock, and the V1-only Open Orders II target.
-- [ ] Cover clean multi-front success, lives saved/core lost before knowledge, core saved with civilian or political cost, cascade, partial containment, responsible handoff, and informed destructive action.
-- [ ] Cover non-linear fronts, no command-posture dependency, same-scene related results, direct/mixed/external evidence, source-role violations, premature report, stale revision, wrong swipe, and unsupported controller attribution.
-- [ ] Run RED because the definition is absent.
+- [x] Create `tests/fixtures/mission/v1/chapter-5-old-lessons-scenarios.fixture.json`.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-5-mission.mjs` and register it in the alpha gate.
+- [x] Assert exact package/Colony identity, empty legacy graph, spoiler-safe opening, three objectives, three reports, four dimensions, no clock, and the V1-only Open Orders II target.
+- [x] Cover clean multi-front success, lives saved/core lost before knowledge, core saved with civilian or political cost, cascade, partial containment, responsible handoff, and informed destructive action.
+- [x] Cover non-linear fronts, no command-posture dependency, same-scene related results, direct/mixed/external evidence, source-role violations, premature report, stale revision, wrong swipe, and unsupported controller attribution.
+- [x] Run RED because the definition is absent.
 
 ### Task 2: Author and validate the V1 definition
 
-- [ ] Create `packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json`.
-- [ ] Add one known crisis fact, three discoverable aggregate facts, three causal evidence events, and three required Duty Reports.
-- [ ] Add hidden traffic, platform, Sigma, operator/evidence, evidence-route, and optional command-posture authority.
-- [ ] Keep voluntary Sigma and Bronn choices user-only; keep actual results assistant/runtime/adjudicator-owned.
-- [ ] Add three required objectives, four aggregate dimensions, six terminal dispositions, no clock, and the exact Open Orders II transition.
-- [ ] Create `tools/scripts/validate-ashes-v1-chapter-5.mjs` and register it in the alpha gate.
+- [x] Create `packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json`.
+- [x] Add one known crisis fact, three discoverable aggregate facts, three causal evidence events, and three required Duty Reports.
+- [x] Add hidden traffic, platform, Sigma, operator/evidence, evidence-route, and optional command-posture authority.
+- [x] Keep voluntary Sigma and Bronn choices user-only; keep actual results assistant/runtime/adjudicator-owned.
+- [x] Add three required objectives, four aggregate dimensions, six terminal dispositions, no clock, and the exact Open Orders II transition.
+- [x] Create `tools/scripts/validate-ashes-v1-chapter-5.mjs` and register it in the alpha gate.
 
 ### Task 3: Register, activate, and prove source custody
 
-- [ ] Register Old Lessons after Colony without creating or importing a legacy mission graph.
-- [ ] Extend the journey proof through exact Colony-to-Old-Lessons activation, reload, idempotency, descendant pruning, and Open Orders II pending state.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-5-runtime.mjs` for accepted-pair, Duty Report custody, batching, anti-spam, invalidation, and restoration proof.
-- [ ] Preserve all unrelated legacy and V1 domain roots.
+- [x] Register Old Lessons after Colony without creating or importing a legacy mission graph.
+- [x] Extend the journey proof through exact Colony-to-Old-Lessons activation, reload, idempotency, descendant pruning, and Open Orders II pending state.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-5-runtime.mjs` for accepted-pair, Duty Report custody, batching, anti-spam, invalidation, and restoration proof.
+- [x] Preserve all unrelated legacy and V1 domain roots.
 
 ### Task 4: Adversarial review and certification
 
-- [ ] Challenge the spoiler summary, five-objective checklist, multi-front coupling, tactical railroading, Bronn blame, no-fault target loss, assistant-owned player choices, self-certified results, evidence single points of failure, false urgency, relationship spam, terminal priority, V1-only successor identity, package drift, source repair, and live semantic uncertainty.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, docs contracts, `git diff --check`, and the complete alpha gate.
-- [ ] Create `docs/development/ASHES_V1_OLD_LESSONS_READINESS.md`, update the documentation index and Ashes migration plan, and record residual limits without claiming UI, narrator, scheduler, legacy cutover, Command Bearing, or live certification.
+- [x] Challenge the spoiler summary, five-objective checklist, multi-front coupling, tactical railroading, Bronn blame, no-fault target loss, assistant-owned player choices, self-certified results, evidence single points of failure, false urgency, relationship spam, terminal priority, V1-only successor identity, package drift, source repair, and live semantic uncertainty.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, docs contracts, `git diff --check`, and the complete alpha gate.
+- [x] Create `docs/development/ASHES_V1_OLD_LESSONS_READINESS.md`, update the documentation index and Ashes migration plan, and record residual limits without claiming UI, narrator, scheduler, legacy cutover, Command Bearing, or live certification.
 
 ## Explicit Non-Goals and Stop Boundary
 
