@@ -41,13 +41,13 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 - Create: `tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Assert the definition path, package binding, stable mission ID, and exact objective inventory.
-- [ ] Assert initial player projection contains only the emergency and rescue objective, with no false-order, missing-hardware, Compact-custody, or hidden-count leakage.
-- [ ] Assert Chapter 1 has no clock and no legacy progress/phase/flag fields.
-- [ ] Assert every plot-critical discoverable fact has one causal disclosure policy and one crew report route.
-- [ ] Add scenario expectations for cooperative success, lawful unilateral success, handoff, success with cost, informed failure-forward, undiscovered-content safety, knowing decline after disclosure, and non-linear evidence order.
-- [ ] Add hostile evidence cases for user-declared outcomes, stale revisions, wrong swipes, and unknown policies.
-- [ ] Run the new test and record the expected RED failure because the definition is absent.
+- [x] Assert the definition path, package binding, stable mission ID, and exact objective inventory.
+- [x] Assert initial player projection contains only the emergency and rescue objective, with no false-order, missing-hardware, Compact-custody, or hidden-count leakage.
+- [x] Assert Chapter 1 has no clock and no legacy progress/phase/flag fields.
+- [x] Assert every plot-critical discoverable fact has one causal disclosure policy and one crew report route.
+- [x] Add scenario expectations for cooperative success, lawful unilateral success, handoff, success with cost, informed failure-forward, undiscovered-content safety, knowing decline after disclosure, and non-linear evidence order.
+- [x] Add hostile evidence cases for user-declared outcomes, stale revisions, wrong swipes, and unknown policies.
+- [x] Run the new test and record the expected RED failure because the definition is absent.
 
 ## Task 2: Author the V1 Mission Definition
 
@@ -55,14 +55,14 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 
 - Create: `packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json`
 
-- [ ] Add aggregate fixed facts and causal disclosure gates.
-- [ ] Add explicit and clear-outcome evidence policies with negative examples that prevent proposal, intention, suspicion, or narration from counting as committed results.
-- [ ] Add required crew-report routes with Whitaker fallbacks for every mandatory discovery.
-- [ ] Add only the intermediate events needed to gate first contact, recovery-route discovery, and final authentication significance.
-- [ ] Add bounded outcome enums for survivor safety, authority resolution, hardware disposition, and the optional incident record.
-- [ ] Add three core objectives, one optional objective, four dimensions, mixed terminal dispositions, and the exact Chapter 2 transition.
-- [ ] Keep `clocks` empty and omit legacy phase/progress/percentage/tracker fields.
-- [ ] Run schema, mission-contract, and new scenario tests to GREEN.
+- [x] Add aggregate fixed facts and causal disclosure gates.
+- [x] Add explicit and clear-outcome evidence policies with negative examples that prevent proposal, intention, suspicion, or narration from counting as committed results.
+- [x] Add required crew-report routes with Whitaker fallbacks for every mandatory discovery.
+- [x] Add only the intermediate events needed to gate first contact, recovery-route discovery, and final authentication significance.
+- [x] Add bounded outcome enums for survivor safety, authority resolution, hardware disposition, and the optional incident record.
+- [x] Add three core objectives, one optional objective, four dimensions, mixed terminal dispositions, and the exact Chapter 2 transition.
+- [x] Keep `clocks` empty and omit legacy phase/progress/percentage/tracker fields.
+- [x] Run schema, mission-contract, and new scenario tests to GREEN.
 
 ## Task 3: Validate Reachability and Fairness
 
@@ -71,12 +71,12 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 - Create: `tools/scripts/validate-ashes-v1-chapter-1.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Run the mission package linter with Chapter 2 recognized as an authored package target.
-- [ ] Require every core objective disposition to be reached by at least one fixture.
-- [ ] Prove optional cooperation never appears in `closeWhen`.
-- [ ] Prove every conditional-required objective names a mandatory player-visible fact route.
-- [ ] Prove no mission closure scenario depends on an undisclosed fact or a hidden clock.
-- [ ] Add the validator to the complete alpha gate and run focused validation.
+- [x] Run the mission package linter with Chapter 2 recognized as an authored package target.
+- [x] Require every core objective disposition to be reached by at least one fixture.
+- [x] Prove optional cooperation never appears in `closeWhen`.
+- [x] Prove every conditional-required objective names a mandatory player-visible fact route.
+- [x] Prove no mission closure scenario depends on an undisclosed fact or a hidden clock.
+- [x] Add the validator to the complete alpha gate and run focused validation.
 
 ## Task 4: Register and Activate the Real Successor
 

@@ -1,0 +1,606 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-1-the-empty-convoy",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-1-the-empty-convoy"
+  },
+  "playerText": {
+    "title": "Chapter 1: The Empty Convoy",
+    "summary": "Respond to Relief Convoy Twelve, protect its people, and bring the immediate crisis to a responsible disposition."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter1.convoy-emergency",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Relief Convoy Twelve is powered but silent, with a fragmented distress packet and people in need of assistance."
+      }
+    },
+    {
+      "id": "fact.chapter1.authority-conflict",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The convoy's quarantine order carries technically valid Starfleet authority markers but does not match current routing and requires verification."
+      }
+    },
+    {
+      "id": "fact.chapter1.dispersal-picture",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Initial contact locates survivors off the convoy, identifies a Compact custody dispute around convoy officers, and confirms secured emergency hardware is missing."
+      }
+    },
+    {
+      "id": "fact.chapter1.recovery-authentication-picture",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The preserved records and recovery lead connect the missing emergency hardware to a false order containing authentic Starfleet code fragments, while the wider source remains unknown."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter1.convoy-emergency-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.convoy-emergency",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter1.convoy-emergency" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the Relief Convoy Twelve distress situation and the immediate need for assistance.",
+        "exclusions": [
+          "Naming the convoy, anticipating a future assignment, or mentioning the Asterion Reach does not communicate the active emergency."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.authority-conflict-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.authority-conflict",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.authority-conflict" },
+          { "factKnown": "fact.chapter1.convoy-emergency" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose tells the player that the quarantine authority appears technically valid but conflicts with current routing and needs verification.",
+        "exclusions": [
+          "The distress call, a generic quarantine warning, suspicion of deception, or an officer beginning a check does not disclose the routing conflict."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.initial-contact-completed",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter1.initial-contact-completed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.convoy-emergency" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts substantive contact, remote access, boarding, rescue access, or equivalent operational examination of the convoy rather than preparation alone.",
+        "exclusions": [
+          "Approaching, scanning at range, assigning a team, stating an intention, or discussing contact does not mean substantive contact occurred."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.dispersal-picture-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.dispersal-picture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.dispersal-picture" },
+          { "eventOccurred": "event.chapter1.initial-contact-completed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the material combined discovery: survivors are off the convoy, convoy officers face a Compact custody claim, and secured emergency hardware is missing.",
+        "exclusions": [
+          "Any one isolated detail, an unresolved search, a vague inventory problem, or director-only knowledge does not communicate the aggregate dispersal picture."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.recovery-route-opened",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter1.recovery-route-opened",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a concrete lawful, technical, diplomatic, or investigative route that can account for the missing hardware and preserve the relevant records.",
+        "exclusions": [
+          "Wanting the hardware found, ordering an unspecified search, accusing a party, or merely continuing the mission does not open a recoverable evidence route."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.recovery-authentication-picture-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.recovery-authentication-picture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.recovery-authentication-picture" },
+          { "eventOccurred": "event.chapter1.recovery-route-opened" },
+          { "factKnown": "fact.chapter1.authority-conflict" },
+          { "factKnown": "fact.chapter1.dispersal-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates that preserved records and a concrete recovery lead connect the missing emergency hardware to a false order containing authentic Starfleet code fragments, without claiming the wider source is known.",
+        "exclusions": [
+          "A suspicious signal, a missing component, a routing mismatch, an accusation, or a theory without the combined evidence does not establish this picture."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.relief-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter1.relief-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.convoy-emergency" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the people endangered by the convoy emergency.",
+        "values": [
+          { "value": "safe", "guidance": "The endangered people reach a safe disposition without a material cost." },
+          { "value": "safeWithCost", "guidance": "The endangered people reach safety with injuries, delay, damage, or another material cost recorded." },
+          { "value": "handedOff", "guidance": "A competent authority actually assumes the remaining relief responsibility." },
+          { "value": "failedInformed", "guidance": "The relief effort fails after a material risk was known and a course of action was deliberately committed." }
+        ],
+        "exclusions": [
+          "A rescue order, approach, plan, attempted contact, optimistic statement, or player assertion does not establish the relief result."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.authority-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter1.authority-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.recovery-authentication-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the committed disposition of the conflicting quarantine authority after its evidentiary significance is known.",
+        "values": [
+          { "value": "jointDisposition", "guidance": "Starfleet and Compact participants commit a lawful shared disposition of the authority conflict." },
+          { "value": "lawfulStarfleetDisposition", "guidance": "Starfleet lawfully contains and records the authority conflict without a shared Compact disposition." },
+          { "value": "containedWithCost", "guidance": "The authority conflict is contained with a material jurisdictional, security, evidentiary, or humanitarian cost." },
+          { "value": "handedOff", "guidance": "The evidence and authority question are actually transferred to a competent authority." },
+          { "value": "knowinglyDeclined", "guidance": "Further action on the known authority conflict is explicitly declined and the immediate consequences are recorded." },
+          { "value": "failedInformed", "guidance": "The authority response fails after a known material risk is deliberately accepted." }
+        ],
+        "exclusions": [
+          "Initial posture, negotiation still underway, a unilateral demand not yet enforced, suspicion, or a proposed record does not establish the final authority disposition."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.hardware-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter1.hardware-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.recovery-authentication-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the missing emergency hardware after the recovery and authentication picture is known.",
+        "values": [
+          { "value": "recoveredJointly", "guidance": "The hardware is recovered or secured under credible joint custody." },
+          { "value": "securedByAuthority", "guidance": "A lawful competent authority secures the hardware without joint custody." },
+          { "value": "recoveredWithCost", "guidance": "The hardware is recovered with damage, lost telemetry, injury, jurisdictional rupture, or another material cost." },
+          { "value": "handedOff", "guidance": "A competent authority actually assumes responsibility for recovering or securing the hardware." },
+          { "value": "knowinglyDeclined", "guidance": "Further action on the known hardware risk is explicitly declined and the unresolved consequence is recorded." },
+          { "value": "lostAfterInformedAction", "guidance": "The hardware or its usable evidence is lost after a known risk is deliberately accepted." }
+        ],
+        "exclusions": [
+          "Locating a signal, starting pursuit, requesting custody, finding a container, or declaring success without depicted custody does not establish the hardware disposition."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter1.incident-record",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter1.incident-record",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual record or explicit disposition of the optional shared-record opportunity.",
+        "values": [
+          { "value": "jointRecord", "guidance": "Starfleet and Compact participants create or commit a credible shared incident record." },
+          { "value": "starfleetRecord", "guidance": "Starfleet creates a usable record without Compact participation." },
+          { "value": "fragmentedRecord", "guidance": "The surviving record is materially divided, contested, or incomplete." },
+          { "value": "knowinglyDeclined", "guidance": "The player knowingly declines to pursue a shared record after the opportunity is understood." }
+        ],
+        "exclusions": [
+          "Opening talks, intending to document events, sharing one datum, or requesting cooperation does not establish a completed record."
+        ]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter1.authority-conflict",
+      "factId": "fact.chapter1.authority-conflict",
+      "evidencePolicyId": "policy.chapter1.authority-conflict-disclosed",
+      "capabilityRoles": ["operations", "science"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.authority-conflict" },
+          { "factKnown": "fact.chapter1.convoy-emergency" },
+          { "not": { "factKnown": "fact.chapter1.authority-conflict" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Operations has identified a material conflict in the convoy's quarantine authority that requires command attention."
+      }
+    },
+    {
+      "id": "report.chapter1.dispersal-picture",
+      "factId": "fact.chapter1.dispersal-picture",
+      "evidencePolicyId": "policy.chapter1.dispersal-picture-disclosed",
+      "capabilityRoles": ["operations", "medical", "security"],
+      "preferredActorIds": ["priya-nayar", "miriam-sato", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.dispersal-picture" },
+          { "eventOccurred": "event.chapter1.initial-contact-completed" },
+          { "not": { "factKnown": "fact.chapter1.dispersal-picture" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The first operational contact has produced one consolidated survivor, custody, and missing-cargo picture for command review."
+      }
+    },
+    {
+      "id": "report.chapter1.recovery-authentication-picture",
+      "factId": "fact.chapter1.recovery-authentication-picture",
+      "evidencePolicyId": "policy.chapter1.recovery-authentication-picture-disclosed",
+      "capabilityRoles": ["science", "operations", "security"],
+      "preferredActorIds": ["rowan-saye", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.recovery-authentication-picture" },
+          { "eventOccurred": "event.chapter1.recovery-route-opened" },
+          { "factKnown": "fact.chapter1.authority-conflict" },
+          { "factKnown": "fact.chapter1.dispersal-picture" },
+          { "not": { "factKnown": "fact.chapter1.recovery-authentication-picture" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The preserved records and recovery lead now support a command decision about the missing hardware and compromised Starfleet authority."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.chapter1.initial-contact-completed",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The Breckenridge completed substantive first contact with the convoy emergency."
+      }
+    },
+    {
+      "id": "event.chapter1.recovery-route-opened",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "A concrete route exists to account for the missing hardware and preserve the related records."
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter1.relief-result",
+      "allowedValues": ["pending", "safe", "safeWithCost", "handedOff", "failedInformed"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed disposition of the convoy relief effort." }
+    },
+    {
+      "id": "outcome.chapter1.authority-result",
+      "allowedValues": ["pending", "jointDisposition", "lawfulStarfleetDisposition", "containedWithCost", "handedOff", "knowinglyDeclined", "failedInformed"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed disposition of the conflicting quarantine authority." }
+    },
+    {
+      "id": "outcome.chapter1.hardware-result",
+      "allowedValues": ["pending", "recoveredJointly", "securedByAuthority", "recoveredWithCost", "handedOff", "knowinglyDeclined", "lostAfterInformedAction"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed disposition of the missing emergency hardware." }
+    },
+    {
+      "id": "outcome.chapter1.incident-record",
+      "allowedValues": ["pending", "jointRecord", "starfleetRecord", "fragmentedRecord", "knowinglyDeclined"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The disposition of the optional shared incident record." }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter1.relief",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter1.initial-contact-completed" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safe" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safeWithCost" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "handedOff" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "failedInformed" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Protect the people of Relief Convoy Twelve",
+        "summary": "Bring the endangered convoy personnel to a safe disposition or place their care with a competent authority.",
+        "terminal": [
+          { "disposition": "completed", "text": "The endangered convoy personnel reached safety." },
+          { "disposition": "completedWithCost", "text": "The endangered convoy personnel reached safety with a material cost recorded." },
+          { "disposition": "handedOff", "text": "A competent authority assumed the remaining relief responsibility." },
+          { "disposition": "failedAfterInformedAction", "text": "The relief effort failed after a known risk was deliberately accepted." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter1.authority",
+      "class": "conditional",
+      "activatedAs": "required",
+      "activationRoute": {
+        "factId": "fact.chapter1.authority-conflict",
+        "mandatory": true,
+        "playerVisible": true
+      },
+      "activationWhen": { "factKnown": "fact.chapter1.authority-conflict" },
+      "availableWhen": { "factKnown": "fact.chapter1.authority-conflict" },
+      "visibleWhen": { "factKnown": "fact.chapter1.authority-conflict" },
+      "progressWhen": { "factKnown": "fact.chapter1.recovery-authentication-picture" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "in": ["jointDisposition", "lawfulStarfleetDisposition"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "containedWithCost" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "handedOff" } } },
+        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "knowinglyDeclined" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "failedInformed" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Resolve the conflicting quarantine authority",
+        "summary": "Establish a lawful disposition for the conflicting order and preserve what can be learned from it.",
+        "terminal": [
+          { "disposition": "completed", "text": "The conflicting authority received a lawful disposition." },
+          { "disposition": "completedWithCost", "text": "The conflicting authority was contained with a material cost recorded." },
+          { "disposition": "handedOff", "text": "The authority question and its evidence were placed with a competent authority." },
+          { "disposition": "knowinglyDeclined", "text": "Further action on the known authority conflict was knowingly declined." },
+          { "disposition": "failedAfterInformedAction", "text": "The authority response failed after a known risk was deliberately accepted." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter1.hardware",
+      "class": "conditional",
+      "activatedAs": "required",
+      "activationRoute": {
+        "factId": "fact.chapter1.dispersal-picture",
+        "mandatory": true,
+        "playerVisible": true
+      },
+      "activationWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "availableWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "visibleWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "progressWhen": { "factKnown": "fact.chapter1.recovery-authentication-picture" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "in": ["recoveredJointly", "securedByAuthority"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "recoveredWithCost" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "handedOff" } } },
+        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "knowinglyDeclined" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "lostAfterInformedAction" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Account for the missing emergency hardware",
+        "summary": "Recover, secure, or responsibly transfer the known emergency hardware risk.",
+        "terminal": [
+          { "disposition": "completed", "text": "The missing emergency hardware was recovered or secured." },
+          { "disposition": "completedWithCost", "text": "The emergency hardware was recovered with a material cost recorded." },
+          { "disposition": "handedOff", "text": "A competent authority assumed responsibility for the missing hardware." },
+          { "disposition": "knowinglyDeclined", "text": "Further action on the known hardware risk was knowingly declined." },
+          { "disposition": "failedAfterInformedAction", "text": "The hardware or its usable evidence was lost after a known risk was accepted." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter1.shared-record",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "availableWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "visibleWhen": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "in": ["jointRecord", "starfleetRecord", "fragmentedRecord", "knowinglyDeclined"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "jointRecord" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "in": ["starfleetRecord", "fragmentedRecord"] } } },
+        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "knowinglyDeclined" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined"],
+      "playerText": {
+        "title": "Establish a shared incident record with the Compact",
+        "summary": "Invite credible local participation in the record of the convoy crisis.",
+        "terminal": [
+          { "disposition": "completed", "text": "Starfleet and Compact participants established a shared incident record." },
+          { "disposition": "completedWithCost", "text": "A usable but limited or fragmented incident record survived." },
+          { "disposition": "knowinglyDeclined", "text": "The opportunity to establish a shared record was knowingly declined." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter1.relief",
+      "playerText": { "label": "Relief effort" },
+      "derive": [
+        { "value": "safe", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safe" } } },
+        { "value": "safe-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "safeWithCost" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "handedOff" } } },
+        { "value": "failed-after-informed-action", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter1.relief-result", "equals": "failedInformed" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter1.authority",
+      "playerText": { "label": "Authority response" },
+      "derive": [
+        { "value": "joint", "priority": 110, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "jointDisposition" } } },
+        { "value": "lawful-starfleet", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "lawfulStarfleetDisposition" } } },
+        { "value": "contained-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "containedWithCost" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "handedOff" } } },
+        { "value": "knowingly-declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "knowinglyDeclined" } } },
+        { "value": "failed-after-informed-action", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter1.authority-result", "equals": "failedInformed" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter1.hardware",
+      "playerText": { "label": "Emergency hardware" },
+      "derive": [
+        { "value": "recovered-jointly", "priority": 110, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "recoveredJointly" } } },
+        { "value": "secured-by-authority", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "securedByAuthority" } } },
+        { "value": "recovered-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "recoveredWithCost" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "handedOff" } } },
+        { "value": "knowingly-declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "knowinglyDeclined" } } },
+        { "value": "lost-after-informed-action", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter1.hardware-result", "equals": "lostAfterInformedAction" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter1.cooperation",
+      "playerText": { "label": "Compact cooperation" },
+      "derive": [
+        { "value": "joint-record", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "jointRecord" } } },
+        { "value": "starfleet-record", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "starfleetRecord" } } },
+        { "value": "fragmented-record", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "fragmentedRecord" } } },
+        { "value": "knowingly-declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter1.incident-record", "equals": "knowinglyDeclined" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter1.relief", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter1.authority", "in": ["completed", "completedWithCost", "handedOff", "knowinglyDeclined", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter1.hardware", "in": ["completed", "completedWithCost", "handedOff", "knowinglyDeclined", "failedAfterInformedAction"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "limitedFailureForward",
+      "priority": 400,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter1.relief", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.authority", "in": ["knowinglyDeclined", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.chapter1.hardware", "in": ["knowinglyDeclined", "failedAfterInformedAction"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The convoy crisis closes with a serious consequence",
+        "summary": "The campaign continues with the informed failure or knowingly unresolved risk carried into the record."
+      }
+    },
+    {
+      "id": "containedWithSeriousCost",
+      "priority": 300,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter1.relief", "in": ["completedWithCost", "handedOff"] } },
+          { "objectiveDisposition": { "id": "objective.chapter1.authority", "in": ["completedWithCost", "handedOff"] } },
+          { "objectiveDisposition": { "id": "objective.chapter1.hardware", "in": ["completedWithCost", "handedOff"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The convoy crisis is contained with cost",
+        "summary": "The immediate crisis has a responsible disposition, with material costs or transferred obligations carried forward."
+      }
+    },
+    {
+      "id": "cooperativeSuccess",
+      "priority": 200,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter1.relief", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.authority", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.hardware", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.shared-record", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "A cooperative convoy resolution",
+        "summary": "Lives, evidence, and authority were protected through a credible shared record with local participation."
+      }
+    },
+    {
+      "id": "primarySuccess",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter1.relief", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.authority", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter1.hardware", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "The empty convoy answered",
+        "summary": "The people, conflicting authority, and missing hardware received responsible dispositions."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter1.false-colors",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-2-false-colors",
+        "playerSafeSetup": "At Asterion Station, a Compact patrol reports being attacked by a vessel identifying itself as the U.S.S. Breckenridge."
+      },
+      "mustNarrate": [
+        "Acknowledge the committed relief, authority, and hardware dispositions.",
+        "Carry forward the shared-record outcome only if it was actually established.",
+        "Introduce the Compact patrol report at Asterion Station."
+      ],
+      "mustNotReveal": [
+        "Do not identify the source, operator, or purpose of the impersonating vessel.",
+        "Do not imply Compact cooperation if no shared record was established.",
+        "Do not convert an unresolved Chapter 1 cost into a clean success."
+      ]
+    }
+  ]
+}
