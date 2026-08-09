@@ -19,9 +19,21 @@
       { "claimId": "claim.chapter3.site-contact", "policyId": "policy.chapter3.site-contact", "claimType": "eventOccurred", "targetId": "event.chapter3.site-contact-established", "sourceRole": "assistant" },
       { "claimId": "claim.chapter3.relay-character-disclosed", "policyId": "policy.chapter3.relay-character-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.relay-archive-character", "sourceRole": "assistant" }
     ],
+    "site-contact-event-only": [
+      { "claimId": "claim.chapter3.site-contact-only", "policyId": "policy.chapter3.site-contact", "claimType": "eventOccurred", "targetId": "event.chapter3.site-contact-established", "sourceRole": "assistant" }
+    ],
+    "relay-character-report-only": [
+      { "claimId": "claim.chapter3.relay-character-report-only", "policyId": "policy.chapter3.relay-character-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.relay-archive-character", "sourceRole": "assistant" }
+    ],
     "relay-evidence": [
       { "claimId": "claim.chapter3.relay-evidence", "policyId": "policy.chapter3.relay-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.relay-evidence-acquired", "sourceRole": "assistant" },
       { "claimId": "claim.chapter3.architecture-disclosed", "policyId": "policy.chapter3.architecture-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.network-architecture-picture", "sourceRole": "assistant" }
+    ],
+    "relay-evidence-event-only": [
+      { "claimId": "claim.chapter3.relay-evidence-only", "policyId": "policy.chapter3.relay-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.relay-evidence-acquired", "sourceRole": "assistant" }
+    ],
+    "architecture-report-only": [
+      { "claimId": "claim.chapter3.architecture-report-only", "policyId": "policy.chapter3.architecture-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.network-architecture-picture", "sourceRole": "assistant" }
     ],
     "direct-route": [
       { "claimId": "claim.chapter3.direct-access-evidence", "policyId": "policy.chapter3.direct-access-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.access-history-evidence-acquired", "sourceRole": "assistant" },
@@ -144,9 +156,9 @@
     },
     {
       "id": "lost-or-seized-after-discovery",
-      "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-lost", "archive-lost"],
+      "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-observe-choice", "relay-lost", "archive-lost"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "failedAfterInformedAction" },
         "outcomeDimensions": { "dimension.chapter3.relay": "lost-or-seized", "dimension.chapter3.archive": "lost-control" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -164,12 +176,33 @@
       }
     },
     {
+      "id": "loss-before-informed-choice",
+      "sequence": ["access-safe", "site-contact-event-only", "relay-lost", "archive-lost", "relay-character-report-only", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 7, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
+        "knownFactsExcludes": ["fact.chapter3.network-architecture-picture"],
+        "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "lost-or-seized", "dimension.chapter3.archive": "lost-control" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
       "id": "non-linear-custody-before-full-analysis",
       "sequence": ["access-safe", "site-contact", "relay-isolate-choice", "archive-restricted-choice", "relay-isolated", "archive-restricted", "relay-evidence", "direct-route"],
       "expected": {
         "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.archive": "protected-restricted" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "lead-before-full-analysis",
+      "sequence": ["access-safe", "site-contact", "relay-evidence-event-only", "direct-route", "architecture-report-only", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
+        "outcomeDimensions": { "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
       }
     },

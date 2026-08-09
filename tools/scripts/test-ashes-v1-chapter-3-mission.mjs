@@ -75,7 +75,9 @@ assert.deepEqual(scenarios.scenarios.map((scenario) => scenario.id), [
     'responsible-withdrawal',
     'lost-or-seized-after-discovery',
     'forced-off-partial-alternate',
+    'loss-before-informed-choice',
     'non-linear-custody-before-full-analysis',
+    'lead-before-full-analysis',
     'choice-alone-does-not-resolve',
     'site-contact-plan-only',
     'archive-policy-before-discovery',
@@ -145,12 +147,16 @@ function runScenario(scenario) {
         acceptedClaimCount += evidence.acceptedClaims.length;
         rejectedReasonCodes.push(...evidence.rejectedClaims.map((claim) => claim.reasonCode));
         if (evidence.acceptedClaims.length > 0) {
-            state = reduceMissionEvidence({
-                definition,
-                state,
-                acceptedClaims: evidence.acceptedClaims,
-                sourceContribution: { id: `contribution.${scenario.id}.${index + 1}` },
-            }).state;
+            try {
+                state = reduceMissionEvidence({
+                    definition,
+                    state,
+                    acceptedClaims: evidence.acceptedClaims,
+                    sourceContribution: { id: `contribution.${scenario.id}.${index + 1}` },
+                }).state;
+            } catch (error) {
+                throw new Error(`${scenario.id}:${step.claimId}: ${error.message}`, { cause: error });
+            }
         }
     }
     return { state, acceptedClaimCount, rejectedReasonCodes };
@@ -178,5 +184,66 @@ for (const scenario of scenarios.scenarios) {
     }
     assert.equal(actual.state.transitionReceipt?.target?.id || null, expected.transitionTargetId || null, `${scenario.id}:transition`);
 }
+
+const pairedBranchId = 'branch.paired-withdrawal';
+let pairedState = createMissionState({ definition, branchId: pairedBranchId });
+const pairedSource = {
+    messageId: 'source.paired-withdrawal.player',
+    branchId: pairedBranchId,
+    accepted: true,
+    selectedSwipeId: null,
+    textHash: createHash('sha256').update('paired-withdrawal').digest('hex'),
+    role: 'user',
+    acceptedAtRevision: pairedState.revision,
+};
+const pairedProposal = {
+    kind: 'directive.missionEvidenceProposal.v1',
+    branchId: pairedBranchId,
+    missionId: definition.id,
+    baseRevision: pairedState.revision,
+    providerConfidence: 0.99,
+    claims: [
+        {
+            claimId: 'claim.chapter3.paired-withdrawal-access',
+            policyId: 'policy.chapter3.withdraw-responsibly',
+            claimType: 'decisionRecorded',
+            targetId: 'outcome.chapter3.access-result',
+            value: 'withdrewResponsibly',
+            sourceRef: {
+                messageId: pairedSource.messageId,
+                swipeId: null,
+                textHash: pairedSource.textHash,
+            },
+        },
+        {
+            claimId: 'claim.chapter3.paired-withdrawal-relay',
+            policyId: 'policy.chapter3.withdraw-relay-decision',
+            claimType: 'decisionRecorded',
+            targetId: 'outcome.chapter3.relay-decision',
+            value: 'withdraw',
+            sourceRef: {
+                messageId: pairedSource.messageId,
+                swipeId: null,
+                textHash: pairedSource.textHash,
+            },
+        },
+    ],
+};
+const pairedEvidence = validateMissionEvidenceProposal({
+    definition,
+    state: pairedState,
+    proposal: pairedProposal,
+    resolveSourceRef: (ref) => ref?.messageId === pairedSource.messageId ? pairedSource : null,
+});
+assert.equal(pairedEvidence.acceptedClaims.length, 2, 'one explicit withdrawal message can record both coupled decisions');
+assert.deepEqual(pairedEvidence.rejectedClaims, []);
+pairedState = reduceMissionEvidence({
+    definition,
+    state: pairedState,
+    acceptedClaims: pairedEvidence.acceptedClaims,
+    sourceContribution: { id: 'contribution.paired-withdrawal' },
+}).state;
+assert.equal(pairedState.outcomes['outcome.chapter3.access-result'], 'withdrewResponsibly');
+assert.equal(pairedState.outcomes['outcome.chapter3.relay-decision'], 'withdraw');
 
 console.log('Ashes V1 Chapter 3 mission tests passed.');

@@ -219,8 +219,10 @@
       "sourceRoles": ["user"],
       "when": {
         "all": [
-          { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } },
-          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } }
+          { "factKnown": "fact.chapter3.hecate-route" },
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["pending", "withdrewResponsibly"] } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } }
         ]
       },
       "interpretation": {
@@ -367,8 +369,13 @@
           { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } },
           {
             "any": [
-              { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "withdraw" } },
-              { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } }
+              { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } },
+              {
+                "all": [
+                  { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "withdrewResponsibly" } },
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "withdraw" } }
+                ]
+              }
             ]
           }
         ]
@@ -469,13 +476,8 @@
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": {
         "all": [
-          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } },
-          {
-            "any": [
-              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "controlledObservationExposed" } },
-              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "lostOrSeized" } }
-            ]
-          }
+          { "eventOccurred": "event.chapter3.site-contact-established" },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } }
         ]
       },
       "interpretation": {
@@ -495,7 +497,13 @@
       "when": {
         "all": [
           { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } },
-          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } }
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } },
+              { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "destroyWithoutCopy" } },
+              { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["withdrewResponsibly", "forcedOff"] } }
+            ]
+          }
         ]
       },
       "interpretation": {
@@ -668,7 +676,17 @@
         },
         {
           "disposition": "completedWithCost",
-          "when": { "factKnown": "fact.chapter3.access-history-and-demeris-route" }
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter3.access-history-and-demeris-route" },
+              {
+                "any": [
+                  { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["withdrewResponsibly", "forcedOff"] } },
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } }
+                ]
+              }
+            ]
+          }
         }
       ],
       "supportedDispositions": ["completed", "completedWithCost"],
@@ -700,9 +718,22 @@
         {
           "disposition": "failedAfterInformedAction",
           "when": {
-            "any": [
-              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["controlledObservationExposed", "lostOrSeized"] } },
-              { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } }
+            "all": [
+              { "factKnown": "fact.chapter3.relay-archive-character" },
+              { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } } },
+              {
+                "any": [
+                  { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } } },
+                  { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "pending" } } }
+                ]
+              },
+              {
+                "any": [
+                  { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["controlledObservationExposed", "lostOrSeized"] } },
+                  { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } }
+                ]
+              }
             ]
           }
         },
@@ -719,6 +750,31 @@
           "disposition": "completedWithCost",
           "when": {
             "any": [
+              {
+                "all": [
+                  { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "pending" } } },
+                  { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "pending" } } },
+                  {
+                    "any": [
+                      { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["controlledObservationExposed", "lostOrSeized"] } },
+                      { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } }
+                    ]
+                  },
+                  {
+                    "not": {
+                      "all": [
+                        { "factKnown": "fact.chapter3.relay-archive-character" },
+                        {
+                          "any": [
+                            { "not": { "outcomeIs": { "id": "outcome.chapter3.relay-decision", "equals": "pending" } } },
+                            { "not": { "outcomeIs": { "id": "outcome.chapter3.archive-decision", "equals": "pending" } } }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
               {
                 "all": [
                   { "outcomeIs": { "id": "outcome.chapter3.relay-result", "equals": "preservedIsolated" } },
@@ -848,7 +904,9 @@
       "when": {
         "any": [
           { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "forcedOff" } },
-          { "objectiveDisposition": { "id": "objective.chapter3.custody", "equals": "failedAfterInformedAction" } }
+          { "objectiveDisposition": { "id": "objective.chapter3.custody", "equals": "failedAfterInformedAction" } },
+          { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["controlledObservationExposed", "lostOrSeized"] } },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "lostControl" } }
         ]
       },
       "playerText": {

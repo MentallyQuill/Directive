@@ -129,7 +129,9 @@ for (const scenarioId of [
     'responsible-withdrawal',
     'lost-or-seized-after-discovery',
     'forced-off-partial-alternate',
+    'loss-before-informed-choice',
     'non-linear-custody-before-full-analysis',
+    'lead-before-full-analysis',
 ]) {
     if (!scenarioById.has(scenarioId)) errors.push(`missing required resilience scenario: ${scenarioId}`);
 }
@@ -145,6 +147,11 @@ const withdrawal = scenarioById.get('responsible-withdrawal');
 if (withdrawal?.expected?.objectiveDispositions?.['objective.chapter3.evidence'] !== 'completedWithCost'
     || withdrawal?.expected?.knownFactsExcludes?.includes('fact.chapter3.relay-archive-character') !== true) {
     errors.push('responsible withdrawal does not preserve a partial route without inventing undiscovered facts');
+}
+const lossBeforeChoice = scenarioById.get('loss-before-informed-choice');
+if (lossBeforeChoice?.sequence?.some((fragmentId) => fragmentId.endsWith('-choice'))
+    || lossBeforeChoice?.expected?.objectiveDispositions?.['objective.chapter3.custody'] !== 'completedWithCost') {
+    errors.push('loss before an informed player choice is incorrectly treated as player failure');
 }
 
 const playerSafeAuthoritySurfaces = [
