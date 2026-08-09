@@ -63,7 +63,10 @@ function snapshotFor({
     sourceRangeHash = 'range.001',
     assistantIntegrity = 'clean',
     playerIntegrity = 'clean',
+    pairNumber = 10,
 } = {}) {
+    const assistantHash = (pairNumber % 15 + 1).toString(16).repeat(64);
+    const playerHash = ((pairNumber + 1) % 15 + 1).toString(16).repeat(64);
     return {
         kind: 'directive.latestPairSceneSnapshot.v1',
         envelope: {
@@ -77,22 +80,22 @@ function snapshotFor({
         source: {
             sourceRangeHash,
             previousAssistant: {
-                hostMessageId: 'message.assistant.10',
+                hostMessageId: `message.assistant.${pairNumber}`,
                 role: 'assistant',
                 text: 'Captain Whitaker completes the command handover and places the watch in your hands.',
-                textHash: 'a'.repeat(64),
+                textHash: assistantHash,
                 sourceIntegrity: assistantIntegrity,
                 selectedVariant: {
-                    selectedSwipeId: 'swipe.2',
+                    selectedSwipeId: `swipe.${pairNumber}`,
                     selectedSwipeIndex: 2,
-                    textHash: 'a'.repeat(64),
+                    textHash: assistantHash,
                 },
             },
             currentPlayer: {
-                hostMessageId: 'message.player.11',
+                hostMessageId: `message.player.${pairNumber + 1}`,
                 role: 'user',
                 text: 'I accept the watch and proceed.',
-                textHash: 'b'.repeat(64),
+                textHash: playerHash,
                 sourceIntegrity: playerIntegrity,
             },
         },
@@ -114,6 +117,7 @@ function createHarness({
     assets = runtimeAssetsFor([definition]),
     outputs = [],
     generation = null,
+    checkpointEveryContributions = 8,
 } = {}) {
     let campaignState = structuredClone(state);
     let persistCount = 0;
@@ -137,6 +141,7 @@ function createHarness({
         generationRouter,
         now: () => '2026-08-09T14:00:00.000Z',
         timeoutMs: 200,
+        checkpointEveryContributions,
     });
     return {
         assets,
@@ -241,13 +246,26 @@ assert.deepEqual(settlement.committedRoots, ['mission', 'storySettlement']);
 assert.equal(settlementHarness.persistCount, 1);
 assert.equal(settlementHarness.campaignState.mission.v1.events.includes('event.prelude.command-handover-completed'), true);
 assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].messageId, 'message.assistant.10');
-assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].swipeId, 'swipe.2');
+assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].swipeId, 'swipe.10');
 assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].role, 'assistant');
+assert.deepEqual(
+    settlementHarness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.role),
+    ['assistant', 'user'],
+);
+assert.deepEqual(
+    settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.role),
+    ['assistant', 'user'],
+);
+assert.equal(settlement.reviewToken, null);
 assert.deepEqual(settlementHarness.campaignState.mission.openAssignments, legacyBefore.mission.openAssignments);
 for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
     assert.deepEqual(settlementHarness.campaignState[root], legacyBefore[root], `${root} remains legacy-authoritative in shadow mode`);
 }
-assert.equal(JSON.stringify(settlementHarness.campaignState).includes('Captain Whitaker completes'), false, 'raw prose is not retained');
+assert.equal(
+    settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence[0].excerpt,
+    'Captain Whitaker completes the command handover and places the watch in your hands.',
+    'only a capped active-episode excerpt is retained',
+);
 
 const invalidBoundaryHarness = createHarness({
     outputs: [interpretationOutput({ claims: [] })],
@@ -283,6 +301,54 @@ const explicitlySealed = await explicitBoundaryHarness.runtime.settleAcceptedPai
 assert.equal(explicitlySealed.ok, true);
 assert.equal(explicitBoundaryHarness.campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.deepEqual(explicitBoundaryHarness.campaignState.storySettlement.episodes[0].hardBoundary, explicitHardBoundary);
+assert.equal(explicitlySealed.reviewToken, null);
+
+const continuationHarness = createHarness({
+    checkpointEveryContributions: 4,
+    outputs: [
+        interpretationOutput({ claims: [{
+            candidateId: 'policy.prelude.command-handover-completed',
+            sourceSlot: 'previousAssistant',
+        }] }),
+        interpretationOutput({ claims: [] }),
+    ],
+});
+const continuationFirst = await continuationHarness.runtime.settleAcceptedPair({
+    runtimeAssets: continuationHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.continuation-1', pairNumber: 20 }),
+});
+assert.equal(continuationFirst.reviewToken, null);
+const missionRevisionBeforeContinuation = continuationHarness.campaignState.mission.v1.revision;
+const continuation = await continuationHarness.runtime.settleAcceptedPair({
+    runtimeAssets: continuationHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.continuation-2', pairNumber: 30 }),
+});
+assert.equal(continuation.status, 'settled-no-effect');
+assert.equal(continuationHarness.campaignState.mission.v1.revision, missionRevisionBeforeContinuation);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes.length, 1);
+assert.equal(continuationHarness.campaignState.storySettlement.receipts.length, 0);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].contributions.length, 4);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].effects.length, 1);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.length, 4);
+assert.deepEqual(continuation.reviewToken, {
+    kind: 'directive.episodeReviewToken.v1',
+    branchId: 'save.alpha',
+    episodeId: continuationHarness.campaignState.storySettlement.activeEpisode,
+    episodeRevision: continuationHarness.campaignState.storySettlement.revision,
+    checkpointSequence: 1,
+});
+assert.equal(continuationHarness.campaignState.ship.technicalDebt.length, 1);
+assert.equal(continuationHarness.campaignState.relationships.people.length, 1);
+assert.equal(continuationHarness.campaignState.quests.length, 1);
+assert.equal(continuationHarness.campaignState.commandLog.entries.length, 1);
+const replayedContinuation = await continuationHarness.runtime.settleAcceptedPair({
+    runtimeAssets: continuationHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.continuation-2', pairNumber: 30 }),
+});
+assert.equal(replayedContinuation.status, 'already-settled');
+assert.deepEqual(replayedContinuation.reviewToken, continuation.reviewToken);
+assert.equal(continuationHarness.persistCount, 2);
+assert.equal(continuationHarness.generationCount, 2);
 
 const revisionAfterFirstSettlement = settlementHarness.gateway.revision();
 const replay = await settlementHarness.runtime.settleAcceptedPair({
@@ -324,6 +390,10 @@ assert.deepEqual(
     correctionHarness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.role),
     ['user'],
     'corrected assistant prose cannot become source custody',
+);
+assert.deepEqual(
+    correctionHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.role),
+    ['user'],
 );
 
 const abstentionHarness = createHarness({

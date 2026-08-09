@@ -156,7 +156,7 @@ await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(2) 
 assert.equal(harness.campaignState.mission.v1.events.includes('event.prelude.command-handover-completed'), true);
 assert.equal(harness.campaignState.mission.v1.events.includes('event.prelude.staff-readiness-established'), true);
 assert.equal(harness.campaignState.storySettlement.episodes.length, 1);
-assert.equal(harness.campaignState.storySettlement.episodes[0].contributions.length, 2);
+assert.equal(harness.campaignState.storySettlement.episodes[0].contributions.length, 4);
 assert.equal(harness.generationCount, 2);
 
 const firstInvalidation = await harness.runtime.invalidateSourceMutation({
@@ -168,6 +168,13 @@ assert.equal(firstInvalidation.ok, true);
 assert.equal(firstInvalidation.status, 'invalidated');
 assert.equal(firstInvalidation.invalidatedContributionCount, 1);
 assert.deepEqual(firstInvalidation.committedRoots, ['mission', 'storySettlement']);
+assert.deepEqual(firstInvalidation.reviewToken, {
+    kind: 'directive.episodeReviewToken.v1',
+    branchId: 'save.alpha',
+    episodeId: harness.campaignState.storySettlement.activeEpisode,
+    episodeRevision: harness.campaignState.storySettlement.revision,
+    checkpointSequence: 1,
+});
 assert.equal(harness.campaignState.mission.v1.events.includes('event.prelude.command-handover-completed'), false);
 assert.equal(harness.campaignState.mission.v1.events.includes('event.prelude.staff-readiness-established'), true);
 assert.equal(harness.campaignState.storySettlement.episodes[0].status, 'open');
@@ -177,7 +184,12 @@ assert.deepEqual(
 );
 assert.deepEqual(
     harness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.messageId),
-    ['message.assistant.2'],
+    ['message.player.1', 'message.assistant.2', 'message.player.2'],
+);
+assert.deepEqual(
+    harness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.contributionId),
+    harness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.id),
+    'source repair removes only the invalidated excerpt and retains independent accepted evidence',
 );
 assert.equal(harness.generationCount, 2, 'reconstruction never reinterprets transcript prose');
 for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
@@ -246,7 +258,14 @@ const secondInvalidation = await restartedHarness.runtime.invalidateSourceMutati
 });
 assert.equal(secondInvalidation.status, 'invalidated');
 assert.equal(restartedHarness.campaignState.mission.v1.events.includes('event.prelude.staff-readiness-established'), false);
-assert.equal(restartedHarness.campaignState.storySettlement.episodes.length, 0);
+assert.equal(restartedHarness.campaignState.storySettlement.episodes.length, 1);
+assert.equal(restartedHarness.campaignState.storySettlement.episodes[0].status, 'open');
+assert.equal(restartedHarness.campaignState.storySettlement.episodes[0].effects.length, 0);
+assert.deepEqual(
+    restartedHarness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.role),
+    ['user', 'user'],
+    'accepted player context survives removal of the mission-effect sources',
+);
 assert.equal(
     restartedHarness.campaignState.storySettlement.receipts
         .filter((receipt) => receipt.disposition === 'invalidated').length,
@@ -308,6 +327,7 @@ const mixedPairHarness = createHarness({
     outputs: [
         mixedPairInterpretation,
         output('policy.hesperus.rescue-risk-decision', 'currentPlayer', 'saferPlan'),
+        output('policy.hesperus.rescue-risk-decision', 'currentPlayer', 'saferPlan'),
     ],
 });
 await mixedPairHarness.runtime.settleAcceptedPair({ runtimeAssets: mixedPairRuntimeAssets, snapshot: snapshot(9) });
@@ -336,6 +356,23 @@ assert.match(
         ?.sourceContributionId,
     /\.r1$/,
 );
+const mixedEditedInvalidation = await mixedPairHarness.runtime.invalidateSourceMutation({
+    runtimeAssets: mixedPairRuntimeAssets,
+    hostMessageId: 'message.player.9',
+    eventType: 'playerMessageEdited',
+});
+assert.equal(mixedEditedInvalidation.status, 'invalidated');
+const editedMixedSnapshot = snapshot(9);
+editedMixedSnapshot.source.sourceRangeHash = 'range.9.edited-player';
+editedMixedSnapshot.source.currentPlayer.text = 'Player source 9, edited after review.';
+editedMixedSnapshot.source.currentPlayer.textHash = 'e'.repeat(64);
+const editedMixedRestoration = await mixedPairHarness.runtime.settleAcceptedPair({
+    runtimeAssets: mixedPairRuntimeAssets,
+    snapshot: editedMixedSnapshot,
+});
+assert.equal(editedMixedRestoration.status, 'settled');
+assert.equal(mixedPairHarness.campaignState.mission.v1.outcomes['outcome.hesperus.rescue-risk-decision'], 'saferPlan');
+assert.equal(mixedPairHarness.generationCount, 3, 'an edited player source is not hidden by the already-settled assistant half of the pair');
 
 const insignificantHarness = createHarness({
     outputs: [JSON.stringify({

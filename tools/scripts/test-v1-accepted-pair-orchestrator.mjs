@@ -171,6 +171,13 @@ const shadow = await runV1MissionShadowSettlement({
             committedRoots: ['mission', 'storySettlement'],
             noChange: false,
             transitionCommitted: false,
+            reviewToken: {
+                kind: 'directive.episodeReviewToken.v1',
+                branchId: 'save.alpha',
+                episodeId: 'episode.active',
+                episodeRevision: 7,
+                checkpointSequence: 1,
+            },
             diagnostics: {
                 candidateCount: 21,
                 selectedClaimCount: 1,
@@ -187,6 +194,13 @@ assert.equal(shadowCalls, 1);
 assert.equal(shadow.result.ok, true);
 assert.equal(shadow.result.definitionId, 'mission.prelude-a-ship-underway');
 assert.deepEqual(shadow.result.committedRoots, ['mission', 'storySettlement']);
+assert.deepEqual(shadow.result.reviewToken, {
+    kind: 'directive.episodeReviewToken.v1',
+    branchId: 'save.alpha',
+    episodeId: 'episode.active',
+    episodeRevision: 7,
+    checkpointSequence: 1,
+});
 assert.deepEqual(shadow.result.diagnostics, {
     candidateCount: 21,
     selectedClaimCount: 1,

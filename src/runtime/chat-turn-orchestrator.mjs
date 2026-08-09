@@ -267,6 +267,31 @@ function safeShadowCode(value, fallback = null) {
   return /^[a-z0-9][a-z0-9._:-]*$/i.test(text) ? text : fallback;
 }
 
+function sanitizedEpisodeReviewToken(value = null) {
+  if (value?.kind !== 'directive.episodeReviewToken.v1') return null;
+  const exactId = (candidate) => {
+    const text = String(candidate || '').trim();
+    return text.length > 0 && text.length <= 300 && /^[a-z0-9][a-z0-9._:-]*$/.test(text) ? text : null;
+  };
+  const branchId = exactId(value.branchId);
+  const episodeId = exactId(value.episodeId);
+  if (!branchId
+    || !episodeId
+    || !Number.isInteger(value.episodeRevision)
+    || value.episodeRevision < 0
+    || !Number.isInteger(value.checkpointSequence)
+    || value.checkpointSequence < 1) {
+    return null;
+  }
+  return {
+    kind: 'directive.episodeReviewToken.v1',
+    branchId,
+    episodeId,
+    episodeRevision: value.episodeRevision,
+    checkpointSequence: value.checkpointSequence
+  };
+}
+
 function sanitizedV1ShadowResult(result = {}) {
   const diagnostics = result?.diagnostics || {};
   const count = (value) => Number.isInteger(value) && value >= 0 ? value : 0;
@@ -281,6 +306,7 @@ function sanitizedV1ShadowResult(result = {}) {
       .filter((root) => ['mission', 'storySettlement'].includes(root)))],
     noChange: result?.noChange === true,
     transitionCommitted: result?.transitionCommitted === true,
+    reviewToken: sanitizedEpisodeReviewToken(result?.reviewToken),
     diagnostics: {
       candidateCount: count(diagnostics.candidateCount),
       selectedClaimCount: count(diagnostics.selectedClaimCount),
@@ -305,6 +331,7 @@ function skippedV1ShadowResult(reasonCode, reasons = []) {
     committedRoots: [],
     noChange: true,
     transitionCommitted: false,
+    reviewToken: null,
     reasons: (Array.isArray(reasons) ? reasons : [reasons])
       .map((reason) => safeShadowCode(reason, null))
       .filter(Boolean)

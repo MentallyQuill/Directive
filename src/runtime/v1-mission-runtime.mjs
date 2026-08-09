@@ -1,11 +1,13 @@
 import { createMissionAcceptedPairInterpreter } from '../mission/v1/accepted-pair-interpreter.mjs';
 import { createMissionInterpretationCandidatePacket } from '../mission/v1/interpretation-candidates.mjs';
 import { validateMissionDefinition } from '../mission/v1/mission-contracts.mjs';
-import { createV1StateSpine, resolveV1MissionState } from './v1-state-spine.mjs';
+import {
+    createPendingEpisodeReviewToken,
+    createV1StateSpine,
+    resolveV1MissionState,
+} from './v1-state-spine.mjs';
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
-
-const SETTLED_SOURCE_SCAN_LIMIT = 256;
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -187,7 +189,12 @@ function activeContributionId(campaignState, branchId, source) {
 
 function contributionLineageWasInvalidated(campaignState, branchId, source) {
     const baseId = baseContributionId(branchId, source);
-    return (campaignState?.mission?.v1?.invalidatedSourceContributionIds || []).some(
+    const messageId = compact(source?.messageId);
+    const messageWasInvalidated = messageId && (campaignState?.storySettlement?.receipts || []).some((receipt) => (
+        receipt.disposition === 'invalidated'
+        && (receipt.sourceMessageIds || []).some((candidate) => compact(candidate) === messageId)
+    ));
+    return Boolean(messageWasInvalidated) || (campaignState?.mission?.v1?.invalidatedSourceContributionIds || []).some(
         (id) => id === baseId || id.startsWith(`${baseId}.r`),
     );
 }
@@ -242,7 +249,7 @@ function settledContributionIds(campaignState = {}) {
             if (id) ids.push(id);
         }
     }
-    return new Set(ids.slice(-SETTLED_SOURCE_SCAN_LIMIT));
+    return new Set(ids);
 }
 
 function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
@@ -332,6 +339,7 @@ export function createV1MissionRuntime({
     interpretAcceptedPair = null,
     now = () => new Date().toISOString(),
     timeoutMs = 10000,
+    checkpointEveryContributions = 8,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.revision !== 'function'
@@ -418,7 +426,7 @@ export function createV1MissionRuntime({
         const restoredSources = currentSources.filter((source) => source.lineageInvalidated);
         const pairAlreadySettled = restoredSources.length > 0
             ? restoredSources.every((source) => alreadySettled.has(source.id))
-            : currentSources.some((source) => alreadySettled.has(source.id));
+            : alreadySettled.has(playerSource.contributionId);
         if (pairAlreadySettled) {
             return {
                 ok: true,
@@ -430,6 +438,7 @@ export function createV1MissionRuntime({
                 committedRoots: [],
                 noChange: true,
                 transitionCommitted: false,
+                reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement),
                 diagnostics: {},
             };
         }
@@ -470,12 +479,27 @@ export function createV1MissionRuntime({
                 playerContributionId,
             ),
         ];
+        const sourceObservations = [
+            ...(assistantAccepted ? [{
+                contributionId: assistantContributionId,
+                role: 'assistant',
+                textHash: sourcePair.previousAssistant.textHash,
+                text: sourcePair.previousAssistant.text,
+            }] : []),
+            {
+                contributionId: playerContributionId,
+                role: 'user',
+                textHash: sourcePair.currentPlayer.textHash,
+                text: sourcePair.currentPlayer.text,
+            },
+        ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
             getState,
             stateDeltaGateway,
             resolveSourceRef,
             now,
+            checkpointEveryContributions,
         });
         const sourceRangeHash = compact(snapshot.source.sourceRangeHash);
         const sceneHash = stableHash([
@@ -489,6 +513,7 @@ export function createV1MissionRuntime({
                 definition,
                 proposal: interpreted.proposal,
                 sourceContributions: contributions,
+                sourceObservations,
                 gatewayBaseRevision,
                 scene: {
                     episodeId: `episode.v1.${sceneHash}`,
@@ -513,6 +538,7 @@ export function createV1MissionRuntime({
                 committedRoots,
                 noChange: settled.noChange,
                 transitionCommitted: Boolean(settled.missionResult?.transitionPacket),
+                reviewToken: settled.reviewToken || null,
                 diagnostics: {
                     candidateCount: candidatePacket.candidates.length,
                     selectedClaimCount: interpreted.diagnostics?.selectedClaimCount ?? interpreted.proposal?.claims?.length ?? 0,
@@ -563,6 +589,7 @@ export function createV1MissionRuntime({
                 invalidatedContributionCount: 0,
                 committedRoots: [],
                 noChange: true,
+                reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement),
                 diagnostics: {},
             };
         }
@@ -592,6 +619,7 @@ export function createV1MissionRuntime({
                 invalidatedContributionCount: invalidated.invalidatedContributionIds?.length || 0,
                 committedRoots: invalidated.noChange ? [] : ['mission', 'storySettlement'],
                 noChange: invalidated.noChange === true,
+                reviewToken: invalidated.reviewToken || null,
                 diagnostics: {},
             };
         } catch (error) {
@@ -607,6 +635,7 @@ export function createV1MissionRuntime({
         settleAcceptedPair,
         invalidateSourceMutation,
         buildPlayerProjection,
+        pendingEpisodeReview: () => createPendingEpisodeReviewToken(getState()?.storySettlement),
     };
 }
 
@@ -617,6 +646,7 @@ export async function settleV1MissionAcceptedPair({
     interpretAcceptedPair,
     now,
     timeoutMs,
+    checkpointEveryContributions,
     runtimeAssets,
     snapshot,
     hardBoundary,
@@ -628,5 +658,6 @@ export async function settleV1MissionAcceptedPair({
         interpretAcceptedPair,
         now,
         timeoutMs,
+        checkpointEveryContributions,
     }).settleAcceptedPair({ runtimeAssets, snapshot, hardBoundary });
 }

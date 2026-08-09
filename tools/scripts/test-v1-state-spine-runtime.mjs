@@ -5,7 +5,10 @@ import {
     createStateDeltaGateway,
     DIRECTIVE_MUTABLE_STATE_DOMAINS,
 } from '../../src/runtime/state-delta-gateway.mjs';
-import { createV1StateSpine } from '../../src/runtime/v1-state-spine.mjs';
+import {
+    createPendingEpisodeReviewToken,
+    createV1StateSpine,
+} from '../../src/runtime/v1-state-spine.mjs';
 import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
 
 assert.equal(DIRECTIVE_MUTABLE_STATE_DOMAINS.includes('storySettlement'), true);
@@ -75,6 +78,12 @@ const settled = await spine.settleAcceptedPair({
     definition,
     proposal,
     sourceContribution,
+    sourceObservations: [{
+        contributionId: sourceContribution.id,
+        role: sourceContribution.role,
+        textHash: sourceContribution.textHash,
+        text: 'The Hesperus survivors reached safety.',
+    }],
     gatewayBaseRevision: 0,
     scene: {
         episodeId: 'episode.hesperus-rescue',
@@ -88,6 +97,7 @@ const settled = await spine.settleAcceptedPair({
 assert.equal(persistCount, 1);
 assert.equal(gateway.revision(), 1);
 assert.equal(settled.evidence.acceptedClaims.length, 1);
+assert.equal(settled.reviewToken, null, 'mission-transition hard boundaries do not queue soft review');
 assert.equal(campaignState.storySettlement.episodes.length, 1);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(campaignState.mission.v1.status, 'terminal');
@@ -288,7 +298,13 @@ async function settleAccumulationEvent(number, { hardBoundary = null } = {}) {
         definition: accumulationDefinition,
         proposal: eventProposal,
         sourceContributions: [contribution],
-        gatewayBaseRevision: number - 1,
+        sourceObservations: [{
+            contributionId: contribution.id,
+            role: contribution.role,
+            textHash: contribution.textHash,
+            text: `Milestone ${number} was accepted in the active encounter.`,
+        }],
+        gatewayBaseRevision: accumulationGateway.revision(),
         scene: {
             episodeId: 'episode.accumulated-scene',
             sceneId: 'scene.accumulated-scene',
@@ -304,6 +320,32 @@ const firstAccumulation = await settleAccumulationEvent(1);
 assert.equal(accumulationPersistCount, 1);
 assert.equal(accumulationState.storySettlement.episodes.length, 1);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'open');
+assert.equal(firstAccumulation.result.reviewToken, null);
+
+await assert.rejects(
+    () => accumulationSpine.settleAcceptedPair({
+        definition: accumulationDefinition,
+        proposal: {
+            kind: 'directive.missionEvidenceProposal.v1',
+            branchId: 'save.accumulation',
+            missionId: accumulationDefinition.id,
+            baseRevision: 1,
+            claims: [],
+        },
+        sourceContributions: [{
+            id: 'contribution.missing-observation',
+            messageId: 'message.missing-observation',
+            swipeId: null,
+            role: 'user',
+            textHash: 'e'.repeat(64),
+            acceptedAtRevision: 1,
+        }],
+        gatewayBaseRevision: accumulationGateway.revision(),
+        scene: { episodeId: 'episode.ignored', sceneId: 'scene.ignored' },
+    }),
+    /require source observations/,
+);
+assert.equal(accumulationPersistCount, 1, 'missing excerpts fail before state mutation');
 
 const insignificantDuringActive = await accumulationSpine.settleAcceptedPair({
     definition: accumulationDefinition,
@@ -322,27 +364,48 @@ const insignificantDuringActive = await accumulationSpine.settleAcceptedPair({
         textHash: 'f'.repeat(64),
         acceptedAtRevision: 1,
     }],
+    sourceObservations: [{
+        contributionId: 'contribution.accumulation-small-talk',
+        role: 'user',
+        textHash: 'f'.repeat(64),
+        text: 'A routine acknowledgement continues the same encounter.',
+    }],
     gatewayBaseRevision: 1,
     scene: { episodeId: 'episode.ignored', sceneId: 'scene.ignored' },
 });
-assert.equal(insignificantDuringActive.noChange, true);
-assert.equal(accumulationPersistCount, 1);
+assert.equal(insignificantDuringActive.noChange, false);
+assert.equal(accumulationPersistCount, 2);
 assert.equal(accumulationState.storySettlement.receipts.length, 0);
+assert.equal(accumulationState.storySettlement.episodes.length, 1);
+assert.deepEqual(
+    accumulationState.storySettlement.episodes[0].contributions.map((item) => item.id),
+    ['contribution.accumulation-1', 'contribution.accumulation-small-talk'],
+);
+assert.equal(accumulationState.storySettlement.episodes[0].workingCapsule.recentEvidence.at(-1).contributionId, 'contribution.accumulation-small-talk');
+assert.deepEqual(insignificantDuringActive.reviewToken, {
+    kind: 'directive.episodeReviewToken.v1',
+    branchId: 'save.accumulation',
+    episodeId: 'episode.accumulated-scene',
+    episodeRevision: accumulationState.storySettlement.revision,
+    checkpointSequence: 1,
+});
+assert.deepEqual(createPendingEpisodeReviewToken(accumulationState.storySettlement), insignificantDuringActive.reviewToken);
 
 for (let number = 2; number <= 5; number += 1) await settleAccumulationEvent(number);
-assert.equal(accumulationPersistCount, 5);
+assert.equal(accumulationPersistCount, 6);
 assert.equal(accumulationState.storySettlement.episodes.length, 1);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'open');
-assert.equal(accumulationState.storySettlement.episodes[0].contributions.length, 5);
+assert.equal(accumulationState.storySettlement.episodes[0].contributions.length, 6);
 assert.equal(accumulationState.storySettlement.episodes[0].effects.length, 5);
-assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.checkpointSequence, 2);
-assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.contributionCountAtLastReview, 4);
+assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.checkpointSequence, 3);
+assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.contributionCountAtLastReview, 6);
 assert.equal(JSON.stringify(accumulationState.storySettlement).includes('Untrusted caller summary'), false);
 
 const sixthAccumulation = await settleAccumulationEvent(6, {
     hardBoundary: accumulationBoundary(6),
 });
-assert.equal(accumulationPersistCount, 6);
+assert.equal(accumulationPersistCount, 7);
+assert.equal(sixthAccumulation.result.reviewToken, null);
 assert.equal(accumulationState.storySettlement.episodes.length, 1);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(accumulationState.storySettlement.episodes[0].boundaryReason, 'authored-scene-closure');
@@ -359,34 +422,40 @@ const replay = await accumulationSpine.settleAcceptedPair({
     definition: accumulationDefinition,
     proposal: replayProposal,
     sourceContributions: [sixthAccumulation.contribution],
-    gatewayBaseRevision: 6,
+    sourceObservations: [{
+        contributionId: sixthAccumulation.contribution.id,
+        role: sixthAccumulation.contribution.role,
+        textHash: sixthAccumulation.contribution.textHash,
+        text: 'Milestone 6 was accepted in the active encounter.',
+    }],
+    gatewayBaseRevision: accumulationGateway.revision(),
     scene: { episodeId: 'episode.accumulated-scene', sceneId: 'scene.accumulated-scene' },
     hardBoundary: accumulationBoundary(6),
 });
 assert.equal(replay.noChange, true);
-assert.equal(accumulationPersistCount, 6);
+assert.equal(accumulationPersistCount, 7);
 
 await assert.rejects(
     () => accumulationSpine.settleAcceptedPair({
         definition: accumulationDefinition,
         proposal: { ...sixthAccumulation.eventProposal, baseRevision: 6 },
         sourceContributions: [sixthAccumulation.contribution],
-        gatewayBaseRevision: 6,
+        gatewayBaseRevision: accumulationGateway.revision(),
         scene: { episodeId: 'episode.invalid-boundary', sceneId: 'scene.invalid-boundary' },
         hardBoundary: { reason: 'topic changed' },
     }),
     (error) => error.code === 'DIRECTIVE_EPISODE_HARD_BOUNDARY_INVALID',
 );
-assert.equal(accumulationPersistCount, 6);
+assert.equal(accumulationPersistCount, 7);
 
 await accumulationSpine.invalidateSources({
     definition: accumulationDefinition,
     branchId: 'save.accumulation',
     contributionIds: ['contribution.accumulation-2'],
-    gatewayBaseRevision: 6,
+    gatewayBaseRevision: accumulationGateway.revision(),
     reason: 'selected-swipe-changed',
 });
-assert.equal(accumulationPersistCount, 7);
+assert.equal(accumulationPersistCount, 8);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'invalidated');
 assert.equal(accumulationState.storySettlement.episodes.length, 2);
 assert.equal(accumulationState.storySettlement.episodes[1].status, 'sealed');

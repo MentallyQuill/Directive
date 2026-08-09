@@ -442,12 +442,25 @@ export function invalidateStorySources(settlement, {
             if (episode.contributions.length === 0 && episode.effects.length === 0) {
                 activeEpisodeIdsToRemove.add(episode.id);
                 next.activeEpisode = null;
-            } else if (episode.workingCapsule) {
+            } else {
+                ensureWorkingCapsule(episode, next.revision);
                 episode.workingCapsule = repairStoryWorkingCapsule(episode.workingCapsule, {
                     episode,
                     invalidatedContributionIds: pending,
                     updatedAtRevision: next.revision,
                 });
+                const boundaryState = episode.boundaryState || createInitialEpisodeBoundaryState({
+                    openedAtRevision: episode.openedAtRevision,
+                });
+                episode.boundaryState = {
+                    ...boundaryState,
+                    checkpointSequence: boundaryState.checkpointSequence + 1,
+                    lastReviewedAtRevision: next.revision,
+                    contributionCountAtLastReview: episode.contributions.length,
+                    effectCountAtLastReview: episode.effects.length,
+                    decision: 'continue',
+                    sourceContributionIds: episode.workingCapsule.recentEvidence.map((item) => item.contributionId),
+                };
             }
         } else {
             const replacement = replacementForEpisode(next, episode, invalidated, summarizeEffects);

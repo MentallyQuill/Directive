@@ -3,12 +3,16 @@ import { createHash } from 'node:crypto';
 import { validateMissionEvidenceProposal } from '../mission/v1/evidence-contracts.mjs';
 import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
-import { createEmptyStorySettlement } from '../story/story-settlement-contracts.mjs';
+import {
+    createEmptyStorySettlement,
+    validateStorySettlement,
+} from '../story/story-settlement-contracts.mjs';
 import {
     acceptStoryContributions,
     appendStoryEffects,
     checkpointStoryEpisode,
     invalidateStorySources,
+    observeStoryWorkingEvidence,
     openStoryEpisode,
     sealStoryEpisode,
     settleInsignificantScene,
@@ -19,6 +23,7 @@ import {
 } from '../story/episode-boundary.mjs';
 
 const MAX_SHADOW_DIAGNOSTICS = 20;
+export const EPISODE_REVIEW_TOKEN_KIND = 'directive.episodeReviewToken.v1';
 
 function stableHash(value = '') {
     return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
@@ -30,6 +35,27 @@ function jsonEqual(left, right) {
 
 function activeStoryEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
+}
+
+export function createPendingEpisodeReviewToken(settlement = {}) {
+    const validation = validateStorySettlement(settlement);
+    if (!validation.ok) return null;
+    const episode = activeStoryEpisode(settlement);
+    const checkpointSequence = episode?.boundaryState?.checkpointSequence;
+    const lastEvaluated = episode?.workingCapsule?.lastEvaluatedCheckpointSequence;
+    if (!episode?.workingCapsule
+        || !Number.isInteger(checkpointSequence)
+        || !Number.isInteger(lastEvaluated)
+        || checkpointSequence <= lastEvaluated) {
+        return null;
+    }
+    return {
+        kind: EPISODE_REVIEW_TOKEN_KIND,
+        branchId: settlement.branchId,
+        episodeId: episode.id,
+        episodeRevision: settlement.revision,
+        checkpointSequence,
+    };
 }
 
 function deterministicEpisodeSummary(definition, settlement, transitionPacket = null) {
@@ -83,6 +109,26 @@ function normalizedSourceContributions({ acceptedClaims = [], sourceContribution
         referenced: referencedIds.map((id) => structuredClone(byId.get(id))),
         supplied: [...byId.values()].map((item) => structuredClone(item)),
     };
+}
+
+function normalizedSourceObservations(sourceObservations = [], suppliedContributions = []) {
+    if (!Array.isArray(sourceObservations)) throw new TypeError('sourceObservations must be an array');
+    const suppliedIds = new Set(suppliedContributions.map((item) => item.id));
+    const byId = new Map();
+    for (const observation of sourceObservations) {
+        if (!suppliedIds.has(observation?.contributionId)) {
+            throw new TypeError(`source observation is not an accepted supplied contribution: ${observation?.contributionId || '<unknown>'}`);
+        }
+        if (byId.has(observation.contributionId)) {
+            throw new TypeError(`duplicate source observation: ${observation.contributionId}`);
+        }
+        byId.set(observation.contributionId, observation);
+    }
+    const missing = suppliedContributions.filter((item) => !byId.has(item.id)).map((item) => item.id);
+    if (missing.length > 0) {
+        throw new TypeError(`accepted supplied contributions require source observations: ${missing.join(', ')}`);
+    }
+    return suppliedContributions.map((item) => structuredClone(byId.get(item.id)));
 }
 
 function instantiateStoryEffects(effects = [], referencedContributions = []) {
@@ -231,6 +277,7 @@ export function createV1StateSpine({
         proposal,
         sourceContribution,
         sourceContributions = [],
+        sourceObservations = [],
         gatewayBaseRevision = null,
         scene = {},
         hardBoundary = null,
@@ -274,20 +321,27 @@ export function createV1StateSpine({
             && evidence.acceptedClaims.length === 0
             && evidence.rejectedClaims.length === proposal.claims.length
             && evidence.rejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
-        if (missionResult.effects.length > 0) {
-            if (storySettlement.activeEpisode === null) {
-                storySettlement = openStoryEpisode(storySettlement, {
-                    episodeId: scene.episodeId,
-                    sceneId: scene.sceneId,
-                    references: { missionIds: [definition.id] },
-                });
+        if (missionResult.effects.length > 0 && storySettlement.activeEpisode === null) {
+            storySettlement = openStoryEpisode(storySettlement, {
+                episodeId: scene.episodeId,
+                sceneId: scene.sceneId,
+                references: { missionIds: [definition.id] },
+            });
+        }
+        if (storySettlement.activeEpisode !== null) {
+            const observations = normalizedSourceObservations(sourceObservations, contributions.supplied);
+            storySettlement = acceptStoryContributions(storySettlement, contributions.supplied);
+            storySettlement = observeStoryWorkingEvidence(storySettlement, {
+                branchId: proposal.branchId,
+                observations,
+            });
+            if (missionResult.effects.length > 0) {
+                storySettlement = appendStoryEffects(
+                    storySettlement,
+                    instantiateStoryEffects(missionResult.effects, contributions.referenced),
+                );
             }
-            storySettlement = acceptStoryContributions(storySettlement, contributions.referenced);
-            storySettlement = appendStoryEffects(
-                storySettlement,
-                instantiateStoryEffects(missionResult.effects, contributions.referenced),
-            );
-        } else if (storySettlement.activeEpisode === null && !duplicateReplay) {
+        } else if (!duplicateReplay) {
             storySettlement = settleInsignificantScene(storySettlement, {
                 sceneId: scene.sceneId,
                 sourceContributionIds: contributions.supplied.map((item) => item.id),
@@ -325,11 +379,12 @@ export function createV1StateSpine({
                 summary: deterministicEpisodeSummary(definition, storySettlement, missionResult.transitionPacket),
                 unresolvedConsequences: [],
             });
-        } else if (storySettlement.activeEpisode !== null && missionResult.effects.length > 0) {
+        } else if (storySettlement.activeEpisode !== null && contributions.supplied.length > 0) {
             storySettlement = checkpointStoryEpisode(storySettlement, {
                 minimumNewContributions: checkpointEveryContributions,
             });
         }
+        const reviewToken = createPendingEpisodeReviewToken(storySettlement);
 
         const currentMissionState = campaignState?.mission?.v1 || null;
         if (jsonEqual(currentMissionState, missionState) && jsonEqual(currentStorySettlement, storySettlement)) {
@@ -339,6 +394,7 @@ export function createV1StateSpine({
                 storySettlement,
                 campaignState: structuredClone(campaignState),
                 noChange: true,
+                reviewToken,
             };
         }
 
@@ -364,6 +420,7 @@ export function createV1StateSpine({
             storySettlement,
             campaignState: committed.campaignState,
             noChange: false,
+            reviewToken,
         };
     }
 
@@ -396,6 +453,7 @@ export function createV1StateSpine({
                 campaignState: structuredClone(campaignState),
                 invalidatedContributionIds: [],
                 noChange: true,
+                reviewToken: createPendingEpisodeReviewToken(currentStorySettlement),
             };
         }
         const invalidated = new Set(newContributionIds);
@@ -453,6 +511,7 @@ export function createV1StateSpine({
             campaignState: committed.campaignState,
             invalidatedContributionIds: [...newContributionIds],
             noChange: false,
+            reviewToken: createPendingEpisodeReviewToken(storySettlement),
         };
     }
 
