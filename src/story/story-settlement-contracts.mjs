@@ -54,15 +54,15 @@ export function validateStorySettlement(value = {}) {
         const contributionIds = new Set();
         const effectIds = new Set();
         for (const episode of value.episodes) {
-            const episodeId = typeof episode?.id === 'string' && episode.id ? episode.id : '<unknown>';
-            if (episodeId === '<unknown>') errors.push('episode id must be a non-empty string');
+            const episodeId = isStableId(episode?.id) ? episode.id : '<unknown>';
+            if (episodeId === '<unknown>') errors.push('episode id must be a stable id');
             if (episodeIds.has(episodeId)) errors.push(`duplicate episode id: ${episodeId}`);
             episodeIds.add(episodeId);
             if (episode?.branchId !== value.branchId) {
                 errors.push(`${episodeId} branchId must match the settlement branch`);
             }
-            if (typeof episode?.sceneId !== 'string' || episode.sceneId.length === 0) {
-                errors.push(`${episodeId} sceneId must be a non-empty string`);
+            if (!isStableId(episode?.sceneId)) {
+                errors.push(`${episodeId} sceneId must be a stable id`);
             }
             if (!Number.isInteger(episode?.openedAtRevision) || episode.openedAtRevision < 0) {
                 errors.push(`${episodeId} openedAtRevision must be a non-negative integer`);
@@ -90,7 +90,8 @@ export function validateStorySettlement(value = {}) {
                 }
             }
             for (const contribution of Array.isArray(episode?.contributions) ? episode.contributions : []) {
-                const contributionId = contribution?.id || '<unknown contribution>';
+                const contributionId = isStableId(contribution?.id) ? contribution.id : '<unknown contribution>';
+                if (contributionId === '<unknown contribution>') errors.push('contribution id must be a stable id');
                 if (contributionIds.has(contributionId)) {
                     errors.push(`duplicate contribution id: ${contributionId}`);
                 }
@@ -109,7 +110,8 @@ export function validateStorySettlement(value = {}) {
                 }
             }
             for (const effect of Array.isArray(episode?.effects) ? episode.effects : []) {
-                const effectId = effect?.id || '<unknown effect>';
+                const effectId = isStableId(effect?.id) ? effect.id : '<unknown effect>';
+                if (effectId === '<unknown effect>') errors.push('effect id must be a stable id');
                 if (effectIds.has(effectId)) errors.push(`duplicate effect id: ${effectId}`);
                 effectIds.add(effectId);
                 if (typeof effect?.type !== 'string' || effect.type.length === 0) {
@@ -145,7 +147,8 @@ export function validateStorySettlement(value = {}) {
     if (Array.isArray(value?.receipts)) {
         const receiptIds = new Set();
         for (const receipt of value.receipts) {
-            const receiptId = receipt?.id || '<unknown receipt>';
+            const receiptId = isStableId(receipt?.id) ? receipt.id : '<unknown receipt>';
+            if (receiptId === '<unknown receipt>') errors.push('receipt id must be a stable id');
             if (receiptIds.has(receiptId)) errors.push(`duplicate receipt id: ${receiptId}`);
             receiptIds.add(receiptId);
             if (receipt?.kind !== STORY_SETTLEMENT_RECEIPT_KIND) {
@@ -154,8 +157,8 @@ export function validateStorySettlement(value = {}) {
             if (receipt?.branchId !== value.branchId) {
                 errors.push(`${receiptId} branchId must match the settlement branch`);
             }
-            if (typeof receipt?.sceneId !== 'string' || receipt.sceneId.length === 0) {
-                errors.push(`${receiptId} sceneId is required`);
+            if (!isStableId(receipt?.sceneId)) {
+                errors.push(`${receiptId} sceneId must be a stable id`);
             }
             if (!SETTLEMENT_RECEIPT_DISPOSITIONS.has(receipt?.disposition)) {
                 errors.push(`${receiptId} disposition is unknown`);
@@ -174,8 +177,8 @@ export function validateStorySettlement(value = {}) {
         if (value.focus.kind !== EMERGENT_FOCUS_KIND) {
             errors.push(`Focus kind must be ${EMERGENT_FOCUS_KIND}`);
         }
-        if (typeof value.focus.id !== 'string' || value.focus.id.length === 0) {
-            errors.push('Focus id is required');
+        if (!isStableId(value.focus.id)) {
+            errors.push('Focus id must be a stable id');
         }
         if (!Number.isInteger(value.focus.setAtRevision) || value.focus.setAtRevision < 0) {
             errors.push('Focus setAtRevision must be a non-negative integer');
