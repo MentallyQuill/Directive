@@ -352,6 +352,21 @@ assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
 assert.equal(JSON.stringify(mainHarness.campaignState).includes('fact.current-starfleet-credentials'), false, 'V1 runtime cannot apply the premature legacy reaction fact');
 const finalState = structuredClone(mainHarness.campaignState);
 
+const invalidatedConclusion = await mainHarness.runtime.invalidateSourceMutation({
+    runtimeAssets,
+    hostMessageId: conclusionSnapshot.source.currentPlayer.hostMessageId,
+    eventType: 'playerMessageEdited',
+});
+assert.equal(invalidatedConclusion.status, 'invalidated');
+assert.equal(mainHarness.campaignState.mission.v1.status, 'active');
+assert.equal(mainHarness.campaignState.mission.v1.transitionReceipt, null);
+const restoredConclusion = await mainHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: conclusionSnapshot });
+assert.equal(restoredConclusion.status, 'settled');
+assert.equal(mainHarness.campaignState.mission.v1.status, 'terminal');
+assert.equal(mainHarness.campaignState.mission.v1.transitionReceipt.target.id, 'chapter-6-the-cost-of-knowing');
+assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.at(-1).sourceContributionId.endsWith('.r1'), true, 'restored accepted source advances the custody epoch');
+assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
+
 const mutationCases = [
     {
         label: 'engagement edit',
@@ -483,7 +498,7 @@ assert.equal(assistantDecision.ok, false, 'unauthorized assistant decisions fail
 assert.equal(assistantDecisionHarness.campaignState.mission.v1, undefined);
 assert.equal(assistantDecisionHarness.persistCount, 0);
 
-assert.equal(mainHarness.generationCount, 11, 'report preparation and source rebuild add no provider calls');
+assert.equal(mainHarness.generationCount, 12, 'report preparation and source rebuild add no provider calls; restoration reinterprets once');
 assert.equal(opinionReportSnapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned, true);
 assert.equal(credentialReportSnapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned, true);
 
