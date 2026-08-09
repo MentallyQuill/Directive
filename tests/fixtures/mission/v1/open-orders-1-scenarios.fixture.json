@@ -1,0 +1,233 @@
+{
+  "kind": "directive.ashesV1OpenOrders1Scenarios.v1",
+  "definitionId": "mission.open-orders-1-work-worth-doing",
+  "fragments": {
+    "long-direct": [
+      { "claimId": "claim.open-orders1.long-direct", "policyId": "policy.open-orders1.long-repair-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.long-repair-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "long-delegated": [
+      { "claimId": "claim.open-orders1.long-delegated", "policyId": "policy.open-orders1.long-repair-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.long-repair-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "long-declined": [
+      { "claimId": "claim.open-orders1.long-declined", "policyId": "policy.open-orders1.long-repair-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.long-repair-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "long-assessment": [
+      { "claimId": "claim.open-orders1.long-assessed", "policyId": "policy.open-orders1.long-repair-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.long-repair-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.long-assessment-disclosed", "policyId": "policy.open-orders1.long-repair-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.long-repair-assessment", "sourceRole": "assistant" }
+    ],
+    "long-asset": [
+      { "claimId": "claim.open-orders1.long-asset", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "long-limited": [
+      { "claimId": "claim.open-orders1.long-limited", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "resolvedWithLimits", "sourceRole": "assistant" }
+    ],
+    "long-failed": [
+      { "claimId": "claim.open-orders1.long-failed", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "failedInformed", "sourceRole": "assistant" }
+    ],
+    "wings-direct": [
+      { "claimId": "claim.open-orders1.wings-direct", "policyId": "policy.open-orders1.borrowed-wings-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.borrowed-wings-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "wings-delegated": [
+      { "claimId": "claim.open-orders1.wings-delegated", "policyId": "policy.open-orders1.borrowed-wings-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.borrowed-wings-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "wings-declined": [
+      { "claimId": "claim.open-orders1.wings-declined", "policyId": "policy.open-orders1.borrowed-wings-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.borrowed-wings-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "wings-assessment": [
+      { "claimId": "claim.open-orders1.wings-assessed", "policyId": "policy.open-orders1.borrowed-wings-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.borrowed-wings-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.wings-assessment-disclosed", "policyId": "policy.open-orders1.borrowed-wings-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.borrowed-wings-assessment", "sourceRole": "assistant" }
+    ],
+    "wings-asset": [
+      { "claimId": "claim.open-orders1.wings-asset", "policyId": "policy.open-orders1.borrowed-wings-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.borrowed-wings-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "wings-limited": [
+      { "claimId": "claim.open-orders1.wings-limited", "policyId": "policy.open-orders1.borrowed-wings-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.borrowed-wings-result", "value": "resolvedWithLimits", "sourceRole": "assistant" }
+    ],
+    "wings-failed": [
+      { "claimId": "claim.open-orders1.wings-failed", "policyId": "policy.open-orders1.borrowed-wings-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.borrowed-wings-result", "value": "failedInformed", "sourceRole": "assistant" }
+    ],
+    "channels-direct": [
+      { "claimId": "claim.open-orders1.channels-direct", "policyId": "policy.open-orders1.quiet-channels-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.quiet-channels-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "channels-delegated": [
+      { "claimId": "claim.open-orders1.channels-delegated", "policyId": "policy.open-orders1.quiet-channels-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.quiet-channels-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "channels-declined": [
+      { "claimId": "claim.open-orders1.channels-declined", "policyId": "policy.open-orders1.quiet-channels-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.quiet-channels-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "channels-assessment": [
+      { "claimId": "claim.open-orders1.channels-assessed", "policyId": "policy.open-orders1.quiet-channels-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.quiet-channels-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.channels-assessment-disclosed", "policyId": "policy.open-orders1.quiet-channels-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.quiet-channels-assessment", "sourceRole": "assistant" }
+    ],
+    "channels-asset": [
+      { "claimId": "claim.open-orders1.channels-asset", "policyId": "policy.open-orders1.quiet-channels-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.quiet-channels-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "channels-limited": [
+      { "claimId": "claim.open-orders1.channels-limited", "policyId": "policy.open-orders1.quiet-channels-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.quiet-channels-result", "value": "resolvedWithLimits", "sourceRole": "assistant" }
+    ],
+    "channels-failed": [
+      { "claimId": "claim.open-orders1.channels-failed", "policyId": "policy.open-orders1.quiet-channels-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.quiet-channels-result", "value": "failedInformed", "sourceRole": "assistant" }
+    ],
+    "conclude-two": [
+      { "claimId": "claim.open-orders1.conclude-two", "policyId": "policy.open-orders1.conclude-after-two", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.conclusion", "value": "concludeAfterTwo", "sourceRole": "user" }
+    ],
+    "conclude-broad": [
+      { "claimId": "claim.open-orders1.conclude-broad", "policyId": "policy.open-orders1.conclude-broad-coverage", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.conclusion", "value": "broadCoverage", "sourceRole": "user" }
+    ],
+    "conclude-overextended": [
+      { "claimId": "claim.open-orders1.conclude-overextended", "policyId": "policy.open-orders1.conclude-overextended", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.conclusion", "value": "overextended", "sourceRole": "user" }
+    ],
+    "depart-early": [
+      { "claimId": "claim.open-orders1.depart-early", "policyId": "policy.open-orders1.depart-early", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.conclusion", "value": "departEarly", "sourceRole": "user" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "two-assignment-normal",
+      "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": null
+        },
+        "outcomeDimensions": {
+          "dimension.open-orders1.load": "normal-two", "dimension.open-orders1.long-repair": "asset-earned", "dimension.open-orders1.borrowed-wings": "asset-earned"
+        },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "broad-coverage-with-delegation",
+      "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "channels-delegated", "channels-assessment", "channels-asset", "conclude-broad"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": "completed"
+        },
+        "outcomeDimensions": { "dimension.open-orders1.load": "broad-delegated-coverage", "dimension.open-orders1.quiet-channels": "asset-earned" },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "three-direct-overextension",
+      "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "channels-direct", "channels-assessment", "channels-asset", "conclude-overextended"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "overextendedWithCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completedWithCost", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": "completed"
+        },
+        "outcomeDimensions": { "dimension.open-orders1.load": "overextended-direct" },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "limited-mixed-results",
+      "sequence": ["long-direct", "long-assessment", "long-limited", "channels-delegated", "channels-assessment", "channels-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "workWorthDoing", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completedWithCost", "objective.open-orders1.quiet-channels": "completed"
+        },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "informed-assignment-failure",
+      "sequence": ["long-direct", "long-assessment", "long-failed", "wings-direct", "wings-assessment", "wings-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "failedAfterInformedAction", "objective.open-orders1.borrowed-wings": "completed"
+        },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "early-departure",
+      "sequence": ["depart-early"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "earlyDepartureForward", "acceptedClaimCount": 1, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders1.conclusion": "completedWithCost" },
+        "outcomeDimensions": { "dimension.open-orders1.load": "departed-early" },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "all-declined-departure",
+      "sequence": ["long-declined", "wings-declined", "channels-declined", "depart-early"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "earlyDepartureForward", "acceptedClaimCount": 4, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completedWithCost", "objective.open-orders1.long-repair": "knowinglyDeclined", "objective.open-orders1.borrowed-wings": "knowinglyDeclined", "objective.open-orders1.quiet-channels": "knowinglyDeclined"
+        },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "non-linear-assignment-order",
+      "sequence": ["channels-direct", "channels-assessment", "channels-asset", "long-delegated", "long-assessment", "long-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": null, "objective.open-orders1.quiet-channels": "completed"
+        },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "selection-alone-does-not-close",
+      "sequence": ["long-direct"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders1.conclusion": null, "objective.open-orders1.long-repair": null },
+        "knownFactsExcludes": ["fact.open-orders1.long-repair-assessment"]
+      }
+    },
+    {
+      "id": "delegation-order-does-not-earn-asset",
+      "sequence": ["long-delegated"],
+      "steps": [
+        { "claimId": "claim.open-orders1.premature-delegated-asset", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "assetEarned", "sourceRole": "assistant" }
+      ],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": ["precondition-not-met"],
+        "objectiveDispositions": { "objective.open-orders1.long-repair": null }
+      }
+    },
+    {
+      "id": "premature-assessment-report",
+      "steps": [
+        { "claimId": "claim.open-orders1.premature-long-report", "policyId": "policy.open-orders1.long-repair-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.long-repair-assessment", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "unsupported-player-world-result",
+      "steps": [
+        { "claimId": "claim.open-orders1.player-claims-long-result", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "assetEarned", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders1.stale-long-selection", "policyId": "policy.open-orders1.long-repair-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.long-repair-engagement", "value": "direct", "sourceRole": "user", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders1.wrong-swipe-report", "policyId": "policy.open-orders1.long-repair-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.long-repair-assessed", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders1.unknown-policy", "policyId": "policy.open-orders1.invented", "claimType": "decisionRecorded", "targetId": "outcome.open-orders1.long-repair-engagement", "value": "direct", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}

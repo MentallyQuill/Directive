@@ -46,13 +46,13 @@ The interval contains:
 - Create: `tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Assert the absent definition, exact V1-only source identity, package binding, objective inventory, and Chapter 3 target.
-- [ ] Assert the initial projection shows one interval objective and three optional opportunities without hidden counts, conspiracy spoilers, or legacy percentages.
-- [ ] Assert no legacy phase, progress, pressure, side-quest, or clock fields enter the V1 definition.
-- [ ] Assert exactly three assessment reports, each gated by an engaged assignment and a completed assessment.
-- [ ] Add scenarios for two-assignment normal completion, broad three-assignment coverage with delegation, three-direct overextension, limited mixed results, informed assignment failure, early departure, all-declined departure, and non-linear assignment order.
-- [ ] Add hostile cases for success on selection alone, delegated asset on order alone, premature assessment reports, player-declared world results, stale revisions, wrong swipes, and unknown policies.
-- [ ] Run the new test and record the expected RED failure because the definition is absent.
+- [x] Assert the absent definition, exact V1-only source identity, package binding, objective inventory, and Chapter 3 target.
+- [x] Assert the initial projection shows one interval objective and three optional opportunities without hidden counts, conspiracy spoilers, or legacy percentages.
+- [x] Assert no legacy phase, progress, pressure, side-quest, or clock fields enter the V1 definition.
+- [x] Assert exactly three assessment reports, each gated by an engaged assignment and a completed assessment.
+- [x] Add scenarios for two-assignment normal completion, broad three-assignment coverage with delegation, three-direct overextension, limited mixed results, informed assignment failure, early departure, all-declined departure, and non-linear assignment order.
+- [x] Add hostile cases for success on selection alone, delegated asset on order alone, premature assessment reports, player-declared world results, stale revisions, wrong swipes, and unknown policies.
+- [x] Run the new test and record the expected RED failure because the definition is absent.
 
 ## Task 2: Author the V1 Interval Definition
 
