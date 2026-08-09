@@ -175,8 +175,9 @@ assert.deepEqual(ashesRef.missionDefinitionPaths, [
   'packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json',
   'packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json',
   'packages/bundled/breckenridge/v1/open-orders-1-work-worth-doing.mission-v1.json',
-  'packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json'
-], 'Ashes loads the certified Prelude through Dead Letters V1 definitions in journey order');
+  'packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json',
+  'packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json'
+], 'Ashes loads the certified Prelude through Colony V1 definitions in journey order');
 assert.equal(
   BUNDLED_CAMPAIGN_PACKAGE_REFS.filter((ref) => ref.id !== ashesRef.id)
     .every((ref) => ref.missionDefinitionPaths.length === 0),
