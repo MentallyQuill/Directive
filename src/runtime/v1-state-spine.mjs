@@ -7,11 +7,16 @@ import { createEmptyStorySettlement } from '../story/story-settlement-contracts.
 import {
     acceptStoryContributions,
     appendStoryEffects,
+    checkpointStoryEpisode,
     invalidateStorySource,
     openStoryEpisode,
     sealStoryEpisode,
     settleInsignificantScene,
 } from '../story/story-settlement.mjs';
+import {
+    createEpisodeHardBoundary,
+    validateEpisodeHardBoundary,
+} from '../story/episode-boundary.mjs';
 
 const MAX_SHADOW_DIAGNOSTICS = 20;
 
@@ -122,6 +127,13 @@ function reconstructionSequenceRequired() {
     return error;
 }
 
+function invalidHardBoundary(errors = []) {
+    const error = new Error(`Episode hard boundary is invalid: ${errors.join('; ')}.`);
+    error.code = 'DIRECTIVE_EPISODE_HARD_BOUNDARY_INVALID';
+    error.details = { errors: [...errors] };
+    return error;
+}
+
 function orderedEvidenceBatches(evidenceLog = []) {
     const batches = [];
     let previousRevision = -1;
@@ -168,10 +180,14 @@ export function createV1StateSpine({
     stateDeltaGateway,
     resolveSourceRef,
     now = () => new Date().toISOString(),
+    checkpointEveryContributions = 8,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.applyProposal !== 'function') throw new TypeError('stateDeltaGateway.applyProposal is required');
     if (typeof resolveSourceRef !== 'function') throw new TypeError('resolveSourceRef is required');
+    if (!Number.isInteger(checkpointEveryContributions) || checkpointEveryContributions < 1) {
+        throw new TypeError('checkpointEveryContributions must be a positive integer');
+    }
 
     function assertGatewayRevision(expectedRevision) {
         const currentRevision = stateDeltaGateway.revision();
@@ -215,6 +231,10 @@ export function createV1StateSpine({
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
+        if (hardBoundary !== null) {
+            const boundaryResult = validateEpisodeHardBoundary(hardBoundary, { branchId: proposal?.branchId });
+            if (!boundaryResult.ok) throw invalidHardBoundary(boundaryResult.errors);
+        }
         const { evidence, missionResult } = reduceMissionProposal({ definition, proposal, sourceContribution });
         if (evidence.proposalRejected) {
             const error = new Error(`Mission evidence proposal rejected: ${evidence.rejectionReasonCode}.`);
@@ -267,14 +287,39 @@ export function createV1StateSpine({
             });
         }
 
-        const shouldSeal = storySettlement.activeEpisode !== null
-            && (Boolean(missionResult.transitionPacket) || Boolean(hardBoundary));
+        let effectiveHardBoundary = hardBoundary;
+        if (storySettlement.activeEpisode !== null && missionResult.transitionPacket) {
+            const transitionId = missionState.transitionReceipt?.transitionId || 'mission-transition';
+            const transitionContributionIds = [...new Set(
+                missionResult.effects.flatMap((effect) => effect.sourceContributionIds || []),
+            )];
+            effectiveHardBoundary = createEpisodeHardBoundary({
+                id: `boundary.${transitionId}.${missionState.revision}`,
+                branchId: proposal.branchId,
+                code: 'mission-transition',
+                source: { kind: 'missionReducer', id: transitionId },
+                sourceContributionIds: transitionContributionIds,
+            });
+        }
+        if (storySettlement.activeEpisode !== null && effectiveHardBoundary) {
+            const currentContributionIds = activeStoryEpisode(storySettlement).contributions.map((item) => item.id);
+            const boundaryResult = validateEpisodeHardBoundary(effectiveHardBoundary, {
+                branchId: proposal.branchId,
+                knownContributionIds: currentContributionIds,
+            });
+            if (!boundaryResult.ok) throw invalidHardBoundary(boundaryResult.errors);
+        }
+        const shouldSeal = storySettlement.activeEpisode !== null && Boolean(effectiveHardBoundary);
         if (shouldSeal) {
             storySettlement = sealStoryEpisode(storySettlement, {
-                boundaryReason: hardBoundary?.reason
-                    || (missionResult.transitionPacket ? 'mission-transition-committed' : 'deterministic-hard-boundary'),
+                boundaryReason: effectiveHardBoundary.code,
+                hardBoundary: effectiveHardBoundary,
                 summary: deterministicEpisodeSummary(definition, storySettlement, missionResult.transitionPacket),
                 unresolvedConsequences: [],
+            });
+        } else if (storySettlement.activeEpisode !== null && missionResult.effects.length > 0) {
+            storySettlement = checkpointStoryEpisode(storySettlement, {
+                minimumNewContributions: checkpointEveryContributions,
             });
         }
 

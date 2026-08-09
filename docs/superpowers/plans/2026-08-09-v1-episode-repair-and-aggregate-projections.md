@@ -88,19 +88,19 @@ feat(story): formalize episode boundaries
 - Consumes: validated `directive.episodeHardBoundary.v1` signals and accepted-pair settlement results.
 - Produces: an accumulated open episode, checkpointed open episode, or one sealed episode at a proven boundary.
 
-- [ ] **Step 1: Write failing propagation tests**
+- [x] **Step 1: Write failing propagation tests**
 
 Prove the orchestrator/runtime passes a validated boundary unchanged, mission transition constructs its own deterministic boundary, stale or malformed boundaries fail closed, and generic legacy time-boundary records are ignored. A boundary with no significant active episode is a no-op rather than an empty story entry.
 
-- [ ] **Step 2: Add deterministic checkpoint scheduling**
+- [x] **Step 2: Add deterministic checkpoint scheduling**
 
 Checkpoint after a bounded number of new accepted contributions/effects since the last review. Replays and no-change pairs do not advance it. Checkpoint creation remains within the same State Delta Gateway transaction.
 
-- [ ] **Step 3: Preserve transition and concurrency guarantees**
+- [x] **Step 3: Preserve transition and concurrency guarantees**
 
 Sealing uses the active episode revision and accepted sources captured by the transaction. A newer contribution or source mutation rejects a stale apply. The deterministic summary continues to use only visible authored effects.
 
-- [ ] **Step 4: Run and commit Task 2**
+- [x] **Step 4: Run and commit Task 2**
 
 Commit:
 

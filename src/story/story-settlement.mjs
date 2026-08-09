@@ -112,6 +112,7 @@ export function checkpointStoryEpisode(settlement, {
 
 export function sealStoryEpisode(settlement, {
     boundaryReason,
+    hardBoundary = null,
     summary,
     unresolvedConsequences = [],
     significance = {},
@@ -130,6 +131,7 @@ export function sealStoryEpisode(settlement, {
     nextEpisode.status = 'sealed';
     nextEpisode.sealedAtRevision = next.revision;
     nextEpisode.boundaryReason = boundaryReason;
+    nextEpisode.hardBoundary = hardBoundary ? structuredClone(hardBoundary) : null;
     nextEpisode.summary = summary;
     nextEpisode.unresolvedConsequences = structuredClone(unresolvedConsequences);
     next.activeEpisode = null;

@@ -6,6 +6,7 @@ import {
     DIRECTIVE_MUTABLE_STATE_DOMAINS,
 } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1StateSpine } from '../../src/runtime/v1-state-spine.mjs';
+import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
 
 assert.equal(DIRECTIVE_MUTABLE_STATE_DOMAINS.includes('storySettlement'), true);
 const projectionSchema = JSON.parse(fs.readFileSync('schemas/campaign/campaign-state-projection.schema.json', 'utf8'));
@@ -233,7 +234,18 @@ const accumulationSpine = createV1StateSpine({
     stateDeltaGateway: accumulationGateway,
     resolveSourceRef: (ref) => accumulationSources.get(ref.messageId) || null,
     now: () => '2026-08-09T13:00:00.000Z',
+    checkpointEveryContributions: 2,
 });
+
+function accumulationBoundary(number = 6) {
+    return createEpisodeHardBoundary({
+        id: `boundary.accumulation-${number}`,
+        branchId: 'save.accumulation',
+        code: 'authored-scene-closure',
+        source: { kind: 'campaignReducer', id: `campaign.boundary-${number}` },
+        sourceContributionIds: [`contribution.accumulation-${number}`],
+    });
+}
 
 async function settleAccumulationEvent(number, { hardBoundary = null } = {}) {
     const sourceRecord = {
@@ -323,14 +335,18 @@ assert.equal(accumulationState.storySettlement.episodes.length, 1);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'open');
 assert.equal(accumulationState.storySettlement.episodes[0].contributions.length, 5);
 assert.equal(accumulationState.storySettlement.episodes[0].effects.length, 5);
+assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.checkpointSequence, 2);
+assert.equal(accumulationState.storySettlement.episodes[0].boundaryState.contributionCountAtLastReview, 4);
 assert.equal(JSON.stringify(accumulationState.storySettlement).includes('Untrusted caller summary'), false);
 
 const sixthAccumulation = await settleAccumulationEvent(6, {
-    hardBoundary: { reason: 'authored-scene-boundary' },
+    hardBoundary: accumulationBoundary(6),
 });
 assert.equal(accumulationPersistCount, 6);
 assert.equal(accumulationState.storySettlement.episodes.length, 1);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'sealed');
+assert.equal(accumulationState.storySettlement.episodes[0].boundaryReason, 'authored-scene-closure');
+assert.deepEqual(accumulationState.storySettlement.episodes[0].hardBoundary, accumulationBoundary(6));
 assert.match(accumulationState.storySettlement.episodes[0].summary, /Milestone 1 settled/);
 assert.match(accumulationState.storySettlement.episodes[0].summary, /Milestone 6 settled/);
 assert.equal(accumulationState.storySettlement.episodes[0].summary.includes('Untrusted caller summary'), false);
@@ -345,9 +361,22 @@ const replay = await accumulationSpine.settleAcceptedPair({
     sourceContributions: [sixthAccumulation.contribution],
     gatewayBaseRevision: 6,
     scene: { episodeId: 'episode.accumulated-scene', sceneId: 'scene.accumulated-scene' },
-    hardBoundary: { reason: 'authored-scene-boundary' },
+    hardBoundary: accumulationBoundary(6),
 });
 assert.equal(replay.noChange, true);
+assert.equal(accumulationPersistCount, 6);
+
+await assert.rejects(
+    () => accumulationSpine.settleAcceptedPair({
+        definition: accumulationDefinition,
+        proposal: { ...sixthAccumulation.eventProposal, baseRevision: 6 },
+        sourceContributions: [sixthAccumulation.contribution],
+        gatewayBaseRevision: 6,
+        scene: { episodeId: 'episode.invalid-boundary', sceneId: 'scene.invalid-boundary' },
+        hardBoundary: { reason: 'topic changed' },
+    }),
+    (error) => error.code === 'DIRECTIVE_EPISODE_HARD_BOUNDARY_INVALID',
+);
 assert.equal(accumulationPersistCount, 6);
 
 await accumulationSpine.invalidateSources({

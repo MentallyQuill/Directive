@@ -2,6 +2,7 @@ import { createMissionAcceptedPairInterpreter } from '../mission/v1/accepted-pai
 import { createMissionInterpretationCandidatePacket } from '../mission/v1/interpretation-candidates.mjs';
 import { validateMissionDefinition } from '../mission/v1/mission-contracts.mjs';
 import { createV1StateSpine, resolveV1MissionState } from './v1-state-spine.mjs';
+import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 
 const SETTLED_SOURCE_SCAN_LIMIT = 256;
 
@@ -323,6 +324,10 @@ export function createV1MissionRuntime({
         if (envelopeReason) return unavailable(envelopeReason);
 
         const branchId = compact(snapshot.envelope.saveId);
+        if (hardBoundary !== null) {
+            const boundaryResult = validateEpisodeHardBoundary(hardBoundary, { branchId });
+            if (!boundaryResult.ok) return unavailable('hard-boundary-invalid');
+        }
         let missionState;
         try {
             missionState = resolveV1MissionState({ campaignState, definition, branchId });

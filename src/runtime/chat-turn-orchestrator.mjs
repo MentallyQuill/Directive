@@ -47,6 +47,7 @@ import {
   createRuntimeLedgerViewAsync
 } from './runtime-ledger-view.mjs';
 import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
+import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 
 const CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION = 'chat-turn-orchestrator-hotpath-core-begin-timeout-2026-07-04';
 
@@ -325,6 +326,7 @@ export async function runV1MissionShadowSettlement({
   snapshot = null,
   message = null,
   runtimeAssets = null,
+  hardBoundary = null,
   settleV1MissionAcceptedPair = null,
   preflight = null,
   getCampaignState = null,
@@ -345,6 +347,14 @@ export async function runV1MissionShadowSettlement({
   if (typeof settleV1MissionAcceptedPair !== 'function') {
     return { campaignState, result: skippedV1ShadowResult('shadow-handler-unavailable') };
   }
+  if (hardBoundary !== null) {
+    const boundaryResult = validateEpisodeHardBoundary(hardBoundary, {
+      branchId: snapshot?.envelope?.saveId || null
+    });
+    if (!boundaryResult.ok) {
+      return { campaignState, result: skippedV1ShadowResult('hard-boundary-invalid') };
+    }
+  }
   if (typeof preflight === 'function') {
     let sourceDecision = null;
     try {
@@ -361,7 +371,7 @@ export async function runV1MissionShadowSettlement({
   }
   try {
     const result = await withTimeout(
-      Promise.resolve().then(() => settleV1MissionAcceptedPair({ runtimeAssets, snapshot })),
+      Promise.resolve().then(() => settleV1MissionAcceptedPair({ runtimeAssets, snapshot, hardBoundary })),
       Number(timeoutMs),
       () => timeoutError(
         'DIRECTIVE_V1_MISSION_SHADOW_TIMEOUT',
@@ -410,7 +420,8 @@ export async function runAcceptedPairSettlementSequence({
     try {
       shadow = await settleV1({
         campaignState: legacyBundle.campaignState,
-        snapshot: legacyBundle.snapshot || null
+        snapshot: legacyBundle.snapshot || null,
+        hardBoundary: legacyBundle.hardBoundary || null
       }) || shadow;
     } catch {
       shadow = {
@@ -426,6 +437,7 @@ export async function runAcceptedPairSettlementSequence({
   return {
     campaignState: shadow.campaignState || legacyBundle.campaignState,
     snapshot: legacyBundle.snapshot || null,
+    hardBoundary: legacyBundle.hardBoundary || null,
     legacy: legacyBundle,
     shadow
   };
@@ -1836,7 +1848,7 @@ export function createChatTurnOrchestrator({
     return { campaignState: next, snapshot };
   }
 
-  async function settleV1MissionShadow(state, snapshot, message, chatId, ingressId, activityReporter = null) {
+  async function settleV1MissionShadow(state, snapshot, hardBoundary, message, chatId, ingressId, activityReporter = null) {
     let runtimeAssets = null;
     try {
       runtimeAssets = typeof getRuntimeAssets === 'function' ? getRuntimeAssets() : null;
@@ -1874,6 +1886,7 @@ export function createChatTurnOrchestrator({
       snapshot,
       message,
       runtimeAssets,
+      hardBoundary,
       settleV1MissionAcceptedPair,
       preflight: () => preflightSceneHandshakeSource(
         state,
@@ -6774,9 +6787,10 @@ export function createChatTurnOrchestrator({
       const acceptedPairSettlement = await runAcceptedPairSettlementSequence({
         campaignState: state,
         settleLegacy: () => settleSceneHandshake(state, message, chatId, ingressId, activityReporter),
-        settleV1: ({ campaignState: legacySettledState, snapshot }) => settleV1MissionShadow(
+        settleV1: ({ campaignState: legacySettledState, snapshot, hardBoundary }) => settleV1MissionShadow(
           legacySettledState,
           snapshot,
+          hardBoundary,
           message,
           chatId,
           ingressId,

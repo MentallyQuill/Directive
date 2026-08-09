@@ -7,6 +7,7 @@ import {
     createV1MissionRuntime,
     resolveActiveV1MissionDefinition,
 } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -213,6 +214,41 @@ for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandL
 }
 assert.equal(JSON.stringify(settlementHarness.campaignState).includes('Captain Whitaker completes'), false, 'raw prose is not retained');
 
+const invalidBoundaryHarness = createHarness({
+    outputs: [interpretationOutput({ claims: [] })],
+});
+const invalidBoundary = await invalidBoundaryHarness.runtime.settleAcceptedPair({
+    runtimeAssets: invalidBoundaryHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.invalid-boundary' }),
+    hardBoundary: { reason: 'topic change' },
+});
+assert.equal(invalidBoundary.reasonCode, 'hard-boundary-invalid');
+assert.equal(invalidBoundary.attempted, false);
+assert.equal(invalidBoundaryHarness.generationCount, 0);
+assert.equal(invalidBoundaryHarness.persistCount, 0);
+
+const explicitBoundaryHarness = createHarness({
+    outputs: [interpretationOutput({ claims: [{
+        candidateId: 'policy.prelude.command-handover-completed',
+        sourceSlot: 'previousAssistant',
+    }] })],
+});
+const explicitHardBoundary = createEpisodeHardBoundary({
+    id: 'boundary.authored-handover',
+    branchId: 'save.alpha',
+    code: 'authored-scene-closure',
+    source: { kind: 'campaignReducer', id: 'campaign.handover-closed' },
+    sourceContributionIds: [],
+});
+const explicitlySealed = await explicitBoundaryHarness.runtime.settleAcceptedPair({
+    runtimeAssets: explicitBoundaryHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.explicit-boundary' }),
+    hardBoundary: explicitHardBoundary,
+});
+assert.equal(explicitlySealed.ok, true);
+assert.equal(explicitBoundaryHarness.campaignState.storySettlement.episodes[0].status, 'sealed');
+assert.deepEqual(explicitBoundaryHarness.campaignState.storySettlement.episodes[0].hardBoundary, explicitHardBoundary);
+
 const revisionAfterFirstSettlement = settlementHarness.gateway.revision();
 const replay = await settlementHarness.runtime.settleAcceptedPair({
     runtimeAssets: settlementHarness.assets,
@@ -359,5 +395,7 @@ assert.equal(transition.transitionCommitted, true);
 assert.equal(transitionHarness.campaignState.mission.v1.status, 'terminal');
 assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(transitionHarness.campaignState.storySettlement.activeEpisode, null);
+assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.code, 'mission-transition');
+assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.source.kind, 'missionReducer');
 
 console.log('V1 mission runtime tests passed.');

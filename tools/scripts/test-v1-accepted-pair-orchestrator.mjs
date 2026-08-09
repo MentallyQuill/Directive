@@ -6,6 +6,7 @@ import {
     runV1MissionShadowSettlement,
 } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { prepareLatestPairSceneSnapshot } from '../../src/runtime/source-settlement-latest-pair-scene-adapter.mjs';
+import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
 
 const campaignState = {
     campaign: {
@@ -76,6 +77,13 @@ for (const [overrides, reason] of [
 
 const order = [];
 const exactSnapshot = prepared.snapshot;
+const exactHardBoundary = createEpisodeHardBoundary({
+    id: 'boundary.authored.11',
+    branchId: 'save.alpha',
+    code: 'authored-scene-closure',
+    source: { kind: 'campaignReducer', id: 'campaign.scene.11' },
+    sourceContributionIds: [],
+});
 const sequence = await runAcceptedPairSettlementSequence({
     campaignState,
     settleLegacy: async () => {
@@ -83,12 +91,14 @@ const sequence = await runAcceptedPairSettlementSequence({
         return {
             campaignState: { ...campaignState, legacySettled: true },
             snapshot: exactSnapshot,
+            hardBoundary: exactHardBoundary,
         };
     },
-    settleV1: async ({ campaignState: legacyState, snapshot }) => {
+    settleV1: async ({ campaignState: legacyState, snapshot, hardBoundary }) => {
         order.push('v1');
         assert.equal(legacyState.legacySettled, true);
         assert.equal(snapshot, exactSnapshot, 'V1 receives the identical prepared snapshot object');
+        assert.equal(hardBoundary, exactHardBoundary, 'V1 receives the exact trusted boundary object');
         return {
             campaignState: { ...legacyState, v1Settled: true },
             result: { ok: true, status: 'settled' },
@@ -99,6 +109,26 @@ order.push('classification');
 assert.deepEqual(order, ['legacy', 'v1', 'classification']);
 assert.equal(sequence.campaignState.v1Settled, true);
 assert.equal(sequence.snapshot, exactSnapshot);
+assert.equal(sequence.hardBoundary, exactHardBoundary);
+
+let genericTimeBoundaryForwarded = false;
+await runAcceptedPairSettlementSequence({
+    campaignState,
+    settleLegacy: async () => ({
+        campaignState,
+        snapshot: exactSnapshot,
+        timeBoundary: {
+            kind: 'directive.timeBoundary.v1',
+            id: 'time.ordinary.11',
+            elapsedMinutes: 5,
+        },
+    }),
+    settleV1: async ({ hardBoundary }) => {
+        genericTimeBoundaryForwarded = hardBoundary !== null;
+        return { campaignState, result: { ok: true, status: 'settled-no-effect' } };
+    },
+});
+assert.equal(genericTimeBoundaryForwarded, false, 'generic legacy time advancement is not forwarded as a semantic boundary');
 
 const failureOrder = [];
 const failureSequence = await runAcceptedPairSettlementSequence({
@@ -126,10 +156,12 @@ const shadow = await runV1MissionShadowSettlement({
     snapshot: exactSnapshot,
     message: currentPlayer,
     runtimeAssets,
+    hardBoundary: exactHardBoundary,
     settleV1MissionAcceptedPair: async (input) => {
         shadowCalls += 1;
         assert.equal(input.snapshot, exactSnapshot);
         assert.equal(input.runtimeAssets, runtimeAssets);
+        assert.equal(input.hardBoundary, exactHardBoundary);
         return {
             ok: true,
             attempted: true,
@@ -166,6 +198,19 @@ assert.deepEqual(shadow.result.diagnostics, {
 assert.equal(JSON.stringify(shadow).includes('must-not-escape'), false);
 assert.equal(JSON.stringify(shadow).includes('must-not-be-reported'), false);
 assert.equal(shadow.campaignState.mission.v1.revision, 1);
+
+const malformedBoundary = await runV1MissionShadowSettlement({
+    enabled: true,
+    campaignState,
+    snapshot: exactSnapshot,
+    message: currentPlayer,
+    runtimeAssets,
+    hardBoundary: { reason: 'speaker changed' },
+    settleV1MissionAcceptedPair: async () => { shadowCalls += 1; },
+});
+assert.equal(malformedBoundary.result.reasonCode, 'hard-boundary-invalid');
+assert.equal(malformedBoundary.result.attempted, false);
+assert.equal(shadowCalls, 1);
 
 for (const [input, reasonCode] of [
     [{ enabled: false }, 'shadow-disabled'],
