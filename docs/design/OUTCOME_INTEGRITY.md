@@ -1,5 +1,7 @@
 # Outcome Integrity
 
+> **V1 status — protected editing and the restrictive outcome editor are superseded.** V1 permits native SillyTavern edits, swipes, deletion, regeneration, and branches. Source provenance, deterministic state authority, passive mutation detection, invalidation, and exact recovery remain required through [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md) and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md). See the [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md) for precedence. Current/as-coded behavior remains implementation evidence until retired.
+
 ## Status
 
 Planned pre-alpha design. This document defines the target contract for protecting committed Directive outcomes while still letting players repair bad or overlong assistant prose.

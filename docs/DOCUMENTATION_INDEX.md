@@ -122,6 +122,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ## Architecture
 
+- [V1 Gameplay Architecture](architecture/V1_GAMEPLAY_ARCHITECTURE.md): canonical entry point and supersession map for the complete target V1 gameplay architecture packet, including Story Settlement, fair discovery, mission state, UI projection, legacy retirement, Ashes migration, and verification.
 - [Saga Reference Review](architecture/SAGA_REFERENCE_REVIEW.md): current review of Saga `refactor`, what to reuse, what to avoid, and the copy-vs-clean-build decision.
 - [Repository Structure](architecture/REPO_STRUCTURE.md): Saga-inspired top-level scaffold, Directive-specific ownership boundaries, and structure verifier.
 - [Source Architecture](architecture/SOURCE_ARCHITECTURE.md): proposed repo/module layout and ownership rules to avoid monolithic Saga-style files.
@@ -134,9 +135,12 @@ These are the public-facing docs that should be safe to hand to operators, campa
 - [Turn Transactions](architecture/TURN_TRANSACTIONS.md): transactional turn model for swipes, edits, deletions, branches, and provider failures.
 - [Unified Story Settlement and Episode Tracking](superpowers/specs/2026-08-08-unified-story-settlement-design.md): approved architecture for one semantic story authority, aggregate-first projections, accepted-pair settlement, and low-noise episode memory.
 - [Fair Discovery and Crew Initiative](superpowers/specs/2026-08-09-fair-discovery-and-crew-initiative-design.md): approved V1 contract for spoiler-safe hidden information, competent crew reporting, conditional objectives, and fair consequence evaluation.
+- [Mission State and Objective Resolution](superpowers/specs/2026-08-09-mission-state-and-objective-resolution-design.md): target V1 contract for freeform evidence proposals, deterministic objective reduction, non-linear closure, real deadlines, and next-mission activation.
+- [V1 UI and Legacy Retirement](superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md): target V1 contract for launcher behavior, five-route information ownership, objective presentation, neutral Command Bearing, native host editing, and legacy interaction retirement.
 
 ## Testing
 
+- [V1 Gameplay Architecture Test Plan](testing/V1_GAMEPLAY_ARCHITECTURE_TEST_PLAN.md): target cross-system verification matrix for Story Settlement, fair discovery, mission reduction, UI projection, source mutation, and complete live Ashes certification.
 - [Testing Strategy](testing/TESTING_STRATEGY.md): first invariants, package schema tests, storage tests, visual smoke targets, transaction tests, provider tests, external-context compatibility proof, Command Bearing deterministic/live coverage, and the current alpha gate command list.
 - [Live Campaign Soak Test Plan](testing/LIVE_CAMPAIGN_SOAK_TEST_PLAN.md): comprehensive unlimited-model-call live campaign certification plan covering fresh activation, 50-turn play, Directive Assist, external-context fixture-depth proof, Command Bearing accumulation/closure/review/spend behavior, authority attacks, edit/delete/swipe retcons, Scene Reconciliation, saves, branches, wrong-chat isolation, and forensic artifacts.
 - [Documentation Render Tracking](testing/DOCUMENTATION_RENDER_TRACKING.md): source-controlled render gap register, `Render needed` marker inventory, target assets, and verification commands.
@@ -153,6 +157,7 @@ Development records in this section are not automatically user-facing contracts.
 
 ## Planning
 
+- [Ashes of Peace V1 Migration Plan](planning/ASHES_V1_MIGRATION_PLAN.md): contract-first conversion plan for Prelude/Hesperus, remaining Ashes missions, non-Ashes teaser cards, fixtures, and full campaign certification.
 - [Pre-Alpha Refactor And Cleanup Plan](planning/PRE_ALPHA_REFACTOR_AND_CLEANUP_PLAN.md): first major cleanup contract for SillyTavern-only pre-alpha focus, Lumiverse removal, retired shell deletion, runtime decomposition, host lifecycle cleanup, CSS split, tooling cleanup, and documentation archiving.
 - [Documentation Expansion Plan](planning/DOCUMENTATION_EXPANSION_PLAN.md): staged plan for expanding the README, Operator's Manual, Technical Manual, Campaign Authoring Guide, documentation renders, cross-doc alignment, and release-facing verification.
 - [Documentation Render Capture Plan](planning/DOCUMENTATION_RENDER_CAPTURE_PLAN.md): live SillyTavern render harness contract, verified capture matrix, documentation-grade cleanup, and remaining fixture-state inventory.

@@ -1,5 +1,7 @@
 # Scene Reconciliation Plan
 
+> **V1 status — player-facing Scene Reconciliation is superseded.** V1 keeps passive source-mutation detection and exact CORE/SRE/REPAIR reconstruction, but removes the permanent review queue, protected-edit posture, and required player reconciliation workflow. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md), [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md), and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md). This plan is retained as historical/current-as-coded recovery context.
+
 ## Status
 
 Planned pre-alpha feature.

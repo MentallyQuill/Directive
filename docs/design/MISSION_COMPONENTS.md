@@ -1,5 +1,7 @@
 # Mission Components
 
+> **V1 status — deferred and narrowed.** Generalized highlighted-text capture and a durable component chronology are outside required V1. V1 retains at most one explicit player-selected emergent Focus, which references an unresolved consequence already owned by Story Settlement and creates no duplicate summary, objective, reward, or progress state. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md), [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md), and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md). The implementation described below is current/as-coded or deferred.
+
 Status: pre-alpha design and first implementation contract  
 Primary owner: Runtime / Mission UI / Continuity  
 Related docs: [Scene Handshake Protocol](SCENE_HANDSHAKE_PROTOCOL.md), [Continuity Projection Matrix (CPM)](CONTINUITY_PROJECTION_MATRIX.md), [Narrative Thread Engine](NARRATIVE_THREAD_ENGINE.md), [Outcome Integrity](OUTCOME_INTEGRITY.md), [Persistence And Continuity](../architecture/PERSISTENCE_AND_CONTINUITY.md)

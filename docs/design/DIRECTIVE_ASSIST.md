@@ -1,5 +1,7 @@
 # Directive Assist
 
+> **V1 status — deferred post-V1.** This remains useful optional writing-assistance design, but it is not part of the required V1 gameplay path. The SillyTavern send-tray ship icon opens Directive itself; Assist has no launcher, source-settlement, mission, or state authority. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md) and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md). Existing Assist behavior remains current/as-coded until implementation changes it.
+
 ## Status
 
 This document defines the target design for **Directive Assist**, a pre-send SillyTavern chat assistant for composing player-character messages from rough player intent.

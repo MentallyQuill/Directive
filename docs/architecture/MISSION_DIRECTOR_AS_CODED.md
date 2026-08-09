@@ -1,5 +1,7 @@
 # Mission Director As-Coded
 
+> **V1 status — current/as-coded implementation map, not target gameplay authority.** Retain this document for runtime evidence and regression planning. [Mission State and Objective Resolution](../superpowers/specs/2026-08-09-mission-state-and-objective-resolution-design.md) now controls target objective evidence, non-linear completion, deadlines, closure, and next-mission activation; [Fair Discovery and Crew Initiative](../superpowers/specs/2026-08-09-fair-discovery-and-crew-initiative-design.md) controls Hesperus spoiler and fairness behavior. See [V1 Gameplay Architecture](V1_GAMEPLAY_ARCHITECTURE.md). Current Hesperus accountability sequencing, technical-debt tracking, Command Bearing awards, and narration behavior must be migrated rather than treated as V1 design.
+
 ## Scope
 
 This document describes the current executable Mission Director loop. It is intentionally narrower than the full design model in [Mission Director Model](../design/MISSION_DIRECTOR_MODEL.md).

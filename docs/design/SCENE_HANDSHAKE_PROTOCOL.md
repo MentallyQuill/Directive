@@ -1,5 +1,7 @@
 # Scene Handshake Protocol
 
+> **V1 status — superseded as a standalone system.** Its commit-on-next-player-reply insight is retained by [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md), including selected-swipe source custody. This document no longer owns mission updates, logs, ship readiness, threads, or semantic records. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md). Existing implementation remains current/as-coded until migration.
+
 ## Purpose
 
 The Scene Handshake Protocol is Directive's design for turning accepted host-generated chat prose into structured campaign state.

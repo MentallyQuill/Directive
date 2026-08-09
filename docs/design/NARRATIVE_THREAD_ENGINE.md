@@ -1,5 +1,7 @@
 # Narrative Thread Engine
 
+> **V1 status — superseded as semantic authority and deferred as an independent engine.** Its strongest authoring principles remain: do not turn every detail into a quest, preserve quiet character material, and surface only high-value unresolved developments. In V1 those developments remain inside [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md) episodes and may project through one player-selected Focus; no competing thread chronology is permitted. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md). Content and code below remain historical or current/as-coded evidence until migration.
+
 ## Purpose
 
 The Narrative Thread Engine is Directive's hidden continuity layer for B-stories, vignettes, recurring details, personal arcs, shipboard matters, and optional side work.

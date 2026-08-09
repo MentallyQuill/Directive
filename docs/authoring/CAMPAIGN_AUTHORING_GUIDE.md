@@ -6,6 +6,27 @@ Directive campaign packages are data-only campaign engines: they define the ship
 
 Runtime examples in this guide use the final SillyTavern-hosted documentation renders under `assets/documentation/renders/`.
 
+## V1 Authoring Status
+
+This guide primarily describes the current/as-coded schema-v2 package surface. The target V1 gameplay authority is [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md), with objectives and mission closure governed by [Mission State and Objective Resolution](../superpowers/specs/2026-08-09-mission-state-and-objective-resolution-design.md).
+
+Ashes of Peace is the only campaign required to be fully V1-native. Authors converting Ashes must follow [Ashes of Peace V1 Migration](../planning/ASHES_V1_MIGRATION_PLAN.md). Other bundled campaigns remain content references and V1 catalog teasers; their legacy structures must not constrain the target contracts.
+
+Target V1 authoring follows these rules:
+
+- create the smallest set of high-value required objectives;
+- author optional and conditional objectives separately from primary closure;
+- express non-linear order through predicates, never array position;
+- keep hidden objectives absent from player text and counts;
+- provide reachable evidence and fair visible disclosure before evaluative consequences;
+- let routine professional work and bounded Duty Reports surface material findings;
+- separate primary outcome dimensions from optional discoveries;
+- author clocks only for real deadlines, including start, advance, visibility, expiry, and consequence;
+- define deterministic terminal dispositions and exactly one valid next transition;
+- project multiple effects from one Story Settlement episode instead of creating duplicate trackers;
+- collapse ship detail into one current operational aggregate unless it materially affects future play;
+- reserve Command Bearing awards for explicit, informed command judgment rather than routine completion.
+
 ## What A Campaign Package Is
 
 A Directive campaign package is reusable source data. It is not a save, not a transcript, and not a one-off prompt.
@@ -333,6 +354,10 @@ Quest templates are reusable or authored mission structures. They should specify
 - mission graph references when available.
 
 Open-world quests should inherit current campaign state rather than creating isolated mission bubbles.
+
+For target V1 missions, treat this section's current quest-template shape as migration source rather than final objective authority. Each mission must define stable objective IDs, required/optional/conditional classification, visibility predicates, supported terminal dispositions, evidence predicates, outcome dimensions, closure, and deterministic transition. Hidden optional branches never count as missed or failed when they remain undiscovered.
+
+The objective list is not a script. Parallel objectives may complete in any valid order. If order matters, author the dependency explicitly and give the player-safe projection a reason for the dependency.
 
 Authoring example:
 

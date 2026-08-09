@@ -2,6 +2,16 @@
 
 Ashes of Peace is the current reference implementation for Directive campaign authoring.
 
+## V1 Target Status
+
+Ashes of Peace is the only campaign required to become fully V1-native. Its current package, projection, mission graphs, and fixtures are migration inputs, not proof that the target V1 gameplay contracts are implemented.
+
+The controlling conversion plan is [Ashes of Peace V1 Migration](../planning/ASHES_V1_MIGRATION_PLAN.md). Target missions must use [Mission State and Objective Resolution](../superpowers/specs/2026-08-09-mission-state-and-objective-resolution-design.md), [Fair Discovery and Crew Initiative](../superpowers/specs/2026-08-09-fair-discovery-and-crew-initiative-design.md), and [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md).
+
+For V1, Hesperus is the reference vertical slice: rescue can achieve full primary success without fraud discovery; fraud remains hidden until grounded evidence settles; accountability is an optional conditional outcome; competent crew or Captain Whitaker can surface material findings without choosing the player's answer.
+
+Other bundled campaign names and images may remain as greyed, unselectable coming-soon cards. Their gameplay data is not part of Ashes migration or the V1 release gate.
+
 ## Runtime Package Files
 
 | File | Purpose |
@@ -62,6 +72,7 @@ Each candidate maps to the existing operational, political, accountability, and 
 
 ## Documentation Pairings
 
+- Read [Ashes of Peace V1 Migration](../planning/ASHES_V1_MIGRATION_PLAN.md) for the architecture-first conversion order, Hesperus matrix, fixtures, and certification gates.
 - Read [Ashes Of Peace Campaign](../campaigns/ASHES_OF_PEACE_CAMPAIGN.md) for campaign-facing design.
 - Read [Ashes Of Peace Open World](../campaigns/ASHES_OF_PEACE_OPEN_WORLD.md) for open-world implementation shape.
 - Read [Campaign Package Schema](../packages/CAMPAIGN_PACKAGE_SCHEMA.md) for validation and importer rules.

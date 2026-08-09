@@ -1,5 +1,7 @@
 # Command Bearing System
 
+> **V1 status — partially retained and substantially superseded.** V1 keeps one neutral Command Bearing reserve plus explicit eligibility, award, and spend effects. Inspiration, Resolve, Marks, Bearing Ranks, per-turn evidence mining, review queues, and inferred objective rewards are not V1 authority. See [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md), [Unified Story Settlement](../superpowers/specs/2026-08-08-unified-story-settlement-design.md), and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md). The details below describe historical design or current/as-coded behavior until migration.
+
 ## Purpose
 
 Command Bearing is Directive's leadership-progression and limited narrative-intervention system.

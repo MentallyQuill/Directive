@@ -258,6 +258,14 @@ Scheduling a disclosure is not evidence that the player received it. Required de
 
 Story Settlement records a meaningful disclosure and its consequences as part of the active episode. It must not create a separate event for the fact, report, objective activation, NPC reaction, and relationship effect.
 
+## Mission State and Objective Resolution Binding
+
+[Mission State and Objective Resolution](2026-08-09-mission-state-and-objective-resolution-design.md) is the binding companion contract for objective identity, evidence validation, non-linear predicates, deadlines, mission closure, and deterministic next-mission activation.
+
+The mission reducer owns mechanical state. Story Settlement owns source-backed semantic custody for accepted mission effects. A mission transaction may attach several objective, fact, clock, outcome, and transition effects to one active episode without creating separate story entries. The narrator receives the already-authorized transition and cannot close or activate a mission through prose.
+
+When a swipe, edit, deletion, or branch invalidates accepted source, Story Settlement provenance identifies the affected mission effects and CORE, SRE, and REPAIR reconstruct the mission projection from surviving authority.
+
 ## Aggregate-First Projection Policy
 
 Every accepted meaning follows this order:

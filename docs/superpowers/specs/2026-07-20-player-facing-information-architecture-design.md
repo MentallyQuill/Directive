@@ -1,10 +1,18 @@
 # Player-Facing Information Architecture Design
 
-**Status:** Approved design
+**Status:** Partially retained design; target V1 gameplay authority is superseded where noted below.
 
 **Date:** 2026-07-20
 
 **Scope:** Simplify Directive's player-facing shell into a game companion for reorientation, planning, and recall. Remove redundant operational surfaces, make Mission the unified quest journal, and project useful information into Mission, Crew, and Ship instead of adding Intel or Log drawers.
+
+## Target V1 Precedence
+
+The five-route shell, progressive disclosure, one-fact/one-home principle, and high-value-information standard remain approved.
+
+[V1 UI and Legacy Retirement](2026-08-09-v1-ui-and-legacy-retirement-design.md) now controls launcher behavior, route-level gameplay projection, objective presentation, neutral Command Bearing, native SillyTavern editing, and legacy interaction retirement. [V1 Gameplay Architecture](../../architecture/V1_GAMEPLAY_ARCHITECTURE.md) controls overall precedence.
+
+The statement below that existing mission, crew, ship, thread, component, and command-history records remain canonical describes the July transition plan only. Target V1 instead uses Story Settlement as the sole semantic story authority and deterministic domain projections. Current/as-coded behavior remains valid implementation evidence until migration.
 
 ## Product Identity
 
@@ -53,7 +61,7 @@ The first screen answers "what matters now?" Detail and history are available on
 
 ### Canonical state remains authoritative
 
-The redesign is a read-model and rendering change. Existing mission, crew, ship, thread, component, and command-history records remain canonical until separately redesigned. Player-facing projection filters and groups them; it does not duplicate them into new durable stores.
+For the July implementation slice, the redesign was a read-model and rendering change and existing records remained canonical. For target V1, [Unified Story Settlement](2026-08-08-unified-story-settlement-design.md) and [Mission State and Objective Resolution](2026-08-09-mission-state-and-objective-resolution-design.md) supersede that temporary assumption. Player-facing projection still filters and groups authority without duplicating it into new durable stores.
 
 ## Navigation
 

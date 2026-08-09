@@ -6,6 +6,8 @@ Approved V1 architecture design for making hidden-information discovery, compete
 
 This design is a binding companion to [Unified Story Settlement and Episode Tracking](2026-08-08-unified-story-settlement-design.md). It defines constraints on Mission Director, Command Competence, authored mission data, Story Settlement effects, and player-facing objective projection. It does not create a separate semantic authority, ledger, sidecar, or player-facing tracker.
 
+[Mission State and Objective Resolution](2026-08-09-mission-state-and-objective-resolution-design.md) owns objective lifecycle, evidence reduction, deadlines, mission closure, and next-mission activation. This document constrains those mechanics wherever player knowledge and fair evaluation are involved.
+
 ## Decision Summary
 
 Directive tests the player's judgment, not whether the player guessed the investigation or terminology expected by the author.

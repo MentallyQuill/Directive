@@ -4,6 +4,8 @@
 
 This document defines the executable user-flow contract for Directive as a chat-native campaign extension.
 
+**V1 architecture status:** This document mixes current/as-coded workflow with older subsystem ownership. [V1 Gameplay Architecture](../architecture/V1_GAMEPLAY_ARCHITECTURE.md) and [V1 UI and Legacy Retirement](../superpowers/specs/2026-08-09-v1-ui-and-legacy-retirement-design.md) control target V1. The chat-native start/play/save flow remains; separate tracking writers, required Assist, protected editing, and player-facing reconciliation do not.
+
 The eight implementation workstreams are present in the pre-alpha runtime: SillyTavern interception and events, campaign/chat binding, idempotent activation, Utility/Reasoning routing, chat-turn orchestration, pre-narration durability and recovery, player-safe prompt/sidecar processing, chat-first UI, and campaign conclusion/archive. Dependency-free contract tests cover the lifecycle. Live SillyTavern browser certification remains a release gate.
 
 First campaign start chat behavior is revised by [First Start Revision](FIRST_START_REVISION.md): a new campaign should create a fresh host chat, while manual rebinding remains a recovery/admin action after campaign state exists.
@@ -14,7 +16,7 @@ The former shelf-first Mission input is retained only as a host fallback, access
 
 Directive should let the player install the extension, start a campaign, create a player officer, and then play inside an ordinary host chat.
 
-The extension should own the campaign state, prompt context, turn adjudication, relationship simulation, crew and ship records, Command Bearing, side work, saves, and campaign conclusion. The player should not have to create a special chat named `Directive`, `Narrator`, or anything similar.
+The extension should own campaign state, prompt context, deterministic mission adjudication, Story Settlement projections, one neutral Command Bearing reserve, saves, and campaign conclusion. The player should not have to create a special chat named `Directive`, `Narrator`, or anything similar.
 
 The player-facing rule is:
 
@@ -32,8 +34,8 @@ The chat is where the player plays. Directive is the engine that interprets, inj
 6. Directive creates a fresh campaign chat, posts the campaign intro, and marks the campaign active.
 7. User writes in-character posts in that chat.
 8. Each player post runs through a cheap utility pass.
-9. Meaningful posts escalate into heavier Director, relationship, ship, crew, Command Bearing, sidecar, or narrator work.
-10. Directive updates campaign state, prompt injection, UI charts, logs, saves, and any needed chat response.
+9. Meaningful posts may escalate into bounded interpretation or Director work; deterministic reducers validate proposed evidence and commit authorized effects.
+10. Story Settlement records accepted meaning once, domain projections update, and the narrator receives only authorized state.
 11. The loop continues until the campaign reaches a conclusion and Directive closes or archives the campaign record.
 
 ## Install And Activation
@@ -462,11 +464,11 @@ Potential terminal outcomes should follow the [Campaign End Conditions](CAMPAIGN
 At conclusion, Directive should:
 
 - post or inject the final scene;
-- write the final Command Log entry;
-- settle active pressures;
+- seal the final Story Settlement episode and commit the authorized campaign outcome;
+- settle or hand off active player-known pressures through deterministic effects;
 - mark the campaign save as complete;
 - generate a campaign recap;
-- preserve final crew, ship, Command Bearing, and relationship summaries;
+- preserve final Crew, Ship, Command Bearing, relationship, and mission projections;
 - preserve final outcome band and ending-axis summaries;
 - stop active prompt injection for that chat or switch it to read-only epilogue context;
 - offer export, archive, new campaign, or branch-from-before-finale actions.
@@ -481,13 +483,16 @@ Primary UI responsibilities:
 
 - campaign package selection;
 - Character Creator;
-- active campaign snapshot;
-- current mission context;
-- pause/confirmation handling;
-- crew, ship, relationship, and Command Bearing charts;
-- Command Log;
-- saves, branches, diagnostics, and recovery;
-- side work review.
+- spoiler-safe mission objectives, known evidence, and true deadlines;
+- concise Crew and Ship projections;
+- one neutral Command Bearing reserve and explicit spends;
+- saves and branches;
+- player preferences;
+- contextual diagnostics or recovery only when an actionable fault exists.
+
+The SillyTavern send-tray ship icon opens Directive. Directive Assist is not required for V1. Duty Reports attach to the assistant chat row that delivered them and may be mirrored in Mission after accepted-pair settlement.
+
+Native SillyTavern swipes, edits, deletion, regeneration, and branches remain available. Directive passively invalidates and reconstructs dependent state; it does not require protected editing or a player-facing Scene Reconciliation workflow.
 
 The Mission text box can remain as a fallback for debugging, accessibility, or hosts without chat interception. It should not be the default player flow once chat-native command handling is implemented.
 
