@@ -226,6 +226,16 @@ for (const [label, definition, pattern] of [
     assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
 }
 
+const clockWithoutOptionalPredicates = { ...referenceMission.clocks[0] };
+delete clockWithoutOptionalPredicates.pauseWhen;
+delete clockWithoutOptionalPredicates.resumeWhen;
+delete clockWithoutOptionalPredicates.resolveWhen;
+const optionalClockResult = validateMissionDefinition({
+    ...referenceMission,
+    clocks: [clockWithoutOptionalPredicates],
+});
+assert.equal(optionalClockResult.ok, true, optionalClockResult.errors.join('\n'));
+
 assert.match(
     validateMissionDefinition({
         ...referenceMission,
@@ -278,7 +288,7 @@ for (const [label, predicate, pattern] of [
     ['unknown outcome', { outcomeIs: { id: 'outcome.unknown', equals: 'yes' } }, /unknown outcome/],
     ['unknown objective', { objectiveState: { id: 'objective.unknown', in: ['terminal'] } }, /unknown objective/],
     ['unknown clock', { clockState: { id: 'clock.unknown', in: ['running'] } }, /unknown clock/],
-    ['unknown operator', { modelDecides: 'anything' }, /unknown predicate operator/],
+    ['unknown operator', { modelDecides: 'anything' }, /unknown predicate operator: modelDecides/],
 ]) {
     assert.match(
         validateMissionDefinition(replaceObjective(0, { availableWhen: predicate })).errors.join('\n'),

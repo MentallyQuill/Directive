@@ -1,3 +1,5 @@
+import { validateMissionPredicate } from './predicate-evaluator.mjs';
+
 export const MISSION_DEFINITION_KIND = 'directive.missionDefinition.v1';
 export const MISSION_OBJECTIVE_CLASSES = Object.freeze(new Set(['required', 'optional', 'conditional']));
 export const MISSION_OBJECTIVE_STATES = Object.freeze(new Set(['inactive', 'available', 'inProgress', 'terminal']));
@@ -11,22 +13,6 @@ export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
     'expiredAfterKnownDeadline',
 ]));
 
-const MISSION_CLOCK_STATES = new Set(['notStarted', 'running', 'paused', 'expired', 'resolved']);
-const MISSION_STATUSES = new Set(['inactive', 'active', 'terminal', 'invalidated']);
-const PREDICATE_OPERATORS = new Set([
-    'all',
-    'any',
-    'not',
-    'factKnown',
-    'worldFact',
-    'eventOccurred',
-    'outcomeIs',
-    'objectiveState',
-    'objectiveDisposition',
-    'clockState',
-    'missionStatus',
-]);
-
 function byId(items) {
     return new Map((Array.isArray(items) ? items : []).filter((item) => item?.id).map((item) => [item.id, item]));
 }
@@ -39,123 +25,45 @@ function isStableId(value) {
     return isNonEmptyString(value) && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
 }
 
-function validateEnumMatch(value, allowedValues, path, errors) {
-    if (!value || typeof value !== 'object' || Array.isArray(value) || !isNonEmptyString(value.id)) {
-        errors.push(`${path} requires an id`);
-        return [];
-    }
-    const hasEquals = Object.hasOwn(value, 'equals');
-    const hasIn = Object.hasOwn(value, 'in');
-    if (hasEquals === hasIn || (hasIn && (!Array.isArray(value.in) || value.in.length === 0))) {
-        errors.push(`${path} requires exactly one of equals or a non-empty in array`);
-        return [];
-    }
-    const matches = hasEquals ? [value.equals] : value.in;
-    for (const match of matches) {
-        if (!allowedValues.has(match)) errors.push(`${path} contains unknown value: ${match}`);
-    }
-    return matches;
-}
-
-function validatePredicate(predicate, index, path, errors, objectiveRefs) {
-    if (typeof predicate === 'boolean') return;
-    if (!predicate || typeof predicate !== 'object' || Array.isArray(predicate)) {
-        errors.push(`${path} must be a boolean or predicate object`);
-        return;
-    }
-    const keys = Object.keys(predicate);
-    if (keys.length !== 1 || !PREDICATE_OPERATORS.has(keys[0])) {
-        errors.push(`${path} has an unknown predicate operator`);
-        return;
-    }
-    const operator = keys[0];
-    const value = predicate[operator];
-    if (operator === 'all' || operator === 'any') {
-        if (!Array.isArray(value) || value.length === 0) {
-            errors.push(`${path}.${operator} must be a non-empty array`);
-            return;
-        }
-        value.forEach((child, indexValue) => validatePredicate(child, index, `${path}.${operator}[${indexValue}]`, errors, objectiveRefs));
-        return;
-    }
-    if (operator === 'not') {
-        validatePredicate(value, index, `${path}.not`, errors, objectiveRefs);
-        return;
-    }
-    if (operator === 'factKnown' || operator === 'worldFact') {
-        if (!index.facts.has(value)) errors.push(`${path} references unknown fact: ${value}`);
-        return;
-    }
-    if (operator === 'eventOccurred') {
-        if (!index.events.has(value)) errors.push(`${path} references unknown event: ${value}`);
-        return;
-    }
-    if (operator === 'outcomeIs') {
-        const outcome = index.outcomes.get(value?.id);
-        if (!outcome) {
-            errors.push(`${path} references unknown outcome: ${value?.id}`);
-            return;
-        }
-        validateEnumMatch(value, new Set(outcome.allowedValues || []), path, errors);
-        return;
-    }
-    if (operator === 'objectiveState') {
-        if (!index.objectives.has(value?.id)) errors.push(`${path} references unknown objective: ${value?.id}`);
-        else objectiveRefs.add(value.id);
-        validateEnumMatch(value, MISSION_OBJECTIVE_STATES, path, errors);
-        return;
-    }
-    if (operator === 'objectiveDisposition') {
-        const objective = index.objectives.get(value?.id);
-        if (!objective) errors.push(`${path} references unknown objective: ${value?.id}`);
-        else objectiveRefs.add(value.id);
-        const matches = validateEnumMatch(value, MISSION_OBJECTIVE_DISPOSITIONS, path, errors);
-        for (const match of matches) {
-            if (objective && !objective.supportedDispositions?.includes(match)) {
-                errors.push(`${path} objective disposition is not supported: ${match}`);
-            }
-        }
-        return;
-    }
-    if (operator === 'clockState') {
-        if (!index.clocks.has(value?.id)) errors.push(`${path} references unknown clock: ${value?.id}`);
-        validateEnumMatch(value, MISSION_CLOCK_STATES, path, errors);
-        return;
-    }
-    if (operator === 'missionStatus') {
-        validateEnumMatch({ id: 'mission', ...value }, MISSION_STATUSES, path, errors);
-    }
-}
-
 function validateDefinitionPredicates(definition, index, errors) {
     const objectiveDependencies = new Map();
     const closeObjectiveRefs = new Set();
+
+    function validateAt(predicate, path) {
+        const result = validateMissionPredicate(predicate, index);
+        errors.push(...result.errors.map((error) => error.replace(/^predicate/, path)));
+        return result.refs.objectives;
+    }
+
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
         const refs = new Set();
         for (const key of ['activationWhen', 'availableWhen', 'visibleWhen', 'progressWhen']) {
-            validatePredicate(objective?.[key], index, `${objective?.id}.${key}`, errors, refs);
+            for (const ref of validateAt(objective?.[key], `${objective?.id}.${key}`)) refs.add(ref);
         }
         for (const [terminalIndex, terminal] of (objective?.terminalWhen || []).entries()) {
-            validatePredicate(terminal?.when, index, `${objective?.id}.terminalWhen[${terminalIndex}]`, errors, refs);
+            for (const ref of validateAt(terminal?.when, `${objective?.id}.terminalWhen[${terminalIndex}]`)) refs.add(ref);
         }
         objectiveDependencies.set(objective?.id, refs);
     }
     for (const dimension of Array.isArray(definition?.outcomeDimensions) ? definition.outcomeDimensions : []) {
         for (const [deriveIndex, derivation] of (dimension?.derive || []).entries()) {
-            validatePredicate(derivation?.when, index, `${dimension?.id}.derive[${deriveIndex}]`, errors, new Set());
+            validateAt(derivation?.when, `${dimension?.id}.derive[${deriveIndex}]`);
         }
     }
     for (const clock of Array.isArray(definition?.clocks) ? definition.clocks : []) {
-        for (const key of ['startWhen', 'pauseWhen', 'resumeWhen', 'expireWhen', 'resolveWhen', 'visibleWhen']) {
-            validatePredicate(clock?.[key], index, `${clock?.id}.${key}`, errors, new Set());
+        for (const key of ['startWhen', 'expireWhen', 'visibleWhen']) {
+            validateAt(clock?.[key], `${clock?.id}.${key}`);
+        }
+        for (const key of ['pauseWhen', 'resumeWhen', 'resolveWhen']) {
+            if (Object.hasOwn(clock || {}, key)) validateAt(clock[key], `${clock?.id}.${key}`);
         }
     }
-    validatePredicate(definition?.closeWhen, index, 'closeWhen', errors, closeObjectiveRefs);
+    for (const ref of validateAt(definition?.closeWhen, 'closeWhen')) closeObjectiveRefs.add(ref);
     for (const disposition of Array.isArray(definition?.terminalDispositions) ? definition.terminalDispositions : []) {
-        validatePredicate(disposition?.when, index, `${disposition?.id}.when`, errors, new Set());
+        validateAt(disposition?.when, `${disposition?.id}.when`);
     }
     for (const transition of Array.isArray(definition?.transitions) ? definition.transitions : []) {
-        validatePredicate(transition?.when, index, `${transition?.id}.when`, errors, new Set());
+        validateAt(transition?.when, `${transition?.id}.when`);
     }
     return { objectiveDependencies, closeObjectiveRefs };
 }
