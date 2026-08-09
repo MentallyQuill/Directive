@@ -290,5 +290,8 @@ assert.match(runtimeAppSource, /createV1MissionRuntime/);
 assert.match(runtimeAppSource, /settleV1MissionAcceptedPair/);
 assert.match(runtimeAppSource, /enableV1MissionShadow/);
 assert.match(runtimeAppSource, /getRuntimeAssets/);
+assert.match(runtimeAppSource, /buildV1ShadowPlayerProjection/);
+assert.match(runtimeAppSource, /buildV1RuntimePlayerProjection/);
+assert.match(runtimeAppSource, /optionalActiveRuntimeAssets/);
 
 console.log('V1 accepted-pair orchestrator tests passed.');

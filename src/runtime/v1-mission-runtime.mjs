@@ -3,6 +3,7 @@ import { createMissionInterpretationCandidatePacket } from '../mission/v1/interp
 import { validateMissionDefinition } from '../mission/v1/mission-contracts.mjs';
 import { createV1StateSpine, resolveV1MissionState } from './v1-state-spine.mjs';
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
+import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
 
 const SETTLED_SOURCE_SCAN_LIMIT = 256;
 
@@ -295,6 +296,35 @@ function errorReasonCode(error) {
     return 'settlement-failed';
 }
 
+export function buildV1RuntimePlayerProjection({ campaignState = {}, runtimeAssets = {} } = {}) {
+    const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+    if (!resolved.ok) return resolved;
+    try {
+        return {
+            ok: true,
+            attempted: false,
+            status: 'available',
+            reasonCode: null,
+            definitionId: resolved.definition.id,
+            definitionVersion: resolved.definition.version,
+            projection: createV1PlayerProjection({
+                campaignState,
+                runtimeAssets,
+                definition: resolved.definition,
+            }),
+        };
+    } catch (error) {
+        const reasonCode = error?.code === 'DIRECTIVE_V1_PROJECTION_BRANCH_MISMATCH'
+            ? 'projection-branch-mismatch'
+            : (error?.code === 'DIRECTIVE_V1_PROJECTION_DEFINITION_MISMATCH'
+                ? 'projection-definition-mismatch'
+                : (error?.code === 'DIRECTIVE_V1_PROJECTION_STATE_INVALID'
+                    ? 'projection-state-invalid'
+                    : 'projection-unavailable'));
+        return unavailable(reasonCode);
+    }
+}
+
 export function createV1MissionRuntime({
     getState,
     stateDeltaGateway,
@@ -309,6 +339,10 @@ export function createV1MissionRuntime({
         throw new TypeError('stateDeltaGateway with revision and applyProposal is required');
     }
     const interpreter = interpretAcceptedPair || createMissionAcceptedPairInterpreter({ generationRouter, timeoutMs });
+
+    function buildPlayerProjection({ runtimeAssets = {} } = {}) {
+        return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
+    }
 
     async function settleAcceptedPair({ runtimeAssets = {}, snapshot = {}, hardBoundary = null } = {}) {
         const campaignState = getState();
@@ -572,6 +606,7 @@ export function createV1MissionRuntime({
         }),
         settleAcceptedPair,
         invalidateSourceMutation,
+        buildPlayerProjection,
     };
 }
 

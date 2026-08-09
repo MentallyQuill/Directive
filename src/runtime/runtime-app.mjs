@@ -69,7 +69,7 @@ import { createCampaignActivationCoordinator } from './campaign-activation-coord
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
-import { createV1MissionRuntime } from './v1-mission-runtime.mjs';
+import { buildV1RuntimePlayerProjection, createV1MissionRuntime } from './v1-mission-runtime.mjs';
 import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
 import {
   buildContinuityProjectionDiagnostics,
@@ -8464,6 +8464,16 @@ export function createDirectiveRuntimeApp({
 
     getChatTurnOrchestrator() {
       return ensureChatNativeServices()?.orchestrator || null;
+    },
+
+    async buildV1ShadowPlayerProjection() {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(buildV1RuntimePlayerProjection({
+          campaignState,
+          runtimeAssets: optionalActiveRuntimeAssets() || {}
+        }));
+      });
     },
 
     async observeHostPlayerMessage(payload = {}) {

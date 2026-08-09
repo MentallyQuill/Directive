@@ -39,6 +39,10 @@ function runtimeAssetsFor(definitions = [canonicalDefinition], packageOverride =
 function campaignStateFor({ definition = canonicalDefinition, activeMissionId = definition.packageBinding.sourceId } = {}) {
     return {
         campaign: { id: 'campaign.ashes' },
+        activeCampaignPackage: {
+            packageId: definition.packageBinding.packageId,
+            packageVersion: definition.packageBinding.packageVersion,
+        },
         campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
         mission: {
             activeMissionId,
@@ -150,6 +154,37 @@ const exactResolution = resolveActiveV1MissionDefinition({
 });
 assert.equal(exactResolution.ok, true);
 assert.equal(exactResolution.definition.id, canonicalDefinition.id);
+
+const projectionHarness = createHarness();
+const projectionStateBefore = structuredClone(projectionHarness.campaignState);
+const builtProjection = projectionHarness.runtime.buildPlayerProjection({
+    runtimeAssets: projectionHarness.assets,
+});
+assert.equal(builtProjection.ok, true);
+assert.equal(builtProjection.status, 'available');
+assert.equal(builtProjection.projection.kind, 'directive.playerProjection.v1');
+assert.equal(Object.hasOwn(builtProjection.projection.ship, 'technicalDebt'), false);
+assert.equal(projectionHarness.persistCount, 0);
+assert.equal(projectionHarness.generationCount, 0);
+assert.deepEqual(projectionHarness.campaignState, projectionStateBefore);
+
+const unavailableProjection = projectionHarness.runtime.buildPlayerProjection({
+    runtimeAssets: runtimeAssetsFor([], packageData),
+});
+assert.equal(unavailableProjection.ok, false);
+assert.equal(unavailableProjection.reasonCode, 'definition-assets-missing');
+
+const malformedProjectionHarness = createHarness();
+malformedProjectionHarness.campaignState.mission.v1 = createMissionState({
+    definition: canonicalDefinition,
+    branchId: 'save.alpha',
+});
+malformedProjectionHarness.campaignState.mission.v1.revision = 'forged';
+const malformedProjection = malformedProjectionHarness.runtime.buildPlayerProjection({
+    runtimeAssets: malformedProjectionHarness.assets,
+});
+assert.equal(malformedProjection.ok, false);
+assert.equal(malformedProjection.reasonCode, 'projection-state-invalid');
 
 const v1BoundState = campaignStateFor();
 v1BoundState.mission.v1 = createMissionState({ definition: canonicalDefinition, branchId: 'save.alpha' });

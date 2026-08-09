@@ -106,7 +106,11 @@ assert.deepEqual(ship.operationalStatus.readiness, {
     label: 'Command readiness',
     value: 'ready-with-limitation',
 });
-assert.deepEqual(ship.operationalStatus.readinessObjective, missionProjection.objectives[0]);
+assert.deepEqual(ship.operationalStatus.readinessObjectiveLink, {
+    id: 'objective.prelude.final-readiness-arrival',
+});
+assert.equal(JSON.stringify(ship).includes(missionProjection.objectives[0].title), false);
+assert.equal(JSON.stringify(ship).includes(missionProjection.objectives[0].summary), false);
 assert.deepEqual(ship.operationalStatus.damage, [{
     id: 'damage.port-sensor-array',
     label: 'Port sensor array degraded',
@@ -147,7 +151,7 @@ const fallback = createShipPlayerProjection({
 });
 assert.equal(fallback.operationalStatus.conditionSummary, baselineShip.condition);
 assert.equal(fallback.operationalStatus.readiness, null);
-assert.equal(fallback.operationalStatus.readinessObjective, null);
+assert.equal(fallback.operationalStatus.readinessObjectiveLink, null);
 assert.deepEqual(fallback.operationalStatus.damage, []);
 assert.deepEqual(fallback.operationalStatus.restrictions, []);
 

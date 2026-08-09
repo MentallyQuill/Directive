@@ -59,10 +59,10 @@ function readinessProjection(definition = {}, missionProjection = {}) {
     } : null;
 }
 
-function readinessObjectiveProjection(definition = {}, missionProjection = {}) {
+function readinessObjectiveLink(definition = {}, missionProjection = {}) {
     const objectiveId = definition?.projectionHints?.shipReadinessObjectiveId;
     const objective = (missionProjection.objectives || []).find((item) => item.id === objectiveId);
-    return objective ? structuredClone(objective) : null;
+    return objective ? { id: objective.id } : null;
 }
 
 export function createShipPlayerProjection({
@@ -75,7 +75,7 @@ export function createShipPlayerProjection({
     const current = campaignState.ship || {};
     const capability = capabilityCard(runtimeAssets.shipDataset);
     const readiness = readinessProjection(definition, missionProjection);
-    const readinessObjective = readinessObjectiveProjection(definition, missionProjection);
+    const readinessObjective = readinessObjectiveLink(definition, missionProjection);
     const missionIds = [readinessObjective?.id, readiness?.id].filter(Boolean);
     return {
         kind: SHIP_PLAYER_PROJECTION_KIND,
@@ -89,7 +89,7 @@ export function createShipPlayerProjection({
             readiness,
             damage: operationalRecords(current.damage ?? baseline.damage),
             restrictions: operationalRecords(current.activeRestrictions ?? baseline.activeRestrictions),
-            readinessObjective,
+            readinessObjectiveLink: readinessObjective,
         },
         sourceRefs: {
             packageIds: [

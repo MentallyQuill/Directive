@@ -19,7 +19,9 @@ function createSequence(values) {
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
+const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');
 const missionGraph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
+const missionDefinition = readJson('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json');
 const fixture = readJson('tests/fixtures/mission/prelude-hesperus-fraud-director-loop.fixture.json');
 
 async function loadRuntimeAssets() {
@@ -33,9 +35,17 @@ async function loadRuntimeAssets() {
       path: 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
       dataset: crewDataset
     }],
+    shipDatasets: [{
+      path: 'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
+      dataset: shipDataset
+    }],
     missionGraphs: [{
       path: 'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       graph: missionGraph
+    }],
+    missionDefinitions: [{
+      path: 'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
+      definition: missionDefinition
     }]
   };
 }
@@ -98,6 +108,9 @@ const app = createDirectiveRuntimeApp({
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');
 assert.equal(initialView.host.capabilities.generation.batchConcurrent, true);
+const inactiveShadowProjection = await app.buildV1ShadowPlayerProjection();
+assert.equal(inactiveShadowProjection.ok, false);
+assert.match(inactiveShadowProjection.reasonCode, /definition-assets-missing|active-mission-unavailable/);
 assert.equal(
   initialView.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.providerKind,
   'utility'
@@ -147,6 +160,15 @@ await app.saveCreatorDraft({
   }
 });
 await app.acceptCreatorDraftAndStartCampaign({ simulationMode: 'Command' });
+
+const generationCountBeforeShadowRead = host.generation.calls().length;
+const shadowProjection = await app.buildV1ShadowPlayerProjection();
+const repeatedShadowProjection = await app.buildV1ShadowPlayerProjection();
+assert.equal(shadowProjection.ok, true);
+assert.equal(shadowProjection.projection.kind, 'directive.playerProjection.v1');
+assert.deepEqual(repeatedShadowProjection, shadowProjection);
+assert.equal(host.generation.calls().length, generationCountBeforeShadowRead);
+assert.equal(Object.hasOwn(shadowProjection.projection.ship, 'technicalDebt'), false);
 
 const sceneSnapshot = fixture.input.sceneSnapshot;
 const turn = await app.runDirectorTurn({
