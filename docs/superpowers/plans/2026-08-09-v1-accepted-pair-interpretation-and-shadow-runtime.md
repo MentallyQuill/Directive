@@ -205,23 +205,23 @@ feat(story): accumulate accepted scene evidence
 - Consumes: bundled/imported runtime assets, active campaign state, accepted-pair snapshot, generation router, and State Delta Gateway.
 - Produces: exact active V1 definition resolution and `settleV1MissionAcceptedPair(...)` for shadow runtime use.
 
-- [ ] **Step 1: Write failing asset-loading tests**
+- [x] **Step 1: Write failing asset-loading tests**
 
 Extend package refs and runtime assets with `missionDefinitionPaths`, URLs, records, and `missionDefinitionsById`. The Ashes ref loads Prelude V1. Other bundled campaigns load none. Imported archives may be indexed only when a strict `directive.missionDefinition.v1` payload has a matching package binding.
 
-- [ ] **Step 2: Implement active-definition resolution**
+- [x] **Step 2: Implement active-definition resolution**
 
 Resolve by exact package ID/version plus current `mission.v1.definitionId` or legacy `mission.activeMissionId` matching the definition's `packageBinding.sourceId`. Never select by package ID alone. Ambiguous, stale-version, wrong-source, or non-Ashes matches return an explicit unavailable reason.
 
-- [ ] **Step 3: Write failing adapter tests**
+- [x] **Step 3: Write failing adapter tests**
 
 Cover selected-swipe custody, current-player contribution custody, correction of assistant prose, no-change abstention, stale source before apply, gateway revision conflict, provider failure, wrong package/version/mission, deduplication, and transition sealing. Assert legacy `mission`, ship, relationships, threads, quests, logs, and Command Bearing remain unchanged except for the additive `mission.v1` and `storySettlement` roots.
 
-- [ ] **Step 4: Implement the runtime adapter**
+- [x] **Step 4: Implement the runtime adapter**
 
 Build the candidate packet, call the bounded interpreter, resolve exact sources from the snapshot, materialize the evidence proposal, and pass it to the V1 spine. Return sanitized diagnostics and committed roots. Never expose raw prompt/response content in campaign state.
 
-- [ ] **Step 5: Run, register, and commit Task 4**
+- [x] **Step 5: Run, register, and commit Task 4**
 
 Commit:
 

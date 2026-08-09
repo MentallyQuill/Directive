@@ -2646,7 +2646,8 @@ export function createDirectiveRuntimeApp({
       projections: projectionRecords,
       crewDatasets: merged.crewDatasets,
       shipDatasets: merged.shipDatasets,
-      missionGraphs: merged.missionGraphs
+      missionGraphs: merged.missionGraphs,
+      missionDefinitions: merged.missionDefinitions
     });
     controller = createCampaignStartController({
       adapter: storageAdapter,

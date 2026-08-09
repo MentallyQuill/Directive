@@ -13,10 +13,16 @@ function createBundledCampaignPackageRef({
   projectionPath,
   crewDatasetPath,
   shipDatasetPath = null,
-  missionGraphPaths
+  missionGraphPaths,
+  missionDefinitionPaths = []
 }) {
   const graphPaths = Object.freeze([...missionGraphPaths]);
   const graphRefs = Object.freeze(graphPaths.map((path) => Object.freeze({
+    path,
+    url: packageAssetUrl(path)
+  })));
+  const definitionPaths = Object.freeze([...missionDefinitionPaths]);
+  const definitionRefs = Object.freeze(definitionPaths.map((path) => Object.freeze({
     path,
     url: packageAssetUrl(path)
   })));
@@ -41,7 +47,11 @@ function createBundledCampaignPackageRef({
     missionGraphPath: graphPaths[0] || '',
     missionGraphUrl: graphPaths[0] ? packageAssetUrl(graphPaths[0]) : null,
     missionGraphPaths: graphPaths,
-    missionGraphUrls: graphRefs
+    missionGraphUrls: graphRefs,
+    missionDefinitionPath: definitionPaths[0] || '',
+    missionDefinitionUrl: definitionPaths[0] ? packageAssetUrl(definitionPaths[0]) : null,
+    missionDefinitionPaths: definitionPaths,
+    missionDefinitionUrls: definitionRefs
   });
 }
 
@@ -61,6 +71,9 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
       'packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json',
       'packages/bundled/breckenridge/chapter-1-the-empty-convoy.mission-graph.json',
       'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json'
+    ],
+    missionDefinitionPaths: [
+      'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json'
     ]
   }),
   createBundledCampaignPackageRef({
@@ -184,5 +197,11 @@ export function bundledShipDatasetPairs() {
 export function bundledMissionGraphTriples() {
   return BUNDLED_CAMPAIGN_PACKAGE_REFS.flatMap((ref) => (
     ref.missionGraphPaths.map((graphPath) => [ref.packagePath, ref.crewDatasetPath, graphPath])
+  ));
+}
+
+export function bundledMissionDefinitionPairs() {
+  return BUNDLED_CAMPAIGN_PACKAGE_REFS.flatMap((ref) => (
+    ref.missionDefinitionPaths.map((definitionPath) => [ref.packagePath, definitionPath])
   ));
 }

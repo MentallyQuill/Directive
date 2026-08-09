@@ -79,6 +79,7 @@ const checks = [
   'validate-ashes-v1-prelude.mjs',
   'test-v1-story-settlement.mjs',
   'test-v1-state-spine-runtime.mjs',
+  'test-v1-mission-runtime.mjs',
   'test-ashes-v1-migration-inventory.mjs',
   'test-ashes-v1-prelude-mission.mjs',
   'test-story-ledger-projection.mjs',

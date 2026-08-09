@@ -9,6 +9,7 @@ import {
   bundledCrewDatasetPairs,
   bundledShipDatasetPairs,
   bundledMissionGraphTriples,
+  bundledMissionDefinitionPairs,
   getBundledCampaignPackageRef
 } from '../../src/packages/bundled-package-registry.mjs';
 
@@ -76,6 +77,13 @@ assert.deepEqual(
   )),
   'mission graph helper follows registry order'
 );
+assert.deepEqual(
+  bundledMissionDefinitionPairs(),
+  BUNDLED_CAMPAIGN_PACKAGE_REFS.flatMap((ref) => (
+    ref.missionDefinitionPaths.map((definitionPath) => [ref.packagePath, definitionPath])
+  )),
+  'mission definition helper follows registry order'
+);
 
 for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
   assert.equal(getBundledCampaignPackageRef(ref.id), ref, `${ref.id} lookup by id`);
@@ -95,6 +103,10 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
   if (ref.shipDatasetUrl) assert.equal(fileUrlRelative(ref.shipDatasetUrl), ref.shipDatasetPath, `${ref.id} ship URL`);
   assert.equal(ref.missionGraphPath, ref.missionGraphPaths[0], `${ref.id} first mission graph path`);
   assert.equal(fileUrlRelative(ref.missionGraphUrl), ref.missionGraphPath, `${ref.id} first mission graph URL`);
+  assert.equal(ref.missionDefinitionPath, ref.missionDefinitionPaths[0] || '', `${ref.id} first mission definition path`);
+  if (ref.missionDefinitionUrl) {
+    assert.equal(fileUrlRelative(ref.missionDefinitionUrl), ref.missionDefinitionPath, `${ref.id} first mission definition URL`);
+  }
 
   const packageData = readJson(ref.packagePath);
   const projection = readJson(ref.projectionPath);
@@ -146,7 +158,27 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
     assert.equal(graph.manifest?.missionId, quest?.id, `${ref.id} graph mission id`);
     assert.equal(quest?.missionGraph?.id, graph.manifest?.id, `${ref.id} quest graph id`);
   }
+
+  for (const definitionRef of ref.missionDefinitionUrls) {
+    assertPathExists(definitionRef.path, `${ref.id} mission definition`);
+    assert.equal(fileUrlRelative(definitionRef.url), definitionRef.path, `${ref.id} mission definition URL`);
+    const definition = readJson(definitionRef.path);
+    assert.equal(definition.kind, 'directive.missionDefinition.v1', `${ref.id} definition kind`);
+    assert.equal(definition.packageBinding?.packageId, ref.id, `${ref.id} definition package id`);
+    assert.equal(definition.packageBinding?.packageVersion, packageData.manifest?.version, `${ref.id} definition package version`);
+  }
 }
+
+const ashesRef = getBundledCampaignPackageRef('breckenridge-ashes-of-peace');
+assert.deepEqual(ashesRef.missionDefinitionPaths, [
+  'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json'
+], 'Ashes loads only the certified Prelude V1 definition');
+assert.equal(
+  BUNDLED_CAMPAIGN_PACKAGE_REFS.filter((ref) => ref.id !== ashesRef.id)
+    .every((ref) => ref.missionDefinitionPaths.length === 0),
+  true,
+  'teaser campaigns do not load V1 mission definitions'
+);
 
 assert.equal(getBundledCampaignPackageRef('missing'), null, 'missing bundled package lookup');
 

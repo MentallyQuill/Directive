@@ -103,7 +103,7 @@ function hasMatchingDefinitionBinding(current, definition) {
         && current?.packageBinding?.sourceId === definition?.packageBinding?.sourceId;
 }
 
-function initialMissionState(campaignState, definition, branchId) {
+export function resolveV1MissionState({ campaignState, definition, branchId } = {}) {
     const current = campaignState?.mission?.v1;
     if (current?.definitionId === definition.id && current?.branchId === branchId) {
         if (!hasMatchingDefinitionBinding(current, definition)) {
@@ -140,7 +140,11 @@ export function createV1StateSpine({
 
     function reduceMissionProposal({ definition, proposal, sourceContribution } = {}) {
         const campaignState = getState();
-        const missionState = initialMissionState(campaignState, definition, proposal.branchId);
+        const missionState = resolveV1MissionState({
+            campaignState,
+            definition,
+            branchId: proposal.branchId,
+        });
         const evidence = validateMissionEvidenceProposal({
             definition,
             state: missionState,
@@ -272,7 +276,7 @@ export function createV1StateSpine({
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
-        const currentMission = initialMissionState(campaignState, definition, branchId);
+        const currentMission = resolveV1MissionState({ campaignState, definition, branchId });
         const currentStorySettlement = initialStorySettlement(campaignState, branchId);
         const previouslyInvalidated = new Set(currentMission.invalidatedSourceContributionIds || []);
         const knownContributionIds = new Set([

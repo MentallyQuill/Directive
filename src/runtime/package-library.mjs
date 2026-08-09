@@ -48,6 +48,15 @@ function unwrapMissionGraphRecords(record) {
   }));
 }
 
+function unwrapMissionDefinitionRecords(record) {
+  if (!record) return [];
+  const records = Array.isArray(record) ? record : [record];
+  return records.filter(Boolean).map((item) => ({
+    path: item.path || '',
+    definition: item.definition || item
+  }));
+}
+
 function recordForPackage(records, packageId, index) {
   if (!records) return null;
   if (Array.isArray(records)) {
@@ -61,7 +70,8 @@ export function indexRuntimeAssets({
   projections = [],
   crewDatasets = [],
   shipDatasets = [],
-  missionGraphs = []
+  missionGraphs = [],
+  missionDefinitions = []
 } = {}) {
   const byPackageId = new Map();
   packages.forEach((packageData, index) => {
@@ -71,12 +81,21 @@ export function indexRuntimeAssets({
     const crewDatasetRecord = unwrapCrewDatasetRecord(recordForPackage(crewDatasets, packageId, index));
     const shipDatasetRecord = unwrapShipDatasetRecord(recordForPackage(shipDatasets, packageId, index));
     const graphRecords = unwrapMissionGraphRecords(recordForPackage(missionGraphs, packageId, index));
+    const definitionRecords = unwrapMissionDefinitionRecords(recordForPackage(missionDefinitions, packageId, index))
+      .filter((record) => record.definition?.kind === 'directive.missionDefinition.v1'
+        && record.definition?.packageBinding?.packageId === packageId
+        && record.definition?.packageBinding?.packageVersion === packageData?.manifest?.version);
     const missionGraphsById = new Map();
     for (const graphRecord of graphRecords) {
       const graphId = graphRecord.graph?.manifest?.id || graphRecord.graph?.id || graphRecord.path;
       if (graphId) {
         missionGraphsById.set(graphId, graphRecord);
       }
+    }
+    const missionDefinitionsById = new Map();
+    for (const definitionRecord of definitionRecords) {
+      const definitionId = definitionRecord.definition?.id;
+      if (definitionId) missionDefinitionsById.set(definitionId, definitionRecord);
     }
     byPackageId.set(packageId, {
       packageData,
@@ -87,7 +106,9 @@ export function indexRuntimeAssets({
       shipDataset: shipDatasetRecord?.dataset || null,
       shipDatasetPath: shipDatasetRecord?.path || '',
       missionGraphs: graphRecords,
-      missionGraphsById
+      missionGraphsById,
+      missionDefinitions: definitionRecords,
+      missionDefinitionsById
     });
   });
   return byPackageId;
@@ -114,6 +135,7 @@ export async function loadBundledCampaignPackageRecords({
   const crewDatasets = [];
   const shipDatasets = [];
   const missionGraphs = [];
+  const missionDefinitions = [];
   for (const ref of refs) {
     const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
     const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
@@ -132,6 +154,19 @@ export async function loadBundledCampaignPackageRecords({
         graph
       });
     }
+    const definitionRefs = Array.isArray(ref.missionDefinitionUrls) && ref.missionDefinitionUrls.length > 0
+      ? ref.missionDefinitionUrls
+      : ref.missionDefinitionUrl
+        ? [{ url: ref.missionDefinitionUrl, path: ref.missionDefinitionPath || '' }]
+        : [];
+    const definitionRecords = [];
+    for (const definitionRef of definitionRefs) {
+      const definition = await fetchJsonAsset(definitionRef.url, { fetchImpl });
+      definitionRecords.push({
+        path: definitionRef.path || '',
+        definition
+      });
+    }
     packages.push(packageData);
     projections.push({
       path: ref.projectionPath || '',
@@ -146,8 +181,9 @@ export async function loadBundledCampaignPackageRecords({
       dataset: shipDataset
     } : null);
     missionGraphs.push(graphRecords);
+    missionDefinitions.push(definitionRecords);
   }
-  return { packages, projections, crewDatasets, shipDatasets, missionGraphs };
+  return { packages, projections, crewDatasets, shipDatasets, missionGraphs, missionDefinitions };
 }
 
 function payloadPackageId(payload) {
@@ -188,13 +224,26 @@ function importedMissionGraphRecords(importRecord) {
     .map(({ path, value }) => ({ path, graph: value }));
 }
 
+function importedMissionDefinitionRecords(importRecord) {
+  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
+  const packageVersion = importRecord?.packageData?.manifest?.version || null;
+  return importedJsonPayloadEntries(importRecord)
+    .filter(({ value }) => value?.kind === 'directive.missionDefinition.v1'
+      && value?.packageBinding?.packageId === packageId
+      && value?.packageBinding?.packageVersion === packageVersion)
+    .map(({ path, value }) => ({ path, definition: value }));
+}
+
 function normalizeLoadedPackageRecords(loaded = {}) {
   const packages = Array.isArray(loaded.packages) ? loaded.packages : Object.values(loaded.packages || {});
   const projections = Array.isArray(loaded.projections) ? loaded.projections : Object.values(loaded.projections || {});
   const crewDatasets = Array.isArray(loaded.crewDatasets) ? loaded.crewDatasets : Object.values(loaded.crewDatasets || {});
   const shipDatasets = Array.isArray(loaded.shipDatasets) ? loaded.shipDatasets : Object.values(loaded.shipDatasets || {});
   const missionGraphs = Array.isArray(loaded.missionGraphs) ? loaded.missionGraphs : Object.values(loaded.missionGraphs || {});
-  return { packages, projections, crewDatasets, shipDatasets, missionGraphs };
+  const missionDefinitions = Array.isArray(loaded.missionDefinitions)
+    ? loaded.missionDefinitions
+    : Object.values(loaded.missionDefinitions || {});
+  return { packages, projections, crewDatasets, shipDatasets, missionGraphs, missionDefinitions };
 }
 
 export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
@@ -209,6 +258,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
       crewDataset: records.crewDatasets[index] || null,
       shipDataset: records.shipDatasets[index] || null,
       missionGraphs: records.missionGraphs[index] || [],
+      missionDefinitions: records.missionDefinitions[index] || [],
       source: packageData?.manifest?.bundled === true ? 'bundled' : 'loaded'
     });
   });
@@ -222,12 +272,14 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     const crewDataset = importedCrewDatasetRecord(importRecord);
     const shipDataset = importedShipDatasetRecord(importRecord);
     const missionGraphs = importedMissionGraphRecords(importRecord);
+    const missionDefinitions = importedMissionDefinitionRecords(importRecord);
     byPackageId.set(packageId, {
       packageData: importRecord.packageData,
       projection: projection || existing.projection || null,
       crewDataset: crewDataset || existing.crewDataset || null,
       shipDataset: shipDataset || existing.shipDataset || null,
       missionGraphs: missionGraphs.length > 0 ? missionGraphs : existing.missionGraphs || [],
+      missionDefinitions: missionDefinitions.length > 0 ? missionDefinitions : existing.missionDefinitions || [],
       source: 'imported'
     });
   }
@@ -238,6 +290,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     crewDatasets: [],
     shipDatasets: [],
     missionGraphs: [],
+    missionDefinitions: [],
     sources: {}
   };
   for (const [packageId, record] of byPackageId.entries()) {
@@ -246,6 +299,7 @@ export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
     merged.crewDatasets.push(record.crewDataset);
     merged.shipDatasets.push(record.shipDataset);
     merged.missionGraphs.push(record.missionGraphs);
+    merged.missionDefinitions.push(record.missionDefinitions);
     merged.sources[packageId] = record.source;
   }
   return merged;
@@ -263,7 +317,8 @@ export function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
       hasCharacterCreationContext: isObject(assets.packageData?.characterCreation),
       hasPromptMetadata: isObject(assets.packageData?.contextPolicy)
         && assets.packageData.contextPolicy.hiddenStatePolicy === 'explicit-player-safe-projection-only',
-      missionGraphCount: Array.isArray(assets.missionGraphs) ? assets.missionGraphs.length : 0
+      missionGraphCount: Array.isArray(assets.missionGraphs) ? assets.missionGraphs.length : 0,
+      missionDefinitionCount: Array.isArray(assets.missionDefinitions) ? assets.missionDefinitions.length : 0
     };
   }
   return summaries;
