@@ -3,6 +3,7 @@ source-images/
 
 # Local documentation render harness and temporary browser fixtures.
 .directive-doc-renderer/
+.worktrees/
 .tmp/
 tmp-*.log
 node_modules/
