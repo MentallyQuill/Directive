@@ -30,6 +30,7 @@ import {
   createLatestPairSourceSettlementProvider,
   settleLatestPairSource
 } from './source-settlement-latest-pair.mjs';
+import { prepareLatestPairSceneSnapshot } from './source-settlement-latest-pair-scene-adapter.mjs';
 import {
   createSourceToken,
   createTurnSourceFrame,
@@ -258,6 +259,176 @@ function isHistoricalReplayObservation(message = {}) {
     || reason === 'sillytavern-chat-fallback-observer'
     || reason === 'programmatic-campaign-chat-open'
     || reason === 'programmatic-open-syncs-prompt';
+}
+
+function safeShadowCode(value, fallback = null) {
+  const text = String(value || '').trim().slice(0, 120);
+  return /^[a-z0-9][a-z0-9._:-]*$/i.test(text) ? text : fallback;
+}
+
+function sanitizedV1ShadowResult(result = {}) {
+  const diagnostics = result?.diagnostics || {};
+  const count = (value) => Number.isInteger(value) && value >= 0 ? value : 0;
+  return {
+    ok: result?.ok === true,
+    attempted: result?.attempted === true,
+    status: safeShadowCode(result?.status, result?.ok === true ? 'settled' : 'unavailable'),
+    reasonCode: safeShadowCode(result?.reasonCode, null),
+    definitionId: safeShadowCode(result?.definitionId, null),
+    definitionVersion: safeShadowCode(result?.definitionVersion, null),
+    committedRoots: [...new Set((Array.isArray(result?.committedRoots) ? result.committedRoots : [])
+      .filter((root) => ['mission', 'storySettlement'].includes(root)))],
+    noChange: result?.noChange === true,
+    transitionCommitted: result?.transitionCommitted === true,
+    diagnostics: {
+      candidateCount: count(diagnostics.candidateCount),
+      selectedClaimCount: count(diagnostics.selectedClaimCount),
+      acceptedClaimCount: count(diagnostics.acceptedClaimCount),
+      rejectedClaimCount: count(diagnostics.rejectedClaimCount),
+      discardedAssistantClaimCount: count(diagnostics.discardedAssistantClaimCount),
+      latencyMs: Number.isFinite(diagnostics.latencyMs) && diagnostics.latencyMs >= 0
+        ? diagnostics.latencyMs
+        : null
+    }
+  };
+}
+
+function skippedV1ShadowResult(reasonCode, reasons = []) {
+  return {
+    ok: false,
+    attempted: false,
+    status: 'skipped',
+    reasonCode,
+    definitionId: null,
+    definitionVersion: null,
+    committedRoots: [],
+    noChange: true,
+    transitionCommitted: false,
+    reasons: (Array.isArray(reasons) ? reasons : [reasons])
+      .map((reason) => safeShadowCode(reason, null))
+      .filter(Boolean)
+      .slice(0, 8),
+    diagnostics: {
+      candidateCount: 0,
+      selectedClaimCount: 0,
+      acceptedClaimCount: 0,
+      rejectedClaimCount: 0,
+      discardedAssistantClaimCount: 0,
+      latencyMs: null
+    }
+  };
+}
+
+export async function runV1MissionShadowSettlement({
+  enabled = false,
+  campaignState = null,
+  snapshot = null,
+  message = null,
+  runtimeAssets = null,
+  settleV1MissionAcceptedPair = null,
+  preflight = null,
+  getCampaignState = null,
+  timeoutMs = 10000
+} = {}) {
+  if (enabled !== true) {
+    return { campaignState, result: skippedV1ShadowResult('shadow-disabled') };
+  }
+  if (!snapshot) {
+    return { campaignState, result: skippedV1ShadowResult('snapshot-unavailable') };
+  }
+  if (isHistoricalReplayObservation(message)) {
+    return { campaignState, result: skippedV1ShadowResult('historical-replay') };
+  }
+  if (message?.isDirectiveOwned === true || message?.directiveOwned === true) {
+    return { campaignState, result: skippedV1ShadowResult('directive-owned-source') };
+  }
+  if (typeof settleV1MissionAcceptedPair !== 'function') {
+    return { campaignState, result: skippedV1ShadowResult('shadow-handler-unavailable') };
+  }
+  if (typeof preflight === 'function') {
+    let sourceDecision = null;
+    try {
+      sourceDecision = await preflight();
+    } catch {
+      return { campaignState, result: skippedV1ShadowResult('source-preflight-failed') };
+    }
+    if (sourceDecision && sourceDecision.status !== 'preflightClean') {
+      return {
+        campaignState,
+        result: skippedV1ShadowResult('source-preflight-blocked', sourceDecision.reasons || [])
+      };
+    }
+  }
+  try {
+    const result = await withTimeout(
+      Promise.resolve().then(() => settleV1MissionAcceptedPair({ runtimeAssets, snapshot })),
+      Number(timeoutMs),
+      () => timeoutError(
+        'DIRECTIVE_V1_MISSION_SHADOW_TIMEOUT',
+        'V1 mission shadow interpretation timed out.',
+        Number(timeoutMs)
+      )
+    );
+    const sanitized = sanitizedV1ShadowResult(result);
+    const refreshed = sanitized.ok && typeof getCampaignState === 'function'
+      ? getCampaignState()
+      : null;
+    return {
+      campaignState: refreshed || campaignState,
+      result: sanitized
+    };
+  } catch (error) {
+    const reasonCode = error?.code === 'DIRECTIVE_V1_MISSION_SHADOW_TIMEOUT'
+      ? 'shadow-timeout'
+      : 'shadow-threw';
+    return {
+      campaignState,
+      result: {
+        ...skippedV1ShadowResult(reasonCode),
+        attempted: true,
+        status: 'unavailable'
+      }
+    };
+  }
+}
+
+export async function runAcceptedPairSettlementSequence({
+  campaignState = null,
+  settleLegacy,
+  settleV1 = null
+} = {}) {
+  if (typeof settleLegacy !== 'function') throw new TypeError('settleLegacy is required');
+  const legacy = await settleLegacy(campaignState);
+  const legacyBundle = legacy && Object.hasOwn(legacy, 'campaignState')
+    ? legacy
+    : { campaignState: legacy || campaignState, snapshot: null };
+  let shadow = {
+    campaignState: legacyBundle.campaignState,
+    result: skippedV1ShadowResult('shadow-handler-unavailable')
+  };
+  if (typeof settleV1 === 'function') {
+    try {
+      shadow = await settleV1({
+        campaignState: legacyBundle.campaignState,
+        snapshot: legacyBundle.snapshot || null
+      }) || shadow;
+    } catch {
+      shadow = {
+        campaignState: legacyBundle.campaignState,
+        result: {
+          ...skippedV1ShadowResult('shadow-threw'),
+          attempted: true,
+          status: 'unavailable'
+        }
+      };
+    }
+  }
+  return {
+    campaignState: shadow.campaignState || legacyBundle.campaignState,
+    snapshot: legacyBundle.snapshot || null,
+    legacy: legacyBundle,
+    shadow
+  };
 }
 
 function shouldResolveNoOutcomeRecoveryOnReobserve(priorIngress, recovery) {
@@ -1165,6 +1336,10 @@ export function createChatTurnOrchestrator({
   enableDefaultLatestPairSettlementProvider = false,
   validateLatestPairSettlementBeforeApply = null,
   sceneHandshakeSettlementTimeoutMs = 10000,
+  settleV1MissionAcceptedPair = null,
+  enableV1MissionShadow = false,
+  getRuntimeAssets = null,
+  v1MissionShadowTimeoutMs = 10000,
   ingressPersistTimeoutMs = 750,
   coreProjectionReadTimeoutMs = 750,
   coreBeginTurnTimeoutMs = 750,
@@ -1481,6 +1656,15 @@ export function createChatTurnOrchestrator({
   }
 
   async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
+    const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    const prepared = prepareLatestPairSceneSnapshot({
+      campaignState: state,
+      currentPlayerMessage: message,
+      recentMessages,
+      chatId,
+      ingressId
+    });
+    const snapshot = prepared.ok ? prepared.snapshot : null;
     if (!defaultLatestPairSettlementProvider) {
       reportActivity(activityReporter, {
         phase: 'sceneHandshakeSkipped',
@@ -1489,9 +1673,18 @@ export function createChatTurnOrchestrator({
         ingressId,
         reason: 'source-settlement-latest-pair-provider-unavailable'
       });
-      return state;
+      return { campaignState: state, snapshot };
     }
-    const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
+    if (!prepared.ok) {
+      reportActivity(activityReporter, {
+        phase: 'sceneHandshakeSkipped',
+        mode: 'diagnostic',
+        source: 'sceneHandshake',
+        ingressId,
+        reason: prepared.reason || 'accepted-pair-snapshot-unavailable'
+      });
+      return { campaignState: state, snapshot: null };
+    }
     const tracked = initializeCampaignRuntimeTracking(state);
     const ingress = await findIngressFresh(tracked, ingressId);
     let packageData = null;
@@ -1518,7 +1711,7 @@ export function createChatTurnOrchestrator({
         providerCalled: sourcePreflight.providerCalled === true,
         applied: sourcePreflight.applied === true
       });
-      return state;
+      return { campaignState: state, snapshot };
     }
     let result = null;
     try {
@@ -1555,6 +1748,7 @@ export function createChatTurnOrchestrator({
           latestPairSourceFrame: ingress?.sourceFrame || null,
           packageData,
           coreStore: coreTurnStore,
+          prebuiltSnapshot: snapshot,
           now
         }),
         Number(sceneHandshakeSettlementTimeoutMs),
@@ -1578,10 +1772,10 @@ export function createChatTurnOrchestrator({
           message: error?.message || String(error)
         }
       });
-      return state;
+      return { campaignState: state, snapshot };
     }
     let next = result?.campaignState || state;
-    if (!result?.attempted && !result?.deduplicated) return next;
+    if (!result?.attempted && !result?.deduplicated) return { campaignState: next, snapshot };
     const refreshed = getCampaignState() || null;
     const authoritativeNext = refreshed?.campaign?.id && refreshed.campaign.id === next?.campaign?.id
       ? refreshed
@@ -1639,7 +1833,74 @@ export function createChatTurnOrchestrator({
         }
       );
     }
-    return next;
+    return { campaignState: next, snapshot };
+  }
+
+  async function settleV1MissionShadow(state, snapshot, message, chatId, ingressId, activityReporter = null) {
+    let runtimeAssets = null;
+    try {
+      runtimeAssets = typeof getRuntimeAssets === 'function' ? getRuntimeAssets() : null;
+    } catch {
+      runtimeAssets = null;
+    }
+    let enabled = enableV1MissionShadow === true;
+    if (typeof enableV1MissionShadow === 'function') {
+      try {
+        enabled = enableV1MissionShadow({ campaignState: state, runtimeAssets }) === true;
+      } catch {
+        enabled = false;
+      }
+    }
+    const timeoutMs = Math.min(
+      Number.isFinite(Number(v1MissionShadowTimeoutMs)) && Number(v1MissionShadowTimeoutMs) > 0
+        ? Number(v1MissionShadowTimeoutMs)
+        : 10000,
+      Number.isFinite(Number(sceneHandshakeSettlementTimeoutMs)) && Number(sceneHandshakeSettlementTimeoutMs) > 0
+        ? Number(sceneHandshakeSettlementTimeoutMs)
+        : 10000
+    );
+    if (enabled) {
+      reportActivity(activityReporter, {
+        phase: 'settlingV1MissionShadow',
+        mode: 'blocking',
+        source: 'v1MissionShadow',
+        ingressId,
+        sourceRangeHash: snapshot?.source?.sourceRangeHash || null
+      });
+    }
+    const outcome = await runV1MissionShadowSettlement({
+      enabled,
+      campaignState: state,
+      snapshot,
+      message,
+      runtimeAssets,
+      settleV1MissionAcceptedPair,
+      preflight: () => preflightSceneHandshakeSource(
+        state,
+        message,
+        chatId,
+        ingressId,
+        activityReporter
+      ),
+      getCampaignState,
+      timeoutMs
+    });
+    reportActivity(activityReporter, {
+      phase: outcome.result.ok ? 'v1MissionShadowSettled' : 'v1MissionShadowSkipped',
+      mode: 'diagnostic',
+      source: 'v1MissionShadow',
+      ingressId,
+      sourceRangeHash: snapshot?.source?.sourceRangeHash || null,
+      status: outcome.result.status,
+      reasonCode: outcome.result.reasonCode,
+      definitionId: outcome.result.definitionId,
+      definitionVersion: outcome.result.definitionVersion,
+      committedRoots: cloneJson(outcome.result.committedRoots),
+      noChange: outcome.result.noChange,
+      transitionCommitted: outcome.result.transitionCommitted,
+      diagnostics: cloneJson(outcome.result.diagnostics)
+    });
+    return outcome;
   }
 
   function packageDataForTimeBoundary() {
@@ -6510,7 +6771,19 @@ export function createChatTurnOrchestrator({
     let stage = 'classification';
     try {
       stage = 'sceneHandshake';
-      state = await settleSceneHandshake(state, message, chatId, ingressId, activityReporter);
+      const acceptedPairSettlement = await runAcceptedPairSettlementSequence({
+        campaignState: state,
+        settleLegacy: () => settleSceneHandshake(state, message, chatId, ingressId, activityReporter),
+        settleV1: ({ campaignState: legacySettledState, snapshot }) => settleV1MissionShadow(
+          legacySettledState,
+          snapshot,
+          message,
+          chatId,
+          ingressId,
+          activityReporter
+        )
+      });
+      state = acceptedPairSettlement.campaignState;
       const sceneHandshakeBoundary = findTimeBoundaryForPlayerMessage(state, message.hostMessageId || message.id || null);
       if (sceneHandshakeBoundary?.sourceAnchorRange?.kind === 'sceneHandshakePair') {
         reportActivity(activityReporter, {

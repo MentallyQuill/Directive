@@ -69,6 +69,7 @@ import { createCampaignActivationCoordinator } from './campaign-activation-coord
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
+import { createV1MissionRuntime } from './v1-mission-runtime.mjs';
 import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
 import {
   buildContinuityProjectionDiagnostics,
@@ -7686,6 +7687,13 @@ export function createDirectiveRuntimeApp({
       return result;
     }
     const turnCommitCoordinator = ensureTurnCommitCoordinator();
+    const v1MissionRuntime = createV1MissionRuntime({
+      getState: getCampaignState,
+      stateDeltaGateway,
+      generationRouter: defaultGenerationRouter,
+      now,
+      timeoutMs: 8000
+    });
     const orchestrator = createChatTurnOrchestrator({
       host: runtimeHost,
       classify,
@@ -7697,6 +7705,10 @@ export function createDirectiveRuntimeApp({
       forgeCoordinator,
       messageReconciler,
       enableDefaultLatestPairSettlementProvider: true,
+      settleV1MissionAcceptedPair: (input) => v1MissionRuntime.settleAcceptedPair(input),
+      enableV1MissionShadow: ({ runtimeAssets }) => v1MissionRuntime.resolveActiveDefinition(runtimeAssets).ok,
+      getRuntimeAssets: () => activeRuntimeAssets(),
+      v1MissionShadowTimeoutMs: 8000,
       repairRuntime: repairRuntimeBoundary,
       coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,

@@ -391,7 +391,10 @@ function buildLatestPairSceneSnapshot({
       saveId: state.campaignChatBinding?.saveId || null,
       chatId: chatId || state.campaignChatBinding?.chatId || null,
       packageId: state.activeCampaignPackage?.packageId || state.campaign?.packageId || null,
-      packageVersion: state.activeCampaignPackage?.version || state.campaign?.packageVersion || null,
+      packageVersion: state.activeCampaignPackage?.packageVersion
+        || state.activeCampaignPackage?.version
+        || state.campaign?.packageVersion
+        || null,
       activeMissionId: state.mission?.activeMissionId || null,
       activeMissionTitle: safe.mission?.activeMissionId || state.mission?.activeMissionId || null,
       activePhaseId: state.mission?.activePhaseId || state.mission?.phase || null,
@@ -460,6 +463,63 @@ function buildLatestPairSceneSnapshot({
       pendingSceneReconciliationCount: asArray(state.sceneReconciliation?.pending).length,
       staleSourceWarnings: []
     }
+  };
+}
+
+export function prepareLatestPairSceneSnapshot({
+  campaignState,
+  currentPlayerMessage,
+  previousAssistantMessage = null,
+  recentMessages = [],
+  chatId = null,
+  ingressId = null
+} = {}) {
+  if (!campaignState || !currentPlayerMessage?.text) {
+    return { ok: false, reason: 'missing-state-or-message', snapshot: null };
+  }
+  const boundChatId = compact(campaignState.campaignChatBinding?.chatId || '', 300);
+  const observedChatId = compact(chatId || currentPlayerMessage.chatId || '', 300);
+  if (boundChatId && observedChatId && boundChatId !== observedChatId) {
+    return {
+      ok: false,
+      reason: 'wrong-chat',
+      snapshot: null,
+      boundChatId,
+      chatId: observedChatId
+    };
+  }
+  const boundSaveId = compact(campaignState.campaignChatBinding?.saveId || '', 300);
+  const observedSaveId = compact(currentPlayerMessage.saveId || '', 300);
+  if (boundSaveId && observedSaveId && boundSaveId !== observedSaveId) {
+    return {
+      ok: false,
+      reason: 'wrong-save',
+      snapshot: null,
+      boundSaveId,
+      saveId: observedSaveId
+    };
+  }
+  const resolved = previousAssistantMessage
+    ? { message: previousAssistantMessage, skippedReason: unsafePreviousAssistantSkipReason(previousAssistantMessage) }
+    : resolvePreviousAssistantMessage({ recentMessages, currentPlayerMessage });
+  if (!resolved.message || resolved.skippedReason) {
+    return {
+      ok: false,
+      reason: resolved.skippedReason || 'no-previous-assistant',
+      snapshot: null
+    };
+  }
+  return {
+    ok: true,
+    reason: null,
+    snapshot: buildLatestPairSceneSnapshot({
+      campaignState,
+      previousAssistantMessage: resolved.message,
+      currentPlayerMessage,
+      chatId,
+      ingressId,
+      recentMessages
+    })
   };
 }
 
@@ -705,51 +765,31 @@ export async function runLatestPairSceneHandshakeSettlement({
   latestPairSourceFrame = null,
   packageData = null,
   coreStore = null,
+  prebuiltSnapshot = null,
   now = null
 } = {}) {
-  if (!campaignState || !currentPlayerMessage?.text) {
-    return { attempted: false, reason: 'missing-state-or-message', campaignState };
-  }
-  const boundChatId = compact(campaignState.campaignChatBinding?.chatId || '', 300);
-  const observedChatId = compact(chatId || currentPlayerMessage.chatId || '', 300);
-  if (boundChatId && observedChatId && boundChatId !== observedChatId) {
+  const prepared = prebuiltSnapshot
+    ? { ok: true, reason: null, snapshot: prebuiltSnapshot }
+    : prepareLatestPairSceneSnapshot({
+        campaignState,
+        currentPlayerMessage,
+        previousAssistantMessage,
+        recentMessages,
+        chatId,
+        ingressId
+      });
+  if (!prepared.ok) {
     return {
       attempted: false,
-      reason: 'wrong-chat',
-      boundChatId,
-      chatId: observedChatId,
+      reason: prepared.reason,
+      ...(prepared.boundChatId ? { boundChatId: prepared.boundChatId } : {}),
+      ...(prepared.chatId ? { chatId: prepared.chatId } : {}),
+      ...(prepared.boundSaveId ? { boundSaveId: prepared.boundSaveId } : {}),
+      ...(prepared.saveId ? { saveId: prepared.saveId } : {}),
       campaignState
     };
   }
-  const boundSaveId = compact(campaignState.campaignChatBinding?.saveId || '', 300);
-  const observedSaveId = compact(currentPlayerMessage.saveId || '', 300);
-  if (boundSaveId && observedSaveId && boundSaveId !== observedSaveId) {
-    return {
-      attempted: false,
-      reason: 'wrong-save',
-      boundSaveId,
-      saveId: observedSaveId,
-      campaignState
-    };
-  }
-  const resolved = previousAssistantMessage
-    ? { message: previousAssistantMessage, skippedReason: unsafePreviousAssistantSkipReason(previousAssistantMessage) }
-    : resolvePreviousAssistantMessage({ recentMessages, currentPlayerMessage });
-  if (!resolved.message) {
-    return { attempted: false, reason: resolved.skippedReason || 'no-previous-assistant', campaignState };
-  }
-  if (resolved.skippedReason) {
-    return { attempted: false, reason: resolved.skippedReason, campaignState };
-  }
-
-  const snapshot = buildLatestPairSceneSnapshot({
-    campaignState,
-    previousAssistantMessage: resolved.message,
-    currentPlayerMessage,
-    chatId,
-    ingressId,
-    recentMessages
-  });
+  const snapshot = prepared.snapshot;
   const idempotencyKey = latestPairSceneIdempotencyKey(snapshot);
   const existing = existingSceneHandshakeRecord(campaignState, idempotencyKey);
   if (existing) {

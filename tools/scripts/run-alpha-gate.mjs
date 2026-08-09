@@ -80,6 +80,7 @@ const checks = [
   'test-v1-story-settlement.mjs',
   'test-v1-state-spine-runtime.mjs',
   'test-v1-mission-runtime.mjs',
+  'test-v1-accepted-pair-orchestrator.mjs',
   'test-ashes-v1-migration-inventory.mjs',
   'test-ashes-v1-prelude-mission.mjs',
   'test-story-ledger-projection.mjs',

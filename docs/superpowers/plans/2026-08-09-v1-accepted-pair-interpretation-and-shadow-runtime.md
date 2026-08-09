@@ -242,7 +242,7 @@ feat(runtime): settle V1 accepted pairs
 - Consumes: the already-created CORE ingress/source frame and the same latest-pair snapshot used by Scene Handshake.
 - Produces: shadow V1 settlement before classification, with legacy live projection unchanged.
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [x] **Step 1: Write failing lifecycle tests**
 
 Prove the call order:
 
@@ -255,15 +255,15 @@ CORE ingress
 
 The V1 call uses the selected visible swipe. It does not run for wrong chat/save, historical replay, Directive-owned/control response, unavailable definition, or already-settled source range. Timeout/provider failure reports a sanitized shadow diagnostic and permits the legacy turn to continue.
 
-- [ ] **Step 2: Add an explicit shadow-mode dependency**
+- [x] **Step 2: Add an explicit shadow-mode dependency**
 
 The orchestrator receives `settleV1MissionAcceptedPair` and `enableV1MissionShadow`. It owns sequencing but not definition lookup or model parsing. Default remains false for isolated consumers; runtime-app enables it only when the active assets resolve an exact V1-native mission.
 
-- [ ] **Step 3: Preserve latency and authority boundaries**
+- [x] **Step 3: Preserve latency and authority boundaries**
 
 Use a bounded shadow timeout no greater than the existing Scene Handshake blocking budget. Shadow failure cannot become narration or mission success. Report only counts, reason codes, definition/version IDs, and source hashes.
 
-- [ ] **Step 4: Run and commit Task 5**
+- [x] **Step 4: Run and commit Task 5**
 
 Commit:
 
