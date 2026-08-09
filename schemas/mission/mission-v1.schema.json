@@ -326,7 +326,51 @@
             "enum": ["user", "assistant", "runtime", "adjudicator"]
           }
         },
+        "interpretation": { "$ref": "#/$defs/evidenceInterpretation" },
         "when": { "$ref": "#/$defs/predicate" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceRoles": {
+                "contains": { "enum": ["user", "assistant"] }
+              }
+            }
+          },
+          "then": { "required": ["interpretation"] }
+        }
+      ]
+    },
+    "evidenceInterpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceStandard", "guidance", "exclusions"],
+      "properties": {
+        "evidenceStandard": {
+          "type": "string",
+          "enum": ["explicit", "clearOutcome"]
+        },
+        "guidance": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidenceInterpretationValue" }
+        },
+        "exclusions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "evidenceInterpretationValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "guidance"],
+      "properties": {
+        "value": {},
+        "guidance": { "type": "string", "minLength": 1 }
       }
     },
     "reportRoute": {

@@ -83,7 +83,12 @@
       "claimType": "factDisclosed",
       "targetId": "fact.hesperus.distress-established",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "worldFact": "fact.hesperus.distress-established" }
+      "when": { "worldFact": "fact.hesperus.distress-established" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the Hesperus distress call to the player character.",
+        "exclusions": ["A private signal, hidden alert, or unrelated mention of Hesperus does not establish player knowledge."]
+      }
     },
     {
       "id": "policy.hesperus.passenger-risk-disclosed",
@@ -95,6 +100,11 @@
           { "worldFact": "fact.hesperus.passenger-risk" },
           { "factKnown": "fact.hesperus.distress-established" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the material risk to the medically vulnerable passengers.",
+        "exclusions": ["General urgency or the existence of passengers alone does not communicate this assessed risk."]
       }
     },
     {
@@ -107,6 +117,11 @@
           { "worldFact": "fact.hesperus.injector-limit" },
           { "factKnown": "fact.hesperus.distress-established" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose reports that the damaged injector cannot safely endure another warp restart.",
+        "exclusions": ["Generic engine trouble, uncertainty, or a proposed inspection does not establish this propulsion limit."]
       }
     },
     {
@@ -119,6 +134,11 @@
           { "worldFact": "fact.hesperus.record-inconsistency" },
           { "eventOccurred": "event.hesperus.records-reviewed" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose reports a specific inconsistency found in the reviewed maintenance record.",
+        "exclusions": ["Beginning a records review or expressing suspicion does not establish that an inconsistency was found."]
       }
     },
     {
@@ -131,6 +151,11 @@
           { "worldFact": "fact.hesperus.record-discrepancy" },
           { "factKnown": "fact.hesperus.record-inconsistency" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose reports that the known record inconsistency has been confirmed as material.",
+        "exclusions": ["An unexplained typo, suspicion, or unresolved inconsistency does not establish a material discrepancy."]
       }
     },
     {
@@ -143,6 +168,11 @@
           { "worldFact": "fact.hesperus.record-falsified" },
           { "factKnown": "fact.hesperus.record-discrepancy" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates that evidence confirms deliberate falsification of a maintenance entry.",
+        "exclusions": ["A discrepancy, negligence, suspicion, or possible fraud does not prove deliberate falsification."]
       }
     },
     {
@@ -155,6 +185,11 @@
           { "worldFact": "fact.hesperus.owner-attribution-supported" },
           { "factKnown": "fact.hesperus.record-falsified" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates that preserved evidence supports attributing the altered record to the vessel owner.",
+        "exclusions": ["Motive, rumor, accusation, or confirmed falsification without actor evidence does not establish attribution."]
       }
     },
     {
@@ -162,28 +197,48 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.command-handover-completed",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts Whitaker and the player completing the substantive command handover and establishing authority or working boundaries.",
+        "exclusions": ["A greeting, assignment announcement, invitation to talk, or handover still in progress is not completion."]
+      }
     },
     {
       "id": "policy.prelude.staff-readiness-established",
       "claimType": "eventOccurred",
       "targetId": "event.prelude.staff-readiness-established",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the senior staff reaching a workable delegation and readiness procedure with ownership and acknowledged limits.",
+        "exclusions": ["Convening the staff, hearing concerns, issuing one isolated order, or planning the procedure is not enough."]
+      }
     },
     {
       "id": "policy.hesperus.rescue-response-begun",
       "claimType": "eventOccurred",
       "targetId": "event.hesperus.rescue-response-begun",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.distress-established" }
+      "when": { "factKnown": "fact.hesperus.distress-established" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the Breckenridge actually committing resources or maneuver to the Hesperus response.",
+        "exclusions": ["Discussing, evaluating, or proposing a rescue does not mean the response has begun."]
+      }
     },
     {
       "id": "policy.hesperus.records-reviewed",
       "claimType": "eventOccurred",
       "targetId": "event.hesperus.records-reviewed",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.distress-established" }
+      "when": { "factKnown": "fact.hesperus.distress-established" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts an actual review of the Hesperus maintenance records.",
+        "exclusions": ["Ordering, planning, or suggesting a records review does not establish that it occurred."]
+      }
     },
     {
       "id": "policy.hesperus.material-report-omitted",
@@ -208,6 +263,11 @@
           { "objectiveState": { "id": "objective.prelude.staff-readiness", "equals": "terminal" } },
           { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts completion of the combined-load test and final command-readiness review.",
+        "exclusions": ["Scheduling, beginning, or discussing the final review does not establish completion."]
       }
     },
     {
@@ -215,14 +275,28 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.arrival-reached",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.final-load-reviewed" }
+      "when": { "eventOccurred": "event.prelude.final-load-reviewed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the Breckenridge actually arriving at the Asterion Reach.",
+        "exclusions": ["Being en route, approaching, planning departure, or naming the destination is not arrival."]
+      }
     },
     {
       "id": "policy.hesperus.rescue-risk-decision",
       "claimType": "decisionRecorded",
       "targetId": "outcome.hesperus.rescue-risk-decision",
       "sourceRoles": ["user"],
-      "when": { "factKnown": "fact.hesperus.passenger-risk" }
+      "when": { "factKnown": "fact.hesperus.passenger-risk" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the player explicitly chooses how to respond to the known passenger risk.",
+        "values": [
+          { "value": "proceedKnownRisk", "guidance": "The player knowingly chooses the riskier immediate course." },
+          { "value": "saferPlan", "guidance": "The player chooses a safer plan intended to mitigate the known risk." }
+        ],
+        "exclusions": ["A question, conditional idea, request for options, or uncommitted thought is not a decision."]
+      }
     },
     {
       "id": "policy.hesperus.rescue-result",
@@ -234,6 +308,17 @@
           { "eventOccurred": "event.hesperus.rescue-response-begun" },
           { "eventOccurred": "event.hesperus.material-report-omitted" }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a settled disposition for the Hesperus rescue.",
+        "values": [
+          { "value": "safe", "guidance": "The people aboard Hesperus reach safety without a material recorded cost." },
+          { "value": "safeWithCost", "guidance": "The people aboard Hesperus reach safety and the prose depicts a material cost or limitation." },
+          { "value": "handedOff", "guidance": "Another competent authority explicitly assumes the remaining emergency response." },
+          { "value": "failedInformed", "guidance": "The rescue fails after the player acted with the relevant risk already known." }
+        ],
+        "exclusions": ["A rescue attempt, response beginning, temporary stabilization, unresolved danger, or merely predicted result is not a settled rescue disposition."]
       }
     },
     {
@@ -241,21 +326,49 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.hesperus.rescue-cost",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.distress-established" }
+      "when": { "factKnown": "fact.hesperus.distress-established" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose establishes whether the completed rescue incurred a material operational cost.",
+        "values": [
+          { "value": "none", "guidance": "The rescue concludes without a material cost or lasting limitation." },
+          { "value": "material", "guidance": "The rescue concludes with a depicted material cost, delay, damage, exposure, or lasting limitation." }
+        ],
+        "exclusions": ["Routine effort, atmosphere, speculative risk, or a cost that has not occurred is not a material rescue cost."]
+      }
     },
     {
       "id": "policy.hesperus.records-disposition",
       "claimType": "outcomeObserved",
       "targetId": "outcome.hesperus.records-disposition",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.record-discrepancy" }
+      "when": { "factKnown": "fact.hesperus.record-discrepancy" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the known record discrepancy.",
+        "values": [
+          { "value": "preliminaryHandOff", "guidance": "The discrepancy and supporting material are explicitly handed to a competent authority for follow-up." },
+          { "value": "noAction", "guidance": "The scene settles with no action being taken on the known discrepancy." }
+        ],
+        "exclusions": ["Considering a handoff, asking for advice, or leaving the review unresolved is not a settled records disposition."]
+      }
     },
     {
       "id": "policy.hesperus.accountability-decision",
       "claimType": "decisionRecorded",
       "targetId": "outcome.hesperus.accountability-decision",
       "sourceRoles": ["user"],
-      "when": { "factKnown": "fact.hesperus.record-falsified" }
+      "when": { "factKnown": "fact.hesperus.record-falsified" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the player explicitly chooses a disposition for the known falsification evidence.",
+        "values": [
+          { "value": "proportionateAction", "guidance": "The player orders or commits a proportionate accountability action." },
+          { "value": "handOff", "guidance": "The player explicitly transfers the accountability decision and evidence to the proper authority." },
+          { "value": "knowinglyDeclined", "guidance": "The player explicitly declines further accountability action while knowing falsification is confirmed." }
+        ],
+        "exclusions": ["Suspicion, moral reaction, a request for more evidence, or an unchosen option is not an accountability decision."]
+      }
     },
     {
       "id": "policy.hesperus.accountability-result",
@@ -267,6 +380,16 @@
           "id": "outcome.hesperus.accountability-decision",
           "in": ["proportionateAction", "handOff"]
         }
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the result of a previously chosen accountability disposition.",
+        "values": [
+          { "value": "proportionateActionCommitted", "guidance": "The proportionate accountability action is actually committed or placed into effect." },
+          { "value": "handedOff", "guidance": "The evidence and responsibility are actually transferred to the proper authority." },
+          { "value": "evidenceLost", "guidance": "The known evidence is materially lost, destroyed, or rendered unusable." }
+        ],
+        "exclusions": ["An order, intention, or future promise alone does not prove that the accountability result occurred."]
       }
     },
     {
@@ -274,7 +397,17 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.prelude.command-readiness",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.final-load-reviewed" }
+      "when": { "eventOccurred": "event.prelude.final-load-reviewed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose reports the final reviewed command-readiness disposition.",
+        "values": [
+          { "value": "ready", "guidance": "The final review finds the command team ready without a material limitation." },
+          { "value": "readyWithLimitation", "guidance": "The final review finds the command team ready while recording a material limitation." },
+          { "value": "incompleteHonestlyReported", "guidance": "The final review remains incomplete and that limitation is honestly recorded rather than concealed." }
+        ],
+        "exclusions": ["Confidence, encouragement, an ongoing test, or a predicted result is not a final readiness disposition."]
+      }
     },
     {
       "id": "policy.prelude.arrival-condition",
@@ -291,6 +424,16 @@
             }
           }
         ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the Breckenridge's actual arrival condition at the Reach.",
+        "values": [
+          { "value": "onSchedule", "guidance": "The ship arrives on schedule without a material arrival limitation." },
+          { "value": "delayed", "guidance": "The ship arrives after a material delay." },
+          { "value": "withLimitation", "guidance": "The ship arrives with a material operational or readiness limitation." }
+        ],
+        "exclusions": ["Being en route, estimating arrival, or anticipating delay does not establish an arrival condition."]
       }
     },
     {

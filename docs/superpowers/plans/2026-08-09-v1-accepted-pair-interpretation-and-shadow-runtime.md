@@ -36,7 +36,7 @@
 - Consumes: validated mission definition and current mission state.
 - Produces: `createMissionInterpretationCandidatePacket({ definition, state })`, containing bounded authored candidate IDs, semantic guidance, source slots, proposable values, current target state, and no player-visible hidden-objective projection.
 
-- [ ] **Step 1: Write failing strict-contract tests**
+- [x] **Step 1: Write failing strict-contract tests**
 
 Require every evidence policy that authorizes `user` or `assistant` sources to include:
 
@@ -51,7 +51,7 @@ interpretation: {
 
 Non-valued claims omit `values`. Valued claims list one or more unique values allowed by the target outcome. Runtime-only and adjudicator-only policies may omit interpretation guidance and are never model candidates. Reject unknown keys, blank guidance, unknown values, duplicate values, and a valued user/assistant policy with no proposable values.
 
-- [ ] **Step 2: Add guidance to every Prelude policy eligible for prose interpretation**
+- [x] **Step 2: Add guidance to every Prelude policy eligible for prose interpretation**
 
 Define narrow positive standards and explicit exclusions. In particular:
 
@@ -62,7 +62,7 @@ Define narrow positive standards and explicit exclusions. In particular:
 - a user decision requires an explicit chosen course, not a question or tentative thought;
 - final readiness and arrival require depicted completion, not announced intent.
 
-- [ ] **Step 3: Write failing candidate-packet tests**
+- [x] **Step 3: Write failing candidate-packet tests**
 
 Prove that the packet:
 
@@ -73,11 +73,11 @@ Prove that the packet:
 - exposes only authored candidate semantics and current target value, not objectives, closure predicates, transitions, hidden counts, or `mustNotReveal` text;
 - remains bounded and stably ordered regardless of definition array order.
 
-- [ ] **Step 4: Implement the pure candidate builder**
+- [x] **Step 4: Implement the pure candidate builder**
 
 The builder never examines prose and never decides that a claim occurred. It prepares the closed choice set for the interpreter. Candidate identity is the evidence-policy ID; target identity and allowed values come only from the validated definition.
 
-- [ ] **Step 5: Run, register, and commit Task 1**
+- [x] **Step 5: Run, register, and commit Task 1**
 
 Run:
 

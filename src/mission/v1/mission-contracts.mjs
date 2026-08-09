@@ -26,6 +26,7 @@ export const MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
     timeAdvanced: 'clocks',
 });
 export const MISSION_DUTY_REPORT_URGENCIES = Object.freeze(new Set(['routine', 'material', 'urgent']));
+export const MISSION_INTERPRETATION_EVIDENCE_STANDARDS = Object.freeze(new Set(['explicit', 'clearOutcome']));
 export const MISSION_OBJECTIVE_CLASSES = Object.freeze(new Set(['required', 'optional', 'conditional']));
 export const MISSION_OBJECTIVE_STATES = Object.freeze(new Set(['inactive', 'available', 'inProgress', 'terminal']));
 export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
@@ -105,6 +106,52 @@ function validateEvidencePolicies(definition, index, errors) {
                 if (unauthorized.length > 0) {
                     errors.push(`${policyId} ${claimType} sourceRoles must be runtime or adjudicator`);
                 }
+            }
+        }
+        const proseEligible = Array.isArray(policy?.sourceRoles)
+            && policy.sourceRoles.some((role) => role === 'user' || role === 'assistant');
+        const interpretation = policy?.interpretation;
+        if (proseEligible && (!interpretation || typeof interpretation !== 'object' || Array.isArray(interpretation))) {
+            errors.push(`${policyId} interpretation is required for user or assistant source roles`);
+        } else if (interpretation && typeof interpretation === 'object' && !Array.isArray(interpretation)) {
+            if (!MISSION_INTERPRETATION_EVIDENCE_STANDARDS.has(interpretation.evidenceStandard)) {
+                errors.push(`${policyId} interpretation evidenceStandard is unknown`);
+            }
+            if (!isNonEmptyString(interpretation.guidance)) {
+                errors.push(`${policyId} interpretation guidance must be a non-empty string`);
+            }
+            if (
+                !Array.isArray(interpretation.exclusions)
+                || interpretation.exclusions.length === 0
+                || interpretation.exclusions.some((item) => !isNonEmptyString(item))
+            ) {
+                errors.push(`${policyId} interpretation exclusions must contain at least one non-empty string`);
+            }
+            const valuedClaim = new Set(['decisionRecorded', 'outcomeObserved']).has(claimType);
+            if (valuedClaim) {
+                if (!Array.isArray(interpretation.values) || interpretation.values.length === 0) {
+                    errors.push(`${policyId} interpretation values must contain at least one proposable value`);
+                } else {
+                    const target = index.outcomes.get(policy?.targetId);
+                    const seenValues = new Set();
+                    for (const valueMeaning of interpretation.values) {
+                        if (seenValues.has(valueMeaning?.value)) {
+                            errors.push(`${policyId} interpretation values must not contain duplicates`);
+                        }
+                        seenValues.add(valueMeaning?.value);
+                        if (!target?.allowedValues?.includes(valueMeaning?.value)) {
+                            errors.push(`${policyId} interpretation value is not allowed: ${valueMeaning?.value}`);
+                        }
+                        if (valueMeaning?.value === target?.initialValue) {
+                            errors.push(`${policyId} interpretation value cannot be the target initial value`);
+                        }
+                        if (!isNonEmptyString(valueMeaning?.guidance)) {
+                            errors.push(`${policyId} interpretation value guidance must be a non-empty string`);
+                        }
+                    }
+                }
+            } else if (Object.hasOwn(interpretation, 'values')) {
+                errors.push(`${policyId} interpretation values are only allowed for decisionRecorded or outcomeObserved`);
             }
         }
         const predicateResult = validateMissionPredicate(policy?.when, index);

@@ -18,6 +18,8 @@ for (const boundary of [
     'objective',
     'fact',
     'evidencePolicy',
+    'evidenceInterpretation',
+    'evidenceInterpretationValue',
     'reportRoute',
     'event',
     'outcome',
@@ -77,6 +79,11 @@ const referenceMission = {
             targetId: 'fact.hesperus-discrepancy-known',
             sourceRoles: ['assistant', 'runtime', 'adjudicator'],
             when: { worldFact: 'fact.hesperus-discrepancy-known' },
+            interpretation: {
+                evidenceStandard: 'explicit',
+                guidance: 'Claim only when accepted assistant prose communicates the discrepancy to the player character.',
+                exclusions: ['A private observation or undisclosed record does not establish player knowledge.'],
+            },
         },
         {
             id: 'policy.hesperus-survivors-transferred',
@@ -84,6 +91,11 @@ const referenceMission = {
             targetId: 'event.hesperus-survivors-transferred',
             sourceRoles: ['assistant', 'runtime', 'adjudicator'],
             when: true,
+            interpretation: {
+                evidenceStandard: 'clearOutcome',
+                guidance: 'Claim only when accepted assistant prose depicts the survivors reaching safety.',
+                exclusions: ['A rescue plan, attempt, or response beginning does not prove survivor safety.'],
+            },
         },
         {
             id: 'policy.hesperus-evidence-preserved',
@@ -91,6 +103,15 @@ const referenceMission = {
             targetId: 'outcome.hesperus-evidence-preserved',
             sourceRoles: ['user'],
             when: { factKnown: 'fact.hesperus-discrepancy-known' },
+            interpretation: {
+                evidenceStandard: 'explicit',
+                guidance: 'Claim only when the player chooses whether to preserve the evidence.',
+                values: [
+                    { value: 'yes', guidance: 'The player explicitly chooses to preserve or secure the evidence.' },
+                    { value: 'no', guidance: 'The player explicitly chooses not to preserve the evidence.' },
+                ],
+                exclusions: ['A question, suggestion, or undecided thought is not a recorded decision.'],
+            },
         },
         {
             id: 'policy.hesperus-life-support-time',
@@ -314,6 +335,37 @@ for (const [label, definition, pattern] of [
     ['assistant establishes truth', replacePolicy(0, { sourceRoles: ['assistant'] }), /worldFactEstablished sourceRoles/],
     ['assistant advances time', replacePolicy(4, { sourceRoles: ['assistant'] }), /timeAdvanced sourceRoles/],
     ['user claims an event', replacePolicy(2, { sourceRoles: ['user'] }), /user sourceRole may only prove intentExpressed or decisionRecorded/],
+    ['missing interpretation', replacePolicy(1, { interpretation: undefined }), /interpretation is required/],
+    ['blank interpretation guidance', replacePolicy(1, {
+        interpretation: { ...referenceMission.evidencePolicies[1].interpretation, guidance: '' },
+    }), /interpretation guidance/],
+    ['unknown evidence standard', replacePolicy(1, {
+        interpretation: { ...referenceMission.evidencePolicies[1].interpretation, evidenceStandard: 'guess' },
+    }), /evidenceStandard/],
+    ['valued policy without values', replacePolicy(3, {
+        interpretation: { ...referenceMission.evidencePolicies[3].interpretation, values: [] },
+    }), /interpretation values must contain/],
+    ['unknown interpretation value', replacePolicy(3, {
+        interpretation: {
+            ...referenceMission.evidencePolicies[3].interpretation,
+            values: [{ value: 'maybe', guidance: 'Unsupported.' }],
+        },
+    }), /interpretation value is not allowed/],
+    ['duplicate interpretation value', replacePolicy(3, {
+        interpretation: {
+            ...referenceMission.evidencePolicies[3].interpretation,
+            values: [
+                { value: 'yes', guidance: 'One.' },
+                { value: 'yes', guidance: 'Two.' },
+            ],
+        },
+    }), /interpretation values must not contain duplicates/],
+    ['non-valued policy has values', replacePolicy(2, {
+        interpretation: {
+            ...referenceMission.evidencePolicies[2].interpretation,
+            values: [{ value: 'yes', guidance: 'Invalid.' }],
+        },
+    }), /interpretation values are only allowed/],
 ]) {
     assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
 }
