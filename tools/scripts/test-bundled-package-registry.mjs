@@ -172,8 +172,9 @@ for (const ref of BUNDLED_CAMPAIGN_PACKAGE_REFS) {
 const ashesRef = getBundledCampaignPackageRef('breckenridge-ashes-of-peace');
 assert.deepEqual(ashesRef.missionDefinitionPaths, [
   'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
-  'packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json'
-], 'Ashes loads the certified Prelude and Chapter 1 V1 definitions in journey order');
+  'packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json',
+  'packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json'
+], 'Ashes loads the certified Prelude through Chapter 2 V1 definitions in journey order');
 assert.equal(
   BUNDLED_CAMPAIGN_PACKAGE_REFS.filter((ref) => ref.id !== ashesRef.id)
     .every((ref) => ref.missionDefinitionPaths.length === 0),

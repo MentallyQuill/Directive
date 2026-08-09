@@ -107,12 +107,12 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Register False Colors after Empty Convoy in the exact Ashes package version.
-- [ ] Assert the runtime package library loads Prelude, Empty Convoy, and False Colors in journey order.
-- [ ] Prove terminal Empty Convoy changes from pending to activatable only when the exact False Colors definition exists.
-- [ ] Prove activation archives Empty Convoy, creates fresh False Colors state, advances the journey once, and leaves unrelated roots unchanged.
-- [ ] Prove save/reload validation, duplicate activation idempotence, and no legacy-root copying.
-- [ ] Prove terminal False Colors targets Open Orders I but remains pending while no exact V1 Open Orders definition exists.
+- [x] Register False Colors after Empty Convoy in the exact Ashes package version.
+- [x] Assert the runtime package library loads Prelude, Empty Convoy, and False Colors in journey order.
+- [x] Prove terminal Empty Convoy changes from pending to activatable only when the exact False Colors definition exists.
+- [x] Prove activation archives Empty Convoy, creates fresh False Colors state, advances the journey once, and leaves unrelated roots unchanged.
+- [x] Prove save/reload validation, duplicate activation idempotence, and no legacy-root copying.
+- [x] Prove terminal False Colors targets Open Orders I but remains pending while no exact V1 Open Orders definition exists.
 
 ## Task 5: Accepted-Pair, Duty Report, and Source-Custody Proof
 

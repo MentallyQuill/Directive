@@ -74,7 +74,8 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
     ],
     missionDefinitionPaths: [
       'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
-      'packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json'
+      'packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json',
+      'packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json'
     ]
   }),
   createBundledCampaignPackageRef({
