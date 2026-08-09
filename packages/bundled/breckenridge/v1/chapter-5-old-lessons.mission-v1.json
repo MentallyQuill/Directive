@@ -1,0 +1,751 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-5-old-lessons",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-5-old-lessons"
+  },
+  "playerText": {
+    "title": "Old Lessons",
+    "summary": "Conflicting warnings are driving civilian and Compact ships into the Orison Gap as obsolete defenses activate and regional command links fail. Keep the corridor from becoming a killing ground, determine what the operation is trying to accomplish, and leave the Reach with a defensible account."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter5.orison-crisis",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Three civilian convoys and two Compact patrol craft are converging on the Orison Gap under conflicting threat warnings while obsolete defenses power up, an authentication buoy goes silent, and Asterion command links fail intermittently."
+      }
+    },
+    {
+      "id": "fact.chapter5.concentration-and-model-gap",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The warnings were designed to concentrate traffic. Bronn's Mendora analogy correctly identifies a coordinated diversion and infrastructure attack, but its predicted target and expected sequence are incomplete."
+      }
+    },
+    {
+      "id": "fact.chapter5.sigma-target-and-doctrine-model",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Authentication buoy Sigma-4 and its bridge between legacy and current regional command protocols are the operation's actual technical objective; the operation predicts familiar Starfleet response doctrine rather than merely forging messages."
+      }
+    },
+    {
+      "id": "fact.chapter5.holt-initiation-and-autonomous-escalation",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Holt's local cell initiated the convoy diversion, but the wider system expanded the operation and activated defenses beyond local intent; the recovered portable interface can influence scenarios but cannot simply command the entire network."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter5.concentration-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.concentration-pattern-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes from traffic geometry, warning provenance, message timing, platform behavior, or equivalent evidence that the warnings deliberately concentrated ships and that Bronn's historical model is relevant but incomplete.",
+        "exclusions": ["A hunch, Bronn's analogy alone, one frightened captain, an order to compare traffic, or merely observing congestion is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.concentration-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.concentration-and-model-gap",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.concentration-and-model-gap" },
+          { "eventOccurred": "event.chapter5.concentration-pattern-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded aggregate that the warnings deliberately concentrated traffic and Bronn's analogy is useful but incomplete.",
+        "exclusions": ["Do not disclose Sigma-4, doctrinal modeling, Holt, or wider autonomous escalation through this report."]
+      }
+    },
+    {
+      "id": "policy.chapter5.sigma-target-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.sigma-target-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when buoy diagnostics, drone traces, command-protocol traffic, contradictory tactical evidence, or an equivalent source supports Sigma-4 as the technical target and shows prediction of familiar Starfleet responses.",
+        "exclusions": ["Sigma-4 being offline, Rowan's suspicion, a maintenance contact, an order to inspect the buoy, or one coincidental response is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.sigma-target-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.sigma-target-and-doctrine-model",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "eventOccurred": "event.chapter5.sigma-target-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Sigma-4's protocol bridge is the actual objective and that the operation models familiar Starfleet doctrine.",
+        "exclusions": ["Do not turn tactical prediction into proof of Holt's control, Farwatch involvement, or the later Nightfall plan."]
+      }
+    },
+    {
+      "id": "policy.chapter5.control-chain-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.control-chain-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when operator testimony, portable-interface limits, authenticated traffic, platform commands, Meridian records, or equivalent evidence supports local initiation followed by wider autonomous escalation.",
+        "exclusions": ["Naming Holt, spotting the Meridian, capturing an unidentified person, or seeing a platform activate does not by itself establish the control chain."]
+      }
+    },
+    {
+      "id": "policy.chapter5.control-chain-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.holt-initiation-and-autonomous-escalation",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.holt-initiation-and-autonomous-escalation" },
+          { "eventOccurred": "event.chapter5.control-chain-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded control chain: Holt's cell initiated the diversion, the wider system expanded it beyond local intent, and the portable interface cannot simply command the whole network.",
+        "exclusions": ["Do not claim Holt controls Pale Lantern, absolve local operators of their own acts, or reveal Farwatch, Rourke, or current Starfleet credential use."]
+      }
+    },
+    {
+      "id": "policy.chapter5.evidence-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter5.evidence-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter5.concentration-pattern-corroborated" },
+          { "eventOccurred": "event.chapter5.sigma-target-corroborated" },
+          { "eventOccurred": "event.chapter5.control-chain-corroborated" },
+          { "outcomeIs": { "id": "outcome.chapter5.evidence-route", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the strongest route actually used to establish all three aggregate findings.",
+        "values": [
+          { "value": "direct", "guidance": "Direct traffic, buoy, platform, operator, or interface evidence establishes the account." },
+          { "value": "mixed", "guidance": "Direct evidence and independent corroboration jointly establish the account." },
+          { "value": "external", "guidance": "Independent telemetry, records, testimony, or aftermath reconstruction establishes the account after direct evidence is unavailable." }
+        ],
+        "exclusions": ["Choose the route from depicted evidence, not mission success, confidence tone, or the player's preferred approach."]
+      }
+    },
+    {
+      "id": "policy.chapter5.traffic-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter5.traffic-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record only the actual aggregate civilian and Compact traffic result after movement, weapons, collision, panic, and coordination consequences are depicted.",
+        "values": [
+          { "value": "stabilized", "guidance": "Traffic and weapons behavior stabilize without a material recorded cost." },
+          { "value": "stabilizedWithCost", "guidance": "Traffic stabilizes with casualties, damage, coercive control, blocked movement, or another material cost." },
+          { "value": "cascade", "guidance": "Collision, weapons fire, panic, or blocked escape produces a material cascade." },
+          { "value": "handedOff", "guidance": "Traffic control is responsibly transferred to a capable named authority." }
+        ],
+        "exclusions": ["An order, shared channel, proposed route, warning, temporary lull, or claimed compliance is not the final traffic result."]
+      }
+    },
+    {
+      "id": "policy.chapter5.platform-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter5.platform-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate disposition of O-17 and the immediate defense-platform threat.",
+        "values": [
+          { "value": "controlled", "guidance": "The platform is under accountable control with weapons risk contained." },
+          { "value": "disabled", "guidance": "The platform is actually disabled or made unable to fire." },
+          { "value": "firedWithDamage", "guidance": "The platform fires and causes material damage or casualties." },
+          { "value": "remainsHazard", "guidance": "The immediate crisis ends while the platform remains a recorded active hazard." },
+          { "value": "handedOff", "guidance": "Platform authority and risk are responsibly transferred to a capable named authority." }
+        ],
+        "exclusions": ["A lockout attempt, firing warning, targeting alert, cease-fire order, or temporary loss of power is not a final result."]
+      }
+    },
+    {
+      "id": "policy.chapter5.sigma-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter5.sigma-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "outcomeIs": { "id": "outcome.chapter5.sigma-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed disposition for Sigma-4 after its role is known.",
+        "values": [
+          { "value": "recoverOrIsolate", "guidance": "Recover, secure, or isolate Sigma-4 and its authentication core." },
+          { "value": "destroyWithRecord", "guidance": "Destroy the target after preserving a usable technical record." },
+          { "value": "destroyWithoutRecord", "guidance": "Destroy the target without preserving a usable technical record." },
+          { "value": "deprioritize", "guidance": "Knowingly deprioritize Sigma-4 relative to another front." },
+          { "value": "handoff", "guidance": "Transfer Sigma-4 responsibility to a capable named authority." }
+        ],
+        "exclusions": ["A crew recommendation, hypothetical option, pre-discovery maneuver, pursuit order, or assistant action is not the player's informed Sigma decision."]
+      }
+    },
+    {
+      "id": "policy.chapter5.sigma-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter5.sigma-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter5.orison-crisis" },
+          { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record what actually happens to Sigma-4 and its authentication core, including outcomes that occur before the player learns the target's importance.",
+        "values": [
+          { "value": "secured", "guidance": "The buoy and core are secured or isolated under accountable control." },
+          { "value": "destroyedWithRecord", "guidance": "The target is destroyed and a usable technical record survives." },
+          { "value": "destroyedWithoutRecord", "guidance": "The target is destroyed without a usable technical record." },
+          { "value": "coreTaken", "guidance": "The authentication core is extracted or seized beyond accountable control." },
+          { "value": "handedOff", "guidance": "Target responsibility and custody are actually transferred to a capable named authority." }
+        ],
+        "exclusions": ["An order, approach, attempted extraction, weapons lock, temporary contact loss, or assumption of success is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.operator-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter5.operator-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate disposition of the Meridian operator and portable evidence after capture, pursuit, negotiation, escape, destruction, or handoff is depicted.",
+        "values": [
+          { "value": "operatorCaptured", "guidance": "A relevant operator is actually captured under accountable custody." },
+          { "value": "interfaceRecovered", "guidance": "A usable portable interface or equivalent direct evidence is recovered even if the operator is not captured." },
+          { "value": "identifiedEscaped", "guidance": "The operator escapes, but identity or attributable evidence is preserved." },
+          { "value": "escapedUnidentified", "guidance": "The operator escapes without reliable identification or portable evidence." },
+          { "value": "evidenceDestroyed", "guidance": "The relevant portable evidence is actually destroyed or rendered unusable." },
+          { "value": "handedOff", "guidance": "Operator pursuit and evidence responsibility are actually transferred to a capable named authority." }
+        ],
+        "exclusions": ["A pursuit order, boarding attempt, sensor contact, accusation, surrender demand, or damaged courier is not a final operator/evidence result."]
+      }
+    },
+    {
+      "id": "policy.chapter5.command-posture",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter5.command-posture",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter5.orison-crisis" },
+          { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only a clear player posture toward Bronn's historical model; choosing another tactic is not automatically dismissal.",
+        "values": [
+          { "value": "integrateAndTest", "guidance": "Use Bronn's experience while explicitly testing or revising its assumptions." },
+          { "value": "followWithoutTesting", "guidance": "Explicitly follow the model without testing its key assumptions." },
+          { "value": "evidenceBasedAlternative", "guidance": "Choose another plan for stated evidentiary reasons without contempt for Bronn." },
+          { "value": "dismissWithoutTesting", "guidance": "Explicitly exclude or reject Bronn's model without evaluating its evidence." },
+          { "value": "publicHumiliation", "guidance": "Explicitly disparage or humiliate Bronn in front of others over the recommendation." }
+        ],
+        "exclusions": ["Silence, ordinary disagreement, selecting another officer, changing plans after new evidence, or assistant characterization is insufficient."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter5.concentration-and-model-gap",
+      "factId": "fact.chapter5.concentration-and-model-gap",
+      "evidencePolicyId": "policy.chapter5.concentration-disclosed",
+      "capabilityRoles": ["operations", "science", "security"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.concentration-and-model-gap" },
+          { "eventOccurred": "event.chapter5.concentration-pattern-corroborated" },
+          { "not": { "factKnown": "fact.chapter5.concentration-and-model-gap" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Traffic and warning evidence confirms a deliberate concentration operation. Bronn's historical analogy identifies the operation's broad structure, but its predicted target and sequence are incomplete."
+      }
+    },
+    {
+      "id": "report.chapter5.sigma-target-and-doctrine-model",
+      "factId": "fact.chapter5.sigma-target-and-doctrine-model",
+      "evidencePolicyId": "policy.chapter5.sigma-target-disclosed",
+      "capabilityRoles": ["science", "engineering", "operations"],
+      "preferredActorIds": ["rowan-saye", "imani-cross", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "eventOccurred": "event.chapter5.sigma-target-corroborated" },
+          { "not": { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Sigma-4's bridge between legacy and current command protocols is the operation's actual technical objective, and the response pattern shows prediction of familiar Starfleet doctrine."
+      }
+    },
+    {
+      "id": "report.chapter5.holt-initiation-and-autonomous-escalation",
+      "factId": "fact.chapter5.holt-initiation-and-autonomous-escalation",
+      "evidencePolicyId": "policy.chapter5.control-chain-disclosed",
+      "capabilityRoles": ["security", "operations", "science"],
+      "preferredActorIds": ["hadrik-bronn", "priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.holt-initiation-and-autonomous-escalation" },
+          { "eventOccurred": "event.chapter5.control-chain-corroborated" },
+          { "not": { "factKnown": "fact.chapter5.holt-initiation-and-autonomous-escalation" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Holt's cell initiated the diversion, but the wider system expanded it and activated defenses beyond local intent; the portable interface cannot simply command the whole network."
+      }
+    }
+  ],
+  "events": [
+    { "id": "event.chapter5.concentration-pattern-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.sigma-target-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.control-chain-corroborated", "playerVisibility": "hidden" }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter5.traffic-result",
+      "allowedValues": ["pending", "stabilized", "stabilizedWithCost", "cascade", "handedOff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.platform-result",
+      "allowedValues": ["pending", "controlled", "disabled", "firedWithDamage", "remainsHazard", "handedOff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.sigma-decision",
+      "allowedValues": ["pending", "recoverOrIsolate", "destroyWithRecord", "destroyWithoutRecord", "deprioritize", "handoff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.sigma-result",
+      "allowedValues": ["pending", "secured", "destroyedWithRecord", "destroyedWithoutRecord", "coreTaken", "handedOff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.operator-result",
+      "allowedValues": ["pending", "operatorCaptured", "interfaceRecovered", "identifiedEscaped", "escapedUnidentified", "evidenceDestroyed", "handedOff"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.evidence-route",
+      "allowedValues": ["pending", "direct", "mixed", "external"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter5.command-posture",
+      "allowedValues": ["pending", "integrateAndTest", "followWithoutTesting", "evidenceBasedAlternative", "dismissWithoutTesting", "publicHumiliation"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter5.safety",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "stabilized" } },
+              { "outcomeIs": { "id": "outcome.chapter5.platform-result", "in": ["controlled", "disabled"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "handedOff",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "handedOff" } },
+              { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "handedOff" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff"],
+      "playerText": {
+        "title": "Stabilize the Orison battlespace",
+        "summary": "Bring civilian and Compact traffic plus the active defense threat to a defensible result, accepting a recorded cost or responsible handoff when clean control is impossible.",
+        "terminal": [
+          { "disposition": "completed", "text": "Traffic stabilized and the immediate defense threat was controlled." },
+          { "disposition": "completedWithCost", "text": "The immediate battlespace resolved with damage, casualties, coercion, or a continuing platform risk recorded." },
+          { "disposition": "handedOff", "text": "Traffic and defense responsibility passed to capable named authorities." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter5.operation",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+              { "outcomeIs": { "id": "outcome.chapter5.sigma-decision", "in": ["destroyWithoutRecord", "deprioritize"] } },
+              { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "in": ["destroyedWithoutRecord", "coreTaken"] } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } } }
+            ]
+          }
+        },
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "in": ["secured", "destroyedWithRecord"] } },
+              { "outcomeIs": { "id": "outcome.chapter5.operator-result", "in": ["operatorCaptured", "interfaceRecovered"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "handedOff",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "handedOff" } },
+              { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "handedOff" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Find and resolve the operation's real objective",
+        "summary": "Determine what the diversion is protecting or exposing, then establish what actually happens to the technical target and the surviving operator evidence.",
+        "terminal": [
+          { "disposition": "completed", "text": "The technical target and direct operator evidence reached accountable control." },
+          { "disposition": "completedWithCost", "text": "The operation ended with authentication or operator evidence lost, destroyed, or escaped." },
+          { "disposition": "handedOff", "text": "The technical target and operator evidence passed to capable named authorities." },
+          { "disposition": "failedAfterInformedAction", "text": "A disclosed authentication risk was knowingly deprioritized or destroyed without a usable record, and the adverse result occurred." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter5.understanding",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter5.concentration-and-model-gap" },
+          { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "factKnown": "fact.chapter5.holt-initiation-and-autonomous-escalation" }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter5.concentration-and-model-gap" },
+              { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+              { "factKnown": "fact.chapter5.holt-initiation-and-autonomous-escalation" },
+              { "outcomeIs": { "id": "outcome.chapter5.evidence-route", "equals": "direct" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter5.concentration-and-model-gap" },
+              { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+              { "factKnown": "fact.chapter5.holt-initiation-and-autonomous-escalation" },
+              { "outcomeIs": { "id": "outcome.chapter5.evidence-route", "in": ["mixed", "external"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Establish how the crisis was created",
+        "summary": "Build the strongest supported account of the traffic manipulation, tactical mismatch, authentication target, and relationship between local actors and the wider system.",
+        "terminal": [
+          { "disposition": "completed", "text": "Direct evidence established the operation's concentration pattern, target, doctrinal model, and control chain." },
+          { "disposition": "completedWithCost", "text": "Corroboration established the essential account, while limits in direct evidence remain recorded." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter5.orison",
+      "playerText": { "label": "Orison safety" },
+      "derive": [
+        {
+          "value": "cascade",
+          "priority": 400,
+          "when": {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "cascade" } },
+              { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "firedWithDamage" } }
+            ]
+          }
+        },
+        { "value": "handed-off", "priority": 300, "when": { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "handedOff" } } },
+        { "value": "stabilized", "priority": 200, "when": { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "completed" } } },
+        { "value": "stabilized-with-cost", "priority": 100, "when": { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "completedWithCost" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter5.authentication",
+      "playerText": { "label": "Authentication custody" },
+      "derive": [
+        { "value": "secured", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "secured" } } },
+        { "value": "destroyed-with-record", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "destroyedWithRecord" } } },
+        { "value": "destroyed-without-record", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "destroyedWithoutRecord" } } },
+        { "value": "core-taken", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "coreTaken" } } },
+        { "value": "handed-off", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter5.operator",
+      "playerText": { "label": "Operator evidence" },
+      "derive": [
+        { "value": "operator-captured", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "operatorCaptured" } } },
+        { "value": "interface-recovered", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "interfaceRecovered" } } },
+        { "value": "identified-escaped", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "identifiedEscaped" } } },
+        { "value": "escaped-unidentified", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "escapedUnidentified" } } },
+        { "value": "evidence-destroyed", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "evidenceDestroyed" } } },
+        { "value": "handed-off", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter5.command",
+      "playerText": { "label": "Use of experience" },
+      "derive": [
+        { "value": "integrate-and-test", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "integrateAndTest" } } },
+        { "value": "follow-without-testing", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "followWithoutTesting" } } },
+        { "value": "evidence-based-alternative", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "evidenceBasedAlternative" } } },
+        { "value": "dismissed-without-testing", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "dismissWithoutTesting" } } },
+        { "value": "public-humiliation", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter5.command-posture", "equals": "publicHumiliation" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter5.safety", "in": ["completed", "completedWithCost", "handedOff"] } },
+      { "objectiveDisposition": { "id": "objective.chapter5.operation", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter5.understanding", "in": ["completed", "completedWithCost"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "cascadeForward",
+      "priority": 600,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "cascade" } },
+          { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "firedWithDamage" } }
+        ]
+      },
+      "playerText": {
+        "title": "The operation ends after an Orison cascade",
+        "summary": "The supported account survives, but traffic or platform fire caused material damage and leaves urgent humanitarian and repair consequences."
+      }
+    },
+    {
+      "id": "livesSavedCoreLost",
+      "priority": 500,
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "in": ["stabilized", "stabilizedWithCost"] } },
+          { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "in": ["coreTaken", "destroyedWithoutRecord"] } }
+        ]
+      },
+      "playerText": {
+        "title": "Lives are preserved while authentication control is lost",
+        "summary": "The corridor survives, but the authentication core or its usable record is lost and the wider operation advances at a recorded cost."
+      }
+    },
+    {
+      "id": "responsibleHandoff",
+      "priority": 400,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "handedOff" } },
+          { "objectiveDisposition": { "id": "objective.chapter5.operation", "equals": "handedOff" } }
+        ]
+      },
+      "playerText": {
+        "title": "The Orison crisis passes into accountable hands",
+        "summary": "The essential account is preserved while capable named authorities assume the remaining safety, authentication, or evidence burden."
+      }
+    },
+    {
+      "id": "coreSavedAtCost",
+      "priority": 300,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "completedWithCost" } },
+          { "objectiveDisposition": { "id": "objective.chapter5.operation", "equals": "completed" } },
+          { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "in": ["secured", "destroyedWithRecord"] } }
+        ]
+      },
+      "playerText": {
+        "title": "Authentication is protected at a human or political cost",
+        "summary": "The technical objective and direct evidence are secured, while damage, casualties, coercion, or continuing defense risk remains part of the result."
+      }
+    },
+    {
+      "id": "partialContainmentForward",
+      "priority": 200,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "completedWithCost" } },
+          { "objectiveDisposition": { "id": "objective.chapter5.operation", "in": ["completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.chapter5.understanding", "equals": "completedWithCost" } }
+        ]
+      },
+      "playerText": {
+        "title": "The crisis is contained with unresolved costs",
+        "summary": "The essential account and route forward survive, while safety, authentication, operator, or evidence limits remain active consequences."
+      }
+    },
+    {
+      "id": "multiFrontSuccess",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter5.safety", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter5.operation", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter5.understanding", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "The Orison operation is contained across every front",
+        "summary": "Traffic and defenses stabilize, authentication and direct evidence reach accountable control, and the supported control chain is established."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter5.open-orders-2",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "open-orders-2-what-survives",
+        "playerSafeSetup": "The Orison crisis leaves the Breckenridge, regional infrastructure, and participating crews needing repair, analysis, and command review. Whitaker authorizes a second Open Orders interval before the next major operation."
+      },
+      "mustNarrate": [
+        "State the actual traffic, platform, Sigma-4, operator/evidence, and evidence-route results without upgrading partial success into total success.",
+        "Distinguish loss before target knowledge from an explicit informed Sigma disposition; do not assign retroactive blame.",
+        "Carry forward damage, casualties, coercive control, continuing platform hazard, authentication loss, operator escape, evidence destruction, or responsible handoff when recorded.",
+        "Mention Bronn's command-treatment outcome only when the player-owned command posture is recorded."
+      ],
+      "mustNotReveal": [
+        "Do not reveal current Starfleet credential use, Farwatch's role, Rourke's authority, the Nightfall plan, Wayward Sun, or later campaign targets.",
+        "Do not claim the player learned Sigma-4's role, doctrinal modeling, Holt initiation, autonomous escalation, or interface limits when the corresponding facts remain unknown.",
+        "Do not imply a Sigma-4 or Bronn decision was the player's choice unless its decision record exists.",
+        "Do not skip repair and review by framing Chapter 6 as already active."
+      ]
+    }
+  ]
+}
