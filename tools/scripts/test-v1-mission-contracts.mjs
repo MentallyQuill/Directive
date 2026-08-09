@@ -35,6 +35,17 @@ assert.equal(missionSchema.$defs.fact.required.includes('initiallyTrue'), true);
 assert.equal(missionSchema.required.includes('evidencePolicies'), true);
 assert.equal(missionSchema.required.includes('reportRoutes'), true);
 assert.equal(missionSchema.required.includes('packageBinding'), true);
+assert.equal(missionSchema.$defs.reportRoute.required.includes('confidence'), true);
+assert.equal(missionSchema.$defs.reportRoute.required.includes('deliveryRequirement'), true);
+assert.deepEqual(missionSchema.$defs.reportRoute.properties.confidence.enum, [
+    'preliminary',
+    'credible',
+    'confirmed',
+]);
+assert.deepEqual(missionSchema.$defs.reportRoute.properties.deliveryRequirement.enum, [
+    'optional',
+    'required',
+]);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('modelInstructions'), false);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('sourceCode'), false);
 assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('worldFactEstablished'), true);
@@ -130,6 +141,8 @@ const referenceMission = {
             preferredActorIds: ['hadrik-bronn'],
             fallbackActorIds: ['mara-whitaker'],
             urgency: 'material',
+            confidence: 'credible',
+            deliveryRequirement: 'optional',
             when: {
                 all: [
                     { worldFact: 'fact.hesperus-discrepancy-known' },
@@ -389,6 +402,10 @@ for (const [label, definition, pattern] of [
     ['missing fallback actor', replaceReportRoute({ fallbackActorIds: [] }), /fallbackActorIds must contain/],
     ['invalid fallback actor', replaceReportRoute({ fallbackActorIds: ['Mara Whitaker'] }), /fallbackActorIds contains invalid id/],
     ['unknown urgency', replaceReportRoute({ urgency: 'whenever' }), /urgency is unknown/],
+    ['unknown confidence', replaceReportRoute({ confidence: 'certain-enough' }), /confidence is unknown/],
+    ['missing confidence', replaceReportRoute({ confidence: undefined }), /confidence is unknown/],
+    ['unknown delivery requirement', replaceReportRoute({ deliveryRequirement: 'maybe' }), /deliveryRequirement is unknown/],
+    ['missing delivery requirement', replaceReportRoute({ deliveryRequirement: undefined }), /deliveryRequirement is unknown/],
     ['invalid report predicate', replaceReportRoute({ when: { factKnown: 'fact.unknown' } }), /when references unknown fact/],
     ['missing player-safe summary', replaceReportRoute({ playerText: null }), /playerText summary/],
 ]) {

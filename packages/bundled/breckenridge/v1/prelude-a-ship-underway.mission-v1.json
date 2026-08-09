@@ -457,6 +457,8 @@
       "preferredActorIds": ["priya-nayar"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.distress-established" },
@@ -473,6 +475,8 @@
       "preferredActorIds": ["miriam-sato"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "urgent",
+      "confidence": "credible",
+      "deliveryRequirement": "required",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.passenger-risk" },
@@ -490,6 +494,8 @@
       "preferredActorIds": ["hadrik-bronn", "imani-cross"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.injector-limit" },
@@ -507,6 +513,8 @@
       "preferredActorIds": ["hadrik-bronn", "priya-nayar"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "routine",
+      "confidence": "preliminary",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.record-inconsistency" },
@@ -524,6 +532,8 @@
       "preferredActorIds": ["hadrik-bronn", "priya-nayar"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.record-discrepancy" },
@@ -541,6 +551,8 @@
       "preferredActorIds": ["priya-nayar", "rowan-saye"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.record-falsified" },
@@ -558,6 +570,8 @@
       "preferredActorIds": ["priya-nayar", "rowan-saye"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "routine",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus.owner-attribution-supported" },

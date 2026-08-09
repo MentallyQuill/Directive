@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
+import {
+    deliveredDutyReportIds,
+    selectPendingDutyReport,
+} from '../../src/mission/v1/duty-report-planner.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -52,6 +55,9 @@ assert.deepEqual(preferred, {
     reportId: 'report.hesperus-discrepancy',
     reporterId: 'hadrik-bronn',
     factId: 'fact.hesperus-discrepancy-known',
+    urgency: 'material',
+    confidence: 'credible',
+    deliveryRequirement: 'optional',
     playerText: { summary: 'Engineering has a material discrepancy to report.' },
     authorizedClaim: {
         claimType: 'factDisclosed',
@@ -135,5 +141,62 @@ assert.equal(selectPendingDutyReport({
     state,
     availableActors: [bronn],
 }).reportId, 'report.a-route');
+
+const requiredSameUrgency = {
+    ...routineRoute,
+    id: 'report.z-required',
+    urgency: 'material',
+    deliveryRequirement: 'required',
+};
+assert.equal(selectPendingDutyReport({
+    definition: {
+        ...definition,
+        reportRoutes: [{ ...routineRoute, id: 'report.a-optional', urgency: 'material' }, requiredSameUrgency],
+    },
+    state,
+    availableActors: [bronn],
+}).reportId, 'report.z-required');
+
+const settledDelivery = {
+    kind: 'directive.dutyReportDelivery.v1',
+    contractVersion: 1,
+    reportId: 'report.hesperus-discrepancy',
+    factId: 'fact.hesperus-discrepancy-known',
+    reporterId: 'hadrik-bronn',
+    policyId: 'policy.hesperus-discrepancy-disclosed',
+    responseId: 'response.1',
+    hostMessageId: 'assistant.1',
+    selectedSwipeId: '0',
+    visibleTextHash: 'a1b2c3d4',
+    segmentTextHash: 'b2c3d4e5',
+    sourceTransactionId: 'txn.1',
+};
+const evidenceState = {
+    evidenceLog: [{
+        claimType: 'factDisclosed',
+        targetId: 'fact.hesperus-discrepancy-known',
+        policyId: 'policy.hesperus-discrepancy-disclosed',
+        sourceContributionId: 'contribution.1',
+        delivery: settledDelivery,
+    }],
+    invalidatedSourceContributionIds: [],
+};
+assert.deepEqual(deliveredDutyReportIds({ definition, state: evidenceState }), [
+    'report.hesperus-discrepancy',
+]);
+assert.deepEqual(deliveredDutyReportIds({
+    definition,
+    state: { ...evidenceState, invalidatedSourceContributionIds: ['contribution.1'] },
+}), []);
+assert.deepEqual(deliveredDutyReportIds({
+    definition,
+    state: {
+        ...evidenceState,
+        evidenceLog: [{
+            ...evidenceState.evidenceLog[0],
+            delivery: { ...settledDelivery, policyId: 'policy.forged' },
+        }],
+    },
+}), []);
 
 console.log('V1 Duty Report planner tests passed.');

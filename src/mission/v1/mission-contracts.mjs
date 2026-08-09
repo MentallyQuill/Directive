@@ -26,6 +26,15 @@ export const MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
     timeAdvanced: 'clocks',
 });
 export const MISSION_DUTY_REPORT_URGENCIES = Object.freeze(new Set(['routine', 'material', 'urgent']));
+export const MISSION_DUTY_REPORT_CONFIDENCE_LEVELS = Object.freeze(new Set([
+    'preliminary',
+    'credible',
+    'confirmed',
+]));
+export const MISSION_DUTY_REPORT_DELIVERY_REQUIREMENTS = Object.freeze(new Set([
+    'optional',
+    'required',
+]));
 export const MISSION_INTERPRETATION_EVIDENCE_STANDARDS = Object.freeze(new Set(['explicit', 'clearOutcome']));
 export const MISSION_OBJECTIVE_CLASSES = Object.freeze(new Set(['required', 'optional', 'conditional']));
 export const MISSION_OBJECTIVE_STATES = Object.freeze(new Set(['inactive', 'available', 'inProgress', 'terminal']));
@@ -203,6 +212,12 @@ function validateReportRoutes(definition, index, errors) {
         }, errors);
         if (!MISSION_DUTY_REPORT_URGENCIES.has(route?.urgency)) {
             errors.push(`${routeId} urgency is unknown`);
+        }
+        if (!MISSION_DUTY_REPORT_CONFIDENCE_LEVELS.has(route?.confidence)) {
+            errors.push(`${routeId} confidence is unknown`);
+        }
+        if (!MISSION_DUTY_REPORT_DELIVERY_REQUIREMENTS.has(route?.deliveryRequirement)) {
+            errors.push(`${routeId} deliveryRequirement is unknown`);
         }
         const predicateResult = validateMissionPredicate(route?.when, index);
         errors.push(...predicateResult.errors.map((error) => error.replace(/^predicate/, `${routeId}.when`)));

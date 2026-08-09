@@ -394,6 +394,8 @@
         "preferredActorIds",
         "fallbackActorIds",
         "urgency",
+        "confidence",
+        "deliveryRequirement",
         "when",
         "playerText"
       ],
@@ -421,6 +423,14 @@
         "urgency": {
           "type": "string",
           "enum": ["routine", "material", "urgent"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["preliminary", "credible", "confirmed"]
+        },
+        "deliveryRequirement": {
+          "type": "string",
+          "enum": ["optional", "required"]
         },
         "when": { "$ref": "#/$defs/predicate" },
         "playerText": { "$ref": "#/$defs/summaryText" }

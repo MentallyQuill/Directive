@@ -129,6 +129,8 @@
       "preferredActorIds": ["hadrik-bronn"],
       "fallbackActorIds": ["mara-whitaker"],
       "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
       "when": {
         "all": [
           { "worldFact": "fact.hesperus-discrepancy-known" },
