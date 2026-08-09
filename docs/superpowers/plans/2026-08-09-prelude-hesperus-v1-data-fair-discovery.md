@@ -41,7 +41,7 @@
 - Consumes: the current Ashes package, projection, Prelude graph, and repository source tree.
 - Produces: `buildAshesV1MigrationInventory({ packageData, projection, missionGraph, sourceRecords })` and a reviewed migration map whose entries use `migrateDefinition`, `migrateEffect`, `deriveProjection`, `mergeAggregate`, `retainSource`, `retire`, or `deferV1`.
 
-- [ ] **Step 1: Write the failing inventory test**
+- [x] **Step 1: Write the failing inventory test**
 
 Assert that the inventory identifies all ten Prelude phases, thirteen graph facts, eight decision points, twelve outcome flags, two Hesperus pressures, five legacy quest objectives, the fraud spoiler in player-visible package/projection copy, and direct writers for `ship.technicalDebt`, `threadLedger.records`, relationship memory, legacy mission state, and quest state.
 
@@ -54,13 +54,13 @@ assert.equal(inventory.writerFindings.some((item) => item.path === 'ship.technic
 assert.equal(inventory.unmappedIds.length, 0);
 ```
 
-- [ ] **Step 2: Run the inventory test and verify RED**
+- [x] **Step 2: Run the inventory test and verify RED**
 
 Run: `node tools/scripts/test-ashes-v1-migration-inventory.mjs`
 
 Expected: failure because the inventory module and migration map do not exist.
 
-- [ ] **Step 3: Implement deterministic inventory extraction**
+- [x] **Step 3: Implement deterministic inventory extraction**
 
 Export a pure builder and a CLI. The builder extracts stable IDs by collection, scans only supplied source records for literal mutable paths, records player-copy spoiler findings case-insensitively, joins every legacy ID to the reviewed migration map, and returns sorted arrays. The CLI reads the canonical Ashes files and prints JSON unless `--check` is supplied.
 
@@ -77,15 +77,15 @@ export function buildAshesV1MigrationInventory({
 
 Do not infer semantic dispositions from prose. The reviewed map is authoritative and the script fails when a detected legacy ID has no entry.
 
-- [ ] **Step 4: Author the reviewed Prelude/Hesperus migration map**
+- [x] **Step 4: Author the reviewed Prelude/Hesperus migration map**
 
 Map the legacy five objectives to four V1 primary objectives plus one conditional optional accountability objective. Map Hesperus facts into separate observable inconsistency, record discrepancy, confirmed falsification, and supported actor-attribution facts. Mark legacy percentage progress as `retire`, current graph/quest prose as `retainSource`, Hesperus pressures as typed causal effects, technical-debt rows as `mergeAggregate`, and duplicate thread/quest/story outputs as `deriveProjection` or `retire`.
 
-- [ ] **Step 5: Write the human-reviewed inventory report**
+- [x] **Step 5: Write the human-reviewed inventory report**
 
 The report names every writer and consumer family, the known player-facing fraud leak, the five-objective percentage model, duplicated Story/Quest/Thread/Ship/relationship paths, exact migration dispositions, and the explicit non-goal of preserving legacy row identity.
 
-- [ ] **Step 6: Run, register, and commit Task 1**
+- [x] **Step 6: Run, register, and commit Task 1**
 
 Run:
 
