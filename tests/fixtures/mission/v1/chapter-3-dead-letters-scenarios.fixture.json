@@ -1,0 +1,240 @@
+{
+  "kind": "directive.ashesV1Chapter3Scenarios.v1",
+  "definitionId": "mission.chapter-3-dead-letters",
+  "fragments": {
+    "access-safe": [
+      { "claimId": "claim.chapter3.access-safe", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "safeAccess", "sourceRole": "assistant" }
+    ],
+    "access-cost": [
+      { "claimId": "claim.chapter3.access-cost", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "accessWithCost", "sourceRole": "assistant" }
+    ],
+    "withdraw": [
+      { "claimId": "claim.chapter3.withdraw", "policyId": "policy.chapter3.withdraw-responsibly", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.access-result", "value": "withdrewResponsibly", "sourceRole": "user" },
+      { "claimId": "claim.chapter3.relay-withdraw-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "withdraw", "sourceRole": "user" }
+    ],
+    "forced-off": [
+      { "claimId": "claim.chapter3.forced-off", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "forcedOff", "sourceRole": "assistant" }
+    ],
+    "site-contact": [
+      { "claimId": "claim.chapter3.site-contact", "policyId": "policy.chapter3.site-contact", "claimType": "eventOccurred", "targetId": "event.chapter3.site-contact-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.relay-character-disclosed", "policyId": "policy.chapter3.relay-character-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.relay-archive-character", "sourceRole": "assistant" }
+    ],
+    "relay-evidence": [
+      { "claimId": "claim.chapter3.relay-evidence", "policyId": "policy.chapter3.relay-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.relay-evidence-acquired", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.architecture-disclosed", "policyId": "policy.chapter3.architecture-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.network-architecture-picture", "sourceRole": "assistant" }
+    ],
+    "direct-route": [
+      { "claimId": "claim.chapter3.direct-access-evidence", "policyId": "policy.chapter3.direct-access-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.access-history-evidence-acquired", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.access-route-disclosed", "policyId": "policy.chapter3.access-route-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.access-history-and-demeris-route", "sourceRole": "assistant" }
+    ],
+    "alternate-route": [
+      { "claimId": "claim.chapter3.alternate-corroboration", "policyId": "policy.chapter3.alternate-route-corroborated", "claimType": "eventOccurred", "targetId": "event.chapter3.alternate-route-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.alternate-route-disclosed", "policyId": "policy.chapter3.access-route-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.access-history-and-demeris-route", "sourceRole": "assistant" }
+    ],
+    "relay-isolate-choice": [
+      { "claimId": "claim.chapter3.relay-isolate-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "isolate", "sourceRole": "user" }
+    ],
+    "relay-observe-choice": [
+      { "claimId": "claim.chapter3.relay-observe-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "observe", "sourceRole": "user" }
+    ],
+    "relay-destroy-copy-choice": [
+      { "claimId": "claim.chapter3.relay-destroy-copy-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "destroyAfterCopy", "sourceRole": "user" }
+    ],
+    "relay-destroy-no-copy-choice": [
+      { "claimId": "claim.chapter3.relay-destroy-no-copy-choice", "policyId": "policy.chapter3.relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "destroyWithoutCopy", "sourceRole": "user" }
+    ],
+    "archive-joint-choice": [
+      { "claimId": "claim.chapter3.archive-joint-choice", "policyId": "policy.chapter3.archive-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.archive-decision", "value": "jointProtection", "sourceRole": "user" }
+    ],
+    "archive-restricted-choice": [
+      { "claimId": "claim.chapter3.archive-restricted-choice", "policyId": "policy.chapter3.archive-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.archive-decision", "value": "restrictedProtection", "sourceRole": "user" }
+    ],
+    "archive-release-choice": [
+      { "claimId": "claim.chapter3.archive-release-choice", "policyId": "policy.chapter3.archive-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.archive-decision", "value": "broadRelease", "sourceRole": "user" }
+    ],
+    "relay-isolated": [
+      { "claimId": "claim.chapter3.relay-isolated", "policyId": "policy.chapter3.relay-isolated", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "preservedIsolated", "sourceRole": "assistant" }
+    ],
+    "relay-observed-contained": [
+      { "claimId": "claim.chapter3.relay-observed-contained", "policyId": "policy.chapter3.relay-observation-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "controlledObservationContained", "sourceRole": "assistant" }
+    ],
+    "relay-observed-exposed": [
+      { "claimId": "claim.chapter3.relay-observed-exposed", "policyId": "policy.chapter3.relay-observation-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "controlledObservationExposed", "sourceRole": "assistant" }
+    ],
+    "relay-destroyed-copy": [
+      { "claimId": "claim.chapter3.relay-destroyed-copy", "policyId": "policy.chapter3.relay-destroyed-after-copy", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "destroyedAfterCopy", "sourceRole": "assistant" }
+    ],
+    "relay-destroyed-no-copy": [
+      { "claimId": "claim.chapter3.relay-destroyed-no-copy", "policyId": "policy.chapter3.relay-destroyed-without-copy", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "destroyedWithoutCopy", "sourceRole": "assistant" }
+    ],
+    "relay-lost": [
+      { "claimId": "claim.chapter3.relay-lost", "policyId": "policy.chapter3.relay-lost-or-seized", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "lostOrSeized", "sourceRole": "assistant" }
+    ],
+    "relay-left": [
+      { "claimId": "claim.chapter3.relay-left", "policyId": "policy.chapter3.relay-left-in-place", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "leftInPlace", "sourceRole": "assistant" }
+    ],
+    "archive-joint": [
+      { "claimId": "claim.chapter3.archive-joint", "policyId": "policy.chapter3.archive-protected-joint", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "protectedJoint", "sourceRole": "assistant" }
+    ],
+    "archive-restricted": [
+      { "claimId": "claim.chapter3.archive-restricted", "policyId": "policy.chapter3.archive-protected-restricted", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "protectedRestricted", "sourceRole": "assistant" }
+    ],
+    "archive-released": [
+      { "claimId": "claim.chapter3.archive-released", "policyId": "policy.chapter3.archive-broadly-released", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "broadRelease", "sourceRole": "assistant" }
+    ],
+    "archive-lost": [
+      { "claimId": "claim.chapter3.archive-lost", "policyId": "policy.chapter3.archive-lost-control", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "lostControl", "sourceRole": "assistant" }
+    ],
+    "archive-not-recovered": [
+      { "claimId": "claim.chapter3.archive-not-recovered", "policyId": "policy.chapter3.archive-not-recovered", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "notRecovered", "sourceRole": "assistant" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "accountable-isolation",
+      "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
+        "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "bounded-observation",
+      "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-observe-choice", "archive-restricted-choice", "relay-observed-contained", "archive-restricted"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "boundedObservation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter3.relay": "controlled-observation", "dimension.chapter3.archive": "protected-restricted" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "destroyed-after-copy-broad-release",
+      "sequence": ["access-cost", "site-contact", "relay-evidence", "direct-route", "relay-destroy-copy-choice", "archive-release-choice", "relay-destroyed-copy", "archive-released"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "costlyTruthForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completedWithCost", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter3.access": "with-cost", "dimension.chapter3.relay": "destroyed-after-copy", "dimension.chapter3.archive": "broad-release" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "privacy-first-destruction-alternate-route",
+      "sequence": ["access-safe", "site-contact", "relay-destroy-no-copy-choice", "relay-destroyed-no-copy", "archive-not-recovered", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 8, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
+        "knownFactsExcludes": ["fact.chapter3.network-architecture-picture"],
+        "outcomeDimensions": { "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "destroyed-without-copy", "dimension.chapter3.archive": "not-recovered" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "responsible-withdrawal",
+      "sequence": ["withdraw", "relay-left", "archive-not-recovered", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleWithdrawalForward", "acceptedClaimCount": 6, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "handedOff", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "handedOff" },
+        "knownFactsExcludes": ["fact.chapter3.relay-archive-character", "fact.chapter3.network-architecture-picture"],
+        "outcomeDimensions": { "dimension.chapter3.access": "withdrew", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "left-in-place", "dimension.chapter3.archive": "not-recovered" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "lost-or-seized-after-discovery",
+      "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-lost", "archive-lost"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "failedAfterInformedAction" },
+        "outcomeDimensions": { "dimension.chapter3.relay": "lost-or-seized", "dimension.chapter3.archive": "lost-control" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "forced-off-partial-alternate",
+      "sequence": ["forced-off", "relay-left", "archive-not-recovered", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 5, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completedWithCost", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "handedOff" },
+        "knownFactsExcludes": ["fact.chapter3.relay-archive-character", "fact.chapter3.network-architecture-picture"],
+        "outcomeDimensions": { "dimension.chapter3.access": "forced-off", "dimension.chapter3.evidence": "partial-alternate" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "non-linear-custody-before-full-analysis",
+      "sequence": ["access-safe", "site-contact", "relay-isolate-choice", "archive-restricted-choice", "relay-isolated", "archive-restricted", "relay-evidence", "direct-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
+        "outcomeDimensions": { "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.archive": "protected-restricted" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "choice-alone-does-not-resolve",
+      "sequence": ["access-safe", "site-contact", "relay-isolate-choice", "archive-joint-choice"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.custody": null },
+        "outcomeDimensions": { "dimension.chapter3.relay": "pending", "dimension.chapter3.archive": "pending" }
+      }
+    },
+    {
+      "id": "site-contact-plan-only",
+      "steps": [
+        { "claimId": "claim.chapter3.planned-contact", "policyId": "policy.chapter3.site-contact", "claimType": "eventOccurred", "targetId": "event.chapter3.site-contact-established", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "archive-policy-before-discovery",
+      "sequence": ["archive-joint-choice"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "unsupported-player-relay-result",
+      "steps": [
+        { "claimId": "claim.chapter3.player-claims-isolation", "policyId": "policy.chapter3.relay-isolated", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.relay-result", "value": "preservedIsolated", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "premature-architecture-report",
+      "steps": [
+        { "claimId": "claim.chapter3.premature-architecture", "policyId": "policy.chapter3.architecture-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.network-architecture-picture", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "premature-demeris-report",
+      "steps": [
+        { "claimId": "claim.chapter3.premature-demeris", "policyId": "policy.chapter3.access-route-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.access-history-and-demeris-route", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.chapter3.stale-access", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "safeAccess", "sourceRole": "assistant", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.chapter3.wrong-swipe-access", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "safeAccess", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.chapter3.invented-attribution", "policyId": "policy.chapter3.farwatch-proven", "claimType": "factDisclosed", "targetId": "fact.chapter3.access-history-and-demeris-route", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}
