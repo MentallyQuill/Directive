@@ -32,6 +32,8 @@ createServer((request, response) => {
     absolutePath = path.join(mockupRoot, 'directive-expanded-interface.html');
   } else if (pathname === '/production') {
     absolutePath = path.join(repoRoot, 'tools', 'fixtures', 'expanded-interface-runtime.html');
+  } else if (pathname === '/runtime-shell') {
+    absolutePath = path.join(repoRoot, 'tools', 'fixtures', 'expanded-interface-runtime-shell.html');
   } else if (pathname.startsWith('/files/')) {
     absolutePath = referenceAssets.get(path.basename(pathname));
   } else {

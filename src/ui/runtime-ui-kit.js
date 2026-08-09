@@ -5,6 +5,8 @@ import {
 
 let floatingTooltip = null;
 let tooltipAnchor = null;
+let lastDirectivePointerType = 'mouse';
+let tooltipPointerListenerInstalled = false;
 const DIRECTIVE_TOOLTIPS_DISABLED_STORAGE_KEY = 'directive.tooltipsDisabled.v1';
 let directiveTooltipsDisabled = readStoredTooltipsDisabled();
 
@@ -125,13 +127,28 @@ export function setDirectiveTooltipsDisabled(disabled = false) {
 }
 
 function isMobileRuntimeTooltipSurface(element) {
+  const mobileInput = globalThis.matchMedia?.('(max-width: 640px), (hover: none), (pointer: coarse)')?.matches
+    ?? ((Number(globalThis.innerWidth) || 1024) <= 640);
+  if (mobileInput) return true;
   if (!element?.closest) return false;
   return Boolean(element.closest('.directive-runtime-mobile-shell, [data-mobile-shell="true"], .directive-command-mobile-nav, .directive-mobile-bottom-bar'));
 }
 
+function isTouchLikeTooltipInput() {
+  return ['touch', 'pen'].includes(lastDirectivePointerType);
+}
+
+function ensureTooltipPointerListener() {
+  if (tooltipPointerListenerInstalled || typeof document === 'undefined') return;
+  document.addEventListener?.('pointerdown', (event) => {
+    if (event?.pointerType) lastDirectivePointerType = event.pointerType;
+    if (isTouchLikeTooltipInput()) hideFloatingTooltip();
+  }, true);
+  tooltipPointerListenerInstalled = true;
+}
+
 function shouldUseFloatingTooltip(element, options = {}) {
   if (options.floating === false) return false;
-  if (isMobileRuntimeTooltipSurface(element)) return false;
   return String(element?.tagName || '').toUpperCase() !== 'SELECT';
 }
 
@@ -142,8 +159,9 @@ function tooltipViewportSize() {
   };
 }
 
-function showFloatingTooltip(anchor) {
-  if (areDirectiveTooltipsDisabled() || isMobileRuntimeTooltipSurface(anchor)) {
+function showFloatingTooltip(anchor, event = null) {
+  if (event?.pointerType) lastDirectivePointerType = event.pointerType;
+  if (areDirectiveTooltipsDisabled() || isMobileRuntimeTooltipSurface(anchor) || isTouchLikeTooltipInput()) {
     hideFloatingTooltip();
     return;
   }
@@ -190,14 +208,15 @@ export function addTooltip(element, text, options = {}) {
   const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
   if (!element || !cleanText) return element;
   element.dataset.directiveTooltip = cleanText;
+  ensureTooltipPointerListener();
   element.setAttribute?.('aria-description', cleanText);
-  if (options.nativeTitle === true) element.title = cleanText;
+  if (options.nativeTitle === true && !isMobileRuntimeTooltipSurface(element)) element.title = cleanText;
   else element.removeAttribute?.('title');
 
   if (shouldUseFloatingTooltip(element, options)) {
     if (options.showOnHover !== false && element.dataset.directiveTooltipHoverBound !== 'true') {
       for (const eventName of ['pointerenter', 'mouseenter', 'mouseover']) {
-        element.addEventListener?.(eventName, () => showFloatingTooltip(element));
+        element.addEventListener?.(eventName, (event) => showFloatingTooltip(element, event));
       }
       for (const eventName of ['pointerleave', 'mouseleave']) {
         element.addEventListener?.(eventName, hideFloatingTooltip);

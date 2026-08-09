@@ -101,7 +101,9 @@ export function createDirectiveExpandedShell({
   const cap = createElement('span', 'directive-route-cap');
   cap.setAttribute('aria-hidden', 'true');
   const routeName = createElement('div', 'directive-route-name');
-  routeName.textContent = activeRoute.label || activeRoute.id || 'Directive';
+  const routeNameLabel = createElement('span', 'directive-route-name-label');
+  routeNameLabel.textContent = activeRoute.label || activeRoute.id || 'Directive';
+  routeName.append(routeNameLabel);
   heading.append(cap, routeName);
 
   const body = createElement('section', 'directive-runtime-body directive-route-body');

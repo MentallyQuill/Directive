@@ -57,7 +57,9 @@ function hero(view, ship, mobile = false) {
   const name = createElement(mobile ? 'strong' : 'div', 'ship-identity-name');
   name.textContent = ship.name;
   const registry = createElement('span', 'ship-identity-meta');
-  registry.textContent = [ship.className, ship.registry].filter(Boolean).join(' / ');
+  registry.textContent = mobile
+    ? [ship.className, ship.registry].filter(Boolean).join(' / ')
+    : (ship.registry || ship.className || '');
   identity.append(kicker, name, registry);
   const condition = createElement('span', mobile ? 'mobile-ship-condition' : 'ship-condition');
   condition.textContent = ship.condition || '';
@@ -74,7 +76,10 @@ function hero(view, ship, mobile = false) {
 function operation(ship, mobile = false) {
   const section = createElement('section', mobile ? 'mobile-ship-operation' : 'ship-operation');
   section.setAttribute('aria-label', 'Current operation');
-  [['Position', ship.position], ['Course', ship.course], ['Flight status', ship.flightStatus]].forEach(([label, value]) => {
+  const entries = mobile
+    ? [['Position', ship.mobilePosition || ship.position], ['Course', ship.course], ['Flight status', ship.flightStatus]]
+    : [['Position', ship.position], ['Course', ship.course], ['Flight status', ship.flightStatus]];
+  entries.forEach(([label, value]) => {
     if (!value) return;
     const item = createElement('div', 'ship-operation-item');
     const key = createElement('span'); key.textContent = label;

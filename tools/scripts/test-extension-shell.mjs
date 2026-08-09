@@ -1081,8 +1081,12 @@ for (const relativePath of [
 
 const directiveCss = await readText('styles/directive.css');
 const runtimeShellSource = await readText('src/runtime/runtime-shell.js');
+const runtimeAppSource = await readText('src/runtime/runtime-app.mjs');
 const commBadgeSvg = await readText('assets/icons/comm-badge.svg');
 assert.match(runtimeShellSource, /renderBodyRequestId/, 'runtime shell should guard async body rendering against stale duplicate appends');
+assert.match(runtimeAppSource, /retainedViewByTab\s*=\s*new Map/, 'runtime app should cache completed tab-scoped envelopes');
+assert.match(runtimeAppSource, /getRetainedView[\s\S]*?retainedViewByTab\.get\(tabId\)/, 'fast route selection should use an O(1) completed view lookup');
+assert.doesNotMatch(runtimeAppSource, /getRetainedView[\s\S]{0,200}?viewEnvelope\(/, 'fast route selection must not rebuild the runtime projection envelope');
 assert.match(runtimeShellSource, /requestId !== renderBodyRequestId[\s\S]*?return false/, 'runtime shell should discard stale body renders after async view loading');
 assert.match(directiveCss, /\.directive-extension-enable-slider/, 'extensions settings drawer should style the Directive enabled switch');
 assert.match(commBadgeSvg, /viewBox="-6 -6 337 553"/, 'Crew player fallback comm badge should include enough SVG viewBox padding to avoid clipped mask edges');
@@ -1940,15 +1944,36 @@ __directiveRuntimeActionTestHooks.clearRuntimeActions();
 __directiveRuntimeShellTestHooks.reset();
 configureRuntimeActions();
 let runtimeUiResetCount = 0;
+let runtimeViewReadCount = 0;
+let deferNextRuntimeViewRead = false;
+let resolveDeferredRuntimeView = null;
+const retainedRuntimeViewTabs = [];
 setDirectiveRuntimeApp({
   async getCurrentView() {
-    return {
+    runtimeViewReadCount += 1;
+    const view = {
       activeScreen: 'campaign',
       campaign: {
         packages: [],
         saves: []
       },
       campaignState: null
+    };
+    if (deferNextRuntimeViewRead) {
+      deferNextRuntimeViewRead = false;
+      return new Promise((resolve) => { resolveDeferredRuntimeView = () => resolve(view); });
+    }
+    return view;
+  },
+  getRetainedView({ tabId = 'campaign' } = {}) {
+    retainedRuntimeViewTabs.push(tabId);
+    return {
+      activeTab: tabId,
+      activeScreen: 'campaign',
+      campaign: { packages: [], saves: [] },
+      campaignState: tabId === 'people'
+        ? { campaign: { id: 'retained-scope' }, player: { id: 'player-retained', name: 'Retained Player' } }
+        : null
     };
   },
   async resetRuntimeUiState() {
@@ -2008,6 +2033,7 @@ const runtimeBody = panel.querySelector('[data-directive-runtime-body="true"]');
 runtimeBody.scrollTop = 137;
 await runRuntimeAction('runtime.refresh');
 assert.equal(panel.querySelector('[data-directive-runtime-body="true"]').scrollTop, 137, 'same-route refresh should preserve runtime body scroll');
+const runtimeViewReadsBeforeRouteSwitch = runtimeViewReadCount;
 assert.equal(panel.querySelectorAll('.directive-lcars-rail').length, 1);
 assert.equal(panel.querySelectorAll('.directive-route-bar').length, 1);
 assert.equal(panel.querySelectorAll('.directive-route-control').length, DIRECTIVE_RUNTIME_TABS.length);
@@ -2017,15 +2043,43 @@ assert.equal(panel.querySelector('.directive-command-drawer'), null);
 assert.equal(panel.querySelector('[data-shell-action="back"]'), null);
 assert.equal(panel.querySelector('[data-shell-action="close"]').getAttribute('aria-label'), 'Close Directive');
 
-await runRuntimeAction('runtime.setTab', { tabId: 'mission' });
+const routeBodyChildBeforeSwitch = runtimeBody.children[0];
+const missionRouteSwitch = runRuntimeAction('runtime.setTab', { tabId: 'mission' });
+assert.notEqual(runtimeBody.children[0], routeBodyChildBeforeSwitch, 'route selection should replace the route body synchronously before the next animation frame');
+await missionRouteSwitch;
+assert.equal(runtimeViewReadCount, runtimeViewReadsBeforeRouteSwitch, 'route selection should render the retained completed view without an authoritative refresh');
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'mission');
 assert.equal(panel.dataset.activeRoute, 'mission');
 assert.equal(panel.querySelectorAll('.directive-route-control')[1].getAttribute('aria-selected'), 'true');
 
 await runRuntimeAction('runtime.setTab', { tabId: 'people' });
+assert.equal(runtimeViewReadCount, runtimeViewReadsBeforeRouteSwitch, 'successive route selections should continue using the retained completed view');
 assert.equal(__directiveRuntimeShellTestHooks.getActiveTab(), 'people');
 assert.equal(panel.dataset.activeRoute, 'people');
 assert.equal(panel.querySelectorAll('.directive-route-control')[2].getAttribute('aria-selected'), 'true');
+assert.deepEqual(retainedRuntimeViewTabs.slice(0, 2), ['mission', 'people'], 'fast route selection should derive a tab-scoped retained envelope');
+assert(panel.querySelector('.directive-people-journal-host'), 'People should render from its route-scoped retained campaign view');
+
+deferNextRuntimeViewRead = true;
+await runRuntimeAction('runtime.setTab', { tabId: 'campaign' });
+const authoritativeRefresh = runRuntimeAction('runtime.refresh');
+assert.equal(typeof resolveDeferredRuntimeView, 'function', 'the race fixture should hold one authoritative view refresh open');
+await runRuntimeAction('runtime.setTab', { tabId: 'people' });
+assert(panel.querySelector('.directive-people-journal-host'), 'route switch should immediately use the People-scoped retained view while refresh is pending');
+resolveDeferredRuntimeView();
+const authoritativeRefreshResult = await authoritativeRefresh;
+assert.equal(authoritativeRefreshResult.refreshed, true, 'retained route rendering must not invalidate an in-flight authoritative refresh');
+assert(panel.querySelector('.directive-people-journal-host'), 'an older Campaign refresh must not overwrite the current People route with a Campaign-scoped envelope');
+
+let replacementRuntimeViewReads = 0;
+setDirectiveRuntimeApp({
+  async getCurrentView() {
+    replacementRuntimeViewReads += 1;
+    return { activeScreen: 'campaign', campaign: { packages: [], saves: [] }, campaignState: null };
+  }
+});
+await runRuntimeAction('runtime.setTab', { tabId: 'people' });
+assert.equal(replacementRuntimeViewReads, 1, 'replacing the runtime app must discard the prior app retained view before navigation');
 
 /* Legacy command-spine assertions intentionally retired by the expanded-shell cutover.
 assert.equal(panel.querySelectorAll('.directive-command-spine').length, 1);

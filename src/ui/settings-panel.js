@@ -240,7 +240,6 @@ function createProviderField({ label, value = '', type = 'text', options = null,
       item.value = option.id;
       item.textContent = option.label;
       item.selected = String(option.id) === String(value || '');
-      if (option.tooltip) item.title = option.tooltip;
       control.appendChild(item);
     }
     control.value = value || options[0]?.id || '';

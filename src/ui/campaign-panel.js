@@ -1,4 +1,5 @@
 import {
+  addTooltip,
   appendEmpty,
   createButton,
   createElement
@@ -427,7 +428,7 @@ function createDesktopCampaigns(body, view, campaigns, selected, actions, rerend
   label.textContent = 'Campaigns';
   const newButton = createElement('button', 'campaign-new-button');
   newButton.type = 'button';
-  newButton.title = 'New Campaign';
+  addTooltip(newButton, 'New Campaign');
   newButton.setAttribute('aria-label', 'New Campaign');
   newButton.dataset.directiveTour = 'campaign.start';
   newButton.textContent = '+';
@@ -444,7 +445,7 @@ function createDesktopCampaigns(body, view, campaigns, selected, actions, rerend
     row.type = 'button';
     row.dataset.campaignId = campaign.id;
     row.setAttribute('aria-selected', active ? 'true' : 'false');
-    row.appendChild(createCampaignImage(view, campaign, 'thumb', 'campaign-row-media'));
+    row.appendChild(createCampaignImage(view, campaign, 'hero', 'campaign-row-media'));
     const copy = createElement('span', 'campaign-row-copy');
     const title = createElement('strong');
     title.textContent = campaign.title;
@@ -528,7 +529,7 @@ function createMobileCampaigns(body, view, campaigns, selected, actions, rerende
       row.type = 'button';
       row.dataset.campaignId = campaign.id;
       row.setAttribute('aria-label', `${campaign.title}, ${campaign.playerName}, ${campaign.playerRole}`);
-      row.appendChild(createCampaignImage(view, campaign, 'thumb', 'directive-mobile-campaign-thumb'));
+      row.appendChild(createCampaignImage(view, campaign, 'hero', 'directive-mobile-campaign-thumb'));
       const copy = createElement('span', 'directive-mobile-campaign-copy');
       const title = createElement('strong');
       title.textContent = campaign.title;
@@ -564,7 +565,7 @@ function createMobileCampaignAccordion(body, view, campaigns, selected, actions,
   const create = createElement('button', 'campaign-new-button');
   create.type = 'button';
   create.textContent = '+';
-  create.title = 'New Campaign';
+  addTooltip(create, 'New Campaign');
   create.setAttribute('aria-label', 'New Campaign');
   create.addEventListener('click', (event) => openNewCampaignDialog(view, actions, event.currentTarget));
   toolbar.append(label, create);
@@ -573,7 +574,7 @@ function createMobileCampaignAccordion(body, view, campaigns, selected, actions,
     const open = openMobileCampaignIds.has(campaign.id) || (!openMobileCampaignIds.size && campaign.id === selected?.id);
     const item = createElement('article', `mobile-campaign-item${open ? ' is-open' : ''}`);
     const head = createElement('div', 'mobile-campaign-head');
-    head.appendChild(createCampaignImage(view, campaign, 'thumb', 'mobile-campaign-image'));
+    head.appendChild(createCampaignImage(view, campaign, 'hero', 'mobile-campaign-image'));
     const toggle = createElement('button', 'mobile-campaign-toggle');
     toggle.type = 'button';
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');

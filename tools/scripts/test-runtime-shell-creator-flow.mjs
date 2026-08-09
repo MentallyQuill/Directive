@@ -747,7 +747,7 @@ async function assertCampaignPanelsRender(panel) {
   assertNoUnwiredPlaceholders(panel);
 
   await findButtonByDataset(panel, 'routeId', 'settings').click();
-  assert.equal(panel.querySelector('.directive-route-name')?.textContent, 'Settings', 'route heading should track live navigation');
+  assert.equal(panel.querySelector('.directive-route-name-label')?.textContent, 'Settings', 'route heading should track live navigation');
   assert(panel.querySelector('.settings-journal'), 'Settings should render the approved settings shelves');
   assert.equal(panel.querySelectorAll('.settings-shelf-button').length, 2);
   assert.match(textOf(panel), /Advanced/);

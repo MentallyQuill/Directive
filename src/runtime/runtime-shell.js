@@ -61,6 +61,7 @@ let runtimeFullscreen = false;
 let runtimeOpener = null;
 let lastRenderedTab = '';
 let renderBodyRequestId = 0;
+let lastCompletedRuntimeView = null;
 let trainingScenarioSession = null;
 
 function canUseDocument() {
@@ -268,7 +269,7 @@ function syncShellChrome(panel = getPanel()) {
   }
   const routePath = panel.querySelector('.directive-route-path');
   if (routePath) routePath.textContent = `${route.label} / ${route.shelfLabel || route.shortLabel || route.label}`;
-  const routeName = panel.querySelector('.directive-route-name');
+  const routeName = panel.querySelector('.directive-route-name-label');
   if (routeName) routeName.textContent = route.label;
   const routeBody = panel.querySelector('[data-directive-runtime-body="true"]');
   if (routeBody) {
@@ -365,13 +366,17 @@ async function selectRouteFromSpine(routeId) {
   routeSelectionExplicit = true;
   shellLayout.activeRoute = nextTab;
   persistLayout();
-  await refreshDirectiveRuntimePanel();
+  const panel = ensurePanel();
+  applyShellLayout(panel);
+  syncShellChrome(panel);
+  if (!renderRetainedBody(panel)) await refreshDirectiveRuntimePanel({ preserveScroll: false });
   return { activeTab, isOpen: true };
 }
 
 async function navigateToRoute(routeId, { openDrawer = true } = {}) {
   setActiveRoute(routeId, { openDrawer, persist: true });
-  await refreshDirectiveRuntimePanel();
+  const panel = ensurePanel();
+  if (!renderRetainedBody(panel)) await refreshDirectiveRuntimePanel({ preserveScroll: false });
   return { activeTab, isOpen: true };
 }
 
@@ -816,8 +821,42 @@ function syncRequiredWorkspace(panel, view) {
   panel.dataset.workspaceRequired = requiresWorkspace ? 'true' : 'false';
 }
 
+function retainedRuntimeViewForActiveTab() {
+  if (typeof runtimeApp?.getRetainedView !== 'function') return lastCompletedRuntimeView;
+  try {
+    const retainedView = runtimeApp.getRetainedView({ tabId: activeTab });
+    if (!retainedView || typeof retainedView.then === 'function') return null;
+    return isTrainingScenarioActive()
+      ? buildDirectiveTrainingScenarioView({
+          baseView: retainedView,
+          activeTab,
+          tutorialId: trainingScenarioSession.tutorialId,
+          stepId: trainingScenarioSession.stepId
+        })
+      : retainedView;
+  } catch {
+    return null;
+  }
+}
+
+function renderRetainedBody(panel) {
+  const retainedView = retainedRuntimeViewForActiveTab();
+  if (!panel || !retainedView) return false;
+  const body = panel.querySelector('[data-directive-runtime-body="true"]');
+  if (!body) return false;
+  clearElement(body);
+  lastCompletedRuntimeView = retainedView;
+  syncRequiredWorkspace(panel, retainedView);
+  renderActivePanel(body, retainedView);
+  lastRenderedTab = activeTab;
+  applyShellLayout(panel);
+  syncShellChrome(panel);
+  return true;
+}
+
 async function renderBody(panel) {
   const requestId = ++renderBodyRequestId;
+  const requestedTab = activeTab;
   const body = panel.querySelector('[data-directive-runtime-body="true"]');
   if (!body) return;
   clearElement(body);
@@ -836,8 +875,12 @@ async function renderBody(panel) {
 
   if (requestId !== renderBodyRequestId) return false;
   clearElement(body);
-  syncRequiredWorkspace(panel, view);
-  renderActivePanel(body, view);
+  const currentRouteView = requestedTab === activeTab
+    ? view
+    : retainedRuntimeViewForActiveTab() || view;
+  lastCompletedRuntimeView = currentRouteView;
+  syncRequiredWorkspace(panel, currentRouteView);
+  renderActivePanel(body, currentRouteView);
   return true;
 }
 
@@ -864,7 +907,13 @@ export function setDirectiveRuntimeApp(app) {
     closeDirectiveGuidance('runtime-unmount');
     stopDirectiveTrainingScenario({ refresh: false });
   }
-  runtimeApp = app || null;
+  const nextRuntimeApp = app || null;
+  if (runtimeApp !== nextRuntimeApp) {
+    renderBodyRequestId += 1;
+    lastCompletedRuntimeView = null;
+    lastRenderedTab = '';
+  }
+  runtimeApp = nextRuntimeApp;
 }
 
 export function setDirectiveRuntimeMountHost(host = null) {
@@ -1045,7 +1094,7 @@ function createOutcomeIntegrityEditor(context = {}) {
   const expandButton = document.createElement('button');
   expandButton.type = 'button';
   expandButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-expand';
-  expandButton.title = 'Expand editor';
+  addTooltip(expandButton, 'Expand editor');
   expandButton.setAttribute('aria-label', 'Expand editor');
   const expandIcon = document.createElement('i');
   expandIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
@@ -1054,7 +1103,7 @@ function createOutcomeIntegrityEditor(context = {}) {
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-close';
-  closeButton.title = 'Close editor';
+  addTooltip(closeButton, 'Close editor');
   closeButton.setAttribute('aria-label', 'Close editor');
   const closeIcon = document.createElement('i');
   closeIcon.className = 'fa-solid fa-xmark';
@@ -1114,8 +1163,9 @@ function createOutcomeIntegrityEditor(context = {}) {
   expandButton.addEventListener('click', () => {
     const expanded = !dialog.classList.contains('directive-outcome-integrity-editor-expanded');
     dialog.classList.toggle('directive-outcome-integrity-editor-expanded', expanded);
-    expandButton.title = expanded ? 'Collapse editor' : 'Expand editor';
-    expandButton.setAttribute('aria-label', expandButton.title);
+    const expandLabel = expanded ? 'Collapse editor' : 'Expand editor';
+    addTooltip(expandButton, expandLabel);
+    expandButton.setAttribute('aria-label', expandLabel);
     expandIcon.className = expanded
       ? 'fa-solid fa-down-left-and-up-right-to-center'
       : 'fa-solid fa-up-right-and-down-left-from-center';
@@ -1491,6 +1541,9 @@ export const __directiveRuntimeShellTestHooks = Object.freeze({
     runtimeOverlay = null;
     runtimeFullscreen = false;
     runtimeOpener = null;
+    lastRenderedTab = '';
+    renderBodyRequestId = 0;
+    lastCompletedRuntimeView = null;
     trainingScenarioSession = null;
     if (canUseDocument()) {
       getPanel()?.remove();

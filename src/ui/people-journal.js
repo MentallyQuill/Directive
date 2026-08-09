@@ -1,7 +1,12 @@
-import { clearElement, createElement } from './runtime-ui-kit.js';
-import { createPackageImage } from './directive-media.js';
+import { addTooltip, clearElement, createElement } from './runtime-ui-kit.js';
+import {
+  DIRECTIVE_COMM_BADGE_ICON,
+  createPackageImage,
+  createPlayerPortraitImage
+} from './directive-media.js';
 import { activePackageForView } from './current-chat-scope-copy.js';
 import { bindPresentationReorderHandle } from './expanded-interface-reorder.js';
+import { createPlayerPortraitControls } from './player-portrait-controls.js';
 
 const RANK_PIPS = Object.freeze({
   captain: ['solid', 'solid', 'solid', 'solid'],
@@ -15,9 +20,9 @@ const RANK_PIPS = Object.freeze({
 let selectedPersonId = '';
 let categoryOrder = [];
 let personOrder = [];
-const collapsedCategories = new Set();
+const collapsedCategories = new Set(['Known Contacts']);
 const openMobilePeople = new Set();
-let mobilePeopleInitialized = false;
+const explicitlyCollapsedMobilePeopleScopes = new Set();
 const customCategories = [];
 const personCategoryById = new Map();
 let editingCategoryId = '';
@@ -27,15 +32,34 @@ function asArray(value) { return Array.isArray(value) ? value.filter(Boolean) : 
 function compact(value) { return typeof value === 'string' ? value.trim() : ''; }
 
 function personImage(view, person, variant, wrapperClass) {
+  if (person?.isPlayer) {
+    const character = view?.playerCharacterView || view?.loadedPlayerCharacterView || null;
+    const portrait = character?.portrait || view?.campaignState?.player?.portrait || null;
+    return createPlayerPortraitImage(portrait, {
+      wrapperClass,
+      label: person.name,
+      iconAsset: DIRECTIVE_COMM_BADGE_ICON,
+      loading: variant === 'detail' ? 'eager' : 'lazy'
+    });
+  }
+  const resolvedVariant = variant === 'detail' ? 'card' : variant;
   return createPackageImage(activePackageForView(view), {
     kind: 'crew.portrait',
     subjectId: person.id,
-    variant
+    variant: resolvedVariant
   }, {
     wrapperClass,
     label: person.name,
     loading: variant === 'detail' ? 'eager' : 'lazy'
   });
+}
+
+function appendPlayerPortraitControls(container, view, person, actions = {}, extraClassName = '') {
+  if (!person?.isPlayer) return;
+  const character = view?.playerCharacterView || view?.loadedPlayerCharacterView || null;
+  const portrait = character?.portrait || view?.campaignState?.player?.portrait || null;
+  const controls = createPlayerPortraitControls({ portrait, view, actions, extraClassName });
+  container.append(controls.portraitActions, controls.fileInput);
 }
 
 function pipStrip(person, className = '') {
@@ -46,6 +70,21 @@ function pipStrip(person, className = '') {
   strip.setAttribute('aria-label', [service.rankLabel, service.department].filter(Boolean).join(', '));
   asArray(RANK_PIPS[service.rankCode]).forEach((kind) => strip.appendChild(createElement('i', `people-pip people-pip-${kind}`)));
   return strip;
+}
+
+function disclosureSvg() {
+  const svg = document.createElementNS?.('http://www.w3.org/2000/svg', 'svg') || createElement('svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS?.('http://www.w3.org/2000/svg', 'path') || createElement('path');
+  path.setAttribute('d', 'm8 10 4 4 4-4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  return svg;
 }
 
 function categoriesFor(people) {
@@ -64,8 +103,8 @@ function categoriesFor(people) {
 function categoryIconButton(label, glyph, onClick, danger = false) {
   const button = createElement('button', `collection-icon-button${danger ? ' danger' : ''}`);
   button.type = 'button';
-  button.title = label;
   button.setAttribute('aria-label', label);
+  addTooltip(button, label);
   button.textContent = glyph;
   button.addEventListener('click', (event) => { event.stopPropagation(); onClick(event); });
   return button;
@@ -173,7 +212,7 @@ function personRow(view, person, selected, select) {
   row.dataset.personId = person.id;
   row.dataset.directiveTour = 'crew.roster-row';
   row.setAttribute('aria-selected', selected ? 'true' : 'false');
-  row.appendChild(personImage(view, person, 'thumb', 'people-row-image'));
+  row.appendChild(personImage(view, person, 'card', 'people-row-image'));
   const copy = createElement('span', 'people-row-copy');
   const pips = pipStrip(person);
   if (pips) copy.appendChild(pips);
@@ -187,12 +226,13 @@ function personRow(view, person, selected, select) {
   return row;
 }
 
-function detail(view, person) {
+function detail(view, person, actions = {}) {
   const article = createElement('article', 'people-detail');
   article.setAttribute('aria-label', 'Person details');
   if (!person) return article;
   const portrait = createElement('div', 'people-detail__portrait');
   portrait.appendChild(personImage(view, person, 'detail', 'people-detail-image'));
+  appendPlayerPortraitControls(portrait, view, person, actions, 'people-player-portrait-actions');
   const copy = createElement('div', 'people-detail__copy');
   const kicker = createElement('div', 'people-detail__kicker');
   kicker.textContent = [person.category, person.affiliation].filter(Boolean).join(' / ');
@@ -268,7 +308,7 @@ function detail(view, person) {
   return article;
 }
 
-function desktop(view, categories, selected, select, rerender) {
+function desktop(view, categories, selected, select, rerender, actions = {}) {
   const allPeople = categories.flatMap((category) => category.people);
   const layout = createElement('section', 'people-layout');
   layout.dataset.directiveTour = 'crew.roster crew.detail';
@@ -292,7 +332,7 @@ function desktop(view, categories, selected, select, rerender) {
     const disclosure = createElement('button', 'collection-disclosure');
     disclosure.type = 'button';
     disclosure.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    disclosure.textContent = '\u203a';
+    disclosure.appendChild(disclosureSvg());
     disclosure.addEventListener('click', () => {
       if (expanded) collapsedCategories.add(category.label); else collapsedCategories.delete(category.label);
       rerender();
@@ -312,6 +352,7 @@ function desktop(view, categories, selected, select, rerender) {
       wrapper.dataset.personId = person.id;
       wrapper.append(personRow(view, person, person.id === selected?.id, select), handle(person.name, null, 'collection-drag-handle', {
         itemSelector: '.collection-person-row', listSelector: '.collection-category-body', idAttribute: 'data-person-id', order: () => category.people.map((entry) => entry.id),
+        previewClass: 'people-drag-ghost',
         onCommit: (next) => { personOrder = [...next, ...personOrder.filter((id) => !next.includes(id))]; rerender(); }
       }));
       body.appendChild(wrapper);
@@ -319,12 +360,108 @@ function desktop(view, categories, selected, select, rerender) {
     section.appendChild(body);
     collection.appendChild(section);
   });
+  const contactsExpanded = !collapsedCategories.has('Known Contacts');
+  const contacts = createElement('section', `collection-category${contactsExpanded ? ' is-expanded' : ''}`);
+  contacts.dataset.categoryLabel = 'Known Contacts';
+  const contactsHead = createElement('div', 'collection-category-head');
+  const contactsDisclosure = createElement('button', 'collection-disclosure');
+  contactsDisclosure.type = 'button';
+  contactsDisclosure.appendChild(disclosureSvg());
+  contactsDisclosure.setAttribute('aria-expanded', contactsExpanded ? 'true' : 'false');
+  contactsDisclosure.setAttribute('aria-label', `${contactsExpanded ? 'Collapse' : 'Expand'} Known Contacts`);
+  contactsDisclosure.addEventListener('click', () => {
+    if (contactsExpanded) collapsedCategories.add('Known Contacts'); else collapsedCategories.delete('Known Contacts');
+    rerender();
+  });
+  const contactsCopy = createElement('span', 'collection-category-copy');
+  const contactsTitle = createElement('strong'); contactsTitle.textContent = 'Known Contacts';
+  const contactsCount = createElement('small'); contactsCount.textContent = '0 people';
+  contactsCopy.append(contactsTitle, contactsCount);
+  const contactsActions = createElement('span', 'collection-category-actions');
+  contactsHead.append(contactsDisclosure, contactsCopy, contactsActions, handle('Known Contacts', null, 'collection-drag-handle', {
+    itemSelector: '.collection-category', listSelector: '.category-card-collection', idAttribute: 'data-category-label', order: () => [...categoryOrder, 'Known Contacts'],
+    onCommit: (next) => { categoryOrder = next.filter((label) => label !== 'Known Contacts'); rerender(); }
+  }));
+  const contactsBody = createElement('div', 'collection-category-body');
+  contactsBody.hidden = !contactsExpanded;
+  const contactsEmpty = createElement('div', 'collection-empty');
+  contactsEmpty.textContent = 'New external contacts will appear here.';
+  contactsBody.appendChild(contactsEmpty);
+  contacts.append(contactsHead, contactsBody);
+  collection.appendChild(contacts);
   roster.appendChild(collection);
-  layout.append(roster, detail(view, selected));
+  layout.append(roster, detail(view, selected, actions));
   return layout;
 }
 
-function mobile(view, categories, rerender) {
+function appendMobilePersonDetail(container, view, person, actions = {}) {
+  container.appendChild(personImage(view, person, 'card', 'mobile-crew-detail-image'));
+  appendPlayerPortraitControls(container, view, person, actions, 'people-player-portrait-actions people-player-portrait-actions-mobile');
+  const kicker = createElement('div', 'mobile-detail-kicker');
+  kicker.textContent = [person.category, person.affiliation].filter(Boolean).join(' / ');
+  container.appendChild(kicker);
+
+  const involvementData = person.involvement || (person.assignment ? { quest: person.assignment } : null);
+  if (involvementData) {
+    const section = createElement('section', 'people-detail__section');
+    const heading = createElement('h3');
+    heading.textContent = 'Current involvement';
+    const involvement = createElement('div', 'people-involvement');
+    const quest = createElement('div');
+    const label = createElement('span', 'people-involvement-label');
+    label.textContent = 'Active quest';
+    const title = createElement('strong');
+    title.textContent = involvementData.quest || involvementData.title || person.assignment;
+    quest.append(label, title);
+    const involvementCopy = createElement('div', 'people-involvement-copy');
+    const objective = createElement('strong');
+    objective.textContent = involvementData.objective || '';
+    const reason = createElement('span');
+    reason.textContent = involvementData.role || involvementData.summary || '';
+    involvementCopy.append(objective, reason);
+    involvement.append(quest, involvementCopy);
+    section.append(heading, involvement);
+    container.appendChild(section);
+  }
+
+  if (asArray(person.knownFacts).length) {
+    const section = createElement('section', 'people-detail__section');
+    const heading = createElement('h3');
+    heading.textContent = 'Known information';
+    const list = createElement('ul', 'people-list');
+    person.knownFacts.forEach((fact) => {
+      const item = createElement('li');
+      item.textContent = fact;
+      list.appendChild(item);
+    });
+    section.append(heading, list);
+    container.appendChild(section);
+  }
+
+  if (person.relationship || person.standing || asArray(person.history).length) {
+    const disclosure = createElement('details', 'people-disclosure');
+    const summary = createElement('summary');
+    summary.textContent = 'Relationship & history';
+    disclosure.appendChild(summary);
+    if (person.relationship || person.standing) {
+      const relationship = createElement('p', 'people-relationship');
+      relationship.textContent = person.relationship || person.standing;
+      disclosure.appendChild(relationship);
+    }
+    const history = createElement('div', 'people-history');
+    asArray(person.history).forEach((entry) => {
+      const item = createElement('div', 'people-history-item');
+      const text = createElement('span');
+      text.textContent = entry.summary || entry.text || entry;
+      item.appendChild(text);
+      history.appendChild(item);
+    });
+    disclosure.appendChild(history);
+    container.appendChild(disclosure);
+  }
+}
+
+function mobile(view, categories, rerender, actions = {}) {
   const allPeople = categories.flatMap((category) => category.people);
   const route = createElement('section', 'mobile-crew-accordion');
   route.setAttribute('aria-label', 'Known people');
@@ -336,18 +473,31 @@ function mobile(view, categories, rerender) {
   add.addEventListener('click', () => addCategory(rerender));
   toolbar.append(toolbarLabel, add);
   route.appendChild(toolbar);
-  if (!mobilePeopleInitialized) {
-    if (categories[0]?.people[0]) openMobilePeople.add(categories[0].people[0].id);
-    mobilePeopleInitialized = true;
+  const people = categories.flatMap((category) => category.people);
+  const scopeId = compact(view?.campaignState?.campaign?.id)
+    || compact(view?.campaignId)
+    || people.map((person) => person.id).sort().join('|');
+  const currentPersonIds = new Set(people.map((person) => person.id));
+  for (const personId of openMobilePeople) {
+    if (!currentPersonIds.has(personId)) openMobilePeople.delete(personId);
+  }
+  if (people[0] && scopeId && !people.some((person) => openMobilePeople.has(person.id)) && !explicitlyCollapsedMobilePeopleScopes.has(scopeId)) {
+    openMobilePeople.add(people[0].id);
   }
   categories.forEach((category) => {
-    const categorySection = createElement('section', 'collection-category is-expanded mobile-people-category');
+    const expanded = !collapsedCategories.has(category.label);
+    const categorySection = createElement('section', `collection-category mobile-people-category${expanded ? ' is-expanded' : ''}`);
     categorySection.dataset.categoryLabel = category.label;
     const group = createElement('div', 'collection-category-head');
     const disclosure = createElement('button', 'collection-disclosure');
     disclosure.type = 'button';
-    disclosure.textContent = '\u203a';
-    disclosure.setAttribute('aria-expanded', 'true');
+    disclosure.appendChild(disclosureSvg());
+    disclosure.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    disclosure.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${category.label}`);
+    disclosure.addEventListener('click', () => {
+      if (expanded) collapsedCategories.add(category.label); else collapsedCategories.delete(category.label);
+      rerender();
+    });
     const categoryCopy = createElement('span', 'collection-category-copy');
     const categoryActions = createElement('span', 'collection-category-actions');
     appendCategoryCopyAndActions(category, categoryCopy, categoryActions, allPeople, rerender);
@@ -355,12 +505,14 @@ function mobile(view, categories, rerender) {
       itemSelector: '.mobile-people-category', listSelector: '.mobile-crew-accordion', idAttribute: 'data-category-label', order: () => [...categoryOrder], onCommit: (next) => { categoryOrder = next.filter((label) => label !== 'Known Contacts'); rerender(); }
     }));
     categorySection.appendChild(group);
+    const categoryBody = createElement('div', 'collection-category-body');
+    categoryBody.hidden = !expanded;
     category.people.forEach((person) => {
       const open = openMobilePeople.has(person.id);
-      const item = createElement('article', `mobile-accordion-item mobile-crew-item${open ? ' is-open' : ''}`);
+      const item = createElement('article', `collection-person-row mobile-accordion-item mobile-crew-item${open ? ' is-open' : ''}`);
       item.dataset.personId = person.id;
       const head = createElement('div', 'mobile-accordion-head');
-      head.appendChild(personImage(view, person, 'thumb', 'mobile-crew-avatar'));
+      head.appendChild(personImage(view, person, 'card', 'mobile-crew-avatar'));
       const toggle = createElement('button', 'mobile-accordion-toggle');
       toggle.type = 'button';
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -368,53 +520,76 @@ function mobile(view, categories, rerender) {
       const pips = pipStrip(person);
       if (pips) copy.appendChild(pips);
       const name = createElement('strong'); name.textContent = person.name;
-      const role = createElement('small'); role.textContent = person.role;
+      const role = createElement('small'); role.textContent = String(person.role || '').split(/\s*\/\s*/)[0];
       copy.append(name, role);
-      const chevron = createElement('span', 'mobile-accordion-chevron'); chevron.textContent = '\u203a';
+      const chevron = createElement('span', 'mobile-accordion-chevron'); chevron.appendChild(disclosureSvg());
       toggle.append(copy, chevron);
       toggle.addEventListener('click', () => {
-        if (open) openMobilePeople.delete(person.id); else openMobilePeople.add(person.id);
+        if (open) {
+          openMobilePeople.delete(person.id);
+          if (!people.some((entry) => openMobilePeople.has(entry.id))) explicitlyCollapsedMobilePeopleScopes.add(scopeId);
+        } else {
+          openMobilePeople.clear();
+          openMobilePeople.add(person.id);
+          explicitlyCollapsedMobilePeopleScopes.delete(scopeId);
+        }
         selectedPersonId = person.id;
         rerender();
       });
       head.append(toggle, handle(person.name, null, 'collection-drag-handle', {
-        itemSelector: '.mobile-crew-item', listSelector: '.mobile-people-category', idAttribute: 'data-person-id', order: () => category.people.map((entry) => entry.id),
+        itemSelector: '.mobile-crew-item', listSelector: '.collection-category-body', idAttribute: 'data-person-id', order: () => category.people.map((entry) => entry.id),
+        previewSelector: '.mobile-accordion-head', previewClass: 'people-drag-ghost',
         onCommit: (next) => { personOrder = [...next, ...personOrder.filter((id) => !next.includes(id))]; rerender(); }
       }));
       item.appendChild(head);
       const mobileDetail = createElement('div', 'mobile-accordion-detail');
       mobileDetail.hidden = !open;
-      const full = detail(view, person);
-      full.className = `${full.className} people-detail-mobile`;
-      mobileDetail.appendChild(full);
+      appendMobilePersonDetail(mobileDetail, view, person, actions);
       item.appendChild(mobileDetail);
-      categorySection.appendChild(item);
+      categoryBody.appendChild(item);
     });
+    categorySection.appendChild(categoryBody);
     route.appendChild(categorySection);
   });
-  const contacts = createElement('section', 'collection-category mobile-people-category');
+  const contactsExpanded = !collapsedCategories.has('Known Contacts');
+  const contacts = createElement('section', `collection-category mobile-people-category${contactsExpanded ? ' is-expanded' : ''}`);
   const contactsHead = createElement('div', 'collection-category-head');
   const contactsDisclosure = createElement('button', 'collection-disclosure');
-  contactsDisclosure.type = 'button'; contactsDisclosure.textContent = '\u203a'; contactsDisclosure.setAttribute('aria-expanded', 'false');
+  contactsDisclosure.type = 'button'; contactsDisclosure.appendChild(disclosureSvg()); contactsDisclosure.setAttribute('aria-expanded', contactsExpanded ? 'true' : 'false');
+  contactsDisclosure.setAttribute('aria-label', `${contactsExpanded ? 'Collapse' : 'Expand'} Known Contacts`);
+  contactsDisclosure.addEventListener('click', () => {
+    if (contactsExpanded) collapsedCategories.add('Known Contacts'); else collapsedCategories.delete('Known Contacts');
+    rerender();
+  });
   const contactsCopy = createElement('span', 'collection-category-copy');
   const contactsTitle = createElement('strong'); contactsTitle.textContent = 'Known Contacts';
   const contactsCount = createElement('small'); contactsCount.textContent = '0 people';
   contactsCopy.append(contactsTitle, contactsCount);
   contactsHead.append(contactsDisclosure, contactsCopy, createElement('span', 'collection-category-actions'), handle('Known Contacts', () => {}));
-  contacts.appendChild(contactsHead);
+  const contactsBody = createElement('div', 'collection-category-body');
+  contactsBody.hidden = !contactsExpanded;
+  const contactsEmpty = createElement('div', 'collection-empty');
+  contactsEmpty.textContent = 'New external contacts will appear here.';
+  contactsBody.appendChild(contactsEmpty);
+  contacts.append(contactsHead, contactsBody);
   route.appendChild(contacts);
   return route;
 }
 
-export function renderPeopleJournal(body, information = {}, view = {}) {
+export function renderPeopleJournal(body, information = {}, view = {}, actions = {}) {
   const host = createElement('div', 'directive-people-journal-host');
   const rerender = () => {
     clearElement(host);
     const people = asArray(information.crew);
-    if (!selectedPersonId || !people.some((person) => person.id === selectedPersonId)) selectedPersonId = people[0]?.id || '';
+    if (!selectedPersonId || !people.some((person) => person.id === selectedPersonId)) {
+      selectedPersonId = people.find((person) => !person.isPlayer)?.id || people[0]?.id || '';
+    }
     const selected = people.find((person) => person.id === selectedPersonId) || null;
     const categories = categoriesFor(people);
-    host.append(desktop(view, categories, selected, (id) => { selectedPersonId = id; rerender(); }, rerender), mobile(view, categories, rerender));
+    host.append(
+      desktop(view, categories, selected, (id) => { selectedPersonId = id; rerender(); }, rerender, actions),
+      mobile(view, categories, rerender, actions)
+    );
   };
   rerender();
   body.appendChild(host);

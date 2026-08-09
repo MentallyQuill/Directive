@@ -9,6 +9,10 @@ import { renderSettingsPanel, resetSettingsPanelState } from '/src/ui/settings-p
 import { buildPlayerFacingInformation } from '/src/ui/player-facing-information.mjs';
 
 let activeRouteId = 'campaign';
+let fixturePeopleMode = 'default';
+let fixturePlayerPortraitMode = 'empty';
+let fixturePortraitActionFailure = false;
+let fixturePortraitRefreshPending = false;
 localStorage.setItem('directive.guidance.tipsDisabled.v1', 'true');
 globalThis.__directiveFixtureActions = [];
 
@@ -32,7 +36,25 @@ const actions = new Proxy({
     activeRouteId = routeId;
     mount();
   },
-  async refresh() {}
+  async refresh() {
+    if (!fixturePortraitRefreshPending) return;
+    fixturePortraitRefreshPending = false;
+    mount();
+  },
+  async importPlayerPortrait(...args) {
+    globalThis.__directiveFixtureActions.push({ action: 'importPlayerPortrait', args });
+    if (fixturePortraitActionFailure) throw new Error('Fixture portrait import failed');
+    fixturePlayerPortraitMode = 'populated';
+    fixturePortraitRefreshPending = true;
+    return { ok: true, fixture: true };
+  },
+  async removePlayerPortrait(...args) {
+    globalThis.__directiveFixtureActions.push({ action: 'removePlayerPortrait', args });
+    if (fixturePortraitActionFailure) throw new Error('Fixture portrait removal failed');
+    fixturePlayerPortraitMode = 'empty';
+    fixturePortraitRefreshPending = true;
+    return { ok: true, fixture: true };
+  }
 }, {
   get(target, key) {
     if (key in target) return target[key];
@@ -46,10 +68,26 @@ const actions = new Proxy({
 
 function fixtureView() {
   const view = buildDirectiveTrainingScenarioView({ activeTab: activeRouteId });
+  const playerPortrait = fixturePlayerPortraitMode === 'populated'
+    ? { asset: { path: 'assets/packages/breckenridge/images/crew/mara-whitaker.card.webp', alt: 'Sam Vickers' } }
+    : null;
   view.pendingDirectorTurn = null;
   view.pendingOutcomeReplacement = null;
   view.lastNarrationResult = null;
   view.openWorld = { ...view.openWorld, quests: [], opportunities: [] };
+  view.media = { ...(view.media || {}), playerPortraitImportSupported: true };
+  view.campaignState.player = {
+    ...(view.campaignState.player || {}),
+    id: 'player-commander',
+    name: 'Sam Vickers',
+    portrait: playerPortrait
+  };
+  view.playerCharacterView = {
+    ...(view.playerCharacterView || {}),
+    identity: { ...(view.playerCharacterView?.identity || {}), id: 'player-commander', name: 'Sam Vickers' },
+    portrait: playerPortrait
+  };
+  view.loadedPlayerCharacterView = view.playerCharacterView;
   if (view.activePackage?.ship) view.activePackage.ship.id = 'uss-breckenridge';
   if (view.currentChatActivePackage?.ship) view.currentChatActivePackage.ship.id = 'uss-breckenridge';
   view.activePackage.assets = { ...(view.activePackage.assets || {}), images: BRECKENRIDGE_IMAGES };
@@ -85,13 +123,19 @@ function fixtureView() {
           { id: 'handover', text: 'Complete the ready-room handover with Captain Whitaker', status: 'current' },
           { id: 'readiness', text: 'Review current readiness with the senior staff', status: 'inactive' }
         ],
-        location: { id: 'ready-room', label: "Captain's Ready Room" }, people: [{ id: 'mara-whitaker', label: 'Captain Mara Whitaker' }], knownFacts: [], history: []
+        location: { id: 'ready-room', label: "Captain's Ready Room" }, people: [{ id: 'mara-whitaker', name: 'Mara Whitaker', label: 'Captain Mara Whitaker' }], knownFacts: [], history: []
       },
       { id: 'long-repair', category: 'side', status: 'available', title: 'The Long Repair', description: 'Turn accumulated Breckenridge technical debt into an accountable stabilization plan with Helix Yard support.', objective: 'Breckenridge technical debt', location: { label: 'Engineering' }, people: [{ label: 'Imani Cross' }], tasks: [], knownFacts: [], history: [] },
       { id: 'quiet-channels', category: 'side', status: 'available', title: 'Quiet Channels', description: "Formalize Priya's informal communications network while deciding which favors and commitments may bind the ship.", objective: 'Informal communications network', location: { label: 'Operations' }, people: [{ label: 'Priya Nayar' }], tasks: [], knownFacts: [], history: [] }
     ],
     selectedQuestId: 'a-ship-underway',
     crew: [
+      {
+        id: 'player-commander', isPlayer: true, name: 'Sam Vickers', role: 'Player Character',
+        category: "Ship's Company", affiliation: 'Command',
+        service: { organization: 'starfleet', department: 'command', rankCode: 'commander', rankLabel: 'Commander' },
+        knownFacts: [], history: []
+      },
       {
         id: 'mara-whitaker', name: 'Mara Whitaker', role: 'Commanding Officer / U.S.S. Breckenridge',
         category: "Ship's Company", affiliation: 'Command',
@@ -111,14 +155,14 @@ function fixtureView() {
         service: { organization: 'starfleet', department: 'engineering', rankCode: 'lieutenant_commander', rankLabel: 'Lieutenant Commander' },
         knownFacts: ['Owns the ship\'s integrated post-refit validation work.'], relationship: 'Professional and direct.', history: []
       },
-      { id: 'miriam-sato', name: 'Miriam Sato', role: 'Chief Medical Officer', category: "Ship's Company", affiliation: 'Medical', service: { organization: 'starfleet', department: 'science', rankCode: 'lieutenant_commander', rankLabel: 'Lieutenant Commander' }, knownFacts: [], history: [] },
+      { id: 'miriam-sato', name: 'Miriam Sato', role: 'Chief Medical Officer', category: "Ship's Company", affiliation: 'Medical', service: { organization: 'starfleet', department: 'science', rankCode: 'commander', rankLabel: 'Commander' }, knownFacts: [], history: [] },
       { id: 'rowan-saye', name: 'Rowan Saye', role: 'Chief Science Officer', category: "Ship's Company", affiliation: 'Science', service: { organization: 'starfleet', department: 'science', rankCode: 'lieutenant_commander', rankLabel: 'Lieutenant Commander' }, knownFacts: [], history: [] },
       { id: 'priya-nayar', name: 'Priya Nayar', role: 'Operations Officer', category: "Ship's Company", affiliation: 'Operations', service: { organization: 'starfleet', department: 'operations', rankCode: 'lieutenant', rankLabel: 'Lieutenant' }, knownFacts: [], history: [] },
       { id: 'kieran-vale', name: 'Kieran Vale', role: 'Flight Control Officer', category: "Ship's Company", affiliation: 'Command', service: { organization: 'starfleet', department: 'command', rankCode: 'lieutenant', rankLabel: 'Lieutenant' }, knownFacts: [], history: [] }
     ],
     ship: {
       id: 'uss-breckenridge', name: 'U.S.S. Breckenridge', className: 'Intrepid-class', registry: 'NCC-74638', condition: 'Post-refit shakedown',
-      position: 'Personnel transfer waypoint', course: 'Asterion Reach', flightStatus: 'Impulse / Station-keeping',
+      position: 'Personnel transfer waypoint', mobilePosition: 'Transfer waypoint', course: 'Asterion Reach', flightStatus: 'Impulse / Station-keeping',
       issues: [
         { id: 'certificate', title: 'Command-network certificate mismatch', effect: 'Secure command handoffs require additional verification.', owner: 'Operations', status: 'Active' },
         { id: 'load', title: 'Combined refit load untested', effect: 'Simultaneous high-load operation may expose interactions missed by routine checks.', owner: 'Engineering', status: 'Active' },
@@ -130,6 +174,14 @@ function fixtureView() {
       ]
     }
   };
+  if (fixturePeopleMode === 'default') view.playerFacingInformation.crew = view.playerFacingInformation.crew.filter((person) => !person.isPlayer);
+  if (fixturePeopleMode === 'empty') view.playerFacingInformation.crew = [];
+  if (fixturePeopleMode === 'partial') {
+    view.playerFacingInformation.crew = [{
+      ...view.playerFacingInformation.crew[0],
+      id: 'partial-hydration-commanding-officer'
+    }];
+  }
   const packageId = view.activePackage?.packageId || view.activePackage?.package?.id || 'package:ashes';
   view.campaignIndex = {
     selectedCampaignId: 'ashes-arden',
@@ -192,5 +244,19 @@ function mount() {
   renderRoute(body);
   document.body.appendChild(shell);
 }
+
+globalThis.__directiveFixtureSetPeopleMode = (mode = 'default') => {
+  fixturePeopleMode = ['empty', 'partial', 'with-player'].includes(mode) ? mode : 'default';
+  mount();
+};
+
+globalThis.__directiveFixtureSetPlayerPortrait = (mode = 'empty') => {
+  fixturePlayerPortraitMode = mode === 'populated' ? 'populated' : 'empty';
+  mount();
+};
+
+globalThis.__directiveFixtureSetPortraitActionFailure = (failed = false) => {
+  fixturePortraitActionFailure = failed === true;
+};
 
 mount();

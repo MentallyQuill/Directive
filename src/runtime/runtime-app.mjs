@@ -2345,6 +2345,7 @@ export function createDirectiveRuntimeApp({
   let creatorView = null;
   let activeCreatorDraftId = null;
   let activeScreen = 'campaign';
+  let retainedViewByTab = new Map();
   let runtimeAssetsByPackageId = new Map();
   let importedPackageRecords = [];
   let lastPackageImportResult = null;
@@ -7020,6 +7021,36 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  function refreshRetainedViewCache(requestedTab = 'campaign') {
+    const routeIds = [...new Set(['campaign', 'mission', 'people', 'ship', 'settings', requestedTab])];
+    const campaignScopedView = viewEnvelope('campaign');
+    const currentChatScopedView = campaignScopedView.currentChatCampaignState || !campaignScopedView.campaignState
+      ? campaignScopedView
+      : {
+          ...campaignScopedView,
+          campaignState: null,
+          currentChatActivePackage: null,
+          continuityProjectionDiagnostics: null,
+          continuityTelemetry: null,
+          playerSafeCampaign: null,
+          commandBearingPlayerView: null,
+          playerCharacterView: null,
+          chatNative: null,
+          playerFacingInformation: playerFacingInformationForState(null),
+          loadedSave: {
+            ...campaignScopedView.loadedSave,
+            status: campaignState ? 'loaded-not-current-chat' : 'none'
+          }
+        };
+    const next = new Map();
+    for (const routeId of routeIds) {
+      const baseView = ['campaign', 'mission'].includes(routeId) ? campaignScopedView : currentChatScopedView;
+      next.set(routeId, { ...baseView, activeTab: routeId });
+    }
+    retainedViewByTab = next;
+    return retainedViewByTab.get(requestedTab) || retainedViewByTab.get('campaign') || null;
+  }
+
   async function hostContinuePromptReadiness({
     campaignState: readinessState = campaignState,
     ingress = null,
@@ -8441,8 +8472,12 @@ export function createDirectiveRuntimeApp({
         await refreshManualSaveGuard();
         await refreshCurrentChatCampaignScope();
         await refreshViewCoreProjectionEvidence();
-        return viewEnvelope(tabId);
+        return refreshRetainedViewCache(tabId);
       });
+    },
+
+    getRetainedView({ tabId = 'campaign' } = {}) {
+      return retainedViewByTab.get(tabId) || null;
     },
 
     getChatTurnOrchestrator() {

@@ -1,3 +1,5 @@
+import { resolveMissionDisplayIdentity } from '../mission-display-identity.mjs';
+
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -94,6 +96,11 @@ export function buildCampaignView({
       || playerRoleContext?.billet
       || playerRoleContext?.roleLabel
     ) || 'Command Officer';
+    const missionIdentity = resolveMissionDisplayIdentity({
+      missionId: text(metadata.activeMissionId),
+      explicitTitle: text(metadata.activeMissionTitle || metadata.chapterTitle),
+      packageData: pack
+    });
     return {
       id: campaignId,
       title: text(metadata.campaignTitle || pack.title || pack.campaign?.title) || 'Campaign',
@@ -102,7 +109,7 @@ export function buildCampaignView({
       shipName: text(metadata.shipName),
       status: text(metadata.campaignStatus) || (active ? 'active' : 'stored'),
       setting: text(metadata.setting || metadata.assignment || metadata.shipName),
-      chapter: text(metadata.activeMissionTitle || metadata.chapterTitle || metadata.activeMissionId),
+      chapter: missionIdentity.title,
       lastPlayedAt: timeline.updatedAt || metadata.lastUpdatedAt || null,
       premise: text(metadata.summary) || packagePremise(pack),
       hook: packagePremise(pack),
@@ -131,14 +138,22 @@ export function buildCampaignView({
       checkpoints: checkpointRows
         .filter((checkpoint) => checkpoint.campaignId === campaignId)
         .sort((left, right) => time(right.createdAt) - time(left.createdAt))
-        .map((checkpoint) => ({
-          id: checkpoint.id,
-          name: checkpoint.name,
-          chapter: checkpoint.summary?.chapter || null,
-          stardate: checkpoint.summary?.stardate || null,
-          createdAt: checkpoint.createdAt,
-          loadable: true
-        }))
+        .map((checkpoint) => {
+          const checkpointMissionIdentity = resolveMissionDisplayIdentity({
+            missionId: text(checkpoint.summary?.activeMissionId || checkpoint.summary?.missionId || checkpoint.summary?.chapter),
+            explicitTitle: text(checkpoint.summary?.chapter),
+            packageData: pack,
+            missionGraphs: Array.isArray(pack?.missionGraphs) ? pack.missionGraphs : []
+          });
+          return {
+            id: checkpoint.id,
+            name: checkpoint.name,
+            chapter: checkpointMissionIdentity.title || null,
+            stardate: checkpoint.summary?.stardate || null,
+            createdAt: checkpoint.createdAt,
+            loadable: true
+          };
+        })
     };
   }).sort((left, right) => {
     if (left.active !== right.active) return left.active ? -1 : 1;

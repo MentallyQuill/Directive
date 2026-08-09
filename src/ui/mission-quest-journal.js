@@ -65,6 +65,13 @@ function questTasks(quest) {
   return quest.objective ? [{ text: quest.objective, state: 'current' }] : [];
 }
 
+function mobileQuestCategory(category) {
+  const value = compact(category).toLowerCase();
+  if (value === 'main') return 'Main quest';
+  if (value === 'side') return 'Side quest';
+  return `${titleCase(category, 'Quest')} quest`;
+}
+
 function createDetail(quest) {
   const detail = createElement('article', 'quest-detail');
   detail.setAttribute('aria-label', 'Quest details');
@@ -191,7 +198,7 @@ function createMobile(quests, rerender) {
   }
   const heading = createElement('div', 'mobile-section-head');
   const headingLabel = createElement('span');
-  headingLabel.textContent = 'Current Quests';
+  headingLabel.textContent = 'Current quests';
   const headingCount = createElement('span');
   headingCount.textContent = `${quests.length} tracked`;
   heading.append(headingLabel, headingCount);
@@ -208,10 +215,10 @@ function createMobile(quests, rerender) {
     const mobileTitle = createElement('strong');
     mobileTitle.textContent = quest.title;
     const mobileMeta = createElement('small');
-    mobileMeta.textContent = `${titleCase(quest.category, 'Quest')} / ${titleCase(quest.status, 'Active')}`;
+    mobileMeta.textContent = `${mobileQuestCategory(quest.category)} / ${titleCase(quest.status, 'Active')}`;
     copy.append(mobileTitle, mobileMeta);
     const chevron = createElement('span', 'mobile-accordion-chevron');
-    chevron.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    chevron.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     toggle.append(copy, chevron);
     toggle.addEventListener('click', () => {
       if (open) expandedMobileQuests.delete(quest.id);
@@ -238,9 +245,30 @@ function createMobile(quests, rerender) {
       list.appendChild(li);
     });
     detail.appendChild(list);
+    const metaValues = [
+      quest.location?.label || quest.location,
+      asArray(quest.people).map((person) => person.name || person.label).filter(Boolean).join(', ')
+    ].map(compact).filter(Boolean);
+    if (metaValues.length) {
+      const meta = createElement('div', 'mobile-detail-meta');
+      metaValues.forEach((value) => {
+        const entry = createElement('span');
+        entry.textContent = value;
+        meta.appendChild(entry);
+      });
+      detail.appendChild(meta);
+    }
     item.appendChild(detail);
     route.appendChild(item);
   });
+  const completed = quests.filter((quest) => ['completed', 'abandoned'].includes(compact(quest.status).toLowerCase()));
+  const completedRow = createElement('div', 'quest-group');
+  const completedLabel = createElement('span');
+  completedLabel.textContent = 'Completed';
+  const completedCount = createElement('span');
+  completedCount.textContent = String(completed.length);
+  completedRow.append(completedLabel, completedCount);
+  route.appendChild(completedRow);
   return route;
 }
 

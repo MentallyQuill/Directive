@@ -1,3 +1,5 @@
+import { resolveMissionDisplayIdentity } from './mission-display-identity.mjs';
+
 const PLAYER_VISIBLE_RECORD_VISIBILITY = new Set(['player', 'public', 'known', 'visible']);
 const HIDDEN_RECORD_VISIBILITY = new Set(['hidden', 'latent', 'watchlisted', 'operator', 'diagnostic']);
 const QUEST_STATUS_ORDER = Object.freeze({
@@ -36,6 +38,7 @@ function firstValue(...values) {
 }
 
 function numeric(value) {
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null;
   const result = Number(value);
   return Number.isFinite(result) ? result : null;
 }
@@ -147,7 +150,7 @@ function projectQuest(source = {}, defaults = {}) {
     id,
     category,
     status,
-    title: firstString(source.title, source.name, source.label, id),
+    title: firstString(source.title, source.name, source.label, defaults.title, id),
     description: firstString(source.description, source.premise, source.situation, source.playerSummary, source.summary) || null,
     objective: objective || null,
     objectiveDescription: firstString(source.objectiveDescription, source.currentObjective?.description, source.objective?.description) || null,
@@ -264,6 +267,24 @@ function orderQuests(quests) {
   });
 }
 
+function mergeDefinedPersonFields(base = {}, source = {}) {
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(source || {})) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'string' && !value.trim()) continue;
+    merged[key] = value;
+  }
+  const facts = [...asArray(base.knownFacts || base.facts), ...asArray(source.knownFacts || source.facts)];
+  if (facts.length) {
+    merged.knownFacts = facts.filter((fact, index, values) => {
+      const label = firstString(fact?.id, fact?.text, fact?.summary, fact?.label, fact);
+      return label && values.findIndex((entry) => firstString(entry?.id, entry?.text, entry?.summary, entry?.label, entry) === label) === index;
+    });
+  }
+  merged.isPlayer = base.isPlayer === true || source.isPlayer === true;
+  return merged;
+}
+
 function projectCrew(campaignState = {}, records = [], coreProjections = {}, runtimeView = {}) {
   const packageSources = [
     ...asArray(coreProjections?.crewDataset?.officers),
@@ -273,24 +294,34 @@ function projectCrew(campaignState = {}, records = [], coreProjections = {}, run
     ...asArray(runtimeView?.activePackage?.crew?.officers)
   ];
   const sources = [
-    campaignState?.player ? { ...campaignState.player, role: 'Player Character' } : null,
-    coreProjections?.playerCharacterView?.identity,
-    runtimeView?.playerCharacterView?.identity,
     ...packageSources,
-    ...asArray(campaignState?.crew?.roster),
-    ...asArray(campaignState?.crew?.members),
-    ...asArray(campaignState?.crew?.characters),
+    ...asArray(campaignState?.crew?.seniorCrewIds).map((id) => ({ id })),
     ...asArray(campaignState?.characters),
-    ...asArray(campaignState?.crew?.seniorCrewIds).map((id) => ({ id }))
-  ];
-  const seen = new Set();
-  return sources.map((source) => {
+    ...asArray(campaignState?.crew?.characters),
+    ...asArray(campaignState?.crew?.members),
+    ...asArray(campaignState?.crew?.roster),
+    coreProjections?.playerCharacterView?.identity
+      ? { ...coreProjections.playerCharacterView.identity, isPlayer: true }
+      : null,
+    runtimeView?.playerCharacterView?.identity
+      ? { ...runtimeView.playerCharacterView.identity, isPlayer: true }
+      : null,
+    campaignState?.player
+      ? { ...campaignState.player, role: 'Player Character', isPlayer: true }
+      : null
+  ].filter((source) => source && recordVisibility(source));
+  const mergedById = new Map();
+  for (const source of sources) {
     const id = firstString(source?.id, source?.characterId, source?.crewId);
-    if (!id || seen.has(id)) return null;
-    seen.add(id);
+    if (!id) continue;
+    mergedById.set(id, mergeDefinedPersonFields(mergedById.get(id), { ...source, id }));
+  }
+  return [...mergedById.values()].map((source) => {
+    const id = source.id;
     const linked = records.filter((record) => sourceIds(record).has(id));
     return {
       id,
+      isPlayer: source.isPlayer === true,
       name: firstString(source?.name, source?.label, source?.displayName, id),
       role: firstString(source?.role, source?.position, source?.billet, 'Crew member'),
       category: firstString(source?.category, source?.group, source?.collection, source?.affiliation, "Ship's Company"),
@@ -313,7 +344,7 @@ function projectCrew(campaignState = {}, records = [], coreProjections = {}, run
       history: linked.map((record) => ({ id: firstString(record.id, record.recordId), summary: recordSummary(record) }))
         .filter((entry) => entry.id && entry.summary).slice(0, 8)
     };
-  }).filter(Boolean);
+  }).sort((left, right) => Number(right.isPlayer) - Number(left.isPlayer));
 }
 
 function projectShip(campaignState = {}, records = []) {
@@ -395,9 +426,27 @@ export function resolveSelectedQuestId({ quests = [], selectedQuestId = '', acti
 }
 
 export function buildPlayerFacingInformation({ campaignState = {}, coreProjections = {}, runtimeView = {} } = {}) {
-  const main = projectQuest(mainMissionSource(campaignState), { category: 'main', status: 'active' });
+  const mainSource = mainMissionSource(campaignState);
+  const mainIdentity = resolveMissionDisplayIdentity({
+    missionId: firstString(mainSource?.id, mainSource?.questId, mainSource?.missionId, mainSource?.activeMissionId),
+    explicitTitle: firstString(mainSource?.title, mainSource?.name, mainSource?.label),
+    questLedger: campaignState?.questLedger,
+    packageData: coreProjections?.packageData || runtimeView?.currentChatActivePackage || runtimeView?.activePackage || null,
+    missionGraphs: [
+      ...asArray(coreProjections?.missionGraphs),
+      ...asArray(runtimeView?.missionGraphs),
+      ...asArray(runtimeView?.currentChatActivePackage?.missionGraphs),
+      ...asArray(runtimeView?.activePackage?.missionGraphs)
+    ]
+  });
+  const main = projectQuest(mainSource ? { ...mainSource, title: mainIdentity.title } : mainSource, {
+    category: 'main',
+    status: 'active',
+    title: mainIdentity.title
+  });
   const knownIds = new Set(main ? [main.id] : []);
   const sideQuests = sideQuestSources(campaignState, coreProjections, runtimeView)
+    .filter((source) => recordVisibility(source))
     .map((source) => projectQuest(source, { status: 'active' }))
     .filter((quest) => quest && !knownIds.has(quest.id) && knownIds.add(quest.id));
   const records = collectRecords({ campaignState, coreProjections, runtimeView });

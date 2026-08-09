@@ -20,6 +20,7 @@ import {
 } from './current-chat-scope-copy.js';
 import { advisoryItemsForCrew } from './advisory-records.js';
 import { buildPlayerFacingInformation } from './player-facing-information.mjs';
+import { createPlayerPortraitControls } from './player-portrait-controls.js';
 import { renderPeopleJournal } from './people-journal.js';
 
 const DEFAULT_CREW_ID = 'mara-whitaker';
@@ -760,47 +761,6 @@ function commandBearingTrackCard(track = {}) {
   return card;
 }
 
-function createPlayerPortraitControls({ portrait, view, actions = {}, extraClassName = '' } = {}) {
-  const supported = view?.media?.playerPortraitImportSupported === true
-    && typeof actions.importPlayerPortrait === 'function';
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'image/png,image/jpeg,image/webp';
-  fileInput.hidden = true;
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0] || null;
-    if (!file) return;
-    await actions.importPlayerPortrait({ file });
-    fileInput.value = '';
-    await actions.refresh?.();
-  });
-  const portraitActions = createElement('div', `directive-crew-player-portrait-actions${extraClassName ? ` ${extraClassName}` : ''}`);
-  portraitActions.appendChild(createButton({
-    label: portrait?.asset?.path ? 'Change' : 'Import',
-    icon: 'fa-solid fa-image',
-    className: 'directive-button directive-crew-player-portrait-import',
-    title: supported ? 'Import a player character portrait' : 'Portrait import is not available on this host',
-    disabled: !supported,
-    onClick: async () => {
-      fileInput.click?.();
-    }
-  }));
-  if (portrait?.asset?.path) {
-    portraitActions.appendChild(createButton({
-      label: 'Remove',
-      icon: 'fa-solid fa-trash-can',
-      className: 'directive-button directive-crew-player-portrait-remove',
-      title: 'Remove this player character portrait',
-      disabled: typeof actions.removePlayerPortrait !== 'function',
-      onClick: async () => {
-        await actions.removePlayerPortrait();
-        await actions.refresh?.();
-      }
-    }));
-  }
-  return { portraitActions, fileInput };
-}
-
 function renderCharacterTab(body, view, actions = {}) {
   const character = view?.playerCharacterView || view?.loadedPlayerCharacterView || null;
   if (!character) {
@@ -1314,5 +1274,5 @@ export function renderCrewPanel(body, view, actions = {}) {
     campaignState: state,
     runtimeView: view
   });
-  renderPeopleJournal(body, information, view);
+  renderPeopleJournal(body, information, view, actions);
 }

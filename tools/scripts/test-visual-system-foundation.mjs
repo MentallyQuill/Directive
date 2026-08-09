@@ -436,6 +436,8 @@ assert.match(css, /\.directive-mission-sidework-action-row\s*\{[\s\S]*?grid-temp
 const settingsPanelSource = await readText('src/ui/settings-panel.js');
 const missionPanelSource = await readText('src/ui/mission-panel.js');
 const crewPanelSource = await readText('src/ui/crew-panel.js');
+const peopleJournalSource = await readText('src/ui/people-journal.js');
+const playerPortraitControlsSource = await readText('src/ui/player-portrait-controls.js');
 const shipPanelSource = await readText('src/ui/ship-panel.js');
 const commandLogPanelSource = await readText('src/ui/command-log-panel.js');
 const characterCreatorPanelSource = await readText('src/ui/character-creator-panel.js');
@@ -451,12 +453,20 @@ assert.match(runtimeUiKitSource, /options\.nativeTitle\s*===\s*true[\s\S]*remove
 assert.match(runtimeUiKitSource, /DIRECTIVE_TOOLTIPS_DISABLED_STORAGE_KEY/, 'runtime UI kit should persist the Directive tooltip display preference');
 assert.match(runtimeUiKitSource, /export function setDirectiveTooltipsDisabled/, 'runtime UI kit should expose a global tooltip disable switch');
 assert.match(runtimeUiKitSource, /areDirectiveTooltipsDisabled\(\)[\s\S]*isMobileRuntimeTooltipSurface/, 'runtime tooltips should respect the global disabled preference before showing');
+assert.match(runtimeUiKitSource, /lastDirectivePointerType/, 'runtime tooltips should remember the last pointer modality');
+assert.match(runtimeUiKitSource, /\['touch', 'pen'\]\.includes\(lastDirectivePointerType\)/, 'runtime tooltips should universally suppress touch and pen initiated focus');
+assert.match(runtimeUiKitSource, /pointerdown[\s\S]*hideFloatingTooltip/, 'touch and pen pointer input should immediately dismiss any visible hover tip');
 assert.doesNotMatch(runtimeUiKitSource, /isMobileRuntimeTooltipSurface[\s\S]*?closest\([^)]*directive-mobile-touch/, 'runtime tooltips should not suppress every command spine hover just because the shell is touch-friendly');
 assert.match(runtimeUiKitSource, /directiveTooltipHoverBound/, 'runtime tooltips should track hover listener binding independently');
 assert.match(runtimeUiKitSource, /directiveTooltipFocusBound/, 'runtime tooltips should track focus listener binding independently');
 assert.match(runtimeUiKitSource, /pointerenter[\s\S]*mouseenter[\s\S]*mouseover/, 'runtime tooltips should handle pointer and bubbling mouse hover events');
 assert.match(expandedShellSource, /addTooltip/, 'expanded shell controls should use shared tooltips');
 assert.match(expandedShellSource, /bindRovingFocus/, 'expanded route navigation should use shared roving focus');
+assert.match(peopleJournalSource, /createPlayerPortraitImage/, 'People should reuse the production player portrait renderer');
+assert.match(peopleJournalSource, /DIRECTIVE_COMM_BADGE_ICON/, 'People should use the Star Trek comm badge when the player has no portrait');
+assert.match(peopleJournalSource, /createPlayerPortraitControls/, 'People should expose the shared production player portrait controls');
+assert.match(playerPortraitControlsSource, /importPlayerPortrait/, 'shared portrait controls should allow importing or replacing the player portrait');
+assert.match(playerPortraitControlsSource, /removePlayerPortrait/, 'shared portrait controls should allow removing the player portrait');
 assert.match(campaignPanelSource, /Create an immutable checkpoint without leaving the active chat/, 'Campaign Save Game should explain immutable checkpoint behavior');
 assert.match(missionPanelSource, /Current play surface:[\s\S]*Save, narration retry, reconciliation/, 'Mission subtabs should explain active, context, thread, side-work, and recovery sections');
 assert.match(settingsPanelSource, /Choose which provider lane handles each Directive background job/, 'Settings model-call routing should explain provider lane routing');
@@ -537,7 +547,7 @@ assert.match(crewPanelSource, /resetCrewPanelState/, 'Crew should expose a Reset
 assert.match(crewPanelSource, /directive-crew-readiness-grid/, 'Crew should expose roster readiness as compact status blocks');
 assert.match(crewPanelSource, /directive-crew-roster-row/, 'Crew should render compact LCARS personnel rows instead of generic metadata cards');
 assert.match(crewPanelSource, /createPlayerPortraitImage/, 'Crew should render the uploaded player portrait for the player commander');
-assert.match(crewPanelSource, /importPlayerPortrait/, 'Crew should allow changing the player portrait after campaign start');
+assert.match(crewPanelSource, /createPlayerPortraitControls/, 'Crew should expose the shared portrait controls after campaign start');
 assert.match(shipPanelSource, /directive-ship-journal/, 'Ship should render a focused player-facing status journal');
 assert.match(shipPanelSource, /directive-ship-detail-section/, 'Ship should group capabilities and constraints into readable sections');
 assert.match(shipPanelSource, /directive-ship-history/, 'Ship technical history should remain a collapsed disclosure');

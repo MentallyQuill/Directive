@@ -4,6 +4,13 @@ import {
   buildPlayerFacingInformation,
   resolveSelectedQuestId
 } from '../../src/ui/player-facing-information.mjs';
+import { resolveMissionDisplayIdentity } from '../../src/ui/mission-display-identity.mjs';
+
+assert.deepEqual(
+  resolveMissionDisplayIdentity({ missionId: 'prelude-a-ship-underway', explicitTitle: 'A Ship Underway' }),
+  { id: 'prelude-a-ship-underway', title: 'A Ship Underway', category: 'main' },
+  'mission display identity should stay structured and presentation-free'
+);
 
 const campaignState = {
   campaign: { id: 'campaign:ashes' },
@@ -131,5 +138,143 @@ assert.equal(resolveSelectedQuestId({
   activeMissionId: 'main:ashes'
 }), 'assignment:brief');
 assert.equal(resolveSelectedQuestId({ quests: [], selectedQuestId: 'missing', activeMissionId: 'main:ashes' }), null);
+
+const authoredMissionInformation = buildPlayerFacingInformation({
+  campaignState: {
+    mission: {
+      activeMissionId: 'prelude-a-ship-underway',
+      title: 'prelude-a-ship-underway',
+      status: 'active'
+    },
+    questLedger: {
+      instances: [{
+        id: 'prelude-a-ship-underway',
+        title: 'A Ship Underway',
+        status: 'active'
+      }]
+    }
+  }
+});
+
+assert.equal(
+  authoredMissionInformation.quests[0].title,
+  'A Ship Underway',
+  'the main quest should use its authored quest-ledger title instead of its runtime ID'
+);
+
+const graphAuthoredMissionInformation = buildPlayerFacingInformation({
+  campaignState: {
+    mission: { activeMissionId: 'prelude-a-ship-underway', title: 'prelude-a-ship-underway', status: 'active' }
+  },
+  runtimeView: {
+    missionGraphs: [{
+      manifest: {
+        id: 'breckenridge.ashes-of-peace.prelude-a-ship-underway',
+        missionId: 'prelude-a-ship-underway',
+        title: 'A Ship Underway'
+      }
+    }]
+  }
+});
+assert.equal(
+  graphAuthoredMissionInformation.quests[0].title,
+  'A Ship Underway',
+  'the main quest should resolve a real mission graph by manifest missionId before graph id'
+);
+
+const mergedPeopleInformation = buildPlayerFacingInformation({
+  campaignState: {
+    crew: {
+      roster: [{
+        id: 'mara-whitaker',
+        assignment: 'Command handover',
+        relationshipSummary: 'Professional and evaluating.'
+      }]
+    },
+    narrativeThreads: {
+      records: [
+        { id: 'history:arrival', characterId: 'mara-whitaker', visibility: 'player', summary: 'Received the incoming executive officer.' },
+        { id: 'history:hidden', characterId: 'mara-whitaker', visibility: 'hidden', summary: 'Private command concern.' }
+      ]
+    }
+  },
+  coreProjections: {
+    crewDataset: {
+      officers: [{ id: 'mara-whitaker', name: 'Mara Whitaker', billet: 'Commanding Officer' }]
+    },
+    packageData: {
+      crew: {
+        senior: [{
+          id: 'mara-whitaker',
+          affiliation: 'Starfleet',
+          service: { organization: 'starfleet', department: 'command', rankCode: 'captain', rankLabel: 'Captain' },
+          knownFacts: ['Retains final legal command.'],
+          involvement: { quest: 'A Ship Underway', objective: 'Complete the command handover.' }
+        }]
+      }
+    }
+  }
+});
+
+const mergedMara = mergedPeopleInformation.crew.find((person) => person.id === 'mara-whitaker');
+assert.equal(mergedMara.name, 'Mara Whitaker');
+assert.equal(mergedMara.role, 'Commanding Officer');
+assert.equal(mergedMara.affiliation, 'Starfleet');
+assert.equal(mergedMara.service.rankCode, 'captain');
+assert.deepEqual(mergedMara.knownFacts, ['Retains final legal command.']);
+assert.equal(mergedMara.relationship, 'Professional and evaluating.');
+assert.equal(mergedMara.involvement.quest, 'A Ship Underway');
+assert.deepEqual(mergedMara.history.map((entry) => entry.id), ['history:arrival']);
+assert.doesNotMatch(JSON.stringify(mergedMara), /Private command concern/);
+
+const privatePersonInformation = buildPlayerFacingInformation({
+  coreProjections: {
+    packageData: {
+      crew: {
+        senior: [{
+          id: 'director-only-contact',
+          name: 'Director Only Contact',
+          visibility: 'directorOnly',
+          knownFacts: ['Secret identity'],
+          relationshipSummary: 'Private motive'
+        }]
+      }
+    }
+  }
+});
+assert.equal(
+  privatePersonInformation.crew.some((person) => person.id === 'director-only-contact'),
+  false,
+  'People projection must exclude person sources that are not explicitly player-safe'
+);
+assert.doesNotMatch(JSON.stringify(privatePersonInformation), /Secret identity|Private motive/);
+
+const privateQuestInformation = buildPlayerFacingInformation({
+  campaignState: {
+    openWorld: {
+      quests: [
+        { id: 'visible-q', title: 'Visible Quest', description: 'Known work' },
+        { id: 'hidden-q', title: 'Secret Quest', visibility: 'hidden', description: 'Director secret' }
+      ]
+    },
+    questLedger: {
+      records: [{ id: 'director-q', title: 'Director Quest', visibility: 'directorOnly', description: 'Private route' }]
+    }
+  }
+});
+assert.deepEqual(privateQuestInformation.quests.map((quest) => quest.id), ['visible-q']);
+assert.doesNotMatch(JSON.stringify(privateQuestInformation), /Secret Quest|Director Quest|Director secret|Private route/);
+assert.equal(privateQuestInformation.quests[0].urgency, null, 'missing urgency must not become a bogus zero-minute countdown');
+
+const playerPersonInformation = buildPlayerFacingInformation({
+  campaignState: {
+    player: { id: 'player-commander', name: 'Sam Vickers' }
+  }
+});
+assert.equal(
+  playerPersonInformation.crew.find((person) => person.id === 'player-commander').isPlayer,
+  true,
+  'the player-facing People record should be explicitly identifiable for portrait management'
+);
 
 console.log('Player-facing information projection tests passed');

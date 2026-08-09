@@ -15,7 +15,7 @@ const view = buildCampaignView({
         playerName: 'Mara Venn',
         playerRole: 'Executive Officer',
         shipName: 'U.S.S. Breckenridge',
-        activeMissionTitle: 'A Ship Underway',
+        activeMissionId: 'prelude-a-ship-underway',
         campaignStatus: 'active'
       }
     },
@@ -53,6 +53,7 @@ const view = buildCampaignView({
         theater: 'Asterion Reach',
         eraLabel: 'Postwar reconstruction',
         structure: { expectedSessions: 8, mainQuestCount: 3, sideQuestCount: 2 },
+        quests: [{ id: 'prelude-a-ship-underway', title: 'A Ship Underway' }],
         openingHook: 'A damaged ship arrives without a crew.'
       },
       ship: { id: 'breckenridge', name: 'U.S.S. Breckenridge' },
@@ -67,6 +68,14 @@ const view = buildCampaignView({
     }
   ],
   checkpoints: [
+    {
+      kind: 'directive.manualCheckpoint.v1',
+      id: 'checkpoint-a',
+      campaignId: 'campaign-a',
+      name: 'Before Handover',
+      createdAt: '2026-07-20T09:00:00.000Z',
+      summary: { chapter: 'prelude-a-ship-underway', activeMissionId: 'prelude-a-ship-underway' }
+    },
     {
       kind: 'directive.manualCheckpoint.v1',
       id: 'checkpoint-b',
@@ -102,9 +111,12 @@ assert.equal(view.campaigns[1].hook, 'Package-owned high concept.');
 assert.equal(view.campaigns[1].theater, 'Asterion Reach');
 assert.equal(view.campaigns[1].eraLabel, 'Postwar reconstruction');
 assert.equal(view.campaigns[1].ship.name, 'U.S.S. Breckenridge');
-assert.equal(view.campaigns[1].playerRole.label, 'Executive Officer');
+assert.equal(view.campaigns[1].playerRole, 'Executive Officer');
+assert.equal(view.campaigns[1].playerRoleContext.label, 'Executive Officer');
 assert.equal(view.campaigns[1].structure.mainQuestCount, 3);
 assert.equal(view.campaigns[1].openingHook, 'A damaged ship arrives without a crew.');
+assert.equal(view.campaigns[1].chapter, 'A Ship Underway', 'Campaign should resolve the authored package title for an active mission ID');
+assert.equal(view.campaigns[1].checkpoints[0].chapter, 'A Ship Underway', 'Campaign checkpoints should resolve the same authored mission title');
 assert.equal(view.campaigns[1].assets.images[0].uri, 'asset-a');
 assert.equal(JSON.stringify(view).includes('/files/'), false);
 
