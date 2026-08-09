@@ -175,6 +175,7 @@ const processChoiceSnapshot = snapshot(1, {
 const processChoice = await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: processChoiceSnapshot });
 assert.equal(processChoice.status, 'settled');
 assert.equal(harness.campaignState.mission.v1.outcomes['outcome.chapter4.process-decision'], 'jointInquiry');
+assert.equal(harness.campaignState.mission.v1.outcomes['outcome.chapter4.process-result'], 'pending', 'process intent cannot prove its observed result');
 const processContributionId = harness.campaignState.mission.v1.evidenceLog.at(-1).sourceContributionId;
 const processContribution = harness.campaignState.storySettlement.episodes
     .flatMap((episode) => episode.contributions || [])

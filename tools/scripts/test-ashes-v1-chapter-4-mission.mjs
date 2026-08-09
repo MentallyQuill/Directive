@@ -184,7 +184,7 @@ for (const scenario of scenarios.scenarios) {
     assert.equal(actual.state.transitionReceipt?.target?.id || null, expected.transitionTargetId || null, `${scenario.id}:transition`);
 }
 
-function validateAssistantBatch({ scenarioId, state, fragmentIds }) {
+function validateBatch({ scenarioId, state, fragmentIds }) {
     const steps = fragmentIds.flatMap((fragmentId) => scenarios.fragments[fragmentId]);
     const source = sourceForStep(scenarioId, steps[0], 0, state.revision);
     const proposal = {
@@ -218,7 +218,7 @@ const withdrawalState = runScenario({
     id: 'same-scene-withdrawal-batch',
     sequence: ['process-withdraw-choice'],
 }).state;
-const withdrawalBatch = validateAssistantBatch({
+const withdrawalBatch = validateBatch({
     scenarioId: 'same-scene-withdrawal-batch',
     state: withdrawalState,
     fragmentIds: ['process-withdraw-result', 'solenn-handoff-result', 'interface-handoff-result'],
@@ -230,12 +230,31 @@ const collapseState = runScenario({
     id: 'same-scene-collapse-batch',
     sequence: ['process-joint-choice'],
 }).state;
-const collapseBatch = validateAssistantBatch({
+const collapseBatch = validateBatch({
     scenarioId: 'same-scene-collapse-batch',
     state: collapseState,
     fragmentIds: ['process-collapse-result', 'solenn-escaped-result', 'interface-lost-result'],
 });
 assert.equal(collapseBatch.acceptedClaims.length, 3, 'one collapse scene can settle no-fault process, witness, and custody results');
 assert.deepEqual(collapseBatch.rejectedClaims, []);
+
+const informedChoiceState = runScenario({
+    id: 'same-message-final-choices',
+    sequence: [
+        'process-joint-choice',
+        'process-joint-result',
+        'history-evidence',
+        'solenn-evidence',
+        'access-evidence',
+        'route-direct',
+    ],
+}).state;
+const informedChoiceBatch = validateBatch({
+    scenarioId: 'same-message-final-choices',
+    state: informedChoiceState,
+    fragmentIds: ['solenn-restorative-choice', 'interface-shared-choice'],
+});
+assert.equal(informedChoiceBatch.acceptedClaims.length, 2, 'one player message can record both independent informed final choices');
+assert.deepEqual(informedChoiceBatch.rejectedClaims, []);
 
 console.log('Ashes V1 Chapter 4 mission tests passed.');
