@@ -123,32 +123,32 @@ feat(runtime): enforce semantic episode boundaries
 - Consumes: one atomic set of invalid contribution IDs plus surviving accepted evidence and authored visible effect text.
 - Produces: invalidated audit history and, when meaningful effects survive, one current sealed replacement with `supersedesEpisodeIds`.
 
-- [ ] **Step 1: Write failing partial-invalidation tests**
+- [x] **Step 1: Write failing partial-invalidation tests**
 
 Seal an episode containing several accepted pairs, then edit/delete/swipe one source. Assert:
 
 - the old episode becomes `invalidated` and is never current authority;
 - dependent effects disappear while independent effects survive;
 - a meaningful survivor set creates exactly one sealed replacement;
-- the replacement has fresh stable identity, only surviving contributions/effects, a recomputed visible summary, the original boundary, and `supersedesEpisodeIds: [oldId]`;
+- the replacement has fresh stable identity, only surviving contributions/effects, a recomputed visible summary, a `source-recovery` boundary, and `supersedesEpisodeIds: [oldId]`; the stale episode retains its original boundary for audit;
 - repeated invalidation is idempotent;
 - invalidating every meaningful effect creates no replacement;
 - multiple invalidated contributions in one host mutation create one replacement, not a supersession chain;
 - restart/JSON round-trip and later restoration produce deterministic results without resurrecting stale identity.
 
-- [ ] **Step 2: Implement atomic batch invalidation**
+- [x] **Step 2: Implement atomic batch invalidation**
 
 Replace sequential sealed-source invalidation in the V1 spine with one batch operation. Active episodes still remove invalid dependencies in place. Sealed episodes are immutable except for terminal invalidation metadata; replacement construction is isolated and validated before commit.
 
-- [ ] **Step 3: Enforce projection-current identity**
+- [x] **Step 3: Enforce projection-current identity**
 
 Validate supersession references, forbid cycles/self-reference, and define a pure current-episode selector that excludes invalidated/recovery-required/stale records and any sealed record superseded by another current sealed record.
 
-- [ ] **Step 4: Keep Focus conservative**
+- [x] **Step 4: Keep Focus conservative**
 
 Clear Focus whenever its episode becomes stale. Do not redirect until unresolved consequences have explicit source custody and identity-equivalence proof.
 
-- [ ] **Step 5: Run and commit Task 3**
+- [x] **Step 5: Run and commit Task 3**
 
 Commit:
 

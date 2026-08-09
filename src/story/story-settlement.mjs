@@ -4,7 +4,10 @@ import {
     STORY_SETTLEMENT_RECEIPT_KIND,
     validateStorySettlement,
 } from './story-settlement-contracts.mjs';
-import { createInitialEpisodeBoundaryState } from './episode-boundary.mjs';
+import {
+    createEpisodeHardBoundary,
+    createInitialEpisodeBoundaryState,
+} from './episode-boundary.mjs';
 
 function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
@@ -209,81 +212,176 @@ export function setEmergentFocus(settlement, focus) {
     return assertValid(next);
 }
 
-export function invalidateStorySource(settlement, { contributionId, reason } = {}) {
-    const dependentEpisodeIds = new Set(
-        settlement.episodes
-            .filter((episode) => episode.contributions.some((contribution) => contribution.id === contributionId))
-            .map((episode) => episode.id),
-    );
-    const dependentInsignificantReceipts = settlement.receipts.filter((receipt) => (
-        receipt.disposition === 'insignificant'
-        && receipt.sourceContributionIds.includes(contributionId)
-    ));
-    if (dependentEpisodeIds.size === 0 && dependentInsignificantReceipts.length === 0) {
-        return structuredClone(settlement);
-    }
-    const invalidationRecorded = (sceneId, episodeId) => settlement.receipts.some((candidate) => (
+function supersededEpisodeIds(episode) {
+    return [
+        ...(Array.isArray(episode?.supersedesEpisodeIds) ? episode.supersedesEpisodeIds : []),
+        ...(episode?.supersedesEpisodeId ? [episode.supersedesEpisodeId] : []),
+    ];
+}
+
+export function selectCurrentStoryEpisodes(settlement = {}) {
+    const sealed = (settlement.episodes || []).filter((episode) => episode.status === 'sealed');
+    const superseded = new Set(sealed.flatMap(supersededEpisodeIds));
+    return sealed
+        .filter((episode) => !superseded.has(episode.id))
+        .sort((left, right) => (
+            left.sealedAtRevision - right.sealedAtRevision
+            || left.openedAtRevision - right.openedAtRevision
+            || left.id.localeCompare(right.id)
+        ))
+        .map((episode) => structuredClone(episode));
+}
+
+function hasInvalidationReceipt(settlement, sceneId, episodeId, contributionId) {
+    return settlement.receipts.some((candidate) => (
         candidate.disposition === 'invalidated'
         && candidate.sceneId === sceneId
         && candidate.episodeId === episodeId
         && candidate.sourceContributionIds.includes(contributionId)
     ));
-    const pendingEpisodeIds = new Set([...dependentEpisodeIds].filter((episodeId) => {
-        const episode = settlement.episodes.find((item) => item.id === episodeId);
-        return episode && !invalidationRecorded(episode.sceneId, episodeId);
-    }));
-    const pendingInsignificantReceipts = dependentInsignificantReceipts.filter(
-        (receipt) => !invalidationRecorded(receipt.sceneId, null),
-    );
-    if (pendingEpisodeIds.size === 0 && pendingInsignificantReceipts.length === 0) {
-        return structuredClone(settlement);
+}
+
+function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
+    const survivorEffects = episode.effects.filter((effect) => (
+        effect.status === 'active'
+        && !(effect.sourceContributionIds || []).some((id) => invalidated.has(id))
+    ));
+    if (survivorEffects.length === 0) return null;
+    const referenced = new Set(survivorEffects.flatMap((effect) => effect.sourceContributionIds || []));
+    const survivorContributions = episode.contributions.filter((item) => referenced.has(item.id));
+    const replacementId = `${episode.id}.supersession.${next.revision}`;
+    const sceneId = `${episode.sceneId}.recovery.${next.revision}`;
+    const summary = String(summarizeEffects?.(structuredClone(survivorEffects), structuredClone(episode)) || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 1024)
+        || 'A material story development remains after source recovery.';
+    const boundary = createEpisodeHardBoundary({
+        id: `boundary.source-recovery.${episode.id}.${next.revision}`,
+        branchId: next.branchId,
+        code: 'source-recovery',
+        source: {
+            kind: 'sourceRecovery',
+            id: `source-recovery.${episode.id}.${next.revision}`,
+        },
+        sourceContributionIds: survivorContributions.map((item) => item.id),
+    });
+    return {
+        kind: STORY_EPISODE_KIND,
+        id: replacementId,
+        branchId: next.branchId,
+        sceneId,
+        status: 'sealed',
+        openedAtRevision: episode.openedAtRevision,
+        sealedAtRevision: next.revision,
+        boundaryReason: boundary.code,
+        summary,
+        contributions: structuredClone(survivorContributions),
+        effects: structuredClone(survivorEffects),
+        unresolvedConsequences: [],
+        boundaryState: {
+            ...createInitialEpisodeBoundaryState({ openedAtRevision: episode.openedAtRevision }),
+            checkpointSequence: (episode.boundaryState?.checkpointSequence || 0) + 1,
+            lastReviewedAtRevision: next.revision,
+            contributionCountAtLastReview: survivorContributions.length,
+            effectCountAtLastReview: survivorEffects.length,
+            sourceContributionIds: survivorContributions.map((item) => item.id),
+        },
+        hardBoundary: boundary,
+        supersedesEpisodeIds: [episode.id],
+    };
+}
+
+export function invalidateStorySources(settlement, {
+    contributionIds = [],
+    reason = 'source-invalidated',
+    summarizeEffects = null,
+} = {}) {
+    const requested = new Set((Array.isArray(contributionIds) ? contributionIds : []).filter(Boolean));
+    if (requested.size === 0) return structuredClone(settlement);
+    const episodeWork = new Map();
+    for (const episode of settlement.episodes || []) {
+        if (!new Set(['open', 'sealPending', 'sealed']).has(episode.status)) continue;
+        const pending = episode.contributions
+            .map((item) => item.id)
+            .filter((id) => requested.has(id) && !hasInvalidationReceipt(settlement, episode.sceneId, episode.id, id));
+        if (pending.length > 0) episodeWork.set(episode.id, pending);
     }
+    const receiptWork = [];
+    for (const receipt of settlement.receipts || []) {
+        if (receipt.disposition !== 'insignificant') continue;
+        for (const contributionId of receipt.sourceContributionIds || []) {
+            if (requested.has(contributionId)
+                && !hasInvalidationReceipt(settlement, receipt.sceneId, null, contributionId)) {
+                receiptWork.push({ receipt, contributionId });
+            }
+        }
+    }
+    if (episodeWork.size === 0 && receiptWork.length === 0) return structuredClone(settlement);
 
     const next = structuredClone(settlement);
     next.revision += 1;
     const activeEpisodeIdsToRemove = new Set();
+    const replacements = [];
     for (const episode of next.episodes) {
-        if (!pendingEpisodeIds.has(episode.id)) continue;
-        const sourceMessageId = episode.contributions.find((item) => item.id === contributionId)?.messageId;
+        const pending = episodeWork.get(episode.id);
+        if (!pending) continue;
+        const invalidated = new Set(pending);
+        const sourceMessageByContributionId = new Map(
+            episode.contributions.map((item) => [item.id, item.messageId]),
+        );
         if (next.activeEpisode === episode.id) {
             episode.effects = episode.effects.filter(
-                (effect) => !effect.sourceContributionIds.includes(contributionId),
+                (effect) => !(effect.sourceContributionIds || []).some((id) => invalidated.has(id)),
             );
-            const stillReferenced = new Set(
-                episode.effects.flatMap((effect) => effect.sourceContributionIds || []),
-            );
-            episode.contributions = episode.contributions.filter(
-                (item) => item.id !== contributionId && stillReferenced.has(item.id),
-            );
+            const stillReferenced = new Set(episode.effects.flatMap((effect) => effect.sourceContributionIds || []));
+            episode.contributions = episode.contributions.filter((item) => stillReferenced.has(item.id));
             episode.unresolvedConsequences = [];
             if (episode.effects.length === 0) {
                 activeEpisodeIdsToRemove.add(episode.id);
                 next.activeEpisode = null;
             }
         } else {
+            const replacement = replacementForEpisode(next, episode, invalidated, summarizeEffects);
             episode.status = 'invalidated';
             episode.invalidationReason = reason;
-            for (const effect of episode.effects) {
-                if (effect.sourceContributionIds.includes(contributionId)) effect.status = 'invalidated';
-            }
+            for (const effect of episode.effects) effect.status = 'invalidated';
             for (const consequence of episode.unresolvedConsequences) consequence.status = 'invalidated';
+            if (replacement) replacements.push(replacement);
         }
-        next.receipts.push({
-            kind: STORY_SETTLEMENT_RECEIPT_KIND,
-            id: `receipt.${episode.id}.invalidated.${contributionId}`,
-            branchId: next.branchId,
-            sceneId: episode.sceneId,
-            disposition: 'invalidated',
-            episodeId: episode.id,
-            sourceContributionIds: [contributionId],
-            sourceMessageIds: sourceMessageId ? [sourceMessageId] : [],
-            settledAtRevision: next.revision,
-        });
+        for (const contributionId of pending) {
+            const sourceMessageId = sourceMessageByContributionId.get(contributionId);
+            next.receipts.push({
+                kind: STORY_SETTLEMENT_RECEIPT_KIND,
+                id: `receipt.${episode.id}.invalidated.${contributionId}`,
+                branchId: next.branchId,
+                sceneId: episode.sceneId,
+                disposition: 'invalidated',
+                episodeId: episode.id,
+                sourceContributionIds: [contributionId],
+                sourceMessageIds: sourceMessageId ? [sourceMessageId] : [],
+                settledAtRevision: next.revision,
+            });
+        }
     }
     if (activeEpisodeIdsToRemove.size > 0) {
         next.episodes = next.episodes.filter((episode) => !activeEpisodeIdsToRemove.has(episode.id));
     }
-    for (const receipt of pendingInsignificantReceipts) {
+    for (const replacement of replacements) {
+        next.episodes.push(replacement);
+        next.receipts.push({
+            kind: STORY_SETTLEMENT_RECEIPT_KIND,
+            id: `receipt.${replacement.id}.sealed`,
+            branchId: next.branchId,
+            sceneId: replacement.sceneId,
+            disposition: 'sealed',
+            episodeId: replacement.id,
+            sourceContributionIds: replacement.contributions.map((item) => item.id),
+            sourceMessageIds: replacement.contributions.map((item) => item.messageId),
+            settledAtRevision: next.revision,
+        });
+    }
+    for (const { receipt, contributionId } of receiptWork) {
         const index = receipt.sourceContributionIds.indexOf(contributionId);
         const sourceMessageId = receipt.sourceMessageIds?.[index] || null;
         next.receipts.push({
@@ -298,6 +396,13 @@ export function invalidateStorySource(settlement, { contributionId, reason } = {
             settledAtRevision: next.revision,
         });
     }
-    if (next.focus && pendingEpisodeIds.has(next.focus.episodeId)) next.focus = null;
+    if (next.focus && episodeWork.has(next.focus.episodeId)) next.focus = null;
     return assertValid(next);
+}
+
+export function invalidateStorySource(settlement, { contributionId, reason } = {}) {
+    return invalidateStorySources(settlement, {
+        contributionIds: [contributionId],
+        reason,
+    });
 }

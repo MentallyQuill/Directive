@@ -79,6 +79,7 @@ const checks = [
   'test-v1-mission-package-linter.mjs',
   'validate-ashes-v1-prelude.mjs',
   'test-v1-story-settlement.mjs',
+  'test-v1-story-supersession.mjs',
   'test-v1-state-spine-runtime.mjs',
   'test-v1-mission-runtime.mjs',
   'test-v1-accepted-pair-orchestrator.mjs',

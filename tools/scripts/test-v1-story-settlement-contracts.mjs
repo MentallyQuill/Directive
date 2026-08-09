@@ -308,6 +308,28 @@ const sealedEpisode = {
         playerVisibility: 'visible',
     }],
 };
+
+const supersededEpisode = {
+    ...sealedEpisode,
+    id: 'episode.beta',
+    sceneId: 'scene.beta',
+    supersedesEpisodeIds: ['episode.alpha'],
+};
+assert.equal(validateStorySettlement({
+    ...empty,
+    episodes: [
+        { ...sealedEpisode, status: 'invalidated', invalidationReason: 'source changed' },
+        supersededEpisode,
+    ],
+}).ok, true);
+
+assert.match(validateStorySettlement({
+    ...empty,
+    episodes: [
+        sealedEpisode,
+        { ...supersededEpisode, supersedesEpisodeIds: ['episode.alpha', 'episode.alpha'] },
+    ],
+}).errors.join('\n'), /supersedesEpisodeIds must be unique/);
 const focus = {
     kind: 'directive.emergentFocus.v1',
     id: 'focus.readiness-review',

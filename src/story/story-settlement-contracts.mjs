@@ -94,9 +94,9 @@ export function validateStorySettlement(value = {}) {
     if (!Array.isArray(value?.receipts)) errors.push('receipts must be an array');
     if (Array.isArray(value?.episodes)) {
         const episodeIds = new Set();
-        const contributionIds = new Set();
-        const effectIds = new Set();
         for (const episode of value.episodes) {
+            const contributionIds = new Set();
+            const effectIds = new Set();
             const episodeId = isStableId(episode?.id) ? episode.id : '<unknown>';
             if (episodeId === '<unknown>') errors.push('episode id must be a stable id');
             if (episodeIds.has(episodeId)) errors.push(`duplicate episode id: ${episodeId}`);
@@ -128,6 +128,20 @@ export function validateStorySettlement(value = {}) {
                     knownContributionIds: (episode.contributions || []).map((item) => item.id),
                 });
                 errors.push(...boundaryResult.errors.map((error) => `${episodeId} hardBoundary ${error}`));
+            }
+            if (episode?.supersedesEpisodeIds !== undefined) {
+                if (!Array.isArray(episode.supersedesEpisodeIds)) {
+                    errors.push(`${episodeId} supersedesEpisodeIds must be an array`);
+                } else {
+                    if (new Set(episode.supersedesEpisodeIds).size !== episode.supersedesEpisodeIds.length) {
+                        errors.push(`${episodeId} supersedesEpisodeIds must be unique`);
+                    }
+                    for (const supersededId of episode.supersedesEpisodeIds) {
+                        if (!isStableId(supersededId)) {
+                            errors.push(`${episodeId} supersedesEpisodeIds contains an invalid id`);
+                        }
+                    }
+                }
             }
             if (episode?.status === 'sealed') {
                 if (!Number.isInteger(episode.sealedAtRevision) || episode.sealedAtRevision < episode.openedAtRevision) {
@@ -182,6 +196,41 @@ export function validateStorySettlement(value = {}) {
                 }
             }
         }
+        const episodeById = new Map(value.episodes.filter((episode) => isStableId(episode?.id)).map((episode) => [episode.id, episode]));
+        const supersessionGraph = new Map();
+        for (const episode of value.episodes) {
+            if (!isStableId(episode?.id)) continue;
+            const supersededIds = [
+                ...(Array.isArray(episode.supersedesEpisodeIds) ? episode.supersedesEpisodeIds : []),
+                ...(isStableId(episode.supersedesEpisodeId) ? [episode.supersedesEpisodeId] : []),
+            ];
+            supersessionGraph.set(episode.id, supersededIds);
+            for (const supersededId of supersededIds) {
+                if (supersededId === episode.id) {
+                    errors.push(`${episode.id} cannot supersede itself`);
+                } else if (!episodeById.has(supersededId)) {
+                    errors.push(`${episode.id} supersedes unknown episode: ${supersededId}`);
+                }
+            }
+        }
+        const visited = new Set();
+        const visiting = new Set();
+        let cycleReported = false;
+        const visit = (episodeId) => {
+            if (visiting.has(episodeId)) {
+                if (!cycleReported) errors.push('story settlement contains a supersession cycle');
+                cycleReported = true;
+                return;
+            }
+            if (visited.has(episodeId)) return;
+            visiting.add(episodeId);
+            for (const supersededId of supersessionGraph.get(episodeId) || []) {
+                if (episodeById.has(supersededId)) visit(supersededId);
+            }
+            visiting.delete(episodeId);
+            visited.add(episodeId);
+        };
+        for (const episodeId of episodeById.keys()) visit(episodeId);
         const nonterminalEpisodes = value.episodes.filter(
             (episode) => !TERMINAL_EPISODE_STATUSES.has(episode?.status),
         );

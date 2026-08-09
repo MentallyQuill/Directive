@@ -8,7 +8,7 @@ import {
     acceptStoryContributions,
     appendStoryEffects,
     checkpointStoryEpisode,
-    invalidateStorySource,
+    invalidateStorySources,
     openStoryEpisode,
     sealStoryEpisode,
     settleInsignificantScene,
@@ -53,6 +53,13 @@ function deterministicEpisodeSummary(definition, settlement, transitionPacket = 
     }
     return visibleSummaries.slice(0, 8).join(' ').slice(0, 1024)
         || 'A material mission development was settled from accepted evidence.';
+}
+
+function deterministicEffectSummary(definition, effects = []) {
+    return deterministicEpisodeSummary(definition, {
+        activeEpisode: 'episode.recovery-summary',
+        episodes: [{ id: 'episode.recovery-summary', effects }],
+    });
 }
 
 function normalizedSourceContributions({ acceptedClaims = [], sourceContribution = null, sourceContributions = [] } = {}) {
@@ -420,10 +427,11 @@ export function createV1StateSpine({
             observedAt: now(),
         });
 
-        let storySettlement = currentStorySettlement;
-        for (const contributionId of invalidated) {
-            storySettlement = invalidateStorySource(storySettlement, { contributionId, reason });
-        }
+        const storySettlement = invalidateStorySources(currentStorySettlement, {
+            contributionIds: [...invalidated],
+            reason,
+            summarizeEffects: (effects) => deterministicEffectSummary(definition, effects),
+        });
         const committed = await stateDeltaGateway.applyProposal({
             patch: {
                 storySettlement,

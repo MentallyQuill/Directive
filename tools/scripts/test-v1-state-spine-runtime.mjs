@@ -388,6 +388,22 @@ await accumulationSpine.invalidateSources({
 });
 assert.equal(accumulationPersistCount, 7);
 assert.equal(accumulationState.storySettlement.episodes[0].status, 'invalidated');
+assert.equal(accumulationState.storySettlement.episodes.length, 2);
+assert.equal(accumulationState.storySettlement.episodes[1].status, 'sealed');
+assert.deepEqual(accumulationState.storySettlement.episodes[1].supersedesEpisodeIds, ['episode.accumulated-scene']);
+assert.equal(accumulationState.storySettlement.episodes[1].hardBoundary.code, 'source-recovery');
+assert.equal(accumulationState.storySettlement.episodes[1].summary.includes('Milestone 2 settled'), false);
+assert.equal(accumulationState.storySettlement.episodes[1].summary.includes('Milestone 1 settled'), true);
+assert.deepEqual(
+    accumulationState.storySettlement.episodes[1].effects.map((item) => item.targetId),
+    [
+        'event.accumulation-1',
+        'event.accumulation-3',
+        'event.accumulation-4',
+        'event.accumulation-5',
+        'event.accumulation-6',
+    ],
+);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-2'), false);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-1'), true);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-6'), true);

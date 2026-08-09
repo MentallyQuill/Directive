@@ -255,6 +255,11 @@
           "type": ["string", "null"],
           "pattern": "^[a-z0-9][a-z0-9._:-]*$"
         },
+        "supersedesEpisodeIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
         "invalidationReason": {
           "type": ["string", "null"],
           "maxLength": 256
