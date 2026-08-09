@@ -139,11 +139,11 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] Challenge spoiler leakage, plot teleportation, forced phase order, fake urgency, coerced medical care, unsafe access rewarded as success, undiscoverable requirements, premature attribution, report spam, false closure, optional blocking, model self-certification, source mutation, package drift, duplicate activation, and legacy Open Orders fallback.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, `git diff --check`, and the complete alpha gate.
-- [ ] Record deterministic proof and remaining limitations without claiming narrator, UI, live rehearsal, or complete Ashes readiness.
-- [ ] Commit the certification docs.
+- [x] Challenge spoiler leakage, plot teleportation, forced phase order, fake urgency, coerced medical care, unsafe access rewarded as success, undiscoverable requirements, premature attribution, report spam, false closure, optional blocking, model self-certification, source mutation, package drift, duplicate activation, and legacy Open Orders fallback.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, `git diff --check`, and the complete alpha gate.
+- [x] Record deterministic proof and remaining limitations without claiming narrator, UI, live rehearsal, or complete Ashes readiness.
+- [x] Commit the certification docs.
 
 ## Explicit Non-Goals and Stop Boundary
 

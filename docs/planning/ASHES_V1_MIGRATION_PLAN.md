@@ -129,11 +129,13 @@ It must exercise the real Mission and Ship projections, a crew Duty Report, at l
 
 ### Current Mission-Transition Boundary
 
-The non-UI V1 runtime now proves exact mission-target activation, durable pending transitions, branch-local journey history, historic source reconstruction, descendant Story rollback, and bounded transition-narration preparation. Prelude and `chapter-1-the-empty-convoy` now both have exact V1 definitions registered in the pinned Ashes package version.
+The non-UI V1 runtime now proves exact mission-target activation, durable pending transitions, branch-local journey history, historic source reconstruction, descendant Story rollback, and bounded transition-narration preparation. Prelude, `chapter-1-the-empty-convoy`, and `chapter-2-false-colors` now have exact V1 definitions registered in the pinned Ashes package version.
 
 Prelude's canonical V1 receipt now activates a fresh Chapter 1 state and archives Prelude through the deterministic journey authority. Chapter 1 replaces ten legacy phases and twenty-eight flags with three core objectives, one optional cooperation objective, four dimensions, two causal gating events, three aggregate Duty Reports, and no synthetic clock. The existing mission graph, campaign projection, quest rows, and package records remain migration inputs only; they do not become parallel V1 authority.
 
-Chapter 1's canonical receipt targets `chapter-2-false-colors`. Because Chapter 2 is not yet V1-native, a completed Chapter 1 remains durably pending rather than activating its legacy graph. The immediate content migration handoff is therefore Chapter 2, under the same spoiler-safe, fair-discovery, aggregate-objective, mixed-outcome, source-custody, and exact-target contracts. Archived Prelude and Chapter 1 definitions must remain available at their pinned versions so repaired saves can reconstruct the journey.
+Chapter 1's canonical V1 receipt now activates a fresh False Colors state and archives Empty Convoy through the same journey authority. False Colors replaces six phases, twenty-three facts, twenty-five flags, eight pressures, and four hidden risk clocks with three core objectives, one optional partnership objective, four dimensions, two causal evidence events, three aggregate Duty Reports, and no synthetic clock. Its medical, evidence, political, and security work can settle in any causally valid order, and it never requires hidden culprit attribution.
+
+False Colors targets `open-orders-1-work-worth-doing`. That interval is authored in the campaign source and named by the legacy Chapter 2 graph, but it has no V1 definition or package quest template. A terminal Chapter 2 therefore remains durably pending rather than activating legacy data. The immediate content migration handoff is Open Orders I under the same spoiler-safe, aggregate, source-custody, and exact-target contracts. Archived Prelude, Chapter 1, and Chapter 2 definitions must remain available at their pinned versions so repaired saves can reconstruct the journey.
 
 ## Hesperus Conversion
 
