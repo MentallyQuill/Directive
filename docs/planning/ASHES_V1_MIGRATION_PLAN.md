@@ -127,6 +127,14 @@ select Ashes
 
 It must exercise the real Mission and Ship projections, a crew Duty Report, at least one meaningful Story Settlement episode, one no-significance scene receipt, and an eligible Command Bearing award/spend path without requiring the player to take it.
 
+### Current Mission-Transition Boundary
+
+The non-UI V1 runtime now proves exact mission-target activation, durable pending transitions, branch-local journey history, historic source reconstruction, descendant Story rollback, and bounded transition-narration preparation. This architecture is complete enough to receive the next migrated mission; it does not make the legacy Chapter 1 data V1-native.
+
+Prelude's canonical V1 receipt targets `chapter-1-the-empty-convoy`. Until that mission has a valid V1 definition registered in the same pinned Ashes package version, Prelude completion must remain durably pending. The existing mission graph, campaign projection, quest rows, and package records are migration inputs only. The runtime may not activate them as a substitute, infer a target state from them, or copy their tracker rows into V1 authority.
+
+The immediate migration handoff is therefore `chapter-1-the-empty-convoy`. Its V1 conversion must supply spoiler-safe player text, reachable evidence policies, fair crew-knowledge routes, non-linear objective predicates, any real clocks, mixed terminal dispositions, exact successor targets, narrator guardrails, accepted-pair fixtures, source-mutation fixtures, and save/reload validation. Archived Prelude assets must remain available at their pinned definition version so repaired saves can reconstruct the transition.
+
 ## Hesperus Conversion
 
 ### Remove the Spoiler

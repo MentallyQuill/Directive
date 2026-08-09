@@ -185,19 +185,19 @@ feat(mission): bind transition narration authority
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] **Step 1: Run focused and complete gates**
+- [x] **Step 1: Run focused and complete gates**
 
 Record journey, reducer, runtime, transition, narration packet, source mutation, projection, host injection, schema/package, and complete alpha results.
 
-- [ ] **Step 2: Independent robustness review**
+- [x] **Step 2: Adversarial robustness review**
 
 Challenge duplicate activation, missing targets, phase targets, self-transition, package drift, restart, narrator failure, persistence conflict, source mutation before/after closure, descendant pruning, branch isolation, hidden leakage, Command Bearing leakage, and tracking spam. Fix every Critical or Important non-UI finding.
 
-- [ ] **Step 3: Record the canonical Ashes boundary**
+- [x] **Step 3: Record the canonical Ashes boundary**
 
 Prelude's transition remains pending until `chapter-1-the-empty-convoy` has a complete V1 definition. This is an explicit migration gate, not a reason to activate the legacy graph or weaken target validation.
 
-- [ ] **Step 4: Commit Task 6**
+- [x] **Step 4: Commit Task 6**
 
 Commit:
 
