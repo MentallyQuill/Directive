@@ -23,11 +23,13 @@ const chapterDefinition = readJson('packages/bundled/breckenridge/v1/chapter-1-t
 const chapter2Definition = readJson('packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json');
 const openOrdersDefinition = readJson('packages/bundled/breckenridge/v1/open-orders-1-work-worth-doing.mission-v1.json');
 const chapter3Definition = readJson('packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json');
+const chapter4Definition = readJson('packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
 const openOrdersScenarios = readJson('tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json');
 const chapter3Scenarios = readJson('tests/fixtures/mission/v1/chapter-3-dead-letters-scenarios.fixture.json');
+const chapter4Scenarios = readJson('tests/fixtures/mission/v1/chapter-4-colony-that-stayed-scenarios.fixture.json');
 const branchId = 'save.ashes-v1-handoff';
 
 function readJson(path) {
@@ -217,6 +219,14 @@ const chapter3Assets = assetsFor([
     chapter2Definition,
     openOrdersDefinition,
     chapter3Definition,
+]);
+const chapter4Assets = assetsFor([
+    preludeDefinition,
+    chapterDefinition,
+    chapter2Definition,
+    openOrdersDefinition,
+    chapter3Definition,
+    chapter4Definition,
 ]);
 
 const pending = runtime.inspectPendingTransition({ runtimeAssets: sourceOnlyAssets });
@@ -553,6 +563,108 @@ assert.equal(chapter4Pending.status, 'pending');
 assert.equal(chapter4Pending.reasonCode, 'transition-target-definition-unavailable');
 assert.equal(chapter4Pending.targetDefinitionId, null);
 assert.equal(chapter4Pending.activatable, false);
+const preChapter4ActivationCampaignState = structuredClone(campaignState);
+
+const chapter4Ready = runtime.inspectPendingTransition({ runtimeAssets: chapter4Assets });
+assert.equal(chapter4Ready.ok, true);
+assert.equal(chapter4Ready.status, 'ready');
+assert.equal(chapter4Ready.targetDefinitionId, chapter4Definition.id);
+assert.equal(chapter4Ready.activatable, true);
+
+const chapter4Activated = await runtime.activatePendingTransition({ runtimeAssets: chapter4Assets });
+assert.equal(chapter4Activated.ok, true);
+assert.equal(chapter4Activated.status, 'activated');
+assert.equal(chapter4Activated.targetDefinitionId, chapter4Definition.id);
+assert.equal(chapter4Activated.noChange, false);
+assert.equal(persistCount, 5);
+assert.equal(campaignState.mission.activeMissionId, chapter4Definition.packageBinding.sourceId);
+assert.equal(campaignState.mission.legacyStatus, 'must-remain-untouched');
+assert.deepEqual(campaignState.mission.legacyPressure, { id: 'legacy-pressure-must-remain-untouched' });
+assert.deepEqual(campaignState.mission.legacyAssignments, [{ id: 'legacy-assignment-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyRewards, [{ id: 'legacy-reward-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyProgress, { id: 'legacy-progress-must-remain-untouched' });
+assert.equal(campaignState.mission.v1.definitionId, chapter4Definition.id);
+assert.equal(campaignState.mission.v1.status, 'active');
+assert.deepEqual(Object.keys(campaignState.mission.v1.objectives), chapter4Definition.objectives.map((item) => item.id));
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('objective.chapter3.'), false);
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('outcome.chapter3.'), false);
+for (const sentinel of ['legacy-pressure-', 'legacy-assignment-', 'legacy-reward-', 'legacy-progress-']) {
+    assert.equal(JSON.stringify(campaignState.mission.v1).includes(sentinel), false, `${sentinel} cannot copy into Colony V1`);
+}
+assert.equal(campaignState.mission.v1History.length, 5);
+assert.equal(campaignState.mission.v1History[0].definitionId, preludeDefinition.id);
+assert.equal(campaignState.mission.v1History[1].definitionId, chapterDefinition.id);
+assert.equal(campaignState.mission.v1History[2].definitionId, chapter2Definition.id);
+assert.equal(campaignState.mission.v1History[3].definitionId, openOrdersDefinition.id);
+assert.equal(campaignState.mission.v1History[4].definitionId, chapter3Definition.id);
+assert.deepEqual(campaignState.mission.v1History[4].state, terminalChapter3);
+assert.equal(campaignState.mission.v1Journey.revision, 5);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'Colony activation cannot mutate legacy tracking roots');
+const chapter4ActivatedCampaignState = structuredClone(campaignState);
+
+const chapter4Reloaded = JSON.parse(JSON.stringify(campaignState));
+const chapter4ReloadedJourney = validateMissionJourney({
+    campaignState: chapter4Reloaded,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+    ],
+});
+assert.equal(chapter4ReloadedJourney.ok, true, chapter4ReloadedJourney.errors.join('\n'));
+assert.equal(validateMissionStateAuthority({
+    definition: chapter4Definition,
+    state: chapter4Reloaded.mission.v1,
+}).ok, true);
+
+const chapter4Replay = await runtime.activatePendingTransition({ runtimeAssets: chapter4Assets });
+assert.equal(chapter4Replay.ok, true);
+assert.equal(chapter4Replay.status, 'no-pending-transition');
+assert.equal(chapter4Replay.noChange, true);
+assert.equal(persistCount, 5, 'Colony activation replay cannot persist twice');
+
+const terminalChapter4 = settleScenario({
+    definition: chapter4Definition,
+    fixture: chapter4Scenarios,
+    scenarioId: 'shared-accountability',
+});
+const chapter4Story = storySettlementForScenario(
+    chapter4Scenarios,
+    'shared-accountability',
+    chapter4Definition,
+);
+const chapter4MutationMessageId = chapter4Story.contributions[0].messageId;
+campaignState.mission.v1 = terminalChapter4;
+campaignState.storySettlement = chapter4Story.settlement;
+const chapter5Journey = validateMissionJourney({
+    campaignState,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+    ],
+});
+assert.equal(chapter5Journey.ok, true, chapter5Journey.errors.join('\n'));
+const chapter5Pending = runtime.inspectPendingTransition({ runtimeAssets: chapter4Assets });
+assert.equal(chapter5Pending.ok, true);
+assert.equal(chapter5Pending.status, 'pending');
+assert.equal(chapter5Pending.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(chapter5Pending.targetDefinitionId, null);
+assert.equal(chapter5Pending.activatable, false);
+const terminalChapter4CampaignState = structuredClone(campaignState);
 
 function createMutationHarness(initialState) {
     let mutationState = structuredClone(initialState);
@@ -667,20 +779,42 @@ for (const [label, initialState] of [
     assert.equal(openOrdersMutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
 }
 
-const chapter3Mutation = createMutationHarness(campaignState);
-const chapter3MutationResult = await chapter3Mutation.mutationRuntime.invalidateSourceMutation({
-    runtimeAssets: chapter3Assets,
-    hostMessageId: chapter3MutationMessageId,
+for (const [label, initialState] of [
+    ['before-colony-activation', preChapter4ActivationCampaignState],
+    ['after-colony-activation', chapter4ActivatedCampaignState],
+]) {
+    const chapter3Mutation = createMutationHarness(initialState);
+    const chapter3MutationResult = await chapter3Mutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: chapter4Assets,
+        hostMessageId: chapter3MutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(chapter3MutationResult.ok, true, label);
+    assert.equal(chapter3MutationResult.status, 'invalidated', label);
+    assert.equal(chapter3Mutation.state.mission.v1.definitionId, chapter3Definition.id, label);
+    assert.equal(chapter3Mutation.state.mission.v1.status, 'active', label);
+    assert.equal(chapter3Mutation.state.mission.v1.terminalDisposition, null, label);
+    assert.equal(chapter3Mutation.state.mission.v1.transitionReceipt, null, label);
+    assert.equal(chapter3Mutation.state.mission.v1History.length, 4, label);
+    assert.equal(chapter3Mutation.state.mission.v1Journey.revision, 4, label);
+    assert.equal(JSON.stringify(chapter3Mutation.state.mission.v1).includes('objective.chapter4.'), false, label);
+    assert.equal(chapter3Mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
+
+const chapter4Mutation = createMutationHarness(terminalChapter4CampaignState);
+const chapter4MutationResult = await chapter4Mutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: chapter4Assets,
+    hostMessageId: chapter4MutationMessageId,
     eventType: 'directiveResponseSelectedSwipeChanged',
 });
-assert.equal(chapter3MutationResult.ok, true);
-assert.equal(chapter3MutationResult.status, 'invalidated');
-assert.equal(chapter3Mutation.state.mission.v1.definitionId, chapter3Definition.id);
-assert.equal(chapter3Mutation.state.mission.v1.status, 'active');
-assert.equal(chapter3Mutation.state.mission.v1.terminalDisposition, null);
-assert.equal(chapter3Mutation.state.mission.v1.transitionReceipt, null);
-assert.equal(chapter3Mutation.state.mission.v1History.length, 4);
-assert.equal(chapter3Mutation.state.mission.v1Journey.revision, 4);
-assert.equal(chapter3Mutation.generationCount, 0, 'Dead Letters reconstruction cannot call a provider');
+assert.equal(chapter4MutationResult.ok, true);
+assert.equal(chapter4MutationResult.status, 'invalidated');
+assert.equal(chapter4Mutation.state.mission.v1.definitionId, chapter4Definition.id);
+assert.equal(chapter4Mutation.state.mission.v1.status, 'active');
+assert.equal(chapter4Mutation.state.mission.v1.terminalDisposition, null);
+assert.equal(chapter4Mutation.state.mission.v1.transitionReceipt, null);
+assert.equal(chapter4Mutation.state.mission.v1History.length, 5);
+assert.equal(chapter4Mutation.state.mission.v1Journey.revision, 5);
+assert.equal(chapter4Mutation.generationCount, 0, 'Colony reconstruction cannot call a provider');
 
-console.log('Ashes V1 Prelude through Dead Letters handoff tests passed.');
+console.log('Ashes V1 Prelude through Colony handoff tests passed.');
