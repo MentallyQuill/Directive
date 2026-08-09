@@ -306,6 +306,100 @@ function initialStorySettlement(campaignState, branchId) {
     return createEmptyStorySettlement({ branchId });
 }
 
+function prepareMissionTransitionActivation({
+    campaignState = {},
+    definition = {},
+    missionState = {},
+    transitionPacket = null,
+    missionDefinitions = [],
+    branchId = null,
+    allowJourneyInitialization = false,
+} = {}) {
+    let missionPatch = { v1: structuredClone(missionState) };
+    if (!transitionPacket) {
+        return {
+            missionPatch,
+            transitionActivation: {
+                status: 'none',
+                reasonCode: null,
+                sourceRunId: null,
+                targetRunId: null,
+                targetDefinitionId: null,
+            },
+        };
+    }
+    const hasJourney = campaignState?.mission?.v1Journey !== undefined
+        || campaignState?.mission?.v1History !== undefined;
+    let journeyState;
+    if (hasJourney) {
+        const journeyValidation = validateMissionJourney({
+            campaignState,
+            definitions: missionDefinitions,
+        });
+        if (!journeyValidation.ok) throw invalidMissionJourney(journeyValidation.errors);
+        journeyState = {
+            journey: structuredClone(campaignState.mission.v1Journey),
+            history: structuredClone(campaignState.mission.v1History),
+        };
+    } else if (allowJourneyInitialization) {
+        journeyState = createInitialMissionJourney({ branchId, definition });
+    } else {
+        throw invalidMissionJourney(['pending transition requires an existing mission journey']);
+    }
+    missionPatch = {
+        ...missionPatch,
+        v1Journey: journeyState.journey,
+        v1History: journeyState.history,
+    };
+    const target = resolveMissionTransitionTarget({
+        sourceDefinition: definition,
+        transitionPacket,
+        definitions: missionDefinitions,
+    });
+    let transitionActivation = {
+        status: target.ok ? 'ready' : target.status,
+        reasonCode: target.reasonCode,
+        sourceRunId: journeyState.journey.activeRunId,
+        targetRunId: null,
+        targetDefinitionId: target.targetDefinition?.id || null,
+    };
+    if (!target.ok) return { missionPatch, transitionActivation };
+
+    const activated = createSuccessorMissionJourney({
+        journey: journeyState.journey,
+        history: journeyState.history,
+        sourceState: missionState,
+        sourceDefinition: definition,
+        targetDefinition: target.targetDefinition,
+    });
+    missionPatch = {
+        v1: activated.currentState,
+        v1Journey: activated.journey,
+        v1History: activated.history,
+        activeMissionId: target.targetDefinition.packageBinding.sourceId,
+    };
+    transitionActivation = {
+        status: 'activated',
+        reasonCode: null,
+        sourceRunId: journeyState.journey.activeRunId,
+        targetRunId: activated.journey.activeRunId,
+        targetDefinitionId: target.targetDefinition.id,
+    };
+    const candidateCampaignState = {
+        ...structuredClone(campaignState),
+        mission: {
+            ...structuredClone(campaignState.mission || {}),
+            ...structuredClone(missionPatch),
+        },
+    };
+    const activatedValidation = validateMissionJourney({
+        campaignState: candidateCampaignState,
+        definitions: missionDefinitions,
+    });
+    if (!activatedValidation.ok) throw invalidMissionJourney(activatedValidation.errors);
+    return { missionPatch, transitionActivation };
+}
+
 export function createV1StateSpine({
     getState,
     stateDeltaGateway,
@@ -389,86 +483,16 @@ export function createV1StateSpine({
             });
         }
 
-        let missionPatch = { v1: missionState };
-        let transitionActivation = {
-            status: missionResult.transitionPacket ? 'pending' : 'none',
-            reasonCode: missionResult.transitionPacket ? 'transition-target-not-evaluated' : null,
-            sourceRunId: null,
-            targetRunId: null,
-            targetDefinitionId: null,
-        };
-        if (missionResult.transitionPacket) {
-            const hasJourney = campaignState?.mission?.v1Journey !== undefined
-                || campaignState?.mission?.v1History !== undefined;
-            let journeyState;
-            if (hasJourney) {
-                const journeyValidation = validateMissionJourney({
-                    campaignState,
-                    definitions: missionDefinitions,
-                });
-                if (!journeyValidation.ok) throw invalidMissionJourney(journeyValidation.errors);
-                journeyState = {
-                    journey: structuredClone(campaignState.mission.v1Journey),
-                    history: structuredClone(campaignState.mission.v1History),
-                };
-            } else {
-                journeyState = createInitialMissionJourney({
-                    branchId: proposal.branchId,
-                    definition,
-                });
-            }
-            missionPatch = {
-                ...missionPatch,
-                v1Journey: journeyState.journey,
-                v1History: journeyState.history,
-            };
-            const target = resolveMissionTransitionTarget({
-                sourceDefinition: definition,
-                transitionPacket: missionResult.transitionPacket,
-                definitions: missionDefinitions,
-            });
-            transitionActivation = {
-                status: target.ok ? 'ready' : target.status,
-                reasonCode: target.reasonCode,
-                sourceRunId: journeyState.journey.activeRunId,
-                targetRunId: null,
-                targetDefinitionId: target.targetDefinition?.id || null,
-            };
-            if (target.ok) {
-                const activated = createSuccessorMissionJourney({
-                    journey: journeyState.journey,
-                    history: journeyState.history,
-                    sourceState: missionState,
-                    sourceDefinition: definition,
-                    targetDefinition: target.targetDefinition,
-                });
-                missionPatch = {
-                    v1: activated.currentState,
-                    v1Journey: activated.journey,
-                    v1History: activated.history,
-                    activeMissionId: target.targetDefinition.packageBinding.sourceId,
-                };
-                transitionActivation = {
-                    status: 'activated',
-                    reasonCode: null,
-                    sourceRunId: journeyState.journey.activeRunId,
-                    targetRunId: activated.journey.activeRunId,
-                    targetDefinitionId: target.targetDefinition.id,
-                };
-                const candidateCampaignState = {
-                    ...structuredClone(campaignState),
-                    mission: {
-                        ...structuredClone(campaignState.mission || {}),
-                        ...structuredClone(missionPatch),
-                    },
-                };
-                const activatedValidation = validateMissionJourney({
-                    campaignState: candidateCampaignState,
-                    definitions: missionDefinitions,
-                });
-                if (!activatedValidation.ok) throw invalidMissionJourney(activatedValidation.errors);
-            }
-        }
+        const transitionPlan = prepareMissionTransitionActivation({
+            campaignState,
+            definition,
+            missionState,
+            transitionPacket: missionResult.transitionPacket,
+            missionDefinitions,
+            branchId: proposal.branchId,
+            allowJourneyInitialization: true,
+        });
+        const { missionPatch, transitionActivation } = transitionPlan;
 
         const currentStorySettlement = initialStorySettlement(campaignState, proposal.branchId);
         let storySettlement = currentStorySettlement;
@@ -560,11 +584,19 @@ export function createV1StateSpine({
             };
         }
 
+        const activationOperations = transitionActivation.status === 'activated'
+            ? [
+                { op: 'set', path: 'storySettlement', value: storySettlement },
+                { op: 'set', path: 'mission.v1', value: missionPatch.v1 },
+                { op: 'set', path: 'mission.v1Journey', value: missionPatch.v1Journey },
+                { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },
+                { op: 'set', path: 'mission.activeMissionId', value: missionPatch.activeMissionId },
+            ]
+            : null;
         const committed = await stateDeltaGateway.applyProposal({
-            patch: {
-                storySettlement,
-                mission: missionPatch,
-            },
+            ...(activationOperations
+                ? { operations: activationOperations }
+                : { patch: { storySettlement, mission: missionPatch } }),
             domains: ['storySettlement', 'mission'],
             baseRevision: capturedGatewayRevision,
             source: 'v1StateSpineShadow',
@@ -585,6 +617,56 @@ export function createV1StateSpine({
             campaignState: committed.campaignState,
             noChange: false,
             reviewToken,
+            transitionActivation,
+        };
+    }
+
+    async function activatePendingTransition({
+        definition,
+        missionDefinitions = [],
+        gatewayBaseRevision = null,
+    } = {}) {
+        const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
+        const campaignState = getState();
+        const missionState = structuredClone(campaignState?.mission?.v1 || null);
+        const transitionPacket = missionState?.transitionReceipt?.packet || null;
+        const { missionPatch, transitionActivation } = prepareMissionTransitionActivation({
+            campaignState,
+            definition,
+            missionState,
+            transitionPacket,
+            missionDefinitions,
+            branchId: campaignState?.campaignChatBinding?.saveId,
+            allowJourneyInitialization: false,
+        });
+        if (transitionActivation.status !== 'activated') {
+            return {
+                campaignState: structuredClone(campaignState),
+                noChange: true,
+                transitionActivation,
+            };
+        }
+        const committed = await stateDeltaGateway.applyProposal({
+            operations: [
+                { op: 'set', path: 'mission.v1', value: missionPatch.v1 },
+                { op: 'set', path: 'mission.v1Journey', value: missionPatch.v1Journey },
+                { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },
+                { op: 'set', path: 'mission.activeMissionId', value: missionPatch.activeMissionId },
+            ],
+            domains: ['mission'],
+            baseRevision: capturedGatewayRevision,
+            source: 'v1PendingMissionTransition',
+            reason: 'Activated an exact V1 successor from a committed pending transition.',
+            metadata: {
+                missionId: definition.id,
+                sourceRunId: transitionActivation.sourceRunId,
+                targetRunId: transitionActivation.targetRunId,
+                targetDefinitionId: transitionActivation.targetDefinitionId,
+            },
+        });
+        return {
+            campaignState: committed.campaignState,
+            noChange: false,
             transitionActivation,
         };
     }
@@ -795,6 +877,7 @@ export function createV1StateSpine({
 
     return {
         settleAcceptedPair,
+        activatePendingTransition,
         reduceMissionProposal,
         invalidateSources,
         applyEpisodeReview,

@@ -106,6 +106,8 @@ const app = createDirectiveRuntimeApp({
 });
 assert.equal(typeof app.reviewV1PendingEpisodeNow, 'function');
 assert.equal(typeof app.prepareV1DutyReportDelivery, 'function');
+assert.equal(typeof app.inspectV1PendingMissionTransition, 'function');
+assert.equal(typeof app.activateV1PendingMissionTransition, 'function');
 
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');
@@ -119,6 +121,10 @@ const inactiveDutyReport = await app.prepareV1DutyReportDelivery({
   sourceTransactionId: 'transaction.inactive'
 });
 assert.equal(inactiveDutyReport.ok, false);
+const inactiveTransition = await app.inspectV1PendingMissionTransition();
+assert.equal(inactiveTransition.ok, false);
+const inactiveActivation = await app.activateV1PendingMissionTransition();
+assert.equal(inactiveActivation.ok, false);
 assert.equal(
   initialView.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.providerKind,
   'utility'

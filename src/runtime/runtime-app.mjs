@@ -8513,6 +8513,24 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async inspectV1PendingMissionTransition() {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(ensureV1MissionShadowRuntime().inspectPendingTransition({
+          runtimeAssets: optionalActiveRuntimeAssets() || {}
+        }));
+      });
+    },
+
+    async activateV1PendingMissionTransition() {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(await ensureV1MissionShadowRuntime().activatePendingTransition({
+          runtimeAssets: optionalActiveRuntimeAssets() || {}
+        }));
+      });
+    },
+
     async reviewV1PendingEpisodeNow() {
       return run(async () => {
         await ensureInitialized();

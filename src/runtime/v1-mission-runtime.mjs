@@ -21,6 +21,10 @@ import {
     selectPendingDutyReport,
 } from '../mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
+import {
+    resolveMissionTransitionTarget,
+    validateMissionJourney,
+} from '../mission/v1/mission-journey.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -108,6 +112,73 @@ export function resolveActiveV1MissionDefinition({ campaignState = {}, runtimeAs
     const reasonCode = bindingReason(definition, packageId, packageVersion);
     if (reasonCode) return unavailable(reasonCode);
     return { ok: true, definition, record: matches[0], packageId, packageVersion };
+}
+
+export function inspectV1MissionTransition({ campaignState = {}, runtimeAssets = {} } = {}) {
+    const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+    if (!resolved.ok) return resolved;
+    const missionState = campaignState?.mission?.v1;
+    if (!missionState) return unavailable('mission-state-unavailable');
+    if (missionState.status !== 'terminal') {
+        return {
+            ok: true,
+            attempted: false,
+            status: 'none',
+            reasonCode: 'mission-not-terminal',
+            activatable: false,
+            sourceDefinitionId: resolved.definition.id,
+            sourceRunId: campaignState?.mission?.v1Journey?.activeRunId || null,
+            targetDefinitionId: null,
+            committedRoots: [],
+            noChange: true,
+            diagnostics: {},
+        };
+    }
+    if (!missionState.transitionReceipt?.packet) {
+        return {
+            ...unavailable('transition-receipt-missing'),
+            status: 'invalid',
+            sourceDefinitionId: resolved.definition.id,
+            activatable: false,
+        };
+    }
+    const authority = validateMissionStateAuthority({ definition: resolved.definition, state: missionState });
+    if (!authority.ok) {
+        return {
+            ...unavailable('mission-state-invalid', { errorCount: authority.errors.length }),
+            status: 'invalid',
+            sourceDefinitionId: resolved.definition.id,
+            activatable: false,
+        };
+    }
+    const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
+    const journey = validateMissionJourney({ campaignState, definitions });
+    if (!journey.ok) {
+        return {
+            ...unavailable('mission-journey-invalid', { errorCount: journey.errors.length }),
+            status: 'invalid',
+            sourceDefinitionId: resolved.definition.id,
+            activatable: false,
+        };
+    }
+    const target = resolveMissionTransitionTarget({
+        sourceDefinition: resolved.definition,
+        transitionPacket: missionState.transitionReceipt.packet,
+        definitions,
+    });
+    return {
+        ok: true,
+        attempted: false,
+        status: target.ok ? 'ready' : target.status,
+        reasonCode: target.reasonCode,
+        activatable: target.ok,
+        sourceDefinitionId: resolved.definition.id,
+        sourceRunId: campaignState.mission.v1Journey.activeRunId,
+        targetDefinitionId: target.targetDefinition?.id || null,
+        committedRoots: [],
+        noChange: true,
+        diagnostics: {},
+    };
 }
 
 function selectedSwipeId(previousAssistant = {}) {
@@ -439,6 +510,88 @@ export function createV1MissionRuntime({
 
     function buildPlayerProjection({ runtimeAssets = {} } = {}) {
         return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
+    }
+
+    function inspectPendingTransition({ runtimeAssets = {} } = {}) {
+        return inspectV1MissionTransition({ campaignState: getState(), runtimeAssets });
+    }
+
+    async function activatePendingTransition({ runtimeAssets = {} } = {}) {
+        const inspection = inspectV1MissionTransition({ campaignState: getState(), runtimeAssets });
+        if (!inspection.ok) return inspection;
+        if (inspection.status === 'none') {
+            return {
+                ...inspection,
+                status: 'no-pending-transition',
+            };
+        }
+        if (inspection.status !== 'ready') {
+            return {
+                ...inspection,
+                ok: false,
+            };
+        }
+        const gatewayBaseRevision = stateDeltaGateway.revision();
+        const campaignState = getState();
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+        if (!resolved.ok) return resolved;
+        const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
+        const spine = createV1StateSpine({
+            getState,
+            stateDeltaGateway,
+            resolveSourceRef: () => null,
+            now,
+            checkpointEveryContributions,
+        });
+        try {
+            const activated = await spine.activatePendingTransition({
+                definition: resolved.definition,
+                missionDefinitions: definitions,
+                gatewayBaseRevision,
+            });
+            return {
+                ok: true,
+                attempted: true,
+                status: activated.transitionActivation.status,
+                reasonCode: activated.transitionActivation.reasonCode,
+                activatable: false,
+                sourceDefinitionId: resolved.definition.id,
+                sourceRunId: activated.transitionActivation.sourceRunId,
+                targetDefinitionId: activated.transitionActivation.targetDefinitionId,
+                targetRunId: activated.transitionActivation.targetRunId,
+                committedRoots: activated.noChange ? [] : ['mission'],
+                noChange: activated.noChange,
+                diagnostics: {},
+            };
+        } catch (error) {
+            const reasonCode = errorReasonCode(error);
+            if (reasonCode === 'persistence-rollback-conflict') {
+                return {
+                    ok: false,
+                    attempted: true,
+                    status: 'indeterminate',
+                    reasonCode,
+                    activatable: false,
+                    sourceDefinitionId: resolved.definition.id,
+                    sourceRunId: inspection.sourceRunId,
+                    targetDefinitionId: inspection.targetDefinitionId,
+                    targetRunId: null,
+                    committedRoots: ['mission'],
+                    noChange: false,
+                    requiresReconciliation: true,
+                    retrySafe: false,
+                    diagnostics: {},
+                };
+            }
+            return {
+                ...unavailable(reasonCode, {}, { attempted: true }),
+                activatable: false,
+                sourceDefinitionId: resolved.definition.id,
+                sourceRunId: inspection.sourceRunId,
+                targetDefinitionId: inspection.targetDefinitionId,
+                targetRunId: null,
+            };
+        }
     }
 
     function preparePendingDutyReport({
@@ -956,6 +1109,8 @@ export function createV1MissionRuntime({
             runtimeAssets,
         }),
         preparePendingDutyReport,
+        inspectPendingTransition,
+        activatePendingTransition,
         settleAcceptedPair,
         invalidateSourceMutation,
         buildPlayerProjection,

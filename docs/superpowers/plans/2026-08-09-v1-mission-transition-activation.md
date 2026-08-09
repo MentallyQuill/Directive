@@ -92,19 +92,19 @@ feat(runtime): activate V1 mission successors
 - Create: `tools/scripts/test-v1-mission-transition-runtime.mjs`
 - Modify: `tools/scripts/test-runtime-host-injection.mjs`
 
-- [ ] **Step 1: Expose a pure pending-transition diagnostic**
+- [x] **Step 1: Expose a pure pending-transition diagnostic**
 
 Return whether the current terminal mission has no receipt, an unsupported phase target, a missing target definition, an invalid target, or one exactly activatable target. Do not mutate state or call a provider.
 
-- [ ] **Step 2: Add explicit pending activation**
+- [x] **Step 2: Add explicit pending activation**
 
 When assets later contain the exact target definition, an internal runtime method atomically performs the same activation transaction. Provider and narration availability are irrelevant.
 
-- [ ] **Step 3: Prove state conflict and persistence behavior**
+- [x] **Step 3: Prove state conflict and persistence behavior**
 
 Stale revision, package drift, persistence rollback, restart, and repeated activation fail closed or no-op without duplicating progress. Returned errors exclude thrown text and hidden packet fields.
 
-- [ ] **Step 4: Run and commit Task 3**
+- [x] **Step 4: Run and commit Task 3**
 
 Commit:
 
