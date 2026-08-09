@@ -347,6 +347,7 @@ function errorReasonCode(error) {
         return 'evidence-sequence-migration-required';
     }
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_REJECTED') return 'evidence-rejected';
+    if (error?.code === 'DIRECTIVE_MISSION_JOURNEY_INVALID') return 'mission-journey-invalid';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_STALE') return 'episode-review-stale';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_INVALID') return 'episode-review-invalid';
     if (error?.code === 'DIRECTIVE_STATE_PERSISTENCE_FAILED') return 'persistence-failed';
@@ -725,6 +726,7 @@ export function createV1MissionRuntime({
                     status: campaignState?.mission?.status || campaignState?.mission?.legacyStatus || null,
                     activePhaseId: campaignState?.mission?.activePhaseId || null,
                 },
+                missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
             });
             const committedRoots = settled.noChange ? [] : ['mission', 'storySettlement'];
             const acceptedClaimCount = settled.evidence?.acceptedClaims?.length || 0;
@@ -752,6 +754,8 @@ export function createV1MissionRuntime({
                 committedRoots,
                 noChange: settled.noChange,
                 transitionCommitted: Boolean(settled.missionResult?.transitionPacket),
+                transitionActivated: settled.transitionActivation?.status === 'activated',
+                transitionActivation: settled.transitionActivation || null,
                 reviewToken: settled.reviewToken || null,
                 diagnostics: {
                     candidateCount: candidatePacket.candidates.length,

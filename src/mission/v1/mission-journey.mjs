@@ -75,6 +75,45 @@ function targetMatchesDefinition(target = {}, definition = {}) {
         && (target.id === definition.id || target.id === definition?.packageBinding?.sourceId);
 }
 
+export function resolveMissionTransitionTarget({
+    sourceDefinition = {},
+    transitionPacket = null,
+    definitions = [],
+} = {}) {
+    if (!transitionPacket?.next) {
+        return { ok: false, status: 'none', reasonCode: 'transition-packet-missing', targetDefinition: null };
+    }
+    if (transitionPacket.next.kind !== 'mission') {
+        return {
+            ok: false,
+            status: 'pending',
+            reasonCode: transitionPacket.next.kind === 'phase'
+                ? 'phase-target-contract-unavailable'
+                : 'transition-target-kind-unsupported',
+            targetDefinition: null,
+        };
+    }
+    const targetId = compact(transitionPacket.next.id);
+    const matches = definitionList(definitions).filter((definition) => (
+        definition.id === targetId || definition?.packageBinding?.sourceId === targetId
+    ));
+    if (matches.length === 0) {
+        return { ok: false, status: 'pending', reasonCode: 'transition-target-definition-unavailable', targetDefinition: null };
+    }
+    if (matches.length > 1) {
+        return { ok: false, status: 'pending', reasonCode: 'transition-target-definition-ambiguous', targetDefinition: null };
+    }
+    const targetDefinition = matches[0];
+    if (targetDefinition.id === sourceDefinition.id) {
+        return { ok: false, status: 'pending', reasonCode: 'transition-target-self-reference', targetDefinition: null };
+    }
+    if (targetDefinition?.packageBinding?.packageId !== sourceDefinition?.packageBinding?.packageId
+        || targetDefinition?.packageBinding?.packageVersion !== sourceDefinition?.packageBinding?.packageVersion) {
+        return { ok: false, status: 'pending', reasonCode: 'transition-target-package-mismatch', targetDefinition: null };
+    }
+    return { ok: true, status: 'ready', reasonCode: null, targetDefinition: cloneJson(targetDefinition) };
+}
+
 function assertJourneyCondition(condition, message) {
     if (!condition) throw new TypeError(message);
 }

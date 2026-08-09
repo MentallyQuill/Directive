@@ -6,6 +6,7 @@ import {
     createMissionRunArchive,
     createSuccessorMissionJourney,
     initialMissionRunId,
+    resolveMissionTransitionTarget,
     successorMissionRunId,
     validateMissionJourney,
 } from '../../src/mission/v1/mission-journey.mjs';
@@ -28,6 +29,49 @@ targetDefinition.playerText = {
     title: 'Command Review',
     summary: 'Review the completed response and continue the handover.',
 };
+
+function transitionPacket(next) {
+    return { next };
+}
+
+const resolvedTarget = resolveMissionTransitionTarget({
+    sourceDefinition,
+    transitionPacket: transitionPacket({ kind: 'mission', id: targetDefinition.packageBinding.sourceId }),
+    definitions: [sourceDefinition, targetDefinition],
+});
+assert.equal(resolvedTarget.ok, true);
+assert.equal(resolvedTarget.status, 'ready');
+assert.deepEqual(resolvedTarget.targetDefinition, targetDefinition);
+assert.notEqual(resolvedTarget.targetDefinition, targetDefinition, 'resolver does not leak mutable definition authority');
+
+for (const [label, packet, definitions, reasonCode] of [
+    ['missing packet', null, [sourceDefinition, targetDefinition], 'transition-packet-missing'],
+    ['phase target', transitionPacket({ kind: 'phase', id: 'phase.command-review' }), [sourceDefinition], 'phase-target-contract-unavailable'],
+    ['unsupported target', transitionPacket({ kind: 'chapter', id: 'chapter.command-review' }), [sourceDefinition], 'transition-target-kind-unsupported'],
+    ['missing target', transitionPacket({ kind: 'mission', id: 'mission.missing' }), [sourceDefinition], 'transition-target-definition-unavailable'],
+    ['self target', transitionPacket({ kind: 'mission', id: sourceDefinition.id }), [sourceDefinition], 'transition-target-self-reference'],
+]) {
+    const result = resolveMissionTransitionTarget({ sourceDefinition, transitionPacket: packet, definitions });
+    assert.equal(result.ok, false, label);
+    assert.equal(result.targetDefinition, null, label);
+    assert.equal(result.reasonCode, reasonCode, label);
+}
+
+const ambiguousTargetDefinition = structuredClone(targetDefinition);
+ambiguousTargetDefinition.id = targetDefinition.packageBinding.sourceId;
+assert.equal(resolveMissionTransitionTarget({
+    sourceDefinition,
+    transitionPacket: transitionPacket({ kind: 'mission', id: targetDefinition.packageBinding.sourceId }),
+    definitions: [targetDefinition, ambiguousTargetDefinition],
+}).reasonCode, 'transition-target-definition-ambiguous');
+
+const foreignTargetDefinition = structuredClone(targetDefinition);
+foreignTargetDefinition.packageBinding.packageId = 'campaign.other';
+assert.equal(resolveMissionTransitionTarget({
+    sourceDefinition,
+    transitionPacket: transitionPacket({ kind: 'mission', id: foreignTargetDefinition.id }),
+    definitions: [foreignTargetDefinition],
+}).reasonCode, 'transition-target-package-mismatch');
 
 const branchId = 'save.journey';
 const sourceState = createMissionState({ definition: sourceDefinition, branchId });

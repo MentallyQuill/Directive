@@ -60,23 +60,23 @@ feat(mission): define V1 mission journeys
 - Modify: `tools/scripts/test-v1-state-spine-runtime.mjs`
 - Modify: `tools/scripts/test-v1-mission-runtime.mjs`
 
-- [ ] **Step 1: Write failing two-definition transition tests**
+- [x] **Step 1: Write failing two-definition transition tests**
 
 Close a source mission with varied accepted evidence and prove that one transaction archives its terminal state, creates a fresh target state, advances the deterministic run pointer, updates the active mission source ID, and seals one Story episode.
 
-- [ ] **Step 2: Resolve targets exactly**
+- [x] **Step 2: Resolve targets exactly**
 
 Match the authored target to exactly one valid V1 definition by stable definition ID or pinned package source ID. Require the same package ID/version, reject self-targeting, ambiguity, unavailable targets, and phase targets for immediate activation.
 
-- [ ] **Step 3: Preserve pending closure safely**
+- [x] **Step 3: Preserve pending closure safely**
 
 If a target cannot activate, commit the terminal source and transition receipt with a sanitized pending reason. Do not fabricate target state, call narration, or discard accepted closure evidence.
 
-- [ ] **Step 4: Prove idempotence and restart**
+- [x] **Step 4: Prove idempotence and restart**
 
 Replay, retry, and JSON restart cannot add a second archive entry, run, activation, boundary, episode, or target mission.
 
-- [ ] **Step 5: Run and commit Task 2**
+- [x] **Step 5: Run and commit Task 2**
 
 Commit:
 

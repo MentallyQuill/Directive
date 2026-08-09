@@ -15,6 +15,7 @@ import {
 } from '../../src/mission/v1/duty-report-delivery.mjs';
 import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
+import { validateMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -509,6 +510,120 @@ assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].status,
 assert.equal(transitionHarness.campaignState.storySettlement.activeEpisode, null);
 assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.code, 'mission-transition');
 assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.source.kind, 'missionReducer');
+assert.equal(transition.transitionActivated, false);
+assert.equal(transition.transitionActivation.reasonCode, 'phase-target-contract-unavailable');
+assert.equal(transitionHarness.campaignState.mission.v1History.length, 0);
+assert.equal(transitionHarness.campaignState.mission.v1Journey.revision, 0);
+
+const transitionSourceDefinition = structuredClone(transitionDefinition);
+transitionSourceDefinition.id = 'mission.transition-source';
+transitionSourceDefinition.packageBinding.sourceId = 'transition-source';
+transitionSourceDefinition.transitions[0].target = {
+    kind: 'mission',
+    id: 'transition-target',
+    playerSafeSetup: 'Proceed to the next V1 mission.',
+};
+const transitionTargetDefinition = structuredClone(transitionDefinition);
+transitionTargetDefinition.id = 'mission.transition-target';
+transitionTargetDefinition.packageBinding.sourceId = 'transition-target';
+transitionTargetDefinition.playerText = {
+    title: 'Transition Target',
+    summary: 'Continue the V1 journey from committed source outcomes.',
+};
+const twoDefinitionAssets = runtimeAssetsFor([transitionSourceDefinition, transitionTargetDefinition]);
+const twoDefinitionHarness = createHarness({
+    definition: transitionSourceDefinition,
+    assets: twoDefinitionAssets,
+    state: campaignStateFor({ definition: transitionSourceDefinition }),
+    outputs: [interpretationOutput({ claims: [{
+        candidateId: 'policy.hesperus-survivors-transferred',
+        sourceSlot: 'previousAssistant',
+    }] })],
+});
+const twoDefinitionTransition = await twoDefinitionHarness.runtime.settleAcceptedPair({
+    runtimeAssets: twoDefinitionAssets,
+    snapshot: snapshotFor({
+        definition: transitionSourceDefinition,
+        sourceRangeHash: 'range.two-definition-transition',
+        pairNumber: 70,
+    }),
+});
+assert.equal(twoDefinitionTransition.ok, true, JSON.stringify(twoDefinitionTransition));
+assert.equal(twoDefinitionTransition.transitionCommitted, true);
+assert.equal(twoDefinitionTransition.transitionActivated, true);
+assert.equal(twoDefinitionTransition.transitionActivation.status, 'activated');
+assert.equal(twoDefinitionTransition.transitionActivation.targetDefinitionId, transitionTargetDefinition.id);
+assert.equal(twoDefinitionHarness.persistCount, 1, 'closure and successor activation share one persistence transaction');
+assert.equal(twoDefinitionHarness.campaignState.mission.activeMissionId, 'transition-target');
+assert.equal(twoDefinitionHarness.campaignState.mission.v1.definitionId, transitionTargetDefinition.id);
+assert.equal(twoDefinitionHarness.campaignState.mission.v1.status, 'active');
+assert.equal(twoDefinitionHarness.campaignState.mission.v1.revision, 0);
+assert.equal(twoDefinitionHarness.campaignState.mission.v1History.length, 1);
+assert.equal(twoDefinitionHarness.campaignState.mission.v1History[0].definitionId, transitionSourceDefinition.id);
+assert.equal(twoDefinitionHarness.campaignState.mission.v1History[0].state.status, 'terminal');
+assert.equal(twoDefinitionHarness.campaignState.mission.v1Journey.revision, 1);
+assert.equal(
+    twoDefinitionHarness.campaignState.mission.v1Journey.activeRunId,
+    twoDefinitionTransition.transitionActivation.targetRunId,
+);
+assert.deepEqual(validateMissionJourney({
+    campaignState: twoDefinitionHarness.campaignState,
+    definitions: [transitionSourceDefinition, transitionTargetDefinition],
+}), { ok: true, errors: [] });
+assert.equal(twoDefinitionHarness.campaignState.storySettlement.episodes.length, 1);
+assert.equal(twoDefinitionHarness.campaignState.storySettlement.episodes[0].status, 'sealed');
+for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
+    assert.deepEqual(
+        twoDefinitionHarness.campaignState[root],
+        campaignStateFor({ definition: transitionSourceDefinition })[root],
+        `${root} remains outside mission activation`,
+    );
+}
+const transitionReplay = await twoDefinitionHarness.runtime.settleAcceptedPair({
+    runtimeAssets: twoDefinitionAssets,
+    snapshot: snapshotFor({
+        definition: transitionSourceDefinition,
+        sourceRangeHash: 'range.two-definition-transition',
+        pairNumber: 70,
+    }),
+});
+assert.equal(transitionReplay.ok, false);
+assert.equal(transitionReplay.reasonCode, 'snapshot-mission-mismatch');
+assert.equal(twoDefinitionHarness.campaignState.mission.v1History.length, 1);
+assert.equal(twoDefinitionHarness.persistCount, 1);
+const restartedTwoDefinitionState = JSON.parse(JSON.stringify(twoDefinitionHarness.campaignState));
+assert.deepEqual(validateMissionJourney({
+    campaignState: restartedTwoDefinitionState,
+    definitions: [transitionSourceDefinition, transitionTargetDefinition],
+}), { ok: true, errors: [] });
+
+const missingTargetAssets = runtimeAssetsFor([transitionSourceDefinition]);
+const missingTargetHarness = createHarness({
+    definition: transitionSourceDefinition,
+    assets: missingTargetAssets,
+    state: campaignStateFor({ definition: transitionSourceDefinition }),
+    outputs: [interpretationOutput({ claims: [{
+        candidateId: 'policy.hesperus-survivors-transferred',
+        sourceSlot: 'previousAssistant',
+    }] })],
+});
+const missingTargetTransition = await missingTargetHarness.runtime.settleAcceptedPair({
+    runtimeAssets: missingTargetAssets,
+    snapshot: snapshotFor({
+        definition: transitionSourceDefinition,
+        sourceRangeHash: 'range.missing-transition-target',
+        pairNumber: 71,
+    }),
+});
+assert.equal(missingTargetTransition.ok, true);
+assert.equal(missingTargetTransition.transitionCommitted, true);
+assert.equal(missingTargetTransition.transitionActivated, false);
+assert.equal(missingTargetTransition.transitionActivation.status, 'pending');
+assert.equal(missingTargetTransition.transitionActivation.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(missingTargetHarness.campaignState.mission.v1.status, 'terminal');
+assert.equal(missingTargetHarness.campaignState.mission.v1History.length, 0);
+assert.equal(missingTargetHarness.campaignState.mission.v1Journey.revision, 0);
+assert.equal(missingTargetHarness.persistCount, 1, 'valid closure remains durable while its target is unavailable');
 
 function reportDefinitionFor(requirement) {
     const definition = structuredClone(transitionDefinition);
