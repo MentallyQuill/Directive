@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { validateMissionStateAuthority } from './mission-state-authority.mjs';
 import { createMissionState } from './mission-state.mjs';
 
@@ -42,12 +44,7 @@ function stableId(value) {
 }
 
 function stableHash(value = '') {
-    let hash = 0x811c9dc5;
-    for (const character of String(value)) {
-        hash ^= character.charCodeAt(0);
-        hash = Math.imul(hash, 0x01000193);
-    }
-    return (hash >>> 0).toString(16).padStart(8, '0');
+    return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
 }
 
 function sameJson(left, right) {
