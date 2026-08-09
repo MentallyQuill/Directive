@@ -125,11 +125,11 @@ The interval contains:
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] Challenge mandatory-side-quest drift, duplicated legacy UI identity, selection-as-success, delegation-as-free-reward, assessment teleportation, report spam, hidden overextension, fake clocks, forced assignment order, optional blocking, premature Chapter 3 setup, model self-certification, actor identity, source mutation, package drift, and legacy Chapter 3 fallback.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, `git diff --check`, and the complete alpha gate.
-- [ ] Record deterministic proof and residual limitations without claiming narrator, UI, live rehearsal, reward-asset projection, or complete Ashes readiness.
-- [ ] Commit the certification docs.
+- [x] Challenge mandatory-side-quest drift, duplicated legacy UI identity, selection-as-success, delegation-as-free-reward, assessment teleportation, report spam, hidden overextension, fake clocks, forced assignment order, optional blocking, premature Chapter 3 setup, model self-certification, actor identity, source mutation, package drift, and legacy Chapter 3 fallback.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, `git diff --check`, and the complete alpha gate.
+- [x] Record deterministic proof and residual limitations without claiming narrator, UI, live rehearsal, reward-asset projection, or complete Ashes readiness.
+- [x] Commit the certification docs.
 
 ## Explicit Non-Goals and Stop Boundary
 
