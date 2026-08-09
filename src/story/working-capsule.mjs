@@ -150,7 +150,7 @@ export function validateStoryWorkingCapsule(value, {
             if (!SOURCE_CONTRIBUTION_ROLES.has(evidence?.role)) {
                 errors.push(`${episodeId} workingCapsule evidence role is unknown`);
             }
-            if (typeof evidence?.textHash !== 'string' || !/^[a-f0-9]{32,128}$/.test(evidence.textHash)) {
+            if (typeof evidence?.textHash !== 'string' || !/^(?:[a-f0-9]{8}|[a-f0-9]{32,128})$/.test(evidence.textHash)) {
                 errors.push(`${episodeId} workingCapsule evidence textHash is invalid`);
             }
             if (typeof evidence?.excerpt !== 'string'

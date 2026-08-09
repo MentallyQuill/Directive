@@ -143,23 +143,23 @@ feat(runtime): custody report manifests by swipe
 - Modify: `tools/scripts/test-v1-state-spine-runtime.mjs`
 - Modify: mission evidence/reducer/authority tests as required
 
-- [ ] **Step 1: Write failing accepted-delivery tests**
+- [x] **Step 1: Write failing accepted-delivery tests**
 
 When the interpreter marks the selected assistant response accepted and its required or optional report manifest validates exactly, deterministically materialize one assistant-sourced `factDisclosed` claim. A rejected, corrected, ambiguous, unavailable, edited, or mismatched response commits no report knowledge.
 
-- [ ] **Step 2: Enforce required versus optional semantics**
+- [x] **Step 2: Enforce required versus optional semantics**
 
 Remove model-selected prose-only disclosure claims for required report routes unless the exact manifest validates. Preserve existing model interpretation for optional routes. Do not let a report manifest override other evidence preconditions or establish hidden world truth.
 
-- [ ] **Step 3: Store the settled receipt on existing evidence**
+- [x] **Step 3: Store the settled receipt on existing evidence**
 
 Enrich only the accepted fact-disclosure evidence entry with `directive.dutyReportDelivery.v1`: report/fact/reporter/policy IDs, response ID, host message ID, selected swipe ID, selected visible-text hash, segment hash, source transaction ID, and contract version. Validate it against the evidence source and authored route during replay.
 
-- [ ] **Step 4: Preserve deterministic replay and idempotence**
+- [x] **Step 4: Preserve deterministic replay and idempotence**
 
 Replaying the same accepted pair creates no second fact, evidence entry, effect, episode, or receipt. Serialization and authority reconstruction preserve the delivery receipt exactly. Ordinary non-report disclosures remain valid without one.
 
-- [ ] **Step 5: Run and commit Task 4**
+- [x] **Step 5: Run and commit Task 4**
 
 Commit:
 

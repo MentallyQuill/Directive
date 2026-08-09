@@ -36,6 +36,20 @@ const MANIFEST_FIELDS = new Set([
     'responseTextHash',
     'segmentTextHash',
 ]);
+const DELIVERY_FIELDS = new Set([
+    'kind',
+    'contractVersion',
+    'reportId',
+    'factId',
+    'reporterId',
+    'policyId',
+    'responseId',
+    'hostMessageId',
+    'selectedSwipeId',
+    'visibleTextHash',
+    'segmentTextHash',
+    'sourceTransactionId',
+]);
 const CONFIDENCE_LABEL = Object.freeze({
     preliminary: 'Preliminary',
     credible: 'Credible',
@@ -316,4 +330,134 @@ export function validateDutyReportManifest({
     return errors.length > 0
         ? { ok: false, errors }
         : { ok: true, errors: [], value: cloneJson(manifest) };
+}
+
+export function validateDutyReportDeliveryReceipt({
+    definition = {},
+    delivery = {},
+    claim = {},
+    source = {},
+} = {}) {
+    const errors = [];
+    if (!isObject(delivery)) return { ok: false, errors: ['delivery must be an object'] };
+    for (const field of unknownFields(delivery, DELIVERY_FIELDS)) errors.push(`delivery contains unknown field: ${field}`);
+    if (delivery.kind !== DUTY_REPORT_DELIVERY_KIND) errors.push(`delivery kind must be ${DUTY_REPORT_DELIVERY_KIND}`);
+    if (delivery.contractVersion !== DUTY_REPORT_CONTRACT_VERSION) errors.push('delivery contractVersion is unknown');
+    const route = routeFor(definition, delivery.reportId);
+    if (!route) errors.push('delivery reportId is not authored');
+    if (claim.claimType !== 'factDisclosed') errors.push('delivery requires a factDisclosed claim');
+    if (route && (delivery.factId !== route.factId || claim.targetId !== route.factId)) {
+        errors.push('delivery factId does not match the authored route and claim');
+    }
+    if (route && (delivery.policyId !== route.evidencePolicyId || claim.policyId !== route.evidencePolicyId)) {
+        errors.push('delivery policyId does not match the authored route and claim');
+    }
+    if (!stableId(delivery.reporterId)) errors.push('delivery reporterId must be a stable id');
+    if (!compact(delivery.responseId) || delivery.responseId !== source.responseId) {
+        errors.push('delivery responseId does not match the accepted source');
+    }
+    if (!compact(delivery.hostMessageId) || delivery.hostMessageId !== source.messageId) {
+        errors.push('delivery hostMessageId does not match the accepted source');
+    }
+    if ((delivery.selectedSwipeId || null) !== (source.selectedSwipeId || null)) {
+        errors.push('delivery selectedSwipeId does not match the accepted source');
+    }
+    if (!compact(delivery.visibleTextHash) || delivery.visibleTextHash !== source.textHash) {
+        errors.push('delivery visibleTextHash does not match the accepted source');
+    }
+    if (!/^[0-9a-f]{8}$/.test(compact(delivery.segmentTextHash))) {
+        errors.push('delivery segmentTextHash is invalid');
+    }
+    if (!compact(delivery.sourceTransactionId)) errors.push('delivery sourceTransactionId is required');
+    if (source.role !== 'assistant' || source.accepted !== true || source.dutyReportCustodyOwned !== true) {
+        errors.push('delivery requires an accepted assistant source with Directive Duty Report custody');
+    }
+    return errors.length > 0
+        ? { ok: false, errors }
+        : { ok: true, errors: [], value: cloneJson(delivery), route: cloneJson(route) };
+}
+
+export function materializeAcceptedDutyReportClaim({
+    definition = {},
+    manifest = null,
+    branchId = null,
+    source = {},
+} = {}) {
+    if (!manifest) {
+        return { ok: false, status: 'none', reasonCode: 'manifest-missing', errors: [] };
+    }
+    if (source.role !== 'assistant' || source.accepted !== true || source.dutyReportCustodyOwned !== true) {
+        return { ok: false, status: 'rejected', reasonCode: 'assistant-not-accepted', errors: [] };
+    }
+    const validated = validateDutyReportManifest({
+        definition,
+        manifest,
+        branchId,
+        responseId: source.responseId,
+        responseText: source.text,
+    });
+    if (!validated.ok) {
+        const responseMismatch = validated.errors.some((error) => (
+            error.includes('responseTextHash') || error.includes('segment must occur')
+        ));
+        return {
+            ok: false,
+            status: 'rejected',
+            reasonCode: responseMismatch ? 'manifest-response-mismatch' : 'manifest-invalid',
+            errors: [...validated.errors],
+        };
+    }
+    const route = routeFor(definition, manifest.reportId);
+    const delivery = {
+        kind: DUTY_REPORT_DELIVERY_KIND,
+        contractVersion: DUTY_REPORT_CONTRACT_VERSION,
+        reportId: route.id,
+        factId: route.factId,
+        reporterId: manifest.reporterId,
+        policyId: route.evidencePolicyId,
+        responseId: manifest.responseId,
+        hostMessageId: source.messageId,
+        selectedSwipeId: source.selectedSwipeId || null,
+        visibleTextHash: source.textHash,
+        segmentTextHash: manifest.segmentTextHash,
+        sourceTransactionId: manifest.sourceTransactionId,
+    };
+    const identity = [
+        branchId,
+        source.messageId,
+        source.selectedSwipeId || 'no-swipe',
+        source.textHash,
+        route.evidencePolicyId,
+        route.id,
+    ].join('|');
+    const claim = {
+        claimId: `claim.${dutyReportTextHash(identity)}`,
+        policyId: route.evidencePolicyId,
+        claimType: 'factDisclosed',
+        targetId: route.factId,
+        sourceRef: {
+            messageId: source.messageId,
+            swipeId: source.selectedSwipeId || null,
+            textHash: source.textHash,
+        },
+        delivery,
+    };
+    const receiptValidation = validateDutyReportDeliveryReceipt({ definition, delivery, claim, source });
+    if (!receiptValidation.ok) {
+        return {
+            ok: false,
+            status: 'rejected',
+            reasonCode: 'delivery-invalid',
+            errors: [...receiptValidation.errors],
+        };
+    }
+    return {
+        ok: true,
+        status: 'materialized',
+        reasonCode: null,
+        route: cloneJson(route),
+        claim,
+        delivery,
+        errors: [],
+    };
 }

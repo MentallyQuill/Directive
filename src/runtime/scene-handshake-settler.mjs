@@ -262,6 +262,7 @@ function selectedAssistantVariant(message = {}) {
     responseKind: compact(metadata.responseKind || '', 80) || null,
     observedAt: messageTimestamp(message),
     dutyReportManifest: reportEnvelope.ok ? reportEnvelope.value : null,
+    dutyReportCustodyOwned: reportEnvelope.ok === true,
     text: selectedText
   };
 }

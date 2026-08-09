@@ -12,6 +12,7 @@ import {
 import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
 import { buildSceneHandshakeSnapshot } from '../../src/runtime/scene-handshake-settler.mjs';
 import { createLatestPairSourceSettlementPrompt } from '../../src/runtime/source-settlement-latest-pair-provider.mjs';
+import { prepareLatestPairSceneSnapshot } from '../../src/runtime/source-settlement-latest-pair-scene-adapter.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -265,5 +266,42 @@ assert.equal(prompt.prompt.includes('dutyReportManifest'), false);
 assert.equal(prompt.prompt.includes('txn.ingress.1'), false);
 assert.equal(JSON.stringify(prompt.metadata).includes('dutyReportManifest'), false);
 assert.deepEqual(selectedSnapshot.source.previousAssistant.selectedVariant.dutyReportManifest, manifest);
+
+const hostAssistant = assistantMessage();
+hostAssistant.metadata = { responseId: 'directive-response.1', selectedSwipeIndex: 0 };
+delete hostAssistant.raw.extra.directive;
+const activePrepared = prepareLatestPairSceneSnapshot({
+    campaignState,
+    previousAssistantMessage: hostAssistant,
+    currentPlayerMessage,
+    chatId: 'chat.alpha',
+    ingressId: 'ingress.2',
+});
+assert.equal(activePrepared.ok, true);
+assert.equal(activePrepared.snapshot.source.previousAssistant.textHash.length, 8);
+assert.equal(activePrepared.snapshot.source.currentPlayer.textHash.length, 8);
+assert.deepEqual(
+    activePrepared.snapshot.source.previousAssistant.selectedVariant.dutyReportManifest,
+    manifest,
+);
+assert.equal(
+    activePrepared.snapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned,
+    true,
+);
+const hostAlternate = assistantMessage({ selected: 1, selectedManifest: null, rootManifest: manifest });
+hostAlternate.metadata = { responseId: 'directive-response.1', selectedSwipeIndex: 1 };
+delete hostAlternate.raw.extra.directive;
+const activeAlternate = prepareLatestPairSceneSnapshot({
+    campaignState,
+    previousAssistantMessage: hostAlternate,
+    currentPlayerMessage,
+    chatId: 'chat.alpha',
+    ingressId: 'ingress.2',
+});
+assert.equal(activeAlternate.ok, true);
+assert.equal(
+    activeAlternate.snapshot.source.previousAssistant.selectedVariant.dutyReportManifest,
+    null,
+);
 
 console.log('V1 Duty Report delivery contract tests passed.');

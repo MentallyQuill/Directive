@@ -12,6 +12,7 @@ import {
     createEpisodeEvaluator,
 } from '../story/episode-evaluator.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
+import { materializeAcceptedDutyReportClaim } from '../mission/v1/duty-report-delivery.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -114,6 +115,7 @@ function selectedSwipeId(previousAssistant = {}) {
 
 function sourcePairFromSnapshot(snapshot = {}) {
     const previous = snapshot?.source?.previousAssistant || {};
+    const previousVariant = previous.selectedVariant || {};
     const player = snapshot?.source?.currentPlayer || {};
     return {
         previousAssistant: {
@@ -121,6 +123,10 @@ function sourcePairFromSnapshot(snapshot = {}) {
             selectedSwipeId: selectedSwipeId(previous),
             textHash: compact(previous.textHash),
             text: String(previous.text || ''),
+            responseId: compact(previousVariant.responseId),
+            directiveOwned: previousVariant.directiveOwned === true,
+            dutyReportCustodyOwned: previousVariant.dutyReportCustodyOwned === true,
+            dutyReportManifest: previousVariant.dutyReportManifest || null,
         },
         currentPlayer: {
             messageId: compact(player.hostMessageId),
@@ -232,6 +238,35 @@ function sourceResolutionRecord(
         textHash: contribution.textHash,
         role,
         acceptedAtRevision,
+        responseId: compact(source.responseId) || null,
+        directiveOwned: source.directiveOwned === true,
+        dutyReportCustodyOwned: source.dutyReportCustodyOwned === true,
+    };
+}
+
+function requiredDutyReportPolicyIds(definition = {}) {
+    return new Set((definition.reportRoutes || [])
+        .filter((route) => route?.deliveryRequirement === 'required')
+        .map((route) => route.evidencePolicyId)
+        .filter(Boolean));
+}
+
+function proposalWithDutyReportCustody({ definition, proposal, dutyReportResult } = {}) {
+    const requiredPolicies = requiredDutyReportPolicyIds(definition);
+    const deliveryPolicyId = dutyReportResult?.ok ? dutyReportResult.claim.policyId : null;
+    let strippedRequiredClaimCount = 0;
+    const claims = (proposal?.claims || []).filter((claim) => {
+        if (deliveryPolicyId && claim.policyId === deliveryPolicyId) return false;
+        if (requiredPolicies.has(claim.policyId)) {
+            strippedRequiredClaimCount += 1;
+            return false;
+        }
+        return true;
+    });
+    if (dutyReportResult?.ok) claims.push(dutyReportResult.claim);
+    return {
+        proposal: { ...structuredClone(proposal), claims },
+        strippedRequiredClaimCount,
     };
 }
 
@@ -507,6 +542,30 @@ export function createV1MissionRuntime({
 
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
         assistantSource.accepted = assistantAccepted;
+        let dutyReportResult = null;
+        if (sourcePair.previousAssistant.dutyReportManifest) {
+            dutyReportResult = assistantAccepted
+                ? materializeAcceptedDutyReportClaim({
+                    definition,
+                    manifest: sourcePair.previousAssistant.dutyReportManifest,
+                    branchId,
+                    source: {
+                        ...assistantSource,
+                        text: sourcePair.previousAssistant.text,
+                    },
+                })
+                : {
+                    ok: false,
+                    status: 'rejected',
+                    reasonCode: 'assistant-not-accepted',
+                    errors: [],
+                };
+        }
+        const dutyProposal = proposalWithDutyReportCustody({
+            definition,
+            proposal: interpreted.proposal,
+            dutyReportResult,
+        });
         const sources = [assistantSource, playerSource];
         const contributions = [
             ...(assistantAccepted ? [contributionFor(
@@ -556,7 +615,7 @@ export function createV1MissionRuntime({
         try {
             const settled = await spine.settleAcceptedPair({
                 definition,
-                proposal: interpreted.proposal,
+                proposal: dutyProposal.proposal,
                 sourceContributions: contributions,
                 sourceObservations,
                 gatewayBaseRevision,
@@ -573,6 +632,19 @@ export function createV1MissionRuntime({
             const committedRoots = settled.noChange ? [] : ['mission', 'storySettlement'];
             const acceptedClaimCount = settled.evidence?.acceptedClaims?.length || 0;
             const rejectedClaimCount = settled.evidence?.rejectedClaims?.length || 0;
+            const acceptedDutyReportCount = (settled.evidence?.acceptedClaims || [])
+                .filter((claim) => claim?.delivery?.kind === 'directive.dutyReportDelivery.v1').length;
+            const rejectedMaterializedReport = (settled.evidence?.rejectedClaims || [])
+                .find((claim) => claim?.delivery?.kind === 'directive.dutyReportDelivery.v1');
+            let rejectedDutyReportReasonCode = dutyReportResult?.ok === false
+                ? dutyReportResult.reasonCode
+                : null;
+            if (!rejectedDutyReportReasonCode && dutyProposal.strippedRequiredClaimCount > 0 && !dutyReportResult?.ok) {
+                rejectedDutyReportReasonCode = 'required-manifest-missing';
+            }
+            if (!rejectedDutyReportReasonCode && rejectedMaterializedReport) {
+                rejectedDutyReportReasonCode = rejectedMaterializedReport.reasonCode || 'evidence-rejected';
+            }
             return {
                 ok: true,
                 attempted: true,
@@ -590,6 +662,9 @@ export function createV1MissionRuntime({
                     acceptedClaimCount,
                     rejectedClaimCount,
                     discardedAssistantClaimCount: interpreted.diagnostics?.discardedAssistantClaimCount ?? 0,
+                    acceptedDutyReportCount,
+                    strippedRequiredDutyReportClaimCount: dutyProposal.strippedRequiredClaimCount,
+                    rejectedDutyReportReasonCode,
                     providerId: interpreted.diagnostics?.providerId || null,
                     model: interpreted.diagnostics?.model || null,
                     latencyMs: interpreted.diagnostics?.latencyMs ?? null,

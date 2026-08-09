@@ -362,4 +362,72 @@ const lowConfidence = validate({
 });
 assert.equal(lowConfidence.acceptedClaims.length, 1);
 
+const reportDefinition = {
+    ...definition,
+    reportRoutes: [{
+        id: 'report.hesperus-discrepancy',
+        factId: 'fact.hesperus-discrepancy-known',
+        evidencePolicyId: 'policy.discrepancy-disclosed',
+        capabilityRoles: ['engineering'],
+        preferredActorIds: ['hadrik-bronn'],
+        fallbackActorIds: ['mara-whitaker'],
+        urgency: 'material',
+        confidence: 'credible',
+        deliveryRequirement: 'required',
+        when: true,
+        playerText: { summary: 'Engineering has a discrepancy to report.' },
+    }],
+};
+const reportSource = {
+    ...assistantSource,
+    responseId: 'directive-response.report-4',
+    directiveOwned: true,
+    dutyReportCustodyOwned: true,
+};
+const reportDelivery = {
+    kind: 'directive.dutyReportDelivery.v1',
+    contractVersion: 1,
+    reportId: 'report.hesperus-discrepancy',
+    factId: 'fact.hesperus-discrepancy-known',
+    reporterId: 'hadrik-bronn',
+    policyId: 'policy.discrepancy-disclosed',
+    responseId: 'directive-response.report-4',
+    hostMessageId: reportSource.messageId,
+    selectedSwipeId: reportSource.selectedSwipeId,
+    visibleTextHash: reportSource.textHash,
+    segmentTextHash: 'a1b2c3d4',
+    sourceTransactionId: 'txn.report-4',
+};
+const reportClaim = {
+    claimId: 'claim.report-disclosure',
+    policyId: 'policy.discrepancy-disclosed',
+    claimType: 'factDisclosed',
+    targetId: 'fact.hesperus-discrepancy-known',
+    sourceRef: sourceRef(reportSource),
+    delivery: reportDelivery,
+};
+const acceptedReport = validateMissionEvidenceProposal({
+    definition: reportDefinition,
+    state: { ...state, worldFacts: ['fact.hesperus-discrepancy-known'] },
+    proposal: { ...proposal, claims: [reportClaim] },
+    resolveSourceRef: () => reportSource,
+});
+assert.equal(acceptedReport.acceptedClaims.length, 1);
+assert.deepEqual(acceptedReport.acceptedClaims[0].delivery, reportDelivery);
+for (const [label, delivery] of [
+    ['wrong response', { ...reportDelivery, responseId: 'directive-response.forged' }],
+    ['wrong selected swipe', { ...reportDelivery, selectedSwipeId: 'swipe.forged' }],
+    ['wrong visible hash', { ...reportDelivery, visibleTextHash: 'f'.repeat(64) }],
+    ['unknown delivery field', { ...reportDelivery, modelRationale: 'trust me' }],
+]) {
+    const rejected = validateMissionEvidenceProposal({
+        definition: reportDefinition,
+        state: { ...state, worldFacts: ['fact.hesperus-discrepancy-known'] },
+        proposal: { ...proposal, claims: [{ ...reportClaim, delivery }] },
+        resolveSourceRef: () => reportSource,
+    });
+    assert.equal(rejected.acceptedClaims.length, 0, label);
+    assert.equal(rejected.rejectedClaims[0].reasonCode, 'delivery-invalid', label);
+}
+
 console.log('V1 mission evidence tests passed.');

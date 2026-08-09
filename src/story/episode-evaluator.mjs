@@ -220,7 +220,7 @@ export function validateEpisodeEvaluationRequest(value = {}) {
             else if (evidenceIds.has(evidence.contributionId)) errors.push('request recentEvidence contributionIds must be unique');
             evidenceIds.add(evidence.contributionId);
             if (!REQUEST_ROLES.has(evidence.role)) errors.push(`${label} role is invalid`);
-            if (typeof evidence.textHash !== 'string' || !/^[a-f0-9]{32,128}$/.test(evidence.textHash)) {
+            if (typeof evidence.textHash !== 'string' || !/^(?:[a-f0-9]{8}|[a-f0-9]{32,128})$/.test(evidence.textHash)) {
                 errors.push(`${label} textHash is invalid`);
             }
             if (typeof evidence.excerpt !== 'string'

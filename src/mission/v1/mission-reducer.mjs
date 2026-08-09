@@ -202,6 +202,7 @@ export function reduceMissionEvidence({
             value: claim.value ?? null,
             sourceContributionId: contributionId,
             acceptedAtMissionRevision,
+            ...(claim.delivery ? { delivery: structuredClone(claim.delivery) } : {}),
         });
         applyClaim(definition, state, claim);
         effects.push({

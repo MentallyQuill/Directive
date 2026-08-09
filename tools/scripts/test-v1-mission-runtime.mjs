@@ -8,6 +8,13 @@ import {
     resolveActiveV1MissionDefinition,
 } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
+import {
+    createDutyReportManifest,
+    createDutyReportVisibleSegment,
+    dutyReportTextHash,
+} from '../../src/mission/v1/duty-report-delivery.mjs';
+import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
+import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -502,5 +509,200 @@ assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].status,
 assert.equal(transitionHarness.campaignState.storySettlement.activeEpisode, null);
 assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.code, 'mission-transition');
 assert.equal(transitionHarness.campaignState.storySettlement.episodes[0].hardBoundary.source.kind, 'missionReducer');
+
+function reportDefinitionFor(requirement) {
+    const definition = structuredClone(transitionDefinition);
+    definition.facts[0].initiallyTrue = true;
+    definition.reportRoutes[0].deliveryRequirement = requirement;
+    return definition;
+}
+
+function reportHarnessFor({ requirement = 'required', outputs = [] } = {}) {
+    const definition = reportDefinitionFor(requirement);
+    const state = campaignStateFor({ definition });
+    state.mission.v1 = createMissionState({ definition, branchId: 'save.alpha' });
+    return createHarness({
+        definition,
+        state,
+        assets: runtimeAssetsFor([definition]),
+        outputs,
+    });
+}
+
+function reportPacketAndSnapshot(definition, { manifestMode = 'valid', pairNumber = 80, edited = false } = {}) {
+    const state = createMissionState({ definition, branchId: 'save.alpha' });
+    const packet = selectPendingDutyReport({
+        definition,
+        state,
+        availableActors: [{ id: 'hadrik-bronn', capabilityRoles: ['engineering'] }],
+    });
+    const segment = createDutyReportVisibleSegment(packet);
+    const authoredText = `Bronn opens the reviewed file. ${segment.canonicalText} He waits for your direction.`;
+    const responseId = `directive-response.report.${pairNumber}`;
+    const manifest = createDutyReportManifest({
+        definition,
+        packet,
+        branchId: 'save.alpha',
+        responseId,
+        sourceTransactionId: `txn.report.${pairNumber}`,
+        responseText: authoredText,
+        segment,
+    });
+    const selectedText = edited ? `${authoredText} The displayed report was edited.` : authoredText;
+    const snapshot = snapshotFor({
+        definition,
+        sourceRangeHash: `range.report.${pairNumber}`,
+        pairNumber,
+    });
+    snapshot.source.previousAssistant.text = selectedText;
+    const acceptedSourceTextHash = (edited ? 'e' : 'd').repeat(8);
+    snapshot.source.previousAssistant.textHash = acceptedSourceTextHash;
+    snapshot.source.previousAssistant.selectedVariant = {
+        selectedSwipeId: '0',
+        selectedSwipeIndex: 0,
+        selectedTextHash: acceptedSourceTextHash,
+        textHash: acceptedSourceTextHash,
+        responseId,
+        directiveOwned: true,
+        dutyReportCustodyOwned: true,
+        dutyReportManifest: manifestMode === 'none'
+            ? null
+            : (manifestMode === 'invalid' ? { ...manifest, policyId: 'policy.forged' } : manifest),
+    };
+    return { packet, segment, authoredText, responseId, manifest, snapshot };
+}
+
+const requiredReportHarness = reportHarnessFor({
+    outputs: [interpretationOutput({ assistantAcceptance: 'accepted', claims: [] })],
+});
+const requiredReportSource = reportPacketAndSnapshot(
+    requiredReportHarness.assets.missionDefinitions[0].definition,
+);
+const requiredReportSettlement = await requiredReportHarness.runtime.settleAcceptedPair({
+    runtimeAssets: requiredReportHarness.assets,
+    snapshot: requiredReportSource.snapshot,
+});
+assert.equal(requiredReportSettlement.ok, true, JSON.stringify(requiredReportSettlement));
+assert.equal(requiredReportSettlement.status, 'settled');
+assert.equal(
+    requiredReportHarness.campaignState.mission.v1.knownFacts.includes('fact.hesperus-discrepancy-known'),
+    true,
+);
+assert.equal(requiredReportSettlement.diagnostics.acceptedDutyReportCount, 1);
+assert.equal(requiredReportSettlement.diagnostics.rejectedDutyReportReasonCode, null);
+const reportEvidence = requiredReportHarness.campaignState.mission.v1.evidenceLog.find(
+    (entry) => entry.delivery?.reportId === 'report.hesperus-discrepancy',
+);
+assert.deepEqual(reportEvidence.delivery, {
+    kind: 'directive.dutyReportDelivery.v1',
+    contractVersion: 1,
+    reportId: 'report.hesperus-discrepancy',
+    factId: 'fact.hesperus-discrepancy-known',
+    reporterId: 'hadrik-bronn',
+    policyId: 'policy.hesperus-discrepancy-disclosed',
+    responseId: requiredReportSource.responseId,
+    hostMessageId: 'message.assistant.80',
+    selectedSwipeId: '0',
+    visibleTextHash: 'd'.repeat(8),
+    segmentTextHash: requiredReportSource.manifest.segmentTextHash,
+    sourceTransactionId: 'txn.report.80',
+});
+assert.equal(validateMissionStateAuthority({
+    definition: requiredReportHarness.assets.missionDefinitions[0].definition,
+    state: requiredReportHarness.campaignState.mission.v1,
+}).ok, true);
+const restartedReportState = JSON.parse(JSON.stringify(requiredReportHarness.campaignState.mission.v1));
+assert.deepEqual(restartedReportState.evidenceLog[0].delivery, reportEvidence.delivery);
+assert.equal(validateMissionStateAuthority({
+    definition: requiredReportHarness.assets.missionDefinitions[0].definition,
+    state: restartedReportState,
+}).ok, true);
+const reportRevision = requiredReportHarness.campaignState.mission.v1.revision;
+const replayedReport = await requiredReportHarness.runtime.settleAcceptedPair({
+    runtimeAssets: requiredReportHarness.assets,
+    snapshot: requiredReportSource.snapshot,
+});
+assert.equal(replayedReport.status, 'already-settled');
+assert.equal(requiredReportHarness.campaignState.mission.v1.revision, reportRevision);
+assert.equal(requiredReportHarness.campaignState.mission.v1.evidenceLog.length, 1);
+
+for (const [label, assistantAcceptance, sourceOptions, expectedReason] of [
+    ['rejected response', 'rejected', {}, 'assistant-not-accepted'],
+    ['corrected response', 'corrected', {}, 'assistant-not-accepted'],
+    ['ambiguous response', 'ambiguous', {}, 'assistant-not-accepted'],
+    ['edited response', 'accepted', { edited: true }, 'manifest-response-mismatch'],
+    ['invalid manifest', 'accepted', { manifestMode: 'invalid' }, 'manifest-invalid'],
+    ['missing manifest', 'accepted', { manifestMode: 'none' }, 'required-manifest-missing'],
+]) {
+    const harness = reportHarnessFor({
+        outputs: [interpretationOutput({
+            assistantAcceptance,
+            claims: [{
+                candidateId: 'policy.hesperus-discrepancy-disclosed',
+                sourceSlot: 'previousAssistant',
+            }],
+        })],
+    });
+    const source = reportPacketAndSnapshot(harness.assets.missionDefinitions[0].definition, {
+        pairNumber: 90 + label.length,
+        ...sourceOptions,
+    });
+    const result = await harness.runtime.settleAcceptedPair({
+        runtimeAssets: harness.assets,
+        snapshot: source.snapshot,
+    });
+    assert.equal(result.ok, true, label);
+    assert.equal(harness.campaignState.mission.v1.knownFacts.length, 0, label);
+    assert.equal(harness.campaignState.mission.v1.evidenceLog.length, 0, label);
+    assert.equal(result.diagnostics.acceptedDutyReportCount, 0, label);
+    assert.equal(result.diagnostics.rejectedDutyReportReasonCode, expectedReason, label);
+}
+
+const optionalProseHarness = reportHarnessFor({
+    requirement: 'optional',
+    outputs: [interpretationOutput({
+        assistantAcceptance: 'accepted',
+        claims: [{
+            candidateId: 'policy.hesperus-discrepancy-disclosed',
+            sourceSlot: 'previousAssistant',
+        }],
+    })],
+});
+const optionalProseSource = reportPacketAndSnapshot(
+    optionalProseHarness.assets.missionDefinitions[0].definition,
+    { manifestMode: 'none', pairNumber: 120 },
+);
+const optionalProse = await optionalProseHarness.runtime.settleAcceptedPair({
+    runtimeAssets: optionalProseHarness.assets,
+    snapshot: optionalProseSource.snapshot,
+});
+assert.equal(optionalProse.ok, true);
+assert.equal(optionalProseHarness.campaignState.mission.v1.knownFacts.length, 1);
+assert.equal(optionalProseHarness.campaignState.mission.v1.evidenceLog[0].delivery, undefined);
+assert.equal(optionalProse.diagnostics.acceptedDutyReportCount, 0);
+
+const optionalInvalidHarness = reportHarnessFor({
+    requirement: 'optional',
+    outputs: [interpretationOutput({
+        assistantAcceptance: 'accepted',
+        claims: [{
+            candidateId: 'policy.hesperus-discrepancy-disclosed',
+            sourceSlot: 'previousAssistant',
+        }],
+    })],
+});
+const optionalInvalidSource = reportPacketAndSnapshot(
+    optionalInvalidHarness.assets.missionDefinitions[0].definition,
+    { manifestMode: 'invalid', pairNumber: 121 },
+);
+const optionalInvalid = await optionalInvalidHarness.runtime.settleAcceptedPair({
+    runtimeAssets: optionalInvalidHarness.assets,
+    snapshot: optionalInvalidSource.snapshot,
+});
+assert.equal(optionalInvalid.ok, true);
+assert.equal(optionalInvalidHarness.campaignState.mission.v1.knownFacts.length, 1);
+assert.equal(optionalInvalidHarness.campaignState.mission.v1.evidenceLog[0].delivery, undefined);
+assert.equal(optionalInvalid.diagnostics.acceptedDutyReportCount, 0);
+assert.equal(optionalInvalid.diagnostics.rejectedDutyReportReasonCode, 'manifest-invalid');
 
 console.log('V1 mission runtime tests passed.');

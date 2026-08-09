@@ -119,6 +119,13 @@ settlement = checkpointStoryEpisode(settlement, { force: true });
 const beforeRequest = structuredClone(settlement);
 const request = createEpisodeEvaluationRequest({ settlement });
 assert.deepEqual(validateEpisodeEvaluationRequest(request), { ok: true, errors: [] });
+const shortHostHashRequest = structuredClone(request);
+shortHostHashRequest.recentEvidence[0].textHash = 'abcdef12';
+assert.deepEqual(
+    validateEpisodeEvaluationRequest(shortHostHashRequest),
+    { ok: true, errors: [] },
+    'accepted host source frames use eight-character text hashes',
+);
 assert.deepEqual(settlement, beforeRequest, 'request projection is pure');
 assert.equal(request.kind, 'directive.episodeEvaluationRequest.v1');
 assert.deepEqual(request.envelope, {

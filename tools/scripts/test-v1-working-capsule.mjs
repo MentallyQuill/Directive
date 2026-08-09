@@ -42,6 +42,7 @@ const contributions = names.map((name, index) => ({
     textHash: String(index + 1).repeat(64),
     acceptedAtRevision: index + 1,
 }));
+contributions[0].textHash = 'abcdef12';
 const contributed = acceptStoryContributions(opened, contributions);
 const longText = `  First\n\naccepted\tpassage ${'x'.repeat(300)}  `;
 const observedAlpha = observeStoryWorkingEvidence(contributed, {
@@ -49,7 +50,7 @@ const observedAlpha = observeStoryWorkingEvidence(contributed, {
     observations: [{
         contributionId: 'contribution.alpha',
         role: 'assistant',
-        textHash: '1'.repeat(64),
+        textHash: 'abcdef12',
         text: longText,
     }],
 });
@@ -57,7 +58,7 @@ assert.equal(observedAlpha.episodes[0].workingCapsule.recentEvidence.length, 1);
 assert.deepEqual(observedAlpha.episodes[0].workingCapsule.recentEvidence[0], {
     contributionId: 'contribution.alpha',
     role: 'assistant',
-    textHash: '1'.repeat(64),
+    textHash: 'abcdef12',
     excerpt: `First accepted passage ${'x'.repeat(217)}`,
 });
 assert.equal(observedAlpha.episodes[0].workingCapsule.recentEvidence[0].excerpt.length, 240);
@@ -67,7 +68,7 @@ assert.deepEqual(observeStoryWorkingEvidence(observedAlpha, {
     observations: [{
         contributionId: 'contribution.alpha',
         role: 'assistant',
-        textHash: '1'.repeat(64),
+        textHash: 'abcdef12',
         text: longText,
     }],
 }), observedAlpha, 'replaying an observation is idempotent');

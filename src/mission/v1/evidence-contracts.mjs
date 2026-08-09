@@ -5,6 +5,7 @@ import {
 } from './mission-contracts.mjs';
 import { missionStateContext } from './mission-state.mjs';
 import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
+import { validateDutyReportDeliveryReceipt } from './duty-report-delivery.mjs';
 
 export { MISSION_EVIDENCE_CLAIM_TYPES } from './mission-contracts.mjs';
 
@@ -176,6 +177,18 @@ export function validateMissionEvidenceProposal({
         if (!Array.isArray(policy.sourceRoles) || !policy.sourceRoles.includes(source.role)) {
             rejectAt(claim, 'source-role-not-authorized', originalIndex);
             continue;
+        }
+        if (Object.hasOwn(claim, 'delivery')) {
+            const delivery = validateDutyReportDeliveryReceipt({
+                definition,
+                delivery: claim.delivery,
+                claim,
+                source,
+            });
+            if (!delivery.ok) {
+                rejectAt(claim, 'delivery-invalid', originalIndex);
+                continue;
+            }
         }
         if (new Set(['decisionRecorded', 'outcomeObserved']).has(claim.claimType)) {
             const outcome = index.outcomes.get(claim.targetId);

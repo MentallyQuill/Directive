@@ -1,5 +1,6 @@
 import { reduceMissionEvidence } from './mission-reducer.mjs';
 import { createMissionState, validateMissionState } from './mission-state.mjs';
+import { validateDutyReportDeliveryReceipt } from './duty-report-delivery.mjs';
 
 const CLAIM_TARGET_COLLECTION = Object.freeze({
     worldFactEstablished: 'facts',
@@ -61,6 +62,37 @@ function validateEvidenceLog(definition, state, errors) {
         }
         if (typeof entry?.sourceContributionId !== 'string' || entry.sourceContributionId.length === 0) {
             errors.push('evidenceLog entry sourceContributionId is required');
+        }
+        if (entry?.delivery !== undefined) {
+            const delivery = validateDutyReportDeliveryReceipt({
+                definition,
+                delivery: entry.delivery,
+                claim: entry,
+                source: {
+                    role: 'assistant',
+                    accepted: true,
+                    dutyReportCustodyOwned: true,
+                    messageId: entry.delivery?.hostMessageId,
+                    selectedSwipeId: entry.delivery?.selectedSwipeId,
+                    textHash: entry.delivery?.visibleTextHash,
+                    responseId: entry.delivery?.responseId,
+                },
+            });
+            if (!delivery.ok) {
+                errors.push(`evidenceLog Duty Report delivery is invalid: ${delivery.errors.join('; ')}`);
+            } else {
+                const expectedEvidenceKey = [
+                    state.branchId,
+                    entry.delivery.hostMessageId,
+                    entry.delivery.selectedSwipeId || 'no-swipe',
+                    entry.delivery.visibleTextHash,
+                    entry.claimType,
+                    entry.targetId,
+                ].join('|');
+                if (entry.evidenceKey !== expectedEvidenceKey) {
+                    errors.push('evidenceLog Duty Report delivery does not match evidenceKey source custody');
+                }
+            }
         }
     }
     if (!jsonEqual(state.acceptedEvidenceKeys || [], [...evidenceKeys])) {
