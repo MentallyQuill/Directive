@@ -5,9 +5,13 @@ import {
     createDutyReportManifest,
     createDutyReportVisibleSegment,
     dutyReportTextHash,
+    parseDutyReportManifestEnvelope,
     validateDutyReportManifest,
+    withoutProvisionalDutyReportManifest,
 } from '../../src/mission/v1/duty-report-delivery.mjs';
 import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
+import { buildSceneHandshakeSnapshot } from '../../src/runtime/scene-handshake-settler.mjs';
+import { createLatestPairSourceSettlementPrompt } from '../../src/runtime/source-settlement-latest-pair-provider.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -79,6 +83,18 @@ assert.deepEqual(manifest, {
 assert.deepEqual({ definition, packet, responseText, segment }, inputSnapshot);
 assert.equal(JSON.stringify(manifest).includes(responseText), false);
 assert.equal(JSON.stringify(manifest).includes(segment.canonicalText), false);
+assert.deepEqual(parseDutyReportManifestEnvelope(manifest), {
+    ok: true,
+    errors: [],
+    value: manifest,
+});
+assert.equal(parseDutyReportManifestEnvelope({ ...manifest, extra: true }).ok, false);
+assert.equal(parseDutyReportManifestEnvelope({ ...manifest, responseTextHash: 'not-a-hash' }).ok, false);
+assert.deepEqual(withoutProvisionalDutyReportManifest({
+    dutyReportManifest: manifest,
+    responseRetry: true,
+}), { responseRetry: true });
+assert.deepEqual(withoutProvisionalDutyReportManifest(null), {});
 
 const valid = validateDutyReportManifest({
     definition,
@@ -152,5 +168,102 @@ assert.throws(() => createDutyReportVisibleSegment({
     ...packet,
     extra: 'not allowed',
 }), /unknown field/);
+
+function assistantMessage({ selected = 0, selectedManifest = manifest, rootManifest = null } = {}) {
+    const swipes = [
+        responseText,
+        'Bronn closes the file without presenting a report.',
+    ];
+    return {
+        id: 'assistant.1',
+        hostMessageId: 'assistant.1',
+        text: swipes[selected],
+        metadata: {
+            responseKind: 'narration',
+            idempotencyKey: 'directive-response.1',
+            selectedSwipeIndex: selected,
+        },
+        raw: {
+            id: 'assistant.1',
+            mes: swipes[selected],
+            swipes,
+            swipe_id: selected,
+            extra: {
+                directive: {
+                    responseKind: 'narration',
+                    idempotencyKey: 'directive-response.1',
+                },
+                ...(rootManifest ? { runtimeMetadata: { dutyReportManifest: rootManifest } } : {}),
+            },
+            swipe_info: [
+                {
+                    extra: {
+                        runtimeMetadata: selected === 0 && selectedManifest
+                            ? { dutyReportManifest: selectedManifest }
+                            : {},
+                    },
+                },
+                { extra: { runtimeMetadata: {} } },
+            ],
+        },
+    };
+}
+
+const campaignState = {
+    campaign: { id: 'campaign.alpha' },
+    activeCampaignPackage: {
+        packageId: definition.packageBinding.packageId,
+        version: definition.packageBinding.packageVersion,
+    },
+    campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
+    mission: { activeMissionId: definition.packageBinding.sourceId },
+};
+const currentPlayerMessage = {
+    id: 'player.2',
+    hostMessageId: 'player.2',
+    text: 'Understood. Show me the discrepancy.',
+    isUser: true,
+};
+const selectedSnapshot = buildSceneHandshakeSnapshot({
+    campaignState,
+    previousAssistantMessage: assistantMessage(),
+    currentPlayerMessage,
+    chatId: 'chat.alpha',
+    ingressId: 'ingress.2',
+});
+assert.deepEqual(selectedSnapshot.source.previousAssistant.selectedVariant.dutyReportManifest, manifest);
+assert.deepEqual(
+    JSON.parse(JSON.stringify(selectedSnapshot)).source.previousAssistant.selectedVariant.dutyReportManifest,
+    manifest,
+);
+
+const alternateSnapshot = buildSceneHandshakeSnapshot({
+    campaignState,
+    previousAssistantMessage: assistantMessage({ selected: 1, selectedManifest: null, rootManifest: manifest }),
+    currentPlayerMessage,
+    chatId: 'chat.alpha',
+    ingressId: 'ingress.2',
+});
+assert.equal(alternateSnapshot.source.previousAssistant.selectedVariant.dutyReportManifest, null);
+
+const singleSwipe = assistantMessage();
+singleSwipe.raw.swipes = [responseText];
+singleSwipe.raw.swipe_id = 0;
+singleSwipe.raw.swipe_info = [];
+singleSwipe.raw.extra.runtimeMetadata = { dutyReportManifest: manifest };
+const fallbackSnapshot = buildSceneHandshakeSnapshot({
+    campaignState,
+    previousAssistantMessage: singleSwipe,
+    currentPlayerMessage,
+    chatId: 'chat.alpha',
+    ingressId: 'ingress.2',
+});
+assert.deepEqual(fallbackSnapshot.source.previousAssistant.selectedVariant.dutyReportManifest, manifest);
+
+const prompt = createLatestPairSourceSettlementPrompt(selectedSnapshot);
+assert.equal(prompt.prompt.includes('dutyReportManifest'), false);
+assert.equal(prompt.prompt.includes('txn.ingress.1'), false);
+assert.equal(JSON.stringify(prompt.metadata).includes('dutyReportManifest'), false);
+assert.deepEqual(selectedSnapshot.source.previousAssistant.selectedVariant.dutyReportManifest, manifest);
 
 console.log('V1 Duty Report delivery contract tests passed.');

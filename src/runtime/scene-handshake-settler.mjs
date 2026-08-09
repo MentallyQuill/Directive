@@ -30,6 +30,7 @@ import {
   createLatestPairSourceSettlementProvider as createLatestPairSourceSettlementProviderRuntime
 } from './source-settlement-latest-pair-provider.mjs';
 import { validateLatestPairSettlement } from './source-settlement-latest-pair-validation.mjs';
+import { parseDutyReportManifestEnvelope } from '../mission/v1/duty-report-delivery.mjs';
 
 const KIND = 'directive.sceneHandshakeSettlement.v1';
 const ACCEPTED_RELATIONS = new Set(['acknowledges', 'continues', 'acts-on', 'asks-followup']);
@@ -211,6 +212,19 @@ function assistantSwipes(message = {}) {
   return rawSwipes.map((entry) => String(entry || '')).filter(Boolean);
 }
 
+function selectedSwipeRuntimeMetadata(message = {}, selectedSwipeIndex = null, swipeCount = 0) {
+  const raw = message?.raw && typeof message.raw === 'object' ? message.raw : message;
+  const swipeMetadata = Number.isInteger(selectedSwipeIndex)
+    ? raw?.swipe_info?.[selectedSwipeIndex]?.extra?.runtimeMetadata
+    : null;
+  if (isObject(swipeMetadata)) return swipeMetadata;
+  if (swipeCount <= 1 && (selectedSwipeIndex === null || selectedSwipeIndex === 0)) {
+    const rootMetadata = raw?.extra?.runtimeMetadata || message?.extra?.runtimeMetadata;
+    if (isObject(rootMetadata)) return rootMetadata;
+  }
+  return null;
+}
+
 function selectedAssistantVariant(message = {}) {
   const metadata = directiveMetadataForMessage(message);
   const hostMessageId = messageId(message);
@@ -223,6 +237,13 @@ function selectedAssistantVariant(message = {}) {
   const selectedText = sourceTextFromValue(hasSelectedSwipe ? swipes[selectedSwipeIndex] : visibleText).slice(0, MAX_PREVIOUS_TEXT);
   const selectedTextHash = sceneHandshakeHash(selectedText);
   const visibleTextHash = sceneHandshakeHash(visibleText);
+  const directiveOwned = isDirectiveOwned(message);
+  const reportEnvelope = directiveOwned
+    ? parseDutyReportManifestEnvelope(
+      selectedSwipeRuntimeMetadata(message, hasSelectedSwipe ? selectedSwipeIndex : null, swipes.length)
+        ?.dutyReportManifest
+    )
+    : { ok: false };
   let sourceIntegrity = 'clean';
   if (swipes.length && !hasSelectedSwipe) sourceIntegrity = 'stale';
   if (hasSelectedSwipe && visibleText && selectedTextHash !== visibleTextHash) sourceIntegrity = 'mismatch';
@@ -235,11 +256,12 @@ function selectedAssistantVariant(message = {}) {
     selectedTextHash,
     visibleTextHash,
     sourceIntegrity,
-    directiveOwned: isDirectiveOwned(message),
+    directiveOwned,
     responseId: compact(metadata.responseId || metadata.sourceResponseId || metadata.idempotencyKey || '', 180) || null,
     outcomeId: compact(metadata.outcomeId || '', 180) || null,
     responseKind: compact(metadata.responseKind || '', 80) || null,
     observedAt: messageTimestamp(message),
+    dutyReportManifest: reportEnvelope.ok ? reportEnvelope.value : null,
     text: selectedText
   };
 }

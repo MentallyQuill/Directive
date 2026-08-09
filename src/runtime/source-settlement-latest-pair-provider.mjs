@@ -65,7 +65,17 @@ function responseText(generated = {}) {
     || '';
 }
 
+function promptSafeSnapshot(snapshot = {}) {
+  const safe = cloneJson(snapshot) || {};
+  if (safe?.source?.previousAssistant?.selectedVariant) {
+    delete safe.source.previousAssistant.selectedVariant.dutyReportManifest;
+  }
+  delete safe?.source?.previousAssistant?.dutyReportManifest;
+  return safe;
+}
+
 export function createLatestPairSourceSettlementPrompt(snapshot) {
+  const safeSnapshot = promptSafeSnapshot(snapshot);
   const system = [
     'You are Directive Scene Handshake, a Utility-lane state settlement checker.',
     'Decide whether the current player reply accepts the immediately previous assistant response as current fiction.',
@@ -82,7 +92,7 @@ export function createLatestPairSourceSettlementPrompt(snapshot) {
   ].join('\n');
   const user = [
     'Scene Handshake snapshot:',
-    JSON.stringify(snapshot, null, 2)
+    JSON.stringify(safeSnapshot, null, 2)
   ].join('\n');
   return {
     prompt: `${system}\n\n${user}`,

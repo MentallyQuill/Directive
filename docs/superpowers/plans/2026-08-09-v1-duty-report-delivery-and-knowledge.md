@@ -107,23 +107,23 @@ feat(mission): bind provisional duty reports
 - Modify: `tools/scripts/test-v1-accepted-pair-orchestrator.mjs`
 - Modify: scene-handshake/source-mutation tests as required
 
-- [ ] **Step 1: Write failing selected-swipe metadata tests**
+- [x] **Step 1: Write failing selected-swipe metadata tests**
 
 Read a provisional manifest only from the selected swipe's `swipe_info[].extra.runtimeMetadata`; allow the initial selected response's equivalent metadata when swipe-specific metadata is absent and there is exactly one swipe. Bind it to the Directive response ID and selected text hash. Never accept metadata from a non-selected swipe.
 
-- [ ] **Step 2: Keep transaction evidence out of the Scene Handshake prompt**
+- [x] **Step 2: Keep transaction evidence out of the Scene Handshake prompt**
 
 Carry the normalized manifest in the internal snapshot used by the V1 shadow, but strip it from the general Scene Handshake provider request and unrelated player-safe projections.
 
-- [ ] **Step 3: Prevent metadata inheritance across rewritten swipes**
+- [x] **Step 3: Prevent metadata inheritance across rewritten swipes**
 
 Directive-generated alternate or corrective swipes must clear a prior provisional report manifest unless that new variant is independently composed and rebound. Swiping back to the original variant may recover only its own stored manifest.
 
-- [ ] **Step 4: Prove edit, swipe, delete, and restart behavior**
+- [x] **Step 4: Prove edit, swipe, delete, and restart behavior**
 
 An edited response hash, alternate selected swipe, missing swipe metadata, deleted response, stale source integrity, or JSON round trip must respectively reject, ignore, or preserve the manifest as appropriate. No case commits knowledge here.
 
-- [ ] **Step 5: Run and commit Task 3**
+- [x] **Step 5: Run and commit Task 3**
 
 Commit:
 

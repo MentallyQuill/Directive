@@ -123,6 +123,44 @@ function throwErrors(label, errors) {
     throw error;
 }
 
+export function parseDutyReportManifestEnvelope(value = {}) {
+    const errors = [];
+    if (!isObject(value)) return { ok: false, errors: ['manifest must be an object'] };
+    for (const field of unknownFields(value, MANIFEST_FIELDS)) errors.push(`manifest contains unknown field: ${field}`);
+    if (value.kind !== DUTY_REPORT_MANIFEST_KIND) errors.push(`manifest kind must be ${DUTY_REPORT_MANIFEST_KIND}`);
+    if (value.contractVersion !== DUTY_REPORT_CONTRACT_VERSION) errors.push('manifest contractVersion is unknown');
+    for (const field of [
+        'packageId',
+        'packageVersion',
+        'missionId',
+        'definitionVersion',
+        'branchId',
+        'reportId',
+        'factId',
+        'reporterId',
+        'policyId',
+    ]) {
+        if (!stableId(value[field])) errors.push(`manifest ${field} must be a stable id`);
+    }
+    for (const field of ['responseId', 'sourceTransactionId']) {
+        const text = compact(value[field]);
+        if (!text || text.length > 300) errors.push(`manifest ${field} must contain 1-300 characters`);
+    }
+    for (const field of ['responseTextHash', 'segmentTextHash']) {
+        if (!/^[0-9a-f]{8}$/.test(compact(value[field]))) errors.push(`manifest ${field} is invalid`);
+    }
+    return errors.length > 0
+        ? { ok: false, errors }
+        : { ok: true, errors: [], value: cloneJson(value) };
+}
+
+export function withoutProvisionalDutyReportManifest(metadata = {}) {
+    if (!isObject(metadata)) return {};
+    const next = cloneJson(metadata);
+    delete next.dutyReportManifest;
+    return next;
+}
+
 export function createDutyReportVisibleSegment(packet = {}) {
     const errors = [];
     if (!isObject(packet)) errors.push('packet must be an object');
@@ -226,11 +264,9 @@ export function validateDutyReportManifest({
     responseId = null,
     responseText = '',
 } = {}) {
+    const parsed = parseDutyReportManifestEnvelope(manifest);
+    if (!parsed.ok) return parsed;
     const errors = [];
-    if (!isObject(manifest)) return { ok: false, errors: ['manifest must be an object'] };
-    for (const field of unknownFields(manifest, MANIFEST_FIELDS)) errors.push(`manifest contains unknown field: ${field}`);
-    if (manifest.kind !== DUTY_REPORT_MANIFEST_KIND) errors.push(`manifest kind must be ${DUTY_REPORT_MANIFEST_KIND}`);
-    if (manifest.contractVersion !== DUTY_REPORT_CONTRACT_VERSION) errors.push('manifest contractVersion is unknown');
     if (manifest.packageId !== definition?.packageBinding?.packageId) errors.push('manifest packageId does not match');
     if (manifest.packageVersion !== definition?.packageBinding?.packageVersion) errors.push('manifest packageVersion does not match');
     if (manifest.missionId !== definition?.id) errors.push('manifest missionId does not match');

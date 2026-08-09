@@ -48,6 +48,7 @@ import {
 } from './runtime-ledger-view.mjs';
 import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
+import { withoutProvisionalDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 
 const CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION = 'chat-turn-orchestrator-hotpath-core-begin-timeout-2026-07-04';
 
@@ -4260,7 +4261,7 @@ export function createChatTurnOrchestrator({
       responseKind,
       extra: {
         runtimeMetadata: {
-          ...(target.raw?.extra?.runtimeMetadata || {}),
+          ...withoutProvisionalDutyReportManifest(target.raw?.extra?.runtimeMetadata || {}),
           responseSwipe: true,
           responseSwipeRevisionId: revisionId,
           responseSwipeSource: generated.source,
@@ -6561,7 +6562,7 @@ export function createChatTurnOrchestrator({
         responseKind,
         extra: {
           runtimeMetadata: {
-            ...runtimeMetadata,
+            ...withoutProvisionalDutyReportManifest(runtimeMetadata),
             responseRetry: true,
             responseRetryReason: 'provider-failure-after-mechanics-commit',
             responseRetryRecoveryId: recovery.id,
