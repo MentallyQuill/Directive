@@ -166,6 +166,14 @@ export function validateStorySettlement(value = {}) {
             if (!Array.isArray(receipt?.sourceContributionIds)) {
                 errors.push(`${receiptId} sourceContributionIds must be an array`);
             }
+            if (!Array.isArray(receipt?.sourceMessageIds)
+                || receipt.sourceMessageIds.some((id) => !isNonEmptyString(id) || id.length > 300)) {
+                errors.push(`${receiptId} sourceMessageIds must be an array of non-empty strings`);
+            } else if (receipt.sourceMessageIds.length !== receipt.sourceContributionIds?.length) {
+                errors.push(`${receiptId} sourceMessageIds must align with sourceContributionIds`);
+            } else if (new Set(receipt.sourceMessageIds).size !== receipt.sourceMessageIds.length) {
+                errors.push(`${receiptId} sourceMessageIds must be unique`);
+            }
             if (!Number.isInteger(receipt?.settledAtRevision) || receipt.settledAtRevision < 0) {
                 errors.push(`${receiptId} settledAtRevision must be a non-negative integer`);
             }

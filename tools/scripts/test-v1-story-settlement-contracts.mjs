@@ -216,6 +216,7 @@ const receipt = {
     disposition: 'insignificant',
     episodeId: null,
     sourceContributionIds: [],
+    sourceMessageIds: [],
     settledAtRevision: 1,
 };
 
@@ -230,6 +231,30 @@ assert.match(
         receipts: [{ ...receipt, branchId: 'save.beta' }],
     }).errors.join('\n'),
     /receipt\.alpha branchId must match the settlement branch/,
+);
+
+assert.match(
+    validateStorySettlement({
+        ...empty,
+        receipts: [{
+            ...receipt,
+            sourceContributionIds: ['contribution.alpha'],
+            sourceMessageIds: [],
+        }],
+    }).errors.join('\n'),
+    /sourceMessageIds must align/,
+);
+
+assert.match(
+    validateStorySettlement({
+        ...empty,
+        receipts: [{
+            ...receipt,
+            sourceContributionIds: ['contribution.alpha', 'contribution.beta'],
+            sourceMessageIds: ['message.1', 'message.1'],
+        }],
+    }).errors.join('\n'),
+    /sourceMessageIds must be unique/,
 );
 
 const sealedEpisode = {

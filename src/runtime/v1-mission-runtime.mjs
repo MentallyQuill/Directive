@@ -9,6 +9,11 @@ function compact(value) {
     return String(value ?? '').trim();
 }
 
+function safeReasonCode(value) {
+    const reason = compact(value).slice(0, 120);
+    return /^[a-z0-9][a-z0-9._:-]*$/i.test(reason) ? reason : 'source-invalidated';
+}
+
 function stableHash(value = '') {
     let hash = 0x811c9dc5;
     for (const character of String(value)) {
@@ -157,7 +162,7 @@ function snapshotEnvelopeReason({ snapshot = {}, state = {}, definition } = {}) 
     return null;
 }
 
-function contributionId(branchId, source) {
+function baseContributionId(branchId, source) {
     return `contribution.v1.${stableHash([
         branchId,
         source.messageId,
@@ -166,9 +171,28 @@ function contributionId(branchId, source) {
     ].join('|'))}`;
 }
 
-function contributionFor(branchId, role, source, acceptedAtRevision) {
+function activeContributionId(campaignState, branchId, source) {
+    const baseId = baseContributionId(branchId, source);
+    const invalidated = new Set(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []);
+    let epoch = 0;
+    let id = baseId;
+    while (invalidated.has(id)) {
+        epoch += 1;
+        id = `${baseId}.r${epoch}`;
+    }
+    return id;
+}
+
+function contributionLineageWasInvalidated(campaignState, branchId, source) {
+    const baseId = baseContributionId(branchId, source);
+    return (campaignState?.mission?.v1?.invalidatedSourceContributionIds || []).some(
+        (id) => id === baseId || id.startsWith(`${baseId}.r`),
+    );
+}
+
+function contributionFor(branchId, role, source, acceptedAtRevision, id = baseContributionId(branchId, source)) {
     return {
-        id: contributionId(branchId, source),
+        id,
         messageId: source.messageId,
         swipeId: source.selectedSwipeId,
         role,
@@ -177,8 +201,15 @@ function contributionFor(branchId, role, source, acceptedAtRevision) {
     };
 }
 
-function sourceResolutionRecord(branchId, role, source, acceptedAtRevision, accepted = true) {
-    const contribution = contributionFor(branchId, role, source, acceptedAtRevision);
+function sourceResolutionRecord(
+    branchId,
+    role,
+    source,
+    acceptedAtRevision,
+    id,
+    accepted = true,
+) {
+    const contribution = contributionFor(branchId, role, source, acceptedAtRevision, id);
     return {
         contributionId: contribution.id,
         messageId: contribution.messageId,
@@ -212,10 +243,53 @@ function settledContributionIds(campaignState = {}) {
     return new Set(ids.slice(-SETTLED_SOURCE_SCAN_LIMIT));
 }
 
+function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
+    const target = compact(hostMessageId);
+    if (!target) return [];
+    const ids = [];
+    for (const entry of campaignState?.mission?.v1?.evidenceLog || []) {
+        if (compact(entry?.sourceRef?.messageId) === target && entry?.sourceContributionId) {
+            ids.push(entry.sourceContributionId);
+        }
+    }
+    for (const episode of campaignState?.storySettlement?.episodes || []) {
+        for (const contribution of episode.contributions || []) {
+            if (compact(contribution?.messageId) === target && contribution?.id) ids.push(contribution.id);
+        }
+    }
+    for (const receipt of campaignState?.storySettlement?.receipts || []) {
+        for (const [index, messageId] of (receipt.sourceMessageIds || []).entries()) {
+            if (compact(messageId) === target && receipt.sourceContributionIds?.[index]) {
+                ids.push(receipt.sourceContributionIds[index]);
+            }
+        }
+    }
+    const invalidated = new Set(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []);
+    return [...new Set(ids)].filter((id) => !invalidated.has(id));
+}
+
+function storySourceProvenanceMigrationRequired(campaignState = {}) {
+    return (campaignState?.storySettlement?.receipts || []).some((receipt) => (
+        !Array.isArray(receipt?.sourceContributionIds)
+        || !Array.isArray(receipt?.sourceMessageIds)
+        || receipt.sourceMessageIds.length !== receipt.sourceContributionIds.length
+    ));
+}
+
+function missionEvidenceSequenceMigrationRequired(missionState = {}) {
+    return (missionState?.evidenceLog || []).some(
+        (entry) => !Number.isInteger(entry?.acceptedAtMissionRevision)
+            || entry.acceptedAtMissionRevision < 0,
+    );
+}
+
 function errorReasonCode(error) {
     if (error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT') return 'state-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_STALE') return 'mission-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED') return 'definition-migration-required';
+    if (error?.code === 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_REQUIRED') {
+        return 'evidence-sequence-migration-required';
+    }
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_REJECTED') return 'evidence-rejected';
     return 'settlement-failed';
 }
@@ -239,6 +313,9 @@ export function createV1MissionRuntime({
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
+        if (storySourceProvenanceMigrationRequired(campaignState)) {
+            return unavailable('source-provenance-migration-required');
+        }
         const { definition } = resolved;
         const integrityReason = snapshotIntegrityReason(snapshot);
         if (integrityReason) return unavailable(integrityReason);
@@ -252,22 +329,58 @@ export function createV1MissionRuntime({
         } catch (error) {
             return unavailable(errorReasonCode(error));
         }
+        if (missionEvidenceSequenceMigrationRequired(missionState)) {
+            return unavailable('evidence-sequence-migration-required');
+        }
         const sourcePair = sourcePairFromSnapshot(snapshot);
+        const assistantContributionId = activeContributionId(
+            campaignState,
+            branchId,
+            sourcePair.previousAssistant,
+        );
+        const playerContributionId = activeContributionId(
+            campaignState,
+            branchId,
+            sourcePair.currentPlayer,
+        );
         const assistantSource = sourceResolutionRecord(
             branchId,
             'assistant',
             sourcePair.previousAssistant,
             missionState.revision,
+            assistantContributionId,
         );
         const playerSource = sourceResolutionRecord(
             branchId,
             'user',
             sourcePair.currentPlayer,
             missionState.revision,
+            playerContributionId,
         );
         const alreadySettled = settledContributionIds(campaignState);
-        if (alreadySettled.has(assistantSource.contributionId)
-            || alreadySettled.has(playerSource.contributionId)) {
+        const currentSources = [
+            {
+                id: assistantSource.contributionId,
+                lineageInvalidated: contributionLineageWasInvalidated(
+                    campaignState,
+                    branchId,
+                    sourcePair.previousAssistant,
+                ),
+            },
+            {
+                id: playerSource.contributionId,
+                lineageInvalidated: contributionLineageWasInvalidated(
+                    campaignState,
+                    branchId,
+                    sourcePair.currentPlayer,
+                ),
+            },
+        ];
+        const restoredSources = currentSources.filter((source) => source.lineageInvalidated);
+        const pairAlreadySettled = restoredSources.length > 0
+            ? restoredSources.every((source) => alreadySettled.has(source.id))
+            : currentSources.some((source) => alreadySettled.has(source.id));
+        if (pairAlreadySettled) {
             return {
                 ok: true,
                 attempted: false,
@@ -308,8 +421,15 @@ export function createV1MissionRuntime({
                 'assistant',
                 sourcePair.previousAssistant,
                 missionState.revision,
+                assistantContributionId,
             )] : []),
-            contributionFor(branchId, 'user', sourcePair.currentPlayer, missionState.revision),
+            contributionFor(
+                branchId,
+                'user',
+                sourcePair.currentPlayer,
+                missionState.revision,
+                playerContributionId,
+            ),
         ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
@@ -319,7 +439,12 @@ export function createV1MissionRuntime({
             now,
         });
         const sourceRangeHash = compact(snapshot.source.sourceRangeHash);
-        const sceneHash = stableHash(`${branchId}|${sourceRangeHash}`);
+        const sceneHash = stableHash([
+            branchId,
+            sourceRangeHash,
+            assistantContributionId,
+            playerContributionId,
+        ].join('|'));
         try {
             const settled = await spine.settleAcceptedPair({
                 definition,
@@ -365,12 +490,83 @@ export function createV1MissionRuntime({
         }
     }
 
+    async function invalidateSourceMutation({
+        runtimeAssets = {},
+        hostMessageId = null,
+        eventType = 'source-invalidated',
+    } = {}) {
+        const campaignState = getState();
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+        if (!resolved.ok) return resolved;
+        if (storySourceProvenanceMigrationRequired(campaignState)) {
+            return unavailable('source-provenance-migration-required');
+        }
+        const branchId = compact(campaignState?.campaignChatBinding?.saveId);
+        if (!branchId) return unavailable('active-branch-unavailable');
+        if (campaignState?.mission?.v1?.branchId && campaignState.mission.v1.branchId !== branchId) {
+            return unavailable('mission-branch-mismatch');
+        }
+        if (campaignState?.storySettlement?.branchId && campaignState.storySettlement.branchId !== branchId) {
+            return unavailable('story-branch-mismatch');
+        }
+        if (missionEvidenceSequenceMigrationRequired(campaignState?.mission?.v1)) {
+            return unavailable('evidence-sequence-migration-required');
+        }
+        const contributionIds = contributionIdsForHostMessage(campaignState, hostMessageId);
+        if (contributionIds.length === 0) {
+            return {
+                ok: true,
+                attempted: true,
+                status: 'no-change',
+                reasonCode: null,
+                definitionId: resolved.definition.id,
+                definitionVersion: resolved.definition.version,
+                invalidatedContributionCount: 0,
+                committedRoots: [],
+                noChange: true,
+                diagnostics: {},
+            };
+        }
+        const reason = safeReasonCode(eventType);
+        const spine = createV1StateSpine({
+            getState,
+            stateDeltaGateway,
+            resolveSourceRef: () => null,
+            now,
+        });
+        const gatewayBaseRevision = stateDeltaGateway.revision();
+        try {
+            const invalidated = await spine.invalidateSources({
+                definition: resolved.definition,
+                branchId,
+                contributionIds,
+                gatewayBaseRevision,
+                reason,
+            });
+            return {
+                ok: true,
+                attempted: true,
+                status: invalidated.noChange ? 'no-change' : 'invalidated',
+                reasonCode: null,
+                definitionId: resolved.definition.id,
+                definitionVersion: resolved.definition.version,
+                invalidatedContributionCount: invalidated.invalidatedContributionIds?.length || 0,
+                committedRoots: invalidated.noChange ? [] : ['mission', 'storySettlement'],
+                noChange: invalidated.noChange === true,
+                diagnostics: {},
+            };
+        } catch (error) {
+            return unavailable(errorReasonCode(error), {}, { attempted: true });
+        }
+    }
+
     return {
         resolveActiveDefinition: (runtimeAssets) => resolveActiveV1MissionDefinition({
             campaignState: getState(),
             runtimeAssets,
         }),
         settleAcceptedPair,
+        invalidateSourceMutation,
     };
 }
 

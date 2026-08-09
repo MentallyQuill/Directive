@@ -107,17 +107,30 @@ export function sealStoryEpisode(settlement, {
         disposition: 'sealed',
         episodeId: nextEpisode.id,
         sourceContributionIds: nextEpisode.contributions.map((item) => item.id),
+        sourceMessageIds: nextEpisode.contributions.map((item) => item.messageId),
         settledAtRevision: next.revision,
     });
     return assertValid(next);
 }
 
-export function settleInsignificantScene(settlement, { sceneId, sourceContributionIds = [] } = {}) {
+export function settleInsignificantScene(settlement, {
+    sceneId,
+    sourceContributionIds = [],
+    sourceContributions = [],
+} = {}) {
     if (settlement.episodes.some((episode) => episode.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.receipts.some((receipt) => receipt.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.activeEpisode !== null) throw new TypeError('cannot settle another scene while an episode is active');
     const next = structuredClone(settlement);
     next.revision += 1;
+    const contributionsById = new Map((Array.isArray(sourceContributions) ? sourceContributions : [])
+        .filter((item) => item?.id)
+        .map((item) => [item.id, item]));
+    const contributionIds = [...new Set([
+        ...sourceContributionIds,
+        ...contributionsById.keys(),
+    ])];
+    const sourceMessageIds = contributionIds.map((id) => contributionsById.get(id)?.messageId || null);
     next.receipts.push({
         kind: STORY_SETTLEMENT_RECEIPT_KIND,
         id: `receipt.${sceneId}.insignificant`,
@@ -125,7 +138,8 @@ export function settleInsignificantScene(settlement, { sceneId, sourceContributi
         sceneId,
         disposition: 'insignificant',
         episodeId: null,
-        sourceContributionIds: [...new Set(sourceContributionIds)],
+        sourceContributionIds: contributionIds,
+        sourceMessageIds,
         settledAtRevision: next.revision,
     });
     return assertValid(next);
@@ -165,34 +179,89 @@ export function invalidateStorySource(settlement, { contributionId, reason } = {
             .filter((episode) => episode.contributions.some((contribution) => contribution.id === contributionId))
             .map((episode) => episode.id),
     );
-    if (dependentEpisodeIds.size === 0) return structuredClone(settlement);
-    const alreadyInvalidated = [...dependentEpisodeIds].every((episodeId) => (
-        settlement.episodes.find((episode) => episode.id === episodeId)?.status === 'invalidated'
+    const dependentInsignificantReceipts = settlement.receipts.filter((receipt) => (
+        receipt.disposition === 'insignificant'
+        && receipt.sourceContributionIds.includes(contributionId)
     ));
-    if (alreadyInvalidated) return structuredClone(settlement);
+    if (dependentEpisodeIds.size === 0 && dependentInsignificantReceipts.length === 0) {
+        return structuredClone(settlement);
+    }
+    const invalidationRecorded = (sceneId, episodeId) => settlement.receipts.some((candidate) => (
+        candidate.disposition === 'invalidated'
+        && candidate.sceneId === sceneId
+        && candidate.episodeId === episodeId
+        && candidate.sourceContributionIds.includes(contributionId)
+    ));
+    const pendingEpisodeIds = new Set([...dependentEpisodeIds].filter((episodeId) => {
+        const episode = settlement.episodes.find((item) => item.id === episodeId);
+        return episode && !invalidationRecorded(episode.sceneId, episodeId);
+    }));
+    const pendingInsignificantReceipts = dependentInsignificantReceipts.filter(
+        (receipt) => !invalidationRecorded(receipt.sceneId, null),
+    );
+    if (pendingEpisodeIds.size === 0 && pendingInsignificantReceipts.length === 0) {
+        return structuredClone(settlement);
+    }
 
     const next = structuredClone(settlement);
     next.revision += 1;
+    const activeEpisodeIdsToRemove = new Set();
     for (const episode of next.episodes) {
-        if (!dependentEpisodeIds.has(episode.id)) continue;
-        episode.status = 'invalidated';
-        episode.invalidationReason = reason;
-        for (const effect of episode.effects) {
-            if (effect.sourceContributionIds.includes(contributionId)) effect.status = 'invalidated';
+        if (!pendingEpisodeIds.has(episode.id)) continue;
+        const sourceMessageId = episode.contributions.find((item) => item.id === contributionId)?.messageId;
+        if (next.activeEpisode === episode.id) {
+            episode.effects = episode.effects.filter(
+                (effect) => !effect.sourceContributionIds.includes(contributionId),
+            );
+            const stillReferenced = new Set(
+                episode.effects.flatMap((effect) => effect.sourceContributionIds || []),
+            );
+            episode.contributions = episode.contributions.filter(
+                (item) => item.id !== contributionId && stillReferenced.has(item.id),
+            );
+            episode.unresolvedConsequences = [];
+            if (episode.effects.length === 0) {
+                activeEpisodeIdsToRemove.add(episode.id);
+                next.activeEpisode = null;
+            }
+        } else {
+            episode.status = 'invalidated';
+            episode.invalidationReason = reason;
+            for (const effect of episode.effects) {
+                if (effect.sourceContributionIds.includes(contributionId)) effect.status = 'invalidated';
+            }
+            for (const consequence of episode.unresolvedConsequences) consequence.status = 'invalidated';
         }
-        for (const consequence of episode.unresolvedConsequences) consequence.status = 'invalidated';
-        if (next.activeEpisode === episode.id) next.activeEpisode = null;
         next.receipts.push({
             kind: STORY_SETTLEMENT_RECEIPT_KIND,
-            id: `receipt.${episode.id}.invalidated`,
+            id: `receipt.${episode.id}.invalidated.${contributionId}`,
             branchId: next.branchId,
             sceneId: episode.sceneId,
             disposition: 'invalidated',
             episodeId: episode.id,
             sourceContributionIds: [contributionId],
+            sourceMessageIds: sourceMessageId ? [sourceMessageId] : [],
             settledAtRevision: next.revision,
         });
     }
-    if (next.focus && dependentEpisodeIds.has(next.focus.episodeId)) next.focus = null;
+    if (activeEpisodeIdsToRemove.size > 0) {
+        next.episodes = next.episodes.filter((episode) => !activeEpisodeIdsToRemove.has(episode.id));
+    }
+    for (const receipt of pendingInsignificantReceipts) {
+        const index = receipt.sourceContributionIds.indexOf(contributionId);
+        const sourceMessageId = receipt.sourceMessageIds?.[index] || null;
+        next.receipts.push({
+            kind: STORY_SETTLEMENT_RECEIPT_KIND,
+            id: `receipt.${receipt.sceneId}.invalidated.${contributionId}`,
+            branchId: next.branchId,
+            sceneId: receipt.sceneId,
+            disposition: 'invalidated',
+            episodeId: null,
+            sourceContributionIds: [contributionId],
+            sourceMessageIds: sourceMessageId ? [sourceMessageId] : [],
+            settledAtRevision: next.revision,
+        });
+    }
+    if (next.focus && pendingEpisodeIds.has(next.focus.episodeId)) next.focus = null;
     return assertValid(next);
 }

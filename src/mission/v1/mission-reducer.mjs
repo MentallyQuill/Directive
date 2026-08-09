@@ -188,6 +188,7 @@ export function reduceMissionEvidence({
     const index = indexMissionDefinition(definition);
     const effects = [];
     let changed = false;
+    const acceptedAtMissionRevision = state.revision;
     for (const claim of [...acceptedClaims].sort(compareClaims)) {
         if (!claim?.evidenceKey || state.acceptedEvidenceKeys.includes(claim.evidenceKey)) continue;
         const contributionId = sourceContribution?.id || claim.sourceContributionId || null;
@@ -200,6 +201,7 @@ export function reduceMissionEvidence({
             targetId: claim.targetId,
             value: claim.value ?? null,
             sourceContributionId: contributionId,
+            acceptedAtMissionRevision,
         });
         applyClaim(definition, state, claim);
         effects.push({

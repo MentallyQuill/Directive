@@ -285,19 +285,19 @@ feat(runtime): shadow V1 mission settlement
 - Consumes: a host message mutation after normal CORE/REPAIR reconciliation.
 - Produces: exact V1 contribution invalidation and deterministic mission reconstruction from surviving evidence.
 
-- [ ] **Step 1: Write failing mutation tests**
+- [x] **Step 1: Write failing mutation tests**
 
 Cover assistant edit, assistant deletion, selected-swipe change, player edit, player deletion, unrelated message mutation, repeated invalidation, save branch isolation, and restart from persisted V1 state. Prove that no raw transcript reinterpretation occurs during reconstruction.
 
-- [ ] **Step 2: Add a post-repair V1 invalidation callback**
+- [x] **Step 2: Add a post-repair V1 invalidation callback**
 
 Wrap reconciler outcomes so V1 invalidation runs after the existing CORE/REPAIR mutation path against the latest campaign revision. Resolve contribution IDs by exact host message ID and branch. Do not guess from text or legacy settlement IDs.
 
-- [ ] **Step 3: Rebuild and persist atomically**
+- [x] **Step 3: Rebuild and persist atomically**
 
 Use the V1 spine's evidence replay and State Delta Gateway. Invalidated episodes leave player prompt/UI projection only after a later cutover; shadow diagnostics record the reconstruction now. Unrelated or repeated mutations are no-op.
 
-- [ ] **Step 4: Run and commit Task 6**
+- [x] **Step 4: Run and commit Task 6**
 
 Commit:
 

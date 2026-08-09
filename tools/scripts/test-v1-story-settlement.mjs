@@ -122,6 +122,10 @@ assert.throws(
 const insignificant = settleInsignificantScene(empty, {
     sceneId: 'scene.small-talk',
     sourceContributionIds: ['contribution.small-talk'],
+    sourceContributions: [{
+        id: 'contribution.small-talk',
+        messageId: 'message.small-talk',
+    }],
 });
 assert.equal(insignificant.revision, 1);
 assert.equal(insignificant.episodes.length, 0);
@@ -129,6 +133,10 @@ assert.equal(insignificant.receipts[0].disposition, 'insignificant');
 assert.deepEqual(settleInsignificantScene(insignificant, {
     sceneId: 'scene.small-talk',
     sourceContributionIds: ['contribution.small-talk'],
+    sourceContributions: [{
+        id: 'contribution.small-talk',
+        messageId: 'message.small-talk',
+    }],
 }), insignificant);
 assert.throws(
     () => settleInsignificantScene(empty, { sceneId: 'bad scene id' }),

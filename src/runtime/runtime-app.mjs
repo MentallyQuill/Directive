@@ -7340,6 +7340,13 @@ export function createDirectiveRuntimeApp({
       persist: persistCampaignState,
       now
     });
+    const v1MissionRuntime = createV1MissionRuntime({
+      getState: getCampaignState,
+      stateDeltaGateway,
+      generationRouter: defaultGenerationRouter,
+      now,
+      timeoutMs: 8000
+    });
     const injectedRepairRuntime = typeof repairRuntimeFactory === 'function'
       ? repairRuntimeFactory({
           coreTurnStore: runtimeCoreTurnStore,
@@ -7381,6 +7388,10 @@ export function createDirectiveRuntimeApp({
         });
         return loaded?.snapshot || null;
       },
+      invalidateV1MissionSource: (input) => v1MissionRuntime.invalidateSourceMutation({
+        ...input,
+        runtimeAssets: activeRuntimeAssets()
+      }),
       now
     });
     const sourceSettlementService = createSourceSettlementService({
@@ -7687,13 +7698,6 @@ export function createDirectiveRuntimeApp({
       return result;
     }
     const turnCommitCoordinator = ensureTurnCommitCoordinator();
-    const v1MissionRuntime = createV1MissionRuntime({
-      getState: getCampaignState,
-      stateDeltaGateway,
-      generationRouter: defaultGenerationRouter,
-      now,
-      timeoutMs: 8000
-    });
     const orchestrator = createChatTurnOrchestrator({
       host: runtimeHost,
       classify,

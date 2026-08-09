@@ -509,6 +509,7 @@ export function createMessageReconciler({
   persist = null,
   syncPrompt = null,
   loadCoreCheckpointState = null,
+  invalidateV1MissionSource = null,
   now = null
 } = {}) {
   if (typeof getCampaignState !== 'function') throw new Error('getCampaignState must be a function');
@@ -1084,9 +1085,70 @@ export function createMessageReconciler({
     };
   }
 
-  const reconcileEdited = (options = {}) => reconcile({ ...options, type: 'edited' });
-  const reconcileDeleted = (options = {}) => reconcile({ ...options, type: 'deleted' });
-  const reconcileSelectedSwipeChanged = (options = {}) => reconcile({ ...options, type: 'selectedSwipeChanged' });
+  function sanitizedV1SourceInvalidation(result = {}) {
+    const code = (value, fallback = null) => {
+      const text = compact(value).slice(0, 120);
+      return /^[a-z0-9][a-z0-9._:-]*$/i.test(text) ? text : fallback;
+    };
+    return {
+      ok: result?.ok === true,
+      attempted: result?.attempted === true,
+      status: code(result?.status, result?.ok === true ? 'no-change' : 'unavailable'),
+      reasonCode: code(result?.reasonCode, null),
+      definitionId: code(result?.definitionId, null),
+      definitionVersion: code(result?.definitionVersion, null),
+      invalidatedContributionCount: Number.isInteger(result?.invalidatedContributionCount)
+        && result.invalidatedContributionCount >= 0
+        ? result.invalidatedContributionCount
+        : 0,
+      committedRoots: [...new Set((Array.isArray(result?.committedRoots) ? result.committedRoots : [])
+        .filter((root) => ['mission', 'storySettlement'].includes(root)))],
+      noChange: result?.noChange === true
+    };
+  }
+
+  async function reconcileWithV1SourceInvalidation(options = {}, type) {
+    const result = await reconcile({ ...options, type });
+    const hostMessageId = compact(options.hostMessageId);
+    if (!hostMessageId || typeof invalidateV1MissionSource !== 'function') return result;
+    const eventType = sourceMutationEventType(type, {
+      ingress: result?.ingress || null,
+      response: result?.response || null
+    });
+    let v1SourceInvalidation = null;
+    try {
+      v1SourceInvalidation = sanitizedV1SourceInvalidation(await invalidateV1MissionSource({
+        hostMessageId,
+        eventType,
+        mutationType: type
+      }));
+    } catch {
+      v1SourceInvalidation = {
+        ...sanitizedV1SourceInvalidation({
+          ok: false,
+          attempted: true,
+          status: 'unavailable',
+          reasonCode: 'v1-invalidation-threw'
+        }),
+        reasonCode: 'v1-invalidation-threw'
+      };
+    }
+    const v1Invalidated = v1SourceInvalidation.ok === true
+      && v1SourceInvalidation.invalidatedContributionCount > 0;
+    return {
+      ...result,
+      matched: result?.matched === true || v1Invalidated,
+      action: v1Invalidated && (!result?.matched || result?.action === 'ignored')
+        ? 'v1SourceInvalidated'
+        : result?.action,
+      v1SourceInvalidation,
+      ...(v1Invalidated ? { campaignState: cloneJson(getCampaignState()) } : {})
+    };
+  }
+
+  const reconcileEdited = (options = {}) => reconcileWithV1SourceInvalidation(options, 'edited');
+  const reconcileDeleted = (options = {}) => reconcileWithV1SourceInvalidation(options, 'deleted');
+  const reconcileSelectedSwipeChanged = (options = {}) => reconcileWithV1SourceInvalidation(options, 'selectedSwipeChanged');
   async function reconcileVisibilityChanged({
     hostMessageId,
     message = null,

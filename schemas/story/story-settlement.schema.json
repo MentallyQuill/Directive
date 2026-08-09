@@ -204,6 +204,7 @@
         "disposition",
         "episodeId",
         "sourceContributionIds",
+        "sourceMessageIds",
         "settledAtRevision"
       ],
       "properties": {
@@ -222,6 +223,11 @@
         "sourceContributionIds": {
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "sourceMessageIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 300 },
           "uniqueItems": true
         },
         "settledAtRevision": { "type": "integer", "minimum": 0 },

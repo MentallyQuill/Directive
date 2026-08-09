@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { validateMissionEvidenceProposal } from '../mission/v1/evidence-contracts.mjs';
 import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
@@ -12,6 +14,10 @@ import {
 } from '../story/story-settlement.mjs';
 
 const MAX_SHADOW_DIAGNOSTICS = 20;
+
+function stableHash(value = '') {
+    return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+}
 
 function jsonEqual(left, right) {
     return JSON.stringify(left) === JSON.stringify(right);
@@ -67,6 +73,20 @@ function normalizedSourceContributions({ acceptedClaims = [], sourceContribution
     };
 }
 
+function instantiateStoryEffects(effects = [], referencedContributions = []) {
+    const fallbackContributionIds = referencedContributions.map((item) => item.id).filter(Boolean).sort();
+    return effects.map((effect) => {
+        const sourceContributionIds = (effect.sourceContributionIds || []).length > 0
+            ? [...new Set(effect.sourceContributionIds)].sort()
+            : fallbackContributionIds;
+        return {
+            ...structuredClone(effect),
+            id: `effect.v1.${stableHash([effect.id, ...sourceContributionIds].join('|'))}`,
+            sourceContributionIds,
+        };
+    });
+}
+
 function revisionConflict(expected, current) {
     const error = new Error(`State delta revision conflict: expected ${expected}, current revision is ${current}.`);
     error.code = 'DIRECTIVE_STATE_REVISION_CONFLICT';
@@ -94,6 +114,29 @@ function missionDefinitionMigrationRequired(current, definition) {
         requestedSourceId: definition?.packageBinding?.sourceId || null,
     };
     return error;
+}
+
+function reconstructionSequenceRequired() {
+    const error = new Error('Mission evidence requires an explicit acceptance-sequence migration before reconstruction.');
+    error.code = 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_REQUIRED';
+    return error;
+}
+
+function orderedEvidenceBatches(evidenceLog = []) {
+    const batches = [];
+    let previousRevision = -1;
+    for (const entry of evidenceLog) {
+        const revision = entry?.acceptedAtMissionRevision;
+        if (!Number.isInteger(revision) || revision < 0 || revision < previousRevision) {
+            throw reconstructionSequenceRequired();
+        }
+        if (batches.length === 0 || batches.at(-1).acceptedAtMissionRevision !== revision) {
+            batches.push({ acceptedAtMissionRevision: revision, claims: [] });
+        }
+        batches.at(-1).claims.push(entry);
+        previousRevision = revision;
+    }
+    return batches;
 }
 
 function hasMatchingDefinitionBinding(current, definition) {
@@ -212,11 +255,15 @@ export function createV1StateSpine({
                 });
             }
             storySettlement = acceptStoryContributions(storySettlement, contributions.referenced);
-            storySettlement = appendStoryEffects(storySettlement, missionResult.effects);
+            storySettlement = appendStoryEffects(
+                storySettlement,
+                instantiateStoryEffects(missionResult.effects, contributions.referenced),
+            );
         } else if (storySettlement.activeEpisode === null && !duplicateReplay) {
             storySettlement = settleInsignificantScene(storySettlement, {
                 sceneId: scene.sceneId,
                 sourceContributionIds: contributions.supplied.map((item) => item.id),
+                sourceContributions: contributions.supplied,
             });
         }
 
@@ -284,6 +331,7 @@ export function createV1StateSpine({
             ...currentStorySettlement.episodes.flatMap(
                 (episode) => episode.contributions.map((contribution) => contribution.id),
             ),
+            ...currentStorySettlement.receipts.flatMap((receipt) => receipt.sourceContributionIds || []),
         ]);
         const newContributionIds = [...new Set(contributionIds)].filter(
             (id) => !previouslyInvalidated.has(id) && knownContributionIds.has(id),
@@ -293,6 +341,8 @@ export function createV1StateSpine({
                 missionState: currentMission,
                 storySettlement: currentStorySettlement,
                 campaignState: structuredClone(campaignState),
+                invalidatedContributionIds: [],
+                noChange: true,
             };
         }
         const invalidated = new Set(newContributionIds);
@@ -300,11 +350,11 @@ export function createV1StateSpine({
             (entry) => !invalidated.has(entry.sourceContributionId),
         );
         let rebuiltMission = createMissionState({ definition, branchId });
-        if (survivingEvidence.length > 0) {
+        for (const batch of orderedEvidenceBatches(survivingEvidence)) {
             rebuiltMission = reduceMissionEvidence({
                 definition,
                 state: rebuiltMission,
-                acceptedClaims: survivingEvidence.map((entry) => ({ ...entry })),
+                acceptedClaims: batch.claims.map((entry) => ({ ...entry })),
                 sourceContribution: null,
             }).state;
         }
@@ -347,6 +397,8 @@ export function createV1StateSpine({
             missionState: rebuiltMission,
             storySettlement,
             campaignState: committed.campaignState,
+            invalidatedContributionIds: [...newContributionIds],
+            noChange: false,
         };
     }
 
