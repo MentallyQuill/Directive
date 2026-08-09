@@ -6,6 +6,7 @@ const DEFINITION_PATH = 'packages/bundled/breckenridge/v1/chapter-2-false-colors
 const SCENARIOS_PATH = 'tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json';
 const PACKAGE_PATH = 'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json';
 const LEGACY_GRAPH_PATH = 'packages/bundled/breckenridge/chapter-2-false-colors.mission-graph.json';
+const CREW_PATH = 'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json';
 
 function readJson(path) {
     return JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -22,6 +23,7 @@ const definition = readJson(DEFINITION_PATH);
 const scenarios = readJson(SCENARIOS_PATH);
 const packageData = readJson(PACKAGE_PATH);
 const legacyGraph = readJson(LEGACY_GRAPH_PATH);
+const crewData = readJson(CREW_PATH);
 const templates = questTemplates(packageData);
 const knownTransitionTargetIds = new Set(templates.map((template) => template.id));
 knownTransitionTargetIds.add(legacyGraph.missionFrame?.transitionToMissionId);
@@ -53,6 +55,12 @@ if ((definition.clocks || []).length !== 0) {
 }
 if ((definition.reportRoutes || []).length !== 3) {
     errors.push('Chapter 2 must use exactly three aggregate Duty Report routes');
+}
+const knownActorIds = new Set((crewData.officers || []).map((officer) => officer.id));
+for (const route of definition.reportRoutes || []) {
+    for (const actorId of [...(route.preferredActorIds || []), ...(route.fallbackActorIds || [])]) {
+        if (!knownActorIds.has(actorId)) errors.push(`${route.id} names unknown crew actor: ${actorId}`);
+    }
 }
 
 for (const objective of definition.objectives || []) {

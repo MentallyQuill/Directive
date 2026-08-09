@@ -265,7 +265,7 @@ const availableActors = [
     { id: 'priya-nayar', capabilityRoles: ['operations'] },
     { id: 'rowan-saye', capabilityRoles: ['science'] },
     { id: 'imani-cross', capabilityRoles: ['engineering'] },
-    { id: 'bronn', capabilityRoles: ['security'] },
+    { id: 'hadrik-bronn', capabilityRoles: ['security'] },
     { id: 'mara-whitaker', capabilityRoles: ['command'] },
 ];
 
