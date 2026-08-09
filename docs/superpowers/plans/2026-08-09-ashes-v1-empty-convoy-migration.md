@@ -87,12 +87,12 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 - Create: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Add the Chapter 1 definition after Prelude in the Ashes definition registry.
-- [ ] Assert the runtime package library loads both exact pinned definitions.
-- [ ] Use the real Prelude and Chapter 1 files to prove a terminal Prelude target changes from pending to activatable when Chapter 1 is present.
-- [ ] Prove activation archives Prelude, creates a fresh Chapter 1 state, advances the branch-local journey once, and does not copy legacy roots or Prelude objective/outcome fields.
-- [ ] Prove save/reload validation and replay idempotence.
-- [ ] Prove Chapter 1 completion targets Chapter 2 but remains pending while no exact V1 Chapter 2 definition exists.
+- [x] Add the Chapter 1 definition after Prelude in the Ashes definition registry.
+- [x] Assert the runtime package library loads both exact pinned definitions.
+- [x] Use the real Prelude and Chapter 1 files to prove a terminal Prelude target changes from pending to activatable when Chapter 1 is present.
+- [x] Prove activation archives Prelude, creates a fresh Chapter 1 state, advances the branch-local journey once, and does not copy legacy roots or Prelude objective/outcome fields.
+- [x] Prove save/reload validation and replay idempotence.
+- [x] Prove Chapter 1 completion targets Chapter 2 but remains pending while no exact V1 Chapter 2 definition exists.
 
 ## Task 5: Accepted-Pair and Source-Mutation Proof
 
