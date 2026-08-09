@@ -312,19 +312,19 @@ feat(runtime): rebuild V1 state after source mutation
 - Modify: `docs/DOCUMENTATION_INDEX.md`
 - Modify: this plan
 
-- [ ] **Step 1: Run all focused suites**
+- [x] **Step 1: Run all focused suites**
 
 Run the mission contracts, candidate builder, interpreter, evidence/reducer, Story Settlement, state spine, asset loader, V1 runtime adapter, orchestrator, source-mutation, Ashes scenario, projection, and package-linter suites directly.
 
-- [ ] **Step 2: Run the complete alpha gate**
+- [x] **Step 2: Run the complete alpha gate**
 
 Run: `npm.cmd test`
 
-- [ ] **Step 3: Challenge the shadow slice**
+- [x] **Step 3: Challenge the shadow slice**
 
 Document evidence and residual risk for paraphrase recall, false positives, negation, attempts versus results, source-slot custody, correction/rejection, double-model latency, stale analysis, episode accumulation, no-change volume, restart, source mutation, hidden leaks, and legacy/V1 divergence.
 
-- [ ] **Step 4: Define the next cutover prerequisites**
+- [x] **Step 4: Define the next cutover prerequisites**
 
 State precisely that player-facing cutover still requires:
 
@@ -336,7 +336,7 @@ State precisely that player-facing cutover still requires:
 - player-facing Mission/Campaign/People/Ship rendering changes, which trigger the UI approval gate;
 - isolated live-host rehearsal before any release certification.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Commit:
 

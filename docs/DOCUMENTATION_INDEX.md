@@ -149,6 +149,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 - [Prelude/Hesperus V1 Data Readiness](development/PRELUDE_HESPERUS_V1_DATA_READINESS.md): certified package-owned mission data, evidence custody, fair discovery, Duty Reports, spoiler-safe projection, robustness limits, and accepted-pair runtime-cutover entry criteria.
 - [V1 State Spine Implementation Report](development/V1_STATE_SPINE_IMPLEMENTATION_REPORT.md): evidence-backed readiness boundary for the versioned Story Settlement and mission spine, including robustness challenges, shadow-runtime limits, and the Prelude/Hesperus cutover path.
+- [V1 Accepted-Pair Shadow Readiness](development/V1_ACCEPTED_PAIR_SHADOW_READINESS.md): current evidence and residual-risk boundary for freeform policy interpretation, accepted-source settlement, deterministic source reconstruction, and the prerequisites that still block V1 cutover.
 - [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
 - [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
 - [Reset Window Contract](development/RESET_WINDOW_CONTRACT.md): implementation contract for the SillyTavern Reset Window action, including shell geometry, route-local UI state, non-destructive boundaries, and test expectations.
