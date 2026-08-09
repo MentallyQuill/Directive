@@ -13,6 +13,14 @@ const scenarioFixture = JSON.parse(fs.readFileSync(
 ));
 const scenarioExpectations = scenarioFixture.scenarios.map((scenario) => scenario.expected);
 const knownTransitionTargetIds = new Set(['chapter-1-the-empty-convoy']);
+const openOrdersDefinition = JSON.parse(fs.readFileSync(
+    'packages/bundled/breckenridge/v1/open-orders-1-work-worth-doing.mission-v1.json',
+    'utf8',
+));
+const openOrdersScenarios = JSON.parse(fs.readFileSync(
+    'tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json',
+    'utf8',
+));
 
 function lint(candidate, overrides = {}) {
     return lintMissionPackage({
@@ -27,6 +35,20 @@ const valid = lint(definition);
 assert.equal(valid.ok, true, valid.errors.join('\n'));
 assert.deepEqual(valid.errors, []);
 assert.deepEqual(valid, lint(definition), 'lint order and output must be deterministic');
+
+const initiallyKnown = lintMissionPackage({
+    definition: openOrdersDefinition,
+    knownTransitionTargetIds: new Set(['chapter-3-dead-letters']),
+    scenarioExpectations: openOrdersScenarios.scenarios.map((scenario) => scenario.expected),
+});
+assert.equal(initiallyKnown.ok, true, initiallyKnown.errors.join('\n'));
+assert.equal(
+    openOrdersDefinition.evidencePolicies.some((policy) => (
+        policy.claimType === 'factDisclosed' && policy.targetId === 'fact.open-orders1.opportunities'
+    )),
+    false,
+    'an initially known fact does not need a redundant disclosure policy',
+);
 
 const spoilerDefinition = structuredClone(definition);
 spoilerDefinition.playerText.summary = 'Complete the command handover and uncover the Hesperus fraud.';

@@ -48,22 +48,10 @@
   ],
   "evidencePolicies": [
     {
-      "id": "policy.open-orders1.opportunities-disclosed",
-      "claimType": "factDisclosed",
-      "targetId": "fact.open-orders1.opportunities",
-      "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "worldFact": "fact.open-orders1.opportunities" },
-      "interpretation": {
-        "evidenceStandard": "explicit",
-        "guidance": "Claim only when accepted assistant prose communicates all three available assignments and the normal two-assignment versus delegated-or-overextended three-assignment load.",
-        "exclusions": ["Naming one assignment or saying the ship has open orders does not disclose the complete choice and load boundary."]
-      }
-    },
-    {
       "id": "policy.open-orders1.long-repair-engagement",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.long-repair-engagement",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           { "factKnown": "fact.open-orders1.opportunities" },
@@ -131,7 +119,7 @@
       "id": "policy.open-orders1.borrowed-wings-engagement",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.borrowed-wings-engagement",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           { "factKnown": "fact.open-orders1.opportunities" },
@@ -199,7 +187,7 @@
       "id": "policy.open-orders1.quiet-channels-engagement",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.quiet-channels-engagement",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           { "factKnown": "fact.open-orders1.opportunities" },
@@ -267,7 +255,7 @@
       "id": "policy.open-orders1.conclude-after-two",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.conclusion",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           {
@@ -314,7 +302,7 @@
       "id": "policy.open-orders1.conclude-broad-coverage",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.conclusion",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
@@ -340,7 +328,7 @@
       "id": "policy.open-orders1.conclude-overextended",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.conclusion",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": {
         "all": [
           { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
@@ -362,7 +350,7 @@
       "id": "policy.open-orders1.depart-early",
       "claimType": "decisionRecorded",
       "targetId": "outcome.open-orders1.conclusion",
-      "sourceRoles": ["user", "assistant", "runtime", "adjudicator"],
+      "sourceRoles": ["user"],
       "when": { "factKnown": "fact.open-orders1.opportunities" },
       "interpretation": {
         "evidenceStandard": "explicit",
@@ -495,7 +483,15 @@
         { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "assetEarned" } } },
         { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "resolvedWithLimits" } } },
         { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "failedInformed" } } },
-        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "declined" } } }
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
       ],
       "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
       "playerText": {
@@ -521,7 +517,15 @@
         { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "assetEarned" } } },
         { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "resolvedWithLimits" } } },
         { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "failedInformed" } } },
-        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "declined" } } }
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
       ],
       "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
       "playerText": {
@@ -547,7 +551,15 @@
         { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "assetEarned" } } },
         { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "resolvedWithLimits" } } },
         { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "failedInformed" } } },
-        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "declined" } } }
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
       ],
       "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
       "playerText": {
@@ -629,7 +641,7 @@
     },
     {
       "id": "limitedWorkForward",
-      "priority": 300,
+      "priority": 450,
       "when": {
         "any": [
           { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "equals": "failedAfterInformedAction" } },

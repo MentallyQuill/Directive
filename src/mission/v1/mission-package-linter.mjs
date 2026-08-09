@@ -60,7 +60,10 @@ function lintEvidenceCoverage(definition, errors) {
         if (fact.initiallyTrue !== true && !hasUsablePolicy(definition, fact.id, ['worldFactEstablished'])) {
             errors.push(`${fact.id} can never become true because it has no worldFactEstablished policy`);
         }
-        if (fact.visibility !== 'hidden' && !hasUsablePolicy(definition, fact.id, ['factDisclosed'])) {
+        const isInitiallyKnown = fact.initiallyTrue === true && fact.visibility === 'known';
+        if (fact.visibility !== 'hidden'
+            && !isInitiallyKnown
+            && !hasUsablePolicy(definition, fact.id, ['factDisclosed'])) {
             errors.push(`${fact.id} has no usable disclosure evidence policy`);
         }
     }

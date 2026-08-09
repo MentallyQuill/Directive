@@ -211,7 +211,7 @@ const declinedSnapshot = snapshot(3, {
 const declined = await mainHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: declinedSnapshot });
 assert.equal(declined.status, 'settled');
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders1.quiet-channels-engagement'], 'declined');
-assert.equal(mainHarness.campaignState.mission.v1.objectives['objective.open-orders1.quiet-channels'].disposition, 'knowinglyDeclined');
+assert.equal(mainHarness.campaignState.mission.v1.objectives['objective.open-orders1.quiet-channels'].disposition, null);
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders1.quiet-channels-result'], 'pending');
 
 const prematureDelegatedResult = await mainHarness.runtime.settleAcceptedPair({
@@ -348,6 +348,7 @@ const conclusion = await mainHarness.runtime.settleAcceptedPair({ runtimeAssets,
 assert.equal(conclusion.status, 'settled');
 assert.equal(mainHarness.campaignState.mission.v1.status, 'terminal');
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders1.conclusion'], 'concludeAfterTwo');
+assert.equal(mainHarness.campaignState.mission.v1.objectives['objective.open-orders1.quiet-channels'].disposition, 'knowinglyDeclined');
 assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
 const finalState = structuredClone(mainHarness.campaignState);
 
@@ -481,6 +482,23 @@ assert.equal(quietHarness.runtime.preparePendingDutyReport({
     sourceTransactionId: 'transaction.open-orders1.none',
 }).status, 'no-pending-report');
 assert.deepEqual(legacyRoots(quietHarness.campaignState), quietRoots);
+
+const assistantDecisionHarness = createHarness({
+    outputs: [interpretation([
+        candidate('policy.open-orders1.long-repair-engagement', 'previousAssistant', 'direct'),
+    ])],
+});
+const assistantDecision = await assistantDecisionHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(21, {
+        assistantText: 'The narration declares that the XO personally accepts the Long Repair.',
+        playerText: 'I listen without making that decision.',
+    }),
+});
+assert.equal(assistantDecision.status, 'unavailable');
+assert.equal(assistantDecision.ok, false, 'an unauthorized assistant decision fails closed');
+assert.equal(assistantDecisionHarness.campaignState.mission.v1, undefined);
+assert.equal(assistantDecisionHarness.persistCount, 0, 'assistant prose cannot persist a player-owned decision');
 
 assert.equal(mainHarness.generationCount, 10, 'report preparation and source rebuild add no provider calls');
 assert.equal(longReportSnapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned, true);

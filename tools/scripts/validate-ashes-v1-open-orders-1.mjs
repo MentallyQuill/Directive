@@ -50,6 +50,15 @@ if (scenarios.definitionId !== definition.id) errors.push('scenario fixture defi
 if ((definition.clocks || []).length !== 0) errors.push('Open Orders I cannot add a clock without an authored deadline');
 if ((definition.reportRoutes || []).length !== 3) errors.push('Open Orders I must use exactly three aggregate assessment reports');
 
+const initiallyKnownFactIds = new Set((definition.facts || [])
+    .filter((fact) => fact.initiallyTrue === true && fact.visibility === 'known')
+    .map((fact) => fact.id));
+for (const policy of definition.evidencePolicies || []) {
+    if (policy.claimType === 'factDisclosed' && initiallyKnownFactIds.has(policy.targetId)) {
+        errors.push(`${policy.id} redundantly records an initially known fact`);
+    }
+}
+
 const knownActorIds = new Set((crewData.officers || []).map((officer) => officer.id));
 for (const route of definition.reportRoutes || []) {
     for (const actorId of [...(route.preferredActorIds || []), ...(route.fallbackActorIds || [])]) {
@@ -76,7 +85,8 @@ if (!closeWhenText.includes('objective.open-orders1.conclusion')) {
 
 for (const assignment of ['long-repair', 'borrowed-wings', 'quiet-channels']) {
     const engagementPolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.open-orders1.${assignment}-engagement`);
-    if (engagementPolicy?.claimType !== 'decisionRecorded' || !engagementPolicy?.sourceRoles?.includes('user')) {
+    if (engagementPolicy?.claimType !== 'decisionRecorded'
+        || JSON.stringify(engagementPolicy?.sourceRoles) !== JSON.stringify(['user'])) {
         errors.push(`${assignment} engagement is not a player-provable decision`);
     }
     const resultPolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.open-orders1.${assignment}-result`);
@@ -85,11 +95,26 @@ for (const assignment of ['long-repair', 'borrowed-wings', 'quiet-channels']) {
     }
 }
 
+for (const policyId of [
+    'policy.open-orders1.conclude-after-two',
+    'policy.open-orders1.conclude-broad-coverage',
+    'policy.open-orders1.conclude-overextended',
+    'policy.open-orders1.depart-early',
+]) {
+    const policy = definition.evidencePolicies.find((candidate) => candidate.id === policyId);
+    if (policy?.claimType !== 'decisionRecorded'
+        || JSON.stringify(policy?.sourceRoles) !== JSON.stringify(['user'])) {
+        errors.push(`${policyId} is not exclusively player-owned`);
+    }
+}
+
 const scenarioById = new Map(scenarios.scenarios.map((scenario) => [scenario.id, scenario]));
 const two = scenarioById.get('two-assignment-normal');
 const broad = scenarioById.get('broad-coverage-with-delegation');
 const overextended = scenarioById.get('three-direct-overextension');
+const overextendedFailure = scenarioById.get('overextended-with-informed-failure');
 const early = scenarioById.get('early-departure');
+const reconsidered = scenarioById.get('decline-then-reconsider');
 if (two?.expected?.outcomeDimensions?.['dimension.open-orders1.load'] !== 'normal-two') {
     errors.push('fixtures do not prove the normal two-assignment load');
 }
@@ -101,8 +126,15 @@ if (overextended?.sequence?.some((fragment) => fragment.endsWith('-delegated'))
     || overextended?.expected?.outcomeDimensions?.['dimension.open-orders1.load'] !== 'overextended-direct') {
     errors.push('fixtures do not prove all-direct overextension');
 }
+if (overextendedFailure?.expected?.terminalDisposition !== 'limitedWorkForward'
+    || overextendedFailure?.expected?.outcomeDimensions?.['dimension.open-orders1.load'] !== 'overextended-direct') {
+    errors.push('fixtures do not prove informed failure outranks generic overextension while retaining load cost');
+}
 if (early?.sequence?.[0] !== 'depart-early' || early.expected?.terminalDisposition !== 'earlyDepartureForward') {
     errors.push('fixtures do not prove explicit player-known early departure');
+}
+if (reconsidered?.expected?.objectiveDispositions?.['objective.open-orders1.long-repair'] !== 'completed') {
+    errors.push('fixtures do not prove a provisional decline can be reconsidered before interval conclusion');
 }
 
 const reachedTerminalDispositions = new Set(scenarioExpectations.map((expected) => expected.terminalDisposition).filter(Boolean));
