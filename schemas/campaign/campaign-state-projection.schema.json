@@ -81,7 +81,9 @@
           "type": "object",
           "additionalProperties": true,
           "properties": {
-            "v1": { "type": "object" }
+            "v1": { "type": "object" },
+            "v1Journey": { "type": "object" },
+            "v1History": { "type": "array", "items": { "type": "object" } }
           }
         },
         "storySettlement": {
