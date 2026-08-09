@@ -1,0 +1,299 @@
+{
+  "kind": "directive.ashesV1Chapter6Scenarios.v1",
+  "definitionId": "mission.chapter-6-the-cost-of-knowing",
+  "fragments": {
+    "rourke-conditional": [
+      { "claimId": "claim.chapter6.rourke-conditional", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "conditionalCooperation", "sourceRole": "user" }
+    ],
+    "rourke-restrict": [
+      { "claimId": "claim.chapter6.rourke-restrict", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "restrictAccess", "sourceRole": "user" }
+    ],
+    "rourke-relieve": [
+      { "claimId": "claim.chapter6.rourke-relieve", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "relieveOrDetain", "sourceRole": "user" }
+    ],
+    "rourke-accept": [
+      { "claimId": "claim.chapter6.rourke-accept", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "acceptAuthority", "sourceRole": "user" }
+    ],
+    "crisis-active": [
+      { "claimId": "claim.chapter6.crisis-active", "policyId": "policy.chapter6.false-emergency-active", "claimType": "eventOccurred", "targetId": "event.chapter6.false-emergency-active", "sourceRole": "assistant" }
+    ],
+    "network-isolate": [
+      { "claimId": "claim.chapter6.network-isolate", "policyId": "policy.chapter6.network-response", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.network-response", "value": "isolateAndVerify", "sourceRole": "user" }
+    ],
+    "network-countermand": [
+      { "claimId": "claim.chapter6.network-countermand", "policyId": "policy.chapter6.network-response", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.network-response", "value": "countermandAndContain", "sourceRole": "user" }
+    ],
+    "network-controlled": [
+      { "claimId": "claim.chapter6.network-controlled", "policyId": "policy.chapter6.network-response", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.network-response", "value": "controlledCountermeasure", "sourceRole": "user" }
+    ],
+    "network-follow": [
+      { "claimId": "claim.chapter6.network-follow", "policyId": "policy.chapter6.network-response", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.network-response", "value": "followRecall", "sourceRole": "user" }
+    ],
+    "network-handoff": [
+      { "claimId": "claim.chapter6.network-handoff", "policyId": "policy.chapter6.network-response", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.network-response", "value": "responsibleHandoff", "sourceRole": "user" }
+    ],
+    "network-contained": [
+      { "claimId": "claim.chapter6.network-contained", "policyId": "policy.chapter6.network-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.network-result", "value": "contained", "sourceRole": "assistant" }
+    ],
+    "network-exposure": [
+      { "claimId": "claim.chapter6.network-exposure", "policyId": "policy.chapter6.network-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.network-result", "value": "containedWithExposure", "sourceRole": "assistant" }
+    ],
+    "network-spread": [
+      { "claimId": "claim.chapter6.network-spread", "policyId": "policy.chapter6.network-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.network-result", "value": "additionalCredentialSpread", "sourceRole": "assistant" }
+    ],
+    "network-disrupted": [
+      { "claimId": "claim.chapter6.network-disrupted", "policyId": "policy.chapter6.network-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.network-result", "value": "commandDisrupted", "sourceRole": "assistant" }
+    ],
+    "network-handed-off": [
+      { "claimId": "claim.chapter6.network-handed-off", "policyId": "policy.chapter6.network-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.network-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "account-archive-report": [
+      { "claimId": "claim.chapter6.account-archive", "policyId": "policy.chapter6.farwatch-account-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.farwatch-account-route", "value": "lacunaArchive", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.account-archive-disclosed", "policyId": "policy.chapter6.farwatch-account-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.farwatch-operational-account", "sourceRole": "assistant" }
+    ],
+    "account-corroborated-report": [
+      { "claimId": "claim.chapter6.account-corroborated", "policyId": "policy.chapter6.farwatch-account-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.farwatch-account-route", "value": "corroboratedTestimony", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.account-corroborated-disclosed", "policyId": "policy.chapter6.farwatch-account-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.farwatch-operational-account", "sourceRole": "assistant" }
+    ],
+    "account-external-report": [
+      { "claimId": "claim.chapter6.account-external", "policyId": "policy.chapter6.farwatch-account-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.farwatch-account-route", "value": "externalReview", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.account-external-disclosed", "policyId": "policy.chapter6.farwatch-account-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.farwatch-operational-account", "sourceRole": "assistant" }
+    ],
+    "risk-telemetry-report": [
+      { "claimId": "claim.chapter6.risk-telemetry", "policyId": "policy.chapter6.nightfall-risk-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.nightfall-risk-route", "value": "lacunaTelemetry", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.risk-telemetry-disclosed", "policyId": "policy.chapter6.nightfall-risk-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.authenticated-pathway-nightfall-risk", "sourceRole": "assistant" }
+    ],
+    "risk-cross-system-report": [
+      { "claimId": "claim.chapter6.risk-cross-system", "policyId": "policy.chapter6.nightfall-risk-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.nightfall-risk-route", "value": "crossSystemCorroboration", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.risk-cross-system-disclosed", "policyId": "policy.chapter6.nightfall-risk-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.authenticated-pathway-nightfall-risk", "sourceRole": "assistant" }
+    ],
+    "risk-inference-report": [
+      { "claimId": "claim.chapter6.risk-inference", "policyId": "policy.chapter6.nightfall-risk-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.nightfall-risk-route", "value": "operationalInference", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.risk-inference-disclosed", "policyId": "policy.chapter6.nightfall-risk-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.authenticated-pathway-nightfall-risk", "sourceRole": "assistant" }
+    ],
+    "evidence-joint": [
+      { "claimId": "claim.chapter6.evidence-joint", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "jointIndependentCustody", "sourceRole": "user" }
+    ],
+    "evidence-sealed": [
+      { "claimId": "claim.chapter6.evidence-sealed", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "sealedReview", "sourceRole": "user" }
+    ],
+    "evidence-public": [
+      { "claimId": "claim.chapter6.evidence-public", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "publicRelease", "sourceRole": "user" }
+    ],
+    "evidence-destroy": [
+      { "claimId": "claim.chapter6.evidence-destroy", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "destroyWithoutIndependentRecord", "sourceRole": "user" }
+    ],
+    "evidence-handoff": [
+      { "claimId": "claim.chapter6.evidence-handoff", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "responsibleHandoff", "sourceRole": "user" }
+    ],
+    "evidence-asset": [
+      { "claimId": "claim.chapter6.evidence-asset", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "assetSecured", "sourceRole": "assistant" }
+    ],
+    "evidence-preserved": [
+      { "claimId": "claim.chapter6.evidence-preserved", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "preservedWithoutAsset", "sourceRole": "assistant" }
+    ],
+    "evidence-public-copy": [
+      { "claimId": "claim.chapter6.evidence-public-copy", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "publicCopy", "sourceRole": "assistant" }
+    ],
+    "evidence-partial": [
+      { "claimId": "claim.chapter6.evidence-partial", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "partialEvidence", "sourceRole": "assistant" }
+    ],
+    "evidence-lost": [
+      { "claimId": "claim.chapter6.evidence-lost", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "lostOrPurged", "sourceRole": "assistant" }
+    ],
+    "evidence-seized": [
+      { "claimId": "claim.chapter6.evidence-seized", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "farwatchSeized", "sourceRole": "assistant" }
+    ],
+    "evidence-handed-off": [
+      { "claimId": "claim.chapter6.evidence-handed-off", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "rourke-cooperative": [
+      { "claimId": "claim.chapter6.rourke-cooperative", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "cooperativeRestricted", "sourceRole": "assistant" }
+    ],
+    "rourke-retained": [
+      { "claimId": "claim.chapter6.rourke-retained", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "retainedUnderSafeguards", "sourceRole": "assistant" }
+    ],
+    "rourke-relieved-result": [
+      { "claimId": "claim.chapter6.rourke-relieved-result", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "relieved", "sourceRole": "assistant" }
+    ],
+    "rourke-detained": [
+      { "claimId": "claim.chapter6.rourke-detained", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "detained", "sourceRole": "assistant" }
+    ],
+    "rourke-departed": [
+      { "claimId": "claim.chapter6.rourke-departed", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "departedWithFarwatch", "sourceRole": "assistant" }
+    ],
+    "rourke-handed-off": [
+      { "claimId": "claim.chapter6.rourke-handed-off", "policyId": "policy.chapter6.rourke-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.rourke-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "info-private": [
+      { "claimId": "claim.chapter6.info-private", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "privateBriefing", "sourceRole": "assistant" }
+    ],
+    "info-public-framework": [
+      { "claimId": "claim.chapter6.info-public-framework", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "publicFramework", "sourceRole": "assistant" }
+    ],
+    "info-unilateral": [
+      { "claimId": "claim.chapter6.info-unilateral", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "unilateralPublic", "sourceRole": "assistant" }
+    ],
+    "info-delayed": [
+      { "claimId": "claim.chapter6.info-delayed", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "delayedDisclosure", "sourceRole": "assistant" }
+    ],
+    "info-none": [
+      { "claimId": "claim.chapter6.info-none", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "notInformed", "sourceRole": "assistant" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "accountable-preservation",
+      "sequence": ["rourke-restrict", "crisis-active", "network-isolate", "network-contained", "account-archive-report", "risk-telemetry-report", "evidence-joint", "evidence-asset", "rourke-cooperative", "info-public-framework"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountablePreservation", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "outcomeDimensions": { "dimension.chapter6.network": "contained", "dimension.chapter6.evidence": "farwatch-evidence-package", "dimension.chapter6.information": "public-framework", "dimension.chapter6.rourke": "cooperative-restricted" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "controlled-secrecy",
+      "sequence": ["rourke-conditional", "crisis-active", "network-countermand", "network-exposure", "account-corroborated-report", "risk-cross-system-report", "evidence-sealed", "evidence-preserved", "rourke-retained", "info-delayed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "controlledSecrecy", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "outcomeDimensions": { "dimension.chapter6.network": "contained-with-exposure", "dimension.chapter6.evidence": "preserved-without-asset", "dimension.chapter6.information": "delayed-disclosure", "dimension.chapter6.rourke": "retained-under-safeguards" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "public-rupture",
+      "sequence": ["rourke-relieve", "crisis-active", "network-controlled", "network-contained", "account-archive-report", "risk-telemetry-report", "evidence-public", "evidence-public-copy", "rourke-relieved-result", "info-unilateral"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "publicRupture", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "evidence-lost-before-knowledge",
+      "sequence": ["evidence-lost", "rourke-departed", "info-private", "crisis-active", "network-isolate", "network-contained", "account-corroborated-report", "risk-cross-system-report"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "evidenceLostForward", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter6.evidence": "lost-or-purged" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "evidence-lost-after-informed-choice",
+      "sequence": ["account-archive-report", "risk-telemetry-report", "evidence-destroy", "evidence-lost", "rourke-relieve", "rourke-detained", "info-private", "crisis-active", "network-countermand", "network-contained"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "evidenceLostForward", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter6.evidence": "lost-or-purged", "dimension.chapter6.rourke": "detained" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "operational-rupture",
+      "sequence": ["crisis-active", "network-follow", "network-spread", "account-corroborated-report", "risk-cross-system-report", "evidence-partial", "rourke-retained", "info-delayed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "operationalRuptureForward", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter6.network": "additional-credential-spread" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "responsible-mixed-handoff",
+      "sequence": ["crisis-active", "network-handoff", "network-handed-off", "account-external-report", "risk-inference-report", "evidence-handoff", "evidence-handed-off", "rourke-handed-off", "info-private"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter6.network": "handed-off", "dimension.chapter6.evidence": "handed-off", "dimension.chapter6.rourke": "handed-off" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "non-linear-world-results-before-reports",
+      "sequence": ["evidence-asset", "rourke-cooperative", "info-private", "crisis-active", "network-isolate", "network-contained", "risk-inference-report", "account-external-report"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountablePreservation", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "choices-alone-do-not-close",
+      "sequence": ["rourke-restrict", "crisis-active", "network-isolate"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": null, "objective.chapter6.farwatch-truth": null, "objective.chapter6.evidence-authority": null },
+        "knownFactsExcludes": ["fact.chapter6.farwatch-operational-account", "fact.chapter6.authenticated-pathway-nightfall-risk"]
+      }
+    },
+    {
+      "id": "evidence-choice-before-account-report",
+      "steps": [
+        { "claimId": "claim.chapter6.premature-evidence-choice", "policyId": "policy.chapter6.evidence-disposition", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.evidence-disposition", "value": "jointIndependentCustody", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "crisis-alone-does-not-settle-network",
+      "sequence": ["crisis-active"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter6.command-network": null } }
+    },
+    {
+      "id": "network-result-before-crisis",
+      "sequence": ["network-contained"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"], "objectiveDispositions": { "objective.chapter6.command-network": null } }
+    },
+    {
+      "id": "premature-account-report",
+      "steps": [
+        { "claimId": "claim.chapter6.premature-account-report", "policyId": "policy.chapter6.farwatch-account-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.farwatch-operational-account", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"], "knownFactsExcludes": ["fact.chapter6.farwatch-operational-account"] }
+    },
+    {
+      "id": "premature-nightfall-report",
+      "steps": [
+        { "claimId": "claim.chapter6.premature-risk-report", "policyId": "policy.chapter6.nightfall-risk-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter6.authenticated-pathway-nightfall-risk", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"], "knownFactsExcludes": ["fact.chapter6.authenticated-pathway-nightfall-risk"] }
+    },
+    {
+      "id": "assistant-cannot-set-rourke-boundary",
+      "steps": [
+        { "claimId": "claim.chapter6.assistant-rourke-boundary", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "restrictAccess", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "user-cannot-self-certify-world-result",
+      "steps": [
+        { "claimId": "claim.chapter6.user-evidence-result", "policyId": "policy.chapter6.evidence-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.evidence-result", "value": "assetSecured", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.chapter6.stale-rourke-boundary", "policyId": "policy.chapter6.rourke-boundary", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "restrictAccess", "sourceRole": "user", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.chapter6.wrong-swipe-account-route", "policyId": "policy.chapter6.farwatch-account-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.farwatch-account-route", "value": "lacunaArchive", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.chapter6.unknown-policy", "policyId": "policy.chapter6.invented", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "restrictAccess", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}
