@@ -101,13 +101,13 @@ function settleScenario({ definition, fixture, scenarioId }) {
     return state;
 }
 
-function storySettlementForScenario(fixture, scenarioId) {
+function storySettlementForScenario(fixture, scenarioId, definition = preludeDefinition) {
     const { steps } = stepsForScenario(fixture, scenarioId);
     let settlement = createEmptyStorySettlement({ branchId });
     settlement = openStoryEpisode(settlement, {
         episodeId: `episode.${scenarioId}`,
         sceneId: `scene.${scenarioId}`,
-        references: { missionIds: [preludeDefinition.id] },
+        references: { missionIds: [definition.id] },
     });
     const contributions = steps.map((step, index) => {
         const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${scenarioId}.${index + 1}` : null;
@@ -266,7 +266,10 @@ const terminalChapter = settleScenario({
     fixture: chapterScenarios,
     scenarioId: 'cooperative-success',
 });
+const chapterStory = storySettlementForScenario(chapterScenarios, 'cooperative-success', chapterDefinition);
+const chapterMutationMessageId = chapterStory.contributions[0].messageId;
 campaignState.mission.v1 = terminalChapter;
+campaignState.storySettlement = chapterStory.settlement;
 const chapterJourney = validateMissionJourney({
     campaignState,
     definitions: [preludeDefinition, chapterDefinition],
@@ -278,6 +281,7 @@ assert.equal(chapterPending.status, 'pending');
 assert.equal(chapterPending.reasonCode, 'transition-target-definition-unavailable');
 assert.equal(chapterPending.targetDefinitionId, null);
 assert.equal(chapterPending.activatable, false);
+const preChapter2ActivationCampaignState = structuredClone(campaignState);
 
 const chapterReady = runtime.inspectPendingTransition({ runtimeAssets: chapter2Assets });
 assert.equal(chapterReady.ok, true);
@@ -378,7 +382,6 @@ function createMutationHarness(initialState) {
 for (const [label, initialState, runtimeAssets] of [
     ['before-activation', preActivationCampaignState, completeAssets],
     ['after-activation', activatedCampaignState, completeAssets],
-    ['after-chapter2-activation', chapter2ActivatedCampaignState, chapter2Assets],
 ]) {
     const mutation = createMutationHarness(initialState);
     const result = await mutation.mutationRuntime.invalidateSourceMutation({
@@ -394,6 +397,27 @@ for (const [label, initialState, runtimeAssets] of [
     assert.equal(mutation.state.mission.v1Journey.revision, 0, label);
     assert.equal(JSON.stringify(mutation.state.mission.v1).includes('objective.chapter1.'), false, label);
     assert.equal(mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
+
+for (const [label, initialState] of [
+    ['before-chapter2-activation', preChapter2ActivationCampaignState],
+    ['after-chapter2-activation', chapter2ActivatedCampaignState],
+]) {
+    const chapterMutation = createMutationHarness(initialState);
+    const chapterMutationResult = await chapterMutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: chapter2Assets,
+        hostMessageId: chapterMutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(chapterMutationResult.ok, true, label);
+    assert.equal(chapterMutationResult.status, 'invalidated', label);
+    assert.equal(chapterMutation.state.mission.v1.definitionId, chapterDefinition.id, label);
+    assert.equal(chapterMutation.state.mission.v1.status, 'active', label);
+    assert.equal(chapterMutation.state.mission.v1History.length, 1, label);
+    assert.equal(chapterMutation.state.mission.v1History[0].definitionId, preludeDefinition.id, label);
+    assert.equal(chapterMutation.state.mission.v1Journey.revision, 1, label);
+    assert.equal(JSON.stringify(chapterMutation.state.mission.v1).includes('objective.chapter2.'), false, label);
+    assert.equal(chapterMutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
 }
 
 console.log('Ashes V1 Prelude through Chapter 2 handoff tests passed.');

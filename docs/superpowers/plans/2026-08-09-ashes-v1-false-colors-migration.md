@@ -122,13 +122,13 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Prove varied natural-language prose can settle authored Chapter 2 evidence without reducer prose matching.
-- [ ] Prove one accepted exchange may settle several high-value claims into one mission aggregate without creating tracker rows.
-- [ ] Prove required report claims are stripped without an accepted selected-swipe Duty Report manifest.
-- [ ] Prove all three reports deliver once, communicate the same fact they commit, and tolerate different valid delivery order where causal gates permit.
-- [ ] Prove swipe/edit/delete invalidates all source-owned claims and deterministically rebuilds state without a provider call.
-- [ ] Prove mutation before activation repairs Empty Convoy only; mutation after activation can roll the journey back and prune False Colors descendants.
-- [ ] Prove unrelated prose creates no mission evidence or unrelated tracking-root changes.
+- [x] Prove varied natural-language prose can settle authored Chapter 2 evidence without reducer prose matching.
+- [x] Prove one accepted exchange may settle several high-value claims into one mission aggregate without creating tracker rows.
+- [x] Prove required report claims are stripped without an accepted selected-swipe Duty Report manifest.
+- [x] Prove all three reports deliver once, communicate the same fact they commit, and tolerate different valid delivery order where causal gates permit.
+- [x] Prove swipe/edit/delete invalidates all source-owned claims and deterministically rebuilds state without a provider call.
+- [x] Prove mutation before activation repairs Empty Convoy only; mutation after activation can roll the journey back and prune False Colors descendants.
+- [x] Prove unrelated prose creates no mission evidence or unrelated tracking-root changes.
 
 ## Task 6: Adversarial Review and Certification
 
