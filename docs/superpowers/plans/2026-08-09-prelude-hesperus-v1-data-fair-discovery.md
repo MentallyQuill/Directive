@@ -320,11 +320,11 @@ feat(mission): plan fair Duty Reports
 - Consumes: V1 mission, evidence-policy, predicate, reducer, and Duty Report contracts.
 - Produces: the canonical V1 Prelude definition and scenario matrix used by later interpretation and runtime-cutover work.
 
-- [ ] **Step 1: Write the failing package-definition test**
+- [x] **Step 1: Write the failing package-definition test**
 
 Load the canonical file, validate it, assert its stable package binding, and assert the initial projection contains no case-insensitive match for `fraud`, `falsif`, `corrupt`, `inspection`, or hidden objective counts.
 
-- [ ] **Step 2: Author four high-value primary objectives**
+- [x] **Step 2: Author four high-value primary objectives**
 
 Use state predicates for:
 
@@ -335,15 +335,15 @@ Use state predicates for:
 
 The first two may progress in either order. The Hesperus rescue activates from an authored distress fact/report route rather than display sequence. Final review depends only on genuine readiness and rescue prerequisites. Do not store percentages.
 
-- [ ] **Step 3: Author the spoiler-safe Hesperus discovery ladder**
+- [x] **Step 3: Author the spoiler-safe Hesperus discovery ladder**
 
 Create distinct initially true or authoritatively established facts for observable distress, passenger risk, injector limits, record inconsistency, material record discrepancy, confirmed falsification, and supported owner attribution. Each disclosure has an exact evidence policy and player-safe report route. The optional accountability objective activates only after confirmed falsification is player-known.
 
-- [ ] **Step 4: Author outcomes, clock, and terminal transitions**
+- [x] **Step 4: Author outcomes, clock, and terminal transitions**
 
 Keep rescue quality, cost, optional accountability, command readiness, and arrival condition as separate outcome dimensions. The Hesperus clock begins causally when distress is established but becomes visible only when its risk basis is player-known. Primary success, primary success with cost, and limited/failure-forward terminal dispositions transition exactly once to `chapter-1-the-empty-convoy`.
 
-- [ ] **Step 5: Author the scenario matrix**
+- [x] **Step 5: Author the scenario matrix**
 
 Include machine-readable claim sequences for:
 
@@ -358,7 +358,7 @@ Include machine-readable claim sequences for:
 - unsupported player self-declared success;
 - stale, wrong-swipe, and hallucinated-policy proposals.
 
-- [ ] **Step 6: Run and commit Task 4**
+- [x] **Step 6: Run and commit Task 4**
 
 Run: `node tools/scripts/test-ashes-v1-prelude-mission.mjs`
 

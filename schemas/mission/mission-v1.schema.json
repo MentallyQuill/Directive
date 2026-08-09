@@ -9,6 +9,7 @@
     "schemaVersion",
     "id",
     "version",
+    "packageBinding",
     "playerText",
     "facts",
     "evidencePolicies",
@@ -27,6 +28,7 @@
     "schemaVersion": { "const": 1 },
     "id": { "$ref": "#/$defs/stableId" },
     "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "packageBinding": { "$ref": "#/$defs/packageBinding" },
     "playerText": { "$ref": "#/$defs/playerText" },
     "facts": {
       "type": "array",
@@ -77,6 +79,16 @@
     "stableId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "packageBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "packageVersion", "sourceId"],
+      "properties": {
+        "packageId": { "$ref": "#/$defs/stableId" },
+        "packageVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "sourceId": { "$ref": "#/$defs/stableId" }
+      }
     },
     "playerText": {
       "type": "object",

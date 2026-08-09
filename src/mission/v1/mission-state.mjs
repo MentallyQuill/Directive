@@ -28,6 +28,7 @@ export function createMissionState({ definition = {}, branchId = 'main' } = {}) 
         schemaVersion: 1,
         definitionId: definition.id,
         definitionVersion: definition.version,
+        packageBinding: structuredClone(definition.packageBinding),
         branchId,
         revision: 0,
         status: 'active',

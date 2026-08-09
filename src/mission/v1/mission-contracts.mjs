@@ -260,6 +260,15 @@ export function validateMissionDefinition(definition = {}) {
     if (definition?.schemaVersion !== 1) errors.push('schemaVersion must be 1');
     if (!isStableId(definition?.id)) errors.push('mission id must be a stable id');
     if (!isNonEmptyString(definition?.version)) errors.push('version must be a non-empty string');
+    if (!isStableId(definition?.packageBinding?.packageId)) {
+        errors.push('packageBinding packageId must be a stable id');
+    }
+    if (!isNonEmptyString(definition?.packageBinding?.packageVersion)) {
+        errors.push('packageBinding packageVersion must be a non-empty string');
+    }
+    if (!isStableId(definition?.packageBinding?.sourceId)) {
+        errors.push('packageBinding sourceId must be a stable id');
+    }
     if (!isNonEmptyString(definition?.playerText?.title) || !isNonEmptyString(definition?.playerText?.summary)) {
         errors.push('playerText requires a non-empty title and summary');
     }

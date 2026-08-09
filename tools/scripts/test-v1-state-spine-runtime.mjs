@@ -96,6 +96,21 @@ assert.deepEqual(campaignState.ship, { legacyCondition: 'unchanged' });
 assert.deepEqual(campaignState.relationships, { legacyRelationship: 'unchanged' });
 assert.deepEqual(campaignState.commandBearing, { current: 2 });
 
+assert.throws(
+    () => spine.reduceMissionProposal({
+        definition: {
+            ...definition,
+            packageBinding: {
+                ...definition.packageBinding,
+                packageVersion: '0.4.0',
+            },
+        },
+        proposal: { ...proposal, baseRevision: 1 },
+        sourceContribution,
+    }),
+    (error) => error.code === 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED',
+);
+
 await assert.rejects(
     () => spine.settleAcceptedPair({
         definition,

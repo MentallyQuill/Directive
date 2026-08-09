@@ -13,6 +13,7 @@ assert.equal(missionSchema.$schema, 'https://json-schema.org/draft/2020-12/schem
 assert.equal(missionSchema.additionalProperties, false);
 assert.equal(missionSchema.properties.kind.const, 'directive.missionDefinition.v1');
 for (const boundary of [
+    'packageBinding',
     'playerText',
     'objective',
     'fact',
@@ -31,6 +32,7 @@ assert.equal(Array.isArray(missionSchema.$defs.predicate.oneOf), true);
 assert.equal(missionSchema.$defs.fact.required.includes('initiallyTrue'), true);
 assert.equal(missionSchema.required.includes('evidencePolicies'), true);
 assert.equal(missionSchema.required.includes('reportRoutes'), true);
+assert.equal(missionSchema.required.includes('packageBinding'), true);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('modelInstructions'), false);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('sourceCode'), false);
 assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('worldFactEstablished'), true);
@@ -44,6 +46,11 @@ const referenceMission = {
     schemaVersion: 1,
     id: 'mission.hesperus-reference',
     version: '1.0.0',
+    packageBinding: {
+        packageId: 'directive:campaign-package:breckenridge-ashes-of-peace',
+        packageVersion: '0.3.0-pre-alpha.1',
+        sourceId: 'prelude-a-ship-underway',
+    },
     playerText: {
         title: 'Hesperus Diversion',
         summary: 'Protect the people aboard the disabled vessel and secure a safe disposition.',
@@ -341,6 +348,7 @@ for (const [label, definition, pattern] of [
     ['schema version', { ...referenceMission, schemaVersion: 2 }, /schemaVersion/],
     ['id', { ...referenceMission, id: '' }, /mission id/],
     ['version', { ...referenceMission, version: '' }, /version/],
+    ['package binding', { ...referenceMission, packageBinding: null }, /packageBinding/],
     ['player text', { ...referenceMission, playerText: { title: '', summary: '' } }, /playerText/],
     ['objectives', { ...referenceMission, objectives: null }, /objectives/],
     ['facts', { ...referenceMission, facts: null }, /facts/],
@@ -354,6 +362,18 @@ for (const [label, definition, pattern] of [
     ['transitions', { ...referenceMission, transitions: null }, /transitions/],
 ]) {
     assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
+}
+
+for (const [label, packageBinding, pattern] of [
+    ['package id', { ...referenceMission.packageBinding, packageId: '' }, /packageBinding packageId/],
+    ['package version', { ...referenceMission.packageBinding, packageVersion: '' }, /packageBinding packageVersion/],
+    ['package source', { ...referenceMission.packageBinding, sourceId: '' }, /packageBinding sourceId/],
+]) {
+    assert.match(
+        validateMissionDefinition({ ...referenceMission, packageBinding }).errors.join('\n'),
+        pattern,
+        label,
+    );
 }
 
 const clockWithoutOptionalPredicates = { ...referenceMission.clocks[0] };

@@ -1,0 +1,947 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.prelude-a-ship-underway",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "prelude-a-ship-underway"
+  },
+  "playerText": {
+    "title": "Prelude: A Ship Underway",
+    "summary": "Complete the command handover, establish a working command rhythm, and bring the Breckenridge to the Asterion Reach."
+  },
+  "facts": [
+    {
+      "id": "fact.hesperus.distress-established",
+      "initiallyTrue": false,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The civilian transport Hesperus has transmitted a distress call requiring a Starfleet response."
+      }
+    },
+    {
+      "id": "fact.hesperus.passenger-risk",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Medically vulnerable passengers aboard Hesperus face material risk if aid is delayed."
+      }
+    },
+    {
+      "id": "fact.hesperus.injector-limit",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Hesperus can be stabilized, but its damaged injector cannot safely endure another warp restart."
+      }
+    },
+    {
+      "id": "fact.hesperus.record-inconsistency",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The Hesperus maintenance record contains an inconsistency that warrants review."
+      }
+    },
+    {
+      "id": "fact.hesperus.record-discrepancy",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Engineering has confirmed a material discrepancy in the Hesperus maintenance record."
+      }
+    },
+    {
+      "id": "fact.hesperus.record-falsified",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The available evidence confirms that an entry in the Hesperus maintenance record was deliberately falsified."
+      }
+    },
+    {
+      "id": "fact.hesperus.owner-attribution-supported",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The preserved evidence supports attributing the altered record to the vessel owner."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.hesperus.distress-established",
+      "claimType": "worldFactEstablished",
+      "targetId": "fact.hesperus.distress-established",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.hesperus.distress-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.distress-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.hesperus.distress-established" }
+    },
+    {
+      "id": "policy.hesperus.passenger-risk-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.passenger-risk",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.passenger-risk" },
+          { "factKnown": "fact.hesperus.distress-established" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.injector-limit-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.injector-limit",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.injector-limit" },
+          { "factKnown": "fact.hesperus.distress-established" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.record-inconsistency-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.record-inconsistency",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-inconsistency" },
+          { "eventOccurred": "event.hesperus.records-reviewed" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.record-discrepancy-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.record-discrepancy",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-discrepancy" },
+          { "factKnown": "fact.hesperus.record-inconsistency" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.record-falsified-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.record-falsified",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-falsified" },
+          { "factKnown": "fact.hesperus.record-discrepancy" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.owner-attribution-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus.owner-attribution-supported",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.owner-attribution-supported" },
+          { "factKnown": "fact.hesperus.record-falsified" }
+        ]
+      }
+    },
+    {
+      "id": "policy.prelude.command-handover-completed",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.command-handover-completed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.prelude.staff-readiness-established",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.staff-readiness-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.hesperus.rescue-response-begun",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus.rescue-response-begun",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.hesperus.distress-established" }
+    },
+    {
+      "id": "policy.hesperus.records-reviewed",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus.records-reviewed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.hesperus.distress-established" }
+    },
+    {
+      "id": "policy.hesperus.material-report-omitted",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus.material-report-omitted",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.passenger-risk" },
+          { "not": { "factKnown": "fact.hesperus.passenger-risk" } }
+        ]
+      }
+    },
+    {
+      "id": "policy.prelude.final-load-reviewed",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.final-load-reviewed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "objectiveState": { "id": "objective.prelude.command-handover", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.staff-readiness", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } }
+        ]
+      }
+    },
+    {
+      "id": "policy.prelude.arrival-reached",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.arrival-reached",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.final-load-reviewed" }
+    },
+    {
+      "id": "policy.hesperus.rescue-risk-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.hesperus.rescue-risk-decision",
+      "sourceRoles": ["user"],
+      "when": { "factKnown": "fact.hesperus.passenger-risk" }
+    },
+    {
+      "id": "policy.hesperus.rescue-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus.rescue-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          { "eventOccurred": "event.hesperus.rescue-response-begun" },
+          { "eventOccurred": "event.hesperus.material-report-omitted" }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.rescue-cost",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus.rescue-cost",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.hesperus.distress-established" }
+    },
+    {
+      "id": "policy.hesperus.records-disposition",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus.records-disposition",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.hesperus.record-discrepancy" }
+    },
+    {
+      "id": "policy.hesperus.accountability-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.hesperus.accountability-decision",
+      "sourceRoles": ["user"],
+      "when": { "factKnown": "fact.hesperus.record-falsified" }
+    },
+    {
+      "id": "policy.hesperus.accountability-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus.accountability-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.hesperus.accountability-decision",
+          "in": ["proportionateAction", "handOff"]
+        }
+      }
+    },
+    {
+      "id": "policy.prelude.command-readiness",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.command-readiness",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.final-load-reviewed" }
+    },
+    {
+      "id": "policy.prelude.arrival-condition",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.arrival-condition",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.prelude.arrival-reached" },
+          {
+            "outcomeIs": {
+              "id": "outcome.prelude.command-readiness",
+              "in": ["ready", "readyWithLimitation", "incompleteHonestlyReported"]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "policy.hesperus.authoritative-time",
+      "claimType": "timeAdvanced",
+      "targetId": "clock.hesperus-life-support",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.hesperus.distress",
+      "factId": "fact.hesperus.distress-established",
+      "evidencePolicyId": "policy.hesperus.distress-disclosed",
+      "capabilityRoles": ["operations", "science"],
+      "preferredActorIds": ["priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.distress-established" },
+          { "not": { "factKnown": "fact.hesperus.distress-established" } }
+        ]
+      },
+      "playerText": { "summary": "Operations has received a civilian distress call requiring command attention." }
+    },
+    {
+      "id": "report.hesperus.passenger-risk",
+      "factId": "fact.hesperus.passenger-risk",
+      "evidencePolicyId": "policy.hesperus.passenger-risk-disclosed",
+      "capabilityRoles": ["medical"],
+      "preferredActorIds": ["miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.passenger-risk" },
+          { "factKnown": "fact.hesperus.distress-established" },
+          { "not": { "factKnown": "fact.hesperus.passenger-risk" } }
+        ]
+      },
+      "playerText": { "summary": "Medical has a material passenger-risk assessment to report." }
+    },
+    {
+      "id": "report.hesperus.injector-limit",
+      "factId": "fact.hesperus.injector-limit",
+      "evidencePolicyId": "policy.hesperus.injector-limit-disclosed",
+      "capabilityRoles": ["engineering"],
+      "preferredActorIds": ["hadrik-bronn", "imani-cross"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.injector-limit" },
+          { "factKnown": "fact.hesperus.distress-established" },
+          { "not": { "factKnown": "fact.hesperus.injector-limit" } }
+        ]
+      },
+      "playerText": { "summary": "Engineering has identified a material propulsion limitation aboard Hesperus." }
+    },
+    {
+      "id": "report.hesperus.record-inconsistency",
+      "factId": "fact.hesperus.record-inconsistency",
+      "evidencePolicyId": "policy.hesperus.record-inconsistency-disclosed",
+      "capabilityRoles": ["engineering", "operations"],
+      "preferredActorIds": ["hadrik-bronn", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-inconsistency" },
+          { "eventOccurred": "event.hesperus.records-reviewed" },
+          { "not": { "factKnown": "fact.hesperus.record-inconsistency" } }
+        ]
+      },
+      "playerText": { "summary": "The Hesperus records review found an inconsistency worth command attention." }
+    },
+    {
+      "id": "report.hesperus.record-discrepancy",
+      "factId": "fact.hesperus.record-discrepancy",
+      "evidencePolicyId": "policy.hesperus.record-discrepancy-disclosed",
+      "capabilityRoles": ["engineering", "operations"],
+      "preferredActorIds": ["hadrik-bronn", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-discrepancy" },
+          { "factKnown": "fact.hesperus.record-inconsistency" },
+          { "not": { "factKnown": "fact.hesperus.record-discrepancy" } }
+        ]
+      },
+      "playerText": { "summary": "Engineering has confirmed that the record inconsistency is material." }
+    },
+    {
+      "id": "report.hesperus.record-falsified",
+      "factId": "fact.hesperus.record-falsified",
+      "evidencePolicyId": "policy.hesperus.record-falsified-disclosed",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.record-falsified" },
+          { "factKnown": "fact.hesperus.record-discrepancy" },
+          { "not": { "factKnown": "fact.hesperus.record-falsified" } }
+        ]
+      },
+      "playerText": { "summary": "The preserved record evidence now supports a formal accountability decision." }
+    },
+    {
+      "id": "report.hesperus.owner-attribution",
+      "factId": "fact.hesperus.owner-attribution-supported",
+      "evidencePolicyId": "policy.hesperus.owner-attribution-disclosed",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus.owner-attribution-supported" },
+          { "factKnown": "fact.hesperus.record-falsified" },
+          { "not": { "factKnown": "fact.hesperus.owner-attribution-supported" } }
+        ]
+      },
+      "playerText": { "summary": "The evidence trail now supports identifying a responsible party." }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.prelude.command-handover-completed",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Captain Whitaker and the new XO completed the command handover." }
+    },
+    {
+      "id": "event.prelude.staff-readiness-established",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The senior staff established delegation and readiness procedures." }
+    },
+    {
+      "id": "event.hesperus.rescue-response-begun",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Breckenridge committed to a Hesperus rescue response." }
+    },
+    {
+      "id": "event.hesperus.records-reviewed",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Hesperus maintenance records were reviewed." }
+    },
+    {
+      "id": "event.hesperus.material-report-omitted",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "event.hesperus.life-support-window-expired",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The reported safe-response window aboard Hesperus has expired." }
+    },
+    {
+      "id": "event.prelude.final-load-reviewed",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The combined-load test and final command review were completed." }
+    },
+    {
+      "id": "event.prelude.arrival-reached",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Breckenridge arrived at the Asterion Reach." }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.hesperus.rescue-risk-decision",
+      "allowedValues": ["unmade", "proceedKnownRisk", "saferPlan"],
+      "initialValue": "unmade",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.hesperus.rescue-result",
+      "allowedValues": ["unresolved", "safe", "safeWithCost", "handedOff", "failedInformed", "failedAfterOmittedReport"],
+      "initialValue": "unresolved",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Hesperus rescue disposition is recorded." }
+    },
+    {
+      "id": "outcome.hesperus.rescue-cost",
+      "allowedValues": ["unassessed", "none", "material"],
+      "initialValue": "unassessed",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Material costs accepted during the Hesperus response are recorded." }
+    },
+    {
+      "id": "outcome.hesperus.records-disposition",
+      "allowedValues": ["unresolved", "preliminaryHandOff", "noAction"],
+      "initialValue": "unresolved",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.hesperus.accountability-decision",
+      "allowedValues": ["unmade", "proportionateAction", "handOff", "knowinglyDeclined"],
+      "initialValue": "unmade",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.hesperus.accountability-result",
+      "allowedValues": ["unresolved", "proportionateActionCommitted", "handedOff", "evidenceLost"],
+      "initialValue": "unresolved",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.prelude.command-readiness",
+      "allowedValues": ["unreviewed", "ready", "readyWithLimitation", "incompleteHonestlyReported"],
+      "initialValue": "unreviewed",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Breckenridge command-readiness disposition is recorded." }
+    },
+    {
+      "id": "outcome.prelude.arrival-condition",
+      "allowedValues": ["enRoute", "onSchedule", "delayed", "withLimitation"],
+      "initialValue": "enRoute",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Breckenridge arrival condition is recorded." }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.prelude.command-handover",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": { "eventOccurred": "event.prelude.command-handover-completed" }
+        }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Complete the command handover with Captain Whitaker",
+        "summary": "Establish the authority, expectations, and working boundaries of the new XO assignment.",
+        "terminal": [
+          { "disposition": "completed", "text": "The command handover with Captain Whitaker is complete." }
+        ]
+      }
+    },
+    {
+      "id": "objective.prelude.staff-readiness",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.prelude.staff-readiness-established" },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": { "eventOccurred": "event.prelude.staff-readiness-established" }
+        }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Establish senior-staff delegation and readiness",
+        "summary": "Set workable responsibilities and readiness procedures with the senior staff.",
+        "terminal": [
+          { "disposition": "completed", "text": "The senior staff has a workable delegation and readiness framework." }
+        ]
+      }
+    },
+    {
+      "id": "objective.prelude.hesperus-rescue",
+      "class": "conditional",
+      "activatedAs": "required",
+      "activationRoute": {
+        "factId": "fact.hesperus.distress-established",
+        "mandatory": true,
+        "playerVisible": true
+      },
+      "activationWhen": { "factKnown": "fact.hesperus.distress-established" },
+      "availableWhen": { "factKnown": "fact.hesperus.distress-established" },
+      "visibleWhen": { "factKnown": "fact.hesperus.distress-established" },
+      "progressWhen": { "eventOccurred": "event.hesperus.rescue-response-begun" },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safe" } }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safeWithCost" } }
+        },
+        {
+          "disposition": "handedOff",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.hesperus.rescue-result",
+              "in": ["handedOff", "failedAfterOmittedReport"]
+            }
+          }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "failedInformed" } },
+              { "outcomeIs": { "id": "outcome.hesperus.rescue-risk-decision", "equals": "proceedKnownRisk" } },
+              { "factKnown": "fact.hesperus.passenger-risk" }
+            ]
+          }
+        },
+        {
+          "disposition": "expiredAfterKnownDeadline",
+          "when": {
+            "all": [
+              { "clockState": { "id": "clock.hesperus-life-support", "equals": "expired" } },
+              { "factKnown": "fact.hesperus.passenger-risk" }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"],
+      "playerText": {
+        "title": "Bring the Hesperus emergency to a safe disposition",
+        "summary": "Protect the people aboard the disabled civilian transport and establish a safe next step.",
+        "terminal": [
+          { "disposition": "completed", "text": "The people aboard Hesperus reached safety." },
+          { "disposition": "completedWithCost", "text": "The people aboard Hesperus reached safety with material cost recorded." },
+          { "disposition": "handedOff", "text": "Captain Whitaker or another authority assumed the remaining emergency response." },
+          { "disposition": "failedAfterInformedAction", "text": "The rescue failed after a known risk was deliberately accepted." },
+          { "disposition": "expiredAfterKnownDeadline", "text": "The known safe-response window expired before the emergency was resolved." }
+        ]
+      }
+    },
+    {
+      "id": "objective.prelude.final-readiness-arrival",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": {
+        "all": [
+          { "objectiveState": { "id": "objective.prelude.command-handover", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.staff-readiness", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } }
+        ]
+      },
+      "availableWhen": {
+        "all": [
+          { "objectiveState": { "id": "objective.prelude.command-handover", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.staff-readiness", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } }
+        ]
+      },
+      "visibleWhen": {
+        "all": [
+          { "objectiveState": { "id": "objective.prelude.command-handover", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.staff-readiness", "equals": "terminal" } },
+          { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } }
+        ]
+      },
+      "progressWhen": { "eventOccurred": "event.prelude.final-load-reviewed" },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.prelude.command-readiness", "equals": "ready" } },
+              { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "onSchedule" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              {
+                "outcomeIs": {
+                  "id": "outcome.prelude.command-readiness",
+                  "in": ["ready", "readyWithLimitation", "incompleteHonestlyReported"]
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.prelude.arrival-condition",
+                  "in": ["onSchedule", "delayed", "withLimitation"]
+                }
+              },
+              {
+                "any": [
+                  {
+                    "outcomeIs": {
+                      "id": "outcome.prelude.command-readiness",
+                      "in": ["readyWithLimitation", "incompleteHonestlyReported"]
+                    }
+                  },
+                  {
+                    "outcomeIs": {
+                      "id": "outcome.prelude.arrival-condition",
+                      "in": ["delayed", "withLimitation"]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Complete final readiness review and reach the Asterion Reach",
+        "summary": "Record the ship's honest readiness disposition and complete the transit to the Reach.",
+        "terminal": [
+          { "disposition": "completed", "text": "The Breckenridge completed final review and arrived ready for assignment." },
+          { "disposition": "completedWithCost", "text": "The Breckenridge arrived with delay or an honestly recorded limitation." }
+        ]
+      }
+    },
+    {
+      "id": "objective.prelude.hesperus-accountability",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.hesperus.record-falsified" },
+      "availableWhen": { "factKnown": "fact.hesperus.record-falsified" },
+      "visibleWhen": { "factKnown": "fact.hesperus.record-falsified" },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.hesperus.accountability-decision",
+          "in": ["proportionateAction", "handOff", "knowinglyDeclined"]
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.hesperus.accountability-result",
+              "equals": "proportionateActionCommitted"
+            }
+          }
+        },
+        {
+          "disposition": "handedOff",
+          "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-result", "equals": "handedOff" } }
+        },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.hesperus.accountability-decision",
+              "equals": "knowinglyDeclined"
+            }
+          }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-result", "equals": "evidenceLost" } }
+        }
+      ],
+      "supportedDispositions": ["completed", "handedOff", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Address the confirmed Hesperus record falsification",
+        "summary": "Choose a proportionate disposition for the confirmed record evidence.",
+        "terminal": [
+          { "disposition": "completed", "text": "A proportionate accountability action was committed." },
+          { "disposition": "handedOff", "text": "The preserved evidence was handed to the proper authority." },
+          { "disposition": "knowinglyDeclined", "text": "Further accountability action was knowingly declined." },
+          { "disposition": "failedAfterInformedAction", "text": "The known evidence was lost after an informed course of action." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.hesperus.rescue-quality",
+      "playerText": { "label": "Hesperus rescue" },
+      "derive": [
+        { "value": "full", "priority": 100, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safe" } } },
+        { "value": "full-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safeWithCost" } } },
+        { "value": "safeguarded-by-handoff", "priority": 80, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "in": ["handedOff", "failedAfterOmittedReport"] } } },
+        { "value": "failure-after-informed-action", "priority": 70, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "failedInformed" } } },
+        { "value": "known-deadline-expired", "priority": 60, "when": { "objectiveDisposition": { "id": "objective.prelude.hesperus-rescue", "equals": "expiredAfterKnownDeadline" } } }
+      ]
+    },
+    {
+      "id": "dimension.hesperus.rescue-cost",
+      "playerText": { "label": "Hesperus cost" },
+      "derive": [
+        {
+          "value": "material",
+          "priority": 100,
+          "when": {
+            "all": [
+              { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } },
+              { "outcomeIs": { "id": "outcome.hesperus.rescue-cost", "equals": "material" } }
+            ]
+          }
+        },
+        {
+          "value": "none",
+          "priority": 90,
+          "when": {
+            "all": [
+              { "objectiveState": { "id": "objective.prelude.hesperus-rescue", "equals": "terminal" } },
+              { "outcomeIs": { "id": "outcome.hesperus.rescue-cost", "equals": "none" } }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.hesperus.accountability",
+      "playerText": { "label": "Hesperus accountability" },
+      "derive": [
+        { "value": "proportionate-action", "priority": 120, "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-result", "equals": "proportionateActionCommitted" } } },
+        { "value": "handed-off", "priority": 110, "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-result", "equals": "handedOff" } } },
+        { "value": "knowingly-declined", "priority": 100, "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-decision", "equals": "knowinglyDeclined" } } },
+        { "value": "evidence-lost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.hesperus.accountability-result", "equals": "evidenceLost" } } },
+        { "value": "preliminary-records-handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.hesperus.records-disposition", "equals": "preliminaryHandOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.prelude.command-readiness",
+      "playerText": { "label": "Command readiness" },
+      "derive": [
+        { "value": "ready", "priority": 100, "when": { "outcomeIs": { "id": "outcome.prelude.command-readiness", "equals": "ready" } } },
+        { "value": "ready-with-limitation", "priority": 90, "when": { "outcomeIs": { "id": "outcome.prelude.command-readiness", "equals": "readyWithLimitation" } } },
+        { "value": "incomplete-honestly-reported", "priority": 80, "when": { "outcomeIs": { "id": "outcome.prelude.command-readiness", "equals": "incompleteHonestlyReported" } } }
+      ]
+    },
+    {
+      "id": "dimension.prelude.arrival",
+      "playerText": { "label": "Arrival" },
+      "derive": [
+        { "value": "on-schedule", "priority": 100, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "onSchedule" } } },
+        { "value": "delayed", "priority": 90, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "delayed" } } },
+        { "value": "with-limitation", "priority": 80, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "withLimitation" } } }
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "clock.hesperus-life-support",
+      "unit": "hours",
+      "direction": "down",
+      "initialValue": 30,
+      "startWhen": { "worldFact": "fact.hesperus.distress-established" },
+      "advanceSources": ["authoritativeStoryTime"],
+      "pauseWhen": false,
+      "resumeWhen": false,
+      "expireWhen": { "clockState": { "id": "clock.hesperus-life-support", "equals": "expired" } },
+      "resolveWhen": {
+        "outcomeIs": {
+          "id": "outcome.hesperus.rescue-result",
+          "in": ["safe", "safeWithCost", "handedOff", "failedInformed", "failedAfterOmittedReport"]
+        }
+      },
+      "visibleWhen": { "factKnown": "fact.hesperus.passenger-risk" },
+      "consequence": {
+        "effectType": "eventOccurred",
+        "targetId": "event.hesperus.life-support-window-expired",
+        "value": true
+      },
+      "playerText": {
+        "label": "Hesperus safe-response window",
+        "deadline": "{value} hours remaining",
+        "consequence": "Conditions aboard Hesperus will become critical if no safe disposition is reached."
+      }
+    }
+  ],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
+      { "objectiveDisposition": { "id": "objective.prelude.staff-readiness", "equals": "completed" } },
+      {
+        "objectiveDisposition": {
+          "id": "objective.prelude.hesperus-rescue",
+          "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"]
+        }
+      },
+      {
+        "objectiveDisposition": {
+          "id": "objective.prelude.final-readiness-arrival",
+          "in": ["completed", "completedWithCost"]
+        }
+      }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "limitedFailureForward",
+      "priority": 300,
+      "when": {
+        "objectiveDisposition": {
+          "id": "objective.prelude.hesperus-rescue",
+          "in": ["handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"]
+        }
+      },
+      "playerText": {
+        "title": "Assignment continues with a recorded emergency consequence",
+        "summary": "The Breckenridge reaches its next assignment with the Hesperus consequence carried forward without ending the campaign."
+      }
+    },
+    {
+      "id": "primarySuccessWithCost",
+      "priority": 200,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.prelude.hesperus-rescue", "equals": "completedWithCost" } },
+          { "objectiveDisposition": { "id": "objective.prelude.final-readiness-arrival", "equals": "completedWithCost" } }
+        ]
+      },
+      "playerText": {
+        "title": "Command established with cost recorded",
+        "summary": "The command handover and transit are complete, with material costs or limitations honestly carried forward."
+      }
+    },
+    {
+      "id": "primarySuccess",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.prelude.hesperus-rescue", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.prelude.final-readiness-arrival", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "A ship underway",
+        "summary": "The new command team is established and the Breckenridge has reached the Asterion Reach ready for assignment."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.prelude.chapter-1-empty-convoy",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-1-the-empty-convoy",
+        "playerSafeSetup": "The Breckenridge receives a fragmented distress packet from Relief Convoy Twelve as it enters the Reach."
+      },
+      "mustNarrate": [
+        "Acknowledge the committed command-readiness and arrival disposition.",
+        "Carry forward only Hesperus consequences the player knows.",
+        "Introduce the Relief Convoy Twelve distress packet."
+      ],
+      "mustNotReveal": [
+        "Do not mention any undiscovered Hesperus record evidence.",
+        "Do not identify later campaign antagonists or hidden causes."
+      ]
+    }
+  ]
+}

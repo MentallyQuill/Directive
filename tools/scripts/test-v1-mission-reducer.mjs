@@ -13,6 +13,7 @@ const state = createMissionState({ definition, branchId: 'save.alpha' });
 assert.equal(state.kind, 'directive.missionState.v1');
 assert.equal(state.definitionId, 'mission.hesperus-reference');
 assert.equal(state.definitionVersion, '1.0.0');
+assert.deepEqual(state.packageBinding, definition.packageBinding);
 assert.equal(state.branchId, 'save.alpha');
 assert.equal(state.revision, 0);
 assert.equal(state.status, 'active');

@@ -25,9 +25,38 @@ function appendDiagnostic(state, diagnostic) {
     state.shadowDiagnostics = [...diagnostics, diagnostic].slice(-MAX_SHADOW_DIAGNOSTICS);
 }
 
+function missionDefinitionMigrationRequired(current, definition) {
+    const error = new Error(`Mission ${definition.id} requires an explicit definition migration before it can resume.`);
+    error.code = 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED';
+    error.details = {
+        definitionId: definition.id,
+        currentDefinitionVersion: current?.definitionVersion || null,
+        requestedDefinitionVersion: definition?.version || null,
+        currentPackageId: current?.packageBinding?.packageId || null,
+        requestedPackageId: definition?.packageBinding?.packageId || null,
+        currentPackageVersion: current?.packageBinding?.packageVersion || null,
+        requestedPackageVersion: definition?.packageBinding?.packageVersion || null,
+        currentSourceId: current?.packageBinding?.sourceId || null,
+        requestedSourceId: definition?.packageBinding?.sourceId || null,
+    };
+    return error;
+}
+
+function hasMatchingDefinitionBinding(current, definition) {
+    return current?.definitionVersion === definition?.version
+        && current?.packageBinding?.packageId === definition?.packageBinding?.packageId
+        && current?.packageBinding?.packageVersion === definition?.packageBinding?.packageVersion
+        && current?.packageBinding?.sourceId === definition?.packageBinding?.sourceId;
+}
+
 function initialMissionState(campaignState, definition, branchId) {
     const current = campaignState?.mission?.v1;
-    if (current?.definitionId === definition.id && current?.branchId === branchId) return structuredClone(current);
+    if (current?.definitionId === definition.id && current?.branchId === branchId) {
+        if (!hasMatchingDefinitionBinding(current, definition)) {
+            throw missionDefinitionMigrationRequired(current, definition);
+        }
+        return structuredClone(current);
+    }
     return createMissionState({ definition, branchId });
 }
 

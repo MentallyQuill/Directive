@@ -3,6 +3,11 @@
   "schemaVersion": 1,
   "id": "mission.hesperus-reference",
   "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "prelude-a-ship-underway"
+  },
   "playerText": {
     "title": "Hesperus Diversion",
     "summary": "Protect the people aboard the disabled vessel and secure a safe disposition."
