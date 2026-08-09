@@ -1,6 +1,6 @@
 # Ashes V1: Dead Letters Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content, exact package identity, deterministic mission authority, runtime activation, source custody, adversarial review, and documentation. It does not authorize player-facing UI changes or narrator-prompt cutover.
+> Status: completed and certified for the non-UI scope on 2026-08-09. This plan covers non-UI content, exact package identity, deterministic mission authority, runtime activation, source custody, adversarial review, and documentation. It does not authorize player-facing UI changes or narrator-prompt cutover.
 
 **Goal:** Make `chapter-3-dead-letters` the fifth V1-native Ashes journey entry without exposing the Dominion relay, private archive, distributed architecture, predictive routines, current Starfleet Intelligence access, Farwatch, or Demeris route before accepted play earns them.
 
@@ -92,14 +92,14 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 - Create: `tests/fixtures/mission/v1/chapter-3-dead-letters-scenarios.fixture.json`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Assert the absent V1 definition, exact package template identity, Open Orders predecessor, package binding, minimal objective inventory, and Chapter 4 target.
-- [ ] Assert the initial projection contains only the Hecate mission route and three spoiler-safe responsibilities.
-- [ ] Assert no legacy incremental progress, phase, pressure, hidden revelation count, quest event, or synthetic clock enters V1.
-- [ ] Assert exactly three aggregate facts and Duty Reports beyond the initially known route.
-- [ ] Add clean isolation, bounded observation, destroyed-after-copy, privacy-first destruction, responsible withdrawal, lost/seized, and partial-evidence failure-forward scenarios.
-- [ ] Add non-linear evidence/custody order and alternate Demeris-corroboration scenarios.
-- [ ] Add hostile cases for approach/order as success, archive policy before discovery, player-declared world outcomes, report without acquisition, unsupported attribution, stale revisions, wrong swipes, and unknown policies.
-- [ ] Run the new test and record the expected RED failure because the definition is absent.
+- [x] Assert the absent V1 definition, exact package template identity, Open Orders predecessor, package binding, minimal objective inventory, and Chapter 4 target.
+- [x] Assert the initial projection contains only the Hecate mission route and three spoiler-safe responsibilities.
+- [x] Assert no legacy incremental progress, phase, pressure, hidden revelation count, quest event, or synthetic clock enters V1.
+- [x] Assert exactly three aggregate facts and Duty Reports beyond the initially known route.
+- [x] Add clean isolation, bounded observation, destroyed-after-copy, privacy-first destruction, responsible withdrawal, lost/seized, and partial-evidence failure-forward scenarios.
+- [x] Add non-linear evidence/custody order and alternate Demeris-corroboration scenarios.
+- [x] Add hostile cases for approach/order as success, archive policy before discovery, player-declared world outcomes, report without acquisition, unsupported attribution, stale revisions, wrong swipes, and unknown policies.
+- [x] Run the new test and record the expected RED failure because the definition is absent.
 
 ## Task 2: Author the V1 Mission Definition
 
@@ -107,14 +107,14 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 
 - Create: `packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json`
 
-- [ ] Add one initially known Hecate route fact and three discoverable aggregate facts.
-- [ ] Add site-contact, relay-evidence, direct-access-history, and alternate-corroboration events without treating plans as acquisition.
-- [ ] Add user-only voluntary relay/archive decisions and assistant-observed access, relay, and archive results.
-- [ ] Add three required objectives and four outcome dimensions without per-location or per-message objectives.
-- [ ] Add three required report routes with exact crew IDs and Whitaker fallbacks.
-- [ ] Add six forward-only terminal dispositions and the exact Chapter 4 transition.
-- [ ] Keep clocks empty and omit legacy progress/pressure/revelation arrays.
-- [ ] Run schema, evidence, reducer, linter, and scenario tests to GREEN.
+- [x] Add one initially known Hecate route fact and three discoverable aggregate facts.
+- [x] Add site-contact, relay-evidence, direct-access-history, and alternate-corroboration events without treating plans as acquisition.
+- [x] Add user-only voluntary relay/archive decisions and assistant-observed access, relay, and archive results.
+- [x] Add three required objectives and four outcome dimensions without per-location or per-message objectives.
+- [x] Add three required report routes with exact crew IDs and Whitaker fallbacks.
+- [x] Add six forward-only terminal dispositions and the exact Chapter 4 transition.
+- [x] Keep clocks empty and omit legacy progress/pressure/revelation arrays.
+- [x] Run schema, evidence, reducer, linter, and scenario tests to GREEN.
 
 ## Task 3: Validate Spoilers, Reachability, and Failure-Forward Semantics
 
@@ -123,14 +123,14 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 - Create: `tools/scripts/validate-ashes-v1-chapter-3.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Bind source identity to the exact package template and predecessor target without requiring a legacy mission graph.
-- [ ] Prove every core objective and terminal disposition is reachable.
-- [ ] Prove initial player surfaces contain none of the director-only truths or future-route spoilers.
-- [ ] Prove all voluntary custody decisions are exclusively user-owned and all successful results require observed outcome evidence.
-- [ ] Prove direct logs and alternate corroboration are distinct causal routes to the Demeris lead.
-- [ ] Prove loss, destruction, and withdrawal preserve forward progress without fabricating full relay evidence.
-- [ ] Validate every preferred and fallback reporter against the authoritative crew dataset.
-- [ ] Prove Wayward Sun and the compromised salvager are complications, not mandatory objectives or initial facts.
+- [x] Bind source identity to the exact package template and predecessor target without requiring a legacy mission graph.
+- [x] Prove every core objective and terminal disposition is reachable.
+- [x] Prove initial player surfaces contain none of the director-only truths or future-route spoilers.
+- [x] Prove all voluntary custody decisions are exclusively user-owned and all successful results require observed outcome evidence.
+- [x] Prove direct logs and alternate corroboration are distinct causal routes to the Demeris lead.
+- [x] Prove loss, destruction, and withdrawal preserve forward progress without fabricating full relay evidence.
+- [x] Validate every preferred and fallback reporter against the authoritative crew dataset.
+- [x] Prove Wayward Sun and the compromised salvager are complications, not mandatory objectives or initial facts.
 
 ## Task 4: Register and Activate Chapter 3
 
@@ -140,11 +140,11 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 - Modify: `tools/scripts/test-bundled-package-registry.mjs`
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 
-- [ ] Register Dead Letters after Open Orders I without inventing a mission graph.
-- [ ] Prove terminal Open Orders I changes from pending to ready only with the exact Chapter 3 definition.
-- [ ] Prove activation archives Open Orders once, creates a fresh Chapter 3 state, reloads cleanly, and preserves unrelated roots.
-- [ ] Prove duplicate activation is idempotent and no legacy pressure, revelation, progress, custody, or reaction state is copied into V1.
-- [ ] Prove terminal Dead Letters targets Chapter 4 but remains pending until Chapter 4 has an exact V1 definition.
+- [x] Register Dead Letters after Open Orders I without inventing a mission graph.
+- [x] Prove terminal Open Orders I changes from pending to ready only with the exact Chapter 3 definition.
+- [x] Prove activation archives Open Orders once, creates a fresh Chapter 3 state, reloads cleanly, and preserves unrelated roots.
+- [x] Prove duplicate activation is idempotent and no legacy pressure, revelation, progress, custody, or reaction state is copied into V1.
+- [x] Prove terminal Dead Letters targets Chapter 4 but remains pending until Chapter 4 has an exact V1 definition.
 
 ## Task 5: Accepted-Pair, Report, and Source-Custody Proof
 
@@ -154,15 +154,15 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Prove varied player approach prose does not become access success before an observed result.
-- [ ] Prove user-only relay/archive choices cannot be made by assistant narration.
-- [ ] Prove selected assistant prose can settle several high-value observed claims into one mission aggregate.
-- [ ] Prove all three required facts are stripped without selected-swipe Duty Report custody.
-- [ ] Prove direct and alternate Demeris reports visibly communicate their actual evidence route.
-- [ ] Prove destruction, loss, or withdrawal cannot retain facts that were never acquired.
-- [ ] Prove swipe/edit/delete causally rebuilds decisions, events, reports, results, closure, transition, and Story effects without a provider call.
-- [ ] Prove source mutation before and after Chapter 3 activation repairs Open Orders or prunes the Chapter 3 descendant.
-- [ ] Prove dead-letter message color and quiet ship scenes do not create mission evidence or unrelated tracker mutations.
+- [x] Prove varied player approach prose does not become access success before an observed result.
+- [x] Prove user-only relay/archive choices cannot be made by assistant narration.
+- [x] Prove selected assistant prose can settle several high-value observed claims into one mission aggregate.
+- [x] Prove all three required facts are stripped without selected-swipe Duty Report custody.
+- [x] Prove the single bounded Demeris report becomes eligible through direct or alternate evidence while mission state retains the actual route for future transition narration.
+- [x] Prove destruction, loss, or withdrawal cannot retain facts that were never acquired.
+- [x] Prove swipe/edit/delete causally rebuilds decisions, events, reports, results, closure, transition, and Story effects without a provider call.
+- [x] Prove source mutation before and after Chapter 3 activation repairs Open Orders or prunes the Chapter 3 descendant.
+- [x] Prove dead-letter message color and quiet ship scenes do not create mission evidence or unrelated tracker mutations.
 
 ## Task 6: Adversarial Review and Certification
 
@@ -173,11 +173,11 @@ Dead Letters defines no mission clock. Comet instability, purge attempts, salvag
 - Modify: `docs/planning/ASHES_V1_MIGRATION_PLAN.md`
 - Modify: this plan
 
-- [ ] Challenge initial plot giveaway, revelation checklist conversion, navigation railroad, privacy-as-binary morality, evidence teleportation, Starfleet-handshake attribution, Demeris-route fabrication, model self-certification, success-on-order, report spam, Wayward Sun mandatory drift, false urgency, single-check failure, optional blocking, mixed-outcome priority, actor identity, source mutation, package drift, and legacy Chapter 4 fallback.
-- [ ] Fix every Critical or Important non-UI finding.
-- [ ] Run focused suites, `git diff --check`, and the complete alpha gate.
-- [ ] Record deterministic proof and residual limitations without claiming narrator, UI, live rehearsal, Command Bearing, campaign-order scheduler, or complete Ashes readiness.
-- [ ] Commit the certification docs.
+- [x] Challenge initial plot giveaway, revelation checklist conversion, navigation railroad, privacy-as-binary morality, evidence teleportation, Starfleet-handshake attribution, Demeris-route fabrication, model self-certification, success-on-order, report spam, Wayward Sun mandatory drift, false urgency, single-check failure, optional blocking, mixed-outcome priority, actor identity, source mutation, package drift, and legacy Chapter 4 fallback.
+- [x] Fix every Critical or Important non-UI finding.
+- [x] Run focused suites, `git diff --check`, and the complete alpha gate.
+- [x] Record deterministic proof and residual limitations without claiming narrator, UI, live rehearsal, Command Bearing, campaign-order scheduler, or complete Ashes readiness.
+- [x] Commit the certification docs.
 
 ## Explicit Non-Goals and Stop Boundary
 
