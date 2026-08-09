@@ -13,7 +13,7 @@ assert.equal(Boolean(projectionSchema.$defs.initialState.properties.storySettlem
 assert.equal(Boolean(projectionSchema.$defs.initialState.properties.mission.properties.v1), true);
 assert.equal(projectionSchema.$defs.initialState.required.includes('storySettlement'), false);
 
-const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1-hesperus-reference.fixture.json', 'utf8'));
+const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
 let campaignState = {
     campaign: { id: 'campaign.ashes' },
     mission: { legacyStatus: 'unchanged', activePhaseId: 'phase.hesperus-legacy' },

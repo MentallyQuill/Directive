@@ -5,7 +5,7 @@ import { validateMissionDefinition } from '../../src/mission/v1/mission-contract
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 
-const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1-hesperus-reference.fixture.json', 'utf8'));
+const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
 const definitionValidation = validateMissionDefinition(definition);
 assert.equal(definitionValidation.ok, true, definitionValidation.errors.join('\n'));
 

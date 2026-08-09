@@ -147,6 +147,7 @@ These are the public-facing docs that should be safe to hand to operators, campa
 
 ## Development Notes
 
+- [V1 State Spine Implementation Report](development/V1_STATE_SPINE_IMPLEMENTATION_REPORT.md): evidence-backed readiness boundary for the versioned Story Settlement and mission spine, including robustness challenges, shadow-runtime limits, and the Prelude/Hesperus cutover path.
 - [Pre-Alpha Systems](development/PRE_ALPHA_SYSTEMS.md): current pre-alpha definition, release gate, key systems, alpha blockers, alpha non-blockers, and near-term focus.
 - [Visual Target Loop](development/VISUAL_TARGET_LOOP.md): GPT Image 2 concept-art workflow for page, window, feature, control-group, and state-variant UI iteration against live SillyTavern screenshots.
 - [Reset Window Contract](development/RESET_WINDOW_CONTRACT.md): implementation contract for the SillyTavern Reset Window action, including shell geometry, route-local UI state, non-destructive boundaries, and test expectations.
