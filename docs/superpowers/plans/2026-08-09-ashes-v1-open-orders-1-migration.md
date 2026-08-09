@@ -93,11 +93,11 @@ The interval contains:
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] Register Open Orders I after False Colors without adding a legacy package quest row.
-- [ ] Prove terminal False Colors changes from pending to ready only with the exact interval definition.
-- [ ] Prove activation archives False Colors once, creates a fresh interval state, reloads cleanly, and leaves unrelated roots unchanged.
-- [ ] Prove duplicate activation is idempotent and no legacy pressure, assignment, reward, or progress state is copied into V1.
-- [ ] Prove terminal Open Orders I targets Chapter 3 but remains pending until Chapter 3 has an exact V1 definition.
+- [x] Register Open Orders I after False Colors without adding a legacy package quest row.
+- [x] Prove terminal False Colors changes from pending to ready only with the exact interval definition.
+- [x] Prove activation archives False Colors once, creates a fresh interval state, reloads cleanly, and leaves unrelated roots unchanged.
+- [x] Prove duplicate activation is idempotent and no legacy pressure, assignment, reward, or progress state is copied into V1.
+- [x] Prove terminal Open Orders I targets Chapter 3 but remains pending until Chapter 3 has an exact V1 definition.
 
 ## Task 5: Accepted-Pair, Delegation, Report, and Source-Custody Proof
 
