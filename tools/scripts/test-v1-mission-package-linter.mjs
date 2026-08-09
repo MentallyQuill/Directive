@@ -21,6 +21,14 @@ const openOrdersScenarios = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json',
     'utf8',
 ));
+const openOrders2Definition = JSON.parse(fs.readFileSync(
+    'packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json',
+    'utf8',
+));
+const openOrders2Scenarios = JSON.parse(fs.readFileSync(
+    'tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json',
+    'utf8',
+));
 
 function lint(candidate, overrides = {}) {
     return lintMissionPackage({
@@ -48,6 +56,20 @@ assert.equal(
     )),
     false,
     'an initially known fact does not need a redundant disclosure policy',
+);
+
+const credentialGatedInterval = lintMissionPackage({
+    definition: openOrders2Definition,
+    knownTransitionTargetIds: new Set(['chapter-6-the-cost-of-knowing']),
+    scenarioExpectations: openOrders2Scenarios.scenarios.map((scenario) => scenario.expected),
+});
+assert.equal(credentialGatedInterval.ok, true, credentialGatedInterval.errors.join('\n'));
+assert.equal(
+    openOrders2Definition.evidencePolicies
+        .filter((policy) => policy.targetId === 'outcome.open-orders2.conclusion')
+        .every((policy) => JSON.stringify(policy.when).includes('fact.open-orders2.current-starfleet-credential-path')),
+    true,
+    'every Open Orders II conclusion route requires the campaign-critical report',
 );
 
 const spoilerDefinition = structuredClone(definition);
