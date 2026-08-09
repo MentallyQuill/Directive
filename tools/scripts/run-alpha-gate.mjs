@@ -69,6 +69,7 @@ const checks = [
   'test-v1-story-settlement-contracts.mjs',
   'test-v1-mission-contracts.mjs',
   'test-v1-interpretation-candidates.mjs',
+  'test-v1-accepted-pair-interpreter.mjs',
   'test-v1-mission-predicates.mjs',
   'test-v1-mission-evidence.mjs',
   'test-v1-mission-reducer.mjs',

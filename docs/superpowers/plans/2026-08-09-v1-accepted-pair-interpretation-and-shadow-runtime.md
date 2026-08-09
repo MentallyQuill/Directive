@@ -104,11 +104,11 @@ feat(mission): author interpretation candidates
 - Consumes: exact selected assistant/player source texts, a candidate packet, mission/branch/revision envelope, and the existing `sourceSettlementLatestPair` Utility role.
 - Produces: a validated `directive.missionEvidenceInterpretation.v1` with assistant acceptance and zero or more candidate selections; then a deterministic mission-evidence proposal with exact source refs.
 
-- [ ] **Step 1: Write failing prompt and parser tests**
+- [x] **Step 1: Write failing prompt and parser tests**
 
 Cover paraphrased prose, dialogue and narration, reversed clause order, negation, hypothetical plans, attempted-versus-completed action, ambiguous outcomes, explicit player decisions, correction/rejection of previous prose, unknown candidate IDs, wrong source slots, disallowed values, duplicate selections, prose around JSON, malformed JSON, timeout, and provider throw.
 
-- [ ] **Step 2: Implement a closed output contract**
+- [x] **Step 2: Implement a closed output contract**
 
 The provider may return only:
 
@@ -123,15 +123,15 @@ The provider may return only:
 
 Unknown fields and selections are rejected. Assistant claims are discarded unless acceptance is `accepted`. Current-player claims remain independently eligible. An empty or abstained result is valid no-change.
 
-- [ ] **Step 3: Build a constrained Utility prompt**
+- [x] **Step 3: Build a constrained Utility prompt**
 
 The prompt contains the exact bounded source pair, candidate packet, source-role rules, and evidence standards. It says explicitly that plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or outcomes. It requests no summary, tracker, objective state, consequence, reward, or narration.
 
-- [ ] **Step 4: Deterministically materialize the proposal**
+- [x] **Step 4: Deterministically materialize the proposal**
 
 Code—not the model—adds mission ID, branch ID, base revision, stable claim IDs, policy target/type, value, source message ID, selected swipe ID, and text hash. The model cannot supply or override any of those fields.
 
-- [ ] **Step 5: Run, register, and commit Task 2**
+- [x] **Step 5: Run, register, and commit Task 2**
 
 Commit:
 
