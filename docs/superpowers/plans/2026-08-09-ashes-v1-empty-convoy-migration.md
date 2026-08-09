@@ -99,13 +99,14 @@ The definition must not mirror every contact, scan, flicker, custody exchange, t
 **Files:**
 
 - Modify: `tools/scripts/test-ashes-v1-chapter-1-mission.mjs`
+- Create: `tools/scripts/test-ashes-v1-chapter-1-runtime.mjs`
 - Modify: `tools/scripts/test-ashes-v1-mission-handoff.mjs`
 
-- [ ] Prove natural-language evidence can settle the same authored outcomes through the existing accepted-pair interpretation contract without prose matching in the reducer.
-- [ ] Prove one accepted exchange may settle multiple high-value claims without creating multiple mission/objective records.
-- [ ] Prove a swipe, edit, or delete invalidates the owned contribution and deterministically rebuilds Chapter 1 without a provider call.
-- [ ] Prove mutation before Chapter 1 activation repairs Prelude only; mutation after activation can roll the journey back and prune descendants.
-- [ ] Prove unrelated prose creates no mission evidence and no tracking root mutations.
+- [x] Prove natural-language evidence can settle the same authored outcomes through the existing accepted-pair interpretation contract without prose matching in the reducer.
+- [x] Prove one accepted exchange may settle multiple high-value claims without creating multiple mission/objective records.
+- [x] Prove a swipe, edit, or delete invalidates the owned contribution and deterministically rebuilds Chapter 1 without a provider call.
+- [x] Prove mutation before Chapter 1 activation repairs Prelude only; mutation after activation can roll the journey back and prune descendants.
+- [x] Prove unrelated prose creates no mission evidence and no tracking root mutations.
 
 ## Task 6: Adversarial Review and Certification
 

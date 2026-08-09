@@ -12,6 +12,11 @@ import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createEmptyStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
+import {
+    acceptStoryContributions,
+    openStoryEpisode,
+} from '../../src/story/story-settlement.mjs';
 
 const preludeDefinition = readJson('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json');
 const chapterDefinition = readJson('packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json');
@@ -23,14 +28,21 @@ function readJson(path) {
     return JSON.parse(fs.readFileSync(path, 'utf8'));
 }
 
-function settleScenario({ definition, fixture, scenarioId }) {
+function stepsForScenario(fixture, scenarioId) {
     const scenario = fixture.scenarios.find((candidate) => candidate.id === scenarioId);
     assert.ok(scenario, `missing scenario ${scenarioId}`);
+    return {
+        scenario,
+        steps: [
+            ...(scenario.sequence || []).flatMap((fragmentId) => fixture.fragments[fragmentId] || []),
+            ...(scenario.steps || []),
+        ],
+    };
+}
+
+function settleScenario({ definition, fixture, scenarioId }) {
+    const { scenario, steps } = stepsForScenario(fixture, scenarioId);
     let state = createMissionState({ definition, branchId });
-    const steps = [
-        ...(scenario.sequence || []).flatMap((fragmentId) => fixture.fragments[fragmentId] || []),
-        ...(scenario.steps || []),
-    ];
     for (const [index, step] of steps.entries()) {
         const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${scenarioId}.${index + 1}` : null;
         const source = {
@@ -87,6 +99,31 @@ function settleScenario({ definition, fixture, scenarioId }) {
     return state;
 }
 
+function storySettlementForScenario(fixture, scenarioId) {
+    const { steps } = stepsForScenario(fixture, scenarioId);
+    let settlement = createEmptyStorySettlement({ branchId });
+    settlement = openStoryEpisode(settlement, {
+        episodeId: `episode.${scenarioId}`,
+        sceneId: `scene.${scenarioId}`,
+        references: { missionIds: [preludeDefinition.id] },
+    });
+    const contributions = steps.map((step, index) => {
+        const selectedSwipeId = step.sourceRole === 'assistant' ? `swipe.${scenarioId}.${index + 1}` : null;
+        return {
+            id: `contribution.${scenarioId}.${index + 1}`,
+            messageId: `message.${scenarioId}.${index + 1}`,
+            swipeId: selectedSwipeId,
+            role: step.sourceRole,
+            textHash: createHash('sha256').update(`${scenarioId}:${index}:${step.claimId}`).digest('hex'),
+            acceptedAtRevision: index,
+        };
+    });
+    return {
+        settlement: acceptStoryContributions(settlement, contributions),
+        contributions,
+    };
+}
+
 function assetsFor(definitions) {
     const records = definitions.map((definition) => ({
         path: `packages/bundled/breckenridge/v1/${definition.packageBinding.sourceId}.mission-v1.json`,
@@ -111,6 +148,8 @@ const terminalPrelude = settleScenario({
 });
 assert.equal(terminalPrelude.status, 'terminal');
 assert.equal(terminalPrelude.transitionReceipt.target.id, 'chapter-1-the-empty-convoy');
+const preludeStory = storySettlementForScenario(preludeScenarios, 'rescue-success-no-discovery');
+const preludeMutationMessageId = preludeStory.contributions[0].messageId;
 const initialJourney = createInitialMissionJourney({ branchId, definition: preludeDefinition });
 let campaignState = {
     activeCampaignPackage: {
@@ -131,6 +170,7 @@ let campaignState = {
     threadLedger: { records: [{ id: 'thread.legacy-unchanged' }] },
     commandLog: { entries: [{ id: 'log.legacy-unchanged' }] },
     commandBearing: { current: 4 },
+    storySettlement: preludeStory.settlement,
 };
 const unrelatedBefore = structuredClone({
     ship: campaignState.ship,
@@ -172,6 +212,7 @@ assert.equal(ready.status, 'ready');
 assert.equal(ready.targetDefinitionId, chapterDefinition.id);
 assert.equal(ready.activatable, true);
 
+const preActivationCampaignState = structuredClone(campaignState);
 const activated = await runtime.activatePendingTransition({ runtimeAssets: completeAssets });
 assert.equal(activated.ok, true);
 assert.equal(activated.status, 'activated');
@@ -197,6 +238,7 @@ assert.deepEqual({
     commandLog: campaignState.commandLog,
     commandBearing: campaignState.commandBearing,
 }, unrelatedBefore, 'mission activation cannot mutate legacy tracking roots');
+const activatedCampaignState = structuredClone(campaignState);
 
 const reloaded = JSON.parse(JSON.stringify(campaignState));
 const reloadedJourney = validateMissionJourney({
@@ -233,5 +275,52 @@ assert.equal(chapterPending.status, 'pending');
 assert.equal(chapterPending.reasonCode, 'transition-target-definition-unavailable');
 assert.equal(chapterPending.targetDefinitionId, null);
 assert.equal(chapterPending.activatable, false);
+
+function createMutationHarness(initialState) {
+    let mutationState = structuredClone(initialState);
+    let generationCount = 0;
+    const mutationGateway = createStateDeltaGateway({
+        getState: () => mutationState,
+        setState: (next) => { mutationState = next; },
+        persist: async () => {},
+        now: () => '2026-08-09T20:30:00.000Z',
+    });
+    const mutationRuntime = createV1MissionRuntime({
+        getState: () => mutationState,
+        stateDeltaGateway: mutationGateway,
+        generationRouter: {
+            generate: async () => {
+                generationCount += 1;
+                throw new Error('SOURCE_REBUILD_MUST_NOT_CALL_PROVIDER');
+            },
+        },
+        now: () => '2026-08-09T20:30:00.000Z',
+    });
+    return {
+        mutationRuntime,
+        get state() { return mutationState; },
+        get generationCount() { return generationCount; },
+    };
+}
+
+for (const [label, initialState] of [
+    ['before-activation', preActivationCampaignState],
+    ['after-activation', activatedCampaignState],
+]) {
+    const mutation = createMutationHarness(initialState);
+    const result = await mutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: completeAssets,
+        hostMessageId: preludeMutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(result.ok, true, label);
+    assert.equal(result.status, 'invalidated', label);
+    assert.equal(mutation.state.mission.v1.definitionId, preludeDefinition.id, label);
+    assert.equal(mutation.state.mission.v1.status, 'active', label);
+    assert.equal(mutation.state.mission.v1History.length, 0, label);
+    assert.equal(mutation.state.mission.v1Journey.revision, 0, label);
+    assert.equal(JSON.stringify(mutation.state.mission.v1).includes('objective.chapter1.'), false, label);
+    assert.equal(mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
 
 console.log('Ashes V1 Prelude to Chapter 1 handoff tests passed.');

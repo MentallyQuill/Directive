@@ -103,6 +103,7 @@ const checks = [
   'test-ashes-v1-migration-inventory.mjs',
   'test-ashes-v1-prelude-mission.mjs',
   'test-ashes-v1-chapter-1-mission.mjs',
+  'test-ashes-v1-chapter-1-runtime.mjs',
   'test-ashes-v1-mission-handoff.mjs',
   'test-story-ledger-projection.mjs',
   'test-story-context-index.mjs',
