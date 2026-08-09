@@ -1,27 +1,17 @@
 import { validateStorySettlement } from './story-settlement-contracts.mjs';
 import { selectCurrentStoryEpisodes } from './story-settlement.mjs';
+import {
+    EPISODE_SIGNIFICANCE_CRITERIA,
+    EPISODE_SOFT_BOUNDARY_REASONS,
+} from './episode-boundary.mjs';
 
 export const EPISODE_EVALUATION_REQUEST_KIND = 'directive.episodeEvaluationRequest.v1';
 export const EPISODE_EVALUATION_PROPOSAL_KIND = 'directive.episodeEvaluationProposal.v1';
 export const EPISODE_EVALUATOR_ROLE_ID = 'utilityJson';
 export const EPISODE_EVALUATOR_MAX_TIMEOUT_MS = 10000;
 
-export const SOFT_BOUNDARY_REASONS = Object.freeze([
-    'foreground-question-resolved',
-    'foreground-question-abandoned',
-    'encounter-departure',
-    'material-situation-shift',
-    'sustained-context-replacement',
-]);
-export const LASTING_SIGNIFICANCE_CRITERIA = Object.freeze([
-    'material-state-change',
-    'consequential-fact-learned',
-    'commitment-created-or-resolved',
-    'relationship-turning-point',
-    'future-constraining-decision',
-    'lasting-cost-gain-or-loss',
-    'unresolved-consequence',
-]);
+export const SOFT_BOUNDARY_REASONS = EPISODE_SOFT_BOUNDARY_REASONS;
+export const LASTING_SIGNIFICANCE_CRITERIA = EPISODE_SIGNIFICANCE_CRITERIA;
 
 const DECISIONS = new Set(['continue', 'seal', 'abstain']);
 const BOUNDARY_REASONS = new Set(SOFT_BOUNDARY_REASONS);

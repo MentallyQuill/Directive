@@ -229,6 +229,53 @@
         }
       }
     },
+    "episodeSoftBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reason", "significanceCriteria", "sourceContributionIds", "effectIds", "checkpointSequence"],
+      "properties": {
+        "kind": { "const": "directive.episodeSoftBoundary.v1" },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "foreground-question-resolved",
+            "foreground-question-abandoned",
+            "encounter-departure",
+            "material-situation-shift",
+            "sustained-context-replacement"
+          ]
+        },
+        "significanceCriteria": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "material-state-change",
+              "consequential-fact-learned",
+              "commitment-created-or-resolved",
+              "relationship-turning-point",
+              "future-constraining-decision",
+              "lasting-cost-gain-or-loss",
+              "unresolved-consequence"
+            ]
+          }
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "effectIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "checkpointSequence": { "type": "integer", "minimum": 1 }
+      }
+    },
     "characterMoment": {
       "type": "object",
       "additionalProperties": false,
@@ -352,6 +399,12 @@
           "anyOf": [
             { "type": "null" },
             { "$ref": "#/$defs/episodeHardBoundary" }
+          ]
+        },
+        "softBoundary": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/episodeSoftBoundary" }
           ]
         },
         "references": { "$ref": "#/$defs/episodeReferences" },

@@ -104,6 +104,7 @@ const app = createDirectiveRuntimeApp({
     '2026-06-19T16:04:00.000Z'
   ])
 });
+assert.equal(typeof app.reviewV1PendingEpisodeNow, 'function');
 
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');

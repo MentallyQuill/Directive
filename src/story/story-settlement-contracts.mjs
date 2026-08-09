@@ -158,6 +158,20 @@ export function validateStorySettlement(value = {}) {
                 });
                 errors.push(...boundaryResult.errors.map((error) => `${episodeId} hardBoundary ${error}`));
             }
+            if (episode?.softBoundary !== undefined && episode.softBoundary !== null) {
+                const boundaryResult = validateEpisodeSoftBoundary(episode.softBoundary, {
+                    knownContributionIds: (episode.contributions || []).map((item) => item.id),
+                    knownEffectIds: (episode.effects || []).map((item) => item.id),
+                });
+                errors.push(...boundaryResult.errors.map((error) => `${episodeId} ${error}`));
+                if (!new Set(['sealed', 'invalidated']).has(episode.status)) {
+                    errors.push(`${episodeId} softBoundary is allowed only on sealed or invalidated episodes`);
+                }
+                if (episode.hardBoundary) errors.push(`${episodeId} cannot have both hardBoundary and softBoundary`);
+                if (episode.boundaryReason !== episode.softBoundary.reason) {
+                    errors.push(`${episodeId} boundaryReason must match softBoundary reason`);
+                }
+            }
             if (episode?.supersedesEpisodeIds !== undefined) {
                 if (!Array.isArray(episode.supersedesEpisodeIds)) {
                     errors.push(`${episodeId} supersedesEpisodeIds must be an array`);
@@ -393,5 +407,6 @@ export function validateStorySettlement(value = {}) {
 import {
     EPISODE_BOUNDARY_STATE_KIND,
     validateEpisodeHardBoundary,
+    validateEpisodeSoftBoundary,
 } from './episode-boundary.mjs';
 import { validateStoryWorkingCapsule } from './working-capsule.mjs';

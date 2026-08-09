@@ -81,6 +81,7 @@ const checks = [
   'test-v1-story-settlement.mjs',
   'test-v1-working-capsule.mjs',
   'test-v1-episode-evaluator.mjs',
+  'test-v1-soft-boundary-runtime.mjs',
   'test-v1-story-supersession.mjs',
   'test-v1-story-projection.mjs',
   'test-v1-prompt-projection.mjs',

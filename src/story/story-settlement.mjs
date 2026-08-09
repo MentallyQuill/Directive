@@ -159,6 +159,44 @@ export function replaceStoryWorkingCapsule(settlement, options = {}) {
     return assertValid(next);
 }
 
+export function applyStoryWorkingCapsuleReview(settlement, {
+    checkpointSequence,
+    summary = '',
+    foregroundQuestion = null,
+    sourceContributionIds = [],
+    effectIds = [],
+} = {}) {
+    const episode = activeEpisode(settlement);
+    if (!episode?.workingCapsule) throw new TypeError('an active episode with a working capsule is required');
+    if (!Number.isInteger(checkpointSequence) || checkpointSequence < 1) {
+        throw new TypeError('checkpointSequence must be a positive integer');
+    }
+    if (episode.boundaryState?.checkpointSequence !== checkpointSequence) {
+        throw new TypeError('working capsule review checkpoint is stale');
+    }
+    if (episode.workingCapsule.lastEvaluatedCheckpointSequence >= checkpointSequence) {
+        return structuredClone(settlement);
+    }
+
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    const nextEpisode = activeEpisode(next);
+    const reviewed = replaceStoryWorkingSemantics(nextEpisode.workingCapsule, {
+        episode: nextEpisode,
+        summary,
+        foregroundQuestion,
+        sourceContributionIds,
+        effectIds,
+        needsReview: false,
+        lastEvaluatedCheckpointSequence: checkpointSequence,
+        updatedAtRevision: next.revision,
+    });
+    reviewed.recentEvidence = [];
+    reviewed.observedContributionCount = nextEpisode.contributions.length;
+    nextEpisode.workingCapsule = reviewed;
+    return assertValid(next);
+}
+
 export function checkpointStoryEpisode(settlement, {
     minimumNewContributions = 8,
     force = false,
@@ -194,6 +232,7 @@ export function checkpointStoryEpisode(settlement, {
 export function sealStoryEpisode(settlement, {
     boundaryReason,
     hardBoundary = null,
+    softBoundary = null,
     summary,
     unresolvedConsequences = [],
     characterMoments = [],
@@ -201,6 +240,7 @@ export function sealStoryEpisode(settlement, {
 } = {}) {
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
+    if (hardBoundary && softBoundary) throw new TypeError('episode cannot have both hard and soft boundaries');
     const isSignificant = episode.effects.length > 0
         || unresolvedConsequences.length > 0
         || significance.lastingChange === true
@@ -214,6 +254,7 @@ export function sealStoryEpisode(settlement, {
     nextEpisode.sealedAtRevision = next.revision;
     nextEpisode.boundaryReason = boundaryReason;
     nextEpisode.hardBoundary = hardBoundary ? structuredClone(hardBoundary) : null;
+    if (softBoundary) nextEpisode.softBoundary = structuredClone(softBoundary);
     nextEpisode.summary = summary;
     nextEpisode.unresolvedConsequences = structuredClone(unresolvedConsequences);
     nextEpisode.characterMoments = structuredClone(characterMoments);

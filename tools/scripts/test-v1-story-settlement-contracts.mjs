@@ -17,11 +17,13 @@ assert.equal(schema.$defs.receipt.additionalProperties, false);
 assert.equal(schema.$defs.focus.additionalProperties, false);
 assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
 assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
+assert.equal(schema.$defs.episodeSoftBoundary.additionalProperties, false);
 assert.equal(schema.$defs.episodeReferences.additionalProperties, false);
 assert.equal(schema.$defs.characterMoment.additionalProperties, false);
 assert.equal(schema.$defs.workingCapsule.additionalProperties, false);
 assert.equal(schema.$defs.workingEvidence.additionalProperties, false);
 assert.equal(schema.$defs.episode.properties.workingCapsule.$ref, '#/$defs/workingCapsule');
+assert.equal(schema.$defs.episode.properties.softBoundary.anyOf[1].$ref, '#/$defs/episodeSoftBoundary');
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
@@ -282,6 +284,55 @@ const effect = {
     playerVisibility: 'visible',
     status: 'active',
 };
+
+const softBoundary = {
+    kind: 'directive.episodeSoftBoundary.v1',
+    reason: 'foreground-question-resolved',
+    significanceCriteria: ['material-state-change'],
+    sourceContributionIds: ['contribution.alpha'],
+    effectIds: ['effect.alpha'],
+    checkpointSequence: 1,
+};
+const softSealedEpisode = {
+    ...openEpisode,
+    status: 'sealed',
+    sealedAtRevision: 2,
+    boundaryReason: softBoundary.reason,
+    summary: 'The readiness review reached a durable conclusion.',
+    contributions: [contribution],
+    effects: [{ ...effect, sourceContributionIds: ['contribution.alpha'] }],
+    softBoundary,
+};
+assert.equal(validateStorySettlement({
+    ...empty,
+    revision: 2,
+    episodes: [softSealedEpisode],
+}).ok, true);
+for (const [label, episodeValue, pattern] of [
+    ['open soft boundary', { ...softSealedEpisode, status: 'open', sealedAtRevision: null }, /allowed only on sealed or invalidated/],
+    ['reason mismatch', { ...softSealedEpisode, boundaryReason: 'encounter-departure' }, /boundaryReason must match/],
+    ['unknown source', { ...softSealedEpisode, softBoundary: { ...softBoundary, sourceContributionIds: ['contribution.missing'] } }, /unknown id/],
+    ['unknown effect', { ...softSealedEpisode, softBoundary: { ...softBoundary, effectIds: ['effect.missing'] } }, /unknown id/],
+    ['unknown field', { ...softSealedEpisode, softBoundary: { ...softBoundary, rationale: 'No.' } }, /unknown field: rationale/],
+    ['hard and soft', {
+        ...softSealedEpisode,
+        hardBoundary: {
+            kind: 'directive.episodeHardBoundary.v1',
+            id: 'boundary.transition',
+            branchId: 'save.alpha',
+            code: 'mission-transition',
+            source: { kind: 'missionReducer', id: 'transition.alpha' },
+            sourceContributionIds: ['contribution.alpha'],
+        },
+    }, /cannot have both/],
+]) {
+    assert.match(validateStorySettlement({
+        ...empty,
+        revision: 2,
+        activeEpisode: episodeValue.status === 'open' ? episodeValue.id : null,
+        episodes: [episodeValue],
+    }).errors.join('\n'), pattern, label);
+}
 
 assert.match(
     validateStorySettlement({

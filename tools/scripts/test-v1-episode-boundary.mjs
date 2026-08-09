@@ -2,8 +2,12 @@ import assert from 'node:assert/strict';
 
 import {
     EPISODE_HARD_BOUNDARY_CODES,
+    EPISODE_SIGNIFICANCE_CRITERIA,
+    EPISODE_SOFT_BOUNDARY_REASONS,
     createEpisodeHardBoundary,
+    createEpisodeSoftBoundary,
     validateEpisodeHardBoundary,
+    validateEpisodeSoftBoundary,
 } from '../../src/story/episode-boundary.mjs';
 
 const sourceKindByCode = {
@@ -74,5 +78,44 @@ assert.throws(
     () => createEpisodeHardBoundary({ ...valid, code: 'topic-change' }),
     /code is unknown/,
 );
+
+assert.deepEqual([...EPISODE_SOFT_BOUNDARY_REASONS], [
+    'foreground-question-resolved',
+    'foreground-question-abandoned',
+    'encounter-departure',
+    'material-situation-shift',
+    'sustained-context-replacement',
+]);
+assert.deepEqual([...EPISODE_SIGNIFICANCE_CRITERIA], [
+    'material-state-change',
+    'consequential-fact-learned',
+    'commitment-created-or-resolved',
+    'relationship-turning-point',
+    'future-constraining-decision',
+    'lasting-cost-gain-or-loss',
+    'unresolved-consequence',
+]);
+const softBoundary = createEpisodeSoftBoundary({
+    reason: 'foreground-question-resolved',
+    significanceCriteria: ['commitment-created-or-resolved'],
+    sourceContributionIds: ['contribution.alpha'],
+    effectIds: ['effect.alpha'],
+    checkpointSequence: 2,
+});
+assert.deepEqual(validateEpisodeSoftBoundary(softBoundary, {
+    knownContributionIds: ['contribution.alpha'],
+    knownEffectIds: ['effect.alpha'],
+}), { ok: true, errors: [] });
+for (const [label, value, options, pattern] of [
+    ['unknown reason', { ...softBoundary, reason: 'topic-change' }, {}, /reason is unknown/],
+    ['unknown criterion', { ...softBoundary, significanceCriteria: ['interesting-detail'] }, {}, /criterion is unknown/],
+    ['empty criteria', { ...softBoundary, significanceCriteria: [] }, {}, /non-empty array/],
+    ['unknown source', softBoundary, { knownContributionIds: [] }, /unknown id/],
+    ['unknown effect', softBoundary, { knownEffectIds: [] }, /unknown id/],
+    ['invalid checkpoint', { ...softBoundary, checkpointSequence: 0 }, {}, /positive integer/],
+    ['free-form rationale', { ...softBoundary, rationale: 'The scene feels complete.' }, {}, /unknown field: rationale/],
+]) {
+    assert.match(validateEpisodeSoftBoundary(value, options).errors.join('\n'), pattern, label);
+}
 
 console.log('V1 episode boundary contract tests passed.');

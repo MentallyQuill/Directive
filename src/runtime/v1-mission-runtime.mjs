@@ -7,6 +7,10 @@ import {
     resolveV1MissionState,
 } from './v1-state-spine.mjs';
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
+import {
+    createEpisodeEvaluationRequest,
+    createEpisodeEvaluator,
+} from '../story/episode-evaluator.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
 
 function compact(value) {
@@ -300,7 +304,19 @@ function errorReasonCode(error) {
         return 'evidence-sequence-migration-required';
     }
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_REJECTED') return 'evidence-rejected';
+    if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_STALE') return 'episode-review-stale';
+    if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_INVALID') return 'episode-review-invalid';
     return 'settlement-failed';
+}
+
+function safeEpisodeDiagnostics(diagnostics = {}) {
+    return {
+        providerId: compact(diagnostics?.providerId) || null,
+        model: compact(diagnostics?.model) || null,
+        latencyMs: Number.isFinite(diagnostics?.latencyMs) ? diagnostics.latencyMs : null,
+        errorCount: Number.isInteger(diagnostics?.errorCount) ? diagnostics.errorCount : null,
+        timeoutMs: Number.isInteger(diagnostics?.timeoutMs) ? diagnostics.timeoutMs : null,
+    };
 }
 
 export function buildV1RuntimePlayerProjection({ campaignState = {}, runtimeAssets = {} } = {}) {
@@ -339,6 +355,8 @@ export function createV1MissionRuntime({
     interpretAcceptedPair = null,
     now = () => new Date().toISOString(),
     timeoutMs = 10000,
+    evaluateEpisode = null,
+    episodeReviewTimeoutMs = 8000,
     checkpointEveryContributions = 8,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
@@ -347,6 +365,10 @@ export function createV1MissionRuntime({
         throw new TypeError('stateDeltaGateway with revision and applyProposal is required');
     }
     const interpreter = interpretAcceptedPair || createMissionAcceptedPairInterpreter({ generationRouter, timeoutMs });
+    const episodeEvaluator = evaluateEpisode || createEpisodeEvaluator({
+        generationRouter,
+        timeoutMs: episodeReviewTimeoutMs,
+    });
 
     function buildPlayerProjection({ runtimeAssets = {} } = {}) {
         return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
@@ -627,6 +649,86 @@ export function createV1MissionRuntime({
         }
     }
 
+    async function reviewPendingEpisode({ runtimeAssets = {} } = {}) {
+        const campaignState = getState();
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+        if (!resolved.ok) return { ...resolved, reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement) };
+        const reviewToken = createPendingEpisodeReviewToken(campaignState?.storySettlement);
+        if (!reviewToken) {
+            return {
+                ok: true,
+                attempted: false,
+                status: 'no-pending-review',
+                reasonCode: null,
+                definitionId: resolved.definition.id,
+                definitionVersion: resolved.definition.version,
+                committedRoots: [],
+                noChange: true,
+                reviewToken: null,
+                diagnostics: {},
+            };
+        }
+
+        let request;
+        try {
+            request = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement });
+        } catch {
+            return {
+                ...unavailable('episode-review-invalid', {}, { attempted: false }),
+                reviewToken,
+            };
+        }
+        const gatewayBaseRevision = stateDeltaGateway.revision();
+        let evaluated;
+        try {
+            evaluated = await episodeEvaluator({ request });
+        } catch {
+            evaluated = { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };
+        }
+        const diagnostics = safeEpisodeDiagnostics(evaluated?.diagnostics);
+        if (!evaluated?.ok || !evaluated?.proposal) {
+            return {
+                ...unavailable(evaluated?.reasonCode || 'episode-review-unavailable', diagnostics, { attempted: true }),
+                reviewToken: createPendingEpisodeReviewToken(getState()?.storySettlement),
+            };
+        }
+
+        const spine = createV1StateSpine({
+            getState,
+            stateDeltaGateway,
+            resolveSourceRef: () => null,
+            now,
+            checkpointEveryContributions,
+        });
+        try {
+            const applied = await spine.applyEpisodeReview({
+                definition: resolved.definition,
+                reviewToken,
+                request,
+                proposal: evaluated.proposal,
+                gatewayBaseRevision,
+            });
+            const decision = evaluated.proposal.decision;
+            return {
+                ok: true,
+                attempted: true,
+                status: decision === 'continue' ? 'continued' : (decision === 'seal' ? 'sealed' : 'abstained'),
+                reasonCode: null,
+                definitionId: resolved.definition.id,
+                definitionVersion: resolved.definition.version,
+                committedRoots: applied.noChange ? [] : ['storySettlement'],
+                noChange: applied.noChange,
+                reviewToken: applied.reviewToken || null,
+                diagnostics,
+            };
+        } catch (error) {
+            return {
+                ...unavailable(errorReasonCode(error), diagnostics, { attempted: true }),
+                reviewToken: createPendingEpisodeReviewToken(getState()?.storySettlement),
+            };
+        }
+    }
+
     return {
         resolveActiveDefinition: (runtimeAssets) => resolveActiveV1MissionDefinition({
             campaignState: getState(),
@@ -636,6 +738,7 @@ export function createV1MissionRuntime({
         invalidateSourceMutation,
         buildPlayerProjection,
         pendingEpisodeReview: () => createPendingEpisodeReviewToken(getState()?.storySettlement),
+        reviewPendingEpisode,
     };
 }
 

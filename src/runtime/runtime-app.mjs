@@ -2371,6 +2371,8 @@ export function createDirectiveRuntimeApp({
   let programmaticChatOpenSuppression = null;
   let lastError = null;
   let chatNativeServices = null;
+  let runtimeStateDeltaGateway = null;
+  let v1MissionShadowRuntime = null;
   let durabilityCoordinator = null;
   let lensPromptScheduler = null;
   let runtimeForgeCoordinator = null;
@@ -7310,6 +7312,50 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  function runtimeCampaignState() {
+    return campaignState;
+  }
+
+  function setRuntimeCampaignState(state) {
+    campaignState = cloneJson(state);
+    syncCurrentChatScopeCampaignState(campaignState);
+  }
+
+  function persistCampaignStateDelta(state, summary) {
+    return persistRuntimeCampaignState(
+      state,
+      typeof summary === 'string'
+        ? summary
+        : (summary?.summary || summary?.reason || 'Directive campaign state updated.')
+    );
+  }
+
+  function ensureRuntimeStateDeltaGateway() {
+    if (!runtimeStateDeltaGateway) {
+      runtimeStateDeltaGateway = createStateDeltaGateway({
+        getState: runtimeCampaignState,
+        setState: setRuntimeCampaignState,
+        persist: persistCampaignStateDelta,
+        now
+      });
+    }
+    return runtimeStateDeltaGateway;
+  }
+
+  function ensureV1MissionShadowRuntime() {
+    if (!v1MissionShadowRuntime) {
+      v1MissionShadowRuntime = createV1MissionRuntime({
+        getState: runtimeCampaignState,
+        stateDeltaGateway: ensureRuntimeStateDeltaGateway(),
+        generationRouter: defaultGenerationRouter,
+        now,
+        timeoutMs: 8000,
+        episodeReviewTimeoutMs: 8000
+      });
+    }
+    return v1MissionShadowRuntime;
+  }
+
   function ensureChatNativeServices() {
     if (chatNativeServices) return chatNativeServices;
     if (
@@ -7323,30 +7369,11 @@ export function createDirectiveRuntimeApp({
       return null;
     }
 
-    const getCampaignState = () => campaignState;
-    const setCampaignState = (state) => {
-      campaignState = cloneJson(state);
-      syncCurrentChatScopeCampaignState(campaignState);
-    };
-    const persistCampaignState = (state, summary) => persistRuntimeCampaignState(
-      state,
-      typeof summary === 'string'
-        ? summary
-        : (summary?.summary || summary?.reason || 'Directive campaign state updated.')
-    );
-    const stateDeltaGateway = createStateDeltaGateway({
-      getState: getCampaignState,
-      setState: setCampaignState,
-      persist: persistCampaignState,
-      now
-    });
-    const v1MissionRuntime = createV1MissionRuntime({
-      getState: getCampaignState,
-      stateDeltaGateway,
-      generationRouter: defaultGenerationRouter,
-      now,
-      timeoutMs: 8000
-    });
+    const getCampaignState = runtimeCampaignState;
+    const setCampaignState = setRuntimeCampaignState;
+    const persistCampaignState = persistCampaignStateDelta;
+    const stateDeltaGateway = ensureRuntimeStateDeltaGateway();
+    const v1MissionRuntime = ensureV1MissionShadowRuntime();
     const injectedRepairRuntime = typeof repairRuntimeFactory === 'function'
       ? repairRuntimeFactory({
           coreTurnStore: runtimeCoreTurnStore,
@@ -8471,6 +8498,15 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         return cloneJson(buildV1RuntimePlayerProjection({
           campaignState,
+          runtimeAssets: optionalActiveRuntimeAssets() || {}
+        }));
+      });
+    },
+
+    async reviewV1PendingEpisodeNow() {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(await ensureV1MissionShadowRuntime().reviewPendingEpisode({
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
       });

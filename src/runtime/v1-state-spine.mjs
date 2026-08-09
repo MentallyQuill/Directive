@@ -9,6 +9,7 @@ import {
 } from '../story/story-settlement-contracts.mjs';
 import {
     acceptStoryContributions,
+    applyStoryWorkingCapsuleReview,
     appendStoryEffects,
     checkpointStoryEpisode,
     invalidateStorySources,
@@ -19,8 +20,13 @@ import {
 } from '../story/story-settlement.mjs';
 import {
     createEpisodeHardBoundary,
+    createEpisodeSoftBoundary,
     validateEpisodeHardBoundary,
 } from '../story/episode-boundary.mjs';
+import {
+    createEpisodeEvaluationRequest,
+    parseEpisodeEvaluationProposal,
+} from '../story/episode-evaluator.mjs';
 
 const MAX_SHADOW_DIAGNOSTICS = 20;
 export const EPISODE_REVIEW_TOKEN_KIND = 'directive.episodeReviewToken.v1';
@@ -185,6 +191,65 @@ function invalidHardBoundary(errors = []) {
     error.code = 'DIRECTIVE_EPISODE_HARD_BOUNDARY_INVALID';
     error.details = { errors: [...errors] };
     return error;
+}
+
+function invalidEpisodeReview(errors = []) {
+    const error = new Error(`Episode review is invalid: ${errors.join('; ')}.`);
+    error.code = 'DIRECTIVE_EPISODE_REVIEW_INVALID';
+    error.details = { errors: [...errors] };
+    return error;
+}
+
+function staleEpisodeReview(reason = 'episode review no longer matches current accepted state') {
+    const error = new Error(`Episode review is stale: ${reason}.`);
+    error.code = 'DIRECTIVE_EPISODE_REVIEW_STALE';
+    error.details = { reason };
+    return error;
+}
+
+function reviewTokenForRequest(request = {}) {
+    return {
+        kind: EPISODE_REVIEW_TOKEN_KIND,
+        branchId: request?.envelope?.branchId,
+        episodeId: request?.envelope?.episodeId,
+        episodeRevision: request?.envelope?.baseRevision,
+        checkpointSequence: request?.envelope?.checkpointSequence,
+    };
+}
+
+function alreadyAppliedReview(settlement, reviewToken, proposal) {
+    const episode = (settlement?.episodes || []).find((item) => item.id === reviewToken?.episodeId);
+    if (!episode) return false;
+    if (proposal.decision === 'continue'
+        && episode.status === 'open'
+        && episode.workingCapsule?.lastEvaluatedCheckpointSequence >= reviewToken.checkpointSequence) {
+        const exact = episode.workingCapsule.lastEvaluatedCheckpointSequence === reviewToken.checkpointSequence
+            && episode.workingCapsule.summary === proposal.summary
+            && episode.workingCapsule.foregroundQuestion === proposal.foregroundQuestion
+            && jsonEqual(episode.workingCapsule.sourceContributionIds, proposal.sourceContributionIds)
+            && jsonEqual(episode.workingCapsule.effectIds, proposal.effectIds)
+            && episode.workingCapsule.recentEvidence.length === 0
+            && episode.workingCapsule.observedContributionCount === episode.contributions.length;
+        if (exact) return true;
+        throw staleEpisodeReview('the checkpoint was already consumed by a different continue decision');
+    }
+    if (proposal.decision === 'seal'
+        && new Set(['sealed', 'invalidated']).has(episode.status)
+        && episode.softBoundary?.checkpointSequence === reviewToken.checkpointSequence) {
+        const expectedBoundary = createEpisodeSoftBoundary({
+            reason: proposal.boundaryReason,
+            significanceCriteria: proposal.significanceCriteria,
+            sourceContributionIds: proposal.sourceContributionIds,
+            effectIds: proposal.effectIds,
+            checkpointSequence: reviewToken.checkpointSequence,
+        });
+        const exact = episode.boundaryReason === proposal.boundaryReason
+            && episode.summary === proposal.summary
+            && jsonEqual(episode.softBoundary, expectedBoundary);
+        if (exact) return true;
+        throw staleEpisodeReview('the checkpoint was already consumed by a different seal decision');
+    }
+    return false;
 }
 
 function orderedEvidenceBatches(evidenceLog = []) {
@@ -515,9 +580,123 @@ export function createV1StateSpine({
         };
     }
 
+    async function applyEpisodeReview({
+        definition,
+        reviewToken,
+        request,
+        proposal,
+        gatewayBaseRevision = null,
+    } = {}) {
+        const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
+        const parsed = parseEpisodeEvaluationProposal(proposal, { request });
+        if (!parsed.ok) throw invalidEpisodeReview(parsed.errors);
+        const acceptedProposal = parsed.value;
+        if (!jsonEqual(reviewToken, reviewTokenForRequest(request))) {
+            throw staleEpisodeReview('the review token does not match its evaluation request');
+        }
+
+        const campaignState = getState();
+        const currentMission = campaignState?.mission?.v1;
+        if (!currentMission
+            || currentMission.definitionId !== definition?.id
+            || currentMission.branchId !== reviewToken.branchId) {
+            throw staleEpisodeReview('the active mission or branch changed');
+        }
+        resolveV1MissionState({ campaignState, definition, branchId: reviewToken.branchId });
+        const activePackage = campaignState?.activeCampaignPackage;
+        if (activePackage && (
+            activePackage.packageId !== definition.packageBinding.packageId
+            || activePackage.packageVersion !== definition.packageBinding.packageVersion
+        )) {
+            throw staleEpisodeReview('the active campaign package changed');
+        }
+
+        const currentSettlement = initialStorySettlement(campaignState, reviewToken.branchId);
+        if (alreadyAppliedReview(currentSettlement, reviewToken, acceptedProposal)) {
+            return {
+                storySettlement: currentSettlement,
+                campaignState: structuredClone(campaignState),
+                noChange: true,
+                reviewToken: createPendingEpisodeReviewToken(currentSettlement),
+            };
+        }
+        const currentToken = createPendingEpisodeReviewToken(currentSettlement);
+        if (!jsonEqual(currentToken, reviewToken)) {
+            throw staleEpisodeReview('the active checkpoint changed');
+        }
+        let currentRequest;
+        try {
+            currentRequest = createEpisodeEvaluationRequest({ settlement: currentSettlement });
+        } catch {
+            throw staleEpisodeReview('the current episode is no longer reviewable');
+        }
+        if (!jsonEqual(currentRequest, request)) {
+            throw staleEpisodeReview('accepted sources or visible effects changed during evaluation');
+        }
+        if (acceptedProposal.decision === 'abstain') {
+            return {
+                storySettlement: currentSettlement,
+                campaignState: structuredClone(campaignState),
+                noChange: true,
+                reviewToken: currentToken,
+            };
+        }
+
+        let storySettlement;
+        if (acceptedProposal.decision === 'continue') {
+            storySettlement = applyStoryWorkingCapsuleReview(currentSettlement, {
+                checkpointSequence: reviewToken.checkpointSequence,
+                summary: acceptedProposal.summary,
+                foregroundQuestion: acceptedProposal.foregroundQuestion,
+                sourceContributionIds: acceptedProposal.sourceContributionIds,
+                effectIds: acceptedProposal.effectIds,
+            });
+        } else {
+            const softBoundary = createEpisodeSoftBoundary({
+                reason: acceptedProposal.boundaryReason,
+                significanceCriteria: acceptedProposal.significanceCriteria,
+                sourceContributionIds: acceptedProposal.sourceContributionIds,
+                effectIds: acceptedProposal.effectIds,
+                checkpointSequence: reviewToken.checkpointSequence,
+            });
+            const criteria = new Set(acceptedProposal.significanceCriteria);
+            storySettlement = sealStoryEpisode(currentSettlement, {
+                boundaryReason: acceptedProposal.boundaryReason,
+                softBoundary,
+                summary: acceptedProposal.summary,
+                unresolvedConsequences: [],
+                significance: {
+                    meaningfulDisclosure: criteria.has('consequential-fact-learned'),
+                    lastingChange: [...criteria].some((criterion) => criterion !== 'consequential-fact-learned'),
+                },
+            });
+        }
+
+        const committed = await stateDeltaGateway.applyProposal({
+            patch: { storySettlement },
+            domains: ['storySettlement'],
+            baseRevision: capturedGatewayRevision,
+            source: 'v1EpisodeReviewShadow',
+            reason: 'Applied a bounded V1 episode review to the story settlement only.',
+            metadata: {
+                missionId: definition.id,
+                episodeId: reviewToken.episodeId,
+                checkpointSequence: reviewToken.checkpointSequence,
+                decision: acceptedProposal.decision,
+            },
+        });
+        return {
+            storySettlement,
+            campaignState: committed.campaignState,
+            noChange: false,
+            reviewToken: createPendingEpisodeReviewToken(storySettlement),
+        };
+    }
+
     return {
         settleAcceptedPair,
         reduceMissionProposal,
         invalidateSources,
+        applyEpisodeReview,
     };
 }

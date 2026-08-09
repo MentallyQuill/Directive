@@ -1,5 +1,6 @@
 export const EPISODE_HARD_BOUNDARY_KIND = 'directive.episodeHardBoundary.v1';
 export const EPISODE_BOUNDARY_STATE_KIND = 'directive.episodeBoundaryState.v1';
+export const EPISODE_SOFT_BOUNDARY_KIND = 'directive.episodeSoftBoundary.v1';
 
 export const EPISODE_HARD_BOUNDARY_CODES = Object.freeze([
     'mission-transition',
@@ -9,6 +10,22 @@ export const EPISODE_HARD_BOUNDARY_CODES = Object.freeze([
     'meaningful-location-transition',
     'world-settlement',
     'source-recovery',
+]);
+export const EPISODE_SOFT_BOUNDARY_REASONS = Object.freeze([
+    'foreground-question-resolved',
+    'foreground-question-abandoned',
+    'encounter-departure',
+    'material-situation-shift',
+    'sustained-context-replacement',
+]);
+export const EPISODE_SIGNIFICANCE_CRITERIA = Object.freeze([
+    'material-state-change',
+    'consequential-fact-learned',
+    'commitment-created-or-resolved',
+    'relationship-turning-point',
+    'future-constraining-decision',
+    'lasting-cost-gain-or-loss',
+    'unresolved-consequence',
 ]);
 
 const SOURCE_KINDS_BY_CODE = Object.freeze({
@@ -23,6 +40,14 @@ const SOURCE_KINDS_BY_CODE = Object.freeze({
 
 const BOUNDARY_FIELDS = new Set(['kind', 'id', 'branchId', 'code', 'source', 'sourceContributionIds']);
 const SOURCE_FIELDS = new Set(['kind', 'id']);
+const SOFT_BOUNDARY_FIELDS = new Set([
+    'kind',
+    'reason',
+    'significanceCriteria',
+    'sourceContributionIds',
+    'effectIds',
+    'checkpointSequence',
+]);
 
 function isObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -95,6 +120,67 @@ export function createEpisodeHardBoundary({
         sourceContributionIds: [...sourceContributionIds],
     };
     const result = validateEpisodeHardBoundary(boundary);
+    if (!result.ok) throw new TypeError(result.errors.join('\n'));
+    return boundary;
+}
+
+export function validateEpisodeSoftBoundary(value = {}, {
+    knownContributionIds = null,
+    knownEffectIds = null,
+} = {}) {
+    const errors = [];
+    if (!isObject(value)) return { ok: false, errors: ['soft boundary must be an object'] };
+    for (const field of unknownFields(value, SOFT_BOUNDARY_FIELDS)) errors.push(`soft boundary unknown field: ${field}`);
+    if (value.kind !== EPISODE_SOFT_BOUNDARY_KIND) errors.push(`soft boundary kind must be ${EPISODE_SOFT_BOUNDARY_KIND}`);
+    if (!EPISODE_SOFT_BOUNDARY_REASONS.includes(value.reason)) errors.push('soft boundary reason is unknown');
+    if (!Array.isArray(value.significanceCriteria) || value.significanceCriteria.length === 0) {
+        errors.push('soft boundary significanceCriteria must be a non-empty array');
+    } else {
+        if (new Set(value.significanceCriteria).size !== value.significanceCriteria.length) {
+            errors.push('soft boundary significanceCriteria must be unique');
+        }
+        for (const criterion of value.significanceCriteria) {
+            if (!EPISODE_SIGNIFICANCE_CRITERIA.includes(criterion)) {
+                errors.push(`soft boundary significance criterion is unknown: ${criterion}`);
+            }
+        }
+    }
+    const validateIds = (ids, label, knownIds, { requireOne = false } = {}) => {
+        if (!Array.isArray(ids) || (requireOne && ids.length === 0)) {
+            errors.push(`soft boundary ${label} must be ${requireOne ? 'a non-empty ' : 'an '}array`);
+            return;
+        }
+        if (new Set(ids).size !== ids.length) errors.push(`soft boundary ${label} must be unique`);
+        const known = knownIds === null ? null : new Set(knownIds);
+        for (const id of ids) {
+            if (!isStableId(id)) errors.push(`soft boundary ${label} contains an invalid id: ${id}`);
+            else if (known && !known.has(id)) errors.push(`soft boundary ${label} contains unknown id: ${id}`);
+        }
+    };
+    validateIds(value.sourceContributionIds, 'sourceContributionIds', knownContributionIds, { requireOne: true });
+    validateIds(value.effectIds, 'effectIds', knownEffectIds);
+    if (!Number.isInteger(value.checkpointSequence) || value.checkpointSequence < 1) {
+        errors.push('soft boundary checkpointSequence must be a positive integer');
+    }
+    return { ok: errors.length === 0, errors };
+}
+
+export function createEpisodeSoftBoundary({
+    reason,
+    significanceCriteria = [],
+    sourceContributionIds = [],
+    effectIds = [],
+    checkpointSequence,
+} = {}) {
+    const boundary = {
+        kind: EPISODE_SOFT_BOUNDARY_KIND,
+        reason,
+        significanceCriteria: [...significanceCriteria],
+        sourceContributionIds: [...sourceContributionIds],
+        effectIds: [...effectIds],
+        checkpointSequence,
+    };
+    const result = validateEpisodeSoftBoundary(boundary);
     if (!result.ok) throw new TypeError(result.errors.join('\n'));
     return boundary;
 }
