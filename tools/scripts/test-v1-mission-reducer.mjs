@@ -29,9 +29,30 @@ assert.equal(state.clocks['clock.hesperus-life-support'].visibility, 'visible');
 assert.equal(state.terminalDisposition, null);
 assert.equal(state.transitionReceipt, null);
 
+const initialTruthDefinition = structuredClone(definition);
+initialTruthDefinition.facts[0].initiallyTrue = true;
+const initialTruthState = createMissionState({ definition: initialTruthDefinition, branchId: 'save.initial-truth' });
+assert.deepEqual(initialTruthState.worldFacts, ['fact.hesperus-discrepancy-known']);
+assert.deepEqual(initialTruthState.knownFacts, []);
+
+const disclosureWithoutEstablishment = reduceMissionEvidence({
+    definition,
+    state,
+    acceptedClaims: [{
+        claimId: 'claim.disclosure-only',
+        policyId: 'policy.hesperus-fraud-disclosed',
+        claimType: 'factDisclosed',
+        targetId: 'fact.hesperus-fraud-confirmed',
+        evidenceKey: 'evidence.disclosure-only',
+    }],
+});
+assert.deepEqual(disclosureWithoutEstablishment.state.knownFacts, ['fact.hesperus-fraud-confirmed']);
+assert.deepEqual(disclosureWithoutEstablishment.state.worldFacts, []);
+
 const stateBefore = structuredClone(state);
 const rescueClaims = [{
     claimId: 'claim.survivors-transferred',
+    policyId: 'policy.hesperus-survivors-transferred',
     claimType: 'eventOccurred',
     targetId: 'event.hesperus-survivors-transferred',
     evidenceKey: 'evidence.survivors-transferred',
@@ -53,6 +74,7 @@ const rescueOnly = reduceMissionEvidence({
 assert.deepEqual(state, stateBefore);
 assert.equal(rescueOnly.state.revision, 1);
 assert.equal(rescueOnly.state.evidenceLog[0].claimId, 'claim.survivors-transferred');
+assert.equal(rescueOnly.state.evidenceLog[0].policyId, 'policy.hesperus-survivors-transferred');
 assert.equal(rescueOnly.state.status, 'terminal');
 assert.equal(rescueOnly.state.terminalDisposition, 'primarySuccess');
 assert.equal(rescueOnly.state.objectives['objective.hesperus-rescue'].disposition, 'completed');
@@ -69,13 +91,22 @@ assert.equal(rescueOnly.transitionPacket.mustNotReveal.includes('Do not mention 
 const accountabilityClaims = [
     rescueClaims[0],
     {
+        claimId: 'claim.fraud-established',
+        policyId: 'policy.hesperus-fraud-established',
+        claimType: 'worldFactEstablished',
+        targetId: 'fact.hesperus-fraud-confirmed',
+        evidenceKey: 'evidence.fraud-established',
+    },
+    {
         claimId: 'claim.fraud-confirmed',
+        policyId: 'policy.hesperus-fraud-disclosed',
         claimType: 'factDisclosed',
         targetId: 'fact.hesperus-fraud-confirmed',
         evidenceKey: 'evidence.fraud-confirmed',
     },
     {
         claimId: 'claim.evidence-preserved',
+        policyId: 'policy.hesperus-evidence-preserved',
         claimType: 'outcomeObserved',
         targetId: 'outcome.hesperus-evidence-preserved',
         value: 'yes',
@@ -93,6 +124,17 @@ assert.equal(accountability.state.objectives['objective.hesperus-accountability'
 assert.equal(accountability.state.objectives['objective.hesperus-accountability'].visibility, 'resolved');
 assert.equal(accountability.state.objectives['objective.hesperus-accountability'].disposition, 'handedOff');
 assert.equal(accountability.state.outcomeDimensions['dimension.accountability'], 'handed-off');
+assert.deepEqual(accountability.state.worldFacts, ['fact.hesperus-fraud-confirmed']);
+assert.deepEqual(accountability.state.knownFacts, ['fact.hesperus-fraud-confirmed']);
+assert.deepEqual(
+    accountability.state.evidenceLog.map((entry) => entry.claimId),
+    [
+        'claim.fraud-established',
+        'claim.survivors-transferred',
+        'claim.evidence-preserved',
+        'claim.fraud-confirmed',
+    ],
+);
 assert.deepEqual(accountability.transitionPacket.optionalOutcomeSummaries, ['Evidence was preserved and handed off for review.']);
 
 const reorderedAccountability = reduceMissionEvidence({
@@ -104,6 +146,7 @@ const reorderedAccountability = reduceMissionEvidence({
 assert.deepEqual(reorderedAccountability.state.objectives, accountability.state.objectives);
 assert.deepEqual(reorderedAccountability.state.outcomeDimensions, accountability.state.outcomeDimensions);
 assert.equal(reorderedAccountability.state.terminalDisposition, accountability.state.terminalDisposition);
+assert.deepEqual(reorderedAccountability.state.evidenceLog, accountability.state.evidenceLog);
 
 const reversedObjectiveDefinition = {
     ...definition,

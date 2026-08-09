@@ -10,6 +10,7 @@
   "facts": [
     {
       "id": "fact.hesperus-discrepancy-known",
+      "initiallyTrue": false,
       "visibility": "discoverable",
       "playerText": {
         "summary": "Inspection records contain discrepancies that warrant review."
@@ -17,10 +18,69 @@
     },
     {
       "id": "fact.hesperus-fraud-confirmed",
+      "initiallyTrue": false,
       "visibility": "discoverable",
       "playerText": {
         "summary": "Available evidence confirms intentional falsification in the inspection record."
       }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.hesperus-discrepancy-established",
+      "claimType": "worldFactEstablished",
+      "targetId": "fact.hesperus-discrepancy-known",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.hesperus-discrepancy-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus-discrepancy-known",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.hesperus-discrepancy-known" }
+    },
+    {
+      "id": "policy.hesperus-fraud-established",
+      "claimType": "worldFactEstablished",
+      "targetId": "fact.hesperus-fraud-confirmed",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": { "worldFact": "fact.hesperus-discrepancy-known" }
+    },
+    {
+      "id": "policy.hesperus-fraud-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.hesperus-fraud-confirmed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.hesperus-fraud-confirmed" }
+    },
+    {
+      "id": "policy.hesperus-survivors-transferred",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus-survivors-transferred",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.hesperus-evidence-preserved",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus-evidence-preserved",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.hesperus-fraud-confirmed" }
+    },
+    {
+      "id": "policy.hesperus-rescue-cost",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.hesperus-rescue-cost",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true
+    },
+    {
+      "id": "policy.hesperus-life-support-time",
+      "claimType": "timeAdvanced",
+      "targetId": "clock.hesperus-life-support",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
     }
   ],
   "events": [

@@ -1,6 +1,30 @@
 import { validateMissionPredicate } from './predicate-evaluator.mjs';
 
 export const MISSION_DEFINITION_KIND = 'directive.missionDefinition.v1';
+export const MISSION_EVIDENCE_CLAIM_TYPES = Object.freeze(new Set([
+    'intentExpressed',
+    'decisionRecorded',
+    'worldFactEstablished',
+    'factDisclosed',
+    'eventOccurred',
+    'outcomeObserved',
+    'timeAdvanced',
+]));
+export const MISSION_EVIDENCE_POLICY_SOURCE_ROLES = Object.freeze(new Set([
+    'user',
+    'assistant',
+    'runtime',
+    'adjudicator',
+]));
+export const MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
+    intentExpressed: 'objectives',
+    decisionRecorded: 'outcomes',
+    worldFactEstablished: 'facts',
+    factDisclosed: 'facts',
+    eventOccurred: 'events',
+    outcomeObserved: 'outcomes',
+    timeAdvanced: 'clocks',
+});
 export const MISSION_OBJECTIVE_CLASSES = Object.freeze(new Set(['required', 'optional', 'conditional']));
 export const MISSION_OBJECTIVE_STATES = Object.freeze(new Set(['inactive', 'available', 'inProgress', 'terminal']));
 export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
@@ -23,6 +47,71 @@ function isNonEmptyString(value) {
 
 function isStableId(value) {
     return isNonEmptyString(value) && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+}
+
+function targetExistsAnywhere(index, targetId) {
+    return ['objectives', 'facts', 'events', 'outcomes', 'clocks']
+        .some((key) => index[key].has(targetId));
+}
+
+function predicateRequiresWorldFact(predicate, targetId) {
+    if (!predicate || typeof predicate !== 'object' || Array.isArray(predicate)) return false;
+    if (predicate.worldFact === targetId) return true;
+    if (Array.isArray(predicate.all)) {
+        return predicate.all.some((child) => predicateRequiresWorldFact(child, targetId));
+    }
+    if (Array.isArray(predicate.any)) {
+        return predicate.any.length > 0
+            && predicate.any.every((child) => predicateRequiresWorldFact(child, targetId));
+    }
+    return false;
+}
+
+function validateEvidencePolicies(definition, index, errors) {
+    for (const policy of Array.isArray(definition?.evidencePolicies) ? definition.evidencePolicies : []) {
+        const policyId = policy?.id || '<unknown evidence policy>';
+        const claimType = policy?.claimType;
+        if (!MISSION_EVIDENCE_CLAIM_TYPES.has(claimType)) {
+            errors.push(`${policyId} claimType is unknown`);
+        }
+        if (!isStableId(policy?.targetId)) {
+            errors.push(`${policyId} targetId must be a stable id`);
+        } else if (!targetExistsAnywhere(index, policy.targetId)) {
+            errors.push(`${policyId} references unknown target: ${policy.targetId}`);
+        } else {
+            const targetCollection = MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE[claimType];
+            if (targetCollection && !index[targetCollection].has(policy.targetId)) {
+                errors.push(`${policyId} target does not match claimType ${claimType}`);
+            }
+        }
+        if (!Array.isArray(policy?.sourceRoles) || policy.sourceRoles.length === 0) {
+            errors.push(`${policyId} sourceRoles must contain at least one role`);
+        } else {
+            const uniqueRoles = new Set(policy.sourceRoles);
+            if (uniqueRoles.size !== policy.sourceRoles.length) {
+                errors.push(`${policyId} sourceRoles must not contain duplicates`);
+            }
+            for (const role of uniqueRoles) {
+                if (!MISSION_EVIDENCE_POLICY_SOURCE_ROLES.has(role)) {
+                    errors.push(`${policyId} sourceRoles contains unknown role: ${role}`);
+                }
+                if (role === 'user' && !new Set(['intentExpressed', 'decisionRecorded']).has(claimType)) {
+                    errors.push(`${policyId} user sourceRole may only prove intentExpressed or decisionRecorded`);
+                }
+            }
+            if (new Set(['worldFactEstablished', 'timeAdvanced']).has(claimType)) {
+                const unauthorized = [...uniqueRoles].filter((role) => !new Set(['runtime', 'adjudicator']).has(role));
+                if (unauthorized.length > 0) {
+                    errors.push(`${policyId} ${claimType} sourceRoles must be runtime or adjudicator`);
+                }
+            }
+        }
+        const predicateResult = validateMissionPredicate(policy?.when, index);
+        errors.push(...predicateResult.errors.map((error) => error.replace(/^predicate/, `${policyId}.when`)));
+        if (claimType === 'factDisclosed' && !predicateRequiresWorldFact(policy?.when, policy?.targetId)) {
+            errors.push(`${policyId} factDisclosed when must require its target worldFact`);
+        }
+    }
 }
 
 function validateDefinitionPredicates(definition, index, errors) {
@@ -102,6 +191,7 @@ export function indexMissionDefinition(definition = {}) {
     return {
         objectives: byId(definition.objectives),
         facts: byId(definition.facts),
+        evidencePolicies: byId(definition.evidencePolicies),
         events: byId(definition.events),
         outcomes: byId(definition.outcomes),
         clocks: byId(definition.clocks),
@@ -124,6 +214,7 @@ export function validateMissionDefinition(definition = {}) {
     for (const key of [
         'objectives',
         'facts',
+        'evidencePolicies',
         'events',
         'outcomes',
         'outcomeDimensions',
@@ -137,6 +228,7 @@ export function validateMissionDefinition(definition = {}) {
     for (const key of [
         'objectives',
         'facts',
+        'evidencePolicies',
         'events',
         'outcomes',
         'outcomeDimensions',
@@ -152,6 +244,7 @@ export function validateMissionDefinition(definition = {}) {
     }
     const factsById = byId(definition?.facts);
     const factIds = new Set(factsById.keys());
+    validateEvidencePolicies(definition, indexMissionDefinition(definition), errors);
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
         const objectiveId = objective?.id || '<unknown objective>';
         if (!MISSION_OBJECTIVE_CLASSES.has(objective?.class)) {
@@ -203,6 +296,9 @@ export function validateMissionDefinition(definition = {}) {
     }
     for (const fact of Array.isArray(definition?.facts) ? definition.facts : []) {
         const factId = fact?.id || '<unknown fact>';
+        if (typeof fact?.initiallyTrue !== 'boolean') {
+            errors.push(`${factId} initiallyTrue must be a boolean`);
+        }
         if (!new Set(['known', 'discoverable', 'hidden']).has(fact?.visibility)) {
             errors.push(`${factId} visibility is unknown`);
         }

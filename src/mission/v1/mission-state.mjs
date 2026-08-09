@@ -33,7 +33,9 @@ export function createMissionState({ definition = {}, branchId = 'main' } = {}) 
         status: 'active',
         objectives: {},
         knownFacts: [],
-        worldFacts: [],
+        worldFacts: (definition.facts || [])
+            .filter((fact) => fact.initiallyTrue === true)
+            .map((fact) => fact.id),
         events: [],
         outcomes: Object.fromEntries((definition.outcomes || []).map((outcome) => [outcome.id, outcome.initialValue])),
         clocks: Object.fromEntries((definition.clocks || []).map((clock) => [clock.id, {

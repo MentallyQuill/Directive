@@ -3,6 +3,8 @@ import fs from 'node:fs';
 
 import {
     indexMissionDefinition,
+    MISSION_EVIDENCE_CLAIM_TYPES,
+    MISSION_EVIDENCE_POLICY_SOURCE_ROLES,
     validateMissionDefinition,
 } from '../../src/mission/v1/mission-contracts.mjs';
 
@@ -14,6 +16,7 @@ for (const boundary of [
     'playerText',
     'objective',
     'fact',
+    'evidencePolicy',
     'event',
     'outcome',
     'outcomeDimension',
@@ -24,8 +27,15 @@ for (const boundary of [
     assert.equal(missionSchema.$defs[boundary].additionalProperties, false, `${boundary} must be strict`);
 }
 assert.equal(Array.isArray(missionSchema.$defs.predicate.oneOf), true);
+assert.equal(missionSchema.$defs.fact.required.includes('initiallyTrue'), true);
+assert.equal(missionSchema.required.includes('evidencePolicies'), true);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('modelInstructions'), false);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('sourceCode'), false);
+assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('worldFactEstablished'), true);
+assert.deepEqual(
+    [...MISSION_EVIDENCE_POLICY_SOURCE_ROLES],
+    ['user', 'assistant', 'runtime', 'adjudicator'],
+);
 
 const referenceMission = {
     kind: 'directive.missionDefinition.v1',
@@ -39,8 +49,46 @@ const referenceMission = {
     facts: [
         {
             id: 'fact.hesperus-discrepancy-known',
+            initiallyTrue: false,
             visibility: 'discoverable',
             playerText: { summary: 'Inspection records contain discrepancies.' },
+        },
+    ],
+    evidencePolicies: [
+        {
+            id: 'policy.hesperus-discrepancy-established',
+            claimType: 'worldFactEstablished',
+            targetId: 'fact.hesperus-discrepancy-known',
+            sourceRoles: ['runtime', 'adjudicator'],
+            when: true,
+        },
+        {
+            id: 'policy.hesperus-discrepancy-disclosed',
+            claimType: 'factDisclosed',
+            targetId: 'fact.hesperus-discrepancy-known',
+            sourceRoles: ['assistant', 'runtime', 'adjudicator'],
+            when: { worldFact: 'fact.hesperus-discrepancy-known' },
+        },
+        {
+            id: 'policy.hesperus-survivors-transferred',
+            claimType: 'eventOccurred',
+            targetId: 'event.hesperus-survivors-transferred',
+            sourceRoles: ['assistant', 'runtime', 'adjudicator'],
+            when: true,
+        },
+        {
+            id: 'policy.hesperus-evidence-preserved',
+            claimType: 'decisionRecorded',
+            targetId: 'outcome.hesperus-evidence-preserved',
+            sourceRoles: ['user'],
+            when: { factKnown: 'fact.hesperus-discrepancy-known' },
+        },
+        {
+            id: 'policy.hesperus-life-support-time',
+            claimType: 'timeAdvanced',
+            targetId: 'clock.hesperus-life-support',
+            sourceRoles: ['runtime', 'adjudicator'],
+            when: { clockState: { id: 'clock.hesperus-life-support', equals: 'running' } },
         },
     ],
     events: [
@@ -202,11 +250,37 @@ assert.equal(result.ok, true, result.errors.join('\n'));
 const index = indexMissionDefinition(referenceMission);
 assert.equal(index.objectives.get('objective.hesperus-rescue')?.class, 'required');
 assert.equal(index.facts.has('fact.hesperus-discrepancy-known'), true);
+assert.equal(index.evidencePolicies.has('policy.hesperus-discrepancy-disclosed'), true);
 assert.equal(index.events.has('event.hesperus-survivors-transferred'), true);
 assert.equal(index.outcomes.has('outcome.hesperus-evidence-preserved'), true);
 assert.equal(index.clocks.has('clock.hesperus-life-support'), true);
 assert.equal(index.terminalDispositions.has('primarySuccess'), true);
 assert.equal(index.transitions.has('transition.hesperus-command-review'), true);
+
+function replacePolicy(indexToReplace, replacement) {
+    return {
+        ...referenceMission,
+        evidencePolicies: referenceMission.evidencePolicies.map((policy, index) => (
+            index === indexToReplace ? { ...policy, ...replacement } : policy
+        )),
+    };
+}
+
+for (const [label, definition, pattern] of [
+    ['claim type', replacePolicy(0, { claimType: 'modelInferred' }), /claimType is unknown/],
+    ['unknown target', replacePolicy(0, { targetId: 'fact.unknown' }), /references unknown target/],
+    ['wrong target collection', replacePolicy(0, { targetId: 'event.hesperus-survivors-transferred' }), /target does not match claimType/],
+    ['empty source roles', replacePolicy(0, { sourceRoles: [] }), /sourceRoles must contain/],
+    ['unknown source role', replacePolicy(0, { sourceRoles: ['model'] }), /sourceRoles contains unknown role/],
+    ['duplicate source role', replacePolicy(0, { sourceRoles: ['runtime', 'runtime'] }), /sourceRoles must not contain duplicates/],
+    ['invalid policy predicate', replacePolicy(0, { when: { worldFact: 'fact.unknown' } }), /when references unknown fact/],
+    ['disclosure without truth guard', replacePolicy(1, { when: true }), /factDisclosed when must require its target worldFact/],
+    ['assistant establishes truth', replacePolicy(0, { sourceRoles: ['assistant'] }), /worldFactEstablished sourceRoles/],
+    ['assistant advances time', replacePolicy(4, { sourceRoles: ['assistant'] }), /timeAdvanced sourceRoles/],
+    ['user claims an event', replacePolicy(2, { sourceRoles: ['user'] }), /user sourceRole may only prove intentExpressed or decisionRecorded/],
+]) {
+    assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
+}
 
 for (const [label, definition, pattern] of [
     ['kind', { ...referenceMission, kind: 'directive.missionDefinition.v0' }, /kind/],
@@ -216,6 +290,7 @@ for (const [label, definition, pattern] of [
     ['player text', { ...referenceMission, playerText: { title: '', summary: '' } }, /playerText/],
     ['objectives', { ...referenceMission, objectives: null }, /objectives/],
     ['facts', { ...referenceMission, facts: null }, /facts/],
+    ['evidence policies', { ...referenceMission, evidencePolicies: null }, /evidencePolicies/],
     ['events', { ...referenceMission, events: null }, /events/],
     ['outcomes', { ...referenceMission, outcomes: null }, /outcomes/],
     ['outcome dimensions', { ...referenceMission, outcomeDimensions: null }, /outcomeDimensions/],
@@ -250,6 +325,16 @@ assert.match(
         facts: [{ ...referenceMission.facts[0], id: '' }],
     }).errors.join('\n'),
     /facts item requires a stable id/,
+);
+
+const factWithoutInitialTruth = { ...referenceMission.facts[0] };
+delete factWithoutInitialTruth.initiallyTrue;
+assert.match(
+    validateMissionDefinition({
+        ...referenceMission,
+        facts: [factWithoutInitialTruth],
+    }).errors.join('\n'),
+    /initiallyTrue/,
 );
 
 assert.match(

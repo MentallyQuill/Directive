@@ -1,24 +1,25 @@
-import { indexMissionDefinition } from './mission-contracts.mjs';
+import {
+    indexMissionDefinition,
+    MISSION_EVIDENCE_CLAIM_TYPES,
+    MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE,
+} from './mission-contracts.mjs';
+import { missionStateContext } from './mission-state.mjs';
+import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
+
+export { MISSION_EVIDENCE_CLAIM_TYPES } from './mission-contracts.mjs';
 
 export const MISSION_EVIDENCE_PROPOSAL_KIND = 'directive.missionEvidenceProposal.v1';
-export const MISSION_EVIDENCE_CLAIM_TYPES = Object.freeze(new Set([
-    'intentExpressed',
-    'decisionRecorded',
-    'factDisclosed',
-    'eventOccurred',
-    'outcomeObserved',
-    'timeAdvanced',
-]));
-
 const PLAYER_PROVABLE_CLAIM_TYPES = new Set(['intentExpressed', 'decisionRecorded']);
 const ACCEPTED_SOURCE_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
-const TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
-    intentExpressed: 'objectives',
-    decisionRecorded: 'outcomes',
-    factDisclosed: 'facts',
-    eventOccurred: 'events',
-    outcomeObserved: 'outcomes',
-    timeAdvanced: 'clocks',
+const AUTHORITATIVE_SOURCE_ROLES = new Set(['runtime', 'adjudicator']);
+const CLAIM_VALIDATION_ORDER = Object.freeze({
+    worldFactEstablished: 10,
+    eventOccurred: 20,
+    outcomeObserved: 30,
+    factDisclosed: 40,
+    intentExpressed: 50,
+    decisionRecorded: 60,
+    timeAdvanced: 70,
 });
 
 function rejection(claim, reasonCode) {
@@ -55,6 +56,30 @@ function isStableId(value) {
     return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
 }
 
+function addUnique(values, value) {
+    if (!values.includes(value)) values.push(value);
+}
+
+function stageAcceptedClaim(state, claim) {
+    if (claim.claimType === 'worldFactEstablished') {
+        addUnique(state.worldFacts, claim.targetId);
+    } else if (claim.claimType === 'factDisclosed') {
+        addUnique(state.knownFacts, claim.targetId);
+    } else if (claim.claimType === 'eventOccurred') {
+        addUnique(state.events, claim.targetId);
+    } else if (new Set(['outcomeObserved', 'decisionRecorded']).has(claim.claimType)) {
+        state.outcomes[claim.targetId] = claim.value;
+    }
+}
+
+function claimOrder(a, b) {
+    const rankDifference = (CLAIM_VALIDATION_ORDER[a.claim.claimType] ?? 999)
+        - (CLAIM_VALIDATION_ORDER[b.claim.claimType] ?? 999);
+    if (rankDifference !== 0) return rankDifference;
+    const idDifference = a.claim.claimId.localeCompare(b.claim.claimId);
+    return idDifference || a.originalIndex - b.originalIndex;
+}
+
 export function validateMissionEvidenceProposal({
     definition = {},
     state = {},
@@ -68,86 +93,146 @@ export function validateMissionEvidenceProposal({
     if (proposal.baseRevision !== state.revision) return rejectAll(claims, 'stale-revision');
 
     const index = indexMissionDefinition(definition);
-    const acceptedClaims = [];
-    const rejectedClaims = [];
-    const seen = new Set(Array.isArray(state.acceptedEvidenceKeys) ? state.acceptedEvidenceKeys : []);
+    const candidates = [];
+    const rejectedRecords = [];
+    const previouslyAccepted = new Set(Array.isArray(state.acceptedEvidenceKeys) ? state.acceptedEvidenceKeys : []);
     const seenClaimIds = new Set();
 
-    for (const claim of claims) {
+    function rejectAt(claim, reasonCode, originalIndex) {
+        rejectedRecords.push({ claim, reasonCode, originalIndex });
+    }
+
+    for (const [originalIndex, claim] of claims.entries()) {
         if (!isStableId(claim?.claimId)) {
-            rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+            rejectAt(claim, 'effect-not-allowed', originalIndex);
             continue;
         }
         if (seenClaimIds.has(claim.claimId)) {
-            rejectedClaims.push(rejection(claim, 'duplicate-claim'));
+            rejectAt(claim, 'duplicate-claim', originalIndex);
             continue;
         }
         seenClaimIds.add(claim.claimId);
-        const source = typeof resolveSourceRef === 'function' ? resolveSourceRef(claim?.sourceRef) : null;
+        const source = typeof resolveSourceRef === 'function' && claim?.sourceRef && typeof claim.sourceRef === 'object'
+            ? resolveSourceRef(claim.sourceRef)
+            : null;
         if (!source) {
-            rejectedClaims.push(rejection(claim, 'source-missing'));
+            rejectAt(claim, 'source-missing', originalIndex);
             continue;
         }
         if (source.branchId !== state.branchId) {
-            rejectedClaims.push(rejection(claim, 'wrong-branch'));
+            rejectAt(claim, 'wrong-branch', originalIndex);
             continue;
         }
         if (source.accepted !== true) {
-            rejectedClaims.push(rejection(claim, 'source-not-accepted'));
+            rejectAt(claim, 'source-not-accepted', originalIndex);
             continue;
         }
         if (!ACCEPTED_SOURCE_ROLES.has(source.role)) {
-            rejectedClaims.push(rejection(claim, 'source-not-accepted'));
+            rejectAt(claim, 'source-not-accepted', originalIndex);
             continue;
         }
         if ((claim?.sourceRef?.swipeId || null) !== (source.selectedSwipeId || null)) {
-            rejectedClaims.push(rejection(claim, 'swipe-mismatch'));
+            rejectAt(claim, 'swipe-mismatch', originalIndex);
             continue;
         }
         if (claim?.sourceRef?.textHash !== source.textHash) {
-            rejectedClaims.push(rejection(claim, 'hash-mismatch'));
+            rejectAt(claim, 'hash-mismatch', originalIndex);
             continue;
         }
         if (source.acceptedAtRevision > state.revision) {
-            rejectedClaims.push(rejection(claim, 'stale-revision'));
+            rejectAt(claim, 'stale-revision', originalIndex);
             continue;
         }
         if (!MISSION_EVIDENCE_CLAIM_TYPES.has(claim?.claimType)) {
-            rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+            rejectAt(claim, 'effect-not-allowed', originalIndex);
             continue;
         }
         if (!targetExistsAnywhere(index, claim?.targetId)) {
-            rejectedClaims.push(rejection(claim, 'unknown-target'));
+            rejectAt(claim, 'unknown-target', originalIndex);
             continue;
         }
-        const collection = TARGET_COLLECTION_BY_CLAIM_TYPE[claim.claimType];
+        const policy = index.evidencePolicies.get(claim?.policyId);
+        if (!policy) {
+            rejectAt(claim, 'unknown-policy', originalIndex);
+            continue;
+        }
+        if (policy.claimType !== claim.claimType || policy.targetId !== claim.targetId) {
+            rejectAt(claim, 'policy-mismatch', originalIndex);
+            continue;
+        }
+        const collection = MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE[claim.claimType];
         if (!index[collection].has(claim.targetId)) {
-            rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+            rejectAt(claim, 'effect-not-allowed', originalIndex);
+            continue;
+        }
+        if (claim.claimType === 'worldFactEstablished' && !AUTHORITATIVE_SOURCE_ROLES.has(source.role)) {
+            rejectAt(claim, 'world-truth-authority-required', originalIndex);
+            continue;
+        }
+        if (claim.claimType === 'timeAdvanced' && !AUTHORITATIVE_SOURCE_ROLES.has(source.role)) {
+            rejectAt(claim, 'authoritative-time-required', originalIndex);
+            continue;
+        }
+        if (!Array.isArray(policy.sourceRoles) || !policy.sourceRoles.includes(source.role)) {
+            rejectAt(claim, 'source-role-not-authorized', originalIndex);
             continue;
         }
         if (new Set(['decisionRecorded', 'outcomeObserved']).has(claim.claimType)) {
             const outcome = index.outcomes.get(claim.targetId);
             if (!outcome?.allowedValues?.includes(claim.value)) {
-                rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+                rejectAt(claim, 'effect-not-allowed', originalIndex);
                 continue;
             }
         }
         if (claim.claimType === 'timeAdvanced' && (!Number.isFinite(claim.value) || claim.value <= 0)) {
-            rejectedClaims.push(rejection(claim, 'effect-not-allowed'));
+            rejectAt(claim, 'effect-not-allowed', originalIndex);
             continue;
         }
         if (source.role === 'user' && !PLAYER_PROVABLE_CLAIM_TYPES.has(claim.claimType)) {
-            rejectedClaims.push(rejection(claim, 'player-cannot-prove-outcome'));
+            rejectAt(claim, 'player-cannot-prove-outcome', originalIndex);
             continue;
         }
         const key = evidenceKey(state.branchId, claim, source);
-        if (seen.has(key)) {
-            rejectedClaims.push(rejection(claim, 'duplicate-claim'));
+        if (previouslyAccepted.has(key)) {
+            rejectAt(claim, 'duplicate-claim', originalIndex);
             continue;
         }
-        seen.add(key);
-        acceptedClaims.push({ ...claim, evidenceKey: key });
+        candidates.push({ claim, source, policy, evidenceKey: key, originalIndex });
     }
+
+    const stagedState = structuredClone(state);
+    stagedState.knownFacts = [...(stagedState.knownFacts || [])];
+    stagedState.worldFacts = [...(stagedState.worldFacts || [])];
+    stagedState.events = [...(stagedState.events || [])];
+    stagedState.outcomes = { ...(stagedState.outcomes || {}) };
+    stagedState.objectives = { ...(stagedState.objectives || {}) };
+    stagedState.clocks = { ...(stagedState.clocks || {}) };
+    const acceptedClaims = [];
+    const acceptedInProposal = new Set();
+    for (const candidate of [...candidates].sort(claimOrder)) {
+        if (acceptedInProposal.has(candidate.evidenceKey)) {
+            rejectAt(candidate.claim, 'duplicate-claim', candidate.originalIndex);
+            continue;
+        }
+        const policyResult = evaluateMissionPredicate(
+            candidate.policy.when,
+            missionStateContext(definition, stagedState),
+        );
+        const disclosureHasTruth = candidate.claim.claimType !== 'factDisclosed'
+            || stagedState.worldFacts.includes(candidate.claim.targetId);
+        if (!policyResult.ok || !policyResult.value || !disclosureHasTruth) {
+            rejectAt(candidate.claim, 'precondition-not-met', candidate.originalIndex);
+            continue;
+        }
+        const accepted = { ...candidate.claim, evidenceKey: candidate.evidenceKey };
+        acceptedClaims.push(accepted);
+        acceptedInProposal.add(candidate.evidenceKey);
+        stageAcceptedClaim(stagedState, accepted);
+    }
+
+    const rejectedClaims = rejectedRecords
+        .sort((a, b) => a.originalIndex - b.originalIndex)
+        .map((record) => rejection(record.claim, record.reasonCode));
 
     return {
         acceptedClaims,

@@ -3,6 +3,22 @@ import { missionStateContext } from './mission-state.mjs';
 import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
 
 const TRANSITION_PACKET_KIND = 'directive.missionTransitionNarration.v1';
+const CLAIM_REDUCTION_ORDER = Object.freeze({
+    worldFactEstablished: 10,
+    eventOccurred: 20,
+    outcomeObserved: 30,
+    factDisclosed: 40,
+    intentExpressed: 50,
+    decisionRecorded: 60,
+    timeAdvanced: 70,
+});
+
+function compareClaims(a, b) {
+    const rankDifference = (CLAIM_REDUCTION_ORDER[a?.claimType] ?? 999)
+        - (CLAIM_REDUCTION_ORDER[b?.claimType] ?? 999);
+    if (rankDifference !== 0) return rankDifference;
+    return String(a?.claimId || '').localeCompare(String(b?.claimId || ''));
+}
 
 function evaluate(predicate, definition, state) {
     const result = evaluateMissionPredicate(predicate, missionStateContext(definition, state));
@@ -15,6 +31,7 @@ function addUnique(values, value) {
 }
 
 function effectVisibility(index, state, claim) {
+    if (claim.claimType === 'worldFactEstablished') return 'hidden';
     if (claim.claimType === 'factDisclosed') return 'visible';
     if (claim.claimType === 'eventOccurred') {
         return index.events.get(claim.targetId)?.playerVisibility || 'hidden';
@@ -29,9 +46,10 @@ function effectVisibility(index, state, claim) {
 }
 
 function applyClaim(definition, state, claim) {
-    if (claim.claimType === 'factDisclosed') {
-        addUnique(state.knownFacts, claim.targetId);
+    if (claim.claimType === 'worldFactEstablished') {
         addUnique(state.worldFacts, claim.targetId);
+    } else if (claim.claimType === 'factDisclosed') {
+        addUnique(state.knownFacts, claim.targetId);
     } else if (claim.claimType === 'eventOccurred') {
         addUnique(state.events, claim.targetId);
     } else if (new Set(['outcomeObserved', 'decisionRecorded']).has(claim.claimType)) {
@@ -170,12 +188,13 @@ export function reduceMissionEvidence({
     const index = indexMissionDefinition(definition);
     const effects = [];
     let changed = false;
-    for (const claim of acceptedClaims) {
+    for (const claim of [...acceptedClaims].sort(compareClaims)) {
         if (!claim?.evidenceKey || state.acceptedEvidenceKeys.includes(claim.evidenceKey)) continue;
         const contributionId = sourceContribution?.id || claim.sourceContributionId || null;
         state.acceptedEvidenceKeys.push(claim.evidenceKey);
         state.evidenceLog.push({
             claimId: claim.claimId,
+            policyId: claim.policyId || null,
             evidenceKey: claim.evidenceKey,
             claimType: claim.claimType,
             targetId: claim.targetId,

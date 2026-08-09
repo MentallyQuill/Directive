@@ -58,6 +58,7 @@ const proposal = {
     baseRevision: 0,
     claims: [{
         claimId: 'claim.survivors-transferred',
+        policyId: 'policy.hesperus-survivors-transferred',
         claimType: 'eventOccurred',
         targetId: 'event.hesperus-survivors-transferred',
         sourceRef: {

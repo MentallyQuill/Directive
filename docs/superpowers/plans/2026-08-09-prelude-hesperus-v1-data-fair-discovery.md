@@ -119,7 +119,7 @@ docs(migration): inventory Prelude authority
 - Consumes: existing declarative predicates and accepted source resolution.
 - Produces: indexed `evidencePolicies`, `worldFactEstablished` claims, fact `initiallyTrue`, policy-bound proposal validation, and deterministic causal claim ordering.
 
-- [ ] **Step 1: Write failing contract tests for evidence policies**
+- [x] **Step 1: Write failing contract tests for evidence policies**
 
 Require mission definitions to include `evidencePolicies`. Validate unique policy IDs, known target IDs, the exact claim-type/target-collection mapping, non-empty source roles, declarative `when`, and a `worldFact` precondition for every `factDisclosed` policy.
 
@@ -135,13 +135,13 @@ const policy = {
 
 Facts require `initiallyTrue: true|false`. `indexMissionDefinition()` exposes `evidencePolicies` alongside existing maps.
 
-- [ ] **Step 2: Run contract tests and verify RED**
+- [x] **Step 2: Run contract tests and verify RED**
 
 Run: `node tools/scripts/test-v1-mission-contracts.mjs`
 
 Expected: failures for missing policy validation and missing `initiallyTrue` handling.
 
-- [ ] **Step 3: Extend the runtime contract and JSON schema**
+- [x] **Step 3: Extend the runtime contract and JSON schema**
 
 Add `evidencePolicies` as a required strict array and add `initiallyTrue` to every fact. Export:
 
@@ -153,7 +153,7 @@ export const MISSION_EVIDENCE_POLICY_SOURCE_ROLES = Object.freeze(new Set([
 
 The validator rejects `worldFactEstablished` policies unless all source roles are `runtime` or `adjudicator`, and rejects `timeAdvanced` policies with any other source role.
 
-- [ ] **Step 4: Write failing evidence tests for policy custody**
+- [x] **Step 4: Write failing evidence tests for policy custody**
 
 Cover unknown policy, policy target/type mismatch, unauthorized source role, unmet predicate, assistant attempts to establish truth, assistant time advancement, disclosure before truth, same-proposal establishment plus disclosure, and an informed player decision that requires a known fact.
 
@@ -163,7 +163,7 @@ assert.equal(disclosure.acceptedClaims[0].claimType, 'factDisclosed');
 assert.equal(disclosure.acceptedClaims[0].policyId, 'policy.hesperus-fraud-disclosed');
 ```
 
-- [ ] **Step 5: Implement two-pass evidence validation**
+- [x] **Step 5: Implement two-pass evidence validation**
 
 Add `worldFactEstablished` to the closed claim vocabulary. First validate envelope, source custody, stable IDs, policy identity, target/type equality, value shape, and source role. Then construct a staged predicate context from valid establishment/event/outcome claims and evaluate each policy. Use stable rejection codes:
 
@@ -178,11 +178,11 @@ authoritative-time-required
 
 `factDisclosed` is rejected unless its target is true in the staged world-fact set. Confidence never changes acceptance.
 
-- [ ] **Step 6: Write failing reducer tests for causal ordering**
+- [x] **Step 6: Write failing reducer tests for causal ordering**
 
 Reverse a proposal containing `factDisclosed` and `worldFactEstablished`; both orders must yield the same separate arrays: the fact appears once in `worldFacts` and once in `knownFacts`. A disclosure-only claim must never add to `worldFacts`.
 
-- [ ] **Step 7: Implement deterministic claim ordering and initial truth**
+- [x] **Step 7: Implement deterministic claim ordering and initial truth**
 
 Initialize `worldFacts` from facts whose `initiallyTrue` is true. Apply accepted claims by fixed causal rank, then stable `claimId`, regardless of model order:
 
@@ -200,7 +200,7 @@ const CLAIM_REDUCTION_ORDER = Object.freeze({
 
 `worldFactEstablished` updates only `worldFacts`; `factDisclosed` updates only `knownFacts`.
 
-- [ ] **Step 8: Run focused suites and commit Task 2**
+- [x] **Step 8: Run focused suites and commit Task 2**
 
 Run:
 
