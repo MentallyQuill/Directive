@@ -22,10 +22,12 @@ const preludeDefinition = readJson('packages/bundled/breckenridge/v1/prelude-a-s
 const chapterDefinition = readJson('packages/bundled/breckenridge/v1/chapter-1-the-empty-convoy.mission-v1.json');
 const chapter2Definition = readJson('packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json');
 const openOrdersDefinition = readJson('packages/bundled/breckenridge/v1/open-orders-1-work-worth-doing.mission-v1.json');
+const chapter3Definition = readJson('packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
 const openOrdersScenarios = readJson('tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json');
+const chapter3Scenarios = readJson('tests/fixtures/mission/v1/chapter-3-dead-letters-scenarios.fixture.json');
 const branchId = 'save.ashes-v1-handoff';
 
 function readJson(path) {
@@ -209,6 +211,13 @@ const sourceOnlyAssets = assetsFor([preludeDefinition]);
 const completeAssets = assetsFor([preludeDefinition, chapterDefinition]);
 const chapter2Assets = assetsFor([preludeDefinition, chapterDefinition, chapter2Definition]);
 const openOrdersAssets = assetsFor([preludeDefinition, chapterDefinition, chapter2Definition, openOrdersDefinition]);
+const chapter3Assets = assetsFor([
+    preludeDefinition,
+    chapterDefinition,
+    chapter2Definition,
+    openOrdersDefinition,
+    chapter3Definition,
+]);
 
 const pending = runtime.inspectPendingTransition({ runtimeAssets: sourceOnlyAssets });
 assert.equal(pending.ok, true);
@@ -427,7 +436,14 @@ const terminalOpenOrders = settleScenario({
     fixture: openOrdersScenarios,
     scenarioId: 'two-assignment-normal',
 });
+const openOrdersStory = storySettlementForScenario(
+    openOrdersScenarios,
+    'two-assignment-normal',
+    openOrdersDefinition,
+);
+const openOrdersMutationMessageId = openOrdersStory.contributions[0].messageId;
 campaignState.mission.v1 = terminalOpenOrders;
+campaignState.storySettlement = openOrdersStory.settlement;
 const chapter3Journey = validateMissionJourney({
     campaignState,
     definitions: [preludeDefinition, chapterDefinition, chapter2Definition, openOrdersDefinition],
@@ -439,6 +455,104 @@ assert.equal(chapter3Pending.status, 'pending');
 assert.equal(chapter3Pending.reasonCode, 'transition-target-definition-unavailable');
 assert.equal(chapter3Pending.targetDefinitionId, null);
 assert.equal(chapter3Pending.activatable, false);
+const preChapter3ActivationCampaignState = structuredClone(campaignState);
+
+const chapter3Ready = runtime.inspectPendingTransition({ runtimeAssets: chapter3Assets });
+assert.equal(chapter3Ready.ok, true);
+assert.equal(chapter3Ready.status, 'ready');
+assert.equal(chapter3Ready.targetDefinitionId, chapter3Definition.id);
+assert.equal(chapter3Ready.activatable, true);
+
+const chapter3Activated = await runtime.activatePendingTransition({ runtimeAssets: chapter3Assets });
+assert.equal(chapter3Activated.ok, true);
+assert.equal(chapter3Activated.status, 'activated');
+assert.equal(chapter3Activated.targetDefinitionId, chapter3Definition.id);
+assert.equal(chapter3Activated.noChange, false);
+assert.equal(persistCount, 4);
+assert.equal(campaignState.mission.activeMissionId, chapter3Definition.packageBinding.sourceId);
+assert.equal(campaignState.mission.legacyStatus, 'must-remain-untouched');
+assert.deepEqual(campaignState.mission.legacyPressure, { id: 'legacy-pressure-must-remain-untouched' });
+assert.deepEqual(campaignState.mission.legacyAssignments, [{ id: 'legacy-assignment-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyRewards, [{ id: 'legacy-reward-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyProgress, { id: 'legacy-progress-must-remain-untouched' });
+assert.equal(campaignState.mission.v1.definitionId, chapter3Definition.id);
+assert.equal(campaignState.mission.v1.status, 'active');
+assert.deepEqual(Object.keys(campaignState.mission.v1.objectives), chapter3Definition.objectives.map((item) => item.id));
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('objective.open-orders1.'), false);
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('outcome.open-orders1.'), false);
+for (const sentinel of ['legacy-pressure-', 'legacy-assignment-', 'legacy-reward-', 'legacy-progress-']) {
+    assert.equal(JSON.stringify(campaignState.mission.v1).includes(sentinel), false, `${sentinel} cannot copy into Dead Letters V1`);
+}
+assert.equal(campaignState.mission.v1History.length, 4);
+assert.equal(campaignState.mission.v1History[0].definitionId, preludeDefinition.id);
+assert.equal(campaignState.mission.v1History[1].definitionId, chapterDefinition.id);
+assert.equal(campaignState.mission.v1History[2].definitionId, chapter2Definition.id);
+assert.equal(campaignState.mission.v1History[3].definitionId, openOrdersDefinition.id);
+assert.deepEqual(campaignState.mission.v1History[3].state, terminalOpenOrders);
+assert.equal(campaignState.mission.v1Journey.revision, 4);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'Dead Letters activation cannot mutate legacy tracking roots');
+const chapter3ActivatedCampaignState = structuredClone(campaignState);
+
+const chapter3Reloaded = JSON.parse(JSON.stringify(campaignState));
+const chapter3ReloadedJourney = validateMissionJourney({
+    campaignState: chapter3Reloaded,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+    ],
+});
+assert.equal(chapter3ReloadedJourney.ok, true, chapter3ReloadedJourney.errors.join('\n'));
+assert.equal(validateMissionStateAuthority({
+    definition: chapter3Definition,
+    state: chapter3Reloaded.mission.v1,
+}).ok, true);
+
+const chapter3Replay = await runtime.activatePendingTransition({ runtimeAssets: chapter3Assets });
+assert.equal(chapter3Replay.ok, true);
+assert.equal(chapter3Replay.status, 'no-pending-transition');
+assert.equal(chapter3Replay.noChange, true);
+assert.equal(persistCount, 4, 'Dead Letters activation replay cannot persist twice');
+
+const terminalChapter3 = settleScenario({
+    definition: chapter3Definition,
+    fixture: chapter3Scenarios,
+    scenarioId: 'accountable-isolation',
+});
+const chapter3Story = storySettlementForScenario(
+    chapter3Scenarios,
+    'accountable-isolation',
+    chapter3Definition,
+);
+const chapter3MutationMessageId = chapter3Story.contributions[0].messageId;
+campaignState.mission.v1 = terminalChapter3;
+campaignState.storySettlement = chapter3Story.settlement;
+const chapter4Journey = validateMissionJourney({
+    campaignState,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+    ],
+});
+assert.equal(chapter4Journey.ok, true, chapter4Journey.errors.join('\n'));
+const chapter4Pending = runtime.inspectPendingTransition({ runtimeAssets: chapter3Assets });
+assert.equal(chapter4Pending.ok, true);
+assert.equal(chapter4Pending.status, 'pending');
+assert.equal(chapter4Pending.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(chapter4Pending.targetDefinitionId, null);
+assert.equal(chapter4Pending.activatable, false);
 
 function createMutationHarness(initialState) {
     let mutationState = structuredClone(initialState);
@@ -530,4 +644,43 @@ for (const [label, initialState] of [
     assert.equal(chapter2Mutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
 }
 
-console.log('Ashes V1 Prelude through Open Orders I handoff tests passed.');
+for (const [label, initialState] of [
+    ['before-dead-letters-activation', preChapter3ActivationCampaignState],
+    ['after-dead-letters-activation', chapter3ActivatedCampaignState],
+]) {
+    const openOrdersMutation = createMutationHarness(initialState);
+    const openOrdersMutationResult = await openOrdersMutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: chapter3Assets,
+        hostMessageId: openOrdersMutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(openOrdersMutationResult.ok, true, label);
+    assert.equal(openOrdersMutationResult.status, 'invalidated', label);
+    assert.equal(openOrdersMutation.state.mission.v1.definitionId, openOrdersDefinition.id, label);
+    assert.equal(openOrdersMutation.state.mission.v1.status, 'active', label);
+    assert.equal(openOrdersMutation.state.mission.v1History.length, 3, label);
+    assert.equal(openOrdersMutation.state.mission.v1History[0].definitionId, preludeDefinition.id, label);
+    assert.equal(openOrdersMutation.state.mission.v1History[1].definitionId, chapterDefinition.id, label);
+    assert.equal(openOrdersMutation.state.mission.v1History[2].definitionId, chapter2Definition.id, label);
+    assert.equal(openOrdersMutation.state.mission.v1Journey.revision, 3, label);
+    assert.equal(JSON.stringify(openOrdersMutation.state.mission.v1).includes('objective.chapter3.'), false, label);
+    assert.equal(openOrdersMutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
+
+const chapter3Mutation = createMutationHarness(campaignState);
+const chapter3MutationResult = await chapter3Mutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: chapter3Assets,
+    hostMessageId: chapter3MutationMessageId,
+    eventType: 'directiveResponseSelectedSwipeChanged',
+});
+assert.equal(chapter3MutationResult.ok, true);
+assert.equal(chapter3MutationResult.status, 'invalidated');
+assert.equal(chapter3Mutation.state.mission.v1.definitionId, chapter3Definition.id);
+assert.equal(chapter3Mutation.state.mission.v1.status, 'active');
+assert.equal(chapter3Mutation.state.mission.v1.terminalDisposition, null);
+assert.equal(chapter3Mutation.state.mission.v1.transitionReceipt, null);
+assert.equal(chapter3Mutation.state.mission.v1History.length, 4);
+assert.equal(chapter3Mutation.state.mission.v1Journey.revision, 4);
+assert.equal(chapter3Mutation.generationCount, 0, 'Dead Letters reconstruction cannot call a provider');
+
+console.log('Ashes V1 Prelude through Dead Letters handoff tests passed.');
