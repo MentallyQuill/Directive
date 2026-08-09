@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/story/story-settlement.schema.json",
+  "title": "Directive V1 Story Settlement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "branchId",
+    "revision",
+    "activeEpisode",
+    "episodes",
+    "receipts",
+    "focus"
+  ],
+  "properties": {
+    "kind": { "const": "directive.storySettlement.v1" },
+    "schemaVersion": { "const": 1 },
+    "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+    "revision": { "type": "integer", "minimum": 0 },
+    "activeEpisode": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "episodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/episode" }
+    },
+    "receipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/receipt" }
+    },
+    "focus": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/focus" }
+      ]
+    }
+  },
+  "$defs": {
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codes": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" }
+        },
+        "lastError": {
+          "type": ["string", "null"],
+          "maxLength": 512
+        }
+      }
+    },
+    "sourceContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "messageId",
+        "swipeId",
+        "role",
+        "textHash",
+        "acceptedAtRevision"
+      ],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "messageId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "swipeId": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant", "runtime", "adjudicator"]
+        },
+        "textHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32,128}$"
+        },
+        "acceptedAtRevision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "targetId",
+        "sourceContributionIds",
+        "playerVisibility",
+        "status"
+      ],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "type": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "targetId": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "playerVisibility": {
+          "type": "string",
+          "enum": ["visible", "hidden"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "invalidated"]
+        },
+        "value": {
+          "type": ["string", "number", "boolean", "null"]
+        }
+      }
+    },
+    "consequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "playerVisibility"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "status": {
+          "type": "string",
+          "enum": ["unresolved", "resolved", "invalidated"]
+        },
+        "playerVisibility": {
+          "type": "string",
+          "enum": ["visible", "hidden"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "episode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "branchId",
+        "sceneId",
+        "status",
+        "openedAtRevision",
+        "sealedAtRevision",
+        "boundaryReason",
+        "summary",
+        "contributions",
+        "effects",
+        "unresolvedConsequences"
+      ],
+      "properties": {
+        "kind": { "const": "directive.storyEpisode.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "sceneId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "status": {
+          "type": "string",
+          "enum": ["open", "sealPending", "recoveryRequired", "sealed", "invalidated"]
+        },
+        "openedAtRevision": { "type": "integer", "minimum": 0 },
+        "sealedAtRevision": { "type": ["integer", "null"], "minimum": 0 },
+        "boundaryReason": { "type": ["string", "null"], "maxLength": 128 },
+        "summary": { "type": ["string", "null"], "maxLength": 1024 },
+        "contributions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceContribution" }
+        },
+        "effects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/effect" }
+        },
+        "unresolvedConsequences": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/consequence" }
+        },
+        "supersedesEpisodeId": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+        },
+        "invalidationReason": {
+          "type": ["string", "null"],
+          "maxLength": 256
+        },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "branchId",
+        "sceneId",
+        "disposition",
+        "episodeId",
+        "sourceContributionIds",
+        "settledAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.storySettlementReceipt.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "sceneId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "disposition": {
+          "type": "string",
+          "enum": ["sealed", "insignificant", "invalidated"]
+        },
+        "episodeId": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "settledAtRevision": { "type": "integer", "minimum": 0 },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "focus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "branchId",
+        "episodeId",
+        "consequenceId",
+        "setAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.emergentFocus.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "episodeId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "consequenceId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "setAtRevision": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
