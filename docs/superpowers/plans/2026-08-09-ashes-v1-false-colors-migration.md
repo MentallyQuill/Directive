@@ -75,13 +75,13 @@ The transition target is `open-orders-1-work-worth-doing`. Until that target has
 
 - Create: `packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json`
 
-- [ ] Add the four aggregate facts and two causal evidence-acquisition events.
-- [ ] Add explicit and clear-outcome policies whose exclusions distinguish completed evidence, care, verification, and political dispositions from intent, attempt, theory, or model assertion.
-- [ ] Add exactly three required crew-report routes with role-capable preferred actors and Whitaker fallback.
-- [ ] Add bounded outcomes for medical care, attack-account disposition, verification/security disposition, and optional partnership.
-- [ ] Add three core objectives, one optional objective, four dimensions, four forward-only terminal dispositions, and the exact Open Orders I transition.
-- [ ] Keep `clocks` empty and omit every legacy phase/progress/pressure/flag field.
-- [ ] Run schema, mission-contract, and scenario tests to GREEN.
+- [x] Add the four aggregate facts and two causal evidence-acquisition events.
+- [x] Add explicit and clear-outcome policies whose exclusions distinguish completed evidence, care, verification, and political dispositions from intent, attempt, theory, or model assertion.
+- [x] Add exactly three required crew-report routes with role-capable preferred actors and Whitaker fallback.
+- [x] Add bounded outcomes for medical care, attack-account disposition, verification/security disposition, and optional partnership.
+- [x] Add three core objectives, one optional objective, four dimensions, four forward-only terminal dispositions, and the exact Open Orders I transition.
+- [x] Keep `clocks` empty and omit every legacy phase/progress/pressure/flag field.
+- [x] Run schema, mission-contract, and scenario tests to GREEN.
 
 ## Task 3: Validate Reachability, Spoiler Safety, and Fairness
 
