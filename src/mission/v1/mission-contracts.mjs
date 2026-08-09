@@ -293,6 +293,7 @@ export function indexMissionDefinition(definition = {}) {
         reportRoutes: byId(definition.reportRoutes),
         events: byId(definition.events),
         outcomes: byId(definition.outcomes),
+        outcomeDimensions: byId(definition.outcomeDimensions),
         clocks: byId(definition.clocks),
         terminalDispositions: byId(definition.terminalDispositions),
         transitions: byId(definition.transitions),
@@ -355,6 +356,24 @@ export function validateMissionDefinition(definition = {}) {
     const factsById = byId(definition?.facts);
     const factIds = new Set(factsById.keys());
     const definitionIndex = indexMissionDefinition(definition);
+    if (definition.projectionHints !== undefined) {
+        const hints = definition.projectionHints;
+        if (!hints || typeof hints !== 'object' || Array.isArray(hints)) {
+            errors.push('projectionHints must be an object');
+        } else {
+            for (const field of Object.keys(hints)) {
+                if (!new Set(['shipReadinessObjectiveId', 'shipReadinessDimensionId']).has(field)) {
+                    errors.push(`projectionHints contains unknown field: ${field}`);
+                }
+            }
+            if (!definitionIndex.objectives.has(hints.shipReadinessObjectiveId)) {
+                errors.push(`projectionHints references unknown ship readiness objective: ${hints.shipReadinessObjectiveId}`);
+            }
+            if (!definitionIndex.outcomeDimensions.has(hints.shipReadinessDimensionId)) {
+                errors.push(`projectionHints references unknown ship readiness dimension: ${hints.shipReadinessDimensionId}`);
+            }
+        }
+    }
     validateEvidencePolicies(definition, definitionIndex, errors);
     validateReportRoutes(definition, definitionIndex, errors);
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {

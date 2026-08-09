@@ -30,6 +30,7 @@
     "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
     "packageBinding": { "$ref": "#/$defs/packageBinding" },
     "playerText": { "$ref": "#/$defs/playerText" },
+    "projectionHints": { "$ref": "#/$defs/projectionHints" },
     "facts": {
       "type": "array",
       "items": { "$ref": "#/$defs/fact" }
@@ -88,6 +89,15 @@
         "packageId": { "$ref": "#/$defs/stableId" },
         "packageVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "sourceId": { "$ref": "#/$defs/stableId" }
+      }
+    },
+    "projectionHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shipReadinessObjectiveId", "shipReadinessDimensionId"],
+      "properties": {
+        "shipReadinessObjectiveId": { "$ref": "#/$defs/stableId" },
+        "shipReadinessDimensionId": { "$ref": "#/$defs/stableId" }
       }
     },
     "playerText": {

@@ -200,19 +200,19 @@ feat(projection): derive current V1 story context
 - Consumes: current structured ship state, Ashes package baseline, V1 mission player projection, and valid source-backed ship effects when present.
 - Produces: one `directive.shipPlayerProjection.v1` operational aggregate.
 
-- [ ] **Step 1: Write failing anti-spam tests**
+- [x] **Step 1: Write failing anti-spam tests**
 
 Using the Breckenridge fixture from the reported UI failure, prove that plating smell, corridor flicker, a calibration remark, and repeated refit-language create zero issue rows. The output has one condition summary. Confirmed damage and explicit restrictions remain structured. The legacy `technicalDebt` array is absent even when populated with many rows.
 
-- [ ] **Step 2: Define deterministic baseline precedence**
+- [x] **Step 2: Define deterministic baseline precedence**
 
 Build from ship identity, the top-level package/save condition, confirmed damage, explicit active restrictions, and current campaign-owned readiness fields. Valid episode effects may revise the aggregate only through authored stable target IDs; wording similarity cannot create identity.
 
-- [ ] **Step 3: Attach current mission relevance**
+- [x] **Step 3: Attach current mission relevance**
 
 Expose at most one current readiness objective/link from the spoiler-safe mission projection. Do not duplicate all objectives, story summaries, or mission progress on Ship.
 
-- [ ] **Step 4: Implement, run, and commit Task 5**
+- [x] **Step 4: Implement, run, and commit Task 5**
 
 Commit:
 

@@ -12,6 +12,10 @@
     "title": "Prelude: A Ship Underway",
     "summary": "Complete the command handover, establish a working command rhythm, and bring the Breckenridge to the Asterion Reach."
   },
+  "projectionHints": {
+    "shipReadinessObjectiveId": "objective.prelude.final-readiness-arrival",
+    "shipReadinessDimensionId": "dimension.prelude.command-readiness"
+  },
   "facts": [
     {
       "id": "fact.hesperus.distress-established",
