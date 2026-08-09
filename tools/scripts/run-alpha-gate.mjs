@@ -75,6 +75,7 @@ const checks = [
   'test-v1-mission-evidence.mjs',
   'test-v1-mission-reducer.mjs',
   'test-v1-duty-report-planner.mjs',
+  'test-v1-duty-report-delivery.mjs',
   'test-v1-mission-player-projection.mjs',
   'test-v1-mission-package-linter.mjs',
   'validate-ashes-v1-prelude.mjs',

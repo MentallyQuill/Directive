@@ -78,19 +78,19 @@ feat(mission): define report delivery policy
 - Create: `tools/scripts/test-v1-duty-report-delivery.mjs`
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing manifest-construction tests**
+- [x] **Step 1: Write failing manifest-construction tests**
 
 Create one provisional `directive.dutyReportManifest.v1` only from a packet and exact player-visible segment already present once in the response. Bind contract version, package ID/version, mission definition ID/version, branch, report, fact, reporter, policy, response ID, source transaction ID, response-text hash, and segment hash.
 
-- [ ] **Step 2: Reject ambiguous or unsafe bindings**
+- [x] **Step 2: Reject ambiguous or unsafe bindings**
 
 Reject missing IDs, unknown route/policy/fact, packet-route mismatch, wrong branch/package/definition, empty or over-budget segment, segment absent from the response, repeated segment, response mismatch, and any unknown manifest field. Never persist raw full-response text in a manifest.
 
-- [ ] **Step 3: Define deterministic segment semantics without rendering them**
+- [x] **Step 3: Define deterministic segment semantics without rendering them**
 
 Produce a bounded semantic segment payload from the packet: reporter ID, summary, confidence, and urgency. Define the exact canonical text representation and hashing contract that the later approved UI/chat composer must render. Do not call the host or change visible messages in this task.
 
-- [ ] **Step 4: Run and commit Task 2**
+- [x] **Step 4: Run and commit Task 2**
 
 Commit:
 
