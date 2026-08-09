@@ -17,6 +17,7 @@ for (const boundary of [
     'objective',
     'fact',
     'evidencePolicy',
+    'reportRoute',
     'event',
     'outcome',
     'outcomeDimension',
@@ -29,6 +30,7 @@ for (const boundary of [
 assert.equal(Array.isArray(missionSchema.$defs.predicate.oneOf), true);
 assert.equal(missionSchema.$defs.fact.required.includes('initiallyTrue'), true);
 assert.equal(missionSchema.required.includes('evidencePolicies'), true);
+assert.equal(missionSchema.required.includes('reportRoutes'), true);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('modelInstructions'), false);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('sourceCode'), false);
 assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('worldFactEstablished'), true);
@@ -89,6 +91,24 @@ const referenceMission = {
             targetId: 'clock.hesperus-life-support',
             sourceRoles: ['runtime', 'adjudicator'],
             when: { clockState: { id: 'clock.hesperus-life-support', equals: 'running' } },
+        },
+    ],
+    reportRoutes: [
+        {
+            id: 'report.hesperus-discrepancy',
+            factId: 'fact.hesperus-discrepancy-known',
+            evidencePolicyId: 'policy.hesperus-discrepancy-disclosed',
+            capabilityRoles: ['engineering', 'operations'],
+            preferredActorIds: ['hadrik-bronn'],
+            fallbackActorIds: ['mara-whitaker'],
+            urgency: 'material',
+            when: {
+                all: [
+                    { worldFact: 'fact.hesperus-discrepancy-known' },
+                    { not: { factKnown: 'fact.hesperus-discrepancy-known' } },
+                ],
+            },
+            playerText: { summary: 'Engineering has a material discrepancy to report.' },
         },
     ],
     events: [
@@ -251,6 +271,7 @@ const index = indexMissionDefinition(referenceMission);
 assert.equal(index.objectives.get('objective.hesperus-rescue')?.class, 'required');
 assert.equal(index.facts.has('fact.hesperus-discrepancy-known'), true);
 assert.equal(index.evidencePolicies.has('policy.hesperus-discrepancy-disclosed'), true);
+assert.equal(index.reportRoutes.has('report.hesperus-discrepancy'), true);
 assert.equal(index.events.has('event.hesperus-survivors-transferred'), true);
 assert.equal(index.outcomes.has('outcome.hesperus-evidence-preserved'), true);
 assert.equal(index.clocks.has('clock.hesperus-life-support'), true);
@@ -263,6 +284,14 @@ function replacePolicy(indexToReplace, replacement) {
         evidencePolicies: referenceMission.evidencePolicies.map((policy, index) => (
             index === indexToReplace ? { ...policy, ...replacement } : policy
         )),
+    };
+}
+
+function replaceReportRoute(replacement, missionOverrides = {}) {
+    return {
+        ...referenceMission,
+        ...missionOverrides,
+        reportRoutes: [{ ...referenceMission.reportRoutes[0], ...replacement }],
     };
 }
 
@@ -283,6 +312,31 @@ for (const [label, definition, pattern] of [
 }
 
 for (const [label, definition, pattern] of [
+    ['unknown report fact', replaceReportRoute({ factId: 'fact.unknown' }), /report.*references unknown fact/],
+    ['unknown report policy', replaceReportRoute({ evidencePolicyId: 'policy.unknown' }), /report.*references unknown evidence policy/],
+    ['mismatched report policy', replaceReportRoute({ evidencePolicyId: 'policy.hesperus-discrepancy-established' }), /report.*evidence policy must disclose its fact/],
+    ['report policy cannot use assistant', replaceReportRoute({}, {
+        evidencePolicies: referenceMission.evidencePolicies.map((policy) => (
+            policy.id === 'policy.hesperus-discrepancy-disclosed'
+                ? { ...policy, sourceRoles: ['runtime', 'adjudicator'] }
+                : policy
+        )),
+    }), /report.*evidence policy must authorize assistant/],
+    ['empty capabilities', replaceReportRoute({ capabilityRoles: [] }), /capabilityRoles must contain/],
+    ['invalid capability', replaceReportRoute({ capabilityRoles: ['chief engineer'] }), /capabilityRoles contains invalid id/],
+    ['duplicate capabilities', replaceReportRoute({ capabilityRoles: ['engineering', 'engineering'] }), /capabilityRoles must not contain duplicates/],
+    ['invalid preferred actor', replaceReportRoute({ preferredActorIds: ['Hadrik Bronn'] }), /preferredActorIds contains invalid id/],
+    ['duplicate preferred actor', replaceReportRoute({ preferredActorIds: ['hadrik-bronn', 'hadrik-bronn'] }), /preferredActorIds must not contain duplicates/],
+    ['missing fallback actor', replaceReportRoute({ fallbackActorIds: [] }), /fallbackActorIds must contain/],
+    ['invalid fallback actor', replaceReportRoute({ fallbackActorIds: ['Mara Whitaker'] }), /fallbackActorIds contains invalid id/],
+    ['unknown urgency', replaceReportRoute({ urgency: 'whenever' }), /urgency is unknown/],
+    ['invalid report predicate', replaceReportRoute({ when: { factKnown: 'fact.unknown' } }), /when references unknown fact/],
+    ['missing player-safe summary', replaceReportRoute({ playerText: null }), /playerText summary/],
+]) {
+    assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
+}
+
+for (const [label, definition, pattern] of [
     ['kind', { ...referenceMission, kind: 'directive.missionDefinition.v0' }, /kind/],
     ['schema version', { ...referenceMission, schemaVersion: 2 }, /schemaVersion/],
     ['id', { ...referenceMission, id: '' }, /mission id/],
@@ -291,6 +345,7 @@ for (const [label, definition, pattern] of [
     ['objectives', { ...referenceMission, objectives: null }, /objectives/],
     ['facts', { ...referenceMission, facts: null }, /facts/],
     ['evidence policies', { ...referenceMission, evidencePolicies: null }, /evidencePolicies/],
+    ['report routes', { ...referenceMission, reportRoutes: null }, /reportRoutes/],
     ['events', { ...referenceMission, events: null }, /events/],
     ['outcomes', { ...referenceMission, outcomes: null }, /outcomes/],
     ['outcome dimensions', { ...referenceMission, outcomeDimensions: null }, /outcomeDimensions/],

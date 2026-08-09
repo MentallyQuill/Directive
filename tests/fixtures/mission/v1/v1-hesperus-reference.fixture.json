@@ -83,6 +83,26 @@
       "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
     }
   ],
+  "reportRoutes": [
+    {
+      "id": "report.hesperus-discrepancy",
+      "factId": "fact.hesperus-discrepancy-known",
+      "evidencePolicyId": "policy.hesperus-discrepancy-disclosed",
+      "capabilityRoles": ["engineering", "operations"],
+      "preferredActorIds": ["hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "when": {
+        "all": [
+          { "worldFact": "fact.hesperus-discrepancy-known" },
+          { "not": { "factKnown": "fact.hesperus-discrepancy-known" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Engineering has a material discrepancy to report."
+      }
+    }
+  ],
   "events": [
     {
       "id": "event.hesperus-survivors-transferred",

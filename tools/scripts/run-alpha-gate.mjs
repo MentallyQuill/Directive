@@ -71,6 +71,7 @@ const checks = [
   'test-v1-mission-predicates.mjs',
   'test-v1-mission-evidence.mjs',
   'test-v1-mission-reducer.mjs',
+  'test-v1-duty-report-planner.mjs',
   'test-v1-story-settlement.mjs',
   'test-v1-state-spine-runtime.mjs',
   'test-ashes-v1-migration-inventory.mjs',

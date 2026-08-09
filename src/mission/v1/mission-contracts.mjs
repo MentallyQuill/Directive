@@ -25,6 +25,7 @@ export const MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
     outcomeObserved: 'outcomes',
     timeAdvanced: 'clocks',
 });
+export const MISSION_DUTY_REPORT_URGENCIES = Object.freeze(new Set(['routine', 'material', 'urgent']));
 export const MISSION_OBJECTIVE_CLASSES = Object.freeze(new Set(['required', 'optional', 'conditional']));
 export const MISSION_OBJECTIVE_STATES = Object.freeze(new Set(['inactive', 'available', 'inProgress', 'terminal']));
 export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
@@ -114,6 +115,56 @@ function validateEvidencePolicies(definition, index, errors) {
     }
 }
 
+function validateStableIdArray(value, { path, requireNonEmpty = false } = {}, errors) {
+    if (!Array.isArray(value) || (requireNonEmpty && value.length === 0)) {
+        errors.push(`${path} must contain${requireNonEmpty ? ' at least one' : ''} stable id`);
+        return;
+    }
+    if (new Set(value).size !== value.length) errors.push(`${path} must not contain duplicates`);
+    for (const id of value) {
+        if (!isStableId(id)) errors.push(`${path} contains invalid id: ${id}`);
+    }
+}
+
+function validateReportRoutes(definition, index, errors) {
+    for (const route of Array.isArray(definition?.reportRoutes) ? definition.reportRoutes : []) {
+        const routeId = route?.id || '<unknown report route>';
+        if (!index.facts.has(route?.factId)) {
+            errors.push(`${routeId} references unknown fact: ${route?.factId}`);
+        }
+        const policy = index.evidencePolicies.get(route?.evidencePolicyId);
+        if (!policy) {
+            errors.push(`${routeId} references unknown evidence policy: ${route?.evidencePolicyId}`);
+        } else {
+            if (policy.claimType !== 'factDisclosed' || policy.targetId !== route?.factId) {
+                errors.push(`${routeId} evidence policy must disclose its fact`);
+            }
+            if (!Array.isArray(policy.sourceRoles) || !policy.sourceRoles.includes('assistant')) {
+                errors.push(`${routeId} evidence policy must authorize assistant`);
+            }
+        }
+        validateStableIdArray(route?.capabilityRoles, {
+            path: `${routeId} capabilityRoles`,
+            requireNonEmpty: true,
+        }, errors);
+        validateStableIdArray(route?.preferredActorIds, {
+            path: `${routeId} preferredActorIds`,
+        }, errors);
+        validateStableIdArray(route?.fallbackActorIds, {
+            path: `${routeId} fallbackActorIds`,
+            requireNonEmpty: true,
+        }, errors);
+        if (!MISSION_DUTY_REPORT_URGENCIES.has(route?.urgency)) {
+            errors.push(`${routeId} urgency is unknown`);
+        }
+        const predicateResult = validateMissionPredicate(route?.when, index);
+        errors.push(...predicateResult.errors.map((error) => error.replace(/^predicate/, `${routeId}.when`)));
+        if (!isNonEmptyString(route?.playerText?.summary)) {
+            errors.push(`${routeId} playerText summary is required`);
+        }
+    }
+}
+
 function validateDefinitionPredicates(definition, index, errors) {
     const objectiveDependencies = new Map();
     const closeObjectiveRefs = new Set();
@@ -192,6 +243,7 @@ export function indexMissionDefinition(definition = {}) {
         objectives: byId(definition.objectives),
         facts: byId(definition.facts),
         evidencePolicies: byId(definition.evidencePolicies),
+        reportRoutes: byId(definition.reportRoutes),
         events: byId(definition.events),
         outcomes: byId(definition.outcomes),
         clocks: byId(definition.clocks),
@@ -215,6 +267,7 @@ export function validateMissionDefinition(definition = {}) {
         'objectives',
         'facts',
         'evidencePolicies',
+        'reportRoutes',
         'events',
         'outcomes',
         'outcomeDimensions',
@@ -229,6 +282,7 @@ export function validateMissionDefinition(definition = {}) {
         'objectives',
         'facts',
         'evidencePolicies',
+        'reportRoutes',
         'events',
         'outcomes',
         'outcomeDimensions',
@@ -244,7 +298,9 @@ export function validateMissionDefinition(definition = {}) {
     }
     const factsById = byId(definition?.facts);
     const factIds = new Set(factsById.keys());
-    validateEvidencePolicies(definition, indexMissionDefinition(definition), errors);
+    const definitionIndex = indexMissionDefinition(definition);
+    validateEvidencePolicies(definition, definitionIndex, errors);
+    validateReportRoutes(definition, definitionIndex, errors);
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
         const objectiveId = objective?.id || '<unknown objective>';
         if (!MISSION_OBJECTIVE_CLASSES.has(objective?.class)) {

@@ -233,7 +233,7 @@ feat(mission): enforce evidence policies
 - Consumes: mission `reportRoutes`, mission state, available actor capability records, and delivered report IDs.
 - Produces: `selectPendingDutyReport({ definition, state, availableActors, deliveredReportIds })` returning one authorized player-safe packet or `null`.
 
-- [ ] **Step 1: Write failing report-contract tests**
+- [x] **Step 1: Write failing report-contract tests**
 
 Add strict `reportRoutes` records:
 
@@ -260,17 +260,17 @@ Add strict `reportRoutes` records:
 
 Validate the fact, evidence policy, source eligibility, actor IDs, capability roles, urgency enum, predicate references, and non-empty player-safe summary.
 
-- [ ] **Step 2: Run contract tests and verify RED**
+- [x] **Step 2: Run contract tests and verify RED**
 
 Run: `node tools/scripts/test-v1-mission-contracts.mjs`
 
 Expected: report routes are not yet validated.
 
-- [ ] **Step 3: Write failing selection tests**
+- [x] **Step 3: Write failing selection tests**
 
 Cover preferred capable officer, capable non-preferred officer, captain fallback, no available route, hidden truth, already-known fact, already-delivered report, stable route ordering, and absence of hidden fact text in diagnostics.
 
-- [ ] **Step 4: Implement deterministic report planning**
+- [x] **Step 4: Implement deterministic report planning**
 
 Filter routes by predicate and delivery status. Select the first available preferred actor who has a required capability, then any capable actor, then the first explicit fallback. Return:
 
@@ -291,7 +291,7 @@ Filter routes by predicate and delivery status. Select the first available prefe
 
 The planner does not mark knowledge, create narration, mutate mission state, or select a player decision.
 
-- [ ] **Step 5: Run, register, and commit Task 3**
+- [x] **Step 5: Run, register, and commit Task 3**
 
 Run:
 

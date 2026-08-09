@@ -12,6 +12,7 @@
     "playerText",
     "facts",
     "evidencePolicies",
+    "reportRoutes",
     "events",
     "outcomes",
     "objectives",
@@ -34,6 +35,10 @@
     "evidencePolicies": {
       "type": "array",
       "items": { "$ref": "#/$defs/evidencePolicy" }
+    },
+    "reportRoutes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reportRoute" }
     },
     "events": {
       "type": "array",
@@ -310,6 +315,49 @@
           }
         },
         "when": { "$ref": "#/$defs/predicate" }
+      }
+    },
+    "reportRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "factId",
+        "evidencePolicyId",
+        "capabilityRoles",
+        "preferredActorIds",
+        "fallbackActorIds",
+        "urgency",
+        "when",
+        "playerText"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "factId": { "$ref": "#/$defs/stableId" },
+        "evidencePolicyId": { "$ref": "#/$defs/stableId" },
+        "capabilityRoles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "preferredActorIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "fallbackActorIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "urgency": {
+          "type": "string",
+          "enum": ["routine", "material", "urgent"]
+        },
+        "when": { "$ref": "#/$defs/predicate" },
+        "playerText": { "$ref": "#/$defs/summaryText" }
       }
     },
     "event": {
