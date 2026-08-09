@@ -32,6 +32,7 @@
 - Create: `src/story/episode-boundary.mjs`
 - Modify: `src/story/story-settlement-contracts.mjs`
 - Modify: `src/story/story-settlement.mjs`
+- Modify: `schemas/story/story-settlement.schema.json`
 - Create: `tools/scripts/test-v1-episode-boundary.mjs`
 - Modify: `tools/scripts/test-v1-story-settlement-contracts.mjs`
 - Modify: `tools/scripts/test-v1-story-settlement.mjs`
@@ -41,7 +42,7 @@
 - Consumes: a trusted boundary signal or deterministic checkpoint threshold plus current episode custody.
 - Produces: a validated hard-boundary record or a compact rolling checkpoint; neither contains transcript prose.
 
-- [ ] **Step 1: Write failing closed-boundary tests**
+- [x] **Step 1: Write failing closed-boundary tests**
 
 Define allowed hard-boundary codes:
 
@@ -57,15 +58,15 @@ source-recovery
 
 Require stable boundary ID, code, trusted source kind/ID, and cited accepted contribution IDs where applicable. Reject unknown codes, free-form reason authority, wrong branch, unknown contributions, and untrusted sources. Prove ordinary time advancement and room movement do not become hard boundaries.
 
-- [ ] **Step 2: Write failing checkpoint tests**
+- [x] **Step 2: Write failing checkpoint tests**
 
 An open episode keeps `boundaryState` with the last reviewed episode revision, contribution/effect counts, checkpoint sequence, and decision `continue`. At a configurable safety count, `checkpointStoryEpisode(...)` advances only checkpoint metadata. It does not seal, create a receipt, duplicate an episode, store raw text, or call a provider.
 
-- [ ] **Step 3: Implement backward-compatible contracts**
+- [x] **Step 3: Implement backward-compatible contracts**
 
 New episodes receive boundary state. Existing schema-version-1 episodes without it remain readable and are normalized when next mutated. Validate supplied boundary state strictly without requiring a destructive save migration.
 
-- [ ] **Step 4: Run, register, and commit Task 1**
+- [x] **Step 4: Run, register, and commit Task 1**
 
 Commit:
 

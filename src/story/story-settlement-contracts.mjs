@@ -22,6 +22,49 @@ function isStableId(value) {
     return isNonEmptyString(value) && /^[a-z0-9][a-z0-9._:-]*$/.test(value);
 }
 
+function validateBoundaryState(boundaryState, episode, errors, episodeId) {
+    if (boundaryState === undefined) return;
+    if (!boundaryState || typeof boundaryState !== 'object' || Array.isArray(boundaryState)) {
+        errors.push(`${episodeId} boundaryState must be an object`);
+        return;
+    }
+    if (boundaryState.kind !== EPISODE_BOUNDARY_STATE_KIND) {
+        errors.push(`${episodeId} boundaryState kind must be ${EPISODE_BOUNDARY_STATE_KIND}`);
+    }
+    for (const field of ['checkpointSequence', 'lastReviewedAtRevision', 'contributionCountAtLastReview', 'effectCountAtLastReview']) {
+        if (!Number.isInteger(boundaryState[field]) || boundaryState[field] < 0) {
+            errors.push(`${episodeId} boundaryState ${field} must be a non-negative integer`);
+        }
+    }
+    if (Number.isInteger(boundaryState.lastReviewedAtRevision)
+        && boundaryState.lastReviewedAtRevision < episode.openedAtRevision) {
+        errors.push(`${episodeId} boundaryState lastReviewedAtRevision must be at or after openedAtRevision`);
+    }
+    if (Number.isInteger(boundaryState.contributionCountAtLastReview)
+        && boundaryState.contributionCountAtLastReview > (episode.contributions?.length || 0)) {
+        errors.push(`${episodeId} boundaryState contributionCountAtLastReview exceeds contributions`);
+    }
+    if (Number.isInteger(boundaryState.effectCountAtLastReview)
+        && boundaryState.effectCountAtLastReview > (episode.effects?.length || 0)) {
+        errors.push(`${episodeId} boundaryState effectCountAtLastReview exceeds effects`);
+    }
+    if (boundaryState.decision !== 'continue') {
+        errors.push(`${episodeId} boundaryState decision must be continue`);
+    }
+    if (!Array.isArray(boundaryState.sourceContributionIds)) {
+        errors.push(`${episodeId} boundaryState sourceContributionIds must be an array`);
+    } else {
+        if (new Set(boundaryState.sourceContributionIds).size !== boundaryState.sourceContributionIds.length) {
+            errors.push(`${episodeId} boundaryState sourceContributionIds must be unique`);
+        }
+        for (const contributionId of boundaryState.sourceContributionIds) {
+            if (!isStableId(contributionId)) {
+                errors.push(`${episodeId} boundaryState sourceContributionIds contains an invalid id`);
+            }
+        }
+    }
+}
+
 export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
     return {
         kind: STORY_SETTLEMENT_KIND,
@@ -77,6 +120,14 @@ export function validateStorySettlement(value = {}) {
             }
             if (!STORY_EPISODE_STATUSES.has(episode?.status)) {
                 errors.push(`${episodeId} status is unknown`);
+            }
+            validateBoundaryState(episode?.boundaryState, episode, errors, episodeId);
+            if (episode?.hardBoundary !== undefined && episode.hardBoundary !== null) {
+                const boundaryResult = validateEpisodeHardBoundary(episode.hardBoundary, {
+                    branchId: value.branchId,
+                    knownContributionIds: (episode.contributions || []).map((item) => item.id),
+                });
+                errors.push(...boundaryResult.errors.map((error) => `${episodeId} hardBoundary ${error}`));
             }
             if (episode?.status === 'sealed') {
                 if (!Number.isInteger(episode.sealedAtRevision) || episode.sealedAtRevision < episode.openedAtRevision) {
@@ -210,3 +261,7 @@ export function validateStorySettlement(value = {}) {
     }
     return { ok: errors.length === 0, errors };
 }
+import {
+    EPISODE_BOUNDARY_STATE_KIND,
+    validateEpisodeHardBoundary,
+} from './episode-boundary.mjs';

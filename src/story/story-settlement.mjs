@@ -4,6 +4,7 @@ import {
     STORY_SETTLEMENT_RECEIPT_KIND,
     validateStorySettlement,
 } from './story-settlement-contracts.mjs';
+import { createInitialEpisodeBoundaryState } from './episode-boundary.mjs';
 
 function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
@@ -35,6 +36,8 @@ export function openStoryEpisode(settlement, { episodeId, sceneId } = {}) {
         contributions: [],
         effects: [],
         unresolvedConsequences: [],
+        boundaryState: createInitialEpisodeBoundaryState({ openedAtRevision: next.revision }),
+        hardBoundary: null,
     });
     return assertValid(next);
 }
@@ -73,6 +76,37 @@ export function appendStoryEffects(settlement, effects = []) {
     const next = structuredClone(settlement);
     activeEpisode(next).effects.push(...structuredClone(additions));
     next.revision += 1;
+    return assertValid(next);
+}
+
+export function checkpointStoryEpisode(settlement, {
+    minimumNewContributions = 8,
+    force = false,
+} = {}) {
+    const episode = activeEpisode(settlement);
+    if (!episode) throw new TypeError('an active episode is required');
+    if (!Number.isInteger(minimumNewContributions) || minimumNewContributions < 1) {
+        throw new TypeError('minimumNewContributions must be a positive integer');
+    }
+    const previous = episode.boundaryState || createInitialEpisodeBoundaryState({
+        openedAtRevision: episode.openedAtRevision,
+    });
+    const newContributionCount = episode.contributions.length - previous.contributionCountAtLastReview;
+    if (!force && newContributionCount < minimumNewContributions) return structuredClone(settlement);
+
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    const nextEpisode = activeEpisode(next);
+    const start = Math.max(0, previous.contributionCountAtLastReview);
+    nextEpisode.boundaryState = {
+        kind: previous.kind,
+        checkpointSequence: previous.checkpointSequence + 1,
+        lastReviewedAtRevision: next.revision,
+        contributionCountAtLastReview: nextEpisode.contributions.length,
+        effectCountAtLastReview: nextEpisode.effects.length,
+        decision: 'continue',
+        sourceContributionIds: nextEpisode.contributions.slice(start).map((item) => item.id),
+    };
     return assertValid(next);
 }
 

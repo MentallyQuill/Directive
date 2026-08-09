@@ -140,6 +140,68 @@
         }
       }
     },
+    "episodeBoundaryState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "checkpointSequence",
+        "lastReviewedAtRevision",
+        "contributionCountAtLastReview",
+        "effectCountAtLastReview",
+        "decision",
+        "sourceContributionIds"
+      ],
+      "properties": {
+        "kind": { "const": "directive.episodeBoundaryState.v1" },
+        "checkpointSequence": { "type": "integer", "minimum": 0 },
+        "lastReviewedAtRevision": { "type": "integer", "minimum": 0 },
+        "contributionCountAtLastReview": { "type": "integer", "minimum": 0 },
+        "effectCountAtLastReview": { "type": "integer", "minimum": 0 },
+        "decision": { "const": "continue" },
+        "sourceContributionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "episodeHardBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "branchId", "code", "source", "sourceContributionIds"],
+      "properties": {
+        "kind": { "const": "directive.episodeHardBoundary.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "code": {
+          "type": "string",
+          "enum": [
+            "mission-transition",
+            "authored-scene-closure",
+            "save-branch-change",
+            "major-time-jump",
+            "meaningful-location-transition",
+            "world-settlement",
+            "source-recovery"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "id": { "$ref": "../common/common.schema.json#/$defs/id" }
+          }
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        }
+      }
+    },
     "episode": {
       "type": "object",
       "additionalProperties": false,
@@ -181,6 +243,13 @@
         "unresolvedConsequences": {
           "type": "array",
           "items": { "$ref": "#/$defs/consequence" }
+        },
+        "boundaryState": { "$ref": "#/$defs/episodeBoundaryState" },
+        "hardBoundary": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/episodeHardBoundary" }
+          ]
         },
         "supersedesEpisodeId": {
           "type": ["string", "null"],

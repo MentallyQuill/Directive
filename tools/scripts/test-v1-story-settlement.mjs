@@ -5,6 +5,7 @@ import {
     acceptStoryContribution,
     acceptStoryContributions,
     appendStoryEffects,
+    checkpointStoryEpisode,
     invalidateStorySource,
     openStoryEpisode,
     sealStoryEpisode,
@@ -25,6 +26,15 @@ assert.equal(opened.episodes.length, 1);
 assert.equal(opened.episodes[0].status, 'open');
 assert.equal(opened.episodes[0].sceneId, 'scene.bridge-handover');
 assert.equal(opened.episodes[0].openedAtRevision, 1);
+assert.deepEqual(opened.episodes[0].boundaryState, {
+    kind: 'directive.episodeBoundaryState.v1',
+    checkpointSequence: 0,
+    lastReviewedAtRevision: 1,
+    contributionCountAtLastReview: 0,
+    effectCountAtLastReview: 0,
+    decision: 'continue',
+    sourceContributionIds: [],
+});
 
 assert.deepEqual(openStoryEpisode(opened, {
     episodeId: 'episode.bridge-handover',
@@ -72,6 +82,32 @@ const playerContribution = {
 const multiContributed = acceptStoryContributions(opened, [contribution, playerContribution, contribution]);
 assert.deepEqual(multiContributed.episodes[0].contributions, [contribution, playerContribution]);
 assert.equal(multiContributed.revision, 3);
+
+assert.deepEqual(checkpointStoryEpisode(multiContributed, { minimumNewContributions: 3 }), multiContributed);
+const checkpointed = checkpointStoryEpisode(multiContributed, { minimumNewContributions: 2 });
+assert.equal(checkpointed.revision, 4);
+assert.equal(checkpointed.episodes[0].status, 'open');
+assert.equal(checkpointed.receipts.length, 0);
+assert.deepEqual(checkpointed.episodes[0].boundaryState, {
+    kind: 'directive.episodeBoundaryState.v1',
+    checkpointSequence: 1,
+    lastReviewedAtRevision: 4,
+    contributionCountAtLastReview: 2,
+    effectCountAtLastReview: 0,
+    decision: 'continue',
+    sourceContributionIds: ['contribution.bridge-handover', 'contribution.bridge-player'],
+});
+assert.deepEqual(checkpointStoryEpisode(checkpointed, { minimumNewContributions: 2 }), checkpointed);
+assert.equal(JSON.stringify(checkpointed).includes('assistant prose'), false);
+
+const legacyOpen = structuredClone(opened);
+delete legacyOpen.episodes[0].boundaryState;
+const normalizedLegacyCheckpoint = checkpointStoryEpisode(legacyOpen, {
+    minimumNewContributions: 1,
+    force: true,
+});
+assert.equal(normalizedLegacyCheckpoint.episodes[0].boundaryState.kind, 'directive.episodeBoundaryState.v1');
+assert.equal(normalizedLegacyCheckpoint.episodes[0].status, 'open');
 
 const effect = {
     id: 'effect.handover-complete',

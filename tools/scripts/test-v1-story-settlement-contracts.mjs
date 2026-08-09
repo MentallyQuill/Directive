@@ -15,6 +15,8 @@ assert.equal(schema.$defs.sourceContribution.additionalProperties, false);
 assert.equal(schema.$defs.effect.additionalProperties, false);
 assert.equal(schema.$defs.receipt.additionalProperties, false);
 assert.equal(schema.$defs.focus.additionalProperties, false);
+assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
+assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
@@ -70,6 +72,43 @@ const openEpisode = {
     effects: [],
     unresolvedConsequences: [],
 };
+
+assert.equal(validateStorySettlement({
+    ...empty,
+    activeEpisode: 'episode.alpha',
+    episodes: [openEpisode],
+}).ok, true, 'legacy schema-version-1 episodes remain readable without boundaryState');
+
+const boundaryState = {
+    kind: 'directive.episodeBoundaryState.v1',
+    checkpointSequence: 0,
+    lastReviewedAtRevision: 1,
+    contributionCountAtLastReview: 0,
+    effectCountAtLastReview: 0,
+    decision: 'continue',
+    sourceContributionIds: [],
+};
+
+assert.equal(validateStorySettlement({
+    ...empty,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, boundaryState }],
+}).ok, true);
+
+for (const [label, badBoundaryState, pattern] of [
+    ['kind', { ...boundaryState, kind: 'directive.episodeBoundaryState.v0' }, /boundaryState kind/],
+    ['sequence', { ...boundaryState, checkpointSequence: -1 }, /checkpointSequence/],
+    ['review revision', { ...boundaryState, lastReviewedAtRevision: 0 }, /lastReviewedAtRevision/],
+    ['count', { ...boundaryState, contributionCountAtLastReview: -1 }, /contributionCountAtLastReview/],
+    ['decision', { ...boundaryState, decision: 'seal' }, /decision/],
+    ['source ids', { ...boundaryState, sourceContributionIds: ['bad contribution id'] }, /sourceContributionIds/],
+]) {
+    assert.match(validateStorySettlement({
+        ...empty,
+        activeEpisode: 'episode.alpha',
+        episodes: [{ ...openEpisode, boundaryState: badBoundaryState }],
+    }).errors.join('\n'), pattern, label);
+}
 
 assert.match(
     validateStorySettlement({
