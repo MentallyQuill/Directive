@@ -137,6 +137,13 @@ if (credentialRoute?.deliveryRequirement !== 'required'
     || JSON.stringify(credentialRoute?.preferredActorIds) !== JSON.stringify(['priya-nayar', 'rowan-saye'])) {
     errors.push('credential-path Duty Report lacks required delivery or source custody');
 }
+if (!/defense-system integration/i.test(JSON.stringify([
+    credentialRoute?.playerText,
+    definition.facts?.find((fact) => fact.id === 'fact.open-orders2.current-starfleet-credential-path')?.playerText,
+    definition.transitions?.[0]?.mustNarrate,
+]))) {
+    errors.push('the aggregate background report drops the source-authored defense-system integration escalation');
+}
 
 const oldLessonsReaction = (packageData.reactionRules?.rules || []).find((reaction) => reaction.id === 'reaction.chapter-5-old-lessons');
 const legacyCredentialEffect = oldLessonsReaction?.effects?.find((effect) => effect.fact?.id === 'fact.current-starfleet-credentials');

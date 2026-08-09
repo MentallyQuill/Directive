@@ -50,7 +50,7 @@
       "initiallyTrue": true,
       "visibility": "discoverable",
       "playerText": {
-        "summary": "Priya and Rowan corroborated a current Starfleet Intelligence credential path in the Hecate relay records. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, and Kessler now knows Starfleet may have withheld relevant knowledge."
+        "summary": "Priya and Rowan corroborated a current Starfleet Intelligence credential path in the Hecate relay records. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, Kessler now knows Starfleet may have withheld relevant knowledge, and Pale Lantern is advancing toward defense-system integration."
       }
     }
   ],
@@ -284,7 +284,7 @@
       },
       "interpretation": {
         "evidenceStandard": "explicit",
-        "guidance": "Claim only when accepted assistant prose tells the player the current-credential conclusion and the resulting Tolland transmission, Rourke boarding request, and Kessler disclosure.",
+        "guidance": "Claim only when accepted assistant prose tells the player the current-credential conclusion, the resulting Tolland transmission, Rourke boarding request, Kessler disclosure, and the advance toward defense-system integration.",
         "exclusions": ["Evidence known only to non-player characters, an unexplained summons, or a vague Starfleet concern is not a delivered report."]
       }
     },
@@ -483,7 +483,7 @@
           { "not": { "factKnown": "fact.open-orders2.current-starfleet-credential-path" } }
         ]
       },
-      "playerText": { "summary": "Priya and Rowan confirmed that the Hecate access path uses current Starfleet Intelligence credentials. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, and Kessler now knows Starfleet may have withheld relevant knowledge." }
+      "playerText": { "summary": "Priya and Rowan confirmed that the Hecate access path uses current Starfleet Intelligence credentials. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, Kessler now knows Starfleet may have withheld relevant knowledge, and Pale Lantern is advancing toward defense-system integration." }
     }
   ],
   "events": [
@@ -764,7 +764,7 @@
         "Acknowledge only the assignments actually resolved, declined, or left unfinished.",
         "Carry forward the Orison Defense Codes, Asterion Medical Cooperative, or Regional Sensor Baseline only when its corresponding V1 result is assetEarned.",
         "Carry forward overextension, informed failure, limited resolution, or early departure when recorded.",
-        "Ground the next mission in the player-known credential report, Tolland's classified escalation, Rourke's boarding request, and Kessler learning Starfleet may have withheld knowledge."
+        "Ground the next mission in the player-known credential report, Tolland's classified escalation, Rourke's boarding request, Kessler learning Starfleet may have withheld knowledge, and Pale Lantern's advance toward defense-system integration."
       ],
       "mustNotReveal": [
         "Do not imply completion of an unselected, declined, or unresolved assignment.",
