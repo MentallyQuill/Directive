@@ -1,6 +1,6 @@
 # Ashes V1: Open Orders II Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content and deterministic authority only; it does not authorize UI or narrator-prompt changes.
+> Status: implemented and deterministic-gate certified within the approved non-UI scope. Player-facing UI, narrator cutover, open-world scheduling, Chapter 6 migration, legacy retirement, and live certification remain incomplete.
 
 **Goal:** Make `open-orders-2-what-survives` the eighth V1-native Ashes journey entry and preserve the source-authored repair/review interval instead of skipping from Old Lessons directly to Chapter 6.
 
@@ -78,27 +78,27 @@ No Command Bearing award or spend is added in this slice. The earlier Inspiratio
 
 ### Task 1: RED contract
 
-- [ ] Create `tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json`.
-- [ ] Create `tools/scripts/test-ashes-v1-open-orders-2-mission.mjs` and register it in the alpha gate.
-- [ ] Assert V1-only identity, exact Old Lessons predecessor, no duplicate package quest, exact Chapter 6 target, spoiler-safe opening, four objectives, four reports, no clock, normal two-assignment load, delegated third, overextension, decline/reconsider, early departure, background discovery, and hostile source/revision cases.
+- [x] Create `tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json`.
+- [x] Create `tools/scripts/test-ashes-v1-open-orders-2-mission.mjs` and register it in the alpha gate.
+- [x] Assert V1-only identity, exact Old Lessons predecessor, no duplicate package quest, exact Chapter 6 target, spoiler-safe opening, four objectives, four reports, no clock, normal two-assignment load, delegated third, overextension, decline/reconsider, early departure, background discovery, and hostile source/revision cases.
 
 ### Task 2: Definition and validator
 
-- [ ] Create `packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json`.
-- [ ] Add three assessment facts/reports and one required current-credential fact/report.
-- [ ] Add player-owned engagement/conclusion choices, observed assignment results, workload dimensions, mixed terminal dispositions, and exact Chapter 6 transition.
-- [ ] Create `tools/scripts/validate-ashes-v1-open-orders-2.mjs` and register it in the alpha gate.
+- [x] Create `packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json`.
+- [x] Add three assessment facts/reports and one required current-credential fact/report.
+- [x] Add player-owned engagement/conclusion choices, observed assignment results, workload dimensions, mixed terminal dispositions, and exact Chapter 6 transition.
+- [x] Create `tools/scripts/validate-ashes-v1-open-orders-2.mjs` and register it in the alpha gate.
 
 ### Task 3: Registry, runtime, and journey
 
-- [ ] Register the V1-only interval after Old Lessons without adding a quest row.
-- [ ] Prove exact activation, reload, idempotency, legacy-root isolation, Chapter 6 pending state, and source-mutation descendant pruning.
-- [ ] Create `tools/scripts/test-ashes-v1-open-orders-2-runtime.mjs` for accepted-pair, report custody, anti-spam, batching, invalidation, and restoration proof.
+- [x] Register the V1-only interval after Old Lessons without adding a quest row.
+- [x] Prove exact activation, reload, idempotency, legacy-root isolation, Chapter 6 pending state, and source-mutation descendant pruning.
+- [x] Create `tools/scripts/test-ashes-v1-open-orders-2-runtime.mjs` for accepted-pair, report custody, anti-spam, batching, invalidation, and restoration proof.
 
 ### Task 4: Adversarial review and certification
 
-- [ ] Challenge hidden background gating, assignment spam, asset assumptions, decline permanence, workload railroading, false urgency, medical coercion, scientific uncertainty, platform morality, report custody, terminal priority, legacy reaction conflict, V1-only identity, and live semantic uncertainty.
-- [ ] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
+- [x] Challenge hidden background gating, assignment spam, asset assumptions, decline permanence, workload railroading, false urgency, medical coercion, scientific uncertainty, platform morality, report custody, terminal priority, legacy reaction conflict, V1-only identity, and live semantic uncertainty.
+- [x] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
 
 ## Explicit Non-Goals and Stop Boundary
 
