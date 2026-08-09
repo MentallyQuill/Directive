@@ -60,14 +60,14 @@ The interval contains:
 
 - Create: `packages/bundled/breckenridge/v1/open-orders-1-work-worth-doing.mission-v1.json`
 
-- [ ] Add the aggregate opportunity and assignment-assessment facts.
-- [ ] Add player-provable engagement decisions for direct work, delegation, and knowing decline.
-- [ ] Add one clear assessment event and one required report route per engaged assignment.
-- [ ] Add aggregate result policies that require the corresponding player-known assessment and distinguish actual success, limited resolution, and informed failure from plans or attempts.
-- [ ] Add explicit conclusion policies for a normal two-assignment load, broad delegated coverage, direct overextension, and early departure.
-- [ ] Add one core objective, three optional objectives, four dimensions, forward-only terminal dispositions, and the exact Chapter 3 transition.
-- [ ] Keep clocks empty and omit legacy progress/phase/pressure/side-assignment state.
-- [ ] Run schema, contract, and scenario tests to GREEN.
+- [x] Add the aggregate opportunity and assignment-assessment facts.
+- [x] Add player-provable engagement decisions for direct work, delegation, and knowing decline.
+- [x] Add one clear assessment event and one required report route per engaged assignment.
+- [x] Add aggregate result policies that require the corresponding player-known assessment and distinguish actual success, limited resolution, and informed failure from plans or attempts.
+- [x] Add explicit conclusion policies for a normal two-assignment load, broad delegated coverage, direct overextension, and early departure.
+- [x] Add one core objective, three optional objectives, four dimensions, forward-only terminal dispositions, and the exact Chapter 3 transition.
+- [x] Keep clocks empty and omit legacy progress/phase/pressure/side-assignment state.
+- [x] Run schema, contract, and scenario tests to GREEN.
 
 ## Task 3: Validate Reachability, Identity, and Load Semantics
 
