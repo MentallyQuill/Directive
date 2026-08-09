@@ -179,23 +179,23 @@ feat(runtime): settle accepted duty reports
 - Create: `tools/scripts/test-v1-duty-report-runtime.mjs` if separation improves coverage
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 
-- [ ] **Step 1: Write failing mutation-rebuild tests**
+- [x] **Step 1: Write failing mutation-rebuild tests**
 
 Editing, swiping away, deleting, superseding, or branch-excluding the accepted report response removes its evidence entry on source invalidation, reconstructs `knownFacts`, re-hides dependent objectives/clocks, invalidates downstream effects through their own source custody, and makes the report eligible again when its world-truth precondition still holds.
 
-- [ ] **Step 2: Prove no premature suppression**
+- [x] **Step 2: Prove no premature suppression**
 
 A planned, generated, posted, or provisionally selected report does not count as delivered. Provider failure, failed settlement, player rejection, and restart before acceptance all leave the route selectable.
 
-- [ ] **Step 3: Expose a non-UI preparation diagnostic**
+- [x] **Step 3: Expose a non-UI preparation diagnostic**
 
 Expose a runtime diagnostic/helper that selects one pending report and prepares its bounded segment payload/manifest inputs for a supplied hypothetical response identity. It may not post, render, schedule, update prompts, or mutate campaign state.
 
-- [ ] **Step 4: Prove failure containment**
+- [x] **Step 4: Prove failure containment**
 
 Invalid report metadata is ignored or returned as sanitized diagnostics while unrelated accepted-pair claims continue. State revision conflicts, package changes, and persistence failures retain existing State Delta Gateway rollback/recovery behavior.
 
-- [ ] **Step 5: Run and commit Task 5**
+- [x] **Step 5: Run and commit Task 5**
 
 Commit:
 

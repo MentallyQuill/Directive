@@ -12,7 +12,15 @@ import {
     createEpisodeEvaluator,
 } from '../story/episode-evaluator.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
-import { materializeAcceptedDutyReportClaim } from '../mission/v1/duty-report-delivery.mjs';
+import {
+    createDutyReportVisibleSegment,
+    materializeAcceptedDutyReportClaim,
+} from '../mission/v1/duty-report-delivery.mjs';
+import {
+    deliveredDutyReportIds,
+    selectPendingDutyReport,
+} from '../mission/v1/duty-report-planner.mjs';
+import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -430,6 +438,95 @@ export function createV1MissionRuntime({
 
     function buildPlayerProjection({ runtimeAssets = {} } = {}) {
         return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
+    }
+
+    function preparePendingDutyReport({
+        runtimeAssets = {},
+        availableActors = [],
+        responseId = null,
+        sourceTransactionId = null,
+    } = {}) {
+        const campaignState = getState();
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+        if (!resolved.ok) return resolved;
+        const branchId = compact(campaignState?.campaignChatBinding?.saveId);
+        if (!branchId) return unavailable('active-branch-unavailable');
+        const normalizedResponseId = compact(responseId);
+        const normalizedTransactionId = compact(sourceTransactionId);
+        if (!normalizedResponseId || normalizedResponseId.length > 300
+            || !normalizedTransactionId || normalizedTransactionId.length > 300) {
+            return unavailable('response-identity-invalid');
+        }
+        let missionState;
+        try {
+            missionState = resolveV1MissionState({
+                campaignState,
+                definition: resolved.definition,
+                branchId,
+            });
+        } catch (error) {
+            return unavailable(errorReasonCode(error));
+        }
+        if (missionEvidenceSequenceMigrationRequired(missionState)) {
+            return unavailable('evidence-sequence-migration-required');
+        }
+        if (!validateMissionStateAuthority({ definition: resolved.definition, state: missionState }).ok) {
+            return unavailable('mission-state-invalid');
+        }
+        const deliveredReportIds = deliveredDutyReportIds({
+            definition: resolved.definition,
+            state: missionState,
+        });
+        const packet = selectPendingDutyReport({
+            definition: resolved.definition,
+            state: missionState,
+            availableActors,
+            deliveredReportIds,
+        });
+        if (!packet) {
+            return {
+                ok: true,
+                attempted: false,
+                status: 'no-pending-report',
+                reasonCode: null,
+                definitionId: resolved.definition.id,
+                definitionVersion: resolved.definition.version,
+                packet: null,
+                segment: null,
+                manifestInput: null,
+                diagnostics: { deliveredReportCount: deliveredReportIds.length },
+                committedRoots: [],
+                noChange: true,
+            };
+        }
+        let segment;
+        try {
+            segment = createDutyReportVisibleSegment(packet);
+        } catch {
+            return unavailable('duty-report-segment-invalid');
+        }
+        return {
+            ok: true,
+            attempted: false,
+            status: 'ready',
+            reasonCode: null,
+            definitionId: resolved.definition.id,
+            definitionVersion: resolved.definition.version,
+            packet,
+            segment,
+            manifestInput: {
+                branchId,
+                responseId: normalizedResponseId,
+                sourceTransactionId: normalizedTransactionId,
+                reportId: packet.reportId,
+                factId: packet.factId,
+                reporterId: packet.reporterId,
+                policyId: packet.authorizedClaim.policyId,
+            },
+            diagnostics: { deliveredReportCount: deliveredReportIds.length },
+            committedRoots: [],
+            noChange: true,
+        };
     }
 
     async function settleAcceptedPair({ runtimeAssets = {}, snapshot = {}, hardBoundary = null } = {}) {
@@ -854,6 +951,7 @@ export function createV1MissionRuntime({
             campaignState: getState(),
             runtimeAssets,
         }),
+        preparePendingDutyReport,
         settleAcceptedPair,
         invalidateSourceMutation,
         buildPlayerProjection,

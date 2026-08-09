@@ -8503,6 +8503,16 @@ export function createDirectiveRuntimeApp({
       });
     },
 
+    async prepareV1DutyReportDelivery(input = {}) {
+      return run(async () => {
+        await ensureInitialized();
+        return cloneJson(ensureV1MissionShadowRuntime().preparePendingDutyReport({
+          ...input,
+          runtimeAssets: optionalActiveRuntimeAssets() || {}
+        }));
+      });
+    },
+
     async reviewV1PendingEpisodeNow() {
       return run(async () => {
         await ensureInitialized();

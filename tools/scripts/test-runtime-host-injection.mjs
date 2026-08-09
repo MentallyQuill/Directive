@@ -105,6 +105,7 @@ const app = createDirectiveRuntimeApp({
   ])
 });
 assert.equal(typeof app.reviewV1PendingEpisodeNow, 'function');
+assert.equal(typeof app.prepareV1DutyReportDelivery, 'function');
 
 const initialView = await app.initialize();
 assert.equal(initialView.host.id, 'fake');
@@ -112,6 +113,12 @@ assert.equal(initialView.host.capabilities.generation.batchConcurrent, true);
 const inactiveShadowProjection = await app.buildV1ShadowPlayerProjection();
 assert.equal(inactiveShadowProjection.ok, false);
 assert.match(inactiveShadowProjection.reasonCode, /definition-assets-missing|active-mission-unavailable/);
+const inactiveDutyReport = await app.prepareV1DutyReportDelivery({
+  availableActors: [],
+  responseId: 'response.inactive',
+  sourceTransactionId: 'transaction.inactive'
+});
+assert.equal(inactiveDutyReport.ok, false);
 assert.equal(
   initialView.providerConfiguration.roleRouting.find((entry) => entry.roleId === 'relationshipEvaluator')?.providerKind,
   'utility'
