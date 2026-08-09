@@ -219,6 +219,57 @@ export function validateStorySettlement(value = {}) {
                     errors.push(`${effectId} status is unknown`);
                 }
             }
+            if (episode?.characterMoments !== undefined) {
+                if (!Array.isArray(episode.characterMoments)) {
+                    errors.push(`${episodeId} characterMoments must be an array`);
+                } else {
+                    if (!new Set(['sealed', 'invalidated']).has(episode.status) && episode.characterMoments.length > 0) {
+                        errors.push(`${episodeId} characterMoments are allowed only after sealing`);
+                    }
+                    const characterIds = new Set();
+                    const characterMomentIds = new Set();
+                    const allowedFields = new Set([
+                        'id',
+                        'characterId',
+                        'summary',
+                        'playerVisibility',
+                        'sourceContributionIds',
+                    ]);
+                    for (const moment of episode.characterMoments) {
+                        const momentId = isStableId(moment?.id) ? moment.id : '<unknown character moment>';
+                        if (momentId === '<unknown character moment>') errors.push(`${episodeId} character moment id must be stable`);
+                        if (characterMomentIds.has(momentId)) errors.push(`duplicate character moment id: ${momentId}`);
+                        characterMomentIds.add(momentId);
+                        for (const field of Object.keys(moment || {})) {
+                            if (!allowedFields.has(field)) errors.push(`${momentId} contains unknown field: ${field}`);
+                        }
+                        if (!isStableId(moment?.characterId)) {
+                            errors.push(`${momentId} characterId must be stable`);
+                        } else if (characterIds.has(moment.characterId)) {
+                            errors.push(`${episodeId} allows one character moment per character`);
+                        }
+                        characterIds.add(moment?.characterId);
+                        if (!isNonEmptyString(moment?.summary) || moment.summary.length > 512) {
+                            errors.push(`${momentId} summary must be a non-empty string of at most 512 characters`);
+                        }
+                        if (!new Set(['visible', 'hidden']).has(moment?.playerVisibility)) {
+                            errors.push(`${momentId} playerVisibility is unknown`);
+                        }
+                        if (!Array.isArray(moment?.sourceContributionIds) || moment.sourceContributionIds.length === 0) {
+                            errors.push(`${momentId} sourceContributionIds must be non-empty`);
+                        } else {
+                            if (new Set(moment.sourceContributionIds).size !== moment.sourceContributionIds.length) {
+                                errors.push(`${momentId} sourceContributionIds must be unique`);
+                            }
+                            for (const contributionId of moment.sourceContributionIds) {
+                                if (!contributionIds.has(contributionId)) {
+                                    errors.push(`${momentId} references unknown source contribution: ${contributionId}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         const episodeById = new Map(value.episodes.filter((episode) => isStableId(episode?.id)).map((episode) => [episode.id, episode]));
         const supersessionGraph = new Map();

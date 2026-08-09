@@ -231,19 +231,19 @@ feat(projection): consolidate ship status
 - Consumes: crew dataset identity, player-known current posture, valid sealed character-moment annotations, and active mission relevance.
 - Produces: concise crew cards/details with rare source-backed moments.
 
-- [ ] **Step 1: Write failing absence-is-valid tests**
+- [x] **Step 1: Write failing absence-is-valid tests**
 
 Routine dialogue with every officer present produces no character moments. An officer may appear with identity and current role while `moments` is empty. Hidden relationship numbers, private interpretation, generic memories, and evidence queues never project.
 
-- [ ] **Step 2: Define strict moment consumption**
+- [x] **Step 2: Define strict moment consumption**
 
 Only a validated player-visible annotation on a current sealed episode may appear. Cap one annotation per affected recurring character per episode, dedupe by stable identity, and order by episode chronology. This task consumes annotations but does not yet authorize their model extraction.
 
-- [ ] **Step 3: Add mission relevance without duplication**
+- [x] **Step 3: Add mission relevance without duplication**
 
 Expose a stable current-mission link for relevant officers, not copies of mission objectives or story entries.
 
-- [ ] **Step 4: Implement, run, and commit Task 6**
+- [x] **Step 4: Implement, run, and commit Task 6**
 
 Commit:
 

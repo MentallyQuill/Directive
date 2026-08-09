@@ -18,6 +18,7 @@ assert.equal(schema.$defs.focus.additionalProperties, false);
 assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
 assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
 assert.equal(schema.$defs.episodeReferences.additionalProperties, false);
+assert.equal(schema.$defs.characterMoment.additionalProperties, false);
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });

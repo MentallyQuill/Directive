@@ -229,6 +229,23 @@
         }
       }
     },
+    "characterMoment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "characterId", "summary", "playerVisibility", "sourceContributionIds"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "characterId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "playerVisibility": { "type": "string", "enum": ["visible", "hidden"] },
+        "sourceContributionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        }
+      }
+    },
     "episode": {
       "type": "object",
       "additionalProperties": false,
@@ -279,6 +296,10 @@
           ]
         },
         "references": { "$ref": "#/$defs/episodeReferences" },
+        "characterMoments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/characterMoment" }
+        },
         "supersedesEpisodeId": {
           "type": ["string", "null"],
           "pattern": "^[a-z0-9][a-z0-9._:-]*$"

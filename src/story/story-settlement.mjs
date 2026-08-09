@@ -52,6 +52,7 @@ export function openStoryEpisode(settlement, { episodeId, sceneId, references = 
         boundaryState: createInitialEpisodeBoundaryState({ openedAtRevision: next.revision }),
         hardBoundary: null,
         references: normalizedEpisodeReferences(references),
+        characterMoments: [],
     });
     return assertValid(next);
 }
@@ -129,6 +130,7 @@ export function sealStoryEpisode(settlement, {
     hardBoundary = null,
     summary,
     unresolvedConsequences = [],
+    characterMoments = [],
     significance = {},
 } = {}) {
     const episode = activeEpisode(settlement);
@@ -148,6 +150,7 @@ export function sealStoryEpisode(settlement, {
     nextEpisode.hardBoundary = hardBoundary ? structuredClone(hardBoundary) : null;
     nextEpisode.summary = summary;
     nextEpisode.unresolvedConsequences = structuredClone(unresolvedConsequences);
+    nextEpisode.characterMoments = structuredClone(characterMoments);
     next.activeEpisode = null;
     next.receipts.push({
         kind: STORY_SETTLEMENT_RECEIPT_KIND,
@@ -260,6 +263,12 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
     if (survivorEffects.length === 0) return null;
     const referenced = new Set(survivorEffects.flatMap((effect) => effect.sourceContributionIds || []));
     const survivorContributions = episode.contributions.filter((item) => referenced.has(item.id));
+    const survivorContributionIds = new Set(survivorContributions.map((item) => item.id));
+    const survivorMoments = (episode.characterMoments || []).filter((moment) => (
+        Array.isArray(moment.sourceContributionIds)
+        && moment.sourceContributionIds.length > 0
+        && moment.sourceContributionIds.every((id) => survivorContributionIds.has(id))
+    ));
     const replacementId = `${episode.id}.supersession.${next.revision}`;
     const sceneId = `${episode.sceneId}.recovery.${next.revision}`;
     const summary = String(summarizeEffects?.(structuredClone(survivorEffects), structuredClone(episode)) || '')
@@ -290,6 +299,7 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
         contributions: structuredClone(survivorContributions),
         effects: structuredClone(survivorEffects),
         unresolvedConsequences: [],
+        characterMoments: structuredClone(survivorMoments),
         boundaryState: {
             ...createInitialEpisodeBoundaryState({ openedAtRevision: episode.openedAtRevision }),
             checkpointSequence: (episode.boundaryState?.checkpointSequence || 0) + 1,

@@ -53,6 +53,19 @@ settlement = sealStoryEpisode(settlement, {
     boundaryReason: originalBoundary.code,
     hardBoundary: originalBoundary,
     summary: 'Alpha, beta, and gamma were all settled.',
+    characterMoments: [{
+        id: 'moment.alpha',
+        characterId: 'mara-whitaker',
+        summary: 'Whitaker remembers alpha.',
+        playerVisibility: 'visible',
+        sourceContributionIds: ['contribution.alpha'],
+    }, {
+        id: 'moment.beta',
+        characterId: 'hadrik-bronn',
+        summary: 'Bronn remembers beta.',
+        playerVisibility: 'visible',
+        sourceContributionIds: ['contribution.beta'],
+    }],
 });
 
 const superseded = invalidateStorySources(settlement, {
@@ -71,6 +84,7 @@ assert.equal(replacement.status, 'sealed');
 assert.deepEqual(replacement.supersedesEpisodeIds, ['episode.multi-source']);
 assert.deepEqual(replacement.contributions.map((item) => item.id), ['contribution.alpha', 'contribution.gamma']);
 assert.deepEqual(replacement.effects.map((item) => item.targetId), ['event.alpha', 'event.gamma']);
+assert.deepEqual(replacement.characterMoments.map((item) => item.id), ['moment.alpha']);
 assert.equal(replacement.summary, 'event.alpha and event.gamma');
 assert.equal(replacement.summary.includes('beta'), false);
 assert.equal(replacement.hardBoundary.code, 'source-recovery');
