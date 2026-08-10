@@ -63,7 +63,7 @@ const identityContractSchema = buildCharacterCreatorSectionDraftSchema({
 assert.equal(identityContractSchema.additionalProperties, false);
 assert.deepEqual(identityContractSchema.required, ['kind', 'sectionId', 'mode', 'fields', 'notes', 'warnings']);
 assert.equal(identityContractSchema.properties.fields.additionalProperties, false);
-assert.equal(identityContractSchema.properties.fields.minProperties, 1);
+assert.equal(identityContractSchema.properties.fields.minProperties, undefined);
 assert.deepEqual(identityContractSchema.properties.fields.required, ['identity.name', 'identity.speciesId']);
 assert.deepEqual(identityContractSchema.properties.fields.properties['identity.speciesId'].enum, ['human', 'trill']);
 assert.equal(Object.hasOwn(identityContractSchema.properties.fields.properties, 'service.careerBackgroundId'), false);
@@ -71,7 +71,9 @@ assert.equal(validateCharacterCreatorSectionDraftPayload({
   kind: 'directive.characterCreatorSectionDraftResult',
   sectionId: 'identity',
   mode: 'create',
-  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' }
+  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' },
+  notes: [],
+  warnings: []
 }, {
   sectionId: 'identity',
   mode: 'create',
@@ -90,6 +92,18 @@ const invalidIdentityContract = validateCharacterCreatorSectionDraftPayload({
 assert.equal(invalidIdentityContract.ok, false);
 assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
 assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'enum'), true);
+const missingTopLevelContract = validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' }
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(missingTopLevelContract.ok, false);
+assert.deepEqual(missingTopLevelContract.diagnostics.filter((entry) => entry.keyword === 'required').map((entry) => entry.detail), ['notes', 'warnings']);
 const boundedContractDiagnostics = validateCharacterCreatorSectionDraftPayload({
   kind: 'wrong-kind',
   sectionId: 'wrong-section',
@@ -184,6 +198,8 @@ assert.equal(validRouter.calls()[0].request.jsonSchema?.properties?.kind?.const,
 assert.equal(validRouter.calls()[0].request.parameters.max_tokens, CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS);
 assert.equal(validRouter.calls()[0].options.providerKind, 'reasoning');
 assert.equal(validRouter.calls()[0].options.timeoutMs, CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS);
+assert.equal(validRouter.calls()[0].options.allowVisibleOutputRetry, false);
+assert.equal(validRouter.calls()[0].request.jsonSchema.properties.fields.minProperties, undefined);
 
 const repairedDraftCalls = [];
 const repairedDraftProgress = [];
@@ -367,6 +383,43 @@ const unsafeMalformedRecovered = await runCharacterCreatorSectionDraft({
 assert.equal(unsafeMalformedRecovered.source, 'provider');
 assert.deepEqual(unsafeMalformedCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning']);
 assert.equal(unsafeMalformedCalls.some((call) => call.request.kind === 'directive.characterCreatorSectionDraftRepairRequest'), false);
+
+const crossTermUnsafeCalls = [];
+const crossTermUnsafeRouter = {
+  async generate(roleId, request, options = {}) {
+    crossTermUnsafeCalls.push({ roleId, request, options });
+    if (crossTermUnsafeCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'fields':{'identity.appearance':'Privately assigned to Pale Lantern'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: { 'identity.name': 'Kestrel', 'identity.speciesId': 'human', 'identity.appearance': 'A reserved officer.' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: { identity: { name: 'Kestrel' } },
+  generationRouter: crossTermUnsafeRouter
+});
+assert.deepEqual(crossTermUnsafeCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning']);
+assert.equal(crossTermUnsafeCalls.some((call) => call.request.kind === 'directive.characterCreatorSectionDraftRepairRequest'), false,
+  'allowlisting one player-supplied hidden term must not expose a different hidden term to Utility');
 
 const oversizedRepairCalls = [];
 const oversizedRepairRouter = {
@@ -791,6 +844,33 @@ assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerAttempts.lengt
 assert.equal(localFallbackAfterRejectedOutputCalls.length, 3);
 assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Reasoning returned an unusable draft. Using local fallback...');
 
+const preservedFailureCalls = [];
+const preservedFailureRouter = {
+  async generate(roleId, request, options = {}) {
+    preservedFailureCalls.push({ roleId, request, options });
+    if (preservedFailureCalls.length === 1) {
+      return { ok: true, response: { text: 'original malformed json' }, diagnostics: {} };
+    }
+    if (preservedFailureCalls.length === 2) {
+      return { ok: true, response: { text: '{"kind":"still-wrong"}' }, diagnostics: {} };
+    }
+    return {
+      ok: false,
+      error: { code: 'DIRECTIVE_GENERATION_TIMEOUT', message: 'targeted regeneration timed out', retryable: true },
+      diagnostics: {}
+    };
+  }
+};
+const preservedFailureFallback = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: preservedFailureRouter
+});
+assert.equal(preservedFailureFallback.diagnostics.validationErrorCode, 'json_invalid');
+assert.match(preservedFailureFallback.warnings.join(' '), /invalid structured JSON/i);
+assert.equal(preservedFailureFallback.diagnostics.providerAttempts.at(-1).errorCode, 'DIRECTIVE_GENERATION_TIMEOUT');
+
 const canceledController = new AbortController();
 const canceledRouterCalls = [];
 const canceledRouter = {
@@ -815,8 +895,7 @@ const canceledIdentity = await runCharacterCreatorSectionDraft({
   generationRouter: canceledRouter,
   signal: canceledController.signal
 });
-assert.equal(canceledRouterCalls.length, 1);
-assert.equal(canceledRouterCalls[0].options.signal, canceledController.signal);
+assert.equal(canceledRouterCalls.length, 0, 'an already-aborted run must not start a provider call');
 assert.equal(canceledIdentity.ok, false);
 assert.equal(canceledIdentity.source, 'canceled');
 assert.equal(canceledIdentity.diagnostics.canceled, true);

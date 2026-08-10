@@ -39,7 +39,6 @@ export function buildCharacterCreatorSectionDraftSchema({
       fields: {
         type: 'object',
         additionalProperties: false,
-        minProperties: 1,
         required: rules.map(({ path }) => path),
         properties: Object.fromEntries(rules.map(({ path, allowedValues }) => [
           path,
@@ -75,7 +74,7 @@ export function validateCharacterCreatorSectionDraftPayload(payload, {
   for (const key of Object.keys(payload)) {
     if (!allowedTopLevel.has(key)) add('', 'additionalProperties', key);
   }
-  for (const key of ['kind', 'sectionId', 'mode', 'fields']) {
+  for (const key of ['kind', 'sectionId', 'mode', 'fields', 'notes', 'warnings']) {
     if (!Object.hasOwn(payload, key)) add('', 'required', key);
   }
   if (payload.kind !== RESULT_KIND) add('/kind', 'const', 'kind');

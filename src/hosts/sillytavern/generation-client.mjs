@@ -146,7 +146,7 @@ export function createSillyTavernGenerationClient({
     return withOwnedGeneration(async () => {
       let response = await perform(roleId, request, options);
       let retriedForVisibleOutput = false;
-      if (isReasoningOnly(normalizeText(response))) {
+      if (options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {
         response = await perform(roleId, retryRequest(request), options);
         retriedForVisibleOutput = true;
       }

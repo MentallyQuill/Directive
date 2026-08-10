@@ -100,14 +100,24 @@ export function createDirectiveGenerationRouter(host) {
           response: clone(response),
           diagnostics: {
             providerId: response?.providerId || null,
-            model: response?.model || null
+            model: response?.model || null,
+            usage: clone(response?.usage || null),
+            providerKind: response?.providerKind || null
           }
         };
       } catch (error) {
         return {
           ok: false,
-          error: { code: error?.code || 'DIRECTIVE_PROVIDER_FAILED', message: error?.message || String(error) },
-          diagnostics: {}
+          error: {
+            code: error?.code || 'DIRECTIVE_PROVIDER_FAILED',
+            message: error?.message || String(error),
+            retryable: error?.retryable === true,
+            ...(error?.details ? { details: clone(error.details) } : {})
+          },
+          diagnostics: {
+            providerKind: error?.providerKind || null,
+            transportCode: error?.details?.transportCode || null
+          }
         };
       }
     }

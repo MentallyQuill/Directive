@@ -24,7 +24,13 @@ const runtimeGenerationRouter = createDirectiveGenerationRouter({
   generation: {
     async generate(roleId, request, options) {
       runtimeGenerationCalls.push({ roleId, request, options });
-      return { text: '{"ok":true}', providerId: 'fake-runtime-provider', model: 'fake-model' };
+      return {
+        text: '{"ok":true}',
+        providerId: 'fake-runtime-provider',
+        model: 'fake-model',
+        providerKind: 'utility',
+        usage: { prompt_tokens: 10, completion_tokens: 3 }
+      };
     }
   }
 });
@@ -39,6 +45,26 @@ assert.deepEqual(runtimeGenerationCalls[0].options, {
   providerKind: 'utility',
   timeoutMs: 30000
 });
+assert.equal(runtimeRoutedResult.diagnostics.providerKind, 'utility');
+assert.deepEqual(runtimeRoutedResult.diagnostics.usage, { prompt_tokens: 10, completion_tokens: 3 });
+
+const runtimeFailedRouter = createDirectiveGenerationRouter({
+  generation: {
+    async generate() {
+      const error = new Error('connection failed');
+      error.code = 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR';
+      error.retryable = true;
+      error.providerKind = 'utility';
+      error.details = { transportCode: 'ECONNRESET' };
+      throw error;
+    }
+  }
+});
+const runtimeFailedResult = await runtimeFailedRouter.generate('characterCreatorSectionDraft', {});
+assert.equal(runtimeFailedResult.error.retryable, true);
+assert.deepEqual(runtimeFailedResult.error.details, { transportCode: 'ECONNRESET' });
+assert.equal(runtimeFailedResult.diagnostics.providerKind, 'utility');
+assert.equal(runtimeFailedResult.diagnostics.transportCode, 'ECONNRESET');
 
 const definitionNames = [
   'prelude-a-ship-underway', 'chapter-1-the-empty-convoy', 'chapter-2-false-colors',

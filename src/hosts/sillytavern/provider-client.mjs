@@ -150,7 +150,7 @@ function isProviderTransportError(error) {
 }
 
 function normalizeProviderThrownError(error, providerKind) {
-  if (isAbortLikeError(error)) {
+  if (isAbortLikeError(error) || error?.code === 'DIRECTIVE_GENERATION_TIMEOUT') {
     if (error && typeof error === 'object') error.providerKind = providerKind;
     return error;
   }
@@ -231,6 +231,61 @@ function openAiEndpoint(baseUrl) {
   if (/\/chat\/completions$/i.test(base)) return base;
   if (/\/v1$/i.test(base)) return `${base}/chat/completions`;
   return `${base}/v1/chat/completions`;
+}
+
+function createGenerationControl(request = {}, options = {}) {
+  const externalSignal = options?.signal || request?.signal || null;
+  const timeoutMs = Number(options?.timeoutMs);
+  const boundedTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? Math.max(1, Math.floor(timeoutMs))
+    : 0;
+  if (!externalSignal && !boundedTimeoutMs) {
+    return {
+      request,
+      run: (promise) => promise,
+      cleanup() {}
+    };
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  let timeoutId = null;
+  let rejectAbort = null;
+  const abortPromise = new Promise((_resolve, reject) => {
+    rejectAbort = reject;
+  });
+  const onControlledAbort = () => {
+    const error = providerError(
+      timedOut ? 'DIRECTIVE_GENERATION_TIMEOUT' : 'DIRECTIVE_GENERATION_ABORTED',
+      timedOut ? `Generation timed out after ${boundedTimeoutMs}ms.` : 'Generation canceled.',
+      timedOut ? { timeoutMs: boundedTimeoutMs } : {}
+    );
+    error.retryable = timedOut;
+    rejectAbort(error);
+  };
+  const onExternalAbort = () => controller.abort();
+  controller.signal.addEventListener('abort', onControlledAbort, { once: true });
+  if (externalSignal?.aborted) {
+    onExternalAbort();
+  } else {
+    externalSignal?.addEventListener?.('abort', onExternalAbort, { once: true });
+  }
+  if (boundedTimeoutMs && !controller.signal.aborted) {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, boundedTimeoutMs);
+  }
+
+  return {
+    request: { ...request, signal: controller.signal },
+    run: (promise) => Promise.race([promise, abortPromise]),
+    cleanup() {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+      externalSignal?.removeEventListener?.('abort', onExternalAbort);
+      controller.signal.removeEventListener?.('abort', onControlledAbort);
+    }
+  };
 }
 
 function structuredResponseFormat(request = {}) {
@@ -388,6 +443,7 @@ export function createDirectiveProviderClient({
       || providerKindForRole(roleId);
     const config = settingsStore.get(kind);
     const context = contextFactory();
+    const control = createGenerationControl(request, options);
     async function sendOnce(requestToSend, retryOptions = {}) {
       if (config.provider === 'profile') {
         return sendViaConnectionProfile(context, config, requestToSend, retryOptions);
@@ -407,14 +463,16 @@ export function createDirectiveProviderClient({
     let retriedForVisibleOutput = false;
     try {
       try {
-        result = await sendOnce(request);
+        result = await control.run(sendOnce(control.request));
       } catch (error) {
-        if (!shouldRetryForVisibleOutput(error)) throw error;
+        if (options.allowVisibleOutputRetry === false || !shouldRetryForVisibleOutput(error)) throw error;
         retriedForVisibleOutput = true;
-        result = await sendOnce(visibleOutputRetryRequest(request), { retriedForVisibleOutput: true });
+        result = await control.run(sendOnce(visibleOutputRetryRequest(control.request), { retriedForVisibleOutput: true }));
       }
     } catch (error) {
       throw normalizeProviderThrownError(error, kind);
+    } finally {
+      control.cleanup();
     }
     return {
       ...result,

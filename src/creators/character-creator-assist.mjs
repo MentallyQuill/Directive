@@ -8,7 +8,7 @@ import {
   assertProviderResponseText
 } from '../providers/provider-response-normalizer.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
-import { HIDDEN_TRUTH_TERMS, hiddenTruthTerm } from '../generation/hidden-truth-safety.mjs';
+import { HIDDEN_TRUTH_TERMS } from '../generation/hidden-truth-safety.mjs';
 
 export const CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID = 'characterCreatorSectionDraft';
 
@@ -395,9 +395,10 @@ function assertSectionDraftContract(payload, {
 }
 
 function unsafeGeneratedTerm(value, allowedInput = {}) {
-  const hidden = hiddenTruthTerm(value);
-  if (hidden && !hiddenTruthTerm(allowedInput)) return hidden;
-  const text = JSON.stringify(value || {});
+  const text = JSON.stringify(value || {}).toLowerCase();
+  const allowedText = JSON.stringify(allowedInput || {}).toLowerCase();
+  const hidden = HIDDEN_TRUTH_TERMS.find((term) => text.includes(term) && !allowedText.includes(term));
+  if (hidden) return hidden;
   const match = text.match(RISKY_BACKSTORY_PATTERN);
   return match ? match[0] : null;
 }
@@ -955,6 +956,26 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
   const attemptRecords = [];
 
   for (let index = 0; index < CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.length; index += 1) {
+    if (signal?.aborted) {
+      return {
+        ok: false,
+        error: {
+          code: 'DIRECTIVE_GENERATION_ABORTED',
+          message: 'Draft canceled.',
+          retryable: false
+        },
+        diagnostics: {
+          providerKind: attempt.providerKind,
+          finalProviderKind: attempt.providerKind,
+          timeoutRetryCount,
+          utilityFallbackAttempted: attemptRecords.some((entry) => entry.providerKind === 'utility'),
+          repairAttempted,
+          repairSucceeded: false,
+          targetedRegenerationAttempted,
+          providerAttempts: cloneJson(attemptRecords)
+        }
+      };
+    }
     if (attempt.id === 'utility-repair') repairAttempted = true;
     if (attempt.id === 'reasoning-regeneration') targetedRegenerationAttempted = true;
     emitCreatorAssistProgress(onProgress, {
@@ -970,7 +991,8 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
       generationResult = await generationRouter.generate(CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID, attemptRequest, {
         signal,
         providerKind: attempt.providerKind,
-        timeoutMs: attempt.timeoutMs
+        timeoutMs: attempt.timeoutMs,
+        allowVisibleOutputRetry: false
       });
     } catch (error) {
       generationResult = generationFailureResultFromThrown(error, attempt);
@@ -1087,6 +1109,21 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
     attempt: CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.length + 1,
     message: localFallbackProgressMessage(previousResult)
   });
+
+  if (repairOriginFailure && targetedRegenerationAttempted) {
+    previousResult = {
+      ...previousResult,
+      error: cloneJson(repairOriginFailure.error),
+      diagnostics: {
+        ...(previousResult?.diagnostics || {}),
+        providerOutputRejected: true,
+        hiddenLeakBlocked: repairOriginFailure?.diagnostics?.hiddenLeakBlocked === true,
+        hiddenLeakTerm: repairOriginFailure?.diagnostics?.hiddenLeakTerm || null,
+        validationErrorCode: repairOriginFailure?.diagnostics?.validationErrorCode || null
+      },
+      creatorAssistRecovery: cloneJson(repairOriginFailure.creatorAssistRecovery)
+    };
+  }
 
   return annotateGenerationAttemptResult(previousResult, CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS.at(-1), {
     timeoutRetryCount,
