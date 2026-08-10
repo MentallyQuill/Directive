@@ -439,10 +439,15 @@ for (const definition of missionDefinitions) {
       entryContext: entryContextForCapability(capability)
     });
     const capabilityProjection = createMissionPlayerProjection({ definition, state: capabilityState });
+    const capabilityTextOffset = 2 + (projection.objectives.length * 2);
     assert.deepEqual(
-      capabilityProjection.capabilities.flatMap((item) => [item.label, item.summary]),
-      expectedCapabilityText,
-      `${definition.id}:${capability.id}: entry capability copy changed without review`
+      playerFacingText(capabilityProjection),
+      [
+        ...expectedText.slice(0, capabilityTextOffset),
+        ...expectedCapabilityText,
+        ...expectedText.slice(capabilityTextOffset)
+      ],
+      `${definition.id}:${capability.id}: capability-bearing entry projection changed without review`
     );
   }
 }
