@@ -390,7 +390,7 @@ async function sendViaCurrentSillyTavern(context, config, request, { retriedForV
       responseLength: requestMaxTokens(request, config),
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       topP: request.parameters?.top_p ?? request.topP ?? config.topP,
-      jsonSchema: request.jsonSchema || null,
+      jsonSchema,
       bypassAll: true,
       ...(request.signal ? { signal: request.signal } : {})
     });
@@ -437,13 +437,13 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
       stream: false,
       extractData: true,
       includePreset: true,
-      includeInstruct: true
+      includeInstruct: true,
+      ...(request.signal ? { signal: request.signal } : {})
     },
     {
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
-      ...(jsonSchema ? { json_schema: jsonSchema } : {}),
-      ...(request.signal ? { signal: request.signal } : {})
+      ...(jsonSchema ? { json_schema: jsonSchema } : {})
     }
   );
   const text = extractText(normalizeSillyTavernResponse(response), {

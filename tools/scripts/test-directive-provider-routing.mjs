@@ -213,11 +213,17 @@ const missingPresetClient = createDirectiveProviderClient({
 });
 const missingPresetResult = await missingPresetClient.generate('utilityJson', {
   systemPrompt: 'Return bounded utility output.',
-  prompt: 'Use the raw fallback.'
+  prompt: 'Use the raw fallback.',
+  jsonSchema: currentModelSchema
 });
 assert.equal(missingPresetResult.text, 'raw-fallback-answer');
 assert.equal(missingPresetServiceCalls, 0);
 assert.equal(missingPresetRawCalls.length, 1);
+assert.deepEqual(missingPresetRawCalls[0].jsonSchema, {
+  name: 'directive_structured_output',
+  value: currentModelSchema,
+  strict: true
+});
 
 const utility = await client.generate('acceptedPairMissionEvidence', {
   kind: 'directive.testStructuredRequest',
@@ -382,6 +388,50 @@ assert.deepEqual(profileCalls[0].payload.json_schema, {
   value: reasoningSchema,
   strict: true
 });
+
+let controlledProfileSignal = null;
+const controlledProfileContext = {
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    async sendRequest(_profileId, _messages, _maxTokens, options) {
+      controlledProfileSignal = options.signal;
+      if (!controlledProfileSignal) throw new Error('profile abort signal is missing');
+      return new Promise((_resolve, reject) => {
+        controlledProfileSignal.addEventListener('abort', () => {
+          const error = new Error('profile request aborted');
+          error.name = 'AbortError';
+          reject(error);
+        }, { once: true });
+      });
+    }
+  }
+};
+const controlledProfileStore = createSillyTavernProviderSettingsStore({
+  context: controlledProfileContext,
+  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+});
+controlledProfileStore.update('reasoning', {
+  provider: 'profile',
+  profileId: 'cancelable-reasoning-profile'
+});
+const controlledProfileClient = createDirectiveProviderClient({
+  contextFactory: () => controlledProfileContext,
+  settingsStore: controlledProfileStore,
+  fetchImpl
+});
+const controlledProfileController = new AbortController();
+const canceledProfileGeneration = controlledProfileClient.generate('characterCreatorSectionDraft', {
+  messages: [{ role: 'user', content: 'Cancel the profile request.' }]
+}, {
+  signal: controlledProfileController.signal,
+  timeoutMs: 1000
+});
+controlledProfileController.abort();
+await assert.rejects(
+  canceledProfileGeneration,
+  (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED'
+);
+assert.equal(controlledProfileSignal?.aborted, true);
 
 const utilityOverride = await client.generate('characterCreatorSectionDraft', {
   kind: 'directive.characterCreatorSectionDraftRepairRequest',
