@@ -72,6 +72,7 @@ const DEFAULT_CAPABILITIES = Object.freeze({
     variables: false,
     chatCompletion: false,
     narrationContext: false,
+    narrationLifecycle: false,
     install: false,
     versionedInstall: false
   },
@@ -194,7 +195,9 @@ export function assertDirectivePresetAdapter(presets, path = 'host.presets') {
     'dismissAutoCheckForVersion',
     'getStartupCheck',
     'installBundledPreset',
-    'loadBundledPreset'
+    'loadBundledPreset',
+    'activateNarrationPreset',
+    'restoreNarrationPreset'
   ]) {
     if (presets[method] !== undefined) requireFunction(presets[method], `${path}.${method}`);
   }

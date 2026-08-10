@@ -127,3 +127,66 @@ git commit -m "docs: explain Directive call isolation"
 - [ ] **Step 4: Review and integrate**
 
 Request a diff review against the pre-feature base. Resolve all Critical and Important findings, rerun the full alpha gate, merge `codex/directive-model-envelope` into `main`, rerun the full alpha gate on `main`, and push `main` to `origin`.
+
+### Task 4: Host narration preset lifecycle correction
+
+**Files:**
+- Modify: `src/hosts/sillytavern/preset-manager.mjs`
+- Modify: `src/runtime/runtime-app.mjs`
+- Modify: `src/hosts/sillytavern/shell-events.js`
+- Modify: `src/hosts/host-contract.mjs`
+- Modify: `src/hosts/sillytavern/host-factory.mjs`
+- Test: `tools/scripts/test-sillytavern-preset-manager.mjs`
+- Test: `tools/scripts/test-v1-runtime-app.mjs`
+- Test: `tools/scripts/test-sillytavern-event-wiring.mjs`
+
+**Interfaces:**
+- Consumes: the installed `Directive` Chat Completion preset, SillyTavern's canonical preset manager, the `OAI_PRESET_CHANGED_AFTER` event, and the runtime's existing bound-chat check.
+- Produces: `activateNarrationPreset()` and `restoreNarrationPreset()` as a chat-scoped preset lease. A bound campaign activates the complete Directive narration preset before prompt synchronization and each host generation; an unbound chat or extension disable restores the user's prior selection.
+
+- [x] **Step 1: Write failing preset lifecycle tests**
+
+Add tests proving activation selects the installed `Directive` preset by its real option value, waits for SillyTavern's preset-applied event, preserves one restore target across repeated activation, adopts a manual selection made during the lease as the next restore target, restores that target when campaign play ends, and fails open when the bundled preset is not installed.
+
+- [x] **Step 2: Run the focused preset test and verify RED**
+
+Run: `node tools/scripts/test-sillytavern-preset-manager.mjs`
+
+Expected: FAIL because the preset manager does not expose narration activation or restoration.
+
+- [x] **Step 3: Implement the chat-scoped preset lease**
+
+Resolve the installed Directive preset through the existing manager helpers, select it with `findPreset()` plus `selectPreset()`, await `OAI_PRESET_CHANGED_AFTER` when the host exposes that event, and serialize transitions. Keep the original selection for restoration; if the user selects another preset while the campaign remains active, remember that new selection before reasserting Directive. Never introduce model-name or provider-field tables.
+
+- [x] **Step 4: Write failing runtime lifecycle tests**
+
+Require `syncPrompt()` to activate the narration preset for a bound campaign and restore it for an unbound chat. Require extension disable to restore the lease even when no chat-change event occurs.
+
+- [x] **Step 5: Run runtime and event tests and verify RED**
+
+Run:
+
+```powershell
+node tools/scripts/test-v1-runtime-app.mjs
+node tools/scripts/test-sillytavern-event-wiring.mjs
+```
+
+Expected: FAIL because runtime prompt synchronization and extension disable do not call the new lifecycle methods.
+
+- [x] **Step 6: Wire the lifecycle through the host contract**
+
+Expose the two preset lifecycle methods from the SillyTavern host. In `syncPrompt()`, restore before clearing an unbound chat and activate before building/installing a bound campaign packet. On extension disable, restore before tearing down the bridge. Log activation failure and continue with the existing runtime packet so a missing host preset does not block the player's request.
+
+- [x] **Step 7: Run focused and full verification**
+
+Run:
+
+```powershell
+node tools/scripts/test-sillytavern-preset-manager.mjs
+node tools/scripts/test-v1-runtime-app.mjs
+node tools/scripts/test-sillytavern-event-wiring.mjs
+npm.cmd test
+git diff --check
+```
+
+Expected: all focused checks and the 73-check alpha gate pass, and `git diff --check` exits 0.

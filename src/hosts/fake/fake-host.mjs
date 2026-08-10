@@ -768,6 +768,8 @@ export function createFakeDirectiveHost(options = {}) {
       },
       presets: {
         narrationContext: typeof options.presets?.getNarrationContext === 'function',
+        narrationLifecycle: typeof options.presets?.activateNarrationPreset === 'function'
+          && typeof options.presets?.restoreNarrationPreset === 'function',
         install: typeof options.presets?.installBundledPreset === 'function',
         versionedInstall: typeof options.presets?.installBundledPreset === 'function'
       }

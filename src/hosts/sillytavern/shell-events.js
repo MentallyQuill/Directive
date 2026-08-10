@@ -122,6 +122,11 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
   try {
+    await getSillyTavernDirectiveRuntimeBridge().host?.presets?.restoreNarrationPreset?.();
+  } catch (error) {
+    report('Preset restore during disable failed', error);
+  }
+  try {
     await app()?.clearDirectivePrompt?.({ reason: 'extension-disabled' });
   } catch (error) {
     report('Prompt clear during disable failed', error);

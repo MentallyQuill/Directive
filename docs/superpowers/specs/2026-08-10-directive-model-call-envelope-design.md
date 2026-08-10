@@ -11,6 +11,7 @@ Prevent Directive-owned Utility and auxiliary Reasoning requests from inheriting
 ## Product Decisions
 
 - Gameplay narration continues to use the bundled Directive preset and the complete runtime campaign packet.
+- A bound campaign chat activates the installed Directive preset through SillyTavern's canonical preset manager before prompt synchronization and host generation. Leaving the bound chat or disabling Directive restores the user's previous preset.
 - Utility and structured Reasoning roles use only their role-local system prompt, user prompt, and schema. They do not receive the bundled preset's narration prompt stack.
 - A current-model Chat Completion request uses the bundled `Directive` preset as its generation-parameter baseline without changing SillyTavern's globally selected preset.
 - `reasoning_effort` remains `auto` in the bundled preset so SillyTavern omits the optional parameter instead of guessing a model-specific value.

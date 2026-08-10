@@ -4,6 +4,6 @@ Directive bundles `presets/sillytavern/directive.json`. Install it from Directiv
 
 The preset supplies Directive's narrative style, player-agency rules, anti-repetition guidance, and response cleanup. The live campaign facts come from the chat-bound `directive.campaign.v1` prompt packet, not from static preset text.
 
-Settings reports whether the bundled preset is installed and current. Reinstalling replaces the Directive preset record with the bundled version; it does not alter unrelated presets. Perspective hints from a compatible active preset may be respected, while Directive's default keeps narration in second person and never writes the player's private thoughts or final decisions.
+Settings reports whether the bundled preset is installed and current. Reinstalling replaces the Directive preset record with the bundled version; it does not alter unrelated presets. When a bound Directive campaign chat is open, Directive activates the installed preset before synchronizing campaign context and before each host generation. Leaving for an unrelated chat or disabling Directive restores the preset that was selected before campaign play.
 
-If the preset is missing, install it and refresh status. If another preset is selected, Directive still injects exact campaign context, but narrative style and formatting may differ.
+If the preset is missing, install it and refresh status. Directive fails open with the exact campaign context packet if the host cannot activate the preset, but the bundled narrative style, cleanup, and model-neutral generation defaults are then unavailable.

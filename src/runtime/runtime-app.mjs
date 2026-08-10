@@ -293,9 +293,40 @@ export function createDirectiveRuntimeApp({
     return Boolean(chatId && state?.campaignChatBinding?.chatId === chatId);
   }
 
+  async function activateNarrationPreset() {
+    if (typeof host.presets?.activateNarrationPreset !== 'function') return { ok: false, reason: 'unsupported' };
+    try {
+      const result = await host.presets.activateNarrationPreset();
+      if (result?.ok === false) {
+        host.logger?.warn?.('[Directive] Could not activate the Directive narration preset; continuing with the runtime campaign packet.', result);
+      }
+      return result;
+    } catch (error) {
+      host.logger?.warn?.('[Directive] Could not activate the Directive narration preset; continuing with the runtime campaign packet.', error);
+      return { ok: false, reason: 'activation-failed', error };
+    }
+  }
+
+  async function restoreNarrationPreset() {
+    if (typeof host.presets?.restoreNarrationPreset !== 'function') return { ok: false, reason: 'unsupported' };
+    try {
+      return await host.presets.restoreNarrationPreset();
+    } catch (error) {
+      host.logger?.warn?.('[Directive] Could not restore the preset selected before campaign play.', error);
+      return { ok: false, reason: 'restore-failed', error };
+    }
+  }
+
   async function syncPrompt({ rebuild = false } = {}) {
     if (!state || !currentChatIsBound()) {
+      await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'unbound-v1-chat' });
+      return { ok: true, active: false };
+    }
+    await activateNarrationPreset();
+    if (!state || !currentChatIsBound()) {
+      await restoreNarrationPreset();
+      await host.prompt.clear?.({ reason: 'chat-changed-during-preset-activation' });
       return { ok: true, active: false };
     }
     const result = projectionResult();
@@ -845,7 +876,7 @@ export function createDirectiveRuntimeApp({
       if (currentChatIsBound()) {
         acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
       }
-      else await host.prompt.clear?.({ reason: 'chat-changed-unbound' });
+      else await syncPrompt();
       return { active: currentChatIsBound(), chatId, acceptedPairReplay };
     },
 
