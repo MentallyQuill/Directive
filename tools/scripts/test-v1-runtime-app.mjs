@@ -331,6 +331,23 @@ assert.equal(
   'deleting a checkpoint must also delete its cloned host chat'
 );
 
+const activeChatBeforeSelectedDeletion = (await app.getCurrentView({ tabId: 'mission' })).campaignState.campaignChatBinding.chatId;
+const selectedCheckpoint = await app.saveGame({ name: 'Selected checkpoint chat' });
+const selectedCheckpointChatId = selectedCheckpoint.checkpoint.state.campaignChatBinding.chatId;
+chat.setCurrentChatId(selectedCheckpointChatId);
+const selectedCheckpointDeletion = await app.deleteSave({ checkpointId: selectedCheckpoint.checkpoint.id });
+assert.equal(selectedCheckpointDeletion.result.deleted, true);
+assert.deepEqual(selectedCheckpointDeletion.chatCleanup, {
+  attempted: true,
+  deleted: true,
+  chatId: selectedCheckpointChatId
+});
+assert.equal(
+  chat.getCurrentChatId(),
+  activeChatBeforeSelectedDeletion,
+  'checkpoint deletion must reopen the authoritative active chat before deleting a selected clone'
+);
+
 const cleanupFailureCheckpoint = await app.saveGame({ name: 'Cleanup failure checkpoint' });
 const deleteCampaignChat = host.chat.deleteCampaignChat;
 host.chat.deleteCampaignChat = async () => {

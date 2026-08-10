@@ -20,6 +20,8 @@ State commits use a revisioned gateway. The gateway rejects stale proposals and 
 
 Checkpoints are complete V1 snapshots with `slotType: checkpoint` and a parent active-save reference. The checkpoint storage ID does not replace the parent active-save ID used by branch-bound mission, story, and chat authority. Loading a checkpoint restores that exact state into its parent active timeline and creates a playable continuation from the checkpoint chat. Deleting a checkpoint removes its explicit save record and index entry and asks the host to remove the cloned checkpoint chat.
 
+If the checkpoint chat is currently selected when it is deleted, Directive first reopens the authoritative active campaign chat, restores its prompt, and only then removes the checkpoint clone. It never asks the host to delete the currently active chat.
+
 Checkpoint creation fails closed: if the host cannot create the exact chat clone, Directive removes the incomplete checkpoint record. Checkpoint loading is compensating: if the continuation cannot be bound and opened, Directive restores the pre-load active timeline and removes any incomplete continuation chat it can identify.
 
 For recovery, preserve the affected files, use Settings to verify storage, and export support diagnostics. Do not rename or hand-edit state files, and do not copy saves between package versions.

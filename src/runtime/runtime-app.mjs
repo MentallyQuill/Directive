@@ -1103,11 +1103,30 @@ export function createDirectiveRuntimeApp({
       const binding = result.checkpointChatIsDistinct === true ? result.campaignChatBinding : null;
       let chatCleanup = { attempted: false, deleted: false, reason: 'no-checkpoint-chat' };
       if (binding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
+        let canDelete = true;
+        let reopenedActiveChat = false;
+        if (compact(host.chat.getCurrentChatId?.()) === binding.chatId) {
+          try {
+            await openExactCampaignChat(state?.campaignChatBinding);
+            reopenedActiveChat = true;
+          } catch (error) {
+            canDelete = false;
+            chatCleanup = {
+              attempted: true,
+              deleted: false,
+              reason: 'checkpoint-chat-still-active',
+              errorCode: compact(error?.code) || null,
+              message: compact(error?.message) || 'The active campaign chat could not be reopened.'
+            };
+          }
+        }
         try {
-          chatCleanup = {
-            attempted: true,
-            ...(await host.chat.deleteCampaignChat(binding))
-          };
+          if (canDelete) {
+            chatCleanup = {
+              attempted: true,
+              ...(await host.chat.deleteCampaignChat(binding))
+            };
+          }
         } catch (error) {
           chatCleanup = {
             attempted: true,
@@ -1116,6 +1135,13 @@ export function createDirectiveRuntimeApp({
             errorCode: compact(error?.code) || null,
             message: compact(error?.message) || 'Checkpoint chat deletion failed.'
           };
+        }
+        if (reopenedActiveChat) {
+          try {
+            await syncPrompt({ rebuild: true });
+          } catch (error) {
+            host.logger?.warn?.('[Directive] Could not restore prompt state after checkpoint deletion.', error);
+          }
         }
       }
       return { result, chatCleanup, view: await campaignViewEnvelope('campaign') };
