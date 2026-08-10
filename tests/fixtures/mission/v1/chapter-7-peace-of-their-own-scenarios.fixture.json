@@ -8,6 +8,9 @@
     "posture-enforce": [
       { "claimId": "claim.chapter7.posture-enforce", "policyId": "policy.chapter7.crisis-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter7.crisis-posture", "value": "boundedEnforcement", "sourceRole": "user" }
     ],
+    "posture-interposition": [
+      { "claimId": "claim.chapter7.posture-interposition", "policyId": "policy.chapter7.crisis-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter7.crisis-posture", "value": "interposition", "sourceRole": "user" }
+    ],
     "posture-withdraw": [
       { "claimId": "claim.chapter7.posture-withdraw", "policyId": "policy.chapter7.crisis-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter7.crisis-posture", "value": "temporaryWithdrawal", "sourceRole": "user" }
     ],
@@ -178,14 +181,44 @@
     ],
     "time-thirty-six-hours": [
       { "claimId": "claim.chapter7.time-thirty-six-hours", "policyId": "policy.chapter7.authoritative-time", "claimType": "timeAdvanced", "targetId": "clock.chapter7.task-group-arrival", "value": 36, "sourceRole": "runtime" }
+    ],
+    "civilian-corridor": [
+      { "claimId": "claim.chapter7.civilian-corridor-opened", "policyId": "policy.chapter7.civilian-corridor-opened", "claimType": "eventOccurred", "targetId": "event.chapter7.civilian-corridor-opened", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter7.civilian-needs-disclosed", "policyId": "policy.chapter7.civilian-needs", "claimType": "factDisclosed", "targetId": "fact.chapter7.civilian-needs", "sourceRole": "assistant" }
+    ],
+    "vahl-refusal": [
+      { "claimId": "claim.chapter7.vahl-refused-order", "policyId": "policy.chapter7.vahl-refused-order", "claimType": "eventOccurred", "targetId": "event.chapter7.vahl-refused-unauthenticated-order", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter7.vahl-boundary-disclosed", "policyId": "policy.chapter7.vahl-security-boundary", "claimType": "factDisclosed", "targetId": "fact.chapter7.vahl-security-boundary", "sourceRole": "assistant" }
+    ],
+    "mercer-demonstration": [
+      { "claimId": "claim.chapter7.mercer-demonstration", "policyId": "policy.chapter7.mercer-demonstration", "claimType": "eventOccurred", "targetId": "event.chapter7.mercer-demonstration-completed", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter7.mercer-constraint-disclosed", "policyId": "policy.chapter7.mercer-command-constraint", "claimType": "factDisclosed", "targetId": "fact.chapter7.mercer-command-constraint", "sourceRole": "assistant" }
+    ],
+    "implementation-shared-verification": [
+      { "claimId": "claim.chapter7.implementation-shared-verification", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "sharedVerificationCell", "sourceRole": "assistant" }
+    ],
+    "implementation-authenticated-stand-down": [
+      { "claimId": "claim.chapter7.implementation-authenticated-stand-down", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "authenticatedStandDown", "sourceRole": "assistant" }
+    ],
+    "implementation-federation-restoration": [
+      { "claimId": "claim.chapter7.implementation-federation-restoration", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "boundedFederationRestoration", "sourceRole": "assistant" }
+    ],
+    "implementation-compact-control": [
+      { "claimId": "claim.chapter7.implementation-compact-control", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "boundedCompactControl", "sourceRole": "assistant" }
+    ],
+    "implementation-handoff": [
+      { "claimId": "claim.chapter7.implementation-handoff", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "responsibleHandoff", "sourceRole": "assistant" }
+    ],
+    "implementation-failed": [
+      { "claimId": "claim.chapter7.implementation-failed", "policyId": "policy.chapter7.implementation-mechanism", "claimType": "outcomeObserved", "targetId": "outcome.chapter7.implementation-mechanism", "value": "failedOrAbsent", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
     {
       "id": "provisional-accord-before-deadline",
-      "sequence": ["posture-negotiate", "political-direct-report", "interface-shared-report", "interface-choice-shared", "framework-joint", "time-five-hours", "standoff-stabilized", "civilians-protected", "interface-shared", "settlement-provisional", "annex-shared", "coalition-joint"],
+      "sequence": ["posture-negotiate", "political-direct-report", "interface-shared-report", "interface-choice-shared", "framework-joint", "time-five-hours", "standoff-stabilized", "civilians-protected", "interface-shared", "implementation-shared-verification", "settlement-provisional", "annex-shared", "coalition-joint"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "provisionalAccord", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "provisionalAccord", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
         "outcomeDimensions": { "dimension.chapter7.settlement": "provisional-accord", "dimension.chapter7.annex-defense": "shared-control", "dimension.chapter7.interface-truth": "shared-control", "dimension.chapter7.civilians-violence": "protected", "dimension.chapter7.coalition": "joint-implementation" },
         "clockStates": { "clock.chapter7.task-group-arrival": { "state": "resolved", "value": 31 } },
@@ -195,45 +228,45 @@
     },
     {
       "id": "non-linear-armed-stand-down",
-      "sequence": ["standoff-stabilized", "civilians-protected", "interface-isolated", "settlement-stand-down", "annex-shared", "coalition-tense", "political-records-report", "interface-isolation-report"],
+      "sequence": ["standoff-stabilized", "civilians-protected", "interface-isolated", "annex-shared", "coalition-tense", "political-records-report", "interface-isolation-report", "framework-stand-down", "implementation-authenticated-stand-down", "settlement-stand-down"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "armedStandDown", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "armedStandDown", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
     },
     {
       "id": "federation-restoration-with-cost",
-      "sequence": ["posture-enforce", "political-independent-report", "interface-reconstruction-report", "interface-choice-isolate", "framework-federation", "standoff-violence", "civilians-injured", "interface-isolated", "settlement-federation", "annex-federation", "coalition-federation"],
+      "sequence": ["posture-enforce", "political-independent-report", "interface-reconstruction-report", "interface-choice-isolate", "framework-federation", "standoff-violence", "civilians-injured", "interface-isolated", "implementation-federation-restoration", "settlement-federation", "annex-federation", "coalition-federation"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "federationRestoration", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "federationRestoration", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completedWithCost" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
     },
     {
       "id": "compact-control-with-cost",
-      "sequence": ["posture-negotiate", "political-direct-report", "interface-shared-report", "interface-choice-disclose", "framework-compact", "standoff-stabilized", "civilians-protected", "interface-retained", "settlement-compact", "annex-compact", "coalition-compact"],
+      "sequence": ["posture-negotiate", "political-direct-report", "interface-shared-report", "interface-choice-disclose", "framework-compact", "standoff-stabilized", "civilians-protected", "interface-retained", "implementation-compact-control", "settlement-compact", "annex-compact", "coalition-compact"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "compactControl", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "compactControl", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completedWithCost", "objective.chapter7.command-settlement": "completedWithCost" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
     },
     {
       "id": "fragmented-authority-freeform",
-      "sequence": ["posture-withdraw", "standoff-withdrawn", "civilians-displaced", "interface-escaped", "political-records-report", "framework-other", "settlement-fragmented", "annex-contested", "coalition-fragmented", "interface-reconstruction-report"],
+      "sequence": ["posture-withdraw", "standoff-withdrawn", "civilians-displaced", "interface-escaped", "political-records-report", "framework-other", "implementation-failed", "settlement-fragmented", "annex-contested", "coalition-fragmented", "interface-reconstruction-report"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "fragmentedAuthority", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "fragmentedAuthority", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completedWithCost", "objective.chapter7.command-settlement": "completedWithCost" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
     },
     {
       "id": "open-conflict-before-knowledge",
-      "sequence": ["standoff-conflict", "civilians-casualties", "interface-retained", "settlement-conflict", "annex-contested", "coalition-hostile", "political-independent-report", "interface-isolation-report"],
+      "sequence": ["standoff-conflict", "civilians-casualties", "interface-retained", "annex-contested", "coalition-hostile", "political-independent-report", "interface-isolation-report", "framework-other", "implementation-failed", "settlement-conflict"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "openConflict", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "openConflict", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completedWithCost", "objective.chapter7.command-settlement": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter7.civilians-violence": "casualties", "dimension.chapter7.coalition": "open-hostility" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
@@ -241,9 +274,9 @@
     },
     {
       "id": "responsible-mixed-handoff",
-      "sequence": ["posture-handoff", "political-independent-report", "interface-reconstruction-report", "interface-choice-handoff", "framework-handoff", "standoff-handoff", "civilians-handoff", "interface-handoff", "settlement-handoff", "annex-handoff", "coalition-handoff"],
+      "sequence": ["posture-handoff", "political-independent-report", "interface-reconstruction-report", "interface-choice-handoff", "framework-handoff", "standoff-handoff", "civilians-handoff", "interface-handoff", "implementation-handoff", "settlement-handoff", "annex-handoff", "coalition-handoff"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completedWithCost", "objective.chapter7.command-settlement": "completedWithCost" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
@@ -259,9 +292,9 @@
     },
     {
       "id": "post-arrival-provisional-accord",
-      "sequence": ["time-thirty-six-hours", "political-direct-report", "interface-shared-report", "standoff-stabilized", "civilians-protected", "interface-shared", "settlement-provisional", "annex-shared", "coalition-joint"],
+      "sequence": ["time-thirty-six-hours", "political-direct-report", "interface-shared-report", "framework-joint", "implementation-shared-verification", "standoff-stabilized", "civilians-protected", "interface-shared", "settlement-provisional", "annex-shared", "coalition-joint"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "provisionalAccord", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "provisionalAccord", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
         "clockStates": { "clock.chapter7.task-group-arrival": { "state": "resolved", "value": 0 } },
         "eventsInclude": ["event.chapter7.task-group-arrived"],
@@ -270,9 +303,9 @@
     },
     {
       "id": "coercive-federation-overrides-accord-label",
-      "sequence": ["political-independent-report", "interface-reconstruction-report", "standoff-violence", "civilians-injured", "interface-isolated", "settlement-provisional", "annex-federation", "coalition-federation"],
+      "sequence": ["political-independent-report", "interface-reconstruction-report", "framework-federation", "implementation-federation-restoration", "standoff-violence", "civilians-injured", "interface-isolated", "settlement-provisional", "annex-federation", "coalition-federation"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "federationRestoration", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "federationRestoration", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter7.settlement": "provisional-accord", "dimension.chapter7.coalition": "coercive-federation" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
@@ -318,6 +351,50 @@
         { "claimId": "claim.chapter7.assistant-time", "policyId": "policy.chapter7.authoritative-time", "claimType": "timeAdvanced", "targetId": "clock.chapter7.task-group-arrival", "value": 1, "sourceRole": "assistant" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["authoritative-time-required"], "clockStates": { "clock.chapter7.task-group-arrival": { "state": "running", "value": 36 } }, "transitionTargetId": null }
+    },
+    {
+      "id": "civilian-corridor-before-constitutional-talks",
+      "sequence": ["civilian-corridor", "political-direct-report"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [],
+        "eventsInclude": ["event.chapter7.civilian-corridor-opened"], "transitionTargetId": null
+      }
+    },
+    {
+      "id": "compact-security-refusal-opens-channel",
+      "sequence": ["vahl-refusal", "posture-negotiate"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [],
+        "eventsInclude": ["event.chapter7.vahl-refused-unauthenticated-order"], "transitionTargetId": null
+      }
+    },
+    {
+      "id": "mercer-demonstration-changes-leverage",
+      "sequence": ["mercer-demonstration", "time-five-hours"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [],
+        "eventsInclude": ["event.chapter7.mercer-demonstration-completed"],
+        "clockStates": { "clock.chapter7.task-group-arrival": { "state": "running", "value": 31 } }, "transitionTargetId": null
+      }
+    },
+    {
+      "id": "settlement-without-enforcement-fails-forward",
+      "sequence": ["political-direct-report", "interface-shared-report", "posture-negotiate", "interface-choice-shared", "framework-joint", "standoff-stabilized", "civilians-protected", "interface-shared", "implementation-failed", "settlement-provisional", "annex-shared", "coalition-joint"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "fragmentedAuthority", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter7.settlement": "fragmented-authority" },
+        "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
+      }
+    },
+    {
+      "id": "armed-stand-down-with-verification-cell",
+      "sequence": ["political-records-report", "interface-isolation-report", "posture-interposition", "interface-choice-isolate", "framework-stand-down", "standoff-stabilized", "civilians-protected", "interface-isolated", "implementation-shared-verification", "settlement-stand-down", "annex-shared", "coalition-tense"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "armedStandDown", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
+        "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
+      }
     },
     {
       "id": "stale-proposal",

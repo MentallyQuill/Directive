@@ -3033,6 +3033,14 @@ Civilians gather, protest, exchange rumors, and fear an assault.
 
 The task group is commanded by **Captain Joelle Mercer** of the heavy cruiser U.S.S. Resolute. Mercer is under orders to support Whitaker but will assume tactical control if the situation becomes openly hostile.
 
+Mercer is lawful, disciplined, and escalating rather than belligerent. She may conduct a visible formation and systems-readiness demonstration to prove she can restore control. She will pause for a verifiable stand-down mechanism, but will not accept an unmonitored promise while manipulated targeting feeds remain active.
+
+#### Annex Six occupation line
+
+Security controls have interrupted a medical corridor, separated families across the occupation line, and trapped maintenance workers behind checkpoints. Opening a protected corridor can happen before constitutional talks and creates civilian testimony independent of every faction leader.
+
+**Lieutenant Teren Vahl**, a Compact security officer, will defend Annex Six and the civilians sheltering there. When an unauthenticated order instructs his position to fire on the task group, he refuses it and opens a protected verification channel. He has not defected to Starfleet and does not surrender Compact claims; his boundary is that Pale Lantern does not get to turn defense into an unverified first strike.
+
 ### 20.6 Mission fronts
 
 #### Negotiation front
@@ -3050,6 +3058,8 @@ Tolland and Mercer need assurance that the annex's military systems will not be 
 #### Civilian front
 
 Public panic and demonstrations can trigger violence independent of leadership decisions.
+
+The medical corridor, separated families, and trapped workers have needs that Kessler cannot waive and Holt cannot claim as unanimous support. Protecting them is a real security accomplishment, but it does not by itself settle Annex authority.
 
 #### Network front
 
@@ -3084,6 +3094,17 @@ The player may:
 - Withdraw Starfleet forces temporarily.
 
 The player's proposed settlement should be evaluated for legality, enforceability, participation, and immediate security.
+
+An accepted settlement must also name how it will be implemented. Valid machinery includes:
+
+- A staffed shared or neutral verification cell.
+- An authenticated sequence for weapons, movement, and boarding stand-down.
+- Civilian oversight with defined jurisdiction and a review date.
+- A bounded procedure for Federation restoration with local safeguards.
+- A bounded procedure for Compact control with security and accountability safeguards.
+- A responsible handoff naming who owns enforcement, custody, and review.
+
+A preference, speech, promise, or future committee with no accepted responsibility does not produce an accord. It fails forward as fragmented authority or open conflict according to the consequences already established in play.
 
 ### 20.9 Escalation events
 
@@ -3124,11 +3145,11 @@ Potential Resolve:
 
 #### Provisional accord
 
-A joint interim charter is signed. The annex remains under shared control, Holt is separated from the interface, and task-group weapons remain cold. Regional Trust rises sharply.
+A joint interim charter is signed and backed by a staffed verification, oversight, or review mechanism. The annex remains under shared control, Holt is separated from the interface, and task-group weapons remain cold. Regional Trust rises sharply.
 
 #### Armed stand-down
 
-The immediate crisis ends through clear deterrence and mutual withdrawal, but constitutional questions remain unresolved.
+The immediate crisis ends through an authenticated stand-down sequence, shared verification, or equally enforceable deterrence and mutual withdrawal, but constitutional questions remain unresolved.
 
 #### Federation restoration
 

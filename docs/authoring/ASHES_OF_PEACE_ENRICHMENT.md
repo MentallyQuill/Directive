@@ -535,35 +535,34 @@ The mission now separates Lacuna access, false-recall activation, command-networ
 
 ```mermaid
 flowchart TD
-    A[Compact forces occupy Annex Six] --> B[Stabilize armed standoff]
-    A --> C[Establish shared factual basis]
-    A --> D[Negotiate enforceable authority]
-    B --> E[Security and civilian result]
-    C --> F[Manipulation and evidence result]
-    D --> G[Political framework]
-    E --> H{Task-group deadline}
+    A[Compact forces occupy Annex Six] --> B[Open civilian corridor]
+    A --> C[Vahl tests firing order]
+    A --> D[Mercer demonstrates readiness]
+    B --> E[Establish independent civilian needs]
+    C --> F[Protected verification channel]
+    D --> G[Task-group leverage changes]
+    E --> H[Establish political and technical truth]
     F --> H
     G --> H
-    H -->|Accord| I[Provisional shared authority]
-    H -->|Federation control| J[Restoration with cost]
-    H -->|Compact control| K[Regional control with cost]
-    H -->|No coherent settlement| L[Fragmented failure forward]
-    I --> M[Open Orders III]
-    J --> M
-    K --> M
+    H --> I[Choose settlement framework]
+    I --> J{Implementation mechanism}
+    J -->|Verification, stand-down, oversight, bounded control, or handoff| K[Enforceable result]
+    J -->|Absent or failed| L[Fragmented authority or open conflict]
+    K --> M[Record Annex, civilian, interface, and coalition results]
     L --> M
+    M --> N[Open Orders III]
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-This mission has eleven outcomes and seventy-four allowed outcome values but only three facts, one event, and two reports. Its settlement space is broad, including freeform frameworks, but the route to that settlement risks feeling procedural.
+The standoff now exposes civilian needs, a Compact officer's lawful refusal, and Mercer's constrained escalation before the constitutional result. Five lived-standoff scenarios bring the campaign suite to 276 authored scenarios. Every terminal settlement now carries an implementation-mechanism result, including an explicit failed-or-absent value for bounded failure forward.
 
-#### Enrichment direction
+#### Enrichment delivered
 
-- Give civilians inside Annex Six needs independent of Kessler and Holt.
-- Add Compact security personnel who can obey, refuse, defect, or negotiate for grounded reasons.
-- Make Starfleet task-group pressure arrive through named people and operational acts.
-- Require an enforceable mechanism, not only a declared constitutional preference.
+- The medical corridor, separated families, and trapped workers remain independent of Kessler's and Holt's authority claims.
+- Lieutenant Teren Vahl can refuse an unauthenticated strike while continuing to defend Annex Six.
+- Captain Joelle Mercer changes leverage through a lawful readiness demonstration and a defined verification boundary.
+- Shared verification, authenticated stand-down, civilian oversight, bounded restoration/control, and responsible handoff are explicit implementation paths; absent enforcement resolves as fragmentation or conflict.
 
 ### Open Orders III: Before the Lamps Go Out
 

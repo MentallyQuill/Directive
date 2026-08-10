@@ -626,23 +626,23 @@ git commit -m "feat: deepen Cost of Knowing operation"
 - Produces: civilian, Compact security, and Starfleet pressure events that converge on existing settlement outcomes.
 - Consumes: existing standoff, interface/truth, and settlement objectives plus the task-group clock and provisional-accord capability.
 
-- [ ] **Step 1: Add failing lived-standoff scenarios**
+- [x] **Step 1: Add failing lived-standoff scenarios**
 
 Add `civilian-corridor-before-constitutional-talks`, `compact-security-refusal-opens-channel`, `mercer-demonstration-changes-leverage`, `settlement-without-enforcement-fails-forward`, and `armed-stand-down-with-verification-cell`.
 
-- [ ] **Step 2: Add civilian needs independent of faction leaders**
+- [x] **Step 2: Add civilian needs independent of faction leaders**
 
 Author an Annex Six medical corridor, separated families, and workers trapped behind security controls. Nia Kessler cannot waive their needs; Darius Holt cannot claim their unanimous support.
 
-- [ ] **Step 3: Add named security and Starfleet acts**
+- [x] **Step 3: Add named security and Starfleet acts**
 
 Use Captain Joelle Mercer as a lawful but escalating task-group commander. Add Compact security lieutenant Teren Vahl, who will defend Annex Six but refuses an unauthenticated firing order. Their choices create leverage and danger without deciding the settlement.
 
-- [ ] **Step 4: Require enforceable settlement machinery**
+- [x] **Step 4: Require enforceable settlement machinery**
 
 A settlement result must record at least one implementation mechanism: shared verification cell, authenticated stand-down sequence, civilian oversight and review date, bounded Starfleet restoration procedure, bounded Compact control procedure, or named responsible handoff. A declared preference without a mechanism resolves as fragmented authority or open conflict according to accepted consequences.
 
-- [ ] **Step 5: Verify and commit Chapter 7**
+- [x] **Step 5: Verify and commit Chapter 7**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 

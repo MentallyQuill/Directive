@@ -36,9 +36,81 @@
       "playerText": {
         "summary": "Holt has a portable Pale Lantern interface showing manipulated task-group telemetry, while the task group receives similarly manipulated reports from Annex Six. Nightfall can exploit weapons locks, boarding attempts, or communications cutoffs on either side."
       }
+    },
+    {
+      "id": "fact.chapter7.civilian-needs",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Annex Six security controls have interrupted a medical corridor, separated families across the occupation line, and trapped maintenance workers behind checkpoints. Neither Kessler nor Holt can waive or claim unanimous authority over those needs."
+      }
+    },
+    {
+      "id": "fact.chapter7.vahl-security-boundary",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Compact Lieutenant Teren Vahl will defend Annex Six and its civilians, but refuses an unauthenticated order to fire on the task group. His refusal creates a protected channel without making him a Starfleet partisan."
+      }
+    },
+    {
+      "id": "fact.chapter7.mercer-command-constraint",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Joelle Mercer is a lawful task-group commander who escalates through a visible formation and systems-readiness demonstration. She will pause for a verifiable stand-down mechanism, but will not accept an unmonitored promise while manipulated targeting feeds remain active."
+      }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.chapter7.civilian-corridor-opened",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter7.civilian-corridor-opened",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter7.civilian-needs" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when an independently protected medical and family corridor actually opens across the Annex security line.", "exclusions": ["Requesting access, pausing one checkpoint, or promising later passage is insufficient."] }
+    },
+    {
+      "id": "policy.chapter7.civilian-needs",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter7.civilian-needs",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter7.civilian-needs" }, { "eventOccurred": "event.chapter7.civilian-corridor-opened" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose the medical corridor, separated families, and trapped workers as independent civilian interests.", "exclusions": ["Do not let Kessler waive these needs or let Holt claim their unanimous support."] }
+    },
+    {
+      "id": "policy.chapter7.vahl-refused-order",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter7.vahl-refused-unauthenticated-order",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter7.vahl-security-boundary" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Vahl explicitly refuses an unauthenticated firing order while maintaining lawful defense of Annex Six.", "exclusions": ["Hesitation, a missed shot, loss of communications, or general doubt is insufficient."] }
+    },
+    {
+      "id": "policy.chapter7.vahl-security-boundary",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter7.vahl-security-boundary",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter7.vahl-security-boundary" }, { "eventOccurred": "event.chapter7.vahl-refused-unauthenticated-order" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose the limited security boundary established by Vahl's refusal and the protected channel it opens.", "exclusions": ["Do not convert his refusal into surrender, Federation allegiance, or authority to decide the settlement."] }
+    },
+    {
+      "id": "policy.chapter7.mercer-demonstration",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter7.mercer-demonstration-completed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter7.mercer-command-constraint" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Mercer's task group completes a lawful visible formation or systems-readiness demonstration that materially changes negotiation leverage.", "exclusions": ["Arrival, a threat, routine readiness, or an unexecuted order is insufficient."] }
+    },
+    {
+      "id": "policy.chapter7.mercer-command-constraint",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter7.mercer-command-constraint",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter7.mercer-command-constraint" }, { "eventOccurred": "event.chapter7.mercer-demonstration-completed" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose Mercer's lawful escalation and the verifiable safeguard that will make her pause.", "exclusions": ["Do not treat her as eager for war, politically omnipotent, or obligated to accept an unmonitored promise."] }
+    },
     {
       "id": "policy.chapter7.crisis-posture",
       "claimType": "decisionRecorded",
@@ -251,7 +323,7 @@
       "when": true,
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "Record the actual enforceable political and command settlement produced by the story, independently of what the player proposed.",
+        "guidance": "Record the actual enforceable political and command settlement produced by the story, independently of what the player proposed. A positive settlement requires a recorded implementation mechanism; a preference or promise without one must fail forward as fragmented authority or open conflict according to the accepted consequences.",
         "values": [
           { "value": "provisionalAccord", "guidance": "A credible interim charter or shared legitimate arrangement is accepted and enforceable." },
           { "value": "armedStandDown", "guidance": "The immediate armed crisis ends under enforceable deterrence or withdrawal while constitutional issues remain open." },
@@ -261,7 +333,28 @@
           { "value": "openConflict", "guidance": "Armed conflict becomes the governing disposition even if negotiations or a proposed charter also exist." },
           { "value": "responsibleHandoff", "guidance": "A capable named process assumes the unresolved settlement with immediate safeguards." }
         ],
-        "exclusions": ["A proposal, concession, speech, arrest, referendum request, seizure, or ceasefire offer alone is not an actual settlement."]
+        "exclusions": ["A proposal, concession, speech, arrest, referendum request, seizure, ceasefire offer, or settlement label without an implementation mechanism is not an actual positive settlement."]
+      }
+    },
+    {
+      "id": "policy.chapter7.implementation-mechanism",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.implementation-mechanism",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-framework", "equals": "pending" } } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual machinery that can implement the settlement, or explicitly record that the proposed arrangement has no workable enforcement path.",
+        "values": [
+          { "value": "sharedVerificationCell", "guidance": "A staffed joint or neutral cell verifies telemetry, compliance, and breaches." },
+          { "value": "authenticatedStandDown", "guidance": "An authenticated, sequenced weapons and movement stand-down is accepted." },
+          { "value": "civilianOversightReview", "guidance": "Named civilian oversight, jurisdiction, and a review date make interim authority answerable." },
+          { "value": "boundedFederationRestoration", "guidance": "A staged Federation restoration procedure defines limits, verification, and local review." },
+          { "value": "boundedCompactControl", "guidance": "A staged Compact-control procedure defines security limits, verification, and accountability." },
+          { "value": "responsibleHandoff", "guidance": "A named capable successor owns immediate enforcement, custody, and review." },
+          { "value": "failedOrAbsent", "guidance": "No accepted mechanism can enforce the proposed arrangement; resolve the resulting fragmentation or conflict rather than awarding success." }
+        ],
+        "exclusions": ["A preference, good-faith assurance, unnamed future committee, or verification proposal that no responsible party accepts is not an implementation mechanism."]
       }
     },
     {
@@ -361,7 +454,10 @@
     {
       "id": "event.chapter7.task-group-arrived",
       "playerVisibility": "hidden"
-    }
+    },
+    { "id": "event.chapter7.civilian-corridor-opened", "playerVisibility": "hidden" },
+    { "id": "event.chapter7.vahl-refused-unauthenticated-order", "playerVisibility": "hidden" },
+    { "id": "event.chapter7.mercer-demonstration-completed", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {
@@ -416,6 +512,12 @@
       "id": "outcome.chapter7.settlement-result",
       "initialValue": "pending",
       "allowedValues": ["pending", "provisionalAccord", "armedStandDown", "federationRestoration", "compactControl", "fragmentedAuthority", "openConflict", "responsibleHandoff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.implementation-mechanism",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "sharedVerificationCell", "authenticatedStandDown", "civilianOversightReview", "boundedFederationRestoration", "boundedCompactControl", "responsibleHandoff", "failedOrAbsent"],
       "playerVisibility": "hidden"
     },
     {
@@ -533,6 +635,7 @@
         "any": [
           { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-framework", "equals": "pending" } } },
           { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "equals": "pending" } } },
           { "not": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "pending" } } },
           { "not": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "pending" } } }
         ]
@@ -543,6 +646,7 @@
           "when": {
             "all": [
               { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "in": ["provisionalAccord", "armedStandDown"] } },
+              { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "in": ["sharedVerificationCell", "authenticatedStandDown", "civilianOversightReview"] } },
               { "outcomeIs": { "id": "outcome.chapter7.annex-control", "in": ["sharedControl", "neutralized"] } },
               { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "in": ["jointImplementation", "tenseStandDown"] } }
             ]
@@ -553,6 +657,7 @@
           "when": {
             "all": [
               { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "equals": "pending" } } },
               { "not": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "pending" } } },
               { "not": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "pending" } } }
             ]
@@ -562,7 +667,7 @@
       "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Establish legitimate command arrangements",
-        "summary": "Produce an actual enforceable settlement, Annex and defense-control disposition, and sustainable posture for the approaching task group.",
+        "summary": "Produce an actual enforceable settlement with a named implementation mechanism, Annex and defense-control disposition, and sustainable posture for the approaching task group.",
         "terminal": [
           { "disposition": "completed", "text": "A credible shared accord or enforceable stand-down established command arrangements." },
           { "disposition": "completedWithCost", "text": "The chapter reached a command disposition with coercion, fragmentation, conflict, or responsible handoff recorded." }
@@ -576,6 +681,7 @@
       "id": "dimension.chapter7.settlement",
       "playerText": { "label": "Constitutional settlement" },
       "derive": [
+        { "value": "fragmented-authority", "priority": 110, "when": { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "equals": "failedOrAbsent" } } },
         { "value": "provisional-accord", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "provisionalAccord" } } },
         { "value": "armed-stand-down", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "armedStandDown" } } },
         { "value": "federation-restoration", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "federationRestoration" } } },
@@ -709,7 +815,8 @@
       "when": {
         "any": [
           { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "fragmentedAuthority" } },
-          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "fragmented" } }
+          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "fragmented" } },
+          { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "equals": "failedOrAbsent" } }
         ]
       },
       "playerText": { "title": "Authority remains fragmented", "summary": "The immediate chapter reaches a bounded disposition without a coherent command settlement, carrying contested control and weak implementation forward." }
