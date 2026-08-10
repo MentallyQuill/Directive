@@ -16,6 +16,19 @@ import {
 assert.deepEqual(BUNDLED_CAMPAIGN_PACKAGE_REFS, [ASHES_V1_BUNDLED_REF]);
 assert.equal(V1_CAMPAIGN_LIBRARY_TEASERS.length, 6);
 assert.equal(V1_CAMPAIGN_LIBRARY_TEASERS.filter((entry) => entry.teaserOnly).length, 6);
+
+function sentenceCount(value) {
+  return String(value || '').match(/[.!?](?=\s+[A-Z]|$)/g)?.length || 0;
+}
+
+for (const teaser of V1_CAMPAIGN_LIBRARY_TEASERS) {
+  assert.equal(
+    sentenceCount(teaser.campaign?.highConcept),
+    4,
+    `${teaser.title} must provide a four-sentence campaign hook`
+  );
+}
+
 assert.equal(getBundledCampaignPackageRef(ASHES_V1_PACKAGE_ID), ASHES_V1_BUNDLED_REF);
 assert.equal(getBundledCampaignPackageRef('breckenridge-ashes-of-peace'), ASHES_V1_BUNDLED_REF);
 assert.equal(getBundledCampaignPackageRef('directive:campaign-package:serein-black-current'), null);
