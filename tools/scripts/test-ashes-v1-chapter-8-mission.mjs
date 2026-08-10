@@ -62,7 +62,12 @@ assert.ok(quest, 'Chapter 8 must bind to the exact package quest');
 assert.deepEqual(quest.missionGraph, {}, 'legacy Chapter 8 graph remains empty migration input');
 assert.equal(questTemplates.some((template) => template.id === SUCCESSOR_ID), true);
 const bundledRef = getBundledCampaignPackageRef(definition.packageBinding.packageId);
-assert.equal(bundledRef.missionDefinitionPaths.at(-1), DEFINITION_PATH, 'Chapter 8 must be the twelfth registered V1 journey definition');
+assert.equal(bundledRef.missionDefinitionPaths[11], DEFINITION_PATH, 'Chapter 8 must be the twelfth registered V1 journey definition');
+assert.equal(
+    bundledRef.missionDefinitionPaths[12],
+    'packages/bundled/breckenridge/v1/epilogue-the-terms-we-keep.mission-v1.json',
+    'the epilogue must immediately follow Chapter 8',
+);
 
 function collectKeys(value, keys = new Set()) {
     if (!value || typeof value !== 'object') return keys;
