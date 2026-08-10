@@ -229,6 +229,11 @@ const mainHarness = createHarness({
         interpretation([candidate('policy.open-orders3.readiness-disclosed', 'previousAssistant')]),
         abstainedOutput,
         interpretation([candidate('policy.open-orders3.conclude-after-two', 'currentPlayer', 'concludeAfterTwo')]),
+        abstainedOutput,
+        interpretation([
+            candidate('policy.open-orders3.signal-result', 'previousAssistant', 'resolvedWithoutAsset'),
+        ]),
+        interpretation([candidate('policy.open-orders3.conclude-after-two', 'currentPlayer', 'concludeAfterTwo')]),
     ],
 });
 const rootsBefore = legacyRoots(mainHarness.campaignState);
@@ -350,6 +355,36 @@ assert.equal(mainHarness.campaignState.mission.v1.knownFacts.includes('fact.open
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders3.name-result'], 'assetEarned');
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders3.signal-result'], 'pending');
 assert.equal(mainHarness.generationCount, 10, 'source rebuild cannot call a provider');
+assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
+
+const restoredSignalReport = await mainHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: signalReportSnapshot,
+});
+assert.equal(restoredSignalReport.status, 'settled');
+assert.equal(mainHarness.campaignState.mission.v1.knownFacts.includes('fact.open-orders3.signal-assessment'), true);
+const restoredSignalEvidence = mainHarness.campaignState.mission.v1.evidenceLog
+    .find((entry) => entry.targetId === 'fact.open-orders3.signal-assessment');
+assert.equal(restoredSignalEvidence.sourceContributionId.endsWith('.r1'), true);
+
+const restoredResults = await mainHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(11, {
+        assistantText: 'With the restored assessment in custody, the relay work closes responsibly without a durable asset.',
+    }),
+});
+assert.equal(restoredResults.status, 'settled');
+assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.open-orders3.signal-result'], 'resolvedWithoutAsset');
+assert.equal(mainHarness.campaignState.mission.v1.knownFacts.includes('fact.open-orders3.distributed-readiness'), true);
+const restoredConclusion = await mainHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(12, {
+        playerText: 'The restored record supports the same normal two-assignment conclusion. Proceed.',
+    }),
+});
+assert.equal(restoredConclusion.status, 'settled');
+assert.equal(mainHarness.campaignState.mission.v1.status, 'terminal');
+assert.equal(mainHarness.campaignState.mission.v1.transitionReceipt.target.id, 'chapter-8-the-last-directive');
 assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
 
 const consentHarness = createHarness({
