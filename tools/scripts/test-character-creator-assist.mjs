@@ -871,6 +871,41 @@ assert.equal(preservedFailureFallback.diagnostics.validationErrorCode, 'json_inv
 assert.match(preservedFailureFallback.warnings.join(' '), /invalid structured JSON/i);
 assert.equal(preservedFailureFallback.diagnostics.providerAttempts.at(-1).errorCode, 'DIRECTIVE_GENERATION_TIMEOUT');
 
+const exhaustedRepairCalls = [];
+const exhaustedRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    exhaustedRepairCalls.push({ roleId, request, options });
+    if (exhaustedRepairCalls.length === 1) {
+      return {
+        ok: false,
+        error: { code: 'DIRECTIVE_GENERATION_TIMEOUT', message: 'primary timed out', retryable: true },
+        diagnostics: {}
+      };
+    }
+    if (exhaustedRepairCalls.length === 2) {
+      return { ok: true, response: { text: 'original malformed json after retry' }, diagnostics: {} };
+    }
+    return {
+      ok: false,
+      error: { code: 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR', message: 'repair transport failed', retryable: true },
+      diagnostics: { transportCode: 'ECONNRESET' }
+    };
+  }
+};
+const exhaustedRepairFallback = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: exhaustedRepairRouter
+});
+assert.deepEqual(exhaustedRepairCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.equal(exhaustedRepairFallback.diagnostics.repairAttempted, true);
+assert.equal(exhaustedRepairFallback.diagnostics.repairSucceeded, false);
+assert.equal(exhaustedRepairFallback.diagnostics.targetedRegenerationAttempted, false);
+assert.equal(exhaustedRepairFallback.diagnostics.validationErrorCode, 'json_invalid');
+assert.match(exhaustedRepairFallback.warnings.join(' '), /invalid structured JSON/i);
+assert.equal(exhaustedRepairFallback.diagnostics.providerAttempts.at(-1).errorCode, 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR');
+
 const canceledController = new AbortController();
 const canceledRouterCalls = [];
 const canceledRouter = {

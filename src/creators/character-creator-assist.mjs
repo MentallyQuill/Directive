@@ -1110,7 +1110,7 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
     message: localFallbackProgressMessage(previousResult)
   });
 
-  if (repairOriginFailure && targetedRegenerationAttempted) {
+  if (repairOriginFailure && repairAttempted && !repairSucceeded) {
     previousResult = {
       ...previousResult,
       error: cloneJson(repairOriginFailure.error),
