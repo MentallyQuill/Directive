@@ -10,7 +10,7 @@
   },
   "playerText": {
     "title": "The Colony That Stayed",
-    "summary": "Demeris has refused Starfleet searches and arrests while offering a negotiated inquiry. Establish a workable process, determine what the evidence supports, and resolve the people and technology at issue."
+    "summary": "Demeris has refused Starfleet searches and arrests while offering a negotiated inquiry. Establish a workable process, determine what the evidence supports, and resolve the people, evidence, and risks actually found."
   },
   "facts": [
     {
@@ -1178,8 +1178,8 @@
       ],
       "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
       "playerText": {
-        "title": "Resolve personal and technical accountability",
-        "summary": "After the relevant record is known, decide how responsible people and any dangerous technology should be handled, then establish what actually happens to each.",
+        "title": "Resolve personal and evidentiary accountability",
+        "summary": "After the relevant record is known, decide how responsible people, evidence, and any resulting risks should be handled, then establish what actually happens to each.",
         "terminal": [
           { "disposition": "completed", "text": "Personal accountability and technical custody reached a defensible local or shared resolution." },
           { "disposition": "completedWithCost", "text": "Accountability was resolved with a recorded jurisdictional, evidentiary, liberty, or custody cost." },

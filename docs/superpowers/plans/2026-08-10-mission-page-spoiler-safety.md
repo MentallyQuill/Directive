@@ -61,19 +61,7 @@ assert.match(
 
 - [ ] **Step 2: Add campaign-wide initial entry checks**
 
-In the Ashes campaign gate, create each mission's initial state and projection, then assert the audited summary/objective surface excludes these literal undiscovered concepts:
-
-```js
-const forbiddenInitialMissionCopy = new Map([
-  ['mission.prelude-a-ship-underway', /Hesperus|Kieran/i],
-  ['mission.chapter-3-dead-letters', /message system|personal material|dangerous system/i],
-  ['mission.chapter-4-the-colony-that-stayed', /the interface|Solenn and the interface/i],
-  ['mission.chapter-5-old-lessons', /diversion is protecting|technical target|operator evidence|authentication target|wider system/i],
-  ['mission.chapter-6-the-cost-of-knowing', /Farwatch's conduct|authenticated-path crisis/i],
-]);
-```
-
-Serialize only the projection's `title`, `summary`, and `objectives`; known facts are allowed to state story information already established at entry.
+In the Ashes campaign gate, create every mission's real initial state and projection. Positively snapshot all player-facing text across title, summary, visible objectives, known facts, visible clocks, capabilities, outcomes, and terminal copy for all thirteen missions. Also construct each authored capability-bearing entry context and snapshot its projected label and summary. Any future entry-copy change must therefore receive explicit review rather than merely avoiding a short blacklist.
 
 - [ ] **Step 3: Run the focused tests and verify RED**
 
@@ -164,17 +152,30 @@ Use these player-safe objective texts:
 
 - [ ] **Step 2: Revise The Colony That Stayed entry copy**
 
-Use these player-safe objective summaries:
+Use this player-safe mission summary:
+
+```json
+"summary": "Demeris has refused Starfleet searches and arrests while offering a negotiated inquiry. Establish a workable process, determine what the evidence supports, and resolve the people, evidence, and risks actually found."
+```
+
+Use these player-safe objective texts:
 
 ```json
 "summary": "Determine what happened on Demeris, whom it helped or harmed, and what continuing risks the evidence supports without requiring one prescribed investigation path."
 ```
 
 ```json
-"summary": "After the relevant record is known, decide how responsible people and any dangerous technology should be handled, then establish what actually happens to each."
+"title": "Resolve personal and evidentiary accountability",
+"summary": "After the relevant record is known, decide how responsible people, evidence, and any resulting risks should be handled, then establish what actually happens to each."
 ```
 
 - [ ] **Step 3: Revise Old Lessons entry copy**
+
+Use this player-safe mission summary:
+
+```json
+"summary": "Conflicting warnings are driving civilian and Compact ships into the Orison Gap as obsolete defenses activate and regional command links fail. Keep the corridor from becoming a killing ground, determine what is causing the crisis and whether it has a coordinated purpose, and leave the Reach with a defensible account."
+```
 
 Use these player-safe objective texts:
 

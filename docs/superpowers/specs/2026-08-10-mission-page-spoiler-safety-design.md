@@ -28,8 +28,8 @@ The initial projection audit found entry leaks requiring correction in these mis
 
 - **Prelude: A Ship Underway:** remove Hesperus from the unconditional summary and remove the premature Kieran known fact.
 - **Dead Letters:** avoid announcing the message system, personal archive material, or dangerous-system custody before discovery.
-- **The Colony That Stayed:** avoid announcing the interface before the opening Demeris record establishes it.
-- **Old Lessons:** avoid announcing the diversion's target, operator evidence, authentication target, or wider-system relationship before investigation.
+- **The Colony That Stayed:** avoid announcing the interface or dangerous technology before the opening Demeris record establishes either.
+- **Old Lessons:** avoid presupposing an operation or announcing the diversion's target, operator evidence, authentication target, or wider-system relationship before investigation.
 - **The Cost of Knowing:** avoid naming Farwatch's conduct or an authenticated-path crisis before the opening classified confrontation establishes those conclusions.
 
 The remaining mission-entry summaries and objectives describe either the accepted prior mission result, the current opening crisis, or choices explicitly present in the initial known projection and require no wording change.
@@ -48,6 +48,6 @@ Kieran's invitation will follow this normal path: initially true plus discoverab
 
 - A focused projection regression test must fail against the current package because the initial Prelude projection contains Hesperus and Kieran.
 - The same test must prove Kieran remains absent initially and appears after an accepted `factDisclosed` claim.
-- The Ashes campaign gate must check the audited mission-entry projection surfaces for the specific undiscovered concepts removed by this change.
+- The Ashes campaign gate must positively snapshot the complete initial player-facing text for all thirteen missions and every capability-bearing entry context, so any future entry-copy change requires explicit review.
 - The full `npm.cmd test` alpha gate must pass, including all mission contracts and authored scenarios.
 - A final initial-projection audit must show the Prelude has no Known Information and no Hesperus text before disclosure.
