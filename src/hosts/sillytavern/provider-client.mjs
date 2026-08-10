@@ -3,6 +3,7 @@ import {
   PROVIDER_RESPONSE_ERROR_CODES,
   assertProviderResponseText
 } from '../../providers/provider-response-normalizer.mjs';
+import { DIRECTIVE_PRESET_NAME } from './preset-manager.mjs';
 
 const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'connectionProfiles',
@@ -13,6 +14,7 @@ const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
 ]);
 export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
 const FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE = 'Return the final visible answer now. Do not return private reasoning, analysis tags, or planning notes.';
+const OPTIONAL_OPENAI_COMPATIBLE_PARAMETERS = new Set(['temperature', 'top_p']);
 
 function collectProfileArrays(root, keys = CONNECTION_PROFILE_ARRAY_KEYS) {
   const arrays = [];
@@ -217,11 +219,23 @@ function visibleOutputRetryRequest(request = {}) {
   };
 }
 
+function requestMessages(request = {}) {
+  if (Array.isArray(request.messages) && request.messages.length) {
+    return request.messages.map((message) => ({ ...message }));
+  }
+  const system = String(request.systemPrompt || '').trim();
+  const prompt = String(request.prompt || '').trim();
+  return [
+    ...(system ? [{ role: 'system', content: system }] : []),
+    ...(prompt ? [{ role: 'user', content: prompt }] : [])
+  ];
+}
+
 function requestPrompts(request = {}) {
-  const messages = Array.isArray(request.messages) ? request.messages : [];
-  const system = String(request.systemPrompt || messages.find((message) => message?.role === 'system')?.content || '').trim();
+  const messages = requestMessages(request);
+  const system = String(messages.find((message) => message?.role === 'system')?.content || '').trim();
   const userMessages = messages.filter((message) => message?.role !== 'system');
-  const prompt = String(request.prompt || userMessages.map((message) => `${message.role || 'user'}: ${message.content || ''}`).join('\n') || '').trim();
+  const prompt = String(userMessages.map((message) => `${message.role || 'user'}: ${message.content || ''}`).join('\n') || '').trim();
   return { system, prompt };
 }
 
@@ -288,29 +302,87 @@ function createGenerationControl(request = {}, options = {}) {
   };
 }
 
-function structuredResponseFormat(request = {}) {
+function structuredSchemaContract(request = {}) {
   const schema = request?.jsonSchema;
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return null;
-  const sourceName = String(request.kind || 'directive_structured_output')
+  const name = String(request.kind || 'directive_structured_output')
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .replace(/[^A-Za-z0-9_-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .toLowerCase()
     .slice(0, 64) || 'directive_structured_output';
+  return { name, schema };
+}
+
+function structuredResponseFormat(request = {}) {
+  const contract = structuredSchemaContract(request);
+  if (!contract) return null;
   return {
     type: 'json_schema',
     json_schema: {
-      name: sourceName,
+      name: contract.name,
       strict: true,
-      schema
+      schema: contract.schema
     }
   };
 }
 
+function sillyTavernJsonSchema(request = {}) {
+  const contract = structuredSchemaContract(request);
+  if (!contract) return null;
+  return {
+    name: contract.name,
+    value: contract.schema,
+    strict: true
+  };
+}
+
+function normalizeSillyTavernResponse(response) {
+  const content = response?.content;
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return response;
+  try {
+    return { ...response, content: JSON.stringify(content) };
+  } catch {
+    return response;
+  }
+}
+
+function hasDirectiveChatCompletionPreset(context) {
+  try {
+    const manager = context?.getPresetManager?.('openai');
+    return Boolean(manager?.getCompletionPresetByName?.(DIRECTIVE_PRESET_NAME));
+  } catch {
+    return false;
+  }
+}
+
 async function sendViaCurrentSillyTavern(context, config, request, { retriedForVisibleOutput = false } = {}) {
   const { system, prompt } = requestPrompts(request);
+  const messages = requestMessages(request);
+  const jsonSchema = sillyTavernJsonSchema(request);
   let response;
-  if (typeof context?.generateRaw === 'function') {
+  const chatCompletionSource = String(context?.chatCompletionSettings?.chat_completion_source || '').trim();
+  const currentModel = currentSillyTavernModelName(context);
+  if (
+    context?.mainApi === 'openai'
+    && chatCompletionSource
+    && currentModel
+    && hasDirectiveChatCompletionPreset(context)
+    && typeof context?.ChatCompletionService?.processRequest === 'function'
+  ) {
+    response = await context.ChatCompletionService.processRequest({
+      stream: false,
+      messages,
+      model: currentModel,
+      chat_completion_source: chatCompletionSource,
+      max_tokens: requestMaxTokens(request, config),
+      temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
+      top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+      ...(jsonSchema ? { json_schema: jsonSchema } : {})
+    }, {
+      presetName: DIRECTIVE_PRESET_NAME
+    }, true, request.signal);
+  } else if (typeof context?.generateRaw === 'function') {
     response = await context.generateRaw({
       systemPrompt: system,
       prompt,
@@ -318,7 +390,7 @@ async function sendViaCurrentSillyTavern(context, config, request, { retriedForV
       responseLength: requestMaxTokens(request, config),
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       topP: request.parameters?.top_p ?? request.topP ?? config.topP,
-      jsonSchema: request.jsonSchema || null,
+      jsonSchema,
       bypassAll: true,
       ...(request.signal ? { signal: request.signal } : {})
     });
@@ -341,7 +413,7 @@ async function sendViaCurrentSillyTavern(context, config, request, { retriedForV
   } else {
     throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'SillyTavern does not expose a supported generation method.');
   }
-  const text = extractText(response, {
+  const text = extractText(normalizeSillyTavernResponse(response), {
     providerTitle: 'SillyTavern',
     maxTokens: requestMaxTokens(request, config),
     retried: retriedForVisibleOutput
@@ -355,11 +427,8 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
   if (typeof service?.sendRequest !== 'function') {
     throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'ConnectionManagerRequestService is unavailable.');
   }
-  const { system, prompt } = requestPrompts(request);
-  const messages = [
-    ...(system ? [{ role: 'system', content: system }] : []),
-    { role: 'user', content: prompt }
-  ];
+  const messages = requestMessages(request);
+  const jsonSchema = sillyTavernJsonSchema(request);
   const response = await service.sendRequest(
     config.profileId,
     messages,
@@ -368,15 +437,16 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
       stream: false,
       extractData: true,
       includePreset: true,
-      includeInstruct: true
+      includeInstruct: true,
+      ...(request.signal ? { signal: request.signal } : {})
     },
     {
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
-      ...(request.signal ? { signal: request.signal } : {})
+      ...(jsonSchema ? { json_schema: jsonSchema } : {})
     }
   );
-  const text = extractText(response, {
+  const text = extractText(normalizeSillyTavernResponse(response), {
     providerTitle: 'Connection profile',
     maxTokens: requestMaxTokens(request, config),
     retried: retriedForVisibleOutput
@@ -386,32 +456,51 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
 
 async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, retriedForVisibleOutput = false }) {
   if (!config.model) throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', 'OpenAI-compatible model is missing.');
-  const { system, prompt } = requestPrompts(request);
+  const messages = requestMessages(request);
   const responseFormat = structuredResponseFormat(request);
-  const response = await fetchImpl(openAiEndpoint(config.baseUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-    },
-    credentials: 'omit',
-    ...(request.signal ? { signal: request.signal } : {}),
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        ...(system ? [{ role: 'system', content: system }] : []),
-        { role: 'user', content: prompt }
-      ],
-      temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
-      top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
-      max_tokens: requestMaxTokens(request, config),
-      stream: false,
-      ...(responseFormat ? { response_format: responseFormat } : {})
-    })
-  });
-  const textBody = await response.text();
-  let json = null;
-  try { json = textBody ? JSON.parse(textBody) : null; } catch { /* handled below */ }
+  const endpoint = openAiEndpoint(config.baseUrl);
+  const body = {
+    model: config.model,
+    messages,
+    temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
+    top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+    max_tokens: requestMaxTokens(request, config),
+    stream: false,
+    ...(responseFormat ? { response_format: responseFormat } : {})
+  };
+  async function send(payload) {
+    const response = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+      },
+      credentials: 'omit',
+      ...(request.signal ? { signal: request.signal } : {}),
+      body: JSON.stringify(payload)
+    });
+    const textBody = await response.text();
+    let json = null;
+    try { json = textBody ? JSON.parse(textBody) : null; } catch { /* handled below */ }
+    return { response, textBody, json };
+  }
+
+  let result = await send(body);
+  const rejectedParameter = String(result.json?.error?.param || '').trim();
+  const rejectionCode = String(result.json?.error?.code || '').trim().toLowerCase();
+  if (
+    !result.response.ok
+    && result.response.status >= 400
+    && result.response.status < 500
+    && /^unsupported(?:_|$)/.test(rejectionCode)
+    && OPTIONAL_OPENAI_COMPATIBLE_PARAMETERS.has(rejectedParameter)
+    && Object.hasOwn(body, rejectedParameter)
+  ) {
+    const retryBody = { ...body };
+    delete retryBody[rejectedParameter];
+    result = await send(retryBody);
+  }
+  const { response, textBody, json } = result;
   if (!response.ok) {
     throw providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', `OpenAI-compatible request failed (${response.status}): ${textBody.slice(0, 500)}`, { status: response.status });
   }
