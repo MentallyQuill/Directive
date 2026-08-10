@@ -3318,8 +3318,7 @@ textarea.directive-field-control {
 .directive-expanded-shell button.campaign-row:focus-visible { background: rgba(255, 159, 74, .08); outline: 0; }
 .directive-expanded-shell .campaign-row.active { background: linear-gradient(90deg, rgba(255, 159, 74, .22), rgba(13, 16, 24, .96)); box-shadow: inset 5px 0 0 var(--directive-expanded-amber); }
 
-.directive-expanded-shell .campaign-row.is-coming-later {
-  cursor: default;
+.directive-expanded-shell .campaign-library-hero.is-coming-later .campaign-hero-media {
   filter: grayscale(1);
   opacity: .48;
 }
@@ -3384,6 +3383,7 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-row .directive-media-frame { width: 46px; height: 46px; }
   .directive-expanded-shell .campaign-row-description { display: none; }
   .directive-expanded-shell .campaign-hero { height: 170px; }
+  .directive-expanded-shell .campaign-library-hero.is-coming-later { height: 290px; }
   .directive-expanded-shell .campaign-hero-copy { padding: 13px 14px; }
   .directive-expanded-shell .campaign-hero-copy h2 { font-size: 23px; }
   .directive-expanded-shell .campaign-detail-actions,
