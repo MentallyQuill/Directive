@@ -80,7 +80,8 @@ export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([
       'packages/bundled/breckenridge/v1/chapter-3-dead-letters.mission-v1.json',
       'packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json',
       'packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json',
-      'packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json'
+      'packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json',
+      'packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json'
     ]
   }),
   createBundledCampaignPackageRef({
