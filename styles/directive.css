@@ -242,11 +242,22 @@
 
 .directive-expanded-shell .directive-v1-campaign-package { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(0, 1.4fr); }
 
-.directive-expanded-shell .directive-v1-campaign-media { position: relative; min-height: 180px; overflow: hidden; background: var(--high); }
+.directive-expanded-shell .directive-v1-campaign-media {
+  position: relative;
+  align-self: start;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--high);
+}
 
 .directive-expanded-shell .directive-v1-campaign-media img { width: 100%; height: 100%; object-fit: cover; }
 
 .directive-expanded-shell .directive-v1-campaign-package-copy { display: flex; flex-direction: column; align-items: flex-start; padding: 16px; }
+
+.directive-expanded-shell .directive-v1-campaign-package .directive-v1-campaign-hook { font-size: .82rem; line-height: 1.4; }
 
 .directive-expanded-shell .directive-v1-campaign-package-copy .directive-v1-campaign-commands { margin-top: auto; padding-top: 14px; }
 
@@ -602,8 +613,6 @@
 .directive-expanded-shell .directive-v1-checkpoint { align-items: stretch; flex-direction: column; }
 
 .directive-expanded-shell .directive-v1-campaign-package { grid-template-columns: 1fr; }
-
-.directive-expanded-shell .directive-v1-campaign-media { min-height: 150px; }
 
 .directive-expanded-shell .directive-v1-settings-section { padding: 12px; }
 

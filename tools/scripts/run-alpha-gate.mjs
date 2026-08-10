@@ -4,6 +4,7 @@ const checks = [
   "test-browser-runtime-safety.mjs",
   "test-campaign-package-context.mjs",
   "test-bundled-package-registry.mjs",
+  "test-campaign-library-presentation.mjs",
   "test-runtime-package-library.mjs",
   "test-campaign-start-service.mjs",
   "test-runtime-campaign-start-controller.mjs",

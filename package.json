@@ -6,6 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "test:browser:install": "playwright install chromium",
     "test": "node tools/scripts/run-alpha-gate.mjs",
     "verify": "node tools/scripts/run-alpha-gate.mjs",
     "v1-gate": "node tools/scripts/run-alpha-gate.mjs"

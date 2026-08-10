@@ -57,11 +57,19 @@ tools/scripts/          Focused V1 contract gate.
 
 ## Verification
 
+Install the pinned Chromium runtime once after installing Node dependencies:
+
+```powershell
+npm.cmd run test:browser:install
+```
+
+Then run the focused V1 gate:
+
 ```powershell
 npm.cmd test
 ```
 
-`test`, `verify`, and `v1-gate` run the same focused V1 gate. Release confidence additionally requires an installed-copy SillyTavern soak covering new campaign start, swipes, source mutation, objective progress, mission transition, restart/resume, and mobile UI.
+`test`, `verify`, and `v1-gate` run the same focused V1 gate. The gate includes real Chromium layout coverage and requires the browser installed by `test:browser:install`. Release confidence additionally requires an installed-copy SillyTavern soak covering new campaign start, swipes, source mutation, objective progress, mission transition, restart/resume, and mobile UI.
 
 ## Documentation
 

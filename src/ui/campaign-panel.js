@@ -60,7 +60,7 @@ function createPackageCard(pack, actions) {
   state.textContent = available ? 'Playable in V1' : 'Coming later';
   const title = createElement('h3');
   title.textContent = packageTitle(pack);
-  const summary = createElement('p');
+  const summary = createElement('p', 'directive-v1-campaign-hook');
   summary.textContent = packageSummary(pack) || (available
     ? 'Begin the Ashes of Peace campaign aboard the U.S.S. Breckenridge.'
     : 'This campaign will become playable after its V1-native story data is complete.');

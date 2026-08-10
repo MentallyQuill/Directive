@@ -9,5 +9,8 @@ Do not add tests for removed runtimes or speculative features. A new test belong
 Run:
 
 ```powershell
+npm.cmd run test:browser:install
 npm.cmd test
 ```
+
+The browser install command provisions the Playwright-pinned Chromium used by the campaign-library presentation regression. Run it once after `npm.cmd install` and again whenever the Playwright version changes.
