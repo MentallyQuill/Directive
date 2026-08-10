@@ -10,6 +10,7 @@ import {
   CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT,
   CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS,
   CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID,
+  CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS,
   buildCharacterCreatorSectionDraftRequest,
   runCharacterCreatorSectionDraft
 } from '../../src/creators/character-creator-assist.mjs';
@@ -87,6 +88,17 @@ const invalidIdentityContract = validateCharacterCreatorSectionDraftPayload({
 assert.equal(invalidIdentityContract.ok, false);
 assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
 assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'enum'), true);
+const boundedContractDiagnostics = validateCharacterCreatorSectionDraftPayload({
+  kind: 'wrong-kind',
+  sectionId: 'wrong-section',
+  mode: 'wrong-mode',
+  fields: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`unexpected.${index}`, index]))
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(boundedContractDiagnostics.diagnostics.length, 12);
 
 function longSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 160) {
   const sentence = `${seed} `;
@@ -271,6 +283,164 @@ assert.equal(targetedRegenerationCalls[2].request.messages.at(-1).content.includ
 assert.equal(targetedRegeneration.diagnostics.repairAttempted, true);
 assert.equal(targetedRegeneration.diagnostics.repairSucceeded, false);
 assert.equal(targetedRegeneration.diagnostics.targetedRegenerationAttempted, true);
+
+const schemaRepairCalls = [];
+const schemaRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    schemaRepairCalls.push({ roleId, request, options });
+    if (schemaRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            sectionId: 'identity',
+            mode: 'create',
+            fields: { identity: { name: 'Ari Venn' } }
+          })
+        },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const schemaRepairedDraft = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: schemaRepairRouter
+});
+assert.equal(schemaRepairedDraft.source, 'provider');
+assert.deepEqual(schemaRepairCalls.map((call) => call.options.providerKind), ['reasoning', 'utility']);
+const schemaRepairPayload = JSON.parse(schemaRepairCalls[1].request.messages[1].content);
+assert.equal(schemaRepairPayload.schemaDiagnostics.some((entry) => entry.keyword === 'required'), true);
+assert.equal(schemaRepairPayload.schemaDiagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
+
+const unsafeMalformedCalls = [];
+const unsafeMalformedRouter = {
+  async generate(roleId, request, options = {}) {
+    unsafeMalformedCalls.push({ roleId, request, options });
+    if (unsafeMalformedCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'fields':{'identity.appearance':'Privately assigned to Pale Lantern'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+const unsafeMalformedRecovered = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: unsafeMalformedRouter
+});
+assert.equal(unsafeMalformedRecovered.source, 'provider');
+assert.deepEqual(unsafeMalformedCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning']);
+assert.equal(unsafeMalformedCalls.some((call) => call.request.kind === 'directive.characterCreatorSectionDraftRepairRequest'), false);
+
+const oversizedRepairCalls = [];
+const oversizedRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    oversizedRepairCalls.push({ roleId, request, options });
+    if (oversizedRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: `{"broken":"${'x'.repeat(CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS + 500)}` },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: oversizedRepairRouter
+});
+const oversizedRepairPayload = JSON.parse(oversizedRepairCalls[1].request.messages[1].content);
+assert.equal(oversizedRepairPayload.damagedOutput.length, CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS);
+
+const lateRepairController = new AbortController();
+const lateRepairCalls = [];
+const lateRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    lateRepairCalls.push({ roleId, request, options });
+    if (lateRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'kind':'broken'}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    lateRepairController.abort('dialog-closed');
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Late Result' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const lateRepairResult = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: lateRepairRouter,
+  signal: lateRepairController.signal
+});
+assert.equal(lateRepairCalls.length, 2);
+assert.equal(lateRepairResult.source, 'canceled');
+assert.equal(lateRepairResult.diagnostics.repairAttempted, true);
 
 const retryRouterCalls = [];
 const retryRouter = {

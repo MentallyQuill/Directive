@@ -1001,7 +1001,24 @@ async function generateSectionDraftWithProviderFallback(generationRouter, reques
         providerAttempts: cloneJson(attemptRecords)
       }
     };
-    if (isGenerationCanceledResult(result) || signal?.aborted) {
+    if (signal?.aborted && !isGenerationCanceledResult(result)) {
+      return {
+        ...result,
+        ok: false,
+        error: {
+          code: 'DIRECTIVE_GENERATION_ABORTED',
+          message: 'Draft canceled.',
+          retryable: false
+        },
+        diagnostics: {
+          ...(result.diagnostics || {}),
+          repairAttempted,
+          repairSucceeded: false,
+          targetedRegenerationAttempted
+        }
+      };
+    }
+    if (isGenerationCanceledResult(result)) {
       return result;
     }
     if (result.ok) {
