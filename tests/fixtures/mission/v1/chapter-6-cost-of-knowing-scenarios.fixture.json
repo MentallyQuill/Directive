@@ -157,7 +157,7 @@
       "sequence": ["rourke-conditional", "crisis-active", "network-countermand", "network-exposure", "account-corroborated-report", "risk-cross-system-report", "evidence-sealed", "evidence-preserved", "rourke-retained", "info-delayed"],
       "expected": {
         "status": "terminal", "terminalDisposition": "controlledSecrecy", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
-        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter6.network": "contained-with-exposure", "dimension.chapter6.evidence": "preserved-without-asset", "dimension.chapter6.information": "delayed-disclosure", "dimension.chapter6.rourke": "retained-under-safeguards" },
         "transitionTargetId": "chapter-7-a-peace-of-their-own"
       }
@@ -167,7 +167,7 @@
       "sequence": ["rourke-relieve", "crisis-active", "network-controlled", "network-contained", "account-archive-report", "risk-telemetry-report", "evidence-public", "evidence-public-copy", "rourke-relieved-result", "info-unilateral"],
       "expected": {
         "status": "terminal", "terminalDisposition": "publicRupture", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
-        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
         "transitionTargetId": "chapter-7-a-peace-of-their-own"
       }
     },

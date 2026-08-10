@@ -180,7 +180,12 @@ function runScenario(scenario) {
 }
 
 for (const scenario of scenarios.scenarios) {
-    const result = runScenario(scenario);
+    let result;
+    try {
+        result = runScenario(scenario);
+    } catch (error) {
+        throw new Error(`${scenario.id}: ${error.message}`);
+    }
     const expected = scenario.expected;
     assert.equal(result.state.status, expected.status, scenario.id);
     assert.equal(result.state.terminalDisposition, expected.terminalDisposition, scenario.id);
