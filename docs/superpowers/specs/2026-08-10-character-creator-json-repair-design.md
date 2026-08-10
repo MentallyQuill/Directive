@@ -10,7 +10,7 @@ Directive asks for structured output but only the current SillyTavern `generateR
 
 ## Contract
 
-Each request receives a section-specific JSON schema. The top-level object permits only `kind`, `sectionId`, `mode`, `fields`, `notes`, and `warnings`. `kind`, `sectionId`, `mode`, and `fields` are required. `fields` permits only paths belonging to the requested section, uses exact option IDs for select fields, uses strings for text fields, and requires at least one proposed field. Missing optional section fields may still be supplemented by Directive's package-safe local fallback.
+Each request receives a section-specific JSON schema. The top-level object permits and requires exactly `kind`, `sectionId`, `mode`, `fields`, `notes`, and `warnings`. The provider schema requires every requested section field so strict structured-output providers receive a valid all-properties-required contract. `fields` permits only paths belonging to the requested section, uses exact option IDs for select fields, and uses strings for text fields. Local validation remains tolerant of omitted optional section fields so Connection Manager and other prompt-only transports can still use Directive's package-safe supplementation.
 
 Directive validates the parsed object locally even when a provider claims schema support. Validation returns only bounded diagnostics: path, keyword, and a safe field/detail token. Raw output is never written to diagnostics, persistence, or user-visible errors.
 

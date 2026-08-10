@@ -57,7 +57,7 @@ Expected: imports/strict-schema assertions fail because the contract module and 
 
 - [ ] **Step 3: Implement the section contract**
 
-Build a schema with exact top-level keys, `minProperties: 1`, exact section field properties, string text values, and enums for option fields. Validate the same subset locally and return diagnostics shaped as:
+Build a strict-provider schema with all top-level and section properties required, exact top-level keys, `minProperties: 1`, exact section field properties, string text values, and enums for option fields. Keep local validation tolerant of omitted optional section fields for prompt-only transports and return diagnostics shaped as:
 
 ```js
 { path: '/fields/identity.speciesId', keyword: 'enum', detail: 'identity.speciesId' }

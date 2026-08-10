@@ -31,7 +31,7 @@ export function buildCharacterCreatorSectionDraftSchema({
   return {
     type: 'object',
     additionalProperties: false,
-    required: ['kind', 'sectionId', 'mode', 'fields'],
+    required: ['kind', 'sectionId', 'mode', 'fields', 'notes', 'warnings'],
     properties: {
       kind: { const: RESULT_KIND },
       sectionId: { const: String(sectionId || '') },
@@ -40,6 +40,7 @@ export function buildCharacterCreatorSectionDraftSchema({
         type: 'object',
         additionalProperties: false,
         minProperties: 1,
+        required: rules.map(({ path }) => path),
         properties: Object.fromEntries(rules.map(({ path, allowedValues }) => [
           path,
           allowedValues.length ? { type: 'string', enum: allowedValues } : { type: 'string' }

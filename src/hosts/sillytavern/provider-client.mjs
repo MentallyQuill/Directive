@@ -377,9 +377,14 @@ export function createDirectiveProviderClient({
     throw new Error('settingsStore with get(kind) is required');
   }
 
-  async function generate(roleId, request = {}) {
+  async function generate(roleId, request = {}, options = {}) {
     const settings = settingsStore.getAll?.() || null;
-    const kind = settingsStore.getRoleProviderKind?.(roleId)
+    const requestedKind = String(options?.providerKind || '').trim();
+    if (requestedKind && !['utility', 'reasoning'].includes(requestedKind)) {
+      throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', `Unknown Directive provider kind "${requestedKind}".`);
+    }
+    const kind = requestedKind
+      || settingsStore.getRoleProviderKind?.(roleId)
       || providerKindForRole(roleId);
     const config = settingsStore.get(kind);
     const context = contextFactory();

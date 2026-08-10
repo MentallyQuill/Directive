@@ -128,6 +128,18 @@ assert.equal(profileCalls.length, 1);
 assert.equal(profileCalls[0].profileId, 'reasoning-profile');
 assert.equal(profileCalls[0].maxTokens, 700);
 
+const utilityOverride = await client.generate('characterCreatorSectionDraft', {
+  kind: 'directive.characterCreatorSectionDraftRepairRequest',
+  messages: [{ role: 'user', content: 'Repair malformed JSON only.' }],
+  parameters: { max_tokens: 256 }
+}, {
+  providerKind: 'utility'
+});
+assert.equal(utilityOverride.providerKind, 'utility');
+assert.equal(utilityOverride.text, 'utility-visible-answer');
+assert.equal(fetchCalls.length, 2);
+assert.equal(profileCalls.length, 1, 'provider override must not use the role default profile');
+
 const tests = [];
 for (const kind of ['utility', 'reasoning']) {
   const result = await client.test(kind);

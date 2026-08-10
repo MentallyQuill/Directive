@@ -120,6 +120,27 @@ assert.deepEqual(textRequest.source, {
   turnId: 'turn-1'
 });
 
+const providerClientCalls = [];
+const routedClient = createSillyTavernGenerationClient({
+  providerClient: {
+    async generate(roleId, request, options) {
+      providerClientCalls.push({ roleId, request, options });
+      return { text: 'routed repair', providerId: 'fake-provider-client' };
+    }
+  }
+});
+const routedRepair = await routedClient.generate('characterCreatorSectionDraft', {
+  prompt: 'Repair malformed JSON.'
+}, {
+  providerKind: 'utility',
+  timeoutMs: 30000
+});
+assert.equal(routedRepair.text, 'routed repair');
+assert.deepEqual(providerClientCalls[0].options, {
+  providerKind: 'utility',
+  timeoutMs: 30000
+});
+
 const missingContextClient = createSillyTavernGenerationClient({
   contextFactory: () => null
 });

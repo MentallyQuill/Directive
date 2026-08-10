@@ -90,11 +90,11 @@ function timeHeader(state) {
   return `*Stardate ${stardate.toFixed(1).padStart(7, '0')} | ${clock}*`;
 }
 
-function createGenerationRouter(host) {
+export function createDirectiveGenerationRouter(host) {
   return {
-    async generate(roleId, request) {
+    async generate(roleId, request, options = {}) {
       try {
-        const response = await host.generation.generate(roleId, request);
+        const response = await host.generation.generate(roleId, request, options);
         return {
           ok: true,
           response: clone(response),
@@ -229,7 +229,7 @@ export function createDirectiveRuntimeApp({
   idFactory = null
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
-  const generationRouter = createGenerationRouter(host);
+  const generationRouter = createDirectiveGenerationRouter(host);
   let initialized = false;
   let records = null;
   let runtimeAssets = null;

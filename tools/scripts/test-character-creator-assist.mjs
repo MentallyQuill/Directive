@@ -61,8 +61,10 @@ const identityContractSchema = buildCharacterCreatorSectionDraftSchema({
   fieldRules: identityFieldRules
 });
 assert.equal(identityContractSchema.additionalProperties, false);
+assert.deepEqual(identityContractSchema.required, ['kind', 'sectionId', 'mode', 'fields', 'notes', 'warnings']);
 assert.equal(identityContractSchema.properties.fields.additionalProperties, false);
 assert.equal(identityContractSchema.properties.fields.minProperties, 1);
+assert.deepEqual(identityContractSchema.properties.fields.required, ['identity.name', 'identity.speciesId']);
 assert.deepEqual(identityContractSchema.properties.fields.properties['identity.speciesId'].enum, ['human', 'trill']);
 assert.equal(Object.hasOwn(identityContractSchema.properties.fields.properties, 'service.careerBackgroundId'), false);
 assert.equal(validateCharacterCreatorSectionDraftPayload({
