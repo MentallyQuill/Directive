@@ -3,6 +3,7 @@ import {
   PROVIDER_RESPONSE_ERROR_CODES,
   assertProviderResponseText
 } from '../../providers/provider-response-normalizer.mjs';
+import { DIRECTIVE_PRESET_NAME } from './preset-manager.mjs';
 
 const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
   'connectionProfiles',
@@ -310,7 +311,30 @@ function structuredResponseFormat(request = {}) {
 async function sendViaCurrentSillyTavern(context, config, request, { retriedForVisibleOutput = false } = {}) {
   const { system, prompt } = requestPrompts(request);
   let response;
-  if (typeof context?.generateRaw === 'function') {
+  const chatCompletionSource = String(context?.chatCompletionSettings?.chat_completion_source || '').trim();
+  const currentModel = currentSillyTavernModelName(context);
+  if (
+    context?.mainApi === 'openai'
+    && chatCompletionSource
+    && currentModel
+    && typeof context?.ChatCompletionService?.processRequest === 'function'
+  ) {
+    response = await context.ChatCompletionService.processRequest({
+      stream: false,
+      messages: [
+        ...(system ? [{ role: 'system', content: system }] : []),
+        { role: 'user', content: prompt }
+      ],
+      model: currentModel,
+      chat_completion_source: chatCompletionSource,
+      max_tokens: requestMaxTokens(request, config),
+      temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
+      top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+      ...(request.jsonSchema ? { json_schema: request.jsonSchema } : {})
+    }, {
+      presetName: DIRECTIVE_PRESET_NAME
+    }, true, request.signal);
+  } else if (typeof context?.generateRaw === 'function') {
     response = await context.generateRaw({
       systemPrompt: system,
       prompt,
@@ -373,6 +397,7 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
     {
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+      ...(request.jsonSchema ? { json_schema: request.jsonSchema } : {}),
       ...(request.signal ? { signal: request.signal } : {})
     }
   );

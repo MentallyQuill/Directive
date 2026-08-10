@@ -86,6 +86,72 @@ const client = createDirectiveProviderClient({
   fetchImpl
 });
 
+const currentModelCalls = [];
+const currentModelContext = {
+  extensionSettings: {},
+  mainApi: 'openai',
+  chatCompletionSettings: {
+    chat_completion_source: 'nanogpt'
+  },
+  getChatCompletionModel: () => 'zai-org/glm-5.1:thinking',
+  ChatCompletionService: {
+    async processRequest(requestData, options, extractData, signal) {
+      currentModelCalls.push({ requestData, options, extractData, signal });
+      return { content: 'controlled-current-answer', reasoning: '' };
+    }
+  }
+};
+const currentModelStore = createSillyTavernProviderSettingsStore({
+  context: currentModelContext,
+  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+});
+currentModelStore.update('utility', {
+  provider: 'st',
+  maxTokens: 640,
+  temperature: 0.15,
+  topP: 0.85
+});
+const currentModelClient = createDirectiveProviderClient({
+  contextFactory: () => currentModelContext,
+  settingsStore: currentModelStore,
+  fetchImpl
+});
+const currentModelSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ok'],
+  properties: { ok: { type: 'boolean' } }
+};
+const currentModelResult = await currentModelClient.generate('utilityJson', {
+  systemPrompt: 'Return only bounded Directive utility JSON.',
+  prompt: 'Inspect the accepted visible pair.',
+  parameters: {
+    temperature: 0.05,
+    top_p: 0.75,
+    max_tokens: 320
+  },
+  jsonSchema: currentModelSchema
+});
+assert.equal(currentModelResult.text, 'controlled-current-answer');
+assert.deepEqual(currentModelCalls, [{
+  requestData: {
+    stream: false,
+    messages: [
+      { role: 'system', content: 'Return only bounded Directive utility JSON.' },
+      { role: 'user', content: 'Inspect the accepted visible pair.' }
+    ],
+    model: 'zai-org/glm-5.1:thinking',
+    chat_completion_source: 'nanogpt',
+    max_tokens: 320,
+    temperature: 0.05,
+    top_p: 0.75,
+    json_schema: currentModelSchema
+  },
+  options: { presetName: 'Directive' },
+  extractData: true,
+  signal: undefined
+}]);
+
 const utility = await client.generate('acceptedPairMissionEvidence', {
   kind: 'directive.testStructuredRequest',
   messages: [{ role: 'user', content: 'Interpret this accepted pair.' }],
@@ -120,15 +186,23 @@ assert.deepEqual(utilityBody.response_format, {
   }
 });
 
-const reasoning = await client.generate('narration', {
-  messages: [{ role: 'user', content: 'Narrate the committed result.' }],
-  parameters: { max_tokens: 700 }
+const reasoningSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['draft'],
+  properties: { draft: { type: 'string' } }
+};
+const reasoning = await client.generate('characterCreatorSectionDraft', {
+  messages: [{ role: 'user', content: 'Draft the bounded character section.' }],
+  parameters: { max_tokens: 700 },
+  jsonSchema: reasoningSchema
 });
 assert.equal(reasoning.providerKind, 'reasoning');
 assert.equal(reasoning.text, 'profile-visible-answer');
 assert.equal(profileCalls.length, 1);
 assert.equal(profileCalls[0].profileId, 'reasoning-profile');
 assert.equal(profileCalls[0].maxTokens, 700);
+assert.deepEqual(profileCalls[0].payload.json_schema, reasoningSchema);
 
 const utilityOverride = await client.generate('characterCreatorSectionDraft', {
   kind: 'directive.characterCreatorSectionDraftRepairRequest',
