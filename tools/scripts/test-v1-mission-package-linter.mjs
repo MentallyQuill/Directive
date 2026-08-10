@@ -21,12 +21,20 @@ const openOrdersScenarios = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/open-orders-1-scenarios.fixture.json',
     'utf8',
 ));
+const chapter2Definition = JSON.parse(fs.readFileSync(
+    'packages/bundled/breckenridge/v1/chapter-2-false-colors.mission-v1.json',
+    'utf8',
+));
 const openOrders2Definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json',
     'utf8',
 ));
 const openOrders2Scenarios = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json',
+    'utf8',
+));
+const chapter5Definition = JSON.parse(fs.readFileSync(
+    'packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json',
     'utf8',
 ));
 
@@ -46,6 +54,7 @@ assert.deepEqual(valid, lint(definition), 'lint order and output must be determi
 
 const initiallyKnown = lintMissionPackage({
     definition: openOrdersDefinition,
+    knownDefinitions: [definition, chapter2Definition, openOrdersDefinition],
     knownTransitionTargetIds: new Set(['chapter-3-dead-letters']),
     scenarioExpectations: openOrdersScenarios.scenarios.map((scenario) => scenario.expected),
 });
@@ -60,6 +69,7 @@ assert.equal(
 
 const credentialGatedInterval = lintMissionPackage({
     definition: openOrders2Definition,
+    knownDefinitions: [definition, chapter5Definition, openOrders2Definition],
     knownTransitionTargetIds: new Set(['chapter-6-the-cost-of-knowing']),
     scenarioExpectations: openOrders2Scenarios.scenarios.map((scenario) => scenario.expected),
 });
