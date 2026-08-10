@@ -475,6 +475,12 @@ async function saveCreatorForm(form, actions, {
   });
 }
 
+export function isCreatorPortraitLifecycleSupported(view = {}, actions = {}) {
+  return view?.media?.playerPortraitImportSupported === true
+    && typeof actions.importCreatorPortrait === 'function'
+    && typeof actions.removeCreatorPortrait === 'function';
+}
+
 function createCreatorPortraitTile({
   form,
   creator,
@@ -483,8 +489,7 @@ function createCreatorPortraitTile({
   activeStepId
 }) {
   const portrait = getNestedValue(creator.input, 'identity.portrait');
-  const supported = view.media?.playerPortraitImportSupported === true
-    && typeof actions.importCreatorPortrait === 'function';
+  const supported = isCreatorPortraitLifecycleSupported(view, actions);
   const tile = createElement('section', 'directive-creator-portrait-tile');
   const visual = createPlayerPortraitImage(portrait, {
     wrapperClass: 'directive-creator-player-portrait',
@@ -531,7 +536,7 @@ function createCreatorPortraitTile({
       icon: 'fa-solid fa-trash-can',
       className: 'directive-button directive-creator-portrait-remove',
       title: 'Remove this player character portrait',
-      disabled: typeof actions.removeCreatorPortrait !== 'function',
+      disabled: !supported,
       onClick: async () => {
         await actions.removeCreatorPortrait({
           activeStep: activeStepId,

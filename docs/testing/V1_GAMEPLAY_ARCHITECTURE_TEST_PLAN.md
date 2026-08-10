@@ -12,7 +12,7 @@
 - Story Settlement significance, working capsule bounds, hard/soft boundaries, source repair, supersession, and concise projections;
 - fair discovery and exact Duty Report delivery custody;
 - Command Bearing award, spend, refund, capacity, and idempotency;
-- five-route player projections, spoiler exclusion, ship aggregation, and people moment caps;
+- five-route player projections, exact immutable player identity, creator portrait storage safety, spoiler exclusion, ship aggregation, commander presentation, and people moment caps;
 - SillyTavern prompt, event, preset, launcher, and responsive shell contracts;
 - all thirteen Ashes mission definitions and all authored scenario fixtures.
 

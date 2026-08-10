@@ -787,7 +787,7 @@ export function createV1StateSpine({
                 ],
                 domains: conclusionCleared ? ['storySettlement', 'mission'] : ['storySettlement'],
                 baseRevision: capturedGatewayRevision,
-                source: 'v1StateSpineShadow',
+                source: 'v1StateSpineSourceRecovery',
                 reason: 'Rebuilt Story Settlement after a non-mission source invalidation.',
                 metadata: { invalidatedContributionCount: invalidated.size },
             });
@@ -959,7 +959,7 @@ export function createV1StateSpine({
             operations: missionOperations,
             domains: ['storySettlement', 'mission'],
             baseRevision: capturedGatewayRevision,
-            source: 'v1StateSpine',
+            source: 'v1StateSpineSourceRecovery',
             reason: crossedClosure
                 ? 'Rebuilt a V1 mission journey after historic accepted-source invalidation.'
                 : 'Rebuilt V1 state after accepted-source invalidation.',
@@ -1082,7 +1082,7 @@ export function createV1StateSpine({
             patch: { storySettlement },
             domains: ['storySettlement'],
             baseRevision: capturedGatewayRevision,
-            source: 'v1EpisodeReviewShadow',
+            source: 'v1EpisodeReviewAuthority',
             reason: 'Applied a bounded V1 episode review to the story settlement only.',
             metadata: {
                 missionId: definition.id,

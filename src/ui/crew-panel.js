@@ -4,6 +4,7 @@ import {
   createV1CrewPanelModel,
   requireV1PlayerProjection
 } from './v1-player-facing-panel-model.mjs';
+import { createPlayerPortraitImage } from './directive-media.js';
 
 export function resetCrewPanelState() {
   // V1 Crew has no hidden route-local selection or edit state.
@@ -114,6 +115,40 @@ function createPersonCard(person) {
   return card;
 }
 
+function createPlayerCard(player) {
+  const card = createElement('section', 'directive-v1-player');
+  card.dataset.playerId = player.id;
+  card.dataset.directiveTour = 'crew.player';
+  card.appendChild(createPlayerPortraitImage(player.portrait, {
+    wrapperClass: 'directive-v1-player-portrait',
+    label: player.name,
+    loading: 'eager'
+  }));
+
+  const identity = createElement('div', 'directive-v1-player-identity');
+  const kicker = createElement('span', 'directive-v1-kicker');
+  kicker.textContent = 'Your Commander';
+  const name = createElement('h2');
+  name.textContent = player.name;
+  const assignment = createElement('strong', 'directive-v1-player-assignment');
+  assignment.textContent = [player.rank, player.billet].filter(Boolean).join(' · ');
+  identity.append(kicker, name, assignment);
+
+  if (player.species?.label) {
+    const species = createElement('span', 'directive-v1-player-species');
+    species.textContent = player.species.label;
+    identity.appendChild(species);
+  }
+  const summary = player.appearance || player.dossier?.identitySummary || player.dossier?.briefBiography;
+  if (summary) {
+    const profile = createElement('p', 'directive-v1-player-profile');
+    profile.textContent = summary;
+    identity.appendChild(profile);
+  }
+  card.appendChild(identity);
+  return card;
+}
+
 export function renderCrewPanel(body, view, actions = {}) {
   const projection = requireV1PlayerProjection(view);
   if (!projection) {
@@ -122,6 +157,7 @@ export function renderCrewPanel(body, view, actions = {}) {
   }
   const model = createV1CrewPanelModel(projection);
   const surface = createElement('div', 'directive-v1-crew');
+  surface.appendChild(createPlayerCard(model.player));
   surface.appendChild(createCommandBearingCard(model.commandBearing, actions));
 
   const heading = createElement('header', 'directive-v1-roster-heading');

@@ -323,6 +323,7 @@
 .directive-expanded-shell .directive-v1-mission-section,
 .directive-expanded-shell .directive-v1-mission-terminal,
 .directive-expanded-shell .directive-v1-command-bearing,
+.directive-expanded-shell .directive-v1-player,
 .directive-expanded-shell .directive-v1-person,
 .directive-expanded-shell .directive-v1-operational-status {
   padding: 15px 16px;
@@ -475,6 +476,35 @@
 
 .directive-expanded-shell .directive-v1-command-bearing-pending { margin: 0; color: var(--gold); }
 
+.directive-expanded-shell .directive-v1-player {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  border-left: 6px solid var(--violet);
+}
+
+.directive-expanded-shell .directive-v1-player-portrait {
+  width: 112px;
+  aspect-ratio: 1;
+  border-radius: 6px;
+}
+
+.directive-expanded-shell .directive-v1-player-identity h2 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font: 800 24px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif;
+}
+
+.directive-expanded-shell .directive-v1-player-assignment,
+.directive-expanded-shell .directive-v1-player-species { display: block; margin-top: 4px; }
+
+.directive-expanded-shell .directive-v1-player-assignment { color: var(--blue); }
+
+.directive-expanded-shell .directive-v1-player-species { color: var(--violet); font-size: 11px; text-transform: uppercase; }
+
+.directive-expanded-shell .directive-v1-player-profile { margin: 9px 0 0; color: var(--muted); }
+
 .directive-expanded-shell .directive-v1-roster-heading { padding: 4px 4px 0; }
 
 .directive-expanded-shell .directive-v1-person { border-top: 4px solid var(--blue); }
@@ -546,10 +576,15 @@
 .directive-expanded-shell .directive-v1-mission-section,
 .directive-expanded-shell .directive-v1-mission-terminal,
 .directive-expanded-shell .directive-v1-command-bearing,
+.directive-expanded-shell .directive-v1-player,
 .directive-expanded-shell .directive-v1-person,
 .directive-expanded-shell .directive-v1-operational-status { padding: 12px; }
 
 .directive-expanded-shell .directive-v1-command-bearing { grid-template-columns: 1fr; }
+
+.directive-expanded-shell .directive-v1-player { grid-template-columns: 76px minmax(0, 1fr); gap: 12px; }
+
+.directive-expanded-shell .directive-v1-player-portrait { width: 76px; }
 
 .directive-expanded-shell .directive-v1-command-bearing-reason { grid-column: auto; }
 

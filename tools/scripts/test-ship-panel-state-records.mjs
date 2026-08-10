@@ -73,6 +73,13 @@ renderShipPanel(body, {
   campaignState: { campaign: { title: 'Ashes of Peace' } },
   v1PlayerProjection: {
     kind: 'directive.playerProjection.v1',
+    player: {
+      kind: 'directive.playerIdentityProjection.v1',
+      id: 'player-commander',
+      name: 'Ren Okada',
+      rank: 'Commander',
+      billet: 'Executive Officer'
+    },
     mission: { kind: 'directive.missionPlayerProjection.v1' },
     people: { kind: 'directive.peoplePlayerProjection.v1' },
     commandBearing: { kind: 'directive.commandBearingPlayerProjection.v1' },

@@ -114,6 +114,11 @@ function createGenerationRouter(host) {
   };
 }
 
+function playerPortraitImportSupported(host) {
+  return typeof host?.storage?.writeBase64File === 'function'
+    && typeof host?.storage?.deleteFile === 'function';
+}
+
 function promptPacket({ state, projection, runtimeAssets }) {
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
@@ -576,6 +581,9 @@ export function createDirectiveRuntimeApp({
       activePackage: clone(records.packageData),
       activeSaveId: activeSave()?.id || null,
       storageDiagnostics: clone(storageDiagnostics),
+      media: {
+        playerPortraitImportSupported: playerPortraitImportSupported(host)
+      },
       providerConfiguration: providerConfiguration(host),
       directivePreset: presetConfiguration(host)
     };

@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import {
   createFakeChatAdapter,
   createFakeDirectiveHost,
-  createFakeGenerationClient
+  createFakeGenerationClient,
+  createFakeJsonStorage
 } from '../../src/hosts/fake/fake-host.mjs';
 import { awardV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
@@ -31,6 +32,16 @@ const records = {
 };
 
 const chat = createFakeChatAdapter({ chatId: 'unbound-chat' });
+const jsonStorage = createFakeJsonStorage();
+const storage = {
+  ...jsonStorage,
+  async writeBase64File(fileName) {
+    return { ok: true, fileName, path: `/user/files/${fileName}` };
+  },
+  async deleteFile(path) {
+    return { ok: true, path };
+  }
+};
 let missionInterpretationCalls = 0;
 const generation = createFakeGenerationClient({
   responses: {
@@ -50,7 +61,7 @@ const generation = createFakeGenerationClient({
     }
   }
 });
-const host = createFakeDirectiveHost({ chatNative: true, chat, generation });
+const host = createFakeDirectiveHost({ chatNative: true, chat, generation, storage });
 let nextId = 0;
 let nextMinute = 0;
 let app = createDirectiveRuntimeApp({
@@ -63,7 +74,16 @@ let app = createDirectiveRuntimeApp({
 const initial = await app.initialize();
 assert.equal(initial.kind, 'directive.runtimeView.v1');
 assert.equal(initial.campaignState, null);
+assert.deepEqual(initial.media, { playerPortraitImportSupported: true });
 assert.equal(app.getChatTurnOrchestrator() != null, true);
+
+const incompleteStorageView = await createDirectiveRuntimeApp({
+  host: createFakeDirectiveHost(),
+  packageLoader: async () => structuredClone(records),
+  idFactory: (prefix) => `${prefix}.incomplete-storage`,
+  now: () => '2026-08-10T03:00:00.000Z'
+}).initialize();
+assert.deepEqual(incompleteStorageView.media, { playerPortraitImportSupported: false });
 
 await app.startCreatorDraft();
 await app.saveCreatorDraft({

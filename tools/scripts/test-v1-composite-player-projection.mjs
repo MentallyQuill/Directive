@@ -32,6 +32,19 @@ const campaignState = {
     },
     storySettlement: createEmptyStorySettlement({ branchId }),
     commandBearing: createV1CommandBearing(),
+    player: {
+        id: 'player-commander',
+        name: 'Ren Okada',
+        pronounsOrAddress: 'he/him',
+        rank: 'Commander',
+        billet: 'Executive Officer',
+        role: 'Second-in-command',
+        species: { id: 'human', label: 'Human', summary: 'A Human Starfleet officer.' },
+        appearance: 'Attentive and deliberate.',
+        firstImpression: 'Measured until action is required.',
+        dossier: { briefBiography: 'Ren Okada was shaped by wartime service.' },
+        portrait: null,
+    },
     ship: {
         id: 'uss-breckenridge',
         name: 'U.S.S. Breckenridge',
@@ -70,6 +83,9 @@ assert.deepEqual(projection.mission.objectives.map((item) => item.id), [
 ]);
 assert.equal(projection.story.kind, 'directive.storyPlayerProjection.v1');
 assert.deepEqual(projection.story.entries, []);
+assert.equal(projection.player.kind, 'directive.playerIdentityProjection.v1');
+assert.equal(projection.player.name, 'Ren Okada');
+assert.equal(projection.player.portrait, null);
 assert.equal(projection.ship.kind, 'directive.shipPlayerProjection.v1');
 assert.equal(projection.people.kind, 'directive.peoplePlayerProjection.v1');
 assert.equal(projection.commandBearing.kind, 'directive.commandBearingPlayerProjection.v1');

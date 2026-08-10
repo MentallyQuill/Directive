@@ -44,7 +44,7 @@ Command Bearing spending follows the same acceptance rule as story state. A poin
 
 Immediate mission mechanics may change on an accepted pair when validated authored evidence warrants it. Player-facing story memory changes at semantic episode boundaries, not every turn. A routine exchange may produce no story entry. A substantial scene normally becomes one episode even if it contains several decisions, facts, character moments, and ship consequences.
 
-Ship output is one operational aggregate plus material limitations. People output is a stable public profile, a current visible posture when established, and at most three defining accepted moments. Mission output contains only visible objectives, known clocks, visible outcomes, and the current terminal or transition state.
+Ship output is one operational aggregate plus material limitations. People output begins with the accepted commander identity and portrait, followed by stable public crew profiles, a current visible posture when established, and at most three defining accepted moments. Mission output contains only visible objectives, known clocks, visible outcomes, and the current terminal or transition state.
 
 ## Missions
 
@@ -58,7 +58,7 @@ Players are judged for informed action, not for failing to discover unknowable i
 
 ## UI
 
-The ship icon beside SillyTavern's composer opens Directive. The UI has five routes: Campaign, Mission, People, Ship, and Settings. Each fact has one primary home. No route exposes hidden objectives, internal confidence, proposal queues, raw evidence, or recovery machinery.
+The ship icon beside SillyTavern's composer opens Directive. The UI has five routes: Campaign, Mission, People, Ship, and Settings. Each fact has one primary home. The creator may import or remove a portrait only while the player record is still a draft; campaign acceptance makes the player identity immutable, and People receives it through the exact `directive.playerIdentityProjection.v1` projection. No route exposes hidden objectives, internal confidence, proposal queues, raw evidence, recovery machinery, or player mutation controls.
 
 ## V1 content scope
 

@@ -1,4 +1,5 @@
 const PLAYER_PROJECTION_KIND = 'directive.playerProjection.v1';
+const PLAYER_IDENTITY_PROJECTION_KIND = 'directive.playerIdentityProjection.v1';
 const MISSION_PROJECTION_KIND = 'directive.missionPlayerProjection.v1';
 const PEOPLE_PROJECTION_KIND = 'directive.peoplePlayerProjection.v1';
 const SHIP_PROJECTION_KIND = 'directive.shipPlayerProjection.v1';
@@ -29,6 +30,7 @@ export function requireV1PlayerProjection(view = {}) {
   if (projection?.kind !== PLAYER_PROJECTION_KIND) {
     throw projectionError('This campaign is not valid Directive V1 state and cannot be displayed.');
   }
+  requireProjectionKind(projection.player, PLAYER_IDENTITY_PROJECTION_KIND, 'player identity');
   requireProjectionKind(projection.mission, MISSION_PROJECTION_KIND, 'mission');
   requireProjectionKind(projection.people, PEOPLE_PROJECTION_KIND, 'people');
   requireProjectionKind(projection.ship, SHIP_PROJECTION_KIND, 'ship');
@@ -57,9 +59,11 @@ export function createV1MissionPanelModel(projection) {
 }
 
 export function createV1CrewPanelModel(projection) {
+  requireProjectionKind(projection?.player, PLAYER_IDENTITY_PROJECTION_KIND, 'player identity');
   requireProjectionKind(projection?.people, PEOPLE_PROJECTION_KIND, 'people');
   requireProjectionKind(projection?.commandBearing, COMMAND_BEARING_PROJECTION_KIND, 'Command Bearing');
   return {
+    player: copy(projection.player),
     people: copy(projection.people.people || []),
     commandBearing: {
       balance: projection.commandBearing.balance,

@@ -261,11 +261,15 @@ accumulationState.mission = {
     v1History: accumulationJourney.history,
 };
 let accumulationPersistCount = 0;
+const accumulationPersistDescriptors = [];
 const accumulationSources = new Map();
 const accumulationGateway = createStateDeltaGateway({
     getState: () => accumulationState,
     setState: (next) => { accumulationState = next; },
-    persist: async () => { accumulationPersistCount += 1; },
+    persist: async (_next, descriptor) => {
+        accumulationPersistCount += 1;
+        accumulationPersistDescriptors.push(structuredClone(descriptor));
+    },
     now: () => '2026-08-09T13:00:00.000Z',
 });
 const accumulationSpine = createV1StateSpine({
@@ -505,6 +509,8 @@ assert.deepEqual(
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-2'), false);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-1'), true);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-6'), true);
+assert.equal(accumulationPersistDescriptors.at(-1).source, 'v1StateSpineSourceRecovery');
+assert.doesNotMatch(accumulationPersistDescriptors.at(-1).source, /shadow/i);
 
 let insignificantState = createAshesInitialState({
     campaignId: 'campaign.insignificant',

@@ -9,6 +9,7 @@ import { createPeoplePlayerProjection } from './people-projection.mjs';
 import { createShipPlayerProjection } from './ship-projection.mjs';
 import { createStoryPlayerProjection } from './story-projection.mjs';
 import { projectV1CommandBearing } from '../../command/v1-command-bearing.mjs';
+import { createPlayerIdentityProjection } from './player-identity-projection.mjs';
 
 export const V1_PLAYER_PROJECTION_KIND = 'directive.playerProjection.v1';
 
@@ -122,6 +123,7 @@ export function createV1PlayerProjection({
         storySettlement,
     });
     const commandBearing = projectV1CommandBearing(campaignState.commandBearing);
+    const player = createPlayerIdentityProjection({ campaignState });
 
     return {
         kind: V1_PLAYER_PROJECTION_KIND,
@@ -132,6 +134,7 @@ export function createV1PlayerProjection({
             mission: mission.revision,
             story: story.revision,
         },
+        player,
         mission,
         story,
         ship,

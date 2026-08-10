@@ -11,6 +11,20 @@ import {
 
 const projection = {
   kind: 'directive.playerProjection.v1',
+  player: {
+    kind: 'directive.playerIdentityProjection.v1',
+    id: 'player-commander',
+    name: 'Ren Okada',
+    pronounsOrAddress: 'he/him',
+    rank: 'Commander',
+    billet: 'Executive Officer',
+    role: 'Second-in-command',
+    species: { id: 'human', label: 'Human', summary: 'A Human Starfleet officer.' },
+    appearance: 'Attentive and deliberate.',
+    firstImpression: 'Measured until action is required.',
+    dossier: { briefBiography: 'Ren Okada was shaped by wartime service.' },
+    portrait: null
+  },
   mission: {
     kind: 'directive.missionPlayerProjection.v1',
     missionId: 'mission.prelude-a-ship-underway',
@@ -96,6 +110,13 @@ assert.throws(
   () => requireV1PlayerProjection({ campaignState: { campaign: {} }, v1PlayerProjection: null }),
   (error) => error?.code === 'DIRECTIVE_V1_PLAYER_PROJECTION_REQUIRED'
 );
+assert.throws(
+  () => requireV1PlayerProjection({
+    campaignState: { campaign: {} },
+    v1PlayerProjection: { ...projection, player: undefined }
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_PLAYER_PROJECTION_REQUIRED'
+);
 
 const mission = createV1MissionPanelModel(projection);
 assert.equal(mission.primaryObjectives.length, 1);
@@ -107,6 +128,11 @@ assert.equal(Object.hasOwn(mission, 'percentage'), false, 'V1 mission progress i
 
 const crew = createV1CrewPanelModel(projection);
 assert.equal(crew.people.length, 1);
+assert.deepEqual(crew.player, projection.player);
+assert.throws(
+  () => createV1CrewPanelModel({ ...projection, player: undefined }),
+  (error) => error?.code === 'DIRECTIVE_V1_PLAYER_PROJECTION_REQUIRED'
+);
 assert.deepEqual(crew.commandBearing, {
   balance: 1,
   capacity: 3,

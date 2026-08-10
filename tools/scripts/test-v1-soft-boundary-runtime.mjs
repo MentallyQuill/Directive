@@ -130,12 +130,14 @@ function createHarness({
 } = {}) {
     let campaignState = structuredClone(state);
     let persistCount = 0;
+    const persistDescriptors = [];
     let evaluationCount = 0;
     const gateway = createStateDeltaGateway({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
-        persist: async () => {
+        persist: async (_next, descriptor) => {
             persistCount += 1;
+            persistDescriptors.push(structuredClone(descriptor));
             if (persistConflict) {
                 campaignState = {
                     ...structuredClone(campaignState),
@@ -163,6 +165,7 @@ function createHarness({
         runtime,
         get campaignState() { return campaignState; },
         get persistCount() { return persistCount; },
+        get persistDescriptors() { return structuredClone(persistDescriptors); },
         get evaluationCount() { return evaluationCount; },
     };
 }
@@ -181,6 +184,8 @@ assert.equal(continued.status, 'continued');
 assert.deepEqual(continued.committedRoots, ['storySettlement']);
 assert.equal(continued.reviewToken, null);
 assert.equal(continueHarness.persistCount, 1);
+assert.equal(continueHarness.persistDescriptors[0].source, 'v1EpisodeReviewAuthority');
+assert.doesNotMatch(continueHarness.persistDescriptors[0].source, /shadow/i);
 assert.equal(continueHarness.evaluationCount, 1);
 const continuedEpisode = continueHarness.campaignState.storySettlement.episodes[0];
 assert.equal(continuedEpisode.status, 'open');
