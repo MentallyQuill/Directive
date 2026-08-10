@@ -1,0 +1,750 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-7-a-peace-of-their-own",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-7-a-peace-of-their-own"
+  },
+  "playerText": {
+    "title": "A Peace of Their Own",
+    "summary": "Stabilize the Annex Six occupation, establish a shared basis for action, and produce command arrangements that can hold before the approaching Starfleet task group changes the crisis."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter7.annex-constitutional-crisis",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Compact units occupy Asterion Annex Six and claim regional authority over defense infrastructure, intelligence oversight, reconstruction participation, local hearings, and Compact facilities. Rear Admiral Tolland orders restoration of Federation control and prevention of military-system transfer. Captain Joelle Mercer's task group will arrive in approximately thirty-six hours and may assume tactical control if the situation becomes openly hostile."
+      }
+    },
+    {
+      "id": "fact.chapter7.political-legitimacy-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Kessler entered Annex Six to restrain Holt rather than endorse every hardline demand. Facility personnel and Compact representatives do not share one agenda: several demands have broad democratic support, while other emergency powers have never received public review."
+      }
+    },
+    {
+      "id": "fact.chapter7.mutual-telemetry-manipulation",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Holt has a portable Pale Lantern interface showing manipulated task-group telemetry, while the task group receives similarly manipulated reports from Annex Six. Nightfall can exploit weapons locks, boarding attempts, or communications cutoffs on either side."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter7.crisis-posture",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter7.crisis-posture",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter7.annex-constitutional-crisis" },
+          { "outcomeIs": { "id": "outcome.chapter7.standoff-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit current posture for managing the Annex Six crisis. It may change until the standoff reaches an actual result.",
+        "values": [
+          { "value": "negotiation", "guidance": "Lead with direct negotiation, mediation, or protected political talks." },
+          { "value": "interposition", "guidance": "Interpose the Breckenridge or another neutral barrier to prevent either side escalating." },
+          { "value": "boundedEnforcement", "guidance": "Use limited enforceable restrictions, deterrence, or security action without treating force as automatic settlement." },
+          { "value": "covertIntervention", "guidance": "Use a bounded covert insertion, extraction, or technical intervention." },
+          { "value": "temporaryWithdrawal", "guidance": "Withdraw or delay Starfleet pressure to create political or operational space." },
+          { "value": "responsibleHandoff", "guidance": "Transfer crisis management to a capable named authority or process with explicit custody and safeguards." }
+        ],
+        "exclusions": ["Listening to a demand, discussing options, accepting a meeting, or narrator-assigned conduct does not establish the player's posture."]
+      }
+    },
+    {
+      "id": "policy.chapter7.political-account-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.political-account-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter7.political-legitimacy-account" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, corroborated route that establishes the aggregate political-legitimacy and faction account.",
+        "values": [
+          { "value": "directNegotiation", "guidance": "Negotiation or testimony establishes Kessler's restraining role, internal differences, and the mixed legitimacy of Compact demands." },
+          { "value": "civilianPublicRecords", "guidance": "Civilian testimony, public records, or democratic evidence establishes the same aggregate account." },
+          { "value": "independentLegalReview", "guidance": "An independent mediator, legal review, or corroborating authority establishes the same aggregate account." }
+        ],
+        "exclusions": ["A single demand, one faction label, Kessler's presence, a protest rumor, or unsupported inference does not establish the aggregate account."]
+      }
+    },
+    {
+      "id": "policy.chapter7.political-account-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter7.political-legitimacy-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter7.political-legitimacy-account" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.political-account-route", "equals": "pending" } } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only through the accepted political-legitimacy Duty Report after a completed evidentiary route makes the aggregate account available to the player.",
+        "exclusions": ["A hint, unexplained conclusion, hidden director knowledge, or undelivered report does not make the account player-known."]
+      }
+    },
+    {
+      "id": "policy.chapter7.interface-truth-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.interface-truth-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter7.mutual-telemetry-manipulation" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, corroborated route proving the portable interface and mutual telemetry manipulation account.",
+        "values": [
+          { "value": "sharedLiveTelemetry", "guidance": "Shared live telemetry exposes inconsistent feeds and establishes manipulation affecting both sides." },
+          { "value": "technicalIsolation", "guidance": "Technical isolation, capture, or controlled examination of the interface establishes the wider manipulation account." },
+          { "value": "crossSystemReconstruction", "guidance": "Cross-system reconstruction or independent comparison establishes the wider manipulation account without requiring device custody." }
+        ],
+        "exclusions": ["One suspicious track, destroying or seizing a device without analysis, a forged alert alone, or general distrust does not establish mutual manipulation."]
+      }
+    },
+    {
+      "id": "policy.chapter7.interface-truth-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter7.mutual-telemetry-manipulation",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter7.mutual-telemetry-manipulation" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.interface-truth-route", "equals": "pending" } } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only through the accepted urgent interface Duty Report after a completed technical route makes the mutual manipulation account available to the player.",
+        "exclusions": ["A warning without evidence, hidden director knowledge, or an undelivered technical finding does not make the account player-known."]
+      }
+    },
+    {
+      "id": "policy.chapter7.interface-response",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter7.interface-response",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter7.mutual-telemetry-manipulation" },
+          { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's informed response to the disclosed interface and mutual telemetry problem.",
+        "values": [
+          { "value": "sharedTelemetry", "guidance": "Establish a shared or independently verifiable telemetry picture across the parties." },
+          { "value": "isolateOrCapture", "guidance": "Isolate, capture, or technically contain the interface or affected pathways." },
+          { "value": "publicDisclosure", "guidance": "Disclose the manipulation account publicly or to all material parties." },
+          { "value": "destroyLocalDevice", "guidance": "Destroy or disable the local device while recognizing that this does not prove the wider network ended." },
+          { "value": "boundedSeizure", "guidance": "Use a bounded enforcement action to secure the interface or prevent its immediate use." },
+          { "value": "responsibleHandoff", "guidance": "Transfer the interface response to a capable named authority or joint process with custody preserved." }
+        ],
+        "exclusions": ["A response chosen before the manipulation account is known, a hypothetical option, or narrator-assigned intent is not an informed player decision."]
+      }
+    },
+    {
+      "id": "policy.chapter7.settlement-framework",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter7.settlement-framework",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter7.political-legitimacy-account" },
+          { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record the player's informed concrete settlement framework at a broad level. Preserve exact enforceable terms in Story Settlement rather than inventing a narrower authored solution.",
+        "values": [
+          { "value": "jointInterimCharter", "guidance": "Propose shared interim authority, joint command, or a time-limited charter with meaningful participation." },
+          { "value": "armedStandDown", "guidance": "Propose an enforceable weapons, movement, or mutual-withdrawal stand-down without pretending the constitutional dispute is settled." },
+          { "value": "federationSafeguards", "guidance": "Propose Federation authority with concrete local, legal, review, relief, or representation safeguards." },
+          { "value": "compactAutonomy", "guidance": "Propose recognized Compact control or autonomy with concrete security and accountability safeguards." },
+          { "value": "bilateralCoordination", "guidance": "Propose a bilateral or multi-party operational arrangement without a full charter." },
+          { "value": "referendumOrElection", "guidance": "Propose a referendum, election, or other legitimate public authorization process with interim security terms." },
+          { "value": "temporaryWithdrawal", "guidance": "Propose temporary Starfleet or Compact withdrawal with an enforceable follow-on process." },
+          { "value": "otherConcreteFramework", "guidance": "Use for another concrete, enforceable freeform framework that does not fit the enumerated categories." },
+          { "value": "responsibleHandoff", "guidance": "Transfer settlement authority to a capable named political or legal process with immediate security terms." }
+        ],
+        "exclusions": ["A slogan, vague wish for peace, unaccepted demand, isolated concession, or narrator-assigned policy is not a concrete player framework."]
+      }
+    },
+    {
+      "id": "policy.chapter7.standoff-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.standoff-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual settled security result of the Annex standoff, not an attempted tactic or forecast.",
+        "values": [
+          { "value": "stabilized", "guidance": "Immediate violence is prevented and the standoff reaches a stable enforceable posture." },
+          { "value": "containedWithViolence", "guidance": "Violence occurs but is bounded before wider escalation." },
+          { "value": "openConflict", "guidance": "Sustained or widening armed conflict begins." },
+          { "value": "withdrawnUnresolved", "guidance": "A material party withdraws and immediate contact ends without a stable settlement." },
+          { "value": "handedOff", "guidance": "A capable named authority assumes the unresolved standoff under explicit safeguards." }
+        ],
+        "exclusions": ["A weapons track, threat, order, protest, boarding preparation, or single shot without the settled crisis result is not enough."]
+      }
+    },
+    {
+      "id": "policy.chapter7.civilian-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.civilian-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate civilian safety result of the Annex crisis.",
+        "values": [
+          { "value": "protected", "guidance": "Civilians remain protected without material injury or forced displacement." },
+          { "value": "injuries", "guidance": "Material civilian injuries occur without confirmed deaths." },
+          { "value": "casualties", "guidance": "Civilian deaths or comparable grave casualties occur." },
+          { "value": "displaced", "guidance": "Civilians are materially displaced or shelter access fails without confirmed grave casualties." },
+          { "value": "handedOff", "guidance": "Civilian protection is transferred to a capable named authority with continuity of care." }
+        ],
+        "exclusions": ["A frightened crowd, one rumor, temporary access pressure, or a life-support fault without an aggregate civilian result is not enough."]
+      }
+    },
+    {
+      "id": "policy.chapter7.interface-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual custody and operational disposition of the portable interface and its immediate pathways.",
+        "values": [
+          { "value": "sharedControl", "guidance": "The interface or its actionable feeds enter accountable shared control." },
+          { "value": "isolatedOrCaptured", "guidance": "The interface is isolated or captured under accountable custody." },
+          { "value": "destroyedLocalOnly", "guidance": "The local device is destroyed or disabled without evidence the wider network ended." },
+          { "value": "retainedByHolt", "guidance": "Holt or aligned hardliners retain operational control." },
+          { "value": "escapedNetwork", "guidance": "Custody is lost, the relevant pathways escape containment, or the device's disposition cannot secure the network." },
+          { "value": "handedOff", "guidance": "A capable named authority assumes custody with safeguards and continuity." }
+        ],
+        "exclusions": ["Planning a seizure, locating the device, one disconnected feed, or claiming destruction ended Nightfall is not an actual interface result."]
+      }
+    },
+    {
+      "id": "policy.chapter7.settlement-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.settlement-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual enforceable political and command settlement produced by the story, independently of what the player proposed.",
+        "values": [
+          { "value": "provisionalAccord", "guidance": "A credible interim charter or shared legitimate arrangement is accepted and enforceable." },
+          { "value": "armedStandDown", "guidance": "The immediate armed crisis ends under enforceable deterrence or withdrawal while constitutional issues remain open." },
+          { "value": "federationRestoration", "guidance": "Federation control is actually restored through agreement, pressure, or force." },
+          { "value": "compactControl", "guidance": "Compact control is actually recognized or cannot be prevented." },
+          { "value": "fragmentedAuthority", "guidance": "No coherent authority can sustain the arrangement, but the chapter reaches a bounded failure-forward disposition." },
+          { "value": "openConflict", "guidance": "Armed conflict becomes the governing disposition even if negotiations or a proposed charter also exist." },
+          { "value": "responsibleHandoff", "guidance": "A capable named process assumes the unresolved settlement with immediate safeguards." }
+        ],
+        "exclusions": ["A proposal, concession, speech, arrest, referendum request, seizure, or ceasefire offer alone is not an actual settlement."]
+      }
+    },
+    {
+      "id": "policy.chapter7.annex-control",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.annex-control",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate control of Annex Six and regional defense systems after the crisis disposition.",
+        "values": [
+          { "value": "sharedControl", "guidance": "Annex and defense authority is credibly shared with enforceable controls." },
+          { "value": "federationControl", "guidance": "Starfleet or Federation authority controls the Annex and defense systems." },
+          { "value": "compactControl", "guidance": "Compact authority controls the Annex and defense systems." },
+          { "value": "contested", "guidance": "Control remains materially divided, inaccessible, or contested." },
+          { "value": "neutralized", "guidance": "Relevant military capability is verifiably neutralized pending a later authority decision." },
+          { "value": "handedOff", "guidance": "Control passes to a capable named neutral or successor authority." }
+        ],
+        "exclusions": ["One console, room, platform, weapons lock, or temporary boarding position is not the aggregate control result."]
+      }
+    },
+    {
+      "id": "policy.chapter7.coalition-posture",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter7.coalition-posture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual sustainable posture among Kessler, Holt, Mercer, the Compact, and the approaching task group after the settlement.",
+        "values": [
+          { "value": "jointImplementation", "guidance": "Relevant leaders and forces can credibly implement a shared arrangement." },
+          { "value": "tenseStandDown", "guidance": "The parties sustain a guarded stand-down without shared political implementation." },
+          { "value": "coerciveFederation", "guidance": "Federation force or overwhelming pressure sustains the result while Compact legitimacy or trust fractures." },
+          { "value": "coerciveCompact", "guidance": "Compact force or hardline dominance sustains the result while coalition legitimacy or trust fractures." },
+          { "value": "fragmented", "guidance": "No coalition or command relationship can reliably implement the result." },
+          { "value": "openHostility", "guidance": "The parties remain in active armed hostility." },
+          { "value": "handedOff", "guidance": "A capable named authority assumes implementation with the parties' immediate posture recorded." }
+        ],
+        "exclusions": ["One officer's opinion, a temporary weapons posture, a threat, or a proposed alliance does not establish the sustainable coalition result."]
+      }
+    },
+    {
+      "id": "policy.chapter7.authoritative-time",
+      "claimType": "timeAdvanced",
+      "targetId": "clock.chapter7.task-group-arrival",
+      "sourceRoles": ["runtime", "adjudicator"],
+      "when": { "clockState": { "id": "clock.chapter7.task-group-arrival", "equals": "running" } }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter7.political-legitimacy",
+      "factId": "fact.chapter7.political-legitimacy-account",
+      "evidencePolicyId": "policy.chapter7.political-account-disclosed",
+      "capabilityRoles": ["command", "operations", "counseling"],
+      "preferredActorIds": ["priya-nayar", "miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter7.political-legitimacy-account" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.political-account-route", "equals": "pending" } } },
+          { "not": { "factKnown": "fact.chapter7.political-legitimacy-account" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The political record distinguishes Kessler's attempt to restrain Holt, broadly supported Compact demands, and emergency powers that never received public review."
+      }
+    },
+    {
+      "id": "report.chapter7.interface-manipulation",
+      "factId": "fact.chapter7.mutual-telemetry-manipulation",
+      "evidencePolicyId": "policy.chapter7.interface-truth-disclosed",
+      "capabilityRoles": ["science", "engineering", "operations"],
+      "preferredActorIds": ["rowan-saye", "imani-cross", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter7.mutual-telemetry-manipulation" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.interface-truth-route", "equals": "pending" } } },
+          { "not": { "factKnown": "fact.chapter7.mutual-telemetry-manipulation" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The technical account confirms a portable Pale Lantern interface, manipulated telemetry reaching both sides, and escalation pathways Nightfall can exploit."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.chapter7.task-group-arrived",
+      "playerVisibility": "hidden"
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter7.crisis-posture",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "negotiation", "interposition", "boundedEnforcement", "covertIntervention", "temporaryWithdrawal", "responsibleHandoff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.political-account-route",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "directNegotiation", "civilianPublicRecords", "independentLegalReview"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.interface-truth-route",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "sharedLiveTelemetry", "technicalIsolation", "crossSystemReconstruction"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.interface-response",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "sharedTelemetry", "isolateOrCapture", "publicDisclosure", "destroyLocalDevice", "boundedSeizure", "responsibleHandoff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.settlement-framework",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "jointInterimCharter", "armedStandDown", "federationSafeguards", "compactAutonomy", "bilateralCoordination", "referendumOrElection", "temporaryWithdrawal", "otherConcreteFramework", "responsibleHandoff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.standoff-result",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "stabilized", "containedWithViolence", "openConflict", "withdrawnUnresolved", "handedOff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.civilian-result",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "protected", "injuries", "casualties", "displaced", "handedOff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.interface-result",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "sharedControl", "isolatedOrCaptured", "destroyedLocalOnly", "retainedByHolt", "escapedNetwork", "handedOff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.settlement-result",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "provisionalAccord", "armedStandDown", "federationRestoration", "compactControl", "fragmentedAuthority", "openConflict", "responsibleHandoff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.annex-control",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "sharedControl", "federationControl", "compactControl", "contested", "neutralized", "handedOff"],
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter7.coalition-posture",
+      "initialValue": "pending",
+      "allowedValues": ["pending", "jointImplementation", "tenseStandDown", "coerciveFederation", "coerciveCompact", "fragmented", "openHostility", "handedOff"],
+      "playerVisibility": "hidden"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter7.standoff",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.crisis-posture", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.standoff-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter7.standoff-result", "equals": "stabilized" } },
+              { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "protected" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.standoff-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Stabilize the Annex Six standoff",
+        "summary": "Establish the actual security and civilian result without treating every threat, fault, protest, or tactical move as its own objective.",
+        "terminal": [
+          { "disposition": "completed", "text": "The standoff stabilized with civilians protected." },
+          { "disposition": "completedWithCost", "text": "The standoff reached a bounded result with violence, displacement, withdrawal, or unresolved risk recorded." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter7.shared-truth-interface",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter7.political-legitimacy-account" },
+          { "factKnown": "fact.chapter7.mutual-telemetry-manipulation" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter7.political-legitimacy-account" },
+              { "factKnown": "fact.chapter7.mutual-telemetry-manipulation" },
+              { "outcomeIs": { "id": "outcome.chapter7.interface-result", "in": ["sharedControl", "isolatedOrCaptured"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter7.political-legitimacy-account" },
+              { "factKnown": "fact.chapter7.mutual-telemetry-manipulation" },
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Establish a shared operational picture",
+        "summary": "Determine what each side can legitimately claim and establish trusted control of the systems shaping the crisis.",
+        "terminal": [
+          { "disposition": "completed", "text": "Shared political and technical truth was established with accountable system control." },
+          { "disposition": "completedWithCost", "text": "Shared truth was established while system custody or containment remained limited." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter7.command-settlement",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-framework", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "in": ["provisionalAccord", "armedStandDown"] } },
+              { "outcomeIs": { "id": "outcome.chapter7.annex-control", "in": ["sharedControl", "neutralized"] } },
+              { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "in": ["jointImplementation", "tenseStandDown"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Establish legitimate command arrangements",
+        "summary": "Produce an actual enforceable settlement, Annex and defense-control disposition, and sustainable posture for the approaching task group.",
+        "terminal": [
+          { "disposition": "completed", "text": "A credible shared accord or enforceable stand-down established command arrangements." },
+          { "disposition": "completedWithCost", "text": "The chapter reached a command disposition with coercion, fragmentation, conflict, or responsible handoff recorded." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter7.settlement",
+      "playerText": { "label": "Constitutional settlement" },
+      "derive": [
+        { "value": "provisional-accord", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "provisionalAccord" } } },
+        { "value": "armed-stand-down", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "armedStandDown" } } },
+        { "value": "federation-restoration", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "federationRestoration" } } },
+        { "value": "compact-control", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "compactControl" } } },
+        { "value": "fragmented-authority", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "fragmentedAuthority" } } },
+        { "value": "open-conflict", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "openConflict" } } },
+        { "value": "responsible-handoff", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "responsibleHandoff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter7.annex-defense",
+      "playerText": { "label": "Annex and regional defense" },
+      "derive": [
+        { "value": "shared-control", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "sharedControl" } } },
+        { "value": "federation-control", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "federationControl" } } },
+        { "value": "compact-control", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "compactControl" } } },
+        { "value": "contested", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "contested" } } },
+        { "value": "neutralized", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "neutralized" } } },
+        { "value": "handed-off", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter7.annex-control", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter7.interface-truth",
+      "playerText": { "label": "Interface and shared telemetry" },
+      "derive": [
+        { "value": "shared-control", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "sharedControl" } } },
+        { "value": "isolated-or-captured", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "isolatedOrCaptured" } } },
+        { "value": "destroyed-local-only", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "destroyedLocalOnly" } } },
+        { "value": "retained-by-holt", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "retainedByHolt" } } },
+        { "value": "escaped-network", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "escapedNetwork" } } },
+        { "value": "handed-off", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter7.interface-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter7.civilians-violence",
+      "playerText": { "label": "Civilians and violence" },
+      "derive": [
+        { "value": "protected", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "protected" } } },
+        { "value": "injuries", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "injuries" } } },
+        { "value": "casualties", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "casualties" } } },
+        { "value": "displaced", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "displaced" } } },
+        { "value": "handed-off", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter7.civilian-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter7.coalition",
+      "playerText": { "label": "Coalition and task group" },
+      "derive": [
+        { "value": "joint-implementation", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "jointImplementation" } } },
+        { "value": "tense-stand-down", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "tenseStandDown" } } },
+        { "value": "coercive-federation", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "coerciveFederation" } } },
+        { "value": "coercive-compact", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "coerciveCompact" } } },
+        { "value": "fragmented", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "fragmented" } } },
+        { "value": "open-hostility", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "openHostility" } } },
+        { "value": "handed-off", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "handedOff" } } }
+      ]
+    }
+  ],
+  "clocks": [
+    {
+      "id": "clock.chapter7.task-group-arrival",
+      "unit": "hours",
+      "direction": "down",
+      "initialValue": 36,
+      "startWhen": true,
+      "advanceSources": ["authoritativeStoryTime"],
+      "pauseWhen": false,
+      "resumeWhen": false,
+      "expireWhen": { "clockState": { "id": "clock.chapter7.task-group-arrival", "equals": "expired" } },
+      "resolveWhen": {
+        "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } }
+      },
+      "visibleWhen": { "factKnown": "fact.chapter7.annex-constitutional-crisis" },
+      "consequence": {
+        "effectType": "eventOccurred",
+        "targetId": "event.chapter7.task-group-arrived",
+        "value": true
+      },
+      "playerText": {
+        "label": "Starfleet task-group arrival",
+        "deadline": "Approximately {value} hours until arrival",
+        "consequence": "Captain Mercer's task group will arrive and may assume tactical control if the situation is openly hostile; arrival changes leverage but does not end the mission."
+      }
+    }
+  ],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter7.standoff", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter7.shared-truth-interface", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter7.command-settlement", "in": ["completed", "completedWithCost"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "openConflict",
+      "priority": 700,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter7.standoff-result", "equals": "openConflict" } },
+          { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "openConflict" } },
+          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "openHostility" } }
+        ]
+      },
+      "playerText": { "title": "Open conflict carries forward", "summary": "The Annex crisis becomes armed conflict. The campaign continues with the exact civilian, control, interface, and coalition costs recorded." }
+    },
+    {
+      "id": "federationRestoration",
+      "priority": 600,
+      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "federationRestoration" } },
+      "playerText": { "title": "Federation control is restored", "summary": "Starfleet regains command authority, with the method, civilian cost, and loss or preservation of Compact legitimacy carried forward." }
+    },
+    {
+      "id": "compactControl",
+      "priority": 500,
+      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "compactControl" } },
+      "playerText": { "title": "Compact control holds", "summary": "Compact authority controls the immediate settlement, with Kessler, Holt, security safeguards, and coalition legitimacy recorded rather than assumed." }
+    },
+    {
+      "id": "fragmentedAuthority",
+      "priority": 400,
+      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "fragmentedAuthority" } },
+      "playerText": { "title": "Authority remains fragmented", "summary": "The immediate chapter reaches a bounded disposition without a coherent command settlement, carrying contested control and weak implementation forward." }
+    },
+    {
+      "id": "provisionalAccord",
+      "priority": 300,
+      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "provisionalAccord" } },
+      "playerText": { "title": "A provisional accord takes hold", "summary": "A credible interim arrangement creates legitimate shared action, with its exact terms and remaining risks preserved." }
+    },
+    {
+      "id": "armedStandDown",
+      "priority": 200,
+      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "armedStandDown" } },
+      "playerText": { "title": "The forces stand down", "summary": "Immediate armed escalation is contained under enforceable terms while the constitutional dispute remains unresolved." }
+    },
+    {
+      "id": "responsibleHandoff",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter7.standoff", "in": ["completed", "completedWithCost"] } },
+          { "objectiveDisposition": { "id": "objective.chapter7.shared-truth-interface", "in": ["completed", "completedWithCost"] } },
+          { "objectiveDisposition": { "id": "objective.chapter7.command-settlement", "in": ["completed", "completedWithCost"] } }
+        ]
+      },
+      "playerText": { "title": "A mixed settlement moves forward", "summary": "The chapter closes through responsible handoff or another mixed state with truth, custody, control, and civilian costs explicitly preserved." }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter7.before-lamps-go-out",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "open-orders-3-before-the-lamps-go-out",
+        "playerSafeSetup": "After the Annex settlement, Rowan and Priya identify coordinated tests against evacuation routes, defense controls, Starfleet challenge codes, Compact civil alerts, and Cardassian relief transponders. Repairs, legal consultation, political approval, and distributed command preparation create one final short interval before the next operation."
+      },
+      "mustNarrate": [
+        "Carry forward the exact settlement, Annex/defense, interface/truth, civilian/violence, and coalition/task-group dimensions without reducing them to a binary success label.",
+        "Acknowledge whether the task group arrived before settlement and how that changed leverage, without converting arrival itself into failure.",
+        "Preserve Kessler's, Holt's, and Mercer's actual recorded positions and do not infer agreement, arrest, dominance, or trust from the terminal label alone.",
+        "Establish coordinated Nightfall tests and the need for repair, consultation, approval, and distributed preparation as the reason for a final short interval."
+      ],
+      "mustNotReveal": [
+        "Do not invent charter terms, interface custody, casualties, Annex control, or coalition trust that the V1 outcomes do not record.",
+        "Do not claim destruction or capture of the local interface ended Pale Lantern or Nightfall.",
+        "Do not reveal Chapter 8's exact activation sequence, hidden network behavior, target timing, or an author-expected finale solution.",
+        "Do not frame the Compact as simple rebels, Starfleet restoration as automatic moral success, or Kessler, Holt, and Mercer as single-note obstacles."
+      ]
+    }
+  ]
+}

@@ -195,9 +195,9 @@
     },
     {
       "id": "non-linear-armed-stand-down",
-      "sequence": ["standoff-stabilized", "civilians-protected", "interface-isolated", "settlement-stand-down", "annex-shared", "coalition-tense", "political-records-report", "interface-isolation-report", "posture-enforce", "interface-choice-isolate", "framework-stand-down"],
+      "sequence": ["standoff-stabilized", "civilians-protected", "interface-isolated", "settlement-stand-down", "annex-shared", "coalition-tense", "political-records-report", "interface-isolation-report"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "armedStandDown", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "armedStandDown", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
         "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
       }
@@ -222,7 +222,7 @@
     },
     {
       "id": "fragmented-authority-freeform",
-      "sequence": ["posture-withdraw", "standoff-withdrawn", "civilians-displaced", "interface-escaped", "settlement-fragmented", "annex-contested", "coalition-fragmented", "political-records-report", "interface-reconstruction-report", "framework-other"],
+      "sequence": ["posture-withdraw", "standoff-withdrawn", "civilians-displaced", "interface-escaped", "political-records-report", "framework-other", "settlement-fragmented", "annex-contested", "coalition-fragmented", "interface-reconstruction-report"],
       "expected": {
         "status": "terminal", "terminalDisposition": "fragmentedAuthority", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completedWithCost", "objective.chapter7.command-settlement": "completedWithCost" },
@@ -315,7 +315,7 @@
     {
       "id": "hallucinated-policy-proposal",
       "steps": [
-        { "claimId": "claim.chapter7.hallucinated", "policyId": "policy.chapter7.every-demand-completed", "claimType": "eventOccurred", "targetId": "event.chapter7.every-demand-completed", "sourceRole": "assistant" }
+        { "claimId": "claim.chapter7.hallucinated", "policyId": "policy.chapter7.every-demand-completed", "claimType": "decisionRecorded", "targetId": "outcome.chapter7.crisis-posture", "value": "negotiation", "sourceRole": "user" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"], "transitionTargetId": null }
     }

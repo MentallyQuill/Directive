@@ -89,6 +89,7 @@ const checks = [
   'validate-ashes-v1-chapter-5.mjs',
   'validate-ashes-v1-open-orders-2.mjs',
   'validate-ashes-v1-chapter-6.mjs',
+  'validate-ashes-v1-chapter-7.mjs',
   'test-v1-story-settlement.mjs',
   'test-v1-working-capsule.mjs',
   'test-v1-episode-evaluator.mjs',

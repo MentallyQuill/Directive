@@ -134,15 +134,15 @@ An incidental protest rumor, one forged alert, a light-support fault, a weapons-
 
 ### Task 2: Chapter 7 RED contract
 
-- [ ] Create `tests/fixtures/mission/v1/chapter-7-peace-of-their-own-scenarios.fixture.json`.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-7-mission.mjs` and register it in the alpha gate.
-- [ ] Assert exact package/Chapter 6 identity, empty legacy graph, V1-only Open Orders III target, spoiler-safe opening, three objectives, two reports, five dimensions, one fair clock, alternate truth routes, open proposals, non-linear play, pre-knowledge cost, expiry-without-auto-failure, mixed outcomes, and hostile source/revision cases.
+- [x] Create `tests/fixtures/mission/v1/chapter-7-peace-of-their-own-scenarios.fixture.json`.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-7-mission.mjs` and register it in the alpha gate.
+- [x] Assert exact package/Chapter 6 identity, empty legacy graph, V1-only Open Orders III target, spoiler-safe opening, three objectives, two reports, five dimensions, one fair clock, alternate truth routes, open proposals, non-linear play, pre-knowledge cost, expiry-without-auto-failure, mixed outcomes, and hostile source/revision cases.
 
 ### Task 3: Definition and validator
 
-- [ ] Create `packages/bundled/breckenridge/v1/chapter-7-a-peace-of-their-own.mission-v1.json`.
-- [ ] Add one known opening fact, two discoverable aggregate facts, one task-group-arrival event, three player-owned choices, world-owned routes/results, three required objectives, five dimensions, seven terminal dispositions, and the real thirty-six-hour clock.
-- [ ] Create `tools/scripts/validate-ashes-v1-chapter-7.mjs` and register it in the alpha gate.
+- [x] Create `packages/bundled/breckenridge/v1/chapter-7-a-peace-of-their-own.mission-v1.json`.
+- [x] Add one known opening fact, two discoverable aggregate facts, one task-group-arrival event, three player-owned choices, world-owned routes/results, three required objectives, five dimensions, seven terminal dispositions, and the real thirty-six-hour clock.
+- [x] Create `tools/scripts/validate-ashes-v1-chapter-7.mjs` and register it in the alpha gate.
 
 ### Task 4: Registry, runtime, and journey
 
