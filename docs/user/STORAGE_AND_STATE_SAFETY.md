@@ -12,6 +12,8 @@ SillyTavern maps these keys to user-scoped files whose names begin with `directi
 
 An accepted portrait remains part of the campaign. Replacing or removing a draft portrait, or discarding its draft, removes the superseded user file after the draft change commits. If a draft save fails after a new upload, Directive compensates by removing that unreferenced upload; cleanup failures are reported without rolling back an already-valid draft change.
 
+Campaign acceptance validates the complete first save before changing the draft. If first-save persistence fails, Directive removes the partial save and restores the resumable draft. If host chat binding fails after the first save exists, the campaign remains as an unbound, recoverable V1 save; Directive restores the prior host chat and removes the failed campaign chat before the player retries Continue.
+
 Every save must be `directive.campaignSave.v1`, bind to the exact Ashes package ID/version, contain an exact architecture stamp, and pass the V1 state contract. Directive does not search for, import, upgrade, or infer any other data. An unrecognized file is ignored unless it occupies a required V1 key, in which case initialization fails closed with a clear error.
 
 State commits use a revisioned gateway. The gateway rejects stale proposals and forbidden domains. Persistence writes the save before publishing a successful result. If persistence fails, in-memory rollback occurs only when no concurrent state change has intervened; otherwise Directive reports an indeterminate conflict requiring operator review.

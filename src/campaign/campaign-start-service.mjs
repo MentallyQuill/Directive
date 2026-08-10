@@ -83,27 +83,50 @@ export async function acceptCreatorDraftAndCreateFirstSave({
   const acceptedAt = stamp(now);
   const draft = await loadV1CreatorDraft(adapter, draftId);
   const acceptedDraft = acceptCharacterCreatorDraftRecord(draft, { acceptedAt });
-  await storeV1CreatorDraft(adapter, acceptedDraft);
-
+  const targetCampaignId = required(campaignId, 'campaignId');
+  const targetSaveId = required(saveId, 'saveId');
   const campaignState = createInitialCampaignStateFromCreatorReview({
     packageData,
     missionDefinitions,
     creatorReview: acceptedDraft.acceptedReview,
-    campaignId: required(campaignId, 'campaignId'),
-    saveId: required(saveId, 'saveId'),
+    campaignId: targetCampaignId,
+    saveId: targetSaveId,
     createdAt: acceptedAt,
     simulationMode,
     creatorDraftId: acceptedDraft.id
   });
   assertV1CampaignState(campaignState);
-  const firstSave = await storeV1CampaignSave(adapter, createV1CampaignSave({
-    id: saveId,
+  const firstSaveRecord = createV1CampaignSave({
+    id: targetSaveId,
     name: `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
     slotType: 'active',
     state: campaignState,
     createdAt: acceptedAt
-  }));
-  return { acceptedDraft, campaignState, firstSave };
+  });
+  try {
+    await storeV1CreatorDraft(adapter, acceptedDraft);
+    const firstSave = await storeV1CampaignSave(adapter, firstSaveRecord);
+    return { acceptedDraft, campaignState, firstSave };
+  } catch (error) {
+    const rollbackFailures = [];
+    try {
+      await deleteV1CampaignSave(adapter, targetSaveId, { now: acceptedAt });
+    } catch (cleanupError) {
+      rollbackFailures.push({ target: 'first-save', message: cleanupError?.message || String(cleanupError) });
+    }
+    try {
+      await storeV1CreatorDraft(adapter, draft);
+    } catch (cleanupError) {
+      rollbackFailures.push({ target: 'creator-draft', message: cleanupError?.message || String(cleanupError) });
+    }
+    if (rollbackFailures.length) {
+      error.details = {
+        ...(error.details || {}),
+        campaignStartRollbackFailures: rollbackFailures
+      };
+    }
+    throw error;
+  }
 }
 
 export async function persistActiveCampaign({

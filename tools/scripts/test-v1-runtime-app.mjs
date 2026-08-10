@@ -188,12 +188,50 @@ await app.saveCreatorDraft({
     }
   }
 });
-await app.acceptCreatorDraftAndStartCampaign();
+const chatBeforeFailedCampaignStart = host.chat.getCurrentChatId();
+const updateBindingMetadata = host.chat.updateBindingMetadata;
+host.chat.updateBindingMetadata = async () => {
+  const error = new Error('fake campaign chat metadata failure');
+  error.code = 'FAKE_CAMPAIGN_CHAT_METADATA_FAILED';
+  throw error;
+};
+await assert.rejects(
+  app.acceptCreatorDraftAndStartCampaign(),
+  (error) => error?.code === 'FAKE_CAMPAIGN_CHAT_METADATA_FAILED'
+);
+host.chat.updateBindingMetadata = updateBindingMetadata;
+const recoverableCampaignView = await app.getCurrentView({ tabId: 'campaign' });
+assert.equal(recoverableCampaignView.activeScreen, 'campaign');
+assert.equal(recoverableCampaignView.creator, null);
+assert.equal(recoverableCampaignView.campaignIndex.campaigns.length, 1);
+assert.equal(recoverableCampaignView.campaignState, null);
+assert.equal(host.chat.getCurrentChatId(), chatBeforeFailedCampaignStart);
+assert.equal(chat.calls().some((call) => call.type === 'deleteCampaignChat'), true);
+assert.equal(
+  (await host.storage.readJson(V1_STORAGE_PATHS.save(recoverableCampaignView.activeSaveId))).state.campaignChatBinding?.chatId ?? null,
+  null,
+  'failed host binding must restore the persisted first save to its unbound state'
+);
+await app.openCampaignChat({ saveId: recoverableCampaignView.activeSaveId });
 const missionView = await app.getCurrentView({ tabId: 'mission' });
 assert.equal(missionView.campaignState.campaign.status, 'active');
 assert.equal(missionView.campaignState.campaignChatBinding.kind, 'directive.campaignChatBinding.v1');
 assert.equal(missionView.v1PlayerProjection.kind, 'directive.playerProjection.v1');
 assert.equal(chat.messages().filter((message) => !message.isUser).length, 1);
+const boundCampaignChatId = missionView.campaignState.campaignChatBinding.chatId;
+chat.setCurrentChatId('unbound-open-failure');
+const messagesBeforeOpenFailure = chat.messages().length;
+const openBoundCampaignChat = host.chat.openCampaignChat;
+host.chat.openCampaignChat = async () => false;
+await assert.rejects(
+  app.openCampaignChat({ saveId: missionView.activeSaveId }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHAT_OPEN_FAILED'
+);
+host.chat.openCampaignChat = openBoundCampaignChat;
+assert.equal(chat.getCurrentChatId(), 'unbound-open-failure');
+assert.equal(chat.messages().length, messagesBeforeOpenFailure, 'failed open must not post the campaign opening into another chat');
+await app.openCampaignChat({ saveId: missionView.activeSaveId });
+assert.equal(chat.getCurrentChatId(), boundCampaignChatId);
 const installedPrompt = host.prompt.inspect().blocks[0]?.text || '';
 assert.match(installedPrompt, /"simulationMode": "Command"/);
 assert.match(installedPrompt, /Command mode: preserve full causal consequence severity/);

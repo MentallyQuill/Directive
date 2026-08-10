@@ -17,6 +17,7 @@ import {
 
 function memoryAdapter() {
   const files = new Map();
+  let failWritePrefix = null;
   return {
     async readJson(key) {
       if (!files.has(key)) {
@@ -26,8 +27,17 @@ function memoryAdapter() {
       }
       return structuredClone(files.get(key));
     },
-    async writeJson(key, value) { files.set(key, structuredClone(value)); },
+    async writeJson(key, value) {
+      if (failWritePrefix && String(key).startsWith(failWritePrefix)) {
+        failWritePrefix = null;
+        const error = new Error(`fake write failure: ${key}`);
+        error.code = 'FAKE_WRITE_FAILED';
+        throw error;
+      }
+      files.set(key, structuredClone(value));
+    },
     async deleteJsonFile(key) { files.delete(key); },
+    failNextWriteFor(prefix) { failWritePrefix = String(prefix); },
     snapshot: () => Object.fromEntries(files)
   };
 }
@@ -77,6 +87,24 @@ await saveCharacterCreatorDraftProgress({
   }
 });
 assert.equal((await resumeCharacterCreatorDraft({ adapter, draftId: draft.id })).progress.readyForCampaignStart, true);
+
+adapter.failNextWriteFor('v1/saves/');
+await assert.rejects(
+  acceptCreatorDraftAndCreateFirstSave({
+    adapter,
+    packageData,
+    missionDefinitions: [openingMissionDefinition],
+    draftId: draft.id,
+    campaignId: 'campaign.failed-start',
+    saveId: 'save.failed-start',
+    now: '2026-08-10T01:02:00.000Z'
+  }),
+  (error) => error?.code === 'FAKE_WRITE_FAILED'
+);
+const restoredDraft = await resumeCharacterCreatorDraft({ adapter, draftId: draft.id });
+assert.equal(restoredDraft.status, 'inProgress');
+assert.equal(restoredDraft.progress.readyForCampaignStart, true);
+assert.equal(Object.hasOwn(adapter.snapshot(), V1_STORAGE_PATHS.save('save.failed-start')), false);
 
 const started = await acceptCreatorDraftAndCreateFirstSave({
   adapter,

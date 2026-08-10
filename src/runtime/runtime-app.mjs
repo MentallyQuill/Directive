@@ -450,20 +450,82 @@ export function createDirectiveRuntimeApp({
     return exact;
   }
 
+  async function openExactCampaignChat(binding) {
+    const chatId = required(binding?.chatId, 'binding.chatId');
+    const opened = typeof host.chat.openCampaignChat === 'function'
+      ? await host.chat.openCampaignChat(binding)
+      : false;
+    if (opened === false || compact(host.chat.getCurrentChatId?.()) !== chatId) {
+      const error = new Error(`Directive could not open campaign chat "${chatId}".`);
+      error.code = 'DIRECTIVE_CAMPAIGN_CHAT_OPEN_FAILED';
+      throw error;
+    }
+    return true;
+  }
+
   async function createOrRestoreCampaignChat() {
     const save = activeSave();
     if (!state || !save) throw new Error('No active V1 campaign is available.');
     if (state.campaignChatBinding?.chatId) {
-      await host.chat.openCampaignChat?.(state.campaignChatBinding);
+      await openExactCampaignChat(state.campaignChatBinding);
       return state.campaignChatBinding;
     }
-    const binding = await host.chat.createOrBindCampaignChat({
-      campaignId: state.campaign.id,
-      saveId: save.id,
-      name: `${state.campaign.title} - ${state.player.name}`,
-      createNew: true
+    const previousState = clone(state);
+    const previousSave = clone(save);
+    const previousChat = clone(host.chat.getCurrentBinding?.() || {
+      chatId: compact(host.chat.getCurrentChatId?.()) || null
     });
-    return commitBinding(binding);
+    let binding = null;
+    try {
+      binding = await host.chat.createOrBindCampaignChat({
+        campaignId: state.campaign.id,
+        saveId: save.id,
+        name: `${state.campaign.title} - ${state.player.name}`,
+        createNew: true
+      });
+      const exactBinding = await commitBinding(binding, { updateHostMetadata: false });
+      await openExactCampaignChat(exactBinding);
+      await host.chat.updateBindingMetadata?.(exactBinding);
+      return exactBinding;
+    } catch (error) {
+      try {
+        const restored = await controller.persistActiveCampaign({
+          campaignState: previousState,
+          saveId: previousSave.id,
+          name: previousSave.name
+        });
+        setState(restored.state);
+        configureStateRuntime();
+      } catch (rollbackError) {
+        host.logger?.warn?.('[Directive] Could not restore the unbound campaign after chat binding failed.', rollbackError);
+      }
+      if (previousChat?.chatId && compact(host.chat.getCurrentChatId?.()) !== previousChat.chatId) {
+        try {
+          await host.chat.open?.(previousChat);
+        } catch (rollbackError) {
+          host.logger?.warn?.('[Directive] Could not reopen the previous host chat after campaign binding failed.', rollbackError);
+        }
+      }
+      if (binding?.createdByDirective === true
+        && binding.chatId
+        && binding.chatId !== previousChat?.chatId
+        && typeof host.chat.deleteCampaignChat === 'function') {
+        try {
+          const cleanup = await host.chat.deleteCampaignChat(binding);
+          if (cleanup?.deleted !== true) {
+            host.logger?.warn?.('[Directive] Could not remove a failed campaign chat.', cleanup);
+          }
+        } catch (cleanupError) {
+          host.logger?.warn?.('[Directive] Could not remove a failed campaign chat.', cleanupError);
+        }
+      }
+      try {
+        await syncPrompt({ rebuild: true });
+      } catch (rollbackError) {
+        host.logger?.warn?.('[Directive] Could not restore prompt state after campaign binding failed.', rollbackError);
+      }
+      throw error;
+    }
   }
 
   async function postOpeningIfEmpty() {
@@ -897,10 +959,10 @@ export function createDirectiveRuntimeApp({
       const result = await controller.acceptCreatorDraftAndStartCampaign({ draftId: activeDraftId, simulationMode });
       setState(result.campaignState);
       configureStateRuntime();
-      await createOrRestoreCampaignChat();
       activeScreen = 'campaign';
       creatorView = null;
       activeDraftId = null;
+      await createOrRestoreCampaignChat();
       await syncPrompt({ rebuild: true });
       const opening = await postOpeningIfEmpty();
       return { result: clone(result), opening: clone(opening), view: await campaignViewEnvelope('mission') };
@@ -913,7 +975,6 @@ export function createDirectiveRuntimeApp({
         configureStateRuntime();
       }
       const binding = await createOrRestoreCampaignChat();
-      await host.chat.openCampaignChat?.(binding);
       await syncPrompt({ rebuild: true });
       await postOpeningIfEmpty();
       return { ok: true, binding: clone(binding), view: await campaignViewEnvelope('mission') };
