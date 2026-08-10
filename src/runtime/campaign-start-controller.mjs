@@ -378,10 +378,14 @@ export function createCampaignStartController({
       if (id === activeSave?.id) throw new Error('The active V1 timeline cannot be deleted while it is open.');
       const save = await loadV1CampaignSave(adapter, id);
       const deletion = await deleteV1CampaignSave(adapter, id, { now: currentTime() });
+      const campaignChatBinding = clone(save.state?.campaignChatBinding || null);
       return {
         ...deletion,
         slotType: save.slotType,
-        campaignChatBinding: clone(save.state?.campaignChatBinding || null)
+        campaignChatBinding,
+        checkpointChatIsDistinct: save.slotType === 'checkpoint'
+          && Boolean(campaignChatBinding?.chatId)
+          && campaignChatBinding.chatId !== activeState?.campaignChatBinding?.chatId
       };
     },
 

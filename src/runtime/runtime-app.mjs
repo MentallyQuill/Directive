@@ -398,7 +398,7 @@ export function createDirectiveRuntimeApp({
     if (!initialized) await publicApi.initialize();
   }
 
-  async function commitBinding(binding) {
+  async function commitBinding(binding, { updateHostMetadata = true } = {}) {
     const exact = {
       kind: 'directive.campaignChatBinding.v1',
       version: 1,
@@ -424,7 +424,7 @@ export function createDirectiveRuntimeApp({
       source: 'v1CampaignStart'
     });
     setState(committed.campaignState);
-    await host.chat.updateBindingMetadata?.(exact);
+    if (updateHostMetadata) await host.chat.updateBindingMetadata?.(exact);
     return exact;
   }
 
@@ -885,10 +885,22 @@ export function createDirectiveRuntimeApp({
 
     async saveGame({ name } = {}) {
       await ensureInitialized();
+      const sourceChatId = compact(state?.campaignChatBinding?.chatId);
+      if (!sourceChatId) {
+        const error = new Error('Directive cannot create a checkpoint without an exact bound campaign chat.');
+        error.code = 'DIRECTIVE_CHECKPOINT_CHAT_REQUIRED';
+        throw error;
+      }
+      if (typeof host.chat.cloneCampaignChat !== 'function') {
+        const error = new Error('The host cannot clone the active campaign chat for a Directive checkpoint.');
+        error.code = 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE';
+        throw error;
+      }
       let checkpoint = await controller.createCheckpoint({ name });
-      if (typeof host.chat.cloneCampaignChat === 'function' && state?.campaignChatBinding?.chatId) {
-        const checkpointBinding = await host.chat.cloneCampaignChat({
-          sourceChatId: state.campaignChatBinding.chatId,
+      let checkpointBinding = null;
+      try {
+        checkpointBinding = await host.chat.cloneCampaignChat({
+          sourceChatId,
           targetName: `${state.campaign.title} - ${name}`,
           open: false,
           campaignId: state.campaign.id,
@@ -899,28 +911,89 @@ export function createDirectiveRuntimeApp({
           checkpointId: checkpoint.id,
           binding: checkpointBinding
         });
+      } catch (error) {
+        if (checkpointBinding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
+          try {
+            await host.chat.deleteCampaignChat(checkpointBinding);
+          } catch (cleanupError) {
+            host.logger?.warn?.('[Directive] Could not remove a failed checkpoint chat.', cleanupError);
+          }
+        }
+        try {
+          await controller.deleteSave({ checkpointId: checkpoint.id });
+        } catch (cleanupError) {
+          host.logger?.warn?.('[Directive] Could not remove a failed checkpoint save.', cleanupError);
+        }
+        throw error;
       }
       return { checkpoint: clone(checkpoint), view: await campaignViewEnvelope('campaign') };
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
       await ensureInitialized();
+      const previousSave = activeSave();
+      const previousState = clone(state);
       const loaded = await controller.loadCheckpoint({ checkpointId });
       const timeline = loaded.timeline;
       setState(timeline.state);
       configureStateRuntime();
-      if (loaded.checkpoint.state?.campaignChatBinding?.chatId && typeof host.chat.cloneCampaignChat === 'function') {
-        const binding = await host.chat.cloneCampaignChat({
-          sourceChatId: loaded.checkpoint.state.campaignChatBinding.chatId,
+      let continuationBinding = null;
+      try {
+        const sourceChatId = compact(loaded.checkpoint.state?.campaignChatBinding?.chatId);
+        if (!sourceChatId) {
+          const error = new Error('Directive rejects a checkpoint without its exact cloned chat binding.');
+          error.code = 'DIRECTIVE_CHECKPOINT_CHAT_REQUIRED';
+          throw error;
+        }
+        if (typeof host.chat.cloneCampaignChat !== 'function') {
+          const error = new Error('The host cannot clone the checkpoint chat into a playable continuation.');
+          error.code = 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE';
+          throw error;
+        }
+        continuationBinding = await host.chat.cloneCampaignChat({
+          sourceChatId,
           targetName: `${state.campaign.title} - ${loaded.checkpoint.name} continuation`,
-          open: true,
+          open: false,
           campaignId: state.campaign.id,
           saveId: timeline.id,
           sourceBinding: loaded.checkpoint.state.campaignChatBinding
         });
-        await commitBinding(binding);
-      } else {
-        await createOrRestoreCampaignChat();
+        const exactBinding = await commitBinding(continuationBinding, { updateHostMetadata: false });
+        const opened = typeof host.chat.openCampaignChat === 'function'
+          ? await host.chat.openCampaignChat(exactBinding)
+          : false;
+        if (opened === false || compact(host.chat.getCurrentChatId?.()) !== exactBinding.chatId) {
+          const error = new Error('Directive could not open the checkpoint continuation chat.');
+          error.code = 'DIRECTIVE_CHECKPOINT_CONTINUATION_OPEN_FAILED';
+          throw error;
+        }
+        await host.chat.updateBindingMetadata?.(exactBinding);
+      } catch (error) {
+        if (previousSave && previousState) {
+          try {
+            const restored = await controller.persistActiveCampaign({
+              campaignState: previousState,
+              saveId: previousSave.id,
+              name: previousSave.name
+            });
+            setState(restored.state);
+            configureStateRuntime();
+            if (previousState.campaignChatBinding?.chatId) {
+              await host.chat.openCampaignChat?.(previousState.campaignChatBinding);
+            }
+            await syncPrompt({ rebuild: true });
+          } catch (rollbackError) {
+            host.logger?.warn?.('[Directive] Could not restore the active timeline after checkpoint load failed.', rollbackError);
+          }
+        }
+        if (continuationBinding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
+          try {
+            await host.chat.deleteCampaignChat(continuationBinding);
+          } catch (cleanupError) {
+            host.logger?.warn?.('[Directive] Could not remove a failed checkpoint continuation chat.', cleanupError);
+          }
+        }
+        throw error;
       }
       await syncPrompt({ rebuild: true });
       await postOpeningIfEmpty();
@@ -930,7 +1003,7 @@ export function createDirectiveRuntimeApp({
     async deleteSave(options = {}) {
       await ensureInitialized();
       const result = await controller.deleteSave(options);
-      const binding = result.slotType === 'checkpoint' ? result.campaignChatBinding : null;
+      const binding = result.checkpointChatIsDistinct === true ? result.campaignChatBinding : null;
       let chatCleanup = { attempted: false, deleted: false, reason: 'no-checkpoint-chat' };
       if (binding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
         try {

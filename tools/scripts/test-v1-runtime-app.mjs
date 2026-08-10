@@ -68,7 +68,7 @@ let app = createDirectiveRuntimeApp({
   host,
   packageLoader: async () => structuredClone(records),
   idFactory: (prefix) => `${prefix}.${++nextId}`,
-  now: () => `2026-08-10T03:${String(nextMinute++).padStart(2, '0')}:00.000Z`
+  now: () => new Date(Date.parse('2026-08-10T03:00:00.000Z') + (nextMinute++ * 60_000)).toISOString()
 });
 
 const initial = await app.initialize();
@@ -132,7 +132,7 @@ app = createDirectiveRuntimeApp({
   host,
   packageLoader: async () => structuredClone(records),
   idFactory: (prefix) => `${prefix}.${++nextId}`,
-  now: () => `2026-08-10T03:${String(nextMinute++).padStart(2, '0')}:00.000Z`
+  now: () => new Date(Date.parse('2026-08-10T03:00:00.000Z') + (nextMinute++ * 60_000)).toISOString()
 });
 await app.initialize();
 
@@ -232,5 +232,62 @@ assert.deepEqual(cleanupFailureDeletion.chatCleanup, {
   errorCode: 'FAKE_CHAT_DELETE_FAILED',
   message: 'fake checkpoint chat deletion failure'
 });
+
+const cloneCampaignChat = host.chat.cloneCampaignChat;
+host.chat.cloneCampaignChat = async () => {
+  const error = new Error('fake checkpoint clone failure');
+  error.code = 'FAKE_CHAT_CLONE_FAILED';
+  throw error;
+};
+await assert.rejects(
+  app.saveGame({ name: 'Must not survive clone failure' }),
+  (error) => error?.code === 'FAKE_CHAT_CLONE_FAILED'
+);
+host.chat.cloneCampaignChat = cloneCampaignChat;
+assert.equal(
+  (await app.getCurrentView({ tabId: 'campaign' })).campaignIndex.campaigns[0].checkpoints.length,
+  0,
+  'a checkpoint without an exact cloned chat must be removed'
+);
+host.chat.cloneCampaignChat = undefined;
+await assert.rejects(
+  app.saveGame({ name: 'No clone fallback' }),
+  (error) => error?.code === 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE'
+);
+host.chat.cloneCampaignChat = cloneCampaignChat;
+assert.equal(
+  (await app.getCurrentView({ tabId: 'campaign' })).campaignIndex.campaigns[0].checkpoints.length,
+  0,
+  'V1 must not create a state-only checkpoint when host chat cloning is unavailable'
+);
+
+const restoreFailureCheckpoint = await app.saveGame({ name: 'Restore failure checkpoint' });
+const mutationBeforeFailedRestore = await app.reserveCommandBearingEdge();
+assert.equal(mutationBeforeFailedRestore.applied, true);
+const stateBeforeFailedRestore = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
+const openCampaignChat = host.chat.openCampaignChat;
+host.chat.openCampaignChat = async () => false;
+await assert.rejects(
+  app.loadCheckpoint({ checkpointId: restoreFailureCheckpoint.checkpoint.id }),
+  (error) => error?.code === 'DIRECTIVE_CHECKPOINT_CONTINUATION_OPEN_FAILED'
+);
+host.chat.openCampaignChat = openCampaignChat;
+assert.deepEqual(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState,
+  stateBeforeFailedRestore,
+  'a failed continuation activation must restore the pre-load active timeline'
+);
+const failedContinuationClone = [...chat.calls()].reverse().find((call) => (
+  call.type === 'cloneCampaignChat'
+  && call.sourceChatId === restoreFailureCheckpoint.checkpoint.state.campaignChatBinding.chatId
+));
+assert.equal(failedContinuationClone.options.open, false);
+assert.equal(
+  chat.calls().some((call) => call.type === 'deleteCampaignChat' && call.chatId === failedContinuationClone.branchChatId),
+  true,
+  'a continuation that cannot be opened must be removed after rollback'
+);
+await app.cancelCommandBearingEdge();
+await app.deleteSave({ checkpointId: restoreFailureCheckpoint.checkpoint.id });
 
 console.log('PASS V1 runtime app');
