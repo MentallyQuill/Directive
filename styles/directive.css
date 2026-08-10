@@ -3389,3 +3389,87 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-detail-actions,
   .directive-expanded-shell .campaign-saves { margin-right: 12px; margin-left: 16px; }
 }
+
+/* Certified Mission collection/detail journal. */
+.directive-expanded-shell .directive-expanded-mission {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(210px, .56fr) minmax(0, 1.44fr);
+  gap: 12px;
+  min-height: 0;
+  margin: 11px 0;
+}
+
+.directive-expanded-shell .mission-index-panel,
+.directive-expanded-shell .mission-detail {
+  min-width: 0;
+  min-height: 0;
+  background: var(--directive-expanded-surface);
+  border-radius: 6px;
+}
+
+.directive-expanded-shell .mission-index-head {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  color: var(--directive-expanded-lilac);
+  border-bottom: 1px solid rgba(183, 138, 215, .3);
+  font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+.directive-expanded-shell .mission-index-head span { font-size: 9px; font-weight: 800; }
+.directive-expanded-shell .mission-index-head h2 { margin: 0; color: var(--directive-expanded-text); font-size: 20px; line-height: 1.05; }
+
+.directive-expanded-shell .mission-row {
+  display: grid;
+  gap: 5px;
+  padding: 13px 12px 15px;
+  border-bottom: 1px solid rgba(248, 239, 224, .08);
+}
+.directive-expanded-shell .mission-row.active { background: linear-gradient(90deg, rgba(183, 138, 215, .2), rgba(13, 16, 24, .95)); box-shadow: inset 5px 0 0 var(--directive-expanded-lilac); }
+.directive-expanded-shell .mission-row-state { color: var(--directive-expanded-lilac); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .mission-row strong { color: var(--directive-expanded-text); font: 800 16px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .mission-row p { margin: 0; color: var(--directive-expanded-muted); font-size: 11px; line-height: 1.4; }
+
+.directive-expanded-shell .mission-detail { padding-bottom: 18px; box-shadow: inset 8px 0 0 var(--directive-expanded-lilac); }
+.directive-expanded-shell .mission-hero { padding: 19px 22px 17px 27px; background: var(--directive-expanded-high); border-bottom: 1px solid rgba(183, 138, 215, .24); }
+.directive-expanded-shell .mission-status { color: var(--directive-expanded-lilac); font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .mission-hero h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 27px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .mission-hero p { margin: 7px 0 0; color: var(--directive-expanded-muted); font-size: 13px; line-height: 1.45; }
+
+.directive-expanded-shell .mission-detail-section,
+.directive-expanded-shell .mission-terminal { margin: 15px 20px 0 27px; }
+.directive-expanded-shell .mission-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.directive-expanded-shell .mission-detail-section h3,
+.directive-expanded-shell .mission-terminal h3 { margin: 0; color: var(--directive-expanded-lilac); font: 800 13px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .mission-section-heading span { color: var(--directive-expanded-muted); font-size: 9px; }
+.directive-expanded-shell .mission-objective-list { display: grid; gap: 7px; margin-top: 8px; }
+.directive-expanded-shell .mission-objective-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 11px 12px; background: var(--directive-expanded-high); border-left: 4px solid var(--directive-expanded-gold); border-radius: 4px; }
+.directive-expanded-shell .mission-objective-marker { color: var(--directive-expanded-gold); }
+.directive-expanded-shell .mission-objective-copy strong { color: var(--directive-expanded-text); font-size: 13px; }
+.directive-expanded-shell .mission-objective-copy p { margin: 4px 0 0; color: var(--directive-expanded-muted); font-size: 11px; line-height: 1.4; }
+.directive-expanded-shell .mission-objective-status { color: var(--directive-expanded-gold); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .mission-objective-row.is-resolved { opacity: .55; border-left-color: var(--directive-expanded-lilac); }
+.directive-expanded-shell .mission-objective-row.is-resolved strong { text-decoration: line-through; }
+
+.directive-expanded-shell .mission-clock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.directive-expanded-shell .mission-clock { display: grid; gap: 3px; padding: 10px; background: var(--directive-expanded-high); border-top: 3px solid var(--directive-expanded-salmon); }
+.directive-expanded-shell .mission-clock span { color: var(--directive-expanded-salmon); font-weight: 800; }
+.directive-expanded-shell .mission-clock p { margin: 0; color: var(--directive-expanded-muted); font-size: 10px; }
+.directive-expanded-shell .mission-information-list { display: grid; gap: 5px; margin: 8px 0 0; padding-left: 18px; color: var(--directive-expanded-text); font-size: 11px; line-height: 1.4; }
+.directive-expanded-shell .mission-terminal { padding: 12px; background: rgba(183, 138, 215, .1); border: 1px solid rgba(183, 138, 215, .28); }
+.directive-expanded-shell .mission-terminal > span { color: var(--directive-expanded-lilac); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .mission-terminal p { margin: 5px 0 0; color: var(--directive-expanded-muted); }
+
+@media (max-width: 640px) {
+  .directive-expanded-shell .directive-expanded-mission { grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 7px 0; }
+  .directive-expanded-shell .mission-collection { max-height: 28%; }
+  .directive-expanded-shell .mission-row p { display: none; }
+  .directive-expanded-shell .mission-hero { padding: 14px 14px 13px 18px; }
+  .directive-expanded-shell .mission-hero h2 { font-size: 23px; }
+  .directive-expanded-shell .mission-detail-section,
+  .directive-expanded-shell .mission-terminal { margin-right: 12px; margin-left: 18px; }
+  .directive-expanded-shell .mission-objective-row { grid-template-columns: 16px minmax(0, 1fr); }
+  .directive-expanded-shell .mission-objective-status { grid-column: 2; }
+  .directive-expanded-shell .mission-clock-grid { grid-template-columns: minmax(0, 1fr); }
+}
