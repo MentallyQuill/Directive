@@ -124,6 +124,29 @@
     ],
     "interface-lost-result": [
       { "claimId": "claim.chapter4.interface-lost-result", "policyId": "policy.chapter4.interface-lost-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "lostOrSeized", "sourceRole": "assistant" }
+    ],
+    "marr-jurisdiction-goal": [
+      { "claimId": "claim.chapter4.marr-position-heard", "policyId": "policy.chapter4.marr-position-heard", "claimType": "eventOccurred", "targetId": "event.chapter4.marr-position-heard", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.marr-jurisdiction-goal", "policyId": "policy.chapter4.marr-jurisdiction-goal", "claimType": "factDisclosed", "targetId": "fact.chapter4.marr-jurisdiction-goal", "sourceRole": "assistant" }
+    ],
+    "solenn-accountability-goal": [
+      { "claimId": "claim.chapter4.solenn-position-heard", "policyId": "policy.chapter4.solenn-position-heard", "claimType": "eventOccurred", "targetId": "event.chapter4.solenn-position-heard", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.solenn-accountability-goal", "policyId": "policy.chapter4.solenn-accountability-goal", "claimType": "factDisclosed", "targetId": "fact.chapter4.solenn-accountability-goal", "sourceRole": "assistant" }
+    ],
+    "tamas-rell-testimony": [
+      { "claimId": "claim.chapter4.tamas-testified", "policyId": "policy.chapter4.tamas-testified", "claimType": "eventOccurred", "targetId": "event.chapter4.tamas-rell-testified", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.tamas-beneficiary-account", "policyId": "policy.chapter4.tamas-beneficiary-account", "claimType": "factDisclosed", "targetId": "fact.chapter4.tamas-rell-beneficiary-account", "sourceRole": "assistant" }
+    ],
+    "jo-meran-testimony": [
+      { "claimId": "claim.chapter4.jo-testified", "policyId": "policy.chapter4.jo-testified", "claimType": "eventOccurred", "targetId": "event.chapter4.jo-meran-testified", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.jo-harmed-account", "policyId": "policy.chapter4.jo-harmed-account", "claimType": "factDisclosed", "targetId": "fact.chapter4.jo-meran-harmed-account", "sourceRole": "assistant" }
+    ],
+    "seizure-witness-silence": [
+      { "claimId": "claim.chapter4.seizure-witness-silence", "policyId": "policy.chapter4.seizure-witness-silence", "claimType": "eventOccurred", "targetId": "event.chapter4.local-witnesses-withheld", "sourceRole": "assistant" }
+    ],
+    "covert-trust-cost": [
+      { "claimId": "claim.chapter4.covert-trust-breach", "policyId": "policy.chapter4.covert-trust-breach", "claimType": "eventOccurred", "targetId": "event.chapter4.covert-trust-breach-recorded", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.covert-trust-cost", "policyId": "policy.chapter4.covert-trust-cost", "claimType": "factDisclosed", "targetId": "fact.chapter4.covert-trust-cost", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
@@ -279,6 +302,56 @@
         { "claimId": "claim.chapter4.invented-controller", "policyId": "policy.chapter4.holt-controls-network", "claimType": "factDisclosed", "targetId": "fact.chapter4.continuing-access-and-orison-route", "sourceRole": "assistant" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    },
+    {
+      "id": "local-process-beneficiary-testifies",
+      "sequence": ["process-local-choice", "process-local-result", "marr-jurisdiction-goal", "tamas-rell-testimony", "history-evidence", "solenn-evidence", "access-evidence", "route-direct", "solenn-local-choice", "interface-local-choice", "solenn-local-result", "interface-local-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "lawfulLocalResolution", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completed", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.process": "local-protected", "dimension.chapter4.evidence": "direct-inquiry", "dimension.chapter4.solenn": "local-proceedings", "dimension.chapter4.interface": "local-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "shared-inquiry-harmed-witness-testifies",
+      "sequence": ["process-joint-choice", "process-joint-result", "marr-jurisdiction-goal", "solenn-accountability-goal", "jo-meran-testimony", "history-evidence", "solenn-evidence", "access-evidence", "route-direct", "solenn-restorative-choice", "interface-shared-choice", "solenn-restorative-result", "interface-shared-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "sharedAccountability", "acceptedClaimCount": 19, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completed", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.process": "joint-public", "dimension.chapter4.evidence": "direct-inquiry", "dimension.chapter4.solenn": "restorative-process", "dimension.chapter4.interface": "shared-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "starfleet-seizure-witness-silence",
+      "sequence": ["process-compel-choice", "process-seizure-result", "seizure-witness-silence", "history-evidence", "solenn-evidence", "access-evidence", "route-mixed", "solenn-starfleet-choice", "interface-starfleet-choice", "solenn-starfleet-result", "interface-starfleet-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "starfleetControlAtCost", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completedWithCost", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter4.process": "starfleet-seizure", "dimension.chapter4.evidence": "mixed-corroboration", "dimension.chapter4.solenn": "starfleet-custody", "dimension.chapter4.interface": "starfleet-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "solenn-cooperates-interface-local",
+      "sequence": ["process-local-choice", "process-local-result", "solenn-accountability-goal", "history-evidence", "solenn-evidence", "access-evidence", "route-mixed", "solenn-protection-choice", "interface-local-choice", "solenn-cooperative-result", "interface-local-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "lawfulLocalResolution", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.process": "local-protected", "dimension.chapter4.evidence": "mixed-corroboration", "dimension.chapter4.solenn": "cooperative-protection", "dimension.chapter4.interface": "local-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "covert-route-evidence-with-trust-cost",
+      "sequence": ["process-covert-choice", "process-covert-result", "covert-trust-cost", "solenn-evidence", "access-evidence", "history-evidence", "route-mixed", "solenn-immunity-choice", "interface-destroy-record-choice", "solenn-cooperative-result", "interface-destroy-record-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "covertTruthAtCost", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completedWithCost", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter4.process": "covert-exposed", "dimension.chapter4.evidence": "mixed-corroboration", "dimension.chapter4.solenn": "cooperative-protection", "dimension.chapter4.interface": "destroyed-with-record" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
     }
   ]
 }

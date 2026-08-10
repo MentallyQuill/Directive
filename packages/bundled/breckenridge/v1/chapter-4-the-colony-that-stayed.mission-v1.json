@@ -44,6 +44,46 @@
       "playerText": {
         "summary": "Solenn later shared limited access with Compact Security, another access device exists, and a request for an Orison response scenario provides the next lead without proving that Solenn or the Compact controls the wider network."
       }
+    },
+    {
+      "id": "fact.chapter4.marr-jurisdiction-goal",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Governor Leona Marr's priority is to preserve Demeris jurisdiction and place its wartime survival record where neither Starfleet nor local officials can quietly erase it; she accepts bounded outside review but not ceremonial consultation."
+      }
+    },
+    {
+      "id": "fact.chapter4.solenn-accountability-goal",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Mira Solenn wants the remaining interface prevented from harming anyone else and will cooperate technically, but refuses a record that hides either the lives she saved or the deaths and displacement linked to her later choices."
+      }
+    },
+    {
+      "id": "fact.chapter4.tamas-rell-beneficiary-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Tamas Rell's family reached Demeris because Solenn falsified a clearance after their assigned evacuation transport failed to return; he will testify under a Demeris-led protected process and accepts that survival does not excuse every later use."
+      }
+    },
+    {
+      "id": "fact.chapter4.jo-meran-harmed-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Dock coordinator Jo Meran documented that the same forged-clearance method displaced another evacuation group and contributed to a detention in which two people died; she will testify before a joint inquiry with enforceable witness protections."
+      }
+    },
+    {
+      "id": "fact.chapter4.covert-trust-cost",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The exposed covert recovery preserved usable records but confirmed Demeris fears that Starfleet would bypass consent, narrowing voluntary testimony and making every later custody agreement harder to sustain."
+      }
     }
   ],
   "evidencePolicies": [
@@ -190,6 +230,168 @@
           { "value": "processCollapsed", "guidance": "No credible process remains under the attempted posture, and the resulting fracture is recorded." }
         ],
         "exclusions": ["Tension, protest, disagreement, a threat, or a temporary adjournment is not process collapse."]
+      }
+    },
+    {
+      "id": "policy.chapter4.marr-position-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.marr-position-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Governor Marr personally states the jurisdictional and historical terms she is trying to protect within the process that actually formed.",
+        "exclusions": ["Demeris's refusal, a staff summary, or an assumption that Marr only wants local control is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.marr-jurisdiction-goal",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.marr-jurisdiction-goal",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.marr-jurisdiction-goal" },
+          { "eventOccurred": "event.chapter4.marr-position-heard" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Marr is protecting both Demeris jurisdiction and an externally durable survival record, including her willingness to accept bounded outside review.",
+        "exclusions": ["Do not reduce her goal to shielding Solenn, rejecting Starfleet, or controlling the narrative."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-position-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.solenn-position-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.chapter4.process-result",
+          "in": ["jointPublicInquiry", "localProtectedInquiry", "covertRecoveryExposed"]
+        }
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Mira Solenn speaks for herself about technical cooperation, preventing further harm, and preserving the complete moral record of her use.",
+        "exclusions": ["Marr's position, a lawyer's terms, or records of Solenn's past conduct do not establish Solenn's present goal."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-accountability-goal",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.solenn-accountability-goal",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.solenn-accountability-goal" },
+          { "eventOccurred": "event.chapter4.solenn-position-heard" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Solenn's separate goal: disable future harm, cooperate technically, and preserve both benefit and culpable harm in the record.",
+        "exclusions": ["Do not imply Solenn accepts Marr's preferred process, demands immunity, or denies responsibility unless she says so in play."]
+      }
+    },
+    {
+      "id": "policy.chapter4.tamas-testified",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.tamas-rell-testified",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "localProtectedInquiry" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Tamas Rell voluntarily gives his family's account within a functioning Demeris-led protected inquiry.",
+        "exclusions": ["A secondhand account, compelled interview, anonymous summary, or testimony under a different process is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.tamas-beneficiary-account",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.tamas-rell-beneficiary-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.tamas-rell-beneficiary-account" },
+          { "eventOccurred": "event.chapter4.tamas-rell-testified" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded beneficiary account: Solenn's false clearance saved Rell's family after their evacuation failed, and Rell does not treat that fact as a blanket excuse.",
+        "exclusions": ["Do not generalize one saved family into proof that every forged clearance was justified."]
+      }
+    },
+    {
+      "id": "policy.chapter4.jo-testified",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.jo-meran-testified",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "jointPublicInquiry" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Jo Meran voluntarily testifies within a functioning joint inquiry whose witness protections let her name the displaced group and challenge all participating authorities.",
+        "exclusions": ["A leaked manifest, an interview without protections, or another official paraphrasing Meran is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.jo-harmed-account",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.jo-meran-harmed-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.jo-meran-harmed-account" },
+          { "eventOccurred": "event.chapter4.jo-meran-testified" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Meran's bounded harmed-witness account linking the forged-clearance method to displacement and the detention deaths.",
+        "exclusions": ["Do not claim Solenn intended the deaths or that Meran can establish the wider Pale Lantern control chain."]
+      }
+    },
+    {
+      "id": "policy.chapter4.seizure-witness-silence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.local-witnesses-withheld",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "starfleetSeizure" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when local witnesses including Rell and Meran withhold voluntary testimony because Starfleet has taken controlling authority, leaving records or compelled evidence as the remaining route.",
+        "exclusions": ["A delay, request for counsel, or one unavailable witness is not aggregate local witness silence."]
+      }
+    },
+    {
+      "id": "policy.chapter4.covert-trust-breach",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.covert-trust-breach-recorded",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "covertRecoveryExposed" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when the exposed covert recovery produces a concrete trust consequence in witness participation, evidence access, or later custody terms.",
+        "exclusions": ["General local anger, mere suspicion, or an undiscovered covert action is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.covert-trust-cost",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.covert-trust-cost",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.covert-trust-cost" },
+          { "eventOccurred": "event.chapter4.covert-trust-breach-recorded" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose both sides of the covert result: usable records survived, but voluntary testimony and durable custody cooperation narrowed.",
+        "exclusions": ["Do not erase recovered evidence or imply the trust cost changes what historically happened."]
       }
     },
     {
@@ -657,12 +859,123 @@
       "playerText": {
         "summary": "The evidence supports later Compact Security access, another active access device, and an Orison response scenario as the next lead; it does not identify the wider controller."
       }
+    },
+    {
+      "id": "report.chapter4.marr-jurisdiction-goal",
+      "factId": "fact.chapter4.marr-jurisdiction-goal",
+      "evidencePolicyId": "policy.chapter4.marr-jurisdiction-goal",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["leona-marr"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.marr-jurisdiction-goal" },
+          { "eventOccurred": "event.chapter4.marr-position-heard" },
+          { "not": { "factKnown": "fact.chapter4.marr-jurisdiction-goal" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Governor Marr is protecting both Demeris jurisdiction and a durable survival record, with bounded outside review rather than ceremonial consultation."
+      }
+    },
+    {
+      "id": "report.chapter4.solenn-accountability-goal",
+      "factId": "fact.chapter4.solenn-accountability-goal",
+      "evidencePolicyId": "policy.chapter4.solenn-accountability-goal",
+      "capabilityRoles": ["command", "engineering"],
+      "preferredActorIds": ["mira-solenn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.solenn-accountability-goal" },
+          { "eventOccurred": "event.chapter4.solenn-position-heard" },
+          { "not": { "factKnown": "fact.chapter4.solenn-accountability-goal" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Solenn will help prevent further interface harm but insists that the record retain both the people saved and the harm concealed."
+      }
+    },
+    {
+      "id": "report.chapter4.tamas-beneficiary-account",
+      "factId": "fact.chapter4.tamas-rell-beneficiary-account",
+      "evidencePolicyId": "policy.chapter4.tamas-beneficiary-account",
+      "capabilityRoles": ["command", "medical"],
+      "preferredActorIds": ["tamas-rell"],
+      "fallbackActorIds": ["miriam-sato"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.tamas-rell-beneficiary-account" },
+          { "eventOccurred": "event.chapter4.tamas-rell-testified" },
+          { "not": { "factKnown": "fact.chapter4.tamas-rell-beneficiary-account" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Tamas Rell testifies that Solenn's false clearance saved his family after their evacuation failed, without treating that survival as a blanket excuse."
+      }
+    },
+    {
+      "id": "report.chapter4.jo-harmed-account",
+      "factId": "fact.chapter4.jo-meran-harmed-account",
+      "evidencePolicyId": "policy.chapter4.jo-harmed-account",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["jo-meran"],
+      "fallbackActorIds": ["priya-nayar"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.jo-meran-harmed-account" },
+          { "eventOccurred": "event.chapter4.jo-meran-testified" },
+          { "not": { "factKnown": "fact.chapter4.jo-meran-harmed-account" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Jo Meran testifies that the same forged-clearance method displaced another group and contributed to a detention in which two people died."
+      }
+    },
+    {
+      "id": "report.chapter4.covert-trust-cost",
+      "factId": "fact.chapter4.covert-trust-cost",
+      "evidencePolicyId": "policy.chapter4.covert-trust-cost",
+      "capabilityRoles": ["command", "operations", "security"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.covert-trust-cost" },
+          { "eventOccurred": "event.chapter4.covert-trust-breach-recorded" },
+          { "not": { "factKnown": "fact.chapter4.covert-trust-cost" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The covert route retained usable records but narrowed voluntary testimony and made durable custody cooperation harder."
+      }
     }
   ],
   "events": [
     { "id": "event.chapter4.survival-record-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter4.solenn-record-corroborated", "playerVisibility": "hidden" },
-    { "id": "event.chapter4.continuing-access-corroborated", "playerVisibility": "hidden" }
+    { "id": "event.chapter4.continuing-access-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.marr-position-heard", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.solenn-position-heard", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.tamas-rell-testified", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.jo-meran-testified", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.local-witnesses-withheld", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.covert-trust-breach-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {

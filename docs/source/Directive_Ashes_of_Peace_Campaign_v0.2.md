@@ -2021,6 +2021,13 @@ Director Kessler asks that the Compact participate in any inquiry.
 
 Administrator Prel requests protection for Cardassian witnesses whose records may be involved.
 
+Marr and Solenn do not have a single local position:
+
+- **Marr** wants Demeris jurisdiction recognized and its wartime survival record placed beyond quiet alteration by either Starfleet or local officials. She accepts bounded outside review, but not a process in which consultation occurs after custody and conclusions are already decided.
+- **Solenn** wants the remaining interface made incapable of harming anyone else and is willing to provide technical cooperation. She refuses an account that erases why she first used it, the people saved, or the later deaths and displacement she concealed.
+
+Neither woman may consent, confess, bargain, or accept custody for the other.
+
 ### 16.3 Director-only truth
 
 Mira Solenn found a dormant Pale Lantern interface while repairing a wartime traffic relay.
@@ -2092,6 +2099,13 @@ Solenn saved lives and also caused foreseeable harm through forged clearances.
 
 Demeris residents disagree among themselves about disclosure, reintegration, and the Cardassian agreement.
 
+Two witnesses put different parts of Solenn's record into human terms:
+
+- **Tamas Rell** was a teenager when his family's assigned evacuation transport failed to return. A false clearance created by Solenn let them reach Demeris aboard a maintenance tender. He will testify in a Demeris-led protected inquiry, and he does not claim that his family's survival excuses every later use.
+- **Jo Meran** coordinated civilian docking during the same period. Her manifests show that the forged-clearance method displaced another evacuation group and contributed to a freighter detention in which two people died. She will testify before a joint inquiry only if its protections let her name the harmed group and challenge every participating authority.
+
+Rell and Meran establish different consequences of the same method. Neither account changes because the player chooses a different process; only access, willingness to testify, and accepted custody terms change.
+
 #### Security front
 
 Holt's agents want to remove the portable interface before it can implicate the Directorate.
@@ -2122,6 +2136,16 @@ The player may:
 - Recommend immunity, prosecution, local trial, or restorative proceedings.
 
 The campaign should not declare one legal answer universally correct. It should track legitimacy, transparency, and practical consequences.
+
+The process selected has scene-level effects:
+
+- A functioning **Demeris-led protected inquiry** can bring Rell forward and give Marr confidence that the survival record will remain locally answerable.
+- A functioning **joint public inquiry** can bring Meran forward under rules that protect witnesses and permit challenges to Starfleet, Compact, and Demeris claims.
+- A **Starfleet seizure** can secure records and hardware, but Rell and Meran withhold voluntary testimony; the truth must then rely on documents, compelled evidence, or outside reconstruction.
+- An **exposed covert recovery** can preserve usable records while confirming Demeris fears about consent, narrowing later voluntary testimony and making durable custody cooperation harder.
+- **Withdrawal or process collapse** can still preserve an externally reconstructed Orison lead, but cannot be narrated as local consent or a complete inquiry.
+
+No process automatically produces the strongest truth result. Direct testimony can still be incomplete or contradicted, while mixed records can still support a costly but credible account.
 
 ### 16.9 Escalation events
 
@@ -2171,6 +2195,8 @@ The Breckenridge obtains the person and hardware through authority or force. Evi
 
 Solenn remains under Demeris jurisdiction while sharing technical evidence. Starfleet scrutiny increases; local legitimacy may improve.
 
+This can include protected technical cooperation paired with a locally sealed interface. Solenn's cooperation does not transfer her legal status to Starfleet, and Marr's jurisdiction does not authorize Solenn to dictate technical custody.
+
 #### Flight or destruction
 
 Solenn escapes, Holt's agents seize the interface, or evidence is destroyed. The truth remains discoverable through other sources, but Compact hardliners gain advantage.
@@ -2184,6 +2210,9 @@ Record:
 - Whether Demeris recognizes the player as an honest intermediary.
 - Whether the portable interface is secured.
 - Whether Solenn admits the freighter deaths.
+- Whether Marr's jurisdictional terms and Solenn's separate cooperation terms were both heard.
+- Whether Tamas Rell, Jo Meran, both, or neither provided voluntary testimony.
+- Whether a Starfleet seizure or exposed covert route narrowed the witness record.
 - Whitaker's confidence in institutional review.
 - Rowan's response to evidence of postwar record alteration.
 

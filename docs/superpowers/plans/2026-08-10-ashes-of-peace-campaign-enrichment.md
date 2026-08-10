@@ -432,19 +432,19 @@ git commit -m "feat: humanize Dead Letters archive"
 - Produces: separate Marr, Solenn, beneficiary, and harmed-witness routes.
 - Consumes: existing process, evidence, Solenn, and interface dispositions plus Demeris Archive Chapter 8 capability.
 
-- [ ] **Step 1: Add failing process-dependent testimony scenarios**
+- [x] **Step 1: Add failing process-dependent testimony scenarios**
 
 Add `local-process-beneficiary-testifies`, `shared-inquiry-harmed-witness-testifies`, `starfleet-seizure-witness-silence`, `solenn-cooperates-interface-local`, and `covert-route-evidence-with-trust-cost`.
 
-- [ ] **Step 2: Give Marr and Solenn independent goals**
+- [x] **Step 2: Give Marr and Solenn independent goals**
 
 Marr protects Demeris jurisdiction and the survival record. Solenn wants the interface prevented from harming anyone else but refuses to let Starfleet erase why she used it. Neither may speak for the other.
 
-- [ ] **Step 3: Add two bounded witnesses**
+- [x] **Step 3: Add two bounded witnesses**
 
 Author Tamas Rell as a colonist whose family survived because Solenn falsified clearance, and Jo Meran as a dock coordinator harmed when the same access displaced another evacuation group. The chosen process controls who will testify and what custody they accept; it does not change what happened.
 
-- [ ] **Step 4: Verify and commit Chapter 4**
+- [x] **Step 4: Verify and commit Chapter 4**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 

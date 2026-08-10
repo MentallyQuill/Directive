@@ -372,30 +372,39 @@ Dead Letters now preserves its strong independent access, relay, archive, and ev
 
 ```mermaid
 flowchart TD
-    A[Demeris refuses unilateral search or arrest] --> B[Negotiate an inquiry process]
-    A --> C[Covert, unilateral, or handed-off process]
-    B --> D[Wartime survival and diverted evacuation record]
-    C --> D
-    D --> E[Solenn's life-saving use and concealed harm]
-    E --> F[Continuing Compact access and Orison lead]
-    E --> G[Resolve Solenn's disposition]
-    E --> H[Resolve interface custody]
-    F --> I[Supported Demeris account]
-    G --> I
-    H --> I
-    I --> J[Old Lessons]
+    A[Demeris refuses unilateral search or arrest] --> B[Joint public inquiry]
+    A --> C[Demeris-led protected inquiry]
+    A --> D[Starfleet seizure, covert route, or handoff]
+    B --> E[Jo Meran harmed-witness testimony]
+    C --> F[Tamas Rell beneficiary testimony]
+    D --> G[Records, silence, or external reconstruction]
+    B --> H[Marr and Solenn speak separately]
+    C --> H
+    D --> I[Trust or legitimacy cost]
+    E --> J[Survival, harm, and continuing access record]
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    J --> K[Resolve Solenn's disposition]
+    J --> L[Resolve interface custody]
+    K --> M[Orison lead]
+    L --> M
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-The mission supports shared accountability, local resolution, seizure, covert truth, handoff, collapse, flight, and evidence loss. It is structurally rich. Marr, Solenn, survivors, and the people harmed by forged clearance need more scene-level agency.
+The Colony That Stayed retains its six terminal dispositions and independent personal and technical custody choices while making truth access visibly process-dependent.
 
-#### Enrichment direction
+- Marr now protects Demeris jurisdiction and a durable survival record; Solenn separately seeks to prevent further interface harm while preserving both benefit and culpability in the account. Neither speaks for the other.
+- Tamas Rell supplies a bounded beneficiary account under a Demeris-led protected inquiry.
+- Jo Meran supplies a bounded harmed-witness account under a joint public inquiry.
+- Starfleet seizure can preserve records while causing voluntary witness silence; it no longer reads as the same truth route with a different custody label.
+- An exposed covert route preserves usable evidence while recording a concrete trust cost in participation and later custody.
+- Solenn can provide protected technical cooperation while the interface remains under an accountable Demeris seal, keeping her personal disposition separate from hardware custody.
+- Five new scenarios prove the local, shared, seizure, cooperative-local, and covert-trust routes without letting any process automatically create the strongest truth result.
+- The focused campaign gate now covers 256 authored scenarios.
 
-- Give Marr and Solenn distinct goals rather than one combined local position.
-- Add testimony from someone saved and someone harmed by the interface.
-- Let the process chosen change who will speak, what evidence is accessible, and who trusts the record.
-- Preserve separate personal and technical dispositions.
 
 ### Chapter 5: Old Lessons
 
