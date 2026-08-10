@@ -531,16 +531,22 @@ export function createSillyTavernDirectivePresetManager({
     let timeoutId = null;
     let applied = Promise.resolve(false);
 
-    if (eventName && typeof eventSource?.once === 'function') {
+    const removeAppliedListener = () => {
+      if (!finish) return;
+      if (typeof eventSource?.removeListener === 'function') eventSource.removeListener(eventName, finish);
+      else eventSource?.off?.(eventName, finish);
+    };
+
+    if (eventName && typeof eventSource?.on === 'function') {
       applied = new Promise((resolve) => {
         finish = () => {
           if (timeoutId !== null) globalThis.clearTimeout?.(timeoutId);
-          eventSource.removeListener?.(eventName, finish);
+          removeAppliedListener();
           resolve(true);
         };
-        eventSource.once(eventName, finish);
+        eventSource.on(eventName, finish);
         timeoutId = globalThis.setTimeout?.(() => {
-          eventSource.removeListener?.(eventName, finish);
+          removeAppliedListener();
           resolve(false);
         }, 1500) ?? null;
       });
@@ -549,7 +555,7 @@ export function createSillyTavernDirectivePresetManager({
     try {
       pm.selectPreset(value);
     } catch (error) {
-      if (finish) eventSource?.removeListener?.(eventName, finish);
+      removeAppliedListener();
       if (timeoutId !== null) globalThis.clearTimeout?.(timeoutId);
       throw error;
     }
@@ -611,30 +617,36 @@ export function createSillyTavernDirectivePresetManager({
   function restoreNarrationPreset() {
     return enqueuePresetTransition(async () => {
       const lease = narrationLease;
-      narrationLease = null;
       if (!lease) return { ok: true, restored: false, reason: 'no-active-narration-preset' };
-      if (!lease.restoreNeeded) return { ok: true, restored: false, reason: 'directive-was-already-selected' };
+      if (!lease.restoreNeeded) {
+        narrationLease = null;
+        return { ok: true, restored: false, reason: 'directive-was-already-selected' };
+      }
 
       const pm = manager();
       if (!pm || typeof pm.selectPreset !== 'function') {
         return { ok: false, restored: false, reason: 'preset-manager-unavailable' };
       }
       const current = selectedPresetIdentity(pm);
-      if (current.name.toLowerCase() !== DIRECTIVE_PRESET_NAME.toLowerCase()) {
+      if (current.name.toLowerCase() !== DIRECTIVE_PRESET_NAME.toLowerCase() && lease.restoreRetryRequired !== true) {
+        narrationLease = null;
         return { ok: true, restored: false, reason: 'selection-changed' };
       }
       if (lease.previousPresetValue === null || lease.previousPresetValue === undefined || lease.previousPresetValue === '') {
         return { ok: false, restored: false, reason: 'previous-preset-unavailable' };
       }
 
+      lease.restoreRetryRequired = true;
       const appliedEventObserved = await selectPresetAndWait(pm, lease.previousPresetValue);
       const restored = selectedPresetIdentity(pm);
+      const restoredPreviousPreset = restored.name === lease.previousPresetName;
+      if (restoredPreviousPreset) narrationLease = null;
       return {
-        ok: restored.name === lease.previousPresetName,
-        restored: restored.name === lease.previousPresetName,
+        ok: restoredPreviousPreset,
+        restored: restoredPreviousPreset,
         presetName: restored.name || null,
         appliedEventObserved,
-        ...(restored.name === lease.previousPresetName ? {} : { reason: 'previous-preset-selection-failed' })
+        ...(restoredPreviousPreset ? {} : { reason: 'previous-preset-selection-failed' })
       };
     });
   }

@@ -391,7 +391,8 @@ assert.equal(unrelatedSelectedContext.perspective, DIRECTIVE_DEFAULT_POV_RULE);
 
 function createNarrationLeaseFixture({
   selectedName = 'Wandlight-1.3',
-  includeDirective = true
+  includeDirective = true,
+  emitPresetEvent = true
 } = {}) {
   const optionValues = new Map([
     ['Wandlight-1.3', 'preset-7'],
@@ -409,6 +410,10 @@ function createNarrationLeaseFixture({
   let presetApplied = true;
   const eventSource = {
     once(eventName, handler) {
+      const wrapper = () => handler();
+      listeners.set(eventName, wrapper);
+    },
+    on(eventName, handler) {
       listeners.set(eventName, handler);
     },
     removeListener(eventName, handler) {
@@ -418,6 +423,9 @@ function createNarrationLeaseFixture({
       const handler = listeners.get(eventName);
       listeners.delete(eventName);
       handler?.();
+    },
+    listenerCount(eventName) {
+      return listeners.has(eventName) ? 1 : 0;
     }
   };
   const presetManager = {
@@ -431,7 +439,7 @@ function createNarrationLeaseFixture({
       presetApplied = false;
       queueMicrotask(() => {
         presetApplied = true;
-        eventSource.emit('oai-preset-applied');
+        if (emitPresetEvent) eventSource.emit('oai-preset-applied');
       });
     }
   };
@@ -445,6 +453,7 @@ function createNarrationLeaseFixture({
   return {
     adapter,
     presetManager,
+    eventSource,
     selectedName: () => currentName,
     presetApplied: () => presetApplied
   };
@@ -474,6 +483,31 @@ assert.equal(restoredNarrationPreset.ok, true);
 assert.equal(restoredNarrationPreset.restored, true);
 assert.equal(restoredNarrationPreset.presetName, 'Alternate');
 assert.equal(narrationLease.selectedName(), 'Alternate');
+
+const retryableRestore = createNarrationLeaseFixture();
+await retryableRestore.adapter.activateNarrationPreset();
+const workingSelectPreset = retryableRestore.presetManager.selectPreset;
+retryableRestore.presetManager.selectPreset = () => {
+  throw new Error('transient preset manager failure');
+};
+await assert.rejects(
+  retryableRestore.adapter.restoreNarrationPreset(),
+  /transient preset manager failure/
+);
+retryableRestore.presetManager.selectPreset = workingSelectPreset;
+const retriedRestore = await retryableRestore.adapter.restoreNarrationPreset();
+assert.equal(retriedRestore.restored, true, 'a failed restore must retain the saved preset for retry');
+assert.equal(retryableRestore.selectedName(), 'Wandlight-1.3');
+
+const timedOutActivation = createNarrationLeaseFixture({ emitPresetEvent: false });
+const timedOutResult = await timedOutActivation.adapter.activateNarrationPreset();
+assert.equal(timedOutResult.ok, true);
+assert.equal(timedOutResult.appliedEventObserved, false);
+assert.equal(
+  timedOutActivation.eventSource.listenerCount('oai-preset-applied'),
+  0,
+  'a timed-out preset transition must remove its event listener'
+);
 
 const missingNarrationPreset = createNarrationLeaseFixture({ includeDirective: false });
 const missingActivation = await missingNarrationPreset.adapter.activateNarrationPreset();

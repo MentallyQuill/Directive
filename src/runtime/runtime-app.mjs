@@ -324,6 +324,11 @@ export function createDirectiveRuntimeApp({
       return { ok: true, active: false };
     }
     await activateNarrationPreset();
+    if (!state || !currentChatIsBound()) {
+      await restoreNarrationPreset();
+      await host.prompt.clear?.({ reason: 'chat-changed-during-preset-activation' });
+      return { ok: true, active: false };
+    }
     const result = projectionResult();
     if (!result.ok) {
       await host.prompt.clear?.({ reason: result.reasonCode || 'v1-projection-unavailable' });

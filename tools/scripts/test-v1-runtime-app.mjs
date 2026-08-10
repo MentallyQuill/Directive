@@ -286,6 +286,32 @@ await app.handleHostChatChanged();
 assert.equal(narrationPresetLifecycle.at(-1), 'restore', 'leaving a bound campaign chat must restore the prior preset');
 await app.openCampaignChat({ saveId: missionView.activeSaveId });
 assert.equal(narrationPresetLifecycle.at(-1), 'activate', 'reopening a bound campaign chat must reactivate Directive narration');
+
+const immediatePresetActivation = host.presets.activateNarrationPreset;
+let releasePendingPresetActivation;
+let reportPendingPresetActivation;
+const pendingPresetActivationStarted = new Promise((resolve) => { reportPendingPresetActivation = resolve; });
+const pendingPresetActivation = new Promise((resolve) => { releasePendingPresetActivation = resolve; });
+host.presets.activateNarrationPreset = async () => {
+  narrationPresetLifecycle.push('activate-pending');
+  reportPendingPresetActivation();
+  await pendingPresetActivation;
+  return { ok: true, active: true };
+};
+const pendingBoundRefresh = app.handleHostChatChanged();
+await pendingPresetActivationStarted;
+chat.setCurrentChatId('unbound-during-preset-activation');
+releasePendingPresetActivation();
+await pendingBoundRefresh;
+assert.equal(
+  host.prompt.inspect().blocks.length,
+  0,
+  'a chat switch during preset activation must not install stale campaign context into the unbound chat'
+);
+host.presets.activateNarrationPreset = immediatePresetActivation;
+await app.openCampaignChat({ saveId: missionView.activeSaveId });
+assert.equal(chat.getCurrentChatId(), boundCampaignChatId);
+
 chat.setCurrentChatId('unbound-open-failure');
 const messagesBeforeOpenFailure = chat.messages().length;
 const openBoundCampaignChat = host.chat.openCampaignChat;
