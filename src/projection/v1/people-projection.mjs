@@ -16,14 +16,19 @@ function profileCardFor(crewDataset, characterId) {
     )) || null;
 }
 
-function visibleRelationshipPosture(campaignState, characterId) {
-    const records = campaignState?.relationships?.seniorCrew || [];
-    for (let index = records.length - 1; index >= 0; index -= 1) {
-        const record = records[index];
-        if (record?.crewId === characterId
-            && record?.visibility === 'visible'
-            && compact(record?.playerSafePosture)) {
-            return compact(record.playerSafePosture);
+function visibleRelationshipPosture(storySettlement, characterId) {
+    const episodes = selectCurrentStoryEpisodes(storySettlement);
+    for (let episodeIndex = episodes.length - 1; episodeIndex >= 0; episodeIndex -= 1) {
+        const effects = episodes[episodeIndex].effects || [];
+        for (let effectIndex = effects.length - 1; effectIndex >= 0; effectIndex -= 1) {
+            const effect = effects[effectIndex];
+            if (effect?.type === 'character.relationshipPosture'
+                && effect?.targetId === characterId
+                && effect?.playerVisibility === 'visible'
+                && effect?.status === 'active'
+                && compact(effect?.value)) {
+                return compact(effect.value);
+            }
         }
     }
     return null;
@@ -66,7 +71,6 @@ function currentMissionLink(definition, missionProjection, profileCard) {
 }
 
 export function createPeoplePlayerProjection({
-    campaignState = {},
     runtimeAssets = {},
     definition = {},
     missionProjection = {},
@@ -82,7 +86,7 @@ export function createPeoplePlayerProjection({
             name: officer.name,
             billet: officer.billet,
             profileSummary: compact(profileCard?.payload?.summary),
-            relationshipPosture: visibleRelationshipPosture(campaignState, officer.id),
+            relationshipPosture: visibleRelationshipPosture(storySettlement, officer.id),
             moments: personMoments,
             missionLink: currentMissionLink(definition, missionProjection, profileCard),
             sourceRefs: {

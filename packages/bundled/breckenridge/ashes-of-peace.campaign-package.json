@@ -9,6 +9,8 @@
     "status": "pre-alpha",
     "bundled": true,
     "transportExtension": ".directive-campaign.zip",
+    "openingMissionId": "prelude-a-ship-underway",
+    "openingMinuteOfDay": 510,
     "sourceDocuments": [
       {
         "title": "Directive Ashes of Peace Campaign v0.2",

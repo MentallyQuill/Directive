@@ -83,7 +83,6 @@ export async function deleteGame({ adapter, saveId, now }) {
 export async function acceptCreatorDraftAndCreateFirstSave({
   adapter,
   packageData,
-  projection,
   draftId,
   campaignId,
   saveId,
@@ -97,7 +96,6 @@ export async function acceptCreatorDraftAndCreateFirstSave({
 
   const campaignState = createInitialCampaignStateFromCreatorReview({
     packageData,
-    projection,
     creatorReview: acceptedDraft.acceptedReview,
     campaignId: requireNonEmptyString(campaignId, 'campaignId'),
     createdAt: acceptedAt,

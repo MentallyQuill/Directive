@@ -5,13 +5,10 @@ import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createV1PlayerProjection } from '../../src/projection/v1/player-projection.mjs';
 import { createEmptyStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
+import { createV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
-    'utf8',
-));
-const campaignProjection = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
     'utf8',
 ));
 const crewDataset = JSON.parse(fs.readFileSync(
@@ -24,17 +21,30 @@ const shipDataset = JSON.parse(fs.readFileSync(
 ));
 const branchId = 'save.composite';
 const campaignState = {
-    ...structuredClone(campaignProjection.initialState),
     activeCampaignPackage: {
         packageId: definition.packageBinding.packageId,
         packageVersion: definition.packageBinding.packageVersion,
     },
     campaignChatBinding: { saveId: branchId, chatId: 'chat.composite' },
     mission: {
-        ...structuredClone(campaignProjection.initialState.mission),
+        activeMissionId: definition.packageBinding.sourceId,
         v1: createMissionState({ definition, branchId }),
     },
     storySettlement: createEmptyStorySettlement({ branchId }),
+    commandBearing: createV1CommandBearing(),
+    ship: {
+        id: 'uss-breckenridge',
+        name: 'U.S.S. Breckenridge',
+        class: 'Intrepid-class',
+        registry: 'NCC-74638',
+        operationalOverview: {
+            kind: 'directive.shipOperationalOverview.v1',
+            status: 'serviceable',
+            summary: 'The Breckenridge is certified for service after repair and modernization.',
+            materialLimitations: [],
+            history: [],
+        },
+    },
 };
 const runtimeAssets = {
     packageData: {
@@ -43,7 +53,6 @@ const runtimeAssets = {
             version: definition.packageBinding.packageVersion,
         },
     },
-    projection: campaignProjection,
     crewDataset,
     shipDataset,
 };
@@ -63,6 +72,9 @@ assert.equal(projection.story.kind, 'directive.storyPlayerProjection.v1');
 assert.deepEqual(projection.story.entries, []);
 assert.equal(projection.ship.kind, 'directive.shipPlayerProjection.v1');
 assert.equal(projection.people.kind, 'directive.peoplePlayerProjection.v1');
+assert.equal(projection.commandBearing.kind, 'directive.commandBearingPlayerProjection.v1');
+assert.equal(projection.commandBearing.balance, 0);
+assert.equal(Object.hasOwn(projection.commandBearing, 'tracks'), false);
 assert.equal(projection.people.people.length, 7);
 assert.equal(Object.hasOwn(projection.ship, 'technicalDebt'), false);
 assert.equal(Object.hasOwn(projection.ship.operationalStatus, 'issues'), false);

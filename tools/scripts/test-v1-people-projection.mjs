@@ -20,15 +20,7 @@ const crewDataset = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
     'utf8',
 ));
-const campaignProjection = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
-    'utf8',
-));
-
 const runtimeAssets = { crewDataset };
-const campaignState = {
-    relationships: structuredClone(campaignProjection.initialState.relationships),
-};
 const missionProjection = {
     kind: 'directive.missionPlayerProjection.v1',
     missionId: definition.id,
@@ -36,7 +28,6 @@ const missionProjection = {
 };
 const emptySettlement = createEmptyStorySettlement({ branchId: 'save.people' });
 const baseline = createPeoplePlayerProjection({
-    campaignState,
     runtimeAssets,
     definition,
     missionProjection,
@@ -91,6 +82,14 @@ settlement = appendStoryEffects(settlement, [{
     sourceContributionIds: ['contribution.handover'],
     playerVisibility: 'visible',
     status: 'active',
+}, {
+    id: 'effect.whitaker.relationship-posture',
+    type: 'character.relationshipPosture',
+    targetId: 'mara-whitaker',
+    value: 'Whitaker extends cautious professional trust.',
+    sourceContributionIds: ['contribution.handover'],
+    playerVisibility: 'visible',
+    status: 'active',
 }]);
 const boundary = createEpisodeHardBoundary({
     id: 'boundary.handover',
@@ -119,15 +118,7 @@ settlement = sealStoryEpisode(settlement, {
 });
 assert.equal(validateStorySettlement(settlement).ok, true);
 
-const visibleState = structuredClone(campaignState);
-visibleState.relationships.seniorCrew.push({
-    crewId: 'mara-whitaker',
-    visibility: 'visible',
-    playerSafePosture: 'Whitaker extends cautious professional trust.',
-    professionalConfidence: 99,
-});
 const projected = createPeoplePlayerProjection({
-    campaignState: visibleState,
     runtimeAssets,
     definition,
     missionProjection,
@@ -155,7 +146,6 @@ const invalidated = invalidateStorySource(settlement, {
     reason: 'selected-swipe-changed',
 });
 const afterInvalidation = createPeoplePlayerProjection({
-    campaignState,
     runtimeAssets,
     definition,
     missionProjection,

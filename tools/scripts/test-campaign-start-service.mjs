@@ -47,6 +47,12 @@ function requireIncludes(values, expected, location) {
   }
 }
 
+function requireAbsent(object, key, location) {
+  if (Object.prototype.hasOwnProperty.call(object || {}, key)) {
+    at(location, `unexpected key "${key}"`);
+  }
+}
+
 function createMemoryJsonAdapter() {
   const files = new Map();
   return {
@@ -68,7 +74,6 @@ function createMemoryJsonAdapter() {
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
-const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const adapter = createMemoryJsonAdapter();
 
 const draft = await startCharacterCreatorDraft({
@@ -141,7 +146,6 @@ requireEqual(resumed.progress.readyForCampaignStart, true, 'resume complete draf
 const started = await acceptCreatorDraftAndCreateFirstSave({
   adapter,
   packageData,
-  projection,
   draftId: draft.id,
   campaignId: 'campaign-service-test',
   saveId: 'save-service-first',
@@ -156,6 +160,36 @@ requireEqual(started.firstSave.slotType, 'active', 'started first save slotType'
 requireEqual(started.firstSave.storageFormat, 'v2', 'started first save storage format');
 requireEqual(started.firstSave.payloadKind, 'directive.saveManifest.v2', 'started first save payload kind');
 requireEqual(started.firstSave.metadata.playerName, 'Ren Okada', 'started first save metadata playerName');
+requireEqual(started.campaignState.campaign.runtimeArchitecture?.kind, 'directive.gameplayArchitecture.v1', 'V1 authority stamp kind');
+requireEqual(started.campaignState.campaign.runtimeArchitecture?.semanticAuthority, 'storySettlement', 'V1 semantic authority');
+requireEqual(started.campaignState.commandBearing?.kind, 'directive.commandBearing.v1', 'neutral Command Bearing state');
+requireEqual(started.campaignState.commandBearing?.balance, 0, 'neutral Command Bearing opening balance');
+requireEqual(started.campaignState.ship?.operationalOverview?.kind, 'directive.shipOperationalOverview.v1', 'aggregate ship state');
+requireEqual(Object.keys(started.campaignState.mission || {}), ['activeMissionId'], 'mission starts as V1 locator only');
+requireEqual(started.campaignState.ui.availableTabs, ['Campaign', 'Mission', 'Crew', 'Ship', 'Settings'], 'five-route V1 UI');
+for (const key of [
+  'questLedger',
+  'threadLedger',
+  'storyArcLedger',
+  'dynamicQuestCatalog',
+  'attentionState',
+  'pressureLedger',
+  'relationships',
+  'commandLog',
+  'sceneReconciliation',
+  'commandCompetence',
+  'continuity',
+  'runtimeTracking'
+]) {
+  requireAbsent(started.campaignState, key, `new campaign excludes retired ${key}`);
+}
+for (const key of ['tracks', 'inspiration', 'resolve', 'rank', 'marks']) {
+  requireAbsent(started.campaignState.commandBearing, key, `Command Bearing excludes ${key}`);
+}
+for (const key of ['condition', 'damage', 'activeRestrictions', 'technicalDebt']) {
+  requireAbsent(started.campaignState.ship, key, `ship aggregate excludes ${key}`);
+}
+requireEqual(JSON.parse(JSON.stringify(started.campaignState)), started.campaignState, 'campaign state JSON round-trip');
 
 const mutatedState = cloneJson(started.campaignState);
 mutatedState.campaign.currentStardate = 53051.7;
@@ -166,11 +200,6 @@ mutatedState.campaignChatBinding = {
   saveId: started.firstSave.id,
   status: 'bound'
 };
-mutatedState.commandLog.entries.push({
-  id: 'manual.test-entry',
-  summaryInputs: ['Ren Okada reviewed the first mission plan.'],
-  visibleConsequences: ['Manual test save point.']
-});
 
 const saved = await saveGame({
   adapter,
@@ -186,11 +215,6 @@ requireEqual(saved.wroteV1Payload, false, 'saveGame avoids v1 payload');
 
 const runtimeOnlyState = cloneJson(mutatedState);
 runtimeOnlyState.campaign.currentStardate = 53051.9;
-runtimeOnlyState.commandLog.entries.push({
-  id: 'runtime.only-entry',
-  summaryInputs: ['Runtime-only v2 state advanced beyond the stale checkpoint payload.'],
-  visibleConsequences: ['Branching must use v2 runtime authority.']
-});
 await saveGame({
   adapter,
   packageData,
@@ -251,4 +275,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Campaign start service tests passed: draft resume, v2-native first timeline, persistence, autosave, and load');
+console.log('Campaign start service tests passed: clean V1 state, draft resume, persistence, autosave, and load');

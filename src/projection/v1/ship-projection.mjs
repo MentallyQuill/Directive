@@ -4,39 +4,32 @@ function compact(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function baselineShip(runtimeAssets = {}) {
-    return runtimeAssets?.projection?.initialState?.ship || {};
-}
-
-function firstValue(primary, fallback) {
-    const value = compact(primary);
-    return value || compact(fallback);
-}
-
-function activeRecord(record = {}) {
-    const status = compact(record.status || 'active');
-    return !new Set(['resolved', 'inactive', 'cleared', 'invalidated']).has(status);
-}
-
-function projectedOperationalRecord(record = {}) {
-    if (!record || typeof record !== 'object' || Array.isArray(record) || !compact(record.id) || !activeRecord(record)) {
-        return null;
+function requireV1ShipState(campaignState = {}) {
+    const ship = campaignState.ship;
+    const overview = ship?.operationalOverview;
+    const validIdentity = compact(ship?.id)
+        && compact(ship?.name)
+        && compact(ship?.class)
+        && compact(ship?.registry);
+    const validOverview = overview?.kind === 'directive.shipOperationalOverview.v1'
+        && compact(overview.status)
+        && compact(overview.summary)
+        && Array.isArray(overview.materialLimitations);
+    if (!validIdentity || !validOverview) {
+        const error = new Error('The V1 ship projection requires an exact directive.shipOperationalOverview.v1 state.');
+        error.code = 'DIRECTIVE_V1_SHIP_STATE_REQUIRED';
+        throw error;
     }
-    const label = firstValue(record.label || record.title, record.id);
-    const summary = firstValue(record.playerSafeSummary || record.summary, label);
-    return {
-        id: compact(record.id),
-        label,
-        summary,
-        severity: compact(record.severity) || null,
-        status: compact(record.status) || 'active',
-    };
+    return ship;
 }
 
-function operationalRecords(records) {
-    return (Array.isArray(records) ? records : [])
-        .map(projectedOperationalRecord)
-        .filter(Boolean)
+function materialLimitations(records = []) {
+    return records
+        .filter((record) => record?.status === 'active' && compact(record?.id) && compact(record?.summary))
+        .map((record) => ({
+            id: compact(record.id),
+            summary: compact(record.summary),
+        }))
         .sort((left, right) => left.id.localeCompare(right.id));
 }
 
@@ -71,33 +64,32 @@ export function createShipPlayerProjection({
     definition = {},
     missionProjection = {},
 } = {}) {
-    const baseline = baselineShip(runtimeAssets);
-    const current = campaignState.ship || {};
+    const current = requireV1ShipState(campaignState);
+    const overview = current.operationalOverview;
     const capability = capabilityCard(runtimeAssets.shipDataset);
     const readiness = readinessProjection(definition, missionProjection);
     const readinessObjective = readinessObjectiveLink(definition, missionProjection);
     const missionIds = [readinessObjective?.id, readiness?.id].filter(Boolean);
     return {
         kind: SHIP_PLAYER_PROJECTION_KIND,
-        shipId: firstValue(current.id, baseline.id) || null,
-        name: firstValue(current.name, baseline.name),
-        class: firstValue(current.class, baseline.class),
-        registry: firstValue(current.registry, baseline.registry),
+        shipId: compact(current.id),
+        name: compact(current.name),
+        class: compact(current.class),
+        registry: compact(current.registry),
         capabilitySummary: compact(capability?.payload?.summary),
         operationalStatus: {
-            conditionSummary: firstValue(current.condition, baseline.condition),
+            status: compact(overview.status),
+            summary: compact(overview.summary),
             readiness,
-            damage: operationalRecords(current.damage ?? baseline.damage),
-            restrictions: operationalRecords(current.activeRestrictions ?? baseline.activeRestrictions),
+            materialLimitations: materialLimitations(overview.materialLimitations),
             readinessObjectiveLink: readinessObjective,
         },
         sourceRefs: {
             packageIds: [
-                runtimeAssets?.projection?.manifest?.id,
                 runtimeAssets?.shipDataset?.manifest?.id,
                 capability?.id,
             ].filter(Boolean),
-            statePaths: ['ship.condition', 'ship.damage', 'ship.activeRestrictions'],
+            statePaths: ['ship.operationalOverview'],
             missionIds,
         },
     };

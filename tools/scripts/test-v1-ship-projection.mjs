@@ -8,10 +8,6 @@ const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
     'utf8',
 ));
-const campaignProjection = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
-    'utf8',
-));
 const shipDataset = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
     'utf8',
@@ -23,33 +19,36 @@ assert.deepEqual(definition.projectionHints, {
     shipReadinessDimensionId: 'dimension.prelude.command-readiness',
 });
 
-const baselineShip = campaignProjection.initialState.ship;
 const campaignState = {
     ship: {
-        ...structuredClone(baselineShip),
-        technicalDebt: [
-            { id: 'ship.smell', label: 'Ship still has new-plating smell', playerSafeSummary: 'A smell was mentioned.' },
-            { id: 'ship.flicker', label: 'Corridor light cycling anomaly', playerSafeSummary: 'A light flickered once.' },
-            { id: 'ship.sensor', label: 'Sensor array calibration concern', playerSafeSummary: 'An officer mentioned calibration.' },
-            { id: 'ship.refit-one', label: 'Refit systems not stressed together' },
-            { id: 'ship.refit-two', label: 'Integrated validation pending' },
-            { id: 'ship.refit-three', label: 'Combined refit load untested' },
-        ],
+        id: 'uss-breckenridge',
+        name: 'U.S.S. Breckenridge',
+        class: 'Intrepid-class',
+        registry: 'NCC-74638',
+        operationalOverview: {
+            kind: 'directive.shipOperationalOverview.v1',
+            status: 'serviceable-with-limitations',
+            summary: 'The Breckenridge is serviceable after refit, with one material sensor limitation under active command review.',
+            materialLimitations: [{
+                id: 'limitation.port-sensor-array',
+                summary: 'The port sensor array is operating at reduced sensitivity.',
+                status: 'active',
+            }, {
+                id: 'limitation.resolved-scratch',
+                summary: 'A cosmetic scratch was repaired.',
+                status: 'resolved',
+            }],
+            history: [],
+        },
+    },
+};
+const unsupportedShipState = {
+    ship: {
+        id: 'uss-breckenridge',
+        condition: 'Legacy condition text.',
         damage: [{
             id: 'damage.port-sensor-array',
             label: 'Port sensor array degraded',
-            playerSafeSummary: 'The port sensor array is operating at reduced sensitivity.',
-            severity: 'material',
-            status: 'active',
-        }, {
-            id: 'damage.resolved-scratch',
-            label: 'Resolved scratch',
-            status: 'resolved',
-        }],
-        activeRestrictions: [{
-            id: 'restriction.secure-command-handoff',
-            label: 'Secure handoffs require verification',
-            playerSafeSummary: 'Secure command handoffs require an additional verification step.',
             status: 'active',
         }],
     },
@@ -73,7 +72,6 @@ const missionProjection = {
     }],
 };
 const runtimeAssets = {
-    projection: campaignProjection,
     shipDataset,
 };
 const beforeState = structuredClone(campaignState);
@@ -100,7 +98,8 @@ assert.equal(ship.name, 'U.S.S. Breckenridge');
 assert.equal(ship.class, 'Intrepid-class');
 assert.equal(ship.registry, 'NCC-74638');
 assert.match(ship.capabilitySummary, /compact, advanced, fast/i);
-assert.equal(ship.operationalStatus.conditionSummary, baselineShip.condition);
+assert.equal(ship.operationalStatus.status, 'serviceable-with-limitations');
+assert.equal(ship.operationalStatus.summary, campaignState.ship.operationalOverview.summary);
 assert.deepEqual(ship.operationalStatus.readiness, {
     id: 'dimension.prelude.command-readiness',
     label: 'Command readiness',
@@ -111,25 +110,14 @@ assert.deepEqual(ship.operationalStatus.readinessObjectiveLink, {
 });
 assert.equal(JSON.stringify(ship).includes(missionProjection.objectives[0].title), false);
 assert.equal(JSON.stringify(ship).includes(missionProjection.objectives[0].summary), false);
-assert.deepEqual(ship.operationalStatus.damage, [{
-    id: 'damage.port-sensor-array',
-    label: 'Port sensor array degraded',
+assert.deepEqual(ship.operationalStatus.materialLimitations, [{
+    id: 'limitation.port-sensor-array',
     summary: 'The port sensor array is operating at reduced sensitivity.',
-    severity: 'material',
-    status: 'active',
-}]);
-assert.deepEqual(ship.operationalStatus.restrictions, [{
-    id: 'restriction.secure-command-handoff',
-    label: 'Secure handoffs require verification',
-    summary: 'Secure command handoffs require an additional verification step.',
-    severity: null,
-    status: 'active',
 }]);
 assert.equal(Object.hasOwn(ship.operationalStatus, 'issues'), false);
+assert.equal(Object.hasOwn(ship.operationalStatus, 'damage'), false);
+assert.equal(Object.hasOwn(ship.operationalStatus, 'restrictions'), false);
 assert.equal(Object.hasOwn(ship, 'technicalDebt'), false);
-for (const forbidden of ['new-plating smell', 'light cycling', 'calibration concern', 'ship.refit-two']) {
-    assert.equal(JSON.stringify(ship).toLowerCase().includes(forbidden.toLowerCase()), false, forbidden);
-}
 assert.deepEqual(ship.sourceRefs.missionIds, [
     'objective.prelude.final-readiness-arrival',
     'dimension.prelude.command-readiness',
@@ -143,17 +131,15 @@ assert.deepEqual(createShipPlayerProjection({
     missionProjection,
 }), ship);
 
-const fallback = createShipPlayerProjection({
-    campaignState: { ship: {} },
-    runtimeAssets,
-    definition,
-    missionProjection: { objectives: [], outcomeDimensions: [] },
-});
-assert.equal(fallback.operationalStatus.conditionSummary, baselineShip.condition);
-assert.equal(fallback.operationalStatus.readiness, null);
-assert.equal(fallback.operationalStatus.readinessObjectiveLink, null);
-assert.deepEqual(fallback.operationalStatus.damage, []);
-assert.deepEqual(fallback.operationalStatus.restrictions, []);
+assert.throws(
+    () => createShipPlayerProjection({
+        campaignState: unsupportedShipState,
+        runtimeAssets,
+        definition,
+        missionProjection: { objectives: [], outcomeDimensions: [] },
+    }),
+    (error) => error.code === 'DIRECTIVE_V1_SHIP_STATE_REQUIRED',
+);
 
 for (const badHints of [
     { ...definition.projectionHints, shipReadinessObjectiveId: 'objective.missing' },

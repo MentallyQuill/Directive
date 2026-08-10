@@ -753,11 +753,9 @@ export function createCampaignStartController({
     }) {
       activePackageId = requireNonEmptyString(packageId, 'packageId');
       const packageData = registry.getPackage(activePackageId);
-      const projection = registry.getProjection(activePackageId);
       const result = await acceptCreatorDraftAndCreateFirstSave({
         adapter,
         packageData,
-        projection,
         draftId,
         campaignId,
         saveId,

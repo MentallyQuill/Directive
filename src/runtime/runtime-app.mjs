@@ -4,9 +4,9 @@ import {
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
 import {
-  migrateCommandBearingState,
-  projectCommandBearingForPlayer
-} from '../command/command-bearing.mjs';
+  projectV1CommandBearing,
+  V1_COMMAND_BEARING_KIND
+} from '../command/v1-command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
 import {
@@ -466,65 +466,6 @@ function statusLabel(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function crewNameById(packageData = null, crewDataset = null) {
-  const map = new Map();
-  for (const officer of [
-    ...arrayItems(packageData?.crew?.senior),
-    ...arrayItems(crewDataset?.officers),
-    ...arrayItems(crewDataset?.crew)
-  ]) {
-    if (officer?.id) {
-      map.set(officer.id, compactLabel(officer.name || officer.id, 120));
-    }
-  }
-  return map;
-}
-
-function playerSafeRelationshipPerceptions(state = null, crewNames = new Map()) {
-  return arrayItems(state?.relationships?.perceptionLedger)
-    .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
-    .map((entry) => {
-      const perceived = entry.perceivedByCharacter || {};
-      return {
-        id: compactLabel(entry.id || `${entry.sourceOutcomeId || 'relationship'}:${entry.crewId || 'crew'}`, 180),
-        crewId: compactLabel(entry.crewId, 120),
-        crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
-        impact: statusLabel(entry.playerFacingImpact || entry.impact || entry.degree || entry.change || 'perceived shift'),
-        cue: compactLabel(entry.playerPerceivedCue || entry.cue || perceived.cue || entry.playerFacingSummary, 360),
-        summary: compactLabel(perceived.summary || entry.summary || entry.playerFacingSummary || entry.cue, 420),
-        sourceOutcomeId: compactLabel(entry.sourceOutcomeId, 160)
-      };
-    })
-    .filter((entry) => entry.cue || entry.impact)
-    .slice(-12);
-}
-
-function playerSafeCrewInteractionLog(state = null, crewNames = new Map()) {
-  return arrayItems(state?.relationships?.memoryLedger)
-    .filter((entry) => entry?.visibility !== 'hidden' && entry?.playerVisible !== false)
-    .map((entry) => ({
-      id: compactLabel(entry.id || `${entry.sourceOutcomeId || 'memory'}:${entry.crewId || 'crew'}`, 180),
-      crewId: compactLabel(entry.crewId, 120),
-      crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
-      title: compactLabel(entry.event || entry.title || 'Crew interaction', 160),
-      summary: compactLabel(entry.playerFacingSummary || entry.summary || entry.interpretation || entry.event, 360),
-      sourceOutcomeId: compactLabel(entry.sourceOutcomeId, 160)
-    }))
-    .filter((entry) => entry.summary || entry.title)
-    .slice(-12);
-}
-
-function currentStandingSummary(state = null, crewNames = new Map()) {
-  return arrayItems(state?.relationships?.seniorCrew)
-    .filter((entry) => entry?.playerVisible === true || Boolean(compactLabel(entry?.visibleDescriptor || entry?.currentStance)))
-    .map((entry) => ({
-      crewId: compactLabel(entry.crewId, 120),
-      crewName: crewNames.get(entry.crewId) || compactLabel(entry.crewName || entry.crewId || 'Senior officer', 120),
-      posture: compactLabel(entry.visibleDescriptor || statusLabel(entry.currentStance) || 'Professional posture not yet established.', 260)
-    }))
-    .slice(0, 12);
-}
-
 function choiceLabel(choice, fallback = '') {
   return compactLabel(choice?.selectedLabel || choice?.label || choice?.summary || fallback, 260);
 }
@@ -577,14 +518,11 @@ function playerServiceRecord(player = {}, dossier = {}) {
 
 function createPlayerCharacterView({
   campaignState = null,
-  packageData = null,
-  crewDataset = null,
   commandBearingPlayerView = null
 } = {}) {
   if (!campaignState) return null;
   const player = campaignState.player || {};
   const dossier = player.dossier || {};
-  const crewNames = crewNameById(packageData, crewDataset);
   return {
     schemaVersion: 1,
     identity: {
@@ -604,25 +542,8 @@ function createPlayerCharacterView({
     },
     serviceRecord: playerServiceRecord(player, dossier),
     commandBearing: cloneJson(commandBearingPlayerView || null),
-    commandBearingSummary: cloneJson(commandBearingPlayerView ? {
-      tracks: commandBearingPlayerView.tracks,
-      reserve: commandBearingPlayerView.reserve,
-      readied: commandBearingPlayerView.readied
-    } : null),
-    commandBearingEvidence: cloneJson(commandBearingPlayerView?.evidence || []),
-    commandBearingReviews: cloneJson(commandBearingPlayerView?.reviews || []),
-    commandBearingHistory: cloneJson([
-      ...arrayItems(commandBearingPlayerView?.spendHistory).map((entry) => ({ ...entry, type: 'spend' })),
-      ...arrayItems(commandBearingPlayerView?.recoveryHistory).map((entry) => ({ ...entry, type: 'recovery' }))
-    ].slice(-12)),
-    currentStandingSummary: currentStandingSummary(campaignState, crewNames),
-    crewInteractionLog: playerSafeCrewInteractionLog(campaignState, crewNames),
-    relationshipPerceptions: playerSafeRelationshipPerceptions(campaignState, crewNames),
-    guards: {
-      rawRelationshipValuesHidden: true,
-      hiddenMemoriesHidden: true,
-      modelDiagnosticsHidden: true
-    }
+    commandBearingSummary: cloneJson(commandBearingPlayerView || null),
+    guards: { modelDiagnosticsHidden: true }
   };
 }
 
@@ -681,6 +602,11 @@ function stateFreshnessCounters(state = null) {
     pendingInteractions: countArray(pendingInteractionProjectionRows(state)),
     modelCallJournalEntries: countArray(coreProjection?.modelCallDiagnostics)
   };
+}
+
+function commandBearingViewForState(state = null) {
+  if (state?.commandBearing?.kind !== V1_COMMAND_BEARING_KIND) return null;
+  return projectV1CommandBearing(state.commandBearing);
 }
 
 function timestampMs(value = null) {
@@ -2206,20 +2132,10 @@ export function createDirectiveRuntimeApp({
       const recallIndexRevision = compactString(projections.recallIndex?.revision);
       const sceneSealRevision = compactString(projections.sceneSealRevision);
       const pressureArcDigestRevision = compactString(projections.pressureArcDigestRevision);
-      const commandBearingEvidenceRevision = Array.isArray(projections.commandBearingEvidence) && projections.commandBearingEvidence.length
-        ? hashStableJson(projections.commandBearingEvidence.map((entry) => ({
-          evidenceId: entry.evidenceId || entry.id || null,
-          evidenceHash: entry.evidenceHash || entry.hash || null,
-          transactionId: entry.transactionId || null,
-          batchId: entry.batchId || null,
-          sourceFrameId: entry.sourceFrameId || null
-        })))
-        : null;
       return {
         ...(recallIndexRevision ? { recallIndexRevision } : {}),
         ...(sceneSealRevision ? { sceneSealRevision } : {}),
-        ...(pressureArcDigestRevision ? { pressureArcDigestRevision } : {}),
-        ...(commandBearingEvidenceRevision ? { commandBearingEvidenceRevision } : {})
+        ...(pressureArcDigestRevision ? { pressureArcDigestRevision } : {})
       };
     } catch (error) {
       console.warn('[Directive] Failed to read CORE prompt cache inputs:', error);
@@ -2854,9 +2770,7 @@ export function createDirectiveRuntimeApp({
       packageData: renderedAssets?.packageData || null,
       crewDataset: renderedAssets?.crewDataset || null
     });
-    const commandBearingPlayerView = renderedState
-      ? projectCommandBearingForPlayer(migrateCommandBearingState(renderedState))
-      : null;
+    const commandBearingPlayerView = commandBearingViewForState(renderedState);
     const information = buildPlayerFacingInformation({
       campaignState: renderedState,
       coreProjections: {
@@ -2908,12 +2822,8 @@ export function createDirectiveRuntimeApp({
         openWorld = openWorldQuestView(renderedCampaignState, renderedAssets.packageData);
       }
     }
-    const commandBearingPlayerView = renderedCampaignState
-      ? projectCommandBearingForPlayer(migrateCommandBearingState(renderedCampaignState))
-      : null;
-    const loadedCommandBearingPlayerView = campaignState
-      ? projectCommandBearingForPlayer(migrateCommandBearingState(campaignState))
-      : null;
+    const commandBearingPlayerView = commandBearingViewForState(renderedCampaignState);
+    const loadedCommandBearingPlayerView = commandBearingViewForState(campaignState);
     const playerCharacterView = renderedCampaignState
       ? createPlayerCharacterView({
           campaignState: renderedCampaignState,
