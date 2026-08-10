@@ -139,6 +139,38 @@
     ],
     "info-none": [
       { "claimId": "claim.chapter6.info-none", "policyId": "policy.chapter6.regional-information", "claimType": "outcomeObserved", "targetId": "outcome.chapter6.regional-information", "value": "notInformed", "sourceRole": "assistant" }
+    ],
+    "lacuna-access": [
+      { "claimId": "claim.chapter6.lacuna-access", "policyId": "policy.chapter6.lacuna-access", "claimType": "eventOccurred", "targetId": "event.chapter6.lacuna-access-established", "sourceRole": "assistant" }
+    ],
+    "command-network-containment": [
+      { "claimId": "claim.chapter6.command-network-containment", "policyId": "policy.chapter6.command-network-containment", "claimType": "eventOccurred", "targetId": "event.chapter6.command-network-containment-established", "sourceRole": "assistant" }
+    ],
+    "archive-resolution": [
+      { "claimId": "claim.chapter6.archive-resolution", "policyId": "policy.chapter6.archive-resolution", "claimType": "eventOccurred", "targetId": "event.chapter6.archive-recovery-resolved", "sourceRole": "assistant" }
+    ],
+    "independent-corroboration": [
+      { "claimId": "claim.chapter6.independent-corroboration", "policyId": "policy.chapter6.independent-corroboration", "claimType": "eventOccurred", "targetId": "event.chapter6.independent-corroboration-established", "sourceRole": "assistant" }
+    ],
+    "rourke-constraint": [
+      { "claimId": "claim.chapter6.rourke-constraint-shown", "policyId": "policy.chapter6.rourke-constraint-shown", "claimType": "eventOccurred", "targetId": "event.chapter6.rourke-constraint-shown", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.rourke-constraint", "policyId": "policy.chapter6.rourke-constraint", "claimType": "factDisclosed", "targetId": "fact.chapter6.rourke-operational-constraint", "sourceRole": "assistant" }
+    ],
+    "tolland-concealment-line": [
+      { "claimId": "claim.chapter6.tolland-delay-reviewed", "policyId": "policy.chapter6.tolland-delay-reviewed", "claimType": "eventOccurred", "targetId": "event.chapter6.tolland-delay-reviewed", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.tolland-concealment-line", "policyId": "policy.chapter6.tolland-concealment-line", "claimType": "factDisclosed", "targetId": "fact.chapter6.tolland-concealment-line", "sourceRole": "assistant" }
+    ],
+    "keva-lir-methodology": [
+      { "claimId": "claim.chapter6.keva-record-verified", "policyId": "policy.chapter6.keva-record-verified", "claimType": "eventOccurred", "targetId": "event.chapter6.keva-record-verified", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.keva-methodology", "policyId": "policy.chapter6.keva-methodology", "claimType": "factDisclosed", "targetId": "fact.chapter6.keva-lir-methodology", "sourceRole": "assistant" }
+    ],
+    "bram-edden-credentials": [
+      { "claimId": "claim.chapter6.bram-testified", "policyId": "policy.chapter6.bram-testified", "claimType": "eventOccurred", "targetId": "event.chapter6.bram-edden-testified", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.bram-credentials", "policyId": "policy.chapter6.bram-credentials", "claimType": "factDisclosed", "targetId": "fact.chapter6.bram-edden-credentials", "sourceRole": "assistant" }
+    ],
+    "owner-refuses-public-release": [
+      { "claimId": "claim.chapter6.owner-release-position-heard", "policyId": "policy.chapter6.owner-release-position-heard", "claimType": "eventOccurred", "targetId": "event.chapter6.owner-release-position-heard", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter6.owner-refuses-public-release", "policyId": "policy.chapter6.owner-refuses-public-release", "claimType": "factDisclosed", "targetId": "fact.chapter6.evidence-owner-release-boundary", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
@@ -294,6 +326,57 @@
         { "claimId": "claim.chapter6.unknown-policy", "policyId": "policy.chapter6.invented", "claimType": "decisionRecorded", "targetId": "outcome.chapter6.rourke-boundary", "value": "restrictAccess", "sourceRole": "user" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    },
+    {
+      "id": "lacuna-telemetry-before-rourke-boundary",
+      "sequence": ["lacuna-access", "risk-telemetry-report", "rourke-restrict", "crisis-active", "network-isolate", "command-network-containment", "network-contained", "account-archive-report", "archive-resolution", "evidence-joint", "evidence-asset", "rourke-cooperative", "info-public-framework"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountablePreservation", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completed" },
+        "outcomeDimensions": { "dimension.chapter6.evidence": "farwatch-evidence-package" },
+        "eventsInclude": ["event.chapter6.lacuna-access-established", "event.chapter6.command-network-containment-established", "event.chapter6.archive-recovery-resolved"],
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "rourke-choice-reveals-constraint",
+      "sequence": ["rourke-conditional", "rourke-constraint", "crisis-active", "network-countermand", "network-exposure", "account-corroborated-report", "risk-cross-system-report", "evidence-sealed", "evidence-preserved", "rourke-retained", "info-delayed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "controlledSecrecy", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter6.rourke-operational-constraint"],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "tolland-delay-crosses-concealment-line",
+      "sequence": ["rourke-conditional", "tolland-concealment-line", "crisis-active", "network-countermand", "network-exposure", "account-corroborated-report", "risk-cross-system-report", "evidence-sealed", "evidence-preserved", "rourke-retained", "info-delayed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "controlledSecrecy", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter6.tolland-concealment-line"],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "analyst-corroboration-without-archive",
+      "sequence": ["evidence-lost", "archive-resolution", "rourke-departed", "info-private", "crisis-active", "network-isolate", "network-contained", "keva-lir-methodology", "bram-edden-credentials", "independent-corroboration", "account-corroborated-report", "risk-cross-system-report"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "evidenceLostForward", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter6.keva-lir-methodology", "fact.chapter6.bram-edden-credentials"],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completed", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
+    },
+    {
+      "id": "evidence-owner-refuses-public-release",
+      "sequence": ["rourke-conditional", "owner-refuses-public-release", "crisis-active", "network-countermand", "network-exposure", "account-corroborated-report", "risk-cross-system-report", "evidence-sealed", "evidence-preserved", "rourke-retained", "info-delayed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "controlledSecrecy", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter6.evidence-owner-release-boundary"],
+        "objectiveDispositions": { "objective.chapter6.command-network": "completedWithCost", "objective.chapter6.farwatch-truth": "completed", "objective.chapter6.evidence-authority": "completedWithCost" },
+        "transitionTargetId": "chapter-7-a-peace-of-their-own"
+      }
     }
   ]
 }

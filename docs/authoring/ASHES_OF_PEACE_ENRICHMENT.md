@@ -498,34 +498,36 @@ Open Orders II retains its choose-two, delegated-three, overextension, early-dep
 
 ```mermaid
 flowchart TD
-    A[Rourke arrives with authentic classified authority] --> B[Conduct Lacuna operation]
-    A --> C[Define Rourke's operational boundary]
-    B --> D[Maintain ship and command-network safety]
-    B --> E[Recover or lose Farwatch evidence]
-    E --> F[Establish Farwatch conduct]
-    F --> G[Establish continuing Nightfall risk]
-    C --> H[Resolve operative authority]
-    E --> I[Resolve archive custody]
-    F --> J[Resolve regional disclosure]
-    D --> K[Operational result]
-    H --> L[Institutional result]
-    I --> L
-    J --> L
-    G --> M[Annex Six crisis]
-    K --> M
-    L --> M
+    A[Rourke arrives with authentic classified authority] --> B[Establish Lacuna access]
+    A --> C[Define Rourke boundary]
+    B --> D[False recall activates]
+    D --> E[Contain command network]
+    B --> F{Archive outcome}
+    F -->|Recovered or partial| G[Lacuna evidence route]
+    F -->|Purged, seized, or lost| H[Verify Lir methodology]
+    H --> I[Authenticate Edden account]
+    I --> J[Independent corroboration]
+    C --> K[Rourke acts under constraint]
+    K --> L[Test Tolland delay]
+    G --> M[Establish Farwatch conduct and Nightfall risk]
+    J --> M
+    E --> N[Operational result]
+    L --> O[Choose sealed, selective, public, or lost evidence disposition]
+    M --> O
+    N --> P[Annex Six crisis]
+    O --> P
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-This mission has nine outcomes and fifty-six allowed outcome values but only three facts, one event, and two report routes. It is decision-rich and dramatically under-segmented. The danger is a long briefing followed by abstract policy declarations.
+The mission now separates Lacuna access, false-recall activation, command-network containment, archive resolution, and independent corroboration without making all five mandatory. Five discovery-order scenarios bring the campaign suite to 271 authored scenarios while preserving all six terminal dispositions and the existing Farwatch Evidence Package award condition.
 
-#### Enrichment direction
+#### Enrichment delivered
 
-- Split the Lacuna operation into concrete operational discoveries and reversals.
-- Establish Rourke through choices he makes under pressure, not only argument.
-- Give Tolland a visible constraint and a point at which controlled timing becomes concealment.
-- Add independent evidence owners so disclosure is not a binary data-dump decision.
+- The Lacuna operation now has concrete access, containment, archive, and corroboration beats.
+- Rourke's safeguards and recall enforcement reveal his operational constraint through action.
+- Tolland's bounded protective delay has a defined transition into institutional concealment.
+- Keva Lir, Bram Edden, and a protected-record owner create independent, limited evidence routes and a credible sealed-review alternative to a data dump.
 
 ### Chapter 7: A Peace of Their Own
 

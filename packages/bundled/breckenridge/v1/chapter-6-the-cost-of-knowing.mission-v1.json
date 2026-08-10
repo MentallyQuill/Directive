@@ -36,9 +36,161 @@
       "playerText": {
         "summary": "Pale Lantern can use authenticated pathways to spread convincing false orders faster than manual correction. It is assembling access to regional defense and evacuation systems, and Nightfall remains on course even if the Lacuna node is destroyed."
       }
+    },
+    {
+      "id": "fact.chapter6.rourke-operational-constraint",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Rourke will disclose a concrete network risk and accept safeguards that preserve unrelated sources, but he will attempt to enforce the recall if he believes uncontrolled access exposes an active operation."
+      }
+    },
+    {
+      "id": "fact.chapter6.tolland-concealment-line",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Tolland's initial delay protects active personnel and a bounded operation; once those identities are separated and Nightfall risk is supportable, continued regional exclusion becomes institutional concealment rather than operational protection."
+      }
+    },
+    {
+      "id": "fact.chapter6.keva-lir-methodology",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Farwatch analyst Keva Lir preserved a signed methodology record showing which Lacuna findings came from genuine weapons traffic, which used current Starfleet credentials, and where the adaptive-risk warning was raised."
+      }
+    },
+    {
+      "id": "fact.chapter6.bram-edden-credentials",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Lieutenant Bram Edden can establish that his communications credentials were copied into the Lacuna interface under compartmented orders without his informed consent to regional monitoring or adaptive-system use."
+      }
+    },
+    {
+      "id": "fact.chapter6.evidence-owner-release-boundary",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "An evidence owner will support independent sealed review and bounded public findings but refuses unrestricted release that would expose unrelated agents and private intercepts."
+      }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.chapter6.lacuna-access",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.lacuna-access-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter6.classified-confrontation" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when the Breckenridge establishes physical, telemetry, or authenticated technical access to the Lacuna post sufficient for operational investigation.", "exclusions": ["Setting course, receiving coordinates, or detecting the gas giant is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.command-network-containment",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.command-network-containment-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.chapter6.false-emergency-active" }, { "not": { "outcomeIs": { "id": "outcome.chapter6.network-response", "equals": "pending" } } }] },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when the crew establishes a bounded verified command channel, quarantine, or equivalent containment during the false recall.", "exclusions": ["Choosing a response, issuing a countermand, or closing one console does not establish containment."] }
+    },
+    {
+      "id": "policy.chapter6.archive-resolution",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.archive-recovery-resolved",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "any": [{ "outcomeIs": { "id": "outcome.chapter6.farwatch-account-route", "equals": "lacunaArchive" } }, { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "in": ["lostOrPurged", "farwatchSeized", "partialEvidence"] } }] },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when accepted narration establishes whether the Lacuna archive was recovered, partially retained, seized, or lost far enough to determine which evidence routes remain.", "exclusions": ["Beginning a download, threatening a purge, or losing contact temporarily is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.independent-corroboration",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.independent-corroboration-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "factKnown": "fact.chapter6.keva-lir-methodology" }, { "factKnown": "fact.chapter6.bram-edden-credentials" }] },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Lir's signed methodology and Edden's credential account are independently authenticated and cross-checked into a usable corroborated route.", "exclusions": ["Either witness alone, matching recollections, or an unsigned summary is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.rourke-constraint-shown",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.rourke-constraint-shown",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-boundary", "equals": "pending" } } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Rourke responds to the player's boundary through a constrained act: disclosing risk, protecting a source, enforcing recall, or accepting a safeguard.", "exclusions": ["Restating his orders or expressing approval or anger is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.rourke-constraint",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.rourke-operational-constraint",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter6.rourke-operational-constraint" }, { "eventOccurred": "event.chapter6.rourke-constraint-shown" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose what Rourke's act establishes about the safeguards he accepts and the active-source exposure that will make him enforce recall.", "exclusions": ["Do not turn one cooperative act into blanket trust or one enforcement attempt into proof he intended Nightfall."] }
+    },
+    {
+      "id": "policy.chapter6.tolland-delay-reviewed",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.tolland-delay-reviewed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-boundary", "equals": "pending" } } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Tolland's delay is tested against identified active-personnel risks, separable records, and the supportable regional threat.", "exclusions": ["Her original classification order or a general demand for transparency is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.tolland-concealment-line",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.tolland-concealment-line",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter6.tolland-concealment-line" }, { "eventOccurred": "event.chapter6.tolland-delay-reviewed" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose the bounded line between delay protecting active personnel and continued exclusion becoming concealment after those risks are separated.", "exclusions": ["Do not declare all classification illegitimate or let operational value justify indefinite regional exclusion."] }
+    },
+    {
+      "id": "policy.chapter6.keva-record-verified",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.keva-record-verified",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "in": ["lostOrPurged", "partialEvidence", "farwatchSeized"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Keva Lir's signed methodology record is authenticated independently of the lost Lacuna archive.", "exclusions": ["Lir's recollection alone or an unsigned analyst note is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.keva-methodology",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.keva-lir-methodology",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter6.keva-lir-methodology" }, { "eventOccurred": "event.chapter6.keva-record-verified" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose the bounded methodology record, including genuine operational value, current credential use, and the adaptive-risk warning.", "exclusions": ["Do not claim Lir holds the full command record or Nightfall control chain."] }
+    },
+    {
+      "id": "policy.chapter6.bram-testified",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.bram-edden-testified",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "in": ["lostOrPurged", "partialEvidence", "farwatchSeized"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Lieutenant Bram Edden gives an authenticated, bounded account of how his credentials entered the interface and what he was not told.", "exclusions": ["Credential ownership alone or speculation about consent is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.bram-credentials",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.bram-edden-credentials",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter6.bram-edden-credentials" }, { "eventOccurred": "event.chapter6.bram-edden-testified" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose Edden's credential use and lack of informed consent to adaptive regional monitoring without overstating his knowledge.", "exclusions": ["Do not make Edden a Farwatch policy owner or witness to the entire operation."] }
+    },
+    {
+      "id": "policy.chapter6.owner-release-position-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.owner-release-position-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-boundary", "equals": "pending" } } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when an identifiable evidence owner states what can enter independent review and what unrestricted release would expose.", "exclusions": ["Rourke's classification demand or a generic privacy concern is insufficient."] }
+    },
+    {
+      "id": "policy.chapter6.owner-refuses-public-release",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.evidence-owner-release-boundary",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter6.evidence-owner-release-boundary" }, { "eventOccurred": "event.chapter6.owner-release-position-heard" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose consent to sealed independent review and bounded public findings together with refusal of unrestricted source and intercept release.", "exclusions": ["Do not equate refusal of unrestricted publication with refusal of accountability."] }
+    },
     {
       "id": "policy.chapter6.rourke-boundary",
       "claimType": "decisionRecorded",
@@ -346,6 +498,51 @@
       "playerText": {
         "summary": "Pale Lantern can use authenticated pathways to spread convincing false orders faster than manual correction. It is assembling access to regional defense and evacuation systems, and Nightfall continues even if Lacuna is destroyed."
       }
+    },
+    {
+      "id": "report.chapter6.rourke-operational-constraint",
+      "factId": "fact.chapter6.rourke-operational-constraint",
+      "evidencePolicyId": "policy.chapter6.rourke-constraint",
+      "capabilityRoles": ["command", "security", "intelligence"],
+      "preferredActorIds": ["elias-rourke"], "fallbackActorIds": ["mara-whitaker"], "urgency": "material", "confidence": "confirmed", "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter6.rourke-operational-constraint" }, { "eventOccurred": "event.chapter6.rourke-constraint-shown" }, { "not": { "factKnown": "fact.chapter6.rourke-operational-constraint" } }] },
+      "playerText": { "summary": "Rourke's response identifies the safeguards he will accept and the active-source exposure that will make him enforce recall." }
+    },
+    {
+      "id": "report.chapter6.tolland-concealment-line",
+      "factId": "fact.chapter6.tolland-concealment-line",
+      "evidencePolicyId": "policy.chapter6.tolland-concealment-line",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["priya-nayar"], "fallbackActorIds": ["mara-whitaker"], "urgency": "material", "confidence": "confirmed", "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter6.tolland-concealment-line" }, { "eventOccurred": "event.chapter6.tolland-delay-reviewed" }, { "not": { "factKnown": "fact.chapter6.tolland-concealment-line" } }] },
+      "playerText": { "summary": "Once active identities and operations are separated from the record, continued exclusion of the Reach becomes concealment rather than protection." }
+    },
+    {
+      "id": "report.chapter6.keva-lir-methodology",
+      "factId": "fact.chapter6.keva-lir-methodology",
+      "evidencePolicyId": "policy.chapter6.keva-methodology",
+      "capabilityRoles": ["science", "intelligence"],
+      "preferredActorIds": ["keva-lir", "rowan-saye"], "fallbackActorIds": ["mara-whitaker"], "urgency": "material", "confidence": "confirmed", "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter6.keva-lir-methodology" }, { "eventOccurred": "event.chapter6.keva-record-verified" }, { "not": { "factKnown": "fact.chapter6.keva-lir-methodology" } }] },
+      "playerText": { "summary": "Keva Lir's signed methodology separates genuine operational value, current credential use, and the recorded adaptive-risk warning." }
+    },
+    {
+      "id": "report.chapter6.bram-edden-credentials",
+      "factId": "fact.chapter6.bram-edden-credentials",
+      "evidencePolicyId": "policy.chapter6.bram-credentials",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["bram-edden", "priya-nayar"], "fallbackActorIds": ["mara-whitaker"], "urgency": "material", "confidence": "confirmed", "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter6.bram-edden-credentials" }, { "eventOccurred": "event.chapter6.bram-edden-testified" }, { "not": { "factKnown": "fact.chapter6.bram-edden-credentials" } }] },
+      "playerText": { "summary": "Bram Edden establishes how his credentials entered Lacuna and what adaptive regional use he was never told about." }
+    },
+    {
+      "id": "report.chapter6.evidence-owner-release-boundary",
+      "factId": "fact.chapter6.evidence-owner-release-boundary",
+      "evidencePolicyId": "policy.chapter6.owner-refuses-public-release",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["priya-nayar"], "fallbackActorIds": ["mara-whitaker"], "urgency": "material", "confidence": "confirmed", "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter6.evidence-owner-release-boundary" }, { "eventOccurred": "event.chapter6.owner-release-position-heard" }, { "not": { "factKnown": "fact.chapter6.evidence-owner-release-boundary" } }] },
+      "playerText": { "summary": "The evidence owner supports sealed independent review and bounded public findings while refusing unrestricted exposure of unrelated agents and intercepts." }
     }
   ],
   "events": [
@@ -353,7 +550,16 @@
       "id": "event.chapter6.false-emergency-active",
       "playerVisibility": "hidden",
       "playerText": { "summary": "The Lacuna false-emergency sequence is actively threatening command and network coherence." }
-    }
+    },
+    { "id": "event.chapter6.lacuna-access-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.command-network-containment-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.archive-recovery-resolved", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.independent-corroboration-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.rourke-constraint-shown", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.tolland-delay-reviewed", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.keva-record-verified", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.bram-edden-testified", "playerVisibility": "hidden" },
+    { "id": "event.chapter6.owner-release-position-heard", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     { "id": "outcome.chapter6.rourke-boundary", "allowedValues": ["pending", "conditionalCooperation", "restrictAccess", "relieveOrDetain", "acceptAuthority", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },

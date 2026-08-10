@@ -2738,6 +2738,10 @@ Rourke's argument should be serious:
 
 His blind spot is that he treats informed consent and local political legitimacy as secondary to threat reduction.
 
+Rourke must reveal that position through constrained action rather than a single briefing. He will disclose a concrete network risk and accept safeguards that protect unrelated sources. If he believes uncontrolled access will expose an active operation, however, he will attempt to enforce the recall even after cooperating elsewhere. Neither response proves that he intended Nightfall, and cooperation does not make him broadly trustworthy.
+
+Tolland's delay has a similarly bounded interpretation. At first, it protects identifiable personnel and a still-active operation. Once those identities and unrelated records can be separated from supportable evidence of the regional threat, continued exclusion of the Reach becomes institutional concealment rather than operational protection. The player can test and record where that line is crossed without declaring all classified work illegitimate.
+
 ### 19.5 The Farwatch node
 
 Rourke reveals a concealed listening post in the **Lacuna System**, one light-year from the Reach's populated corridor.
@@ -2800,6 +2804,12 @@ Kessler and Tolland must be managed without reducing either to an obstacle.
 
 Whitaker initially favors preserving evidence, complying with the lawful portions of Rourke's orders, and using Inspector General channels before public disclosure.
 
+#### Independent evidence owners
+
+- **Analyst Keva Lir** preserved a signed Farwatch methodology record outside the Lacuna archive. It distinguishes genuine weapons-traffic findings, current-credential use, and the point at which she raised the adaptive-risk warning. She does not possess the complete command record.
+- **Lieutenant Bram Edden** is the communications officer whose credentials were copied into the interface under compartmented orders. He can authenticate how they were used and establish that he never gave informed consent to regional monitoring or adaptive-system use. He did not set Farwatch policy and cannot testify to the whole operation.
+- An identifiable owner of protected source and intercept records will submit them to sealed independent review and permit bounded public findings, but refuses an unrestricted release that would expose unrelated agents and private communications. That refusal is a limit on publication, not a refusal of accountability.
+
 ### 19.8 Active crisis
 
 When the Lacuna post is accessed, Pale Lantern initiates a false emergency sequence:
@@ -2811,6 +2821,16 @@ When the Lacuna post is accessed, Pale Lantern initiates a false emergency seque
 - One Farwatch archive partition transmits toward an unknown node.
 
 The player must act while deciding whether Rourke is still trustworthy.
+
+Run the crisis as a sequence of operational beats whose evidence can arrive in different orders:
+
+1. **Lacuna access:** the Breckenridge establishes physical, telemetry, or authenticated technical access sufficient to investigate the post.
+2. **False recall:** Pale Lantern activates the authentic-looking recall, hostile purge, Asterion warning, and outbound archive transfer.
+3. **Command-network containment:** the crew establishes a bounded verified channel, quarantine, or equivalent containment. A countermand or closed console alone is not enough.
+4. **Archive resolution:** the archive is recovered, partially retained, seized, or lost far enough to establish which evidence routes remain.
+5. **Independent corroboration:** if the archive is unavailable, Lir's signed methodology and Edden's credential account can be authenticated and cross-checked into a usable route.
+
+These are parallel and alternate sources for the existing Farwatch account, Nightfall risk, and evidence decisions, not five mandatory errands. Telemetry may expose the danger before the player defines Rourke's boundary; Rourke's action may reveal his constraint before the archive resolves; and corroborated witnesses can preserve accountability after a purge.
 
 ### 19.9 Required revelations
 
@@ -2839,6 +2859,8 @@ The player may:
 - Use it to send a controlled false credential into Pale Lantern.
 
 No option automatically avoids both operational and political cost.
+
+Disclosure is likewise not binary. The player may separate active identities and unrelated intercepts, place protected material in credible sealed custody, and publish bounded findings about the imposed regional risk. An evidence owner's refusal of unrestricted publication should create a negotiation over review, consent, and proof rather than automatically counting as concealment.
 
 ### 19.11 Escalation events
 

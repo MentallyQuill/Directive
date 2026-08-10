@@ -585,23 +585,23 @@ git commit -m "feat: expand Open Orders II recovery"
 - Produces: multiple operational evidence routes to the existing Farwatch account and Nightfall risk.
 - Consumes: existing network, evidence, information, and Rourke outcome dimensions and Farwatch Evidence Package capability.
 
-- [ ] **Step 1: Add failing discovery-order scenarios**
+- [x] **Step 1: Add failing discovery-order scenarios**
 
 Add `lacuna-telemetry-before-rourke-boundary`, `rourke-choice-reveals-constraint`, `tolland-delay-crosses-concealment-line`, `analyst-corroboration-without-archive`, and `evidence-owner-refuses-public-release`.
 
-- [ ] **Step 2: Split the single crisis event into operational beats**
+- [x] **Step 2: Split the single crisis event into operational beats**
 
 Add events for Lacuna access, false recall activation, command-network containment, archive recovery or loss, and independent corroboration. Do not make each event a required checklist item; they are alternate or parallel evidence sources for the existing three required objectives.
 
-- [ ] **Step 3: Establish Rourke and Tolland through constrained actions**
+- [x] **Step 3: Establish Rourke and Tolland through constrained actions**
 
 Rourke may disclose a risk, protect a source, attempt to enforce the recall, or accept a safeguard. Tolland may permit bounded disclosure, delay for operational protection, or continue delay after it no longer protects an active operation. Preserve Farwatch's genuine wartime value alongside imposed regional risk.
 
-- [ ] **Step 4: Add independent evidence owners**
+- [x] **Step 4: Add independent evidence owners**
 
 Author Analyst Keva Lir as a Farwatch analyst who preserved a signed methodology record and Lieutenant Bram Edden as a communications officer whose credentials were used without informed consent. Neither holds the complete truth; together or with Lacuna telemetry they can corroborate it.
 
-- [ ] **Step 5: Verify and commit Chapter 6**
+- [x] **Step 5: Verify and commit Chapter 6**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 
