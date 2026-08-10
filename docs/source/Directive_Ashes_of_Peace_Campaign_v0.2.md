@@ -4042,6 +4042,18 @@ Possible developments:
 - Strong professional trust if the player respected her limits.
 - Continued distance if she was treated as a tool or philosophical object.
 
+#### Bounded crew and regional codas
+
+Personal codas are optional enrichments after the required aftermath, authority, accountability, and command records have enough support. They never block the authored campaign conclusion and must be selected only from accepted outcome dimensions, available capabilities, and Story Settlement consequences.
+
+- Whitaker, Bronn, Miriam, Imani, Rowan, Kieran, Priya, and Lysa Chen may receive a concrete continued-duty image grounded in their established arc. Do not invent promotion, romance, retirement, permanent reassignment, injury, reconciliation, or death.
+- Tolland, Rourke, Kessler, Holt, Marr, Solenn, Prel, Ivers, Tonn, Vos, and Mercer should appear as people living under the adopted authority, accountability, custody, and humanitarian terms. Cooperation, testimony, review, or continued opposition must match the record; uncertainty remains valid.
+- If Anika Rhee entered lawful custody, show supported process, medical access, and review without inventing a sentence or making her a Pale Lantern agent.
+- If Rhee entered treatment or responsible handoff, preserve the named custodian, confidentiality, and accountability boundary without promising recovery or reconciliation.
+- If Daro Tem received confidential care, keep his treatment and temporary duty status separate from the distribution case. Symptoms do not establish guilt, and later service remains open unless play established more.
+
+For **accountable peace**, use earned repair and continued-duty images without declaring the Reach perfected. For a **managed settlement**, show institutions functioning while review dates, custody limits, and political obligations remain unresolved. For a **contested aftermath**, end with specific survival and responsibility without manufacturing agreement among divided parties.
+
 ### 23.6 Public narrative
 
 The campaign should record what the public believes happened.

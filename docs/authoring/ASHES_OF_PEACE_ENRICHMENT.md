@@ -666,16 +666,16 @@ flowchart TD
     I --> J[Authored campaign conclusion]
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-The epilogue supports multiple settlement axes and flexible order, but most results are institutional summaries. Individual crew and regional NPC futures are intentionally not invented, leaving a data gap that can make the conclusion emotionally thin.
+Six coda-combination scenarios bring the campaign suite to 294 authored scenarios. Crew, regional, Rhee, and Daro codas are optional facts and events: they can enrich any supported ending tone but remain outside the four-objective closure boundary and cannot block the exact authored conclusion receipt.
 
-#### Enrichment direction
+#### Enrichment delivered
 
-- Author bounded codas for the senior crew, Lysa, Rhee, Daro, and major regional NPCs.
-- Select codas only from supported accepted outcomes and Story Settlement consequences.
-- Preserve ambiguity where the campaign did not establish a future.
-- End with both institutional terms and specific people living under them.
+- Bounded codas cover the senior crew, Lysa, Rhee, Daro, and the recurring regional cast.
+- Selection is limited to accepted outcome dimensions, capabilities, and Story Settlement consequences.
+- Custody, treatment, and confidential-care routes remain distinct, and every unestablished future remains uncertain.
+- Accountable peace, managed settlement, and contested aftermath each combine institutional terms with people living under them without requiring reconciliation or perfection.
 
 ## Campaign-Wide Enrichment Priorities
 
@@ -711,4 +711,4 @@ The epilogue supports multiple settlement axes and flexible order, but most resu
 
 ## Review State
 
-The Prelude direction and redline investigation paths are approved and implemented in the first campaign-data checkpoint. The Prelude may intentionally award both the Hesperus-accountability and Rhee-apprehension points. The campaign-wide expansion, enrichment, and payoff policy are approved. Remaining implementation is sequenced in `docs/superpowers/plans/2026-08-10-ashes-of-peace-campaign-enrichment.md`; the path sketches remain authoring aids rather than campaign graph data.
+All thirteen campaign missions now have implemented enrichment checkpoints. The Prelude may intentionally award both the Hesperus-accountability and Rhee-apprehension points. The path sketches remain authoring aids rather than campaign graph data. Final campaign-data certification and coverage auditing are tracked in `docs/superpowers/plans/2026-08-10-ashes-of-peace-campaign-enrichment.md`.

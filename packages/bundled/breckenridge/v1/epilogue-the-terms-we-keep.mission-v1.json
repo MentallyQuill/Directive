@@ -80,9 +80,99 @@
       "playerText": {
         "summary": "Whitaker's private assessment records the command responsibility the player demonstrated and the authority they will carry forward."
       }
+    },
+    {
+      "id": "fact.epilogue.crew-codas",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Supported crew codas show Whitaker carrying the institutional terms into continued command; Bronn revising obligations into standing orders; Sato preserving care and confidentiality; Imani retaining authorship of her legal and engineering boundaries; Rowan separating proof from suspicion; Kieran sharing flight responsibility; Priya maintaining human verification channels; and Lysa Chen continuing to ask precise questions. Promotion, romance, reconciliation, and permanent assignments remain unstated unless play established them." }
+    },
+    {
+      "id": "fact.epilogue.regional-codas",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Regional codas place Tolland, Rourke, Kessler, Holt, Marr, Solenn, Prel, Ivers, Tonn, Vos, and Mercer inside the accepted authority, accountability, custody, and humanitarian terms. Each may cooperate, contest, testify, continue service, or face review only where established outcomes support it; uncertain futures remain uncertain." }
+    },
+    {
+      "id": "fact.epilogue.rhee-custody-coda",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Where lawful custody was established, Anika Rhee remains a person under a supported process with medical access and review, not a solved villain or a secret Pale Lantern agent. No sentence or permanent fate is invented." }
+    },
+    {
+      "id": "fact.epilogue.rhee-treatment-coda",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Where treatment or responsible handoff was established, Anika Rhee's care, confidentiality, and accountability boundaries continue under the named custodian without inventing recovery, reconciliation, or later offending." }
+    },
+    {
+      "id": "fact.epilogue.daro-care-coda",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Daro Tem's established confidential care and any temporary duty limits continue separately from the distribution case. His symptoms neither prove guilt nor promise recovery, and his later service remains open unless play established more." }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.epilogue.crew-codas",
+      "claimType": "eventOccurred", "targetId": "event.epilogue.crew-codas-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when bounded images for the established senior crew and Lysa Chen are selected only from accepted mission outcomes, capabilities, and Story Settlement consequences.", "exclusions": ["Do not invent promotion, romance, permanent assignment, reconciliation, injury, death, or retirement."] }
+    },
+    {
+      "id": "policy.epilogue.crew-codas-disclosed",
+      "claimType": "factDisclosed", "targetId": "fact.epilogue.crew-codas", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.crew-codas" }, { "eventOccurred": "event.epilogue.crew-codas-recorded" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose only the supported crew images and preserve every unestablished future as uncertain.", "exclusions": ["A general celebration or roster list is not a supported personal coda."] }
+    },
+    {
+      "id": "policy.epilogue.regional-codas",
+      "claimType": "eventOccurred", "targetId": "event.epilogue.regional-codas-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.epilogue.settlement-account" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when bounded images for the named regional actors are selected from the adopted settlement and accepted prior consequences.", "exclusions": ["Do not invent unanimous reconciliation, imprisonment, exoneration, promotion, death, or permanent office."] }
+    },
+    {
+      "id": "policy.epilogue.regional-codas-disclosed",
+      "claimType": "factDisclosed", "targetId": "fact.epilogue.regional-codas", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.regional-codas" }, { "eventOccurred": "event.epilogue.regional-codas-recorded" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose regional codas as people living under the accepted terms, including disagreement and unresolved obligations where supported.", "exclusions": ["Do not turn an accountable or managed ending into universal agreement."] }
+    },
+    {
+      "id": "policy.epilogue.rhee-custody-coda",
+      "claimType": "eventOccurred", "targetId": "event.epilogue.rhee-custody-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes Rhee in lawful custody and the coda preserves medical access and due process.", "exclusions": ["Do not use this coda after treatment handoff, escape, or an undiscovered thread; do not connect Rhee to Pale Lantern."] }
+    },
+    {
+      "id": "policy.epilogue.rhee-custody-disclosed",
+      "claimType": "factDisclosed", "targetId": "fact.epilogue.rhee-custody-coda", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.rhee-custody-coda" }, { "eventOccurred": "event.epilogue.rhee-custody-coda-recorded" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose only the supported lawful-custody coda and its unresolved future.", "exclusions": ["Do not invent sentence, release, rehabilitation, or Pale Lantern involvement."] }
+    },
+    {
+      "id": "policy.epilogue.rhee-treatment-coda",
+      "claimType": "eventOccurred", "targetId": "event.epilogue.rhee-treatment-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes treatment without custody or responsible handoff and names the continuing custodian or process.", "exclusions": ["Do not use this coda after lawful custody, escape, or an undiscovered thread; do not promise recovery."] }
+    },
+    {
+      "id": "policy.epilogue.rhee-treatment-disclosed",
+      "claimType": "factDisclosed", "targetId": "fact.epilogue.rhee-treatment-coda", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.rhee-treatment-coda" }, { "eventOccurred": "event.epilogue.rhee-treatment-coda-recorded" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose only the supported treatment or handoff coda and its named boundaries.", "exclusions": ["Do not invent recovery, reconciliation, or later offending."] }
+    },
+    {
+      "id": "policy.epilogue.daro-care-coda",
+      "claimType": "eventOccurred", "targetId": "event.epilogue.daro-care-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes Daro's confidential treatment and duty disposition.", "exclusions": ["Do not mention an undiscovered thread, infer guilt, or invent recovery, discharge, or later service."] }
+    },
+    {
+      "id": "policy.epilogue.daro-care-disclosed",
+      "claimType": "factDisclosed", "targetId": "fact.epilogue.daro-care-coda", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.daro-care-coda" }, { "eventOccurred": "event.epilogue.daro-care-coda-recorded" }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose only Daro's established confidential care and duty boundary.", "exclusions": ["Do not infer guilt or invent recovery, discharge, or later service."] }
+    },
     {
       "id": "policy.epilogue.authority-position",
       "claimType": "decisionRecorded",
@@ -389,7 +479,12 @@
   "events": [
     { "id": "event.epilogue.aftermath-report-complete", "playerVisibility": "hidden" },
     { "id": "event.epilogue.settlement-record-complete", "playerVisibility": "hidden" },
-    { "id": "event.epilogue.command-review-complete", "playerVisibility": "hidden" }
+    { "id": "event.epilogue.command-review-complete", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.crew-codas-recorded", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.regional-codas-recorded", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.rhee-custody-coda-recorded", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.rhee-treatment-coda-recorded", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.daro-care-coda-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     { "id": "outcome.epilogue.authority-position", "allowedValues": ["pending", "positionStated"], "initialValue": "pending", "playerVisibility": "hidden" },

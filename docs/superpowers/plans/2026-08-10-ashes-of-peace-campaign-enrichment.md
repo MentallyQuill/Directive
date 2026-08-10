@@ -762,23 +762,23 @@ git commit -m "feat: humanize Last Directive finale"
 - Produces: supported crew and regional codas selected from accepted outcome dimensions and available entry capabilities.
 - Consumes: Chapter 8 aftermath, Farwatch evidence, provisional accord, all seven epilogue outcome dimensions, and final command review.
 
-- [ ] **Step 1: Add failing coda combinations**
+- [x] **Step 1: Add failing coda combinations**
 
 Add `accountable-peace-personal-codas`, `managed-settlement-unresolved-obligations`, `contested-aftermath-no-invented-reconciliation`, `rhee-custody-coda`, `rhee-treatment-handoff-coda`, and `daro-care-coda`.
 
-- [ ] **Step 2: Author bounded coda facts and events**
+- [x] **Step 2: Author bounded coda facts and events**
 
 Add coda routes for Whitaker, Bronn, Sato, Imani, Rowan, Kieran, Priya, Chen, Rhee, Daro, Tolland, Rourke, Kessler, Holt, Marr, Solenn, Prel, Ivers, Tonn, Vos, and Mercer. A coda may appear only when its required accepted outcome or capability is present. If no future was established, preserve uncertainty rather than inventing promotion, imprisonment, romance, reconciliation, or death.
 
-- [ ] **Step 3: Make institutional and personal resolution coexist**
+- [x] **Step 3: Make institutional and personal resolution coexist**
 
 Keep the existing four required epilogue objectives. The aftermath, authority, accountability, and command decisions remain the closure boundary. Coda facts enrich the final scene but cannot block campaign conclusion.
 
-- [ ] **Step 4: Preserve all three ending tones**
+- [x] **Step 4: Preserve all three ending tones**
 
 `accountablePeace` receives earned repair and continued-duty images without declaring perfection. `managedSettlement` shows institutions functioning under unresolved limits. `contestedAftermath` ends with concrete responsibility and survival without falsely reconciling divided parties.
 
-- [ ] **Step 5: Verify and commit the epilogue**
+- [x] **Step 5: Verify and commit the epilogue**
 
 Run:
 
