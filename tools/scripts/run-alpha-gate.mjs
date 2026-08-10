@@ -102,6 +102,7 @@ const checks = [
   'test-v1-projection-rebuild.mjs',
   'test-v1-state-spine-runtime.mjs',
   'test-v1-mission-runtime.mjs',
+  'test-v1-mission-authoritative-time-runtime.mjs',
   'test-v1-mission-transition-runtime.mjs',
   'test-v1-mission-transition-narration.mjs',
   'test-v1-mission-journey-rebuild.mjs',
