@@ -8,6 +8,7 @@ const checks = [
   "test-certified-people-view.mjs",
   "test-certified-ship-view.mjs",
   "test-certified-settings-view.mjs",
+  "test-certified-scroll-ownership.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
   "test-bundled-package-registry.mjs",

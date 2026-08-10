@@ -3218,3 +3218,18 @@ textarea.directive-field-control {
     animation: none !important;
   }
 }
+
+/* Certified V1 scroll ownership: the shell and route page stay fixed. */
+.directive-expanded-shell .directive-route-body {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.directive-expanded-shell [data-directive-scroll-owner="true"] {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
