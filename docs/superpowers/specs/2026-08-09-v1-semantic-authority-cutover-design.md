@@ -6,9 +6,9 @@ Approved implementation refinement of the V1 Gameplay Architecture, Unified Stor
 
 ## Decision
 
-Fresh V1-native Ashes saves carry an explicit, persisted gameplay-architecture stamp created with the save. The stamp makes Story Settlement and the V1 mission reducer authoritative for that save. A save without the stamp remains on the legacy compatibility path even when it belongs to Ashes or uses the same package version.
+Every playable Directive V1 save carries an explicit, persisted gameplay-architecture stamp created with the save. The stamp makes Story Settlement and the V1 mission reducer authoritative. A save without the stamp is unsupported and cannot enter gameplay.
 
-Runtime code must never infer authority from a campaign title, mission name, presence of V1 assets, or package identity alone. It validates the stamp against the active package and loaded mission definition. A stamped save whose V1 assets are missing or mismatched is blocked from semantic fallback; it is not silently processed by legacy writers.
+Runtime code must never infer authority from a campaign title, mission name, presence of V1 assets, or package identity alone. It validates the stamp against the active package and loaded mission definition. Missing, malformed, or mismatched V1 authority blocks gameplay. There is no alternate semantic runtime.
 
 ## Authority Stamp
 
@@ -29,9 +29,8 @@ The record is branch-preserving data. Save As copies it with the rest of campaig
 
 Authority resolution has three results:
 
-- `legacy`: no V1 stamp; preserve existing behavior and never initialize V1 implicitly;
 - `authoritative`: exact stamp, active package, runtime package, and active V1 mission definition agree;
-- `blocked`: a V1 stamp exists but is malformed, mismatched, or cannot resolve its required assets.
+- `blocked`: the stamp is absent, malformed, mismatched, or cannot resolve its required assets.
 
 ## Accepted-Pair Ordering
 
@@ -43,9 +42,7 @@ For a V1-authoritative save, processing the next player message performs:
 4. run V1 accepted-pair interpretation and deterministic reduction;
 5. continue classification and response generation from the refreshed committed state.
 
-The legacy latest-pair settlement provider is not called. No legacy Scene Handshake semantic operations are applied. Failure never falls back to legacy semantics.
-
-For a legacy save, the existing Scene Handshake path remains unchanged and the V1 accepted-pair reducer is not invoked.
+No alternate latest-pair settlement provider or Scene Handshake semantic operation exists in the V1 runtime. Failure blocks settlement and never selects another authority.
 
 ## Time Custody
 
@@ -64,7 +61,7 @@ Authored V1 mission clocks advance only from the committed boundary evidence acc
 
 ## Legacy Writer Retirement Gate
 
-All semantic legacy work must consult the same authority decision. In V1-authoritative scope, disable:
+Delete the superseded semantic implementations rather than keeping dormant alternatives:
 
 - Scene Handshake semantic settlement and ship `technicalDebt` extraction;
 - Narrative Thread Director extraction and conversation-to-quest promotion;
@@ -76,12 +73,12 @@ All semantic legacy work must consult the same authority decision. In V1-authori
 
 Retain infrastructure and presentation work that does not originate competing story meaning: CORE journaling, source frames, passive mutation detection, REPAIR, exact response custody, bounded Command Log presentation, prompt scheduling, and explicit authored Command Bearing spend/award mechanics.
 
-Writer retirement is fail-closed per writer. A writer with ambiguous ownership does not run merely because it was previously scheduled. Each retained writer must have a focused test proving its allowed roots and purpose in V1 scope.
+Writer retirement is deletion, not a feature flag. Each retained writer must have a focused test proving its allowed roots and purpose.
 
 ## Failure Policy
 
-- A legacy save never enters V1 implicitly.
-- A stamped V1 save never falls back to legacy semantic settlement.
+- An unstamped or non-V1 save cannot enter gameplay.
+- A V1 save never falls back to another semantic settlement path.
 - Missing or invalid selected-pair custody produces no semantic mutation.
 - Missing or mismatched V1 definitions produce a bounded blocked result with sanitized diagnostics.
 - Provider or interpretation failure preserves committed time custody but creates no mission or Story Settlement claim; exact replay may retry.
@@ -90,17 +87,16 @@ Writer retirement is fail-closed per writer. A writer with ambiguous ownership d
 
 ## Migration Policy
 
-V1 requires only newly created Ashes saves to use the new architecture. Existing saves are labeled and supported as legacy compatibility saves until a separately designed explicit migration exists. There is no automatic in-place rewrite of old mission, quest, thread, relationship, ship, or story records.
+V1 supports only V1-native Ashes saves. Existing saves are not migrated, loaded into gameplay, or maintained by a compatibility runtime. There is no automatic in-place rewrite of old mission, quest, thread, relationship, ship, or story records.
 
 This resolves the chicken-and-egg problem deliberately: the new architecture is the target; Ashes is authored and created natively for it; old content is migrated later to the target rather than shaping the target around legacy state.
 
 ## Acceptance Criteria
 
 - New Ashes saves receive the exact persisted V1 authority stamp.
-- Existing unstamped Ashes saves remain legacy.
+- Existing unstamped saves are rejected as unsupported.
 - Stamp/package/definition mismatches block rather than fall back.
 - A V1 accepted pair calls no legacy semantic settlement provider.
-- A legacy accepted pair calls no V1 reducer.
 - V1 time advancement changes only canonical time roots before V1 reduction.
 - V1 background scheduling creates no Narrative Thread, dynamic quest, generic relationship memory, technical-debt, or legacy story-event semantics.
 - Source mutation reconstruction remains active.
@@ -109,4 +105,4 @@ This resolves the chicken-and-egg problem deliberately: the new architecture is 
 
 ## Final Rule
 
-Save creation chooses the architecture once. Runtime validates that choice on every semantic boundary. A V1 save either settles through Story Settlement or reports that V1 settlement is unavailable; it never quietly revives the systems V1 replaced.
+Save creation chooses the V1 architecture once. Runtime validates it on every semantic boundary. A save either settles through Story Settlement or is blocked; the systems V1 replaced do not remain in production code.

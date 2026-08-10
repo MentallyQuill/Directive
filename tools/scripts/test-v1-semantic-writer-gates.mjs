@@ -6,11 +6,6 @@ import {
   createV1DirectorCustodyTurnPacket
 } from '../../src/campaign/transaction-state.mjs';
 import { commitProvisionalDirectorTurnRuntime } from '../../src/runtime/director-turn-runtime.mjs';
-import { allowsLegacySemanticWriters } from '../../src/runtime/v1-semantic-authority.mjs';
-
-assert.equal(allowsLegacySemanticWriters({ mode: 'legacy' }), true);
-assert.equal(allowsLegacySemanticWriters({ mode: 'authoritative' }), false);
-assert.equal(allowsLegacySemanticWriters({ mode: 'blocked' }), false);
 
 const semanticRoots = [
   'campaign',
@@ -120,38 +115,41 @@ assert.equal(committed.turnLedger.entries[0].competencePacket, null);
 
 const runtimeCommit = commitProvisionalDirectorTurnRuntime({
   campaignState: before,
-  turnPacket: proposedTurnPacket,
-  semanticAuthorityMode: 'authoritative'
+  turnPacket: proposedTurnPacket
 });
 for (const root of semanticRoots) {
   assert.deepEqual(runtimeCommit.campaignState[root], before[root], `V1 runtime commit must preserve ${root}.`);
 }
-assert.equal(runtimeCommit.semanticAuthorityMode, 'authoritative');
 assert.equal(runtimeCommit.mechanicsTurnPacket.semanticStateDeltaApplied, false);
 assert.deepEqual(runtimeCommit.mechanicsTurnPacket.stateDelta, {});
 assert.deepEqual(runtimeCommit.turnPacket.stateDelta, proposedTurnPacket.stateDelta,
   'The narrator may consume the provisional proposal without granting it state authority.');
 
 const orchestratorSource = fs.readFileSync('src/runtime/chat-turn-orchestrator.mjs', 'utf8');
-for (const functionName of [
+for (const forbidden of [
+  'settleSceneHandshake(',
+  'createLatestPairSourceSettlementProvider',
+  'settleLatestPairSource',
   'scheduleTurnSidecars',
   'scheduleScenePhaseSealForCommittedTurn',
   'schedulePressureArcDigestForCommittedTurn',
-  'scheduleOpenWorldBoundaryForCommittedTurn'
+  'scheduleOpenWorldBoundaryForCommittedTurn',
+  'schedulePostCommitConversationProcessor',
+  'postCommitConversationProcessor',
+  'scheduleAdvisoryEnrichmentProcessor'
 ]) {
-  const start = orchestratorSource.indexOf(`function ${functionName}`);
-  assert.notEqual(start, -1, `${functionName} must remain present for legacy saves.`);
-  const body = orchestratorSource.slice(start, orchestratorSource.indexOf('\n  }', start) + 4);
-  assert.match(body, /legacySemanticWritersAllowed/,
-    `${functionName} must consult the shared V1 authority gate.`);
+  assert.equal(orchestratorSource.includes(forbidden), false,
+    `V1-only orchestrator must not retain ${forbidden}.`);
 }
-assert.equal((orchestratorSource.match(/legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor/g) || []).length, 4,
-  'Both blocking and queued Narrative Thread paths for immediate and pending-resolution turns must be authority-gated.');
 
 const runtimeAppSource = fs.readFileSync('src/runtime/runtime-app.mjs', 'utf8');
 assert.match(runtimeAppSource, /turnPacket: result\.mechanicsTurnPacket \|\| result\.turnPacket/,
   'CORE must receive the sanitized V1 custody packet rather than provisional semantic deltas.');
-assert.match(runtimeAppSource, /semanticAuthority\.mode === 'legacy'[\s\S]*evaluateCommittedTurn/,
-  'Legacy terminal evaluation must not compete with V1-authored campaign conclusion.');
+assert.equal(runtimeAppSource.includes("semanticAuthority.mode === 'legacy'"), false,
+  'The production runtime must not retain an alternate terminal-evaluation branch.');
+
+const directorRuntimeSource = fs.readFileSync('src/runtime/director-turn-runtime.mjs', 'utf8');
+assert.equal(directorRuntimeSource.includes('commitDirectorTurn('), false,
+  'The production Director runtime must only commit the V1 custody envelope.');
 
 console.log('V1 semantic writer gate tests passed.');

@@ -27,12 +27,7 @@ let campaignState = {
     campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
     mission: {
         activeMissionId: definition.packageBinding.sourceId,
-        legacyStatus: 'unchanged',
-        activePhaseId: 'phase.hesperus-legacy',
     },
-    ship: { legacyCondition: 'unchanged' },
-    relationships: { legacyRelationship: 'unchanged' },
-    commandBearing: { current: 2 },
 };
 let persistCount = 0;
 const gateway = createStateDeltaGateway({
@@ -101,7 +96,6 @@ const settled = await spine.settleAcceptedPair({
         summary: 'The Hesperus survivors reached safety and the diversion concluded.',
         unresolvedConsequences: [],
     },
-    legacyProjection: { status: 'active', activePhaseId: 'phase.hesperus-legacy' },
 });
 assert.equal(persistCount, 1);
 assert.equal(gateway.revision(), 1);
@@ -111,11 +105,6 @@ assert.equal(campaignState.storySettlement.episodes.length, 1);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(campaignState.mission.v1.status, 'terminal');
 assert.equal(campaignState.mission.v1.terminalDisposition, 'primarySuccess');
-assert.equal(campaignState.mission.v1.shadowDiagnostics[0].code, 'legacy-v1-status-divergence');
-assert.equal(campaignState.mission.legacyStatus, 'unchanged');
-assert.deepEqual(campaignState.ship, { legacyCondition: 'unchanged' });
-assert.deepEqual(campaignState.relationships, { legacyRelationship: 'unchanged' });
-assert.deepEqual(campaignState.commandBearing, { current: 2 });
 
 assert.throws(
     () => spine.reduceMissionProposal({
@@ -129,7 +118,7 @@ assert.throws(
         proposal: { ...proposal, baseRevision: 1 },
         sourceContribution,
     }),
-    (error) => error.code === 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED',
+    (error) => error.code === 'DIRECTIVE_MISSION_DEFINITION_MISMATCH',
 );
 
 await assert.rejects(
@@ -180,9 +169,6 @@ assert.equal(gateway.revision(), 2);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'invalidated');
 assert.equal(campaignState.mission.v1.status, 'active');
 assert.equal(campaignState.mission.v1.transitionReceipt, null);
-assert.equal(campaignState.mission.v1.shadowDiagnostics.some((entry) => entry.code === 'legacy-v1-status-divergence'), true);
-assert.equal(campaignState.mission.v1.shadowDiagnostics.some((entry) => entry.code === 'source-invalidation-rebuild'), true);
-assert.equal(campaignState.mission.legacyStatus, 'unchanged');
 
 await spine.invalidateSources({
     definition,
@@ -239,7 +225,7 @@ const accumulationDefinition = {
 };
 let accumulationState = {
     campaign: { id: 'campaign.accumulation' },
-    mission: { legacyStatus: 'unchanged' },
+    mission: {},
 };
 let accumulationPersistCount = 0;
 const accumulationSources = new Map();

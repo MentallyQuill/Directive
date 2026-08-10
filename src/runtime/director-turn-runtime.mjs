@@ -1,16 +1,7 @@
 import {
-  commitDirectorTurn,
   commitV1DirectorCustodyTurn,
   createV1DirectorCustodyTurnPacket
 } from '../campaign/transaction-state.mjs';
-import { appendReviewedStoryEvents } from '../story/story-ledger.mjs';
-import {
-  COMMAND_BEARING_OUTCOME_LADDER,
-  createCommandBearingInterventionPrompt,
-  migrateCommandBearingState,
-  validateCommandBearingSpendCommit,
-  spendCommandBearingPoint
-} from '../command/command-bearing.mjs';
 import { buildOpenWorldSceneSnapshot, createDirectorCoordinatorTurn, createDirectorCoordinatorTurnAsync } from '../directors/open-world-turn-coordinator.mjs';
 
 function cloneJson(value) {
@@ -34,250 +25,26 @@ function requireNonEmptyString(value, label) {
   return value.trim();
 }
 
-function unique(items = []) {
-  return [...new Set(items.filter(Boolean))];
-}
-
-function normalizeTrack(track) {
-  const key = String(track || '').trim().toLowerCase();
-  return ['inspiration', 'resolve'].includes(key) ? key : null;
-}
-
-function trackLabel(track) {
-  return track === 'inspiration' ? 'Inspiration' : 'Resolve';
-}
-
-function eligibleTracksFromTurnPacket(turnPacket) {
-  return unique((turnPacket.outcomePacket?.commandDecisionAwards || [])
-    .map((award) => normalizeTrack(award.track))
-    .filter(Boolean));
-}
-
-function bearingRationaleFromTurnPacket(turnPacket) {
-  const rationale = {};
-  for (const award of turnPacket.outcomePacket?.commandDecisionAwards || []) {
-    const track = normalizeTrack(award.track);
-    if (track && !rationale[track]) {
-      rationale[track] = award.reason || '';
-    }
-  }
-  return rationale;
-}
-
-function createBearingEligibility(campaignState, turnPacket) {
-  const outcomeId = requireNonEmptyString(turnPacket.outcomePacket?.id, 'outcomePacket.id');
-  const resultBand = requireNonEmptyString(turnPacket.outcomePacket?.resultBand, 'outcomePacket.resultBand');
-  const eligibleTracks = eligibleTracksFromTurnPacket(turnPacket);
-  const rationale = bearingRationaleFromTurnPacket(turnPacket);
-  const interventionPrompt = createCommandBearingInterventionPrompt(migrateCommandBearingState(campaignState), {
-    outcomeId,
-    resultBand,
-    eligibleTracks,
-    rationale
-  });
-  return {
-    outcomeId,
-    resultBand,
-    eligibleTracks,
-    rationale,
-    interventionPrompt
-  };
-}
-
-function trackDefinition(track) {
-  return track === 'inspiration'
-    ? 'Inspiration is leadership through trust, shared purpose, transparency, dignity, mentorship, and voluntary cooperation.'
-    : 'Resolve is leadership through lawful authority, preparation, credible boundaries, discipline, and accepted responsibility.';
-}
-
-function attachProvisionalOutcomeFields(campaignState, turnPacket) {
+function attachProvisionalOutcomeFields(turnPacket) {
   const next = cloneJson(turnPacket);
-  const bearingEligibility = createBearingEligibility(campaignState, next);
-  const warningConfirmation = createWarningConfirmation(next);
   const provisionalOutcome = cloneJson(next.outcomePacket);
   next.provisionalOutcome = provisionalOutcome;
-  next.bearingEligibility = bearingEligibility;
-  next.warningConfirmation = warningConfirmation;
+  next.bearingEligibility = null;
+  next.warningConfirmation = null;
   next.anchoredConsequences = cloneJson(provisionalOutcome.costs || []);
   next.finalOutcome = null;
   next.bearingSpend = null;
   return next;
 }
 
-function createWarningConfirmation(turnPacket) {
-  const warnings = (turnPacket.competencePacket?.proceduralWarnings || [])
-    .filter((warning) => warning.confirmationRequired === true);
-  const criticalWarnings = warnings.filter((warning) => warning.severity === 'critical');
-  return {
-    required: warnings.length > 0,
-    warningIds: warnings.map((warning) => warning.id),
-    criticalWarningIds: criticalWarnings.map((warning) => warning.id),
-    severity: criticalWarnings.length > 0 ? 'critical' : warnings.length > 0 ? 'serious' : 'none',
-    message: warnings.length > 0
-      ? 'This order departs from standard procedure. Confirm informed intent, revise the order, or request counsel.'
-      : null
-  };
-}
-
-function requireWarningConfirmation(turnPacket, { confirmWarnings = false, confirmedWarningIds = [] } = {}) {
-  const confirmation = turnPacket.warningConfirmation || createWarningConfirmation(turnPacket);
-  if (!confirmation.required) {
-    return [];
-  }
-  if (!confirmWarnings) {
-    throw new Error(`Procedural warning confirmation required: ${confirmation.warningIds.join(', ')}`);
-  }
-  const confirmed = confirmedWarningIds.length > 0 ? confirmedWarningIds : confirmation.warningIds;
-  const confirmedSet = new Set(confirmed);
-  const missing = confirmation.warningIds.filter((warningId) => !confirmedSet.has(warningId));
-  if (missing.length > 0) {
-    throw new Error(`Missing procedural warning confirmation for: ${missing.join(', ')}`);
-  }
-  return confirmed;
-}
-
-function latestLedgerEntryFor(state, outcomeId) {
-  return (state.turnLedger?.entries || []).find((entry) => entry.outcomeId === outcomeId) || null;
-}
-
-function applyBearingSpendToCommittedState(committedState, turnPacket, spendRequest) {
-  const request = isObject(spendRequest) ? spendRequest : { track: spendRequest };
-  const track = normalizeTrack(request.track);
-  if (!track) {
-    throw new Error(`Unknown Command Bearing track "${request.track}"`);
-  }
-  const readiedId = request.readiedId || request.id || null;
-  const eligibility = turnPacket.bearingEligibility || createBearingEligibility(committedState, turnPacket);
-  const spend = spendCommandBearingPoint(committedState.commandBearing || {}, {
-    outcomeId: turnPacket.outcomePacket.id,
-    track,
-    resultBand: turnPacket.provisionalOutcome?.resultBand || eligibility.resultBand,
-    eligibleTracks: eligibility.eligibleTracks,
-    rationale: eligibility.rationale?.[track] || request.rationale || '',
-    readiedId,
-    ingressId: request.ingressId || null,
-    hostMessageId: request.hostMessageId || null
-  });
-  if (!spend.applied) {
-    throw new Error(spend.reason || `Cannot spend ${trackLabel(track)} on this outcome.`);
-  }
-
-  const nextState = cloneJson(committedState);
-  nextState.commandBearing = spend.commandBearing;
-  const ledgerEntry = latestLedgerEntryFor(nextState, turnPacket.outcomePacket.id);
-  const spendRecord = {
-    outcomeId: turnPacket.outcomePacket.id,
-    readiedId: readiedId || '',
-    ingressId: request.ingressId || '',
-    hostMessageId: request.hostMessageId || '',
-    track,
-    label: trackLabel(track),
-    from: spend.from,
-    to: spend.to,
-    rationale: eligibility.rationale?.[track] || request.rationale || '',
-    fit: request.fit || 'strong',
-    causalBasis: request.causalBasis || [
-      eligibility.rationale?.[track] || request.rationale || `${trackLabel(track)} was eligible for this committed action.`
-    ]
-  };
-  if (ledgerEntry) {
-    ledgerEntry.provisionalResultBand = spend.from;
-    ledgerEntry.finalResultBand = spend.to;
-    ledgerEntry.commandBearingSpend = cloneJson(spendRecord);
-  }
-  return {
-    campaignState: nextState,
-    spendRecord
-  };
-}
-
-function createCommandBearingAdjustmentPacket(provisionalOutcome, spendRecord) {
-  return {
-    kind: 'directive.commandBearingOutcomeAdjustment',
-    outcomeId: spendRecord.outcomeId,
-    readiedId: spendRecord.readiedId || '',
-    track: spendRecord.track,
-    trackDefinition: trackDefinition(spendRecord.track),
-    outcomeLadder: [...COMMAND_BEARING_OUTCOME_LADDER],
-    baseOutcome: {
-      resultBand: spendRecord.from,
-      summary: provisionalOutcome.summary || '',
-      visibleCosts: cloneJson(provisionalOutcome.costs || [])
-    },
-    eligibility: {
-      fit: spendRecord.fit || 'strong',
-      causalBasis: cloneJson(spendRecord.causalBasis || [])
-    },
-    spend: {
-      from: spendRecord.from,
-      to: spendRecord.to,
-      rule: 'One valid Command Bearing point improves a spendable outcome by exactly two bands.'
-    },
-    finalOutcome: {
-      resultBand: spendRecord.to,
-      summary: provisionalOutcome.summary || '',
-      improvements: [
-        `${spendRecord.label} improves the committed result from ${spendRecord.from} to ${spendRecord.to}.`
-      ],
-      anchoredConsequences: cloneJson(provisionalOutcome.costs || [])
-    },
-    safety: {
-      narrateFinalOutcomeOnly: true,
-      mayChangeResultBand: false,
-      mayEraseAnchoredConsequences: false,
-      mayInventHiddenFacts: false,
-      mayWritePlayerInterior: false
-    }
-  };
-}
-
-function finalizeTurnPacket(provisionalTurnPacket, { spendRecord = null } = {}) {
+function finalizeTurnPacket(provisionalTurnPacket) {
   const next = cloneJson(provisionalTurnPacket);
   const provisionalOutcome = next.provisionalOutcome || cloneJson(next.outcomePacket);
   next.provisionalOutcome = cloneJson(provisionalOutcome);
-  if (spendRecord) {
-    const adjustment = createCommandBearingAdjustmentPacket(provisionalOutcome, {
-      ...spendRecord,
-      outcomeId: next.outcomePacket.id
-    });
-    next.outcomePacket.resultBand = spendRecord.to;
-    next.finalOutcome = {
-      ...cloneJson(provisionalOutcome),
-      resultBand: spendRecord.to
-    };
-    next.bearingSpend = cloneJson({
-      ...spendRecord,
-      outcomeId: next.outcomePacket.id
-    });
-    next.commandBearingAdjustment = cloneJson(adjustment);
-    next.commandLogPacket.visibleConsequences = [
-      ...(next.commandLogPacket.visibleConsequences || []),
-      `${spendRecord.label} invoked: ${spendRecord.from} improved to ${spendRecord.to}.`
-    ];
-    next.narratorPacket.commandBearingAdjustment = cloneJson(adjustment);
-    next.narratorPacket.constraints = [
-      ...(next.narratorPacket.constraints || []),
-      `${spendRecord.label} improved the final result to ${spendRecord.to}; narrate the stronger outcome without erasing anchored consequences.`,
-      'Use narratorPacket.commandBearingAdjustment as the source of truth for the Command Bearing spend; do not change mechanics.'
-    ];
-  } else {
-    next.finalOutcome = cloneJson(next.outcomePacket);
-    next.bearingSpend = null;
-    next.commandBearingAdjustment = null;
-  }
+  next.finalOutcome = cloneJson(next.outcomePacket);
+  next.bearingSpend = null;
+  next.commandBearingAdjustment = null;
   return next;
-}
-
-function applyReviewedStoryDelta(committedState, finalTurnPacket) {
-  const storyDeltaPlan = finalTurnPacket.stateDelta?.openWorld?.modelStoryDeltaPlan || null;
-  const eventDrafts = Array.isArray(storyDeltaPlan?.eventDrafts) ? storyDeltaPlan.eventDrafts : [];
-  if (eventDrafts.length === 0) return committedState;
-  return appendReviewedStoryEvents(committedState, eventDrafts, {
-    outcomeId: finalTurnPacket.outcomePacket?.id || '',
-    turnId: finalTurnPacket.turnId || '',
-    sourceFrameRef: finalTurnPacket.sceneSnapshot?.sourceFrameRef || finalTurnPacket.provenance?.sourceFrameRef || null,
-    branchId: committedState.campaignChatBinding?.saveId || committedState.campaign?.id || 'main'
-  });
 }
 
 function seniorCrewIds(campaignState) {
@@ -345,15 +112,15 @@ export function createProvisionalDirectorTurnRuntime({
     coreRecallEntries
   });
   const turnPacket = coordinated.turnPacket;
-  const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, turnPacket);
+  const provisionalTurnPacket = attachProvisionalOutcomeFields(turnPacket);
   return {
     kind: 'directive.runtimeProvisionalDirectorTurn',
     coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
     turnPacket: provisionalTurnPacket,
     provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
-    competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
-    warningConfirmation: cloneJson(provisionalTurnPacket.warningConfirmation),
-    commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
+    competencePacket: null,
+    warningConfirmation: null,
+    commandBearingPrompt: null,
     narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
   };
@@ -389,15 +156,15 @@ export async function createProvisionalDirectorTurnRuntimeAsync({
     turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, arbiterPlan, coreRecallEntries,
     message, recentTranscript, sourceFrameRef
   });
-  const provisionalTurnPacket = attachProvisionalOutcomeFields(campaignState, coordinated.turnPacket);
+  const provisionalTurnPacket = attachProvisionalOutcomeFields(coordinated.turnPacket);
   return {
     kind: 'directive.runtimeProvisionalDirectorTurn',
     coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
     turnPacket: provisionalTurnPacket,
     provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
-    competencePacket: cloneJson(provisionalTurnPacket.competencePacket || null),
-    warningConfirmation: cloneJson(provisionalTurnPacket.warningConfirmation),
-    commandBearingPrompt: cloneJson(provisionalTurnPacket.bearingEligibility.interventionPrompt),
+    competencePacket: null,
+    warningConfirmation: null,
+    commandBearingPrompt: null,
     narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
   };
@@ -406,124 +173,29 @@ export function commitProvisionalDirectorTurnRuntime({
   campaignState,
   turnPacket,
   spendTrack = null,
-  readiedCommandBearing = null,
-  semanticAuthorityMode = 'legacy',
-  confirmWarnings = false,
-  confirmedWarningIds = []
+  readiedCommandBearing = null
 }) {
   requireObject(campaignState, 'campaignState');
   requireObject(turnPacket, 'turnPacket');
-  if (spendTrack) {
-    throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
+  if (spendTrack || readiedCommandBearing) {
+    const error = new Error('Command Bearing spending requires the V1 neutral-reserve mechanic.');
+    error.code = 'DIRECTIVE_V1_COMMAND_BEARING_UNAVAILABLE';
+    throw error;
   }
   const spendCandidatePacket = turnPacket.provisionalOutcome
     ? cloneJson(turnPacket)
-    : attachProvisionalOutcomeFields(campaignState, turnPacket);
-  let finalTurnPacket = spendCandidatePacket;
-  const spendRequest = readiedCommandBearing || null;
-  const v1CustodyOnly = semanticAuthorityMode === 'authoritative' || semanticAuthorityMode === 'blocked';
-  if (v1CustodyOnly && spendRequest) {
-    const error = new Error('Legacy tracked Command Bearing spends are unavailable for V1 Story Settlement saves.');
-    error.code = 'DIRECTIVE_V1_LEGACY_COMMAND_BEARING_SPEND_DISABLED';
-    throw error;
-  }
-  if (spendRequest) {
-    const track = normalizeTrack(spendRequest.track);
-    if (!track) {
-      throw new Error(`Unknown Command Bearing track "${spendRequest.track}"`);
-    }
-    const eligibility = spendCandidatePacket.bearingEligibility || createBearingEligibility(campaignState, spendCandidatePacket);
-    const commandBearing = migrateCommandBearingState(campaignState);
-    const readiedId = spendRequest.readiedId || spendRequest.id || null;
-    const spendCheck = spendCommandBearingPoint(commandBearing, {
-      outcomeId: spendCandidatePacket.outcomePacket.id,
-      track,
-      resultBand: spendCandidatePacket.provisionalOutcome?.resultBand || spendCandidatePacket.outcomePacket.resultBand,
-      eligibleTracks: eligibility.eligibleTracks,
-      rationale: eligibility.rationale?.[track] || spendRequest.rationale || '',
-      readiedId,
-      ingressId: spendRequest.ingressId || null,
-      hostMessageId: spendRequest.hostMessageId || null
-    });
-    if (!spendCheck.applied) {
-      throw new Error(spendCheck.reason || `Cannot spend ${trackLabel(track)} on this outcome.`);
-    }
-    if (readiedCommandBearing) {
-      const validation = validateCommandBearingSpendCommit({
-        outcomeId: spendCandidatePacket.outcomePacket.id,
-        ingressId: spendRequest.ingressId || '',
-        readiedId: readiedId || '',
-        track,
-        from: spendCheck.from,
-        to: spendCheck.to,
-        fit: spendRequest.fit || 'strong',
-        causalBasis: spendRequest.causalBasis || [eligibility.rationale?.[track] || spendRequest.rationale || 'Readied point matched the committed action.']
-      }, {
-        commandBearing,
-        readied: {
-          id: readiedId || '',
-          track,
-          chatId: spendRequest.chatId || '',
-          status: 'attached',
-          ingressId: spendRequest.ingressId || ''
-        },
-        ingressId: spendRequest.ingressId || '',
-        chatId: spendRequest.chatId || '',
-        outcomeId: spendCandidatePacket.outcomePacket.id
-      });
-      if (!validation.accepted) {
-        throw new Error(validation.rejections[0]?.message || `Cannot spend readied ${trackLabel(track)} on this outcome.`);
-      }
-    }
-    finalTurnPacket = finalizeTurnPacket(spendCandidatePacket, {
-      spendRecord: {
-        outcomeId: spendCandidatePacket.outcomePacket.id,
-        readiedId: readiedId || '',
-        ingressId: spendRequest.ingressId || '',
-        hostMessageId: spendRequest.hostMessageId || '',
-        track,
-        label: trackLabel(track),
-        from: spendCheck.from,
-        to: spendCheck.to,
-        rationale: eligibility.rationale?.[track] || spendRequest.rationale || '',
-        fit: spendRequest.fit || 'strong',
-        causalBasis: spendRequest.causalBasis || [eligibility.rationale?.[track] || spendRequest.rationale || `${trackLabel(track)} matched this committed action.`]
-      }
-    });
-  } else {
-    finalTurnPacket = finalizeTurnPacket(spendCandidatePacket);
-  }
-  const confirmedWarnings = requireWarningConfirmation(finalTurnPacket, {
-    confirmWarnings,
-    confirmedWarningIds
-  });
-
-  const mechanicsTurnPacket = v1CustodyOnly
-    ? createV1DirectorCustodyTurnPacket(finalTurnPacket)
-    : finalTurnPacket;
-  const nextCampaignState = v1CustodyOnly
-    ? commitV1DirectorCustodyTurn(campaignState, mechanicsTurnPacket)
-    : commitDirectorTurn(campaignState, finalTurnPacket, {
-        confirmedWarningIds: confirmedWarnings
-      });
-  const committed = spendRequest
-    ? applyBearingSpendToCommittedState(nextCampaignState, finalTurnPacket, {
-      ...spendRequest,
-      track: normalizeTrack(spendRequest.track)
-    })
-    : { campaignState: nextCampaignState, spendRecord: null };
-  const campaignStateWithStory = v1CustodyOnly
-    ? committed.campaignState
-    : applyReviewedStoryDelta(committed.campaignState, finalTurnPacket);
+    : attachProvisionalOutcomeFields(turnPacket);
+  const finalTurnPacket = finalizeTurnPacket(spendCandidatePacket);
+  const mechanicsTurnPacket = createV1DirectorCustodyTurnPacket(finalTurnPacket);
+  const nextCampaignState = commitV1DirectorCustodyTurn(campaignState, mechanicsTurnPacket);
   return {
     kind: 'directive.runtimeCommittedDirectorTurn',
     turnPacket: finalTurnPacket,
     mechanicsTurnPacket,
-    semanticAuthorityMode,
-    campaignState: campaignStateWithStory,
-    commandBearingSpend: cloneJson(committed.spendRecord),
-    competencePacket: cloneJson(finalTurnPacket.competencePacket || null),
-    warningConfirmation: cloneJson(finalTurnPacket.warningConfirmation || createWarningConfirmation(finalTurnPacket)),
+    campaignState: nextCampaignState,
+    commandBearingSpend: null,
+    competencePacket: null,
+    warningConfirmation: null,
     narratorPacket: cloneJson(finalTurnPacket.narratorPacket),
     commandLogPacket: cloneJson(finalTurnPacket.commandLogPacket)
   };

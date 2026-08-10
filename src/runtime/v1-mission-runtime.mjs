@@ -112,7 +112,7 @@ export function resolveActiveV1MissionDefinition({ campaignState = {}, runtimeAs
             && currentV1.packageBinding?.packageId === definition.packageBinding.packageId
             && currentV1.packageBinding?.packageVersion === definition.packageBinding.packageVersion
             && currentV1.packageBinding?.sourceId === definition.packageBinding.sourceId;
-        if (!persistedBindingMatches) return unavailable('definition-migration-required');
+        if (!persistedBindingMatches) return unavailable('definition-mismatch');
         return { ok: true, definition, record: matches[0], packageId, packageVersion };
     }
 
@@ -629,27 +629,12 @@ function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
     return [...new Set(ids)].filter((id) => !invalidated.has(id));
 }
 
-function storySourceProvenanceMigrationRequired(campaignState = {}) {
-    return (campaignState?.storySettlement?.receipts || []).some((receipt) => (
-        !Array.isArray(receipt?.sourceContributionIds)
-        || !Array.isArray(receipt?.sourceMessageIds)
-        || receipt.sourceMessageIds.length !== receipt.sourceContributionIds.length
-    ));
-}
-
-function missionEvidenceSequenceMigrationRequired(missionState = {}) {
-    return (missionState?.evidenceLog || []).some(
-        (entry) => !Number.isInteger(entry?.acceptedAtMissionRevision)
-            || entry.acceptedAtMissionRevision < 0,
-    );
-}
-
 function errorReasonCode(error) {
     if (error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT') return 'state-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_STALE') return 'mission-revision-conflict';
-    if (error?.code === 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED') return 'definition-migration-required';
-    if (error?.code === 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_REQUIRED') {
-        return 'evidence-sequence-migration-required';
+    if (error?.code === 'DIRECTIVE_MISSION_DEFINITION_MISMATCH') return 'definition-mismatch';
+    if (error?.code === 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_INVALID') {
+        return 'evidence-sequence-invalid';
     }
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_REJECTED') return 'evidence-rejected';
     if (error?.code === 'DIRECTIVE_MISSION_JOURNEY_INVALID') return 'mission-journey-invalid';
@@ -960,9 +945,6 @@ export function createV1MissionRuntime({
         } catch (error) {
             return unavailable(errorReasonCode(error));
         }
-        if (missionEvidenceSequenceMigrationRequired(missionState)) {
-            return unavailable('evidence-sequence-migration-required');
-        }
         if (!validateMissionStateAuthority({ definition: resolved.definition, state: missionState }).ok) {
             return unavailable('mission-state-invalid');
         }
@@ -1026,9 +1008,6 @@ export function createV1MissionRuntime({
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
-        if (storySourceProvenanceMigrationRequired(campaignState)) {
-            return unavailable('source-provenance-migration-required');
-        }
         const { definition } = resolved;
         const integrityReason = snapshotIntegrityReason(snapshot);
         if (integrityReason) return unavailable(integrityReason);
@@ -1045,9 +1024,6 @@ export function createV1MissionRuntime({
             missionState = resolveV1MissionState({ campaignState, definition, branchId });
         } catch (error) {
             return unavailable(errorReasonCode(error));
-        }
-        if (missionEvidenceSequenceMigrationRequired(missionState)) {
-            return unavailable('evidence-sequence-migration-required');
         }
         const sourcePair = sourcePairFromSnapshot(snapshot);
         const assistantContributionId = activeContributionId(
@@ -1230,10 +1206,6 @@ export function createV1MissionRuntime({
                     sceneId: `scene.v1.${sceneHash}`,
                 },
                 hardBoundary,
-                legacyProjection: {
-                    status: campaignState?.mission?.status || campaignState?.mission?.legacyStatus || null,
-                    activePhaseId: campaignState?.mission?.activePhaseId || null,
-                },
                 missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
             });
             const committedRoots = settled.noChange ? [] : ['mission', 'storySettlement'];
@@ -1295,9 +1267,6 @@ export function createV1MissionRuntime({
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
-        if (storySourceProvenanceMigrationRequired(campaignState)) {
-            return unavailable('source-provenance-migration-required');
-        }
         const branchId = compact(campaignState?.campaignChatBinding?.saveId);
         if (!branchId) return unavailable('active-branch-unavailable');
         if (campaignState?.mission?.v1?.branchId && campaignState.mission.v1.branchId !== branchId) {
@@ -1305,12 +1274,6 @@ export function createV1MissionRuntime({
         }
         if (campaignState?.storySettlement?.branchId && campaignState.storySettlement.branchId !== branchId) {
             return unavailable('story-branch-mismatch');
-        }
-        if ([
-            ...(campaignState?.mission?.v1History || []).map((archive) => archive?.state),
-            campaignState?.mission?.v1,
-        ].some((state) => missionEvidenceSequenceMigrationRequired(state))) {
-            return unavailable('evidence-sequence-migration-required');
         }
         const contributionIds = contributionIdsForHostMessage(campaignState, hostMessageId);
         if (contributionIds.length === 0) {

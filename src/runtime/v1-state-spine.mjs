@@ -40,7 +40,6 @@ import {
     parseEpisodeEvaluationProposal,
 } from '../story/episode-evaluator.mjs';
 
-const MAX_SHADOW_DIAGNOSTICS = 20;
 export const EPISODE_REVIEW_TOKEN_KIND = 'directive.episodeReviewToken.v1';
 
 function stableHash(value = '') {
@@ -170,14 +169,9 @@ function revisionConflict(expected, current) {
     return error;
 }
 
-function appendDiagnostic(state, diagnostic) {
-    const diagnostics = Array.isArray(state.shadowDiagnostics) ? state.shadowDiagnostics : [];
-    state.shadowDiagnostics = [...diagnostics, diagnostic].slice(-MAX_SHADOW_DIAGNOSTICS);
-}
-
-function missionDefinitionMigrationRequired(current, definition) {
-    const error = new Error(`Mission ${definition.id} requires an explicit definition migration before it can resume.`);
-    error.code = 'DIRECTIVE_MISSION_DEFINITION_MIGRATION_REQUIRED';
+function missionDefinitionMismatch(current, definition) {
+    const error = new Error(`Mission ${definition.id} does not match the active V1 definition binding.`);
+    error.code = 'DIRECTIVE_MISSION_DEFINITION_MISMATCH';
     error.details = {
         definitionId: definition.id,
         currentDefinitionVersion: current?.definitionVersion || null,
@@ -192,9 +186,9 @@ function missionDefinitionMigrationRequired(current, definition) {
     return error;
 }
 
-function reconstructionSequenceRequired() {
-    const error = new Error('Mission evidence requires an explicit acceptance-sequence migration before reconstruction.');
-    error.code = 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_REQUIRED';
+function invalidReconstructionSequence() {
+    const error = new Error('Mission evidence has an invalid acceptance sequence.');
+    error.code = 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_INVALID';
     return error;
 }
 
@@ -277,7 +271,7 @@ function orderedEvidenceBatches(evidenceLog = []) {
     for (const entry of evidenceLog) {
         const revision = entry?.acceptedAtMissionRevision;
         if (!Number.isInteger(revision) || revision < 0 || revision < previousRevision) {
-            throw reconstructionSequenceRequired();
+            throw invalidReconstructionSequence();
         }
         if (batches.length === 0 || batches.at(-1).acceptedAtMissionRevision !== revision) {
             batches.push({ acceptedAtMissionRevision: revision, claims: [] });
@@ -299,7 +293,7 @@ export function resolveV1MissionState({ campaignState, definition, branchId } = 
     const current = campaignState?.mission?.v1;
     if (current?.definitionId === definition.id && current?.branchId === branchId) {
         if (!hasMatchingDefinitionBinding(current, definition)) {
-            throw missionDefinitionMigrationRequired(current, definition);
+            throw missionDefinitionMismatch(current, definition);
         }
         return structuredClone(current);
     }
@@ -459,7 +453,6 @@ export function createV1StateSpine({
         gatewayBaseRevision = null,
         scene = {},
         hardBoundary = null,
-        legacyProjection = null,
         missionDefinitions = [],
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
@@ -478,17 +471,6 @@ export function createV1StateSpine({
             throw error;
         }
         const missionState = missionResult.state;
-        if (legacyProjection?.status && legacyProjection.status !== missionState.status) {
-            appendDiagnostic(missionState, {
-                kind: 'directive.v1StateSpineDiagnostic.v1',
-                code: 'legacy-v1-status-divergence',
-                missionRevision: missionState.revision,
-                legacyStatus: legacyProjection.status,
-                v1Status: missionState.status,
-                observedAt: now(),
-            });
-        }
-
         const transitionPlan = prepareMissionTransitionActivation({
             campaignState,
             definition,
@@ -605,8 +587,8 @@ export function createV1StateSpine({
                 : { patch: { storySettlement, mission: missionPatch } }),
             domains: ['storySettlement', 'mission'],
             baseRevision: capturedGatewayRevision,
-            source: 'v1StateSpineShadow',
-            reason: 'Settled accepted source pair into the shadow V1 state spine.',
+            source: 'v1StateSpine',
+            reason: 'Settled an accepted source pair into authoritative V1 state.',
             metadata: {
                 missionId: definition.id,
                 missionRevision: missionState.revision,
@@ -838,18 +820,7 @@ export function createV1StateSpine({
             ...(matchedRun.state.invalidatedSourceContributionIds || []),
             ...missionInvalidatedIds,
         ];
-        rebuiltMission.shadowDiagnostics = structuredClone(matchedRun.state.shadowDiagnostics || []);
         if (rebuiltMission.transitionReceipt) rebuiltMission.transitionReceipt.committedAtRevision = rebuiltMission.revision;
-        appendDiagnostic(rebuiltMission, {
-            kind: 'directive.v1StateSpineDiagnostic.v1',
-            code: matchedRun.kind === 'archived'
-                ? 'historic-source-invalidation-rebuild'
-                : 'source-invalidation-rebuild',
-            missionRevision: rebuiltMission.revision,
-            invalidatedContributionCount: missionInvalidatedIds.length,
-            dependencyPrunedEvidenceCount: dependencyPrunedEvidence.length,
-            observedAt: now(),
-        });
 
         const crossedClosure = matchedRun.kind === 'archived' || matchedRun.state.status === 'terminal';
         let storySettlement = crossedClosure
@@ -959,10 +930,10 @@ export function createV1StateSpine({
             operations: missionOperations,
             domains: ['storySettlement', 'mission'],
             baseRevision: capturedGatewayRevision,
-            source: 'v1StateSpineShadow',
+            source: 'v1StateSpine',
             reason: crossedClosure
                 ? 'Rebuilt a V1 mission journey after historic accepted-source invalidation.'
-                : 'Rebuilt shadow V1 state after accepted-source invalidation.',
+                : 'Rebuilt V1 state after accepted-source invalidation.',
             metadata: {
                 missionId: matchedDefinition.id,
                 missionRunId: matchedRun.runId,

@@ -7742,10 +7742,6 @@ export function createDirectiveRuntimeApp({
       generationRouter: defaultGenerationRouter,
       responseDispatcher,
       turnCommitCoordinator,
-      sidecarScheduler,
-      forgeCoordinator,
-      messageReconciler,
-      enableDefaultLatestPairSettlementProvider: true,
       settleV1MissionAcceptedPair: (input) => v1MissionRuntime.settleAcceptedPair(input),
       resolveV1SemanticAuthority: ({ campaignState: authorityState, runtimeAssets }) => (
         resolveV1SemanticAuthorityContract({
@@ -7781,20 +7777,6 @@ export function createDirectiveRuntimeApp({
       },
       previewDirectorTurn: (options) => publicApi.previewDirectorTurn(options),
       commitProvisionalDirectorTurn: (options) => publicApi.commitProvisionalDirectorTurn(options),
-      scheduleCommandLogSummaryForCommittedTurn: ({ turnPacket, reason, ingressId, turnId, outcomeId } = {}) => scheduleCommandLogSummaryForTurnNow({
-        turnPacket,
-        enabled: true,
-        reason: reason || 'postVisibleResponse',
-        ingressId,
-        turnId,
-        outcomeId
-      }),
-      schedulePostCommitConversationProcessor: (conversation) => schedulePostCommitConversationForCommittedTurn({
-        conversation,
-        reason: 'postVisibleResponse',
-        processor: (queuedConversation, options = {}) => narrativeThreadDirector.processConversation(queuedConversation, options)
-      }),
-      scheduleAdvisoryEnrichmentProcessor: (payload) => scheduleAdvisoryEnrichmentForHostContinue(payload),
       recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
       postTerminalOutcomeCheckpoint: (options) => publicApi.postTerminalOutcomeCheckpoint(options),
       resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
@@ -7817,7 +7799,6 @@ export function createDirectiveRuntimeApp({
       turnCommitCoordinator,
       stateDeltaGateway,
       responseDispatcher,
-      messageReconciler,
       repairRuntime: repairRuntimeBoundary,
       sceneReconciliation,
       coreTurnStore: runtimeCoreTurnStore,
@@ -10799,13 +10780,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async commitProvisionalDirectorTurn({
-      spendTrack = null,
-      readiedCommandBearing = null,
-      confirmWarnings = false,
-      confirmedWarningIds = [],
       generateNarration = true,
-      generateCommandLogSummary = true,
-      deferCommandLogSummary = false,
       arbiterPlan = null,
       provider = defaultNarrationProvider
     } = {}) {
@@ -10813,173 +10788,46 @@ export function createDirectiveRuntimeApp({
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
         requireObject(pendingDirectorTurn, 'pendingDirectorTurn');
-        if (spendTrack) {
-          throw new Error('Command Bearing points must be readied before the player message; post-outcome spendTrack commits are disabled.');
+        const semanticAuthority = resolveRuntimeSemanticAuthority(campaignState);
+        if (semanticAuthority.mode !== 'authoritative') {
+          const error = new Error('Directive V1 authority is required before a Director turn can commit.');
+          error.code = 'DIRECTIVE_V1_AUTHORITY_REQUIRED';
+          error.details = { reasonCode: semanticAuthority.reasonCode || 'authority-unavailable' };
+          throw error;
         }
-        let replacement = pendingOutcomeReplacement ? cloneJson(pendingOutcomeReplacement) : null;
-        let replacementLedgerEntry = replacement
-          ? (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === replacement.outcomeId) || null
-          : null;
-        replacementLedgerEntry = assertFreshOutcomeRerunReplacementTarget({ replacement, ledgerEntry: replacementLedgerEntry });
-        const replacementCoreCheckpointRef = assertOutcomeReplacementCheckpointBase({ replacement, ledgerEntry: replacementLedgerEntry });
-        const baseCampaignState = replacement ? replacement.snapshotBefore : campaignState;
-        const beforeCampaignState = cloneJson(baseCampaignState);
         const turnPacketForCommit = arbiterPlan
-          ? {
-              ...pendingDirectorTurn,
-              arbiterPlan: cloneJson(arbiterPlan)
-            }
+          ? { ...pendingDirectorTurn, arbiterPlan: cloneJson(arbiterPlan) }
           : pendingDirectorTurn;
-        const semanticAuthority = resolveRuntimeSemanticAuthority(baseCampaignState);
+        const beforeCampaignState = cloneJson(campaignState);
         const result = commitProvisionalDirectorTurnRuntime({
-          campaignState: baseCampaignState,
-          turnPacket: turnPacketForCommit,
-          spendTrack,
-          readiedCommandBearing,
-          semanticAuthorityMode: semanticAuthority.mode,
-          confirmWarnings,
-          confirmedWarningIds
-        });
-        let committedCandidateState = result.campaignState;
-        const replacementAcceptedAt = replacement ? timestampFromNow(now) : null;
-        if (replacement) {
-          const replacementTransaction = await beginOutcomeRerunReplacementTransaction({
-            ledgerEntry: replacementLedgerEntry,
-            outcomeId: replacement.outcomeId,
-            replacementTurnId: result.turnPacket?.turnId || result.turnPacket?.id || null,
-            replacementOutcomeId: result.turnPacket?.outcomePacket?.id || result.turnPacket?.finalOutcome?.id || null,
-            replacementCandidateId: replacement.replacementCandidateId,
-            replacementInputHash: replacement.replacementInputHash,
-            replacementType: replacement.type || 'rerunOutcome',
-            repairDecision: replacement.repairDecision,
-            eventTime: replacementAcceptedAt
-          });
-          replacement = {
-            ...replacement,
-            replacementTransactionId: replacementTransaction.replacementTransactionId || replacement.replacementTransactionId || null,
-            replacementIngressId: replacementTransaction.replacementIngressId || replacement.replacementIngressId || null,
-            replacementIngress: replacementTransaction.replacementIngress || replacement.replacementIngress || null,
-            replacementSourceFrame: replacementTransaction.replacementSourceFrame || replacement.replacementSourceFrame || null,
-            coreTransaction: replacementTransaction.coreTransaction || replacement.coreTransaction || null,
-            coreCheckpointRef: replacementCoreCheckpointRef || replacement.coreCheckpointRef || null,
-            repairDecision: replacementTransaction.repairDecision || replacement.repairDecision
-          };
-        }
-        const replacementTransactionId = compactString(
-          replacement?.replacementTransactionId
-          || replacement?.repairDecision?.transactionId
-          || replacement?.transactionId
-        );
-        const replacedTransactionId = compactString(
-          replacement?.repairDecision?.replacedTransactionId
-          || replacement?.replacedTransactionId
-        );
-        const coreOutcomeReplacement = replacement && replacementTransactionId
-          ? {
-              transactionId: replacementTransactionId,
-              replacedTransactionId,
-              replacementTransactionId,
-              idempotencyKey: `outcome-replacement:${replacementTransactionId}:${replacement.outcomeId}:${result.turnPacket.outcomePacket.id}`,
-              type: replacement.type || 'rerunOutcome',
-              replacedOutcomeId: replacement.outcomeId,
-              replacementOutcomeId: result.turnPacket.outcomePacket.id,
-              replacedTurnId: replacement.turnId || null,
-              replacementTurnId: result.turnPacket.turnId || result.turnPacket.id || null,
-              acceptedAt: replacementAcceptedAt,
-              repairDecision: cloneJson(replacement.repairDecision || null)
-            }
-          : null;
-        if (replacement && !coreOutcomeReplacement) {
-          const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${replacement.outcomeId || 'unknown'}".`);
-          error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
-          error.details = {
-            outcomeId: replacement.outcomeId || null,
-            repairDecision: cloneJson(replacement.repairDecision || null)
-          };
-          throw error;
-        }
-        if (replacement?.replacementIngress) {
-          committedCandidateState = recordTurnIngress(committedCandidateState, replacement.replacementIngress, {
-            missingCoreWriteMode: 'reject'
-          });
-        } else {
-          committedCandidateState = await ensureDirectRuntimeCoreIngress({
-            state: committedCandidateState,
-            turnPacket: result.mechanicsTurnPacket || result.turnPacket,
-            playerInput: pendingDirectorTurn?.sceneSnapshot?.playerInput,
-            observedAt: timestampFromNow(now)
-          });
-        }
-        const mechanicsIngressId = replacement?.replacementIngressId
-          || committedCandidateState.runtimeTracking?.activeIngressId
-          || null;
-        let mechanicsCheckpoint = null;
-        try {
-          mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
-            beforeCampaignState,
-            campaignState: committedCandidateState,
-            turnPacket: result.turnPacket,
-            ingressId: mechanicsIngressId,
-            outcomeReplacement: coreOutcomeReplacement
-          });
-        } catch (error) {
-          if (replacement && replacementTransactionId && typeof runtimeCoreTurnStore?.markRecoveryRequired === 'function') {
-            try {
-              await runtimeCoreTurnStore.markRecoveryRequired(replacementTransactionId, {
-                id: `recovery:outcome-rerun:${replacementTransactionId}`,
-                status: 'required',
-                reason: 'outcome-rerun-checkpoint-failed',
-                dependentOutcomeId: result.turnPacket?.outcomePacket?.id || result.turnPacket?.finalOutcome?.id || null,
-                allowedActions: ['discardRerunCandidate', 'retryOutcomeRerunCommit'],
-                repairDecision: cloneJson(replacement.repairDecision || null),
-                sourceMutation: {
-                  kind: 'directive.sourceMutation.v1',
-                  sourceKind: 'committedOutcomeRerun',
-                  eventType: 'outcomeRerunCommitFailed',
-                  sourceFrameId: replacement.replacementSourceFrame?.id || replacement.replacementIngress?.sourceFrameId || null,
-                  replacementSourceFrameId: replacement.replacementSourceFrame?.id || replacement.replacementIngress?.sourceFrameId || null,
-                  observedTextHash: replacement.replacementInputHash || replacement.replacementSourceFrame?.textHash || null,
-                  replacementTextPresent: Boolean(replacement.replacementInputHash || replacement.replacementSourceFrame?.textHash)
-                },
-                idempotencyKey: `outcome-rerun-checkpoint-failed:${replacementTransactionId}:${result.turnPacket?.outcomePacket?.id || 'outcome'}`
-              });
-            } catch (recoveryError) {
-              error.coreRecoveryError = {
-                code: recoveryError?.code || null,
-                message: recoveryError?.message || String(recoveryError)
-              };
-            }
-          }
-          throw error;
-        }
-        campaignState = mechanicsCheckpoint.campaignState;
-        lastMechanicsCheckpointState = cloneJson(mechanicsCheckpoint.campaignState);
-        const terminalDecision = semanticAuthority.mode === 'legacy'
-          ? await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
-              turnPacket: result.turnPacket,
-              ingressId: campaignState.runtimeTracking?.activeIngressId || null
-            })
-          : null;
-        if (terminalDecision?.campaignState) campaignState = terminalDecision.campaignState;
-        campaignState = restoreCommittedOutcomeState(
           campaignState,
-          lastMechanicsCheckpointState,
-          result.turnPacket?.outcomePacket?.id
-        );
+          turnPacket: turnPacketForCommit
+        });
+        const committedCandidateState = await ensureDirectRuntimeCoreIngress({
+          state: result.campaignState,
+          turnPacket: result.mechanicsTurnPacket || result.turnPacket,
+          playerInput: pendingDirectorTurn?.sceneSnapshot?.playerInput,
+          observedAt: timestampFromNow(now)
+        });
+        const mechanicsIngressId = committedCandidateState.runtimeTracking?.activeIngressId || null;
+        const mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
+          beforeCampaignState,
+          campaignState: committedCandidateState,
+          turnPacket: result.turnPacket,
+          ingressId: mechanicsIngressId
+        });
+        campaignState = mechanicsCheckpoint.campaignState;
+        lastMechanicsCheckpointState = cloneJson(campaignState);
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
         pendingOutcomeReplacement = null;
         lastNarrationResult = null;
-        const commandLogSummaryResult = deferCommandLogSummaryForTurn({
-          turnPacket: result.turnPacket,
-          enabled: generateCommandLogSummary,
-          reason: deferCommandLogSummary ? 'postVisibleResponse' : 'afterDirectiveNarration'
-        });
+        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         const narrationResult = generateNarration
           ? await generateNarrationForLastTurnNow({
               provider,
-              scheduleDeferredCommandLogSummary: !deferCommandLogSummary
+              scheduleDeferredCommandLogSummary: false
             })
           : null;
         return {
@@ -10987,13 +10835,9 @@ export function createDirectiveRuntimeApp({
             continuityProjection: cloneJson(result.turnPacket?.provenance?.continuityProjection || null)
           },
           turnPacket: cloneJson(result.turnPacket),
-          commandBearingSpend: cloneJson(result.commandBearingSpend),
           narratorPacket: cloneJson(result.narratorPacket),
-          commandLogPacket: cloneJson(result.commandLogPacket),
-          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           mechanicsCheckpoint: cloneJson(mechanicsCheckpoint),
           semanticAuthority: cloneJson(semanticAuthority),
-          terminalDecision: cloneJson(terminalDecision || null),
           narrationResult: cloneJson(narrationResult),
           autosave: cloneJson(narrationResult?.autosave || null),
           campaignState: cloneJson(campaignState),

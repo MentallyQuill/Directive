@@ -63,7 +63,7 @@ export function resolveV1SemanticAuthority({
 } = {}) {
   const stamp = campaignState?.campaign?.runtimeArchitecture;
   if (stamp === null || stamp === undefined) {
-    return result('legacy', 'authority-stamp-absent');
+    return result('blocked', 'authority-stamp-absent');
   }
   if (!validStamp(stamp)) {
     return result('blocked', 'authority-stamp-invalid', { stamp });
@@ -95,11 +95,4 @@ export function resolveV1SemanticAuthority({
   }
 
   return result('authoritative', null, { stamp, definition });
-}
-
-export function allowsLegacySemanticWriters(input = {}) {
-  if (isObject(input) && Object.prototype.hasOwnProperty.call(input, 'mode')) {
-    return input.mode === 'legacy';
-  }
-  return resolveV1SemanticAuthority(input).mode === 'legacy';
 }

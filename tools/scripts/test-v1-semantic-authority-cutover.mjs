@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import {
   V1_GAMEPLAY_ARCHITECTURE_ID,
   V1_RUNTIME_ARCHITECTURE_KIND,
-  allowsLegacySemanticWriters,
   createV1RuntimeArchitectureStamp,
   resolveV1SemanticAuthority
 } from '../../src/runtime/v1-semantic-authority.mjs';
@@ -42,33 +41,28 @@ assert.deepEqual(stamp, {
   createdForNewSave: true
 });
 
-const legacyState = {
-  campaign: { id: 'campaign.legacy' },
+const unstampedState = {
+  campaign: { id: 'campaign.unstamped' },
   activeCampaignPackage: { packageId, packageVersion },
   mission: { activeMissionId: 'prelude-a-ship-underway' }
 };
 const availableDefinition = { ok: true, definition };
 assert.deepEqual(resolveV1SemanticAuthority({
-  campaignState: legacyState,
+  campaignState: unstampedState,
   runtimeAssets: { packageData },
   definitionResolution: availableDefinition
 }), {
-  ok: true,
-  mode: 'legacy',
+  ok: false,
+  mode: 'blocked',
   reasonCode: 'authority-stamp-absent',
   stamp: null,
   definition: null
-}, 'unstamped Ashes saves stay legacy even when V1 definitions are available');
-assert.equal(allowsLegacySemanticWriters({
-  campaignState: legacyState,
-  runtimeAssets: { packageData },
-  definitionResolution: availableDefinition
-}), true);
+}, 'unstamped saves are unsupported even when V1 definitions are available');
 
 const authoritativeState = {
-  ...structuredClone(legacyState),
+  ...structuredClone(unstampedState),
   campaign: {
-    ...structuredClone(legacyState.campaign),
+    ...structuredClone(unstampedState.campaign),
     runtimeArchitecture: stamp
   }
 };
@@ -82,11 +76,6 @@ assert.equal(authoritative.mode, 'authoritative');
 assert.equal(authoritative.reasonCode, null);
 assert.deepEqual(authoritative.stamp, stamp);
 assert.equal(authoritative.definition, definition);
-assert.equal(allowsLegacySemanticWriters({
-  campaignState: authoritativeState,
-  runtimeAssets: { packageData },
-  definitionResolution: availableDefinition
-}), false);
 
 for (const [label, statePatch, assetsPatch, definitionResolution, reasonCode] of [
   [
@@ -145,11 +134,6 @@ for (const [label, statePatch, assetsPatch, definitionResolution, reasonCode] of
   assert.equal(result.ok, false, label);
   assert.equal(result.mode, 'blocked', label);
   assert.equal(result.reasonCode, reasonCode, label);
-  assert.equal(allowsLegacySemanticWriters({
-    campaignState: state,
-    runtimeAssets: assets,
-    definitionResolution
-  }), false, `${label} must never reactivate legacy semantic writers`);
 }
 
 const packageManifest = JSON.parse(fs.readFileSync(

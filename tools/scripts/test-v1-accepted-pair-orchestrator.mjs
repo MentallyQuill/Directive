@@ -83,32 +83,10 @@ const exactHardBoundary = createEpisodeHardBoundary({
     source: { kind: 'campaignReducer', id: 'campaign.scene.11' },
     sourceContributionIds: [],
 });
-const legacyOrder = [];
-const legacySequence = await runAcceptedPairSettlementSequence({
-    campaignState,
-    authorityMode: 'legacy',
-    settleLegacy: async () => {
-        legacyOrder.push('legacy');
-        return {
-            campaignState: { ...campaignState, legacySettled: true },
-            snapshot: exactSnapshot,
-            hardBoundary: exactHardBoundary,
-        };
-    },
-    prepareV1: async () => { throw new Error('legacy saves must not prepare V1 settlement'); },
-    settleV1: async () => { throw new Error('legacy saves must not invoke V1 settlement'); },
-});
-legacyOrder.push('classification');
-assert.deepEqual(legacyOrder, ['legacy', 'classification']);
-assert.equal(legacySequence.authorityMode, 'legacy');
-assert.equal(legacySequence.campaignState.legacySettled, true);
-assert.equal(legacySequence.snapshot, exactSnapshot);
-
 const authoritativeOrder = [];
 const sequence = await runAcceptedPairSettlementSequence({
     campaignState,
-    authorityMode: 'authoritative',
-    settleLegacy: async () => { throw new Error('V1 saves must not invoke legacy settlement'); },
+    authority: { mode: 'authoritative' },
     prepareV1: async () => {
         authoritativeOrder.push('prepare-v1');
         return {
@@ -130,16 +108,17 @@ const sequence = await runAcceptedPairSettlementSequence({
 });
 authoritativeOrder.push('classification');
 assert.deepEqual(authoritativeOrder, ['prepare-v1', 'v1', 'classification']);
-assert.equal(sequence.authorityMode, 'authoritative');
+assert.equal(sequence.authority.mode, 'authoritative');
 assert.equal(sequence.campaignState.v1Settled, true);
 assert.equal(sequence.snapshot, exactSnapshot);
 assert.equal(sequence.hardBoundary, exactHardBoundary);
-assert.equal(sequence.legacy, null);
+assert.equal(Object.hasOwn(sequence, 'legacy'), false);
+assert.equal(Object.hasOwn(sequence, 'shadow'), false);
 
 let genericTimeBoundaryForwarded = false;
 await runAcceptedPairSettlementSequence({
     campaignState,
-    authorityMode: 'authoritative',
+    authority: { mode: 'authoritative' },
     prepareV1: async () => ({
         campaignState,
         snapshot: exactSnapshot,
@@ -159,8 +138,7 @@ assert.equal(genericTimeBoundaryForwarded, false, 'generic legacy time advanceme
 const failureOrder = [];
 const failureSequence = await runAcceptedPairSettlementSequence({
     campaignState,
-    authorityMode: 'authoritative',
-    settleLegacy: async () => { throw new Error('legacy fallback forbidden'); },
+    authority: { mode: 'authoritative' },
     prepareV1: async () => {
         failureOrder.push('prepare-v1');
         return { campaignState, snapshot: exactSnapshot };
@@ -179,14 +157,12 @@ assert.equal(JSON.stringify(failureSequence).includes('raw V1 failure detail'), 
 let blockedCalls = 0;
 const blockedSequence = await runAcceptedPairSettlementSequence({
     campaignState,
-    authorityMode: 'blocked',
-    blockedReasonCode: 'definition-assets-missing',
-    settleLegacy: async () => { blockedCalls += 1; },
+    authority: { mode: 'blocked', reasonCode: 'definition-assets-missing' },
     prepareV1: async () => { blockedCalls += 1; },
     settleV1: async () => { blockedCalls += 1; },
 });
 assert.equal(blockedCalls, 0);
-assert.equal(blockedSequence.authorityMode, 'blocked');
+assert.equal(blockedSequence.authority.mode, 'blocked');
 assert.equal(blockedSequence.v1.result.reasonCode, 'definition-assets-missing');
 assert.equal(blockedSequence.campaignState, campaignState);
 
@@ -338,7 +314,7 @@ const processSource = orchestratorSource.slice(processStart, orchestratorSource.
 assert.ok(processSource.indexOf('runAcceptedPairSettlementSequence') >= 0, 'real process path uses the accepted-pair sequence');
 assert.ok(
     processSource.indexOf('runAcceptedPairSettlementSequence') < processSource.indexOf('decision = await classify'),
-    'V1 shadow settlement occurs before classification',
+    'V1 settlement occurs before classification',
 );
 
 const runtimeAppSource = fs.readFileSync('src/runtime/runtime-app.mjs', 'utf8');

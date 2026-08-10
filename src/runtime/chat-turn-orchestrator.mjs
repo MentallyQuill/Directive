@@ -26,12 +26,9 @@ import {
   returnReadiedCommandBearingPoint
 } from '../command/command-bearing.mjs';
 import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
+import { prepareV1AcceptedPairSnapshot } from './v1-accepted-pair-source.mjs';
 import {
-  createLatestPairSourceSettlementProvider,
-  settleLatestPairSource
-} from './source-settlement-latest-pair.mjs';
-import { prepareLatestPairSceneSnapshot } from './source-settlement-latest-pair-scene-adapter.mjs';
-import {
+  assertFrameCleanForSettlement,
   createSourceToken,
   createTurnSourceFrame,
   createTurnSourceFrameRef
@@ -41,7 +38,6 @@ import {
   normalizeHostMessageVisibility
 } from './architecture-redesign-contracts.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
-import { createSourceSettlementService } from './source-settlement-service.mjs';
 import {
   createRuntimeLedgerView,
   createRuntimeLedgerViewAsync
@@ -50,7 +46,6 @@ import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs'
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 import { withoutProvisionalDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 import { commitV1AcceptedPairTimeAdvance } from './v1-accepted-pair-time.mjs';
-import { allowsLegacySemanticWriters } from './v1-semantic-authority.mjs';
 
 const CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION = 'chat-turn-orchestrator-hotpath-core-begin-timeout-2026-07-04';
 
@@ -60,36 +55,6 @@ function cloneJson(value) {
 
 function timestamp(now) {
   return typeof now === 'function' ? now() : (now || new Date().toISOString());
-}
-
-function latestSceneHandshakeCommittedRoots(state = {}) {
-  const sceneHandshake = state?.sceneHandshake || {};
-  const candidates = [
-    sceneHandshake.lastResult,
-    Array.isArray(sceneHandshake.settled) ? sceneHandshake.settled.at(-1) : null,
-    Array.isArray(sceneHandshake.records) ? sceneHandshake.records.at(-1) : null
-  ];
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate?.committedRoots) && candidate.committedRoots.length) {
-      return cloneJson(candidate.committedRoots.filter(Boolean));
-    }
-  }
-  return [];
-}
-
-function operationRoot(operation = {}) {
-  const path = compact(operation?.path || operation?.pointer || '').replace(/^\/+/, '');
-  const pathRoot = path.split(/[./]/)[0] || null;
-  if (pathRoot) return pathRoot;
-  return compact(operation?.domain || operation?.root || operation?.targetRoot || '') || null;
-}
-
-function committedRootsFromOperations(operations = []) {
-  return [
-    ...new Set((Array.isArray(operations) ? operations : [])
-      .map(operationRoot)
-      .filter(Boolean))
-  ];
 }
 
 function promptRevisionOf(state = {}) {
@@ -434,49 +399,22 @@ export async function runV1MissionSettlement({
 
 export async function runAcceptedPairSettlementSequence({
   campaignState = null,
-  authorityMode = 'legacy',
-  blockedReasonCode = 'v1-authority-blocked',
-  settleLegacy = null,
+  authority = { mode: 'blocked', reasonCode: 'v1-authority-unavailable' },
   prepareV1 = null,
   settleV1 = null
 } = {}) {
-  if (authorityMode === 'blocked') {
+  if (authority?.mode !== 'authoritative') {
     const v1 = {
       campaignState,
-      result: skippedV1SettlementResult(safeV1SettlementCode(blockedReasonCode, 'v1-authority-blocked'))
+      result: skippedV1SettlementResult(safeV1SettlementCode(authority?.reasonCode, 'v1-authority-blocked'))
     };
     return {
-      authorityMode,
+      authority: cloneJson(authority),
       campaignState,
       snapshot: null,
       hardBoundary: null,
-      legacy: null,
-      v1,
-      shadow: v1
+      v1
     };
-  }
-  if (authorityMode === 'legacy') {
-    if (typeof settleLegacy !== 'function') throw new TypeError('settleLegacy is required for legacy authority');
-    const legacy = await settleLegacy(campaignState);
-    const legacyBundle = legacy && Object.hasOwn(legacy, 'campaignState')
-      ? legacy
-      : { campaignState: legacy || campaignState, snapshot: null };
-    const v1 = {
-      campaignState: legacyBundle.campaignState,
-      result: skippedV1SettlementResult('legacy-save')
-    };
-    return {
-      authorityMode,
-      campaignState: legacyBundle.campaignState,
-      snapshot: legacyBundle.snapshot || null,
-      hardBoundary: legacyBundle.hardBoundary || null,
-      legacy: legacyBundle,
-      v1,
-      shadow: v1
-    };
-  }
-  if (authorityMode !== 'authoritative') {
-    throw new TypeError(`Unknown accepted-pair authority mode: ${authorityMode}`);
   }
   const prepared = typeof prepareV1 === 'function'
     ? await prepareV1(campaignState)
@@ -507,13 +445,11 @@ export async function runAcceptedPairSettlementSequence({
     }
   }
   return {
-    authorityMode,
+    authority: cloneJson(authority),
     campaignState: v1.campaignState || preparedBundle.campaignState,
     snapshot: preparedBundle.snapshot || null,
     hardBoundary: preparedBundle.hardBoundary || null,
-    legacy: null,
-    v1,
-    shadow: v1
+    v1
   };
 }
 
@@ -566,32 +502,12 @@ function compactProviderFailureError(error = null) {
   };
 }
 
-function compactPostCommitConversationError(error = null, fallbackCode = 'DIRECTIVE_POST_COMMIT_CONVERSATION_FAILED') {
-  const rawMessage = compact(error?.message || error || '');
-  const message = rawMessage.slice(0, 900);
-  return compactObject({
-    code: compact(error?.code) || fallbackCode,
-    messageLength: rawMessage.length,
-    messageHash: message ? hashStableJson({ message }) : null
-  });
-}
-
 function compactTurnProcessingFailureError(error = null) {
   const rawMessage = compact(error?.message || '');
   const message = rawMessage.slice(0, 900);
   return compactObject({
     code: compact(error?.code) || 'DIRECTIVE_TURN_PROCESSING_FAILED',
     summary: 'Turn processing failed before Directive could complete the response path.',
-    messageLength: rawMessage.length,
-    messageHash: message ? hashStableJson({ message }) : null
-  });
-}
-
-function compactBackgroundScheduleError(error = null, fallbackCode = 'DIRECTIVE_BACKGROUND_SCHEDULE_FAILED') {
-  const rawMessage = compact(error?.message || error || '');
-  const message = rawMessage.slice(0, 900);
-  return compactObject({
-    code: compact(error?.code) || fallbackCode,
     messageLength: rawMessage.length,
     messageHash: message ? hashStableJson({ message }) : null
   });
@@ -1207,85 +1123,6 @@ function readiedSpendRequest({ readied, action, ingressId, message, chatId, fitV
   };
 }
 
-function advisoryPrompt(state, playerText, decision = {}) {
-  const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
-  const crewIds = (state?.crew?.seniorCrewIds || []).filter(Boolean);
-  return [
-    'Create a player-safe advisory record for Directive UI surfaces, not a chat response.',
-    'Do not write narration, dialogue, officer speech, Markdown, headings, or in-character prose.',
-    'Do not answer as the Captain, narrator, Mission Director, or any other character.',
-    'Use only player-visible facts. Do not expose hidden values or Director-only facts.',
-    'If useful, name involved crew by id from knownCrewIds. Leave crewNotes empty when no specific officer is implicated.',
-    'Return one compact JSON object only with this shape:',
-    '{"kind":"directive.playerSafeAdvisory","subject":"","missionBrief":"","logSummary":"","involvedCrewIds":[],"crewNotes":[{"crewId":"","summary":""}],"considerations":[],"options":[]}',
-    '',
-    `Player request: ${playerText}`,
-    `Turn classification: ${JSON.stringify({
-      classification: decision?.classification || 'counselRequest',
-      domainSignals: decision?.domainSignals || [],
-      workerPlan: decision?.workerPlan || {}
-    })}`,
-    `Known crew ids: ${JSON.stringify(crewIds)}`,
-    `Player-safe campaign context: ${JSON.stringify({ mission: safe.mission, ship: safe.ship, crew: safe.crew, pressures: safe.pressures, directives: safe.directives })}`
-  ].join('\n');
-}
-
-function normalizeGeneratedBlock(value) {
-  return String(value || '')
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trim();
-}
-
-function parseJsonObjectText(value) {
-  const input = normalizeGeneratedBlock(value)
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```$/i, '')
-    .trim();
-  if (!input.startsWith('{')) return null;
-  try {
-    const parsed = JSON.parse(input);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function safeText(value, maxLength = 280) {
-  const text = compact(typeof value === 'string'
-    ? value
-    : value?.summary || value?.label || value?.title || value?.text || value?.id);
-  if (!text) return '';
-  const legacyReportLabels = [
-    ['Confirmed', 'Facts'],
-    ['Uncertainty'],
-    ['Likely', 'Consequences'],
-    ['Viable', 'Options']
-  ].map((parts) => parts.join('\\s+')).join('|');
-  const legacyReportLabelPattern = new RegExp(`\\b(?:${legacyReportLabels})\\s*:\\s*`, 'gi');
-  const stripped = text
-    .replace(/\*\*/g, '')
-    .replace(legacyReportLabelPattern, '')
-    .trim();
-  return stripped.length <= maxLength ? stripped : `${stripped.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
-}
-
-function safeTextList(value, limit = 4) {
-  const values = Array.isArray(value) ? value : (value ? [value] : []);
-  const seen = new Set();
-  const output = [];
-  for (const item of values) {
-    const text = safeText(item, 220);
-    const key = text.toLowerCase();
-    if (!text || seen.has(key)) continue;
-    seen.add(key);
-    output.push(text);
-    if (output.length >= limit) break;
-  }
-  return output;
-}
 
 function campaignCrewIds(state) {
   return [...new Set((state?.crew?.seniorCrewIds || []).map((id) => compact(id)).filter(Boolean))];
@@ -1305,88 +1142,6 @@ function inferCrewIdsFromText(state, text = '') {
   return [...matched];
 }
 
-function inferAdvisorySubject(playerText = '') {
-  const lower = compact(playerText).toLowerCase();
-  if (/(?:starfleet|protocol|procedure|policy|classified|need-to-know|orders?)/i.test(lower)) return 'Procedure and disclosure advisory';
-  if (/(?:option|recommend|advise|assessment|read|what would you do)/i.test(lower)) return 'Decision support advisory';
-  if (/(?:risk|danger|casualt|injur|medical|safety)/i.test(lower)) return 'Risk advisory';
-  return 'Command advisory';
-}
-
-function fallbackAdvisoryRecord({ state, ingressId, message, nowValue }) {
-  const playerText = compact(message?.text || '');
-  const subject = inferAdvisorySubject(playerText);
-  const involvedCrewIds = inferCrewIdsFromText(state, playerText);
-  const logSummary = `Advisory requested: ${safeText(playerText, 220) || subject}.`;
-  return {
-    id: `advisory:${ingressId}`,
-    type: 'advisoryNote',
-    source: 'chatCounsel',
-    sourceIngressId: ingressId,
-    sourceMessageId: compact(message?.hostMessageId || message?.id || String(message?.index ?? '')),
-    activeMissionId: state?.mission?.activeMissionId || null,
-    activePhaseId: state?.mission?.activePhaseId || state?.mission?.phase || null,
-    createdAt: nowValue,
-    subject,
-    missionBrief: 'Directive recorded this as player-safe decision support; no campaign outcome was committed.',
-    logSummary,
-    involvedCrewIds,
-    crewNotes: involvedCrewIds.map((crewId) => ({
-      crewId,
-      summary: 'This advisory request involves the officer as current command context.'
-    })),
-    considerations: [],
-    options: [],
-    playerVisible: true
-  };
-}
-
-function normalizeCrewNotes(state, notes = [], playerText = '') {
-  const validIds = new Set(campaignCrewIds(state));
-  const output = [];
-  for (const note of Array.isArray(notes) ? notes : []) {
-    const crewId = compact(note?.crewId || note?.id);
-    if (!crewId || (validIds.size && !validIds.has(crewId))) continue;
-    const summary = safeText(note?.summary || note?.note || note?.text, 220);
-    if (!summary) continue;
-    output.push({ crewId, summary });
-  }
-  const existing = new Set(output.map((note) => note.crewId));
-  for (const crewId of inferCrewIdsFromText(state, playerText)) {
-    if (!existing.has(crewId)) {
-      output.push({
-        crewId,
-        summary: 'This advisory request involves the officer as current command context.'
-      });
-    }
-  }
-  return output.slice(0, 6);
-}
-
-function normalizeAdvisoryRecord(value, { state, ingressId, message, nowValue }) {
-  const fallback = fallbackAdvisoryRecord({ state, ingressId, message, nowValue });
-  const parsed = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
-  if (!parsed) return fallback;
-  const subject = safeText(parsed.subject || parsed.title, 96) || fallback.subject;
-  const missionBrief = safeText(parsed.missionBrief || parsed.summary || parsed.brief, 260) || fallback.missionBrief;
-  const logSummary = safeText(parsed.logSummary || parsed.record || parsed.summary, 260) || fallback.logSummary;
-  const crewNotes = normalizeCrewNotes(state, parsed.crewNotes, message?.text || '');
-  const involvedCrewIds = [...new Set([
-    ...safeTextList(parsed.involvedCrewIds, 8),
-    ...crewNotes.map((note) => note.crewId),
-    ...fallback.involvedCrewIds
-  ])].filter((id) => !campaignCrewIds(state).length || campaignCrewIds(state).includes(id)).slice(0, 8);
-  return {
-    ...fallback,
-    subject,
-    missionBrief,
-    logSummary,
-    involvedCrewIds,
-    crewNotes,
-    considerations: safeTextList(parsed.considerations || parsed.context || parsed.notes, 4),
-    options: safeTextList(parsed.options || parsed.nextSteps || parsed.paths, 4)
-  };
-}
 
 export function createChatTurnOrchestrator({
   host,
@@ -1395,9 +1150,6 @@ export function createChatTurnOrchestrator({
   generationRouter = null,
   responseDispatcher,
   turnCommitCoordinator = null,
-  sidecarScheduler = null,
-  forgeCoordinator = null,
-  messageReconciler = null,
   repairRuntime = null,
   coreTurnStore = null,
   stateDeltaGateway,
@@ -1414,14 +1166,6 @@ export function createChatTurnOrchestrator({
   resolveTerminalOutcomeDecision = null,
   recordTerminalCheckpointSettlement = null,
   discardProvisionalDirectorTurn = null,
-  scheduleCommandLogSummaryForCommittedTurn = null,
-  schedulePostCommitConversationProcessor = null,
-  scheduleAdvisoryEnrichmentProcessor = null,
-  postCommitConversationProcessor = null,
-  runLatestPairSettlementProvider = null,
-  enableDefaultLatestPairSettlementProvider = false,
-  validateLatestPairSettlementBeforeApply = null,
-  sceneHandshakeSettlementTimeoutMs = 10000,
   settleV1MissionAcceptedPair = null,
   resolveV1SemanticAuthority = null,
   getRuntimeAssets = null,
@@ -1457,18 +1201,6 @@ export function createChatTurnOrchestrator({
     details: {}
   };
   const repair = repairRuntime || createRepairCommandBoundary({ coreTurnStore, now });
-  const sourceSettlement = createSourceSettlementService({
-    coreStore: coreTurnStore,
-    clock: () => timestamp(now)
-  });
-  const defaultLatestPairSettlementProvider = typeof runLatestPairSettlementProvider === 'function'
-    ? runLatestPairSettlementProvider
-    : (
-      enableDefaultLatestPairSettlementProvider === true && typeof generationRouter?.generate === 'function'
-        ? createLatestPairSourceSettlementProvider({ generationRouter, now })
-        : null
-    );
-
   function markDebugStage(stage, details = {}) {
     debugState.stage = compact(stage) || 'unknown';
     debugState.updatedAt = new Date().toISOString();
@@ -1661,24 +1393,23 @@ export function createChatTurnOrchestrator({
     return getCampaignState() || state;
   }
 
-  async function preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter = null) {
+  async function preflightAcceptedPairSource(state, message, chatId, ingressId, activityReporter = null) {
     const tracked = initializeCampaignRuntimeTracking(state);
     const ingress = await findIngressFresh(tracked, ingressId);
     const sourceFrame = ingress?.sourceFrame || null;
     const transactionId = ingress?.coreTransactionId || null;
     if (!sourceFrame || !transactionId) {
       const decision = {
-        kind: 'directive.sourceSettlementDecision.v1',
-        mode: 'latestPair',
+        kind: 'directive.acceptedPairSourceDecision.v1',
         status: 'hardSkipped',
         transactionId: transactionId || null,
         providerCalled: false,
         applied: false,
-        reasons: ['scene-handshake-source-core-ingress-missing'],
+        reasons: ['accepted-pair-source-core-ingress-missing'],
         observedAt: timestamp(now)
       };
       reportActivity(activityReporter, {
-        phase: 'sceneHandshakeSourceBlocked',
+        phase: 'v1AcceptedPairSourceBlocked',
         mode: 'blocking',
         source: 'sre',
         ingressId,
@@ -1703,16 +1434,20 @@ export function createChatTurnOrchestrator({
       expected.selectedAssistantVariantHash = expectedSelectedAssistantVariantHash;
     }
     try {
-      const decision = await sourceSettlement.preflightLatestPair({
+      const clean = assertFrameCleanForSettlement(sourceFrame, expected);
+      const decision = {
+        kind: 'directive.acceptedPairSourceDecision.v1',
+        status: 'preflightClean',
         transactionId,
-        sourceFrame,
-        expected,
-        idempotencyKey: `sre:scene-handshake-preflight:${transactionId}:${sourceFrame.sourceHash || sourceFrame.id}`,
-        reasons: ['scene-handshake-diagnostic-preflight'],
+        sourceFrameId: clean.sourceFrameId,
+        sourceToken: clean.sourceToken,
+        providerCalled: false,
+        applied: false,
+        reasons: [],
         observedAt: timestamp(now)
-      });
+      };
       reportActivity(activityReporter, {
-        phase: 'sreSceneHandshakePreflight',
+        phase: 'v1AcceptedPairSourcePreflight',
         mode: 'diagnostic',
         source: 'sre',
         ingressId,
@@ -1726,7 +1461,7 @@ export function createChatTurnOrchestrator({
       return decision;
     } catch (error) {
       reportActivity(activityReporter, {
-        phase: 'sreSceneHandshakePreflightFailed',
+        phase: 'v1AcceptedPairSourcePreflightFailed',
         mode: 'diagnostic',
         source: 'sre',
         ingressId,
@@ -1737,190 +1472,19 @@ export function createChatTurnOrchestrator({
           message: error?.message || String(error)
         }
       });
-      return null;
+      return {
+        kind: 'directive.acceptedPairSourceDecision.v1',
+        status: 'hardSkipped',
+        transactionId,
+        sourceFrameId: sourceFrame.id || null,
+        providerCalled: false,
+        applied: false,
+        reasons: cloneJson(error?.reasons || ['accepted-pair-source-not-clean']),
+        observedAt: timestamp(now)
+      };
     }
   }
 
-  async function settleSceneHandshake(state, message, chatId, ingressId, activityReporter = null) {
-    const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
-    const prepared = prepareLatestPairSceneSnapshot({
-      campaignState: state,
-      currentPlayerMessage: message,
-      recentMessages,
-      chatId,
-      ingressId
-    });
-    const snapshot = prepared.ok ? prepared.snapshot : null;
-    if (!defaultLatestPairSettlementProvider) {
-      reportActivity(activityReporter, {
-        phase: 'sceneHandshakeSkipped',
-        mode: 'diagnostic',
-        source: 'sre',
-        ingressId,
-        reason: 'source-settlement-latest-pair-provider-unavailable'
-      });
-      return { campaignState: state, snapshot };
-    }
-    if (!prepared.ok) {
-      reportActivity(activityReporter, {
-        phase: 'sceneHandshakeSkipped',
-        mode: 'diagnostic',
-        source: 'sceneHandshake',
-        ingressId,
-        reason: prepared.reason || 'accepted-pair-snapshot-unavailable'
-      });
-      return { campaignState: state, snapshot: null };
-    }
-    const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId);
-    let packageData = null;
-    try {
-      packageData = typeof getPackageData === 'function' ? getPackageData() : null;
-    } catch {
-      packageData = null;
-    }
-    reportActivity(activityReporter, {
-      phase: 'settlingSceneHandshake',
-      mode: 'blocking',
-      source: 'sceneHandshake',
-      ingressId
-    });
-    const sourcePreflight = await preflightSceneHandshakeSource(state, message, chatId, ingressId, activityReporter);
-    if (sourcePreflight && sourcePreflight.status !== 'preflightClean') {
-      reportActivity(activityReporter, {
-        phase: 'sceneHandshakeSourceBlocked',
-        mode: 'blocking',
-        source: 'sre',
-        ingressId,
-        status: sourcePreflight.status || null,
-        reasons: cloneJson(sourcePreflight.reasons || []),
-        providerCalled: sourcePreflight.providerCalled === true,
-        applied: sourcePreflight.applied === true
-      });
-      return { campaignState: state, snapshot };
-    }
-    let result = null;
-    try {
-      result = await withTimeout(
-        settleLatestPairSource({
-          campaignState: state,
-          currentPlayerMessage: message,
-          recentMessages,
-          chatId,
-          ingressId,
-          generationRouter,
-          stateDeltaGateway,
-          runLatestPairSettlementProvider: defaultLatestPairSettlementProvider,
-          validateLatestPairSettlementBeforeApply: async (payload = {}) => {
-            const latestState = initializeCampaignRuntimeTracking(getCampaignState() || state);
-            const latestIngress = await findIngressFresh(latestState, ingressId);
-            if (!latestIngress) {
-              return { ok: false, reasons: ['scene-handshake-source-core-ingress-missing'] };
-            }
-            const expectedFrameId = payload.sourceFrame?.id || ingress?.sourceFrame?.id || null;
-            const currentFrameId = latestIngress?.sourceFrame?.id || null;
-            if (expectedFrameId && currentFrameId && expectedFrameId !== currentFrameId) {
-              return { ok: false, reasons: ['scene-handshake-source-frame-stale'] };
-            }
-            if (typeof validateLatestPairSettlementBeforeApply === 'function') {
-              return validateLatestPairSettlementBeforeApply({
-                ...payload,
-                ingress: cloneJson(latestIngress || null),
-                currentCampaignState: latestState
-              });
-            }
-            return { ok: true };
-          },
-          latestPairSourceFrame: ingress?.sourceFrame || null,
-          packageData,
-          coreStore: coreTurnStore,
-          prebuiltSnapshot: snapshot,
-          now
-        }),
-        Number(sceneHandshakeSettlementTimeoutMs),
-        () => timeoutError(
-          'DIRECTIVE_SCENE_HANDSHAKE_SETTLEMENT_TIMEOUT',
-          'Scene Handshake settlement timed out before classification.',
-          Number(sceneHandshakeSettlementTimeoutMs)
-        )
-      );
-    } catch (error) {
-      reportActivity(activityReporter, {
-        phase: 'sceneHandshakeDeferred',
-        mode: 'diagnostic',
-        source: 'sre',
-        ingressId,
-        transactionId: ingress?.coreTransactionId || null,
-        sourceFrameId: ingress?.sourceFrame?.id || null,
-        reasons: ['source-settlement-provider-failed-deferred'],
-        error: {
-          code: error?.code || null,
-          message: error?.message || String(error)
-        }
-      });
-      return { campaignState: state, snapshot };
-    }
-    let next = result?.campaignState || state;
-    if (!result?.attempted && !result?.deduplicated) return { campaignState: next, snapshot };
-    const refreshed = getCampaignState() || null;
-    const authoritativeNext = refreshed?.campaign?.id && refreshed.campaign.id === next?.campaign?.id
-      ? refreshed
-      : next;
-    next = authoritativeNext;
-    const committedRoots = [
-      ...new Set([
-        ...(Array.isArray(result.committedRoots) ? result.committedRoots : []),
-        ...(Array.isArray(result.record?.committedRoots) ? result.record.committedRoots : []),
-        ...latestSceneHandshakeCommittedRoots(next),
-        ...latestSceneHandshakeCommittedRoots(authoritativeNext),
-        ...committedRootsFromOperations(result.sourceSettlement?.operations),
-        ...committedRootsFromOperations(result.settlement?.operations)
-      ].filter(Boolean))
-    ];
-    reportActivity(activityReporter, {
-      phase: 'sceneHandshakeSettled',
-      mode: 'blocking',
-      source: 'sceneHandshake',
-      ingressId,
-      disposition: result.disposition || result.record?.disposition || null,
-      reasons: cloneJson(result.sourceSettlement?.reasons || result.record?.reasons || []),
-      committedRoots,
-      operationCount: result.operationCount || result.record?.operationCount || 0
-    });
-    const promptRelevantRoots = committedRoots.filter((root) => !['runtimeTracking', 'sceneHandshake'].includes(root));
-    if (result.promptDirty || result.record?.promptDirty || promptRelevantRoots.length > 0) {
-      const promptDirtyDomains = [
-        ...(Array.isArray(result.promptDirtyDomains) ? result.promptDirtyDomains : []),
-        ...(Array.isArray(result.sourceSettlement?.promptDirtyDomains) ? result.sourceSettlement.promptDirtyDomains : []),
-        ...committedRoots
-      ].filter(Boolean);
-      reportActivity(activityReporter, {
-        phase: 'syncingPrompt',
-        mode: 'blocking',
-        ingressId,
-        source: 'sceneHandshake',
-        promptDirtyDomains: cloneJson(promptDirtyDomains),
-        forcePromptRebuild: true
-      });
-      next = await syncPrompt(
-        authoritativeNext,
-        'Prompt context synchronized after Scene Handshake settlement.',
-        promptFrameForMessage(authoritativeNext, message, { classification: 'sceneHandshake' }, {
-          acceptedAssistantVariant: cloneJson(result.selectedAssistantVariant || result.record?.selectedAssistantVariant || null),
-          promptDirtyDomains
-        }),
-        activityReporter,
-        {
-          source: 'sceneHandshake',
-          classification: 'sceneHandshake',
-          ingressId,
-          promptDirtyDomains,
-          forcePromptRebuild: true
-        }
-      );
-    }
-    return { campaignState: next, snapshot };
-  }
 
   function runtimeAssetsForV1Settlement() {
     let runtimeAssets = null;
@@ -1935,22 +1499,17 @@ export function createChatTurnOrchestrator({
   function acceptedPairSemanticAuthority(state) {
     const runtimeAssets = runtimeAssetsForV1Settlement();
     if (typeof resolveV1SemanticAuthority !== 'function') {
-      return { ok: true, mode: 'legacy', reasonCode: 'authority-resolver-unavailable', runtimeAssets };
+      return { ok: false, mode: 'blocked', reasonCode: 'authority-resolver-unavailable', runtimeAssets };
     }
     try {
       const authority = resolveV1SemanticAuthority({ campaignState: state, runtimeAssets });
-      if (!['legacy', 'authoritative', 'blocked'].includes(authority?.mode)) {
+      if (!['authoritative', 'blocked'].includes(authority?.mode)) {
         return { ok: false, mode: 'blocked', reasonCode: 'authority-resolution-invalid', runtimeAssets };
       }
       return { ...authority, runtimeAssets };
     } catch {
       return { ok: false, mode: 'blocked', reasonCode: 'authority-resolution-failed', runtimeAssets };
     }
-  }
-
-  function legacySemanticWritersAllowed(state = null) {
-    const candidateState = state || getCampaignState?.() || {};
-    return allowsLegacySemanticWriters(acceptedPairSemanticAuthority(candidateState));
   }
 
   async function prepareV1AcceptedPair(
@@ -1962,7 +1521,7 @@ export function createChatTurnOrchestrator({
     activityReporter = null
   ) {
     const recentMessages = host.chat.getRecentMessages?.({ limit: 12, playerSafeOnly: false }) || [];
-    const prepared = prepareLatestPairSceneSnapshot({
+    const prepared = prepareV1AcceptedPairSnapshot({
       campaignState: state,
       currentPlayerMessage: message,
       recentMessages,
@@ -1979,7 +1538,7 @@ export function createChatTurnOrchestrator({
       });
       return { campaignState: state, snapshot: null, hardBoundary: null };
     }
-    const sourcePreflight = await preflightSceneHandshakeSource(
+    const sourcePreflight = await preflightAcceptedPairSource(
       state,
       message,
       chatId,
@@ -2037,9 +1596,7 @@ export function createChatTurnOrchestrator({
       Number.isFinite(Number(v1MissionSettlementTimeoutMs)) && Number(v1MissionSettlementTimeoutMs) > 0
         ? Number(v1MissionSettlementTimeoutMs)
         : 10000,
-      Number.isFinite(Number(sceneHandshakeSettlementTimeoutMs)) && Number(sceneHandshakeSettlementTimeoutMs) > 0
-        ? Number(sceneHandshakeSettlementTimeoutMs)
-        : 10000
+      10000
     );
     reportActivity(activityReporter, {
       phase: 'settlingV1Mission',
@@ -2298,670 +1855,6 @@ export function createChatTurnOrchestrator({
     }
   }
 
-  function scheduleTurnSidecars(decision, turnContext = {}, activityReporter = null) {
-    if (!sidecarScheduler?.schedule) return null;
-    if (!legacySemanticWritersAllowed()) {
-      reportActivity(activityReporter, {
-        phase: 'legacySemanticSidecarsSkipped',
-        mode: 'diagnostic',
-        ingressId: turnContext?.ingressId || null,
-        classification: decision?.classification || turnContext?.classification || null,
-        reason: 'v1-story-settlement-authoritative'
-      });
-      return null;
-    }
-    return sidecarScheduler.schedule({
-      workerPlan: decision?.workerPlan || {},
-      turnContext,
-      activityReporter: typeof activityReporter === 'function'
-        ? (event) => reportActivity(activityReporter, event)
-        : null
-    });
-  }
-
-  async function scenePhaseSealPayloadForCommittedTurn({
-    state,
-    ingressId,
-    decision = {},
-    committed = {},
-    turnId = null,
-    outcomeId = null,
-    playerMessage = null,
-    assistantMessageId = null,
-    assistantText = ''
-  } = {}) {
-    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId);
-    const transactionId = compact(ingress?.coreTransactionId || '');
-    const sourceFrame = ingress?.sourceFrame || null;
-    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
-      id: ingress?.sourceFrameId || null,
-      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
-      saveId: tracked?.campaignChatBinding?.saveId || null,
-      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
-      hostMessageId: ingress?.hostMessageId || null,
-      textHash: ingress?.textHash || null
-    });
-    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
-
-    const turnPacket = committed?.turnPacket || {};
-    const missionDelta = turnPacket.stateDelta?.mission || turnPacket.missionDelta || {};
-    const phaseAdvance = missionDelta.phaseAdvance || null;
-    const graphTransition = missionDelta.graphTransition || null;
-    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
-    const hasSealSignal = Boolean(
-      phaseAdvance
-      || graphTransition
-      || sceneSnapshot.sceneId
-      || sceneSnapshot.activePhaseId
-      || sceneSnapshot.phaseId
-      || sceneSnapshot.locationId
-      || sceneSnapshot.currentLocationId
-    );
-    if (!hasSealSignal) return null;
-
-    const attentionScene = tracked?.attentionState?.scene || {};
-    const phaseId = compact(
-      phaseAdvance?.to
-      || graphTransition?.to
-      || sceneSnapshot.activePhaseId
-      || sceneSnapshot.phaseId
-      || tracked?.mission?.activePhaseId
-      || tracked?.mission?.phase
-      || attentionScene.phaseId
-    );
-    const locationId = compact(
-      sceneSnapshot.locationId
-      || sceneSnapshot.currentLocationId
-      || attentionScene.locationId
-      || tracked?.worldState?.currentLocationId
-    );
-    const sceneId = compact(
-      sceneSnapshot.sceneId
-      || sceneSnapshot.id
-      || attentionScene.sceneId
-      || attentionScene.id
-      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
-    );
-    const summarySource = compact(
-      turnPacket.outcomePacket?.summary
-      || turnPacket.outcomePacket?.title
-      || turnPacket.commandLogPacket?.summary
-      || assistantText
-      || decision.action
-      || decision.classification
-    );
-    const boundaryKey = [
-      phaseAdvance?.from || graphTransition?.from || phaseId || 'phase',
-      phaseAdvance?.to || graphTransition?.to || phaseId || 'phase',
-      locationId || 'no-location'
-    ].join('->');
-    return {
-      transactionId,
-      sourceToken: compact(sourceFrame?.sourceToken || createSourceToken(sourceFrameRef || sourceFrame || { id: transactionId })),
-      sourceFrame,
-      sourceFrameRef,
-      outcomeId,
-      flushLens: true,
-      batchId: `scene-phase-seal:${outcomeId}:${boundaryKey}`,
-      idempotencyKey: `scene-phase-seal:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
-      seal: {
-        id: `scene-seal:${outcomeId}:${boundaryKey}`,
-        campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || sourceFrameRef.campaignId || null,
-        saveId: tracked?.campaignChatBinding?.saveId || sourceFrameRef.saveId || null,
-        branchId: tracked?.campaignChatBinding?.branchId || 'main',
-        transactionId,
-        outcomeId,
-        sourceFrameRef,
-        chapterId: compact(tracked?.mission?.activeMissionGraphId || tracked?.mission?.activeMissionId || ''),
-        phaseId,
-        sceneId,
-        locationId,
-        actorIds: [
-          ...(Array.isArray(sceneSnapshot.presentCharacters) ? sceneSnapshot.presentCharacters : []),
-          ...(Array.isArray(sceneSnapshot.presentActorIds) ? sceneSnapshot.presentActorIds : []),
-          ...(Array.isArray(sceneSnapshot.relevantCrewIds) ? sceneSnapshot.relevantCrewIds : [])
-        ],
-        subjectIds: [
-          ...(Array.isArray(decision.domainSignals) ? decision.domainSignals : []),
-          ...(Array.isArray(decision.riskSignals) ? decision.riskSignals : [])
-        ],
-        threadIds: [
-          tracked?.attentionState?.foregroundThreadId || null,
-          tracked?.threadLedger?.foregroundThreadId || null
-        ],
-        missionIds: [
-          tracked?.mission?.activeMissionId || null,
-          tracked?.attentionState?.foregroundQuestId || null
-        ],
-        tags: [
-          'runtime-committed-turn',
-          phaseAdvance ? 'phase-advance' : null,
-          graphTransition ? 'graph-transition' : null,
-          decision.classification || null
-        ],
-        keywords: [
-          phaseId,
-          locationId,
-          decision.classification || null
-        ],
-        summaryDigest: summarySource ? {
-          hash: `fnv1a:${fnv1a(summarySource)}`,
-          length: summarySource.length
-        } : null,
-        eventRefs: [{
-          kind: 'directive.coreCommittedTurnRef.v1',
-          id: turnId || outcomeId,
-          transactionId,
-          outcomeId,
-          assistantHostMessageId: assistantMessageId || null,
-          playerHostMessageId: messageHostMessageId(playerMessage) || ingress?.hostMessageId || null,
-          sourceFrameId: sourceFrameRef.id || null
-        }]
-      }
-    };
-  }
-
-  function uniqueCompactStrings(values = []) {
-    const seen = new Set();
-    const out = [];
-    for (const value of Array.isArray(values) ? values : [values]) {
-      const text = compact(value);
-      if (!text || seen.has(text)) continue;
-      seen.add(text);
-      out.push(text);
-    }
-    return out;
-  }
-
-  function boundedRefs(values = [], mapper = (value) => value, limit = 8) {
-    return (Array.isArray(values) ? values : [])
-      .map(mapper)
-      .filter(Boolean)
-      .slice(0, limit);
-  }
-
-  async function pressureArcDigestPayloadForCommittedTurn({
-    state,
-    ingressId,
-    decision = {},
-    committed = {},
-    turnId = null,
-    outcomeId = null,
-    playerMessage = null,
-    assistantMessageId = null
-  } = {}) {
-    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId);
-    const transactionId = compact(ingress?.coreTransactionId || '');
-    const sourceFrame = ingress?.sourceFrame || null;
-    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
-      id: ingress?.sourceFrameId || null,
-      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
-      saveId: tracked?.campaignChatBinding?.saveId || null,
-      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
-      hostMessageId: ingress?.hostMessageId || null,
-      textHash: ingress?.textHash || null
-    });
-    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
-
-    const turnPacket = committed?.turnPacket || {};
-    const outcomePacket = turnPacket.outcomePacket || {};
-    const commandLogPacket = turnPacket.commandLogPacket || {};
-    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
-    const attentionState = tracked?.attentionState || {};
-    const pressureRecords = Array.isArray(tracked?.pressureLedger?.records) ? tracked.pressureLedger.records : [];
-    const storyArcs = Array.isArray(tracked?.storyArcLedger?.arcs)
-      ? tracked.storyArcLedger.arcs
-      : (Array.isArray(tracked?.storyArcLedger?.records) ? tracked.storyArcLedger.records : []);
-    const commandSpend = tracked?.commandBearing?.spendLedger?.[outcomeId] || null;
-    const visibleConsequences = [
-      ...(Array.isArray(outcomePacket.visibleConsequences) ? outcomePacket.visibleConsequences : []),
-      ...(Array.isArray(commandLogPacket.visibleConsequences) ? commandLogPacket.visibleConsequences : [])
-    ];
-    const pressureIds = uniqueCompactStrings([
-      ...(Array.isArray(turnPacket.pressureIds) ? turnPacket.pressureIds : []),
-      ...pressureRecords.map((record) => record?.id),
-      ...(Array.isArray(decision.pressureIds) ? decision.pressureIds : [])
-    ]);
-    const arcIds = uniqueCompactStrings([
-      ...(Array.isArray(turnPacket.arcIds) ? turnPacket.arcIds : []),
-      ...storyArcs.map((arc) => arc?.id || arc?.arcId),
-      ...(Array.isArray(decision.arcIds) ? decision.arcIds : [])
-    ]);
-    const threadIds = uniqueCompactStrings([
-      ...(Array.isArray(turnPacket.threadIds) ? turnPacket.threadIds : []),
-      attentionState.foregroundThreadId,
-      tracked?.threadLedger?.foregroundThreadId,
-      ...(Array.isArray(decision.threadIds) ? decision.threadIds : [])
-    ]);
-    const missionIds = uniqueCompactStrings([
-      ...(Array.isArray(turnPacket.missionIds) ? turnPacket.missionIds : []),
-      tracked?.mission?.activeMissionId,
-      attentionState.foregroundQuestId,
-      ...(Array.isArray(decision.missionIds) ? decision.missionIds : [])
-    ]);
-    const hasDigestSignal = Boolean(
-      pressureIds.length
-      || arcIds.length
-      || threadIds.length
-      || missionIds.length
-      || visibleConsequences.length
-      || commandSpend
-      || decision.classification === 'consequentialCommand'
-    );
-    if (!hasDigestSignal) return null;
-
-    const phaseId = compact(
-      sceneSnapshot.activePhaseId
-      || sceneSnapshot.phaseId
-      || tracked?.mission?.activePhaseId
-      || tracked?.mission?.phase
-      || attentionState.scene?.phaseId
-    );
-    const locationId = compact(
-      sceneSnapshot.locationId
-      || sceneSnapshot.currentLocationId
-      || attentionState.scene?.locationId
-      || tracked?.worldState?.currentLocationId
-    );
-    const sceneId = compact(
-      sceneSnapshot.sceneId
-      || sceneSnapshot.id
-      || attentionState.scene?.sceneId
-      || attentionState.scene?.id
-      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
-    );
-    const summarySource = compact(
-      outcomePacket.summary
-      || commandLogPacket.summary
-      || visibleConsequences.join(' ')
-      || decision.action
-      || decision.classification
-    );
-    const boundaryKey = [
-      phaseId || 'phase',
-      locationId || 'location',
-      pressureIds[0] || arcIds[0] || threadIds[0] || missionIds[0] || 'pressure'
-    ].join(':');
-    return {
-      transactionId,
-      sourceToken: compact(sourceFrame?.sourceToken || createSourceToken(sourceFrameRef || sourceFrame || { id: transactionId })),
-      sourceFrame,
-      sourceFrameRef,
-      outcomeId,
-      flushLens: true,
-      batchId: `pressure-arc-digest:${outcomeId}:${boundaryKey}`,
-      idempotencyKey: `pressure-arc-digest:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
-      digest: {
-        id: `pressure-arc-digest:${outcomeId}:${boundaryKey}`,
-        campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || sourceFrameRef.campaignId || null,
-        saveId: tracked?.campaignChatBinding?.saveId || sourceFrameRef.saveId || null,
-        branchId: tracked?.campaignChatBinding?.branchId || 'main',
-        transactionId,
-        outcomeId,
-        sourceFrameRef,
-        chapterId: compact(tracked?.mission?.activeMissionGraphId || tracked?.mission?.activeMissionId || ''),
-        phaseId,
-        sceneId,
-        locationId,
-        pressureIds,
-        arcIds,
-        threadIds,
-        missionIds,
-        actorIds: [
-          ...(Array.isArray(sceneSnapshot.presentCharacters) ? sceneSnapshot.presentCharacters : []),
-          ...(Array.isArray(sceneSnapshot.presentActorIds) ? sceneSnapshot.presentActorIds : []),
-          ...(Array.isArray(sceneSnapshot.relevantCrewIds) ? sceneSnapshot.relevantCrewIds : [])
-        ],
-        subjectIds: uniqueCompactStrings([
-          ...(Array.isArray(decision.domainSignals) ? decision.domainSignals : []),
-          ...(Array.isArray(decision.riskSignals) ? decision.riskSignals : []),
-          outcomePacket.resultBand || null
-        ]),
-        tags: [
-          'runtime-committed-turn',
-          'pressure-arc-digest',
-          commandSpend ? 'command-bearing-spend' : null,
-          decision.classification || null
-        ],
-        keywords: [
-          phaseId,
-          locationId,
-          decision.classification || null,
-          outcomePacket.resultBand || null
-        ],
-        summaryDigest: summarySource ? {
-          hash: `fnv1a:${fnv1a(summarySource)}`,
-          length: summarySource.length
-        } : null,
-        pressureRefs: boundedRefs(pressureRecords, (record) => ({
-          kind: 'directive.pressureRef.v1',
-          id: record?.id || null,
-          status: record?.status || null,
-          hash: record?.hash || (record?.id ? `fnv1a:${fnv1a(JSON.stringify({
-            id: record.id,
-            status: record.status || null,
-            phaseId: record.phaseId || null
-          }))}` : null)
-        })),
-        arcRefs: boundedRefs(storyArcs, (arc) => ({
-          kind: 'directive.storyArcRef.v1',
-          id: arc?.id || arc?.arcId || null,
-          status: arc?.status || null,
-          hash: arc?.hash || (arc?.id || arc?.arcId ? `fnv1a:${fnv1a(JSON.stringify({
-            id: arc.id || arc.arcId,
-            status: arc.status || null,
-            stageId: arc.stageId || null
-          }))}` : null)
-        })),
-        openThreadRefs: boundedRefs(threadIds, (id) => ({
-          kind: 'directive.openThreadRef.v1',
-          id,
-          status: 'open'
-        })),
-        callbackRefs: [{
-          kind: 'directive.coreCommittedTurnRef.v1',
-          id: turnId || outcomeId,
-          transactionId,
-          outcomeId,
-          assistantHostMessageId: assistantMessageId || null,
-          playerHostMessageId: messageHostMessageId(playerMessage) || ingress?.hostMessageId || null,
-          sourceFrameId: sourceFrameRef.id || null
-        }]
-      }
-    };
-  }
-
-  async function openWorldBoundaryPayloadForCommittedTurn({
-    state,
-    ingressId,
-    decision = {},
-    committed = {},
-    turnId = null,
-    outcomeId = null
-  } = {}) {
-    const tracked = initializeCampaignRuntimeTracking(state || getCampaignState());
-    const ingress = await findIngressFresh(tracked, ingressId);
-    const transactionId = compact(ingress?.coreTransactionId || '');
-    const sourceFrame = ingress?.sourceFrame || null;
-    const sourceFrameRef = createTurnSourceFrameRef(sourceFrame || {
-      id: ingress?.sourceFrameId || null,
-      campaignId: tracked?.campaign?.id || tracked?.campaignChatBinding?.campaignId || null,
-      saveId: tracked?.campaignChatBinding?.saveId || null,
-      chatId: ingress?.chatId || tracked?.campaignChatBinding?.chatId || null,
-      hostMessageId: ingress?.hostMessageId || null,
-      textHash: ingress?.textHash || null
-    });
-    if (!transactionId || !sourceFrameRef || !outcomeId) return null;
-
-    const turnPacket = committed?.turnPacket || {};
-    const reducerBundle = turnPacket.stateDelta?.openWorld?.reducerBundle
-      || turnPacket.openWorld?.reducerBundle
-      || turnPacket.openWorldReducerBundle
-      || null;
-    if (reducerBundle?.kind !== 'directive.openWorldReducerBundle.v1') return null;
-
-    let reducerRef = null;
-    try {
-      reducerRef = compactOpenWorldReducerBundleRef(reducerBundle, { outcomeId });
-    } catch {
-      return null;
-    }
-    const sceneSnapshot = turnPacket.sceneSnapshot || turnPacket.scene || {};
-    const phaseId = compact(
-      sceneSnapshot.activePhaseId
-      || sceneSnapshot.phaseId
-      || tracked?.mission?.activePhaseId
-      || tracked?.mission?.phase
-      || tracked?.attentionState?.scene?.phaseId
-    );
-    const locationId = compact(
-      sceneSnapshot.locationId
-      || sceneSnapshot.currentLocationId
-      || tracked?.attentionState?.scene?.locationId
-      || tracked?.worldState?.currentLocationId
-    );
-    const sceneId = compact(
-      sceneSnapshot.sceneId
-      || sceneSnapshot.id
-      || tracked?.attentionState?.scene?.sceneId
-      || tracked?.attentionState?.scene?.id
-      || (phaseId || locationId ? `scene:${phaseId || 'phase'}:${locationId || 'location'}` : '')
-    );
-    const boundaryType = compact(reducerRef.diagnostics?.boundaryType || reducerBundle.diagnostics?.boundaryType || 'openWorld');
-    const boundaryKey = [
-      boundaryType || 'openWorld',
-      reducerRef.sourceHash ? reducerRef.sourceHash.slice(0, 16) : reducerRef.factHash?.slice(0, 16) || 'no-reducer-hash'
-    ].join(':');
-    return {
-      transactionId,
-      sourceToken: compact(sourceFrame?.sourceToken || createSourceToken(sourceFrameRef || sourceFrame || { id: transactionId })),
-      sourceFrame,
-      sourceFrameRef,
-      outcomeId,
-      flushLens: true,
-      batchId: `open-world-boundary:${outcomeId}:${boundaryKey}`,
-      idempotencyKey: `open-world-boundary:${transactionId}:${outcomeId}:${boundaryKey}:${sourceFrameRef.dedupeKey || sourceFrameRef.id || 'source'}`,
-      reducerRef,
-      boundaryType,
-      turnId,
-      sceneId,
-      phaseId,
-      locationId,
-      tags: [
-        'runtime-committed-turn',
-        'open-world-boundary',
-        boundaryType,
-        decision.classification || null
-      ],
-      keywords: [
-        phaseId,
-        locationId,
-        decision.classification || null,
-        ...(Array.isArray(reducerRef.changedRoots) ? reducerRef.changedRoots : [])
-      ]
-    };
-  }
-
-  async function scheduleScenePhaseSealForCommittedTurn(input = {}, activityReporter = null) {
-    if (!legacySemanticWritersAllowed(input.state)) return null;
-    if (typeof forgeCoordinator?.settleScenePhaseSeal !== 'function') return null;
-    const payload = await scenePhaseSealPayloadForCommittedTurn(input);
-    if (!payload) return null;
-    reportActivity(activityReporter, {
-      phase: 'scenePhaseSealQueued',
-      mode: 'background',
-      source: 'forge',
-      ingressId: input.ingressId || null,
-      turnId: input.turnId || null,
-      outcomeId: input.outcomeId || null,
-      transactionId: payload.transactionId,
-      sourceFrameId: payload.sourceFrameRef?.id || null
-    });
-    try {
-      const settlement = Promise.resolve(forgeCoordinator.settleScenePhaseSeal(payload));
-      settlement.then((result) => {
-        reportActivity(activityReporter, {
-          phase: 'scenePhaseSealSettled',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          status: result?.status || null,
-          applied: result?.applied === true
-        }, {
-          missingCoreWriteMode: 'reject'
-        });
-      }).catch((error) => {
-        reportActivity(activityReporter, {
-          phase: 'scenePhaseSealFailed',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          error: {
-            code: error?.code || null,
-            message: error?.message || String(error)
-          }
-        }, {
-          missingCoreWriteMode: 'reject'
-        });
-      }, {
-        missingCoreWriteMode: 'reject'
-      });
-      return settlement;
-    } catch (error) {
-      reportActivity(activityReporter, {
-        phase: 'scenePhaseSealFailed',
-        mode: 'background',
-        source: 'forge',
-        ingressId: input.ingressId || null,
-        turnId: input.turnId || null,
-        outcomeId: input.outcomeId || null,
-        transactionId: payload.transactionId,
-        error: {
-          code: error?.code || null,
-          message: error?.message || String(error)
-        }
-      });
-      return null;
-    }
-  }
-
-  async function schedulePressureArcDigestForCommittedTurn(input = {}, activityReporter = null) {
-    if (!legacySemanticWritersAllowed(input.state)) return null;
-    if (typeof forgeCoordinator?.settlePressureArcDigest !== 'function') return null;
-    const payload = await pressureArcDigestPayloadForCommittedTurn(input);
-    if (!payload) return null;
-    reportActivity(activityReporter, {
-      phase: 'pressureArcDigestQueued',
-      mode: 'background',
-      source: 'forge',
-      ingressId: input.ingressId || null,
-      turnId: input.turnId || null,
-      outcomeId: input.outcomeId || null,
-      transactionId: payload.transactionId,
-      sourceFrameId: payload.sourceFrameRef?.id || null
-    }, {
-      missingCoreWriteMode: 'reject'
-    });
-    try {
-      const settlement = Promise.resolve(forgeCoordinator.settlePressureArcDigest(payload));
-      settlement.then((result) => {
-        reportActivity(activityReporter, {
-          phase: 'pressureArcDigestSettled',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          status: result?.status || null,
-          applied: result?.applied === true
-        });
-      }).catch((error) => {
-        reportActivity(activityReporter, {
-          phase: 'pressureArcDigestFailed',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          error: {
-            code: error?.code || null,
-            message: error?.message || String(error)
-          }
-        });
-      });
-      return settlement;
-    } catch (error) {
-      reportActivity(activityReporter, {
-        phase: 'pressureArcDigestFailed',
-        mode: 'background',
-        source: 'forge',
-        ingressId: input.ingressId || null,
-        turnId: input.turnId || null,
-        outcomeId: input.outcomeId || null,
-        transactionId: payload.transactionId,
-        error: {
-          code: error?.code || null,
-          message: error?.message || String(error)
-        }
-      });
-      return null;
-    }
-  }
-
-  async function scheduleOpenWorldBoundaryForCommittedTurn(input = {}, activityReporter = null) {
-    if (!legacySemanticWritersAllowed(input.state)) return null;
-    if (typeof forgeCoordinator?.settleOpenWorldBoundary !== 'function') return null;
-    reportActivity(activityReporter, {
-      phase: 'openWorldBoundaryPreparing',
-      mode: 'diagnostic',
-      source: 'forge',
-      ingressId: input.ingressId || null,
-      turnId: input.turnId || null,
-      outcomeId: input.outcomeId || null
-    });
-    try {
-      const payload = await openWorldBoundaryPayloadForCommittedTurn(input);
-      if (!payload) return null;
-      reportActivity(activityReporter, {
-        phase: 'openWorldBoundaryQueued',
-        mode: 'background',
-        source: 'forge',
-        ingressId: input.ingressId || null,
-        turnId: input.turnId || null,
-        outcomeId: input.outcomeId || null,
-        transactionId: payload.transactionId,
-        sourceFrameId: payload.sourceFrameRef?.id || null
-      });
-      const settlement = Promise.resolve(forgeCoordinator.settleOpenWorldBoundary(payload));
-      settlement.then((result) => {
-        reportActivity(activityReporter, {
-          phase: 'openWorldBoundarySettled',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          status: result?.status || null,
-          applied: result?.applied === true
-        });
-      }).catch((error) => {
-        reportActivity(activityReporter, {
-          phase: 'openWorldBoundaryFailed',
-          mode: 'background',
-          source: 'forge',
-          ingressId: input.ingressId || null,
-          turnId: input.turnId || null,
-          outcomeId: input.outcomeId || null,
-          transactionId: payload.transactionId,
-          error: compactBackgroundScheduleError(error, 'DIRECTIVE_OPEN_WORLD_BOUNDARY_SETTLEMENT_FAILED')
-        });
-      });
-      return settlement;
-    } catch (error) {
-      reportActivity(activityReporter, {
-        phase: 'openWorldBoundaryFailed',
-        mode: 'background',
-        source: 'forge',
-        ingressId: input.ingressId || null,
-        turnId: input.turnId || null,
-        outcomeId: input.outcomeId || null,
-        transactionId: null,
-        error: compactBackgroundScheduleError(error, 'DIRECTIVE_OPEN_WORLD_BOUNDARY_SCHEDULE_FAILED')
-      });
-      return null;
-    }
-  }
 
   async function recordTerminalCheckpointSettlementEvent(event = {}) {
     if (typeof recordTerminalCheckpointSettlement !== 'function') return null;
@@ -2970,32 +1863,6 @@ export function createChatTurnOrchestrator({
     } catch {
       return null;
     }
-  }
-
-  async function commitAdvisoryRecord({
-    state,
-    advisory,
-    ingressId,
-    source = 'chatCounsel',
-    reason = 'Player-safe advisory note recorded for Mission, Log, and Crew surfaces.',
-    summary = null,
-    stable = true
-  } = {}) {
-    const nextCandidate = cloneJson(state);
-    nextCandidate.commandCompetence = nextCandidate.commandCompetence || {};
-    nextCandidate.commandCompetence.counselRequestLedger = nextCandidate.commandCompetence.counselRequestLedger || [];
-    const ledger = nextCandidate.commandCompetence.counselRequestLedger;
-    const index = ledger.findIndex((entry) => entry.id === advisory.id);
-    if (index >= 0) ledger[index] = { ...ledger[index], ...cloneJson(advisory) };
-    else ledger.push(cloneJson(advisory));
-    return stateDeltaGateway.commit(nextCandidate, {
-      source,
-      reason,
-      summary: summary || advisory.logSummary || advisory.subject,
-      domains: ['commandCompetence'],
-      ingressId,
-      stable
-    });
   }
 
   function ingressIdFor(state, message, chatId) {
@@ -3272,46 +2139,6 @@ export function createChatTurnOrchestrator({
     if (!ingressId) return null;
     const ledger = await runtimeLedgerViewFresh(state, options);
     return (ledger.ingressLedger || []).find((entry) => entry.id === ingressId) || null;
-  }
-
-  async function appendPostCommitConversationFailureDiagnostic(state, {
-    ingressId = null,
-    outcomeId = null,
-    turnId = null,
-    pendingInteractionId = null,
-    resolutionIngressId = null,
-    error = null
-  } = {}) {
-    const tracked = initializeCampaignRuntimeTracking(state);
-    const ingress = await findIngressFresh(tracked, ingressId);
-    const transactionId = compact(ingress?.coreTransactionId || '');
-    const appendDiagnostics = coreTurnStore?.appendDiagnostics || coreTurnStore?.appendDiagnostic;
-    if (!transactionId || typeof appendDiagnostics !== 'function') return null;
-    const diagnostic = {
-      type: 'sidecar',
-      worker: 'narrativeThreadDirector',
-      sidecarType: 'narrativeThreadExtraction',
-      eventType: 'postCommitConversationFailed',
-      status: 'failed',
-      severity: 'warning',
-      reason: 'blocking-post-commit-conversation-failed',
-      ingressId: ingress?.id || ingressId || null,
-      outcomeId: outcomeId || ingress?.outcomeId || null,
-      turnId: turnId || ingress?.turnId || null,
-      pendingInteractionId: pendingInteractionId || null,
-      resolutionIngressId: resolutionIngressId || null,
-      hostMessageId: ingress?.hostMessageId || null,
-      sourceFrameId: ingress?.sourceFrameId || ingress?.sourceFrame?.id || null,
-      coreTransactionId: transactionId,
-      error: compactPostCommitConversationError(error),
-      observedAt: timestamp(now)
-    };
-    try {
-      await appendDiagnostics.call(coreTurnStore, transactionId, diagnostic);
-      return diagnostic;
-    } catch {
-      return null;
-    }
   }
 
   async function markCoreResponseRetryRequired(state, {
@@ -3710,58 +2537,6 @@ export function createChatTurnOrchestrator({
       return compact(fetched?.text || fetched?.mes || fetched?.content || fallbackText);
     }
     return compact(fallbackText);
-  }
-
-  function postCommitConversationPayloadForCommittedTurn({
-    ingressId = null,
-    turnId = null,
-    outcomeId = null,
-    committed = null,
-    playerMessage = null,
-    assistantMessageId = null,
-    assistantText = '',
-    sourceIngress = null,
-    resolutionMessage = null,
-    resolutionIngressId = null,
-    pendingInteractionId = null
-  } = {}) {
-    const sourceMessageId = playerMessage?.hostMessageId
-      || playerMessage?.id
-      || sourceIngress?.hostMessageId
-      || `${ingressId}:player`;
-    const sourceText = playerMessage?.text
-      || hostMessageText(sourceIngress?.hostMessageId || sourceMessageId, sourceIngress?.textPreview || '');
-    return {
-      ingressId,
-      resolutionIngressId: resolutionIngressId || null,
-      resolutionMessageId: resolutionMessage ? messageHostMessageId(resolutionMessage) : null,
-      resolutionTextHash: resolutionMessage?.text ? fnv1a(resolutionMessage.text) : null,
-      pendingInteractionId: pendingInteractionId || null,
-      turnId,
-      outcomeId,
-      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-      committed: true,
-      boundaryType: 'scene',
-      presentCharacterIds: committed?.turnPacket?.sceneSnapshot?.presentCharacters || [],
-      sourceAnchorRange: committed?.turnPacket?.provenance?.sourceAnchorRange || committed?.turnPacket?.sceneSnapshot?.sourceAnchorRange || null,
-      reconciliationRunId: committed?.turnPacket?.provenance?.reconciliationRunId || null,
-      outcomePacket: cloneJson(committed?.turnPacket?.outcomePacket || null),
-      commandLogPacket: cloneJson(committed?.turnPacket?.commandLogPacket || null),
-      commandBearingReviewPlan: cloneJson(committed?.turnPacket?.commandBearingReviewPlan || null),
-      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
-      messages: [
-        {
-          id: sourceMessageId,
-          role: 'user',
-          text: sourceText || ''
-        },
-        {
-          id: assistantMessageId || `${ingressId}:directive-response`,
-          role: 'assistant',
-          text: assistantText || ''
-        }
-      ]
-    };
   }
 
   function ingressAliasRecentlyObserved(entry = {}, nowIso = '') {
@@ -4881,11 +3656,6 @@ export function createChatTurnOrchestrator({
       ...(decision.arbiterPlan ? { arbiterPlan: cloneJson(decision.arbiterPlan) } : {}),
       completedAt: timestamp(now)
     }, `Completed ${decision.classification} utility turn.`);
-    scheduleTurnSidecars(decision, {
-      ingressId,
-      classification: decision.classification,
-      playerText: message.text
-    }, activityReporter);
     return {
       handled: true,
       responseStrategy: 'injectAndContinue',
@@ -5059,13 +3829,6 @@ export function createChatTurnOrchestrator({
       responseMessageId: dispatched.result.response?.hostMessageId || dispatched.result.posted?.hostMessageId || null,
       completedAt: timestamp(now)
     }, `Location transition ${ingressId} paced and posted.`);
-    scheduleTurnSidecars(decision, {
-      ingressId,
-      classification: decision.classification,
-      playerText: message.text,
-      responseText: text,
-      sceneBoundary: cloneJson(decision.sceneBoundary || null)
-    }, activityReporter);
     return {
       handled: true,
       responseStrategy: 'directivePosted',
@@ -5162,12 +3925,6 @@ export function createChatTurnOrchestrator({
       responseMessageId: dispatched.result.response?.hostMessageId || null,
       completedAt: timestamp(now)
     }, `Routine command ${routineId} completed.`);
-    scheduleTurnSidecars(decision, {
-      ingressId,
-      turnId: routineId,
-      classification: decision.classification,
-      playerText: message.text
-    }, activityReporter);
     return {
       handled: true,
       responseStrategy: directiveOwned ? 'directivePosted' : 'injectAndContinue',
@@ -5204,7 +3961,7 @@ export function createChatTurnOrchestrator({
       return handleRoutine(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'counselRequest') {
-      return handleCounsel(state, ingressId, decision, message, activityReporter);
+      return handleNoChange(state, ingressId, decision, message, activityReporter);
     }
     if (decision.classification === 'clarificationNeeded') {
       return postPause(state, ingressId, decision, composePauseResponse('clarificationNeeded'), {
@@ -5299,202 +4056,6 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handleCounsel(state, ingressId, decision, message, activityReporter = null) {
-    const recordedAt = timestamp(now);
-    const advisory = fallbackAdvisoryRecord({ state, ingressId, message, nowValue: recordedAt });
-    reportActivity(activityReporter, {
-      phase: 'counsel',
-      mode: 'blocking',
-      classification: decision.classification,
-      ingressId
-    });
-    const stale = await currentSourceStaleResult(ingressId, message, 'before-counsel-release', state);
-    if (stale) return stale;
-    const dispatched = await dispatchAndRecord({
-      state,
-      ingressId,
-      decision,
-      strategy: 'injectAndContinue',
-      responseKind: 'hostGeneration',
-      activityReporter
-    });
-    const recoveryResult = recoveryRequiredDispatchResult(dispatched, decision, {
-      advisory: cloneJson(advisory)
-    });
-    if (recoveryResult) return recoveryResult;
-    let next = await updateIngressState(dispatched.state, ingressId, {
-      status: 'complete',
-      classification: cloneJson(decision),
-      workerPlan: cloneJson(decision.workerPlan),
-      responseStrategy: 'injectAndContinue',
-      responseMessageId: null,
-      advisoryId: advisory.id,
-      completedAt: timestamp(now)
-    }, 'Counsel host generation released; fallback advisory ready for background enrichment.');
-    next = await commitAdvisoryRecord({
-      state: next,
-      advisory,
-      ingressId,
-      source: 'chatCounsel',
-      reason: 'Deterministic player-safe advisory note recorded after host generation release.',
-      summary: advisory.logSummary || advisory.subject,
-      stable: true
-    });
-    reportActivity(activityReporter, {
-      phase: 'syncingPrompt',
-      mode: 'blocking',
-      classification: decision.classification,
-      ingressId
-    });
-    next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision), activityReporter, {
-      source: 'counselRequest',
-      classification: decision.classification,
-      ingressId
-    });
-    const advisoryIngress = await findIngressFresh(next, ingressId);
-    const advisoryCoreTransactionId = compact(advisoryIngress?.coreTransactionId || advisoryIngress?.transactionId || '');
-    const advisorySourceFrameId = compact(advisoryIngress?.sourceFrameId || advisoryIngress?.sourceFrame?.id || '');
-    scheduleTurnSidecars(decision, {
-      ingressId,
-      classification: decision.classification,
-      playerText: message.text,
-      sourceMessageId: messageHostMessageId(message),
-      coreTransactionId: advisoryCoreTransactionId || null,
-      sourceFrameId: advisorySourceFrameId || null,
-      advisoryId: advisory.id
-    }, activityReporter);
-    const advisoryEnrichment = legacySemanticWritersAllowed(next) && typeof scheduleAdvisoryEnrichmentProcessor === 'function'
-      ? scheduleAdvisoryEnrichmentProcessor({
-          ingressId,
-          advisoryId: advisory.id,
-          sourceMessageId: messageHostMessageId(message),
-          coreTransactionId: advisoryCoreTransactionId || null,
-          sourceFrameId: advisorySourceFrameId || null,
-          playerTextHash: fnv1a(message.text || ''),
-          fallbackAdvisoryHash: fnv1a(JSON.stringify(advisory)),
-          run: async ({ isSourceCurrent = null } = {}) => {
-            const sourceCurrent = () => (typeof isSourceCurrent === 'function' ? isSourceCurrent() !== false : true);
-            if (!sourceCurrent()) {
-              return {
-                kind: 'directive.advisoryEnrichmentResult',
-                ok: false,
-                scheduled: true,
-                status: 'stale',
-                applied: false,
-                reason: 'source-stale-before-provider',
-                advisoryId: advisory.id,
-                ingressId
-              };
-            }
-            const generated = generationRouter?.generate
-              ? await generationRouter.generate('missionDirectorAdvisor', {
-                  systemPrompt: 'Create a player-safe Directive UI advisory record as compact JSON. Do not write chat prose, narration, dialogue, Markdown, or hidden facts.',
-                  prompt: advisoryPrompt(state, message.text, decision),
-                  maxTokens: 650,
-                  metadata: {
-                    coreDiagnosticTarget: 'advisoryEnrichment',
-                    ingressId,
-                    advisoryId: advisory.id,
-                    sourceMessageId: messageHostMessageId(message),
-                    coreTransactionId: advisoryCoreTransactionId || null,
-                    sourceFrameId: advisorySourceFrameId || null,
-                    playerTextHash: fnv1a(message.text || ''),
-                    fallbackAdvisoryHash: fnv1a(JSON.stringify(advisory))
-                  }
-                })
-              : null;
-            if (!sourceCurrent()) {
-              return {
-                kind: 'directive.advisoryEnrichmentResult',
-                ok: false,
-                scheduled: true,
-                status: 'stale',
-                applied: false,
-                reason: 'source-stale-after-provider',
-                advisoryId: advisory.id,
-                ingressId
-              };
-            }
-            const candidate = generated?.ok
-              ? normalizeGeneratedBlock(generated.response?.text || generated.response?.content || '')
-              : '';
-            const parsed = parseJsonObjectText(candidate);
-            if (!parsed) {
-              return {
-                kind: 'directive.advisoryEnrichmentResult',
-                ok: generated?.ok !== false,
-                scheduled: true,
-                status: generated?.ok === false ? 'failed' : 'noChange',
-                applied: false,
-                reason: generated?.ok === false ? 'provider-failed' : 'no-valid-advisory-json',
-                advisoryId: advisory.id,
-                ingressId,
-                error: generated?.ok === false ? cloneJson(generated.error || null) : null
-              };
-            }
-            const enriched = {
-              ...normalizeAdvisoryRecord(parsed, { state: getCampaignState() || state, ingressId, message, nowValue: recordedAt }),
-              id: advisory.id,
-              source: 'chatCounsel.enriched',
-              sourceIngressId: ingressId,
-              sourceMessageId: advisory.sourceMessageId,
-              enrichedAt: timestamp(now),
-              fallbackHash: fnv1a(JSON.stringify(advisory))
-            };
-            const current = initializeCampaignRuntimeTracking(getCampaignState() || next);
-            const staleBeforeApply = await currentSourceStaleResult(ingressId, message, 'before-counsel-enrichment-apply', current);
-            if (staleBeforeApply || !sourceCurrent()) {
-              return {
-                kind: 'directive.advisoryEnrichmentResult',
-                ok: false,
-                scheduled: true,
-                status: 'stale',
-                applied: false,
-                reason: 'source-stale-before-apply',
-                advisoryId: advisory.id,
-                ingressId
-              };
-            }
-            let committed = await commitAdvisoryRecord({
-              state: current,
-              advisory: enriched,
-              ingressId,
-              source: 'chatCounsel.enrichment',
-              reason: 'Player-safe advisory note enriched in background after host generation release.',
-              summary: enriched.logSummary || enriched.subject,
-              stable: true
-            });
-            committed = await syncPrompt(committed, 'Prompt context synchronized after advisory enrichment.', promptFrameForMessage(committed, message, decision), activityReporter, {
-              source: 'counselRequestEnrichment',
-              classification: decision.classification,
-              ingressId,
-              activityMode: 'background'
-            });
-            return {
-              kind: 'directive.advisoryEnrichmentResult',
-              ok: true,
-              scheduled: true,
-              status: 'applied',
-              applied: true,
-              advisoryId: advisory.id,
-              ingressId,
-              advisoryHash: fnv1a(JSON.stringify(enriched)),
-              campaignState: cloneJson(committed)
-            };
-          }
-        })
-      : null;
-    return {
-      handled: true,
-      responseStrategy: 'injectAndContinue',
-      abortDefaultGeneration: false,
-      decision,
-      campaignState: cloneJson(next),
-      advisory: cloneJson(advisory),
-      advisoryEnrichment: cloneJson(advisoryEnrichment || null),
-      response: cloneJson(dispatched.result.response)
-    };
-  }
 
   async function handleConsequential(state, ingressId, decision, message, activityReporter = null) {
     state = initializeCampaignRuntimeTracking(state);
@@ -5521,16 +4082,6 @@ export function createChatTurnOrchestrator({
     const provisionalOutcomeId = preview?.turnPacket?.outcomePacket?.id || null;
     const warning = preview?.warningConfirmation || preview?.turnPacket?.warningConfirmation || {};
     if (warning.required === true || decision.classification === 'riskConfirmationNeeded') {
-      const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
-      if (readied) {
-        const returned = await returnReadiedPointForTurn(
-          state,
-          readied,
-          'Readied Command Bearing point returned because this order requires confirmation before mechanics commit.'
-        );
-        state = returned.state;
-        setCampaignState(state);
-      }
       const pauseText = warning.required === true
         ? warningText(preview)
         : composePauseResponse('riskConfirmationNeeded');
@@ -5548,92 +4099,19 @@ export function createChatTurnOrchestrator({
         ]
       }, activityReporter);
     }
-    const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
-    let readiedCommandBearing = null;
-    if (readied) {
-      const action = commandBearingActionForTrack(preview, readied.track);
-      if (action) {
-        const fitValidation = await validateCommandBearingReadiedSpendFit({
-          track: readied.track,
-          inputText: message.text,
-          context: commandBearingValidationContext({
-            state,
-            preview,
-            action,
-            decision
-          }),
-          generationRouter
-        });
-        if (fitValidation.valid !== true) {
-          const returned = await returnReadiedPointForTurn(
-            state,
-            readied,
-            `Readied Command Bearing point returned because the sent message did not fit ${readied.track === 'inspiration' ? 'Inspiration' : 'Resolve'}: ${fitValidation.summary || fitValidation.fit || 'not valid'}.`
-          );
-          state = returned.state;
-          setCampaignState(state);
-        } else {
-          const attached = await attachReadiedPointToIngress(
-            state,
-            ingressId,
-            message,
-            message.chatId || currentChatId(),
-            readied
-          );
-          state = attached.state;
-          setCampaignState(state);
-          if (attached.readied) {
-            readiedCommandBearing = readiedSpendRequest({
-              readied: attached.readied,
-              action,
-              ingressId,
-              message,
-              chatId: message.chatId || currentChatId(),
-              fitValidation
-            });
-          }
-        }
-      } else {
-        const returned = await returnReadiedPointForTurn(
-          state,
-          readied,
-          'Readied Command Bearing point returned because this outcome was not eligible for that track.'
-        );
-        state = returned.state;
-        setCampaignState(state);
-      }
-      const staleAfterReadied = await currentSourceStaleResult(ingressId, message, 'before-consequential-readied-commit', state);
-      if (staleAfterReadied) return staleAfterReadied;
-    }
-
     let committed;
-    try {
-      reportActivity(activityReporter, {
-        phase: 'committingOutcome',
-        mode: 'blocking',
-        classification: decision.classification,
-        ingressId,
-        turnId,
-        outcomeId: provisionalOutcomeId
-      });
-      committed = await commitProvisionalDirectorTurn({
-        readiedCommandBearing,
-        generateNarration: true,
-        generateCommandLogSummary: true,
-        deferCommandLogSummary: true,
-        arbiterPlan: cloneJson(decision.arbiterPlan || null)
-      });
-    } catch (error) {
-      if (readiedCommandBearing?.readiedId || readiedCommandBearing?.id) {
-        const latest = initializeCampaignRuntimeTracking(getCampaignState() || state);
-        await returnReadiedPointForTurn(
-          latest,
-          readiedCommandBearing,
-          'Readied Command Bearing point returned because the committed turn did not complete.'
-        );
-      }
-      throw error;
-    }
+    reportActivity(activityReporter, {
+      phase: 'committingOutcome',
+      mode: 'blocking',
+      classification: decision.classification,
+      ingressId,
+      turnId,
+      outcomeId: provisionalOutcomeId
+    });
+    committed = await commitProvisionalDirectorTurn({
+      generateNarration: true,
+      arbiterPlan: cloneJson(decision.arbiterPlan || null)
+    });
     let next = initializeCampaignRuntimeTracking(committed?.campaignState || getCampaignState());
     setCampaignState(next);
     const outcomeId = committed?.turnPacket?.outcomePacket?.id || provisionalOutcomeId;
@@ -5751,42 +4229,6 @@ export function createChatTurnOrchestrator({
       recoveryId: committed?.narrationResult?.ok === false ? `recovery:narration:${outcomeId}` : null,
       completedAt: timestamp(now)
     }, `Completed consequential chat turn ${turnId}.`);
-    let postCommitConversation = null;
-    const postCommitConversationPayload = postCommitConversationPayloadForCommittedTurn({
-      ingressId,
-      turnId,
-      outcomeId,
-      committed,
-      playerMessage: message,
-      assistantMessageId: dispatched.result.response?.hostMessageId || null,
-      assistantText: text
-    });
-    const legacyPostCommitWriters = legacySemanticWritersAllowed(next);
-    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
-      try {
-        reportActivity(activityReporter, {
-          phase: 'postCommitConversation',
-          mode: 'blocking',
-          classification: decision.classification,
-          ingressId,
-          turnId,
-          outcomeId
-        });
-        postCommitConversation = await postCommitConversationProcessor(postCommitConversationPayload);
-        if (postCommitConversation?.campaignState) {
-          next = initializeCampaignRuntimeTracking(postCommitConversation.campaignState);
-          setCampaignState(next);
-        }
-      } catch (error) {
-        next = initializeCampaignRuntimeTracking(getCampaignState() || next);
-        const postCommitConversationDiagnostic = await appendPostCommitConversationFailureDiagnostic(next, {
-          ingressId,
-          outcomeId,
-          turnId,
-          error
-        });
-      }
-    }
     reportActivity(activityReporter, {
       phase: 'syncingPrompt',
       mode: 'blocking',
@@ -5807,97 +4249,6 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId
     });
-    scheduleTurnSidecars(decision, {
-      ingressId,
-      classification: decision.classification,
-      playerText: message.text,
-      turnId,
-      outcomeId,
-      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
-      directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
-      visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
-    }, activityReporter);
-    void scheduleScenePhaseSealForCommittedTurn({
-      state: next,
-      ingressId,
-      decision,
-      committed,
-      turnId,
-      outcomeId,
-      playerMessage: message,
-      assistantMessageId: dispatched.result.response?.hostMessageId || null,
-      assistantText: text
-    }, activityReporter).catch((error) => {
-      reportActivity(activityReporter, {
-        phase: 'scenePhaseSealScheduleFailed',
-        mode: 'diagnostic',
-        source: 'forge',
-        ingressId,
-        turnId,
-        outcomeId,
-        error: compactBackgroundScheduleError(error, 'DIRECTIVE_SCENE_PHASE_SEAL_SCHEDULE_FAILED')
-      });
-    });
-    void schedulePressureArcDigestForCommittedTurn({
-      state: next,
-      ingressId,
-      decision,
-      committed,
-      turnId,
-      outcomeId,
-      playerMessage: message,
-      assistantMessageId: dispatched.result.response?.hostMessageId || null
-    }, activityReporter).catch((error) => {
-      reportActivity(activityReporter, {
-        phase: 'pressureArcDigestScheduleFailed',
-        mode: 'diagnostic',
-        source: 'forge',
-        ingressId,
-        turnId,
-        outcomeId,
-        error: compactBackgroundScheduleError(error, 'DIRECTIVE_PRESSURE_ARC_DIGEST_SCHEDULE_FAILED')
-      });
-    });
-    void scheduleOpenWorldBoundaryForCommittedTurn({
-      state: next,
-      ingressId,
-      decision,
-      committed,
-      turnId,
-      outcomeId
-    }, activityReporter).catch((error) => {
-      reportActivity(activityReporter, {
-        phase: 'openWorldBoundaryScheduleFailed',
-        mode: 'diagnostic',
-        source: 'forge',
-        ingressId,
-        turnId,
-        outcomeId,
-        error: compactBackgroundScheduleError(error, 'DIRECTIVE_OPEN_WORLD_BOUNDARY_SCHEDULE_FAILED')
-      });
-    });
-    const commandLogSummaryResult = typeof scheduleCommandLogSummaryForCommittedTurn === 'function'
-      ? scheduleCommandLogSummaryForCommittedTurn({
-          turnPacket: committed?.turnPacket || null,
-          ingressId,
-          turnId,
-          outcomeId,
-          reason: 'postVisibleResponse'
-        })
-      : null;
-    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor === 'function') {
-      reportActivity(activityReporter, {
-        phase: 'postCommitConversation',
-        mode: 'background',
-        status: 'queued',
-        classification: decision.classification,
-        ingressId,
-        turnId,
-        outcomeId
-      });
-      postCommitConversation = schedulePostCommitConversationProcessor(postCommitConversationPayload);
-    }
     return {
       handled: true,
       responseStrategy: 'directivePosted',
@@ -5905,10 +4256,8 @@ export function createChatTurnOrchestrator({
       decision,
       campaignState: cloneJson(next),
       response: cloneJson(dispatched.result.response),
-      commandLogSummaryResult: cloneJson(commandLogSummaryResult),
       terminalCheckpoint: cloneJson(terminalCheckpoint || null),
       terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
-      postCommitConversation: cloneJson(postCommitConversation || null),
       committed: true
     };
   }
@@ -6314,92 +4663,10 @@ export function createChatTurnOrchestrator({
       turnId,
       outcomeId
     });
-    scheduleTurnSidecars({
-      classification: interaction.kind,
-      workerPlan: { missionDirector: true, relationship: true, crew: true, ship: true, commandBearing: true, continuity: true, promptUpdate: true }
-    }, {
-      ingressId: interaction.ingressId,
-      classification: interaction.kind,
-      turnId,
-      outcomeId,
-      resultBand: committed?.turnPacket?.outcomePacket?.resultBand || null,
-      continuityProjection: cloneJson(committed?.turnPacket?.provenance?.continuityProjection || null),
-      directorPackets: cloneJson(committed?.turnPacket?.directorPackets || null),
-      visibleConsequences: committed?.turnPacket?.commandLogPacket?.visibleConsequences || []
-    }, activityReporter);
-    const commandLogSummaryResult = typeof scheduleCommandLogSummaryForCommittedTurn === 'function'
-      ? scheduleCommandLogSummaryForCommittedTurn({
-          turnPacket: committed?.turnPacket || null,
-          ingressId: interaction.ingressId,
-          turnId,
-          outcomeId,
-          reason: 'postVisibleResponse'
-        })
-      : null;
-    let postCommitConversation = null;
-    const postCommitConversationPayload = postCommitConversationPayloadForCommittedTurn({
-      ingressId: interaction.ingressId,
-      resolutionIngressId: syntheticResolutionIngressId,
-      pendingInteractionId: interaction.id,
-      turnId,
-      outcomeId,
-      committed,
-      resolutionMessage,
-      playerMessage: null,
-      assistantMessageId: dispatched.result.response?.hostMessageId || dispatched.result.entry?.hostMessageId || null,
-      assistantText: text,
-      sourceIngress: await findIngressFresh(state, interaction.ingressId)
-    });
-    const legacyPostCommitWriters = legacySemanticWritersAllowed(state);
-    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
-      try {
-        reportActivity(activityReporter, {
-          phase: 'postCommitConversation',
-          mode: 'blocking',
-          classification: interaction.kind,
-          ingressId: interaction.ingressId,
-          turnId,
-          outcomeId,
-          pendingInteractionId: interaction.id,
-          resolutionIngressId: syntheticResolutionIngressId
-        });
-        postCommitConversation = await postCommitConversationProcessor(postCommitConversationPayload);
-        if (postCommitConversation?.campaignState) {
-          state = initializeCampaignRuntimeTracking(postCommitConversation.campaignState);
-          setCampaignState(state);
-        }
-      } catch (error) {
-        state = initializeCampaignRuntimeTracking(getCampaignState() || state);
-        const postCommitConversationDiagnostic = await appendPostCommitConversationFailureDiagnostic(state, {
-          ingressId: interaction.ingressId,
-          outcomeId,
-          turnId,
-          pendingInteractionId: interaction.id,
-          resolutionIngressId: syntheticResolutionIngressId,
-          error
-        });
-      }
-    }
-    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor === 'function') {
-      reportActivity(activityReporter, {
-        phase: 'postCommitConversation',
-        mode: 'background',
-        status: 'queued',
-        classification: interaction.kind,
-        ingressId: interaction.ingressId,
-        turnId,
-        outcomeId,
-        pendingInteractionId: interaction.id,
-        resolutionIngressId: syntheticResolutionIngressId
-      });
-      postCommitConversation = schedulePostCommitConversationProcessor(postCommitConversationPayload);
-    }
     return {
       ok: true,
       action: normalizedAction,
       outcomeId,
-      commandLogSummaryResult: cloneJson(commandLogSummaryResult),
-      postCommitConversation: cloneJson(postCommitConversation || null),
       terminalCheckpoint: cloneJson(terminalCheckpoint || null),
       terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
       response: cloneJson(dispatched.result.response || dispatched.result.entry || null),
@@ -6964,9 +5231,7 @@ export function createChatTurnOrchestrator({
       const acceptedPairAuthority = acceptedPairSemanticAuthority(state);
       const acceptedPairSettlement = await runAcceptedPairSettlementSequence({
         campaignState: state,
-        authorityMode: acceptedPairAuthority.mode,
-        blockedReasonCode: acceptedPairAuthority.reasonCode,
-        settleLegacy: () => settleSceneHandshake(state, message, chatId, ingressId, activityReporter),
+        authority: acceptedPairAuthority,
         prepareV1: () => prepareV1AcceptedPair(
           state,
           message,
@@ -7204,87 +5469,6 @@ export function createChatTurnOrchestrator({
     };
   }
 
-  async function handleMessageEdited(payload = {}) {
-    if (!messageReconciler) return { handled: false, reason: 'reconciler-unavailable' };
-    const hostMessageId = eventMessageId(payload);
-    const replacementText = eventReplacementText(payload)
-      || (hostMessageId && typeof host?.chat?.getMessage === 'function'
-        ? host.chat.getMessage(hostMessageId)?.text
-        : null);
-    const result = await messageReconciler.reconcileEdited({
-      hostMessageId,
-      ingressId: payload.ingressId || payload.ingress_id || null,
-      responseId: payload.responseId || payload.response_id || null,
-      replacementText,
-      message: payload.message || (hostMessageId && typeof host?.chat?.getMessage === 'function'
-        ? host.chat.getMessage(hostMessageId)
-        : null),
-      index: payload.index || payload.message?.index || null,
-      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
-      visibilityMap: payload.visibilityMap || null,
-      autoRollback: payload?.autoRollback === true
-    });
-    return { handled: result.matched === true, ...result };
-  }
-
-  async function handleMessageDeleted(payload = {}) {
-    if (!messageReconciler) return { handled: false, reason: 'reconciler-unavailable' };
-    const result = await messageReconciler.reconcileDeleted({
-      hostMessageId: eventMessageId(payload),
-      ingressId: payload.ingressId || payload.ingress_id || null,
-      responseId: payload.responseId || payload.response_id || null,
-      message: payload.message || null,
-      index: payload.index || payload.message?.index || null,
-      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
-      visibilityMap: payload.visibilityMap || null,
-      autoRollback: payload?.autoRollback === true
-    });
-    return { handled: result.matched === true, ...result };
-  }
-
-  async function handleMessageVisibilityChanged(payload = {}) {
-    if (!messageReconciler?.reconcileVisibilityChanged) return { handled: false, reason: 'reconciler-unavailable' };
-    const hostMessageId = eventMessageId(payload);
-    const visibilityInput = {
-      index: payload.index ?? null,
-      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
-      visibilityMap: payload.visibilityMap || payload.visibility_map || null
-    };
-    const wrapperCarriesVisibilityEvidence = carriesVisibilityEvidence(payload, visibilityInput);
-    const payloadMessage = payload.message
-      ? (wrapperCarriesVisibilityEvidence ? mergeVisibilityPayloadMessage(payload.message, payload) : payload.message)
-      : (wrapperCarriesVisibilityEvidence ? payload : null);
-    const hostMessage = payloadMessage
-      || (hostMessageId && typeof host?.chat?.getMessage === 'function'
-        ? await host.chat.getMessage(hostMessageId)
-        : null)
-      || payload;
-    const result = await messageReconciler.reconcileVisibilityChanged({
-      hostMessageId,
-      message: hostMessage,
-      index: payload.index ?? payload.message?.index ?? hostMessage?.index ?? null,
-      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
-      visibilityMap: payload.visibilityMap || payload.visibility_map || null
-    });
-    return { handled: result.matched === true, ...result };
-  }
-
-  async function handleMessageSelectedSwipeChanged(payload = {}) {
-    if (!messageReconciler?.reconcileSelectedSwipeChanged) return { handled: false, reason: 'reconciler-unavailable' };
-    const hostMessageId = eventMessageId(payload);
-    const result = await messageReconciler.reconcileSelectedSwipeChanged({
-      hostMessageId,
-      selectedSwipe: eventSelectedSwipe(payload),
-      message: payload.message || (hostMessageId && typeof host?.chat?.getMessage === 'function'
-        ? host.chat.getMessage(hostMessageId)
-        : null),
-      index: payload.index || payload.message?.index || null,
-      chatMetadata: payload.chatMetadata || payload.chat_metadata || null,
-      visibilityMap: payload.visibilityMap || payload.visibility_map || null
-    });
-    return { handled: result.matched === true, ...result };
-  }
-
   async function handleChatChanged() {
     const state = getCampaignState();
     if (!state?.campaignChatBinding) {
@@ -7307,10 +5491,6 @@ export function createChatTurnOrchestrator({
   return {
     observePlayerMessage,
     interceptGeneration,
-    handleMessageEdited,
-    handleMessageDeleted,
-    handleMessageVisibilityChanged,
-    handleMessageSelectedSwipeChanged,
     handleChatChanged,
     resolveInteraction,
     retryCommittedResponse,
@@ -7328,8 +5508,6 @@ export function createChatTurnOrchestrator({
 
 export const __chatTurnOrchestratorTestHooks = Object.freeze({
   CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION,
-  latestSceneHandshakeCommittedRoots,
-  committedRootsFromOperations,
   promptRevisionOf,
   preferPromptAdvancedIngressState,
   fnv1a,

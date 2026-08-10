@@ -38,15 +38,7 @@ function initialCampaignState() {
         campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
         mission: {
             activeMissionId: definition.packageBinding.sourceId,
-            legacyStatus: 'unchanged',
-            openAssignments: [{ id: 'legacy.assignment' }],
         },
-        ship: { technicalDebt: [{ id: 'legacy.ship' }] },
-        relationships: { people: [{ id: 'legacy.relationship' }] },
-        threadLedger: { records: [{ id: 'legacy.thread' }] },
-        quests: [{ id: 'legacy.quest' }],
-        commandLog: { entries: [{ id: 'legacy.command' }] },
-        commandBearing: { current: 2 },
     };
 }
 
@@ -150,7 +142,6 @@ const harness = createHarness({
         output('policy.prelude.command-handover-completed'),
     ],
 });
-const legacyBefore = structuredClone(harness.campaignState);
 await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(1) });
 await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: snapshot(2) });
 assert.equal(harness.campaignState.mission.v1.events.includes('event.prelude.command-handover-completed'), true);
@@ -192,11 +183,6 @@ assert.deepEqual(
     'source repair removes only the invalidated excerpt and retains independent accepted evidence',
 );
 assert.equal(harness.generationCount, 2, 'reconstruction never reinterprets transcript prose');
-for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
-    assert.deepEqual(harness.campaignState[root], legacyBefore[root], `${root} remains unchanged by V1 invalidation`);
-}
-assert.deepEqual(harness.campaignState.mission.openAssignments, legacyBefore.mission.openAssignments);
-
 const replayRevision = harness.gateway.revision();
 const replay = await harness.runtime.invalidateSourceMutation({
     runtimeAssets,
@@ -416,23 +402,6 @@ assert.equal(
     'Story-only source recovery advances contribution custody without mission-state assistance',
 );
 
-const legacyReceiptState = structuredClone(preMutationInsignificantState);
-delete legacyReceiptState.storySettlement.receipts[0].sourceMessageIds;
-const legacyReceiptHarness = createHarness({
-    state: legacyReceiptState,
-    outputs: [output('policy.prelude.command-handover-completed')],
-});
-const legacyReceiptRevision = legacyReceiptHarness.gateway.revision();
-const legacyReceiptMutation = await legacyReceiptHarness.runtime.invalidateSourceMutation({
-    runtimeAssets,
-    hostMessageId: 'message.player.4',
-    eventType: 'playerMessageEdited',
-});
-assert.equal(legacyReceiptMutation.status, 'unavailable');
-assert.equal(legacyReceiptMutation.reasonCode, 'source-provenance-migration-required');
-assert.equal(legacyReceiptHarness.gateway.revision(), legacyReceiptRevision);
-assert.equal(legacyReceiptHarness.generationCount, 0);
-
 const orderingState = initialCampaignState();
 const orderingDefinition = structuredClone(definition);
 orderingDefinition.evidencePolicies.find(
@@ -457,19 +426,6 @@ await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntim
 await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntimeAssets, snapshot: snapshot(6) });
 await orderingHarness.runtime.settleAcceptedPair({ runtimeAssets: orderingRuntimeAssets, snapshot: snapshot(7) });
 assert.equal(orderingHarness.campaignState.mission.v1.outcomes['outcome.hesperus.rescue-risk-decision'], 'proceedKnownRisk');
-const legacySequenceState = structuredClone(orderingHarness.campaignState);
-for (const entry of legacySequenceState.mission.v1.evidenceLog) delete entry.acceptedAtMissionRevision;
-const legacySequenceHarness = createHarness({ state: legacySequenceState });
-const legacySequenceRevision = legacySequenceHarness.gateway.revision();
-const legacySequenceMutation = await legacySequenceHarness.runtime.invalidateSourceMutation({
-    runtimeAssets: orderingRuntimeAssets,
-    hostMessageId: 'message.assistant.7',
-    eventType: 'directiveResponseDeleted',
-});
-assert.equal(legacySequenceMutation.status, 'unavailable');
-assert.equal(legacySequenceMutation.reasonCode, 'evidence-sequence-migration-required');
-assert.equal(legacySequenceHarness.gateway.revision(), legacySequenceRevision);
-assert.equal(legacySequenceHarness.generationCount, 0);
 const orderingInvalidation = await orderingHarness.runtime.invalidateSourceMutation({
     runtimeAssets: orderingRuntimeAssets,
     hostMessageId: 'message.assistant.7',

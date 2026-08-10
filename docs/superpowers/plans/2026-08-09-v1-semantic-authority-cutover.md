@@ -4,21 +4,21 @@
 
 ## Goal
 
-Make fresh Ashes saves explicitly V1-native, route accepted pairs through Story Settlement as the only semantic authority, preserve unstamped saves on the legacy path, and disconnect competing semantic writers in V1 scope.
+Make Ashes saves explicitly V1-native, route accepted pairs through Story Settlement as the only semantic authority, reject unstamped saves, and delete competing semantic implementations.
 
 ## Phase 1: Authority contract and fresh-save stamp
 
-1. Add a pure runtime-authority contract module with manifest opt-in, stamp creation, stamp validation, and `legacy` / `authoritative` / `blocked` resolution.
-2. Add failing contract tests for exact package binding, malformed stamps, missing definitions, and unstamped legacy saves.
+1. Add a pure runtime-authority contract module with manifest opt-in, stamp creation, stamp validation, and `authoritative` / `blocked` resolution.
+2. Add failing contract tests for exact package binding, malformed stamps, missing definitions, and unsupported unstamped saves.
 3. Stamp only newly created campaign state from opted-in package manifests.
 4. Update the Ashes package architecture identifier and validate the bundled package/projection.
 
 ## Phase 2: Accepted-pair route cutover
 
-1. Replace the legacy-first sequence characterization with failing tests for mutually exclusive authority paths.
-2. Extract exact snapshot preparation from legacy settlement so V1 can use custody without semantic legacy writes.
-3. Route authoritative saves to V1 only; route unstamped saves to legacy only; never fall back from blocked V1 to legacy.
-4. Rename shadow-facing internal result semantics where they become authoritative while retaining temporary API aliases only where compatibility tests require them.
+1. Replace the old sequence with failing tests for V1-only authority.
+2. Retain exact snapshot preparation and source custody without the superseded semantic settlement provider.
+3. Route authoritative saves to V1 only and reject every other authority result.
+4. Remove shadow and compatibility aliases.
 
 ## Phase 3: Narrow V1 time custody
 
@@ -29,9 +29,8 @@ Make fresh Ashes saves explicitly V1-native, route accepted pairs through Story 
 
 ## Phase 4: Semantic writer gates
 
-1. Add a shared `allowsLegacySemanticWriters` decision derived from the authority contract.
-2. Gate Narrative Thread post-commit processing and automatic conversation-to-quest promotion.
-3. Gate legacy sidecars and committed-turn domain mutations that create relationship, ship, story, mission, quest, reaction, or Command Bearing semantics.
+1. Delete Narrative Thread post-commit processing and automatic conversation-to-quest promotion.
+2. Delete sidecars and committed-turn domain mutations that create competing relationship, ship, story, mission, quest, reaction, or Command Bearing semantics.
 4. Retain only explicitly enumerated infrastructure/presentation writers and prove their root allowlists.
 5. Add source scans and behavior tests that V1 turns cannot grow the retired ledgers.
 
@@ -51,10 +50,10 @@ Make fresh Ashes saves explicitly V1-native, route accepted pairs through Story 
 ## Phase 7: Certification and UI boundary
 
 1. Run focused tests after every phase and the complete alpha gate after each committed slice.
-2. Run isolated installed-copy and live accepted-pair/source-mutation soaks on fresh V1 Ashes saves plus one unstamped legacy control.
+2. Run isolated installed-copy and live accepted-pair/source-mutation soaks on fresh V1 Ashes saves plus one unsupported-save rejection control.
 3. Record architecture, prompt, mission, story, time, writer-retirement, reload, and conclusion evidence.
 4. Stop before player-facing UI edits and present only the minimal projection/display gaps requiring approval.
 
 ## Completion Criteria
 
-The non-UI cutover is complete when new Ashes saves are V1-authoritative end to end, unstamped saves remain isolated, narrator context consumes V1 projections, sibling scheduling is open-world safe, retired semantic ledgers do not grow during V1 play, full deterministic tests pass, and live source-mutation/reload/conclusion evidence is recorded. UI work remains approval-gated.
+The non-UI cutover is complete when Ashes saves are V1-authoritative end to end, unsupported saves cannot enter gameplay, narrator context consumes V1 projections, sibling scheduling is open-world safe, superseded semantic implementations are absent, full deterministic tests pass, and live source-mutation/reload/conclusion evidence is recorded. UI work remains approval-gated.

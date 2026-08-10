@@ -195,7 +195,7 @@ This is an implementation checkpoint, not V1 release certification. The current 
 
 Architecture is fixed before content migration. Validators and target schemas are established first; Prelude and Hesperus become the reference vertical slice; then the rest of Ashes is converted and certified. Non-Ashes campaigns do not become V1 blockers and do not receive partial compatibility shims that weaken the new contract.
 
-Legacy saves require an explicit policy at implementation time. They may remain on a labeled legacy runtime, be imported through validated transformation, or be unsupported in the first V1-native path. Silent reinterpretation is prohibited.
+Pre-V1 and unstamped saves are unsupported. Directive does not retain a second gameplay runtime or silently reinterpret old state. Any future importer would be a separate, explicit transformation into a valid V1-native save and is outside V1 scope.
 
 ## Robustness Boundaries
 
