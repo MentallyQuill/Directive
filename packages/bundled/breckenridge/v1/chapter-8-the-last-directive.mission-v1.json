@@ -253,7 +253,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.chapter8.command-report-complete",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "executablePlanIssued" } },
+      "when": { "all": [{ "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "executablePlanIssued" } }, { "not": { "eventOccurred": "event.chapter8.command-report-complete" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts a materially complete account of how the player's adopted command structure functioned across factions and simultaneous fronts.",
@@ -265,7 +265,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter8.command-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.chapter8.command-report-complete" },
+      "when": { "all": [{ "eventOccurred": "event.chapter8.command-report-complete" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "pending" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate legitimacy of the regional response after its completed command account.",
@@ -284,7 +284,7 @@
       "claimType": "factDisclosed",
       "targetId": "fact.chapter8.command-account",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "all": [{ "worldFact": "fact.chapter8.command-account" }, { "eventOccurred": "event.chapter8.command-report-complete" }] },
+      "when": { "all": [{ "worldFact": "fact.chapter8.command-account" }, { "eventOccurred": "event.chapter8.command-report-complete" }, { "not": { "factKnown": "fact.chapter8.command-account" } }] },
       "interpretation": {
         "evidenceStandard": "explicit",
         "guidance": "Claim only when the completed command and legitimacy account is communicated to the player character.",
@@ -296,7 +296,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.chapter8.mesh-report-complete",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "eventOccurred": "event.chapter8.mesh-report-complete" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of trusted human channels, compromised automation, participating factions, and material communication gaps.",
@@ -308,7 +308,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter8.mesh-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.chapter8.mesh-report-complete" },
+      "when": { "all": [{ "eventOccurred": "event.chapter8.mesh-report-complete" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "pending" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate command-mesh result after the completed report.",
@@ -326,7 +326,7 @@
       "claimType": "factDisclosed",
       "targetId": "fact.chapter8.mesh-account",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "all": [{ "worldFact": "fact.chapter8.mesh-account" }, { "eventOccurred": "event.chapter8.mesh-report-complete" }] },
+      "when": { "all": [{ "worldFact": "fact.chapter8.mesh-account" }, { "eventOccurred": "event.chapter8.mesh-report-complete" }, { "not": { "factKnown": "fact.chapter8.mesh-account" } }] },
       "interpretation": {
         "evidenceStandard": "explicit",
         "guidance": "Claim only when the completed command-mesh account is communicated to the player character.",
@@ -338,7 +338,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.chapter8.weapons-report-complete",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "eventOccurred": "event.chapter8.weapons-report-complete" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of platform and crew control, rules of engagement, weapons fire, damage, and remaining exposure.",
@@ -350,7 +350,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter8.weapons-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.chapter8.weapons-report-complete" },
+      "when": { "all": [{ "eventOccurred": "event.chapter8.weapons-report-complete" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "pending" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate weapons result after the completed report.",
@@ -368,7 +368,7 @@
       "claimType": "factDisclosed",
       "targetId": "fact.chapter8.weapons-account",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "all": [{ "worldFact": "fact.chapter8.weapons-account" }, { "eventOccurred": "event.chapter8.weapons-report-complete" }] },
+      "when": { "all": [{ "worldFact": "fact.chapter8.weapons-account" }, { "eventOccurred": "event.chapter8.weapons-report-complete" }, { "not": { "factKnown": "fact.chapter8.weapons-account" } }] },
       "interpretation": {
         "evidenceStandard": "explicit",
         "guidance": "Claim only when the completed weapons account is communicated to the player character.",
@@ -380,7 +380,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.chapter8.core-report-complete",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "eventOccurred": "event.chapter8.core-report-complete" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts a completed aggregate analysis of the three-path quorum and what the operation actually secured, neutralized, contained, or lost.",
@@ -392,7 +392,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter8.core-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.chapter8.core-report-complete" },
+      "when": { "all": [{ "eventOccurred": "event.chapter8.core-report-complete" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "pending" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate coordination-path result after the completed report, regardless of whether the player used destruction, isolation, authentication reset, predictive disruption, controlled deception, a hybrid, or another defensible strategy.",
@@ -410,7 +410,7 @@
       "claimType": "factDisclosed",
       "targetId": "fact.chapter8.core-account",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "all": [{ "worldFact": "fact.chapter8.core-account" }, { "eventOccurred": "event.chapter8.core-report-complete" }] },
+      "when": { "all": [{ "worldFact": "fact.chapter8.core-account" }, { "eventOccurred": "event.chapter8.core-report-complete" }, { "not": { "factKnown": "fact.chapter8.core-account" } }] },
       "interpretation": {
         "evidenceStandard": "explicit",
         "guidance": "Claim only when the quorum structure and completed core-path account are communicated to the player character.",
@@ -422,7 +422,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.chapter8.civilians-report-complete",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "eventOccurred": "event.chapter8.civilians-report-complete" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of evacuations, false routes, rescues, safe havens, triage capacity, casualties, and displacement.",
@@ -434,7 +434,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter8.civilians-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.chapter8.civilians-report-complete" },
+      "when": { "all": [{ "eventOccurred": "event.chapter8.civilians-report-complete" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "pending" } }] },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate humanitarian result after the completed report.",
@@ -451,7 +451,7 @@
       "claimType": "factDisclosed",
       "targetId": "fact.chapter8.civilians-account",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "all": [{ "worldFact": "fact.chapter8.civilians-account" }, { "eventOccurred": "event.chapter8.civilians-report-complete" }] },
+      "when": { "all": [{ "worldFact": "fact.chapter8.civilians-account" }, { "eventOccurred": "event.chapter8.civilians-report-complete" }, { "not": { "factKnown": "fact.chapter8.civilians-account" } }] },
       "interpretation": {
         "evidenceStandard": "explicit",
         "guidance": "Claim only when the completed humanitarian account is communicated to the player character.",
@@ -582,17 +582,15 @@
       "progressWhen": { "any": [{ "not": { "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "pending" } } }, { "eventOccurred": "event.chapter8.command-report-complete" }] },
       "terminalWhen": [
         { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "sharedAuthority" } }] } },
-        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "in": ["contestedFunctional", "starfleetImposed", "compactImposed"] } }] } },
-        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "fracturedAuthority" } }] } }
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "in": ["contestedFunctional", "starfleetImposed", "compactImposed", "fracturedAuthority"] } }] } }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Issue and sustain an executable regional response",
         "summary": "Define concrete priorities, trusted pathways, rules of engagement, movement authority, delegated responsibilities, and unilateral-action limits; then keep the resulting authority functional under pressure.",
         "terminal": [
           { "disposition": "completed", "text": "The distributed response retained credible shared authority." },
-          { "disposition": "completedWithCost", "text": "The response remained functional through contested or imposed authority, with the legitimacy cost recorded." },
-          { "disposition": "failedAfterInformedAction", "text": "Regional command authority fractured despite continued local action." }
+          { "disposition": "completedWithCost", "text": "The response carried a material legitimacy cost, from contested or imposed authority through regional fracture." }
         ]
       }
     },
@@ -606,17 +604,15 @@
       "progressWhen": { "eventOccurred": "event.chapter8.mesh-report-complete" },
       "terminalWhen": [
         { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "trustedSharedMesh" } }] } },
-        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "in": ["manualMeshWithGaps", "isolatedAlliances"] } }] } },
-        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "collapsedMesh" } }] } }
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "in": ["manualMeshWithGaps", "isolatedAlliances", "collapsedMesh"] } }] } }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Keep a trusted command mesh functioning",
         "summary": "Build human-confirmed channels that keep Starfleet, Compact, Cardassian, and civilian leaders in a usable shared information environment.",
         "terminal": [
           { "disposition": "completed", "text": "A trusted shared command mesh survived Nightfall." },
-          { "disposition": "completedWithCost", "text": "Manual gaps or isolated alliances carried the response at a material coordination cost." },
-          { "disposition": "failedAfterInformedAction", "text": "The shared command mesh collapsed and local alliances had to act without regional coherence." }
+          { "disposition": "completedWithCost", "text": "The response carried a material coordination cost, from manual gaps or isolated alliances through collapse of the shared mesh." }
         ]
       }
     },
@@ -630,17 +626,15 @@
       "progressWhen": { "eventOccurred": "event.chapter8.weapons-report-complete" },
       "terminalWhen": [
         { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "weaponsFreeze" } }] } },
-        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "in": ["manualControlWithDamage", "fireContained"] } }] } },
-        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "sustainedExchange" } }] } }
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "in": ["manualControlWithDamage", "fireContained", "sustainedExchange"] } }] } }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Contain the Orison weapons grid",
         "summary": "Prevent false locks and counterfeit orders from driving platforms or frightened crews into sustained regional fire while preserving necessary civilian defense.",
         "terminal": [
           { "disposition": "completed", "text": "The relevant platforms and crews held fire under workable manual control." },
-          { "disposition": "completedWithCost", "text": "Weapons control was recovered after damage or a contained exchange." },
-          { "disposition": "failedAfterInformedAction", "text": "The weapons front became a sustained exchange whose consequences carry into the settlement." }
+          { "disposition": "completedWithCost", "text": "The weapons front carried lasting cost, from damage or contained fire through a sustained exchange whose consequences enter the settlement." }
         ]
       }
     },
@@ -654,17 +648,15 @@
       "progressWhen": { "eventOccurred": "event.chapter8.core-report-complete" },
       "terminalWhen": [
         { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "in": ["allNodesSecured", "quorumBroken"] } }] } },
-        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "localContainmentCoreEscaped" } }] } },
-        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "nightfallStillCoordinating" } }] } }
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "in": ["localContainmentCoreEscaped", "nightfallStillCoordinating"] } }] } }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Break Nightfall's coordination path",
-        "summary": "Identify and neutralize enough of Pale Lantern's current coordination path to stop synchronized escalation; destruction, isolation, authentication, predictive, deceptive, hybrid, and novel approaches remain valid.",
+        "summary": "Identify and neutralize enough of Pale Lantern's current coordination path to stop synchronized escalation. Any defensible method that achieves that result remains valid.",
         "terminal": [
           { "disposition": "completed", "text": "Nightfall's synchronized coordination was broken or all known active paths were secured." },
-          { "disposition": "completedWithCost", "text": "The immediate crisis was contained, but a core path escaped as a future obligation." },
-          { "disposition": "failedAfterInformedAction", "text": "Nightfall retained material coordination capability after the operation." }
+          { "disposition": "completedWithCost", "text": "The operation ended with a material coordination threat surviving, from an escaped core path through continued Nightfall capability." }
         ]
       }
     },
@@ -678,17 +670,15 @@
       "progressWhen": { "eventOccurred": "event.chapter8.civilians-report-complete" },
       "terminalWhen": [
         { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "evacuationProtected" } }] } },
-        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "protectedWithCasualties" } }] } },
-        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "severeLosses" } }] } }
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "in": ["protectedWithCasualties", "severeLosses"] } }] } }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Protect civilian evacuation and medical response",
         "summary": "Stop false routes, sustain triage and safe havens, rescue ships already in danger, and keep care available across political lines.",
         "terminal": [
           { "disposition": "completed", "text": "The main evacuations and medical safe havens survived without severe loss." },
-          { "disposition": "completedWithCost", "text": "Mass loss was prevented, but casualties, displacement, abandonment, or safe-haven failures remain." },
-          { "disposition": "failedAfterInformedAction", "text": "The humanitarian front suffered severe losses that carry into every settlement." }
+          { "disposition": "completedWithCost", "text": "The humanitarian front carried lasting cost, from casualties or displacement through severe losses that enter every settlement." }
         ]
       }
     }
@@ -748,11 +738,11 @@
   "clocks": [],
   "closeWhen": {
     "all": [
-      { "objectiveDisposition": { "id": "objective.chapter8.command", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
-      { "objectiveDisposition": { "id": "objective.chapter8.mesh", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
-      { "objectiveDisposition": { "id": "objective.chapter8.weapons", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
-      { "objectiveDisposition": { "id": "objective.chapter8.core", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
-      { "objectiveDisposition": { "id": "objective.chapter8.civilians", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+      { "objectiveDisposition": { "id": "objective.chapter8.command", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.mesh", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.weapons", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.core", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.civilians", "in": ["completed", "completedWithCost"] } }
     ]
   },
   "terminalDispositions": [

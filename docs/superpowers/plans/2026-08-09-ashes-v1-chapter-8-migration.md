@@ -38,7 +38,7 @@ Use five required objectives because each is a source-authored major player resp
 
 Command legitimacy is folded into the first objective rather than added as a sixth tracker. Exact officer assignments remain free-form story facts. The mission records whether the resulting command structure remained shared, contested, imposed, or fractured, not a row for every officer.
 
-Each front may settle as completed, completed with cost, or failed after informed action. A front failure is terminal for that objective but does not close the campaign early; the remaining fronts continue. Mission closure requires all five objectives to reach a terminal disposition, including recorded failures.
+Each front settles as completed or completed with cost. Broad systemic losses do not use `failedAfterInformedAction`, because collapse, sustained fire, an escaping core, or severe civilian loss may occur despite a defensible player decision; assigning informed blame would be unfair without a separately proven harmful act. The terminal mission outcome still distinguishes fracture and Ashes. A costly front is terminal for that objective but does not close the campaign early; the remaining fronts continue.
 
 ## Aggregate Reports and Two-Stage Custody
 

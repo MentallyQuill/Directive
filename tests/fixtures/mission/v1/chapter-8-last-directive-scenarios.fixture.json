@@ -139,17 +139,22 @@
     {
       "id": "fractured-survival",
       "sequence": ["core-local", "mesh-isolated", "civilians-cost", "weapons-contained", "executable-plan", "command-fractured"],
-      "expected": { "status": "terminal", "terminalDisposition": "fracturedSurvival", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.command": "failedAfterInformedAction", "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
+      "expected": { "status": "terminal", "terminalDisposition": "fracturedSurvival", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.command": "completedWithCost", "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
     },
     {
       "id": "ashes",
       "sequence": ["executable-plan", "command-fractured", "mesh-collapsed", "core-active", "weapons-sustained", "civilians-severe"],
-      "expected": { "status": "terminal", "terminalDisposition": "ashes", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.weapons": "failedAfterInformedAction", "objective.chapter8.civilians": "failedAfterInformedAction" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
+      "expected": { "status": "terminal", "terminalDisposition": "ashes", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.weapons": "completedWithCost", "objective.chapter8.civilians": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
     },
     {
       "id": "failed-core-does-not-end-other-fronts",
       "sequence": ["core-active"],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.core": "failedAfterInformedAction" }, "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": null }
+    },
+    {
+      "id": "settled-front-cannot-be-reported-twice",
+      "sequence": ["mesh-trusted", "mesh-collapsed"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met"], "objectiveDispositions": { "objective.chapter8.mesh": "completed" }, "outcomeDimensions": { "dimension.chapter8.mesh": "trusted-shared-mesh" }, "transitionTargetId": null }
     },
     {
       "id": "plan-alone-does-not-close",

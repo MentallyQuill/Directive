@@ -88,6 +88,11 @@ assert.deepEqual(definition.objectives.map((objective) => objective.id), [
     'objective.chapter8.civilians',
 ]);
 assert.equal(definition.objectives.every((objective) => objective.class === 'required'), true);
+assert.equal(
+    definition.objectives.every((objective) => !objective.supportedDispositions.includes('failedAfterInformedAction')),
+    true,
+    'systemic Nightfall losses cannot imply player blame without a separately proven informed harmful act',
+);
 assert.equal(definition.facts.length, 5);
 assert.equal(definition.facts.every((fact) => fact.visibility === 'discoverable' && fact.initiallyTrue === true), true);
 assert.equal(definition.reportRoutes.length, 5);
@@ -131,9 +136,11 @@ for (const front of ['command', 'mesh', 'weapons', 'core', 'civilians']) {
     const disclosurePolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.chapter8.${front}-disclosed`);
     assert.equal(eventPolicy?.targetId, eventId, front);
     assert.equal(eventPolicy?.sourceRoles?.includes('user'), false, front);
+    assert.match(JSON.stringify(eventPolicy?.when), /"not"/, `${front}: aggregate event must be one-shot`);
     assert.equal(resultPolicy?.targetId, resultId, front);
     assert.equal(resultPolicy?.sourceRoles?.includes('user'), false, front);
     assert.match(JSON.stringify(resultPolicy?.when), new RegExp(eventId.replaceAll('.', '\\.')));
+    assert.match(JSON.stringify(resultPolicy?.when), /"pending"/, `${front}: aggregate result must be one-shot`);
     assert.equal(disclosurePolicy?.targetId, factId, front);
     assert.match(JSON.stringify(disclosurePolicy?.when), new RegExp(eventId.replaceAll('.', '\\.')));
     assert.equal(definition.reportRoutes.filter((route) => route.factId === factId).length, 1, front);
@@ -179,6 +186,7 @@ assert.deepEqual(scenarios.scenarios.map((scenario) => scenario.id), [
     'fractured-survival',
     'ashes',
     'failed-core-does-not-end-other-fronts',
+    'settled-front-cannot-be-reported-twice',
     'plan-alone-does-not-close',
     'fronts-before-plan-leave-command-open',
     'result-without-disclosure-does-not-resolve',

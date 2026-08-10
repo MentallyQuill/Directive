@@ -101,6 +101,9 @@ if ((definition.clocks || []).length !== 0) errors.push('Chapter 8 cannot invent
 if (definition.objectives.some((objective) => objective.class !== 'required')) {
     errors.push('Chapter 8 fronts must remain parallel required responsibilities with failure-forward terminal rules');
 }
+if (definition.objectives.some((objective) => objective.supportedDispositions.includes('failedAfterInformedAction'))) {
+    errors.push('Chapter 8 systemic losses cannot imply player blame without a separately proven harmful act');
+}
 
 const knownActorIds = new Set((crewData.officers || []).map((officer) => officer.id));
 for (const route of definition.reportRoutes || []) {
@@ -124,12 +127,23 @@ if (JSON.stringify(planPolicy?.sourceRoles) !== JSON.stringify(['user'])
 for (const front of ['command', 'mesh', 'weapons', 'core', 'civilians']) {
     const eventId = `event.chapter8.${front}-report-complete`;
     const factId = `fact.chapter8.${front}-account`;
+    const resultId = `outcome.chapter8.${front}-result`;
+    const eventPolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.chapter8.${front}-report`);
     const resultPolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.chapter8.${front}-result`);
     const disclosurePolicy = definition.evidencePolicies.find((policy) => policy.id === `policy.chapter8.${front}-disclosed`);
-    if (resultPolicy?.sourceRoles?.includes('user') || !JSON.stringify(resultPolicy?.when).includes(eventId)) {
+    if (eventPolicy?.sourceRoles?.includes('user')
+        || !JSON.stringify(eventPolicy?.when).includes('not')
+        || !JSON.stringify(eventPolicy?.when).includes(eventId)) {
+        errors.push(`${front} aggregate report event is not world-owned and one-shot`);
+    }
+    if (resultPolicy?.sourceRoles?.includes('user')
+        || !JSON.stringify(resultPolicy?.when).includes(eventId)
+        || !JSON.stringify(resultPolicy?.when).includes(resultId)
+        || !JSON.stringify(resultPolicy?.when).includes('pending')) {
         errors.push(`${front} result can bypass world-owned aggregate report completion`);
     }
     if (!JSON.stringify(disclosurePolicy?.when).includes(eventId)
+        || !JSON.stringify(disclosurePolicy?.when).includes('factKnown')
         || !definition.reportRoutes.some((route) => route.factId === factId)) {
         errors.push(`${front} result lacks one bounded player-known Duty Report route`);
     }
