@@ -693,6 +693,7 @@ function createCreatorDifficultySelector({
   addTooltip(header, 'Campaign-level consequence style. This can be changed later from Campaign Command.');
 
   const body = createElement('div', 'directive-creator-difficulty-body');
+  const top = createElement('div', 'directive-creator-difficulty-top');
   const optionRail = createElement('div', 'directive-creator-difficulty-options');
   optionRail.setAttribute('role', 'radiogroup');
   optionRail.setAttribute('aria-label', 'Campaign Difficulty');
@@ -701,12 +702,14 @@ function createCreatorDifficultySelector({
   summary.setAttribute('aria-live', 'polite');
   const summaryKicker = createElement('span', 'directive-lcars-kicker');
   summaryKicker.textContent = 'Selected Mode Summary';
+  const summaryHeading = createElement('div', 'directive-creator-difficulty-summary-heading');
   const summaryTitle = createElement('strong', 'directive-creator-difficulty-summary-title');
   const summaryBadge = createElement('span', 'directive-creator-difficulty-summary-badge');
   const summaryCopy = createElement('p', 'directive-creator-difficulty-summary-copy');
   const bestFit = createElement('p', 'directive-creator-difficulty-best-fit');
   const fatalityPolicy = createElement('span', 'directive-creator-difficulty-fatality');
-  summary.append(summaryKicker, summaryTitle, summaryBadge, summaryCopy, bestFit, fatalityPolicy);
+  summaryHeading.append(summaryTitle, summaryBadge, fatalityPolicy);
+  summary.append(summaryKicker, summaryHeading, summaryCopy, bestFit);
 
   const buttons = [];
   const sync = (mode) => {
@@ -738,17 +741,16 @@ function createCreatorDifficultySelector({
     optionLabel.textContent = option.label;
     const optionBadge = createElement('span', 'directive-creator-difficulty-option-badge');
     optionBadge.textContent = option.difficultyLabel;
-    const optionPolicy = createElement('span', 'directive-creator-difficulty-option-policy');
-    optionPolicy.textContent = option.fatalityPolicy;
-    button.append(optionLabel, optionBadge, optionPolicy);
+    button.append(optionLabel, optionBadge);
     button.addEventListener('click', () => sync(option.mode));
     optionRail.appendChild(button);
     buttons.push(button);
   }
 
   modeSelect.addEventListener('change', () => sync(modeSelect.value));
-  body.append(optionRail, summary);
-  shell.append(header, body, modeSelect);
+  top.append(header, optionRail);
+  body.append(top, summary);
+  shell.append(body, modeSelect);
   sync(selectedMode);
   return { field: shell, modeSelect };
 }

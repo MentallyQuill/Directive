@@ -2266,8 +2266,19 @@ textarea.directive-field-control {
 
 .directive-creator-form {
   min-width: 0;
+  grid-auto-rows: max-content;
   padding: 13px !important;
   border-color: rgba(159, 122, 197, 0.5) !important;
+}
+
+.directive-creator-form[data-creator-active-step="review"] {
+  gap: 6px !important;
+  padding: 9px !important;
+}
+
+.directive-creator-form[data-creator-active-step="review"] .directive-creator-overview {
+  min-height: 104px;
+  padding: 9px !important;
 }
 
 .directive-creator-overview {
@@ -2436,8 +2447,8 @@ textarea.directive-field-control {
   grid-column: 1 / -1;
   min-width: 0;
   display: grid !important;
-  gap: 11px !important;
-  padding: 12px !important;
+  gap: 7px !important;
+  padding: 9px !important;
   border-color: rgba(243, 154, 27, 0.42) !important;
   background: linear-gradient(135deg, rgba(12, 15, 20, 0.98), rgba(5, 7, 10, 0.98)) !important;
 }
@@ -2476,9 +2487,17 @@ textarea.directive-field-control {
 .directive-creator-difficulty-body {
   min-width: 0;
   display: grid !important;
-  grid-template-columns: minmax(190px, 0.72fr) minmax(240px, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   gap: 10px !important;
   align-items: stretch !important;
+}
+
+.directive-creator-difficulty-top {
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(340px, 1.2fr) !important;
+  gap: 12px !important;
+  align-items: end !important;
 }
 
 .directive-creator-difficulty-options {
@@ -2490,11 +2509,11 @@ textarea.directive-field-control {
 
 .directive-creator-difficulty-option {
   min-width: 0;
-  min-height: 92px;
+  min-height: 54px;
   display: grid !important;
   align-content: center !important;
-  gap: 5px !important;
-  padding: 10px !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
   color: #d7d1c8 !important;
   text-align: left !important;
   background: rgba(4, 6, 9, 0.92) !important;
@@ -2513,8 +2532,7 @@ textarea.directive-field-control {
   text-transform: uppercase !important;
 }
 
-.directive-creator-difficulty-option-badge,
-.directive-creator-difficulty-option-policy {
+.directive-creator-difficulty-option-badge {
   min-width: 0;
   color: #9ea2aa !important;
   font-size: 0.62rem !important;
@@ -2536,21 +2554,30 @@ textarea.directive-field-control {
 }
 
 .directive-creator-difficulty-option-active strong,
-.directive-creator-difficulty-option-active .directive-creator-difficulty-option-badge,
-.directive-creator-difficulty-option-active .directive-creator-difficulty-option-policy {
+.directive-creator-difficulty-option-active .directive-creator-difficulty-option-badge {
   color: #08090c !important;
 }
 
 .directive-creator-difficulty-summary {
   min-width: 0;
   display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   align-content: start !important;
+  align-items: start !important;
   gap: 6px !important;
-  padding: 11px 12px !important;
+  padding: 8px 10px !important;
   color: #d9d6cf !important;
   background: rgba(13, 16, 22, 0.94) !important;
   border: 1px solid rgba(91, 160, 208, 0.34) !important;
   border-radius: 8px !important;
+}
+
+.directive-creator-difficulty-summary-heading {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
 }
 
 .directive-creator-difficulty-summary-title {
@@ -2600,6 +2627,14 @@ textarea.directive-field-control {
   block-size: 1px !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+.directive-creator-section[data-creator-step="review"] textarea.directive-field-control {
+  height: 96px;
+  min-height: 96px !important;
+  max-height: 96px;
+  overflow-y: auto;
+  resize: none;
 }
 
 @media (max-width: 1180px) and (min-width: 681px) {
@@ -2685,6 +2720,7 @@ textarea.directive-field-control {
   }
 
 .directive-creator-form {
+    flex: 0 0 auto;
     padding: 9px !important;
   }
 
@@ -2753,13 +2789,14 @@ textarea.directive-field-control {
   }
 
 .directive-creator-difficulty-body,
-.directive-creator-difficulty-options {
+.directive-creator-difficulty-top {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
 .directive-creator-difficulty-option {
-    min-height: 74px;
+    min-height: 54px;
   }
+
 }
 
 @media (max-width: 420px) {
