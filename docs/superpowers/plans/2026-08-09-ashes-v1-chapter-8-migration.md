@@ -1,6 +1,6 @@
 # Ashes V1: Chapter 8 Migration Plan
 
-> Status: approved implementation plan. This slice ends before narrator-prompt or player-facing UI changes.
+> Status: implemented and deterministically certified for the non-UI boundary. Narrator-prompt and player-facing UI changes remain outside this slice.
 
 **Goal:** Make `chapter-8-the-last-directive` the twelfth V1-native Ashes journey entry and a genuinely open-order finale: the player issues an executable response, delegates across simultaneous fronts, can solve the crisis through varied prose and strategies, receives credit for partial and costly success, and reaches the epilogue under one of the source-authored broad outcomes without accumulating low-value per-order, per-node, per-officer, or per-alert trackers.
 
@@ -146,33 +146,33 @@ Fixtures and runtime proof must cover:
 - player inability to self-certify a front result;
 - stale revision, wrong swipe, hallucinated policy, and missing report custody rejection;
 - one incidental alert detail producing no new objective, fact, event, outcome, clock, or legacy tracker;
-- reload, idempotency, journey activation, epilogue pending state, source invalidation, restoration epoch, and exact twelve-entry contribution identity.
+- reload, idempotency, journey activation, epilogue activation, source invalidation, restoration epoch, and exact twelve-entry contribution identity.
 
 ## Implementation Tasks
 
 ### Task 1: RED contract
 
-- [ ] Create `tests/fixtures/mission/v1/chapter-8-last-directive-scenarios.fixture.json`.
-- [ ] Create and register `tools/scripts/test-ashes-v1-chapter-8-mission.mjs`.
-- [ ] Assert identity, spoiler boundary, five parallel objectives/reports, no clock, aggregate tracking, outcome priority, free-form plan evidence, capability declarations, source-gap handling, and hostile evidence cases.
+- [x] Create `tests/fixtures/mission/v1/chapter-8-last-directive-scenarios.fixture.json`.
+- [x] Create and register `tools/scripts/test-ashes-v1-chapter-8-mission.mjs`.
+- [x] Assert identity, spoiler boundary, five parallel objectives/reports, no clock, aggregate tracking, outcome priority, free-form plan evidence, capability declarations, source-gap handling, and hostile evidence cases.
 
 ### Task 2: Definition and validator
 
-- [ ] Create `packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json`.
-- [ ] Add the five objectives, five aggregate facts, five hidden report events, six bounded outcomes, five dimensions, sixteen evidence policies, five report routes, five terminal dispositions, one epilogue transition, and fourteen entry capabilities.
-- [ ] Create and register `tools/scripts/validate-ashes-v1-chapter-8.mjs` with cross-definition source validation.
+- [x] Create `packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json`.
+- [x] Add the five objectives, five aggregate facts, five hidden report events, six bounded outcomes, five dimensions, sixteen evidence policies, five report routes, five terminal dispositions, one epilogue transition, and fourteen entry capabilities.
+- [x] Create and register `tools/scripts/validate-ashes-v1-chapter-8.mjs` with cross-definition source validation.
 
 ### Task 3: Registry, runtime, and journey
 
-- [ ] Register Chapter 8 after Open Orders III without activating the legacy quest graph.
-- [ ] Prove exact Open Orders III activation, entry receipts, reload, idempotency, report custody, non-linear completion, V1-only identity, legacy-root isolation, and epilogue pending state.
-- [ ] Extend the Ashes journey handoff proof through Chapter 8 and its twelve-entry contribution identity.
-- [ ] Prove source mutation recomputes entry capability receipts and prunes Chapter 8 descendants.
+- [x] Register Chapter 8 after Open Orders III without activating the legacy quest graph.
+- [x] Prove exact Open Orders III activation, entry receipts, reload, idempotency, report custody, non-linear completion, V1-only identity, legacy-root isolation, and epilogue activation.
+- [x] Extend the Ashes journey handoff proof through Chapter 8 and its twelve-entry contribution identity.
+- [x] Prove source mutation recomputes entry capability receipts and prunes Chapter 8 descendants.
 
 ### Task 4: Adversarial review and readiness
 
-- [ ] Challenge objective railroading, free-form plan brittleness, result-before-report closure, capability-as-auto-win, orphan asset invention, node spam, per-officer spam, alert spam, synthetic urgency, front-failure game-over, outcome-priority erasure, transition overclaim, package drift, and live semantic uncertainty.
-- [ ] Fix all Critical or Important non-UI findings, run focused and full deterministic gates, then create the Chapter 8 readiness record and update the documentation index, migration plan, predecessor/successor status, and this plan.
+- [x] Challenge objective railroading, free-form plan brittleness, result-before-report closure, capability-as-auto-win, orphan asset invention, node spam, per-officer spam, alert spam, synthetic urgency, front-failure game-over, outcome-priority erasure, transition overclaim, package drift, and live semantic uncertainty.
+- [x] Fix all Critical or Important non-UI findings, run focused and full deterministic gates, then create the Chapter 8 readiness record and update the documentation index, migration plan, predecessor/successor status, and this plan.
 
 ## Explicit Non-Goals and Stop Boundary
 

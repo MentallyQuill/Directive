@@ -1,6 +1,6 @@
 # V1 Campaign Conclusion Receipt Plan
 
-> **Status:** Approved implementation plan. This closes the non-UI Ashes authored-completion boundary; it does not authorize UI or narrator-prompt changes.
+> **Status:** Implemented and deterministically certified. This closes the non-UI Ashes authored-completion boundary; UI and narrator-prompt changes remain outside this slice.
 
 **Goal:** Consume an authored terminal mission phase target into one immutable V1 campaign-conclusion receipt. Do not fake completion by mutating legacy quest status, attention flags, phase IDs, end-condition ledgers, or the generic `conclusion` root.
 
@@ -54,10 +54,9 @@ Do not duplicate every mission outcome dimension into the receipt. The V1 journe
 
 ## Verification
 
-- [ ] Add red schema and contract tests for authored conclusion metadata and receipts.
-- [ ] Add the receipt constructor and validator.
-- [ ] Add runtime inspection, activation, idempotency, package binding, and invalidation behavior.
-- [ ] Bind the Ashes epilogue to the exact authored-completion end condition.
-- [ ] Extend epilogue runtime and thirteen-entry handoff proof through committed campaign conclusion.
-- [ ] Register the tests in the alpha gate and update architecture documentation after the full deterministic gate passes.
-
+- [x] Add red schema and contract tests for authored conclusion metadata and receipts.
+- [x] Add the receipt constructor and validator.
+- [x] Add runtime inspection, activation, idempotency, package binding, and invalidation behavior.
+- [x] Bind the Ashes epilogue to the exact authored-completion end condition.
+- [x] Extend epilogue runtime and thirteen-entry handoff proof through committed campaign conclusion.
+- [x] Register the tests in the alpha gate and update architecture documentation after the full deterministic gate passes.

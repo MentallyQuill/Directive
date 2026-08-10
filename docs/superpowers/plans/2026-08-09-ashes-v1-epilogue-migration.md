@@ -1,6 +1,6 @@
 # Ashes V1 Epilogue Migration Plan
 
-> **Status:** Approved implementation plan. This is the final mission-definition migration for the V1-native Ashes journey. It does not authorize player-facing UI or narrator-prompt changes.
+> **Status:** Implemented and deterministically certified for the non-UI boundary. This is the final mission-definition migration for the V1-native Ashes journey; player-facing UI and narrator-prompt changes remain outside this slice.
 
 **Goal:** Make `epilogue-the-terms-we-keep` the thirteenth and final V1-native Ashes mission entry. The epilogue must turn the established Nightfall aftermath and the player's settlement choices into bounded, durable campaign dimensions without turning every political axis, witness, officer, or conversation into a visible tracker.
 
@@ -107,10 +107,9 @@ At minimum prove:
 
 ## Implementation Tasks
 
-- [ ] Add the epilogue contract test, scenario fixture, and validator before the definition.
-- [ ] Add the V1 definition with four objectives, three aggregate facts, three hidden report events, nine outcomes, fifteen evidence policies, three report routes, seven dimensions, three dispositions, no clock, and three proven entry capabilities.
-- [ ] Register the definition after Chapter 8 without modifying the legacy quest.
-- [ ] Add accepted-pair runtime coverage and extend the full Ashes handoff to thirteen entries.
-- [ ] Prove the terminal campaign-phase target remains deterministic and non-legacy.
-- [ ] Update migration and architecture documentation only after deterministic gates pass.
-
+- [x] Add the epilogue contract test, scenario fixture, and validator before the definition.
+- [x] Add the V1 definition with four objectives, three aggregate facts, three hidden report events, nine outcomes, fifteen evidence policies, three report routes, seven dimensions, three dispositions, no clock, and three proven entry capabilities.
+- [x] Register the definition after Chapter 8 without modifying the legacy quest.
+- [x] Add accepted-pair runtime coverage and extend the full Ashes handoff to thirteen entries.
+- [x] Prove the terminal campaign-phase target remains deterministic and non-legacy.
+- [x] Update migration and architecture documentation only after deterministic gates pass.

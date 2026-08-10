@@ -118,6 +118,12 @@ V1 retains Command Bearing as one neutral reserve representing hard-earned comma
 
 Authored decisions may explicitly award Command Bearing when the player acts on adequately disclosed stakes and demonstrates meaningful command judgment. Routine competence and simple objective completion do not automatically award it. Spending remains an explicit mechanic with deterministic eligibility and effect.
 
+### Authored Campaign Conclusion
+
+A terminal mission may end the campaign only through an authored phase target carrying explicit campaign-conclusion metadata. The referenced package end condition must exist exactly once and identify an authored completion. Runtime activation commits one immutable receipt bound to package, branch, source mission run and revision, terminal disposition, transition, journey revision, and completion time.
+
+The receipt proves that one exact terminal transition was consumed. It does not rewrite legacy quest status, attention flags, generic conclusion state, or end-condition ledgers, and it does not ask a model whether the campaign is complete. Repeated activation is a no-op. Any accepted-source reconstruction that can change the terminal record clears the receipt and requires closure to be proven again.
+
 ### Time and Urgency
 
 Only an authored clock tied to an objective or mission consequence may create a deadline or countdown. Narrative urgency may influence prose and crew behavior without producing timer UI.
@@ -158,6 +164,12 @@ The repository contains substantial working pre-alpha behavior built under older
 - **Target V1** describes the approved destination and controls new architecture and content work.
 
 A target document does not imply its behavior has already shipped. An as-coded document does not make its current behavior the desired V1 design.
+
+### Current Non-UI Ashes Checkpoint
+
+As of 2026-08-09, all thirteen Ashes entries from Prelude through The Terms We Keep have V1 definitions, deterministic accepted-evidence reduction, exact mission-journey activation, source reconstruction, and a narrow authored campaign-conclusion receipt. The repository alpha gate passes 310 checks.
+
+This is an implementation checkpoint, not V1 release certification. The current player UI does not yet render the complete V1 projections, narrator prompts do not yet consume the V1 authority packets, legacy writers are not yet retired for V1-native scope, package-level sibling scheduling remains separate work, and live SillyTavern semantic and pacing gates remain open.
 
 ## Supersession Register
 

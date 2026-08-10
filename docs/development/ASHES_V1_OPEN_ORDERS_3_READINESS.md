@@ -1,8 +1,10 @@
 # Ashes V1 Open Orders III Readiness
 
-Status: **non-UI third preparation interval authority ready; Chapter 8 migration, narrator cutover, visible presentation, open-world scheduling, legacy-writer retirement, and live certification remain incomplete**
+Status: **non-UI third preparation interval authority ready; Chapter 8 successor is now V1-native; narrator cutover, visible presentation, open-world scheduling, legacy-writer retirement, and live certification remain incomplete**
 
 Date: 2026-08-09
+
+> Subsequent status: Chapter 8, the epilogue, and the authored campaign-conclusion receipt are now V1-native. The verification count below preserves Open Orders III's original certification checkpoint; current successor authority is recorded in [Ashes V1 Chapter 8 Readiness](ASHES_V1_CHAPTER_8_READINESS.md) and [Ashes V1 Epilogue and Conclusion Readiness](ASHES_V1_EPILOGUE_AND_CONCLUSION_READINESS.md).
 
 ## Certified Scope
 
@@ -89,7 +91,7 @@ The registry now loads Prelude, Empty Convoy, False Colors, Open Orders I, Dead 
 
 Mutating Chapter 7 evidence before activation repairs Chapter 7 in place. Mutating it after activation prunes Open Orders III and returns to repaired Chapter 7. Mutating terminal Open Orders III evidence reopens the interval without calling a provider. Source contribution IDs remain unique across all eleven entries.
 
-Terminal Open Orders III targets the existing package quest `chapter-8-the-last-directive`. Until Chapter 8 receives an exact V1 definition, the receipt remains durably pending rather than falling back into legacy quest authority or inventing finale state.
+Terminal Open Orders III targets the existing package quest `chapter-8-the-last-directive`. At this readiness checkpoint, the receipt remained durably pending rather than falling back into legacy quest authority or inventing finale state. Chapter 8 has since received its exact V1 definition and activation proof.
 
 ## Adversarial Findings
 
@@ -121,7 +123,7 @@ The inventory consists of 261 explicit checks and 41 package-derived checks: the
 - Live semantic recall, false-positive/false-negative rates, actor scheduling, timing, and prose quality remain uncertified.
 - No transition narration is posted or consumed.
 - No player-facing UI changed, including mission layout, objective/report presentation, dimensions, notifications, or the send-tray launcher.
-- Chapter 8 has no V1 definition and remains pending.
+- Chapter 8 was pending at this checkpoint and is now separately V1-native.
 - The current V1 journey is linear and does not yet implement package-level sibling scheduling.
 - Legacy writers remain compatibility/source surfaces until explicit cutover; the premature Old Lessons reaction remains a known hazard outside isolated V1 authority.
 - No Command Bearing award or spend is derived from Open Orders III.

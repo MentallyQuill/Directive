@@ -2,9 +2,9 @@
 
 ## Status
 
-Approved architecture-first migration design. This plan defines how Ashes of Peace becomes Directive's sole complete V1-native campaign after target schemas, reducers, and validators are established.
+Approved architecture-first migration design with the complete non-UI thirteen-entry mission journey now implemented and deterministically certified.
 
-It does not claim that the current bundled package already satisfies the target. Current package files, mission graphs, quests, threads, state tracks, and runtime fixtures are migration inputs.
+This checkpoint does not claim a player-facing V1 release. The bundled V1 mission definitions, reducers, journey, reconstruction path, and authored conclusion receipt now satisfy the non-UI target, while narrator cutover, visible projection, legacy-writer retirement, open-world sibling scheduling, and live SillyTavern certification remain incomplete. Legacy mission graphs, quests, threads, and state tracks remain migration inputs and compatibility surfaces, not V1 semantic authority.
 
 ## Governing Contracts
 
@@ -161,7 +161,13 @@ Chapter 7 now activates the source-authored V1-only interval `open-orders-3-befo
 
 Open Orders III keeps assignment selection, actual assessment, player knowledge, world result, asset eligibility, and interval conclusion separate. Decline remains reversible until explicit conclusion. An unresolved pending or declined assignment then collapses into one knowingly-declined result rather than lingering as a tracker. The Name on the Hull does not prescribe one moral speech, A Signal Toward Home cannot become direct Voyager contact or a decisive Pathfinder breakthrough, and Two Signatures cannot let the player choose Imani's identity or self-certify her consent. One distributed-readiness report aggregates drills, senior roles, Tolland/Mercer support, Kessler's coalition, and Prel's contradictory routes without creating rows per officer or alert.
 
-Terminal Open Orders III targets the existing package quest `chapter-8-the-last-directive` while withholding its exact alerts, quorum, priorities, activation sequence, and solution paths. Archived Old Lessons, Open Orders II, Chapter 6, Chapter 7, and Open Orders III definitions must remain available at their pinned versions for source reconstruction. Chapter 8 remains durably pending until its exact V1 definition exists.
+Terminal Open Orders III now activates `chapter-8-the-last-directive` as the twelfth V1 journey entry while withholding exact alerts, quorum, priorities, activation sequence, and solution paths until accepted play establishes them. Chapter 8 uses five parallel fronts, five aggregate world results, five custody-owned reports, one freeform executable command-plan gate, five persistent aftermath dimensions, fourteen proven entry capabilities, five failure-forward terminal dispositions, and no synthetic clock. Operational loss records systemic cost rather than fabricated player blame, and no capability completes a front by itself.
+
+Terminal Chapter 8 now activates `epilogue-the-terms-we-keep` as the thirteenth and final mission entry. The epilogue carries one exact five-axis Nightfall aftermath receipt plus conditional historical capabilities, then settles four visible responsibilities across seven bounded outcome dimensions and three aggregate reports. Political choices complete responsibilities without receiving hidden moral grades; crew moments remain Story Settlement material rather than per-character objectives.
+
+The terminal epilogue phase target now binds explicitly to authored-completion condition `completion.ashes.terms-we-keep-resolved`. Runtime activation writes one immutable `directive.campaignConclusion.v1` receipt under `mission.v1Conclusion`, calls no provider, and mutates no legacy completion root. Replay is idempotent. Current or historical accepted-source invalidation clears the receipt and rebuilds or prunes dependent mission authority before conclusion can be recommitted.
+
+Archived Old Lessons, Open Orders II, Chapter 6, Chapter 7, Open Orders III, Chapter 8, and epilogue definitions must remain available at their pinned versions for source reconstruction. The complete non-UI journey and conclusion are deterministic; player-facing and live release gates remain open.
 
 ## Hesperus Conversion
 
