@@ -131,6 +131,7 @@ const checks = [
   'test-ashes-v1-open-orders-2-runtime.mjs',
   'test-ashes-v1-chapter-6-runtime.mjs',
   'test-ashes-v1-chapter-7-runtime.mjs',
+  'test-ashes-v1-open-orders-3-runtime.mjs',
   'test-ashes-v1-mission-handoff.mjs',
   'test-story-ledger-projection.mjs',
   'test-story-context-index.mjs',
