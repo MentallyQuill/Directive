@@ -1,6 +1,6 @@
 # Campaign Difficulty Consequence Policy
 
-**Status:** Approved direction, awaiting written-spec review
+**Status:** Approved
 
 **Date:** 2026-08-10
 
