@@ -141,9 +141,7 @@ const validRouter = createGenerationRouter({
     fields: {
       'identity.name': 'Talia Renn',
       'identity.speciesId': 'trill',
-      identity: {
-        appearance: 'A composed Starfleet officer with close-cropped hair and a quiet, observant posture.'
-      }
+      'identity.appearance': 'A composed Starfleet officer with close-cropped hair and a quiet, observant posture.'
     },
     notes: ['Kept the existing command role grounded.'],
     warnings: []
@@ -172,6 +170,107 @@ assert.equal(validRouter.calls()[0].request.jsonSchema?.properties?.kind?.const,
 assert.equal(validRouter.calls()[0].request.parameters.max_tokens, CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS);
 assert.equal(validRouter.calls()[0].options.providerKind, 'reasoning');
 assert.equal(validRouter.calls()[0].options.timeoutMs, CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS);
+
+const repairedDraftCalls = [];
+const repairedDraftProgress = [];
+const repairedDraftRouter = {
+  async generate(roleId, request, options = {}) {
+    repairedDraftCalls.push({ roleId, request, options });
+    if (repairedDraftCalls.length === 1) {
+      return {
+        ok: true,
+        response: {
+          text: "{'kind':'directive.characterCreatorSectionDraftResult','sectionId':'identity','mode':'refine','fields':{'identity.name':'Talia Renn','identity.speciesId':'trill'}}"
+        },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: {
+            'identity.name': 'Talia Renn',
+            'identity.speciesId': 'trill'
+          },
+          notes: ['Recovered the malformed provider draft.'],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const repairedDraft = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: { identity: { name: 'Talia' } },
+  generationRouter: repairedDraftRouter,
+  onProgress: (progress) => repairedDraftProgress.push(progress)
+});
+assert.equal(repairedDraft.source, 'provider');
+assert.equal(repairedDraft.fields['identity.name'], 'Talia Renn');
+assert.deepEqual(repairedDraftCalls.map((call) => call.options.providerKind), ['reasoning', 'utility']);
+assert.equal(repairedDraftCalls[1].request.kind, 'directive.characterCreatorSectionDraftRepairRequest');
+const repairPayload = JSON.parse(repairedDraftCalls[1].request.messages[1].content);
+assert.deepEqual(Object.keys(repairPayload).sort(), ['damagedOutput', 'schemaDiagnostics', 'targetSchema']);
+assert.equal(repairPayload.damagedOutput.startsWith("{'kind'"), true);
+assert.equal(repairPayload.targetSchema.properties.sectionId.const, 'identity');
+assert.equal(JSON.stringify(repairPayload).includes('campaignContext'), false);
+assert.equal(repairedDraft.diagnostics.repairAttempted, true);
+assert.equal(repairedDraft.diagnostics.repairSucceeded, true);
+assert.equal(repairedDraftProgress.some((entry) => entry.message === 'Repairing malformed draft with Utility...'), true);
+
+const targetedRegenerationCalls = [];
+const targetedRegenerationRouter = {
+  async generate(roleId, request, options = {}) {
+    targetedRegenerationCalls.push({ roleId, request, options });
+    if (targetedRegenerationCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'kind':'broken','fields':{'identity.name':'Do not repeat this damaged text marker'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    if (targetedRegenerationCalls.length === 2) {
+      return {
+        ok: true,
+        response: { text: 'still not valid JSON' },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+const targetedRegeneration = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: targetedRegenerationRouter
+});
+assert.equal(targetedRegeneration.source, 'provider');
+assert.deepEqual(targetedRegenerationCalls.map((call) => call.options.providerKind), ['reasoning', 'utility', 'reasoning']);
+assert.match(targetedRegenerationCalls[2].request.messages.at(-1).content, /json_invalid/);
+assert.equal(targetedRegenerationCalls[2].request.messages.at(-1).content.includes('Do not repeat this damaged text marker'), false);
+assert.equal(targetedRegeneration.diagnostics.repairAttempted, true);
+assert.equal(targetedRegeneration.diagnostics.repairSucceeded, false);
+assert.equal(targetedRegeneration.diagnostics.targetedRegenerationAttempted, true);
 
 const retryRouterCalls = [];
 const retryRouter = {
@@ -356,15 +455,15 @@ const parseRejectedFallbackIdentity = await runCharacterCreatorSectionDraft({
   onProgress: (progress) => parseRejectedFallbackProgress.push(progress)
 });
 assert.equal(parseRejectedFallbackIdentity.source, 'provider');
-assert.equal(parseRejectedFallbackIdentity.diagnostics.finalProviderKind, 'utility');
+assert.equal(parseRejectedFallbackIdentity.diagnostics.finalProviderKind, 'reasoning');
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts.length, 3);
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[0].providerOutputRejected, true);
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[1].providerOutputRejected, true);
-assert.deepEqual(parseRejectedFallbackCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.deepEqual(parseRejectedFallbackCalls.map((call) => call.options.providerKind), ['reasoning', 'utility', 'reasoning']);
 assert.deepEqual(parseRejectedFallbackProgress.map((entry) => entry.message), [
   'Generating with Reasoning...',
-  'Reasoning returned an unusable draft. Retrying Reasoning...',
-  'Reasoning returned another unusable draft. Trying Utility...'
+  'Repairing malformed draft with Utility...',
+  'Regenerating draft with corrected JSON instructions...'
 ]);
 
 const localFallbackAfterUtilityCalls = [];
@@ -514,11 +613,11 @@ const localFallbackAfterRejectedOutput = await runCharacterCreatorSectionDraft({
 });
 assert.equal(localFallbackAfterRejectedOutput.source, 'deterministic-fallback');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerOutputRejected, true);
-assert.equal(localFallbackAfterRejectedOutput.diagnostics.finalProviderKind, 'utility');
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.finalProviderKind, 'reasoning');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.validationErrorCode, 'json_invalid');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerAttempts.length, 3);
 assert.equal(localFallbackAfterRejectedOutputCalls.length, 3);
-assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Utility returned an unusable draft. Using local fallback...');
+assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Reasoning returned an unusable draft. Using local fallback...');
 
 const canceledController = new AbortController();
 const canceledRouterCalls = [];
@@ -620,7 +719,7 @@ const longReviewRouter = createGenerationRouter({
   text: JSON.stringify({
     kind: 'directive.characterCreatorSectionDraftResult',
     sectionId: 'review',
-    mode: 'refine',
+    mode: 'create',
     fields: {
       'dossier.briefBiography': overLimitBiography,
       'dossier.publicReputation': overLimitReputation
