@@ -1,0 +1,26 @@
+[
+  {
+    "id": "campaign-coming-later",
+    "selector": "[data-campaign-availability=coming-later]",
+    "behavior": "greyed-disabled-noninteractive",
+    "reason": "Only Ashes of Peace is playable in V1"
+  },
+  {
+    "id": "campaign-current-descriptions",
+    "selector": "[data-campaign-description]",
+    "behavior": "current-package-copy-in-certified-geometry",
+    "reason": "Current campaign descriptions are approved product copy"
+  },
+  {
+    "id": "creator-wand-modal",
+    "selector": ".directive-creator-assist-dialog-overlay",
+    "behavior": "modal-dim-inert-focus-trap",
+    "reason": "The current wand-helper modal interaction is approved"
+  },
+  {
+    "id": "bounded-scroll-ownership",
+    "selector": "[data-directive-scroll-owner=true]",
+    "behavior": "only-bounded-panels-scroll",
+    "reason": "Route pages and the shell must remain fixed"
+  }
+]

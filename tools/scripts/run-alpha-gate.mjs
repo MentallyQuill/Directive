@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 
 const checks = [
   "test-browser-runtime-safety.mjs",
+  "test-certified-ui-authority.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
   "test-bundled-package-registry.mjs",
