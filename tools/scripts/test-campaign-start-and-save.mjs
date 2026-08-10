@@ -10,6 +10,10 @@ import {
 } from '../../src/creators/character-creator-draft.mjs';
 import { createInitialCampaignStateFromCreatorReview } from '../../src/campaign/campaign-start.mjs';
 import {
+  V1_RUNTIME_ARCHITECTURE_KIND,
+  V1_SEMANTIC_AUTHORITY
+} from '../../src/runtime/v1-semantic-authority.mjs';
+import {
   createAutosaveCampaignSaveRecord,
   createCampaignSaveAsRecord,
   createFirstCampaignSaveRecord,
@@ -199,6 +203,14 @@ requireEqual(campaignState.player.dossier.editedByPlayer, true, 'campaign dossie
 requireEqual(campaignState.settings.simulationMode, 'Exploration', 'campaign simulationMode');
 requireEqual(campaignState.ui.activeTab, 'Mission', 'campaign active tab');
 requireEqual(campaignState.commandLog.entries.at(-1).type, 'campaignStart', 'campaign command log start entry');
+requireEqual(campaignState.campaign.runtimeArchitecture, {
+  kind: V1_RUNTIME_ARCHITECTURE_KIND,
+  contractVersion: 1,
+  semanticAuthority: V1_SEMANTIC_AUTHORITY,
+  packageId: packageData.manifest.id,
+  packageVersion: packageData.manifest.version,
+  createdForNewSave: true
+}, 'fresh Ashes campaign V1 architecture stamp');
 
 requireEqual(Array.isArray(glassProjection.initialState.turnLedger), true, 'glass projection source turnLedger array fixture');
 requireEqual(Array.isArray(glassProjection.initialState.commandLog), true, 'glass projection source commandLog array fixture');
@@ -237,6 +249,7 @@ const glassCampaignState = createInitialCampaignStateFromCreatorReview({
   simulationMode: 'Command',
   creatorDraftId: 'creator-draft-glass-ledger-shape'
 });
+requireEqual(glassCampaignState.campaign.runtimeArchitecture, undefined, 'non-V1 package omits V1 architecture stamp');
 requireEqual(Array.isArray(glassCampaignState.turnLedger.entries), true, 'glass campaign turnLedger normalized entries');
 requireEqual(glassCampaignState.turnLedger.entries.length, 0, 'glass campaign turnLedger starts empty');
 requireEqual(Array.isArray(glassCampaignState.commandLog.entries), true, 'glass campaign commandLog normalized entries');

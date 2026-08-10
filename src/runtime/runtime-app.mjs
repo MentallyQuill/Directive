@@ -70,6 +70,7 @@ import { createCampaignConclusionService } from './campaign-conclusion-service.m
 import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { buildV1RuntimePlayerProjection, createV1MissionRuntime } from './v1-mission-runtime.mjs';
+import { resolveV1SemanticAuthority as resolveV1SemanticAuthorityContract } from './v1-semantic-authority.mjs';
 import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
 import {
   buildContinuityProjectionDiagnostics,
@@ -7737,9 +7738,15 @@ export function createDirectiveRuntimeApp({
       messageReconciler,
       enableDefaultLatestPairSettlementProvider: true,
       settleV1MissionAcceptedPair: (input) => v1MissionRuntime.settleAcceptedPair(input),
-      enableV1MissionShadow: ({ runtimeAssets }) => v1MissionRuntime.resolveActiveDefinition(runtimeAssets).ok,
+      resolveV1SemanticAuthority: ({ campaignState: authorityState, runtimeAssets }) => (
+        resolveV1SemanticAuthorityContract({
+          campaignState: authorityState,
+          runtimeAssets,
+          definitionResolution: v1MissionRuntime.resolveActiveDefinition(runtimeAssets)
+        })
+      ),
       getRuntimeAssets: () => activeRuntimeAssets(),
-      v1MissionShadowTimeoutMs: 8000,
+      v1MissionSettlementTimeoutMs: 8000,
       repairRuntime: repairRuntimeBoundary,
       coreTurnStore: runtimeCoreTurnStore,
       stateDeltaGateway,

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 import {
     runAcceptedPairSettlementSequence,
-    runV1MissionShadowSettlement,
+    runV1MissionSettlement,
 } from '../../src/runtime/chat-turn-orchestrator.mjs';
 import { prepareLatestPairSceneSnapshot } from '../../src/runtime/source-settlement-latest-pair-scene-adapter.mjs';
 import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
@@ -75,7 +75,6 @@ for (const [overrides, reason] of [
     assert.equal(result.reason, reason);
 }
 
-const order = [];
 const exactSnapshot = prepared.snapshot;
 const exactHardBoundary = createEpisodeHardBoundary({
     id: 'boundary.authored.11',
@@ -84,37 +83,64 @@ const exactHardBoundary = createEpisodeHardBoundary({
     source: { kind: 'campaignReducer', id: 'campaign.scene.11' },
     sourceContributionIds: [],
 });
-const sequence = await runAcceptedPairSettlementSequence({
+const legacyOrder = [];
+const legacySequence = await runAcceptedPairSettlementSequence({
     campaignState,
+    authorityMode: 'legacy',
     settleLegacy: async () => {
-        order.push('legacy');
+        legacyOrder.push('legacy');
         return {
             campaignState: { ...campaignState, legacySettled: true },
             snapshot: exactSnapshot,
             hardBoundary: exactHardBoundary,
         };
     },
-    settleV1: async ({ campaignState: legacyState, snapshot, hardBoundary }) => {
-        order.push('v1');
-        assert.equal(legacyState.legacySettled, true);
+    prepareV1: async () => { throw new Error('legacy saves must not prepare V1 settlement'); },
+    settleV1: async () => { throw new Error('legacy saves must not invoke V1 settlement'); },
+});
+legacyOrder.push('classification');
+assert.deepEqual(legacyOrder, ['legacy', 'classification']);
+assert.equal(legacySequence.authorityMode, 'legacy');
+assert.equal(legacySequence.campaignState.legacySettled, true);
+assert.equal(legacySequence.snapshot, exactSnapshot);
+
+const authoritativeOrder = [];
+const sequence = await runAcceptedPairSettlementSequence({
+    campaignState,
+    authorityMode: 'authoritative',
+    settleLegacy: async () => { throw new Error('V1 saves must not invoke legacy settlement'); },
+    prepareV1: async () => {
+        authoritativeOrder.push('prepare-v1');
+        return {
+            campaignState,
+            snapshot: exactSnapshot,
+            hardBoundary: exactHardBoundary,
+        };
+    },
+    settleV1: async ({ campaignState: preparedState, snapshot, hardBoundary }) => {
+        authoritativeOrder.push('v1');
+        assert.equal(preparedState, campaignState, 'V1 receives state without legacy semantic mutations');
         assert.equal(snapshot, exactSnapshot, 'V1 receives the identical prepared snapshot object');
         assert.equal(hardBoundary, exactHardBoundary, 'V1 receives the exact trusted boundary object');
         return {
-            campaignState: { ...legacyState, v1Settled: true },
+            campaignState: { ...preparedState, v1Settled: true },
             result: { ok: true, status: 'settled' },
         };
     },
 });
-order.push('classification');
-assert.deepEqual(order, ['legacy', 'v1', 'classification']);
+authoritativeOrder.push('classification');
+assert.deepEqual(authoritativeOrder, ['prepare-v1', 'v1', 'classification']);
+assert.equal(sequence.authorityMode, 'authoritative');
 assert.equal(sequence.campaignState.v1Settled, true);
 assert.equal(sequence.snapshot, exactSnapshot);
 assert.equal(sequence.hardBoundary, exactHardBoundary);
+assert.equal(sequence.legacy, null);
 
 let genericTimeBoundaryForwarded = false;
 await runAcceptedPairSettlementSequence({
     campaignState,
-    settleLegacy: async () => ({
+    authorityMode: 'authoritative',
+    prepareV1: async () => ({
         campaignState,
         snapshot: exactSnapshot,
         timeBoundary: {
@@ -133,9 +159,11 @@ assert.equal(genericTimeBoundaryForwarded, false, 'generic legacy time advanceme
 const failureOrder = [];
 const failureSequence = await runAcceptedPairSettlementSequence({
     campaignState,
-    settleLegacy: async () => {
-        failureOrder.push('legacy');
-        return { campaignState: { ...campaignState, legacySettled: true }, snapshot: exactSnapshot };
+    authorityMode: 'authoritative',
+    settleLegacy: async () => { throw new Error('legacy fallback forbidden'); },
+    prepareV1: async () => {
+        failureOrder.push('prepare-v1');
+        return { campaignState, snapshot: exactSnapshot };
     },
     settleV1: async () => {
         failureOrder.push('v1-failed');
@@ -143,14 +171,28 @@ const failureSequence = await runAcceptedPairSettlementSequence({
     },
 });
 failureOrder.push('classification');
-assert.deepEqual(failureOrder, ['legacy', 'v1-failed', 'classification']);
-assert.equal(failureSequence.campaignState.legacySettled, true);
-assert.equal(failureSequence.shadow.result.reasonCode, 'shadow-threw');
+assert.deepEqual(failureOrder, ['prepare-v1', 'v1-failed', 'classification']);
+assert.equal(failureSequence.campaignState, campaignState);
+assert.equal(failureSequence.v1.result.reasonCode, 'v1-threw');
 assert.equal(JSON.stringify(failureSequence).includes('raw V1 failure detail'), false);
+
+let blockedCalls = 0;
+const blockedSequence = await runAcceptedPairSettlementSequence({
+    campaignState,
+    authorityMode: 'blocked',
+    blockedReasonCode: 'definition-assets-missing',
+    settleLegacy: async () => { blockedCalls += 1; },
+    prepareV1: async () => { blockedCalls += 1; },
+    settleV1: async () => { blockedCalls += 1; },
+});
+assert.equal(blockedCalls, 0);
+assert.equal(blockedSequence.authorityMode, 'blocked');
+assert.equal(blockedSequence.v1.result.reasonCode, 'definition-assets-missing');
+assert.equal(blockedSequence.campaignState, campaignState);
 
 const runtimeAssets = { packageData: { manifest: { id: campaignState.activeCampaignPackage.packageId } } };
 let shadowCalls = 0;
-const shadow = await runV1MissionShadowSettlement({
+const shadow = await runV1MissionSettlement({
     enabled: true,
     campaignState,
     snapshot: exactSnapshot,
@@ -213,7 +255,7 @@ assert.equal(JSON.stringify(shadow).includes('must-not-escape'), false);
 assert.equal(JSON.stringify(shadow).includes('must-not-be-reported'), false);
 assert.equal(shadow.campaignState.mission.v1.revision, 1);
 
-const malformedBoundary = await runV1MissionShadowSettlement({
+const malformedBoundary = await runV1MissionSettlement({
     enabled: true,
     campaignState,
     snapshot: exactSnapshot,
@@ -227,12 +269,12 @@ assert.equal(malformedBoundary.result.attempted, false);
 assert.equal(shadowCalls, 1);
 
 for (const [input, reasonCode] of [
-    [{ enabled: false }, 'shadow-disabled'],
+    [{ enabled: false }, 'v1-disabled'],
     [{ snapshot: null }, 'snapshot-unavailable'],
     [{ message: { ...currentPlayer, source: 'chat-poll' } }, 'historical-replay'],
     [{ message: { ...currentPlayer, isDirectiveOwned: true } }, 'directive-owned-source'],
 ]) {
-    const result = await runV1MissionShadowSettlement({
+    const result = await runV1MissionSettlement({
         enabled: true,
         campaignState,
         snapshot: exactSnapshot,
@@ -246,7 +288,7 @@ for (const [input, reasonCode] of [
 }
 assert.equal(shadowCalls, 1, 'skip conditions do not invoke V1');
 
-const preflightBlocked = await runV1MissionShadowSettlement({
+const preflightBlocked = await runV1MissionSettlement({
     enabled: true,
     campaignState,
     snapshot: exactSnapshot,
@@ -259,7 +301,7 @@ assert.equal(preflightBlocked.result.reasonCode, 'source-preflight-blocked');
 assert.deepEqual(preflightBlocked.result.reasons, ['source-frame-stale']);
 assert.equal(shadowCalls, 1);
 
-const providerFailure = await runV1MissionShadowSettlement({
+const providerFailure = await runV1MissionSettlement({
     enabled: true,
     campaignState,
     snapshot: exactSnapshot,
@@ -278,7 +320,7 @@ assert.equal(providerFailure.result.reasonCode, 'provider-threw');
 assert.equal(providerFailure.campaignState, campaignState);
 assert.equal(JSON.stringify(providerFailure).includes('secret'), false);
 
-const timeout = await runV1MissionShadowSettlement({
+const timeout = await runV1MissionSettlement({
     enabled: true,
     campaignState,
     snapshot: exactSnapshot,
@@ -287,7 +329,7 @@ const timeout = await runV1MissionShadowSettlement({
     timeoutMs: 5,
     settleV1MissionAcceptedPair: async () => new Promise(() => {}),
 });
-assert.equal(timeout.result.reasonCode, 'shadow-timeout');
+assert.equal(timeout.result.reasonCode, 'v1-timeout');
 assert.equal(timeout.result.attempted, true);
 
 const orchestratorSource = fs.readFileSync('src/runtime/chat-turn-orchestrator.mjs', 'utf8');
@@ -302,7 +344,7 @@ assert.ok(
 const runtimeAppSource = fs.readFileSync('src/runtime/runtime-app.mjs', 'utf8');
 assert.match(runtimeAppSource, /createV1MissionRuntime/);
 assert.match(runtimeAppSource, /settleV1MissionAcceptedPair/);
-assert.match(runtimeAppSource, /enableV1MissionShadow/);
+assert.match(runtimeAppSource, /resolveV1SemanticAuthority/);
 assert.match(runtimeAppSource, /getRuntimeAssets/);
 assert.match(runtimeAppSource, /buildV1ShadowPlayerProjection/);
 assert.match(runtimeAppSource, /buildV1RuntimePlayerProjection/);

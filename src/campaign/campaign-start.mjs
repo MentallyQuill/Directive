@@ -4,6 +4,7 @@ import { createSeededThreadLedger } from '../threads/thread-package-seeds.mjs';
 import { createThreadLedger } from '../threads/thread-ledger.mjs';
 import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
 import { normalizeContinuityState } from '../continuity/state.mjs';
+import { createV1RuntimeArchitectureStamp } from '../runtime/v1-semantic-authority.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -332,6 +333,9 @@ export function createInitialCampaignStateFromCreatorReview({
   state.campaign.startedAt = timestamp;
   state.campaign.characterCreatorDraftId = creatorDraftId;
   state.campaign.packageTitle = context.package.title;
+  const runtimeArchitecture = createV1RuntimeArchitectureStamp({ packageData });
+  if (runtimeArchitecture) state.campaign.runtimeArchitecture = runtimeArchitecture;
+  else delete state.campaign.runtimeArchitecture;
   state.activeCampaignPackage.packageId = context.package.id;
   state.activeCampaignPackage.packageVersion = context.package.version;
   state.player = player;

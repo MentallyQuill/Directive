@@ -32,7 +32,7 @@
         "role": "reconciliation-contract"
       }
     ],
-    "architecture": "directive.openWorldCampaign.v2.sceneReconciliation"
+    "architecture": "directive.v1GameplayArchitecture.storySettlement"
   },
   "ship": {
     "id": "uss-breckenridge",

@@ -1,0 +1,165 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+import {
+  V1_GAMEPLAY_ARCHITECTURE_ID,
+  V1_RUNTIME_ARCHITECTURE_KIND,
+  allowsLegacySemanticWriters,
+  createV1RuntimeArchitectureStamp,
+  resolveV1SemanticAuthority
+} from '../../src/runtime/v1-semantic-authority.mjs';
+
+const packageId = 'directive:campaign-package:breckenridge-ashes-of-peace';
+const packageVersion = '0.3.0-pre-alpha.1';
+const packageData = {
+  manifest: {
+    id: packageId,
+    version: packageVersion,
+    architecture: V1_GAMEPLAY_ARCHITECTURE_ID
+  }
+};
+const definition = {
+  id: 'mission.prelude-a-ship-underway',
+  version: '1.0.0',
+  packageBinding: {
+    packageId,
+    packageVersion,
+    sourceId: 'prelude-a-ship-underway'
+  }
+};
+
+assert.equal(createV1RuntimeArchitectureStamp({
+  packageData: { manifest: { id: packageId, version: packageVersion, architecture: 'legacy' } }
+}), null, 'packages must opt new saves into the exact V1 architecture');
+
+const stamp = createV1RuntimeArchitectureStamp({ packageData });
+assert.deepEqual(stamp, {
+  kind: V1_RUNTIME_ARCHITECTURE_KIND,
+  contractVersion: 1,
+  semanticAuthority: 'storySettlement',
+  packageId,
+  packageVersion,
+  createdForNewSave: true
+});
+
+const legacyState = {
+  campaign: { id: 'campaign.legacy' },
+  activeCampaignPackage: { packageId, packageVersion },
+  mission: { activeMissionId: 'prelude-a-ship-underway' }
+};
+const availableDefinition = { ok: true, definition };
+assert.deepEqual(resolveV1SemanticAuthority({
+  campaignState: legacyState,
+  runtimeAssets: { packageData },
+  definitionResolution: availableDefinition
+}), {
+  ok: true,
+  mode: 'legacy',
+  reasonCode: 'authority-stamp-absent',
+  stamp: null,
+  definition: null
+}, 'unstamped Ashes saves stay legacy even when V1 definitions are available');
+assert.equal(allowsLegacySemanticWriters({
+  campaignState: legacyState,
+  runtimeAssets: { packageData },
+  definitionResolution: availableDefinition
+}), true);
+
+const authoritativeState = {
+  ...structuredClone(legacyState),
+  campaign: {
+    ...structuredClone(legacyState.campaign),
+    runtimeArchitecture: stamp
+  }
+};
+const authoritative = resolveV1SemanticAuthority({
+  campaignState: authoritativeState,
+  runtimeAssets: { packageData },
+  definitionResolution: availableDefinition
+});
+assert.equal(authoritative.ok, true);
+assert.equal(authoritative.mode, 'authoritative');
+assert.equal(authoritative.reasonCode, null);
+assert.deepEqual(authoritative.stamp, stamp);
+assert.equal(authoritative.definition, definition);
+assert.equal(allowsLegacySemanticWriters({
+  campaignState: authoritativeState,
+  runtimeAssets: { packageData },
+  definitionResolution: availableDefinition
+}), false);
+
+for (const [label, statePatch, assetsPatch, definitionResolution, reasonCode] of [
+  [
+    'malformed stamp',
+    { campaign: { runtimeArchitecture: { ...stamp, contractVersion: 2 } } },
+    {},
+    availableDefinition,
+    'authority-stamp-invalid'
+  ],
+  [
+    'active package mismatch',
+    { activeCampaignPackage: { packageId, packageVersion: '0.2.0' } },
+    {},
+    availableDefinition,
+    'active-package-mismatch'
+  ],
+  [
+    'runtime package mismatch',
+    {},
+    { packageData: { manifest: { ...packageData.manifest, version: '0.2.0' } } },
+    availableDefinition,
+    'runtime-package-mismatch'
+  ],
+  [
+    'definition unavailable',
+    {},
+    {},
+    { ok: false, reasonCode: 'definition-assets-missing' },
+    'definition-assets-missing'
+  ],
+  [
+    'definition binding mismatch',
+    {},
+    {},
+    { ok: true, definition: { ...definition, packageBinding: { ...definition.packageBinding, packageVersion: '0.2.0' } } },
+    'definition-package-mismatch'
+  ]
+]) {
+  const state = {
+    ...structuredClone(authoritativeState),
+    ...structuredClone(statePatch),
+    campaign: {
+      ...structuredClone(authoritativeState.campaign),
+      ...structuredClone(statePatch.campaign || {})
+    }
+  };
+  const assets = {
+    packageData,
+    ...structuredClone(assetsPatch)
+  };
+  const result = resolveV1SemanticAuthority({
+    campaignState: state,
+    runtimeAssets: assets,
+    definitionResolution
+  });
+  assert.equal(result.ok, false, label);
+  assert.equal(result.mode, 'blocked', label);
+  assert.equal(result.reasonCode, reasonCode, label);
+  assert.equal(allowsLegacySemanticWriters({
+    campaignState: state,
+    runtimeAssets: assets,
+    definitionResolution
+  }), false, `${label} must never reactivate legacy semantic writers`);
+}
+
+const packageManifest = JSON.parse(fs.readFileSync(
+  'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
+  'utf8'
+));
+assert.equal(packageManifest.manifest.architecture, V1_GAMEPLAY_ARCHITECTURE_ID);
+
+const campaignStartSource = fs.readFileSync('src/campaign/campaign-start.mjs', 'utf8');
+assert.match(campaignStartSource, /createV1RuntimeArchitectureStamp/);
+assert.match(campaignStartSource, /runtimeArchitecture/);
+
+console.log('V1 semantic authority cutover tests passed.');
