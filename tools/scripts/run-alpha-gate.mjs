@@ -62,6 +62,7 @@ const checks = [
   "test-sillytavern-event-wiring.mjs",
   "test-sillytavern-checkpoint-chat.mjs",
   "test-directive-runtime-overlay-host.mjs",
+  "test-character-creator-assist-dialog.mjs",
   "test-expanded-interface-shell.mjs",
   "test-expanded-interface-focus.mjs",
   "test-route-title-hierarchy.mjs",
