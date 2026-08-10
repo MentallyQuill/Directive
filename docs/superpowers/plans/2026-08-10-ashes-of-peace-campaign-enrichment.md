@@ -365,7 +365,7 @@ Give Priya's civilian contacts an accountable spokesperson, Mara Venn. If `dimen
 
 Add explicit `commandBearingAwardIds` expectations to one success and one failure scenario for each assignment. Assert that resolving all three through delegation may make three awards eligible, while the reserve's capacity behavior remains governed by the existing Command Bearing system.
 
-- [ ] **Step 6: Verify and commit Open Orders I**
+- [x] **Step 6: Verify and commit Open Orders I**
 
 Run:
 
@@ -395,19 +395,19 @@ git commit -m "feat: expand Open Orders I episodes"
 - Produces: human owners for fabricated private messages and alternate Demeris corroboration when physical evidence is lost.
 - Consumes: existing access, evidence, relay, archive outcomes and preserved-relay Chapter 8 capability.
 
-- [ ] **Step 1: Add failing human-archive and lost-evidence scenarios**
+- [x] **Step 1: Add failing human-archive and lost-evidence scenarios**
 
 Add `message-owner-consent-before-relay-custody`, `restricted-family-disclosure`, `relay-destroyed-demeris-corroboration`, and `archive-not-recovered-alternate-lead`.
 
-- [ ] **Step 2: Author affected message owners**
+- [x] **Step 2: Author affected message owners**
 
 Use known regional figures Nella Ivers, Nia Kessler, and Asha Prel as three owners whose fabricated messages would create different harms. Ivers permits operational use but not broad publication; Kessler demands independent custody; Prel protects relief recipients named in the traffic.
 
-- [ ] **Step 3: Separate evidence routes and custody decisions**
+- [x] **Step 3: Separate evidence routes and custody decisions**
 
 Make relay architecture, access history, message authenticity, and Demeris routing independently discoverable. Preserve privacy-protective destruction, restricted custody, controlled observation, and responsible withdrawal without erasing the next lead.
 
-- [ ] **Step 4: Verify and commit Dead Letters**
+- [x] **Step 4: Verify and commit Dead Letters**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 

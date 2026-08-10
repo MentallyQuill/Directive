@@ -334,30 +334,37 @@ The assignment selection is strong and explicitly non-linear. Each assignment is
 ```mermaid
 flowchart TD
     A[Hecate Seven approach] --> B[Gain access safely]
-    A --> C[Withdraw or accept access cost]
-    B --> D[Discover fabricated private messages]
-    C --> D
-    D --> E[Establish distributed predictive architecture]
-    D --> F[Choose relay-system custody]
-    D --> G[Choose human-archive custody]
-    E --> H[Trace local access and Farwatch handshake]
-    F --> I[Physical-system result]
-    G --> J[Personal-material result]
-    H --> K[Demeris and Solenn lead]
-    I --> K
-    J --> K
+    A --> C[Withdraw, lose access, or lose the relay]
+    B --> D[Consult affected message owners]
+    B --> E[Establish relay architecture]
+    D --> F[Establish message authenticity]
+    B --> G[Establish local access history]
+    F --> H[Choose human-archive custody]
+    E --> I[Choose relay-system custody]
+    G --> J[Direct Demeris routing]
+    C --> K[Human and traffic corroboration]
+    K --> L[Partial Demeris routing]
+    H --> M[Personal-material result]
+    I --> N[Physical-system result]
+    J --> O[Demeris and Solenn lead]
+    L --> O
+    M --> O
+    N --> O
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-This is one of the strongest sets of state choices. Access, evidence quality, relay custody, and archive custody can resolve independently and in different orders. The human archive needs more actual humans so privacy and custody choices are not abstract.
+Dead Letters now preserves its strong independent access, relay, archive, and evidence states while giving the human archive identifiable owners and resilient clue routes.
 
-#### Enrichment direction
+- Captain Nella Ivers permits bounded operational use of her crew's messages but refuses broad publication of the private originals.
+- Director Nia Kessler demands independently auditable custody with standing to challenge Starfleet access.
+- Administrator Asha Prel protects named relief recipients and offers guarded Cardassian convoy ledgers as a corroboration route.
+- Message authenticity, relay architecture, local postwar access, and Demeris routing are independently discoverable findings rather than one aggregate readout.
+- The relay can still be isolated, observed, destroyed, seized, or left in place, and the archive can still receive joint, restricted, broad, opaque, lost, or unrecovered custody outcomes.
+- Ivers's retained traffic or Prel's protected records can corroborate the Demeris route after destruction, seizure, forced withdrawal, or non-recovery without recreating lost evidence or upgrading Solenn into a proven controller.
+- Four new scenarios prove owner consultation before custody, restricted family disclosure, post-destruction corroboration, and a surviving alternate lead when the archive is not recovered.
+- The focused campaign gate now covers 251 authored scenarios.
 
-- Author several message owners or affected families with conflicting preferences.
-- Give hazardous approach choices more character participation, including Kieran and Imani.
-- Separate what Solenn's account suggests from what physical evidence proves.
-- Preserve alternate leads when the relay or archive is lost.
 
 ### Chapter 4: The Colony That Stayed
 

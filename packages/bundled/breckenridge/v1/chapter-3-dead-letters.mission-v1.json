@@ -26,7 +26,7 @@
       "initiallyTrue": true,
       "visibility": "discoverable",
       "playerText": {
-        "summary": "The installation is an old Dominion-origin message relay containing fabricated transmissions recombined from real private communications; it is both evidence and a collection of lives exposed without consent."
+        "summary": "The installation is an old Dominion-origin message relay containing intercepted and fabricated personal traffic; it is both physical evidence and a collection of lives exposed without consent, even before individual messages are authenticated."
       }
     },
     {
@@ -43,6 +43,54 @@
       "visibility": "discoverable",
       "playerText": {
         "summary": "The evidence supports local postwar access and a current Starfleet Intelligence handshake; a Demeris traffic-maintenance account associated with Mira Solenn provides the next defensible lead without proving who controls the wider operation."
+      }
+    },
+    {
+      "id": "fact.chapter3.message-authenticity",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Voiceprints, private turns of phrase, and transmission scars establish that the relay's counterfeit messages were assembled from authentic personal traffic rather than invented wholesale."
+      }
+    },
+    {
+      "id": "fact.chapter3.local-access-history",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Maintenance traces establish repeated local postwar access and a recent Starfleet Intelligence handshake, without identifying the wider operation's controller."
+      }
+    },
+    {
+      "id": "fact.chapter3.demeris-routing",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "A Demeris traffic-maintenance account associated with Mira Solenn is the next corroborated route of inquiry, not proof that Solenn controls the network."
+      }
+    },
+    {
+      "id": "fact.chapter3.nella-ivers-consent-boundary",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Nella Ivers permits the messages involving her crew to be used as bounded operational evidence, but refuses broad publication of the private originals."
+      }
+    },
+    {
+      "id": "fact.chapter3.nia-kessler-custody-demand",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Director Nia Kessler will support analysis only if an independent custodian can audit who accesses the archive and challenge Starfleet's use of it."
+      }
+    },
+    {
+      "id": "fact.chapter3.asha-prel-recipient-protection",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Administrator Asha Prel asks that relief recipients named in the stolen traffic be shielded from publication and offers Cardassian convoy records as a privacy-preserving corroboration route."
       }
     }
   ],
@@ -104,8 +152,8 @@
       },
       "interpretation": {
         "evidenceStandard": "explicit",
-        "guidance": "Disclose the aggregate finding that the installation is an old Dominion-origin relay, that its false messages recombine real private communications, and that the human archive has independent ethical stakes.",
-        "exclusions": ["A generic relay sighting, one recovered message, a speculative Dominion reference, or an unexplained archive does not disclose the aggregate finding."]
+        "guidance": "Disclose the aggregate finding that the installation is an old Dominion-origin relay containing intercepted and fabricated personal traffic, and that the human archive has independent ethical stakes. Leave individual message authenticity to its separate evidence route.",
+        "exclusions": ["A generic relay sighting, one recovered message, a speculative Dominion reference, or an unexplained archive does not disclose the aggregate finding; do not treat discovery of the archive as authentication of every message."]
       }
     },
     {
@@ -186,6 +234,229 @@
         "evidenceStandard": "explicit",
         "guidance": "Disclose only the supported access history and lead: local postwar access, a current Starfleet Intelligence handshake, and the Demeris account associated with Mira Solenn, without claiming the wider controller is proven.",
         "exclusions": ["Do not attribute the operation to Pale Lantern, Farwatch, Holt, Rourke, or Wayward Sun from this evidence alone."]
+      }
+    },
+    {
+      "id": "policy.chapter3.nella-consulted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.nella-ivers-consulted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter3.relay-archive-character" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Captain Nella Ivers has personally reviewed an identified sample involving her convoy and stated what use she will permit.",
+        "exclusions": ["Merely recognizing Ivers's name, leaving her a message, or assuming prior cooperation implies consent is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.nella-consent-boundary",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.nella-ivers-consent-boundary",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.nella-ivers-consent-boundary" },
+          { "eventOccurred": "event.chapter3.nella-ivers-consulted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Ivers's exact boundary: operational use is permitted, but broad publication of the private originals is not.",
+        "exclusions": ["Do not treat consent to operational analysis as consent to public release or permanent unrestricted retention."]
+      }
+    },
+    {
+      "id": "policy.chapter3.nia-consulted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.nia-kessler-consulted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter3.relay-archive-character" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Director Nia Kessler has reviewed enough identified material to respond as a representative of affected Compact communities.",
+        "exclusions": ["A generic briefing to the Compact or an unanswered consultation request is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.nia-custody-demand",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.nia-kessler-custody-demand",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.nia-kessler-custody-demand" },
+          { "eventOccurred": "event.chapter3.nia-kessler-consulted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Kessler's demand for independently auditable custody with authority to challenge Starfleet access.",
+        "exclusions": ["Do not reduce her position to anti-Starfleet suspicion or imply she demands public release."]
+      }
+    },
+    {
+      "id": "policy.chapter3.asha-consulted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.asha-prel-consulted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          { "factKnown": "fact.chapter3.relay-archive-character" },
+          { "outcomeIs": { "id": "outcome.chapter3.archive-result", "equals": "notRecovered" } },
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["withdrewResponsibly", "forcedOff"] } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Administrator Asha Prel is consulted about named relief recipients or, when the archive is unavailable, about matching the known counterfeit traffic against protected Cardassian convoy records.",
+        "exclusions": ["Invoking Cardassian records without Prel's participation or safeguards is not this consultation."]
+      }
+    },
+    {
+      "id": "policy.chapter3.asha-recipient-protection",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.asha-prel-recipient-protection",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.asha-prel-recipient-protection" },
+          { "eventOccurred": "event.chapter3.asha-prel-consulted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose both parts of Prel's position: protect named relief recipients and use guarded convoy records as an alternate corroboration route.",
+        "exclusions": ["Do not imply the protected records may be broadly copied or that Prel can consent for every person named in the archive."]
+      }
+    },
+    {
+      "id": "policy.chapter3.message-authenticity-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.message-authenticity-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter3.site-contact-established" },
+          {
+            "any": [
+              { "eventOccurred": "event.chapter3.nella-ivers-consulted" },
+              { "eventOccurred": "event.chapter3.nia-kessler-consulted" },
+              { "eventOccurred": "event.chapter3.asha-prel-consulted" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when technical comparison and an affected person's recognition together establish that counterfeit messages contain authentic private source material.",
+        "exclusions": ["Technical resemblance alone, an emotional reaction alone, or a generic claim that the messages feel real is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.message-authenticity-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.message-authenticity",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.message-authenticity" },
+          { "eventOccurred": "event.chapter3.message-authenticity-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that authentic private communications were recombined into false messages, identifying the evidentiary and consent stakes without exposing unnecessary contents.",
+        "exclusions": ["Do not narrate private message details that have not been deliberately disclosed in play."]
+      }
+    },
+    {
+      "id": "policy.chapter3.local-access-history-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.local-access-history-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter3.relay-evidence-acquired" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when maintenance traces independently establish local postwar use and a recent Starfleet Intelligence handshake.",
+        "exclusions": ["The relay's Dominion construction, a current power signature, or a speculative Starfleet link is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.local-access-history-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.local-access-history",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.local-access-history" },
+          { "eventOccurred": "event.chapter3.local-access-history-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded access history without folding it into attribution or the separate Demeris route.",
+        "exclusions": ["Do not identify an operator or claim the intelligence handshake proves authorization."]
+      }
+    },
+    {
+      "id": "policy.chapter3.demeris-direct-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.demeris-routing-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter3.local-access-history" },
+          { "eventOccurred": "event.chapter3.relay-evidence-acquired" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when direct relay records connect the access history to a Demeris maintenance account associated with Mira Solenn.",
+        "exclusions": ["A Demeris name without routing continuity or a Solenn association without the account trail is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.demeris-alternate-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.demeris-routing-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.chapter3.access-result", "in": ["withdrewResponsibly", "forcedOff"] } },
+              { "outcomeIs": { "id": "outcome.chapter3.relay-result", "in": ["destroyedWithoutCopy", "lostOrSeized", "leftInPlace"] } }
+            ]
+          },
+          {
+            "any": [
+              { "eventOccurred": "event.chapter3.nella-ivers-consulted" },
+              { "eventOccurred": "event.chapter3.asha-prel-consulted" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when Ivers's retained traffic or Prel's protected convoy records independently reconstruct the Demeris route after direct relay evidence is unavailable.",
+        "exclusions": ["A guessed destination, an unverified recollection, or evidence invented to replace the lost relay is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter3.demeris-routing-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter3.demeris-routing",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.demeris-routing" },
+          { "eventOccurred": "event.chapter3.demeris-routing-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the Demeris account and Mira Solenn association as a corroborated next route, explicitly separating it from proof of control.",
+        "exclusions": ["Do not identify Solenn, Farwatch, Pale Lantern, Holt, Rourke, or Starfleet Intelligence as the network controller."]
       }
     },
     {
@@ -535,7 +806,7 @@
         ]
       },
       "playerText": {
-        "summary": "The installation is a Dominion-origin message relay whose fabrications recombine real private communications, making its human archive a separate custody problem."
+        "summary": "The installation is a Dominion-origin message relay containing intercepted and fabricated personal traffic, making its human archive a separate custody problem even before individual messages are authenticated."
       }
     },
     {
@@ -584,13 +855,145 @@
       "playerText": {
         "summary": "The supported access history points to local postwar use, a current Starfleet Intelligence handshake, and a Demeris maintenance account associated with Mira Solenn as the next lead."
       }
+    },
+    {
+      "id": "report.chapter3.nella-consent-boundary",
+      "factId": "fact.chapter3.nella-ivers-consent-boundary",
+      "evidencePolicyId": "policy.chapter3.nella-consent-boundary",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["nella-ivers"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.nella-ivers-consent-boundary" },
+          { "eventOccurred": "event.chapter3.nella-ivers-consulted" },
+          { "not": { "factKnown": "fact.chapter3.nella-ivers-consent-boundary" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Captain Ivers permits bounded operational use of her crew's messages, but not broad publication of the private originals."
+      }
+    },
+    {
+      "id": "report.chapter3.nia-custody-demand",
+      "factId": "fact.chapter3.nia-kessler-custody-demand",
+      "evidencePolicyId": "policy.chapter3.nia-custody-demand",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["nia-kessler"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.nia-kessler-custody-demand" },
+          { "eventOccurred": "event.chapter3.nia-kessler-consulted" },
+          { "not": { "factKnown": "fact.chapter3.nia-kessler-custody-demand" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Director Kessler requires independently auditable custody with standing to challenge Starfleet access."
+      }
+    },
+    {
+      "id": "report.chapter3.asha-recipient-protection",
+      "factId": "fact.chapter3.asha-prel-recipient-protection",
+      "evidencePolicyId": "policy.chapter3.asha-recipient-protection",
+      "capabilityRoles": ["command", "operations"],
+      "preferredActorIds": ["asha-prel"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.asha-prel-recipient-protection" },
+          { "eventOccurred": "event.chapter3.asha-prel-consulted" },
+          { "not": { "factKnown": "fact.chapter3.asha-prel-recipient-protection" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Administrator Prel asks that named relief recipients be protected and offers guarded convoy records as an alternate route."
+      }
+    },
+    {
+      "id": "report.chapter3.message-authenticity",
+      "factId": "fact.chapter3.message-authenticity",
+      "evidencePolicyId": "policy.chapter3.message-authenticity-disclosed",
+      "capabilityRoles": ["science", "operations"],
+      "preferredActorIds": ["rowan-saye", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.message-authenticity" },
+          { "eventOccurred": "event.chapter3.message-authenticity-established" },
+          { "not": { "factKnown": "fact.chapter3.message-authenticity" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Technical comparison and personal recognition confirm that authentic private traffic was recombined into false messages."
+      }
+    },
+    {
+      "id": "report.chapter3.local-access-history",
+      "factId": "fact.chapter3.local-access-history",
+      "evidencePolicyId": "policy.chapter3.local-access-history-disclosed",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.local-access-history" },
+          { "eventOccurred": "event.chapter3.local-access-history-established" },
+          { "not": { "factKnown": "fact.chapter3.local-access-history" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Maintenance traces establish local postwar use and a recent Starfleet Intelligence handshake without proving who operated the wider network."
+      }
+    },
+    {
+      "id": "report.chapter3.demeris-routing",
+      "factId": "fact.chapter3.demeris-routing",
+      "evidencePolicyId": "policy.chapter3.demeris-routing-disclosed",
+      "capabilityRoles": ["operations", "security"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter3.demeris-routing" },
+          { "eventOccurred": "event.chapter3.demeris-routing-established" },
+          { "not": { "factKnown": "fact.chapter3.demeris-routing" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Direct records or protected corroboration trace the next lead to a Demeris maintenance account associated with Mira Solenn, without proving control."
+      }
     }
   ],
   "events": [
     { "id": "event.chapter3.site-contact-established", "playerVisibility": "hidden" },
     { "id": "event.chapter3.relay-evidence-acquired", "playerVisibility": "hidden" },
     { "id": "event.chapter3.access-history-evidence-acquired", "playerVisibility": "hidden" },
-    { "id": "event.chapter3.alternate-route-corroborated", "playerVisibility": "hidden" }
+    { "id": "event.chapter3.alternate-route-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.nella-ivers-consulted", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.nia-kessler-consulted", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.asha-prel-consulted", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.message-authenticity-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.local-access-history-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter3.demeris-routing-established", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {

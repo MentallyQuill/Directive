@@ -1818,7 +1818,15 @@ Examples:
 - A casualty notification addressed to someone currently alive.
 - A security challenge using the Breckenridge's updated format.
 
-These messages should create unease without becoming supernatural. Priya and Rowan can demonstrate that the relay is recombining stored data.
+These messages should create unease without becoming supernatural. Priya and Rowan can demonstrate that the relay is recombining stored data; technical comparison plus an affected person's recognition establishes that the private source material is authentic.
+
+The player can make the privacy problem concrete by consulting people whose communications were used:
+
+- **Captain Nella Ivers** recognizes work-codes and an unfinished joke exchanged aboard her convoy. She permits bounded operational use to establish how the forgery was made, but she will not consent to broad publication of her crew's private originals.
+- **Director Nia Kessler** recognizes messages from Compact families who used relief channels because no reliable civil registry survived the war. She will support analysis only if an independent custodian can audit access and challenge Starfleet's use of the archive.
+- **Administrator Asha Prel** identifies Cardassian relief recipients whose requests could expose medical conditions, displacement, or relatives still living under assumed records. She asks that their names remain restricted and offers protected convoy ledgers as a corroboration source rather than surrendering those ledgers wholesale.
+
+None of these people can consent for everyone in the archive. Their testimony establishes authenticity, human stakes, and workable custody boundaries; it does not turn consultation into blanket permission.
 
 ### 15.6 Key locations
 
@@ -1876,6 +1884,13 @@ Any active attempt to trace Pale Lantern risks alerting other nodes and providin
 6. Its predictive routines classify communities by likely response to fear, shortage, humiliation, and authority.
 7. Some forged messages were never transmitted; the system stores scenarios for future use.
 
+These revelations should be discovered as separable findings rather than a single computer readout:
+
+- **Message authenticity:** technical comparison plus recognition by an affected person establishes that real private traffic was recombined into counterfeit messages.
+- **Relay architecture:** processor analysis establishes a distributed predictive node, but cannot identify the wider controller.
+- **Local access history:** maintenance scars and handshake records establish postwar local access and a recent Starfleet Intelligence connection without proving authorization or ownership.
+- **Demeris routing:** a traffic-maintenance account associated with Mira Solenn supplies the next investigative route without proving that Solenn controls Pale Lantern.
+
 ### 15.9 Flexible approaches
 
 The player may:
@@ -1892,6 +1907,16 @@ The player may:
 - Keep the origin classified pending verification.
 
 No option should be consequence-free.
+
+The four investigative findings can arrive in different orders. A technical team may establish architecture before anyone agrees to discuss private message contents. Ivers, Kessler, or Prel may establish authenticity and consent limits before the player decides physical custody. Direct access logs may establish local use, while the Demeris route is confirmed separately.
+
+If the relay is destroyed, seized, left in place, or never safely reached, the campaign does not invent a replacement archive. Instead, a surviving human source can support a narrower route:
+
+- Ivers can compare preserved convoy traffic with the counterfeit fragments already received by the Breckenridge.
+- Prel can compare timing and routing scars against guarded Cardassian convoy ledgers without releasing the named recipients.
+- Compact testimony and traffic residue can corroborate the Demeris maintenance path.
+
+This alternate route preserves the next lead at reduced evidentiary confidence. It does not restore lost architecture evidence, recover the private archive, or prove who operated the wider network.
 
 ### 15.10 Escalation events
 
@@ -1953,11 +1978,17 @@ Record:
 - Whether the relay remains operational.
 - Whether Farwatch's handshake is recognized as current Starfleet intelligence traffic.
 - Whether Administrator Prel contributed Cardassian expertise.
+- Whether Ivers permitted bounded operational use and whether her prohibition on broad publication was honored.
+- Whether Kessler obtained an independently auditable custody role.
+- Whether named Cardassian relief recipients remained protected.
+- Whether message authenticity, relay architecture, local access history, and Demeris routing were each established directly, corroborated indirectly, or remained unknown.
 - Any direct network exposure involving the Breckenridge.
 
 ### 15.15 Transition
 
-The relay's access logs contain repeated references to a traffic-maintenance account registered to Demeris Colony and to an engineer named **Mira Solenn**.
+If direct relay records survive, their routing traces contain repeated references to a traffic-maintenance account registered to Demeris Colony and associated with an engineer named **Mira Solenn**.
+
+If the relay or archive is lost, Ivers's retained traffic, Prel's protected convoy records, Compact testimony, or residual routing scars can still corroborate the Demeris path. The resulting lead is credible but partial, and the loss of direct evidence remains a recorded consequence.
 
 Starfleet Reconstruction Command orders the Breckenridge to obtain the hardware, records, and Solenn's testimony.
 

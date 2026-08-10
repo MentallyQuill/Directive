@@ -99,6 +99,34 @@
     ],
     "archive-not-recovered": [
       { "claimId": "claim.chapter3.archive-not-recovered", "policyId": "policy.chapter3.archive-not-recovered", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.archive-result", "value": "notRecovered", "sourceRole": "assistant" }
+    ],
+    "nella-consent-boundary": [
+      { "claimId": "claim.chapter3.nella-consulted", "policyId": "policy.chapter3.nella-consulted", "claimType": "eventOccurred", "targetId": "event.chapter3.nella-ivers-consulted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.nella-consent-boundary", "policyId": "policy.chapter3.nella-consent-boundary", "claimType": "factDisclosed", "targetId": "fact.chapter3.nella-ivers-consent-boundary", "sourceRole": "assistant" }
+    ],
+    "nia-independent-custody": [
+      { "claimId": "claim.chapter3.nia-consulted", "policyId": "policy.chapter3.nia-consulted", "claimType": "eventOccurred", "targetId": "event.chapter3.nia-kessler-consulted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.nia-custody-demand", "policyId": "policy.chapter3.nia-custody-demand", "claimType": "factDisclosed", "targetId": "fact.chapter3.nia-kessler-custody-demand", "sourceRole": "assistant" }
+    ],
+    "asha-recipient-protection": [
+      { "claimId": "claim.chapter3.asha-consulted", "policyId": "policy.chapter3.asha-consulted", "claimType": "eventOccurred", "targetId": "event.chapter3.asha-prel-consulted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.asha-recipient-protection", "policyId": "policy.chapter3.asha-recipient-protection", "claimType": "factDisclosed", "targetId": "fact.chapter3.asha-prel-recipient-protection", "sourceRole": "assistant" }
+    ],
+    "message-authenticity": [
+      { "claimId": "claim.chapter3.message-authenticity-evidence", "policyId": "policy.chapter3.message-authenticity-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.message-authenticity-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.message-authenticity-disclosed", "policyId": "policy.chapter3.message-authenticity-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.message-authenticity", "sourceRole": "assistant" }
+    ],
+    "local-access-history": [
+      { "claimId": "claim.chapter3.local-access-history-evidence", "policyId": "policy.chapter3.local-access-history-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.local-access-history-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.local-access-history-disclosed", "policyId": "policy.chapter3.local-access-history-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.local-access-history", "sourceRole": "assistant" }
+    ],
+    "demeris-direct-routing": [
+      { "claimId": "claim.chapter3.demeris-direct-evidence", "policyId": "policy.chapter3.demeris-direct-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.demeris-routing-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.demeris-direct-disclosed", "policyId": "policy.chapter3.demeris-routing-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.demeris-routing", "sourceRole": "assistant" }
+    ],
+    "demeris-alternate-routing": [
+      { "claimId": "claim.chapter3.demeris-alternate-evidence", "policyId": "policy.chapter3.demeris-alternate-evidence", "claimType": "eventOccurred", "targetId": "event.chapter3.demeris-routing-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter3.demeris-alternate-disclosed", "policyId": "policy.chapter3.demeris-routing-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter3.demeris-routing", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
@@ -268,6 +296,46 @@
         { "claimId": "claim.chapter3.invented-attribution", "policyId": "policy.chapter3.farwatch-proven", "claimType": "factDisclosed", "targetId": "fact.chapter3.access-history-and-demeris-route", "sourceRole": "assistant" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    },
+    {
+      "id": "message-owner-consent-before-relay-custody",
+      "sequence": ["access-safe", "site-contact", "nella-consent-boundary", "message-authenticity", "relay-evidence", "local-access-history", "demeris-direct-routing", "direct-route", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 19, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
+        "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "restricted-family-disclosure",
+      "sequence": ["access-safe", "site-contact", "nia-independent-custody", "asha-recipient-protection", "message-authenticity", "relay-evidence", "local-access-history", "demeris-direct-routing", "direct-route", "relay-isolate-choice", "archive-restricted-choice", "relay-isolated", "archive-restricted"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 21, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
+        "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-restricted" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "relay-destroyed-demeris-corroboration",
+      "sequence": ["access-safe", "site-contact", "nella-consent-boundary", "message-authenticity", "relay-destroy-no-copy-choice", "relay-destroyed-no-copy", "archive-not-recovered", "demeris-alternate-routing", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "destroyed-without-copy", "dimension.chapter3.archive": "not-recovered" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
+    },
+    {
+      "id": "archive-not-recovered-alternate-lead",
+      "sequence": ["withdraw", "relay-left", "archive-not-recovered", "asha-recipient-protection", "demeris-alternate-routing", "alternate-route"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleWithdrawalForward", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter3.access": "handedOff", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "handedOff" },
+        "outcomeDimensions": { "dimension.chapter3.access": "withdrew", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "left-in-place", "dimension.chapter3.archive": "not-recovered" },
+        "transitionTargetId": "chapter-4-the-colony-that-stayed"
+      }
     }
   ]
 }
