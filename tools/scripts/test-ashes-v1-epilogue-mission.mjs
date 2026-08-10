@@ -53,6 +53,9 @@ assert.equal(definition.id, 'mission.epilogue-the-terms-we-keep');
 assert.equal(predecessor.transitions?.[0]?.target?.id, SOURCE_ID);
 assert.equal(definition.transitions?.[0]?.target?.kind, 'phase');
 assert.equal(definition.transitions?.[0]?.target?.id, COMPLETION_PHASE_ID);
+assert.deepEqual(definition.transitions?.[0]?.target?.campaignConclusion, {
+    endConditionId: 'completion.ashes.terms-we-keep-resolved',
+});
 assert.match(source, /## 23\. Epilogue Mission: The Terms We Keep/);
 
 const questTemplates = Array.isArray(packageData.questTemplates)

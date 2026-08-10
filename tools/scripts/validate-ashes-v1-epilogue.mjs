@@ -74,7 +74,8 @@ if (!legacyQuest || JSON.stringify(legacyQuest.missionGraph || null) !== '{}') {
 }
 if (definition.transitions?.length !== 1
     || definition.transitions[0]?.target?.kind !== 'phase'
-    || definition.transitions[0]?.target?.id !== COMPLETION_PHASE_ID) {
+    || definition.transitions[0]?.target?.id !== COMPLETION_PHASE_ID
+    || definition.transitions[0]?.target?.campaignConclusion?.endConditionId !== 'completion.ashes.terms-we-keep-resolved') {
     errors.push('epilogue must target the exact V1 authored-conclusion phase');
 }
 if (scenarios.definitionId !== definition.id) errors.push('scenario fixture definitionId mismatch');
