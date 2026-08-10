@@ -14,6 +14,7 @@ const CONNECTION_PROFILE_ARRAY_KEYS = Object.freeze([
 ]);
 export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
 const FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE = 'Return the final visible answer now. Do not return private reasoning, analysis tags, or planning notes.';
+const OPTIONAL_OPENAI_COMPATIBLE_PARAMETERS = new Set(['temperature', 'top_p']);
 
 function collectProfileArrays(root, keys = CONNECTION_PROFILE_ARRAY_KEYS) {
   const arrays = [];
@@ -413,30 +414,48 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, ret
   if (!config.model) throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', 'OpenAI-compatible model is missing.');
   const { system, prompt } = requestPrompts(request);
   const responseFormat = structuredResponseFormat(request);
-  const response = await fetchImpl(openAiEndpoint(config.baseUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-    },
-    credentials: 'omit',
-    ...(request.signal ? { signal: request.signal } : {}),
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        ...(system ? [{ role: 'system', content: system }] : []),
-        { role: 'user', content: prompt }
-      ],
-      temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
-      top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
-      max_tokens: requestMaxTokens(request, config),
-      stream: false,
-      ...(responseFormat ? { response_format: responseFormat } : {})
-    })
-  });
-  const textBody = await response.text();
-  let json = null;
-  try { json = textBody ? JSON.parse(textBody) : null; } catch { /* handled below */ }
+  const endpoint = openAiEndpoint(config.baseUrl);
+  const body = {
+    model: config.model,
+    messages: [
+      ...(system ? [{ role: 'system', content: system }] : []),
+      { role: 'user', content: prompt }
+    ],
+    temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
+    top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
+    max_tokens: requestMaxTokens(request, config),
+    stream: false,
+    ...(responseFormat ? { response_format: responseFormat } : {})
+  };
+  async function send(payload) {
+    const response = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+      },
+      credentials: 'omit',
+      ...(request.signal ? { signal: request.signal } : {}),
+      body: JSON.stringify(payload)
+    });
+    const textBody = await response.text();
+    let json = null;
+    try { json = textBody ? JSON.parse(textBody) : null; } catch { /* handled below */ }
+    return { response, textBody, json };
+  }
+
+  let result = await send(body);
+  const rejectedParameter = String(result.json?.error?.param || '').trim();
+  if (
+    !result.response.ok
+    && OPTIONAL_OPENAI_COMPATIBLE_PARAMETERS.has(rejectedParameter)
+    && Object.hasOwn(body, rejectedParameter)
+  ) {
+    const retryBody = { ...body };
+    delete retryBody[rejectedParameter];
+    result = await send(retryBody);
+  }
+  const { response, textBody, json } = result;
   if (!response.ok) {
     throw providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', `OpenAI-compatible request failed (${response.status}): ${textBody.slice(0, 500)}`, { status: response.status });
   }

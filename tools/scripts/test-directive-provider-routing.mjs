@@ -186,6 +186,84 @@ assert.deepEqual(utilityBody.response_format, {
   }
 });
 
+const optionalRetryCalls = [];
+const optionalRetryClient = createDirectiveProviderClient({
+  contextFactory: () => context,
+  settingsStore: store,
+  fetchImpl: async (url, options) => {
+    optionalRetryCalls.push({ url, options });
+    if (optionalRetryCalls.length === 1) {
+      return {
+        ok: false,
+        status: 400,
+        async text() {
+          return JSON.stringify({
+            error: {
+              message: 'temperature is unsupported for this model',
+              type: 'invalid_request_error',
+              param: 'temperature',
+              code: 'unsupported_parameter'
+            }
+          });
+        }
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({
+          choices: [{ message: { content: 'utility-after-optional-retry' } }]
+        });
+      }
+    };
+  }
+});
+const optionalRetryResult = await optionalRetryClient.generate('utilityJson', {
+  messages: [{ role: 'user', content: 'Return bounded JSON.' }],
+  parameters: { temperature: 0.05, top_p: 0.8, max_tokens: 256 }
+});
+assert.equal(optionalRetryResult.text, 'utility-after-optional-retry');
+assert.equal(optionalRetryCalls.length, 2);
+const optionalRetryFirstBody = JSON.parse(optionalRetryCalls[0].options.body);
+const optionalRetrySecondBody = JSON.parse(optionalRetryCalls[1].options.body);
+assert.equal(optionalRetryFirstBody.temperature, 0.05);
+assert.equal(Object.hasOwn(optionalRetrySecondBody, 'temperature'), false);
+assert.equal(optionalRetrySecondBody.model, optionalRetryFirstBody.model);
+assert.deepEqual(optionalRetrySecondBody.messages, optionalRetryFirstBody.messages);
+assert.equal(optionalRetrySecondBody.top_p, optionalRetryFirstBody.top_p);
+assert.equal(optionalRetrySecondBody.max_tokens, optionalRetryFirstBody.max_tokens);
+
+let requiredParameterFailureCalls = 0;
+const requiredParameterFailureClient = createDirectiveProviderClient({
+  contextFactory: () => context,
+  settingsStore: store,
+  fetchImpl: async () => {
+    requiredParameterFailureCalls += 1;
+    return {
+      ok: false,
+      status: 400,
+      async text() {
+        return JSON.stringify({
+          error: {
+            message: 'model is invalid',
+            type: 'invalid_request_error',
+            param: 'model',
+            code: 'invalid_model'
+          }
+        });
+      }
+    };
+  }
+});
+await assert.rejects(
+  requiredParameterFailureClient.generate('utilityJson', {
+    messages: [{ role: 'user', content: 'Do not retry required fields.' }]
+  }),
+  (error) => error?.code === 'DIRECTIVE_PROVIDER_REQUEST_FAILED'
+);
+assert.equal(requiredParameterFailureCalls, 1);
+
 const reasoningSchema = {
   type: 'object',
   additionalProperties: false,
