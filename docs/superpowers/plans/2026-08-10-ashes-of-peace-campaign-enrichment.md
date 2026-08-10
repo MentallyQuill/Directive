@@ -214,7 +214,7 @@ node tools/scripts/test-v1-mission-reducer.mjs
 
 Expected: PASS; the campaign scenario count increases by at least nine, both Prelude awards are independently and jointly reachable, and no unsupported custody route awards a point.
 
-- [ ] **Step 9: Commit the Prelude enrichment**
+- [x] **Step 9: Commit the Prelude enrichment**
 
 ```powershell
 git add docs/source/Directive_Ashes_of_Peace_Campaign_v0.2.md docs/authoring/ASHES_OF_PEACE_ENRICHMENT.md packages/bundled/breckenridge/ashes-of-peace.campaign-package.json packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json
@@ -278,7 +278,7 @@ Add to Chapter 2:
 
 Mention this capability in Chapter 2's joint-investigation path as leverage, never as automatic vindication.
 
-- [ ] **Step 6: Verify and commit Chapter 1**
+- [x] **Step 6: Verify and commit Chapter 1**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 
@@ -320,7 +320,7 @@ Provide four evidence routes: Sato's neutral medical timeline, Kieran's maneuver
 
 Add `capability.open-orders1.compact-verification-framework`, sourced from `dimension.chapter2.partnership=joint-framework`. Its summary must promise a functioning joint verification channel, not Compact trust or agreement.
 
-- [ ] **Step 5: Verify and commit Chapter 2**
+- [x] **Step 5: Verify and commit Chapter 2**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 
