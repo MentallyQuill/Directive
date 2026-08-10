@@ -445,6 +445,7 @@ assert.equal(quiet.status, 'settled-no-effect');
 assert.equal(quiet.diagnostics.acceptedClaimCount, 0);
 assert.equal(quietHarness.campaignState.mission.v1.revision, 0);
 assert.deepEqual(quietHarness.campaignState.mission.v1.evidenceLog, []);
+assert.deepEqual(quietHarness.campaignState.storySettlement?.episodes || [], []);
 assert.deepEqual(legacyRoots(quietHarness.campaignState), quietRoots);
 
 assert.equal(nameReportSnapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned, true);
