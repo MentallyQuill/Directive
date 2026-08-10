@@ -168,4 +168,3 @@
 - [ ] **Step 4: Commit, merge, and push**
 
   Commit the verified implementation on `codex/creator-assist-modal`, merge it into `main` without discarding unrelated work, rerun the focused gate on `main`, and push `main` to `origin`.
-

@@ -47,4 +47,3 @@ The modal uses `role="dialog"`, `aria-modal="true"`, a labelled title, polite li
 - Runtime shell tests cover close-triggered cancellation.
 - A browser layout contract verifies the command bar is non-sticky and commissioning buttons retain their minimum height with long content.
 - The complete V1 alpha gate must pass before merge.
-

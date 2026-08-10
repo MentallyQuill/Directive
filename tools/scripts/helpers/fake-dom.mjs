@@ -135,4 +135,3 @@ export function installFakeDom() {
   globalThis.document = document;
   return document;
 }
-
