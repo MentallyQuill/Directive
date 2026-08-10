@@ -1,6 +1,7 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
 import { createV1RuntimeArchitectureStamp } from '../runtime/v1-semantic-authority.mjs';
 import { createV1CommandBearing } from '../command/v1-command-bearing.mjs';
+import { createV1StateCustody } from '../runtime/v1-campaign-state.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -353,6 +354,7 @@ export function createInitialCampaignStateFromCreatorReview({
       },
       entries: [],
       updatedAt: timestamp
-    }
+    },
+    stateCustody: createV1StateCustody()
   };
 }
