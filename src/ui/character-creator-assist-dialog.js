@@ -77,6 +77,7 @@ export function createCharacterCreatorAssistDialog({
     dialog.setAttribute('aria-label', loadingTitle);
     progress.textContent = String(message || 'Generating with Reasoning...');
     body.replaceChildren(loading, loadingActions);
+    cancel.focus?.({ preventScroll: true });
   };
 
   const showResult = ({

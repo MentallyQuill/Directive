@@ -126,4 +126,15 @@ assert.equal(nameInput.value, 'Ari Venn', 'a late provider result must not alter
 assert.equal(saves.length, 1, 'a late provider result must not save');
 assert.equal(fakeDocument.querySelector('[data-creator-assist-modal="identity"]'), null, 'a late provider result must not reopen the modal');
 
+const serviceWand = body.querySelector('[data-creator-section-wand="service"]');
+void wand.click();
+await Promise.resolve();
+void serviceWand.click();
+await Promise.resolve();
+assert.equal(shell.inert, true, 'replacing an assist session must keep Directive inert for the new modal');
+const replacementModal = fakeDocument.querySelector('[data-creator-assist-modal="service"]');
+assert(replacementModal, 'the replacement session should own the visible modal');
+await replacementModal.querySelector('[data-creator-assist-action="cancel"]').click();
+assert.equal(shell.inert, false);
+
 console.log('Character Creator assist panel tests passed.');

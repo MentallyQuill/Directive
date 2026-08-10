@@ -483,6 +483,9 @@ function createCreatorSection(stepId, creator, activeStepId, {
       ? 'Generating with Reasoning from current details...'
       : 'Generating with Reasoning...';
     if (!assistDialog?.isOpen?.()) {
+      unregisterActiveAssist = registerActiveCreatorAssistSession({
+        cancel: (reason) => closeAssist(reason)
+      });
       assistDialog = createCharacterCreatorAssistDialog({
         sectionId: stepId,
         sectionLabel: step.label,
@@ -490,9 +493,6 @@ function createCreatorSection(stepId, creator, activeStepId, {
         opener: assistButton,
         progressMessage: initialMessage,
         onRequestClose: (reason) => closeAssist(reason)
-      });
-      unregisterActiveAssist = registerActiveCreatorAssistSession({
-        cancel: (reason) => closeAssist(reason)
       });
     } else {
       assistDialog.showProgress(initialMessage);

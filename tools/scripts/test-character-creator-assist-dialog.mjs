@@ -161,6 +161,8 @@ assert.equal(fakeDocument.activeElement, trappedClose, 'Tab should wrap from the
 trappedClose.focus();
 trappedAssist.dialog.dispatch('keydown', { key: 'Tab', shiftKey: true });
 assert.equal(fakeDocument.activeElement, trappedDismiss, 'Shift+Tab should wrap from the first modal action to the last');
+trappedAssist.showProgress('Generating another draft...');
+assert.equal(fakeDocument.activeElement?.dataset?.creatorAssistAction, 'cancel', 'regeneration should move focus into the loading state');
 trappedAssist.close();
 
 console.log('Character Creator assist dialog tests passed.');
