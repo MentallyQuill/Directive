@@ -18,6 +18,6 @@
 
 ## Live proof
 
-Offline tests do not prove installed behavior. A release candidate also needs a fresh SillyTavern user, installed-copy verification, new Ashes campaign start, multi-turn play, swipe-before-acceptance, edit/delete recovery, objective completion, a known clock, mission transition, restart/resume, mobile shell inspection, and confirmation that preview campaigns cannot activate.
+Offline tests do not prove installed behavior. A release candidate also needs a fresh SillyTavern user, installed-copy verification, new Ashes campaign start, multi-turn play, swipe-before-acceptance, edit/delete recovery, checkpoint create/load/delete with host-chat cleanup, objective completion, a known clock, mission transition, restart/resume, mobile shell inspection, and confirmation that preview campaigns cannot activate.
 
 Tests for removed runtimes, migration, compatibility, alternate ledgers, or unused UI are prohibited because they preserve the wrong architecture.

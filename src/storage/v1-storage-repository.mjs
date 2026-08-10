@@ -113,7 +113,22 @@ export function assertV1CampaignSave(save) {
   if (!['active', 'checkpoint'].includes(save.slotType)) {
     throw new Error('V1 campaign save slotType must be active or checkpoint');
   }
+  const activeSlot = save.slotType === 'active';
+  const validSlotRelation = activeSlot
+    ? save.parentSaveId === null
+    : typeof save.parentSaveId === 'string' && Boolean(save.parentSaveId.trim()) && SAFE_ID.test(save.parentSaveId);
+  if (!validSlotRelation) {
+    const error = new Error('Directive V1 save slot and parent relationship is invalid.');
+    error.code = 'DIRECTIVE_V1_SAVE_SLOT_RELATION_INVALID';
+    throw error;
+  }
   assertV1CampaignState(save.state);
+  const expectedBranchId = activeSlot ? save.id : save.parentSaveId;
+  if (save.state.mission?.v1?.branchId !== expectedBranchId) {
+    const error = new Error('Directive V1 save slot does not match its authoritative state branch.');
+    error.code = 'DIRECTIVE_V1_SAVE_BRANCH_MISMATCH';
+    throw error;
+  }
   if (save.campaignId !== save.state.campaign.id
     || save.packageId !== save.state.activeCampaignPackage.packageId
     || save.packageVersion !== save.state.activeCampaignPackage.packageVersion) {

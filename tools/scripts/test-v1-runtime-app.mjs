@@ -191,4 +191,46 @@ assert.equal(cancelled.applied, true);
 assert.equal(cancelled.commandBearing.balance, 1);
 assert.equal(cancelled.commandBearing.spends[cancelCandidate.spendId].status, 'refunded');
 
+const disposableCheckpoint = await app.saveGame({ name: 'Disposable checkpoint' });
+const checkpointChatId = disposableCheckpoint.checkpoint.state.campaignChatBinding.chatId;
+assert.ok(checkpointChatId);
+assert.equal(
+  disposableCheckpoint.checkpoint.state.campaignChatBinding.saveId,
+  disposableCheckpoint.checkpoint.parentSaveId,
+  'checkpoint chat metadata must retain the active V1 branch id'
+);
+const continuedCheckpoint = await app.loadCheckpoint({ checkpointId: disposableCheckpoint.checkpoint.id });
+assert.equal(continuedCheckpoint.timeline.state.campaignChatBinding.saveId, disposableCheckpoint.checkpoint.parentSaveId);
+assert.notEqual(continuedCheckpoint.timeline.state.campaignChatBinding.chatId, checkpointChatId);
+const checkpointDeletion = await app.deleteSave({ checkpointId: disposableCheckpoint.checkpoint.id });
+assert.equal(checkpointDeletion.result.deleted, true);
+assert.deepEqual(checkpointDeletion.chatCleanup, {
+  attempted: true,
+  deleted: true,
+  chatId: checkpointChatId
+});
+assert.equal(
+  chat.calls().some((call) => call.type === 'deleteCampaignChat' && call.chatId === checkpointChatId),
+  true,
+  'deleting a checkpoint must also delete its cloned host chat'
+);
+
+const cleanupFailureCheckpoint = await app.saveGame({ name: 'Cleanup failure checkpoint' });
+const deleteCampaignChat = host.chat.deleteCampaignChat;
+host.chat.deleteCampaignChat = async () => {
+  const error = new Error('fake checkpoint chat deletion failure');
+  error.code = 'FAKE_CHAT_DELETE_FAILED';
+  throw error;
+};
+const cleanupFailureDeletion = await app.deleteSave({ checkpointId: cleanupFailureCheckpoint.checkpoint.id });
+host.chat.deleteCampaignChat = deleteCampaignChat;
+assert.equal(cleanupFailureDeletion.result.deleted, true);
+assert.deepEqual(cleanupFailureDeletion.chatCleanup, {
+  attempted: true,
+  deleted: false,
+  reason: 'checkpoint-chat-delete-failed',
+  errorCode: 'FAKE_CHAT_DELETE_FAILED',
+  message: 'fake checkpoint chat deletion failure'
+});
+
 console.log('PASS V1 runtime app');

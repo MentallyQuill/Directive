@@ -892,7 +892,7 @@ export function createDirectiveRuntimeApp({
           targetName: `${state.campaign.title} - ${name}`,
           open: false,
           campaignId: state.campaign.id,
-          saveId: checkpoint.id,
+          saveId: checkpoint.parentSaveId,
           sourceBinding: state.campaignChatBinding
         });
         checkpoint = await controller.bindCheckpointChat({
@@ -928,8 +928,27 @@ export function createDirectiveRuntimeApp({
     },
 
     async deleteSave(options = {}) {
+      await ensureInitialized();
       const result = await controller.deleteSave(options);
-      return { result, view: await campaignViewEnvelope('campaign') };
+      const binding = result.slotType === 'checkpoint' ? result.campaignChatBinding : null;
+      let chatCleanup = { attempted: false, deleted: false, reason: 'no-checkpoint-chat' };
+      if (binding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
+        try {
+          chatCleanup = {
+            attempted: true,
+            ...(await host.chat.deleteCampaignChat(binding))
+          };
+        } catch (error) {
+          chatCleanup = {
+            attempted: true,
+            deleted: false,
+            reason: 'checkpoint-chat-delete-failed',
+            errorCode: compact(error?.code) || null,
+            message: compact(error?.message) || 'Checkpoint chat deletion failed.'
+          };
+        }
+      }
+      return { result, chatCleanup, view: await campaignViewEnvelope('campaign') };
     },
 
     verifyActiveSave: () => controller.verifyStorage(),

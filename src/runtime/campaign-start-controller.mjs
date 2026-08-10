@@ -334,7 +334,7 @@ export function createCampaignStartController({
         kind: 'directive.campaignChatBinding.v1',
         version: 1,
         campaignId: checkpoint.campaignId,
-        saveId: checkpoint.id,
+        saveId: checkpoint.parentSaveId,
         status: 'bound'
       };
       const next = createV1CampaignSave({
@@ -376,7 +376,13 @@ export function createCampaignStartController({
     async deleteSave({ checkpointId = null, saveId = null } = {}) {
       const id = required(checkpointId || saveId, 'saveId');
       if (id === activeSave?.id) throw new Error('The active V1 timeline cannot be deleted while it is open.');
-      return deleteV1CampaignSave(adapter, id, { now: currentTime() });
+      const save = await loadV1CampaignSave(adapter, id);
+      const deletion = await deleteV1CampaignSave(adapter, id, { now: currentTime() });
+      return {
+        ...deletion,
+        slotType: save.slotType,
+        campaignChatBinding: clone(save.state?.campaignChatBinding || null)
+      };
     },
 
     async loadGame({ saveId } = {}) {

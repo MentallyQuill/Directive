@@ -95,4 +95,21 @@ assert.equal(continuation.timeline.slotType, 'active');
 assert.equal(continuation.timeline.id, checkpoint.parentSaveId);
 assert.equal(controller.getActiveCampaignState().player.name, 'Ren Okada');
 
+const disposableCheckpoint = await controller.createCheckpoint({ name: 'Disposable checkpoint' });
+const boundDisposableCheckpoint = await controller.bindCheckpointChat({
+  checkpointId: disposableCheckpoint.id,
+  binding: {
+    hostId: 'fake',
+    chatId: 'fake-chat-disposable-checkpoint',
+    campaignId: disposableCheckpoint.campaignId,
+    saveId: disposableCheckpoint.id,
+    status: 'bound'
+  }
+});
+assert.equal(boundDisposableCheckpoint.state.campaignChatBinding.saveId, disposableCheckpoint.parentSaveId);
+const checkpointDeletion = await controller.deleteSave({ checkpointId: disposableCheckpoint.id });
+assert.equal(checkpointDeletion.deleted, true);
+assert.equal(checkpointDeletion.slotType, 'checkpoint');
+assert.equal(checkpointDeletion.campaignChatBinding.chatId, 'fake-chat-disposable-checkpoint');
+
 console.log('PASS V1 campaign controller');

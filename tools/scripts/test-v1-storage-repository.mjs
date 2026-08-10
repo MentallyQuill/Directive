@@ -84,6 +84,32 @@ const checkpoint = createV1CampaignSave({
 });
 await storeV1CampaignSave(adapter, checkpoint, { makeActive: false });
 assert.deepEqual((await listV1CampaignSaves(adapter)).map((entry) => entry.id), ['checkpoint.one', 'save.one']);
+
+assert.throws(() => createV1CampaignSave({
+  id: 'save.with-parent',
+  parentSaveId: 'save.one',
+  state: state(),
+  createdAt: '2026-08-10T00:03:00.000Z'
+}), (error) => error?.code === 'DIRECTIVE_V1_SAVE_SLOT_RELATION_INVALID');
+assert.throws(() => createV1CampaignSave({
+  id: 'checkpoint.without-parent',
+  slotType: 'checkpoint',
+  state: state(),
+  createdAt: '2026-08-10T00:03:00.000Z'
+}), (error) => error?.code === 'DIRECTIVE_V1_SAVE_SLOT_RELATION_INVALID');
+assert.throws(() => createV1CampaignSave({
+  id: 'save.wrong-branch',
+  state: state(),
+  createdAt: '2026-08-10T00:03:00.000Z'
+}), (error) => error?.code === 'DIRECTIVE_V1_SAVE_BRANCH_MISMATCH');
+assert.throws(() => createV1CampaignSave({
+  id: 'checkpoint.wrong-parent',
+  slotType: 'checkpoint',
+  parentSaveId: 'save.other',
+  state: state(),
+  createdAt: '2026-08-10T00:03:00.000Z'
+}), (error) => error?.code === 'DIRECTIVE_V1_SAVE_BRANCH_MISMATCH');
+
 await deleteV1CampaignSave(adapter, 'checkpoint.one', { now: '2026-08-10T00:04:00.000Z' });
 assert.deepEqual((await listV1CampaignSaves(adapter)).map((entry) => entry.id), ['save.one']);
 
