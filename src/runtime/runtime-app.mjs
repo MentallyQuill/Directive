@@ -398,6 +398,28 @@ export function createDirectiveRuntimeApp({
     if (!initialized) await publicApi.initialize();
   }
 
+  async function cleanupPlayerPortrait(portrait, reason) {
+    if (!portrait?.asset?.path) {
+      return { attempted: false, deleted: false, reason: 'no-player-portrait' };
+    }
+    try {
+      return {
+        attempted: true,
+        ...(await deleteV1PlayerPortrait(host.storage, portrait))
+      };
+    } catch (error) {
+      const cleanup = {
+        attempted: true,
+        deleted: false,
+        reason,
+        errorCode: compact(error?.code) || null,
+        message: compact(error?.message) || 'Player portrait cleanup failed.'
+      };
+      host.logger?.warn?.('[Directive] Player portrait cleanup failed.', cleanup);
+      return cleanup;
+    }
+  }
+
   async function commitBinding(binding, { updateHostMetadata = true } = {}) {
     const exact = {
       kind: 'directive.campaignChatBinding.v1',
@@ -811,17 +833,25 @@ export function createDirectiveRuntimeApp({
         ownerKind: 'creatorDraft', ownerId: activeDraftId, now
       });
       const previous = creatorView?.input?.identity?.portrait || null;
-      const result = await controller.saveCreatorDraft({
-        draftId: activeDraftId,
-        patch: {
-          activeStep: activeStep || creatorView.activeStep,
-          input: { ...clone(input), identity: { ...(input.identity || {}), portrait } }
-        },
-        reason: 'portraitImport'
-      });
+      let result;
+      try {
+        result = await controller.saveCreatorDraft({
+          draftId: activeDraftId,
+          patch: {
+            activeStep: activeStep || creatorView.activeStep,
+            input: { ...clone(input), identity: { ...(input.identity || {}), portrait } }
+          },
+          reason: 'portraitImport'
+        });
+      } catch (error) {
+        await cleanupPlayerPortrait(portrait, 'portrait-import-rollback-failed');
+        throw error;
+      }
       creatorView = result.view;
-      if (previous?.asset?.path && previous.asset.path !== portrait.asset.path) await deleteV1PlayerPortrait(host.storage, previous);
-      return { portrait: clone(portrait), view: await campaignViewEnvelope('campaign') };
+      const previousCleanup = previous?.asset?.path && previous.asset.path !== portrait.asset.path
+        ? await cleanupPlayerPortrait(previous, 'replaced-player-portrait-cleanup-failed')
+        : { attempted: false, deleted: false, reason: 'no-replaced-player-portrait' };
+      return { portrait: clone(portrait), previousCleanup, view: await campaignViewEnvelope('campaign') };
     },
 
     async removeCreatorPortrait({ input = {}, activeStep = null } = {}) {
@@ -836,8 +866,8 @@ export function createDirectiveRuntimeApp({
         reason: 'portraitRemove'
       });
       creatorView = result.view;
-      const deleteResult = previous ? await deleteV1PlayerPortrait(host.storage, previous) : null;
-      return { portrait: null, deleteResult, view: await campaignViewEnvelope('campaign') };
+      const portraitCleanup = await cleanupPlayerPortrait(previous, 'removed-player-portrait-cleanup-failed');
+      return { portrait: null, deleteResult: portraitCleanup, portraitCleanup, view: await campaignViewEnvelope('campaign') };
     },
 
     async returnCreatorToCampaignLibrary({ patch = null } = {}) {
@@ -849,11 +879,17 @@ export function createDirectiveRuntimeApp({
     },
 
     async discardCreatorDraft() {
-      await controller.discardCreatorDraft({ draftId: activeDraftId });
+      const portrait = clone(creatorView?.input?.identity?.portrait || null);
+      const result = await controller.discardCreatorDraft({ draftId: activeDraftId });
+      const portraitCleanup = await cleanupPlayerPortrait(portrait, 'discarded-draft-portrait-cleanup-failed');
       activeScreen = 'campaign';
       creatorView = null;
       activeDraftId = null;
-      return campaignViewEnvelope('campaign');
+      return {
+        ...(await campaignViewEnvelope('campaign')),
+        discardResult: clone(result),
+        portraitCleanup
+      };
     },
 
     async acceptCreatorDraftAndStartCampaign({ simulationMode = 'Command' } = {}) {

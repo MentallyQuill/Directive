@@ -33,12 +33,17 @@ const records = {
 
 const chat = createFakeChatAdapter({ chatId: 'unbound-chat' });
 const jsonStorage = createFakeJsonStorage();
+const storedPortraitPaths = [];
+const deletedPortraitPaths = [];
 const storage = {
   ...jsonStorage,
   async writeBase64File(fileName) {
-    return { ok: true, fileName, path: `/user/files/${fileName}` };
+    const path = `/user/files/${fileName}`;
+    storedPortraitPaths.push(path);
+    return { ok: true, fileName, path };
   },
   async deleteFile(path) {
+    deletedPortraitPaths.push(path);
     return { ok: true, path };
   }
 };
@@ -61,7 +66,14 @@ const generation = createFakeGenerationClient({
     }
   }
 });
-const host = createFakeDirectiveHost({ chatNative: true, chat, generation, storage });
+const runtimeWarnings = [];
+const host = createFakeDirectiveHost({
+  chatNative: true,
+  chat,
+  generation,
+  storage,
+  logger: { warn: (...args) => runtimeWarnings.push(args), info() {}, error() {} }
+});
 let nextId = 0;
 let nextMinute = 0;
 let app = createDirectiveRuntimeApp({
@@ -84,6 +96,72 @@ const incompleteStorageView = await createDirectiveRuntimeApp({
   now: () => '2026-08-10T03:00:00.000Z'
 }).initialize();
 assert.deepEqual(incompleteStorageView.media, { playerPortraitImportSupported: false });
+
+await app.startCreatorDraft();
+const disposablePortrait = await app.importCreatorPortrait({
+  bytes: new Uint8Array([1, 2, 3, 4]),
+  mimeType: 'image/png',
+  fileName: 'disposable.png'
+});
+const discardedDraft = await app.discardCreatorDraft();
+assert.equal(discardedDraft.kind, 'directive.runtimeView.v1');
+assert.deepEqual(discardedDraft.portraitCleanup, {
+  attempted: true,
+  deleted: true,
+  path: disposablePortrait.portrait.asset.path
+});
+assert.equal(deletedPortraitPaths.includes(disposablePortrait.portrait.asset.path), true);
+
+await app.startCreatorDraft();
+const writeJson = host.storage.writeJson;
+host.storage.writeJson = async (path, value) => {
+  if (String(path).startsWith('v1/drafts/')) {
+    const error = new Error('fake draft save failure');
+    error.code = 'FAKE_DRAFT_SAVE_FAILED';
+    throw error;
+  }
+  return writeJson.call(host.storage, path, value);
+};
+const storedBeforeFailedImport = storedPortraitPaths.length;
+const deletedBeforeFailedImport = deletedPortraitPaths.length;
+await assert.rejects(
+  app.importCreatorPortrait({
+    bytes: new Uint8Array([5, 6, 7, 8]),
+    mimeType: 'image/png',
+    fileName: 'must-be-removed.png'
+  }),
+  (error) => error?.code === 'FAKE_DRAFT_SAVE_FAILED'
+);
+host.storage.writeJson = writeJson;
+assert.equal(storedPortraitPaths.length, storedBeforeFailedImport + 1);
+assert.equal(deletedPortraitPaths.length, deletedBeforeFailedImport + 1);
+assert.equal(deletedPortraitPaths.at(-1), storedPortraitPaths.at(-1));
+await app.discardCreatorDraft();
+
+await app.startCreatorDraft();
+await app.importCreatorPortrait({
+  bytes: new Uint8Array([9, 10, 11, 12]),
+  mimeType: 'image/png',
+  fileName: 'cleanup-warning.png'
+});
+const deleteFile = host.storage.deleteFile;
+host.storage.deleteFile = async () => {
+  const error = new Error('fake portrait cleanup failure');
+  error.code = 'FAKE_PORTRAIT_DELETE_FAILED';
+  throw error;
+};
+const removedPortrait = await app.removeCreatorPortrait();
+host.storage.deleteFile = deleteFile;
+assert.deepEqual(removedPortrait.portraitCleanup, {
+  attempted: true,
+  deleted: false,
+  reason: 'removed-player-portrait-cleanup-failed',
+  errorCode: 'FAKE_PORTRAIT_DELETE_FAILED',
+  message: 'fake portrait cleanup failure'
+});
+assert.equal(runtimeWarnings.some(([message]) => message === '[Directive] Player portrait cleanup failed.'), true);
+assert.equal(removedPortrait.view.creator.input.identity.portrait, null);
+await app.discardCreatorDraft();
 
 await app.startCreatorDraft();
 await app.saveCreatorDraft({
