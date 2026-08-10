@@ -11,6 +11,7 @@ class Element {
     this.className = '';
     this.textContent = '';
     this.tabIndex = 0;
+    this.disabled = false;
     this.classList = {
       add: (...names) => {
         const classes = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -27,10 +28,17 @@ class Element {
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  replaceChildren(...children) {
+    this.children = [];
+    children.forEach((child) => this.appendChild(child));
+  }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
+  click() {
+    if (!this.disabled) this.listeners.get('click')?.({ currentTarget: this });
+  }
 }
 
 globalThis.document = {
@@ -64,7 +72,10 @@ const byData = (root, key, value) => all(root).filter((node) => node.dataset[key
 const textOf = (root) => all(root).map((node) => node.textContent || '').join(' ');
 
 resetCampaignPanelState();
-renderCampaignPanel(body, view, {});
+let startCampaignCalls = 0;
+renderCampaignPanel(body, view, {
+  startCreatorDraft: () => { startCampaignCalls += 1; }
+});
 
 assert.equal(byClass(body, 'campaign-layout').length, 1);
 assert.equal(byClass(body, 'campaign-master').length, 1);
@@ -73,13 +84,29 @@ assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 2);
 
 const previews = byData(body, 'campaignAvailability', 'coming-later');
 assert.equal(previews.length, 1);
-assert.equal(previews[0].getAttribute('aria-disabled'), 'true');
-assert.equal(previews[0].tabIndex, -1);
-assert.equal(previews[0].listeners.has('click'), false);
-assert.match(textOf(previews[0]), /Coming later/);
+assert.equal(previews[0].tagName, 'BUTTON');
+assert.equal(previews[0].getAttribute('aria-disabled'), null);
+assert.equal(previews[0].tabIndex, 0);
+assert.equal(previews[0].listeners.has('click'), true);
+assert.doesNotMatch(textOf(previews[0]), /Coming later/i);
 assert.match(textOf(previews[0]), /Current approved campaign description\./);
-
 assert.match(textOf(body), /Current save/);
 assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Import package/i);
+
+previews[0].click();
+
+const futureDetail = byClass(body, 'campaign-library-hero')[0];
+assert.ok(futureDetail);
+assert.equal(futureDetail.dataset.campaignAvailability, 'coming-later');
+assert.equal(futureDetail.classList.contains('is-coming-later'), true);
+assert.match(textOf(futureDetail), /Coming later/);
+assert.match(textOf(futureDetail), /Drowned Constellation/);
+assert.match(textOf(futureDetail), /Current approved campaign description\./);
+const futureAction = byClass(body, 'campaign-command-primary')[0];
+assert.ok(futureAction);
+assert.match(textOf(futureAction), /New campaign/);
+assert.equal(futureAction.disabled, true);
+futureAction.click();
+assert.equal(startCampaignCalls, 0);
 
 console.log('PASS certified Campaign panel');
