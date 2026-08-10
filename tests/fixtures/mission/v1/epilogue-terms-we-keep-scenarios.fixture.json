@@ -1,0 +1,157 @@
+{
+  "kind": "directive.ashesV1EpilogueScenarios.v1",
+  "definitionId": "mission.epilogue-the-terms-we-keep",
+  "fragments": {
+    "aftermath": [
+      { "claimId": "claim.epilogue.aftermath-report", "policyId": "policy.epilogue.aftermath-report", "claimType": "eventOccurred", "targetId": "event.epilogue.aftermath-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.aftermath-disclosed", "policyId": "policy.epilogue.aftermath-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.aftermath-record", "sourceRole": "assistant" }
+    ],
+    "authority-position": [
+      { "claimId": "claim.epilogue.authority-position", "policyId": "policy.epilogue.authority-position", "claimType": "decisionRecorded", "targetId": "outcome.epilogue.authority-position", "value": "positionStated", "sourceRole": "user" }
+    ],
+    "accountability-position": [
+      { "claimId": "claim.epilogue.accountability-position", "policyId": "policy.epilogue.accountability-position", "claimType": "decisionRecorded", "targetId": "outcome.epilogue.accountability-position", "value": "positionStated", "sourceRole": "user" }
+    ],
+    "settlement-accountable": [
+      { "claimId": "claim.epilogue.settlement-report", "policyId": "policy.epilogue.settlement-report", "claimType": "eventOccurred", "targetId": "event.epilogue.settlement-record-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.compact-mutual-aid", "policyId": "policy.epilogue.compact-status", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.compact-status", "value": "mutualAidBody", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.defense-joint", "policyId": "policy.epilogue.defense-control", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.defense-control", "value": "jointCommand", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.farwatch-public", "policyId": "policy.epilogue.farwatch-accountability", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.farwatch-accountability", "value": "publicInquiry", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.lantern-joint", "policyId": "policy.epilogue.lantern-custody", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.lantern-custody", "value": "jointCustody", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.cardassian-partners", "policyId": "policy.epilogue.cardassian-participation", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.cardassian-participation", "value": "witnessesAndPartners", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.narrative-joint", "policyId": "policy.epilogue.public-narrative", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.public-narrative", "value": "jointPrevention", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.settlement-disclosed", "policyId": "policy.epilogue.settlement-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.settlement-account", "sourceRole": "assistant" }
+    ],
+    "settlement-managed": [
+      { "claimId": "claim.epilogue.settlement-report", "policyId": "policy.epilogue.settlement-report", "claimType": "eventOccurred", "targetId": "event.epilogue.settlement-record-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.compact-sunset", "policyId": "policy.epilogue.compact-status", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.compact-status", "value": "sunsetCharter", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.defense-starfleet", "policyId": "policy.epilogue.defense-control", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.defense-control", "value": "starfleetControl", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.farwatch-classified", "policyId": "policy.epilogue.farwatch-accountability", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.farwatch-accountability", "value": "classifiedReview", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.lantern-starfleet", "policyId": "policy.epilogue.lantern-custody", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.lantern-custody", "value": "starfleetCustody", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.cardassian-technical", "policyId": "policy.epilogue.cardassian-participation", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.cardassian-participation", "value": "technicalCooperation", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.narrative-communities", "policyId": "policy.epilogue.public-narrative", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.public-narrative", "value": "communitiesSelfSaved", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.settlement-disclosed", "policyId": "policy.epilogue.settlement-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.settlement-account", "sourceRole": "assistant" }
+    ],
+    "settlement-contested": [
+      { "claimId": "claim.epilogue.settlement-report", "policyId": "policy.epilogue.settlement-report", "claimType": "eventOccurred", "targetId": "event.epilogue.settlement-record-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.compact-divided", "policyId": "policy.epilogue.compact-status", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.compact-status", "value": "dividedSystems", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.defense-local", "policyId": "policy.epilogue.defense-control", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.defense-control", "value": "localSharedAuthentication", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.farwatch-partial", "policyId": "policy.epilogue.farwatch-accountability", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.farwatch-accountability", "value": "partialExposure", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.lantern-missing", "policyId": "policy.epilogue.lantern-custody", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.lantern-custody", "value": "fragmentedMissing", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.cardassian-excluded", "policyId": "policy.epilogue.cardassian-participation", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.cardassian-participation", "value": "excluded", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.narrative-contested", "policyId": "policy.epilogue.public-narrative", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.public-narrative", "value": "truthClassifiedContested", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.settlement-disclosed", "policyId": "policy.epilogue.settlement-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.settlement-account", "sourceRole": "assistant" }
+    ],
+    "settlement-without-disclosure": [
+      { "claimId": "claim.epilogue.settlement-report", "policyId": "policy.epilogue.settlement-report", "claimType": "eventOccurred", "targetId": "event.epilogue.settlement-record-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.compact-mutual-aid", "policyId": "policy.epilogue.compact-status", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.compact-status", "value": "mutualAidBody", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.defense-joint", "policyId": "policy.epilogue.defense-control", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.defense-control", "value": "jointCommand", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.farwatch-public", "policyId": "policy.epilogue.farwatch-accountability", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.farwatch-accountability", "value": "publicInquiry", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.lantern-joint", "policyId": "policy.epilogue.lantern-custody", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.lantern-custody", "value": "jointCustody", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.cardassian-partners", "policyId": "policy.epilogue.cardassian-participation", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.cardassian-participation", "value": "witnessesAndPartners", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.narrative-joint", "policyId": "policy.epilogue.public-narrative", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.public-narrative", "value": "jointPrevention", "sourceRole": "assistant" }
+    ],
+    "command-expanded": [
+      { "claimId": "claim.epilogue.command-report", "policyId": "policy.epilogue.command-report", "claimType": "eventOccurred", "targetId": "event.epilogue.command-review-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-expanded", "policyId": "policy.epilogue.command-future", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.command-future", "value": "broaderAuthority", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-disclosed", "policyId": "policy.epilogue.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.command-review", "sourceRole": "assistant" }
+    ],
+    "command-continued": [
+      { "claimId": "claim.epilogue.command-report", "policyId": "policy.epilogue.command-report", "claimType": "eventOccurred", "targetId": "event.epilogue.command-review-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-continued", "policyId": "policy.epilogue.command-future", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.command-future", "value": "continuedAuthority", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-disclosed", "policyId": "policy.epilogue.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.command-review", "sourceRole": "assistant" }
+    ],
+    "command-bounded": [
+      { "claimId": "claim.epilogue.command-report", "policyId": "policy.epilogue.command-report", "claimType": "eventOccurred", "targetId": "event.epilogue.command-review-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-bounded", "policyId": "policy.epilogue.command-future", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.command-future", "value": "boundedAuthority", "sourceRole": "assistant" },
+      { "claimId": "claim.epilogue.command-disclosed", "policyId": "policy.epilogue.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.epilogue.command-review", "sourceRole": "assistant" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "accountable-peace",
+      "sequence": ["aftermath", "authority-position", "accountability-position", "settlement-accountable", "command-expanded"],
+      "expected": { "status": "terminal", "terminalDisposition": "accountablePeace", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "transitionTargetId": "ashes-authored-conclusion", "outcomeDimensions": { "dimension.epilogue.compact": "mutual-aid-body", "dimension.epilogue.defense": "joint-command", "dimension.epilogue.command": "broader-authority" } }
+    },
+    {
+      "id": "managed-settlement-nonlinear",
+      "sequence": ["aftermath", "command-continued", "accountability-position", "authority-position", "settlement-managed"],
+      "expected": { "status": "terminal", "terminalDisposition": "managedSettlement", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "transitionTargetId": "ashes-authored-conclusion" }
+    },
+    {
+      "id": "contested-aftermath",
+      "sequence": ["aftermath", "accountability-position", "authority-position", "settlement-contested", "command-bounded"],
+      "expected": { "status": "terminal", "terminalDisposition": "contestedAftermath", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "transitionTargetId": "ashes-authored-conclusion", "outcomeDimensions": { "dimension.epilogue.lantern": "fragmented-or-missing", "dimension.epilogue.public-narrative": "truth-classified-and-contested" } }
+    },
+    {
+      "id": "positions-alone-do-not-close",
+      "sequence": ["aftermath", "authority-position", "accountability-position"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "transitionTargetId": null }
+    },
+    {
+      "id": "command-review-before-settlement",
+      "sequence": ["aftermath", "command-expanded"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.epilogue.command": "completed" }, "transitionTargetId": null }
+    },
+    {
+      "id": "settlement-before-prerequisites-rejected",
+      "sequence": ["settlement-accountable"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"], "transitionTargetId": null }
+    },
+    {
+      "id": "settlement-missing-accountability-rejected",
+      "sequence": ["aftermath", "authority-position", "settlement-accountable"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"], "transitionTargetId": null }
+    },
+    {
+      "id": "settlement-without-disclosure-does-not-resolve",
+      "sequence": ["aftermath", "authority-position", "accountability-position", "settlement-without-disclosure"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.epilogue.authority": null, "objective.epilogue.accountability": null }, "transitionTargetId": null }
+    },
+    {
+      "id": "assistant-cannot-state-player-authority-position",
+      "steps": [
+        { "claimId": "claim.epilogue.assistant-authority", "policyId": "policy.epilogue.authority-position", "claimType": "decisionRecorded", "targetId": "outcome.epilogue.authority-position", "value": "positionStated", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "user-cannot-self-certify-settlement",
+      "steps": [
+        { "claimId": "claim.epilogue.user-defense", "policyId": "policy.epilogue.defense-control", "claimType": "outcomeObserved", "targetId": "outcome.epilogue.defense-control", "value": "jointCommand", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "settlement-cannot-be-rewritten",
+      "sequence": ["aftermath", "authority-position", "accountability-position", "settlement-accountable", "settlement-contested"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 12, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"], "objectiveDispositions": { "objective.epilogue.authority": "completed", "objective.epilogue.accountability": "completed" }, "outcomeDimensions": { "dimension.epilogue.compact": "mutual-aid-body" }, "transitionTargetId": null }
+    },
+    {
+      "id": "command-review-cannot-be-rewritten",
+      "sequence": ["aftermath", "command-expanded", "command-bounded"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met"], "objectiveDispositions": { "objective.epilogue.command": "completed" }, "outcomeDimensions": { "dimension.epilogue.command": "broader-authority" }, "transitionTargetId": null }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.epilogue.stale", "policyId": "policy.epilogue.authority-position", "claimType": "decisionRecorded", "targetId": "outcome.epilogue.authority-position", "value": "positionStated", "sourceRole": "user", "baseRevisionOffset": -1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"], "transitionTargetId": null }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.epilogue.wrong-swipe", "policyId": "policy.epilogue.aftermath-report", "claimType": "eventOccurred", "targetId": "event.epilogue.aftermath-report-complete", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.rejected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-not-accepted"], "transitionTargetId": null }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.epilogue.hallucinated", "policyId": "policy.epilogue.does-not-exist", "claimType": "eventOccurred", "targetId": "event.epilogue.aftermath-report-complete", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"], "transitionTargetId": null }
+    }
+  ]
+}
