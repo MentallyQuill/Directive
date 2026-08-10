@@ -29,6 +29,23 @@
         "label": "Orison Authentication Record",
         "summary": "A verified record of the Sigma-4 authentication path is available for defense transition, evidence review, and controlled deactivation work."
       }
+    },
+    {
+      "id": "capability.open-orders2.medical-supply-safeguards",
+      "source": {
+        "definitionId": "mission.prelude-a-ship-underway",
+        "definitionVersion": "1.0.0",
+        "requirements": [
+          {
+            "dimensionId": "dimension.prelude.redline",
+            "in": ["contained-lawful-custody", "contained-treatment-handoff"]
+          }
+        ]
+      },
+      "playerText": {
+        "label": "Medical Supply Safeguards",
+        "summary": "Sato has a trusted chain for reconciling medical inventory, confidentiality, and duty-fitness concerns. It can change who volunteers information; it does not change treatment efficacy or imply that Vos's therapy is redline."
+      }
     }
   ],
   "facts": [
@@ -71,9 +88,294 @@
       "playerText": {
         "summary": "Priya and Rowan corroborated a current Starfleet Intelligence credential path in the Hecate relay records. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, Kessler now knows Starfleet may have withheld relevant knowledge, and Pale Lantern is advancing toward defense-system integration."
       }
+    },
+    {
+      "id": "fact.open-orders2.tonn-constituency",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Varrik Tonn answers to platform crews and isolated settlements that survived raids because the old defenses remained active; his concealment of the fault was culpable, but fear of unilateral dismantlement is grounded in lived security dependence."
+      }
+    },
+    {
+      "id": "fact.open-orders2.orison-record-scope",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The Orison authentication record can establish the targeting fault and safe technical boundaries, but it cannot supply Tonn's consent or decide whether deactivation, shared control, conversion, or bounded retention is legitimate."
+      }
+    },
+    {
+      "id": "fact.open-orders2.vos-consent-framework",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Doctor Eren Vos separates treatment access, informed consent, duty fitness, and employment pressure; the therapy's clinical value does not authorize an employer or commander to coerce it."
+      }
+    },
+    {
+      "id": "fact.open-orders2.aven-ril-refusal",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Aven Ril values the relief some patients report but refuses treatment because he fears losing the emotions that anchor his wartime memories; Vos regards that informed refusal as clinically legitimate."
+      }
+    },
+    {
+      "id": "fact.open-orders2.marta-keene-pressure",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Essential worker Marta Keene wants treatment but fears that disclosing symptoms or side effects will cost her duty clearance, pay, and housing priority."
+      }
+    },
+    {
+      "id": "fact.open-orders2.redline-trust-echo",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Because Sato can demonstrate an accountable inventory and confidentiality chain, Keene volunteers a discrepancy between her chart, duty-fitness file, and employer report. The safeguard changes disclosure, not the therapy's efficacy, and the therapy is not redline."
+      }
+    },
+    {
+      "id": "fact.open-orders2.observatory-publication-position",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The independent Pallas Civil Observatory owns a clean comparison baseline and wants the corrected forecast published promptly with methods and uncertainty intact."
+      }
+    },
+    {
+      "id": "fact.open-orders2.compact-planner-warning-position",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Compact contingency planner Jori An accepts the long-term danger but fears an uncertain short-term collapse warning will trigger hoarding and flight; An supports a bounded warning and independent review rather than suppression."
+      }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.open-orders2.tonn-constituency-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.tonn-constituency-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.last-watch-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Tonn or accountable representatives of platform crews and dependent settlements explain what security the defenses provided and why unilateral dismantlement is feared.",
+        "exclusions": ["Tonn defending himself, a platform inspection, or a generic claim that settlements need protection is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.tonn-constituency",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.tonn-constituency",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.tonn-constituency" }, { "eventOccurred": "event.open-orders2.tonn-constituency-heard" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Tonn's constituency and grounded security fear without excusing concealment of the targeting fault.",
+        "exclusions": ["Do not imply platform dependence proves the current network is safe or grants Tonn unilateral authority."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.orison-record-reviewed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.orison-record-reviewed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          { "capabilityAvailable": "capability.open-orders2.orison-authentication-record" },
+          { "factKnown": "fact.open-orders2.tonn-constituency" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when the Sigma-4 record, platform logs, or equivalent verified authentication evidence is actually reviewed against the defense fault and available technical options.",
+        "exclusions": ["Possessing a record, naming a fault, or assuming technical proof settles authority is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.orison-record-scope",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.orison-record-scope",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.orison-record-scope" }, { "eventOccurred": "event.open-orders2.orison-record-reviewed" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose both the record's technical leverage and its limit: it does not supply consent or decide legitimate custody and defense policy.",
+        "exclusions": ["Do not turn verified authentication evidence into automatic deactivation authority or Orison Defense Codes."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.vos-consent-framework",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.vos-consent-framework",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.vos-consent-framework" }, { "eventOccurred": "event.open-orders2.second-opinion-assessed" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Doctor Vos's separation of access, consent, duty fitness, and employment pressure after the assessment supports it.",
+        "exclusions": ["Do not make clinical benefit override refusal or make duty fitness an employer-controlled treatment decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.aven-ril-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.aven-ril-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Aven Ril gives an informed account of why he refuses treatment despite recognizing possible benefit.",
+        "exclusions": ["A chart refusal, generalized fear, or another person describing Ril's motives is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.aven-ril-refusal",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.aven-ril-refusal",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.aven-ril-refusal" }, { "eventOccurred": "event.open-orders2.aven-ril-heard" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Ril's memory-anchoring concern and Vos's recognition that his informed refusal is legitimate.",
+        "exclusions": ["Do not call refusal incapacity, treatment failure, or proof the therapy removes emotion in every patient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.marta-keene-heard",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.marta-keene-heard",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.second-opinion-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Marta Keene privately explains both her desire for treatment and the duty, pay, and housing consequences she fears.",
+        "exclusions": ["An employer report, inferred reluctance, or a general workforce shortage is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.marta-keene-pressure",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.marta-keene-pressure",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.marta-keene-pressure" }, { "eventOccurred": "event.open-orders2.marta-keene-heard" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Keene's separate treatment preference and employment fear without collapsing either into duty fitness.",
+        "exclusions": ["Do not infer consent from wanting treatment or fitness from economic necessity."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.redline-trust-used",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.redline-trust-used",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "capabilityAvailable": "capability.open-orders2.medical-supply-safeguards" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Sato actively uses the previously earned inventory, confidentiality, and duty-fitness safeguards and that accountability causes someone to volunteer relevant information.",
+        "exclusions": ["Prior redline knowledge alone, ordinary confidentiality, or a clinical result is insufficient; Vos's therapy is not redline."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.redline-trust-echo",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.redline-trust-echo",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.redline-trust-echo" }, { "eventOccurred": "event.open-orders2.redline-trust-used" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the volunteered chart-duty discrepancy and explicitly bound the continuity: it changes trust and information flow, not treatment efficacy or causation.",
+        "exclusions": ["Do not imply the therapy contains redline, was caused by redline, or becomes safer because the Prelude case was handled well."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.observatory-consulted",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.observatory-consulted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after the Pallas Civil Observatory reviews its baseline comparison and states its publication terms as an independent evidence owner.",
+        "exclusions": ["Using observatory data without consultation or assuming civilian ownership means immediate publication is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.observatory-publication-position",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.observatory-publication-position",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.observatory-publication-position" }, { "eventOccurred": "event.open-orders2.observatory-consulted" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the observatory's clean baseline and demand for prompt corrected publication with methods and uncertainty intact.",
+        "exclusions": ["Do not portray prompt publication as certainty or consent to strip caveats."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.compact-planner-consulted",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.compact-planner-consulted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders2.unwelcome-result-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Compact planner Jori An reviews the uncertainty and states the operational harm feared from an overstated short-term warning.",
+        "exclusions": ["Generic political caution, a request to suppress results, or an unconsulted Compact official is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.compact-planner-warning-position",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders2.compact-planner-warning-position",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders2.compact-planner-warning-position" }, { "eventOccurred": "event.open-orders2.compact-planner-consulted" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose An's support for a bounded warning and independent review, together with the feared hoarding and flight cost.",
+        "exclusions": ["Do not equate bounded warning with suppression or let anticipated panic invalidate the long-term risk."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.last-watch-transition-weighed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.last-watch-transition-weighed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.last-watch-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after deactivation, shared control, civilian conversion, and bounded retention are weighed against the targeting fault and Tonn's constituency before a result.",
+        "exclusions": ["Listing options, technical repair alone, or treating the authentication record as consent is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.second-opinion-consent-weighed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.second-opinion-consent-weighed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.second-opinion-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after treatment access, refusal, duty fitness, and employment pressure are separately weighed before the care disposition.",
+        "exclusions": ["One patient interview, one clinical outcome, or declaring the therapy safe is insufficient."]
+      }
+    },
+    {
+      "id": "policy.open-orders2.unwelcome-ownership-weighed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders2.unwelcome-ownership-weighed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders2.unwelcome-result-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after correction, independent review, bounded warning, prompt publication, suppression, and responsible handoff are weighed with evidence owners before the forecast disposition.",
+        "exclusions": ["Correcting one number, consulting only Rowan, or choosing secrecy without an accountable owner is insufficient."]
+      }
+    },
     {
       "id": "policy.open-orders2.last-watch-engagement",
       "claimType": "decisionRecorded",
@@ -130,13 +432,18 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders2.last-watch-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders2.last-watch-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.last-watch-assessment" },
+          { "eventOccurred": "event.open-orders2.last-watch-transition-weighed" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of The Last Watch after the assessment is player-known.",
         "values": [
-          { "value": "assetEarned", "guidance": "The targeting fault is responsibly corrected and a defensible local authority transition actually earns the Orison Defense Codes." },
-          { "value": "resolvedWithoutAsset", "guidance": "The immediate safety and authority problem receives a responsible but materially limited disposition without the codes asset." },
+          { "value": "assetEarned", "guidance": "The targeting fault is responsibly corrected and deactivation, shared control, civilian conversion, or bounded retention produces a defensible local authority transition that actually earns the Orison Defense Codes." },
+          { "value": "resolvedWithoutAsset", "guidance": "The immediate safety problem is contained, but consent, constituency, technical record, or durable authority remains materially limited without the codes asset." },
           { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known targeting or authority risk is deliberately mishandled or rejected." }
         ],
         "exclusions": ["Selecting, delegating, inspecting, repairing one component, or promising support does not establish the result."]
@@ -198,13 +505,18 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders2.second-opinion-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders2.second-opinion-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.second-opinion-assessment" },
+          { "eventOccurred": "event.open-orders2.second-opinion-consent-weighed" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Second Opinion after the assessment is player-known.",
         "values": [
-          { "value": "assetEarned", "guidance": "Protected voluntary access, honest risk disclosure, and sustainable clinical cooperation actually earn the Asterion Medical Cooperative." },
-          { "value": "resolvedWithoutAsset", "guidance": "The immediate care and consent problem receives a responsible but materially limited disposition without the cooperative asset." },
+          { "value": "assetEarned", "guidance": "Protected voluntary access, honored refusal, separate duty-fitness review, honest risk disclosure, and sustainable clinical cooperation actually earn the Asterion Medical Cooperative." },
+          { "value": "resolvedWithoutAsset", "guidance": "Care or consent receives a responsible but materially limited disposition, such as honoring refusal or handing off workforce pressure without securing the cooperative asset." },
           { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known consent, risk, or access problem is deliberately mishandled." }
         ],
         "exclusions": ["Selecting, delegating, ordering a study, treating one person, or declaring the therapy safe does not establish the result."]
@@ -266,14 +578,19 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders2.unwelcome-result-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders2.unwelcome-result-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders2.unwelcome-result-assessment" },
+          { "eventOccurred": "event.open-orders2.unwelcome-ownership-weighed" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of An Unwelcome Result after the assessment is player-known.",
         "values": [
-          { "value": "assetEarned", "guidance": "The forecast is transparently corrected without suppressing its sound long-term warning, actually earning the Regional Sensor Baseline." },
-          { "value": "resolvedWithoutAsset", "guidance": "The immediate scientific dispute receives a responsible but materially limited disposition without the baseline asset." },
-          { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails after the known uncertainty, contamination, or long-term risk is deliberately mishandled." }
+          { "value": "assetEarned", "guidance": "The forecast is independently reviewed and transparently corrected, with a bounded warning that preserves its sound long-term risk and actually earns the Regional Sensor Baseline." },
+          { "value": "resolvedWithoutAsset", "guidance": "Correction, bounded warning, or responsible handoff addresses the dispute with a recorded publication, timing, or uncertainty cost but without the baseline asset." },
+          { "value": "failedAfterInformedAction", "guidance": "The assignment materially fails through suppression, reckless publication, or another deliberate mishandling after the contamination and long-term risk are known." }
         ],
         "exclusions": ["Selecting, delegating, ordering more scans, publishing one number, or accepting a model without audit does not establish the result."]
       }
@@ -503,13 +820,127 @@
         ]
       },
       "playerText": { "summary": "Priya and Rowan confirmed that the Hecate access path uses current Starfleet Intelligence credentials. Tolland has ordered classified transmission, Rourke has requested boarding with Farwatch, Kessler now knows Starfleet may have withheld relevant knowledge, and Pale Lantern is advancing toward defense-system integration." }
+    },
+    {
+      "id": "report.open-orders2.tonn-constituency",
+      "factId": "fact.open-orders2.tonn-constituency",
+      "evidencePolicyId": "policy.open-orders2.tonn-constituency",
+      "capabilityRoles": ["command", "security"],
+      "preferredActorIds": ["varrik-tonn"],
+      "fallbackActorIds": ["hadrik-bronn"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.tonn-constituency" }, { "eventOccurred": "event.open-orders2.tonn-constituency-heard" }, { "not": { "factKnown": "fact.open-orders2.tonn-constituency" } }] },
+      "playerText": { "summary": "Tonn answers to platform crews and isolated settlements whose survival makes unilateral dismantlement a concrete fear, without excusing the concealed fault." }
+    },
+    {
+      "id": "report.open-orders2.orison-record-scope",
+      "factId": "fact.open-orders2.orison-record-scope",
+      "evidencePolicyId": "policy.open-orders2.orison-record-scope",
+      "capabilityRoles": ["engineering", "security", "command"],
+      "preferredActorIds": ["imani-cross", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.orison-record-scope" }, { "eventOccurred": "event.open-orders2.orison-record-reviewed" }, { "not": { "factKnown": "fact.open-orders2.orison-record-scope" } }] },
+      "playerText": { "summary": "Verified authentication evidence defines the fault and safe technical bounds, but does not supply consent or decide legitimate defense custody." }
+    },
+    {
+      "id": "report.open-orders2.vos-consent-framework",
+      "factId": "fact.open-orders2.vos-consent-framework",
+      "evidencePolicyId": "policy.open-orders2.vos-consent-framework",
+      "capabilityRoles": ["medical", "counseling"],
+      "preferredActorIds": ["miriam-sato", "eren-vos"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.vos-consent-framework" }, { "eventOccurred": "event.open-orders2.second-opinion-assessed" }, { "not": { "factKnown": "fact.open-orders2.vos-consent-framework" } }] },
+      "playerText": { "summary": "Vos separates treatment access, informed consent, duty fitness, and employment pressure; clinical value does not authorize coercion." }
+    },
+    {
+      "id": "report.open-orders2.aven-ril-refusal",
+      "factId": "fact.open-orders2.aven-ril-refusal",
+      "evidencePolicyId": "policy.open-orders2.aven-ril-refusal",
+      "capabilityRoles": ["medical", "counseling"],
+      "preferredActorIds": ["aven-ril", "eren-vos"],
+      "fallbackActorIds": ["miriam-sato"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.aven-ril-refusal" }, { "eventOccurred": "event.open-orders2.aven-ril-heard" }, { "not": { "factKnown": "fact.open-orders2.aven-ril-refusal" } }] },
+      "playerText": { "summary": "Aven Ril refuses treatment to protect the emotions anchoring his memories, and Vos recognizes that informed refusal as legitimate." }
+    },
+    {
+      "id": "report.open-orders2.marta-keene-pressure",
+      "factId": "fact.open-orders2.marta-keene-pressure",
+      "evidencePolicyId": "policy.open-orders2.marta-keene-pressure",
+      "capabilityRoles": ["medical", "counseling"],
+      "preferredActorIds": ["marta-keene", "eren-vos"],
+      "fallbackActorIds": ["miriam-sato"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.marta-keene-pressure" }, { "eventOccurred": "event.open-orders2.marta-keene-heard" }, { "not": { "factKnown": "fact.open-orders2.marta-keene-pressure" } }] },
+      "playerText": { "summary": "Marta Keene wants treatment but fears that candid disclosure will cost duty clearance, pay, and housing priority." }
+    },
+    {
+      "id": "report.open-orders2.redline-trust-echo",
+      "factId": "fact.open-orders2.redline-trust-echo",
+      "evidencePolicyId": "policy.open-orders2.redline-trust-echo",
+      "capabilityRoles": ["medical", "counseling"],
+      "preferredActorIds": ["miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.redline-trust-echo" }, { "eventOccurred": "event.open-orders2.redline-trust-used" }, { "not": { "factKnown": "fact.open-orders2.redline-trust-echo" } }] },
+      "playerText": { "summary": "Sato's accountable inventory and confidentiality chain prompts a chart-duty disclosure; it changes trust, not therapy efficacy, and Vos's treatment is not redline." }
+    },
+    {
+      "id": "report.open-orders2.observatory-publication-position",
+      "factId": "fact.open-orders2.observatory-publication-position",
+      "evidencePolicyId": "policy.open-orders2.observatory-publication-position",
+      "capabilityRoles": ["science", "sensors"],
+      "preferredActorIds": ["rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.observatory-publication-position" }, { "eventOccurred": "event.open-orders2.observatory-consulted" }, { "not": { "factKnown": "fact.open-orders2.observatory-publication-position" } }] },
+      "playerText": { "summary": "Pallas Civil Observatory supplies a clean comparison baseline and wants prompt corrected publication with methods and uncertainty intact." }
+    },
+    {
+      "id": "report.open-orders2.compact-planner-warning-position",
+      "factId": "fact.open-orders2.compact-planner-warning-position",
+      "evidencePolicyId": "policy.open-orders2.compact-planner-warning-position",
+      "capabilityRoles": ["operations", "science"],
+      "preferredActorIds": ["jori-an", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.open-orders2.compact-planner-warning-position" }, { "eventOccurred": "event.open-orders2.compact-planner-consulted" }, { "not": { "factKnown": "fact.open-orders2.compact-planner-warning-position" } }] },
+      "playerText": { "summary": "Jori An supports a bounded warning and independent review while recording the hoarding and flight risk of an overstated short-term collapse." }
     }
   ],
   "events": [
     { "id": "event.open-orders2.last-watch-assessed", "playerVisibility": "visible", "playerText": { "summary": "The Last Watch received a usable aggregate assessment." } },
     { "id": "event.open-orders2.second-opinion-assessed", "playerVisibility": "visible", "playerText": { "summary": "Second Opinion received a usable aggregate assessment." } },
     { "id": "event.open-orders2.unwelcome-result-assessed", "playerVisibility": "visible", "playerText": { "summary": "An Unwelcome Result received a usable aggregate assessment." } },
-    { "id": "event.open-orders2.credential-path-corroborated", "playerVisibility": "hidden", "playerText": { "summary": "The Hecate credential path was corroborated and escalated through the proper channels." } }
+    { "id": "event.open-orders2.credential-path-corroborated", "playerVisibility": "hidden", "playerText": { "summary": "The Hecate credential path was corroborated and escalated through the proper channels." } },
+    { "id": "event.open-orders2.tonn-constituency-heard", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.orison-record-reviewed", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.aven-ril-heard", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.marta-keene-heard", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.redline-trust-used", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.observatory-consulted", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.compact-planner-consulted", "playerVisibility": "hidden" },
+    { "id": "event.open-orders2.last-watch-transition-weighed", "playerVisibility": "visible", "playerText": { "summary": "The Last Watch weighed a technical and legitimate defense transition before resolution." } },
+    { "id": "event.open-orders2.second-opinion-consent-weighed", "playerVisibility": "visible", "playerText": { "summary": "Second Opinion weighed access, consent, duty fitness, and employment pressure separately before resolution." } },
+    { "id": "event.open-orders2.unwelcome-ownership-weighed", "playerVisibility": "visible", "playerText": { "summary": "An Unwelcome Result weighed correction, warning, publication, and handoff with independent evidence owners before resolution." } }
   ],
   "outcomes": [
     { "id": "outcome.open-orders2.last-watch-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for The Last Watch." } },

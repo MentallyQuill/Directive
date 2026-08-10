@@ -535,27 +535,27 @@ git commit -m "feat: enrich Old Lessons payoff"
 - Produces: three scene-complete recovery assignments and optional `capability.open-orders2.medical-supply-safeguards` sourced from the Prelude.
 - Consumes: existing three assignment awards/assets, credential-path convergence, and Orison authentication capability.
 
-- [ ] **Step 1: Add failing recovery and continuity scenarios**
+- [x] **Step 1: Add failing recovery and continuity scenarios**
 
 Add `last-watch-record-without-consent`, `second-opinion-patient-refusal`, `second-opinion-redline-trust-echo`, `unwelcome-result-independent-owner`, and `credential-report-after-delegated-two`.
 
-- [ ] **Step 2: Expand The Last Watch**
+- [x] **Step 2: Expand The Last Watch**
 
 Give Varrik Tonn a constituency of platform crews and settlements that survived because the platforms remained active. Let the Orison record establish technical facts without deciding whether deactivation, shared control, conversion, or bounded retention is legitimate.
 
-- [ ] **Step 3: Expand Second Opinion**
+- [x] **Step 3: Expand Second Opinion**
 
 Use Doctor Eren Vos, patient Aven Ril, and essential worker Marta Keene. Ril values relief but fears losing the emotions that anchor memory; Keene wants treatment but fears duty and employment consequences. Preserve consent, duty fitness, treatment access, and workforce pressure as separate concerns.
 
-- [ ] **Step 4: Persist responsible Prelude handling without making redline causal**
+- [x] **Step 4: Persist responsible Prelude handling without making redline causal**
 
 Add `capability.open-orders2.medical-supply-safeguards`, sourced from `dimension.prelude.redline=contained-lawful-custody` or `contained-treatment-handoff`. Its summary states that Sato has a trusted chain for reconciling inventory, confidentiality, and duty-fitness concerns. It changes who volunteers information; it does not change treatment efficacy or imply Vos's therapy is redline.
 
-- [ ] **Step 5: Expand An Unwelcome Result**
+- [x] **Step 5: Expand An Unwelcome Result**
 
 Give Rowan at least two evidence owners: a civilian observatory that wants immediate publication and a Compact planner who fears panic from an uncertain forecast. Allow correction, independent review, bounded warning, suppression, or responsible handoff to produce distinct costs.
 
-- [ ] **Step 6: Verify and commit Open Orders II**
+- [x] **Step 6: Verify and commit Open Orders II**
 
 Run:
 

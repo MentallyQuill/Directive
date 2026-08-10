@@ -456,33 +456,41 @@ flowchart TD
     A[Three recovery assignments available] --> B[The Last Watch]
     A --> C[Second Opinion]
     A --> D[An Unwelcome Result]
-    B --> E[Defense-transition disposition]
-    C --> F[Treatment and consent disposition]
-    D --> G[Forecast and disclosure disposition]
-    E --> H{Workload conclusion}
-    F --> H
-    G --> H
-    H --> I[Credential-path report must arrive]
-    I -->|Two resolved| J[Normal recovery load]
-    I -->|All with delegation| K[Broad coverage]
-    I -->|Direct overextension| L[Recovery cost]
-    I -->|Leave early| M[Unfinished recovery recorded]
-    J --> N[Cost of Knowing]
-    K --> N
-    L --> N
-    M --> N
+    E[Orison Authentication Record] --> B
+    F[Medical Supply Safeguards] --> C
+    B --> G[Tonn constituency and transition options]
+    C --> H[Vos, Ril, Keene, and consent pressures]
+    D --> I[Pallas Observatory and Compact planning]
+    G --> J[Defense-transition disposition]
+    H --> K[Treatment and consent disposition]
+    I --> L[Forecast and disclosure disposition]
+    J --> M{Workload conclusion}
+    K --> M
+    L --> M
+    M --> N[Credential-path report must arrive]
+    N -->|Two resolved| O[Normal recovery load]
+    N -->|All with delegation| P[Broad coverage]
+    N -->|Direct overextension| Q[Recovery cost]
+    N -->|Leave early| R[Unfinished recovery recorded]
+    O --> S[Cost of Knowing]
+    P --> S
+    Q --> S
+    R --> S
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-The selection and workload choices are strong, and the credential report prevents accidental transition before the main plot is ready. Tonn, Vos, patients, and scientists are not yet as rich as the ethical choices built around them.
+Open Orders II retains its choose-two, delegated-three, overextension, early-departure, reward, and credential-report closure contracts while making each assignment a scene-complete episode.
 
-#### Enrichment direction
+- The Last Watch now gives Tonn a constituency of platform crews and settlements. The Orison record supplies technical leverage without supplying consent or automatic codes, and deactivation, shared control, conversion, and bounded retention must be weighed before resolution.
+- Second Opinion now separates Doctor Eren Vos's clinical framework, Aven Ril's informed refusal, Marta Keene's desire for treatment, duty fitness, and employment pressure.
+- Medical Supply Safeguards import only from responsible Prelude outcomes. They can prompt volunteered information, never alter treatment efficacy or imply that Vos's therapy is redline.
+- An Unwelcome Result now gives Pallas Civil Observatory and Compact planner Jori An independent evidence and consequence ownership. Correction, review, bounded warning, suppression, and handoff carry distinct authored costs.
+- Each assignment requires an assessment and a substantive complication/ownership event before its result can be recorded.
+- Explicit reward expectations prove that completed and responsibly costly assignment dispositions expose their existing independent Command Bearing awards, including two delegated assignments.
+- The redline continuity scenario proves the trust fact remains unavailable when the required Prelude capability is absent.
+- Five new scenarios bring the focused campaign gate to 266 authored scenarios.
 
-- Give Tonn a history and constituency beyond being the defender of unsafe weapons.
-- Give Vos, patients, and pressured essential workers distinct views of treatment and consent.
-- Let prior redline handling affect medical trust and willingness to disclose, never the objective's hidden difficulty.
-- Give Rowan's forecast review multiple evidence owners and consequences for correction.
 
 ### Chapter 6: The Cost of Knowing
 

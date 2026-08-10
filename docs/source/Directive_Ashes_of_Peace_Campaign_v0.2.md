@@ -2500,6 +2500,8 @@ Tonn argues that:
 
 The Compact Council asks the Breckenridge to resolve the standoff without force.
 
+Tonn is answerable to more than his own pride. Platform crews lost relatives in the raids the grid stopped, and several isolated settlements have no reliable patrol coverage. Families who gather around the crews are defending a security relationship that worked when promised institutions did not. This constituency does not make the concealed fault acceptable, but it makes unilateral dismantlement a political and practical harm rather than a technical cleanup.
+
 #### Hidden truth
 
 Tonn has not joined Holt's hardliners. He is acting from genuine conviction.
@@ -2516,6 +2518,8 @@ The player may:
 - Convert them to sensor or rescue functions.
 - Establish a timed transition tied to patrol guarantees.
 - Remove Tonn from command.
+
+If the **Orison Authentication Record** is available, it establishes the targeting fault, compromised authentication path, and safe technical boundaries for controlled work. It does not provide Tonn's consent, transfer Compact authority to Starfleet, or choose among deactivation, shared control, civilian conversion, and bounded retention. The player must still negotiate a legitimate transition.
 
 #### Bronn dynamic
 
@@ -2559,6 +2563,13 @@ The therapy can reduce panic, intrusive memory, and physiological stress. It may
 
 Several essential pilots, engineers, and medical workers want treatment because their communities need them back on duty.
 
+Vos is a careful regional clinician rather than an evangelist for the therapy. He insists that treatment access, informed consent, duty fitness, and employment pressure are four separate questions, even when officials want a single approval decision.
+
+Two patients expose the conflict:
+
+- **Aven Ril** values the relief reported by other patients but refuses treatment because he fears losing the emotions that anchor his wartime memories and moral choices. Vos regards the informed refusal as legitimate.
+- **Marta Keene** maintains life-support infrastructure and wants treatment, but fears that reporting symptoms or side effects will cost her duty clearance, pay, and housing priority. Wanting treatment does not make her employment pressure consensual.
+
 #### Hidden truth
 
 The therapy is neither a miracle cure nor a covert weapon. Its risks are real, and outcomes vary.
@@ -2584,6 +2595,8 @@ The player does not decide the medical facts, but command policy determines whet
 - Kieran recognizes one candidate from Borrowed Wings.
 - Priya discovers coercive language in employment communications.
 - Vos fears that a public scandal will end all treatment access.
+
+If the Prelude earned **Medical Supply Safeguards**, Sato can demonstrate a trusted chain separating medical inventory, confidentiality, and duty-fitness review. That accountability may cause Keene or another worker to volunteer discrepancies between a chart, fitness file, and employer report. It changes who trusts the review and what evidence becomes available. It does not change treatment efficacy, and Vos's therapy is not redline or derived from redline.
 
 #### Command Moments
 
@@ -2615,6 +2628,13 @@ Rowan's initial model is directionally correct but overstates the short-term rat
 
 The long-term danger remains serious.
 
+The evidence has independent owners:
+
+- **Pallas Civil Observatory** owns a clean comparison baseline and wants the corrected model published promptly with methods and uncertainty intact.
+- **Jori An**, a Compact contingency planner, accepts the long-term danger but fears an overstated short-term collapse warning will trigger hoarding, capital flight, and premature evacuation. An supports a bounded warning and independent review, not suppression.
+
+Rowan owns his analysis and must correct it; he does not own the observatory's baseline, the Compact's emergency response, or the public's right to receive a supportable warning.
+
 #### Command problem
 
 The player must decide how to communicate incomplete but consequential science.
@@ -2627,6 +2647,8 @@ Possible approaches:
 - Emergency mitigation while review proceeds.
 - Independent scientific oversight.
 - Suppression under reconstruction authority.
+
+A transparent independent correction paired with a bounded warning can earn the Regional Sensor Baseline. Correction under review, a limited warning, or responsible handoff may resolve the immediate dispute with timing or uncertainty costs. Deliberate suppression and reckless publication are distinct informed failures; neither should be narrated as the price of "choosing science."
 
 #### Complications
 
