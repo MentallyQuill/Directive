@@ -29,7 +29,7 @@ function stableHash(value = '') {
 
 function sourceAnchorRange(snapshot = {}) {
   return {
-    kind: 'sceneHandshakePair',
+    kind: 'acceptedPair',
     previousAssistantHostMessageId: compact(snapshot?.source?.previousAssistant?.hostMessageId) || null,
     currentPlayerHostMessageId: compact(snapshot?.source?.currentPlayer?.hostMessageId) || null,
     rangeHash: compact(snapshot?.source?.sourceRangeHash) || null

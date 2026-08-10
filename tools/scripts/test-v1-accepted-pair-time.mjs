@@ -75,7 +75,7 @@ const adjudicate = async (input) => {
   assert.equal(input.previousAssistantHostMessageId, 'message.assistant.10');
   assert.equal(input.currentPlayerHostMessageId, 'message.player.11');
   assert.deepEqual(input.sourceAnchorRange, {
-    kind: 'sceneHandshakePair',
+    kind: 'acceptedPair',
     previousAssistantHostMessageId: 'message.assistant.10',
     currentPlayerHostMessageId: 'message.player.11',
     rangeHash: 'range.accepted-pair.11'

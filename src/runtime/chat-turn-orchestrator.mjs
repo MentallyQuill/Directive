@@ -12,20 +12,6 @@ import {
   prefixCampaignReplyHeader,
   stripCampaignReplyHeader
 } from '../time/campaign-time-header.mjs';
-import { timeAdvanceBoundary } from '../directors/director-coordinator.mjs';
-import {
-  compactOpenWorldReducerBundleRef
-} from '../directors/open-world-event-reducers.mjs';
-import {
-  adjudicateTimeAdvance,
-  findTimeBoundaryForPlayerMessage,
-  findTimeBoundaryForSourceAnchorRange
-} from '../time/time-advance-adjudicator.mjs';
-import {
-  attachReadiedCommandBearingPoint,
-  returnReadiedCommandBearingPoint
-} from '../command/command-bearing.mjs';
-import { validateCommandBearingReadiedSpendFit } from '../command/command-bearing-fit.mjs';
 import { prepareV1AcceptedPairSnapshot } from './v1-accepted-pair-source.mjs';
 import {
   assertFrameCleanForSettlement,
@@ -42,7 +28,6 @@ import {
   createRuntimeLedgerView,
   createRuntimeLedgerViewAsync
 } from './runtime-ledger-view.mjs';
-import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 import { withoutProvisionalDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 import { commitV1AcceptedPairTimeAdvance } from './v1-accepted-pair-time.mjs';
@@ -200,20 +185,6 @@ const NO_OUTCOME_RECOVERY_TYPES = new Set([
 const RESPONSE_RETRY_RECOVERY_TYPES = new Set([
   'hostResponsePostFailure',
   'providerFailureAfterMechanicsCommit'
-]);
-
-const TIME_BOUNDARY_DOMAINS = Object.freeze([
-  'campaign',
-  'worldState',
-  'timeLedger',
-  'eventLedger',
-  'storyArcLedger',
-  'questLedger',
-  'dynamicQuestCatalog',
-  'attentionState',
-  'mission',
-  'threadLedger',
-  'runtimeTracking'
 ]);
 
 function isRetryableIngressStatus(status) {
@@ -750,8 +721,6 @@ function localRoutineNarration(message = null) {
   return 'The order is acknowledged and folded into the working rhythm. The relevant officers carry it forward while the log records the procedure.';
 }
 
-const LOCATION_TRANSITION_DEFAULT_MINUTES = 2;
-
 const GUIDE_ACTOR_LABELS = Object.freeze({
   'hadrik-bronn': 'Bronn',
   'mara-whitaker': 'Whitaker',
@@ -802,18 +771,6 @@ function localLocationTransitionNarration(campaignState = {}, decision = {}) {
     : 'The nearest officer waits, leaving you the first read of the place and the first word.';
   return `${lead} ${departure} ${arrival} ${handoff}`;
 }
-
-const TERMINAL_OUTCOME_ACTION_LABELS = Object.freeze({
-  replayFromCheckpoint: 'Replay from checkpoint',
-  pushOn: 'Push On',
-  keepEnding: 'Keep this ending'
-});
-
-const DEFAULT_TERMINAL_OUTCOME_ACTIONS = Object.freeze([
-  'replayFromCheckpoint',
-  'pushOn',
-  'keepEnding'
-]);
 
 const MODEL_BACKED_RETRY_RESPONSE_KINDS = new Set([
   'committedOutcome',
@@ -1046,83 +1003,6 @@ function warningText(preview) {
   return composePauseResponse('riskConfirmationNeeded', { warnings });
 }
 
-function commandBearingText(preview) {
-  const prompt = preview?.commandBearingPrompt || {};
-  const actions = (prompt.actions || [])
-    .filter((action) => action.track)
-    .map((action) => `${action.label || action.track}: ${action.from ?? '?'} to ${action.to ?? '?'}`);
-  return [
-    'This is an eligible Command Bearing moment. The outcome is ready, but narration has not finalized.',
-    actions.length ? `Available interventions: ${actions.join('; ')}.` : '',
-    'Accept the outcome or choose an intervention in Directive.'
-  ].filter(Boolean).join(' ');
-}
-
-function commandBearingRoot(state) {
-  return state?.commandBearing || {};
-}
-
-function activeReadiedCommandBearing(state, chatId = '') {
-  const readied = commandBearingRoot(state)?.readied || null;
-  if (!readied || readied.status !== 'readied') return null;
-  const expectedChatId = compact(readied.chatId);
-  const actualChatId = compact(chatId);
-  if (expectedChatId && actualChatId && expectedChatId !== actualChatId) return null;
-  return readied;
-}
-
-function commandBearingActionForTrack(preview, track) {
-  const key = compact(track).toLowerCase();
-  return (preview?.commandBearingPrompt?.actions || []).find((action) => (
-    compact(action?.track).toLowerCase() === key
-  )) || null;
-}
-
-function commandBearingValidationContext({ state, preview, action, decision }) {
-  const safe = createPlayerSafeCampaignProjection({ campaignState: state }) || {};
-  return {
-    player: safe.player || null,
-    mission: safe.mission || null,
-    ship: safe.ship || null,
-    commandBearingAction: {
-      track: action?.track || null,
-      from: action?.from || null,
-      to: action?.to || null,
-      rationale: action?.rationale || ''
-    },
-    outcome: {
-      outcomeId: preview?.turnPacket?.outcomePacket?.id || null,
-      resultBand: preview?.turnPacket?.outcomePacket?.resultBand || preview?.provisionalOutcome?.resultBand || null,
-      summary: preview?.turnPacket?.outcomePacket?.summary || preview?.provisionalOutcome?.summary || ''
-    },
-    turnClassification: {
-      classification: decision?.classification || null,
-      responseStrategy: decision?.responseStrategy || null,
-      workerPlan: decision?.workerPlan || {}
-    }
-  };
-}
-
-function readiedSpendRequest({ readied, action, ingressId, message, chatId, fitValidation = null }) {
-  const label = readied.track === 'inspiration' ? 'Inspiration' : 'Resolve';
-  const rationale = compact(action?.rationale || `${label} was eligible for this committed action.`);
-  const hostMessageId = compact(message?.hostMessageId || message?.id || String(message?.index ?? ''));
-  const causalBasis = Array.isArray(fitValidation?.causalBasis) && fitValidation.causalBasis.length
-    ? fitValidation.causalBasis
-    : [fitValidation?.summary || rationale];
-  return {
-    ...cloneJson(readied),
-    status: 'attached',
-    track: readied.track,
-    ingressId,
-    hostMessageId,
-    chatId: compact(chatId || readied.chatId || message.chatId || ''),
-    rationale,
-    fit: fitValidation?.fit || 'strong',
-    causalBasis
-  };
-}
-
 
 function campaignCrewIds(state) {
   return [...new Set((state?.crew?.seniorCrewIds || []).map((id) => compact(id)).filter(Boolean))];
@@ -1162,9 +1042,6 @@ export function createChatTurnOrchestrator({
   getShipDataset = null,
   previewDirectorTurn,
   commitProvisionalDirectorTurn,
-  postTerminalOutcomeCheckpoint = null,
-  resolveTerminalOutcomeDecision = null,
-  recordTerminalCheckpointSettlement = null,
   discardProvisionalDirectorTurn = null,
   settleV1MissionAcceptedPair = null,
   resolveV1SemanticAuthority = null,
@@ -1635,211 +1512,6 @@ export function createChatTurnOrchestrator({
     return outcome;
   }
 
-  function packageDataForTimeBoundary() {
-    try {
-      return typeof getPackageData === 'function' ? getPackageData() : null;
-    } catch {
-      return null;
-    }
-  }
-
-  async function commitAdjudicatedTimeBoundary(state, {
-    ingressId = null,
-    turnId = null,
-    outcomeId = null,
-    playerMessage = null,
-    previousAssistantText = '',
-    outcomeText = '',
-    timePlan = null,
-    sourceKind = 'runtimeTurn',
-    reason = 'Runtime time boundary adjudicated.'
-  } = {}, activityReporter = null) {
-    const packageData = packageDataForTimeBoundary();
-    if (!state || !packageData?.world || !stateDeltaGateway?.commit) return state;
-    const currentPlayerHostMessageId = playerMessage?.hostMessageId || playerMessage?.id || null;
-    const existingBoundary = findTimeBoundaryForPlayerMessage(state, currentPlayerHostMessageId);
-    if (existingBoundary) {
-      reportActivity(activityReporter, {
-        phase: 'timeBoundaryAlreadyCommitted',
-        mode: 'blocking',
-        source: sourceKind,
-        ingressId,
-        turnId,
-        outcomeId,
-        currentPlayerHostMessageId,
-        existingSource: existingBoundary.sourceAnchorRange?.kind || null,
-        elapsedMinutes: existingBoundary.elapsedMinutes || 0
-      });
-      return state;
-    }
-    const sourceAnchorRange = {
-      kind: sourceKind,
-      ingressId,
-      turnId,
-      outcomeId,
-      currentPlayerHostMessageId,
-      rangeHash: fnv1a([
-        sourceKind,
-        ingressId,
-        turnId,
-        outcomeId,
-        currentPlayerHostMessageId || '',
-        playerMessage?.text || '',
-        previousAssistantText || '',
-        outcomeText || '',
-        JSON.stringify(timePlan || null)
-      ].join('\n'))
-    };
-    const existingSourceBoundary = findTimeBoundaryForSourceAnchorRange(state, sourceAnchorRange);
-    if (existingSourceBoundary) {
-      reportActivity(activityReporter, {
-        phase: 'timeBoundaryAlreadyCommitted',
-        mode: 'blocking',
-        source: sourceKind,
-        ingressId,
-        turnId,
-        outcomeId,
-        currentPlayerHostMessageId,
-        existingSource: existingSourceBoundary.sourceAnchorRange?.kind || null,
-        elapsedMinutes: existingSourceBoundary.elapsedMinutes || 0
-      });
-      return state;
-    }
-    const proposal = await adjudicateTimeAdvance({
-      campaignState: state,
-      packageData,
-      generationRouter,
-      acceptedPreviousResponse: true,
-      previousAssistantText,
-      currentPlayerText: playerMessage?.text || '',
-      outcomeText,
-      currentPlayerHostMessageId: playerMessage?.hostMessageId || playerMessage?.id || null,
-      outcomeHostMessageId: outcomeId,
-      sourceAnchorRange,
-      timePlan
-    });
-    if (!proposal?.elapsedMinutes || proposal.elapsedMinutes <= 0) return state;
-    reportActivity(activityReporter, {
-      phase: 'committingTimeBoundary',
-      mode: 'blocking',
-      source: sourceKind,
-      ingressId,
-      turnId,
-      outcomeId,
-      elapsedMinutes: proposal.elapsedMinutes,
-      reason: proposal.reason
-    });
-    const boundary = timeAdvanceBoundary({
-      state,
-      packageData,
-      minutes: proposal.elapsedMinutes,
-      reason: proposal.reason || 'runtime-time-advance',
-      sourceAnchorRange,
-      adjudication: {
-        ...proposal,
-        runtimePath: sourceKind
-      },
-      now
-    });
-    const committed = await stateDeltaGateway.commit(boundary.state, {
-      id: `${sourceKind}:${ingressId || turnId || outcomeId || 'turn'}:time`,
-      source: 'timeAdvanceAdjudicator',
-      reason,
-      summary: `Advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
-      domains: TIME_BOUNDARY_DOMAINS,
-      ingressId,
-      turnId,
-      outcomeId,
-      sourceAnchorRange,
-      stable: true,
-      metadata: {
-        timeAdvance: cloneJson(proposal),
-        timePlan: cloneJson(timePlan || null),
-        boundaryEventId: boundary.event?.id || null
-      }
-    });
-    setCampaignState(committed);
-    return committed;
-  }
-
-  async function commitDefaultLocationTransitionBoundary(state, {
-    ingressId = null,
-    playerMessage = null,
-    outcomeText = ''
-  } = {}, activityReporter = null) {
-    const packageData = packageDataForTimeBoundary();
-    if (!state || !packageData?.world || !stateDeltaGateway?.commit) return state;
-    const currentPlayerHostMessageId = playerMessage?.hostMessageId || playerMessage?.id || null;
-    const existingBoundary = findTimeBoundaryForPlayerMessage(state, currentPlayerHostMessageId);
-    if (existingBoundary) {
-      reportActivity(activityReporter, {
-        phase: 'timeBoundaryAlreadyCommitted',
-        mode: 'blocking',
-        source: 'locationTransition',
-        ingressId,
-        currentPlayerHostMessageId,
-        existingSource: existingBoundary.sourceAnchorRange?.kind || null,
-        elapsedMinutes: existingBoundary.elapsedMinutes || 0
-      });
-      return state;
-    }
-    const sourceAnchorRange = {
-      kind: 'locationTransition',
-      ingressId,
-      currentPlayerHostMessageId,
-      rangeHash: fnv1a([
-        'locationTransition',
-        ingressId,
-        currentPlayerHostMessageId || '',
-        playerMessage?.text || '',
-        outcomeText || ''
-      ].join('\n'))
-    };
-    reportActivity(activityReporter, {
-      phase: 'committingTimeBoundary',
-      mode: 'blocking',
-      source: 'locationTransition',
-      ingressId,
-      elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
-      reason: 'Physical location transition consumes scene time.'
-    });
-    const boundary = timeAdvanceBoundary({
-      state,
-      packageData,
-      minutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
-      reason: 'physical-location-transition',
-      sourceAnchorRange,
-      adjudication: {
-        elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
-        reason: 'Physical location transition consumes scene time.',
-        runtimePath: 'locationTransition',
-        defaulted: true
-      },
-      now
-    });
-    const committed = await stateDeltaGateway.commit(boundary.state, {
-      id: `locationTransition:${ingressId || currentPlayerHostMessageId || 'turn'}:time`,
-      source: 'locationTransitionPacing',
-      reason: 'Recorded default scene time for a physical location transition.',
-      summary: `Advanced campaign time by ${LOCATION_TRANSITION_DEFAULT_MINUTES} minutes for location transition pacing.`,
-      domains: TIME_BOUNDARY_DOMAINS,
-      ingressId,
-      sourceAnchorRange,
-      stable: true,
-      metadata: {
-        timeAdvance: {
-          elapsedMinutes: LOCATION_TRANSITION_DEFAULT_MINUTES,
-          reason: 'Physical location transition consumes scene time.',
-          runtimePath: 'locationTransition',
-          defaulted: true
-        },
-        boundaryEventId: boundary.event?.id || null
-      }
-    });
-    setCampaignState(committed);
-    return committed;
-  }
-
   function reportActivity(activityReporter, event = {}) {
     const reporter = typeof activityReporter === 'function' ? activityReporter : reportTurnActivity;
     if (typeof reporter !== 'function') return;
@@ -1855,15 +1527,6 @@ export function createChatTurnOrchestrator({
     }
   }
 
-
-  async function recordTerminalCheckpointSettlementEvent(event = {}) {
-    if (typeof recordTerminalCheckpointSettlement !== 'function') return null;
-    try {
-      return cloneJson(await recordTerminalCheckpointSettlement(cloneJson(event)));
-    } catch {
-      return null;
-    }
-  }
 
   function ingressIdFor(state, message, chatId) {
     const messageId = message.hostMessageId || message.id || message.index || 'message';
@@ -2913,56 +2576,6 @@ export function createChatTurnOrchestrator({
     return stateWithCorePendingProjections(state);
   }
 
-  function activeTerminalInteractionId(state) {
-    const interaction = pendingInteractionRows(state).find((entry) => (
-      entry?.status === 'pending'
-      && entry?.kind === 'terminalOutcomeDecision'
-    ));
-    return interaction?.id || null;
-  }
-
-  function terminalOptionsFromDecision(decision = {}) {
-    const actions = Array.isArray(decision?.condition?.resolutionPolicy?.actions)
-      && decision.condition.resolutionPolicy.actions.length
-      ? decision.condition.resolutionPolicy.actions
-      : DEFAULT_TERMINAL_OUTCOME_ACTIONS;
-    return actions.filter((action) => TERMINAL_OUTCOME_ACTION_LABELS[action]).map((action) => ({
-      id: action,
-      action,
-      label: TERMINAL_OUTCOME_ACTION_LABELS[action] || action
-    }));
-  }
-
-  function ledgerTerminalInteraction(state, interactionId = null) {
-    const ledger = terminalDecisionLedgerView(state || {});
-    const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
-    const decision = decisions.find((entry) => (
-      entry?.status === 'pending'
-      && (
-        (interactionId && entry.id === interactionId)
-        || (!interactionId && entry.id === ledger.activeDecisionId)
-      )
-    )) || decisions.find((entry) => entry?.status === 'pending' && !interactionId);
-    if (!decision) return null;
-    return {
-      id: decision.id,
-      kind: 'terminalOutcomeDecision',
-      status: 'pending',
-      ingressId: decision.ingressId || null,
-      turnId: decision.turnId || null,
-      outcomeId: decision.outcomeId || null,
-      prompt: 'Directive Checkpoint',
-      options: terminalOptionsFromDecision(decision),
-      metadata: {
-        decisionId: decision.id,
-        terminalOutcomeId: decision.conditionId || decision.condition?.id || null,
-        terminalOutcomeBand: decision.terminalOutcomeBand || null,
-        finalCampaignBandCandidate: decision.finalCampaignBand || null,
-        reason: decision.playerFacingSummary || decision.finalCampaignBandSummary || null
-      }
-    };
-  }
-
   function playerSafePendingInteraction(state) {
     const interaction = activePendingInteraction(state);
     if (!interaction) return null;
@@ -3383,57 +2996,6 @@ export function createChatTurnOrchestrator({
     return next;
   }
 
-  async function attachReadiedPointToIngress(state, ingressId, message, chatId, readied) {
-    const attached = attachReadiedCommandBearingPoint(commandBearingRoot(state), {
-      readiedId: readied?.id || null,
-      ingressId,
-      hostMessageId: messageHostMessageId(message),
-      chatId
-    });
-    if (!attached.applied) {
-      return {
-        state,
-        readied: null,
-        reason: attached.reason || 'Readied Command Bearing point could not attach.'
-      };
-    }
-    const next = {
-      ...cloneJson(state),
-      commandBearing: attached.commandBearing
-    };
-    await persistState(next, attached.reason || 'Readied Command Bearing point attached to player message.');
-    return {
-      state: next,
-      readied: cloneJson(attached.readied),
-      reason: attached.reason
-    };
-  }
-
-  async function returnReadiedPointForTurn(state, readied, reason) {
-    if (!readied?.id) return { state, applied: false, reason: 'No Command Bearing point is readied.' };
-    const returned = returnReadiedCommandBearingPoint(commandBearingRoot(state), {
-      readiedId: readied.id,
-      reason
-    });
-    if (!returned.applied) {
-      return {
-        state,
-        applied: false,
-        reason: returned.reason || reason
-      };
-    }
-    const next = {
-      ...cloneJson(state),
-      commandBearing: returned.commandBearing
-    };
-    await persistState(next, returned.reason || reason);
-    return {
-      state: next,
-      applied: true,
-      reason: returned.reason || reason
-    };
-  }
-
   async function dispatchAndRecord({
     state,
     ingressId,
@@ -3599,35 +3161,14 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    const staleBeforeTime = await currentSourceStaleResult(ingressId, message, 'before-scene-time-boundary', next);
-    if (staleBeforeTime) return staleBeforeTime;
-    const beforeTimeFingerprint = JSON.stringify({
-      worldElapsedMinutes: next?.worldState?.elapsedMinutes ?? null,
-      worldElapsedHours: next?.worldState?.elapsedHours ?? null,
-      ledgerElapsedMinutes: next?.timeLedger?.elapsedMinutes ?? null,
-      ledgerEntryCount: Array.isArray(next?.timeLedger?.entries) ? next.timeLedger.entries.length : null
-    });
-    next = await commitAdjudicatedTimeBoundary(next, {
-      ingressId,
-      playerMessage: message,
-      timePlan: decision.arbiterPlan?.timePlan || null,
-      sourceKind: 'sceneContinuation',
-      reason: 'Scene continuation time boundary adjudicated.'
-    }, activityReporter);
-    const afterTimeFingerprint = JSON.stringify({
-      worldElapsedMinutes: next?.worldState?.elapsedMinutes ?? null,
-      worldElapsedHours: next?.worldState?.elapsedHours ?? null,
-      ledgerElapsedMinutes: next?.timeLedger?.elapsedMinutes ?? null,
-      ledgerEntryCount: Array.isArray(next?.timeLedger?.entries) ? next.timeLedger.entries.length : null
-    });
-    const timeChanged = beforeTimeFingerprint !== afterTimeFingerprint;
-    if (decision.workerPlan?.promptUpdate || timeChanged) {
+    const staleBeforePrompt = await currentSourceStaleResult(ingressId, message, 'before-scene-prompt-sync', next);
+    if (staleBeforePrompt) return staleBeforePrompt;
+    if (decision.workerPlan?.promptUpdate) {
       reportActivity(activityReporter, {
         phase: 'syncingPrompt',
         mode: 'blocking',
         classification: decision.classification,
-        ingressId,
-        timeChanged
+        ingressId
       });
       next = await syncPrompt(next, 'Prompt context synchronized.', promptFrameForMessage(next, message, decision), activityReporter, {
         source: 'chatTurn',
@@ -3784,20 +3325,14 @@ export function createChatTurnOrchestrator({
       classification: decision.classification,
       ingressId
     });
-    const staleBeforeTime = await currentSourceStaleResult(ingressId, message, 'before-location-transition-time-boundary', next);
-    if (staleBeforeTime) return staleBeforeTime;
-    next = await commitDefaultLocationTransitionBoundary(next, {
-      ingressId,
-      playerMessage: message,
-      outcomeText: text
-    }, activityReporter);
+    const staleBeforePrompt = await currentSourceStaleResult(ingressId, message, 'before-location-transition-prompt-sync', next);
+    if (staleBeforePrompt) return staleBeforePrompt;
     if (decision.workerPlan?.promptUpdate) {
       reportActivity(activityReporter, {
         phase: 'syncingPrompt',
         mode: 'blocking',
         classification: decision.classification,
-        ingressId,
-        timeChanged: true
+        ingressId
       });
       next = await syncPrompt(next, 'Prompt context synchronized for location transition pacing.', promptFrameForMessage(next, message, decision), activityReporter, {
         source: 'locationTransition',
@@ -3882,14 +3417,6 @@ export function createChatTurnOrchestrator({
       stable: true
     });
     let next = committed;
-    next = await commitAdjudicatedTimeBoundary(next, {
-      ingressId,
-      turnId: routineId,
-      playerMessage: message,
-      timePlan: decision.arbiterPlan?.timePlan || null,
-      sourceKind: 'routineCommand',
-      reason: 'Routine command time boundary adjudicated.'
-    }, activityReporter);
     reportActivity(activityReporter, {
       phase: 'syncingPrompt',
       mode: 'blocking',
@@ -3935,19 +3462,6 @@ export function createChatTurnOrchestrator({
   }
 
   async function continueClassifiedTurn(state, ingressId, decision, message, activityReporter = null) {
-    const consequentialClassification = ['consequentialCommand', 'riskConfirmationNeeded'].includes(decision.classification);
-    if (!consequentialClassification) {
-      const readied = activeReadiedCommandBearing(state, message.chatId || currentChatId());
-      if (readied) {
-        const returned = await returnReadiedPointForTurn(
-          state,
-          readied,
-          'Readied Command Bearing point returned because the next message did not create a consequential outcome.'
-        );
-        state = returned.state;
-        setCampaignState(state);
-      }
-    }
     if (decision.pendingInteractionResolution?.action) {
       return handlePendingInteractionResolution(state, ingressId, decision, message, activityReporter);
     }
@@ -4131,16 +3645,6 @@ export function createChatTurnOrchestrator({
         error: compactProviderFailureError(committed?.narrationResult?.error || null)
       })
       : null;
-    next = await commitAdjudicatedTimeBoundary(next, {
-      ingressId,
-      turnId,
-      outcomeId,
-      playerMessage: message,
-      outcomeText: text,
-      timePlan: decision.arbiterPlan?.timePlan || null,
-      sourceKind: 'committedOutcome',
-      reason: 'Committed outcome time boundary adjudicated.'
-    }, activityReporter);
     const dispatched = await dispatchAndRecord({
       state: next,
       ingressId,
@@ -4161,32 +3665,6 @@ export function createChatTurnOrchestrator({
       activityReporter
     });
     next = dispatched.state;
-    let terminalCheckpoint = null;
-    let terminalCheckpointSettlement = null;
-    let terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
-      || committed?.terminalDecision?.detection?.decisionId
-      || activeTerminalInteractionId(next)
-      || null;
-    if (!terminalInteractionId) {
-      const nextWithPending = await stateWithCorePendingProjections(next);
-      terminalInteractionId = activeTerminalInteractionId(nextWithPending);
-      if (terminalInteractionId) next = nextWithPending;
-    }
-    if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
-      terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
-      next = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || next);
-      setCampaignState(next);
-      terminalCheckpointSettlement = terminalCheckpoint?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
-        kind: 'terminalOutcomeCheckpointPosted',
-        ingressId,
-        turnId,
-        outcomeId,
-        interactionId: terminalInteractionId,
-        checkpointHostMessageId: terminalCheckpoint?.posted?.hostMessageId || terminalCheckpoint?.posted?.id || null,
-        status: terminalCheckpoint?.ok === false ? 'failed' : (terminalCheckpoint?.duplicate ? 'duplicate' : 'posted'),
-        reason: terminalCheckpoint?.reason || null
-      });
-    }
     if (!committed?.narrationResult?.ok) {
       const recoveryId = providerFailureRecoveryId;
       const fallbackResponseRef = dispatched.result?.entry || dispatched.result?.response || null;
@@ -4256,8 +3734,6 @@ export function createChatTurnOrchestrator({
       decision,
       campaignState: cloneJson(next),
       response: cloneJson(dispatched.result.response),
-      terminalCheckpoint: cloneJson(terminalCheckpoint || null),
-      terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
       committed: true
     };
   }
@@ -4323,63 +3799,6 @@ export function createChatTurnOrchestrator({
     }
     const staleBeforeResolution = await currentSourceStaleResult(ingressId, message, 'before-pending-interaction-resolution', state);
     if (staleBeforeResolution) return staleBeforeResolution;
-    if (pending.kind === 'terminalOutcomeDecision') {
-      if (typeof resolveTerminalOutcomeDecision !== 'function') {
-        return { ok: false, reason: 'terminal-outcome-resolution-unavailable' };
-      }
-      const resolvedTerminal = await resolveTerminalOutcomeDecision({
-        interactionId: pending.id,
-        action: resolution.action || 'replayFromCheckpoint',
-        resolutionIngressId: ingressId,
-        resolutionHostMessageId: messageHostMessageId(message),
-        playerArgument: message.text || null
-      });
-      const terminalCheckpointSettlement = resolvedTerminal?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
-        kind: 'terminalOutcomeCheckpointResolved',
-        ingressId,
-        interactionId: pending.id,
-        action: resolution.action || 'replayFromCheckpoint',
-        resolutionHostMessageId: messageHostMessageId(message),
-        status: resolvedTerminal?.ok === false ? 'failed' : 'resolved',
-        reason: resolvedTerminal?.reason || null
-      });
-      let next = initializeCampaignRuntimeTracking(resolvedTerminal?.campaignState || getCampaignState() || state);
-      const ingressPatch = {
-        status: resolvedTerminal.ok ? 'complete' : 'recoveryRequired',
-        classification: cloneJson(decision),
-        workerPlan: cloneJson(decision.workerPlan),
-        responseStrategy: 'directivePosted',
-        pendingInteractionId: pending.id,
-        completedAt: timestamp(now)
-      };
-      if (await findIngressFresh(next, ingressId)) {
-        next = await updateIngressState(next, ingressId, ingressPatch, `Resolved terminal outcome decision ${pending.id} from chat.`);
-      } else {
-        return {
-          handled: true,
-          responseStrategy: 'directivePosted',
-          abortDefaultGeneration: true,
-          decision,
-          resolvedPendingInteraction: false,
-          pendingInteractionId: pending.id,
-          terminalOutcomeDecision: cloneJson(resolvedTerminal),
-          terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
-          reason: 'terminal-resolution-ingress-core-projection-required',
-          campaignState: cloneJson(next)
-        };
-      }
-      return {
-        handled: true,
-        responseStrategy: 'directivePosted',
-        abortDefaultGeneration: true,
-        decision,
-        resolvedPendingInteraction: resolvedTerminal.ok === true,
-        pendingInteractionId: pending.id,
-        terminalOutcomeDecision: cloneJson(resolvedTerminal),
-        terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
-        campaignState: cloneJson(next)
-      };
-    }
     const stalePendingSource = await pendingSourceStaleResult(state, pending, 'before-pending-interaction-source-resolution');
     if (stalePendingSource) return stalePendingSource;
     const resolved = await resolveInteraction({
@@ -4431,10 +3850,6 @@ export function createChatTurnOrchestrator({
       resolvedPendingInteraction: true,
       pendingInteractionId: pending.id,
       campaignState: cloneJson(next),
-      commandLogSummaryResult: cloneJson(resolved.commandLogSummaryResult || null),
-      postCommitConversation: cloneJson(resolved.postCommitConversation || null),
-      terminalCheckpoint: cloneJson(resolved.terminalCheckpoint || null),
-      terminalCheckpointSettlement: cloneJson(resolved.terminalCheckpointSettlement || null),
       response: cloneJson(resolved.response || null)
     };
   }
@@ -4556,34 +3971,6 @@ export function createChatTurnOrchestrator({
       activityReporter
     });
     state = initializeCampaignRuntimeTracking(dispatched.state);
-    let terminalCheckpoint = null;
-    let terminalCheckpointSettlement = null;
-    let terminalInteractionId = committed?.terminalDecision?.pendingInteraction?.id
-      || committed?.terminalDecision?.detection?.decisionId
-      || activeTerminalInteractionId(state)
-      || null;
-    if (!terminalInteractionId) {
-      const stateWithPending = await stateWithCorePendingProjections(state);
-      terminalInteractionId = activeTerminalInteractionId(stateWithPending);
-      if (terminalInteractionId) state = stateWithPending;
-    }
-    if (terminalInteractionId && typeof postTerminalOutcomeCheckpoint === 'function') {
-      terminalCheckpoint = await postTerminalOutcomeCheckpoint({ interactionId: terminalInteractionId });
-      state = initializeCampaignRuntimeTracking(terminalCheckpoint?.campaignState || getCampaignState() || state);
-      setCampaignState(state);
-      terminalCheckpointSettlement = terminalCheckpoint?.terminalCheckpointSettlement || await recordTerminalCheckpointSettlementEvent({
-        kind: 'terminalOutcomeCheckpointPosted',
-        ingressId: interaction.ingressId,
-        resolutionIngressId: syntheticResolutionIngressId,
-        pendingInteractionId: interaction.id,
-        turnId,
-        outcomeId,
-        interactionId: terminalInteractionId,
-        checkpointHostMessageId: terminalCheckpoint?.posted?.hostMessageId || terminalCheckpoint?.posted?.id || null,
-        status: terminalCheckpoint?.ok === false ? 'failed' : (terminalCheckpoint?.duplicate ? 'duplicate' : 'posted'),
-        reason: terminalCheckpoint?.reason || null
-      });
-    }
     state = await resolveCorePendingInteraction(state, interaction, {
       status: 'resolved',
       action: normalizedAction,
@@ -4667,8 +4054,6 @@ export function createChatTurnOrchestrator({
       ok: true,
       action: normalizedAction,
       outcomeId,
-      terminalCheckpoint: cloneJson(terminalCheckpoint || null),
-      terminalCheckpointSettlement: cloneJson(terminalCheckpointSettlement || null),
       response: cloneJson(dispatched.result.response || dispatched.result.entry || null),
       campaignState: cloneJson(state)
     };
@@ -5227,7 +4612,7 @@ export function createChatTurnOrchestrator({
     let decision = null;
     let stage = 'classification';
     try {
-      stage = 'sceneHandshake';
+      stage = 'acceptedPairSettlement';
       const acceptedPairAuthority = acceptedPairSemanticAuthority(state);
       const acceptedPairSettlement = await runAcceptedPairSettlementSequence({
         campaignState: state,
@@ -5252,18 +4637,6 @@ export function createChatTurnOrchestrator({
         )
       });
       state = acceptedPairSettlement.campaignState;
-      const sceneHandshakeBoundary = findTimeBoundaryForPlayerMessage(state, message.hostMessageId || message.id || null);
-      if (sceneHandshakeBoundary?.sourceAnchorRange?.kind === 'sceneHandshakePair') {
-        reportActivity(activityReporter, {
-          phase: 'timeBoundaryAlreadyCommitted',
-          mode: 'blocking',
-          source: 'sceneHandshakePair',
-          ingressId,
-          currentPlayerHostMessageId: message.hostMessageId || message.id || null,
-          existingSource: sceneHandshakeBoundary.sourceAnchorRange.kind,
-          elapsedMinutes: sceneHandshakeBoundary.elapsedMinutes || 0
-        });
-      }
       stage = 'classification';
       reportActivity(activityReporter, {
         phase: 'classifying',
@@ -5514,5 +4887,4 @@ export const __chatTurnOrchestratorTestHooks = Object.freeze({
   isQuietGeneration,
   localOutcomeNarration,
   warningText,
-  commandBearingText
 });

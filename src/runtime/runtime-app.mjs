@@ -4,11 +4,8 @@ import {
   recordNarrationSuccess
 } from '../campaign/transaction-state.mjs';
 import {
-  cancelReadiedCommandBearingPoint,
   migrateCommandBearingState,
-  projectCommandBearingForPlayer,
-  readyCommandBearingPoint,
-  recoverCommandBearing
+  projectCommandBearingForPlayer
 } from '../command/command-bearing.mjs';
 import { generateNarrationFromTurn } from '../generation/narration.mjs';
 import { createGenerationRouter } from '../generation/generation-router.mjs';
@@ -21,39 +18,11 @@ import { prefixCampaignReplyHeader } from '../time/campaign-time-header.mjs';
 import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
 import { classifyChatTurn } from '../adjudication/utility-turn-classifier.mjs';
 import { arbitrateChatTurn } from '../adjudication/utility-turn-arbiter.mjs';
-import {
-  addMissionComponent,
-  archiveMissionComponent as archiveMissionComponentRecord,
-  findMissionComponent,
-  matchMissionComponentSourceText,
-  missionComponentsState,
-  prepareMissionComponentSelection,
-  updateMissionComponent as updateMissionComponentRecord
-} from './mission-components.mjs';
-import { prepareDefineSelection } from './define-selection.mjs';
-import { createCampaignSidecarScheduler } from '../jobs/campaign-sidecar-scheduler.mjs';
-import { createForgeCoordinator } from '../jobs/forge-coordinator.mjs';
 import { assertDirectiveHost } from '../hosts/host-contract.mjs';
-import { runDirectiveAssist as runDirectiveAssistService } from '../assist/directive-assist.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
-import { runCommandLogSummarySidecar } from '../jobs/command-log-summary-sidecar.mjs';
 import { createRuntimePersistCoordinator } from './runtime-persist-coordinator.mjs';
 import { normalizeCampaignPackageZip } from '../packages/campaign-package-importer.mjs';
-import {
-  abandonQuest,
-  acceptQuest,
-  delegateQuest,
-  offerQuest,
-  openWorldQuestView,
-  pauseForegroundQuest,
-  rankQuestOpportunities,
-  refreshQuestAvailability
-} from '../quests/quest-director.mjs';
-import {
-  chooseForegroundQuest,
-  timeAdvanceBoundary,
-  travelBoundary
-} from '../directors/director-coordinator.mjs';
+import { openWorldQuestView } from '../quests/quest-director.mjs';
 import {
   listImportedCampaignPackageRecords,
   deletePlayerPortraitAsset,
@@ -67,20 +36,16 @@ import { createCampaignStartController } from './campaign-start-controller.mjs';
 import { createManualCheckpointService } from './manual-checkpoint-service.mjs';
 import { createCampaignActivationCoordinator } from './campaign-activation-coordinator.mjs';
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
-import { createCampaignEndConditionService } from './campaign-end-condition-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { buildV1RuntimePlayerProjection, createV1MissionRuntime } from './v1-mission-runtime.mjs';
 import { resolveV1SemanticAuthority as resolveV1SemanticAuthorityContract } from './v1-semantic-authority.mjs';
-import { createNarrativeThreadDirector } from '../directors/narrative-thread-director.mjs';
 import {
   buildContinuityProjectionDiagnostics,
   buildContinuityTelemetry
 } from '../continuity/diagnostics.mjs';
-import { createMessageReconciler } from './message-reconciler.mjs';
 import { createResponseDispatcher } from './response-dispatcher.mjs';
 import { createRepairCommandBoundary } from './repair-command-boundary.mjs';
 import { createSourceReviewWorker } from './source-review-worker.mjs';
-import { createSourceSettlementService } from './source-settlement-service.mjs';
 import {
   createLensPromptScheduler,
   REQUIRED_HOST_CONTINUE_PROMPT_KEYS,
@@ -99,7 +64,6 @@ import {
   findLedgerIngressAsync,
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
-import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs';
 import { buildSupportDiagnosticsExport } from './support-diagnostics-export.mjs';
 import { campaignOpeningSceneStatus } from './opening-scene-status.mjs';
 import {
@@ -133,9 +97,7 @@ import {
 } from '../storage/core-store-v2.mjs';
 import {
   commitV2SaveLayout,
-  deleteV2SaveLayout,
-  loadV2Checkpoint,
-  writeV2Checkpoint
+  deleteV2SaveLayout
 } from '../storage/transaction-store-v2.mjs';
 import { hashStableJson } from './architecture-redesign-contracts.mjs';
 import {
@@ -155,24 +117,6 @@ import {
 } from '../ui/player-facing-information.mjs';
 import { buildCampaignView } from '../ui/view-models/campaign-view.mjs';
 import { createCreatorRuntimeService } from './creator-runtime-service.mjs';
-import {
-  applyOutcomeIntegritySettings,
-  buildOutcomeIntegrityEditContextAsync,
-  createOutcomeIntegrityRevisionRecord,
-  findOutcomeIntegrityResponseAsync,
-  normalizeOutcomeIntegrityMode,
-  normalizeOutcomeIntegrityReviewProviderKind,
-  normalizeOutcomeIntegritySettings,
-  outcomeIntegrityFailureSummary,
-  outcomeIntegrityStatusForMessageAsync,
-  reviewOutcomeIntegrityEdit,
-  validateOutcomeIntegrityProposedEdit
-} from './outcome-integrity.mjs';
-import {
-  proposeCorrectAsSwipe,
-  settleCorrectAsSwipeCaseLifecycle
-} from './correct-as-swipe.mjs';
-import { createSceneReconciliationService } from './scene-reconciliation.mjs';
 import { createTurnCommitCoordinator } from './turn-commit-coordinator.mjs';
 import {
   commitProvisionalDirectorTurnRuntime,
@@ -322,21 +266,11 @@ function applyAutosaveEveryMessages(campaignState, value = null) {
 
 function applyRuntimeSettings(campaignState, {
   maxTurnSaveHistory = null,
-  autosaveEveryMessages = null,
-  outcomeIntegrity = null,
-  outcomeIntegrityMode = null,
-  outcomeIntegrityReviewProviderKind = null
+  autosaveEveryMessages = null
 } = {}) {
   if (!campaignState) return campaignState;
   const next = applyTurnSaveHistoryLimit(campaignState, maxTurnSaveHistory);
-  const autosaved = applyAutosaveEveryMessages(next, autosaveEveryMessages);
-  const currentOutcomeIntegrity = normalizeOutcomeIntegritySettings(autosaved.settings || {});
-  return applyOutcomeIntegritySettings(autosaved, {
-    mode: outcomeIntegrity?.mode ?? outcomeIntegrityMode ?? currentOutcomeIntegrity.mode,
-    reviewProviderKind: outcomeIntegrity?.reviewProviderKind
-      ?? outcomeIntegrityReviewProviderKind
-      ?? currentOutcomeIntegrity.reviewProviderKind
-  });
+  return applyAutosaveEveryMessages(next, autosaveEveryMessages);
 }
 
 function committedMessageCount(campaignState) {
@@ -363,82 +297,6 @@ function fnv1a(text) {
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
-}
-
-function compactRuntimeErrorEvidence(error = null, fallbackCode = 'DIRECTIVE_RUNTIME_ERROR') {
-  const rawMessage = compactString(error?.message || error || '');
-  const message = rawMessage.slice(0, 900);
-  return {
-    code: compactString(error?.code) || fallbackCode,
-    messageLength: rawMessage.length,
-    messageHash: message ? hashStableJson({ message }) : null
-  };
-}
-
-function missionComponentMessageTextCandidates(message = {}) {
-  if (!message || typeof message !== 'object') return [];
-  return [
-    message.text,
-    message.mes,
-    message.content,
-    message.raw?.mes,
-    message.raw?.content,
-    message.raw?.text
-  ].map((item) => String(item || '')).filter(Boolean);
-}
-
-function matchMissionComponentTextInMessage(text = '', message = {}) {
-  return matchMissionComponentSourceText(text, missionComponentMessageTextCandidates(message));
-}
-
-function sourceMessageId(value = {}) {
-  return compactString(value?.hostMessageId || value?.id || value?.messageId);
-}
-
-function findMissionComponentSourceMessageMatch({
-  selectedText = '',
-  fallbackMessage = null,
-  messages = [],
-  preferredMessageId = ''
-} = {}) {
-  const selected = compactString(selectedText);
-  if (!selected) return { ok: false, reason: 'missing-selection' };
-  const fallbackFullText = compactString(
-    fallbackMessage?.text
-    || fallbackMessage?.mes
-    || fallbackMessage?.content
-    || fallbackMessage?.messageText
-  );
-  const preferredId = compactString(preferredMessageId);
-  const scored = [];
-  for (const [index, message] of (Array.isArray(messages) ? messages : []).entries()) {
-    if (!message || typeof message !== 'object') continue;
-    const selectedMatch = matchMissionComponentTextInMessage(selected, message);
-    if (!selectedMatch.ok) continue;
-    const fullMatch = fallbackFullText
-      ? matchMissionComponentTextInMessage(fallbackFullText, message)
-      : { ok: false };
-    scored.push({
-      message,
-      sourceMatch: fullMatch.ok ? fullMatch : selectedMatch,
-      score: [
-        fullMatch.ok ? 100 : 0,
-        sourceMessageId(message) && sourceMessageId(message) === preferredId ? 20 : 0,
-        Number.isInteger(message.index) ? Math.max(0, 10 - Math.abs(Number(message.index) - Number(preferredId || message.index))) : 0,
-        -index
-      ].reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0),
-      matchedFullMessage: fullMatch.ok
-    });
-  }
-  scored.sort((left, right) => right.score - left.score);
-  const winner = scored[0];
-  if (!winner) return { ok: false, reason: 'source-message-not-found' };
-  return {
-    ok: true,
-    message: cloneJson(winner.message),
-    sourceMatch: winner.sourceMatch,
-    matchedFullMessage: winner.matchedFullMessage
-  };
 }
 
 function findForbiddenFactualReviewKey(value, path = '$', depth = 0) {
@@ -574,19 +432,6 @@ function storyQualityReviewProviderRequest(reviewRequest = {}) {
 
 function countArray(value) {
   return Array.isArray(value) ? value.length : 0;
-}
-
-function acceptedBackgroundBatchWorkerCount(backgroundBatches = []) {
-  return (Array.isArray(backgroundBatches) ? backgroundBatches : []).reduce((sum, batch) => {
-    if (!batch?.acceptedBatchHash && !batch?.forgeBatchRef?.acceptedBatchHash) return sum;
-    const workerCount = Number(batch.workerCount ?? batch.forgeBatchRef?.workerCount);
-    return sum + (Number.isFinite(workerCount) && workerCount > 0 ? workerCount : 1);
-  }, 0);
-}
-
-function commandLogEntryCount(state = null) {
-  if (Array.isArray(state?.commandLog)) return state.commandLog.length;
-  return countArray(state?.commandLog?.entries);
 }
 
 function arrayItems(value) {
@@ -815,61 +660,26 @@ function sameCampaignSaveBinding(left = null, right = null) {
 
 function stateFreshnessCounters(state = null) {
   const tracking = state?.runtimeTracking || {};
-  const ledger = terminalDecisionLedgerView(state || {});
   const runtimeLedgerView = createRuntimeLedgerView(state || {});
-  const responseLedger = runtimeLedgerView.responseLedger || [];
-  const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections || null;
-  const coreTurnLedgerEntries = Array.isArray(coreProjection?.turnLedger?.entries)
-    ? coreProjection.turnLedger.entries.length
-    : null;
-  const coreResponseLedger = Array.isArray(coreProjection?.responses)
-    ? coreProjection.responses
-    : Array.isArray(coreProjection?.responseLedger)
-      ? coreProjection.responseLedger
-    : null;
-  const coreSidecarDiagnostics = Array.isArray(coreProjection?.sidecarDiagnostics)
-    ? coreProjection.sidecarDiagnostics.length
-    : null;
-  const coreAcceptedBackgroundWorkers = Array.isArray(coreProjection?.backgroundBatches)
-    ? acceptedBackgroundBatchWorkerCount(coreProjection.backgroundBatches)
-    : null;
-  const modelCallDiagnostics = modelCallDiagnosticsForState(state);
+  const coreProjection = state?.directiveRuntimeEvidence?.coreStoreReadProjections || {};
   return {
     revision: Math.max(0, Number(tracking.revision) || 0),
     mechanicsRevision: Math.max(0, Number(tracking.mechanicsRevision) || 0),
     promptContextRevision: Math.max(0, Number(state?.campaignChatBinding?.promptContextRevision) || 0),
-    commandLogEntries: commandLogEntryCount(state),
-    sceneHandshakeSettlements: Math.max(
-      countArray(state?.sceneHandshake?.settled),
-      state?.sceneHandshake?.lastResult ? 1 : 0
+    storyRevision: Math.max(0, Number(state?.storySettlement?.revision) || 0),
+    missionRevision: Math.max(0, Number(state?.mission?.v1?.revision) || 0),
+    settlementReceipts: countArray(state?.storySettlement?.receipts),
+    settledEpisodes: countArray(state?.storySettlement?.episodes),
+    timeLedgerEntries: countArray(state?.timeLedger?.entries),
+    turnLedgerEntries: Math.max(
+      countArray(state?.turnLedger?.entries),
+      countArray(coreProjection?.turnLedger?.entries)
     ),
-    sceneHandshakeReviews: countArray(state?.sceneHandshake?.pendingInternalReview)
-      + countArray(state?.sceneHandshake?.deferred)
-      + countArray(state?.sceneHandshake?.operatorRecovery)
-      + countArray(state?.sceneHandshake?.rejected),
-    missionOpenAssignments: countArray(state?.mission?.openAssignments),
-    shipTechnicalDebt: countArray(state?.ship?.technicalDebt),
-    threadLedgerRecords: countArray(state?.threadLedger?.records),
-    turnLedgerEntries: Math.max(countArray(state?.turnLedger?.entries), coreTurnLedgerEntries ?? 0),
     ingressLedgerEntries: countArray(runtimeLedgerView.ingressLedger),
-    responseLedgerEntries: responseLedger.length,
-    responseLedgerRevision: Math.max(0, Number(coreProjection?.responseLedgerRevision) || 0),
-    responseLedgerIntegritySelections: Math.max(
-      responseLedger.filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
-      (coreResponseLedger || []).filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length
-    ),
+    responseLedgerEntries: countArray(runtimeLedgerView.responseLedger),
     recoveryJournalEntries: countArray(runtimeLedgerView.recoveryJournal),
-    sidecarJournalEntries: Math.max(
-      Number(state?.runtimeResume?.sidecarCount) || 0,
-      coreSidecarDiagnostics ?? 0,
-      coreAcceptedBackgroundWorkers ?? 0
-    ),
     pendingInteractions: countArray(pendingInteractionProjectionRows(state)),
-    endConditionDetections: countArray(ledger.detections),
-    endConditionDecisions: countArray(ledger.decisions),
-    endConditionBranchRecords: countArray(ledger.branchRecords),
-    endConditionContinuationFrames: countArray(ledger.continuationFrames),
-    modelCallJournalEntries: modelCallDiagnostics.length
+    modelCallJournalEntries: countArray(coreProjection?.modelCallDiagnostics)
   };
 }
 
@@ -1000,31 +810,9 @@ function pendingInteractionProjectionRows(state = null) {
     : [];
 }
 
-function stateHasCoreV2RuntimeAuthority(state = null) {
-  const projections = readRuntimeCoreProjections(state || {});
-  return projections.runtimeAuthority === 'coreStoreV2'
-    || projections.turnLedger?.runtimeAuthority === 'coreStoreV2';
-}
-
-function mergeablePendingInteractionProjectionRows(state = null) {
-  return pendingInteractionProjectionRows(state)
-    .filter((entry) => entry?.kind !== 'terminalOutcomeDecision');
-}
-
-function modelCallDiagnosticsForState(state = null) {
-  const projections = readRuntimeCoreProjections(state || {});
-  const projected = Array.isArray(projections.modelCallDiagnostics) ? projections.modelCallDiagnostics : [];
-  return cloneJson(projected);
-}
-
 function coreModelCallDiagnosticsForState(state = null) {
   const projections = readRuntimeCoreProjections(state || {});
   return Array.isArray(projections.modelCallDiagnostics) ? cloneJson(projections.modelCallDiagnostics) : [];
-}
-
-function legacyModelCallTelemetryForState(state = null) {
-  void state;
-  return [];
 }
 
 function modelCallResultFromGeneration(generated = null, fallbackRoleId = null) {
@@ -1039,180 +827,6 @@ function modelCallResultFromGeneration(generated = null, fallbackRoleId = null) 
     latencyMs: generated.diagnostics?.latencyMs ?? null,
     requestHash: generated.diagnostics?.requestHash || null,
     errorCode: generated.error?.code || null
-  };
-}
-
-function responseLedgerIntegrityRank(entry = null) {
-  return entry?.outcomeIntegrity?.selectedRevisionId ? 1 : 0;
-}
-
-function responseProjectionCompatibilityFields(entry = {}, operation = 'fresherResponseLedgerMerge') {
-  const responseId = compactString(entry?.id || entry?.responseId);
-  const transactionId = compactString(entry?.transactionId || entry?.coreTransactionId || entry?.coreRelease?.transactionId);
-  const status = compactString(entry?.status);
-  return {
-    authority: entry?.authority || 'compatibilityProjection',
-    projectionSource: entry?.projectionSource || 'coreStoreV2',
-    compatibilityMirror: cloneJson(entry?.compatibilityMirror || {
-      kind: 'directive.coreResponseCompatibilityMirror.v1',
-      source: 'coreStoreV2',
-      mirroredOperation: operation,
-      responseId: responseId || null,
-      transactionId: transactionId || null,
-      status: status || null
-    }),
-    coreProjection: cloneJson(entry?.coreProjection || {
-      kind: 'directive.coreResponseProjectionRef.v1',
-      id: responseId || null,
-      responseId: responseId || null,
-      transactionId: transactionId || null,
-      status: status || null
-    })
-  };
-}
-
-function responseRowsForFresherMerge(state = null) {
-  const projections = readRuntimeCoreProjections(state || {});
-  const rows = coreResponseProjectionRows(projections);
-  return rows.map((entry) => ({
-    ...cloneJson(entry),
-    ...responseProjectionCompatibilityFields(entry)
-  }));
-}
-
-function responseProjectionMergeKeys(entry = {}) {
-  return [
-    compactString(entry?.id),
-    compactString(entry?.responseId),
-    compactString(entry?.transactionId),
-    compactString(entry?.coreTransactionId),
-    rowKey(entry, ['turnId', 'outcomeId', 'responseKind'])
-  ].filter(Boolean);
-}
-
-function mergeResponseProjectionRows(candidateRows = [], memoryRows = []) {
-  const output = Array.isArray(candidateRows) ? cloneJson(candidateRows) : [];
-  const indexByKey = new Map();
-  for (const [index, entry] of output.entries()) {
-    for (const key of responseProjectionMergeKeys(entry)) indexByKey.set(key, index);
-  }
-  for (const memory of Array.isArray(memoryRows) ? memoryRows : []) {
-    const keys = responseProjectionMergeKeys(memory);
-    const existingIndex = keys.map((key) => indexByKey.get(key)).find((index) => Number.isInteger(index));
-    if (!Number.isInteger(existingIndex)) {
-      const nextIndex = output.length;
-      output.push(cloneJson(memory));
-      for (const key of keys) indexByKey.set(key, nextIndex);
-      continue;
-    }
-    const existing = output[existingIndex];
-    if (responseLedgerIntegrityRank(memory) <= responseLedgerIntegrityRank(existing)) continue;
-    output[existingIndex] = {
-      ...cloneJson(existing),
-      authority: memory.authority || existing.authority || null,
-      projectionSource: memory.projectionSource || existing.projectionSource || null,
-      compatibilityMirror: cloneJson(memory.compatibilityMirror || existing.compatibilityMirror || null),
-      coreProjection: cloneJson(memory.coreProjection || existing.coreProjection || null),
-      editedAt: memory.editedAt || existing.editedAt || null,
-      replacementText: memory.replacementText ?? existing.replacementText ?? null,
-      outcomeIntegrity: cloneJson(memory.outcomeIntegrity || null)
-    };
-  }
-  return output;
-}
-
-function coreResponseProjectionRows(projection = {}) {
-  const rows = Array.isArray(projection?.responses) ? projection.responses : projection?.responseLedger;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function coreProjectionWithoutResponseLedgerAlias(projection = {}) {
-  const next = cloneJson(projection || {});
-  if (!Array.isArray(next.responses) && Array.isArray(next.responseLedger)) {
-    next.responses = cloneJson(next.responseLedger);
-  }
-  delete next.responseLedger;
-  return next;
-}
-
-function mergeFresherSourceSettlementRoots(candidateState = null, inMemoryState = null) {
-  if (!candidateState || !inMemoryState) return cloneJson(candidateState || null);
-  const candidate = stateFreshnessCounters(candidateState);
-  const inMemory = stateFreshnessCounters(inMemoryState);
-  const next = cloneJson(candidateState);
-  const sameSave = sameCampaignSaveBinding(
-    stateBindingForFreshness(candidateState),
-    stateBindingForFreshness(inMemoryState)
-  );
-  const copyIfFresher = (root, keys = []) => {
-    if (!keys.some((key) => inMemory[key] > candidate[key])) return;
-    next[root] = cloneJson(inMemoryState[root] || null);
-  };
-  copyIfFresher('sceneHandshake', ['sceneHandshakeSettlements', 'sceneHandshakeReviews']);
-  copyIfFresher('mission', ['missionOpenAssignments']);
-  copyIfFresher('ship', ['shipTechnicalDebt']);
-  copyIfFresher('threadLedger', ['threadLedgerRecords']);
-  if (
-    inMemory.commandLogEntries > candidate.commandLogEntries
-    && (
-      inMemory.sceneHandshakeSettlements > candidate.sceneHandshakeSettlements
-      || inMemory.missionOpenAssignments > candidate.missionOpenAssignments
-      || inMemory.shipTechnicalDebt > candidate.shipTechnicalDebt
-      || inMemory.threadLedgerRecords > candidate.threadLedgerRecords
-    )
-  ) {
-    next.commandLog = cloneJson(inMemoryState.commandLog || null);
-  }
-  if (sameSave && inMemory.promptContextRevision > candidate.promptContextRevision) {
-    next.campaignChatBinding = {
-      ...cloneJson(next.campaignChatBinding || {}),
-      promptContextRevision: inMemoryState.campaignChatBinding?.promptContextRevision || inMemory.promptContextRevision,
-      promptContextHash: inMemoryState.campaignChatBinding?.promptContextHash || next.campaignChatBinding?.promptContextHash || null
-    };
-    if (inMemoryState.directiveRuntimeEvidence?.lensPromptRevisionRecord) {
-      next.directiveRuntimeEvidence = {
-        ...cloneJson(next.directiveRuntimeEvidence || {}),
-        lensPromptRevisionRecord: cloneJson(inMemoryState.directiveRuntimeEvidence.lensPromptRevisionRecord)
-      };
-    }
-    if (inMemoryState.runtimeResume?.promptContextRevision) {
-      next.runtimeResume = {
-        ...cloneJson(next.runtimeResume || {}),
-        promptContextRevision: inMemoryState.runtimeResume.promptContextRevision,
-        externalPromptEnvironmentRef: cloneJson(inMemoryState.runtimeResume.externalPromptEnvironmentRef || next.runtimeResume?.externalPromptEnvironmentRef || null)
-      };
-    }
-  }
-  return next;
-}
-
-function mergeFresherResponseLedgerProjection(candidateState = null, inMemoryState = null) {
-  if (!candidateState || !inMemoryState) return candidateState;
-  const candidateTracking = candidateState.runtimeTracking || {};
-  const mergedCandidate = mergeFresherSourceSettlementRoots(candidateState, inMemoryState);
-  const candidateEvidence = mergedCandidate.directiveRuntimeEvidence?.coreStoreReadProjections || {};
-  const memoryEvidence = readRuntimeCoreProjections(inMemoryState || {});
-  const memoryLedger = responseRowsForFresherMerge(inMemoryState);
-  if (!memoryLedger.length) return mergedCandidate;
-  const responses = mergeResponseProjectionRows(coreResponseProjectionRows(candidateEvidence), memoryLedger);
-  const responseLedgerRevision = Math.max(
-    Number(candidateEvidence.responseLedgerRevision) || 0,
-    Number(memoryEvidence.responseLedgerRevision) || 0
-  );
-  const baseEvidence = coreProjectionWithoutResponseLedgerAlias(candidateEvidence);
-  return {
-    ...cloneJson(mergedCandidate),
-    directiveRuntimeEvidence: {
-      ...cloneJson(mergedCandidate.directiveRuntimeEvidence || {}),
-      coreStoreReadProjections: {
-        ...baseEvidence,
-        kind: candidateEvidence.kind || memoryEvidence.kind || 'directive.coreStoreReadProjections.v1',
-        runtimeAuthority: candidateEvidence.runtimeAuthority || memoryEvidence.runtimeAuthority,
-        responseLedgerRevision,
-        responses
-      }
-    },
-    runtimeTracking: cloneJson(candidateTracking)
   };
 }
 
@@ -1250,287 +864,43 @@ function shouldPreferInMemoryCampaignState(candidateState = null, inMemoryState 
   if (!sameChat || !sameCampaign || !sameSave) return false;
 
   const candidate = stateFreshnessCounters(candidateState);
-  const inMemory = stateFreshnessCounters(inMemoryState);
-  const hasCoreV2RuntimeAuthority = stateHasCoreV2RuntimeAuthority(candidateState)
-    || stateHasCoreV2RuntimeAuthority(inMemoryState);
-  const sourceSettlementKeys = [
-    'sceneHandshakeSettlements',
-    'sceneHandshakeReviews',
-    'missionOpenAssignments',
-    'shipTechnicalDebt',
-    'threadLedgerRecords'
-  ];
-  const candidateHasSourceSettlementGrowth = sourceSettlementKeys.some((key) => candidate[key] > inMemory[key]);
-  const inMemoryHasSourceSettlementGrowth = sourceSettlementKeys.some((key) => inMemory[key] > candidate[key]);
-  if (!candidateHasSourceSettlementGrowth && inMemory.turnLedgerEntries > candidate.turnLedgerEntries) return true;
-  if (!inMemoryHasSourceSettlementGrowth && candidate.turnLedgerEntries > inMemory.turnLedgerEntries) return false;
-  if (
-    inMemory.responseLedgerEntries >= candidate.responseLedgerEntries
-    && inMemory.responseLedgerIntegritySelections > candidate.responseLedgerIntegritySelections
-  ) return true;
-  if (
-    candidate.responseLedgerEntries >= inMemory.responseLedgerEntries
-    && candidate.responseLedgerIntegritySelections > inMemory.responseLedgerIntegritySelections
-  ) return false;
-
+  const memory = stateFreshnessCounters(inMemoryState);
   const materialKeys = [
-    'promptContextRevision',
-    'commandLogEntries',
-    'sceneHandshakeSettlements',
-    'sceneHandshakeReviews',
-    'missionOpenAssignments',
-    'shipTechnicalDebt',
-    'threadLedgerRecords',
+    'storyRevision',
+    'missionRevision',
+    'settlementReceipts',
+    'settledEpisodes',
+    'timeLedgerEntries',
     'turnLedgerEntries',
     'ingressLedgerEntries',
     'responseLedgerEntries',
-    'responseLedgerRevision',
-    'responseLedgerIntegritySelections',
     'recoveryJournalEntries',
-    'sidecarJournalEntries',
     'pendingInteractions',
-    'endConditionDetections',
-    'endConditionDecisions',
-    'endConditionBranchRecords',
-    'endConditionContinuationFrames'
+    'modelCallJournalEntries',
+    'promptContextRevision'
   ];
-  const criticalMaterialKeys = materialKeys.filter((key) => key !== 'promptContextRevision');
-  const candidateHasCriticalGrowth = criticalMaterialKeys.some((key) => candidate[key] > inMemory[key]);
-  const inMemoryHasCriticalGrowth = criticalMaterialKeys.some((key) => inMemory[key] > candidate[key]);
-  if (inMemoryHasCriticalGrowth && !candidateHasCriticalGrowth) return true;
-  if (candidateHasCriticalGrowth && !inMemoryHasCriticalGrowth) return false;
-
-  const hasMaterialRegression = materialKeys.some((key) => inMemory[key] < candidate[key]);
-  const hasMaterialGrowth = materialKeys.some((key) => inMemory[key] > candidate[key]);
-  if (hasMaterialGrowth && !hasMaterialRegression) return true;
-  if (hasMaterialRegression && !hasMaterialGrowth) return false;
-
-  if (!hasCoreV2RuntimeAuthority) {
-    if (inMemory.revision > candidate.revision) return true;
-    if (inMemory.revision < candidate.revision) return false;
-    if (inMemory.mechanicsRevision > candidate.mechanicsRevision) return true;
-    if (inMemory.mechanicsRevision < candidate.mechanicsRevision) return false;
+  const memoryGrowth = materialKeys.some((key) => memory[key] > candidate[key]);
+  const candidateGrowth = materialKeys.some((key) => candidate[key] > memory[key]);
+  if (memoryGrowth && !candidateGrowth) return true;
+  if (candidateGrowth && !memoryGrowth) return false;
+  if (memory.revision !== candidate.revision) return memory.revision > candidate.revision;
+  if (memory.mechanicsRevision !== candidate.mechanicsRevision) {
+    return memory.mechanicsRevision > candidate.mechanicsRevision;
   }
-
+  if (memory.storyRevision !== candidate.storyRevision) return memory.storyRevision > candidate.storyRevision;
+  if (memory.missionRevision !== candidate.missionRevision) return memory.missionRevision > candidate.missionRevision;
   return false;
-}
-
-function runtimePersistProjectionRowKey(row = null) {
-  if (!isObject(row)) return hashStableJson(row);
-  return [
-    row.id,
-    row.turnId,
-    row.transactionId,
-    row.coreTransactionId,
-    row.hostMessageId,
-    row.outcomeId,
-    row.checkpointId,
-    row.worker,
-    row.role,
-    row.type
-  ].map(compactString).find(Boolean) || hashStableJson(row);
-}
-
-function mergeRuntimePersistProjectionRows(priorRows = [], nextRows = []) {
-  const byKey = new Map();
-  for (const row of arrayItems(priorRows)) byKey.set(runtimePersistProjectionRowKey(row), cloneJson(row));
-  for (const row of arrayItems(nextRows)) {
-    const key = runtimePersistProjectionRowKey(row);
-    const prior = byKey.get(key);
-    if (!isObject(prior)) {
-      byKey.set(key, cloneJson(row));
-      continue;
-    }
-    const merged = cloneJson(prior);
-    for (const [field, value] of Object.entries(row || {})) {
-      if (value === undefined || value === null || value === '') continue;
-      if (isObject(value) && isObject(merged[field])) {
-        merged[field] = {
-          ...cloneJson(merged[field]),
-          ...cloneJson(value)
-        };
-      } else {
-        merged[field] = cloneJson(value);
-      }
-    }
-    byKey.set(key, merged);
-  }
-  return [...byKey.values()];
-}
-
-function mergeRuntimePersistCoreProjections(priorProjection = null, nextProjection = null) {
-  if (!isObject(priorProjection)) return isObject(nextProjection) ? coreProjectionWithoutResponseLedgerAlias(nextProjection) : cloneJson(nextProjection || null);
-  if (!isObject(nextProjection)) return coreProjectionWithoutResponseLedgerAlias(priorProjection);
-  const priorNormalized = coreProjectionWithoutResponseLedgerAlias(priorProjection);
-  const nextNormalized = coreProjectionWithoutResponseLedgerAlias(nextProjection);
-  const nextHasRuntimeAuthority = nextProjection.runtimeAuthority === 'coreStoreV2'
-    || nextProjection.turnLedger?.runtimeAuthority === 'coreStoreV2';
-  const merged = {
-    ...priorNormalized,
-    ...nextNormalized,
-    kind: nextProjection.kind || priorProjection.kind || 'directive.coreStoreReadProjections.v1',
-    runtimeAuthority: nextProjection.runtimeAuthority || priorProjection.runtimeAuthority || null,
-    responseLedgerRevision: Math.max(
-      Number(priorProjection.responseLedgerRevision) || 0,
-      Number(nextProjection.responseLedgerRevision) || 0
-    )
-  };
-  if (isObject(priorProjection.turnLedger) || isObject(nextProjection.turnLedger)) {
-    const nextTurnLedger = isObject(nextProjection.turnLedger) ? nextProjection.turnLedger : null;
-    const nextTurnLedgerAuthority = nextHasRuntimeAuthority || nextTurnLedger?.runtimeAuthority === 'coreStoreV2';
-    merged.turnLedger = {
-      ...cloneJson(priorProjection.turnLedger || {}),
-      ...cloneJson(nextProjection.turnLedger || {}),
-      entries: nextTurnLedgerAuthority && Array.isArray(nextTurnLedger?.entries)
-        ? cloneJson(nextTurnLedger.entries)
-        : mergeRuntimePersistProjectionRows(
-          priorProjection.turnLedger?.entries,
-          nextProjection.turnLedger?.entries
-        ),
-      replacementHistory: nextTurnLedgerAuthority && Array.isArray(nextTurnLedger?.replacementHistory)
-        ? cloneJson(nextTurnLedger.replacementHistory)
-        : mergeRuntimePersistProjectionRows(
-          priorProjection.turnLedger?.replacementHistory,
-          nextProjection.turnLedger?.replacementHistory
-        )
-    };
-  }
-  for (const key of [
-    'ingressLedger',
-    'responses',
-    'recoveryJournal',
-    'sidecarDiagnostics',
-    'backgroundBatches',
-    'modelCallDiagnostics'
-  ]) {
-    if (Array.isArray(priorNormalized[key]) || Array.isArray(nextNormalized[key])) {
-      merged[key] = nextHasRuntimeAuthority && Array.isArray(nextNormalized[key])
-        ? cloneJson(nextNormalized[key])
-        : mergeRuntimePersistProjectionRows(priorNormalized[key], nextNormalized[key]);
-    }
-  }
-  if (Array.isArray(priorProjection.pendingInteractions) || Array.isArray(nextProjection.pendingInteractions)) {
-    merged.pendingInteractions = (
-      nextHasRuntimeAuthority && Array.isArray(nextProjection.pendingInteractions)
-        ? cloneJson(nextProjection.pendingInteractions)
-        : mergeRuntimePersistProjectionRows(
-          priorProjection.pendingInteractions,
-          nextProjection.pendingInteractions
-        )
-    ).filter((entry) => entry?.kind !== 'terminalOutcomeDecision');
-  }
-  return merged;
-}
-
-function mergeRuntimePersistPendingStates(priorState = null, nextState = null, {
-  chatId = null,
-  fallbackHostId = null,
-  fallbackSaveId = null
-} = {}) {
-  if (!isObject(priorState)) return cloneJson(nextState || null);
-  if (!isObject(nextState)) return cloneJson(priorState || null);
-  const requestedChatId = compactString(chatId);
-  const priorBinding = stateBindingForFreshness(priorState, {
-    fallbackHostId,
-    fallbackChatId: requestedChatId,
-    fallbackSaveId
-  });
-  const nextBinding = stateBindingForFreshness(nextState, {
-    fallbackHostId,
-    fallbackChatId: requestedChatId,
-    fallbackSaveId
-  });
-  const sameChat = Boolean(priorBinding?.chatId && nextBinding?.chatId && priorBinding.chatId === nextBinding.chatId);
-  const sameCampaign = Boolean(
-    priorBinding?.campaignId
-    && nextBinding?.campaignId
-    && priorBinding.campaignId === nextBinding.campaignId
-  );
-  const sameSave = priorBinding?.saveId && nextBinding?.saveId
-    ? priorBinding.saveId === nextBinding.saveId
-    : true;
-  if (!sameChat || !sameCampaign || !sameSave) return cloneJson(nextState);
-
-  const prior = stateFreshnessCounters(priorState);
-  const next = stateFreshnessCounters(nextState);
-  const merged = cloneJson(nextState);
-  const mergedTracking = {
-    ...cloneJson(nextState.runtimeTracking || {})
-  };
-  if (prior.promptContextRevision > next.promptContextRevision) {
-    merged.campaignChatBinding = {
-      ...cloneJson(nextState.campaignChatBinding || {}),
-      promptContextRevision: prior.promptContextRevision
-    };
-  }
-  if (prior.commandLogEntries > next.commandLogEntries) merged.commandLog = cloneJson(priorState.commandLog || null);
-  const nextCoreProjectionForFreshness = readRuntimeCoreProjections(nextState || {});
-  const nextHasAuthoritativeTurnProjection = (
-    nextCoreProjectionForFreshness.runtimeAuthority === 'coreStoreV2'
-    || nextCoreProjectionForFreshness.turnLedger?.runtimeAuthority === 'coreStoreV2'
-  ) && Array.isArray(nextCoreProjectionForFreshness.turnLedger?.entries);
-  if (!nextHasAuthoritativeTurnProjection && prior.turnLedgerEntries > next.turnLedgerEntries) {
-    merged.turnLedger = cloneJson(priorState.turnLedger || null);
-  }
-  const priorPendingRows = mergeablePendingInteractionProjectionRows(priorState);
-  const nextPendingRows = mergeablePendingInteractionProjectionRows(nextState);
-  const nextHasAuthoritativePendingProjection = nextCoreProjectionForFreshness.runtimeAuthority === 'coreStoreV2'
-    && Array.isArray(nextCoreProjectionForFreshness.pendingInteractions);
-  if (!nextHasAuthoritativePendingProjection && priorPendingRows.length > nextPendingRows.length) {
-    merged.directiveRuntimeEvidence = {
-      ...cloneJson(nextState.directiveRuntimeEvidence || {}),
-      coreStoreReadProjections: {
-        ...cloneJson(nextState.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
-        pendingInteractions: cloneJson(priorPendingRows)
-      }
-    };
-  }
-  if (
-    (
-      prior.endConditionDetections > next.endConditionDetections
-      || prior.endConditionDecisions > next.endConditionDecisions
-      || prior.endConditionBranchRecords > next.endConditionBranchRecords
-      || prior.endConditionContinuationFrames > next.endConditionContinuationFrames
-    )
-    && isObject(priorState.directiveRuntimeEvidence?.coreStoreReadProjections?.terminalDecisionLedger)
-  ) {
-    merged.directiveRuntimeEvidence = {
-      ...cloneJson(merged.directiveRuntimeEvidence || nextState.directiveRuntimeEvidence || {}),
-      coreStoreReadProjections: {
-        ...cloneJson(merged.directiveRuntimeEvidence?.coreStoreReadProjections || nextState.directiveRuntimeEvidence?.coreStoreReadProjections || {}),
-        terminalDecisionLedger: cloneJson(priorState.directiveRuntimeEvidence.coreStoreReadProjections.terminalDecisionLedger)
-      }
-    };
-  }
-  if (Object.keys(mergedTracking).length) merged.runtimeTracking = mergedTracking;
-
-  const priorResumeCount = Number(priorState.runtimeResume?.sidecarCount) || 0;
-  const nextResumeCount = Number(nextState.runtimeResume?.sidecarCount) || 0;
-  if (priorResumeCount > nextResumeCount) {
-    merged.runtimeResume = {
-      ...cloneJson(nextState.runtimeResume || {}),
-      sidecarCount: priorResumeCount
-    };
-  }
-
-  const priorProjection = priorState.directiveRuntimeEvidence?.coreStoreReadProjections || null;
-  const nextProjection = nextState.directiveRuntimeEvidence?.coreStoreReadProjections || null;
-  const mergedProjection = mergeRuntimePersistCoreProjections(priorProjection, nextProjection);
-  if (mergedProjection) {
-    merged.directiveRuntimeEvidence = {
-      ...cloneJson(merged.directiveRuntimeEvidence || {}),
-      coreStoreReadProjections: mergedProjection
-    };
-  }
-  return merged;
 }
 
 function mergeRuntimePersistPendingRequest(priorRequest = null, nextRequest = null, options = {}) {
   if (!priorRequest) return nextRequest ? cloneJson(nextRequest) : null;
   if (!nextRequest) return cloneJson(priorRequest);
+  const usePriorState = shouldPreferInMemoryCampaignState(nextRequest.state, priorRequest.state, options);
+  const state = cloneJson(usePriorState ? priorRequest.state : nextRequest.state);
+  if (isObject(nextRequest.state?.settings)) state.settings = cloneJson(nextRequest.state.settings);
   return {
     ...cloneJson(nextRequest),
-    state: mergeRuntimePersistPendingStates(priorRequest.state, nextRequest.state, options)
+    state
   };
 }
 
@@ -1540,558 +910,19 @@ function hasTurnLedgerOutcome(state = null, outcomeId = null) {
   return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
 }
 
-function checkpointSnapshotFromRecord(record = null) {
-  if (!isObject(record)) return null;
-  return record.campaignState
-    || record.snapshot
-    || record.state
-    || record.checkpoint?.campaignState
-    || record.checkpoint?.snapshot
-    || record.checkpoint?.state
-    || record.record?.checkpoint?.campaignState
-    || record.record?.checkpoint?.snapshot
-    || record.record?.checkpoint?.state
-    || record.payload?.campaignState
-    || null;
-}
-
-function compactCheckpointRef(ref = null) {
-  if (!isObject(ref)) return null;
-  const checkpointId = compactString(ref.checkpointId || ref.id);
-  if (!checkpointId) return null;
+function coreProjectionFreshnessEvidence(projections = null) {
+  if (!isObject(projections)) return null;
   return {
-    kind: compactString(ref.kind) || 'directive.coreMechanicsCheckpointRef.v1',
-    campaignId: compactString(ref.campaignId) || null,
-    saveId: compactString(ref.saveId) || null,
-    checkpointId,
-    layout: compactString(ref.layout) || 'core',
-    sourceKind: compactString(ref.sourceKind) || null,
-    sourceRevision: Number.isFinite(Number(ref.sourceRevision)) ? Number(ref.sourceRevision) : null,
-    logicalKey: compactString(ref.logicalKey) || null,
-    hash: compactString(ref.hash) || null
-  };
-}
-
-function coreCheckpointRefFromLedgerEntry(entry = null) {
-  return compactCheckpointRef(
-    entry?.coreCheckpointRef
-    || entry?.checkpointRef
-    || entry?.v2CheckpointRef
-    || null
-  );
-}
-
-function compactOutcomeRerunLedgerRef(entry = null, {
-  snapshotPresent = undefined,
-  snapshotSourceKind = null,
-  coreCheckpointRef = null
-} = {}) {
-  if (!entry || typeof entry !== 'object') return null;
-  const compactRef = compactCheckpointRef(coreCheckpointRef) || coreCheckpointRefFromLedgerEntry(entry);
-  return {
-    replacedTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
-    coreTransactionId: compactString(entry.coreTransactionId || entry.transactionId),
-    outcomeId: compactString(entry.outcomeId),
-    turnId: compactString(entry.turnId),
-    resultBand: compactString(entry.resultBand),
-    snapshotBeforeRetained: entry.snapshotBeforeRetained === true,
-    snapshotPresent: snapshotPresent === undefined ? isObject(entry.snapshotBefore) : snapshotPresent === true,
-    snapshotSourceKind: compactString(snapshotSourceKind) || (compactRef ? 'coreStoreV2.checkpoint' : undefined),
-    coreCheckpointRef: compactRef || undefined,
-    narrationStatus: compactString(entry.narrationStatus),
-    responseStatus: compactString(entry.responseStatus),
-    hasCommandBearingSpend: Boolean(entry.commandBearingSpend)
-  };
-}
-
-function latestCommittedTurnLedgerEntry(state = null, outcomeId = null) {
-  const entries = Array.isArray(state?.turnLedger?.entries) ? state.turnLedger.entries : [];
-  const targetOutcomeId = compactString(outcomeId || state?.turnLedger?.lastCommittedOutcomeId);
-  if (targetOutcomeId) {
-    return [...entries].reverse().find((entry) => entry?.outcomeId === targetOutcomeId) || null;
-  }
-  return entries.length ? entries[entries.length - 1] : null;
-}
-
-function lastCommittedTurnPresentationFromEntry(entry = null, {
-  mirror = null,
-  source = 'runtimeApp'
-} = {}) {
-  if (!isObject(entry)) return null;
-  const taggedMirror = isLastCommittedTurnProjection(mirror) ? mirror : null;
-  const transactionId = compactString(entry.coreTransactionId || entry.transactionId || taggedMirror?.coreTransactionId || taggedMirror?.coreProjection?.transactionId);
-  const turnId = compactString(entry.turnId || taggedMirror?.turnId);
-  const outcomeId = compactString(entry.outcomeId || taggedMirror?.outcomeId);
-  const status = compactString(taggedMirror?.compatibilityMirror?.status || taggedMirror?.coreProjection?.status || entry.responseStatus || entry.narrationStatus || 'mirrored') || 'mirrored';
-  return {
-    turnId: turnId || null,
-    outcomeId: outcomeId || null,
-    resultBand: compactString(entry.resultBand || taggedMirror?.resultBand) || null,
-    narrationStatus: compactString(entry.narrationStatus || taggedMirror?.narrationStatus) || null,
-    responseStatus: compactString(entry.responseStatus || taggedMirror?.responseStatus) || null,
-    directiveGenerationStartedAt: taggedMirror?.directiveGenerationStartedAt || entry.narration?.directiveGenerationStartedAt || entry.narration?.generatedAt || null,
-    hostMessageId: taggedMirror?.hostMessageId || null,
-    coreTransactionId: transactionId || null,
-    coreTurnId: compactString(entry.coreTurnId || taggedMirror?.coreTurnId) || null,
-    coreOperationHash: compactString(entry.coreOperationHash || entry.operationHash || taggedMirror?.coreOperationHash) || null,
-    authority: 'compatibilityProjection',
-    projectionSource: transactionId ? 'coreStoreV2' : 'turnLedger',
-    compatibilityMirror: {
-      kind: 'directive.lastCommittedTurnCompatibilityMirror.v1',
-      status,
-      outcomeId: outcomeId || null,
-      turnId: turnId || null,
-      transactionId: transactionId || null,
-      source
-    },
-    coreProjection: {
-      kind: 'directive.coreLastCommittedTurnProjectionRef.v1',
-      outcomeId: outcomeId || null,
-      turnId: turnId || null,
-      transactionId: transactionId || null,
-      status
-    }
-  };
-}
-
-function lastCommittedTurnPresentationForState(state = null, outcomeId = null) {
-  const entry = latestCommittedTurnLedgerEntry(state, outcomeId);
-  return lastCommittedTurnPresentationFromEntry(entry, {
-    mirror: state?.runtimeTracking?.lastCommittedTurn || null,
-    source: 'runtimeApp.chatNativeView'
-  });
-}
-
-async function loadOutcomeRerunCheckpointSnapshot({
-  storageAdapter = null,
-  state = null,
-  controller = null,
-  ledgerEntry = null
-} = {}) {
-  const ref = coreCheckpointRefFromLedgerEntry(ledgerEntry);
-  if (!ref || !storageAdapter) return null;
-  const binding = state?.campaignChatBinding || {};
-  const campaignId = compactString(ref.campaignId || binding.campaignId || state?.campaign?.id);
-  const saveId = compactString(ref.saveId || binding.saveId || controller?.activeSaveId);
-  const checkpointId = compactString(ref.checkpointId);
-  if (!campaignId || !saveId || !checkpointId) return null;
-  try {
-    const record = await loadV2Checkpoint(storageAdapter, {
-      campaignId,
-      saveId,
-      checkpointId,
-      layout: compactString(ref.layout) || 'core'
-    });
-    const snapshot = checkpointSnapshotFromRecord(record);
-    if (!isObject(snapshot)) return null;
-    return {
-      snapshot: cloneJson(snapshot),
-      sourceKind: record?.sourceKind || record?.checkpoint?.sourceKind || ref.sourceKind || 'coreStoreV2.checkpoint',
-      sourceRevision: Number.isFinite(Number(
-        record?.sourceRevision
-        ?? record?.revision
-        ?? record?.checkpoint?.sourceRevision
-        ?? record?.checkpoint?.revision
-        ?? ref.sourceRevision
-      ))
-        ? Number(record?.sourceRevision ?? record?.revision ?? record?.checkpoint?.sourceRevision ?? record?.checkpoint?.revision ?? ref.sourceRevision)
-        : null,
-      coreCheckpointRef: {
-        ...ref,
-        campaignId,
-        saveId,
-        checkpointId,
-        layout: compactString(ref.layout) || 'core'
-      }
-    };
-  } catch {
-    return null;
-  }
-}
-
-function buildOutcomeRerunSourceFrame({
-  state = null,
-  binding = null,
-  ledgerEntry = null,
-  outcomeId = null,
-  replacementTurnId = null,
-  replacementCandidateId = null,
-  replacementType = 'rerunOutcome',
-  playerInput = '',
-  replacementInputHash = null,
-  eventTime = null,
-  fallbackHostId = null
-} = {}) {
-  const replacedOutcomeId = compactString(outcomeId || ledgerEntry?.outcomeId);
-  const replacedTurnId = compactString(ledgerEntry?.turnId);
-  const replacedTransactionId = compactString(ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId);
-  const replacementTurn = compactString(replacementTurnId);
-  const candidateId = compactString(replacementCandidateId);
-  const textHash = compactString(replacementInputHash) || hashStableJson({
-    replacementInput: String(playerInput || ''),
-    replacedOutcomeId,
-    replacementTurnId: replacementTurn,
-    replacementType
-  });
-  const sourceHash = hashStableJson({
-    sourceKind: 'committedOutcomeRerun',
-    candidateId,
-    replacedOutcomeId,
-    replacedTurnId,
-    replacedTransactionId,
-    replacementTurnId: replacementTurn,
-    replacementType,
-    textHash
-  });
-  const frameId = candidateId ? `frame:${candidateId}` : `frame:outcome-rerun:${sourceHash.slice(0, 16)}`;
-  return createTurnSourceFrame({
-    id: frameId,
-    sourceKind: 'committedOutcomeRerun',
-    campaignId: binding?.campaignId || state?.campaign?.id || null,
-    saveId: binding?.saveId || null,
-    chatId: binding?.chatId || null,
-    hostId: binding?.hostId || fallbackHostId || null,
-    hostMessageId: `outcome-rerun:${replacedOutcomeId}`,
-    textHash,
-    sourceHash,
-    sourceRevision: state?.runtimeTracking?.revision || 0,
-    outcomeRef: {
-      kind: 'directive.rerunOutcomeSourceRef.v1',
-      outcomeId: replacedOutcomeId,
-      turnId: replacedTurnId,
-      sourceFrameId: ledgerEntry?.sourceFrameId || null
-    },
-    turnRef: {
-      kind: 'directive.rerunReplacementTurnRef.v1',
-      turnId: replacementTurn,
-      outcomeId: replacedOutcomeId
-    },
-    visibility: {
-      sourceMutation: false,
-      reason: 'committed-outcome-rerun-preview'
-    },
-    createdAt: eventTime || null
-  });
-}
-
-function outcomeRerunIngressProjection({
-  replacementTransactionId = null,
-  replacedTransactionId = null,
-  replacementIngressId = null,
-  outcomeId = null,
-  replacementOutcomeId = null,
-  replacementTurnId = null,
-  sourceFrame = null,
-  repairDecision = null
-} = {}) {
-  const transactionId = compactString(replacementTransactionId || repairDecision?.transactionId);
-  if (!transactionId) return null;
-  return {
-    kind: 'directive.coreIngressOutcomeRerunProjectionRef.v1',
-    transactionId,
-    replacedTransactionId: compactString(replacedTransactionId || repairDecision?.replacedTransactionId) || null,
-    ingressId: compactString(replacementIngressId) || null,
-    replacedOutcomeId: compactString(outcomeId || repairDecision?.outcomeId) || null,
-    replacementOutcomeId: compactString(replacementOutcomeId) || null,
-    replacementTurnId: compactString(replacementTurnId) || null,
-    sourceFrameId: compactString(sourceFrame?.id) || null,
-    sourceKind: 'committedOutcomeRerun',
-    status: 'committed'
-  };
-}
-
-function boundedReplacementHistory(entries = [], nextEntry = null, limit = REPLACEMENT_HISTORY_LIMIT) {
-  const source = Array.isArray(entries) ? entries : [];
-  const combined = nextEntry ? [...source, nextEntry] : [...source];
-  const numericLimit = Math.max(1, Number.isInteger(limit) ? limit : REPLACEMENT_HISTORY_LIMIT);
-  return combined.slice(Math.max(0, combined.length - numericLimit)).map(cloneJson);
-}
-
-function rowKey(row = {}, keySpec) {
-  if (Array.isArray(keySpec)) {
-    const values = keySpec.map((key) => compactString(row?.[key]));
-    return values.every(Boolean) ? values.join('\u0001') : '';
-  }
-  return compactString(row?.[keySpec]);
-}
-
-function rowKeySet(rows = [], keySpecs = []) {
-  const keys = new Set();
-  for (const row of Array.isArray(rows) ? rows : []) {
-    for (const spec of keySpecs) {
-      const key = rowKey(row, spec);
-      if (key) keys.add(key);
-    }
-  }
-  return keys;
-}
-
-function rowsCoveredByCoreProjection(coreRows = [], legacyRows = [], keySpecs = []) {
-  const legacy = Array.isArray(legacyRows) ? legacyRows : [];
-  if (legacy.length === 0) return true;
-  const coreKeys = rowKeySet(coreRows, keySpecs);
-  if (coreKeys.size === 0) return false;
-  return legacy.every((row) => {
-    for (const spec of keySpecs) {
-      const key = rowKey(row, spec);
-      if (key && coreKeys.has(key)) return true;
-    }
-    return false;
-  });
-}
-
-function coreProjectionHasRuntimeAuthority(projections = {}, existingState = null) {
-  if (!existingState || typeof existingState !== 'object') return true;
-  const hasCoreRuntimeProjection = projections.runtimeAuthority === 'coreStoreV2'
-    || projections.turnLedger?.runtimeAuthority === 'coreStoreV2'
-    || (Array.isArray(projections.turnLedger?.entries) && projections.turnLedger.entries.length > 0)
-    || (Array.isArray(projections.turnLedger?.replacementHistory) && projections.turnLedger.replacementHistory.length > 0)
-    || (Array.isArray(projections.ingressLedger) && projections.ingressLedger.length > 0)
-    || coreResponseProjectionRows(projections).length > 0;
-  if (hasCoreRuntimeProjection) return true;
-  const coreTurnLedger = projections.turnLedger || {};
-  return rowsCoveredByCoreProjection(coreTurnLedger.entries, existingState.turnLedger?.entries, [
-      'id',
-      'turnId',
-      'transactionId',
-      'coreTransactionId',
-      'outcomeId'
-    ])
-    && rowsCoveredByCoreProjection(coreTurnLedger.replacementHistory, existingState.turnLedger?.replacementHistory, [
-      'id',
-      'eventId',
-      'transactionId',
-      'coreTransactionId',
-      'replacedTransactionId',
-      'replacementTransactionId',
-      ['replacedOutcomeId', 'replacementOutcomeId'],
-      ['replacedTurnId', 'replacementTurnId']
-    ]);
-}
-
-function coreProjectionFreshnessEvidence(projections = null, existingState = null) {
-  if (!projections || typeof projections !== 'object') return null;
-  const hasRuntimeAuthority = coreProjectionHasRuntimeAuthority(projections, existingState);
-  const evidence = {
     kind: 'directive.coreStoreReadProjections.v1',
-    turnLedger: {
-      entries: cloneJson(Array.isArray(projections.turnLedger?.entries) ? projections.turnLedger.entries : []),
-      replacementHistory: cloneJson(Array.isArray(projections.turnLedger?.replacementHistory) ? projections.turnLedger.replacementHistory : []),
-      lastCommittedOutcomeId: projections.turnLedger?.lastCommittedOutcomeId || null,
-      lastReplacedOutcomeId: projections.turnLedger?.lastReplacedOutcomeId || null,
-      runtimeAuthority: hasRuntimeAuthority ? 'coreStoreV2' : null
-    },
-    ingressLedger: cloneJson(Array.isArray(projections.ingressLedger) ? projections.ingressLedger : []),
-    responses: cloneJson(coreResponseProjectionRows(projections)),
-    recoveryJournal: cloneJson(Array.isArray(projections.recoveryJournal) ? projections.recoveryJournal : []),
-    sidecarDiagnostics: cloneJson(Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics : []),
-    backgroundBatches: cloneJson(Array.isArray(projections.backgroundBatches) ? projections.backgroundBatches : []),
-    commandBearingEvidence: cloneJson(Array.isArray(projections.commandBearingEvidence) ? projections.commandBearingEvidence : []),
+    runtimeAuthority: 'coreStoreV2',
+    turnLedger: cloneJson(isObject(projections.turnLedger) ? projections.turnLedger : {}),
+    ingressLedger: cloneJson(arrayItems(projections.ingressLedger)),
+    responses: cloneJson(arrayItems(projections.responses)),
+    recoveryJournal: cloneJson(arrayItems(projections.recoveryJournal)),
+    pendingInteractions: cloneJson(arrayItems(projections.pendingInteractions)),
+    modelCallDiagnostics: cloneJson(arrayItems(projections.modelCallDiagnostics)),
     revisions: cloneJson(isObject(projections.revisions) ? projections.revisions : {})
   };
-  if (hasRuntimeAuthority) {
-    evidence.runtimeAuthority = 'coreStoreV2';
-  }
-  return evidence;
-}
-
-function turnProjectionMatchKey(entry = null) {
-  if (!isObject(entry)) return null;
-  return compactString(entry.coreTransactionId || entry.transactionId)
-    || compactString(entry.outcomeId)
-    || compactString(entry.turnId)
-    || compactString(entry.id);
-}
-
-function mergeCoreTurnLedgerProjection(turnLedger = null, coreTurnLedger = null) {
-  const hasCoreEntries = Array.isArray(coreTurnLedger?.entries);
-  const hasCoreReplacementHistory = Array.isArray(coreTurnLedger?.replacementHistory);
-  if (!hasCoreEntries && !hasCoreReplacementHistory) {
-    return turnLedger;
-  }
-  const existingEntries = Array.isArray(turnLedger?.entries) ? turnLedger.entries : [];
-  const coreEntries = hasCoreEntries ? coreTurnLedger.entries : [];
-  if (
-    hasCoreEntries
-    && coreEntries.length === 0
-    && existingEntries.length > 0
-    && coreTurnLedger?.runtimeAuthority !== 'coreStoreV2'
-  ) {
-    return turnLedger;
-  }
-  const entries = hasCoreEntries
-    ? coreEntries.map((projected) => {
-      const checkpointRef = compactCheckpointRef(
-        projected.coreCheckpointRef
-        || projected.checkpointRef
-        || projected.v2CheckpointRef
-      );
-      return {
-        ...cloneJson(projected),
-        coreTransactionId: compactString(projected.coreTransactionId || projected.transactionId) || projected.coreTransactionId,
-        transactionId: compactString(projected.transactionId || projected.coreTransactionId) || projected.transactionId,
-        snapshotBeforeRetained: projected.snapshotBeforeRetained === true || undefined,
-        coreCheckpointRef: checkpointRef || undefined
-      };
-    })
-    : [];
-  const lastCommittedOutcomeId = Object.prototype.hasOwnProperty.call(coreTurnLedger || {}, 'lastCommittedOutcomeId')
-    ? (coreTurnLedger.lastCommittedOutcomeId || null)
-    : (entries.at(-1)?.outcomeId || null);
-  return {
-    ...(isObject(turnLedger) ? cloneJson(turnLedger) : {}),
-    entries,
-    lastCommittedOutcomeId: lastCommittedOutcomeId || undefined,
-    replacementHistory: hasCoreReplacementHistory ? cloneJson(coreTurnLedger.replacementHistory) : undefined,
-    lastReplacedOutcomeId: coreTurnLedger?.lastReplacedOutcomeId || undefined
-  };
-}
-
-const RERUN_PREVIEW_RAW_INPUT_KEYS = new Set([
-  'playerInput',
-  'playerText',
-  'declaredMethod'
-]);
-
-function collectRerunPreviewRawInputCandidates(value, out = new Set()) {
-  if (Array.isArray(value)) {
-    for (const item of value) collectRerunPreviewRawInputCandidates(item, out);
-    return out;
-  }
-  if (!value || typeof value !== 'object') return out;
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item === 'string' && RERUN_PREVIEW_RAW_INPUT_KEYS.has(key) && item.trim()) {
-      out.add(item.trim());
-    }
-    collectRerunPreviewRawInputCandidates(item, out);
-  }
-  return out;
-}
-
-function redactedRerunInputMarker(inputHash = null) {
-  const hash = compactString(inputHash);
-  return hash ? `[redacted-rerun-player-input:${hash.slice(0, 16)}]` : '[redacted-rerun-player-input]';
-}
-
-function redactRerunPreviewProjection(value, {
-  rawInput = null,
-  inputHash = null,
-  rawCandidates = null,
-  currentKey = null
-} = {}) {
-  const candidates = rawCandidates || collectRerunPreviewRawInputCandidates(value);
-  if (compactString(rawInput)) candidates.add(compactString(rawInput));
-  const marker = redactedRerunInputMarker(inputHash);
-  if (Array.isArray(value)) {
-    return value.map((item) => redactRerunPreviewProjection(item, {
-      inputHash,
-      rawCandidates: candidates,
-      currentKey
-    }));
-  }
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [key, item] of Object.entries(value)) {
-      out[key] = redactRerunPreviewProjection(item, {
-        inputHash,
-        rawCandidates: candidates,
-        currentKey: key
-      });
-    }
-    return out;
-  }
-  if (typeof value !== 'string') return value;
-  if (RERUN_PREVIEW_RAW_INPUT_KEYS.has(currentKey)) return marker;
-  if (currentKey === 'summaryInputs' && value.trim()) return marker;
-  let text = value;
-  for (const candidate of candidates) {
-    if (!candidate || !text.includes(candidate)) continue;
-    text = text.split(candidate).join(marker);
-  }
-  return text;
-}
-
-function publicPendingDirectorTurnProjection(turnPacket = null, replacement = null) {
-  if (!turnPacket) return null;
-  if (!replacement) return cloneJson(turnPacket);
-  return redactRerunPreviewProjection(turnPacket, {
-    inputHash: replacement.replacementInputHash || replacement.repairDecision?.replacementInputHash || null
-  });
-}
-
-function assertFreshOutcomeRerunReplacementTarget({
-  replacement = null,
-  ledgerEntry = null
-} = {}) {
-  if (!replacement) return null;
-  const expectedOutcomeId = compactString(replacement.outcomeId);
-  const expectedTransactionId = compactString(
-    replacement.repairDecision?.replacedTransactionId
-    || replacement.replacedTransactionId
-  );
-  if (!expectedOutcomeId) return ledgerEntry || null;
-  if (!ledgerEntry || compactString(ledgerEntry.outcomeId) !== expectedOutcomeId) {
-    const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
-    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
-    error.details = {
-      outcomeId: expectedOutcomeId,
-      reason: 'rerun-target-missing'
-    };
-    throw error;
-  }
-  if (expectedTransactionId) {
-    const currentTransactionId = compactString(ledgerEntry.coreTransactionId || ledgerEntry.transactionId);
-    if (currentTransactionId !== expectedTransactionId) {
-      const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
-      error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
-      error.details = {
-        outcomeId: expectedOutcomeId,
-        expectedTransactionId,
-        currentTransactionId: currentTransactionId || null,
-        reason: 'replaced-transaction-mismatch'
-      };
-      throw error;
-    }
-  }
-  if (replacement.repairDecision?.snapshotBeforeRetained === true && ledgerEntry.snapshotBeforeRetained !== true) {
-    const error = new Error(`CORE outcome rerun rejected stale rerun target "${expectedOutcomeId}".`);
-    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_STALE_TARGET';
-    error.details = {
-      outcomeId: expectedOutcomeId,
-      reason: 'retained-snapshot-missing'
-    };
-    throw error;
-  }
-  return ledgerEntry;
-}
-
-function assertOutcomeReplacementCheckpointBase({
-  replacement = null,
-  ledgerEntry = null
-} = {}) {
-  if (!replacement) return null;
-  const coreCheckpointRef = compactCheckpointRef(
-    replacement.coreCheckpointRef
-    || replacement.repairDecision?.coreCheckpointRef
-    || coreCheckpointRefFromLedgerEntry(ledgerEntry)
-  );
-  if (!coreCheckpointRef || !isObject(replacement.snapshotBefore)) {
-    const outcomeId = compactString(replacement.outcomeId || ledgerEntry?.outcomeId || 'unknown');
-    const error = new Error(`CORE checkpoint snapshot is required before committing rerun of outcome "${outcomeId}".`);
-    error.code = 'DIRECTIVE_CORE_OUTCOME_RERUN_CHECKPOINT_REQUIRED';
-    error.details = {
-      outcomeId,
-      reason: !coreCheckpointRef ? 'core-checkpoint-ref-missing' : 'core-checkpoint-snapshot-missing',
-      coreCheckpointRef: coreCheckpointRef || null,
-      snapshotPresent: isObject(replacement.snapshotBefore)
-    };
-    throw error;
-  }
-  return coreCheckpointRef;
-}
-
-function commandLogEntryOutcomeId(entry = null) {
-  return compactString(entry?.sourceOutcomeId || entry?.outcomeId || entry?.id);
 }
 
 const mutateCampaignStateForTest = Symbol.for('directive.runtimeApp.mutateCampaignStateForTest');
@@ -2135,69 +966,19 @@ function restoreCommittedOutcomeState(state = null, checkpointState = null, outc
   if (hasTurnLedgerOutcome(state, id) || !hasTurnLedgerOutcome(checkpointState, id)) return state;
   const next = cloneJson(state);
   next.turnLedger = cloneJson(checkpointState.turnLedger);
-
-  const checkpointEntries = Array.isArray(checkpointState.commandLog?.entries)
-    ? checkpointState.commandLog.entries.filter((entry) => commandLogEntryOutcomeId(entry) === id)
-    : [];
-  if (checkpointEntries.length) {
-    next.commandLog = {
-      ...(next.commandLog || {}),
-      entries: Array.isArray(next.commandLog?.entries) ? cloneJson(next.commandLog.entries) : []
-    };
-    const existing = new Set(next.commandLog.entries.map(commandLogEntryOutcomeId));
-    for (const entry of checkpointEntries) {
-      if (!existing.has(commandLogEntryOutcomeId(entry))) next.commandLog.entries.push(cloneJson(entry));
-    }
-    next.commandLog.summariesGeneratedFromCommittedStateOnly = checkpointState.commandLog?.summariesGeneratedFromCommittedStateOnly !== false;
-  }
-
-  const lastCommittedTurnMirror = lastCommittedTurnPresentationFromEntry(
-    latestCommittedTurnLedgerEntry(next, id),
-    {
-      mirror: checkpointState.runtimeTracking?.lastCommittedTurn || null,
-      source: 'runtimeApp.restoreCommittedOutcomeState'
-    }
-  );
-  if (lastCommittedTurnMirror) {
-    next.runtimeTracking = {
-      ...(next.runtimeTracking || {}),
-      history: [],
-      historyIndex: -1,
-      lastCommittedTurn: lastCommittedTurnMirror
-    };
-  } else if (next.runtimeTracking) {
+  if (next.runtimeTracking) {
     next.runtimeTracking.history = [];
     next.runtimeTracking.historyIndex = -1;
   }
   return next;
 }
 
-function isLastCommittedTurnProjection(input = null) {
-  if (!isObject(input)) return false;
-  const authority = compactString(input.authority);
-  const projectionSource = compactString(input.projectionSource);
-  return (
-    input.compatibilityMirror?.kind === 'directive.lastCommittedTurnCompatibilityMirror.v1'
-    || input.coreProjection?.kind === 'directive.coreLastCommittedTurnProjectionRef.v1'
-    || (
-      authority === 'compatibilityProjection'
-      && ['coreStoreV2', 'turnLedger'].includes(projectionSource)
-    )
-  );
-}
-
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
-  boundedReplacementHistory,
   coreProjectionFreshnessEvidence,
-  mergeCoreTurnLedgerProjection,
-  assertFreshOutcomeRerunReplacementTarget,
-  assertOutcomeReplacementCheckpointBase,
-  findMissionComponentSourceMessageMatch,
   stateFreshnessCounters,
   activeSessionCacheCurrentForSave,
   promptPacketFromLensFlushResult,
-  mergeFresherResponseLedgerProjection,
   mergeRuntimePersistPendingRequest,
   restoreCommittedOutcomeState,
   shouldPreferInMemoryCampaignState,
@@ -2247,47 +1028,6 @@ export function createDirectiveRuntimeApp({
   const runtimeHost = host ? assertDirectiveHost(host) : null;
   const storageAdapter = adapter || runtimeHost?.storage;
   let campaignState = null;
-  async function forgeSourceCurrentForRuntime(payload = {}) {
-    let projections = null;
-    try {
-      projections = typeof runtimeCoreTurnStore?.readProjections === 'function'
-        ? await runtimeCoreTurnStore.readProjections()
-        : null;
-    } catch {
-      return { ok: false, reason: 'source-core-projection-unavailable' };
-    }
-    if (!Array.isArray(projections?.ingressLedger) || projections.ingressLedger.length === 0) {
-      return { ok: false, reason: 'source-core-projection-missing' };
-    }
-    const ledger = projections.ingressLedger;
-    const sourceFrameId = compactString(payload.sourceFrameRef?.id || payload.sourceFrameRef?.sourceFrameId);
-    const sourceToken = compactString(payload.sourceToken);
-    const transactionId = compactString(payload.transactionId);
-    const ingress = [...ledger].reverse().find((entry) => (
-      (transactionId && (entry.coreTransactionId === transactionId || entry.transactionId === transactionId))
-      || (sourceFrameId && (entry.sourceFrameId === sourceFrameId || entry.sourceFrame?.id === sourceFrameId))
-      || (sourceToken && entry.sourceFrame?.sourceToken === sourceToken)
-    )) || null;
-    if (!ingress) return { ok: false, reason: 'source-ingress-missing' };
-    if (ingress.invalidatedAt || ingress.deletedAt || ingress.editedAt) {
-      return { ok: false, reason: 'source-ingress-mutated' };
-    }
-    if (['restartSuperseded', 'superseded', 'invalidated', 'source-stale', 'deleted'].includes(compactString(ingress.status))) {
-      return { ok: false, reason: `source-ingress-${compactString(ingress.status)}` };
-    }
-    const ingressTransactionId = compactString(ingress.coreTransactionId || ingress.transactionId);
-    if (transactionId && ingressTransactionId && ingressTransactionId !== transactionId) {
-      return { ok: false, reason: 'source-transaction-mismatch' };
-    }
-    if (sourceFrameId && ingress.sourceFrameId && ingress.sourceFrameId !== sourceFrameId) {
-      return { ok: false, reason: 'source-frame-mismatch' };
-    }
-    if (sourceToken && ingress.sourceFrame?.sourceToken && ingress.sourceFrame.sourceToken !== sourceToken) {
-      return { ok: false, reason: 'source-token-mismatch' };
-    }
-    return { ok: true };
-  }
-
   function coreDiagnosticTargetForModelCall(event = {}) {
     if (!campaignState) return null;
     const tracked = initializeCampaignRuntimeTracking(campaignState);
@@ -2305,10 +1045,8 @@ export function createDirectiveRuntimeApp({
       || metadata.transactionId
     );
     if (!transactionId) return null;
-    const explicitBackgroundTarget = metadata.coreDiagnosticTarget === 'advisoryEnrichment'
-      || (event?.roleId === 'missionDirectorAdvisor' && requestedIngressId);
     const targetStatus = compactString(ingress?.status);
-    if (!explicitBackgroundTarget && !['classifying', 'classified'].includes(targetStatus)) return null;
+    if (!['classifying', 'classified'].includes(targetStatus)) return null;
     return {
       transactionId,
       ingressId: ingress?.id || requestedIngressId || null,
@@ -2354,11 +1092,6 @@ export function createDirectiveRuntimeApp({
   let lastNarrationResult = null;
   let lastMechanicsCheckpointState = null;
   let pendingDirectorTurn = null;
-  let pendingOutcomeReplacement = null;
-  let lastCommandLogSummarySidecarResult = null;
-  let lastOpenWorldActionResult = null;
-  let lastDirectiveAssistResult = null;
-  let lastSceneReconciliationResult = null;
   let lastCharacterCreatorSectionDraftResult = null;
   let lastStateSafetyResult = null;
   let lastActivationResult = null;
@@ -2373,31 +1106,11 @@ export function createDirectiveRuntimeApp({
   let lastError = null;
   let chatNativeServices = null;
   let runtimeStateDeltaGateway = null;
-  let v1MissionShadowRuntime = null;
+  let v1MissionRuntime = null;
   let durabilityCoordinator = null;
   let lensPromptScheduler = null;
-  let runtimeForgeCoordinator = null;
   let publicApi = null;
   let runtimePersistCoordinator = null;
-  let commandLogSummaryQueue = Promise.resolve();
-  let commandLogSummaryDiagnosticQueue = Promise.resolve();
-  let commandLogSummaryDiagnosticBatch = [];
-  let commandLogSummaryPendingCount = 0;
-  let deferredCommandLogSummaryRequest = null;
-  let postCommitConversationQueue = Promise.resolve();
-  let postCommitConversationDiagnosticQueue = Promise.resolve();
-  let postCommitConversationDiagnosticBatch = [];
-  let postCommitConversationPendingCount = 0;
-  let lastPostCommitConversationResult = null;
-  let advisoryEnrichmentQueue = Promise.resolve();
-  let advisoryEnrichmentDiagnosticQueue = Promise.resolve();
-  let advisoryEnrichmentDiagnosticBatch = [];
-  let advisoryEnrichmentPendingCount = 0;
-  let lastAdvisoryEnrichmentResult = null;
-  let terminalCheckpointSettlementQueue = Promise.resolve();
-  let terminalCheckpointDiagnosticQueue = Promise.resolve();
-  let terminalCheckpointDiagnosticBatch = [];
-  let lastTerminalCheckpointSettlementResult = null;
   let activeCoreTurnStoreRecord = null;
   let activeCoreTurnStorePending = null;
   const activeHostGenerationControllers = new Map();
@@ -3261,150 +1974,6 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  async function beginOutcomeRerunReplacementTransaction({
-    ledgerEntry = null,
-    outcomeId = null,
-    replacementTurnId = null,
-    replacementOutcomeId = null,
-    replacementCandidateId = null,
-    replacementInputHash = null,
-    replacementType = 'rerunOutcome',
-    playerInput = '',
-    repairDecision = null,
-    eventTime = null
-  } = {}) {
-    if (!repairDecision?.coreTransactionRequired && !repairDecision?.replacementTransactionRequired) {
-      const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${outcomeId || ledgerEntry?.outcomeId || 'unknown'}".`);
-      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
-      error.details = {
-        outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
-        repairDecision: cloneJson(repairDecision || null)
-      };
-      throw error;
-    }
-    const binding = bindingFromState(campaignState);
-    const sourceFrame = buildOutcomeRerunSourceFrame({
-      state: campaignState,
-      binding,
-      ledgerEntry,
-      outcomeId,
-      replacementTurnId,
-      replacementCandidateId,
-      replacementType,
-      playerInput,
-      replacementInputHash,
-      eventTime,
-      fallbackHostId: runtimeHost?.id || null
-    });
-    const transactionId = `txn:${sourceFrame.id}`;
-    const replacementIngressId = `ingress:outcome-rerun:${compactString(replacementCandidateId) || sourceFrame.sourceHash?.slice(0, 16) || compactString(outcomeId || ledgerEntry?.outcomeId)}`;
-    const transaction = await runtimeCoreTurnStore.beginTurn(sourceFrame, {
-      transactionId,
-      chatId: sourceFrame.chatId,
-      ingressId: replacementIngressId,
-      idempotencyKey: [
-        'outcome-rerun',
-        compactString(replacementCandidateId),
-        compactString(repairDecision?.replacedTransactionId || ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId),
-        compactString(outcomeId || ledgerEntry?.outcomeId),
-        compactString(replacementTurnId),
-        sourceFrame.textHash || sourceFrame.sourceHash || 'source'
-      ].join(':')
-    });
-    const replacementTransactionId = compactString(transaction?.id);
-    if (!replacementTransactionId) {
-      const error = new Error(`CORE outcome replacement transaction missing for rerun of outcome "${outcomeId || ledgerEntry?.outcomeId || 'unknown'}".`);
-      error.code = 'DIRECTIVE_CORE_OUTCOME_REPLACEMENT_TRANSACTION_REQUIRED';
-      error.details = {
-        outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
-        repairDecision: cloneJson(repairDecision || null)
-      };
-      throw error;
-    }
-    return {
-      repairDecision: {
-        ...cloneJson(repairDecision || {}),
-        transactionId: replacementTransactionId,
-        replacementTransactionRequired: false
-      },
-      replacementTransactionId,
-      replacementIngressId,
-      replacementSourceFrame: sourceFrame,
-      replacementIngress: {
-        id: replacementIngressId,
-        hostMessageId: sourceFrame.hostMessageId || null,
-        chatId: sourceFrame.chatId || null,
-        campaignId: sourceFrame.campaignId || null,
-        textHash: sourceFrame.textHash || null,
-        receivedAt: eventTime || timestampFromNow(now),
-        stateRevision: campaignState?.runtimeTracking?.revision || 0,
-        sourceFrameId: sourceFrame.id || null,
-        sourceFrame,
-        coreTransactionId: replacementTransactionId,
-        authority: 'compatibilityProjection',
-        projectionSource: 'coreStoreV2',
-        coreProjection: outcomeRerunIngressProjection({
-          replacementTransactionId,
-          replacedTransactionId: repairDecision?.replacedTransactionId || ledgerEntry?.coreTransactionId || ledgerEntry?.transactionId || null,
-          replacementIngressId,
-          outcomeId: outcomeId || ledgerEntry?.outcomeId || null,
-          replacementOutcomeId,
-          replacementTurnId,
-          sourceFrame,
-          repairDecision
-        }),
-        repairDecision: {
-          ...cloneJson(repairDecision || {}),
-          transactionId: replacementTransactionId,
-          replacementTransactionRequired: false
-        },
-        status: 'committed',
-        classification: {
-          classification: 'outcomeRerun',
-          sourceKind: 'committedOutcome'
-        },
-        responseStrategy: 'directivePosted',
-        turnId: compactString(replacementTurnId) || null,
-        outcomeId: compactString(replacementOutcomeId) || null
-      },
-      coreTransaction: cloneJson(transaction || { id: replacementTransactionId })
-    };
-  }
-
-  async function settleInternalForgeBackgroundBatch(prepared = null, {
-    sourceFrameId = null,
-    internalOwner = null,
-    providerOwner = 'forge-internal',
-    flushLens = false,
-    appendDiagnostic = null
-  } = {}) {
-    if (!prepared?.transactionId || !prepared?.bundle) return null;
-    if (typeof runtimeForgeCoordinator?.settleInternalBackgroundBatch === 'function') {
-      const input = {
-        transactionId: prepared.transactionId,
-        bundle: prepared.bundle,
-        sourceFrameRef: sourceFrameId ? { id: sourceFrameId } : prepared.bundle.sourceFrameRef,
-        internalOwner,
-        providerOwner,
-        flushLens
-      };
-      if (typeof appendDiagnostic === 'function') input.appendDiagnostic = appendDiagnostic;
-      return runtimeForgeCoordinator.settleInternalBackgroundBatch(input);
-    }
-    return runtimeCoreTurnStore.commitBackgroundBatch(prepared.transactionId, prepared.bundle);
-  }
-
-  const DEFAULT_LENS_PROMPT_DIRTY_DOMAINS = Object.freeze([
-    'identity',
-    'sceneTime',
-    'missionQuestThread',
-    'crewShipRelationship',
-    'command',
-    'continuity',
-    'sourceBinding',
-    'terminalRecovery'
-  ]);
-
   function ensureLensPromptScheduler() {
     if (lensPromptScheduler) return lensPromptScheduler;
     lensPromptScheduler = createLensPromptScheduler({
@@ -3668,30 +2237,6 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function coreSidecarDiagnosticCount() {
-    if (typeof runtimeCoreTurnStore?.readProjections !== 'function') return null;
-    try {
-      const projections = await runtimeCoreTurnStore.readProjections() || {};
-      return Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics.length : 0;
-    } catch (error) {
-      console.warn('[Directive] Failed to read CORE sidecar diagnostics:', error);
-      return null;
-    }
-  }
-
-  async function coreSidecarResumeCount() {
-    if (typeof runtimeCoreTurnStore?.readProjections !== 'function') return null;
-    try {
-      const projections = await runtimeCoreTurnStore.readProjections() || {};
-      const diagnosticCount = Array.isArray(projections.sidecarDiagnostics) ? projections.sidecarDiagnostics.length : 0;
-      const acceptedBackgroundWorkers = acceptedBackgroundBatchWorkerCount(projections.backgroundBatches);
-      return Math.max(diagnosticCount, acceptedBackgroundWorkers);
-    } catch (error) {
-      console.warn('[Directive] Failed to read CORE sidecar resume count:', error);
-      return null;
-    }
-  }
-
   async function stateWithCoreProjectionFreshnessEvidence(state = null) {
     if (!state || typeof runtimeCoreTurnStore?.readProjections !== 'function') return state;
     const stateDescriptor = coreStoreDescriptorForState(state);
@@ -3707,7 +2252,6 @@ export function createDirectiveRuntimeApp({
       const evidence = coreProjectionFreshnessEvidence(await runtimeCoreTurnStore.readProjections(), state);
       if (!evidence) return state;
       const nextState = cloneJson(state);
-      nextState.turnLedger = mergeCoreTurnLedgerProjection(nextState.turnLedger, evidence.turnLedger);
       return {
         ...nextState,
         directiveRuntimeEvidence: {
@@ -3735,20 +2279,9 @@ export function createDirectiveRuntimeApp({
 
   async function refreshRuntimePersistenceAfterCoreDiagnostics(reason = 'Runtime CORE diagnostics refreshed.') {
     if (!campaignState) return null;
-    const coreCount = await coreSidecarResumeCount();
-    if (!Number.isFinite(coreCount) || coreCount <= 0) return null;
-    const currentCount = stateFreshnessCounters(campaignState).sidecarJournalEntries;
-    const persistedCount = Math.max(0, Number(campaignState.runtimeResume?.coreDiagnosticsPersistedSidecarCount) || 0);
-    if (coreCount <= currentCount && persistedCount >= coreCount) return null;
     const stateWithFreshCoreEvidence = await stateWithCoreProjectionFreshnessEvidence(campaignState);
-    campaignState = {
-      ...cloneJson(stateWithFreshCoreEvidence || campaignState),
-      runtimeResume: {
-        ...cloneJson((stateWithFreshCoreEvidence || campaignState).runtimeResume || {}),
-        sidecarCount: coreCount,
-        coreDiagnosticsPersistedSidecarCount: coreCount
-      }
-    };
+    if (hashStableJson(stateWithFreshCoreEvidence) === hashStableJson(campaignState)) return null;
+    campaignState = stateWithFreshCoreEvidence;
     return persistRuntimeCampaignState(campaignState, reason);
   }
 
@@ -3777,7 +2310,6 @@ export function createDirectiveRuntimeApp({
     );
     resetActiveCoreTurnStore('session-save-loaded');
     pendingDirectorTurn = null;
-    pendingOutcomeReplacement = null;
     await refreshCampaignView();
     return campaignState;
   }
@@ -3823,14 +2355,13 @@ export function createDirectiveRuntimeApp({
   }
 
   async function preferFresherInMemoryChatState(candidateState = null, inMemoryState = null, chatId = null) {
-    const mergedCandidate = mergeFresherResponseLedgerProjection(candidateState, inMemoryState);
     const inMemoryForComparison = await stateWithCoreProjectionFreshnessEvidence(inMemoryState);
     if (!shouldPreferInMemoryCampaignState(candidateState, inMemoryForComparison, {
       chatId,
       fallbackHostId: runtimeHost?.id || null,
       fallbackSaveId: controller?.activeSaveId || null
     })) {
-      return mergedCandidate;
+      return candidateState;
     }
     campaignState = cloneJson(inMemoryState);
     return campaignState;
@@ -3843,7 +2374,6 @@ export function createDirectiveRuntimeApp({
     const runtimeResponseLedger = runtimeLedgerView.responseLedger || [];
     const runtimeRecoveryJournal = runtimeLedgerView.recoveryJournal || [];
     const modelCallDiagnostics = coreModelCallDiagnosticsForState(state);
-    const legacyModelCallTelemetry = legacyModelCallTelemetryForState(state);
     const binding = cloneJson(state.campaignChatBinding || null);
     if (binding) delete binding.promptContext;
     const lensPromptRecord = state.directiveRuntimeEvidence?.lensPromptRevisionRecord || {};
@@ -3870,17 +2400,13 @@ export function createDirectiveRuntimeApp({
         historyDepth: state.runtimeTracking.history?.length || 0,
         ingressCount: runtimeLedgerView.ingressLedger?.length || 0,
         responseCount: runtimeResponseLedger.length,
-        responseLedgerRevision: freshness.responseLedgerRevision,
-        responseLedgerIntegritySelections: runtimeResponseLedger
-          .filter((entry) => entry?.outcomeIntegrity?.selectedRevisionId).length,
-        sidecarCount: freshness.sidecarJournalEntries,
+        storyRevision: freshness.storyRevision,
+        missionRevision: freshness.missionRevision,
+        settlementReceiptCount: freshness.settlementReceipts,
         modelCallCount: modelCallDiagnostics.length,
         modelCallEventSequence: maxModelCallEventSequence(state),
         lastDelta: cloneJson(state.runtimeTracking.lastDelta || null),
-        lastCommittedTurn: cloneJson(lastCommittedTurnPresentationForState(state) || null),
-        latestModelCall: cloneJson(modelCallDiagnostics.at(-1) || null),
-        legacyModelCallCount: legacyModelCallTelemetry.length,
-        latestLegacyModelCall: cloneJson(legacyModelCallTelemetry.at(-1) || null)
+        latestModelCall: cloneJson(modelCallDiagnostics.at(-1) || null)
       } : null,
       prompt: {
         kind: compactString(lensPromptRecord.kind) || 'directive.lensPromptRevisionRecord.v1',
@@ -3896,9 +2422,7 @@ export function createDirectiveRuntimeApp({
       pendingInteractions: cloneJson(pendingInteractionProjectionRows(state)),
       recovery: cloneJson(runtimeRecoveryJournal),
       modelCalls: cloneJson(modelCallDiagnostics),
-      legacyModelCallTelemetry: cloneJson(legacyModelCallTelemetry),
-      turnStatus: chatTurnStatusForState(state),
-      sceneReconciliation: cloneJson(state.sceneReconciliation || null)
+      turnStatus: chatTurnStatusForState(state)
     };
   }
 
@@ -3913,7 +2437,7 @@ export function createDirectiveRuntimeApp({
 
   function turnStatusLabelForActivity(event = {}) {
     const phase = compactString(event.phase);
-    if (['reading', 'sceneHandshakeSkipped', 'settlingSceneHandshake', 'sceneHandshakeSettled'].includes(phase)) {
+    if (['reading', 'acceptedPairSettlement', 'v1AcceptedPairTimeCustody', 'v1MissionAcceptedPair'].includes(phase)) {
       return { label: 'Directive is reading', tone: 'running' };
     }
     if (['classifying', 'classified', 'routing'].includes(phase)) {
@@ -4343,8 +2867,7 @@ export function createDirectiveRuntimeApp({
       },
       runtimeView: {
         openWorld,
-        pendingDirectorTurn: publicPendingDirectorTurnProjection(pendingDirectorTurn, pendingOutcomeReplacement),
-        pendingOutcomeReplacement,
+        pendingDirectorTurn: cloneJson(pendingDirectorTurn),
         lastError,
         lastStateSafetyResult
       }
@@ -4425,6 +2948,12 @@ export function createDirectiveRuntimeApp({
       packageData: renderedAssets?.packageData || null,
       crewDataset: renderedAssets?.crewDataset || null
     });
+    const v1ProjectionResult = renderedCampaignState && renderedAssets
+      ? buildV1RuntimePlayerProjection({
+          campaignState: renderedCampaignState,
+          runtimeAssets: renderedAssets
+        })
+      : null;
     const chatNative = chatNativeViewForState(renderedCampaignState, renderedSaveGuard);
     const playerFacingInformation = playerFacingInformationForState(renderedCampaignState);
     return {
@@ -4450,6 +2979,8 @@ export function createDirectiveRuntimeApp({
         status: campaignState ? (currentChatCampaignState || renderLoadedCampaignState ? 'loaded' : 'loaded-not-current-chat') : 'none'
       },
       playerSafeCampaign,
+      v1PlayerProjection: cloneJson(v1ProjectionResult?.ok ? v1ProjectionResult.projection : null),
+      v1ProjectionStatus: cloneJson(v1ProjectionResult),
       loadedPlayerSafeCampaign: createPlayerSafeCampaignProjection({
         campaignState,
         packageData: loadedAssets?.packageData || null,
@@ -4477,17 +3008,12 @@ export function createDirectiveRuntimeApp({
       storageDiagnostics: cloneJson(controller?.storageDiagnostics || null),
       lastDirectorTurn: cloneJson(lastDirectorTurn),
       lastNarrationResult: cloneJson(lastNarrationResult),
-      lastCommandLogSummarySidecarResult: cloneJson(lastCommandLogSummarySidecarResult),
-      lastOpenWorldActionResult: cloneJson(lastOpenWorldActionResult),
-      lastDirectiveAssistResult: cloneJson(lastDirectiveAssistResult),
-      lastSceneReconciliationResult: cloneJson(lastSceneReconciliationResult),
       lastCharacterCreatorSectionDraftResult: cloneJson(lastCharacterCreatorSectionDraftResult),
       lastStateSafetyResult: cloneJson(lastStateSafetyResult),
       lastActivationResult: cloneJson(lastActivationResult),
       lastConclusionResult: cloneJson(lastConclusionResult),
       lastDirectivePresetInstallResult: cloneJson(lastDirectivePresetInstallResult),
-      pendingDirectorTurn: publicPendingDirectorTurnProjection(pendingDirectorTurn, pendingOutcomeReplacement),
-      pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
+      pendingDirectorTurn: cloneJson(pendingDirectorTurn),
       openWorld: cloneJson(openWorld),
       lastError: lastError ? {
         message: lastError.message || String(lastError)
@@ -4534,252 +3060,8 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  const OPEN_WORLD_MUTATION_DOMAINS = Object.freeze([
-    'campaign',
-    'mission',
-    'worldState',
-    'storyArcLedger',
-    'questLedger',
-    'dynamicQuestCatalog',
-    'knowledgeLedger',
-    'threadLedger',
-    'eventLedger',
-    'attentionState',
-    'pressureLedger',
-    'relationships',
-    'crew',
-    'ship',
-    'campaignTracks',
-    'campaignAssets',
-    'turnLedger',
-    'commandLog',
-    'runtimeTracking'
-  ]);
-
-  async function commitOpenWorldMutation(nextState, {
-    source = 'openWorldRuntime',
-    reason = 'Open-world campaign state updated.',
-    summary = reason,
-    eventId = null,
-    stable = true
-  } = {}) {
-    requireObject(nextState, 'nextState');
-    const gateway = createStateDeltaGateway({
-      getState: () => campaignState,
-      setState: (state) => { campaignState = cloneJson(state); },
-      persist: (state, delta) => persistRuntimeCampaignState(state, delta?.summary || delta?.reason || summary),
-      now
-    });
-    const tracked = await gateway.commit(nextState, {
-      source,
-      reason,
-      summary,
-      domains: OPEN_WORLD_MUTATION_DOMAINS,
-      outcomeId: eventId,
-      stable
-    });
-    campaignState = tracked;
-    await refreshCampaignView();
-    return tracked;
-  }
-
-  async function commitMissionComponentsMutation(nextState, {
-    source = 'missionComponents',
-    reason = 'Mission Components updated.',
-    summary = reason,
-    stable = true
-  } = {}) {
-    requireObject(nextState, 'nextState');
-    const gateway = createStateDeltaGateway({
-      getState: () => campaignState,
-      setState: (state) => { campaignState = cloneJson(state); },
-      persist: (state, delta) => persistRuntimeCampaignState(state, delta?.summary || delta?.reason || summary),
-      now
-    });
-    const tracked = await gateway.commit(nextState, {
-      source,
-      reason,
-      summary,
-      domains: ['knowledgeLedger'],
-      stable
-    });
-    campaignState = tracked;
-    await refreshCampaignView();
-    await refreshCurrentChatCampaignScope();
-    return tracked;
-  }
-
-  async function ensureMissionComponentCaptureContext(selection = {}) {
-    await ensureInitialized();
-    await refreshCurrentChatCampaignScope();
-    const scopedState = liveCampaignStateForView();
-    if (!scopedState) {
-      return {
-        ok: false,
-        reason: 'no-active-campaign-chat',
-        summary: currentChatScope?.error?.message || 'Open an active Directive campaign chat before adding Mission Components.'
-      };
-    }
-    if (scopedState !== campaignState) {
-      const scopedSaveId = compactString(currentChatScope?.saveId || scopedState?.campaignChatBinding?.saveId);
-      if (scopedSaveId) {
-        await loadCampaignStateForSessionSave(scopedSaveId);
-      } else {
-        campaignState = cloneJson(scopedState);
-      }
-    }
-    const guard = currentChatScope?.guard || null;
-    if (guard && guard.ok !== true) {
-      return {
-        ok: false,
-        reason: guard.reason || 'active-chat-save-guard',
-        summary: guard.summary || 'Open the bound campaign chat before adding Mission Components.',
-        guard: cloneJson(guard)
-      };
-    }
-    const selectionChatId = compactString(selection?.chatId || selection?.currentChatId);
-    const activeChatId = compactString(currentChatScope?.currentChat?.chatId || campaignState?.campaignChatBinding?.chatId);
-    if (!activeChatId) {
-      return {
-        ok: false,
-        reason: 'active-chat-unknown',
-        summary: 'Directive could not verify the active campaign chat for this Mission Component.'
-      };
-    }
-    if (!selectionChatId) {
-      return {
-        ok: false,
-        reason: 'selection-chat-unknown',
-        summary: 'Directive could not verify which chat the selected text came from.'
-      };
-    }
-    if (selectionChatId !== activeChatId) {
-      return {
-        ok: false,
-        reason: 'wrong-chat',
-        summary: 'The selected text is not in the active campaign chat.'
-      };
-    }
-    return {
-      ok: true,
-      campaignState,
-      chatId: activeChatId || selectionChatId || null,
-      guard: cloneJson(guard || null)
-    };
-  }
-
-  async function sourceMessageForMissionComponent(selection = {}) {
-    const messageId = compactString(
-      selection?.message?.hostMessageId
-      || selection?.message?.id
-      || selection?.hostMessageId
-      || selection?.messageId
-    );
-    if (!messageId) {
-      return { ok: false, reason: 'missing-message-id', summary: 'Mission Component source message id is missing.' };
-    }
-    const fallbackMessage = selection?.message && typeof selection.message === 'object'
-      ? selection.message
-      : null;
-    const canReadHostMessage = typeof runtimeHost?.chat?.getMessage === 'function';
-    const message = canReadHostMessage
-      ? await runtimeHost.chat.getMessage(messageId)
-      : fallbackMessage;
-    if (!message) {
-      return { ok: false, reason: 'source-message-not-found', summary: 'Directive could not re-read the selected source message.' };
-    }
-    if (message.isSystem === true || message.is_system === true || message.role === 'system') {
-      return { ok: false, reason: 'system-message', summary: 'System messages cannot be saved as Mission Components.' };
-    }
-    const selectedText = compactString(selection?.selectedText || selection?.selectionText || selection?.text || selection?.verbatim);
-    const hostCandidates = missionComponentMessageTextCandidates(message);
-    const fallbackCandidates = canReadHostMessage
-      ? []
-      : [
-        fallbackMessage?.text,
-        fallbackMessage?.mes,
-        fallbackMessage?.content,
-        selection?.messageText,
-        selection?.fullText
-      ];
-    const sourceMatch = matchMissionComponentSourceText(selectedText, [
-      ...hostCandidates,
-      ...fallbackCandidates
-    ]);
-    if (!sourceMatch.ok && canReadHostMessage && typeof runtimeHost?.chat?.getRecentMessages === 'function') {
-      const recentMessages = await runtimeHost.chat.getRecentMessages({
-        limit: 500,
-        playerSafeOnly: false
-      });
-      const resolved = findMissionComponentSourceMessageMatch({
-        selectedText,
-        fallbackMessage,
-        messages: recentMessages,
-        preferredMessageId: messageId
-      });
-      if (resolved.ok) {
-        return {
-          ok: true,
-          message: {
-            ...cloneJson(resolved.message),
-            hostMessageId: compactString(resolved.message.hostMessageId || resolved.message.id || messageId),
-            text: resolved.sourceMatch?.text || String(resolved.message.text || '')
-          },
-          sourceResolvedByText: true,
-          sourceResolution: {
-            preferredMessageId: messageId,
-            resolvedMessageId: compactString(resolved.message.hostMessageId || resolved.message.id),
-            matchedFullMessage: resolved.matchedFullMessage === true,
-            match: resolved.sourceMatch?.match || null
-          }
-        };
-      }
-    }
-    if (!sourceMatch.ok) {
-      return {
-        ok: false,
-        reason: 'selection-stale',
-        summary: 'The selected text no longer matches the source message. Select the text again.'
-      };
-    }
-    return {
-      ok: true,
-      message: {
-        ...cloneJson(message),
-        hostMessageId: compactString(message.hostMessageId || message.id || messageId),
-        text: sourceMatch.text || String(message.text || '')
-      }
-    };
-  }
-
-  function componentInputFromCapture(payload = {}, prepared = null) {
-    const proposal = payload.proposal || payload.component || prepared?.proposal || {};
-    const source = payload.source || payload.component?.source || prepared?.source || {};
-    const selectedText = String(payload.verbatim || payload.selectedText || payload.component?.verbatim || prepared?.selectedText || '').trim();
-    const component = payload.component || {};
-    return {
-      title: proposal.title || component.title,
-      type: proposal.type || component.type,
-      status: proposal.status || component.status,
-      summary: proposal.summary || component.summary,
-      verbatim: selectedText,
-      sourceAuthority: proposal.sourceAuthority || component.sourceAuthority,
-      tags: proposal.tags || component.tags || [],
-      links: proposal.links || component.links || {},
-      source,
-      derived: {
-        ...(component.derived || {}),
-        ...(prepared?.diagnostics?.providerUsed
-          ? { utilityModelCallId: prepared?.diagnostics?.providerId || prepared?.diagnostics?.model || 'utilityJson' }
-          : {}),
-        warnings: proposal.warnings || component.derived?.warnings || []
-      }
-    };
-  }
-
   async function generateNarrationForLastTurnNow({
-    provider = defaultNarrationProvider,
-    scheduleDeferredCommandLogSummary = true
+    provider = defaultNarrationProvider
   } = {}) {
     requireObject(campaignState, 'campaignState');
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
@@ -4817,21 +3099,16 @@ export function createDirectiveRuntimeApp({
       });
       campaignState = narrationCheckpoint.campaignState;
       const autosave = await autosaveStableTurn(outcomeId);
-      const commandLogSummaryResult = scheduleDeferredCommandLogSummary
-        ? scheduleDeferredCommandLogSummaryQueue('afterDirectiveNarration')
-        : cloneJson(lastCommandLogSummarySidecarResult);
       lastNarrationResult = {
         ok: true,
         narration,
         directiveGenerationStartedAt,
-        commandLogSummaryResult,
         autosave
       };
       return {
         ok: true,
         narration: cloneJson(narration),
         directiveGenerationStartedAt,
-        commandLogSummaryResult: cloneJson(commandLogSummaryResult),
         autosave: cloneJson(autosave),
         campaignState: cloneJson(campaignState),
         view: viewEnvelope('mission')
@@ -4858,1682 +3135,21 @@ export function createDirectiveRuntimeApp({
         });
         campaignState = narrationCheckpoint.campaignState;
         narrationCheckpointSave = narrationCheckpoint.save || null;
-      } else {
-        const turnId = lastDirectorTurn?.turnId || lastDirectorTurn?.id || null;
-        const coreDiagnostic = await appendNarrationBookkeepingMissingOutcomeDiagnostic({
-          outcomeId: outcomeId || null,
-          turnId,
-          failure
-        });
-        if (coreDiagnostic) {
-          await persistRuntimeCampaignState(campaignState, `Recorded narration bookkeeping diagnostic for ${outcomeId || 'unknown outcome'}.`);
-        }
       }
-      const commandLogSummaryResult = scheduleDeferredCommandLogSummary
-        ? scheduleDeferredCommandLogSummaryQueue('afterDirectiveNarrationFailure')
-        : cloneJson(lastCommandLogSummarySidecarResult);
       lastNarrationResult = {
         ok: false,
         error: cloneJson(failure),
         directiveGenerationStartedAt,
-        commandLogSummaryResult,
         checkpoint: cloneJson(narrationCheckpointSave)
       };
       return {
         ok: false,
         error: cloneJson(failure),
         directiveGenerationStartedAt,
-        commandLogSummaryResult: cloneJson(commandLogSummaryResult),
         campaignState: cloneJson(campaignState),
         view: viewEnvelope('mission')
       };
     }
-  }
-
-  async function updateCommandLogSummaryForTurnNow({
-    turnPacket,
-    enabled = true,
-    sourceGuard = null
-  } = {}) {
-    if (!enabled || !runtimeHost) {
-      lastCommandLogSummarySidecarResult = null;
-      return null;
-    }
-    requireObject(campaignState, 'campaignState');
-    requireObject(turnPacket, 'turnPacket');
-    if (!commandLogSummaryGuardCurrent(sourceGuard)) {
-      lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-before-provider');
-      return cloneJson(lastCommandLogSummarySidecarResult);
-    }
-    try {
-      const result = await runCommandLogSummarySidecar({
-        host: runtimeHost,
-        campaignState,
-        turnPacket,
-        saveId: controller?.activeSaveId || null,
-        revision: campaignState.turnLedger?.entries?.length || 0,
-        now: () => timestampFromNow(now)
-      });
-      if (!commandLogSummaryGuardCurrent(sourceGuard)) {
-        lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-after-provider');
-        return cloneJson(lastCommandLogSummarySidecarResult);
-      }
-      if (result.applied && result.assistedSummary) {
-        const outcomeId = compactString(result.assistedSummary.sourceOutcomeId || turnPacket?.outcomePacket?.id);
-        const next = cloneJson(campaignState);
-        const entries = Array.isArray(next.commandLog?.entries) ? next.commandLog.entries : [];
-        const index = entries.findIndex((entry) => commandLogEntryOutcomeId(entry) === outcomeId);
-        if (index >= 0) {
-          entries[index] = {
-            ...entries[index],
-            assistedSummary: cloneJson(result.assistedSummary)
-          };
-          next.commandLog = {
-            ...(next.commandLog || {}),
-            entries,
-            summariesGeneratedFromCommittedStateOnly: true
-          };
-          campaignState = next;
-        }
-      }
-      lastCommandLogSummarySidecarResult = {
-        ok: result.featureOk === true,
-        ...cloneJson(result)
-      };
-      return cloneJson(lastCommandLogSummarySidecarResult);
-    } catch (error) {
-      lastCommandLogSummarySidecarResult = {
-        ok: false,
-        error: {
-          code: error?.code || 'DIRECTIVE_COMMAND_LOG_SUMMARY_SIDECAR_FAILED',
-          message: error?.message || String(error)
-        }
-      };
-      return cloneJson(lastCommandLogSummarySidecarResult);
-    }
-  }
-
-  function commandLogSummaryOutcomeId(turnPacket = null) {
-    return compactString(turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || turnPacket?.turnId || turnPacket?.id);
-  }
-
-  function commandLogEntryForOutcome(state = null, outcomeId = null) {
-    const id = compactString(outcomeId);
-    if (!id) return null;
-    return (Array.isArray(state?.commandLog?.entries) ? state.commandLog.entries : [])
-      .find((entry) => commandLogEntryOutcomeId(entry) === id) || null;
-  }
-
-  function commandLogSummaryInputSignatureBundle(state = null, outcomeId = null) {
-    const entry = commandLogEntryForOutcome(state, outcomeId);
-    if (!entry) return null;
-    return {
-      sourceOutcomeId: commandLogEntryOutcomeId(entry),
-      summaryInputs: cloneJson(entry.summaryInputs || []),
-      visibleConsequences: cloneJson(entry.visibleConsequences || [])
-    };
-  }
-
-  function commandLogSummaryInputSignature(state = null, outcomeId = null) {
-    const bundle = commandLogSummaryInputSignatureBundle(state, outcomeId);
-    return bundle ? JSON.stringify(bundle) : null;
-  }
-
-  function commandLogSummaryInputSignatureHash(state = null, outcomeId = null) {
-    const bundle = commandLogSummaryInputSignatureBundle(state, outcomeId);
-    return bundle ? hashStableJson(bundle) : null;
-  }
-
-  function runtimeIngressForContext(context = {}) {
-    const ledger = createRuntimeLedgerView(campaignState || {}).ingressLedger || [];
-    const ingressId = compactString(context.ingressId);
-    if (ingressId) {
-      const byId = ledger.find((entry) => entry?.id === ingressId);
-      if (byId) return byId;
-    }
-    const outcomeId = compactString(context.outcomeId);
-    if (outcomeId) {
-      const byOutcome = [...ledger].reverse().find((entry) => compactString(entry?.outcomeId) === outcomeId);
-      if (byOutcome) return byOutcome;
-    }
-    const turnId = compactString(context.turnId);
-    if (turnId) {
-      return [...ledger].reverse().find((entry) => compactString(entry?.turnId) === turnId) || null;
-    }
-    return null;
-  }
-
-  function narrationBookkeepingCoreTargetForContext(context = {}) {
-    const ingress = runtimeIngressForContext(context);
-    const transactionId = compactString(context.coreTransactionId || ingress?.coreTransactionId);
-    if (!transactionId) return null;
-    return {
-      transactionId,
-      ingressId: compactString(ingress?.id || context.ingressId),
-      turnId: compactString(ingress?.turnId || context.turnId),
-      outcomeId: compactString(ingress?.outcomeId || context.outcomeId),
-      hostMessageId: compactString(ingress?.hostMessageId || context.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || context.sourceFrameId)
-    };
-  }
-
-  async function appendNarrationBookkeepingMissingOutcomeDiagnostic(context = {}) {
-    const target = narrationBookkeepingCoreTargetForContext(context);
-    if (!target) return null;
-    const failure = context.failure || null;
-    const event = {
-      type: 'runtimeDiagnostic',
-      worker: 'directiveNarration',
-      eventType: 'narrationBookkeepingMissingOutcome',
-      status: 'failed',
-      severity: 'warning',
-      reason: 'missing-turn-ledger-outcome',
-      outcomeId: target.outcomeId || context.outcomeId || null,
-      turnId: target.turnId || context.turnId || null,
-      ingressId: target.ingressId || context.ingressId || null,
-      hostMessageId: target.hostMessageId || context.hostMessageId || null,
-      sourceFrameId: target.sourceFrameId || context.sourceFrameId || null,
-      coreTransactionId: target.transactionId,
-      providerId: compactString(failure?.providerId || context.providerId),
-      directiveGenerationStartedAt: failure?.directiveGenerationStartedAt || context.directiveGenerationStartedAt || null,
-      generationStartedAt: failure?.generationStartedAt || context.generationStartedAt || null,
-      fallbackResponseAvailable: true,
-      error: compactRuntimeErrorEvidence(failure, 'DIRECTIVE_NARRATION_BOOKKEEPING_MISSING_OUTCOME'),
-      observedAt: timestampFromNow(now)
-    };
-    try {
-      await runtimeCoreTurnStore.appendDiagnostics(target.transactionId, event);
-      return cloneJson(event);
-    } catch {
-      return null;
-    }
-  }
-
-  function runtimeResponseForContext(context = {}) {
-    const ledger = createRuntimeLedgerView(campaignState || {}).responseLedger || [];
-    const responseId = compactString(context.responseId);
-    if (responseId) {
-      const byId = ledger.find((entry) => compactString(entry?.id) === responseId);
-      if (byId) return byId;
-    }
-    const hostMessageId = compactString(context.hostMessageId);
-    if (hostMessageId) {
-      const byHost = [...ledger].reverse().find((entry) => compactString(entry?.hostMessageId) === hostMessageId);
-      if (byHost) return byHost;
-    }
-    const outcomeId = compactString(context.outcomeId);
-    if (outcomeId) {
-      const byOutcome = [...ledger].reverse().find((entry) => compactString(entry?.outcomeId) === outcomeId);
-      if (byOutcome) return byOutcome;
-    }
-    const turnId = compactString(context.turnId);
-    if (turnId) {
-      const byTurn = [...ledger].reverse().find((entry) => compactString(entry?.turnId) === turnId);
-      if (byTurn) return byTurn;
-    }
-    const ingressId = compactString(context.ingressId);
-    if (ingressId) {
-      return [...ledger].reverse().find((entry) => compactString(entry?.ingressId) === ingressId) || null;
-    }
-    return null;
-  }
-
-  function commandLogSummaryIngressForContext(context = {}) {
-    return runtimeIngressForContext(context);
-  }
-
-  function commandLogSummarySourceGuardForTurn(turnPacket = null, context = {}) {
-    const outcomeId = compactString(context.outcomeId) || commandLogSummaryOutcomeId(turnPacket);
-    const turnId = compactString(context.turnId || turnPacket?.turnId || turnPacket?.id);
-    const binding = bindingFromState(campaignState);
-    const ingress = commandLogSummaryIngressForContext({
-      ingressId: context.ingressId,
-      outcomeId,
-      turnId
-    });
-    return {
-      campaignId: compactString(campaignState?.campaign?.id),
-      saveId: compactString(binding?.saveId),
-      chatId: compactString(binding?.chatId),
-      ingressId: compactString(context.ingressId || ingress?.id),
-      turnId,
-      outcomeId,
-      hostMessageId: compactString(ingress?.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
-      coreTransactionId: compactString(ingress?.coreTransactionId),
-      inputSignature: commandLogSummaryInputSignature(campaignState, outcomeId),
-      inputSignatureHash: commandLogSummaryInputSignatureHash(campaignState, outcomeId)
-    };
-  }
-
-  function commandLogSummaryGuardCurrent(guard = null) {
-    if (!guard) return true;
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
-    const binding = bindingFromState(campaignState);
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
-    if (guard.outcomeId && !commandLogEntryForOutcome(campaignState, guard.outcomeId)) return false;
-    if (guard.inputSignature && commandLogSummaryInputSignature(campaignState, guard.outcomeId) !== guard.inputSignature) return false;
-    return true;
-  }
-
-  function commandLogSummaryCoreTargetForGuard(guard = null) {
-    if (!guard) return null;
-    const binding = bindingFromState(campaignState);
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
-    const ingress = commandLogSummaryIngressForContext({
-      ingressId: guard.ingressId,
-      outcomeId: guard.outcomeId,
-      turnId: guard.turnId
-    });
-    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId);
-    if (!transactionId) return null;
-    return {
-      transactionId,
-      ingressId: compactString(ingress?.id || guard.ingressId),
-      turnId: compactString(ingress?.turnId || guard.turnId),
-      outcomeId: compactString(ingress?.outcomeId || guard.outcomeId),
-      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
-    };
-  }
-
-  function commandLogSummaryDiagnosticStatusForResult(result = null) {
-    if (result?.status === 'stale') return 'stale';
-    if (result?.applied === true) return 'applied';
-    if (result?.ok === false || result?.status === 'failed' || result?.error) return 'failed';
-    return result?.status || 'settled';
-  }
-
-  function commandLogSummaryDiagnosticEvent(guard = null, status = 'queued', details = {}) {
-    const target = commandLogSummaryCoreTargetForGuard(guard);
-    if (!target) return null;
-    const result = details.result || null;
-    const error = details.error || result?.error || null;
-    return {
-      type: 'sidecar',
-      worker: 'commandLogSummary',
-      sidecarType: 'commandLogSummary',
-      roleId: 'commandLogSummarizer',
-      status,
-      severity: status === 'failed' ? 'warning' : 'info',
-      reason: compactString(details.reason || result?.reason),
-      resultStatus: compactString(result?.status),
-      applied: result?.applied === true,
-      scheduled: result?.scheduled === true || status === 'queued',
-      outcomeId: target.outcomeId || guard?.outcomeId || null,
-      turnId: target.turnId || guard?.turnId || null,
-      ingressId: target.ingressId || guard?.ingressId || null,
-      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-      inputSignatureHash: guard?.inputSignatureHash || null,
-      hasAssistedSummary: Boolean(result?.assistedSummary),
-      assistedSummaryHash: result?.assistedSummary ? hashStableJson(result.assistedSummary) : null,
-      errorCode: compactString(error?.code),
-      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
-      observedAt: timestampFromNow(now)
-    };
-  }
-
-  function queueCommandLogSummaryCoreDiagnostic(guard = null, status = 'queued', details = {}) {
-    const event = commandLogSummaryDiagnosticEvent(guard, status, details);
-    if (!event) return null;
-    const target = commandLogSummaryCoreTargetForGuard(guard);
-    if (!target) return null;
-    return queueRuntimeCoreDiagnosticEntry(commandLogSummaryDiagnosticBatch, target, event);
-  }
-
-  function commandLogSummaryCoreBackgroundBundle(guard = null, result = null) {
-    const target = commandLogSummaryCoreTargetForGuard(guard);
-    const assistedSummary = result?.assistedSummary || null;
-    if (!target || result?.applied !== true || assistedSummary?.status !== 'complete') return null;
-    const outcomeId = compactString(assistedSummary.sourceOutcomeId || target.outcomeId || guard?.outcomeId);
-    const assistedSummaryHash = hashStableJson(assistedSummary);
-    const batchSourceId = outcomeId || target.ingressId || target.transactionId;
-    const batchId = `command-log-summary:${target.transactionId}:${batchSourceId}`;
-    return {
-      transactionId: target.transactionId,
-      bundle: {
-        idempotencyKey: batchId,
-        batchId,
-        phaseAfter: 'backgroundSettling',
-        outcomeId: outcomeId || null,
-        promptDirtyDomains: [],
-        backgroundEffectRefs: [
-          {
-            effect: 'commandLogAssistedSummary',
-            status: 'applied',
-            outcomeId: outcomeId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            turnId: target.turnId || guard?.turnId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            inputSignatureHash: guard?.inputSignatureHash || null,
-            assistedSummaryHash
-          }
-        ],
-        workers: [
-          {
-            worker: 'commandLogSummary',
-            workerId: 'commandLogSummary',
-            sidecarType: 'commandLogSummary',
-            roleId: 'commandLogSummarizer',
-            status: 'applied',
-            outcomeId: outcomeId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            turnId: target.turnId || guard?.turnId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            inputSignatureHash: guard?.inputSignatureHash || null,
-            assistedSummaryHash
-          }
-        ]
-      }
-    };
-  }
-
-  async function commitCommandLogSummaryCoreBackgroundBatch(guard = null, result = null) {
-    const prepared = commandLogSummaryCoreBackgroundBundle(guard, result);
-    if (!prepared) return null;
-    try {
-      return await settleInternalForgeBackgroundBatch(prepared, {
-        sourceFrameId: guard?.sourceFrameId,
-        internalOwner: 'commandLogSummary',
-        appendDiagnostic: (transactionId, diagnostic) => queueForgeInternalCoreDiagnostic(
-          commandLogSummaryDiagnosticBatch,
-          commandLogSummaryCoreTargetForGuard(guard),
-          transactionId,
-          diagnostic
-        )
-      });
-    } catch (error) {
-      queueCommandLogSummaryCoreDiagnostic(guard, 'backgroundBridgeFailed', {
-        reason: 'core-background-bridge-failed',
-        result,
-        error
-      });
-      return null;
-    }
-  }
-
-  function postCommitConversationInputSignatureBundle(conversation = {}) {
-    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
-    return {
-      pendingInteractionId: compactString(conversation.pendingInteractionId),
-      resolutionIngressId: compactString(conversation.resolutionIngressId),
-      resolutionMessageId: compactString(conversation.resolutionMessageId),
-      resolutionTextHash: compactString(conversation.resolutionTextHash),
-      turnId: compactString(conversation.turnId),
-      outcomeId: compactString(conversation.outcomeId || conversation.outcomePacket?.id),
-      resultBand: compactString(conversation.resultBand || conversation.outcomePacket?.resultBand),
-      sourceAnchorRangeHash: conversation.sourceAnchorRange ? hashStableJson(conversation.sourceAnchorRange) : null,
-      commandLogPacketHash: conversation.commandLogPacket ? hashStableJson(conversation.commandLogPacket) : null,
-      continuityProjectionHash: conversation.continuityProjection ? hashStableJson(conversation.continuityProjection) : null,
-      messageRefs: messages.map((message, index) => ({
-        id: compactString(message?.id || message?.hostMessageId || message?.messageId || index),
-        role: compactString(message?.role || message?.authorRole),
-        textHash: message?.textHash || hashStableJson({ text: String(message?.text || message?.content || message?.mes || '') })
-      }))
-    };
-  }
-
-  function postCommitConversationResultSummary(result = {}) {
-    return {
-      ok: result?.ok === true,
-      status: compactString(result?.status) || (result?.ok === false ? 'failed' : 'applied'),
-      extractionFallback: result?.extractionFallback === true,
-      createdThreadCount: Array.isArray(result?.createdThreadIds) ? result.createdThreadIds.length : 0,
-      createdThreadIds: Array.isArray(result?.createdThreadIds) ? result.createdThreadIds.slice(0, 12) : [],
-      mergedThreadCount: Array.isArray(result?.mergedThreads) ? result.mergedThreads.length : 0,
-      surfacedThreadCount: Array.isArray(result?.surfacedThreadIds) ? result.surfacedThreadIds.length : 0,
-      surfacedThreadIds: Array.isArray(result?.surfacedThreadIds) ? result.surfacedThreadIds.slice(0, 12) : [],
-      decayChangeCount: Array.isArray(result?.decayChanges) ? result.decayChanges.length : 0,
-      commandBearingReviewStatus: compactString(result?.commandBearingReview?.status),
-      commandBearingReviewCount: Array.isArray(result?.commandBearingReview?.records) ? result.commandBearingReview.records.length : 0,
-      promotionThreadId: compactString(result?.promotion?.threadId),
-      promotionQuestId: compactString(result?.promotion?.questId),
-      eligibleThreadCount: Array.isArray(result?.eligibleThreadIds) ? result.eligibleThreadIds.length : 0
-    };
-  }
-
-  function postCommitConversationGuardForContext(conversation = {}) {
-    const outcomeId = compactString(conversation.outcomeId || conversation.outcomePacket?.id);
-    const turnId = compactString(conversation.turnId);
-    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
-    const assistantMessage = messages.find((entry) => compactString(entry?.role || entry?.authorRole) === 'assistant') || null;
-    const responseHostMessageId = compactString(assistantMessage?.id || assistantMessage?.hostMessageId || assistantMessage?.messageId);
-    const binding = bindingFromState(campaignState);
-    const ingress = runtimeIngressForContext({
-      ingressId: conversation.ingressId,
-      outcomeId,
-      turnId
-    });
-    const response = runtimeResponseForContext({
-      ingressId: conversation.resolutionIngressId || conversation.ingressId,
-      outcomeId,
-      turnId,
-      hostMessageId: responseHostMessageId
-    });
-    const signatureBundle = postCommitConversationInputSignatureBundle(conversation);
-    return {
-      campaignId: compactString(campaignState?.campaign?.id),
-      saveId: compactString(binding?.saveId),
-      chatId: compactString(binding?.chatId),
-      ingressId: compactString(conversation.ingressId || ingress?.id),
-      pendingInteractionId: compactString(conversation.pendingInteractionId),
-      resolutionIngressId: compactString(conversation.resolutionIngressId),
-      resolutionMessageId: compactString(conversation.resolutionMessageId),
-      resolutionTextHash: compactString(conversation.resolutionTextHash),
-      turnId,
-      outcomeId,
-      hostMessageId: compactString(ingress?.hostMessageId),
-      responseId: compactString(response?.id),
-      responseHostMessageId: compactString(response?.hostMessageId || responseHostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
-      coreTransactionId: compactString(ingress?.coreTransactionId),
-      inputSignatureHash: hashStableJson(signatureBundle)
-    };
-  }
-
-  function postCommitConversationGuardCurrent(guard = null) {
-    if (!guard) return true;
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
-    const binding = bindingFromState(campaignState);
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
-    const ingress = runtimeIngressForContext({
-      ingressId: guard.ingressId,
-      outcomeId: guard.outcomeId,
-      turnId: guard.turnId
-    });
-    if (guard.ingressId && !ingress) return false;
-    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
-    if (ingress && staleStatuses.has(compactString(ingress.status))) return false;
-    if (ingress?.invalidatedAt || ingress?.deletedAt || ingress?.invalidationType) return false;
-    if (guard.hostMessageId && compactString(ingress?.hostMessageId) !== guard.hostMessageId) return false;
-    if (guard.sourceFrameId && compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id) !== guard.sourceFrameId) return false;
-    if (guard.outcomeId && compactString(ingress?.outcomeId) && compactString(ingress.outcomeId) !== guard.outcomeId) return false;
-    const response = runtimeResponseForContext({
-      responseId: guard.responseId,
-      hostMessageId: guard.responseHostMessageId,
-      outcomeId: guard.outcomeId,
-      turnId: guard.turnId,
-      ingressId: guard.resolutionIngressId || guard.ingressId
-    });
-    if (guard.responseId && !response) return false;
-    if (response && staleStatuses.has(compactString(response.status))) return false;
-    if (response?.invalidatedAt || response?.deletedAt || response?.editedAt || response?.invalidationType) return false;
-    if (guard.responseId && compactString(response?.id) !== guard.responseId) return false;
-    if (response && guard.responseHostMessageId && compactString(response.hostMessageId) !== guard.responseHostMessageId) return false;
-    if (guard.outcomeId && !hasTurnLedgerOutcome(campaignState, guard.outcomeId) && !commandLogEntryForOutcome(campaignState, guard.outcomeId)) return false;
-    return true;
-  }
-
-  function postCommitConversationCoreTargetForGuard(guard = null) {
-    if (!guard) return null;
-    const binding = bindingFromState(campaignState);
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
-    const ingress = runtimeIngressForContext({
-      ingressId: guard.ingressId,
-      outcomeId: guard.outcomeId,
-      turnId: guard.turnId
-    });
-    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId);
-    if (!transactionId) return null;
-    return {
-      transactionId,
-      ingressId: compactString(ingress?.id || guard.ingressId),
-      turnId: compactString(ingress?.turnId || guard.turnId),
-      outcomeId: compactString(ingress?.outcomeId || guard.outcomeId),
-      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
-    };
-  }
-
-  function postCommitConversationDiagnosticEvent(guard = null, status = 'queued', details = {}) {
-    const target = postCommitConversationCoreTargetForGuard(guard);
-    if (!target) return null;
-    const result = details.result || null;
-    const summary = result ? postCommitConversationResultSummary(result) : null;
-    const error = details.error || result?.error || null;
-    return {
-      type: 'sidecar',
-      worker: 'narrativeThreadDirector',
-      sidecarType: 'narrativeThreadExtraction',
-      eventType: status === 'failed' ? 'postCommitConversationFailed' : 'postCommitConversation',
-      roleId: 'narrativeThreadDirector',
-      status,
-      severity: ['failed', 'backgroundBridgeFailed'].includes(status) ? 'warning' : 'info',
-      reason: compactString(details.reason || result?.reason),
-      resultStatus: compactString(result?.status),
-      outcomeId: target.outcomeId || guard?.outcomeId || null,
-      turnId: target.turnId || guard?.turnId || null,
-      ingressId: target.ingressId || guard?.ingressId || null,
-      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-      inputSignatureHash: guard?.inputSignatureHash || null,
-      resultHash: summary ? hashStableJson(summary) : null,
-      createdThreadCount: summary?.createdThreadCount ?? null,
-      surfacedThreadCount: summary?.surfacedThreadCount ?? null,
-      promotedQuest: Boolean(summary?.promotionQuestId),
-      errorCode: compactString(error?.code),
-      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
-      observedAt: timestampFromNow(now)
-    };
-  }
-
-  async function appendPostCommitConversationCoreDiagnostic(guard = null, status = 'queued', details = {}) {
-    const event = postCommitConversationDiagnosticEvent(guard, status, details);
-    if (!event) return null;
-    const target = postCommitConversationCoreTargetForGuard(guard);
-    if (!target) return null;
-    const queued = queueRuntimeCoreDiagnosticEntry(postCommitConversationDiagnosticBatch, target, event);
-    try {
-      await flushPostCommitConversationCoreDiagnostics();
-      return queued;
-    } catch {
-      return null;
-    }
-  }
-
-  function queuePostCommitConversationCoreDiagnostic(guard = null, status = 'queued', details = {}) {
-    const event = postCommitConversationDiagnosticEvent(guard, status, details);
-    if (!event) return null;
-    const target = postCommitConversationCoreTargetForGuard(guard);
-    if (!target) return null;
-    return queueRuntimeCoreDiagnosticEntry(postCommitConversationDiagnosticBatch, target, event);
-  }
-
-  function postCommitConversationCoreBackgroundBundle(guard = null, result = null) {
-    const target = postCommitConversationCoreTargetForGuard(guard);
-    if (!target || result?.ok !== true) return null;
-    const summary = postCommitConversationResultSummary(result);
-    const batchSourceId = target.outcomeId || target.ingressId || target.transactionId;
-    const batchId = `narrative-thread:${target.transactionId}:${batchSourceId}`;
-    return {
-      transactionId: target.transactionId,
-      bundle: {
-        idempotencyKey: batchId,
-        batchId,
-        phaseAfter: 'backgroundSettling',
-        outcomeId: target.outcomeId || guard?.outcomeId || null,
-        promptDirtyDomains: normalizePromptDirtyDomains(['threadLedger', 'questLedger', 'commandBearing']),
-        backgroundEffectRefs: [
-          {
-            effect: 'narrativeThreadExtraction',
-            status: 'applied',
-            outcomeId: target.outcomeId || guard?.outcomeId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            turnId: target.turnId || guard?.turnId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            inputSignatureHash: guard?.inputSignatureHash || null,
-            resultHash: hashStableJson(summary),
-            createdThreadCount: summary.createdThreadCount,
-            surfacedThreadCount: summary.surfacedThreadCount,
-            commandBearingReviewCount: summary.commandBearingReviewCount,
-            promotionQuestId: summary.promotionQuestId || null
-          }
-        ],
-        workers: [
-          {
-            worker: 'narrativeThreadDirector',
-            workerId: 'narrativeThreadDirector',
-            sidecarType: 'narrativeThreadExtraction',
-            roleId: 'narrativeThreadDirector',
-            status: 'applied',
-            outcomeId: target.outcomeId || guard?.outcomeId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            turnId: target.turnId || guard?.turnId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            inputSignatureHash: guard?.inputSignatureHash || null,
-            resultHash: hashStableJson(summary),
-            createdThreadCount: summary.createdThreadCount,
-            surfacedThreadCount: summary.surfacedThreadCount,
-            commandBearingReviewCount: summary.commandBearingReviewCount,
-            promotionQuestId: summary.promotionQuestId || null
-          }
-        ]
-      }
-    };
-  }
-
-  async function commitPostCommitConversationCoreBackgroundBatch(guard = null, result = null) {
-    const prepared = postCommitConversationCoreBackgroundBundle(guard, result);
-    if (!prepared) return null;
-    try {
-      return await settleInternalForgeBackgroundBatch(prepared, {
-        sourceFrameId: guard?.sourceFrameId,
-        internalOwner: 'narrativeThreadDirector',
-        appendDiagnostic: (transactionId, diagnostic) => queueForgeInternalCoreDiagnostic(
-          postCommitConversationDiagnosticBatch,
-          postCommitConversationCoreTargetForGuard(guard),
-          transactionId,
-          diagnostic
-        )
-      });
-    } catch (error) {
-      queuePostCommitConversationCoreDiagnostic(guard, 'backgroundBridgeFailed', {
-        reason: 'core-background-bridge-failed',
-        result,
-        error
-      });
-      return null;
-    }
-  }
-
-  function stalePostCommitConversationResult(guard = null, reason = 'source-stale') {
-    return {
-      kind: 'directive.postCommitConversationResult',
-      ok: false,
-      scheduled: true,
-      status: 'stale',
-      applied: false,
-      reason,
-      outcomeId: guard?.outcomeId || null,
-      error: {
-        code: 'DIRECTIVE_POST_COMMIT_CONVERSATION_SOURCE_STALE',
-        message: 'Post-commit conversation processing skipped because the scheduled source is no longer current.'
-      }
-    };
-  }
-
-  function schedulePostCommitConversationForCommittedTurn({
-    conversation,
-    processor,
-    reason = 'postVisibleResponse'
-  } = {}) {
-    if (typeof processor !== 'function') {
-      lastPostCommitConversationResult = null;
-      return null;
-    }
-    const queuedConversation = cloneJson(conversation || {});
-    const sourceGuard = postCommitConversationGuardForContext(queuedConversation);
-    const scheduled = {
-      kind: 'directive.postCommitConversationScheduled',
-      ok: null,
-      scheduled: true,
-      status: 'queued',
-      reason,
-      outcomeId: sourceGuard.outcomeId || null,
-      turnId: sourceGuard.turnId || null,
-      scheduledAt: timestampFromNow(now)
-    };
-    lastPostCommitConversationResult = cloneJson(scheduled);
-    const runTask = async () => {
-      postCommitConversationPendingCount += 1;
-      try {
-        await settleCommandLogSummaryQueue();
-        queuePostCommitConversationCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
-        if (!postCommitConversationGuardCurrent(sourceGuard)) {
-          lastPostCommitConversationResult = stalePostCommitConversationResult(sourceGuard, 'source-stale-before-provider');
-          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
-            reason: 'source-stale-before-provider',
-            result: lastPostCommitConversationResult
-          });
-          await flushPostCommitConversationCoreDiagnostics();
-          return cloneJson(lastPostCommitConversationResult);
-        }
-        const result = await processor(queuedConversation, {
-          isSourceCurrent: () => (postCommitConversationGuardCurrent(sourceGuard)
-            ? { ok: true }
-            : { ok: false, reason: 'source-stale' })
-        });
-        if (!postCommitConversationGuardCurrent(sourceGuard)) {
-          lastPostCommitConversationResult = stalePostCommitConversationResult(sourceGuard, 'source-stale-after-provider');
-          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
-            reason: 'source-stale-after-provider',
-            result: lastPostCommitConversationResult
-          });
-          await flushPostCommitConversationCoreDiagnostics();
-          return cloneJson(lastPostCommitConversationResult);
-        }
-        if (result?.campaignState) {
-          campaignState = mergeFresherResponseLedgerProjection(
-            applyRuntimeSettings(result.campaignState),
-            campaignState
-          );
-          const synchronized = await synchronizeActivePrompt(campaignState, {
-            persist: false,
-            useContinuityPlanner: false,
-            reason: 'Prompt context synchronized after narrative thread background settlement.',
-            activitySource: 'narrativeThreadBackgroundPromptSync',
-            activityMode: 'background',
-            activityContext: {
-              source: 'narrativeThreadDirector',
-              ingressId: sourceGuard.ingressId || null,
-              turnId: sourceGuard.turnId || null,
-              outcomeId: sourceGuard.outcomeId || null
-            }
-          });
-          campaignState = mergeFresherResponseLedgerProjection(
-            applyRuntimeSettings(synchronized.campaignState || campaignState),
-            campaignState
-          );
-          await persistRuntimeCampaignState(
-            campaignState,
-            'Narrative thread background settlement synchronized prompt context.'
-          );
-        }
-        const summary = postCommitConversationResultSummary(result || {});
-        const final = {
-          kind: 'directive.postCommitConversationResult',
-          ok: result?.ok !== false,
-          scheduled: true,
-          status: result?.status || 'applied',
-          applied: result?.ok !== false,
-          reason,
-          outcomeId: sourceGuard.outcomeId || null,
-          extractionFallback: summary.extractionFallback,
-          createdThreadCount: summary.createdThreadCount,
-          createdThreadIds: cloneJson(summary.createdThreadIds),
-          mergedThreadCount: summary.mergedThreadCount,
-          surfacedThreadCount: summary.surfacedThreadCount,
-          surfacedThreadIds: cloneJson(summary.surfacedThreadIds),
-          decayChangeCount: summary.decayChangeCount,
-          commandBearingReviewStatus: summary.commandBearingReviewStatus || null,
-          commandBearingReviewCount: summary.commandBearingReviewCount,
-          promotionThreadId: summary.promotionThreadId || null,
-          promotionQuestId: summary.promotionQuestId || null,
-          eligibleThreadCount: summary.eligibleThreadCount
-        };
-        lastPostCommitConversationResult = cloneJson(final);
-        let backgroundBatchCommitted = null;
-        if (final.ok === true) {
-          backgroundBatchCommitted = await commitPostCommitConversationCoreBackgroundBatch(sourceGuard, final);
-        }
-        if (!backgroundBatchCommitted) {
-          queuePostCommitConversationCoreDiagnostic(sourceGuard, final.ok === false ? 'failed' : 'applied', {
-            reason,
-            result: final
-          });
-        }
-        await flushPostCommitConversationCoreDiagnostics();
-        return cloneJson(lastPostCommitConversationResult);
-      } catch (error) {
-        const stale = error?.code === 'DIRECTIVE_NARRATIVE_THREAD_SOURCE_STALE';
-        lastPostCommitConversationResult = stale
-          ? stalePostCommitConversationResult(sourceGuard, error.phase || 'source-stale')
-          : {
-              kind: 'directive.postCommitConversationResult',
-              ok: false,
-              scheduled: true,
-              status: 'failed',
-              reason,
-              outcomeId: sourceGuard.outcomeId || null,
-              error: {
-                code: error?.code || 'DIRECTIVE_POST_COMMIT_CONVERSATION_BACKGROUND_FAILED',
-                message: error?.message || String(error)
-              }
-            };
-        let failureDiagnostic = null;
-        if (!stale) {
-          failureDiagnostic = await appendPostCommitConversationCoreDiagnostic(sourceGuard, 'failed', {
-            reason,
-            result: lastPostCommitConversationResult,
-            error
-          });
-        }
-        if (stale) {
-          queuePostCommitConversationCoreDiagnostic(sourceGuard, 'stale', {
-            reason,
-            result: lastPostCommitConversationResult,
-            error
-          });
-          await flushPostCommitConversationCoreDiagnostics();
-        }
-        return cloneJson(lastPostCommitConversationResult);
-      } finally {
-        postCommitConversationPendingCount = Math.max(0, postCommitConversationPendingCount - 1);
-      }
-    };
-    const task = postCommitConversationQueue.then(runTask, runTask);
-    postCommitConversationQueue = task.catch(() => null);
-    return cloneJson(scheduled);
-  }
-
-  function advisoryEnrichmentGuardForContext(payload = {}) {
-    const binding = bindingFromState(campaignState);
-    const ingress = runtimeIngressForContext({
-      ingressId: payload.ingressId
-    });
-    return {
-      campaignId: compactString(campaignState?.campaign?.id),
-      saveId: compactString(binding?.saveId),
-      chatId: compactString(binding?.chatId),
-      ingressId: compactString(payload.ingressId || ingress?.id),
-      advisoryId: compactString(payload.advisoryId),
-      sourceMessageId: compactString(payload.sourceMessageId || ingress?.hostMessageId),
-      hostMessageId: compactString(ingress?.hostMessageId || payload.sourceMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || payload.sourceFrameId),
-      coreTransactionId: compactString(ingress?.coreTransactionId || ingress?.transactionId || payload.coreTransactionId || payload.transactionId),
-      playerTextHash: compactString(payload.playerTextHash),
-      ingressTextHash: compactString(ingress?.textHash),
-      fallbackAdvisoryHash: compactString(payload.fallbackAdvisoryHash),
-      scheduledAt: timestampFromNow(now)
-    };
-  }
-
-  function hostSourceMessageMatchesGuard(guard = null) {
-    const hostMessageId = compactString(guard?.hostMessageId || guard?.sourceMessageId);
-    if (!hostMessageId || typeof runtimeHost?.chat?.getMessage !== 'function') return false;
-    const message = runtimeHost.chat.getMessage(hostMessageId);
-    if (!message) return false;
-    if (guard?.playerTextHash && fnv1a(message.text || message.mes || message.content || '') !== guard.playerTextHash) {
-      return false;
-    }
-    return true;
-  }
-
-  function advisoryEnrichmentGuardCurrent(guard = null) {
-    if (!guard) return true;
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return false;
-    const binding = bindingFromState(campaignState);
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return false;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return false;
-    const ingress = runtimeIngressForContext({ ingressId: guard.ingressId });
-    if (guard.ingressId && !ingress) return hostSourceMessageMatchesGuard(guard);
-    const staleStatuses = new Set(['invalidated', 'edited', 'deleted', 'recoveryRequired', 'canceled', 'awaitingRevision']);
-    if (ingress && staleStatuses.has(compactString(ingress.status))) return false;
-    if (ingress?.invalidatedAt || ingress?.deletedAt || ingress?.invalidationType) return false;
-    if (guard.hostMessageId && compactString(ingress?.hostMessageId) !== guard.hostMessageId) return false;
-    if (guard.sourceFrameId && compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id) !== guard.sourceFrameId) return false;
-    if (guard.playerTextHash && compactString(ingress?.textHash) !== guard.playerTextHash) return false;
-    return true;
-  }
-
-  function advisoryEnrichmentCoreTargetForGuard(guard = null) {
-    if (!guard) return null;
-    const binding = bindingFromState(campaignState);
-    if (guard.campaignId && compactString(campaignState?.campaign?.id) !== guard.campaignId) return null;
-    if (guard.saveId && compactString(binding?.saveId) !== guard.saveId) return null;
-    if (guard.chatId && compactString(binding?.chatId) !== guard.chatId) return null;
-    const ingress = runtimeIngressForContext({ ingressId: guard.ingressId });
-    const transactionId = compactString(guard.coreTransactionId || ingress?.coreTransactionId || ingress?.transactionId);
-    if (!transactionId) return null;
-    return {
-      transactionId,
-      ingressId: compactString(ingress?.id || guard.ingressId),
-      hostMessageId: compactString(ingress?.hostMessageId || guard.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || guard.sourceFrameId)
-    };
-  }
-
-  function advisoryEnrichmentDiagnosticEvent(guard = null, status = 'queued', details = {}) {
-    const target = advisoryEnrichmentCoreTargetForGuard(guard);
-    if (!target) return null;
-    const result = details.result || null;
-    const error = details.error || result?.error || null;
-    return {
-      type: 'sidecar',
-      worker: 'missionDirectorAdvisor',
-      sidecarType: 'advisoryEnrichment',
-      roleId: 'missionDirectorAdvisor',
-      status,
-      severity: ['failed', 'backgroundBridgeFailed'].includes(status) ? 'warning' : 'info',
-      reason: compactString(details.reason || result?.reason),
-      resultStatus: compactString(result?.status),
-      applied: result?.applied === true,
-      scheduled: result?.scheduled === true || status === 'queued',
-      advisoryId: guard?.advisoryId || null,
-      ingressId: target.ingressId || guard?.ingressId || null,
-      hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-      sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-      playerTextHash: guard?.playerTextHash || null,
-      fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
-      advisoryHash: result?.advisoryHash || null,
-      errorCode: compactString(error?.code),
-      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
-      observedAt: timestampFromNow(now)
-    };
-  }
-
-  function queueAdvisoryEnrichmentCoreDiagnostic(guard = null, status = 'queued', details = {}) {
-    const event = advisoryEnrichmentDiagnosticEvent(guard, status, details);
-    if (!event) return null;
-    const target = advisoryEnrichmentCoreTargetForGuard(guard);
-    if (!target) return null;
-    return queueRuntimeCoreDiagnosticEntry(advisoryEnrichmentDiagnosticBatch, target, event);
-  }
-
-  function advisoryEnrichmentCoreBackgroundBundle(guard = null, result = null) {
-    const target = advisoryEnrichmentCoreTargetForGuard(guard);
-    if (!target || result?.applied !== true) return null;
-    const batchSourceId = guard?.advisoryId || target.ingressId || target.transactionId;
-    const batchId = `advisory-enrichment:${target.transactionId}:${batchSourceId}`;
-    return {
-      transactionId: target.transactionId,
-      bundle: {
-        idempotencyKey: batchId,
-        batchId,
-        phaseAfter: 'backgroundSettling',
-        promptDirtyDomains: normalizePromptDirtyDomains(['commandCompetence']),
-        backgroundEffectRefs: [
-          {
-            effect: 'advisoryEnrichment',
-            status: 'applied',
-            advisoryId: guard?.advisoryId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            playerTextHash: guard?.playerTextHash || null,
-            fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
-            advisoryHash: result?.advisoryHash || null
-          }
-        ],
-        workers: [
-          {
-            worker: 'missionDirectorAdvisor',
-            workerId: 'missionDirectorAdvisor',
-            sidecarType: 'advisoryEnrichment',
-            roleId: 'missionDirectorAdvisor',
-            status: 'applied',
-            advisoryId: guard?.advisoryId || null,
-            ingressId: target.ingressId || guard?.ingressId || null,
-            hostMessageId: target.hostMessageId || guard?.hostMessageId || null,
-            sourceFrameId: target.sourceFrameId || guard?.sourceFrameId || null,
-            playerTextHash: guard?.playerTextHash || null,
-            fallbackAdvisoryHash: guard?.fallbackAdvisoryHash || null,
-            advisoryHash: result?.advisoryHash || null
-          }
-        ]
-      }
-    };
-  }
-
-  async function commitAdvisoryEnrichmentCoreBackgroundBatch(guard = null, result = null) {
-    const prepared = advisoryEnrichmentCoreBackgroundBundle(guard, result);
-    if (!prepared) return null;
-    try {
-      return await settleInternalForgeBackgroundBatch(prepared, {
-        sourceFrameId: guard?.sourceFrameId,
-        internalOwner: 'missionDirectorAdvisor',
-        appendDiagnostic: (transactionId, diagnostic) => queueForgeInternalCoreDiagnostic(
-          advisoryEnrichmentDiagnosticBatch,
-          advisoryEnrichmentCoreTargetForGuard(guard),
-          transactionId,
-          diagnostic
-        )
-      });
-    } catch (error) {
-      queueAdvisoryEnrichmentCoreDiagnostic(guard, 'backgroundBridgeFailed', {
-        reason: 'core-background-bridge-failed',
-        result,
-        error
-      });
-      return null;
-    }
-  }
-
-  function staleAdvisoryEnrichmentResult(guard = null, reason = 'source-stale') {
-    return {
-      kind: 'directive.advisoryEnrichmentResult',
-      ok: false,
-      scheduled: true,
-      status: 'stale',
-      applied: false,
-      reason,
-      advisoryId: guard?.advisoryId || null,
-      ingressId: guard?.ingressId || null,
-      error: {
-        code: 'DIRECTIVE_ADVISORY_ENRICHMENT_SOURCE_STALE',
-        message: 'Advisory enrichment skipped because the scheduled source is no longer current.'
-      }
-    };
-  }
-
-  function advisoryEnrichmentDiagnosticStatusForResult(result = null) {
-    if (result?.status === 'stale') return 'stale';
-    if (result?.applied === true) return 'applied';
-    if (result?.ok === false || result?.status === 'failed' || result?.error) return 'failed';
-    return result?.status || 'settled';
-  }
-
-  function scheduleAdvisoryEnrichmentForHostContinue(payload = {}) {
-    if (typeof payload.run !== 'function') {
-      lastAdvisoryEnrichmentResult = null;
-      return null;
-    }
-    const run = payload.run;
-    const sourceGuard = advisoryEnrichmentGuardForContext(payload);
-    const scheduled = {
-      kind: 'directive.advisoryEnrichmentScheduled',
-      ok: null,
-      scheduled: true,
-      status: 'queued',
-      advisoryId: sourceGuard.advisoryId || null,
-      ingressId: sourceGuard.ingressId || null,
-      scheduledAt: sourceGuard.scheduledAt || timestampFromNow(now)
-    };
-    lastAdvisoryEnrichmentResult = cloneJson(scheduled);
-    queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'queued', { reason: 'postHostContinueRelease', result: scheduled });
-    const runTask = async () => {
-      advisoryEnrichmentPendingCount += 1;
-      try {
-        await Promise.resolve();
-        if (!advisoryEnrichmentGuardCurrent(sourceGuard)) {
-          lastAdvisoryEnrichmentResult = staleAdvisoryEnrichmentResult(sourceGuard, 'source-stale-before-provider');
-          queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'stale', {
-            reason: 'source-stale-before-provider',
-            result: lastAdvisoryEnrichmentResult
-          });
-          await flushAdvisoryEnrichmentCoreDiagnostics();
-          return cloneJson(lastAdvisoryEnrichmentResult);
-        }
-        const result = await run({
-          isSourceCurrent: () => advisoryEnrichmentGuardCurrent(sourceGuard)
-        });
-        if (!advisoryEnrichmentGuardCurrent(sourceGuard)) {
-          lastAdvisoryEnrichmentResult = staleAdvisoryEnrichmentResult(sourceGuard, 'source-stale-after-provider');
-          queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'stale', {
-            reason: 'source-stale-after-provider',
-            result: lastAdvisoryEnrichmentResult
-          });
-          await flushAdvisoryEnrichmentCoreDiagnostics();
-          return cloneJson(lastAdvisoryEnrichmentResult);
-        }
-        if (result?.campaignState) {
-          campaignState = mergeFresherResponseLedgerProjection(
-            applyRuntimeSettings(result.campaignState),
-            campaignState
-          );
-          await settleRuntimePersistenceQueue();
-        }
-        lastAdvisoryEnrichmentResult = {
-          kind: 'directive.advisoryEnrichmentResult',
-          ok: result?.ok !== false,
-          scheduled: true,
-          status: result?.status || (result?.applied === true ? 'applied' : 'settled'),
-          applied: result?.applied === true,
-          reason: result?.reason || 'postHostContinueRelease',
-          advisoryId: sourceGuard.advisoryId || result?.advisoryId || null,
-          ingressId: sourceGuard.ingressId || result?.ingressId || null,
-          advisoryHash: result?.advisoryHash || null
-        };
-        let backgroundBatchCommitted = null;
-        if (lastAdvisoryEnrichmentResult.applied === true) {
-          backgroundBatchCommitted = await commitAdvisoryEnrichmentCoreBackgroundBatch(sourceGuard, lastAdvisoryEnrichmentResult);
-        }
-        if (!backgroundBatchCommitted) {
-          queueAdvisoryEnrichmentCoreDiagnostic(
-            sourceGuard,
-            advisoryEnrichmentDiagnosticStatusForResult(lastAdvisoryEnrichmentResult),
-            { reason: 'postHostContinueRelease', result: lastAdvisoryEnrichmentResult }
-          );
-        }
-        await flushAdvisoryEnrichmentCoreDiagnostics();
-        return cloneJson(lastAdvisoryEnrichmentResult);
-      } catch (error) {
-        lastAdvisoryEnrichmentResult = {
-          kind: 'directive.advisoryEnrichmentResult',
-          ok: false,
-          scheduled: true,
-          status: 'failed',
-          applied: false,
-          reason: 'postHostContinueRelease',
-          advisoryId: sourceGuard.advisoryId || null,
-          ingressId: sourceGuard.ingressId || null,
-          error: {
-            code: error?.code || 'DIRECTIVE_ADVISORY_ENRICHMENT_BACKGROUND_FAILED',
-            message: error?.message || String(error)
-          }
-        };
-        queueAdvisoryEnrichmentCoreDiagnostic(sourceGuard, 'failed', {
-          reason: 'postHostContinueRelease',
-          result: lastAdvisoryEnrichmentResult,
-          error
-        });
-        await flushAdvisoryEnrichmentCoreDiagnostics();
-        return cloneJson(lastAdvisoryEnrichmentResult);
-      } finally {
-        advisoryEnrichmentPendingCount = Math.max(0, advisoryEnrichmentPendingCount - 1);
-      }
-    };
-    const task = advisoryEnrichmentQueue.then(runTask, runTask);
-    advisoryEnrichmentQueue = task.catch(() => null);
-    return cloneJson(scheduled);
-  }
-
-  function terminalCheckpointCoreTargetForEvent(event = {}) {
-    const binding = bindingFromState(campaignState);
-    const interactionId = compactString(event.interactionId || event.pendingInteractionId);
-    const ledger = terminalDecisionLedgerView(campaignState || {});
-    const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : [])
-      .find((entry) => compactString(entry?.id) === interactionId) || null;
-    const interaction = pendingInteractionProjectionRows(campaignState)
-      .find((entry) => compactString(entry?.id) === interactionId) || null;
-    const ingress = runtimeIngressForContext({
-      ingressId: event.ingressId || interaction?.ingressId,
-      outcomeId: event.outcomeId || interaction?.outcomeId || decision?.outcomeId,
-      turnId: event.turnId || interaction?.turnId || decision?.turnId
-    });
-    const transactionId = compactString(event.coreTransactionId || ingress?.coreTransactionId);
-    if (!transactionId) return null;
-    return {
-      transactionId,
-      campaignId: compactString(campaignState?.campaign?.id),
-      saveId: compactString(binding?.saveId),
-      chatId: compactString(binding?.chatId),
-      ingressId: compactString(ingress?.id || event.ingressId || interaction?.ingressId),
-      resolutionIngressId: compactString(event.resolutionIngressId),
-      interactionId,
-      pendingInteractionId: compactString(event.pendingInteractionId),
-      turnId: compactString(event.turnId || ingress?.turnId || interaction?.turnId || decision?.turnId),
-      outcomeId: compactString(event.outcomeId || ingress?.outcomeId || interaction?.outcomeId || decision?.outcomeId),
-      hostMessageId: compactString(ingress?.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id),
-      checkpointHostMessageId: compactString(event.checkpointHostMessageId || decision?.checkpointMessageId),
-      resolutionHostMessageId: compactString(event.resolutionHostMessageId),
-      action: compactString(event.action || decision?.resolution?.action),
-      status: compactString(event.status) || 'settled',
-      reason: compactString(event.reason)
-    };
-  }
-
-  function terminalCheckpointDiagnosticEvent(target = null, event = {}, status = null, details = {}) {
-    if (!target) return null;
-    const resolvedStatus = compactString(status || event.status) || 'settled';
-    const error = details.error || null;
-    return {
-      type: 'terminalCheckpoint',
-      worker: 'terminalOutcomeCheckpoint',
-      sidecarType: 'terminalOutcomeCheckpoint',
-      status: resolvedStatus,
-      severity: ['failed', 'backgroundBridgeFailed'].includes(resolvedStatus) ? 'warning' : 'info',
-      settlementKind: compactString(event.kind),
-      reason: compactString(details.reason || event.reason),
-      interactionId: target.interactionId || null,
-      pendingInteractionId: target.pendingInteractionId || null,
-      action: target.action || null,
-      outcomeId: target.outcomeId || null,
-      turnId: target.turnId || null,
-      ingressId: target.ingressId || null,
-      resolutionIngressId: target.resolutionIngressId || null,
-      hostMessageId: target.hostMessageId || null,
-      checkpointHostMessageId: target.checkpointHostMessageId || null,
-      resolutionHostMessageId: target.resolutionHostMessageId || null,
-      sourceFrameId: target.sourceFrameId || null,
-      errorCode: compactString(error?.code),
-      errorMessageHash: error?.message ? hashStableJson({ message: error.message }) : null,
-      observedAt: timestampFromNow(now)
-    };
-  }
-
-  function terminalCheckpointCoreBackgroundBundle(target = null, event = {}) {
-    if (!target || event.status === 'failed') return null;
-    const settlementKind = compactString(event.kind) || 'terminalOutcomeCheckpoint';
-    const batchSourceId = target.interactionId || target.outcomeId || target.ingressId || target.transactionId;
-    const batchId = `terminal-checkpoint:${target.transactionId}:${settlementKind}:${batchSourceId}`;
-    return {
-      transactionId: target.transactionId,
-      bundle: {
-        idempotencyKey: batchId,
-        batchId,
-        phaseAfter: event.kind === 'terminalOutcomeCheckpointPosted' ? 'backgroundSettling' : 'settled',
-        outcomeId: target.outcomeId || null,
-        promptDirtyDomains: [],
-        backgroundEffectRefs: [
-          {
-            effect: settlementKind,
-            status: target.status || 'posted',
-            interactionId: target.interactionId || null,
-            pendingInteractionId: target.pendingInteractionId || null,
-            action: target.action || null,
-            outcomeId: target.outcomeId || null,
-            turnId: target.turnId || null,
-            ingressId: target.ingressId || null,
-            resolutionIngressId: target.resolutionIngressId || null,
-            hostMessageId: target.hostMessageId || null,
-            checkpointHostMessageId: target.checkpointHostMessageId || null,
-            resolutionHostMessageId: target.resolutionHostMessageId || null,
-            sourceFrameId: target.sourceFrameId || null
-          }
-        ],
-        workers: [
-          {
-            worker: 'terminalOutcomeCheckpoint',
-            workerId: 'terminalOutcomeCheckpoint',
-            sidecarType: 'terminalOutcomeCheckpoint',
-            status: target.status || 'posted',
-            interactionId: target.interactionId || null,
-            pendingInteractionId: target.pendingInteractionId || null,
-            action: target.action || null,
-            outcomeId: target.outcomeId || null,
-            turnId: target.turnId || null,
-            ingressId: target.ingressId || null,
-            resolutionIngressId: target.resolutionIngressId || null,
-            hostMessageId: target.hostMessageId || null,
-            checkpointHostMessageId: target.checkpointHostMessageId || null,
-            resolutionHostMessageId: target.resolutionHostMessageId || null,
-            sourceFrameId: target.sourceFrameId || null
-          }
-        ]
-      }
-    };
-  }
-
-  function queueTerminalCheckpointSettlement(event = {}) {
-    const target = terminalCheckpointCoreTargetForEvent(event);
-    const scheduled = {
-      kind: 'directive.terminalCheckpointSettlementScheduled',
-      ok: null,
-      scheduled: Boolean(target),
-      status: target ? 'queued' : 'skipped',
-      reason: target ? compactString(event.reason) || 'terminal-checkpoint-settlement' : 'core-target-unavailable',
-      settlementKind: compactString(event.kind),
-      interactionId: compactString(event.interactionId || event.pendingInteractionId),
-      ingressId: compactString(event.ingressId),
-      resolutionIngressId: compactString(event.resolutionIngressId),
-      outcomeId: compactString(event.outcomeId),
-      turnId: compactString(event.turnId),
-      scheduledAt: timestampFromNow(now)
-    };
-    lastTerminalCheckpointSettlementResult = cloneJson(scheduled);
-    if (!target) return cloneJson(scheduled);
-    const runTask = async () => {
-      try {
-        let backgroundBatchCommitted = null;
-        const prepared = terminalCheckpointCoreBackgroundBundle(target, event);
-        if (prepared) {
-          try {
-            if (event.kind !== 'terminalOutcomeCheckpointPosted' && target.resolutionIngressId && target.ingressId === target.resolutionIngressId) {
-              await runtimeCoreTurnStore.advanceTurn(target.transactionId, {
-                phase: 'routePending',
-                route: 'terminalCheckpointResolution',
-                reason: 'terminal-checkpoint-resolution',
-                idempotencyKey: `terminal-checkpoint-resolution-route:${target.transactionId}:${target.interactionId || target.ingressId || 'decision'}`
-              });
-            }
-            backgroundBatchCommitted = await settleInternalForgeBackgroundBatch(prepared, {
-              sourceFrameId: target.sourceFrameId,
-              internalOwner: 'terminalOutcomeCheckpoint',
-              appendDiagnostic: (transactionId, diagnostic) => queueForgeInternalCoreDiagnostic(
-                terminalCheckpointDiagnosticBatch,
-                target,
-                transactionId,
-                diagnostic
-              )
-            });
-          } catch (error) {
-            const diagnostic = terminalCheckpointDiagnosticEvent(target, event, 'backgroundBridgeFailed', {
-              reason: 'core-background-bridge-failed',
-              error
-            });
-            queueTerminalCheckpointCoreDiagnostic(target, diagnostic);
-          }
-        }
-        if (!backgroundBatchCommitted || event.kind === 'terminalOutcomeCheckpointResolved') {
-          const diagnostic = terminalCheckpointDiagnosticEvent(target, event, event.status || 'settled', {});
-          queueTerminalCheckpointCoreDiagnostic(target, diagnostic);
-        }
-        lastTerminalCheckpointSettlementResult = {
-          kind: 'directive.terminalCheckpointSettlementResult',
-          ok: true,
-          scheduled: true,
-          status: event.status || 'settled',
-          settlementKind: compactString(event.kind),
-          interactionId: target.interactionId || null,
-          ingressId: target.ingressId || null,
-          resolutionIngressId: target.resolutionIngressId || null,
-          outcomeId: target.outcomeId || null,
-          backgroundBatchCommitted: Boolean(backgroundBatchCommitted)
-        };
-        return cloneJson(lastTerminalCheckpointSettlementResult);
-      } catch (error) {
-        lastTerminalCheckpointSettlementResult = {
-          kind: 'directive.terminalCheckpointSettlementResult',
-          ok: false,
-          scheduled: true,
-          status: 'failed',
-          settlementKind: compactString(event.kind),
-          interactionId: target.interactionId || null,
-          error: {
-            code: error?.code || 'DIRECTIVE_TERMINAL_CHECKPOINT_SETTLEMENT_FAILED',
-            message: error?.message || String(error)
-          }
-        };
-        return cloneJson(lastTerminalCheckpointSettlementResult);
-      }
-    };
-    const task = terminalCheckpointSettlementQueue.then(runTask, runTask);
-    terminalCheckpointSettlementQueue = task.catch(() => null);
-    return cloneJson(scheduled);
-  }
-
-  function sidecarCoreDiagnosticTargetForEvent(event = {}) {
-    const ingress = runtimeIngressForContext({
-      ingressId: event.ingressId,
-      outcomeId: event.outcomeId,
-      turnId: event.turnId
-    });
-    const transactionId = compactString(event.coreTransactionId || ingress?.coreTransactionId);
-    if (!transactionId) return null;
-    const binding = bindingFromState(campaignState);
-    const campaignId = compactString(event.campaignId);
-    const saveId = compactString(event.saveId);
-    const chatId = compactString(event.chatId);
-    if (campaignId && compactString(campaignState?.campaign?.id) !== campaignId) return null;
-    if (saveId && compactString(binding?.saveId) !== saveId) return null;
-    if (chatId && compactString(binding?.chatId) !== chatId) return null;
-    return {
-      transactionId,
-      campaignId: campaignId || compactString(campaignState?.campaign?.id),
-      saveId: saveId || compactString(binding?.saveId),
-      chatId: chatId || compactString(binding?.chatId),
-      ingressId: compactString(ingress?.id || event.ingressId),
-      turnId: compactString(ingress?.turnId || event.turnId),
-      outcomeId: compactString(ingress?.outcomeId || event.outcomeId),
-      hostMessageId: compactString(ingress?.hostMessageId || event.hostMessageId),
-      sourceFrameId: compactString(ingress?.sourceFrameId || ingress?.sourceFrame?.id || event.sourceFrameId)
-    };
-  }
-
-  async function appendSidecarCoreDiagnostic(event = {}) {
-    const target = sidecarCoreDiagnosticTargetForEvent(event);
-    if (!target) return null;
-    return runtimeCoreTurnStore.appendDiagnostic(target.transactionId, {
-      ...cloneJson(event),
-      type: 'sidecar',
-      source: event.source || 'campaignSidecarScheduler',
-      campaignId: target.campaignId || null,
-      saveId: target.saveId || null,
-      chatId: target.chatId || null,
-      ingressId: target.ingressId || null,
-      turnId: target.turnId || null,
-      outcomeId: target.outcomeId || null,
-      hostMessageId: target.hostMessageId || null,
-      sourceFrameId: target.sourceFrameId || null,
-      coreTransactionId: target.transactionId
-    });
-  }
-
-  async function appendSidecarCoreDiagnosticsBatch(events = []) {
-    const groups = new Map();
-    for (const event of Array.isArray(events) ? events : [events]) {
-      const target = sidecarCoreDiagnosticTargetForEvent(event);
-      if (!target) continue;
-      const diagnostic = {
-        ...cloneJson(event),
-        type: event.type || 'sidecar',
-        source: event.source || (event.type === 'forge' ? 'forgeCoordinator' : 'campaignSidecarScheduler'),
-        campaignId: target.campaignId || null,
-        saveId: target.saveId || null,
-        chatId: target.chatId || null,
-        ingressId: target.ingressId || null,
-        turnId: target.turnId || null,
-        outcomeId: target.outcomeId || null,
-        hostMessageId: target.hostMessageId || null,
-        sourceFrameId: target.sourceFrameId || null,
-        coreTransactionId: target.transactionId
-      };
-      const group = groups.get(target.transactionId) || [];
-      group.push(diagnostic);
-      groups.set(target.transactionId, group);
-    }
-    const results = [];
-    for (const [transactionId, diagnostics] of groups.entries()) {
-      if (typeof runtimeCoreTurnStore.appendDiagnosticsBatch === 'function') {
-        results.push(await runtimeCoreTurnStore.appendDiagnosticsBatch(transactionId, diagnostics));
-      } else {
-        for (const diagnostic of diagnostics) {
-          results.push(await runtimeCoreTurnStore.appendDiagnostic(transactionId, diagnostic));
-        }
-      }
-    }
-    return results.flat();
-  }
-
-  function queueRuntimeCoreDiagnosticEntry(batch = [], target = null, event = null) {
-    if (!target?.transactionId || !event) return null;
-    batch.push({
-      transactionId: target.transactionId,
-      diagnostic: cloneJson(event)
-    });
-    return cloneJson(event);
-  }
-
-  function queueForgeInternalCoreDiagnostic(batch = [], target = null, transactionId = null, diagnostic = null) {
-    const resolvedTransactionId = compactString(transactionId || target?.transactionId);
-    if (!resolvedTransactionId || !target || !diagnostic) return null;
-    const binding = bindingFromState(campaignState);
-    return queueRuntimeCoreDiagnosticEntry(batch, { ...target, transactionId: resolvedTransactionId }, {
-      ...cloneJson(diagnostic),
-      type: 'forge',
-      source: 'forgeCoordinator',
-      campaignId: compactString(target.campaignId || campaignState?.campaign?.id),
-      saveId: compactString(target.saveId || binding?.saveId),
-      chatId: compactString(target.chatId || binding?.chatId),
-      ingressId: compactString(target.ingressId),
-      turnId: compactString(target.turnId),
-      outcomeId: compactString(target.outcomeId),
-      hostMessageId: compactString(target.hostMessageId),
-      sourceFrameId: compactString(target.sourceFrameId),
-      coreTransactionId: resolvedTransactionId
-    });
-  }
-
-  function queueTerminalCheckpointCoreDiagnostic(target = null, event = null) {
-    return queueRuntimeCoreDiagnosticEntry(terminalCheckpointDiagnosticBatch, target, event);
-  }
-
-  async function appendRuntimeCoreDiagnosticsBatch(entries = []) {
-    const groups = new Map();
-    for (const entry of Array.isArray(entries) ? entries : [entries]) {
-      const transactionId = compactString(entry?.transactionId);
-      if (!transactionId || !entry?.diagnostic) continue;
-      const group = groups.get(transactionId) || [];
-      group.push(cloneJson(entry.diagnostic));
-      groups.set(transactionId, group);
-    }
-    const results = [];
-    for (const [transactionId, diagnostics] of groups.entries()) {
-      results.push(await runtimeCoreTurnStore.appendDiagnosticsBatch(transactionId, diagnostics));
-    }
-    return results.flat();
-  }
-
-  function flushCommandLogSummaryCoreDiagnostics() {
-    const pending = commandLogSummaryDiagnosticBatch.splice(0);
-    if (!pending.length) return commandLogSummaryDiagnosticQueue;
-    const append = commandLogSummaryDiagnosticQueue
-      .catch(() => null)
-      .then(() => appendRuntimeCoreDiagnosticsBatch(pending))
-      .catch(() => null);
-    commandLogSummaryDiagnosticQueue = append.then(() => null, () => null);
-    return append;
-  }
-
-  function flushPostCommitConversationCoreDiagnostics() {
-    const pending = postCommitConversationDiagnosticBatch.splice(0);
-    if (!pending.length) return postCommitConversationDiagnosticQueue;
-    const append = postCommitConversationDiagnosticQueue
-      .catch(() => null)
-      .then(() => appendRuntimeCoreDiagnosticsBatch(pending))
-      .catch(() => null);
-    postCommitConversationDiagnosticQueue = append.then(() => null, () => null);
-    return append;
-  }
-
-  function flushAdvisoryEnrichmentCoreDiagnostics() {
-    const pending = advisoryEnrichmentDiagnosticBatch.splice(0);
-    if (!pending.length) return advisoryEnrichmentDiagnosticQueue;
-    const append = advisoryEnrichmentDiagnosticQueue
-      .catch(() => null)
-      .then(() => appendRuntimeCoreDiagnosticsBatch(pending))
-      .catch(() => null);
-    advisoryEnrichmentDiagnosticQueue = append.then(() => null, () => null);
-    return append;
-  }
-
-  function flushTerminalCheckpointCoreDiagnostics() {
-    const pending = terminalCheckpointDiagnosticBatch.splice(0);
-    if (!pending.length) return terminalCheckpointDiagnosticQueue;
-    const append = terminalCheckpointDiagnosticQueue
-      .catch(() => null)
-      .then(() => appendRuntimeCoreDiagnosticsBatch(pending))
-      .catch(() => null);
-    terminalCheckpointDiagnosticQueue = append.then(() => null, () => null);
-    return append;
-  }
-
-  function staleCommandLogSummaryResult(guard = null, reason = 'source-stale') {
-    return {
-      kind: 'directive.commandLogSummarySidecarResult',
-      ok: false,
-      scheduled: true,
-      status: 'stale',
-      applied: false,
-      reason,
-      outcomeId: guard?.outcomeId || null,
-      error: {
-        code: 'DIRECTIVE_COMMAND_LOG_SUMMARY_SOURCE_STALE',
-        message: 'Command Log summary skipped because the scheduled source is no longer current.'
-      }
-    };
-  }
-
-  function deferredCommandLogSummaryResult(turnPacket = null, reason = 'afterDirectiveNarration') {
-    const outcomeId = commandLogSummaryOutcomeId(turnPacket);
-    return {
-      kind: 'directive.commandLogSummarySidecarScheduled',
-      ok: null,
-      scheduled: false,
-      status: 'deferred',
-      deferredUntil: reason,
-      outcomeId: outcomeId || null,
-      turnId: turnPacket?.turnId || turnPacket?.id || null,
-      recordedAt: timestampFromNow(now)
-    };
-  }
-
-  function deferCommandLogSummaryForTurn({
-    turnPacket,
-    enabled = true,
-    reason = 'afterDirectiveNarration'
-  } = {}) {
-    if (!enabled || !runtimeHost) {
-      deferredCommandLogSummaryRequest = null;
-      lastCommandLogSummarySidecarResult = null;
-      return null;
-    }
-    requireObject(turnPacket, 'turnPacket');
-    deferredCommandLogSummaryRequest = {
-      turnPacket: cloneJson(turnPacket),
-      reason
-    };
-    lastCommandLogSummarySidecarResult = deferredCommandLogSummaryResult(turnPacket, reason);
-    return cloneJson(lastCommandLogSummarySidecarResult);
-  }
-
-  function scheduleCommandLogSummaryForTurnNow({
-    turnPacket,
-    enabled = true,
-    reason = 'postVisibleResponse',
-    ingressId = null,
-    turnId = null,
-    outcomeId = null
-  } = {}) {
-    if (!enabled || !runtimeHost) {
-      lastCommandLogSummarySidecarResult = null;
-      return null;
-    }
-    requireObject(turnPacket, 'turnPacket');
-    const queuedTurnPacket = cloneJson(turnPacket);
-    const resolvedOutcomeId = compactString(outcomeId) || commandLogSummaryOutcomeId(queuedTurnPacket);
-    const sourceGuard = commandLogSummarySourceGuardForTurn(queuedTurnPacket, {
-      ingressId,
-      turnId,
-      outcomeId: resolvedOutcomeId
-    });
-    const scheduled = {
-      kind: 'directive.commandLogSummarySidecarScheduled',
-      ok: null,
-      scheduled: true,
-      status: 'queued',
-      reason,
-      outcomeId: resolvedOutcomeId || null,
-      turnId: sourceGuard.turnId || queuedTurnPacket?.turnId || queuedTurnPacket?.id || null,
-      scheduledAt: timestampFromNow(now)
-    };
-    lastCommandLogSummarySidecarResult = cloneJson(scheduled);
-    queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'queued', { reason, result: scheduled });
-    const runTask = async () => {
-      commandLogSummaryPendingCount += 1;
-      try {
-        if (!commandLogSummaryGuardCurrent(sourceGuard)) {
-          lastCommandLogSummarySidecarResult = staleCommandLogSummaryResult(sourceGuard, 'source-stale-before-provider');
-          queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'stale', {
-            reason: 'source-stale-before-provider',
-            result: lastCommandLogSummarySidecarResult
-          });
-          await flushCommandLogSummaryCoreDiagnostics();
-          return cloneJson(lastCommandLogSummarySidecarResult);
-        }
-        const result = await updateCommandLogSummaryForTurnNow({
-          turnPacket: queuedTurnPacket,
-          enabled: true,
-          sourceGuard
-        });
-        let backgroundBatchCommitted = null;
-        if (result?.applied === true && result?.assistedSummary?.status === 'complete') {
-          backgroundBatchCommitted = await commitCommandLogSummaryCoreBackgroundBatch(sourceGuard, result);
-        }
-        if (!backgroundBatchCommitted) {
-          queueCommandLogSummaryCoreDiagnostic(sourceGuard, commandLogSummaryDiagnosticStatusForResult(result), {
-            reason,
-            result
-          });
-        }
-        await flushCommandLogSummaryCoreDiagnostics();
-        if (result?.applied) {
-          await persistRuntimeCampaignState(
-            campaignState,
-            'Command Log assisted summary settled for the latest committed turn.'
-          );
-        }
-        return result;
-      } catch (error) {
-        lastCommandLogSummarySidecarResult = {
-          ok: false,
-          scheduled: true,
-          status: 'failed',
-          reason,
-          outcomeId: resolvedOutcomeId || null,
-          error: {
-            code: error?.code || 'DIRECTIVE_COMMAND_LOG_SUMMARY_BACKGROUND_FAILED',
-            message: error?.message || String(error)
-          }
-        };
-        queueCommandLogSummaryCoreDiagnostic(sourceGuard, 'failed', {
-          reason,
-          result: lastCommandLogSummarySidecarResult,
-          error
-        });
-        await flushCommandLogSummaryCoreDiagnostics();
-        return cloneJson(lastCommandLogSummarySidecarResult);
-      } finally {
-        commandLogSummaryPendingCount = Math.max(0, commandLogSummaryPendingCount - 1);
-      }
-    };
-    const task = commandLogSummaryQueue.then(runTask, runTask);
-    commandLogSummaryQueue = task.catch(() => null);
-    return cloneJson(scheduled);
-  }
-
-  function scheduleDeferredCommandLogSummaryQueue(reason = 'afterDirectiveNarration') {
-    if (!deferredCommandLogSummaryRequest) return null;
-    const request = deferredCommandLogSummaryRequest;
-    deferredCommandLogSummaryRequest = null;
-    return scheduleCommandLogSummaryForTurnNow({
-      turnPacket: request.turnPacket,
-      enabled: true,
-      reason: request.reason || reason
-    });
   }
 
   function sameBoundCampaignState(left = null, right = null) {
@@ -6564,39 +3180,6 @@ export function createDirectiveRuntimeApp({
         campaignState: cloneJson(state)
       };
     }
-  }
-
-  function pendingTerminalDecisionId(state = null) {
-    const ledger = terminalDecisionLedgerView(state || {});
-    const activeDecisionId = compactString(ledger.activeDecisionId);
-    const decisions = Array.isArray(ledger.decisions) ? ledger.decisions : [];
-    const activeDecision = activeDecisionId
-      ? decisions.find((entry) => entry?.id === activeDecisionId && entry?.status === 'pending')
-      : null;
-    if (activeDecision) return activeDecision.id;
-    return null;
-  }
-
-  function terminalDecisionStillPending(state = null, decisionId = null) {
-    const id = compactString(decisionId);
-    if (!id) return false;
-    const ledger = terminalDecisionLedgerView(state || {});
-    const decision = (Array.isArray(ledger.decisions) ? ledger.decisions : []).find((entry) => entry?.id === id);
-    return decision?.status === 'pending';
-  }
-
-  function isExplicitTerminalResolutionSummary(summary = '') {
-    return /\b(?:replayed from terminal|accepted terminal|saved terminal|resolved terminal outcome|terminal outcome decision)\b/i.test(String(summary || ''));
-  }
-
-  function shouldPreserveFresherTerminalState(current = null, incoming = null, summary = '') {
-    if (!sameBoundCampaignState(current, incoming)) return false;
-    if (runtimeRevisionOf(incoming) > runtimeRevisionOf(current)) return false;
-    const decisionId = pendingTerminalDecisionId(current);
-    if (!decisionId) return false;
-    if (terminalDecisionStillPending(incoming, decisionId)) return false;
-    if (isExplicitTerminalResolutionSummary(summary)) return false;
-    return true;
   }
 
   function preserveCurrentRuntimeSettingsForBoundState(nextState = null, currentState = null, targetSaveId = null) {
@@ -6657,7 +3240,6 @@ export function createDirectiveRuntimeApp({
     forceSaveIndexUpdate = false
   } = {}) {
     let nextState = modelCallJournal.applyPending(cloneJson(state));
-    nextState = mergeFresherResponseLedgerProjection(nextState, campaignState);
     const targetSaveId = compactString(nextState?.campaignChatBinding?.saveId || controller?.activeSaveId);
     nextState = preserveCurrentRuntimeSettingsForBoundState(nextState, campaignState, targetSaveId);
     nextState = applyRuntimeSettingsOverlay(nextState, targetSaveId);
@@ -6696,20 +3278,6 @@ export function createDirectiveRuntimeApp({
       await refreshCampaignView();
       return cloneJson(save);
     }
-    if (shouldPreserveFresherTerminalState(campaignState, nextState, summary)) {
-      campaignState = applyRuntimeSettingsOverlay(modelCallJournal.applyPending(campaignState), targetSaveId);
-      const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(campaignState);
-      const save = await controller.persistRuntimeCampaignState({
-        saveId: targetSaveId,
-        campaignState: stateForPersistence,
-        summary: 'Preserved pending terminal outcome state over stale runtime write.',
-        reason: 'runtimePersist:preserve-terminal',
-        markActive: false,
-        updateSaveIndex: forceSaveIndexUpdate ? true : undefined
-      });
-      await refreshCampaignView();
-      return cloneJson(save);
-    }
     campaignState = nextState;
     const stateForPersistence = await stateWithCoreProjectionFreshnessEvidence(nextState);
     const save = await controller.persistRuntimeCampaignState({
@@ -6720,7 +3288,6 @@ export function createDirectiveRuntimeApp({
       markActive: false,
       updateSaveIndex: forceSaveIndexUpdate ? true : undefined
     });
-    campaignState = mergeFresherResponseLedgerProjection(campaignState, nextState);
     await refreshCampaignView();
     return cloneJson(save);
   }
@@ -6757,35 +3324,6 @@ export function createDirectiveRuntimeApp({
 
   async function settleRuntimePersistenceQueue() {
     await ensureRuntimePersistCoordinator().settle();
-  }
-
-  async function settleCommandLogSummaryQueue() {
-    await commandLogSummaryQueue;
-    await settleRuntimePersistenceQueue();
-    await flushCommandLogSummaryCoreDiagnostics();
-    return cloneJson(lastCommandLogSummarySidecarResult);
-  }
-
-  async function settlePostCommitConversationQueue() {
-    await postCommitConversationQueue;
-    await settleRuntimePersistenceQueue();
-    await flushPostCommitConversationCoreDiagnostics();
-    return cloneJson(lastPostCommitConversationResult);
-  }
-
-  async function settleAdvisoryEnrichmentQueue() {
-    await advisoryEnrichmentQueue;
-    await settleRuntimePersistenceQueue();
-    await flushAdvisoryEnrichmentCoreDiagnostics();
-    return cloneJson(lastAdvisoryEnrichmentResult);
-  }
-
-  async function settleTerminalCheckpointSettlementQueue() {
-    await terminalCheckpointSettlementQueue;
-    await settleRuntimePersistenceQueue();
-    await flushTerminalCheckpointCoreDiagnostics();
-    await terminalCheckpointDiagnosticQueue;
-    return cloneJson(lastTerminalCheckpointSettlementResult);
   }
 
   function ensureTurnCommitCoordinator() {
@@ -7343,9 +3881,9 @@ export function createDirectiveRuntimeApp({
     return runtimeStateDeltaGateway;
   }
 
-  function ensureV1MissionShadowRuntime() {
-    if (!v1MissionShadowRuntime) {
-      v1MissionShadowRuntime = createV1MissionRuntime({
+  function ensureV1MissionRuntime() {
+    if (!v1MissionRuntime) {
+      v1MissionRuntime = createV1MissionRuntime({
         getState: runtimeCampaignState,
         stateDeltaGateway: ensureRuntimeStateDeltaGateway(),
         generationRouter: defaultGenerationRouter,
@@ -7354,7 +3892,7 @@ export function createDirectiveRuntimeApp({
         episodeReviewTimeoutMs: 8000
       });
     }
-    return v1MissionShadowRuntime;
+    return v1MissionRuntime;
   }
 
   function resolveRuntimeSemanticAuthority(state = campaignState) {
@@ -7362,7 +3900,7 @@ export function createDirectiveRuntimeApp({
     return resolveV1SemanticAuthorityContract({
       campaignState: state,
       runtimeAssets,
-      definitionResolution: ensureV1MissionShadowRuntime().resolveActiveDefinition(runtimeAssets)
+      definitionResolution: ensureV1MissionRuntime().resolveActiveDefinition(runtimeAssets)
     });
   }
 
@@ -7383,7 +3921,7 @@ export function createDirectiveRuntimeApp({
     const setCampaignState = setRuntimeCampaignState;
     const persistCampaignState = persistCampaignStateDelta;
     const stateDeltaGateway = ensureRuntimeStateDeltaGateway();
-    const v1MissionRuntime = ensureV1MissionShadowRuntime();
+    const v1MissionRuntime = ensureV1MissionRuntime();
     const injectedRepairRuntime = typeof repairRuntimeFactory === 'function'
       ? repairRuntimeFactory({
           coreTurnStore: runtimeCoreTurnStore,
@@ -7403,193 +3941,6 @@ export function createDirectiveRuntimeApp({
       setCampaignState,
       persist: persistCampaignState,
       promptReadiness: hostContinuePromptReadiness,
-      now
-    });
-    const messageReconciler = createMessageReconciler({
-      getCampaignState,
-      setCampaignState,
-      coreTurnStore: runtimeCoreTurnStore,
-      repairRuntime: repairRuntimeBoundary,
-      persist: persistCampaignState,
-      syncPrompt: async (state) => (await synchronizeActivePrompt(state, {
-        persist: false,
-        useContinuityPlanner: false,
-        reason: 'Prompt context rebuilt after message recovery.'
-      })).campaignState,
-      loadCoreCheckpointState: async ({ coreCheckpointRef, state } = {}) => {
-        const loaded = await loadOutcomeRerunCheckpointSnapshot({
-          storageAdapter,
-          state: state || getCampaignState(),
-          controller,
-          ledgerEntry: { coreCheckpointRef }
-        });
-        return loaded?.snapshot || null;
-      },
-      invalidateV1MissionSource: (input) => v1MissionRuntime.invalidateSourceMutation({
-        ...input,
-        runtimeAssets: activeRuntimeAssets()
-      }),
-      now
-    });
-    const sourceSettlementService = createSourceSettlementService({
-      coreStore: runtimeCoreTurnStore,
-      clock: () => timestampFromNow(now)
-    });
-    const sceneReconciliation = createSceneReconciliationService({
-      getCampaignState,
-      stateDeltaGateway,
-      host: runtimeHost,
-      sourceSettlementService,
-      now,
-      idFactory
-    });
-    runtimeForgeCoordinator = createForgeCoordinator({
-      coreStore: {
-        commitBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.settleBackgroundBatch(transactionId, bundle),
-        appendDiagnostics: (transactionId, event) => runtimeCoreTurnStore.appendDiagnostic(transactionId, event)
-      },
-      lens: ensureLensPromptScheduler(),
-      acceptedBatchPromptFlusher: async (input = {}) => {
-        const promptDirtyDomains = normalizePromptDirtyDomains(input.promptDirtyDomains || input.promptFrame?.promptDirtyDomains || []);
-        const promptSyncIdempotencyKey = compactString(input.promptSyncIdempotencyKey || input.idempotencyKey);
-        const workerKey = input.workerKey || input.promptFrame?.workerKey || 'campaignSidecarBatch';
-        const workerKeys = Array.isArray(input.workerKeys)
-          ? cloneJson(input.workerKeys)
-          : (Array.isArray(input.promptFrame?.workerKeys) ? cloneJson(input.promptFrame.workerKeys) : []);
-        const promptFrame = {
-          ...(input.promptFrame && typeof input.promptFrame === 'object' ? cloneJson(input.promptFrame) : {}),
-          workerKey,
-          workerKeys,
-          promptDirtyDomains,
-          aggregateBatch: input.aggregateBatch === true || input.promptFrame?.aggregateBatch === true,
-          sourceFrameRef: cloneJson(input.sourceFrameRef || input.promptFrame?.sourceFrameRef || null),
-          sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
-          coreAcceptedBatchProjection: cloneJson(
-            input.coreAcceptedBatchProjection
-            || input.promptFrame?.coreAcceptedBatchProjection
-            || null
-          ),
-          cacheInputs: cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {})
-        };
-        const activityContext = input.activityContext && typeof input.activityContext === 'object'
-          ? cloneJson(input.activityContext)
-          : {
-              workerKey,
-              workerKeys,
-              aggregateBatch: promptFrame.aggregateBatch === true,
-              promptDirtyDomains,
-              transactionId: input.transactionId || null,
-              coreTransactionId: input.transactionId || null,
-              source: 'campaignSidecarScheduler'
-            };
-        const result = await synchronizeActivePrompt(input.campaignState || campaignState, {
-          persist: false,
-          commitRuntimeState: input.commitRuntimeState !== false,
-          promptFrame,
-          useContinuityPlanner: false,
-          reason: 'Prompt context synchronized after accepted sidecar state delta.',
-          activityReporter: input.activityReporter || null,
-          activitySource: input.activitySource || 'sidecarPromptSync',
-          activityMode: input.activityMode || 'background',
-          promptSyncIdempotencyKey,
-          beforeInstallPrompt: input.beforeInstallPrompt,
-          activityContext
-        });
-        return {
-          ...cloneJson(result || {}),
-          campaignState: cloneJson(result?.campaignState || input.campaignState || campaignState)
-        };
-      },
-      commandBearingReviewPromptFlusher: async (input = {}) => {
-        const promptDirtyDomains = ['commandBearing'];
-        const promptSyncIdempotencyKey = compactString(input.promptSyncIdempotencyKey || input.idempotencyKey);
-        const coreCommandBearingReviewProjection = cloneJson(
-          input.coreCommandBearingReviewProjection
-          || input.promptFrame?.coreCommandBearingReviewProjection
-          || input.cacheInputs?.coreCommandBearingReviewProjection
-          || null
-        );
-        const cacheInputs = cloneJson(input.cacheInputs || input.promptFrame?.cacheInputs || {});
-        if (coreCommandBearingReviewProjection) {
-          cacheInputs.coreCommandBearingReviewProjection = cloneJson(coreCommandBearingReviewProjection);
-        }
-        const promptFrame = {
-          ...(input.promptFrame && typeof input.promptFrame === 'object' ? cloneJson(input.promptFrame) : {}),
-          workerKey: 'commandBearing',
-          promptDirtyDomains,
-          commandBearingReview: true,
-          sourceFrameRef: cloneJson(input.sourceFrameRef || input.promptFrame?.sourceFrameRef || null),
-          sourceToken: input.sourceToken || input.promptFrame?.sourceToken || null,
-          coreCommandBearingReviewProjection,
-          cacheInputs
-        };
-        const activityContext = input.activityContext && typeof input.activityContext === 'object'
-          ? cloneJson(input.activityContext)
-          : {
-              workerKey: 'commandBearing',
-              commandBearingReview: true,
-              promptDirtyDomains,
-              transactionId: input.transactionId || null,
-              coreTransactionId: input.transactionId || null,
-              source: 'campaignSidecarScheduler'
-            };
-        const result = await synchronizeActivePrompt(input.campaignState || campaignState, {
-          persist: false,
-          commitRuntimeState: input.commitRuntimeState !== false,
-          promptFrame,
-          useContinuityPlanner: false,
-          reason: 'Prompt context synchronized after Command Bearing closure review.',
-          activityReporter: input.activityReporter || null,
-          activitySource: input.activitySource || 'sidecarPromptSync',
-          activityMode: input.activityMode || 'background',
-          promptSyncIdempotencyKey,
-          beforeInstallPrompt: input.beforeInstallPrompt,
-          activityContext
-        });
-        return {
-          ...cloneJson(result || {}),
-          campaignState: cloneJson(result?.campaignState || input.campaignState || campaignState)
-        };
-      },
-      isSourceCurrent: forgeSourceCurrentForRuntime,
-      clock: () => timestampFromNow(now)
-    });
-    const forgeCoordinator = runtimeForgeCoordinator;
-    const sidecarScheduler = createCampaignSidecarScheduler({
-      generationRouter: defaultGenerationRouter,
-      stateDeltaGateway,
-      getCampaignState,
-      setCampaignState,
-      persistCampaignState,
-      getPackageData: () => activeRuntimeAssets().packageData,
-      syncPromptContext: async (state, promptFrame = null, options = {}) => {
-        const result = await synchronizeActivePrompt(state, {
-          persist: false,
-          promptFrame,
-          useContinuityPlanner: false,
-          reason: 'Prompt context synchronized after accepted sidecar state delta.',
-          activityReporter: options.activityReporter || null,
-          activitySource: options.activitySource || 'sidecarPromptSync',
-          activityMode: options.activityMode || 'background',
-          promptSyncIdempotencyKey: options.promptSyncIdempotencyKey || options.activityContext?.promptSyncIdempotencyKey || null,
-          activityContext: options.activityContext || {
-            workerKey: promptFrame?.workerKey || null,
-            commandBearingReview: promptFrame?.commandBearingReview === true
-          }
-        });
-        return result.campaignState || state;
-      },
-      appendCoreDiagnostic: appendSidecarCoreDiagnostic,
-      appendCoreDiagnosticsBatch: appendSidecarCoreDiagnosticsBatch,
-      forgeCoordinator,
-      commitCoreBackgroundBatch: (transactionId, bundle) => runtimeCoreTurnStore.settleBackgroundBatch(transactionId, bundle),
-      now
-    });
-    const narrativeThreadDirector = createNarrativeThreadDirector({
-      getCampaignState,
-      getPackageData: () => activeRuntimeAssets().packageData,
-      stateDeltaGateway,
-      generationRouter: defaultGenerationRouter,
       now
     });
     const classify = ({ text, context = {} } = {}) => classifyChatTurn({
@@ -7636,75 +3987,6 @@ export function createDirectiveRuntimeApp({
       setCampaignState,
       clearDirectivePrompt: ({ reason = 'campaign-complete' } = {}) => clearDirectivePromptThroughLens({ reason }),
       persist: persistCampaignState,
-      now
-    });
-    async function loadTerminalCheckpointFromCore(input = {}) {
-      const state = getCampaignState() || {};
-      const binding = state.campaignChatBinding || {};
-      const campaignId = compactString(input.campaignId || binding.campaignId || state.campaign?.id);
-      const saveId = compactString(input.saveId || binding.saveId || controller?.activeSaveId);
-      const checkpointId = compactString(input.checkpointId || input.id);
-      if (!storageAdapter || !campaignId || !saveId || !checkpointId) return null;
-      try {
-        const record = await loadV2Checkpoint(storageAdapter, {
-          campaignId,
-          saveId,
-          checkpointId,
-          layout: compactString(input.layout) || 'core'
-        });
-        return record
-          ? {
-              ...record,
-              sourceKind: 'coreStoreV2.checkpoint',
-              sourceRevision: record.checkpoint?.revision ?? record.checkpoint?.runtimeRevision ?? record.revision ?? null
-            }
-          : null;
-      } catch {
-        return null;
-      }
-    }
-    async function writeTerminalCheckpointToCore(input = {}) {
-      const state = getCampaignState() || {};
-      const binding = state.campaignChatBinding || {};
-      const campaignId = compactString(input.campaignId || binding.campaignId || state.campaign?.id);
-      const saveId = compactString(input.saveId || binding.saveId || controller?.activeSaveId);
-      const checkpointId = compactString(input.checkpointId || input.id);
-      if (!storageAdapter || !campaignId || !saveId || !checkpointId || !isObject(input.checkpoint)) return null;
-      try {
-        const result = await writeV2Checkpoint(storageAdapter, {
-          campaignId,
-          saveId,
-          checkpointId,
-          checkpoint: input.checkpoint,
-          createdAt: timestampFromNow(now),
-          layout: compactString(input.layout) || 'core'
-        });
-        return {
-          ...cloneJson(result),
-          sourceKind: 'coreStoreV2.checkpoint',
-          sourceRevision: input.checkpoint?.sourceRevision ?? input.checkpoint?.runtimeRevision ?? null
-        };
-      } catch {
-        return null;
-      }
-    }
-    const endConditionService = createCampaignEndConditionService({
-      host: runtimeHost,
-      coreTurnStore: runtimeCoreTurnStore,
-      getCampaignState,
-      setCampaignState,
-      getPackageContext: () => activeRuntimeAssets().packageData,
-      persist: persistCampaignState,
-      syncPrompt: async (state, reason) => synchronizeActivePrompt(state, {
-        persist: false,
-        useContinuityPlanner: false,
-        reason: reason || 'Prompt context synchronized after terminal outcome decision.'
-      }),
-      recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
-      concludeCampaign: (options) => conclusionService.conclude(options),
-      repairRuntime: repairRuntimeBoundary,
-      loadTerminalCheckpoint: loadTerminalCheckpointFromCore,
-      writeTerminalCheckpoint: writeTerminalCheckpointToCore,
       now
     });
     async function rewriteCampaignIntroFromNativeSwipe({
@@ -7777,9 +4059,6 @@ export function createDirectiveRuntimeApp({
       },
       previewDirectorTurn: (options) => publicApi.previewDirectorTurn(options),
       commitProvisionalDirectorTurn: (options) => publicApi.commitProvisionalDirectorTurn(options),
-      recordTerminalCheckpointSettlement: (event) => queueTerminalCheckpointSettlement(event),
-      postTerminalOutcomeCheckpoint: (options) => publicApi.postTerminalOutcomeCheckpoint(options),
-      resolveTerminalOutcomeDecision: (options) => publicApi.resolveTerminalOutcomeDecision(options),
       discardProvisionalDirectorTurn: () => publicApi.discardProvisionalDirectorTurn(),
       rewriteCampaignIntro: rewriteCampaignIntroFromNativeSwipe,
       clearDirectivePrompt: ({ reason = 'no-active-campaign' } = {}) => clearDirectivePromptThroughLens({ reason }),
@@ -7795,23 +4074,15 @@ export function createDirectiveRuntimeApp({
     chatNativeServices = {
       activationCoordinator,
       conclusionService,
-      endConditionService,
       turnCommitCoordinator,
       stateDeltaGateway,
       responseDispatcher,
       repairRuntime: repairRuntimeBoundary,
-      sceneReconciliation,
       coreTurnStore: runtimeCoreTurnStore,
-      sidecarScheduler,
-      narrativeThreadDirector,
       classify,
       orchestrator
     };
     return chatNativeServices;
-  }
-
-  function outcomeIntegrityCampaignState() {
-    return liveCampaignStateForView() || campaignState;
   }
 
   function hostMessageIdFromPayload(payload = {}) {
@@ -7825,544 +4096,34 @@ export function createDirectiveRuntimeApp({
     );
   }
 
-  function hostMessageForOutcomeIntegrity(payload = {}) {
+  async function invalidateAcceptedV1Source(payload = {}, eventType = 'sourceChanged') {
     const hostMessageId = hostMessageIdFromPayload(payload);
-    const fromHost = hostMessageId && typeof runtimeHost?.chat?.getMessage === 'function'
-      ? runtimeHost.chat.getMessage(hostMessageId)
-      : null;
-    if (fromHost) return fromHost;
-    if (payload?.message && typeof payload.message === 'object') {
+    if (!hostMessageId) return { handled: false, reason: 'source-message-id-unavailable' };
+    const authority = resolveRuntimeSemanticAuthority(campaignState);
+    if (authority.mode !== 'authoritative') {
       return {
-        ...cloneJson(payload.message),
-        hostMessageId: hostMessageId || payload.message.hostMessageId || payload.message.id || null
+        handled: false,
+        reason: authority.reasonCode || 'v1-authority-unavailable'
       };
     }
-    return null;
-  }
-
-  async function outcomeIntegrityNativeEditDecision(payload = {}) {
-    try {
-      const state = outcomeIntegrityCampaignState();
-      const message = hostMessageForOutcomeIntegrity(payload);
-      return await outcomeIntegrityStatusForMessageAsync({
-        campaignState: state,
-        message,
-        hostMessageId: hostMessageIdFromPayload(payload),
-        coreTurnStore: runtimeCoreTurnStore
+    const result = await ensureV1MissionRuntime().invalidateSourceMutation({
+      runtimeAssets: activeRuntimeAssets(),
+      hostMessageId,
+      eventType
+    });
+    campaignState = applyRuntimeSettings(getCampaignState() || campaignState);
+    if (result?.committedRoots?.length) {
+      const prompt = await synchronizeActivePrompt(campaignState, {
+        persist: false,
+        forceRebuild: true,
+        reason: 'Accepted source changed; rebuilt V1 projections.'
       });
-    } catch (error) {
-      return {
-        protected: false,
-        nativeEdit: 'allow',
-        reason: 'decision-error',
-        error: { message: error?.message || String(error) }
-      };
-    }
-  }
-
-  async function prepareOutcomeIntegrityEdit(payload = {}) {
-    await ensureInitialized();
-    await refreshCurrentChatCampaignScope();
-    const state = outcomeIntegrityCampaignState();
-    const message = hostMessageForOutcomeIntegrity(payload);
-    return buildOutcomeIntegrityEditContextAsync({
-      campaignState: state,
-      message,
-      hostMessageId: hostMessageIdFromPayload(payload),
-      coreTurnStore: runtimeCoreTurnStore
-    });
-  }
-
-  function appendOutcomeIntegrityReview(response = {}, reviewPatch = {}) {
-    const current = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
-    return {
-      ...current,
-      reviewCount: Math.max(0, Number(current.reviewCount) || 0) + 1,
-      lastReview: cloneJson(reviewPatch)
-    };
-  }
-
-  function responseCompatibilityProjectionPatch(response = {}, {
-    kind,
-    action = null,
-    revision = null,
-    correctionCase = null,
-    reviewPatch = null
-  } = {}) {
-    const responseId = compactString(response.id || response.responseId || '');
-    const transactionId = compactString(
-      response.coreTransactionId
-      || response.transactionId
-      || response.coreProjection?.transactionId
-      || response.coreProjection?.coreTransactionId
-      || response.compatibilityMirror?.transactionId
-      || response.coreRecovery?.transactionId
-      || response.coreRelease?.transactionId
-      || response.coreCompletion?.transactionId
-      || ''
-    );
-    if (!transactionId) {
-      const error = new Error('Response lifecycle CORE projection requires transaction evidence.');
-      error.code = 'DIRECTIVE_CORE_RESPONSE_PROJECTION_TRANSACTION_REQUIRED';
-      error.details = {
-        kind: kind || null,
-        responseId: responseId || null,
-        hostMessageId: compactString(response.hostMessageId || '') || null
-      };
-      throw error;
+      campaignState = prompt.campaignState || campaignState;
     }
     return {
-      authority: 'compatibilityProjection',
-      projectionSource: 'coreStoreV2',
-      coreProjection: {
-        kind,
-        responseId: responseId || null,
-        hostMessageId: compactString(response.hostMessageId || '') || null,
-        outcomeId: compactString(response.outcomeId || '') || null,
-        turnId: compactString(response.turnId || '') || null,
-        transactionId,
-        action: action || null,
-        revisionId: revision?.id || null,
-        revisionTextHash: revision?.textHash || null,
-        correctionCaseId: correctionCase?.id || null,
-        correctionStatus: correctionCase?.status || null,
-        candidateTextHash: correctionCase?.candidate?.textHash || correctionCase?.candidateSwipe?.textHash || null,
-        selectedSwipeIndex: Number.isInteger(correctionCase?.candidateSwipe?.swipeIndex)
-          ? correctionCase.candidateSwipe.swipeIndex
-          : null,
-        reviewVerdict: reviewPatch?.verdict || revision?.reviewVerdict || null,
-        projectedAt: timestampFromNow(now)
-      }
-    };
-  }
-
-  function responseMatchesUpdateId(response = {}, responseUpdateId = '') {
-    const target = compactString(responseUpdateId);
-    if (!target) return false;
-    return [
-      response.id,
-      response.responseId,
-      response.hostMessageId
-    ].some((value) => compactString(value) === target);
-  }
-
-  function responseCarriesCoreProjectionEvidence(response = {}) {
-    return Boolean(response && (
-      response.authority
-      || response.compatibilityMirror
-      || response.projectionSource
-      || response.coreProjection
-      || response.coreTransactionId
-      || response.transactionId
-    ));
-  }
-
-  function prevalidatedCoreResponseForUpdate(response = null, responseUpdateId = '') {
-    if (!responseMatchesUpdateId(response, responseUpdateId)) return null;
-    if (!responseCarriesCoreProjectionEvidence(response)) return null;
-    return response;
-  }
-
-  function adoptResponseLedgerProjection(projectedState = null) {
-    if (!projectedState) return;
-    campaignState = mergeFresherResponseLedgerProjection(campaignState, projectedState);
-    if (currentChatScope?.campaignState) {
-      currentChatScope = {
-        ...currentChatScope,
-        campaignState: mergeFresherResponseLedgerProjection(currentChatScope.campaignState, projectedState)
-      };
-    }
-  }
-
-  function priorSwipeTextForRelaxedEdit(message = null) {
-    const current = compactString(message?.text || message?.raw?.mes);
-    const swipes = Array.isArray(message?.raw?.swipes)
-      ? message.raw.swipes
-      : (Array.isArray(message?.swipes) ? message.swipes : []);
-    return swipes
-      .map((entry) => String(entry || '').trim())
-      .find((entry) => entry && entry !== current) || '';
-  }
-
-  async function submitOutcomeIntegrityEdit(payload = {}) {
-    await ensureInitialized();
-    await refreshCurrentChatCampaignScope();
-    if (typeof runtimeHost?.chat?.appendAssistantMessageSwipe !== 'function') {
-      return {
-        ok: false,
-        accepted: false,
-        reason: 'assistant-swipes-unavailable',
-        summary: 'This host cannot preserve accepted prose edits as assistant swipes.'
-      };
-    }
-    const state = outcomeIntegrityCampaignState();
-    const message = hostMessageForOutcomeIntegrity(payload);
-    const context = payload.context?.ok
-      ? cloneJson(payload.context)
-      : await buildOutcomeIntegrityEditContextAsync({
-          campaignState: state,
-          message,
-          hostMessageId: hostMessageIdFromPayload(payload),
-          coreTurnStore: runtimeCoreTurnStore
-        });
-    const validation = validateOutcomeIntegrityProposedEdit({
-      context,
-      proposedText: payload.proposedText ?? payload.text,
-      currentText: payload.currentText ?? message?.text ?? context.currentText,
-      baseTextHash: payload.baseTextHash || context.baseTextHash
-    });
-    if (!validation.ok) {
-      return {
-        ok: false,
-        accepted: false,
-        reason: validation.reason,
-        summary: validation.message,
-        context: cloneJson(context)
-      };
-    }
-    const providerKind = normalizeOutcomeIntegrityReviewProviderKind(
-      payload.reviewProviderKind || context.reviewProviderKind
-    );
-    const review = await reviewOutcomeIntegrityEdit({
-      generationRouter: defaultGenerationRouter,
-      context: {
-        ...context,
-        reviewProviderKind: providerKind
-      },
-      proposedText: validation.proposedText,
-      providerKind
-    });
-    const reviewPatch = {
-      verdict: review.verdict || 'reject',
-      accepted: review.accepted === true,
-      categories: cloneJson(review.categories || []),
-      reason: review.reason || null,
-      providerKind,
-      reviewedAt: timestampFromNow(now)
-    };
-    if (review.accepted !== true) {
-      const latest = outcomeIntegrityCampaignState() || state;
-      const response = context.response || {};
-      const responseUpdateId = response.id || response.responseId || context.responseId || context.sourceResponseId || response.hostMessageId || context.hostMessageId;
-      const next = responseUpdateId
-        ? updateDirectiveResponse(latest, responseUpdateId, {
-            ...responseCompatibilityProjectionPatch(response, {
-              kind: 'directive.coreResponseOutcomeIntegrityProjectionRef.v1',
-              action: 'reviewRejected',
-              reviewPatch
-            }),
-            outcomeIntegrity: appendOutcomeIntegrityReview(response, reviewPatch)
-          }, {
-            missingCoreWriteMode: 'reject'
-          })
-        : latest;
-      campaignState = next;
-      await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit rejected.');
-      adoptResponseLedgerProjection(next);
-      await refreshCampaignView();
-      return {
-        ok: false,
-        accepted: false,
-        reason: 'integrity-review-rejected',
-        summary: outcomeIntegrityFailureSummary(review),
-        detail: review.reason || null,
-        review: cloneJson(review),
-        context: cloneJson(context),
-        view: viewEnvelope('settings')
-      };
-    }
-    const revision = createOutcomeIntegrityRevisionRecord({
-      context: {
-        ...context,
-        reviewProviderKind: providerKind
-      },
-      proposedText: validation.proposedText,
-      review,
-      now
-    });
-    const swipe = await runtimeHost.chat.appendAssistantMessageSwipe({
-      hostMessageId: context.hostMessageId,
-      text: prefixCampaignReplyHeader(validation.proposedText, state),
-      campaignId: state?.campaign?.id || null,
-      responseKind: context.responseKind || 'narration',
-      extra: {
-        runtimeMetadata: {
-          outcomeIntegrity: {
-            playerEdit: true,
-            revisionId: revision.id,
-            sourceResponseId: revision.sourceResponseId,
-            reviewProviderKind: providerKind
-          }
-        },
-        directive: {
-          outcomeIntegrityRevisionId: revision.id,
-          selectedOutcomeIntegrityRevisionId: revision.id,
-          selectedResponseRevisionId: revision.id,
-          playerEdit: true,
-          sourceResponseId: revision.sourceResponseId
-        }
-      }
-    });
-    const latest = outcomeIntegrityCampaignState() || state;
-    const response = context.response || {};
-    const currentIntegrity = isObject(response.outcomeIntegrity) ? response.outcomeIntegrity : {};
-    const revisions = Array.isArray(currentIntegrity.revisions) ? currentIntegrity.revisions : [];
-    const responseUpdateId = response.id || response.responseId || context.responseId || context.sourceResponseId || response.hostMessageId || context.hostMessageId;
-    const nextOutcomeIntegrity = {
-      ...currentIntegrity,
-      reviewCount: Math.max(0, Number(currentIntegrity.reviewCount) || 0) + 1,
-      revisions: [...revisions, revision],
-      selectedRevisionId: revision.id,
-      lastReview: reviewPatch
-    };
-    const projectionPatch = responseCompatibilityProjectionPatch(response, {
-      kind: 'directive.coreResponseOutcomeIntegrityProjectionRef.v1',
-      action: 'editAccepted',
-      revision,
-      reviewPatch
-    });
-    const next = responseUpdateId
-      ? updateDirectiveResponse(latest, responseUpdateId, {
-          ...projectionPatch,
-          editedAt: revision.editedAt,
-          replacementText: null,
-          outcomeIntegrity: nextOutcomeIntegrity
-        }, {
-          missingCoreWriteMode: 'reject'
-        })
-      : latest;
-    if (projectionPatch.coreProjection?.transactionId && typeof runtimeCoreTurnStore?.repairVisibleResponseRef === 'function') {
-      await runtimeCoreTurnStore.repairVisibleResponseRef(projectionPatch.coreProjection.transactionId, {
-        hostMessageId: response.hostMessageId || context.hostMessageId || null,
-        textHash: response.textHash || null,
-        outcomeIntegrity: nextOutcomeIntegrity,
-        reason: 'outcome-integrity-edit-accepted',
-        idempotencyKey: `outcome-integrity-edit:${revision.id}`
-      });
-    }
-    campaignState = next;
-    await persistRuntimeCampaignState(next, 'Outcome Integrity prose edit accepted.');
-    adoptResponseLedgerProjection(next);
-    await refreshCampaignView();
-    return {
-      ok: true,
-      accepted: true,
-      summary: 'Prose edit accepted.',
-      revision: cloneJson(revision),
-      swipe: cloneJson(swipe),
-      review: cloneJson(review),
-      context: cloneJson(context),
-      view: viewEnvelope('settings')
-    };
-  }
-
-  async function proposeCorrectAsSwipeCandidate(payload = {}) {
-    await ensureInitialized();
-    await refreshCurrentChatCampaignScope();
-    const state = outcomeIntegrityCampaignState();
-    const message = hostMessageForOutcomeIntegrity(payload);
-    const hostMessageId = hostMessageIdFromPayload(payload);
-    const recordedResponse = await findOutcomeIntegrityResponseAsync(state, hostMessageId, { coreTurnStore: runtimeCoreTurnStore })
-      || await findOutcomeIntegrityResponseAsync(state, message?.hostMessageId || message?.id, { coreTurnStore: runtimeCoreTurnStore })
-      || null;
-    const response = recordedResponse || null;
-    if (!response) {
-      return {
-        ok: false,
-        accepted: false,
-        reason: 'response-not-recorded',
-        summary: 'Correct-as-Swipe requires a recorded Directive response.'
-      };
-    }
-    const sourceReview = createSourceReviewWorker({ now });
-    const assets = optionalActiveRuntimeAssets();
-    const selectedText = compactString(
-      payload.selection?.selectedText
-      || payload.selectedText
-      || payload.selection?.text
-      || ''
-    );
-    const proposedText = payload.proposedText ?? payload.candidateText ?? payload.rewriteText ?? payload.text;
-    const evidenceVerdict = await sourceReview.reviewCorrectAsSwipeEvidence({
-      text: selectedText,
-      campaignState: state,
-      packageData: assets?.packageData || null,
-      crewDataset: assets?.crewDataset || null,
-      shipDataset: assets?.shipDataset || null,
-      campaignProjection: assets?.projection || null,
-      responseId: response.id || null,
-      outcomeId: response.outcomeId || null,
-      turnId: response.turnId || null,
-      hostMessageId: hostMessageId || response.hostMessageId || null,
-      selectedTextHash: payload.selection?.selectedTextHash || payload.selectedTextHash || null,
-      evidenceRefIds: payload.evidenceRefIds || payload.selection?.evidenceRefIds || [],
-      externalContextOnly: payload.externalContextOnly === true || payload.selection?.externalContextOnly === true
-    });
-    const beforeContinuity = cloneJson(state?.continuity || null);
-    const result = await proposeCorrectAsSwipe({
-      campaignState: state,
-      host: runtimeHost,
-      coreTurnStore: runtimeCoreTurnStore,
-      response,
-      selection: {
-        ...(payload.selection || payload),
-        hostMessageId: hostMessageId || response.hostMessageId || null,
-        responseId: response.id || null,
-        outcomeId: response.outcomeId || null,
-        turnId: response.turnId || null,
-        coreTransactionId: response.coreTransactionId || null
-      },
-      proposedText,
-      evidenceVerdict,
-      idFactory,
-      now,
-      updateResponse: (latest, responseUpdateId, correctionCase) => {
-        const tracked = initializeCampaignRuntimeTracking(latest);
-        const currentResponse = prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId) || response;
-        const hasCompatibilityResponseRow = Boolean(prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId));
-        const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
-        const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
-        const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
-        const patch = {
-          correctAsSwipe: {
-            ...currentCorrectAsSwipe,
-            cases: [
-              ...cases.filter((entry) => entry?.id !== correctionCase.id),
-              correctionCase
-            ],
-            lastCaseId: correctionCase.id,
-            lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || null)
-          }
-        };
-        if (!hasCompatibilityResponseRow) {
-          const error = new Error('Correct-as-Swipe requires a CORE response projection before candidate lifecycle update.');
-          error.code = 'DIRECTIVE_CORRECT_AS_SWIPE_RESPONSE_PROJECTION_REQUIRED';
-          error.details = {
-            action: 'candidateAppended',
-            responseId: stableResponseId || compactString(responseUpdateId) || null,
-            hostMessageId: compactString(currentResponse?.hostMessageId || correctionCase.source?.hostMessageId || '') || null
-          };
-          throw error;
-        }
-        return stableResponseId ? updateDirectiveResponse(tracked, stableResponseId, {
-          ...responseCompatibilityProjectionPatch(currentResponse, {
-            kind: 'directive.coreResponseCorrectAsSwipeProjectionRef.v1',
-            action: 'candidateAppended',
-            correctionCase
-          }),
-          ...patch
-        }, {
-          missingCoreWriteMode: 'reject'
-        }) : tracked;
-      },
-      persist: async (next, summary) => {
-        campaignState = next;
-        await persistRuntimeCampaignState(next, summary);
-      }
-    });
-    if (result.campaignState) {
-      campaignState = result.campaignState;
-      adoptResponseLedgerProjection(result.campaignState);
-    }
-    await refreshCampaignView();
-    const afterState = outcomeIntegrityCampaignState();
-    return {
-      ...cloneJson(result),
-      accepted: false,
-      continuityUnchanged: JSON.stringify(beforeContinuity) === JSON.stringify(afterState?.continuity || null),
-      view: viewEnvelope('settings')
-    };
-  }
-
-  async function settleCorrectAsSwipeCase(payload = {}) {
-    await ensureInitialized();
-    await refreshCurrentChatCampaignScope();
-    const state = outcomeIntegrityCampaignState();
-    const caseId = compactString(payload.caseId || payload.id || payload.correctionCaseId || '');
-    const message = hostMessageForOutcomeIntegrity(payload);
-    const hostMessageId = hostMessageIdFromPayload(payload);
-    const responses = (await createRuntimeLedgerViewAsync(state || {}, { coreTurnStore: runtimeCoreTurnStore })).responseLedger || [];
-    const recordedResponse = await findOutcomeIntegrityResponseAsync(state, hostMessageId, { coreTurnStore: runtimeCoreTurnStore })
-      || await findOutcomeIntegrityResponseAsync(state, message?.hostMessageId || message?.id, { coreTurnStore: runtimeCoreTurnStore })
-      || responses.find((entry) => (
-        Array.isArray(entry?.correctAsSwipe?.cases)
-        && entry.correctAsSwipe.cases.some((correctionCase) => compactString(correctionCase?.id) === caseId)
-      ))
-      || null;
-    const response = recordedResponse || null;
-    if (!response) {
-      return {
-        ok: false,
-        accepted: false,
-        reason: 'response-not-recorded',
-        summary: 'Correct-as-Swipe case lifecycle requires a recorded Directive response.'
-      };
-    }
-    const beforeContinuity = cloneJson(state?.continuity || null);
-    const result = await settleCorrectAsSwipeCaseLifecycle({
-      campaignState: state,
-      coreTurnStore: runtimeCoreTurnStore,
-      response,
-      caseId,
-      action: payload.action,
-      reason: payload.reason,
-      now,
-      updateResponse: (latest, responseUpdateId, correctionCase) => {
-        const tracked = initializeCampaignRuntimeTracking(latest);
-        const currentResponse = prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId) || response;
-        const hasCompatibilityResponseRow = Boolean(prevalidatedCoreResponseForUpdate(recordedResponse, responseUpdateId));
-        const stableResponseId = compactString(currentResponse.id || currentResponse.responseId || response.id || response.responseId);
-        const currentCorrectAsSwipe = isObject(currentResponse.correctAsSwipe) ? currentResponse.correctAsSwipe : {};
-        const cases = Array.isArray(currentCorrectAsSwipe.cases) ? currentCorrectAsSwipe.cases : [];
-        const patch = {
-          correctAsSwipe: {
-            ...currentCorrectAsSwipe,
-            cases: [
-              ...cases.filter((entry) => entry?.id !== correctionCase.id),
-              correctionCase
-            ],
-            lastCaseId: correctionCase.id,
-            lastLifecycleDecision: cloneJson(correctionCase.repairDecision || null),
-            lastCandidateSwipe: cloneJson(correctionCase.candidateSwipe || currentCorrectAsSwipe.lastCandidateSwipe || null)
-          }
-        };
-        if (!hasCompatibilityResponseRow) {
-          const error = new Error('Correct-as-Swipe requires a CORE response projection before case lifecycle update.');
-          error.code = 'DIRECTIVE_CORRECT_AS_SWIPE_RESPONSE_PROJECTION_REQUIRED';
-          error.details = {
-            action: 'caseLifecycleUpdated',
-            responseId: stableResponseId || compactString(responseUpdateId) || null,
-            hostMessageId: compactString(currentResponse?.hostMessageId || correctionCase.source?.hostMessageId || '') || null
-          };
-          throw error;
-        }
-        return stableResponseId ? updateDirectiveResponse(tracked, stableResponseId, {
-          ...responseCompatibilityProjectionPatch(currentResponse, {
-            kind: 'directive.coreResponseCorrectAsSwipeProjectionRef.v1',
-            action: 'caseLifecycleUpdated',
-            correctionCase
-          }),
-          ...patch
-        }, {
-          missingCoreWriteMode: 'reject'
-        }) : tracked;
-      },
-      persist: async (next, summary) => {
-        campaignState = next;
-        await persistRuntimeCampaignState(next, summary);
-      }
-    });
-    if (result.campaignState) {
-      campaignState = result.campaignState;
-      adoptResponseLedgerProjection(result.campaignState);
-    }
-    await refreshCampaignView();
-    const afterState = outcomeIntegrityCampaignState();
-    return {
-      ...cloneJson(result),
-      accepted: false,
-      continuityUnchanged: JSON.stringify(beforeContinuity) === JSON.stringify(afterState?.continuity || null),
-      view: viewEnvelope('settings')
+      handled: result?.status === 'invalidated' || result?.status === 'no-change',
+      sourceMutation: cloneJson(result),
+      campaignState: cloneJson(campaignState)
     };
   }
 
@@ -8490,7 +4251,7 @@ export function createDirectiveRuntimeApp({
       return ensureChatNativeServices()?.orchestrator || null;
     },
 
-    async buildV1ShadowPlayerProjection() {
+    async buildV1PlayerProjection() {
       return run(async () => {
         await ensureInitialized();
         return cloneJson(buildV1RuntimePlayerProjection({
@@ -8503,7 +4264,7 @@ export function createDirectiveRuntimeApp({
     async prepareV1DutyReportDelivery(input = {}) {
       return run(async () => {
         await ensureInitialized();
-        return cloneJson(ensureV1MissionShadowRuntime().preparePendingDutyReport({
+        return cloneJson(ensureV1MissionRuntime().preparePendingDutyReport({
           ...input,
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
@@ -8513,7 +4274,7 @@ export function createDirectiveRuntimeApp({
     async inspectV1PendingMissionTransition() {
       return run(async () => {
         await ensureInitialized();
-        return cloneJson(ensureV1MissionShadowRuntime().inspectPendingTransition({
+        return cloneJson(ensureV1MissionRuntime().inspectPendingTransition({
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
       });
@@ -8522,7 +4283,7 @@ export function createDirectiveRuntimeApp({
     async activateV1PendingMissionTransition() {
       return run(async () => {
         await ensureInitialized();
-        return cloneJson(await ensureV1MissionShadowRuntime().activatePendingTransition({
+        return cloneJson(await ensureV1MissionRuntime().activatePendingTransition({
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
       });
@@ -8531,7 +4292,7 @@ export function createDirectiveRuntimeApp({
     async prepareV1MissionTransitionNarration() {
       return run(async () => {
         await ensureInitialized();
-        return cloneJson(ensureV1MissionShadowRuntime().prepareTransitionNarration({
+        return cloneJson(ensureV1MissionRuntime().prepareTransitionNarration({
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
       });
@@ -8540,7 +4301,7 @@ export function createDirectiveRuntimeApp({
     async reviewV1PendingEpisodeNow() {
       return run(async () => {
         await ensureInitialized();
-        return cloneJson(await ensureV1MissionShadowRuntime().reviewPendingEpisode({
+        return cloneJson(await ensureV1MissionRuntime().reviewPendingEpisode({
           runtimeAssets: optionalActiveRuntimeAssets() || {}
         }));
       });
@@ -8619,125 +4380,9 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async getOutcomeIntegrityNativeEditDecision(payload = {}) {
-      return outcomeIntegrityNativeEditDecision(payload);
-    },
-
-    async prepareOutcomeIntegrityEdit(payload = {}) {
-      return run(async () => prepareOutcomeIntegrityEdit(payload));
-    },
-
-    async submitOutcomeIntegrityEdit(payload = {}) {
-      return run(async () => submitOutcomeIntegrityEdit(payload));
-    },
-
-    async proposeCorrectAsSwipeCandidate(payload = {}) {
-      return run(async () => proposeCorrectAsSwipeCandidate(payload));
-    },
-
-    async settleCorrectAsSwipeCase(payload = {}) {
-      return run(async () => settleCorrectAsSwipeCase(payload));
-    },
-
-    async flushChatSidecars() {
-      return run(async () => {
-        await ensureInitialized();
-        const services = ensureChatNativeServices();
-        const commandLogSummaryResult = await settleCommandLogSummaryQueue();
-        const postCommitConversationResult = await settlePostCommitConversationQueue();
-        const advisoryEnrichmentResult = await settleAdvisoryEnrichmentQueue();
-        const terminalCheckpointSettlementResult = await settleTerminalCheckpointSettlementQueue();
-        const reobserveState = liveCampaignStateForView() || campaignState;
-        const reobserveAssets = optionalRuntimeAssetsForState(reobserveState);
-        const hostGenerationReobserveResult = typeof services?.responseDispatcher?.reobserveHostGenerationCompletions === 'function'
-          ? await services.responseDispatcher.reobserveHostGenerationCompletions({
-            campaignState: reobserveState,
-            packageData: reobserveAssets?.packageData || null,
-            crewDataset: reobserveAssets?.crewDataset || null,
-            shipDataset: reobserveAssets?.shipDataset || null,
-            campaignProjection: reobserveAssets?.projection || null
-          })
-          : {
-            ok: false,
-            skipped: true,
-            reason: 'response-dispatcher-reobserve-unavailable'
-          };
-        if (!services?.sidecarScheduler?.pending) {
-          await refreshCampaignView();
-          await refreshCurrentChatCampaignScope();
-          return {
-            ok: commandLogSummaryResult?.scheduled === true
-              || commandLogSummaryResult?.ok === true
-              || postCommitConversationResult?.scheduled === true
-              || postCommitConversationResult?.ok === true
-              || advisoryEnrichmentResult?.scheduled === true
-              || advisoryEnrichmentResult?.ok === true
-              || terminalCheckpointSettlementResult?.scheduled === true
-              || terminalCheckpointSettlementResult?.ok === true
-              || hostGenerationReobserveResult?.ok === true,
-            reason: 'sidecar-scheduler-unavailable',
-            commandLogSummaryResult: cloneJson(commandLogSummaryResult),
-            postCommitConversationResult: cloneJson(postCommitConversationResult),
-            advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
-            terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
-            hostGenerationReobserveResult: cloneJson(hostGenerationReobserveResult),
-            view: viewEnvelope('mission')
-          };
-        }
-        const legacySidecarJournalCountBefore = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
-        const coreSidecarDiagnosticsBefore = await coreSidecarDiagnosticCount();
-        const coreSidecarResumeCountBefore = await coreSidecarResumeCount();
-        const results = await services.sidecarScheduler.pending();
-        await refreshCampaignView();
-        await refreshCurrentChatCampaignScope();
-        const legacySidecarJournalCountAfter = campaignState?.runtimeTracking?.sidecarJournal?.length || 0;
-        const coreSidecarDiagnosticsAfter = await coreSidecarDiagnosticCount();
-        const coreSidecarResumeCountAfter = await coreSidecarResumeCount();
-        const sidecarCountBefore = Number.isFinite(coreSidecarResumeCountBefore)
-          ? Math.max(0, coreSidecarResumeCountBefore)
-          : 0;
-        const sidecarCountAfter = Number.isFinite(coreSidecarResumeCountAfter)
-          ? Math.max(0, coreSidecarResumeCountAfter)
-          : 0;
-        const legacySidecarJournalDelta = Math.max(0, legacySidecarJournalCountAfter - legacySidecarJournalCountBefore);
-        const coreSidecarDiagnosticDelta = Number.isFinite(coreSidecarDiagnosticsBefore) && Number.isFinite(coreSidecarDiagnosticsAfter)
-          ? Math.max(0, coreSidecarDiagnosticsAfter - coreSidecarDiagnosticsBefore)
-          : null;
-        const sidecarCountDelta = Math.max(0, sidecarCountAfter - sidecarCountBefore);
-        const resultCount = Array.isArray(results) ? results.length : 0;
-        return {
-          ok: true,
-          sidecarCountBefore,
-          sidecarCountAfter,
-          legacySidecarJournalCountBefore,
-          legacySidecarJournalCountAfter,
-          legacySidecarJournalDelta,
-          coreSidecarDiagnosticsBefore,
-          coreSidecarDiagnosticsAfter,
-          coreSidecarDiagnosticDelta,
-          coreSidecarResumeCountBefore,
-          coreSidecarResumeCountAfter,
-          sidecarDelta: Math.max(sidecarCountDelta, coreSidecarDiagnosticDelta ?? 0, resultCount),
-          results: cloneJson(results || []),
-          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
-          postCommitConversationResult: cloneJson(postCommitConversationResult),
-          advisoryEnrichmentResult: cloneJson(advisoryEnrichmentResult),
-          terminalCheckpointSettlementResult: cloneJson(terminalCheckpointSettlementResult),
-          hostGenerationReobserveResult: cloneJson(hostGenerationReobserveResult),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
     async flushRuntimeDiagnostics() {
       return run(async () => {
         await ensureInitialized();
-        await flushCommandLogSummaryCoreDiagnostics();
-        await flushPostCommitConversationCoreDiagnostics();
-        await flushAdvisoryEnrichmentCoreDiagnostics();
-        await terminalCheckpointSettlementQueue;
-        await flushTerminalCheckpointCoreDiagnostics();
-        await terminalCheckpointDiagnosticQueue;
         await modelCallJournal.flushCoreDiagnostics();
         const runtimePersistenceResult = await refreshRuntimePersistenceAfterCoreDiagnostics('Runtime CORE diagnostics metadata refreshed.');
         await settleRuntimePersistenceQueue();
@@ -8751,264 +4396,6 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async captureMissionComponentSelection(payload = {}) {
-      return run(async () => {
-        const selection = payload.selection || payload;
-        const context = await ensureMissionComponentCaptureContext(selection);
-        if (!context.ok) {
-          return {
-            ok: false,
-            reason: context.reason,
-            summary: context.summary,
-            guard: cloneJson(context.guard || null),
-            view: viewEnvelope('mission')
-          };
-        }
-        const sourceMessage = await sourceMessageForMissionComponent(selection);
-        if (!sourceMessage.ok) {
-          return {
-            ok: false,
-            reason: sourceMessage.reason,
-            summary: sourceMessage.summary,
-            view: viewEnvelope('mission')
-          };
-        }
-        const assets = optionalActiveRuntimeAssets();
-        const prepared = await prepareMissionComponentSelection({
-          selection: {
-            ...cloneJson(selection),
-            chatId: context.chatId || selection.chatId || null,
-            message: sourceMessage.message
-          },
-          campaignState,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          generationRouter: payload.useProvider === false ? null : defaultGenerationRouter,
-          useProvider: payload.useProvider !== false
-        });
-        return {
-          ...cloneJson(prepared),
-          ok: true,
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async defineSelectionLookup(payload = {}) {
-      return run(async () => {
-        const selection = payload.selection || payload;
-        const context = await ensureMissionComponentCaptureContext(selection);
-        if (!context.ok) {
-          return {
-            ok: false,
-            reason: context.reason,
-            summary: context.summary,
-            guard: cloneJson(context.guard || null),
-            view: viewEnvelope('mission')
-          };
-        }
-        const sourceMessage = await sourceMessageForMissionComponent(selection);
-        if (!sourceMessage.ok) {
-          return {
-            ok: false,
-            reason: sourceMessage.reason,
-            summary: sourceMessage.summary,
-            view: viewEnvelope('mission')
-          };
-        }
-        const assets = optionalActiveRuntimeAssets();
-        const recentMessages = typeof runtimeHost?.chat?.getRecentMessages === 'function'
-          ? await runtimeHost.chat.getRecentMessages({ limit: 80, playerSafeOnly: true })
-          : [];
-        const sourceMessageId = compactString(sourceMessage.message?.hostMessageId || sourceMessage.message?.id);
-        const hasSourceMessage = recentMessages.some((message) => compactString(message?.hostMessageId || message?.id) === sourceMessageId);
-        const contextMessages = hasSourceMessage
-          ? recentMessages
-          : [...recentMessages, sourceMessage.message].filter(Boolean);
-        const playerSafeProjection = createPlayerSafeCampaignProjection({
-          campaignState,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          scene: campaignState?.attentionState?.scene || null
-        });
-        const prepared = await prepareDefineSelection({
-          selection: {
-            ...cloneJson(selection),
-            chatId: context.chatId || selection.chatId || null,
-            message: sourceMessage.message
-          },
-          campaignState,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          shipDataset: assets?.shipDataset || null,
-          playerSafeProjection,
-          recentMessages: contextMessages,
-          currentSceneMessages: recentMessages.slice(-12),
-          scene: campaignState?.attentionState?.scene || null,
-          generationRouter: payload.useProvider === false ? null : defaultGenerationRouter,
-          useProvider: payload.useProvider !== false
-        });
-        return {
-          ...cloneJson(prepared),
-          ok: true,
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async saveMissionComponent(payload = {}) {
-      return run(async () => {
-        const componentPayload = payload.component || payload;
-        const source = componentPayload.source || payload.source || {};
-        const selection = payload.selection || {
-          selectedText: componentPayload.verbatim || payload.selectedText,
-          chatId: source.chatId,
-          hostMessageId: source.hostMessageId,
-          message: {
-            hostMessageId: source.hostMessageId,
-            role: source.messageRole,
-            name: source.messageName
-          }
-        };
-        const context = await ensureMissionComponentCaptureContext(selection);
-        if (!context.ok) {
-          return {
-            ok: false,
-            reason: context.reason,
-            summary: context.summary,
-            guard: cloneJson(context.guard || null),
-            view: viewEnvelope('mission')
-          };
-        }
-        const sourceMessage = await sourceMessageForMissionComponent(selection);
-        if (!sourceMessage.ok) {
-          return {
-            ok: false,
-            reason: sourceMessage.reason,
-            summary: sourceMessage.summary,
-            view: viewEnvelope('mission')
-          };
-        }
-        const componentInput = componentInputFromCapture({
-          ...payload,
-          component: {
-            ...componentPayload,
-            source: {
-              ...source,
-              host: source.host || runtimeHost?.id || 'sillytavern',
-              chatId: context.chatId || source.chatId || null,
-              hostMessageId: source.hostMessageId || sourceMessage.message.hostMessageId,
-              messageRole: source.messageRole || sourceMessage.message.role,
-              messageName: source.messageName || sourceMessage.message.name,
-              outcomeId: source.outcomeId || sourceMessage.message.outcomeId || sourceMessage.message.metadata?.outcomeId,
-              ingressId: source.ingressId || sourceMessage.message.ingressId || sourceMessage.message.metadata?.ingressId,
-              messageText: sourceMessage.message.text
-            }
-          }
-        });
-        const result = addMissionComponent(campaignState, componentInput, {
-          idFactory,
-          now
-        });
-        const tracked = await commitMissionComponentsMutation(result.campaignState, {
-          source: 'missionComponents.save',
-          reason: `Mission Component saved: ${result.component.title}`,
-          summary: `Mission Component saved: ${result.component.title}`
-        });
-        return {
-          kind: 'directive.missionComponents.save',
-          ok: true,
-          component: cloneJson(result.component),
-          components: cloneJson(missionComponentsState(tracked)),
-          campaignState: cloneJson(tracked),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async updateMissionComponent(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
-        const patch = payload.patch || payload.component || {};
-        const result = updateMissionComponentRecord(campaignState, id, patch, { now });
-        const tracked = await commitMissionComponentsMutation(result.campaignState, {
-          source: 'missionComponents.update',
-          reason: `Mission Component updated: ${result.component.title}`,
-          summary: `Mission Component updated: ${result.component.title}`
-        });
-        return {
-          kind: 'directive.missionComponents.update',
-          ok: true,
-          component: cloneJson(result.component),
-          components: cloneJson(missionComponentsState(tracked)),
-          campaignState: cloneJson(tracked),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async archiveMissionComponent(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
-        const result = archiveMissionComponentRecord(campaignState, id, { now });
-        const tracked = await commitMissionComponentsMutation(result.campaignState, {
-          source: 'missionComponents.archive',
-          reason: `Mission Component archived: ${result.component.title}`,
-          summary: `Mission Component archived: ${result.component.title}`
-        });
-        return {
-          kind: 'directive.missionComponents.archive',
-          ok: true,
-          component: cloneJson(result.component),
-          components: cloneJson(missionComponentsState(tracked)),
-          campaignState: cloneJson(tracked),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async openMissionComponentSource(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const id = requireNonEmptyString(payload.componentId || payload.id, 'componentId');
-        const component = findMissionComponent(liveCampaignStateForView() || campaignState, id);
-        if (!component) {
-          return {
-            ok: false,
-            reason: 'component-not-found',
-            summary: `Mission Component "${id}" was not found.`,
-            view: viewEnvelope('mission')
-          };
-        }
-        const sourceChatId = compactString(component.source?.chatId);
-        const currentChatId = compactString(
-          currentChatScope?.currentChat?.chatId
-          || (typeof runtimeHost?.chat?.getCurrentChatId === 'function' ? runtimeHost.chat.getCurrentChatId() : null)
-          || campaignState?.campaignChatBinding?.chatId
-        );
-        if (sourceChatId && currentChatId && sourceChatId !== currentChatId) {
-          return {
-            ok: false,
-            reason: 'source-chat-not-open',
-            summary: 'Open the source campaign chat before jumping to this Mission Component source.',
-            component: cloneJson(component),
-            source: cloneJson(component.source || null),
-            view: viewEnvelope('mission')
-          };
-        }
-        return {
-          kind: 'directive.missionComponents.openSource',
-          ok: true,
-          component: cloneJson(component),
-          source: cloneJson(component.source || null),
-          summary: `Source: Msg ${component.source?.hostMessageId || 'unknown'}`,
-          view: viewEnvelope('mission')
-        };
-      });
-    },
 
     async interceptHostGeneration(payload = {}) {
       return run(async () => {
@@ -9024,45 +4411,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
-        const decision = await outcomeIntegrityNativeEditDecision(payload);
-        if (decision.protected && decision.mode === 'relaxed') {
-          const message = hostMessageForOutcomeIntegrity(payload);
-          const priorText = priorSwipeTextForRelaxedEdit(message);
-          if (priorText) {
-            const proposedText = String(
-              payload?.text
-              || payload?.message?.text
-              || message?.text
-              || ''
-            ).trim();
-            const context = await buildOutcomeIntegrityEditContextAsync({
-              campaignState: outcomeIntegrityCampaignState(),
-              message: {
-                ...message,
-                text: priorText
-              },
-              hostMessageId: hostMessageIdFromPayload(payload),
-              coreTurnStore: runtimeCoreTurnStore
-            });
-            const result = await submitOutcomeIntegrityEdit({
-              hostMessageId: context.hostMessageId,
-              proposedText,
-              context,
-              currentText: priorText,
-              baseTextHash: context.baseTextHash,
-              reviewProviderKind: context.reviewProviderKind
-            });
-            return {
-              handled: true,
-              relaxedNativeEdit: true,
-              ...result
-            };
-          }
-        }
-        const services = ensureChatNativeServices();
-        return services
-          ? services.orchestrator.handleMessageEdited(payload)
-          : { handled: false, reason: 'chat-native-host-unavailable' };
+        return invalidateAcceptedV1Source(payload, 'playerMessageEdited');
       });
     },
 
@@ -9070,10 +4419,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
-        const services = ensureChatNativeServices();
-        return services
-          ? services.orchestrator.handleMessageDeleted(payload)
-          : { handled: false, reason: 'chat-native-host-unavailable' };
+        return invalidateAcceptedV1Source(payload, 'messageDeleted');
       });
     },
 
@@ -9081,10 +4427,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
-        const services = ensureChatNativeServices();
-        return services?.orchestrator?.handleMessageVisibilityChanged
-          ? services.orchestrator.handleMessageVisibilityChanged(payload)
-          : { handled: false, reason: 'chat-native-host-unavailable' };
+        return invalidateAcceptedV1Source(payload, 'messageVisibilityChanged');
       });
     },
 
@@ -9092,10 +4435,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         await refreshCurrentChatCampaignScope();
-        const services = ensureChatNativeServices();
-        return services?.orchestrator?.handleMessageSelectedSwipeChanged
-          ? services.orchestrator.handleMessageSelectedSwipeChanged(payload)
-          : { handled: false, reason: 'chat-native-host-unavailable' };
+        return invalidateAcceptedV1Source(payload, 'assistantSwipeChanged');
       });
     },
 
@@ -9217,185 +4557,6 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async setReconciliationStart(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.setStart(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async setReconciliationEnd(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.setEnd(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async clearReconciliationMarkers(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.clearMarkers(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async reconcileMessage(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.reconcileMessage(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        if (Array.isArray(result?.applied) && result.applied.length > 0) {
-          await synchronizeActivePrompt(campaignState, {
-            persist: true,
-            rebuild: true,
-            reason: 'Prompt context rebuilt after scene reconciliation.'
-          });
-        }
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async reconcileFromHere(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.reconcileFromHere(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        if (Array.isArray(result?.applied) && result.applied.length > 0) {
-          await synchronizeActivePrompt(campaignState, {
-            persist: true,
-            rebuild: true,
-            reason: 'Prompt context rebuilt after scene reconciliation.'
-          });
-        }
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async reconcileMarkedPassage(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.reconcileMarked(payload);
-        lastSceneReconciliationResult = cloneJson(result);
-        if (Array.isArray(result?.applied) && result.applied.length > 0) {
-          await synchronizeActivePrompt(campaignState, {
-            persist: true,
-            rebuild: true,
-            reason: 'Prompt context rebuilt after marked scene reconciliation.'
-          });
-        }
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async recalculateFromHere(payload = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.recalculateFromHere(payload);
-        let preview = null;
-        if (result?.ok && result.outcomeId && payload.preview !== false) {
-          const playerInput = String(
-            payload.playerInput
-            || payload.message?.text
-            || payload.text
-            || result.anchor?.textPreview
-            || 'Recalculate from selected chat passage.'
-          ).trim();
-          try {
-            preview = await publicApi.previewOutcomeReplacement({
-              outcomeId: result.outcomeId,
-              playerInput,
-              type: 'recalculateFromHere'
-            });
-          } catch (error) {
-            preview = {
-              ok: false,
-              error: {
-                code: error?.code || null,
-                message: error?.message || String(error)
-              }
-            };
-          }
-        }
-        lastSceneReconciliationResult = {
-          ...cloneJson(result),
-          preview: cloneJson(preview)
-        };
-        await refreshCampaignView();
-        return {
-          result: cloneJson(result),
-          preview: cloneJson(preview),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async openPendingReconciliation() {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.openPending();
-        lastSceneReconciliationResult = cloneJson(result);
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async applyPendingReconciliation({ proposalId = null } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.applyPending({ proposalId });
-        lastSceneReconciliationResult = cloneJson(result);
-        if (result?.ok) {
-          await synchronizeActivePrompt(campaignState, {
-            persist: true,
-            rebuild: true,
-            reason: 'Prompt context rebuilt after accepted reconciliation proposal.'
-          });
-        }
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async rejectPendingReconciliation({ proposalId = null } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const service = ensureChatNativeServices()?.sceneReconciliation;
-        if (!service) throw new Error('Scene reconciliation is unavailable for this host.');
-        const result = await service.rejectPending({ proposalId });
-        lastSceneReconciliationResult = cloneJson(result);
-        await refreshCampaignView();
-        return { result: cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
 
     async retryCampaignActivation() {
       return run(async () => {
@@ -9488,7 +4649,7 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        if (pendingDirectorTurn || pendingOutcomeReplacement) {
+        if (pendingDirectorTurn) {
           const error = new Error('Resolve or discard the pending outcome before changing campaign difficulty.');
           error.code = 'DIRECTIVE_CAMPAIGN_DIFFICULTY_PENDING_OUTCOME';
           throw error;
@@ -9616,10 +4777,7 @@ export function createDirectiveRuntimeApp({
     async updateRuntimeSettings({
       maxTurnSaveHistory = null,
       historyLimit = null,
-      autosaveEveryMessages = null,
-      outcomeIntegrityMode = null,
-      outcomeIntegrityReviewProviderKind = null,
-      outcomeIntegrity = null
+      autosaveEveryMessages = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
@@ -9631,23 +4789,9 @@ export function createDirectiveRuntimeApp({
         const autosaveInterval = normalizeAutosaveEveryMessages(
           autosaveEveryMessages ?? campaignState.settings?.autosaveEveryMessages
         );
-        const currentOutcomeIntegrity = normalizeOutcomeIntegritySettings(campaignState.settings || {});
-        const nextOutcomeIntegrity = {
-          mode: normalizeOutcomeIntegrityMode(
-            outcomeIntegrity?.mode ?? outcomeIntegrityMode ?? currentOutcomeIntegrity.mode,
-            currentOutcomeIntegrity.mode
-          ),
-          reviewProviderKind: normalizeOutcomeIntegrityReviewProviderKind(
-            outcomeIntegrity?.reviewProviderKind
-              ?? outcomeIntegrityReviewProviderKind
-              ?? currentOutcomeIntegrity.reviewProviderKind,
-            currentOutcomeIntegrity.reviewProviderKind
-          )
-        };
         campaignState = applyRuntimeSettings(campaignState, {
           maxTurnSaveHistory: limit,
-          autosaveEveryMessages: autosaveInterval,
-          outcomeIntegrity: nextOutcomeIntegrity
+          autosaveEveryMessages: autosaveInterval
         });
         rememberRuntimeSettingsOverlay(campaignState);
         if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
@@ -9658,7 +4802,7 @@ export function createDirectiveRuntimeApp({
         }
         const save = await persistRuntimeCampaignState(
           campaignState,
-          `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s), Outcome Integrity ${nextOutcomeIntegrity.mode}.`
+          `Runtime settings updated: ${limit} turn history, autosave every ${autosaveInterval} message(s).`
         );
         campaignState = applyRuntimeSettingsOverlay(campaignState, controller?.activeSaveId);
         await refreshCampaignView();
@@ -9667,7 +4811,6 @@ export function createDirectiveRuntimeApp({
           maxTurnSaveHistory: limit,
           historyLimit: limit,
           autosaveEveryMessages: autosaveInterval,
-          outcomeIntegrity: cloneJson(nextOutcomeIntegrity),
           save: cloneJson(save),
           view: viewEnvelope('settings')
         };
@@ -10296,7 +5439,6 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = null;
         activeScreen = campaignState ? 'campaign' : 'campaign';
         lastPackageImportResult = null;
-        lastDirectiveAssistResult = null;
         lastCharacterCreatorSectionDraftResult = null;
         lastError = null;
         await refreshCampaignView();
@@ -10316,11 +5458,8 @@ export function createDirectiveRuntimeApp({
         activeCreatorDraftId = null;
         creatorView = null;
         pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
-        lastCommandLogSummarySidecarResult = null;
-        lastDirectiveAssistResult = null;
         lastCharacterCreatorSectionDraftResult = null;
         lastConclusionResult = null;
         activeScreen = 'campaign';
@@ -10496,11 +5635,8 @@ export function createDirectiveRuntimeApp({
         });
         campaignState = applyRuntimeSettings(result.campaignState || campaignState);
         pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
         lastDirectorTurn = null;
         lastNarrationResult = null;
-        lastCommandLogSummarySidecarResult = null;
-        lastDirectiveAssistResult = null;
         lastConclusionResult = null;
         activeScreen = 'campaign';
         await refreshCampaignView();
@@ -10675,7 +5811,6 @@ export function createDirectiveRuntimeApp({
       playerInput,
       sceneSnapshotOverrides = {},
       turnId = null,
-      generateCommandLogSummary = true,
       coreRecallEntries = null
     } = {}) {
       return run(async () => {
@@ -10704,19 +5839,12 @@ export function createDirectiveRuntimeApp({
         lastDirectorTurn = result.turnPacket;
         lastNarrationResult = null;
         pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
-        const commandLogSummaryResult = deferCommandLogSummaryForTurn({
-          turnPacket: result.turnPacket,
-          enabled: generateCommandLogSummary,
-          reason: 'afterDirectiveNarration'
-        });
         activeScreen = 'campaign';
         return {
           coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
           turnPacket: cloneJson(result.turnPacket),
           narratorPacket: cloneJson(result.narratorPacket),
           commandLogPacket: cloneJson(result.commandLogPacket),
-          commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
@@ -10762,9 +5890,7 @@ export function createDirectiveRuntimeApp({
           sourceFrameRef
         });
         pendingDirectorTurn = result.turnPacket;
-        pendingOutcomeReplacement = null;
         lastNarrationResult = null;
-        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         return {
           coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
@@ -10820,9 +5946,7 @@ export function createDirectiveRuntimeApp({
         lastMechanicsCheckpointState = cloneJson(campaignState);
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
         lastNarrationResult = null;
-        lastCommandLogSummarySidecarResult = null;
         activeScreen = 'campaign';
         const narrationResult = generateNarration
           ? await generateNarrationForLastTurnNow({
@@ -10850,774 +5974,12 @@ export function createDirectiveRuntimeApp({
       return run(async () => {
         await ensureInitialized();
         pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
-        lastCommandLogSummarySidecarResult = null;
         return viewEnvelope('mission');
       });
     },
 
-    async previewOutcomeReplacement({
-      outcomeId,
-      playerInput,
-      turnId = null,
-      arbiterPlan = null,
-      type = 'rerunOutcome',
-      generationRouter = defaultGenerationRouter
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const id = requireNonEmptyString(outcomeId, 'outcomeId');
-        campaignState = await stateWithCoreProjectionFreshnessEvidence(campaignState);
-        const ledgerEntry = (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === id);
-        if (!ledgerEntry) {
-          throw new Error(`Cannot rerun unknown outcome "${id}"`);
-        }
-        const checkpointSnapshot = await loadOutcomeRerunCheckpointSnapshot({
-          storageAdapter,
-          state: campaignState,
-          controller,
-          ledgerEntry
-        });
-        const repair = ensureChatNativeServices()?.repairRuntime || null;
-        const authorizeRerun = repair?.authorizeRerunBranch || repair?.evaluateOutcomeRerunActuation;
-        let rerunDecision = typeof authorizeRerun === 'function'
-          ? authorizeRerun.call(repair, {
-            outcomeId: id,
-            requestedType: type,
-            ledgerEntry: compactOutcomeRerunLedgerRef(ledgerEntry, {
-              snapshotPresent: Boolean(checkpointSnapshot?.snapshot),
-              snapshotSourceKind: checkpointSnapshot?.sourceKind || null,
-              coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || null
-            }),
-            eventTime: timestampFromNow(now)
-          })
-          : {
-              kind: 'directive.repairOutcomeRerunActuationDecision.v1',
-              eventType: 'outcomeRerunRequested',
-              sourceKind: 'committedOutcome',
-              authorized: false,
-              action: 'blockOutcomeRerun',
-              reason: 'repair-rerun-authority-unavailable',
-              deniedReason: 'repair-rerun-authority-unavailable',
-              outcomeId: id,
-              replacementType: type,
-              mechanicsRerunAuthorized: false,
-              normalTurnAllowed: false
-          };
-        if (rerunDecision.authorized !== true) {
-          const error = new Error(`REPAIR did not authorize rerun for outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_RERUN_NOT_AUTHORIZED';
-          error.details = {
-            outcomeId: id,
-            decision: cloneJson(rerunDecision)
-          };
-          throw error;
-        }
-        const snapshotBefore = cloneJson(checkpointSnapshot?.snapshot);
-        const assets = activeRuntimeAssets();
-        const graphRecord = activeMissionGraphRecord(assets, {
-          activeMissionGraphId: snapshotBefore?.mission?.activeMissionGraphId
-        });
-        const replacementTurnId = turnId || idFactory('turn-rerun');
-        const replacementCandidateId = idFactory('rerun-candidate');
-        const replacementInputHash = hashStableJson({
-          replacementInput: String(playerInput || ''),
-          outcomeId: id,
-          replacementTurnId,
-          type
-        });
-        const coreRecallEntries = await coreRecallEntriesForPromptSync();
-        const result = await createProvisionalDirectorTurnRuntimeAsync({
-          campaignState: snapshotBefore,
-          packageData: assets.packageData,
-          graph: graphRecord.graph,
-          projection: assets.projection,
-          crewDataset: assets.crewDataset,
-          shipDataset: assets.shipDataset,
-          graphPath: graphRecord.path || snapshotBefore.mission?.activeMissionGraphPath,
-          projectionPath: assets.projectionPath,
-          turnId: replacementTurnId,
-          playerInput,
-          arbiterPlan,
-          coreRecallEntries,
-          generationRouter,
-          message: { text: playerInput },
-          recentTranscript: []
-        });
-        pendingOutcomeReplacement = {
-          type,
-          outcomeId: id,
-          turnId: ledgerEntry.turnId || null,
-          replacementCandidateId,
-          replacementInputHash,
-          replacedTransactionId: rerunDecision.replacedTransactionId || null,
-          snapshotBefore,
-          coreCheckpointRef: cloneJson(checkpointSnapshot?.coreCheckpointRef || null),
-          snapshotSourceKind: checkpointSnapshot?.sourceKind || null,
-          repairDecision: cloneJson(rerunDecision),
-          previewCreatedAt: timestampFromNow(now)
-        };
-        pendingDirectorTurn = redactRerunPreviewProjection({
-          ...result.turnPacket,
-          replacementForOutcomeId: id,
-          replacementType: type,
-          replacementRepairDecision: cloneJson(rerunDecision)
-        }, {
-          rawInput: playerInput,
-          inputHash: replacementInputHash
-        });
-        lastCommandLogSummarySidecarResult = null;
-        activeScreen = 'campaign';
-        return {
-          turnPacket: cloneJson(pendingDirectorTurn),
-          provisionalOutcome: redactRerunPreviewProjection(result.provisionalOutcome, {
-            rawInput: playerInput,
-            inputHash: replacementInputHash
-          }),
-          commandBearingPrompt: redactRerunPreviewProjection(result.commandBearingPrompt, {
-            rawInput: playerInput,
-            inputHash: replacementInputHash
-          }),
-          narratorPacket: redactRerunPreviewProjection(result.narratorPacket, {
-            rawInput: playerInput,
-            inputHash: replacementInputHash
-          }),
-          commandLogPacket: redactRerunPreviewProjection(result.commandLogPacket, {
-            rawInput: playerInput,
-            inputHash: replacementInputHash
-          }),
-          pendingOutcomeReplacement: cloneJson(pendingOutcomeReplacement),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
 
-    async deleteCommittedOutcome({ outcomeId } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const id = requireNonEmptyString(outcomeId, 'outcomeId');
-        if (typeof runtimeCoreTurnStore?.readProjections === 'function') {
-          try {
-            const projections = await runtimeCoreTurnStore.readProjections();
-            if (isObject(projections?.turnLedger)) {
-              campaignState = {
-                ...campaignState,
-                turnLedger: mergeCoreTurnLedgerProjection(campaignState.turnLedger, projections.turnLedger),
-                directiveRuntimeEvidence: {
-                  ...cloneJson(campaignState.directiveRuntimeEvidence || {}),
-                  coreStoreReadProjections: coreProjectionFreshnessEvidence(projections, campaignState)
-                    || cloneJson(campaignState.directiveRuntimeEvidence?.coreStoreReadProjections || null)
-                }
-              };
-            }
-          } catch {
-            // Delete validation below still fails closed if CORE projection hydration is unavailable.
-          }
-        }
-        const ledgerEntry = (campaignState.turnLedger?.entries || []).find((entry) => entry.outcomeId === id);
-        if (!ledgerEntry) {
-          const error = new Error(`Cannot delete unknown outcome "${id}"`);
-          error.code = 'DIRECTIVE_DELETE_OUTCOME_NOT_FOUND';
-          error.details = { outcomeId: id };
-          throw error;
-        }
-        const transactionId = compactString(ledgerEntry.coreTransactionId || ledgerEntry.transactionId);
-        if (!transactionId) {
-          const error = new Error(`CORE transaction is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_TRANSACTION_REQUIRED';
-          error.details = { outcomeId: id };
-          throw error;
-        }
-        try {
-          if (typeof runtimeCoreTurnStore?.getTransaction !== 'function') {
-            throw new Error('CORE transaction reader is unavailable.');
-          }
-          await runtimeCoreTurnStore.getTransaction(transactionId);
-        } catch (cause) {
-          const error = new Error(`CORE transaction is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_TRANSACTION_REQUIRED';
-          error.details = {
-            outcomeId: id,
-            transactionId,
-            reason: 'core-transaction-not-found'
-          };
-          error.cause = cause;
-          throw error;
-        }
-        const ledgerCoreCheckpointRef = coreCheckpointRefFromLedgerEntry(ledgerEntry);
-        if (!ledgerCoreCheckpointRef) {
-          const error = new Error(`CORE checkpoint ref is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_CORE_CHECKPOINT_REQUIRED';
-          error.details = { outcomeId: id, transactionId };
-          throw error;
-        }
-        const checkpointSnapshot = await loadOutcomeRerunCheckpointSnapshot({
-          storageAdapter,
-          state: campaignState,
-          controller,
-          ledgerEntry
-        });
-        const restoreSnapshot = checkpointSnapshot?.snapshot;
-        if (ledgerEntry.snapshotBeforeRetained !== true || !isObject(restoreSnapshot)) {
-          const error = new Error(`A retained turn save history snapshot or CORE checkpoint artifact is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RETAINED_SNAPSHOT_REQUIRED';
-          error.details = { outcomeId: id, transactionId };
-          throw error;
-        }
-        const restoreRevision = Number(
-          restoreSnapshot?.runtimeTracking?.revision
-          ?? restoreSnapshot?.runtimeTracking?.stateRevision
-          ?? checkpointSnapshot?.sourceRevision
-          ?? ledgerCoreCheckpointRef?.sourceRevision
-        );
-        if (!Number.isFinite(restoreRevision)) {
-          const error = new Error(`REPAIR restore revision is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_RESTORE_REVISION_REQUIRED';
-          error.details = { outcomeId: id, transactionId };
-          throw error;
-        }
-        const repair = ensureChatNativeServices()?.repairRuntime || null;
-        const authorizeDeleteRollback = repair?.evaluateCommittedOutcomeDeleteRollbackActuation
-          || repair?.evaluateRollbackActuation;
-        if (typeof authorizeDeleteRollback !== 'function' || typeof repair?.recordRollbackActuation !== 'function') {
-          const error = new Error(`REPAIR rollback authority is required before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_ROLLBACK_UNAVAILABLE';
-          error.details = { outcomeId: id, transactionId };
-          throw error;
-        }
-        const eventTime = timestampFromNow(now);
-        const recoveryCaseId = `recovery:committed-outcome-delete:${transactionId}:${id}`;
-        const sourceMutation = {
-          kind: 'directive.sourceMutation.v1',
-          sourceKind: 'committedOutcome',
-          eventType: 'committedOutcomeDeleted',
-          transactionId,
-          outcomeId: id,
-          turnId: ledgerEntry.turnId || null,
-          sourceFrameId: ledgerEntry.sourceFrameId || null,
-          preOutcomeRevision: restoreRevision
-        };
-        const repairDecision = {
-          kind: 'directive.repairDecision.v1',
-          eventType: 'committedOutcomeDeleted',
-          sourceKind: 'committedOutcome',
-          action: 'rollbackPending',
-          reason: 'committed-outcome-delete-rollback-required',
-          transactionId,
-          outcomeId: id,
-          turnId: ledgerEntry.turnId || null,
-          sourceFrameId: ledgerEntry.sourceFrameId || null,
-          sourceMutation,
-          allowedActions: ['rollbackToPreOutcomeRevision', 'reviewCommittedOutcomeDelete'],
-          normalTurnAllowed: false,
-          observedAt: eventTime
-        };
-        let coreRecovery = {
-          status: 'planned',
-          transactionId,
-          recoveryCaseId,
-          phase: 'recoveryRequired',
-          reason: 'committedOutcomeDeleted',
-          decision: repairDecision,
-          repairDecision,
-          sourceMutation
-        };
-        const repairProjection = {
-          shouldRestoreRevision: true,
-          restoreRevision,
-          recoveryJournalStatus: 'recoveryRequired'
-        };
-        const rollbackDecision = authorizeDeleteRollback.call(repair, {
-          coreRecovery,
-          decision: repairDecision,
-          ledgerEntry: {
-            coreTransactionId: transactionId,
-            transactionId,
-            outcomeId: id,
-            turnId: ledgerEntry.turnId || null,
-            sourceFrameId: ledgerEntry.sourceFrameId || null,
-            snapshotBeforeRetained: ledgerEntry.snapshotBeforeRetained === true,
-            snapshotSourceKind: checkpointSnapshot?.sourceKind || 'coreStoreV2.checkpoint',
-            coreCheckpointRef: checkpointSnapshot?.coreCheckpointRef || ledgerCoreCheckpointRef
-          },
-          repairProjection,
-          sourceMutation,
-          eventTime
-        });
-        if (rollbackDecision?.authorized !== true) {
-          const error = new Error(`REPAIR did not authorize rollback before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_REPAIR_DELETE_OUTCOME_ROLLBACK_NOT_AUTHORIZED';
-          error.details = {
-            outcomeId: id,
-            transactionId,
-            repairDecision: cloneJson(rollbackDecision || null)
-          };
-          throw error;
-        }
-        const recoveryCase = await runtimeCoreTurnStore.markRecoveryRequired(transactionId, {
-          id: recoveryCaseId,
-          status: 'required',
-          phaseAfter: 'recoveryRequired',
-          reason: 'committedOutcomeDeleted',
-          dependentOutcomeId: id,
-          allowedActions: ['rollbackToPreOutcomeRevision', 'reviewCommittedOutcomeDelete'],
-          repairDecision,
-          sourceMutation,
-          observedAt: eventTime,
-          idempotencyKey: `committed-outcome-delete:${transactionId}:${id}`
-        });
-        if ((recoveryCase?.id || recoveryCaseId) !== recoveryCaseId) {
-          const error = new Error(`CORE recovery id mismatch before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_RECOVERY_MISMATCH';
-          error.details = {
-            outcomeId: id,
-            transactionId,
-            expectedRecoveryCaseId: recoveryCaseId,
-            recoveryCase: cloneJson(recoveryCase || null)
-          };
-          throw error;
-        }
-        coreRecovery = {
-          ...coreRecovery,
-          status: 'recorded',
-          recoveryCaseId: recoveryCase?.id || recoveryCaseId,
-          phase: recoveryCase?.phase || 'recoveryRequired',
-          reason: recoveryCase?.reason || 'committedOutcomeDeleted'
-        };
-        const rollbackActuation = await repair.recordRollbackActuation({
-          coreRecovery,
-          rollbackActuation: rollbackDecision,
-          repairProjection,
-          eventType: 'committedOutcomeDeleted',
-          eventTime
-        });
-        if (rollbackActuation?.status !== 'recorded') {
-          const error = new Error(`CORE rollback actuation was not recorded before deleting committed outcome "${id}".`);
-          error.code = 'DIRECTIVE_CORE_DELETE_OUTCOME_ROLLBACK_RECORD_REQUIRED';
-          error.details = {
-            outcomeId: id,
-            transactionId,
-            rollbackActuation: cloneJson(rollbackActuation || null)
-          };
-          throw error;
-        }
-        campaignState = cloneJson(restoreSnapshot);
-        pendingDirectorTurn = null;
-        pendingOutcomeReplacement = null;
-        lastDirectorTurn = null;
-        lastNarrationResult = null;
-        lastCommandLogSummarySidecarResult = null;
-        activeScreen = 'campaign';
-        return {
-          deletedOutcomeId: id,
-          coreRecovery: cloneJson(coreRecovery),
-          repairDecision: cloneJson(rollbackDecision),
-          rollbackActuation: cloneJson(rollbackActuation),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
 
-    async resolveTerminalOutcomeDecision({
-      interactionId = null,
-      action = 'replayFromCheckpoint',
-      frameId = null,
-      playerArgument = null,
-      resolutionIngressId = null,
-      resolutionHostMessageId = null
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const services = ensureChatNativeServices();
-        if (!services?.endConditionService) {
-          await refreshCampaignView();
-          return {
-            ok: false,
-            reason: 'chat-native-host-unavailable',
-            view: viewEnvelope('mission')
-          };
-        }
-        const result = await services.endConditionService.resolveDecision({
-          interactionId,
-          action,
-          frameId,
-          playerArgument,
-          resolutionIngressId: compactString(resolutionIngressId),
-          resolutionHostMessageId: compactString(resolutionHostMessageId)
-        });
-        if (result?.campaignState) campaignState = result.campaignState;
-        await refreshCampaignView();
-        return { ...cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async postTerminalOutcomeCheckpoint({ interactionId = null } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const services = ensureChatNativeServices();
-        if (!services?.endConditionService) {
-          await refreshCampaignView();
-          return {
-            ok: false,
-            reason: 'chat-native-host-unavailable',
-            view: viewEnvelope('mission')
-          };
-        }
-        const result = await services.endConditionService.postCheckpointDecision({ interactionId });
-        if (result?.campaignState) campaignState = result.campaignState;
-        await refreshCampaignView();
-        return { ...cloneJson(result), view: viewEnvelope('mission') };
-      });
-    },
-
-    async getQuestOpportunities({
-      playerIntent = null,
-      statuses = ['available', 'offered', 'accepted', 'active', 'delegated'],
-      limit = 8
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const availability = refreshQuestAvailability(campaignState, assets.packageData, {
-          now: () => timestampFromNow(now)
-        });
-        const stateForView = availability.state;
-        return {
-          kind: 'directive.openWorldQuestOpportunities',
-          changes: cloneJson(availability.changes),
-          opportunities: rankQuestOpportunities({
-            state: stateForView,
-            packageData: assets.packageData,
-            playerIntent,
-            statuses,
-            limit
-          }),
-          openWorld: openWorldQuestView(stateForView, assets.packageData, { limit }),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async offerOpenWorldQuest({ questId, reason = 'runtime-quest-offered' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(questId, 'questId');
-        const next = offerQuest(campaignState, assets.packageData, id, {
-          now: () => timestampFromNow(now),
-          reason
-        });
-        const tracked = await commitOpenWorldMutation(next, {
-          source: 'openWorldQuest',
-          reason: `Offered open-world quest ${id}.`,
-          summary: 'Open-world quest offered.'
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestOffered', questId: id };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async acceptOpenWorldQuest({ questId, makeForeground = false, reason = 'runtime-quest-accepted' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(questId, 'questId');
-        const next = acceptQuest(campaignState, assets.packageData, id, {
-          now: () => timestampFromNow(now),
-          makeForeground: makeForeground === true,
-          reason
-        });
-        const tracked = await commitOpenWorldMutation(next, {
-          source: 'openWorldQuest',
-          reason: `Accepted open-world quest ${id}.`,
-          summary: 'Open-world quest accepted.'
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestAccepted', questId: id, foreground: makeForeground === true };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async activateOpenWorldQuest({ questId, reason = 'runtime-quest-activated' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(questId, 'questId');
-        const result = chooseForegroundQuest({
-          state: campaignState,
-          packageData: assets.packageData,
-          questId: id,
-          now: () => timestampFromNow(now)
-        });
-        const tracked = await commitOpenWorldMutation(result.state, {
-          source: 'openWorldQuest',
-          reason: reason || `Activated open-world quest ${id}.`,
-          summary: 'Open-world quest activated.',
-          eventId: result.event?.id || null
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestActivated', questId: id, boundary: cloneJson(result.diagnostics || null) };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async pauseOpenWorldQuest({ reason = 'runtime-quest-paused' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const next = pauseForegroundQuest(campaignState, {
-          now: () => timestampFromNow(now),
-          reason
-        });
-        const tracked = await commitOpenWorldMutation(next, {
-          source: 'openWorldQuest',
-          reason: 'Paused foreground open-world quest.',
-          summary: 'Foreground quest paused.'
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestPaused' };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async runDirectiveAssist({
-      action,
-      inputText = '',
-      generationRouter = defaultGenerationRouter,
-      useProvider = true
-    } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        const assets = optionalActiveRuntimeAssets();
-        const assistCampaignState = liveCampaignStateForView() || campaignState;
-        if (assistCampaignState && assistCampaignState !== campaignState) {
-          campaignState = cloneJson(assistCampaignState);
-        }
-        const stateBefore = gameplayStateFingerprint(campaignState);
-        const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
-          roleId: 'directiveAssist'
-        });
-        const assistResult = await runDirectiveAssistService({
-          action,
-          inputText,
-          campaignState,
-          packageData: assets?.packageData || null,
-          crewDataset: assets?.crewDataset || null,
-          missionGraph: optionalActiveMissionGraph(assets),
-          narrationContext,
-          generationRouter,
-          useProvider
-        });
-        const campaignStateMutated = stateBefore !== gameplayStateFingerprint(campaignState);
-        lastDirectiveAssistResult = {
-          ...cloneJson(assistResult),
-          campaignStateMutated,
-          committed: false
-        };
-        return {
-          assistResult: cloneJson(lastDirectiveAssistResult),
-          campaignStateMutated,
-          committed: false,
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope(campaignState ? 'mission' : 'campaign')
-        };
-      });
-    },
-
-    async delegateOpenWorldQuest({ questId, actorIds = [], delegatedTo = [], reason = 'runtime-quest-delegated' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(questId, 'questId');
-        const assignees = Array.isArray(actorIds) && actorIds.length ? actorIds : delegatedTo;
-        const next = delegateQuest(campaignState, assets.packageData, id, assignees, {
-          now: () => timestampFromNow(now),
-          reason
-        });
-        const tracked = await commitOpenWorldMutation(next, {
-          source: 'openWorldQuest',
-          reason: `Delegated open-world quest ${id}.`,
-          summary: 'Open-world quest delegated.'
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestDelegated', questId: id, assignedActorIds: cloneJson(assignees) };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async abandonOpenWorldQuest({ questId, reason = 'runtime-quest-abandoned' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(questId, 'questId');
-        const result = abandonQuest(campaignState, assets.packageData, id, {
-          now: () => timestampFromNow(now),
-          reason
-        });
-        const tracked = await commitOpenWorldMutation(result.state, {
-          source: 'openWorldQuest',
-          reason: `Abandoned open-world quest ${id}.`,
-          summary: 'Open-world quest abandoned.',
-          eventId: result.events?.[0]?.id || null
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldQuestAbandoned', questId: id, events: cloneJson(result.events || []) };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async travelOpenWorld({ destinationId, reason = 'runtime-travel' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const id = requireNonEmptyString(destinationId, 'destinationId');
-        const result = travelBoundary({
-          state: campaignState,
-          packageData: assets.packageData,
-          destinationId: id,
-          now: () => timestampFromNow(now)
-        });
-        const tracked = await commitOpenWorldMutation(result.state, {
-          source: 'openWorldTravel',
-          reason: reason || `Travelled to ${id}.`,
-          summary: 'Open-world travel completed.',
-          eventId: result.event?.id || null
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldTravel', destinationId: id, boundary: cloneJson(result.diagnostics || null) };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async advanceOpenWorldTime({ hours = 1, reason = 'downtime' } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const amount = Math.max(0.25, Number(hours) || 1);
-        const result = timeAdvanceBoundary({
-          state: campaignState,
-          packageData: assets.packageData,
-          hours: amount,
-          reason,
-          now: () => timestampFromNow(now)
-        });
-        const tracked = await commitOpenWorldMutation(result.state, {
-          source: 'openWorldTime',
-          reason: `Advanced open-world time by ${amount} hour(s).`,
-          summary: 'Open-world time advanced.',
-          eventId: result.event?.id || null
-        });
-        lastOpenWorldActionResult = { kind: 'directive.openWorldTimeAdvanced', hours: amount, boundary: cloneJson(result.diagnostics || null) };
-        activeScreen = 'campaign';
-        return { ...cloneJson(lastOpenWorldActionResult), campaignState: cloneJson(tracked), view: viewEnvelope('mission') };
-      });
-    },
-
-    async recoverCommandBearingPoint({ recoveryId = null, track } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const recovery = recoverCommandBearing(campaignState.commandBearing || {}, {
-          recoveryId: recoveryId || idFactory('command-recovery'),
-          track
-        });
-        campaignState = {
-          ...cloneJson(campaignState),
-          commandBearing: recovery.commandBearing
-        };
-        if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
-          currentChatScope = {
-            ...currentChatScope,
-            campaignState: cloneJson(campaignState)
-          };
-        }
-        return {
-          applied: recovery.applied,
-          reason: recovery.reason,
-          commandBearing: cloneJson(campaignState.commandBearing),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('settings')
-        };
-      });
-    },
-
-    async readyCommandBearingPoint({ readiedId = null, track } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const result = readyCommandBearingPoint(campaignState.commandBearing || {}, {
-          readiedId: readiedId || idFactory('command-bearing-readied'),
-          track,
-          saveId: campaignState.campaignChatBinding?.saveId || controller?.activeSaveId || '',
-          chatId: campaignState.campaignChatBinding?.chatId || currentChatScope?.currentChat?.id || '',
-          createdAt: timestampFromNow(now)
-        });
-        if (result.applied) {
-          campaignState = {
-            ...cloneJson(campaignState),
-            commandBearing: result.commandBearing
-          };
-          if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
-            currentChatScope = {
-              ...currentChatScope,
-              campaignState: cloneJson(campaignState)
-            };
-          }
-          await refreshCampaignView();
-        }
-        return {
-          applied: result.applied,
-          reason: result.reason,
-          commandBearing: cloneJson(campaignState.commandBearing || result.commandBearing),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
-
-    async cancelReadiedCommandBearingPoint({ readiedId = null } = {}) {
-      return run(async () => {
-        await ensureInitialized();
-        requireObject(campaignState, 'campaignState');
-        const result = cancelReadiedCommandBearingPoint(campaignState.commandBearing || {}, {
-          readiedId
-        });
-        if (result.applied) {
-          campaignState = {
-            ...cloneJson(campaignState),
-            commandBearing: result.commandBearing
-          };
-          if (sameBoundCampaignState(currentChatScope?.campaignState, campaignState)) {
-            currentChatScope = {
-              ...currentChatScope,
-              campaignState: cloneJson(campaignState)
-            };
-          }
-          await refreshCampaignView();
-        }
-        return {
-          applied: result.applied,
-          reason: result.reason,
-          commandBearing: cloneJson(campaignState.commandBearing || result.commandBearing),
-          campaignState: cloneJson(campaignState),
-          view: viewEnvelope('mission')
-        };
-      });
-    },
 
     async generateNarrationForLastTurn({ provider = defaultNarrationProvider } = {}) {
       return run(async () => {
