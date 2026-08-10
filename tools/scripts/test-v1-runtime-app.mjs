@@ -245,6 +245,29 @@ assert.doesNotMatch(installedPrompt, /trackers, or consequences/);
 assert.doesNotMatch(installedPrompt, /Directive Command Causality|active Directive preset|required Directive preset/);
 
 const activeSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
+const explorationFiles = jsonStorage.snapshot();
+explorationFiles[activeSavePath].state.settings.simulationMode = 'Exploration';
+const explorationChat = createFakeChatAdapter({ chatId: boundCampaignChatId });
+const explorationHost = createFakeDirectiveHost({
+  chatNative: true,
+  chat: explorationChat,
+  storage: createFakeJsonStorage(explorationFiles)
+});
+const explorationApp = createDirectiveRuntimeApp({
+  host: explorationHost,
+  packageLoader: async () => structuredClone(records),
+  idFactory: (prefix) => `${prefix}.exploration`,
+  now: () => '2026-08-10T03:30:00.000Z'
+});
+await explorationApp.initialize();
+await explorationApp.openCampaignChat({ saveId: missionView.activeSaveId });
+const explorationPrompt = explorationHost.prompt.inspect().blocks[0]?.text || '';
+assert.match(explorationPrompt, /"simulationMode": "Exploration"/);
+assert.match(explorationPrompt, /EXPLORATION MODE - STORY-FORWARD/);
+assert.match(explorationPrompt, /strongest causally adjacent nonfatal result/);
+assert.match(explorationPrompt, /do not erase danger, turn failure into success, or make opposition incompetent/i);
+assert.doesNotMatch(explorationPrompt, /COMMAND MODE - FULL SIMULATION/);
+
 const creditedSave = await host.storage.readJson(activeSavePath);
 creditedSave.state.commandBearing = awardV1CommandBearing(creditedSave.state.commandBearing, {
   awardId: 'award.test.command-bearing',
