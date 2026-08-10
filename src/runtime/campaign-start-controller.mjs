@@ -1,340 +1,85 @@
 import {
   acceptCreatorDraftAndCreateFirstSave,
-  autosaveGame,
+  createCampaignCheckpoint,
   discardCharacterCreatorDraft,
-  deleteGame,
-  loadGame,
+  persistActiveCampaign,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
-  saveGame,
   startCharacterCreatorDraft
 } from '../campaign/campaign-start-service.mjs';
+import { createCharacterCreationContext, createCampaignPackageSummary } from '../packages/campaign-package-context.mjs';
+import { ASHES_V1_PACKAGE_ID } from '../packages/bundled-package-registry.mjs';
 import {
-  createCharacterCreationContext,
-  createCampaignPackageSummary
-} from '../packages/campaign-package-context.mjs';
-import {
-  createCampaignPackageDiagnosticsSummary,
-  diagnoseCampaignPackageRecord
-} from '../packages/package-diagnostics.mjs';
-import {
-  cleanMissingStorageIndexRecords,
-  diagnoseDirectiveStorage,
-  getDirectiveStorageIndexes,
-  initializeDirectiveStorage,
-  loadCampaignSaveRecordFromStorage,
-  listCampaignSaves,
-  listCharacterCreatorDrafts,
-  pruneCampaignAutosaves,
-  recoverActiveCampaignSave
-} from '../storage/directive-storage-repository.mjs';
-import {
-  loadActiveCampaignStateV2,
-  persistActiveCampaignStateV2
-} from '../storage/active-save-facade-v2.mjs';
+  createV1CampaignSave,
+  deleteV1CampaignSave,
+  initializeV1Storage,
+  listV1CampaignSaves,
+  listV1CreatorDrafts,
+  loadActiveV1CampaignSave,
+  loadV1CampaignSave,
+  storeV1CampaignSave,
+  verifyV1Storage
+} from '../storage/v1-storage-repository.mjs';
+import { assertV1CampaignState } from './v1-campaign-state.mjs';
 
-const DEFAULT_CREATOR_STEPS = ['identity', 'service', 'personality', 'review'];
+const CREATOR_STEPS = Object.freeze(['identity', 'service', 'personality', 'review']);
 
-function cloneJson(value) {
+function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+function required(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} must be a non-empty string`);
+  return text;
 }
 
-function requireObject(value, label) {
-  if (!isObject(value)) {
-    throw new Error(`${label} must be an object`);
-  }
+function normalizeNow(now) {
+  if (typeof now === 'function') return now;
+  if (typeof now === 'string' && now.trim()) return () => now;
+  return () => new Date().toISOString();
 }
 
-function requireNonEmptyString(value, label) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
+function normalizeIdFactory(idFactory) {
+  if (typeof idFactory === 'function') return idFactory;
+  if (typeof idFactory?.nextId === 'function') return (prefix) => idFactory.nextId(prefix);
+  let sequence = 0;
+  return (prefix) => `${prefix}-${Date.now()}-${++sequence}`;
 }
 
-function normalizeRecordList(value, label) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  if (isObject(value)) {
-    return Object.values(value);
-  }
-  throw new Error(`${label} must be an array or object map`);
-}
-
-function packageIdOf(packageData) {
-  return createCampaignPackageSummary(packageData).packageId;
-}
-
-function projectionPackageId(projection) {
-  return projection?.sourcePackage?.packageId || projection?.manifest?.packageId || null;
-}
-
-function createPackageRegistry({ packages, projections = [] }) {
-  const packageMap = new Map();
-  const projectionMap = new Map();
-
-  for (const packageData of normalizeRecordList(packages, 'packages')) {
-    const id = packageIdOf(packageData);
-    if (packageMap.has(id)) {
-      throw new Error(`Duplicate campaign package id "${id}"`);
-    }
-    packageMap.set(id, cloneJson(packageData));
-  }
-
-  for (const [key, projection] of Object.entries(
-    Array.isArray(projections) ? Object.fromEntries(projections.map((item, index) => [index, item])) : projections
-  )) {
-    if (!projection) continue;
-    requireObject(projection, `projections.${key}`);
-    const id = projectionPackageId(projection) || (typeof key === 'string' ? key : null);
-    if (!id || id === String(Number(id))) {
-      throw new Error(`Projection "${key}" must identify a source package id`);
-    }
-    projectionMap.set(id, cloneJson(projection));
-  }
-
-  return {
-    packageIds: [...packageMap.keys()],
-    packages: [...packageMap.values()].map(cloneJson),
-    diagnosePackages({ campaignState = null } = {}) {
-      const diagnostics = {};
-      for (const [id, packageData] of packageMap.entries()) {
-        diagnostics[id] = diagnoseCampaignPackageRecord({
-          packageData,
-          projection: projectionMap.get(id) || null,
-          campaignState: campaignState?.activeCampaignPackage?.packageId === id ? campaignState : null
-        });
-      }
-      return diagnostics;
-    },
-    getPackage(packageId) {
-      const id = requireNonEmptyString(packageId, 'packageId');
-      const packageData = packageMap.get(id);
-      if (!packageData) {
-        throw new Error(`Unknown campaign package "${id}"`);
-      }
-      return cloneJson(packageData);
-    },
-    getProjection(packageId) {
-      const id = requireNonEmptyString(packageId, 'packageId');
-      const projection = projectionMap.get(id);
-      if (!projection) {
-        throw new Error(`Missing campaign projection for campaign package "${id}"`);
-      }
-      return cloneJson(projection);
-    }
-  };
-}
-
-function completedStepSet(draft) {
-  return new Set(draft?.progress?.completedSteps || []);
-}
-
-function stepStateFor({ id, index, activeStep, completedSteps, firstIncompleteIndex }) {
-  if (id === activeStep) return 'active';
-  if (completedSteps.has(id)) return 'complete';
-  if (index === firstIncompleteIndex) return 'available';
-  return 'locked';
-}
-
-function creatorStepLabels(context) {
-  const configured = context.flow?.steps;
-  if (Array.isArray(configured) && configured.length > 0) {
-    return configured;
-  }
-  return DEFAULT_CREATOR_STEPS.map((id) => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
-}
-
-function createDraftSummary(entry) {
-  return {
-    id: entry.id,
-    status: entry.status,
-    revision: entry.revision,
-    packageId: entry.packageId,
-    packageTitle: entry.packageTitle,
-    campaignId: entry.campaignId,
-    campaignTitle: entry.campaignTitle,
-    shipId: entry.shipId,
-    shipName: entry.shipName,
-    roleLabel: entry.roleLabel,
-    activeStep: entry.activeStep,
-    progress: cloneJson(entry.progress || {}),
-    hasMeaningfulInput: entry.progress?.hasMeaningfulInput === true,
-    updatedAt: entry.updatedAt,
-    acceptedAt: entry.acceptedAt || null
-  };
-}
-
-function createSaveSummary(entry) {
-  return {
-    id: entry.id,
-    name: entry.name,
-    slotType: entry.slotType,
-    revision: entry.revision,
-    updatedAt: entry.updatedAt,
-    current: entry.current === true,
-    metadata: cloneJson(entry.metadata || {})
-  };
-}
-
-function firstByPackage(entries, packageId, getEntryPackageId) {
-  return entries.find((entry) => getEntryPackageId(entry) === packageId) || null;
-}
-
-export function createCampaignViewModel({
-  packages,
-  drafts = [],
-  saves = [],
-  activePackageId = null,
-  activeSaveId = null,
-  packageDiagnostics = {},
-  runtimeAssetSummaries = {}
-}) {
-  const draftSummaries = drafts.map(createDraftSummary);
-  const saveSummaries = saves.map(createSaveSummary);
-  const diagnosticsFor = (packageId) => {
-    if (packageDiagnostics instanceof Map) {
-      return packageDiagnostics.get(packageId) || null;
-    }
-    return packageDiagnostics?.[packageId] || null;
-  };
-  const runtimeAssetsFor = (packageId) => {
-    if (runtimeAssetSummaries instanceof Map) {
-      return runtimeAssetSummaries.get(packageId) || null;
-    }
-    return runtimeAssetSummaries?.[packageId] || null;
-  };
-  const packageCards = normalizeRecordList(packages, 'packages').map((packageData) => {
-    const summary = createCampaignPackageSummary(packageData);
-    const diagnostics = diagnosticsFor(summary.packageId);
-    const runtimeAssets = runtimeAssetsFor(summary.packageId);
-    const packageDrafts = draftSummaries.filter((draft) => draft.packageId === summary.packageId);
-    const resumableDrafts = packageDrafts.filter((draft) => (
-      draft.status === 'inProgress'
-      && draft.progress?.hasMeaningfulInput === true
-    ));
-    const packageSaves = saveSummaries.filter((save) => save.metadata.packageId === summary.packageId);
-    const latestDraft = firstByPackage(resumableDrafts, summary.packageId, (draft) => draft.packageId);
-    const latestSave = firstByPackage(saveSummaries, summary.packageId, (save) => save.metadata.packageId);
-    const canStartCampaign = runtimeAssets
-      ? runtimeAssets.hasProjection === true
-        && runtimeAssets.hasCrewDataset === true
-        && runtimeAssets.hasGuardrails === true
-        && runtimeAssets.hasCharacterCreationContext === true
-        && runtimeAssets.hasPromptMetadata === true
-        && Number(runtimeAssets.missionGraphCount || 0) > 0
-      : true;
-
-    return {
-      ...summary,
-      selected: activePackageId ? activePackageId === summary.packageId : false,
-      source: runtimeAssets?.source || (summary.bundled ? 'bundled' : 'imported'),
-      runtimeAssets: {
-        hasProjection: runtimeAssets ? runtimeAssets.hasProjection === true : true,
-        hasCrewDataset: runtimeAssets ? runtimeAssets.hasCrewDataset === true : false,
-        hasGuardrails: runtimeAssets ? runtimeAssets.hasGuardrails === true : false,
-        hasCharacterCreationContext: runtimeAssets ? runtimeAssets.hasCharacterCreationContext === true : false,
-        hasPromptMetadata: runtimeAssets ? runtimeAssets.hasPromptMetadata === true : false,
-        missionGraphCount: runtimeAssets ? Number(runtimeAssets.missionGraphCount || 0) : 0
-      },
-      counts: {
-        drafts: packageDrafts.length,
-        inProgressDrafts: packageDrafts.filter((draft) => draft.status !== 'accepted').length,
-        saves: packageSaves.length
-      },
-      diagnostics: diagnostics ? createCampaignPackageDiagnosticsSummary(diagnostics) : {
-        status: 'unknown',
-        issueCount: 0,
-        errorCount: 0,
-        warningCount: 0
-      },
-      latestDraft,
-      latestSave,
-      actions: {
-        startNewCampaign: canStartCampaign,
-        resumeDraft: latestDraft ? latestDraft.id : null,
-        loadLatestSave: latestSave ? latestSave.id : null
-      }
-    };
-  });
-
-  return {
-    kind: 'directive.campaignView',
-    activePackageId,
-    activeSaveId,
-    packages: packageCards,
-    drafts: draftSummaries,
-    saves: saveSummaries,
-    emptyState: {
-      noPackages: packageCards.length === 0,
-      noDrafts: draftSummaries.length === 0,
-      noSaves: saveSummaries.length === 0
-    }
-  };
+function packageId(packageData) {
+  return packageData?.manifest?.id || null;
 }
 
 export function createRuntimePackageContext(packageData) {
   const summary = createCampaignPackageSummary(packageData);
   return {
-    ...summary,
     package: {
       id: summary.packageId,
-      slug: summary.slug,
       title: summary.title,
       version: summary.version,
-      status: summary.status,
-      schemaVersion: packageData.manifest?.schemaVersion || 2
+      status: summary.status
     },
-    ship: cloneJson(packageData.ship),
-    crew: cloneJson(packageData.crew),
-    campaign: cloneJson(packageData.storyArcs?.campaign || {}),
-    world: cloneJson(packageData.world || {}),
-    storyArcs: cloneJson(packageData.storyArcs || {}),
-    endConditions: cloneJson(packageData.endConditions || {}),
-    questTemplates: cloneJson(packageData.questTemplates || {}),
-    threadTemplates: cloneJson(packageData.threadTemplates || {}),
-    reactionRules: cloneJson(packageData.reactionRules || {}),
-    directorCards: cloneJson(packageData.directorCards || {}),
-    contextPolicy: cloneJson(packageData.contextPolicy || {}),
-    guardrails: cloneJson(packageData.guardrails || {}),
-    assets: cloneJson(packageData.assets || {})
+    campaign: clone(summary.campaign),
+    ship: clone(summary.ship),
+    crew: clone(packageData.crew || {}),
+    guardrails: clone(packageData.guardrails || {}),
+    assets: clone(packageData.assets || {})
   };
 }
 
-export function createCharacterCreatorViewModel({ packageData, draft }) {
-  requireObject(draft, 'draft');
-  const context = createCharacterCreationContext(packageData);
-  const complete = completedStepSet(draft);
-  const stepConfigs = creatorStepLabels(context);
-  const stepIds = stepConfigs.map((step) => (typeof step === 'string' ? step : step.id));
-  const activeStep = stepIds.includes(draft.activeStep) ? draft.activeStep : stepIds[0] || 'identity';
-  const firstIncompleteIndex = stepIds.findIndex((id) => !complete.has(id));
-  const steps = stepConfigs.map((step, index) => {
-    const id = typeof step === 'string' ? step : step.id;
-    const state = stepStateFor({
-      id,
-      index,
-      activeStep,
-      completedSteps: complete,
-      firstIncompleteIndex: firstIncompleteIndex === -1 ? stepIds.length : firstIncompleteIndex
-    });
-    return {
-      id,
-      label: typeof step === 'string' ? step : step.label,
-      complete: complete.has(id),
-      active: activeStep === id,
-      state,
-      enabled: state !== 'locked'
-    };
-  });
+function stepState(draft, id, index) {
+  const complete = new Set(draft.progress?.completedSteps || []);
+  if (draft.activeStep === id) return 'active';
+  if (complete.has(id)) return 'complete';
+  const firstIncomplete = CREATOR_STEPS.findIndex((step) => !complete.has(step));
+  return index === firstIncomplete ? 'available' : 'locked';
+}
 
+export function createCharacterCreatorViewModel({ packageData, draft }) {
+  const context = createCharacterCreationContext(packageData);
   return {
-    kind: 'directive.characterCreatorView',
+    kind: 'directive.characterCreatorView.v1',
     draft: {
       id: draft.id,
       status: draft.status,
@@ -342,667 +87,271 @@ export function createCharacterCreatorViewModel({ packageData, draft }) {
       createdAt: draft.createdAt,
       updatedAt: draft.updatedAt,
       acceptedAt: draft.acceptedAt || null,
-      activeStep,
-      autosave: cloneJson(draft.autosave || {})
+      activeStep: draft.activeStep,
+      autosave: clone(draft.autosave || {})
     },
-    package: cloneJson(context.package),
-    campaign: cloneJson(context.campaign),
-    ship: cloneJson(context.ship),
+    package: clone(context.package),
+    campaign: clone(context.campaign),
+    ship: clone(context.ship),
     role: {
       mode: context.roleMode,
-      lockedRole: cloneJson(context.lockedRole),
-      selectableRoles: cloneJson(context.selectableRoles || [])
+      lockedRole: clone(context.lockedRole),
+      selectableRoles: clone(context.selectableRoles || [])
     },
-    steps,
-    activeStep,
-    input: cloneJson(draft.input || {}),
-    progress: cloneJson(draft.progress || {}),
-    requiredFields: cloneJson(context.fields.required),
-    optionalFields: cloneJson(context.fields.optional),
-    options: cloneJson(context.options),
-    dossier: cloneJson(context.dossier),
-    generationRules: cloneJson(context.generationRules),
-    continuityGuardrails: cloneJson(context.continuityGuardrails),
+    steps: CREATOR_STEPS.map((id, index) => {
+      const state = stepState(draft, id, index);
+      return {
+        id,
+        label: id[0].toUpperCase() + id.slice(1),
+        complete: state === 'complete',
+        active: state === 'active',
+        state,
+        enabled: state !== 'locked'
+      };
+    }),
+    activeStep: draft.activeStep,
+    input: clone(draft.input || {}),
+    progress: clone(draft.progress || {}),
+    requiredFields: clone(context.fields.required),
+    optionalFields: clone(context.fields.optional),
+    options: clone(context.options),
+    dossier: clone(context.dossier),
+    generationRules: clone(context.generationRules),
+    continuityGuardrails: clone(context.continuityGuardrails),
     canBeginCampaign: draft.progress?.readyForCampaignStart === true && draft.status !== 'accepted'
   };
 }
 
-function createDefaultIdFactory() {
-  let sequence = 0;
-  return (prefix) => {
-    sequence += 1;
-    return `${prefix}-${Date.now()}-${sequence}`;
+function campaignSummaryFromSave(save, activeSaveId, checkpoints) {
+  return {
+    id: save.campaignId,
+    packageId: save.packageId,
+    title: save.campaignTitle || 'Campaign',
+    premise: null,
+    playerName: save.playerName,
+    playerRole: save.playerRole,
+    shipName: save.shipName,
+    chapter: save.chapter,
+    stardate: save.stardate,
+    lastPlayedAt: save.updatedAt,
+    active: save.id === activeSaveId,
+    canOpenChat: Boolean(save.chatId),
+    canSaveGame: save.id === activeSaveId,
+    activeTimeline: { saveId: save.id, chatId: save.chatId },
+    checkpoints: checkpoints.map((checkpoint) => ({
+      id: checkpoint.id,
+      name: checkpoint.name,
+      chapter: checkpoint.chapter,
+      stardate: checkpoint.stardate,
+      createdAt: checkpoint.createdAt,
+      loadable: true
+    }))
   };
 }
 
-function normalizeIdFactory(idFactory) {
-  if (!idFactory) {
-    return createDefaultIdFactory();
-  }
-  if (typeof idFactory === 'function') {
-    return idFactory;
-  }
-  if (typeof idFactory.nextId === 'function') {
-    return (prefix) => idFactory.nextId(prefix);
-  }
-  throw new Error('idFactory must be a function or provide nextId(prefix)');
-}
-
-function normalizeNow(now) {
-  if (typeof now === 'function') {
-    return now;
-  }
-  if (typeof now === 'string' && now.trim() !== '') {
-    return () => now;
-  }
-  return () => new Date().toISOString();
+export function createCampaignViewModel({ campaignLibrary, drafts, saves, activeSaveId }) {
+  const ashesDrafts = drafts.filter((draft) => draft.packageId === ASHES_V1_PACKAGE_ID && draft.status === 'inProgress');
+  const packages = campaignLibrary.map((card) => ({
+    ...clone(card),
+    actions: card.packageId === ASHES_V1_PACKAGE_ID
+      ? {
+          startNewCampaign: true,
+          resumeDraft: ashesDrafts[0]?.id || null
+        }
+      : { startNewCampaign: false, resumeDraft: null }
+  }));
+  const activeTimelines = saves.filter((save) => save.slotType === 'active' && save.packageId === ASHES_V1_PACKAGE_ID);
+  const campaigns = activeTimelines.map((save) => campaignSummaryFromSave(
+    save,
+    activeSaveId,
+    saves.filter((checkpoint) => checkpoint.slotType === 'checkpoint'
+      && checkpoint.campaignId === save.campaignId
+      && checkpoint.parentSaveId === save.id)
+  ));
+  return {
+    kind: 'directive.campaignView.v1',
+    packages,
+    campaigns,
+    drafts: clone(drafts),
+    saves: clone(saves),
+    activeSaveId
+  };
 }
 
 export function createCampaignStartController({
   adapter,
   packages,
-  projections = [],
-  runtimeAssetSummaries = {},
+  campaignLibrary = [],
   idFactory = null,
   now = null
 }) {
-  requireObject(adapter, 'adapter');
-  const registry = createPackageRegistry({ packages, projections });
+  if (!adapter) throw new Error('adapter is required');
+  const packageRecords = Array.isArray(packages) ? packages : Object.values(packages || {});
+  if (packageRecords.length !== 1 || packageId(packageRecords[0]) !== ASHES_V1_PACKAGE_ID) {
+    throw new Error('Directive V1 runtime accepts exactly one playable package: Ashes of Peace.');
+  }
+  const packageData = clone(packageRecords[0]);
   const nextId = normalizeIdFactory(idFactory);
   const currentTime = normalizeNow(now);
-  let activePackageId = registry.packageIds[0] || null;
-  let activeSaveId = null;
-  let activeCampaignState = null;
-  let storageDiagnostics = null;
+  let activeSave = null;
+  let activeState = null;
+  let activeDraftId = null;
 
-  async function loadLists() {
-    await initializeDirectiveStorage(adapter, { now: currentTime() });
-    const [drafts, saves] = await Promise.all([
-      listCharacterCreatorDrafts(adapter),
-      listCampaignSaves(adapter)
-    ]);
-    const currentSave = saves.find((save) => save.current === true);
-    activeSaveId = currentSave?.id || activeSaveId;
-    return { drafts, saves };
-  }
-
-  function packageForDraft(draft) {
-    return registry.getPackage(draft.package?.id);
-  }
-
-  function packageForState(campaignState, fallbackPackageId = null) {
-    const packageId = fallbackPackageId
-      || campaignState?.activeCampaignPackage?.packageId
-      || activePackageId;
-    return registry.getPackage(packageId);
-  }
-
-  function saveIndexEntryHasV2Authority(entry = null) {
-    return entry?.runtimeStorageFormat === 'v2'
-      || entry?.storageFormat === 'v2'
-      || entry?.payloadKind === 'directive.saveManifest.v2'
-      || Boolean(entry?.v2ManifestRef?.logicalKey)
-      || Boolean(entry?.manifestRef?.logicalKey);
-  }
-
-  async function shouldPersistManualSaveAsV2(saveId) {
-    const indexes = await getDirectiveStorageIndexes(adapter);
-    return saveIndexEntryHasV2Authority(indexes.saveIndex?.saves?.[saveId]);
-  }
-
-  async function canDeferHotRuntimeSaveIndexUpdate(saveId) {
-    const indexes = await getDirectiveStorageIndexes(adapter);
-    const entry = indexes.saveIndex?.saves?.[saveId] || null;
-    return Boolean(
-      saveIndexEntryHasV2Authority(entry)
-      && (
-        entry?.metadata?.campaignChatBinding?.chatId
-        || entry?.metadata?.chatId
-        || entry?.chatId
-      )
-    );
-  }
-
-  async function persistRuntimeCampaignStateForSaveRecord({
-    saveRecord,
-    campaignState,
-    packageId = null,
-    summary = null,
-    reason = 'runtimePersist',
-    markActive = true,
-    createIndexEntry = false,
-    updateSaveIndex = true,
-    name = null,
-    slotType = 'manual',
-    now: savedAt = null
-  } = {}) {
-    requireObject(saveRecord, 'saveRecord');
-    requireObject(campaignState, 'campaignState');
-    const packageData = packageForState(campaignState, packageId);
-    const result = await persistActiveCampaignStateV2(adapter, {
-      saveRecord,
-      campaignState,
-      packageData,
-      summary,
-      reason,
-      current: markActive !== false ? saveRecord.current === true : false,
-      createIndexEntry,
-      updateSaveIndex,
-      name,
-      slotType,
-      now: savedAt || currentTime()
-    });
-    if (markActive !== false) {
-      activeSaveId = result.saveId;
-      activePackageId = result.saveIndexEntry?.metadata?.packageId || activePackageId;
-      activeCampaignState = cloneJson(campaignState);
-    }
-    return cloneJson(result);
-  }
-
-  async function persistRuntimeCampaignStateForSave({
-    saveId,
-    ...options
-  } = {}) {
-    const id = requireNonEmptyString(saveId, 'saveId');
-    const reason = options.reason || 'runtimePersist';
-    const hotRuntimePersist = options.markActive === false
-      && /^runtimePersist(?::|$)/.test(String(reason || ''));
-    const updateSaveIndex = options.updateSaveIndex ?? (
-      hotRuntimePersist
-        ? !(await canDeferHotRuntimeSaveIndexUpdate(id))
-        : true
-    );
-    const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
-    return persistRuntimeCampaignStateForSaveRecord({
-      saveRecord,
-      ...options,
-      updateSaveIndex
-    });
+  async function refreshActive() {
+    activeSave = await loadActiveV1CampaignSave(adapter);
+    activeState = activeSave ? assertV1CampaignState(clone(activeSave.state)) : null;
+    return activeSave;
   }
 
   return {
-    get packageIds() {
-      return [...registry.packageIds];
-    },
-
-    get activePackageId() {
-      return activePackageId;
-    },
-
-    get activeSaveId() {
-      return activeSaveId;
-    },
-
-    get activeCampaignState() {
-      return cloneJson(activeCampaignState);
-    },
-
-    get storageDiagnostics() {
-      return cloneJson(storageDiagnostics);
-    },
-
-    createSaveId(prefix = 'save') {
-      return nextId(prefix);
-    },
-
-    getPackageContext({ packageId = activePackageId } = {}) {
-      return createRuntimePackageContext(registry.getPackage(packageId));
-    },
-
-    async initialize({ recoverActiveSave = true } = {}) {
-      await initializeDirectiveStorage(adapter, { now: currentTime() });
-      if (recoverActiveSave) {
-        const recovery = await recoverActiveCampaignSave(adapter, { now: currentTime() });
-        if (recovery.campaignState) {
-          activeCampaignState = cloneJson(recovery.campaignState);
-          activeSaveId = recovery.activeSaveId;
-          activePackageId = recovery.campaignState?.activeCampaignPackage?.packageId || activePackageId;
-        }
-      }
-      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
-      return this.getCampaignView();
-    },
-
-    async diagnoseStorage() {
-      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
-      return cloneJson(storageDiagnostics);
-    },
-
-    async verifyActiveSave({ saveId = activeSaveId } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const checkedAt = currentTime();
-      let saveRecord = null;
-      let campaignState = null;
-      const issues = [];
-      try {
-        saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
-        campaignState = await loadGame({
-          adapter,
-          saveId: id,
-          now: checkedAt,
-          markActive: false
-        });
-      } catch (error) {
-        issues.push({
-          severity: 'error',
-          code: error?.code || 'active-save-unreadable',
-          message: error?.message || String(error),
-          ownerId: id,
-          kind: 'directive.campaignSave'
-        });
-      }
-      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
+    async initialize() {
+      await initializeV1Storage(adapter, { now: currentTime() });
+      await refreshActive();
       return {
-        kind: 'directive.activeSaveVerification',
-        checkedAt,
-        saveId: id,
-        ok: issues.length === 0 && isObject(campaignState),
-        status: issues.length === 0 ? 'ok' : 'error',
-        revision: saveRecord?.revision ?? campaignState?.runtimeTracking?.revision ?? null,
-        updatedAt: saveRecord?.updatedAt || saveRecord?.metadata?.lastUpdatedAt || null,
-        campaignId: saveRecord?.metadata?.campaignId || campaignState?.campaign?.id || null,
-        activeMissionId: saveRecord?.metadata?.activeMissionId || campaignState?.mission?.activeMissionId || null,
-        storageFormat: saveRecord?.kind === 'directive.saveManifest.v2' ? 'v2' : saveRecord?.runtimeStorageFormat || null,
-        issues
+        recovered: Boolean(activeSave),
+        activeSave: clone(activeSave),
+        campaignState: clone(activeState)
       };
     },
 
-    async exportActiveSave({ saveId = activeSaveId } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const exportedAt = currentTime();
-      const saveRecord = await loadCampaignSaveRecordFromStorage(adapter, id);
-      const campaignState = await loadGame({
-        adapter,
-        saveId: id,
-        markActive: false,
-        now: exportedAt
-      });
-      return {
-        kind: 'directive.activeSaveExport',
-        exportedAt,
-        saveId: id,
-        fileName: `directive-save-${id}.json`,
-        saveRecord: cloneJson(saveRecord),
-        campaignState: cloneJson(campaignState)
-      };
+    getActiveCampaignState: () => clone(activeState),
+    getActiveSave: () => clone(activeSave),
+    getActivePackage: () => clone(packageData),
+    getActivePackageContext: () => createRuntimePackageContext(packageData),
+
+    async getCampaignView() {
+      const [drafts, saves, index] = await Promise.all([
+        listV1CreatorDrafts(adapter),
+        listV1CampaignSaves(adapter),
+        initializeV1Storage(adapter, { now: currentTime() })
+      ]);
+      return createCampaignViewModel({ campaignLibrary, drafts, saves, activeSaveId: index.activeSaveId });
     },
 
-    async cleanMissingStorageRecords() {
-      const cleanup = await cleanMissingStorageIndexRecords(adapter, { now: currentTime() });
-      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
-      return cloneJson(cleanup);
-    },
-
-    async getCampaignView({ packageId = activePackageId } = {}) {
-      if (packageId) {
-        activePackageId = requireNonEmptyString(packageId, 'packageId');
-      }
-      const { drafts, saves } = await loadLists();
-      return createCampaignViewModel({
-        packages: registry.packages,
-        drafts,
-        saves,
-        activePackageId,
-        activeSaveId,
-        packageDiagnostics: registry.diagnosePackages({ campaignState: activeCampaignState }),
-        runtimeAssetSummaries
-      });
-    },
-
-    async startCreatorDraft({
-      packageId = activePackageId,
-      draftId = nextId('creator-draft'),
-      activeStep = 'identity'
-    } = {}) {
-      activePackageId = requireNonEmptyString(packageId, 'packageId');
-      const assetSummary = runtimeAssetSummaries instanceof Map
-        ? runtimeAssetSummaries.get(activePackageId)
-        : runtimeAssetSummaries?.[activePackageId];
-      if (assetSummary && (
-        assetSummary.hasProjection !== true
-        || assetSummary.hasCrewDataset !== true
-        || assetSummary.hasGuardrails !== true
-        || assetSummary.hasCharacterCreationContext !== true
-        || assetSummary.hasPromptMetadata !== true
-        || Number(assetSummary.missionGraphCount || 0) <= 0
-      )) {
-        throw new Error(`Campaign package "${activePackageId}" is missing projection, crew, guardrail, Character Creator, prompt, or mission assets required to start a campaign.`);
-      }
-      const packageData = registry.getPackage(activePackageId);
+    async startCreatorDraft({ packageId: requestedPackageId = ASHES_V1_PACKAGE_ID } = {}) {
+      if (requestedPackageId !== ASHES_V1_PACKAGE_ID) throw new Error('Only Ashes of Peace is playable in Directive V1.');
       const draft = await startCharacterCreatorDraft({
         adapter,
         packageData,
-        draftId,
-        activeStep,
+        draftId: nextId('draft'),
         now: currentTime()
       });
-      return {
-        draft: cloneJson(draft),
-        view: createCharacterCreatorViewModel({ packageData, draft })
-      };
-    },
-
-    async saveCreatorDraft({
-      draftId,
-      patch,
-      reason = 'manualSave'
-    }) {
-      const draft = await saveCharacterCreatorDraftProgress({
-        adapter,
-        draftId,
-        patch,
-        reason,
-        now: currentTime()
-      });
-      activePackageId = draft.package?.id || activePackageId;
-      return {
-        draft: cloneJson(draft),
-        view: createCharacterCreatorViewModel({
-          packageData: packageForDraft(draft),
-          draft
-        })
-      };
+      activeDraftId = draft.id;
+      return { draft, view: createCharacterCreatorViewModel({ packageData, draft }) };
     },
 
     async resumeCreatorDraft({ draftId }) {
       const draft = await resumeCharacterCreatorDraft({ adapter, draftId });
-      activePackageId = draft.package?.id || activePackageId;
-      return {
-        draft: cloneJson(draft),
-        view: createCharacterCreatorViewModel({
-          packageData: packageForDraft(draft),
-          draft
-        })
-      };
+      if (draft.package?.id !== ASHES_V1_PACKAGE_ID) throw new Error('Directive V1 rejects this Character Creator draft.');
+      activeDraftId = draft.id;
+      return { draft, view: createCharacterCreatorViewModel({ packageData, draft }) };
     },
 
-    async discardCreatorDraft({ draftId }) {
-      return discardCharacterCreatorDraft({
+    async saveCreatorDraft({ draftId = activeDraftId, patch, reason = 'manualSave' }) {
+      const draft = await saveCharacterCreatorDraftProgress({
         adapter,
-        draftId: requireNonEmptyString(draftId, 'draftId'),
+        draftId: required(draftId, 'draftId'),
+        patch,
+        reason,
         now: currentTime()
       });
+      activeDraftId = draft.id;
+      return { draft, view: createCharacterCreatorViewModel({ packageData, draft }) };
     },
 
-    async deleteCampaignSave({ saveId } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const wasActiveSave = activeSaveId === id;
-      const result = await deleteGame({
+    async discardCreatorDraft({ draftId = activeDraftId } = {}) {
+      const result = await discardCharacterCreatorDraft({
         adapter,
-        saveId: id,
+        draftId: required(draftId, 'draftId'),
         now: currentTime()
       });
-      if (wasActiveSave || result.deletedActive === true) {
-        activeSaveId = null;
-        activeCampaignState = null;
-      }
-      storageDiagnostics = await diagnoseDirectiveStorage(adapter, { now: currentTime() });
-      return cloneJson({
-        ...result,
-        deletedActive: wasActiveSave || result.deletedActive === true
-      });
+      if (activeDraftId === draftId) activeDraftId = null;
+      return result;
     },
 
     async acceptCreatorDraftAndStartCampaign({
-      draftId,
-      packageId = activePackageId,
-      campaignId = nextId('campaign'),
-      saveId = nextId('save'),
+      draftId = activeDraftId,
       simulationMode = 'Command'
-    }) {
-      activePackageId = requireNonEmptyString(packageId, 'packageId');
-      const packageData = registry.getPackage(activePackageId);
+    } = {}) {
       const result = await acceptCreatorDraftAndCreateFirstSave({
         adapter,
         packageData,
-        draftId,
-        campaignId,
-        saveId,
+        draftId: required(draftId, 'draftId'),
+        campaignId: nextId('campaign'),
+        saveId: nextId('save'),
         simulationMode,
         now: currentTime()
       });
-      activeCampaignState = cloneJson(result.campaignState);
-      activeSaveId = result.firstSave.id;
-      return cloneJson(result);
+      activeSave = clone(result.firstSave);
+      activeState = clone(result.campaignState);
+      activeDraftId = null;
+      return clone(result);
     },
 
-    async saveCurrentGame({
-      saveId = activeSaveId,
-      campaignState = activeCampaignState,
-      packageId = null,
-      summary = null,
-      forceCheckpoint = false
-    } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      requireObject(campaignState, 'campaignState');
-      if (!forceCheckpoint && await shouldPersistManualSaveAsV2(id)) {
-        return persistRuntimeCampaignStateForSave({
-          saveId: id,
-          campaignState,
-          packageId,
-          summary,
-          reason: 'manualSave'
-        });
-      }
-      const packageData = packageForState(campaignState, packageId);
-      const save = await saveGame({
+    async persistActiveCampaign({ campaignState = activeState, saveId = activeSave?.id, name = null } = {}) {
+      const save = await persistActiveCampaign({
         adapter,
-        packageData,
-        saveId: id,
-        campaignState,
-        summary,
+        saveId: required(saveId, 'saveId'),
+        campaignState: assertV1CampaignState(campaignState),
+        name,
         now: currentTime()
       });
-      activeSaveId = save.id;
-      activePackageId = save.metadata?.packageId || activePackageId;
-      activeCampaignState = cloneJson(campaignState);
-      return cloneJson(save);
+      activeSave = clone(save);
+      activeState = clone(save.state);
+      return clone(save);
     },
 
-    async createCheckpointTimeline({
-      saveId = nextId('save'),
-      name = null,
-      campaignState,
-      checkpointId
-    } = {}) {
-      requireObject(campaignState, 'campaignState');
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const sourceCheckpointId = requireNonEmptyString(checkpointId, 'checkpointId');
-      const savedAt = currentTime();
-      const timelineName = String(name || '').trim()
-        || `${campaignState?.campaign?.title || campaignState?.player?.name || 'Directive'} Continuation`;
-      return persistRuntimeCampaignStateForSaveRecord({
-        saveRecord: {
-          kind: 'directive.saveManifest.v2',
-          id,
-          saveId: id,
-          name: timelineName,
-          current: true,
-          branchId: id,
-          metadata: {
-            campaignId: campaignState?.campaign?.id || null,
-            loadedFromCheckpointId: sourceCheckpointId
-          }
-        },
-        campaignState,
-        summary: `Loaded immutable checkpoint ${sourceCheckpointId}.`,
-        reason: 'checkpointLoad',
-        markActive: true,
-        createIndexEntry: true,
-        updateSaveIndex: true,
-        name: timelineName,
-        slotType: 'active',
-        now: savedAt
-      });
-    },
-
-    async createCheckpointAuthoritySnapshot({
-      checkpointId,
-      campaignState = activeCampaignState
-    } = {}) {
-      requireObject(campaignState, 'campaignState');
-      const id = requireNonEmptyString(checkpointId, 'checkpointId');
-      const authoritySaveId = `checkpoint-authority-${id}`;
-      const savedAt = currentTime();
-      const result = await persistRuntimeCampaignStateForSaveRecord({
-        saveRecord: {
-          kind: 'directive.saveManifest.v2',
-          id: authoritySaveId,
-          saveId: authoritySaveId,
-          name: authoritySaveId,
-          current: false,
-          branchId: authoritySaveId,
-          metadata: {
-            campaignId: campaignState?.campaign?.id || null,
-            checkpointAuthority: true,
-            checkpointId: id
-          }
-        },
-        campaignState,
-        summary: `Immutable authority snapshot for checkpoint ${id}.`,
-        reason: 'manualCheckpointAuthority',
-        markActive: false,
-        createIndexEntry: false,
-        updateSaveIndex: false,
-        name: authoritySaveId,
-        slotType: 'checkpointAuthority',
-        now: savedAt
-      });
-      return {
-        kind: 'directive.manualCheckpointCoreAuthority.v1',
-        campaignId: campaignState?.campaign?.id || null,
-        saveId: authoritySaveId,
-        checkpointId: id,
-        createdAt: savedAt,
-        saveManifestRef: cloneJson(result.saveManifestRef || null)
-      };
-    },
-
-    async loadCheckpointAuthorityState({
-      campaignId,
-      authoritySaveId
-    } = {}) {
-      const campaign = requireNonEmptyString(campaignId, 'campaignId');
-      const saveId = requireNonEmptyString(authoritySaveId, 'authoritySaveId');
-      const loaded = await loadActiveCampaignStateV2(adapter, {
-        saveRecord: {
-          kind: 'directive.saveManifest.v2',
-          id: saveId,
-          saveId,
-          metadata: { campaignId: campaign }
-        }
-      });
-      if (loaded?.found !== true || !loaded?.campaignState) {
-        throw new Error(`Checkpoint authority state "${saveId}" is unavailable.`);
-      }
-      return cloneJson(loaded.campaignState);
-    },
-
-    async persistRuntimeCampaignState({
-      saveId = activeSaveId,
-      campaignState = activeCampaignState,
-      packageId = null,
-      summary = null,
-      reason = 'runtimePersist',
-      markActive = true,
-      updateSaveIndex = undefined
-    } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      return persistRuntimeCampaignStateForSave({
-        saveId: id,
-        campaignState,
-        packageId,
-        summary,
-        reason,
-        markActive,
-        updateSaveIndex
-      });
-    },
-
-    async autosaveCurrentGame({
-      saveId = nextId('autosave'),
-      campaignState = activeCampaignState,
-      packageId = null,
-      summary = null,
-      keep = 3
-    } = {}) {
-      requireObject(campaignState, 'campaignState');
-      if (activeSaveId && await shouldPersistManualSaveAsV2(activeSaveId)) {
-        const savedAt = currentTime();
-        const save = await persistRuntimeCampaignStateForSaveRecord({
-          saveRecord: {
-            kind: 'directive.saveManifest.v2',
-            id: requireNonEmptyString(saveId, 'saveId'),
-            name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
-            current: false,
-            branchId: activeSaveId,
-            metadata: {
-              campaignId: campaignState?.campaign?.id || null
-            }
-          },
-          campaignState,
-          packageId,
-          summary,
-          reason: 'autosave',
-          markActive: false,
-          createIndexEntry: true,
-          name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
-          slotType: 'autosave',
-          now: savedAt
-        });
-        const prune = await pruneCampaignAutosaves(adapter, {
-          campaignId: campaignState.campaign?.id,
-          keep,
-          now: savedAt
-        });
-        activePackageId = save.saveIndexEntry?.metadata?.packageId || activePackageId;
-        activeCampaignState = cloneJson(campaignState);
-        return {
-          save: cloneJson(save),
-          prune: cloneJson(prune)
-        };
-      }
-      const packageData = packageForState(campaignState, packageId);
-      const result = await autosaveGame({
+    async createCheckpoint({ name, campaignState = activeState } = {}) {
+      if (!activeSave) throw new Error('No active V1 campaign is available.');
+      return createCampaignCheckpoint({
         adapter,
-        packageData,
-        saveId,
-        campaignState,
-        summary,
-        keep,
+        checkpointId: nextId('checkpoint'),
+        activeSaveId: activeSave.id,
+        campaignState: assertV1CampaignState(campaignState),
+        name: required(name, 'name'),
         now: currentTime()
       });
-      activePackageId = result.save.metadata?.packageId || activePackageId;
-      activeCampaignState = cloneJson(campaignState);
-      return cloneJson(result);
     },
 
-    async loadGame({ saveId, markActive = true } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const campaignState = await loadGame({
-        adapter,
-        saveId: id,
-        markActive,
-        now: currentTime()
-      });
-      activeCampaignState = cloneJson(campaignState);
-      activePackageId = campaignState?.activeCampaignPackage?.packageId || activePackageId;
-      if (markActive !== false) {
-        activeSaveId = id;
+    async loadCheckpoint({ checkpointId } = {}) {
+      const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
+      if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
+      const timelineId = nextId('save');
+      const state = clone(checkpoint.state);
+      if (state.campaignChatBinding) {
+        state.campaignChatBinding.saveId = timelineId;
+        state.campaignChatBinding.chatId = null;
+        state.campaignChatBinding.status = 'unbound';
       }
-      return cloneJson(campaignState);
+      const timeline = createV1CampaignSave({
+        id: timelineId,
+        name: `${checkpoint.name} - continuation`,
+        state,
+        createdAt: currentTime()
+      });
+      await storeV1CampaignSave(adapter, timeline);
+      activeSave = clone(timeline);
+      activeState = clone(state);
+      return clone(timeline);
     },
 
-    async readGameState({ saveId } = {}) {
-      const id = requireNonEmptyString(saveId, 'saveId');
-      const campaignState = await loadGame({
-        adapter,
-        saveId: id,
-        markActive: false,
+    async deleteSave({ checkpointId = null, saveId = null } = {}) {
+      const id = required(checkpointId || saveId, 'saveId');
+      if (id === activeSave?.id) throw new Error('The active V1 timeline cannot be deleted while it is open.');
+      return deleteV1CampaignSave(adapter, id, { now: currentTime() });
+    },
+
+    async loadGame({ saveId } = {}) {
+      const save = await loadV1CampaignSave(adapter, required(saveId, 'saveId'), {
+        makeActive: true,
         now: currentTime()
       });
-      return cloneJson(campaignState || null);
-    }
+      if (save.slotType !== 'active') throw new Error('Load checkpoints through loadCheckpoint.');
+      activeSave = clone(save);
+      activeState = clone(save.state);
+      return clone(save.state);
+    },
+
+    verifyStorage: () => verifyV1Storage(adapter)
   };
 }

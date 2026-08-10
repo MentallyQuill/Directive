@@ -4,30 +4,27 @@ import {
   saveCharacterCreatorDraftRecord
 } from '../creators/character-creator-draft.mjs';
 import { createInitialCampaignStateFromCreatorReview } from './campaign-start.mjs';
-import { createCampaignSaveMetadata } from '../storage/save-records.mjs';
 import {
-  loadCampaignSaveFromStorage,
-  loadCharacterCreatorDraftFromStorage,
-  deleteCampaignSaveFromStorage,
-  deleteCharacterCreatorDraftFromStorage,
-  pruneCampaignAutosaves,
-  storeCharacterCreatorDraft
-} from '../storage/directive-storage-repository.mjs';
-import { persistActiveCampaignStateV2 } from '../storage/active-save-facade-v2.mjs';
+  createV1CampaignSave,
+  deleteV1CampaignSave,
+  deleteV1CreatorDraft,
+  loadV1CampaignSave,
+  loadV1CreatorDraft,
+  storeV1CampaignSave,
+  storeV1CreatorDraft
+} from '../storage/v1-storage-repository.mjs';
+import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
 
-function requireNonEmptyString(value, label) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
+function required(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} must be a non-empty string`);
+  return text;
 }
 
-function isoNow() {
-  return new Date().toISOString();
-}
-
-function timestamp(options = {}) {
-  return options.now || options.savedAt || isoNow();
+function stamp(value) {
+  const text = required(value || new Date().toISOString(), 'timestamp');
+  if (Number.isNaN(Date.parse(text))) throw new Error('timestamp must be an ISO timestamp');
+  return text;
 }
 
 export async function startCharacterCreatorDraft({
@@ -37,15 +34,13 @@ export async function startCharacterCreatorDraft({
   now,
   activeStep = 'identity'
 }) {
-  const createdAt = timestamp({ now });
   const draft = createCharacterCreatorDraftRecord({
     packageData,
     draftId,
-    createdAt,
+    createdAt: stamp(now),
     activeStep
   });
-  await storeCharacterCreatorDraft(adapter, draft);
-  return draft;
+  return storeV1CreatorDraft(adapter, draft);
 }
 
 export async function saveCharacterCreatorDraftProgress({
@@ -55,29 +50,24 @@ export async function saveCharacterCreatorDraftProgress({
   now,
   reason = 'manualSave'
 }) {
-  const existing = await loadCharacterCreatorDraftFromStorage(adapter, draftId);
-  const draft = saveCharacterCreatorDraftRecord(existing, patch, {
-    savedAt: timestamp({ now }),
+  const current = await loadV1CreatorDraft(adapter, draftId);
+  const draft = saveCharacterCreatorDraftRecord(current, patch, {
+    savedAt: stamp(now),
     reason
   });
-  await storeCharacterCreatorDraft(adapter, draft);
-  return draft;
+  return storeV1CreatorDraft(adapter, draft);
 }
 
-export async function resumeCharacterCreatorDraft({ adapter, draftId }) {
-  return loadCharacterCreatorDraftFromStorage(adapter, draftId);
+export function resumeCharacterCreatorDraft({ adapter, draftId }) {
+  return loadV1CreatorDraft(adapter, draftId);
 }
 
-export async function discardCharacterCreatorDraft({ adapter, draftId, now }) {
-  return deleteCharacterCreatorDraftFromStorage(adapter, draftId, {
-    now: timestamp({ now })
-  });
+export function discardCharacterCreatorDraft({ adapter, draftId, now }) {
+  return deleteV1CreatorDraft(adapter, draftId, { now: stamp(now) });
 }
 
-export async function deleteGame({ adapter, saveId, now }) {
-  return deleteCampaignSaveFromStorage(adapter, saveId, {
-    now: timestamp({ now })
-  });
+export function deleteGame({ adapter, saveId, now }) {
+  return deleteV1CampaignSave(adapter, saveId, { now: stamp(now) });
 }
 
 export async function acceptCreatorDraftAndCreateFirstSave({
@@ -89,141 +79,79 @@ export async function acceptCreatorDraftAndCreateFirstSave({
   now,
   simulationMode = 'Command'
 }) {
-  const acceptedAt = timestamp({ now });
-  const draft = await loadCharacterCreatorDraftFromStorage(adapter, draftId);
+  const acceptedAt = stamp(now);
+  const draft = await loadV1CreatorDraft(adapter, draftId);
   const acceptedDraft = acceptCharacterCreatorDraftRecord(draft, { acceptedAt });
-  await storeCharacterCreatorDraft(adapter, acceptedDraft);
+  await storeV1CreatorDraft(adapter, acceptedDraft);
 
   const campaignState = createInitialCampaignStateFromCreatorReview({
     packageData,
     creatorReview: acceptedDraft.acceptedReview,
-    campaignId: requireNonEmptyString(campaignId, 'campaignId'),
+    campaignId: required(campaignId, 'campaignId'),
     createdAt: acceptedAt,
     simulationMode,
     creatorDraftId: acceptedDraft.id
   });
-
-  const firstPersist = await persistActiveCampaignStateV2(adapter, {
-    saveRecord: {
-      kind: 'directive.saveManifest.v2',
-      id: requireNonEmptyString(saveId, 'saveId'),
-      saveId,
-      name: `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
-      current: true,
-      branchId: saveId,
-      metadata: createCampaignSaveMetadata({
-        campaignState,
-        packageData,
-        savedAt: acceptedAt
-      })
-    },
-    campaignState,
-    packageData,
-    summary: null,
-    reason: 'first-save-runtime-v2',
-    current: true,
-    createIndexEntry: true,
-    updateSaveIndex: true,
+  assertV1CampaignState(campaignState);
+  const firstSave = await storeV1CampaignSave(adapter, createV1CampaignSave({
+    id: required(saveId, 'saveId'),
     name: `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
     slotType: 'active',
-    now: acceptedAt
-  });
-
-  return {
-    acceptedDraft,
-    campaignState,
-    firstSave: firstPersist.saveIndexEntry
-  };
+    state: campaignState,
+    createdAt: acceptedAt
+  }));
+  return { acceptedDraft, campaignState, firstSave };
 }
 
-export async function saveGame({
+export async function persistActiveCampaign({
   adapter,
-  packageData,
   saveId,
   campaignState,
   now,
-  summary = null
+  name = null
 }) {
-  const savedAt = timestamp({ now });
-  return persistActiveCampaignStateV2(adapter, {
-    saveRecord: {
-      kind: 'directive.saveManifest.v2',
-      id: requireNonEmptyString(saveId, 'saveId'),
-      saveId,
-      current: true,
-      branchId: saveId,
-      metadata: createCampaignSaveMetadata({
-        campaignState,
-        packageData,
-        savedAt,
-        summary
-      })
-    },
-    campaignState,
-    packageData,
-    summary,
-    reason: 'manual-save-runtime-v2',
-    current: true,
-    updateSaveIndex: true,
-    now: savedAt
-  });
+  assertV1CampaignState(campaignState);
+  const savedAt = stamp(now);
+  let createdAt = savedAt;
+  let savedName = name;
+  try {
+    const existing = await loadV1CampaignSave(adapter, saveId);
+    if (existing.slotType !== 'active') throw new Error('An active campaign cannot overwrite a checkpoint.');
+    createdAt = existing.createdAt;
+    savedName ||= existing.name;
+  } catch (error) {
+    if (!/was not found/.test(String(error?.message || ''))) throw error;
+  }
+  return storeV1CampaignSave(adapter, createV1CampaignSave({
+    id: saveId,
+    name: savedName || `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
+    state: campaignState,
+    createdAt,
+    updatedAt: savedAt
+  }));
 }
 
-export async function autosaveGame({
+export async function createCampaignCheckpoint({
   adapter,
-  packageData,
-  saveId,
+  checkpointId,
+  activeSaveId,
   campaignState,
-  now,
-  summary = null,
-  keep = 3
+  name,
+  now
 }) {
-  const savedAt = timestamp({ now });
-  const persist = await persistActiveCampaignStateV2(adapter, {
-    saveRecord: {
-      kind: 'directive.saveManifest.v2',
-      id: requireNonEmptyString(saveId, 'saveId'),
-      saveId,
-      name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
-      current: false,
-      branchId: campaignState?.campaignChatBinding?.saveId || saveId,
-      metadata: createCampaignSaveMetadata({
-        campaignState,
-        packageData,
-        savedAt,
-        summary
-      })
-    },
-    campaignState,
-    packageData,
-    summary,
-    reason: 'autosave-runtime-v2',
-    current: false,
-    createIndexEntry: true,
-    updateSaveIndex: true,
-    name: `Autosave - ${campaignState.player?.name || campaignState.campaign?.title || saveId}`,
-    slotType: 'autosave',
-    now: savedAt
-  });
-  const prune = await pruneCampaignAutosaves(adapter, {
-    campaignId: campaignState.campaign?.id,
-    keep,
-    now: savedAt
-  });
-  return {
-    save: persist.saveIndexEntry,
-    prune
-  };
+  assertV1CampaignState(campaignState);
+  const createdAt = stamp(now);
+  return storeV1CampaignSave(adapter, createV1CampaignSave({
+    id: required(checkpointId, 'checkpointId'),
+    name: required(name, 'name'),
+    slotType: 'checkpoint',
+    parentSaveId: required(activeSaveId, 'activeSaveId'),
+    state: campaignState,
+    createdAt
+  }), { makeActive: false });
 }
 
-export async function loadGame({
-  adapter,
-  saveId,
-  now,
-  markActive = true
-}) {
-  return loadCampaignSaveFromStorage(adapter, saveId, {
-    now: timestamp({ now }),
-    markActive
-  });
+export async function loadGame({ adapter, saveId }) {
+  const save = await loadV1CampaignSave(adapter, saveId);
+  return save.state;
 }

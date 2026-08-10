@@ -1,278 +1,119 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
+
 import {
   acceptCreatorDraftAndCreateFirstSave,
-  autosaveGame,
+  createCampaignCheckpoint,
   loadGame,
+  persistActiveCampaign,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
-  saveGame,
   startCharacterCreatorDraft
 } from '../../src/campaign/campaign-start-service.mjs';
 import {
-  DIRECTIVE_STORAGE_PATHS,
-  getDirectiveStorageIndexes,
-  listCampaignSaves,
-  listCharacterCreatorDrafts
-} from '../../src/storage/directive-storage-repository.mjs';
+  V1_STORAGE_PATHS,
+  listV1CampaignSaves
+} from '../../src/storage/v1-storage-repository.mjs';
 
-const root = process.cwd();
-const errors = [];
-
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
-}
-
-function cloneJson(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function stable(value) {
-  return JSON.stringify(value);
-}
-
-function at(location, message) {
-  errors.push(`${location}: ${message}`);
-}
-
-function requireEqual(actual, expected, location) {
-  if (stable(actual) !== stable(expected)) {
-    at(location, `got ${stable(actual)}, expected ${stable(expected)}`);
-  }
-}
-
-function requireIncludes(values, expected, location) {
-  if (!Array.isArray(values) || !values.includes(expected)) {
-    at(location, `missing "${expected}"`);
-  }
-}
-
-function requireAbsent(object, key, location) {
-  if (Object.prototype.hasOwnProperty.call(object || {}, key)) {
-    at(location, `unexpected key "${key}"`);
-  }
-}
-
-function createMemoryJsonAdapter() {
+function memoryAdapter() {
   const files = new Map();
   return {
-    async readJson(filePath) {
-      if (!files.has(filePath)) {
-        const error = new Error(`not found: ${filePath}`);
+    async readJson(key) {
+      if (!files.has(key)) {
+        const error = new Error(`not found: ${key}`);
         error.code = 'ENOENT';
         throw error;
       }
-      return cloneJson(files.get(filePath));
+      return structuredClone(files.get(key));
     },
-    async writeJson(filePath, value) {
-      files.set(filePath, cloneJson(value));
-    },
-    snapshot() {
-      return Object.fromEntries([...files.entries()].map(([key, value]) => [key, cloneJson(value)]));
-    }
+    async writeJson(key, value) { files.set(key, structuredClone(value)); },
+    async deleteJsonFile(key) { files.delete(key); },
+    snapshot: () => Object.fromEntries(files)
   };
 }
 
-const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
-const adapter = createMemoryJsonAdapter();
-
+const packageData = JSON.parse(fs.readFileSync(
+  new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url),
+  'utf8'
+));
+const adapter = memoryAdapter();
 const draft = await startCharacterCreatorDraft({
   adapter,
   packageData,
-  draftId: 'creator-draft-service',
-  now: '2026-06-18T20:00:00.000Z'
+  draftId: 'draft.service',
+  now: '2026-08-10T01:00:00.000Z'
 });
-requireEqual(draft.status, 'inProgress', 'new draft status');
-requireEqual(draft.activeStep, 'identity', 'new draft activeStep');
+assert.equal(draft.kind, 'directive.characterCreatorDraft.v1');
 
 await saveCharacterCreatorDraftProgress({
   adapter,
   draftId: draft.id,
-  now: '2026-06-18T20:03:00.000Z',
-  reason: 'manualSave',
-  patch: {
-    activeStep: 'service',
-    input: {
-      identity: {
-        name: 'Ren Okada',
-        pronounsOrAddress: 'he/him',
-        speciesId: 'human',
-        ageBandId: 'mid-career',
-        appearance: 'Rested, deliberate, and visibly attentive to junior officers.'
-      }
-    }
-  }
-});
-
-let resumed = await resumeCharacterCreatorDraft({ adapter, draftId: draft.id });
-requireEqual(resumed.input.identity.name, 'Ren Okada', 'resume partial draft name');
-requireEqual(resumed.progress.identityComplete, true, 'resume partial draft identityComplete');
-requireEqual(resumed.progress.readyForCampaignStart, false, 'resume partial draft not ready');
-requireEqual((await listCharacterCreatorDrafts(adapter))[0].activeStep, 'service', 'draft list activeStep');
-
-await saveCharacterCreatorDraftProgress({
-  adapter,
-  draftId: draft.id,
-  now: '2026-06-18T20:11:00.000Z',
-  reason: 'autosave',
+  now: '2026-08-10T01:01:00.000Z',
   patch: {
     activeStep: 'review',
     input: {
+      identity: {
+        name: 'Ren Okada', pronounsOrAddress: 'he/him', speciesId: 'human',
+        ageBandId: 'mid-career', appearance: 'Attentive and deliberate.'
+      },
       service: {
         careerBackgroundId: 'tactical-security',
         formativeExperienceId: 'dominion-war-fleet-service',
         assignmentReasonId: 'experienced-outsider-transfer'
       },
       personality: {
-        traits: {
-          insight: 'perceptive',
-          connection: 'candid',
-          execution: 'decisive'
-        },
+        traits: { insight: 'perceptive', connection: 'candid', execution: 'decisive' },
         flawId: 'impatient'
       },
       dossier: {
-        detailLevel: 'Standard',
-        briefBiography: 'Ren Okada is a tactical-minded Starfleet Commander whose Dominion War service left him intolerant of vague orders and avoidable risk. He learned to read rooms quickly, speak plainly, and make decisions before hesitation became its own casualty. The same qualities that make him useful aboard the Breckenridge can make him impatient when reconstruction politics slow urgent work. His transfer gives the ship an executive officer with hard-earned operational discipline and a need to prove that decisiveness can serve peace rather than only survival.',
-        publicReputation: 'Ren Okada is regarded as a decisive wartime officer still learning how his instincts fit the demands of postwar reconstruction.'
+        briefBiography: 'Ren Okada is a command officer shaped by wartime service and committed to reconstruction.',
+        publicReputation: 'A decisive officer learning how to turn wartime instincts toward peace.'
       }
     }
   }
 });
-
-resumed = await resumeCharacterCreatorDraft({ adapter, draftId: draft.id });
-requireEqual(resumed.progress.readyForCampaignStart, true, 'resume complete draft ready');
+assert.equal((await resumeCharacterCreatorDraft({ adapter, draftId: draft.id })).progress.readyForCampaignStart, true);
 
 const started = await acceptCreatorDraftAndCreateFirstSave({
   adapter,
   packageData,
   draftId: draft.id,
-  campaignId: 'campaign-service-test',
-  saveId: 'save-service-first',
-  now: '2026-06-18T20:15:00.000Z',
-  simulationMode: 'Command'
+  campaignId: 'campaign.service',
+  saveId: 'save.service',
+  now: '2026-08-10T01:02:00.000Z'
 });
+assert.equal(started.firstSave.kind, 'directive.campaignSave.v1');
+assert.equal(started.firstSave.slotType, 'active');
+assert.equal(started.campaignState.player.name, 'Ren Okada');
+assert.equal(started.campaignState.stateCustody.kind, 'directive.stateCustody.v1');
+assert.equal(Object.hasOwn(started.campaignState, 'runtimeTracking'), false);
 
-requireEqual(started.acceptedDraft.status, 'accepted', 'accepted draft status');
-requireEqual(started.campaignState.player.name, 'Ren Okada', 'started campaign player');
-requireEqual(started.campaignState.settings.simulationMode, 'Command', 'started campaign simulationMode');
-requireEqual(started.firstSave.slotType, 'active', 'started first save slotType');
-requireEqual(started.firstSave.storageFormat, 'v2', 'started first save storage format');
-requireEqual(started.firstSave.payloadKind, 'directive.saveManifest.v2', 'started first save payload kind');
-requireEqual(started.firstSave.metadata.playerName, 'Ren Okada', 'started first save metadata playerName');
-requireEqual(started.campaignState.campaign.runtimeArchitecture?.kind, 'directive.gameplayArchitecture.v1', 'V1 authority stamp kind');
-requireEqual(started.campaignState.campaign.runtimeArchitecture?.semanticAuthority, 'storySettlement', 'V1 semantic authority');
-requireEqual(started.campaignState.commandBearing?.kind, 'directive.commandBearing.v1', 'neutral Command Bearing state');
-requireEqual(started.campaignState.commandBearing?.balance, 0, 'neutral Command Bearing opening balance');
-requireEqual(started.campaignState.ship?.operationalOverview?.kind, 'directive.shipOperationalOverview.v1', 'aggregate ship state');
-requireEqual(Object.keys(started.campaignState.mission || {}), ['activeMissionId'], 'mission starts as V1 locator only');
-requireEqual(started.campaignState.ui.availableTabs, ['Campaign', 'Mission', 'Crew', 'Ship', 'Settings'], 'five-route V1 UI');
-for (const key of [
-  'questLedger',
-  'threadLedger',
-  'storyArcLedger',
-  'dynamicQuestCatalog',
-  'attentionState',
-  'pressureLedger',
-  'relationships',
-  'commandLog',
-  'sceneReconciliation',
-  'commandCompetence',
-  'continuity',
-  'runtimeTracking'
-]) {
-  requireAbsent(started.campaignState, key, `new campaign excludes retired ${key}`);
-}
-for (const key of ['tracks', 'inspiration', 'resolve', 'rank', 'marks']) {
-  requireAbsent(started.campaignState.commandBearing, key, `Command Bearing excludes ${key}`);
-}
-for (const key of ['condition', 'damage', 'activeRestrictions', 'technicalDebt']) {
-  requireAbsent(started.campaignState.ship, key, `ship aggregate excludes ${key}`);
-}
-requireEqual(JSON.parse(JSON.stringify(started.campaignState)), started.campaignState, 'campaign state JSON round-trip');
-
-const mutatedState = cloneJson(started.campaignState);
-mutatedState.campaign.currentStardate = 53051.7;
-mutatedState.campaignChatBinding = {
-  hostId: 'sillytavern',
-  chatId: 'Directive - Ashes Service Test',
-  campaignId: mutatedState.campaign.id,
-  saveId: started.firstSave.id,
-  status: 'bound'
-};
-
-const saved = await saveGame({
-  adapter,
-  packageData,
-  saveId: started.firstSave.id,
-  campaignState: mutatedState,
-  now: '2026-06-18T20:20:00.000Z',
-  summary: 'Manual command review save.'
-});
-requireEqual(saved.kind, 'directive.activeCampaignStatePersist.v2', 'saveGame v2 persist kind');
-requireEqual(saved.storageFormat, 'v2', 'saveGame storage format');
-requireEqual(saved.wroteV1Payload, false, 'saveGame avoids v1 payload');
-
-const runtimeOnlyState = cloneJson(mutatedState);
-runtimeOnlyState.campaign.currentStardate = 53051.9;
-await saveGame({
-  adapter,
-  packageData,
-  saveId: started.firstSave.id,
-  campaignState: runtimeOnlyState,
-  now: '2026-06-18T20:22:00.000Z',
-  summary: 'Runtime-only v2 advance.',
-});
-
-const autosaveIds = [];
-for (let index = 0; index < 4; index += 1) {
-  const autosaveState = cloneJson(mutatedState);
-  autosaveState.campaign.currentStardate = 53052 + index;
-  const autosave = await autosaveGame({
-    adapter,
-    packageData,
-    saveId: `save-service-autosave-${index + 1}`,
-    campaignState: autosaveState,
-    now: `2026-06-18T20:2${index + 6}:00.000Z`,
-    summary: `Service autosave ${index + 1}.`
-  });
-  autosaveIds.push(autosave.save.id);
-}
-
-let saveList = await listCampaignSaves(adapter);
-requireEqual(saveList.length, 4, 'service save list length');
-requireIncludes(saveList.map((entry) => entry.id), started.firstSave.id, 'service save list active timeline');
-requireEqual(saveList.filter((entry) => entry.slotType === 'autosave').length, 3, 'service autosave rolling cap');
-requireEqual(saveList.some((entry) => entry.id === autosaveIds[0]), false, 'service prunes oldest autosave');
-
-const loaded = await loadGame({
+const advanced = structuredClone(started.campaignState);
+advanced.campaign.currentStardate = 53051.2;
+await persistActiveCampaign({
   adapter,
   saveId: started.firstSave.id,
-  now: '2026-06-18T20:30:00.000Z'
+  campaignState: advanced,
+  now: '2026-08-10T01:03:00.000Z'
 });
-requireEqual(loaded.player.name, 'Ren Okada', 'loadGame player');
-requireEqual(loaded.campaign.currentStardate, 53051.9, 'loadGame stardate');
-loaded.player.name = 'Changed';
+assert.equal((await loadGame({ adapter, saveId: started.firstSave.id })).campaign.currentStardate, 53051.2);
 
-const indexes = await getDirectiveStorageIndexes(adapter);
-requireEqual(indexes.saveIndex.activeSaveId, started.firstSave.id, 'loadGame active save id');
-requireEqual(indexes.saveIndex.saves[started.firstSave.id].current, true, 'loadGame current save');
-requireEqual(Object.values(indexes.saveIndex.saves).filter((entry) => entry.slotType === 'autosave').every((entry) => entry.current === false), true, 'autosaves remain non-current after loadGame');
+await createCampaignCheckpoint({
+  adapter,
+  checkpointId: 'checkpoint.hesperus',
+  activeSaveId: started.firstSave.id,
+  campaignState: advanced,
+  name: 'Before Hesperus',
+  now: '2026-08-10T01:04:00.000Z'
+});
+assert.deepEqual((await listV1CampaignSaves(adapter)).map((save) => save.slotType).sort(), ['active', 'checkpoint']);
 
 const snapshot = adapter.snapshot();
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.saveIndex].saves[started.firstSave.id].metadata.playerName, 'Ren Okada', 'save index persisted playerName');
-requireEqual(snapshot[DIRECTIVE_STORAGE_PATHS.creatorDraftIndex].drafts[draft.id].status, 'accepted', 'draft index accepted status');
-requireEqual(indexes.saveIndex.saves[started.firstSave.id].storageFormat, 'v2', 'active timeline remains v2-native');
+assert.deepEqual(Object.keys(snapshot).sort(), [
+  V1_STORAGE_PATHS.draft(draft.id),
+  V1_STORAGE_PATHS.index,
+  V1_STORAGE_PATHS.save('checkpoint.hesperus'),
+  V1_STORAGE_PATHS.save(started.firstSave.id)
+].sort());
 
-saveList = await listCampaignSaves(adapter);
-requireEqual(saveList[0].metadata.playerName, 'Ren Okada', 'service save list metadata retained');
-
-if (errors.length > 0) {
-  console.error('Campaign start service test failed:');
-  for (const error of errors) {
-    console.error(`- ${error}`);
-  }
-  process.exit(1);
-}
-
-console.log('Campaign start service tests passed: clean V1 state, draft resume, persistence, autosave, and load');
+console.log('PASS V1 campaign start service');

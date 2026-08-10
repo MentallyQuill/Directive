@@ -150,7 +150,7 @@ export function createCharacterCreatorDraftRecord({
   const progress = createDraftProgress(input);
 
   return {
-    kind: 'directive.characterCreatorDraft',
+    kind: 'directive.characterCreatorDraft.v1',
     schemaVersion: 1,
     id,
     status: 'inProgress',
@@ -187,8 +187,8 @@ export function saveCharacterCreatorDraftRecord(draftRecord, patch = {}, {
   reason = 'manualSave'
 } = {}) {
   requireObject(draftRecord, 'draftRecord');
-  if (draftRecord.kind !== 'directive.characterCreatorDraft') {
-    throw new Error('draftRecord must be a directive.characterCreatorDraft record');
+  if (draftRecord.kind !== 'directive.characterCreatorDraft.v1') {
+    throw new Error('draftRecord must be an exact Directive V1 Character Creator draft');
   }
   if (draftRecord.status === 'accepted') {
     throw new Error('Cannot save changes to an accepted Character Creator draft');
@@ -212,8 +212,8 @@ export function saveCharacterCreatorDraftRecord(draftRecord, patch = {}, {
 
 export function loadCharacterCreatorDraftRecord(draftRecord) {
   requireObject(draftRecord, 'draftRecord');
-  if (draftRecord.kind !== 'directive.characterCreatorDraft') {
-    throw new Error('draftRecord must be a directive.characterCreatorDraft record');
+  if (draftRecord.kind !== 'directive.characterCreatorDraft.v1') {
+    throw new Error('draftRecord must be an exact Directive V1 Character Creator draft');
   }
   return cloneJson(draftRecord);
 }
@@ -237,8 +237,8 @@ export function acceptCharacterCreatorDraftRecord(draftRecord, {
   review = null
 } = {}) {
   requireObject(draftRecord, 'draftRecord');
-  if (draftRecord.kind !== 'directive.characterCreatorDraft') {
-    throw new Error('draftRecord must be a directive.characterCreatorDraft record');
+  if (draftRecord.kind !== 'directive.characterCreatorDraft.v1') {
+    throw new Error('draftRecord must be an exact Directive V1 Character Creator draft');
   }
 
   const timestamp = requireNonEmptyString(acceptedAt, 'acceptedAt');

@@ -1,325 +1,87 @@
-import { BUNDLED_CAMPAIGN_PACKAGE_REFS } from '../packages/bundled-package-registry.mjs';
+import {
+  ASHES_V1_BUNDLED_REF,
+  ASHES_V1_PACKAGE_ID,
+  V1_CAMPAIGN_LIBRARY_TEASERS
+} from '../packages/bundled-package-registry.mjs';
 
-function isObject(value) {
+function object(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function defaultFetchImpl() {
-  if (typeof globalThis.fetch !== 'function') {
-    throw new Error('Fetch is not available for Directive bundled package loading.');
-  }
-  return globalThis.fetch.bind(globalThis);
+async function fetchJson(url, fetchImpl) {
+  const response = await fetchImpl(url);
+  if (!response?.ok) throw new Error(`Directive V1 asset failed to load: HTTP ${response?.status || 0}`);
+  const value = await response.json();
+  if (!object(value)) throw new Error('Directive V1 asset must be a JSON object.');
+  return value;
 }
 
 export function packageIdOf(packageData) {
-  return packageData?.manifest?.id;
-}
-
-export function unwrapProjectionRecord(record) {
-  return record?.projection || record;
-}
-
-function projectionPathOf(record) {
-  return record?.path || '';
-}
-
-function unwrapCrewDatasetRecord(record) {
-  if (!record) return null;
-  return {
-    path: record.path || '',
-    dataset: record.dataset || record
-  };
-}
-
-function unwrapShipDatasetRecord(record) {
-  if (!record) return null;
-  return {
-    path: record.path || '',
-    dataset: record.dataset || record
-  };
-}
-
-function unwrapMissionGraphRecords(record) {
-  if (!record) return [];
-  const records = Array.isArray(record) ? record : [record];
-  return records.filter(Boolean).map((item) => ({
-    path: item.path || '',
-    graph: item.graph || item
-  }));
-}
-
-function unwrapMissionDefinitionRecords(record) {
-  if (!record) return [];
-  const records = Array.isArray(record) ? record : [record];
-  return records.filter(Boolean).map((item) => ({
-    path: item.path || '',
-    definition: item.definition || item
-  }));
-}
-
-function recordForPackage(records, packageId, index) {
-  if (!records) return null;
-  if (Array.isArray(records)) {
-    return records[index] || null;
-  }
-  return records[packageId] || null;
-}
-
-export function indexRuntimeAssets({
-  packages = [],
-  projections = [],
-  crewDatasets = [],
-  shipDatasets = [],
-  missionGraphs = [],
-  missionDefinitions = []
-} = {}) {
-  const byPackageId = new Map();
-  packages.forEach((packageData, index) => {
-    const packageId = packageIdOf(packageData);
-    if (!packageId) return;
-    const projectionRecord = recordForPackage(projections, packageId, index);
-    const crewDatasetRecord = unwrapCrewDatasetRecord(recordForPackage(crewDatasets, packageId, index));
-    const shipDatasetRecord = unwrapShipDatasetRecord(recordForPackage(shipDatasets, packageId, index));
-    const graphRecords = unwrapMissionGraphRecords(recordForPackage(missionGraphs, packageId, index));
-    const definitionRecords = unwrapMissionDefinitionRecords(recordForPackage(missionDefinitions, packageId, index))
-      .filter((record) => record.definition?.kind === 'directive.missionDefinition.v1'
-        && record.definition?.packageBinding?.packageId === packageId
-        && record.definition?.packageBinding?.packageVersion === packageData?.manifest?.version);
-    const missionGraphsById = new Map();
-    for (const graphRecord of graphRecords) {
-      const graphId = graphRecord.graph?.manifest?.id || graphRecord.graph?.id || graphRecord.path;
-      if (graphId) {
-        missionGraphsById.set(graphId, graphRecord);
-      }
-    }
-    const missionDefinitionsById = new Map();
-    for (const definitionRecord of definitionRecords) {
-      const definitionId = definitionRecord.definition?.id;
-      if (definitionId) missionDefinitionsById.set(definitionId, definitionRecord);
-    }
-    byPackageId.set(packageId, {
-      packageData,
-      projection: unwrapProjectionRecord(projectionRecord),
-      projectionPath: projectionPathOf(projectionRecord),
-      crewDataset: crewDatasetRecord?.dataset || null,
-      crewDatasetPath: crewDatasetRecord?.path || '',
-      shipDataset: shipDatasetRecord?.dataset || null,
-      shipDatasetPath: shipDatasetRecord?.path || '',
-      missionGraphs: graphRecords,
-      missionGraphsById,
-      missionDefinitions: definitionRecords,
-      missionDefinitionsById
-    });
-  });
-  return byPackageId;
-}
-
-export async function fetchJsonAsset(url, { fetchImpl = defaultFetchImpl() } = {}) {
-  const response = await fetchImpl(url);
-  if (!response?.ok) {
-    throw new Error(`Directive package asset failed to load: HTTP ${response?.status || 0}`);
-  }
-  try {
-    return await response.json();
-  } catch (error) {
-    throw new Error(`Directive package asset is not valid JSON: ${error?.message || error}`);
-  }
+  return packageData?.manifest?.id || null;
 }
 
 export async function loadBundledCampaignPackageRecords({
-  refs = BUNDLED_CAMPAIGN_PACKAGE_REFS,
-  fetchImpl = defaultFetchImpl()
+  fetchImpl = globalThis.fetch?.bind(globalThis),
+  ref = ASHES_V1_BUNDLED_REF
 } = {}) {
-  const packages = [];
-  const projections = [];
-  const crewDatasets = [];
-  const shipDatasets = [];
-  const missionGraphs = [];
-  const missionDefinitions = [];
-  for (const ref of refs) {
-    const packageData = await fetchJsonAsset(ref.packageUrl, { fetchImpl });
-    const projection = await fetchJsonAsset(ref.projectionUrl, { fetchImpl });
-    const crewDataset = ref.crewDatasetUrl ? await fetchJsonAsset(ref.crewDatasetUrl, { fetchImpl }) : null;
-    const shipDataset = ref.shipDatasetUrl ? await fetchJsonAsset(ref.shipDatasetUrl, { fetchImpl }) : null;
-    const graphRefs = Array.isArray(ref.missionGraphUrls) && ref.missionGraphUrls.length > 0
-      ? ref.missionGraphUrls
-      : ref.missionGraphUrl
-        ? [{ url: ref.missionGraphUrl, path: ref.missionGraphPath || '' }]
-        : [];
-    const graphRecords = [];
-    for (const graphRef of graphRefs) {
-      const graph = await fetchJsonAsset(graphRef.url, { fetchImpl });
-      graphRecords.push({
-        path: graphRef.path || '',
-        graph
-      });
-    }
-    const definitionRefs = Array.isArray(ref.missionDefinitionUrls) && ref.missionDefinitionUrls.length > 0
-      ? ref.missionDefinitionUrls
-      : ref.missionDefinitionUrl
-        ? [{ url: ref.missionDefinitionUrl, path: ref.missionDefinitionPath || '' }]
-        : [];
-    const definitionRecords = [];
-    for (const definitionRef of definitionRefs) {
-      const definition = await fetchJsonAsset(definitionRef.url, { fetchImpl });
-      definitionRecords.push({
-        path: definitionRef.path || '',
-        definition
-      });
-    }
-    packages.push(packageData);
-    projections.push({
-      path: ref.projectionPath || '',
-      projection
-    });
-    crewDatasets.push(crewDataset ? {
-      path: ref.crewDatasetPath || '',
-      dataset: crewDataset
-    } : null);
-    shipDatasets.push(shipDataset ? {
-      path: ref.shipDatasetPath || '',
-      dataset: shipDataset
-    } : null);
-    missionGraphs.push(graphRecords);
-    missionDefinitions.push(definitionRecords);
+  if (typeof fetchImpl !== 'function') throw new Error('Fetch is unavailable for Directive V1 package loading.');
+  const [packageData, crewDataset, shipDataset, ...missionDefinitions] = await Promise.all([
+    fetchJson(ref.packageUrl, fetchImpl),
+    fetchJson(ref.crewDatasetUrl, fetchImpl),
+    fetchJson(ref.shipDatasetUrl, fetchImpl),
+    ...ref.missionDefinitionRefs.map((definitionRef) => fetchJson(definitionRef.url, fetchImpl))
+  ]);
+  if (packageIdOf(packageData) !== ASHES_V1_PACKAGE_ID) {
+    throw new Error('Directive V1 bundled package identity mismatch.');
   }
-  return { packages, projections, crewDatasets, shipDatasets, missionGraphs, missionDefinitions };
-}
-
-function payloadPackageId(payload) {
-  return payload?.sourcePackage?.packageId || payload?.manifest?.packageId || payload?.manifest?.sourcePackageId || null;
-}
-
-function importedJsonPayloadEntries(importRecord) {
-  return Object.entries(importRecord?.jsonPayloads || {})
-    .filter(([, value]) => isObject(value))
-    .map(([path, value]) => ({ path, value }));
-}
-
-function importedProjectionRecord(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const match = importedJsonPayloadEntries(importRecord)
-    .find(({ value }) => value?.manifest?.kind === 'directive.campaignStateProjection' && payloadPackageId(value) === packageId);
-  return match ? { path: match.path, projection: match.value } : null;
-}
-
-function importedCrewDatasetRecord(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const match = importedJsonPayloadEntries(importRecord)
-    .find(({ value }) => value?.manifest?.kind === 'directive.crewDataset' && payloadPackageId(value) === packageId);
-  return match ? { path: match.path, dataset: match.value } : null;
-}
-
-function importedShipDatasetRecord(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const match = importedJsonPayloadEntries(importRecord)
-    .find(({ value }) => value?.manifest?.kind === 'directive.shipDataset' && payloadPackageId(value) === packageId);
-  return match ? { path: match.path, dataset: match.value } : null;
-}
-
-function importedMissionGraphRecords(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  return importedJsonPayloadEntries(importRecord)
-    .filter(({ value }) => value?.manifest?.kind === 'directive.missionGraph' && payloadPackageId(value) === packageId)
-    .map(({ path, value }) => ({ path, graph: value }));
-}
-
-function importedMissionDefinitionRecords(importRecord) {
-  const packageId = importRecord?.packageId || importRecord?.packageData?.manifest?.id || null;
-  const packageVersion = importRecord?.packageData?.manifest?.version || null;
-  return importedJsonPayloadEntries(importRecord)
-    .filter(({ value }) => value?.kind === 'directive.missionDefinition.v1'
-      && value?.packageBinding?.packageId === packageId
-      && value?.packageBinding?.packageVersion === packageVersion)
-    .map(({ path, value }) => ({ path, definition: value }));
-}
-
-function normalizeLoadedPackageRecords(loaded = {}) {
-  const packages = Array.isArray(loaded.packages) ? loaded.packages : Object.values(loaded.packages || {});
-  const projections = Array.isArray(loaded.projections) ? loaded.projections : Object.values(loaded.projections || {});
-  const crewDatasets = Array.isArray(loaded.crewDatasets) ? loaded.crewDatasets : Object.values(loaded.crewDatasets || {});
-  const shipDatasets = Array.isArray(loaded.shipDatasets) ? loaded.shipDatasets : Object.values(loaded.shipDatasets || {});
-  const missionGraphs = Array.isArray(loaded.missionGraphs) ? loaded.missionGraphs : Object.values(loaded.missionGraphs || {});
-  const missionDefinitions = Array.isArray(loaded.missionDefinitions)
-    ? loaded.missionDefinitions
-    : Object.values(loaded.missionDefinitions || {});
-  return { packages, projections, crewDatasets, shipDatasets, missionGraphs, missionDefinitions };
-}
-
-export function mergeImportedPackageRecords(baseRecords, importedRecords = []) {
-  const records = normalizeLoadedPackageRecords(baseRecords);
-  const byPackageId = new Map();
-  records.packages.forEach((packageData, index) => {
-    const packageId = packageIdOf(packageData);
-    if (!packageId) return;
-    byPackageId.set(packageId, {
-      packageData,
-      projection: records.projections[index] || null,
-      crewDataset: records.crewDatasets[index] || null,
-      shipDataset: records.shipDatasets[index] || null,
-      missionGraphs: records.missionGraphs[index] || [],
-      missionDefinitions: records.missionDefinitions[index] || [],
-      source: packageData?.manifest?.bundled === true ? 'bundled' : 'loaded'
-    });
-  });
-
-  for (const importRecord of importedRecords || []) {
-    if (!importRecord?.packageData || importRecord.diagnostics?.status === 'error') continue;
-    const packageId = importRecord.packageId || importRecord.packageData?.manifest?.id;
-    if (!packageId) continue;
-    const existing = byPackageId.get(packageId) || {};
-    const projection = importedProjectionRecord(importRecord);
-    const crewDataset = importedCrewDatasetRecord(importRecord);
-    const shipDataset = importedShipDatasetRecord(importRecord);
-    const missionGraphs = importedMissionGraphRecords(importRecord);
-    const missionDefinitions = importedMissionDefinitionRecords(importRecord);
-    byPackageId.set(packageId, {
-      packageData: importRecord.packageData,
-      projection: projection || existing.projection || null,
-      crewDataset: crewDataset || existing.crewDataset || null,
-      shipDataset: shipDataset || existing.shipDataset || null,
-      missionGraphs: missionGraphs.length > 0 ? missionGraphs : existing.missionGraphs || [],
-      missionDefinitions: missionDefinitions.length > 0 ? missionDefinitions : existing.missionDefinitions || [],
-      source: 'imported'
-    });
+  for (const definition of missionDefinitions) {
+    if (definition.kind !== 'directive.missionDefinition.v1'
+      || definition.packageBinding?.packageId !== ASHES_V1_PACKAGE_ID
+      || definition.packageBinding?.packageVersion !== packageData.manifest?.version) {
+      throw new Error(`Directive V1 rejects mission definition "${definition.id || 'unknown'}".`);
+    }
   }
-
-  const merged = {
-    packages: [],
-    projections: [],
-    crewDatasets: [],
-    shipDatasets: [],
-    missionGraphs: [],
-    missionDefinitions: [],
-    sources: {}
+  return {
+    packageData,
+    crewDataset,
+    shipDataset,
+    missionDefinitions,
+    campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS
   };
-  for (const [packageId, record] of byPackageId.entries()) {
-    merged.packages.push(record.packageData);
-    merged.projections.push(record.projection);
-    merged.crewDatasets.push(record.crewDataset);
-    merged.shipDatasets.push(record.shipDataset);
-    merged.missionGraphs.push(record.missionGraphs);
-    merged.missionDefinitions.push(record.missionDefinitions);
-    merged.sources[packageId] = record.source;
-  }
-  return merged;
 }
 
-export function summarizeRuntimeAssets(runtimeAssetsByPackageId, sources = {}) {
-  const summaries = {};
-  for (const [packageId, assets] of runtimeAssetsByPackageId.entries()) {
-    summaries[packageId] = {
-      source: sources[packageId] || 'loaded',
-      hasProjection: isObject(assets.projection),
-      hasCrewDataset: isObject(assets.crewDataset),
-      hasShipDataset: isObject(assets.shipDataset),
-      hasGuardrails: isObject(assets.packageData?.guardrails),
-      hasCharacterCreationContext: isObject(assets.packageData?.characterCreation),
-      hasPromptMetadata: isObject(assets.packageData?.contextPolicy)
-        && assets.packageData.contextPolicy.hiddenStatePolicy === 'explicit-player-safe-projection-only',
-      missionGraphCount: Array.isArray(assets.missionGraphs) ? assets.missionGraphs.length : 0,
-      missionDefinitionCount: Array.isArray(assets.missionDefinitions) ? assets.missionDefinitions.length : 0
-    };
+export function indexRuntimeAssets(records = {}) {
+  if (packageIdOf(records.packageData) !== ASHES_V1_PACKAGE_ID) {
+    throw new Error('Directive V1 runtime assets require the Ashes package.');
   }
-  return summaries;
+  const missionDefinitions = Array.isArray(records.missionDefinitions) ? records.missionDefinitions : [];
+  return new Map([[ASHES_V1_PACKAGE_ID, {
+    packageData: records.packageData,
+    crewDataset: records.crewDataset,
+    shipDataset: records.shipDataset,
+    missionDefinitions,
+    missionDefinitionsById: new Map(missionDefinitions.map((definition) => [definition.id, definition]))
+  }]]);
+}
+
+export function summarizeRuntimeAssets(runtimeAssetsByPackageId) {
+  const assets = runtimeAssetsByPackageId.get(ASHES_V1_PACKAGE_ID);
+  return {
+    [ASHES_V1_PACKAGE_ID]: {
+      source: 'bundled-v1',
+      v1Native: Boolean(
+        assets?.packageData
+        && assets?.crewDataset
+        && assets?.shipDataset
+        && assets?.missionDefinitions?.length
+      ),
+      hasCrewDataset: object(assets?.crewDataset),
+      hasShipDataset: object(assets?.shipDataset),
+      missionDefinitionCount: assets?.missionDefinitions?.length || 0
+    }
+  };
+}
+
+export function createV1CampaignLibrary() {
+  return structuredClone(V1_CAMPAIGN_LIBRARY_TEASERS);
 }
