@@ -1,0 +1,29 @@
+import {
+  ASHES_V1_PACKAGE_ID,
+  createV1CampaignPanelModel
+} from '../v1-player-facing-panel-model.mjs';
+
+const clone = (value) => value === undefined
+  ? undefined
+  : JSON.parse(JSON.stringify(value));
+
+export function buildCertifiedCampaignView(view = {}) {
+  const model = createV1CampaignPanelModel(view);
+  const packages = model.packages.map((pack) => {
+    const packageId = pack.packageId || pack.id || pack.manifest?.id || '';
+    const available = packageId === ASHES_V1_PACKAGE_ID;
+    return {
+      ...clone(pack),
+      packageId,
+      title: pack.title || pack.campaign?.title || pack.manifest?.title || 'Untitled campaign',
+      description: pack.description || pack.campaign?.highConcept || pack.manifest?.description || '',
+      availability: available ? 'available' : 'coming-later',
+      disabled: !available
+    };
+  });
+  return {
+    selectedCampaignId: view?.campaignIndex?.selectedCampaignId || model.campaigns.find((campaign) => campaign.active)?.id || null,
+    packages,
+    campaigns: clone(model.campaigns)
+  };
+}
