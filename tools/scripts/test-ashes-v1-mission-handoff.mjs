@@ -27,6 +27,7 @@ const chapter4Definition = readJson('packages/bundled/breckenridge/v1/chapter-4-
 const chapter5Definition = readJson('packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json');
 const openOrders2Definition = readJson('packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json');
 const chapter6Definition = readJson('packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json');
+const chapter7Definition = readJson('packages/bundled/breckenridge/v1/chapter-7-a-peace-of-their-own.mission-v1.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
@@ -36,6 +37,7 @@ const chapter4Scenarios = readJson('tests/fixtures/mission/v1/chapter-4-colony-t
 const chapter5Scenarios = readJson('tests/fixtures/mission/v1/chapter-5-old-lessons-scenarios.fixture.json');
 const openOrders2Scenarios = readJson('tests/fixtures/mission/v1/open-orders-2-scenarios.fixture.json');
 const chapter6Scenarios = readJson('tests/fixtures/mission/v1/chapter-6-cost-of-knowing-scenarios.fixture.json');
+const chapter7Scenarios = readJson('tests/fixtures/mission/v1/chapter-7-peace-of-their-own-scenarios.fixture.json');
 const branchId = 'save.ashes-v1-handoff';
 
 function readJson(path) {
@@ -265,6 +267,18 @@ const chapter6Assets = assetsFor([
     chapter5Definition,
     openOrders2Definition,
     chapter6Definition,
+]);
+const chapter7Assets = assetsFor([
+    preludeDefinition,
+    chapterDefinition,
+    chapter2Definition,
+    openOrdersDefinition,
+    chapter3Definition,
+    chapter4Definition,
+    chapter5Definition,
+    openOrders2Definition,
+    chapter6Definition,
+    chapter7Definition,
 ]);
 
 const pending = runtime.inspectPendingTransition({ runtimeAssets: sourceOnlyAssets });
@@ -1002,16 +1016,128 @@ assert.equal(chapter7Pending.reasonCode, 'transition-target-definition-unavailab
 assert.equal(chapter7Pending.targetDefinitionId, null);
 assert.equal(chapter7Pending.activatable, false);
 const terminalChapter6CampaignState = structuredClone(campaignState);
+
+const chapter7Ready = runtime.inspectPendingTransition({ runtimeAssets: chapter7Assets });
+assert.equal(chapter7Ready.ok, true);
+assert.equal(chapter7Ready.status, 'ready');
+assert.equal(chapter7Ready.targetDefinitionId, chapter7Definition.id);
+assert.equal(chapter7Ready.activatable, true);
+
+const preChapter7ActivationCampaignState = structuredClone(campaignState);
+const chapter7Activated = await runtime.activatePendingTransition({ runtimeAssets: chapter7Assets });
+assert.equal(chapter7Activated.ok, true);
+assert.equal(chapter7Activated.status, 'activated');
+assert.equal(chapter7Activated.targetDefinitionId, chapter7Definition.id);
+assert.equal(chapter7Activated.noChange, false);
+assert.equal(persistCount, 9);
+assert.equal(campaignState.mission.activeMissionId, chapter7Definition.packageBinding.sourceId);
+assert.equal(campaignState.mission.legacyStatus, 'must-remain-untouched');
+assert.deepEqual(campaignState.mission.legacyPressure, { id: 'legacy-pressure-must-remain-untouched' });
+assert.deepEqual(campaignState.mission.legacyAssignments, [{ id: 'legacy-assignment-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyRewards, [{ id: 'legacy-reward-must-remain-untouched' }]);
+assert.deepEqual(campaignState.mission.legacyProgress, { id: 'legacy-progress-must-remain-untouched' });
+assert.equal(campaignState.mission.v1.definitionId, chapter7Definition.id);
+assert.equal(campaignState.mission.v1.status, 'active');
+assert.deepEqual(Object.keys(campaignState.mission.v1.objectives), chapter7Definition.objectives.map((item) => item.id));
+assert.equal(campaignState.mission.v1.clocks['clock.chapter7.task-group-arrival'].state, 'running');
+assert.equal(campaignState.mission.v1.clocks['clock.chapter7.task-group-arrival'].value, 36);
+assert.equal(campaignState.mission.v1.clocks['clock.chapter7.task-group-arrival'].visibility, 'visible');
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('objective.chapter6.'), false);
+assert.equal(JSON.stringify(campaignState.mission.v1).includes('outcome.chapter6.'), false);
+for (const sentinel of ['legacy-pressure-', 'legacy-assignment-', 'legacy-reward-', 'legacy-progress-']) {
+    assert.equal(JSON.stringify(campaignState.mission.v1).includes(sentinel), false, `${sentinel} cannot copy into Chapter 7 V1`);
+}
+assert.equal(campaignState.mission.v1History.length, 9);
+assert.equal(campaignState.mission.v1History[8].definitionId, chapter6Definition.id);
+assert.deepEqual(campaignState.mission.v1History[8].state, terminalChapter6);
+assert.equal(campaignState.mission.v1Journey.revision, 9);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'Chapter 7 activation cannot mutate legacy tracking roots');
+const chapter7ActivatedCampaignState = structuredClone(campaignState);
+
+const chapter7Reloaded = JSON.parse(JSON.stringify(campaignState));
+const chapter7ReloadedJourney = validateMissionJourney({
+    campaignState: chapter7Reloaded,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+        chapter6Definition,
+        chapter7Definition,
+    ],
+});
+assert.equal(chapter7ReloadedJourney.ok, true, chapter7ReloadedJourney.errors.join('\n'));
+assert.equal(validateMissionStateAuthority({ definition: chapter7Definition, state: chapter7Reloaded.mission.v1 }).ok, true);
+
+const chapter7Replay = await runtime.activatePendingTransition({ runtimeAssets: chapter7Assets });
+assert.equal(chapter7Replay.ok, true);
+assert.equal(chapter7Replay.status, 'no-pending-transition');
+assert.equal(chapter7Replay.noChange, true);
+assert.equal(persistCount, 9, 'Chapter 7 activation replay cannot persist twice');
+
+const terminalChapter7 = settleScenario({
+    definition: chapter7Definition,
+    fixture: chapter7Scenarios,
+    scenarioId: 'provisional-accord-before-deadline',
+});
+const chapter7Story = storySettlementForScenario(
+    chapter7Scenarios,
+    'provisional-accord-before-deadline',
+    chapter7Definition,
+);
+const chapter7MutationStepIndex = stepsForScenario(
+    chapter7Scenarios,
+    'provisional-accord-before-deadline',
+).steps.findIndex((step) => step.policyId === 'policy.chapter7.political-account-route');
+assert.notEqual(chapter7MutationStepIndex, -1);
+const chapter7MutationMessageId = chapter7Story.contributions[chapter7MutationStepIndex].messageId;
+campaignState.mission.v1 = terminalChapter7;
+campaignState.storySettlement = chapter7Story.settlement;
+const openOrders3Journey = validateMissionJourney({
+    campaignState,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+        chapter6Definition,
+        chapter7Definition,
+    ],
+});
+assert.equal(openOrders3Journey.ok, true, openOrders3Journey.errors.join('\n'));
+const openOrders3Pending = runtime.inspectPendingTransition({ runtimeAssets: chapter7Assets });
+assert.equal(openOrders3Pending.ok, true);
+assert.equal(openOrders3Pending.status, 'pending');
+assert.equal(openOrders3Pending.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(openOrders3Pending.targetDefinitionId, null);
+assert.equal(openOrders3Pending.activatable, false);
+const terminalChapter7CampaignState = structuredClone(campaignState);
+
 const journeyContributionIds = [
-    ...terminalChapter6CampaignState.mission.v1History.flatMap((archive) => (
+    ...terminalChapter7CampaignState.mission.v1History.flatMap((archive) => (
         archive.state.evidenceLog.map((entry) => entry.sourceContributionId)
     )),
-    ...terminalChapter6CampaignState.mission.v1.evidenceLog.map((entry) => entry.sourceContributionId),
+    ...terminalChapter7CampaignState.mission.v1.evidenceLog.map((entry) => entry.sourceContributionId),
 ];
 assert.equal(
     new Set(journeyContributionIds).size,
     journeyContributionIds.length,
-    'accepted source contribution identity remains unique across the nine-entry journey',
+    'accepted source contribution identity remains unique across the ten-entry journey',
 );
 
 function createMutationHarness(initialState) {
@@ -1215,6 +1341,28 @@ for (const [label, initialState] of [
     assert.equal(openOrders2TransitionMutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
 }
 
+for (const [label, initialState] of [
+    ['before-chapter7-activation', preChapter7ActivationCampaignState],
+    ['after-chapter7-activation', chapter7ActivatedCampaignState],
+]) {
+    const chapter6TransitionMutation = createMutationHarness(initialState);
+    const chapter6TransitionMutationResult = await chapter6TransitionMutation.mutationRuntime.invalidateSourceMutation({
+        runtimeAssets: chapter7Assets,
+        hostMessageId: chapter6MutationMessageId,
+        eventType: 'directiveResponseSelectedSwipeChanged',
+    });
+    assert.equal(chapter6TransitionMutationResult.ok, true, label);
+    assert.equal(chapter6TransitionMutationResult.status, 'invalidated', label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1.definitionId, chapter6Definition.id, label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1.status, 'active', label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1.terminalDisposition, null, label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1.transitionReceipt, null, label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1History.length, 8, label);
+    assert.equal(chapter6TransitionMutation.state.mission.v1Journey.revision, 8, label);
+    assert.equal(JSON.stringify(chapter6TransitionMutation.state.mission.v1).includes('objective.chapter7.'), false, label);
+    assert.equal(chapter6TransitionMutation.generationCount, 0, `${label} reconstruction cannot call a provider`);
+}
+
 const openOrders2Mutation = createMutationHarness(terminalOpenOrders2CampaignState);
 const openOrders2MutationResult = await openOrders2Mutation.mutationRuntime.invalidateSourceMutation({
     runtimeAssets: openOrders2Assets,
@@ -1247,4 +1395,20 @@ assert.equal(chapter6Mutation.state.mission.v1History.length, 8);
 assert.equal(chapter6Mutation.state.mission.v1Journey.revision, 8);
 assert.equal(chapter6Mutation.generationCount, 0, 'Chapter 6 reconstruction cannot call a provider');
 
-console.log('Ashes V1 Prelude through Chapter 6 handoff tests passed.');
+const chapter7Mutation = createMutationHarness(terminalChapter7CampaignState);
+const chapter7MutationResult = await chapter7Mutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: chapter7Assets,
+    hostMessageId: chapter7MutationMessageId,
+    eventType: 'directiveResponseSelectedSwipeChanged',
+});
+assert.equal(chapter7MutationResult.ok, true);
+assert.equal(chapter7MutationResult.status, 'invalidated');
+assert.equal(chapter7Mutation.state.mission.v1.definitionId, chapter7Definition.id);
+assert.equal(chapter7Mutation.state.mission.v1.status, 'active');
+assert.equal(chapter7Mutation.state.mission.v1.terminalDisposition, null);
+assert.equal(chapter7Mutation.state.mission.v1.transitionReceipt, null);
+assert.equal(chapter7Mutation.state.mission.v1History.length, 9);
+assert.equal(chapter7Mutation.state.mission.v1Journey.revision, 9);
+assert.equal(chapter7Mutation.generationCount, 0, 'Chapter 7 reconstruction cannot call a provider');
+
+console.log('Ashes V1 Prelude through Chapter 7 handoff tests passed.');

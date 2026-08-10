@@ -146,9 +146,9 @@ An incidental protest rumor, one forged alert, a light-support fault, a weapons-
 
 ### Task 4: Registry, runtime, and journey
 
-- [ ] Register Chapter 7 after Chapter 6 without importing its empty legacy graph or broad legacy availability rule.
-- [ ] Prove exact activation, initial visible clock, authoritative advancement, expiry, settlement-before-expiry resolution, reload, idempotency, legacy-root isolation, Open Orders III pending state, journey-wide identity, and source-mutation descendant pruning.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-7-runtime.mjs` for accepted-pair batching, report custody, freeform-framework classification, pre-knowledge conflict fairness, anti-spam, invalidation, restoration, and time custody.
+- [x] Register Chapter 7 after Chapter 6 without importing its empty legacy graph or broad legacy availability rule.
+- [x] Prove exact activation, initial visible clock, authoritative advancement, expiry, settlement-before-expiry resolution, reload, idempotency, legacy-root isolation, Open Orders III pending state, journey-wide identity, and source-mutation descendant pruning.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-7-runtime.mjs` for accepted-pair batching, report custody, freeform-framework classification, pre-knowledge conflict fairness, anti-spam, invalidation, restoration, and time custody.
 
 ### Task 5: Adversarial review and certification
 
