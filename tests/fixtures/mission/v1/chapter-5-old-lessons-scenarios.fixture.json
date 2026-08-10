@@ -106,6 +106,34 @@
     ],
     "command-dismiss": [
       { "claimId": "claim.chapter5.command-dismiss", "policyId": "policy.chapter5.command-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.command-posture", "value": "dismissWithoutTesting", "sourceRole": "user" }
+    ],
+    "ivers-vulnerable-ships": [
+      { "claimId": "claim.chapter5.ivers-contacted", "policyId": "policy.chapter5.ivers-contacted", "claimType": "eventOccurred", "targetId": "event.chapter5.ivers-contacted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.ivers-vulnerable-ships", "policyId": "policy.chapter5.ivers-vulnerable-ships", "claimType": "factDisclosed", "targetId": "fact.chapter5.ivers-vulnerable-ships", "sourceRole": "assistant" }
+    ],
+    "ren-tal-colony-cargo": [
+      { "claimId": "claim.chapter5.ren-tal-contacted", "policyId": "policy.chapter5.ren-tal-contacted", "claimType": "eventOccurred", "targetId": "event.chapter5.ren-tal-contacted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.ren-tal-colony-cargo", "policyId": "policy.chapter5.ren-tal-colony-cargo", "claimType": "factDisclosed", "targetId": "fact.chapter5.ren-tal-colony-cargo", "sourceRole": "assistant" }
+    ],
+    "shala-venn-direct-verification": [
+      { "claimId": "claim.chapter5.shala-venn-contacted", "policyId": "policy.chapter5.shala-venn-contacted", "claimType": "eventOccurred", "targetId": "event.chapter5.shala-venn-contacted", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.shala-venn-direct-verification", "policyId": "policy.chapter5.shala-venn-direct-verification", "claimType": "factDisclosed", "targetId": "fact.chapter5.shala-venn-direct-verification", "sourceRole": "assistant" }
+    ],
+    "holt-diversion-intent": [
+      { "claimId": "claim.chapter5.holt-intent-evidence", "policyId": "policy.chapter5.holt-intent-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.holt-intent-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.holt-diversion-intent", "policyId": "policy.chapter5.holt-diversion-intent", "claimType": "factDisclosed", "targetId": "fact.chapter5.holt-diversion-intent", "sourceRole": "assistant" }
+    ],
+    "autonomous-escalation": [
+      { "claimId": "claim.chapter5.autonomous-escalation-evidence", "policyId": "policy.chapter5.autonomous-escalation-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.autonomous-escalation-established", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.autonomous-escalation", "policyId": "policy.chapter5.autonomous-escalation", "claimType": "factDisclosed", "targetId": "fact.chapter5.autonomous-escalation", "sourceRole": "assistant" }
+    ],
+    "bronn-authentication-contingency": [
+      { "claimId": "claim.chapter5.bronn-contingency-tested", "policyId": "policy.chapter5.bronn-contingency-tested", "claimType": "eventOccurred", "targetId": "event.chapter5.bronn-contingency-tested", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.bronn-authentication-contingency", "policyId": "policy.chapter5.bronn-authentication-contingency", "claimType": "factDisclosed", "targetId": "fact.chapter5.bronn-authentication-contingency", "sourceRole": "assistant" }
+    ],
+    "kieran-manual-corridor": [
+      { "claimId": "claim.chapter5.kieran-corridor-tested", "policyId": "policy.chapter5.kieran-corridor-tested", "claimType": "eventOccurred", "targetId": "event.chapter5.kieran-corridor-tested", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.kieran-manual-corridor", "policyId": "policy.chapter5.kieran-manual-corridor", "claimType": "factDisclosed", "targetId": "fact.chapter5.kieran-manual-corridor", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
@@ -266,6 +294,60 @@
         { "claimId": "claim.chapter5.invented-controller", "policyId": "policy.chapter5.holt-controls-network", "claimType": "factDisclosed", "targetId": "fact.chapter5.holt-initiation-and-autonomous-escalation", "sourceRole": "assistant" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    },
+    {
+      "id": "ivers-evacuates-ren-tal-holds",
+      "sequence": ["ivers-vulnerable-ships", "ren-tal-colony-cargo", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
+        "knownFactsIncludes": ["fact.chapter5.ivers-vulnerable-ships", "fact.chapter5.ren-tal-colony-cargo"],
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "shala-venn-refuses-network-orders",
+      "sequence": ["shala-venn-direct-verification", "traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized-with-cost", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "interface-recovered", "dimension.chapter5.command": "follow-without-testing" },
+        "knownFactsIncludes": ["fact.chapter5.shala-venn-direct-verification"],
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "holt-intent-before-autonomous-escalation",
+      "sequence": ["pattern-evidence", "target-evidence", "holt-diversion-intent", "autonomous-escalation", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
+        "knownFactsIncludes": ["fact.chapter5.holt-diversion-intent", "fact.chapter5.autonomous-escalation"],
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "bronn-kieran-tested-alternative",
+      "sequence": ["bronn-authentication-contingency", "kieran-manual-corridor", "traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-with-record", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "evidence-based-alternative" },
+        "knownFactsIncludes": ["fact.chapter5.bronn-authentication-contingency", "fact.chapter5.kieran-manual-corridor"],
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "authentication-record-imports-to-open-orders2",
+      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.authentication": "secured" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
     }
   ]
 }

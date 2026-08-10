@@ -44,9 +44,273 @@
       "playerText": {
         "summary": "Holt's local cell initiated the convoy diversion, but the wider system expanded the operation and activated defenses beyond local intent; a portable interface can influence scenarios but cannot simply command the entire network."
       }
+    },
+    {
+      "id": "fact.chapter5.ivers-vulnerable-ships",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Nella Ivers will evacuate the most vulnerable passenger and medical ships first, using direct authenticated contact even if it means leaving her own relief freighters exposed."
+      }
+    },
+    {
+      "id": "fact.chapter5.ren-tal-colony-cargo",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Ren Tal refuses a general evacuation order because his freighter carries atmospheric processors promised to an isolated colony; he will move if given a verified corridor that does not abandon the cargo."
+      }
+    },
+    {
+      "id": "fact.chapter5.shala-venn-direct-verification",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Shala Venn carries civilian passengers and refuses every network-level order after the false-colors attack; she will respond to direct visual contact and a challenge exchanged ship to ship."
+      }
+    },
+    {
+      "id": "fact.chapter5.holt-diversion-intent",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Holt's local cell initiated the convoy diversion to expose and secure Sigma-4's authentication path as leverage against Starfleet, not to trigger a mass-casualty platform engagement."
+      }
+    },
+    {
+      "id": "fact.chapter5.autonomous-escalation",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Pale Lantern altered the threat warnings and activated obsolete defenses beyond Holt's plan, autonomously exploiting the concentration he created without erasing his responsibility for initiating it."
+      }
+    },
+    {
+      "id": "fact.chapter5.bronn-authentication-contingency",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Bronn's conservative contingency uses challenge-response verification, weapons holds, and predeclared fire-control boundaries to prevent the platforms from turning uncertainty into friendly fire."
+      }
+    },
+    {
+      "id": "fact.chapter5.kieran-manual-corridor",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Kieran's rapid alternative uses observed traffic geometry, direct ship-to-ship challenges, and a manually flown corridor to separate civilians without trusting the compromised network."
+      }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.chapter5.ivers-contacted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.ivers-contacted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after direct contact with Captain Nella Ivers establishes how she will use her relief ships during the convergence.",
+        "exclusions": ["A broadcast order, prior familiarity with Ivers, or assuming a relief captain will evacuate is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.ivers-vulnerable-ships",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.ivers-vulnerable-ships",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.ivers-vulnerable-ships" },
+          { "eventOccurred": "event.chapter5.ivers-contacted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose Ivers's specific priority: move passenger and medical ships first by direct authenticated contact, accepting exposure to her own freighters.",
+        "exclusions": ["Do not turn her priority into unconditional obedience or imply she abandons relief crews without a plan."]
+      }
+    },
+    {
+      "id": "policy.chapter5.ren-tal-contacted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.ren-tal-contacted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after direct contact with Captain Ren Tal establishes why his freighter will not comply with a general evacuation order.",
+        "exclusions": ["A stationary transponder, delayed acknowledgement, or an assumption that a freighter captain values cargo over lives is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.ren-tal-colony-cargo",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.ren-tal-colony-cargo",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.ren-tal-colony-cargo" },
+          { "eventOccurred": "event.chapter5.ren-tal-contacted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Tal carries promised atmospheric processors and will accept a verified cargo-preserving corridor rather than abandoning them.",
+        "exclusions": ["Do not portray Tal as irrational, greedy, or indifferent to the corridor's civilians."]
+      }
+    },
+    {
+      "id": "policy.chapter5.shala-venn-contacted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.shala-venn-contacted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim after Captain Shala Venn is reached through direct visual or ship-to-ship verification rather than the compromised command network.",
+        "exclusions": ["Repeated network orders or remote authentication that Venn refuses do not establish direct contact."]
+      }
+    },
+    {
+      "id": "policy.chapter5.shala-venn-direct-verification",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.shala-venn-direct-verification",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.shala-venn-direct-verification" },
+          { "eventOccurred": "event.chapter5.shala-venn-contacted" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Venn rejects network orders after false colors but will cooperate through direct visual contact and a fresh ship-to-ship challenge.",
+        "exclusions": ["Do not describe her caution as panic or treat another network credential as sufficient reassurance."]
+      }
+    },
+    {
+      "id": "policy.chapter5.holt-intent-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.holt-intent-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when local interface instructions, cell communications, operator testimony, or equivalent evidence establish Holt's intended diversion and Sigma-4 objective.",
+        "exclusions": ["Holt's political motive, evidence that Sigma-4 was targeted, or autonomous platform activity alone is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.holt-diversion-intent",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.holt-diversion-intent",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.holt-diversion-intent" },
+          { "eventOccurred": "event.chapter5.holt-intent-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Holt initiated the concentration to expose and secure Sigma-4 as leverage, without treating his limited intended violence as exoneration.",
+        "exclusions": ["Do not claim Holt intended the platform escalation or controlled the wider system."]
+      }
+    },
+    {
+      "id": "policy.chapter5.autonomous-escalation-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.autonomous-escalation-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter5.sigma-target-and-doctrine-model" },
+          { "factKnown": "fact.chapter5.holt-diversion-intent" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim when timing, command divergence, platform instructions, or equivalent evidence distinguishes Pale Lantern's autonomous escalation from Holt's local plan.",
+        "exclusions": ["Unexpected harm, Holt's denial, or the existence of a wider network does not by itself establish the autonomous control break."]
+      }
+    },
+    {
+      "id": "policy.chapter5.autonomous-escalation",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.autonomous-escalation",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.autonomous-escalation" },
+          { "eventOccurred": "event.chapter5.autonomous-escalation-established" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose that Pale Lantern changed the warnings and activated defenses beyond Holt's plan while preserving Holt's responsibility for creating the concentration.",
+        "exclusions": ["Do not let autonomous escalation absolve Holt or let Holt's initiation prove the wider control chain."]
+      }
+    },
+    {
+      "id": "policy.chapter5.bronn-contingency-tested",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.bronn-contingency-tested",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Bronn's verification and fire-control contingency is exercised in simulation, rehearsal, or the live crisis far enough to expose its protections and limits.",
+        "exclusions": ["Hearing Bronn's recommendation or ordering preparations is not a test."]
+      }
+    },
+    {
+      "id": "policy.chapter5.bronn-authentication-contingency",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.bronn-authentication-contingency",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.bronn-authentication-contingency" },
+          { "eventOccurred": "event.chapter5.bronn-contingency-tested" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the tested value of Bronn's challenge-response, weapons holds, and fire-control boundaries without claiming his historical target prediction was complete.",
+        "exclusions": ["Do not reduce his plan to caution for its own sake or make successful safeguards validate every assumption."]
+      }
+    },
+    {
+      "id": "policy.chapter5.kieran-corridor-tested",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.kieran-corridor-tested",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only after Kieran's manual corridor is exercised in simulation, rehearsal, or the live crisis far enough to demonstrate its geometry and authentication burden.",
+        "exclusions": ["Suggesting manual flight, plotting an untested line, or relying on instinct alone is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter5.kieran-manual-corridor",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter5.kieran-manual-corridor",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter5.kieran-manual-corridor" },
+          { "eventOccurred": "event.chapter5.kieran-corridor-tested" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the tested value of Kieran's traffic geometry, direct challenges, and manually flown corridor without framing it as bravery opposed to Bronn's caution.",
+        "exclusions": ["Do not imply rapid flight bypasses authentication or makes Bronn's safety boundaries irrelevant."]
+      }
+    },
     {
       "id": "policy.chapter5.concentration-evidence",
       "claimType": "eventOccurred",
@@ -352,12 +616,110 @@
       "playerText": {
         "summary": "Holt's cell initiated the diversion, but the wider system expanded it and activated defenses beyond local intent; the portable interface cannot simply command the whole network."
       }
+    },
+    {
+      "id": "report.chapter5.ivers-vulnerable-ships",
+      "factId": "fact.chapter5.ivers-vulnerable-ships",
+      "evidencePolicyId": "policy.chapter5.ivers-vulnerable-ships",
+      "capabilityRoles": ["command", "flight", "operations"],
+      "preferredActorIds": ["nella-ivers"],
+      "fallbackActorIds": ["priya-nayar"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.ivers-vulnerable-ships" }, { "eventOccurred": "event.chapter5.ivers-contacted" }, { "not": { "factKnown": "fact.chapter5.ivers-vulnerable-ships" } }] },
+      "playerText": { "summary": "Ivers will move passenger and medical ships first by direct authenticated contact, even at risk to her own relief freighters." }
+    },
+    {
+      "id": "report.chapter5.ren-tal-colony-cargo",
+      "factId": "fact.chapter5.ren-tal-colony-cargo",
+      "evidencePolicyId": "policy.chapter5.ren-tal-colony-cargo",
+      "capabilityRoles": ["command", "flight", "operations"],
+      "preferredActorIds": ["ren-tal"],
+      "fallbackActorIds": ["priya-nayar"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.ren-tal-colony-cargo" }, { "eventOccurred": "event.chapter5.ren-tal-contacted" }, { "not": { "factKnown": "fact.chapter5.ren-tal-colony-cargo" } }] },
+      "playerText": { "summary": "Ren Tal will accept a verified corridor but will not abandon atmospheric processors promised to an isolated colony." }
+    },
+    {
+      "id": "report.chapter5.shala-venn-direct-verification",
+      "factId": "fact.chapter5.shala-venn-direct-verification",
+      "evidencePolicyId": "policy.chapter5.shala-venn-direct-verification",
+      "capabilityRoles": ["command", "flight", "operations"],
+      "preferredActorIds": ["shala-venn"],
+      "fallbackActorIds": ["priya-nayar"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.shala-venn-direct-verification" }, { "eventOccurred": "event.chapter5.shala-venn-contacted" }, { "not": { "factKnown": "fact.chapter5.shala-venn-direct-verification" } }] },
+      "playerText": { "summary": "Shala Venn rejects network orders after false colors but will cooperate through direct visual contact and a fresh ship-to-ship challenge." }
+    },
+    {
+      "id": "report.chapter5.holt-diversion-intent",
+      "factId": "fact.chapter5.holt-diversion-intent",
+      "evidencePolicyId": "policy.chapter5.holt-diversion-intent",
+      "capabilityRoles": ["security", "operations"],
+      "preferredActorIds": ["hadrik-bronn", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.holt-diversion-intent" }, { "eventOccurred": "event.chapter5.holt-intent-established" }, { "not": { "factKnown": "fact.chapter5.holt-diversion-intent" } }] },
+      "playerText": { "summary": "Holt's cell initiated the diversion to expose and secure Sigma-4 as leverage, not to trigger a platform battle." }
+    },
+    {
+      "id": "report.chapter5.autonomous-escalation",
+      "factId": "fact.chapter5.autonomous-escalation",
+      "evidencePolicyId": "policy.chapter5.autonomous-escalation",
+      "capabilityRoles": ["science", "operations", "security"],
+      "preferredActorIds": ["rowan-saye", "priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.autonomous-escalation" }, { "eventOccurred": "event.chapter5.autonomous-escalation-established" }, { "not": { "factKnown": "fact.chapter5.autonomous-escalation" } }] },
+      "playerText": { "summary": "Pale Lantern changed the warnings and activated defenses beyond Holt's plan without erasing his responsibility for starting the concentration." }
+    },
+    {
+      "id": "report.chapter5.bronn-authentication-contingency",
+      "factId": "fact.chapter5.bronn-authentication-contingency",
+      "evidencePolicyId": "policy.chapter5.bronn-authentication-contingency",
+      "capabilityRoles": ["security", "command"],
+      "preferredActorIds": ["hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.bronn-authentication-contingency" }, { "eventOccurred": "event.chapter5.bronn-contingency-tested" }, { "not": { "factKnown": "fact.chapter5.bronn-authentication-contingency" } }] },
+      "playerText": { "summary": "Testing confirms the value and limits of Bronn's challenge-response checks, weapons holds, and fire-control boundaries." }
+    },
+    {
+      "id": "report.chapter5.kieran-manual-corridor",
+      "factId": "fact.chapter5.kieran-manual-corridor",
+      "evidencePolicyId": "policy.chapter5.kieran-manual-corridor",
+      "capabilityRoles": ["flight", "command"],
+      "preferredActorIds": ["kieran-vale"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter5.kieran-manual-corridor" }, { "eventOccurred": "event.chapter5.kieran-corridor-tested" }, { "not": { "factKnown": "fact.chapter5.kieran-manual-corridor" } }] },
+      "playerText": { "summary": "Testing confirms the value and authentication burden of Kieran's direct-challenge manual corridor." }
     }
   ],
   "events": [
     { "id": "event.chapter5.concentration-pattern-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter5.sigma-target-corroborated", "playerVisibility": "hidden" },
-    { "id": "event.chapter5.control-chain-corroborated", "playerVisibility": "hidden" }
+    { "id": "event.chapter5.control-chain-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.ivers-contacted", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.ren-tal-contacted", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.shala-venn-contacted", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.holt-intent-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.autonomous-escalation-established", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.bronn-contingency-tested", "playerVisibility": "hidden" },
+    { "id": "event.chapter5.kieran-corridor-tested", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {

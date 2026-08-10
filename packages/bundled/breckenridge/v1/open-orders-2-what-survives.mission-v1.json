@@ -12,6 +12,25 @@
     "title": "Open Orders II: What Survives",
     "summary": "Choose how the Breckenridge will help with repair and review work while the crew recovers from the Orison crisis."
   },
+  "entryCapabilities": [
+    {
+      "id": "capability.open-orders2.orison-authentication-record",
+      "source": {
+        "definitionId": "mission.chapter-5-old-lessons",
+        "definitionVersion": "1.0.0",
+        "requirements": [
+          {
+            "dimensionId": "dimension.chapter5.authentication",
+            "in": ["secured", "destroyed-with-record"]
+          }
+        ]
+      },
+      "playerText": {
+        "label": "Orison Authentication Record",
+        "summary": "A verified record of the Sigma-4 authentication path is available for defense transition, evidence review, and controlled deactivation work."
+      }
+    }
+  ],
   "facts": [
     {
       "id": "fact.open-orders2.opportunities",

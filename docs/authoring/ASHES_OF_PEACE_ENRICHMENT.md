@@ -415,29 +415,37 @@ flowchart TD
     A[Conflicting warnings converge traffic on Orison Gap] --> B[Protect civilian and Compact traffic]
     A --> C[Contain obsolete defense systems]
     A --> D[Investigate the operation's true target]
-    B --> E[Safety result]
-    C --> E
-    D --> F[Discover Sigma-4 authentication target]
-    F --> G[Establish Holt initiated the diversion]
-    F --> H[Establish autonomous escalation exceeded Holt's plan]
-    G --> I[Resolve operator evidence]
-    H --> J[Resolve authentication custody]
-    E --> K[Command use of Bronn's experience]
-    I --> K
-    J --> K
-    K --> L[Open Orders II recovery]
+    B --> E[Ivers evacuates vulnerable ships]
+    B --> F[Ren Tal protects colony cargo]
+    B --> G[Shala Venn demands direct verification]
+    E --> H[Safety result]
+    F --> H
+    G --> H
+    C --> H
+    D --> I[Discover Sigma-4 authentication target]
+    I --> J[Establish Holt's diversion intent]
+    J --> K[Establish autonomous escalation]
+    J --> L[Resolve operator evidence]
+    K --> M[Resolve authentication custody]
+    H --> N[Test Bronn and Kieran's plans]
+    L --> N
+    M --> N
+    N --> O[Open Orders II recovery]
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-The crisis supports multi-front success, costly survival, cascade, partial containment, handoff, evidence destruction, and non-linear front order. The choice structure is strong, but the ships and captains being maneuvered need identities and agency.
+Old Lessons retains its multi-front, costly, cascade, partial, handoff, and evidence-loss endings while putting identifiable captains and independently supportable responsibility findings on those fronts.
 
-#### Enrichment direction
+- Nella Ivers prioritizes passenger and medical vessels even at risk to her own relief ships.
+- Ren Tal refuses to abandon atmospheric processors promised to an isolated colony but accepts a verified cargo-preserving corridor.
+- Shala Venn distrusts all network orders after false colors and requires direct visual and ship-to-ship verification.
+- Holt's deliberate diversion to expose and secure Sigma-4 is independently discoverable from Pale Lantern's autonomous platform escalation; neither finding substitutes for the other.
+- Bronn's conservative authentication and fire-control contingency and Kieran's direct-challenge manual corridor can both be tested before the existing command-posture decision records integration, untested obedience, an evidence-based alternative, dismissal, or humiliation.
+- Open Orders II now imports an Orison Authentication Record when Sigma-4 is secured or destroyed with a usable record. It supplies technical leverage without deciding Tonn's consent or automatically awarding defense codes.
+- Five new scenarios prove the civilian, responsibility, advice, and downstream-payoff paths.
+- The focused campaign gate now covers 261 authored scenarios.
 
-- Give Ivers and two civilian captains incompatible but rational responses to the warnings.
-- Make Holt's local intent discoverable separately from Pale Lantern's escalation.
-- Let Kieran and Bronn represent different operational readings without reducing either to boldness versus caution.
-- Carry human and infrastructure costs into Open Orders II.
 
 ### Open Orders II: What Survives
 

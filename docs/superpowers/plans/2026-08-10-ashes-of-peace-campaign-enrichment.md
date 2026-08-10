@@ -470,23 +470,23 @@ git commit -m "feat: deepen Demeris witness agency"
 - Produces: distinct civilian command choices and `capability.open-orders2.orison-authentication-record`.
 - Consumes: existing Orison, authentication, operator, evidence-route, and command dimensions.
 
-- [ ] **Step 1: Add failing multi-captain and payoff scenarios**
+- [x] **Step 1: Add failing multi-captain and payoff scenarios**
 
 Add `ivers-evacuates-ren-tal-holds`, `shala-venn-refuses-network-orders`, `holt-intent-before-autonomous-escalation`, `bronn-kieran-tested-alternative`, and `authentication-record-imports-to-open-orders2`.
 
-- [ ] **Step 2: Put people on the traffic and defense fronts**
+- [x] **Step 2: Put people on the traffic and defense fronts**
 
 Use Nella Ivers as the relief captain who prioritizes vulnerable ships, Captain Ren Tal as a freighter master unwilling to abandon cargo needed by a colony, and Captain Shala Venn as a passenger captain who distrusts all network orders after the false-colors incident. Give each a rational response that can help or complicate different plans.
 
-- [ ] **Step 3: Separate Holt's act from Pale Lantern escalation**
+- [x] **Step 3: Separate Holt's act from Pale Lantern escalation**
 
 Author independent facts for Holt initiating the diversion to test or secure Orison and for Pale Lantern autonomously exploiting it beyond his plan. Capturing Holt's intent does not prove the autonomous control chain; establishing the control chain does not erase Holt's responsibility.
 
-- [ ] **Step 4: Make Bronn and Kieran useful in different ways**
+- [x] **Step 4: Make Bronn and Kieran useful in different ways**
 
 Bronn supplies conservative authentication and fire-control contingencies. Kieran supplies traffic geometry and a rapid manual corridor. Record whether the player tests, combines, rejects, or humiliates their advice through the existing command-posture outcome.
 
-- [ ] **Step 5: Add the Chapter 5 payoff to Open Orders II**
+- [x] **Step 5: Add the Chapter 5 payoff to Open Orders II**
 
 Author:
 
@@ -510,7 +510,7 @@ Author:
 
 This capability supplies leverage in The Last Watch but does not make Varrik Tonn consent or automatically earn Orison Defense Codes.
 
-- [ ] **Step 6: Verify and commit Chapter 5**
+- [x] **Step 6: Verify and commit Chapter 5**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 

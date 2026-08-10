@@ -2247,6 +2247,14 @@ At the same time:
 
 The corridor is becoming a crowded, armed, and confused battlespace.
 
+Three civilian captains make "traffic control" a negotiation rather than a set of icons:
+
+- **Captain Nella Ivers** prioritizes passenger and medical ships and will use her relief freighters as cover if necessary. She accepts direct authenticated instructions, but will not place uninformed civilians into a decoy formation.
+- **Captain Ren Tal** carries atmospheric processors promised to an isolated colony. He refuses a general evacuation order that abandons the cargo, but will move through a verified corridor that keeps the shipment with his ship.
+- **Captain Shala Venn** carries civilian passengers and distrusts every network-level order after the false-colors attack. She will cooperate through direct visual contact and a fresh challenge exchanged ship to ship.
+
+Each response is rational. A plan that helps one captain may complicate another, and none should become compliant merely because Starfleet repeats an order more forcefully.
+
 ### 17.3 Bronn's assessment
 
 Bronn identifies the structure as similar to the **Mendora Containment Incident**, a prewar border action in which false threat reports concentrated shipping while a secondary team seized command infrastructure.
@@ -2268,7 +2276,9 @@ The true target is not Asterion Station or the Breckenridge. It is the obsolete 
 
 Pale Lantern wants the Breckenridge to remain outside the gap while an automated maintenance drone extracts the buoy's authentication core.
 
-Marshal Holt's cell initiated the convoy diversion to create political pressure. Pale Lantern expanded it into a wider operation and activated the defense platforms independently.
+Marshal Holt's cell initiated the convoy diversion to expose and secure Sigma-4's authentication path as leverage against Starfleet. It intended a controlled concentration and seizure, not a mass-casualty platform engagement.
+
+Pale Lantern altered the threat warnings and activated the defense platforms independently, expanding Holt's operation beyond his plan. These are separable findings: establishing Holt's intent does not prove the autonomous control chain, and establishing autonomous escalation does not erase Holt's responsibility for creating the concentration.
 
 ### 17.5 Key locations
 
@@ -2338,6 +2348,9 @@ The player may:
 - Negotiate with Holt's operator.
 - Broadcast proof of manipulation to all ships.
 - Order a temporary surrender of weapons and transponders.
+- Ask Ivers to screen vulnerable ships while another vessel clears a corridor.
+- Give Ren Tal a cargo-preserving route rather than treating his refusal as mutiny.
+- Reach Shala Venn through direct challenge and visual contact rather than another compromised network order.
 
 The player cannot personally perform every task. Delegation should determine which fronts receive senior-officer attention.
 
@@ -2368,12 +2381,14 @@ Potential Resolve:
 ### 17.11 Crew pressures
 
 - **Whitaker** remains aboard and expects the player to integrate rather than choose between officers as personalities.
-- **Kieran** wants the run to Sigma-4 and believes he can execute it.
+- **Kieran** proposes a rapid manual corridor using observed traffic geometry, direct ship-to-ship challenges, and a precisely flown path that does not trust the command network.
 - **Priya** can build a temporary civilian traffic network if given authority to override normal routing.
-- **Bronn** initially defends his model. He will revise it if the player presents specific evidence without humiliating him.
+- **Bronn** proposes conservative challenge-response verification, weapons holds, and predeclared fire-control boundaries. He initially defends his historical target model but will revise it if the player presents specific evidence without humiliating him.
 - **Rowan** is correct about the buoy but may overstate his certainty about everything else.
 - **Miriam** prepares for mass casualties and argues against using one civilian convoy as an uninformed decoy.
 - **Imani** can reinforce the ship for Kieran's maneuver only by reducing another system's redundancy.
+
+Bronn's contingency and Kieran's corridor can each be simulated, rehearsed, or tested in the live crisis. The player may combine them, follow Bronn without testing, choose Kieran's evidence-based alternative, dismiss one without testing, or humiliate an officer publicly. The recorded command posture reflects how advice was handled, not which personality the player favored.
 
 ### 17.12 Bronn relationship outcomes
 
@@ -2420,6 +2435,9 @@ Record:
 - Casualties and ship damage.
 - Whether Holt's operator is captured.
 - Whether Bronn's advice was integrated, obeyed, or dismissed.
+- Whether Bronn's authentication contingency and Kieran's manual corridor were actually tested.
+- Whether Ivers evacuated vulnerable ships, Ren Tal retained the colony's processors, and Shala Venn received acceptable direct verification.
+- Whether Holt's diversion intent and Pale Lantern's autonomous escalation were independently established.
 - Whether Kieran exceeded an explicit limit.
 - Technical debt accepted by Imani.
 
@@ -2436,6 +2454,8 @@ This establishes that Pale Lantern is shaping its users.
 The Breckenridge and regional infrastructure require repair. Several investigative teams need time to analyze the recovered interface, Sigma-4, and relay data.
 
 Whitaker authorizes a second Open Orders period, with priority given to assignments that reduce regional strain and prepare the Reach for further disruption.
+
+If Sigma-4 was secured, or destroyed only after a usable record was preserved, Open Orders II imports the **Orison Authentication Record**. It can support defense transition, evidence review, and controlled deactivation work. It does not decide Varrik Tonn's consent, confer authority over Compact defenses, or automatically earn the Orison Defense Codes asset.
 
 ---
 
