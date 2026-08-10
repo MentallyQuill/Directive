@@ -128,9 +128,9 @@ An incidental protest rumor, one forged alert, a light-support fault, a weapons-
 
 ### Task 1: Authoritative-time bridge
 
-- [ ] Create a RED runtime contract proving a matching committed time boundary advances a running V1 clock even when semantic interpretation abstains.
-- [ ] Prove fractional unit conversion, replay idempotency, source mutation rewind, restoration epoch, stopped-clock behavior, missing/mismatched boundary behavior, and assistant/user time-authority rejection.
-- [ ] Implement the bounded time-boundary-to-mission-evidence bridge and register its contract in the alpha gate.
+- [x] Create a RED runtime contract proving a matching committed time boundary advances a running V1 clock even when semantic interpretation abstains.
+- [x] Prove fractional unit conversion, replay idempotency, source mutation rewind, restoration epoch, stopped-clock behavior, missing/mismatched boundary behavior, and assistant/user time-authority rejection.
+- [x] Implement the bounded time-boundary-to-mission-evidence bridge and register its contract in the alpha gate.
 
 ### Task 2: Chapter 7 RED contract
 
