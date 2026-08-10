@@ -326,9 +326,459 @@
         "value": "withLimitation",
         "sourceRole": "assistant"
       }
+    ],
+    "redline-poker-hook": [
+      {
+        "claimId": "claim.prelude.poker-conversation-held",
+        "policyId": "policy.prelude.poker-conversation-held",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.poker-conversation-held",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-conflicting-explanations",
+        "policyId": "policy.prelude.redline-conflicting-explanations-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.conflicting-explanations",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-sato-hook": [
+      {
+        "claimId": "claim.prelude.sickbay-consultation-held",
+        "policyId": "policy.prelude.sickbay-consultation-held",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.sickbay-consultation-held",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-inventory-drift",
+        "policyId": "policy.prelude.redline-inventory-drift-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.inventory-drift",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-access-material-case": [
+      {
+        "claimId": "claim.prelude.redline-access-evidence",
+        "policyId": "policy.prelude.redline-access-evidence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.access-evidence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-material-evidence",
+        "policyId": "policy.prelude.redline-material-evidence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.material-evidence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-composition-confirmed",
+        "policyId": "policy.prelude.redline-composition-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.composition-confirmed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-evidence-two-classes",
+        "policyId": "policy.prelude.redline-evidence",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.redline-evidence",
+        "value": "twoIndependentClasses",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-distribution-confirmed",
+        "policyId": "policy.prelude.redline-distribution-confirmed-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.distribution-confirmed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-single-access-class": [
+      {
+        "claimId": "claim.prelude.redline-access-only",
+        "policyId": "policy.prelude.redline-access-evidence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.access-evidence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-evidence-one-class",
+        "policyId": "policy.prelude.redline-evidence-one-class",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.redline-evidence",
+        "value": "oneClass",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-wrong-person-custody": [
+      {
+        "claimId": "claim.prelude.redline-wrong-person-detained",
+        "policyId": "policy.prelude.redline-wrong-person-detained",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.redline-wrong-person-detained",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-hesperus-human-case": [
+      {
+        "claimId": "claim.prelude.redline-shortage-consequence",
+        "policyId": "policy.prelude.redline-shortage-consequence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.shortage-consequence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-human-evidence",
+        "policyId": "policy.prelude.redline-human-evidence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.human-evidence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-material-evidence-from-staging",
+        "policyId": "policy.prelude.redline-material-evidence-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.material-evidence",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-composition-from-staging",
+        "policyId": "policy.prelude.redline-composition-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.composition-confirmed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-evidence-human-material",
+        "policyId": "policy.prelude.redline-evidence",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.redline-evidence",
+        "value": "twoIndependentClasses",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-distribution-from-hesperus",
+        "policyId": "policy.prelude.redline-distribution-confirmed-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.redline.distribution-confirmed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-lawful-custody": [
+      {
+        "claimId": "claim.prelude.rhee-secured-in-custody",
+        "policyId": "policy.prelude.rhee-secured-in-custody",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.rhee-secured-in-custody",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.rhee-lawful-custody-result",
+        "policyId": "policy.prelude.rhee-disposition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.rhee-disposition",
+        "value": "lawfulCustodyExecuted",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-treatment-without-custody": [
+      {
+        "claimId": "claim.prelude.rhee-treatment-without-custody",
+        "policyId": "policy.prelude.rhee-noncustodial-disposition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.rhee-disposition",
+        "value": "treatmentWithoutCustody",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-responsible-handoff": [
+      {
+        "claimId": "claim.prelude.rhee-case-handed-off",
+        "policyId": "policy.prelude.rhee-noncustodial-disposition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.rhee-disposition",
+        "value": "responsibleHandoff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-daro-confidential-care": [
+      {
+        "claimId": "claim.prelude.daro-confidential-care",
+        "policyId": "policy.prelude.daro-care",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.daro-care",
+        "value": "confidentialTreatment",
+        "sourceRole": "assistant"
+      }
+    ],
+    "redline-compromised-escape": [
+      {
+        "claimId": "claim.prelude.redline-evidence-compromised",
+        "policyId": "policy.prelude.redline-evidence-compromised",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.redline-evidence",
+        "value": "compromised",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.redline-distribution-stopped-with-cost",
+        "policyId": "policy.prelude.redline-containment",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.redline-containment",
+        "value": "distributionStoppedWithEvidenceCost",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude.rhee-escaped",
+        "policyId": "policy.prelude.rhee-failure-disposition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.rhee-disposition",
+        "value": "escaped",
+        "sourceRole": "assistant"
+      }
     ]
   },
   "scenarios": [
+    {
+      "id": "poker-chen-medical-audit-lawful-custody",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "redline-lawful-custody", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 22,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-lawful-custody"
+        },
+        "knownFactsIncludes": [
+          "fact.prelude.redline.conflicting-explanations",
+          "fact.prelude.redline.distribution-confirmed"
+        ],
+        "eventsInclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": ["award.prelude.rhee-apprehension"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "sato-inventory-access-audit-lawful-custody",
+      "sequence": ["command-handover", "staff-readiness", "redline-sato-hook", "redline-access-material-case", "redline-lawful-custody", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 22,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-lawful-custody"
+        },
+        "knownFactsIncludes": [
+          "fact.prelude.redline.inventory-drift",
+          "fact.prelude.redline.distribution-confirmed"
+        ],
+        "knownFactsExcludes": ["fact.prelude.redline.conflicting-explanations"],
+        "eventsInclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": ["award.prelude.rhee-apprehension"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "hesperus-shortage-human-evidence-lawful-custody",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "redline-hesperus-human-case", "redline-lawful-custody", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 21,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-lawful-custody"
+        },
+        "knownFactsIncludes": [
+          "fact.prelude.redline.shortage-consequence",
+          "fact.prelude.redline.human-evidence",
+          "fact.prelude.redline.distribution-confirmed"
+        ],
+        "knownFactsExcludes": [
+          "fact.prelude.redline.conflicting-explanations",
+          "fact.prelude.redline.inventory-drift"
+        ],
+        "commandBearingAwardIds": ["award.prelude.rhee-apprehension"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "single-evidence-class-no-apprehension-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-single-access-class", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 17,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": null
+        },
+        "knownFactsIncludes": ["fact.prelude.redline.access-evidence"],
+        "knownFactsExcludes": ["fact.prelude.redline.distribution-confirmed"],
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "unsupported-accusation-no-apprehension-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 20,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": null
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "unresolved-carried-forward"
+        },
+        "knownFactsIncludes": ["fact.prelude.redline.distribution-confirmed"],
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "wrong-person-custody-no-apprehension-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-single-access-class", "redline-wrong-person-custody", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 18,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": null
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "mishandled"
+        },
+        "eventsInclude": ["event.prelude.redline-wrong-person-detained"],
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "rhee-medical-amnesty-without-custody-no-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "redline-treatment-without-custody", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 21,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "completedWithCost"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-treatment-handoff"
+        },
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "rhee-case-handed-off-without-custody-no-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "redline-responsible-handoff", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 21,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "handedOff"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-treatment-handoff"
+        },
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "daro-confidential-care-without-testimony",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-daro-confidential-care", "redline-access-material-case", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 21,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": null
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "unresolved-carried-forward"
+        },
+        "outcomeValues": {
+          "outcome.prelude.daro-care": "confidentialTreatment"
+        },
+        "knownFactsExcludes": ["fact.prelude.redline.human-evidence"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "rhee-escapes-after-evidence-compromised-no-award",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "redline-compromised-escape", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 23,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.rhee-apprehension": "failedAfterInformedAction"
+        },
+        "outcomeDimensions": {
+          "dimension.prelude.redline": "contained-with-evidence-cost"
+        },
+        "outcomeValues": {
+          "outcome.prelude.redline-evidence": "compromised",
+          "outcome.prelude.redline-containment": "distributionStoppedWithEvidenceCost",
+          "outcome.prelude.rhee-disposition": "escaped"
+        },
+        "eventsExclude": ["event.prelude.rhee-secured-in-custody"],
+        "commandBearingAwardIds": [],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "both-prelude-command-bearing-awards",
+      "sequence": ["command-handover", "staff-readiness", "redline-poker-hook", "redline-access-material-case", "redline-lawful-custody", "hesperus-open", "records-through-confirmation", "accountability-proportionate", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 28,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-accountability": "completed",
+          "objective.prelude.rhee-apprehension": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "proportionate-action",
+          "dimension.prelude.redline": "contained-lawful-custody"
+        },
+        "commandBearingAwardIds": ["award.prelude.hesperus-accountability", "award.prelude.rhee-apprehension"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
     {
       "id": "rescue-success-no-discovery",
       "sequence": ["command-handover", "staff-readiness", "hesperus-open", "rescue-safe", "final-clean"],

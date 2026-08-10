@@ -15,7 +15,7 @@
     "id": "ashes-of-peace",
     "title": "Ashes of Peace",
     "theater": "Asterion Reach",
-    "openingStardate": 53049.2,
+    "openingStardate": 53068.4,
     "openingYear": 2376,
     "highConcept": "The war is over, but peace in the Asterion Reach depends on who controls Starfleet's voice, who receives relief, and whose evidence survives. The newly refit U.S.S. Breckenridge enters that fracture with an incoming executive officer and a command team still learning how to trust one another.",
     "openingMessage": "The U.S.S. Breckenridge is underway again, four months of repair and modernization still audible in the unfamiliar rhythm of her decks.\n\nCaptain Mara Whitaker waits in the ready room with the command-transfer packet open between two untouched cups of coffee. “Come in, Commander. Before this ship reaches the Asterion Reach, you and I need to decide how we are going to run her.”"
@@ -26,7 +26,7 @@
     "class": "Intrepid-class",
     "affiliation": "Starfleet",
     "registry": "NCC-74638",
-    "openingStardate": 53049.2,
+    "openingStardate": 53068.4,
     "openingCondition": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with upgraded systems still requiring integrated validation under sustained deployment conditions.",
     "commandStructure": {
       "commandingOfficer": "mara-whitaker",
@@ -107,7 +107,7 @@
     "campaignContext": {
       "campaignTitle": "Ashes of Peace",
       "eraLabel": "2376, Post-Dominion War",
-      "currentDateOrStardate": "Stardate 53049.2",
+      "currentDateOrStardate": "Stardate 53068.4",
       "serviceOrFaction": "Starfleet",
       "shipName": "U.S.S. Breckenridge",
       "shipClass": "Intrepid-class",
@@ -273,7 +273,7 @@
       "mustNot": [
         "Invent secret ancestry, hidden powers, criminal history, severe trauma, or canonical celebrity ties without explicit player request.",
         "Establish friendships, rivalries, or romances with current Breckenridge crew before play begins.",
-        "Reveal campaign secrets or information unavailable at stardate 53049.2.",
+        "Reveal campaign secrets or information unavailable at stardate 53068.4.",
         "Make the player character universally admired or exceptional in every field.",
         "Let the player character replace senior specialists in advanced engineering, medicine, science, piloting, tactical execution, or intelligence work.",
         "Assume a different ship, captain, campaign, or player role."
@@ -284,12 +284,12 @@
       { "id": "xo-authority", "label": "XO authority", "summary": "The character is the Breckenridge's incoming permanent XO, not the captain or a civilian specialist." },
       { "id": "captain-final-command", "label": "Captain retains command", "summary": "Whitaker can delegate substantial mission authority but retains final legal command." },
       { "id": "new-to-crew", "label": "New to the crew", "summary": "The player character does not begin with deep relationships aboard the Breckenridge." },
-      { "id": "postwar-plausibility", "label": "Postwar plausibility", "summary": "Backstory must fit Starfleet service around stardate 53049.2." },
+      { "id": "postwar-plausibility", "label": "Postwar plausibility", "summary": "Backstory must fit Starfleet service around stardate 53068.4." },
       { "id": "campaign-secret-safety", "label": "Campaign secret safety", "summary": "The character cannot begin knowing undiscovered campaign evidence or hidden motives." },
       { "id": "specialist-boundary", "label": "Specialist boundary", "summary": "Senior staff remain necessary experts in their departments." }
     ],
     "localFallback": {
-      "biographyTemplate": "{{name}} is a {{species}} Starfleet Commander assigned as Executive Officer of the U.S.S. Breckenridge on stardate 53049.2. Their background in {{careerBackground}} and formative experience with {{formativeExperience}} made them a credible choice for the Asterion Reach mission. Their command style is shaped by {{insightTrait}}, {{connectionTrait}}, and {{executionTrait}}, while {{flaw}} remains a pressure point they will need to manage in command.",
+      "biographyTemplate": "{{name}} is a {{species}} Starfleet Commander assigned as Executive Officer of the U.S.S. Breckenridge on stardate 53068.4. Their background in {{careerBackground}} and formative experience with {{formativeExperience}} made them a credible choice for the Asterion Reach mission. Their command style is shaped by {{insightTrait}}, {{connectionTrait}}, and {{executionTrait}}, while {{flaw}} remains a pressure point they will need to manage in command.",
       "publicReputationTemplate": "{{name}} is regarded as a capable Commander whose {{careerBackground}} background makes the Breckenridge assignment plausible, though the crew is still learning what kind of XO they have received."
     }
   },

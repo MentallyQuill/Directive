@@ -4,7 +4,7 @@
 
 **Document status:** Character and dialogue design baseline  
 **Version:** 0.1  
-**Campaign era:** 2376, beginning at stardate 53049.2  
+**Campaign era:** 2376, beginning at stardate 53068.4
 **Primary campaign:** *Ashes of Peace*  
 **Companion documents:** *Directive Game Design Document* and *Directive: Ashes of Peace Campaign*
 
@@ -87,9 +87,9 @@ Imani Cross joined as an individual transfer from the refit and systems-integrat
 
 The ship departed Utopia Planitia with Bronn serving as acting executive officer while retaining tactical responsibility. Priya became the practical center of daily scheduling and cross-department coordination. Whitaker carried more executive oversight than she wanted to sustain during active operations.
 
-Kieran, Priya, Rowan, Miriam, and Imani have spent twenty-five days together by the time the player arrives. They are no longer strangers, but their impressions remain provisional.
+Kieran, Priya, Rowan, Miriam, and Imani have spent thirty-two days together by the time the player arrives. They are no longer strangers, but their impressions remain provisional.
 
-At stardate 53049.2:
+At stardate 53068.4:
 
 - Whitaker is relieved that the command structure is finally complete but intends to evaluate the player quickly.
 - Bronn wants a clean handover and a competent XO, not continued possession of the role.
@@ -475,7 +475,7 @@ He is a social presence in the officers' mess and learns junior crew names quick
 
 ## 3.7 State at the player's arrival
 
-After twenty-five days aboard, Kieran has developed three opinions:
+After thirty-two days aboard, Kieran has developed three opinions:
 
 1. The Breckenridge can do more than the current shakedown profile permits.
 2. Imani Cross will not accept performance claims without complete engineering support.
@@ -682,7 +682,7 @@ She is close to her parents and exchanges frequent messages with an older cousin
 
 ## 4.7 State at the player's arrival
 
-Priya has effectively served as the ship's informal executive coordinator during the first twenty-five days. She does not want the XO position, but she does not want useful arrangements destroyed by a new officer demonstrating authority.
+Priya has effectively served as the ship's informal executive coordinator during the first thirty-two days. She does not want the XO position, but she does not want useful arrangements destroyed by a new officer demonstrating authority.
 
 She has already:
 
@@ -1137,7 +1137,7 @@ Rowan has had relationships, but the Helios Wake controversy damaged one long-te
 
 ## 6.8 State at the player's arrival
 
-Rowan has spent twenty-five days calibrating modernized sensor systems while competing with engineering tests, flight exercises, and the transit schedule.
+Rowan has spent thirty-two days calibrating modernized sensor systems while competing with engineering tests, flight exercises, and the transit schedule.
 
 He has already identified several discrepancies that are probably ordinary post-refit behavior. He is aware that his reputation makes colleagues ask whether each concern is another fixation.
 
@@ -1487,7 +1487,7 @@ During the four-month yard period, Imani became one of the few people who unders
 
 Imani accepted because she wanted responsibility for a complete ship rather than continued status as a specialist called in after other people's assumptions failed.
 
-She arrived with no loyalty to either transfer cohort. Her authority derives from knowledge and billet, which some veteran engineers initially interpreted as yard arrogance. She has spent the first twenty-five days proving that she will enter a damaged compartment herself and that her standards apply equally to her own work.
+She arrived with no loyalty to either transfer cohort. Her authority derives from knowledge and billet, which some veteran engineers initially interpreted as yard arrogance. She has spent the first thirty-two days proving that she will enter a damaged compartment herself and that her standards apply equally to her own work.
 
 ## 8.6 Personality
 
@@ -1569,7 +1569,7 @@ Imani's quarters contain very few images from before the accident. This is not b
 
 ## 8.8 State at the player's arrival
 
-Imani has completed twenty-five days of shakedown work and identified three unresolved integrated-load concerns. Each is within certification limits individually. She does not believe the ship has demonstrated them safely in combination.
+Imani has completed thirty-two days of shakedown work and identified three unresolved integrated-load concerns. Each is within certification limits individually. She does not believe the ship has demonstrated them safely in combination.
 
 She is evaluating whether the new XO will:
 
@@ -1648,7 +1648,7 @@ These are examples of syntax, posture, and personality coverage. They are not ca
 
 ---
 
-# 9. Senior Staff Dynamics at Stardate 53049.2
+# 9. Senior Staff Dynamics at Stardate 53068.4
 
 ## 9.1 Existing relationship map
 

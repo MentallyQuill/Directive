@@ -10,7 +10,7 @@
   },
   "playerText": {
     "title": "Prelude: A Ship Underway",
-    "summary": "Complete the command handover, establish a working command rhythm, and bring the Breckenridge to the Asterion Reach."
+    "summary": "Over the final three days to the Asterion Reach, complete the command handover, establish a working command rhythm, answer the Hesperus distress call, and follow any shipboard concern you choose to pursue."
   },
   "projectionHints": {
     "shipReadinessObjectiveId": "objective.prelude.final-readiness-arrival",
@@ -71,6 +71,78 @@
       "visibility": "discoverable",
       "playerText": {
         "summary": "The preserved evidence supports attributing the altered record to the vessel owner."
+      }
+    },
+    {
+      "id": "fact.prelude.poker-invitation",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Lieutenant Kieran Vale has invited the new XO to an established junior-officer poker game after the first watch."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.conflicting-explanations",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Ensign Lysa Chen has heard several inconsistent explanations for small medical-supply discrepancies aboard the Breckenridge."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.inventory-drift",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Commander Sato has repeatedly corrected small medical inventory discrepancies only to find the counts changed again."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.shortage-consequence",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Hesperus medical staging exposed a shortage among supplies that Sickbay records showed as available."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.composition-confirmed",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Commander Sato has identified redline as an unsafe Valorous-era stimulant compounded from individually legitimate medical supplies."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.distribution-confirmed",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The evidence confirms that redline has been distributed aboard the Breckenridge rather than merely discussed or possessed once."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.access-evidence",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Medical inventory access and valid cross-department overrides establish a bounded access-and-opportunity evidence class."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.material-evidence",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "A recovered dose, staging cartridge, or residue provides a material linkage between diverted supplies and redline."
+      }
+    },
+    {
+      "id": "fact.prelude.redline.human-evidence",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Corroborated testimony, confession, or an observed controlled exchange provides a human-evidence class in the redline case."
       }
     }
   ],
@@ -441,6 +513,402 @@
       }
     },
     {
+      "id": "policy.prelude.sickbay-consultation-held",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.sickbay-consultation-held",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the player actually meeting Commander Sato in Sickbay during the transit.",
+        "exclusions": ["Planning a visit, summoning Sato elsewhere, or a passing corridor exchange is not the Sickbay consultation."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-inventory-drift-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.inventory-drift",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.inventory-drift" },
+          { "eventOccurred": "event.prelude.sickbay-consultation-held" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Sato explains that small inventory counts changed again after she corrected them and treats refit stocking as a possible explanation.",
+        "exclusions": ["A generic supply shortage, a single counting error, or Sato identifying redline does not disclose the repeated inventory drift."]
+      }
+    },
+    {
+      "id": "policy.prelude.poker-conversation-held",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.poker-conversation-held",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.prelude.poker-invitation" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the player actually joining or visiting Kieran's junior-officer poker game for ordinary conversation and play.",
+        "exclusions": ["An invitation, declined invitation, plan to attend, or mention of poker does not establish that the conversation occurred."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-conflicting-explanations-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.conflicting-explanations",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.conflicting-explanations" },
+          { "eventOccurred": "event.prelude.poker-conversation-held" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Lysa Chen explicitly describes inconsistent explanations for small medical-supply discrepancies, whether to the table or directly to the player after the hint is missed.",
+        "exclusions": ["General gossip, Rhee's absence, unease, or a vague rumor about Sickbay does not disclose the discrepancy pattern."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-shortage-consequence-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.shortage-consequence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.shortage-consequence" },
+          { "eventOccurred": "event.hesperus.rescue-response-begun" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Hesperus medical preparation exposes a concrete shortage in supplies that the ship's records showed as available.",
+        "exclusions": ["Routine rescue consumption, an anticipated shortage, or an unrelated Hesperus deficiency does not establish the Breckenridge inventory mismatch."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-human-evidence-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.human-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.human-evidence" },
+          { "factKnown": "fact.prelude.redline.shortage-consequence" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted prose establishes corroborated testimony, a corroborated confession, or an observed controlled exchange tied to redline distribution.",
+        "exclusions": ["Rumor, an uncorroborated accusation, Daro's symptoms alone, or an unsupported confession is not a human-evidence class."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-access-evidence-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.access-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.access-evidence" },
+          {
+            "any": [
+              { "factKnown": "fact.prelude.redline.conflicting-explanations" },
+              { "factKnown": "fact.prelude.redline.inventory-drift" },
+              { "factKnown": "fact.prelude.redline.shortage-consequence" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted prose establishes specific inventory access or valid overrides that create an access-and-opportunity evidence class.",
+        "exclusions": ["Department membership, suspicion, or theoretical access alone is not specific access evidence."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-material-evidence-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.material-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.material-evidence" },
+          {
+            "any": [
+              { "factKnown": "fact.prelude.redline.conflicting-explanations" },
+              { "factKnown": "fact.prelude.redline.inventory-drift" },
+              { "factKnown": "fact.prelude.redline.shortage-consequence" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when a recovered dose, staging cartridge, or residue is actually secured and linked to diverted supplies.",
+        "exclusions": ["Rumor, an unrecovered sighting, or a list of ingredients without a sample is not material evidence."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-composition-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.composition-confirmed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.composition-confirmed" },
+          { "factKnown": "fact.prelude.redline.material-evidence" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Sato or another qualified medical examiner analyzes a sample or symptomatic user and identifies the components and risk of redline.",
+        "exclusions": ["Inventory drift, slang, suspicion, or recognizing one legitimate component does not confirm the compound."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-evidence-one-class",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.redline-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          {
+            "any": [
+              { "factKnown": "fact.prelude.redline.access-evidence" },
+              { "factKnown": "fact.prelude.redline.material-evidence" },
+              { "factKnown": "fact.prelude.redline.human-evidence" }
+            ]
+          },
+          {
+            "not": {
+              "any": [
+                {
+                  "all": [
+                    { "factKnown": "fact.prelude.redline.access-evidence" },
+                    { "factKnown": "fact.prelude.redline.material-evidence" }
+                  ]
+                },
+                {
+                  "all": [
+                    { "factKnown": "fact.prelude.redline.access-evidence" },
+                    { "factKnown": "fact.prelude.redline.human-evidence" }
+                  ]
+                },
+                {
+                  "all": [
+                    { "factKnown": "fact.prelude.redline.material-evidence" },
+                    { "factKnown": "fact.prelude.redline.human-evidence" }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim oneClass only when exactly one independently supported evidence class is established in accepted state.",
+        "values": [
+          { "value": "oneClass", "guidance": "One evidence class supports continued inquiry or surveillance but not apprehension." }
+        ],
+        "exclusions": ["Suspicion without an evidence class is unresolved; two established classes must use twoIndependentClasses."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-evidence",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.redline-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          {
+            "all": [
+              { "factKnown": "fact.prelude.redline.access-evidence" },
+              { "factKnown": "fact.prelude.redline.material-evidence" }
+            ]
+          },
+          {
+            "all": [
+              { "factKnown": "fact.prelude.redline.access-evidence" },
+              { "factKnown": "fact.prelude.redline.human-evidence" }
+            ]
+          },
+          {
+            "all": [
+              { "factKnown": "fact.prelude.redline.material-evidence" },
+              { "factKnown": "fact.prelude.redline.human-evidence" }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim twoIndependentClasses only when two independently supported evidence classes are established in accepted state.",
+        "values": [
+          { "value": "twoIndependentClasses", "guidance": "Two independent classes support attribution and lawful apprehension." }
+        ],
+        "exclusions": ["Two details from one source, an accusation, or uncorroborated confession do not establish two independent classes."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-distribution-confirmed-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.redline.distribution-confirmed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.distribution-confirmed" },
+          { "factKnown": "fact.prelude.redline.composition-confirmed" },
+          { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "twoIndependentClasses" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted prose distinguishes an actual shipboard distribution pattern from isolated possession or rumor.",
+        "exclusions": ["One unexplained dose, a recipe, or suspicion of diversion does not prove distribution."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-wrong-person-detained",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.redline-wrong-person-detained",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "oneClass" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose depicts a crew member other than the supported distributor actually detained on the insufficient case.",
+        "exclusions": ["Questioning, surveillance, a proposed detention, or lawful custody of Rhee under two evidence classes is not wrong-person detention."]
+      }
+    },
+    {
+      "id": "policy.prelude.rhee-secured-in-custody",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.rhee-secured-in-custody",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+          { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "twoIndependentClasses" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose depicts Rhee actually secured in lawful custody, personally or through an executed security order.",
+        "exclusions": ["Identifying Rhee, accusing her, issuing an unexecuted order, surveillance, interview, or a planned arrest is not custody."]
+      }
+    },
+    {
+      "id": "policy.prelude.rhee-noncustodial-disposition",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.rhee-disposition",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+          { "not": { "eventOccurred": "event.prelude.rhee-secured-in-custody" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose settles Rhee's case without completed shipboard custody.",
+        "values": [
+          { "value": "treatmentWithoutCustody", "guidance": "Rhee enters a documented treatment or amnesty disposition without first being secured in custody." },
+          { "value": "responsibleHandoff", "guidance": "The supported case and responsibility are transferred to a named competent authority without shipboard custody." }
+        ],
+        "exclusions": ["An offer, plan, unexecuted order, or unresolved interview is not a settled disposition."]
+      }
+    },
+    {
+      "id": "policy.prelude.daro-care",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.daro-care",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "any": [
+          { "factKnown": "fact.prelude.redline.conflicting-explanations" },
+          { "factKnown": "fact.prelude.redline.inventory-drift" },
+          { "factKnown": "fact.prelude.redline.shortage-consequence" },
+          { "factKnown": "fact.prelude.redline.material-evidence" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose depicts Daro receiving confidential medical evaluation and treatment without making disclosure a condition of care.",
+        "values": [
+          { "value": "confidentialTreatment", "guidance": "Sato treats Daro, records any necessary temporary duty restriction, and preserves his confidentiality without claiming that his silence proves or disproves the distribution case." }
+        ],
+        "exclusions": ["A planned examination, coerced statement, rumor about symptoms, or use of private medical information as uncorroborated evidence is not confidential treatment."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-evidence-compromised",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.redline-evidence",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose depicts previously established evidence materially lost, contaminated, or rendered unusable.",
+        "values": [
+          { "value": "compromised", "guidance": "The case was established, but a material failure damaged the evidence available for custody or later review." }
+        ],
+        "exclusions": ["A risk to evidence, an incomplete search, or ordinary chain-of-custody work is not compromised evidence."]
+      }
+    },
+    {
+      "id": "policy.prelude.redline-containment",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.redline-containment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose depicts the active shipboard supply and distribution route actually stopped despite a material evidentiary cost.",
+        "values": [
+          { "value": "distributionStoppedWithEvidenceCost", "guidance": "Access and remaining doses are secured, stopping distribution, but evidence needed for the individual case is materially compromised." }
+        ],
+        "exclusions": ["Identifying the route, planning safeguards, or losing evidence without stopping distribution is not containment."]
+      }
+    },
+    {
+      "id": "policy.prelude.rhee-failure-disposition",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.rhee-disposition",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+          { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "compromised" } },
+          { "not": { "eventOccurred": "event.prelude.rhee-secured-in-custody" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted prose establishes that Rhee evaded the supported custody effort after the case was compromised.",
+        "values": [
+          { "value": "escaped", "guidance": "Rhee is not in custody and has evaded the immediate supported apprehension effort." }
+        ],
+        "exclusions": ["Rhee being unlocated, an unexecuted order, surveillance, or a pending search is not an established escape."]
+      }
+    },
+    {
+      "id": "policy.prelude.rhee-disposition",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.prelude.rhee-disposition",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.rhee-secured-in-custody" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim lawfulCustodyExecuted only after Rhee is actually secured under the supported case.",
+        "values": [
+          { "value": "lawfulCustodyExecuted", "guidance": "Rhee is secured in lawful custody after the distribution case and two evidence classes are established." }
+        ],
+        "exclusions": ["A future handoff, voluntary treatment without custody, escape, or unsupported detention is not lawfulCustodyExecuted."]
+      }
+    },
+    {
       "id": "policy.hesperus.authoritative-time",
       "claimType": "timeAdvanced",
       "targetId": "clock.hesperus-life-support",
@@ -466,6 +934,44 @@
         ]
       },
       "playerText": { "summary": "Operations has received a civilian distress call requiring command attention." }
+    },
+    {
+      "id": "report.prelude.redline.inventory-drift",
+      "factId": "fact.prelude.redline.inventory-drift",
+      "evidencePolicyId": "policy.prelude.redline-inventory-drift-disclosed",
+      "capabilityRoles": ["medical"],
+      "preferredActorIds": ["miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "preliminary",
+      "deliveryRequirement": "optional",
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.inventory-drift" },
+          { "eventOccurred": "event.prelude.sickbay-consultation-held" },
+          { "not": { "factKnown": "fact.prelude.redline.inventory-drift" } }
+        ]
+      },
+      "playerText": { "summary": "Commander Sato has a recurring medical-inventory discrepancy to discuss without yet attributing a cause." }
+    },
+    {
+      "id": "report.prelude.redline.shortage-consequence",
+      "factId": "fact.prelude.redline.shortage-consequence",
+      "evidencePolicyId": "policy.prelude.redline-shortage-consequence-disclosed",
+      "capabilityRoles": ["medical", "operations"],
+      "preferredActorIds": ["miriam-sato", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.prelude.redline.shortage-consequence" },
+          { "eventOccurred": "event.hesperus.rescue-response-begun" },
+          { "not": { "factKnown": "fact.prelude.redline.shortage-consequence" } }
+        ]
+      },
+      "playerText": { "summary": "Hesperus staging has exposed a concrete mismatch between recorded and available Breckenridge medical supplies." }
     },
     {
       "id": "report.hesperus.passenger-risk",
@@ -621,6 +1127,26 @@
       "id": "event.prelude.arrival-reached",
       "playerVisibility": "visible",
       "playerText": { "summary": "The Breckenridge arrived at the Asterion Reach." }
+    },
+    {
+      "id": "event.prelude.poker-conversation-held",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO joined Kieran Vale's junior-officer poker game and heard the table's ordinary concerns." }
+    },
+    {
+      "id": "event.prelude.sickbay-consultation-held",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO met Commander Sato in Sickbay during the transit." }
+    },
+    {
+      "id": "event.prelude.rhee-secured-in-custody",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Petty Officer Anika Rhee was secured in lawful custody under the supported redline distribution case." }
+    },
+    {
+      "id": "event.prelude.redline-wrong-person-detained",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "A crew member was detained on an insufficient redline case without supported attribution." }
     }
   ],
   "outcomes": [
@@ -675,6 +1201,34 @@
       "initialValue": "enRoute",
       "playerVisibility": "visible",
       "playerText": { "summary": "The Breckenridge arrival condition is recorded." }
+    },
+    {
+      "id": "outcome.prelude.redline-evidence",
+      "allowedValues": ["unresolved", "oneClass", "twoIndependentClasses", "compromised"],
+      "initialValue": "unresolved",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The evidentiary strength of the shipboard redline case is recorded." }
+    },
+    {
+      "id": "outcome.prelude.redline-containment",
+      "allowedValues": ["unresolved", "distributionStoppedWithEvidenceCost"],
+      "initialValue": "unresolved",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The operational containment of shipboard redline distribution is recorded separately from individual custody." }
+    },
+    {
+      "id": "outcome.prelude.daro-care",
+      "allowedValues": ["unresolved", "confidentialTreatment"],
+      "initialValue": "unresolved",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Daro Tem's care and confidentiality disposition is recorded separately from the criminal inquiry." }
+    },
+    {
+      "id": "outcome.prelude.rhee-disposition",
+      "allowedValues": ["unresolved", "lawfulCustodyExecuted", "treatmentWithoutCustody", "responsibleHandoff", "escaped"],
+      "initialValue": "unresolved",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Anika Rhee's disposition in the shipboard redline case is recorded." }
     }
   ],
   "objectives": [
@@ -922,6 +1476,60 @@
           { "disposition": "failedAfterInformedAction", "text": "The known evidence was lost after an informed course of action." }
         ]
       }
+    },
+    {
+      "id": "objective.prelude.rhee-apprehension",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+      "availableWhen": { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+      "visibleWhen": { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.prelude.redline-evidence",
+          "in": ["oneClass", "twoIndependentClasses", "compromised"]
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "twoIndependentClasses" } },
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "lawfulCustodyExecuted" } },
+              { "eventOccurred": "event.prelude.rhee-secured-in-custody" }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "treatmentWithoutCustody" } }
+        },
+        {
+          "disposition": "handedOff",
+          "when": { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "responsibleHandoff" } }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "escaped" } },
+              { "outcomeIs": { "id": "outcome.prelude.redline-containment", "equals": "distributionStoppedWithEvidenceCost" } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Resolve the shipboard redline distribution case",
+        "summary": "Confirm shipboard distribution, establish the evidentiary basis for action, and bring the responsible crew member to an accountable disposition.",
+        "terminal": [
+          { "disposition": "completed", "text": "The redline distributor was placed in lawful custody under a supported case." },
+          { "disposition": "completedWithCost", "text": "The distribution was contained through a documented treatment or amnesty disposition without custody." },
+          { "disposition": "handedOff", "text": "The supported redline case was transferred to a named competent authority." },
+          { "disposition": "failedAfterInformedAction", "text": "The distribution route was stopped, but compromised evidence allowed Rhee to evade immediate custody." }
+        ]
+      }
     }
   ],
   "commandBearingAwards": [
@@ -930,6 +1538,12 @@
       "sourceObjectiveId": "objective.prelude.hesperus-accountability",
       "eligibleDispositions": ["completed", "handedOff"],
       "reason": "You carried the known Hesperus accountability question to a responsible disposition."
+    },
+    {
+      "id": "award.prelude.rhee-apprehension",
+      "sourceObjectiveId": "objective.prelude.rhee-apprehension",
+      "eligibleDispositions": ["completed"],
+      "reason": "You established the shipboard distribution case and placed the responsible crew member in lawful custody."
     }
   ],
   "outcomeDimensions": [
@@ -997,6 +1611,61 @@
         { "value": "on-schedule", "priority": 100, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "onSchedule" } } },
         { "value": "delayed", "priority": 90, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "delayed" } } },
         { "value": "with-limitation", "priority": 80, "when": { "outcomeIs": { "id": "outcome.prelude.arrival-condition", "equals": "withLimitation" } } }
+      ]
+    },
+    {
+      "id": "dimension.prelude.redline",
+      "playerText": { "label": "Redline case" },
+      "derive": [
+        {
+          "value": "contained-lawful-custody",
+          "priority": 100,
+          "when": {
+            "all": [
+              { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+              { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "twoIndependentClasses" } },
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "lawfulCustodyExecuted" } }
+            ]
+          }
+        },
+        {
+          "value": "contained-with-evidence-cost",
+          "priority": 95,
+          "when": {
+            "all": [
+              { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+              { "outcomeIs": { "id": "outcome.prelude.redline-evidence", "equals": "compromised" } },
+              { "outcomeIs": { "id": "outcome.prelude.redline-containment", "equals": "distributionStoppedWithEvidenceCost" } },
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "escaped" } }
+            ]
+          }
+        },
+        {
+          "value": "contained-treatment-handoff",
+          "priority": 90,
+          "when": {
+            "all": [
+              { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "in": ["treatmentWithoutCustody", "responsibleHandoff"] } }
+            ]
+          }
+        },
+        {
+          "value": "unresolved-carried-forward",
+          "priority": 50,
+          "when": {
+            "all": [
+              { "factKnown": "fact.prelude.redline.distribution-confirmed" },
+              { "outcomeIs": { "id": "outcome.prelude.rhee-disposition", "equals": "unresolved" } },
+              { "eventOccurred": "event.prelude.arrival-reached" }
+            ]
+          }
+        },
+        {
+          "value": "mishandled",
+          "priority": 120,
+          "when": { "eventOccurred": "event.prelude.redline-wrong-person-detained" }
+        }
       ]
     }
   ],
@@ -1105,10 +1774,12 @@
       "mustNarrate": [
         "Acknowledge the committed command-readiness and arrival disposition.",
         "Carry forward only Hesperus consequences the player knows.",
+        "Acknowledge the redline disposition only if the player discovered the case; preserve unresolved, non-custodial, wrongful-custody, or lawful-custody results without upgrading them.",
         "Introduce the Relief Convoy Twelve distress packet."
       ],
       "mustNotReveal": [
         "Do not mention any undiscovered Hesperus record evidence.",
+        "Do not mention redline, Rhee, Daro, or the medical-supply inquiry if the player never discovered that thread.",
         "Do not identify later campaign antagonists or hidden causes."
       ]
     }

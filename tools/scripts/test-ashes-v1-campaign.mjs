@@ -132,6 +132,9 @@ function assertScenarioResult(definition, scenario, result) {
   for (const [id, value] of Object.entries(expected.outcomeDimensions || {})) {
     assert.equal(result.state.outcomeDimensions[id] ?? 'pending', value, `${label}:${id}`);
   }
+  for (const [id, value] of Object.entries(expected.outcomeValues || {})) {
+    assert.equal(result.state.outcomes[id], value, `${label}:${id}`);
+  }
   for (const id of expected.knownFactsIncludes || []) {
     assert.equal(result.state.knownFacts.includes(id), true, `${label}:${id}`);
   }

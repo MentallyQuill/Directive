@@ -21,7 +21,7 @@ assert.deepEqual(getCampaignPackageSpineErrors(packageData), []);
 const summary = createCampaignPackageSummary(packageData);
 assert.equal(summary.packageId, 'directive:campaign-package:breckenridge-ashes-of-peace');
 assert.equal(summary.campaign.title, 'Ashes of Peace');
-assert.equal(summary.campaign.openingStardate, 53049.2);
+assert.equal(summary.campaign.openingStardate, 53068.4);
 assert.match(summary.campaign.openingMessage, /Captain Mara Whitaker/);
 assert.equal(summary.ship.registry, 'NCC-74638');
 assert.deepEqual(summary.simulationModes, ['Exploration', 'Command']);

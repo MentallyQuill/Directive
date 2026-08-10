@@ -5,7 +5,7 @@
 **Document type:** Campaign design document  
 **Status:** Pre-production campaign baseline  
 **Version:** 0.2  
-**Campaign opening:** Stardate 53049.2  
+**Campaign opening:** Stardate 53068.4
 **Primary setting:** The U.S.S. Breckenridge (NCC-74638) and the Asterion Reach
 **Player role:** Commander, Executive Officer, and principal mission commander  
 **Companion document:** *Directive Game Design Document*  
@@ -43,7 +43,7 @@ The Dominion War is over, but peace has not restored the political order that ex
 
 The Intrepid-class **U.S.S. Breckenridge** (NCC-74638) has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
 
-Twenty-five days after leaving Mars, the Breckenridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately ten days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
+Thirty-two days after leaving Mars, the Breckenridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately three days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
 
 During the war, Starfleet withdrew ships and personnel from the Reach to support more critical fronts. The region's colonies survived by forming the **Asterion Mutual Aid Compact**, pooling civilian vessels, food, defense platforms, medical resources, and emergency authority. The Compact was created as a temporary measure. Its members no longer agree that it should be dissolved.
 
@@ -77,7 +77,7 @@ The tone should remain recognizably Star Trek: serious but not nihilistic, skept
 
 A full campaign contains:
 
-- One prelude mission covering the player's mid-route rendezvous and the final ten days of transit.
+- One prelude mission covering the player's late-route rendezvous and the final three days of transit.
 - Eight main-quest chapters.
 - Three Open Orders intervals.
 - Nine designed side assignments, of which the player will ordinarily complete four to six.
@@ -93,7 +93,7 @@ At a deliberate text-roleplay pace, this supports approximately **25-40 Sessions
 
 ### 2.1 Canon-era anchor
 
-The campaign opens on **stardate 53049.2**, placing it in 2376 and contemporaneous with the early sixth season of *Star Trek: Voyager*.
+The campaign opens on **stardate 53068.4**, placing it in 2376 and contemporaneous with the early sixth season of *Star Trek: Voyager*.
 
 The Dominion War has ended. Cardassia has suffered catastrophic destruction. Starfleet is demobilizing some wartime formations while simultaneously attempting to restore patrol coverage, rebuild damaged infrastructure, return displaced personnel, and re-establish civilian confidence.
 
@@ -164,7 +164,7 @@ The remainder of the established senior staff is new to the Breckenridge:
 - Miriam Sato joined as chief medical officer.
 - Imani Cross joined as chief engineer, in part because of her experience with Intrepid-class systems validation and bio-neural integration.
 
-These officers embarked at Utopia Planitia and have already spent twenty-five days traveling together by the time the player arrives. They have formed preliminary working relationships, discovered points of friction, and established routines that are useful but not yet settled.
+These officers embarked at Utopia Planitia and have already spent thirty-two days traveling together by the time the player arrives. They have formed preliminary working relationships, discovered points of friction, and established routines that are useful but not yet settled.
 
 Bronn served as **acting executive officer** for the yard departure and initial shakedown transit while retaining tactical responsibility. He accepted the role as a temporary necessity and has no expectation of keeping it. Priya has handled much of the practical cross-department scheduling beneath that arrangement. The player's arrival therefore completes the command structure rather than creating it from nothing.
 
@@ -187,23 +187,23 @@ The Breckenridge is not responding to an emergency. Captain Whitaker authorizes 
 The internal chronology is:
 
 - **Stardate 52980.8:** Breckenridge departs Utopia Planitia.
-- **Twenty-five days underway:** The reconstituted crew conducts shakedown operations without its permanent XO.
-- **Stardate 53049.2:** The ship drops to impulse at a charted transfer waypoint and receives the player aboard from a long-range Starfleet personnel shuttle.
-- **Ten days remain:** Approximately 5.5 to 6 light-years separate the rendezvous point from the Galen Passage.
+- **Thirty-two days underway:** The reconstituted crew conducts shakedown operations without its permanent XO.
+- **Stardate 53068.4:** The ship drops to impulse at a charted transfer waypoint and receives the player aboard from a long-range Starfleet personnel shuttle.
+- **Three days remain:** Approximately 1.5 to 2 light-years separate the rendezvous point from the Galen Passage.
 - **Stardate 53076.6:** Baseline arrival at the Asterion Reach, subject to delays created during the prelude.
 
 The player's shuttle is not assumed to have traveled from Mars. It reaches the rendezvous from the player's previous posting, a nearby starbase, another vessel, or a transfer hub selected during character creation.
 
 The travel estimate is an internal campaign standard rather than a claim that all onscreen Star Trek travel times are consistent. It assumes a Warp 5-equivalent average across the route, with time lost to departure clearance, approach operations, navigational restrictions, and post-refit checks.
 
-### 2.7 Why the final ten days matter
+### 2.7 Why the final three days matter
 
-The prelude begins after the crew has already spent three and a half weeks together. This creates a more useful command situation than having everyone meet simultaneously at the shipyard.
+The prelude begins after the crew has already spent more than four weeks together. This creates a more useful command situation than having everyone meet simultaneously at the shipyard.
 
-The final ten days allow the player to:
+The final three days allow the player to:
 
 - Join a ship with functioning routines without inheriting a fully settled culture.
-- Learn which relationships formed during the first twenty-five days.
+- Learn which relationships formed during the first thirty-two days.
 - Decide which provisional practices should be formalized, revised, or stopped.
 - Establish a working relationship with Captain Whitaker.
 - Receive acting-XO authority from Bronn without turning the transition into a rivalry.
@@ -627,6 +627,39 @@ Tonn is older than Bronn, more openly combative, and convinced that decommission
 
 Vos is testing a controversial neurochemical therapy that can reduce severe traumatic responses. He is not a reckless experimenter; he is working under pressure from communities desperate to return essential personnel to duty.
 
+### 8.11 Ensign Lysa Chen
+
+**Affiliation:** Starfleet, U.S.S. Breckenridge operations division
+**Role:** Junior logistics officer and independent social hook into the Prelude supply inquiry
+
+Chen is a Human ensign on her first deep-range assignment after two years coordinating starbase freight and medical-priority transfers. She is careful with records because she learned during wartime relief work that a discrepancy can be harmless on paper and still leave a patient without what the ledger promised. Priya values her precision but is teaching her that noticing a pattern and proving responsibility are different jobs.
+
+Chen plays in Kieran Vale's informal junior-officer poker game. She does not summon the new XO to make an accusation. After two or three ordinary hands and normal shipboard gossip, she asks the table whether anyone else has noticed that explanations for small Sickbay supply adjustments keep changing. If the player treats the remark as table talk, Chen eventually addresses them directly and asks where a junior officer should take a concern that is too consistent to ignore but too incomplete to charge.
+
+Chen knows the explanations conflict and can identify which requisitions deserve an audit. She does not know about redline, has no evidence identifying Rhee, and must not present rumor as guilt. Her dramatic function is to reward a commander who listens without converting junior-officer candor into an indiscriminate investigation.
+
+### 8.12 Petty Officer First Class Anika Rhee
+
+**Affiliation:** Starfleet, U.S.S. Breckenridge medical logistics; former U.S.S. Valorous
+**Role:** Redline compounder and distributor
+
+Rhee is a Human senior enlisted medical-logistics specialist whose competence kept the Valorous supplied through repeated convoy losses. During the war, exhausted personnel improvised a stimulant they called **redline** from individually legitimate wakefulness, circulatory-support, and anti-fatigue compounds. It kept people functional through watches that should never have been assigned. The mixture was never an approved drug, and small changes in proportion can cause arrhythmia, panic, impaired judgment, or collapse.
+
+Rhee brought the recipe aboard the Breckenridge and began diverting small quantities from dispersed inventory lines. She tells herself she is preventing desperate crew from buying worse substances and helping former Valorous shipmates survive postwar insomnia without career-ending duty restrictions. She also enjoys being the person who can quietly solve a problem official channels seem unable to acknowledge. That combination of remembered necessity, paternalism, and control lets her continue after the emergency has ended.
+
+Rhee is not present at the poker game, and her absence is not evidence. Access records alone show opportunity, not guilt. A lawful finding requires two independent classes among access and opportunity, material linkage, and corroborated human evidence. A confession counts only when independently corroborated. If the case is supported, Bronn can arrange discreet custody, evidence control, counsel, and relief from duty without turning Sickbay or the Valorous cohort into suspects as a group.
+
+### 8.13 Crewman Daro Tem
+
+**Affiliation:** Starfleet, U.S.S. Breckenridge propulsion maintenance
+**Role:** Symptomatic redline user, potential witness, and patient whose care tests the investigation
+
+Daro is a young Bajoran crewman who entered Starfleet after working civilian repair berths during the war. He is technically promising, conscientious, and terrified that admitting persistent insomnia will be read as proof that he cannot be trusted around a warp system. The Breckenridge's rotating shakedown watches and the pressure to justify his first starship posting have made that fear worse.
+
+Rhee offered Daro redline as a practical way to stay alert. He does not know the full source chain and initially describes it only as a Valorous watch aid. After a dose produces tremor, chest pain, or a panic response, Sato can identify the components and protect him as a patient. His medical information remains confidential unless he consents to disclose it or a specific, immediate safety duty requires restriction. Sato may report the inventory discrepancy and a duty-fitness concern without exposing his private history.
+
+Daro can provide human evidence only through a properly handled statement corroborated by a dose, access record, witnessed exchange, or other independent evidence. Threatening his career may produce compliance, but it should damage trust and must not turn an unsupported statement into proof. A player who separates treatment, temporary duty restriction, and discipline gives Daro a credible path to recovery and later honest service.
+
 ---
 
 ## 9. Campaign State
@@ -725,7 +758,7 @@ Stardates are pacing targets rather than rails. Player choices, delays, and opti
 
 | Sequence | Title | Approximate stardate | Function |
 |---|---|---:|---|
-| Prelude | **A Ship Underway** | 53049.2-53076.6 | Mid-route XO rendezvous, crew integration, final shakedown |
+| Prelude | **A Ship Underway** | 53068.4-53076.6 | Late-route XO rendezvous, crew integration, final shakedown |
 | Chapter 1 | **The Empty Convoy** | 53077-53085 | Humanitarian mystery and first false order |
 | Chapter 2 | **False Colors** | 53094-53102 | Counterfeit Breckenridge attack and legitimacy crisis |
 | Open Orders I | **Work Worth Doing** | 53104-53136 | Local aid and early crew B-plots |
@@ -747,18 +780,18 @@ Stardates are pacing targets rather than rails. Player choices, delays, and opti
 
 The prelude introduces the player to the Breckenridge as a veteran ship carrying a mostly reconstituted crew.
 
-The player does not assemble the senior staff at Utopia Planitia. They join after the others have already spent twenty-five days sharing watches, testing systems, and negotiating provisional routines. The dramatic question is therefore not whether the crew can function at all. It is how the new executive officer enters a command structure that is functional, incomplete, and already developing habits.
+The player does not assemble the senior staff at Utopia Planitia. They join after the others have already spent thirty-two days sharing watches, testing systems, and negotiating provisional routines. The dramatic question is therefore not whether the crew can function at all. It is how the new executive officer enters a command structure that is functional, incomplete, and already developing habits.
 
 The prelude should not resemble a corridor tour in which each character recites a biography. The player learns the crew by assuming authority, reviewing decisions already made, and handling problems that cross departmental boundaries.
 
 ### 11.2 Player-facing premise
 
-The player arrives by long-range Starfleet shuttle at a scheduled rendezvous point approximately ten days from the Asterion Reach.
+The player arrives by long-range Starfleet shuttle at a scheduled rendezvous point approximately three days from the Asterion Reach.
 
 The Breckenridge has:
 
 - Completed four months of repair and modernization at Utopia Planitia.
-- Traveled for twenty-five days under a conservative shakedown profile.
+- Traveled for thirty-two days under a conservative shakedown profile.
 - Operated with Bronn as temporary acting executive officer.
 - Begun integrating two large transfer cohorts, returning Breckenridge veterans, and individual specialists.
 - Resolved many yard issues while carrying several open technical and personnel concerns.
@@ -840,22 +873,21 @@ Bronn transfers authority without ceremony or resentment. He should make clear t
 
 The player may define or reveal one personal Value here.
 
-#### Day 1: Senior readiness conference
+#### Day 0: Optional poker and Sickbay hooks
 
-Each department reports one unresolved concern from the first twenty-five days:
+After the formal handover, Kieran invites the player to a standing junior-officer poker game. The invitation is social rather than a covert briefing, and accepting it should allow two or three ordinary hands before campaign business intrudes. Kieran, Lysa Chen, and several junior officers exchange harmless complaints and rumors about the refit. Rhee is not at the table, and no inference should be drawn from her absence.
 
-- **Kieran:** Requests permission for a final high-performance flight profile before arrival in the Reach. Whitaker has deferred the request rather than denied it permanently.
-- **Priya:** Wants the player to approve a revised watch and staffing schedule that blends the two major transfer cohorts instead of preserving their former ship groupings.
-- **Bronn:** Insists on a shipwide security and fallback-command drill because departments are still using incompatible emergency habits from prior postings.
-- **Rowan:** Requests several hours at reduced warp to calibrate long-range sensors against a known stellar source before entering an unfamiliar region.
-- **Miriam:** Reports fatigue, sleep disruption, and unresolved transfer stress among personnel who moved directly from wartime assignments into the shakedown.
-- **Imani:** Lists three open refit discrepancies that are within certified limits but have not been tested together under maximum anticipated mission load.
+Chen eventually asks whether anyone else has noticed that explanations for small Sickbay supply adjustments keep changing. If the player does not engage after several conversational turns, she asks them directly where a junior officer should take a recurring concern that is not yet an accusation. Her hook establishes a reason to audit; it does not establish a drug, a distributor, or guilt.
 
-There is no perfect schedule. The player must decide what receives time, what can be combined, what may be delegated, and what risk will be accepted explicitly.
+The player may instead, or also, visit Sickbay. Sato quietly explains that she has corrected several small inventory discrepancies only to find the counts changed again. She still considers refit stocking errors, duplicate transfers, and bad reconciliation plausible. She does not identify redline from inventory categories alone and will not disclose Daro's private symptoms without consent or a specific safety necessity.
 
-#### Day 2: Fallback-command drill
+Either hook can lead to a bounded audit of medical inventory, operations overrides, or private crew inquiries. Ignoring both hooks does not block the Prelude or create a hidden penalty; the Hesperus response provides a third fair entry on Day 1.
 
-Bronn conducts the planned security exercise. External communications, one turbolift trunk, and part of the command network are treated as compromised.
+#### Day 1: Readiness work and fallback-command drill
+
+The senior readiness conference and Bronn's exercise are combined into one operational day. Each department identifies one unresolved concern from the first thirty-two days: Kieran's final flight profile, Priya's blended watch schedule, Bronn's incompatible fallback procedures, Rowan's sensor calibration, Sato's transfer fatigue cases, and Imani's integrated refit discrepancies. There is no perfect schedule, so the player must decide what receives direct attention, what is combined, what is delegated, and what risk is explicitly accepted.
+
+Bronn then conducts the planned security exercise. External communications, one turbolift trunk, and part of the command network are treated as compromised.
 
 The drill exposes a genuine integration problem:
 
@@ -876,7 +908,7 @@ The player must decide whether to:
 
 Bronn evaluates clarity and command survivability. Priya evaluates whether the procedure can actually be taught across the crew. Imani evaluates whether the technical workaround is safe. Miriam watches for personnel being blamed for a system-design problem.
 
-#### Days 3-4: Establishing command rhythm
+##### Readiness decisions
 
 Use two or three focused scenes rather than a comprehensive tour:
 
@@ -888,9 +920,9 @@ Use two or three focused scenes rather than a comprehensive tour:
 - Imani presents a technical-debt register containing temporary yard and transit workarounds.
 - Bronn provides the ship's service history, but only if the player asks for institutional memory rather than treating him as an obstacle to change.
 
-The player should begin to see that the senior staff has already learned some things about one another. Their task is to lead that developing ensemble, not reset it.
+The player should begin to see that the senior staff has already learned some things about one another. Their task is to lead that developing ensemble, not reset it. These scenes are focused choices within the Day 1 readiness work, not additional transit days.
 
-#### Day 5: The Hesperus diversion
+##### The Hesperus diversion
 
 The Breckenridge detects the civilian transport **S.S. Hesperus** operating on emergency power outside a normal shipping lane.
 
@@ -933,24 +965,34 @@ The game should adjudicate time, engineering risk, medical need, and legal autho
 
 ##### Command Moment
 
-A player may earn early Inspiration or Resolve progression by handling the owner's inspection fraud in a way that is credible, proportionate, and connected to passenger safety.
+A player may earn one Command Bearing point by carrying the known inspection fraud to a credible, proportionate disposition connected to passenger safety.
 
 The point is not whether the player is lenient or punitive. The point is whether their method creates accountability without making vulnerable passengers carry the entire cost.
 
-#### Day 6: Consequences and private conversations
+#### Day 2: Rescue aftermath and redline investigation
 
-The Hesperus decision generates follow-up work:
+The Hesperus decision generates immediate follow-up work:
 
 - Imani documents emergency repairs and expects the player to protect the time needed to inspect them properly.
 - Miriam follows displaced passengers or crew fatigue.
 - Bronn reviews whether security caution was treated as useful information or obstruction.
-- Priya handles legal and administrative consequences.
+- Priya handles legal and administrative consequences and can audit cross-department inventory overrides.
 - Kieran recalculates the arrival plan.
 - Rowan may request permission to preserve the escape pod's scientific data.
 
-Use one personal scene from the recurring shipboard B-plot list if pacing permits.
+Medical staging for Hesperus also exposes a concrete shortage in supplies that the Breckenridge's records show as available. This is the third fair redline hook. Sato still needs a recovered dose or a symptomatic patient before she can identify the compound. Daro may present with tremor, chest pain, panic, or dangerous fatigue; he fears a duty restriction more than punishment and should first be treated as a patient.
 
-#### Days 7-8: Combined-load test
+The player may pursue the inquiry through any combination of:
+
+- **Access and opportunity:** Priya and Chen reconcile requisitions, valid overrides, and compartment access without treating every authorized user as a suspect.
+- **Material linkage:** Sato analyzes a recovered dose, residue, or staging cartridge and identifies unsafe proportions of legitimate medical compounds.
+- **Human evidence:** Daro gives a properly handled statement, Rhee makes a corroborated admission, or security observes a controlled exchange.
+
+Two independent evidence classes are required to attribute distribution to Rhee. Confession without corroboration is insufficient. Rhee may be interviewed, monitored, referred for treatment, or confronted with the supported case. If the player orders lawful custody, Bronn executes it discreetly, relieves Rhee of access and duty, secures the evidence, and ensures counsel. Collective searches, unsupported detention, or an order that is never carried out do not count as apprehension.
+
+The case may end in lawful custody, documented treatment or amnesty without custody, responsible handoff, an unresolved inquiry carried into later service, lost evidence, escape, or mishandled detention. Only an evidence-supported case followed by Rhee actually being secured in lawful custody earns the Rhee Command Bearing point.
+
+##### Combined-load closeout
 
 The Breckenridge conducts its final major shakedown event before entering the Reach. The test combines high sensor load, tactical readiness, emergency-power transfer, and a controlled warp-field change.
 
@@ -966,7 +1008,7 @@ This is not sabotage and not Pale Lantern. The campaign should establish clearly
 
 The test also allows the player to approve, modify, or reject Kieran's proposed flight profile within an actual operational context rather than as a disconnected dialogue choice.
 
-#### Day 9: Final command review
+#### Day 3: Final command review
 
 Whitaker conducts a private review with the player. She asks what the player has learned about the ship, not whom they like.
 
@@ -982,7 +1024,7 @@ Possible topics:
 
 The player may also address the crew briefly before arrival, issue no speech at all, or communicate through departmental orders.
 
-#### Day 10: Arrival at the Reach
+##### Arrival at the Reach
 
 The Breckenridge drops to impulse at the Galen Passage approach near **stardate 53076.6**, adjusted by any delay created during the prelude.
 
@@ -1009,6 +1051,7 @@ Possible flags include:
 - **Miriam:** The player respects medical duty restrictions and transfer strain / pressures her to clear personnel for convenience.
 - **Imani:** The player protects documentation and repair time / normalizes temporary workarounds.
 - **Ship state:** Integrated test complete / complete with accepted limitation / incomplete and honestly reported / technically passed through concealed risk.
+- **Redline:** Undiscovered / unresolved and carried forward / contained through treatment or handoff / contained with evidentiary cost / Rhee lawfully secured / mishandled custody.
 
 ### 11.6 Prelude failure policy
 
@@ -1021,6 +1064,7 @@ Poor decisions may produce:
 - Reduced professional trust.
 - Persistent tension between transfer cohorts.
 - Starfleet administrative questions concerning the Hesperus.
+- A redline inquiry carried forward, compromised evidence, Rhee's escape, or damaged medical trust.
 - One unavailable shuttle, system limitation, or personnel restriction in Chapter 1.
 
 It should not destroy the ship, remove a senior officer, or produce a punitive "bad start."
@@ -4322,7 +4366,7 @@ It should not reveal hidden director reasoning or future events.
 The following may be adapted for the campaign-selection screen.
 
 > **ASHES OF PEACE**  
-> Stardate 53049.2. The Dominion War is over, but many Federation communities are still living with the decisions made to survive it. After four months of repair and modernization at Utopia Planitia, the Intrepid-class U.S.S. Breckenridge has returned to service with a mostly reconstituted crew. Twenty-five days into its shakedown voyage, the ship conducts a rendezvous with a shuttle carrying its new executive officer: you. Ten days later, a stabilization assignment in the Asterion Reach begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape a crew still deciding what kind of ship it will become, and determine what Starfleet's principles require when restoring the old order may not be enough.
+> Stardate 53068.4. The Dominion War is over, but many Federation communities are still living with the decisions made to survive it. After four months of repair and modernization at Utopia Planitia, the Intrepid-class U.S.S. Breckenridge has returned to service with a mostly reconstituted crew. Thirty-two days into its shakedown voyage, the ship conducts a rendezvous with a shuttle carrying its new executive officer: you. Three days later, a stabilization assignment in the Asterion Reach begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape a crew still deciding what kind of ship it will become, and determine what Starfleet's principles require when restoring the old order may not be enough.
 
 ---
 
@@ -4336,7 +4380,7 @@ The campaign may begin with the following framing, adapted to the player charact
 >
 > The Intrepid-class ship waited at impulse with her nacelles lowered, a clean line of restored plating visible along the port engineering hull. Other sections still carried the tonal variations of repairs completed at different yards under different circumstances. She did not look new. She looked returned to service.
 >
-> The shuttle pilot checked the range. "Breckenridge control confirms docking clearance. They left Utopia twenty-five days ago. We are ten days from the Asterion Reach at their current profile."
+> The shuttle pilot checked the range. "Breckenridge control confirms docking clearance. They left Utopia thirty-two days ago. We are three days from the Asterion Reach at their current profile."
 >
 > The communications panel sounded before the pilot could request final approach.
 >
@@ -4346,7 +4390,7 @@ The campaign may begin with the following framing, adapted to the player charact
 >
 > A brief pause followed, filled by the faint movement of docking telemetry across the display.
 >
-> "Captain Whitaker has scheduled your handover with Commander Bronn as soon as you report. Before that, Chief Cross wants a decision on whether your shuttle's diagnostic package can remain connected to our refit network, Doctor Sato has removed one of the receiving crew from duty, and Lieutenant Vale would like me to mention that ten days is sufficient time to approve a flight test the captain has deferred twice."
+> "Captain Whitaker has scheduled your handover with Commander Bronn as soon as you report. Before that, Chief Cross wants a decision on whether your shuttle's diagnostic package can remain connected to our refit network, Doctor Sato has removed one of the receiving crew from duty, and Lieutenant Vale would like me to mention that three days is sufficient time to approve a flight test the captain has deferred twice."
 >
 > Priya's voice remained perfectly professional.
 >
@@ -4461,9 +4505,9 @@ These decisions do not prevent campaign prototyping.
 
 ### 36.1 Stardate
 
-Stardate 53049.2 is spoken in the *Star Trek: Voyager* episode "Survival Instinct," placing the opening in 2376.
+Stardate 53068.4 is an internal campaign date in 2376, shortly after the Dominion War and during the early sixth-season timeframe of *Star Trek: Voyager*. The exact decimal is chosen to preserve the established 53076.6 arrival while shortening the playable Prelude to three days; it is not claimed as an onscreen date.
 
-Source: [Voyager reference: "Survival Instinct"](https://memory-alpha.fandom.com/wiki/Survival_Instinct_(episode))
+Era reference: [Voyager reference: "Survival Instinct"](https://memory-alpha.fandom.com/wiki/Survival_Instinct_(episode))
 
 ### 36.2 Utopia Planitia
 
@@ -4481,7 +4525,7 @@ Source: [The Next Generation transcript: "Force of Nature"](https://www.chakotey
 
 The Asterion Reach is an original location placed approximately twenty light-years from Sol. The thirty-five-day Utopia-to-Reach route is an internal campaign baseline using a conservative Warp 5-equivalent average, with time allowed for lower-speed corridors, approach operations, and shakedown checks.
 
-The player joins after twenty-five days, leaving a baseline ten-day prelude and roughly 5.5 to 6 light-years of travel. Onscreen Star Trek travel times vary substantially by episode and conditions, so these figures should be treated as stable Directive continuity rather than a universal warp-speed formula.
+The player joins after thirty-two days, leaving a baseline three-day prelude and roughly 1.5 to 2 light-years of travel. Onscreen Star Trek travel times vary substantially by episode and conditions, so these figures should be treated as stable Directive continuity rather than a universal warp-speed formula.
 
 ### 36.5 Intrepid-class speed margin
 
@@ -4503,7 +4547,7 @@ Primary story reference: *Star Trek: Deep Space Nine*, "What You Leave Behind."
 
 ## 37. Campaign Summary
 
-**Ashes of Peace** begins quietly: twenty-five days after the Breckenridge leaves Utopia Planitia, a new executive officer joins by shuttle for the final ten days of transit. The player enters a veteran ship with a mostly reconstituted crew, inherits provisional routines created during the shakedown, and handles the ordinary responsibilities that define command before history becomes urgent.
+**Ashes of Peace** begins quietly: thirty-two days after the Breckenridge leaves Utopia Planitia, a new executive officer joins by shuttle for the final three days of transit. The player enters a veteran ship with a mostly reconstituted crew, inherits provisional routines created during the shakedown, and handles the ordinary responsibilities that define command before history becomes urgent.
 
 In the Asterion Reach, missing relief crews and counterfeit Starfleet orders reveal a distributed Dominion contingency system designed to turn fear into preemptive conflict. The system survives because local communities, Compact hardliners, criminals, and Starfleet Intelligence each used only one part of it for reasons they considered defensible.
 

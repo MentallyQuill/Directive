@@ -26,7 +26,10 @@ assert.deepEqual(initial.progress, {
     optionalCompleted: 0,
     optionalTotal: 0,
 });
-assert.deepEqual(initial.facts, []);
+assert.deepEqual(initial.facts, [{
+    id: 'fact.prelude.poker-invitation',
+    summary: 'Lieutenant Kieran Vale has invited the new XO to an established junior-officer poker game after the first watch.',
+}]);
 assert.deepEqual(initial.clocks, []);
 assert.deepEqual(initial.outcomeDimensions, []);
 assert.equal(initial.terminal, null);

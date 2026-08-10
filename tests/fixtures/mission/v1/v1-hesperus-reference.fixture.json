@@ -357,7 +357,7 @@
   "clocks": [
     {
       "id": "clock.hesperus-life-support",
-      "unit": "minutes",
+      "unit": "hours",
       "direction": "down",
       "initialValue": 30,
       "startWhen": true,
@@ -381,7 +381,7 @@
       },
       "playerText": {
         "label": "Life support reserve",
-        "deadline": "{value} minutes remaining",
+        "deadline": "{value} hours remaining",
         "consequence": "Conditions aboard Hesperus will become critical."
       }
     }
