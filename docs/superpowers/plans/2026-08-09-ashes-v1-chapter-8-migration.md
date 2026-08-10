@@ -40,9 +40,9 @@ Command legitimacy is folded into the first objective rather than added as a six
 
 Each front may settle as completed, completed with cost, or failed after informed action. A front failure is terminal for that objective but does not close the campaign early; the remaining fronts continue. Mission closure requires all five objectives to reach a terminal disposition, including recorded failures.
 
-## Aggregate Reports and Single-Message Settlement
+## Aggregate Reports and Two-Stage Custody
 
-Use one required Duty Report route per front. Each report is a high-value aggregate and may establish its front event, world result, and player-safe disclosure in one accepted assistant message. The outcome policy is gated by the corresponding completed-report event; the objective is gated by both the world result and the delivered player-known fact. This prevents hidden results from closing an objective while avoiding an artificial extra report-then-result conversation.
+Use one required Duty Report route per front. Accepted story prose first establishes the completed front event and bounded world result. That committed event makes exactly one aggregate Duty Report eligible for the next Directive-owned report opportunity; the delivered report establishes player knowledge. The objective is gated by both the world result and the delivered player-known fact. This two-stage boundary is required by the existing custody architecture: a valid report manifest cannot be prepared before its aggregate event exists. It prevents hidden results from closing an objective and prevents generic narration from smuggling a result into player authority.
 
 The reports cover:
 
@@ -141,7 +141,7 @@ Fixtures and runtime proof must cover:
 - no asset history and several different earned-asset combinations;
 - earned capability receipt tamper rejection and source-edit recomputation;
 - capabilities changing no objective by themselves;
-- aggregate report/result/disclosure accepted in one Duty Report message;
+- aggregate front event and result accepted together, followed by exactly one custody-owned disclosure report;
 - narrator inability to claim the player-issued command plan;
 - player inability to self-certify a front result;
 - stale revision, wrong swipe, hallucinated policy, and missing report custody rejection;

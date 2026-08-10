@@ -7,6 +7,7 @@ import { validateMissionEvidenceProposal } from '../../src/mission/v1/evidence-c
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionState, missionStateContext } from '../../src/mission/v1/mission-state.mjs';
 import { evaluateMissionPredicate } from '../../src/mission/v1/predicate-evaluator.mjs';
+import { getBundledCampaignPackageRef } from '../../src/packages/bundled-package-registry.mjs';
 
 const DEFINITION_PATH = 'packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json';
 const SCENARIOS_PATH = 'tests/fixtures/mission/v1/chapter-8-last-directive-scenarios.fixture.json';
@@ -60,6 +61,8 @@ const quest = questTemplates.find((template) => template.id === SOURCE_ID);
 assert.ok(quest, 'Chapter 8 must bind to the exact package quest');
 assert.deepEqual(quest.missionGraph, {}, 'legacy Chapter 8 graph remains empty migration input');
 assert.equal(questTemplates.some((template) => template.id === SUCCESSOR_ID), true);
+const bundledRef = getBundledCampaignPackageRef(definition.packageBinding.packageId);
+assert.equal(bundledRef.missionDefinitionPaths.at(-1), DEFINITION_PATH, 'Chapter 8 must be the twelfth registered V1 journey definition');
 
 function collectKeys(value, keys = new Set()) {
     if (!value || typeof value !== 'object') return keys;

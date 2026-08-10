@@ -29,6 +29,7 @@ const openOrders2Definition = readJson('packages/bundled/breckenridge/v1/open-or
 const chapter6Definition = readJson('packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json');
 const chapter7Definition = readJson('packages/bundled/breckenridge/v1/chapter-7-a-peace-of-their-own.mission-v1.json');
 const openOrders3Definition = readJson('packages/bundled/breckenridge/v1/open-orders-3-before-the-lamps-go-out.mission-v1.json');
+const chapter8Definition = readJson('packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
@@ -40,6 +41,7 @@ const openOrders2Scenarios = readJson('tests/fixtures/mission/v1/open-orders-2-s
 const chapter6Scenarios = readJson('tests/fixtures/mission/v1/chapter-6-cost-of-knowing-scenarios.fixture.json');
 const chapter7Scenarios = readJson('tests/fixtures/mission/v1/chapter-7-peace-of-their-own-scenarios.fixture.json');
 const openOrders3Scenarios = readJson('tests/fixtures/mission/v1/open-orders-3-scenarios.fixture.json');
+const chapter8Scenarios = readJson('tests/fixtures/mission/v1/chapter-8-last-directive-scenarios.fixture.json');
 const branchId = 'save.ashes-v1-handoff';
 
 function readJson(path) {
@@ -294,6 +296,20 @@ const openOrders3Assets = assetsFor([
     chapter6Definition,
     chapter7Definition,
     openOrders3Definition,
+]);
+const chapter8Assets = assetsFor([
+    preludeDefinition,
+    chapterDefinition,
+    chapter2Definition,
+    openOrdersDefinition,
+    chapter3Definition,
+    chapter4Definition,
+    chapter5Definition,
+    openOrders2Definition,
+    chapter6Definition,
+    chapter7Definition,
+    openOrders3Definition,
+    chapter8Definition,
 ]);
 
 const pending = runtime.inspectPendingTransition({ runtimeAssets: sourceOnlyAssets });
@@ -1250,16 +1266,136 @@ assert.equal(chapter8Pending.targetDefinitionId, null);
 assert.equal(chapter8Pending.activatable, false);
 const terminalOpenOrders3CampaignState = structuredClone(campaignState);
 
+const chapter8Ready = runtime.inspectPendingTransition({ runtimeAssets: chapter8Assets });
+assert.equal(chapter8Ready.ok, true);
+assert.equal(chapter8Ready.status, 'ready');
+assert.equal(chapter8Ready.targetDefinitionId, chapter8Definition.id);
+assert.equal(chapter8Ready.activatable, true);
+
+const chapter8Activated = await runtime.activatePendingTransition({ runtimeAssets: chapter8Assets });
+assert.equal(chapter8Activated.ok, true);
+assert.equal(chapter8Activated.status, 'activated');
+assert.equal(chapter8Activated.targetDefinitionId, chapter8Definition.id);
+assert.equal(chapter8Activated.noChange, false);
+assert.equal(persistCount, 11);
+assert.equal(campaignState.mission.activeMissionId, chapter8Definition.packageBinding.sourceId);
+assert.equal(campaignState.mission.legacyStatus, 'must-remain-untouched');
+assert.equal(campaignState.mission.v1.definitionId, chapter8Definition.id);
+assert.equal(campaignState.mission.v1.status, 'active');
+assert.equal(campaignState.mission.v1History.length, 11);
+assert.equal(campaignState.mission.v1History[10].definitionId, openOrders3Definition.id);
+assert.equal(campaignState.mission.v1Journey.revision, 11);
+for (const capabilityId of [
+    'capability.chapter8.breckenridge-memorial-goodwill',
+    'capability.chapter8.long-range-relay-window',
+    'capability.chapter8.distributed-command-readiness',
+]) {
+    assert.equal(
+        campaignState.mission.v1.entryContext.capabilities.some((capability) => capability.id === capabilityId),
+        true,
+        capabilityId,
+    );
+}
+assert.equal(
+    campaignState.mission.v1.entryContext.capabilities.some((capability) => /cardassian-logistics/i.test(capability.id)),
+    false,
+    'the source-orphaned Cardassian Logistics Index cannot be invented during activation',
+);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'Chapter 8 activation cannot mutate legacy tracking roots');
+const chapter8ActivatedCampaignState = structuredClone(campaignState);
+
+const chapter8Reloaded = JSON.parse(JSON.stringify(campaignState));
+const chapter8ReloadedJourney = validateMissionJourney({
+    campaignState: chapter8Reloaded,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+        chapter6Definition,
+        chapter7Definition,
+        openOrders3Definition,
+        chapter8Definition,
+    ],
+});
+assert.equal(chapter8ReloadedJourney.ok, true, chapter8ReloadedJourney.errors.join('\n'));
+assert.equal(validateMissionStateAuthority({
+    definition: chapter8Definition,
+    state: chapter8Reloaded.mission.v1,
+}).ok, true);
+
+const chapter8Replay = await runtime.activatePendingTransition({ runtimeAssets: chapter8Assets });
+assert.equal(chapter8Replay.ok, true);
+assert.equal(chapter8Replay.status, 'no-pending-transition');
+assert.equal(chapter8Replay.noChange, true);
+assert.equal(persistCount, 11, 'Chapter 8 activation replay cannot persist twice');
+
+const terminalChapter8 = settleScenario({
+    definition: chapter8Definition,
+    fixture: chapter8Scenarios,
+    scenarioId: 'peace-at-cost-nonlinear-quorum',
+});
+terminalChapter8.entryContext = structuredClone(campaignState.mission.v1.entryContext);
+const chapter8Story = storySettlementForScenario(
+    chapter8Scenarios,
+    'peace-at-cost-nonlinear-quorum',
+    chapter8Definition,
+);
+const chapter8MutationStepIndex = stepsForScenario(
+    chapter8Scenarios,
+    'peace-at-cost-nonlinear-quorum',
+).steps.findIndex((step) => step.policyId === 'policy.chapter8.core-disclosed');
+assert.notEqual(chapter8MutationStepIndex, -1);
+const chapter8MutationMessageId = chapter8Story.contributions[chapter8MutationStepIndex].messageId;
+campaignState.mission.v1 = terminalChapter8;
+campaignState.storySettlement = chapter8Story.settlement;
+const epilogueJourney = validateMissionJourney({
+    campaignState,
+    definitions: [
+        preludeDefinition,
+        chapterDefinition,
+        chapter2Definition,
+        openOrdersDefinition,
+        chapter3Definition,
+        chapter4Definition,
+        chapter5Definition,
+        openOrders2Definition,
+        chapter6Definition,
+        chapter7Definition,
+        openOrders3Definition,
+        chapter8Definition,
+    ],
+});
+assert.equal(epilogueJourney.ok, true, epilogueJourney.errors.join('\n'));
+const epiloguePending = runtime.inspectPendingTransition({ runtimeAssets: chapter8Assets });
+assert.equal(epiloguePending.ok, true);
+assert.equal(epiloguePending.status, 'pending');
+assert.equal(epiloguePending.reasonCode, 'transition-target-definition-unavailable');
+assert.equal(epiloguePending.targetDefinitionId, null);
+assert.equal(epiloguePending.activatable, false);
+const terminalChapter8CampaignState = structuredClone(campaignState);
+
 const journeyContributionIds = [
-    ...terminalOpenOrders3CampaignState.mission.v1History.flatMap((archive) => (
+    ...terminalChapter8CampaignState.mission.v1History.flatMap((archive) => (
         archive.state.evidenceLog.map((entry) => entry.sourceContributionId)
     )),
-    ...terminalOpenOrders3CampaignState.mission.v1.evidenceLog.map((entry) => entry.sourceContributionId),
+    ...terminalChapter8CampaignState.mission.v1.evidenceLog.map((entry) => entry.sourceContributionId),
 ];
 assert.equal(
     new Set(journeyContributionIds).size,
     journeyContributionIds.length,
-    'accepted source contribution identity remains unique across the eleven-entry journey',
+    'accepted source contribution identity remains unique across the twelve-entry journey',
 );
 
 function createMutationHarness(initialState) {
@@ -1573,4 +1709,42 @@ assert.equal(openOrders3Mutation.state.mission.v1.knownFacts.includes('fact.open
 assert.equal(openOrders3Mutation.state.mission.v1.outcomes['outcome.open-orders3.signal-result'], 'pending');
 assert.equal(openOrders3Mutation.generationCount, 0, 'Open Orders III reconstruction cannot call a provider');
 
-console.log('Ashes V1 Prelude through Open Orders III handoff tests passed.');
+const openOrders3DescendantMutation = createMutationHarness(chapter8ActivatedCampaignState);
+const openOrders3DescendantMutationResult = await openOrders3DescendantMutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: chapter8Assets,
+    hostMessageId: openOrders3MutationMessageId,
+    eventType: 'directiveResponseSelectedSwipeChanged',
+});
+assert.equal(openOrders3DescendantMutationResult.ok, true);
+assert.equal(openOrders3DescendantMutationResult.status, 'invalidated');
+assert.equal(openOrders3DescendantMutation.state.mission.v1.definitionId, openOrders3Definition.id);
+assert.equal(openOrders3DescendantMutation.state.mission.v1.status, 'active');
+assert.equal(openOrders3DescendantMutation.state.mission.v1History.length, 10);
+assert.equal(openOrders3DescendantMutation.state.mission.v1Journey.revision, 10);
+assert.equal(JSON.stringify(openOrders3DescendantMutation.state.mission.v1).includes('objective.chapter8.'), false);
+assert.equal(openOrders3DescendantMutation.generationCount, 0, 'Open Orders III descendant pruning cannot call a provider');
+
+const chapter8Mutation = createMutationHarness(terminalChapter8CampaignState);
+const chapter8MutationResult = await chapter8Mutation.mutationRuntime.invalidateSourceMutation({
+    runtimeAssets: chapter8Assets,
+    hostMessageId: chapter8MutationMessageId,
+    eventType: 'directiveResponseSelectedSwipeChanged',
+});
+assert.equal(chapter8MutationResult.ok, true);
+assert.equal(chapter8MutationResult.status, 'invalidated');
+assert.equal(chapter8Mutation.state.mission.v1.definitionId, chapter8Definition.id);
+assert.equal(chapter8Mutation.state.mission.v1.status, 'active');
+assert.equal(chapter8Mutation.state.mission.v1.terminalDisposition, null);
+assert.equal(chapter8Mutation.state.mission.v1.transitionReceipt, null);
+assert.equal(chapter8Mutation.state.mission.v1History.length, 11);
+assert.equal(chapter8Mutation.state.mission.v1Journey.revision, 11);
+assert.equal(chapter8Mutation.state.mission.v1.knownFacts.includes('fact.chapter8.core-account'), false);
+assert.equal(chapter8Mutation.state.mission.v1.outcomes['outcome.chapter8.core-result'], 'quorumBroken');
+assert.deepEqual(
+    chapter8Mutation.state.mission.v1.entryContext,
+    chapter8ActivatedCampaignState.mission.v1.entryContext,
+    'Chapter 8 reconstruction preserves the derived mission-entry receipt',
+);
+assert.equal(chapter8Mutation.generationCount, 0, 'Chapter 8 reconstruction cannot call a provider');
+
+console.log('Ashes V1 Prelude through Chapter 8 handoff tests passed.');
