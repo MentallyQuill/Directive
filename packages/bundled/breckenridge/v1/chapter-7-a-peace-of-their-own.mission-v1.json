@@ -683,19 +683,34 @@
     {
       "id": "federationRestoration",
       "priority": 600,
-      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "federationRestoration" } },
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "federationRestoration" } },
+          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "coerciveFederation" } }
+        ]
+      },
       "playerText": { "title": "Federation control is restored", "summary": "Starfleet regains command authority, with the method, civilian cost, and loss or preservation of Compact legitimacy carried forward." }
     },
     {
       "id": "compactControl",
       "priority": 500,
-      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "compactControl" } },
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "compactControl" } },
+          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "coerciveCompact" } }
+        ]
+      },
       "playerText": { "title": "Compact control holds", "summary": "Compact authority controls the immediate settlement, with Kessler, Holt, security safeguards, and coalition legitimacy recorded rather than assumed." }
     },
     {
       "id": "fragmentedAuthority",
       "priority": 400,
-      "when": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "fragmentedAuthority" } },
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "fragmentedAuthority" } },
+          { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "fragmented" } }
+        ]
+      },
       "playerText": { "title": "Authority remains fragmented", "summary": "The immediate chapter reaches a bounded disposition without a coherent command settlement, carrying contested control and weak implementation forward." }
     },
     {

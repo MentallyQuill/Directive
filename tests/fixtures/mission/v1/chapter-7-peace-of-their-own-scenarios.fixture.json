@@ -258,6 +258,27 @@
       }
     },
     {
+      "id": "post-arrival-provisional-accord",
+      "sequence": ["time-thirty-six-hours", "political-direct-report", "interface-shared-report", "standoff-stabilized", "civilians-protected", "interface-shared", "settlement-provisional", "annex-shared", "coalition-joint"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "provisionalAccord", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter7.standoff": "completed", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completed" },
+        "clockStates": { "clock.chapter7.task-group-arrival": { "state": "resolved", "value": 0 } },
+        "eventsInclude": ["event.chapter7.task-group-arrived"],
+        "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
+      }
+    },
+    {
+      "id": "coercive-federation-overrides-accord-label",
+      "sequence": ["political-independent-report", "interface-reconstruction-report", "standoff-violence", "civilians-injured", "interface-isolated", "settlement-provisional", "annex-federation", "coalition-federation"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "federationRestoration", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter7.standoff": "completedWithCost", "objective.chapter7.shared-truth-interface": "completed", "objective.chapter7.command-settlement": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter7.settlement": "provisional-accord", "dimension.chapter7.coalition": "coercive-federation" },
+        "transitionTargetId": "open-orders-3-before-the-lamps-go-out"
+      }
+    },
+    {
       "id": "choices-alone-do-not-close",
       "sequence": ["political-direct-report", "interface-shared-report", "posture-negotiate", "interface-choice-shared", "framework-joint"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 7, "rejectedReasonCodes": [], "transitionTargetId": null }

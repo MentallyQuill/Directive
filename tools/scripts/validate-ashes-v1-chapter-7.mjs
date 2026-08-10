@@ -234,6 +234,15 @@ for (const [terminalId, priority] of [
 if (!JSON.stringify(terminalsById.get('openConflict')?.when).includes('openHostility')) {
     errors.push('open conflict no longer outranks political labels when coalition hostility is active');
 }
+if (!JSON.stringify(terminalsById.get('federationRestoration')?.when).includes('coerciveFederation')) {
+    errors.push('coercive Federation implementation can be mislabeled as a provisional accord');
+}
+if (!JSON.stringify(terminalsById.get('compactControl')?.when).includes('coerciveCompact')) {
+    errors.push('coercive Compact implementation can be mislabeled as a provisional accord');
+}
+if (!JSON.stringify(terminalsById.get('fragmentedAuthority')?.when).includes('fragmented')) {
+    errors.push('fragmented implementation can be mislabeled as a coherent accord');
+}
 if (!JSON.stringify(terminalsById.get('responsibleHandoff')?.when).includes('objectiveDisposition')) {
     errors.push('responsible handoff is not an eligible objective-based fallback before terminal selection');
 }
@@ -248,6 +257,8 @@ for (const scenarioId of [
     'open-conflict-before-knowledge',
     'responsible-mixed-handoff',
     'task-group-arrival-does-not-close',
+    'post-arrival-provisional-accord',
+    'coercive-federation-overrides-accord-label',
     'choices-alone-do-not-close',
     'world-results-without-truth-do-not-close',
     'framework-before-political-report',
@@ -283,6 +294,17 @@ if (expiry?.expected?.status !== 'active'
     || !expiry?.expected?.eventsInclude?.includes('event.chapter7.task-group-arrived')
     || (expiry?.expected?.transitionTargetId ?? null) !== null) {
     errors.push('task-group arrival incorrectly closes or fails Chapter 7');
+}
+const postArrival = scenarioById.get('post-arrival-provisional-accord');
+if (postArrival?.expected?.status !== 'terminal'
+    || postArrival?.expected?.clockStates?.['clock.chapter7.task-group-arrival']?.value !== 0
+    || !postArrival?.expected?.eventsInclude?.includes('event.chapter7.task-group-arrived')) {
+    errors.push('fixtures do not prove Chapter 7 remains completable after task-group arrival');
+}
+const coerciveOverride = scenarioById.get('coercive-federation-overrides-accord-label');
+if (coerciveOverride?.expected?.terminalDisposition !== 'federationRestoration'
+    || coerciveOverride?.expected?.outcomeDimensions?.['dimension.chapter7.settlement'] !== 'provisional-accord') {
+    errors.push('coercive implementation can still masquerade as a provisional-accord terminal disposition');
 }
 const beforeDeadline = scenarioById.get('provisional-accord-before-deadline');
 if (beforeDeadline?.expected?.clockStates?.['clock.chapter7.task-group-arrival']?.state !== 'resolved'

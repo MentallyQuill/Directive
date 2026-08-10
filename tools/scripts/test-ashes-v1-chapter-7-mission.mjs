@@ -126,6 +126,8 @@ assert.deepEqual(scenarios.scenarios.map((scenario) => scenario.id), [
     'open-conflict-before-knowledge',
     'responsible-mixed-handoff',
     'task-group-arrival-does-not-close',
+    'post-arrival-provisional-accord',
+    'coercive-federation-overrides-accord-label',
     'choices-alone-do-not-close',
     'world-results-without-truth-do-not-close',
     'framework-before-political-report',
