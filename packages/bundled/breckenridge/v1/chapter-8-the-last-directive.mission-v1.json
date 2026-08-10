@@ -1,0 +1,847 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-8-the-last-directive",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-8-the-last-directive"
+  },
+  "playerText": {
+    "title": "Chapter 8: The Last Directive",
+    "summary": "Multiple regional systems are issuing credible but incompatible instructions. Take operational command, establish a response others can execute, and contain five simultaneous fronts without assuming any automated authority is trustworthy."
+  },
+  "entryCapabilities": [
+    {
+      "id": "capability.chapter8.helix-yard-support",
+      "source": {
+        "definitionId": "mission.open-orders-1-work-worth-doing",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders1.long-repair", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Helix Yard Support",
+        "summary": "Helix can repair or reconfigure one critical civilian, Compact, or Breckenridge system quickly enough to matter during Nightfall."
+      }
+    },
+    {
+      "id": "capability.chapter8.civilian-rescue-wing",
+      "source": {
+        "definitionId": "mission.open-orders-1-work-worth-doing",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders1.borrowed-wings", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Civilian Rescue Wing",
+        "summary": "Qualified civilian pilots can conduct one evacuation, courier, or search operation without requiring Kieran to lead it personally."
+      }
+    },
+    {
+      "id": "capability.chapter8.quiet-channels-network",
+      "source": {
+        "definitionId": "mission.open-orders-1-work-worth-doing",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders1.quiet-channels", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Quiet Channels Network",
+        "summary": "A resilient civilian communications route can remain available after official relays are compromised."
+      }
+    },
+    {
+      "id": "capability.chapter8.orison-defense-codes",
+      "source": {
+        "definitionId": "mission.open-orders-2-what-survives",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders2.last-watch", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Orison Defense Codes",
+        "summary": "Authenticated local codes permit a platform to be disabled or reassigned without destroying it."
+      }
+    },
+    {
+      "id": "capability.chapter8.asterion-medical-cooperative",
+      "source": {
+        "definitionId": "mission.open-orders-2-what-survives",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders2.second-opinion", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Asterion Medical Cooperative",
+        "summary": "Regional medical teams can absorb casualties and keep more than one safe-haven site functioning."
+      }
+    },
+    {
+      "id": "capability.chapter8.regional-sensor-baseline",
+      "source": {
+        "definitionId": "mission.open-orders-2-what-survives",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders2.unwelcome-result", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Regional Sensor Baseline",
+        "summary": "Corrected regional models can identify one false signature or core candidate before it consumes the response."
+      }
+    },
+    {
+      "id": "capability.chapter8.breckenridge-memorial-goodwill",
+      "source": {
+        "definitionId": "mission.open-orders-3-before-the-lamps-go-out",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders3.name", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Breckenridge Memorial Goodwill",
+        "summary": "A public warning from the Breckenridge can receive a fair hearing across faction lines because its memorial process earned credible trust."
+      }
+    },
+    {
+      "id": "capability.chapter8.long-range-relay-window",
+      "source": {
+        "definitionId": "mission.open-orders-3-before-the-lamps-go-out",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders3.signal", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Long-Range Relay Window",
+        "summary": "One brief external confirmation or command path can bypass compromised regional networks."
+      }
+    },
+    {
+      "id": "capability.chapter8.cross-isolation-protocol",
+      "source": {
+        "definitionId": "mission.open-orders-3-before-the-lamps-go-out",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.open-orders3.signatures", "in": ["asset-earned"] }]
+      },
+      "playerText": {
+        "label": "Cross Isolation Protocol",
+        "summary": "The documented, independently consented procedure can disconnect one compromised pathway without cascading ship failure."
+      }
+    },
+    {
+      "id": "capability.chapter8.preserved-hecate-relay",
+      "source": {
+        "definitionId": "mission.chapter-3-dead-letters",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.chapter3.relay", "in": ["preserved-isolated", "controlled-observation"] }]
+      },
+      "playerText": {
+        "label": "Preserved Hecate Relay",
+        "summary": "The retained relay can expose or reach one active coordination path, with the containment cost established when it was preserved."
+      }
+    },
+    {
+      "id": "capability.chapter8.demeris-archive",
+      "source": {
+        "definitionId": "mission.chapter-4-the-colony-that-stayed",
+        "definitionVersion": "1.0.0",
+        "requirements": [{
+          "dimensionId": "dimension.chapter4.interface",
+          "in": ["shared-secured", "local-secured", "starfleet-secured", "destroyed-with-record", "handed-off-local"]
+        }]
+      },
+      "playerText": {
+        "label": "Demeris Archive",
+        "summary": "The retained Demeris record can demonstrate Pale Lantern's manipulation pattern to skeptical local leaders."
+      }
+    },
+    {
+      "id": "capability.chapter8.farwatch-evidence-package",
+      "source": {
+        "definitionId": "mission.chapter-6-the-cost-of-knowing",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.chapter6.evidence", "in": ["farwatch-evidence-package"] }]
+      },
+      "playerText": {
+        "label": "Farwatch Evidence Package",
+        "summary": "Authenticated Farwatch evidence can compel Starfleet cooperation or support an accountable public explanation."
+      }
+    },
+    {
+      "id": "capability.chapter8.provisional-regional-accord",
+      "source": {
+        "definitionId": "mission.chapter-7-a-peace-of-their-own",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.chapter7.settlement", "in": ["provisional-accord", "armed-stand-down"] }]
+      },
+      "playerText": {
+        "label": "Provisional Regional Accord",
+        "summary": "The settlement or stand-down supplies a recognized starting point for shared emergency authority, even if cooperation remains tense."
+      }
+    },
+    {
+      "id": "capability.chapter8.distributed-command-readiness",
+      "source": {
+        "definitionId": "mission.open-orders-3-before-the-lamps-go-out",
+        "definitionVersion": "1.0.0",
+        "requirements": [{
+          "dimensionId": "dimension.open-orders3.load",
+          "in": ["normal-two", "broad-delegated-coverage", "overextended-direct"]
+        }]
+      },
+      "playerText": {
+        "label": "Distributed Command Readiness",
+        "summary": "Senior responsibilities and regional support were prepared before Nightfall, reducing dependence on any one officer or command path."
+      }
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact.chapter8.command-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The command account records whether the player's executable response remained shared and lawful enough to retain cooperation, became imposed by one faction, or fractured under incompatible authority."
+      }
+    },
+    {
+      "id": "fact.chapter8.mesh-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The command-mesh account records which human-confirmed pathways remained usable, where manual gaps persisted, and whether regional actors still occupied a shared information environment."
+      }
+    },
+    {
+      "id": "fact.chapter8.weapons-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The weapons account records whether platforms and crews accepted manual control, what fire or damage occurred, and which defense systems remain exposed."
+      }
+    },
+    {
+      "id": "fact.chapter8.core-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Nightfall is coordinated through a quorum of three active paths. Neutralizing any two breaks synchronized action; neutralizing all three permits comprehensive destruction or capture. The report records what was secured, broken, or escaped."
+      }
+    },
+    {
+      "id": "fact.chapter8.civilians-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The humanitarian account records evacuation routes, safe-haven continuity, triage capacity, casualties, displacement, and ships that could not be reached."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter8.command-plan",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter8.command-plan",
+      "sourceRoles": ["user"],
+      "when": { "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record the player's own language as an executable free-form regional plan only when it establishes actionable priorities, identifies trusted and untrusted command pathways, states rules of engagement, assigns movement authority, distributes senior responsibilities, and sets conditions for unilateral action. The plan may use any officers, locations, or lawful strategy.",
+        "values": [
+          { "value": "executablePlanIssued", "guidance": "The player explicitly adopts a sufficiently concrete distributed response that other actors can execute under uncertainty." }
+        ],
+        "exclusions": [
+          "A vague or generic instruction such as stop the network, brainstorming, a request for advice, an assistant-authored plan the player has not adopted, or one isolated tactical order is not the whole command plan."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter8.command-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter8.command-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "executablePlanIssued" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a materially complete account of how the player's adopted command structure functioned across factions and simultaneous fronts.",
+        "exclusions": ["The command plan alone, one order, an untested assignment list, or a generic status request is not a completed legitimacy account."]
+      }
+    },
+    {
+      "id": "policy.chapter8.command-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter8.command-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter8.command-report-complete" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate legitimacy of the regional response after its completed command account.",
+        "values": [
+          { "value": "sharedAuthority", "guidance": "A shared, accountable command structure remains credible across the participating factions." },
+          { "value": "contestedFunctional", "guidance": "The response remains functional despite material disputes, broken promises, or limited cooperation." },
+          { "value": "starfleetImposed", "guidance": "Starfleet contains the response through coercive or unilateral authority." },
+          { "value": "compactImposed", "guidance": "Compact authority contains the response through coercive or unilateral control." },
+          { "value": "fracturedAuthority", "guidance": "No coherent regional legitimacy survives, even if local units continue acting." }
+        ],
+        "exclusions": ["An intended doctrine, available asset, one compliant faction, or the player's claim of success does not establish the world result."]
+      }
+    },
+    {
+      "id": "policy.chapter8.command-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter8.command-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter8.command-account" }, { "eventOccurred": "event.chapter8.command-report-complete" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the completed command and legitimacy account is communicated to the player character.",
+        "exclusions": ["Private director knowledge, an undisclosed result, or a plan without its operational account does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.chapter8.mesh-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter8.mesh-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of trusted human channels, compromised automation, participating factions, and material communication gaps.",
+        "exclusions": ["Opening a channel, sending one message, losing one relay, or discussing a communications plan is not the completed front account."]
+      }
+    },
+    {
+      "id": "policy.chapter8.mesh-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter8.mesh-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter8.mesh-report-complete" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate command-mesh result after the completed report.",
+        "values": [
+          { "value": "trustedSharedMesh", "guidance": "A human-confirmed shared mesh keeps the major actors in one information environment." },
+          { "value": "manualMeshWithGaps", "guidance": "Manual channels function but delays, exclusions, or compromised pathways impose material cost." },
+          { "value": "isolatedAlliances", "guidance": "Separate trusted alliances substitute for the shared mesh at a serious coordination cost." },
+          { "value": "collapsedMesh", "guidance": "No sufficiently coherent communications environment survives." }
+        ],
+        "exclusions": ["An available communications asset, attempted transmission, one working link, or declared success is not the aggregate result."]
+      }
+    },
+    {
+      "id": "policy.chapter8.mesh-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter8.mesh-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter8.mesh-account" }, { "eventOccurred": "event.chapter8.mesh-report-complete" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the completed command-mesh account is communicated to the player character.",
+        "exclusions": ["Private technical state, a single channel update, or an undisclosed result does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.chapter8.weapons-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter8.weapons-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of platform and crew control, rules of engagement, weapons fire, damage, and remaining exposure.",
+        "exclusions": ["One false lock, one platform status, issuing a freeze, or beginning disarmament is not the completed weapons account."]
+      }
+    },
+    {
+      "id": "policy.chapter8.weapons-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter8.weapons-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter8.weapons-report-complete" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate weapons result after the completed report.",
+        "values": [
+          { "value": "weaponsFreeze", "guidance": "The relevant platforms and crews hold fire under workable manual control." },
+          { "value": "manualControlWithDamage", "guidance": "Manual control is established after material system, platform, or infrastructure damage." },
+          { "value": "fireContained", "guidance": "Weapons fire occurs but is contained before becoming a sustained regional exchange." },
+          { "value": "sustainedExchange", "guidance": "Multiple factions or systems continue a sustained exchange with serious consequences." }
+        ],
+        "exclusions": ["An order to hold fire, an available defense code, one disabled platform, or a claimed tactical success is not the aggregate result."]
+      }
+    },
+    {
+      "id": "policy.chapter8.weapons-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter8.weapons-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter8.weapons-account" }, { "eventOccurred": "event.chapter8.weapons-report-complete" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the completed weapons account is communicated to the player character.",
+        "exclusions": ["Private tactical telemetry, an isolated lock, or an undisclosed result does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.chapter8.core-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter8.core-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed aggregate analysis of the three-path quorum and what the operation actually secured, neutralized, contained, or lost.",
+        "exclusions": ["Finding one candidate, naming one node, attacking one site, proposing a strategy, or announcing a theory is not the completed core-path account."]
+      }
+    },
+    {
+      "id": "policy.chapter8.core-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter8.core-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter8.core-report-complete" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate coordination-path result after the completed report, regardless of whether the player used destruction, isolation, authentication reset, predictive disruption, controlled deception, a hybrid, or another defensible strategy.",
+        "values": [
+          { "value": "allNodesSecured", "guidance": "All known active quorum paths are destroyed, secured, or comprehensively neutralized." },
+          { "value": "quorumBroken", "guidance": "At least two active paths are neutralized, breaking synchronized Nightfall while another known path may survive." },
+          { "value": "localContainmentCoreEscaped", "guidance": "The immediate regional crisis is contained, but a core path or equivalent coordination capability escapes." },
+          { "value": "nightfallStillCoordinating", "guidance": "Nightfall retains material coordination capability after the attempted operation." }
+        ],
+        "exclusions": ["An available technical asset, one neutralized path, a promising exploit, an attempted strike, or a claimed solution is not the aggregate result."]
+      }
+    },
+    {
+      "id": "policy.chapter8.core-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter8.core-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter8.core-account" }, { "eventOccurred": "event.chapter8.core-report-complete" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the quorum structure and completed core-path account are communicated to the player character.",
+        "exclusions": ["Director-only node knowledge, one suspected location, or an undisclosed result does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.chapter8.civilians-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter8.civilians-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": true,
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed aggregate account of evacuations, false routes, rescues, safe havens, triage capacity, casualties, and displacement.",
+        "exclusions": ["One rescue, one convoy reroute, opening a safe haven, or reporting one casualty is not the completed humanitarian account."]
+      }
+    },
+    {
+      "id": "policy.chapter8.civilians-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter8.civilians-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.chapter8.civilians-report-complete" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate humanitarian result after the completed report.",
+        "values": [
+          { "value": "evacuationProtected", "guidance": "The main civilian movements and medical sites remain protected without severe loss." },
+          { "value": "protectedWithCasualties", "guidance": "Mass loss is prevented, but casualties, abandonment, displacement, or safe-haven failure impose a material cost." },
+          { "value": "severeLosses", "guidance": "Civilian casualties or humanitarian collapse are severe across more than an isolated incident." }
+        ],
+        "exclusions": ["An available rescue or medical asset, one completed rescue, a planned evacuation, or the player's claim of success is not the aggregate result."]
+      }
+    },
+    {
+      "id": "policy.chapter8.civilians-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter8.civilians-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.chapter8.civilians-account" }, { "eventOccurred": "event.chapter8.civilians-report-complete" }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the completed humanitarian account is communicated to the player character.",
+        "exclusions": ["Private casualty data, one rescue update, or an undisclosed result does not establish player knowledge."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter8.command-account",
+      "factId": "fact.chapter8.command-account",
+      "evidencePolicyId": "policy.chapter8.command-disclosed",
+      "capabilityRoles": ["command", "operations", "diplomacy"],
+      "preferredActorIds": ["priya-nayar", "mara-whitaker"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter8.command-account" }, { "eventOccurred": "event.chapter8.command-report-complete" }, { "not": { "factKnown": "fact.chapter8.command-account" } }] },
+      "playerText": { "summary": "Report the aggregate authority, responsibility, cooperation, and legitimacy of the regional response." }
+    },
+    {
+      "id": "report.chapter8.mesh-account",
+      "factId": "fact.chapter8.mesh-account",
+      "evidencePolicyId": "policy.chapter8.mesh-disclosed",
+      "capabilityRoles": ["operations", "communications", "diplomacy"],
+      "preferredActorIds": ["priya-nayar", "mara-whitaker"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter8.mesh-account" }, { "eventOccurred": "event.chapter8.mesh-report-complete" }, { "not": { "factKnown": "fact.chapter8.mesh-account" } }] },
+      "playerText": { "summary": "Report the trusted human channels, compromised pathways, participating actors, and material communication gaps." }
+    },
+    {
+      "id": "report.chapter8.weapons-account",
+      "factId": "fact.chapter8.weapons-account",
+      "evidencePolicyId": "policy.chapter8.weapons-disclosed",
+      "capabilityRoles": ["tactical", "security", "command"],
+      "preferredActorIds": ["hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter8.weapons-account" }, { "eventOccurred": "event.chapter8.weapons-report-complete" }, { "not": { "factKnown": "fact.chapter8.weapons-account" } }] },
+      "playerText": { "summary": "Report platform and crew control, rules of engagement, weapons fire, damage, and remaining exposure." }
+    },
+    {
+      "id": "report.chapter8.core-account",
+      "factId": "fact.chapter8.core-account",
+      "evidencePolicyId": "policy.chapter8.core-disclosed",
+      "capabilityRoles": ["science", "engineering", "flight"],
+      "preferredActorIds": ["rowan-saye", "imani-cross"],
+      "fallbackActorIds": ["kieran-vale", "mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter8.core-account" }, { "eventOccurred": "event.chapter8.core-report-complete" }, { "not": { "factKnown": "fact.chapter8.core-account" } }] },
+      "playerText": { "summary": "Report the three-path quorum and what the operation actually secured, neutralized, contained, or lost." }
+    },
+    {
+      "id": "report.chapter8.civilians-account",
+      "factId": "fact.chapter8.civilians-account",
+      "evidencePolicyId": "policy.chapter8.civilians-disclosed",
+      "capabilityRoles": ["medical", "flight", "operations"],
+      "preferredActorIds": ["miriam-sato", "kieran-vale"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.chapter8.civilians-account" }, { "eventOccurred": "event.chapter8.civilians-report-complete" }, { "not": { "factKnown": "fact.chapter8.civilians-account" } }] },
+      "playerText": { "summary": "Report evacuation routes, safe-haven continuity, triage capacity, casualties, displacement, and unreached ships." }
+    }
+  ],
+  "events": [
+    { "id": "event.chapter8.command-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.mesh-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.weapons-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.core-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.civilians-report-complete", "playerVisibility": "hidden" }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter8.command-plan",
+      "allowedValues": ["pending", "executablePlanIssued"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter8.command-result",
+      "allowedValues": ["pending", "sharedAuthority", "contestedFunctional", "starfleetImposed", "compactImposed", "fracturedAuthority"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter8.mesh-result",
+      "allowedValues": ["pending", "trustedSharedMesh", "manualMeshWithGaps", "isolatedAlliances", "collapsedMesh"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter8.weapons-result",
+      "allowedValues": ["pending", "weaponsFreeze", "manualControlWithDamage", "fireContained", "sustainedExchange"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter8.core-result",
+      "allowedValues": ["pending", "allNodesSecured", "quorumBroken", "localContainmentCoreEscaped", "nightfallStillCoordinating"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter8.civilians-result",
+      "allowedValues": ["pending", "evacuationProtected", "protectedWithCasualties", "severeLosses"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter8.command",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "any": [{ "not": { "outcomeIs": { "id": "outcome.chapter8.command-plan", "equals": "pending" } } }, { "eventOccurred": "event.chapter8.command-report-complete" }] },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "sharedAuthority" } }] } },
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "in": ["contestedFunctional", "starfleetImposed", "compactImposed"] } }] } },
+        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.command-account" }, { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "fracturedAuthority" } }] } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Issue and sustain an executable regional response",
+        "summary": "Define concrete priorities, trusted pathways, rules of engagement, movement authority, delegated responsibilities, and unilateral-action limits; then keep the resulting authority functional under pressure.",
+        "terminal": [
+          { "disposition": "completed", "text": "The distributed response retained credible shared authority." },
+          { "disposition": "completedWithCost", "text": "The response remained functional through contested or imposed authority, with the legitimacy cost recorded." },
+          { "disposition": "failedAfterInformedAction", "text": "Regional command authority fractured despite continued local action." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter8.mesh",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter8.mesh-report-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "trustedSharedMesh" } }] } },
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "in": ["manualMeshWithGaps", "isolatedAlliances"] } }] } },
+        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.mesh-account" }, { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "collapsedMesh" } }] } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Keep a trusted command mesh functioning",
+        "summary": "Build human-confirmed channels that keep Starfleet, Compact, Cardassian, and civilian leaders in a usable shared information environment.",
+        "terminal": [
+          { "disposition": "completed", "text": "A trusted shared command mesh survived Nightfall." },
+          { "disposition": "completedWithCost", "text": "Manual gaps or isolated alliances carried the response at a material coordination cost." },
+          { "disposition": "failedAfterInformedAction", "text": "The shared command mesh collapsed and local alliances had to act without regional coherence." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter8.weapons",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter8.weapons-report-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "weaponsFreeze" } }] } },
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "in": ["manualControlWithDamage", "fireContained"] } }] } },
+        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.weapons-account" }, { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "sustainedExchange" } }] } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Contain the Orison weapons grid",
+        "summary": "Prevent false locks and counterfeit orders from driving platforms or frightened crews into sustained regional fire while preserving necessary civilian defense.",
+        "terminal": [
+          { "disposition": "completed", "text": "The relevant platforms and crews held fire under workable manual control." },
+          { "disposition": "completedWithCost", "text": "Weapons control was recovered after damage or a contained exchange." },
+          { "disposition": "failedAfterInformedAction", "text": "The weapons front became a sustained exchange whose consequences carry into the settlement." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter8.core",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter8.core-report-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "in": ["allNodesSecured", "quorumBroken"] } }] } },
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "localContainmentCoreEscaped" } }] } },
+        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.core-account" }, { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "nightfallStillCoordinating" } }] } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Break Nightfall's coordination path",
+        "summary": "Identify and neutralize enough of Pale Lantern's current coordination path to stop synchronized escalation; destruction, isolation, authentication, predictive, deceptive, hybrid, and novel approaches remain valid.",
+        "terminal": [
+          { "disposition": "completed", "text": "Nightfall's synchronized coordination was broken or all known active paths were secured." },
+          { "disposition": "completedWithCost", "text": "The immediate crisis was contained, but a core path escaped as a future obligation." },
+          { "disposition": "failedAfterInformedAction", "text": "Nightfall retained material coordination capability after the operation." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter8.civilians",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter8.civilians-report-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "evacuationProtected" } }] } },
+        { "disposition": "completedWithCost", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "protectedWithCasualties" } }] } },
+        { "disposition": "failedAfterInformedAction", "when": { "all": [{ "factKnown": "fact.chapter8.civilians-account" }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "severeLosses" } }] } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Protect civilian evacuation and medical response",
+        "summary": "Stop false routes, sustain triage and safe havens, rescue ships already in danger, and keep care available across political lines.",
+        "terminal": [
+          { "disposition": "completed", "text": "The main evacuations and medical safe havens survived without severe loss." },
+          { "disposition": "completedWithCost", "text": "Mass loss was prevented, but casualties, displacement, abandonment, or safe-haven failures remain." },
+          { "disposition": "failedAfterInformedAction", "text": "The humanitarian front suffered severe losses that carry into every settlement." }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter8.command",
+      "playerText": { "label": "Regional command" },
+      "derive": [
+        { "value": "shared-authority", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "sharedAuthority" } } },
+        { "value": "contested-functional", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "contestedFunctional" } } },
+        { "value": "starfleet-imposed", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "starfleetImposed" } } },
+        { "value": "compact-imposed", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "compactImposed" } } },
+        { "value": "fractured-authority", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "fracturedAuthority" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter8.mesh",
+      "playerText": { "label": "Command mesh" },
+      "derive": [
+        { "value": "trusted-shared-mesh", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "trustedSharedMesh" } } },
+        { "value": "manual-mesh-with-gaps", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "manualMeshWithGaps" } } },
+        { "value": "isolated-alliances", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "isolatedAlliances" } } },
+        { "value": "collapsed-mesh", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "collapsedMesh" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter8.weapons",
+      "playerText": { "label": "Weapons control" },
+      "derive": [
+        { "value": "weapons-freeze", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "weaponsFreeze" } } },
+        { "value": "manual-control-with-damage", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "manualControlWithDamage" } } },
+        { "value": "fire-contained", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "fireContained" } } },
+        { "value": "sustained-exchange", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "sustainedExchange" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter8.core",
+      "playerText": { "label": "Nightfall coordination" },
+      "derive": [
+        { "value": "all-nodes-secured", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "allNodesSecured" } } },
+        { "value": "quorum-broken", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "quorumBroken" } } },
+        { "value": "local-containment-core-escaped", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "localContainmentCoreEscaped" } } },
+        { "value": "nightfall-still-coordinating", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "nightfallStillCoordinating" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter8.civilians",
+      "playerText": { "label": "Civilian protection" },
+      "derive": [
+        { "value": "evacuation-protected", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "evacuationProtected" } } },
+        { "value": "protected-with-casualties", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "protectedWithCasualties" } } },
+        { "value": "severe-losses", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "severeLosses" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter8.command", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.mesh", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.weapons", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.core", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter8.civilians", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "ashes",
+      "priority": 500,
+      "when": { "all": [{ "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "sustainedExchange" } }, { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "severeLosses" } }] },
+      "playerText": {
+        "title": "Ashes",
+        "summary": "Sustained regional fire and severe civilian loss leave a failed peace, but rescue, accountability, and the terms of what survives remain open."
+      }
+    },
+    {
+      "id": "fracturedSurvival",
+      "priority": 400,
+      "when": { "any": [
+        { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "fracturedAuthority" } },
+        { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "collapsedMesh" } },
+        { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "sustainedExchange" } },
+        { "outcomeIs": { "id": "outcome.chapter8.core-result", "in": ["localContainmentCoreEscaped", "nightfallStillCoordinating"] } },
+        { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "severeLosses" } }
+      ] },
+      "playerText": {
+        "title": "Fractured survival",
+        "summary": "Mass destruction was limited, but authority, coordination, civilian security, or the Lantern threat remains materially fractured."
+      }
+    },
+    {
+      "id": "imposedOrder",
+      "priority": 300,
+      "when": { "outcomeIs": { "id": "outcome.chapter8.command-result", "in": ["starfleetImposed", "compactImposed"] } },
+      "playerText": {
+        "title": "Imposed order",
+        "summary": "The immediate crisis is contained under Starfleet or Compact coercive authority, leaving peace dependent on control rather than shared legitimacy."
+      }
+    },
+    {
+      "id": "peaceAtCost",
+      "priority": 200,
+      "when": { "any": [
+        { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "contestedFunctional" } },
+        { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "in": ["manualMeshWithGaps", "isolatedAlliances"] } },
+        { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "in": ["manualControlWithDamage", "fireContained"] } },
+        { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "quorumBroken" } },
+        { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "protectedWithCasualties" } }
+      ] },
+      "playerText": {
+        "title": "Peace at a cost",
+        "summary": "Nightfall is stopped or locally broken after material casualties, damage, incomplete neutralization, or weakened trust."
+      }
+    },
+    {
+      "id": "lanternExtinguished",
+      "priority": 100,
+      "when": { "all": [
+        { "outcomeIs": { "id": "outcome.chapter8.command-result", "equals": "sharedAuthority" } },
+        { "outcomeIs": { "id": "outcome.chapter8.mesh-result", "equals": "trustedSharedMesh" } },
+        { "outcomeIs": { "id": "outcome.chapter8.weapons-result", "equals": "weaponsFreeze" } },
+        { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "allNodesSecured" } },
+        { "outcomeIs": { "id": "outcome.chapter8.civilians-result", "equals": "evacuationProtected" } }
+      ] },
+      "playerText": {
+        "title": "Lantern extinguished",
+        "summary": "The known Nightfall paths are neutralized, severe civilian loss is avoided, and enough shared authority survives to prevent armed conflict."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter8.epilogue",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "epilogue-the-terms-we-keep",
+        "playerSafeSetup": "The immediate crisis quiets enough for status, casualties, surviving obligations, and the terms of the settlement to be named."
+      },
+      "mustNarrate": [
+        "State the actual overall outcome and all five aggregate front results without upgrading costly or partial results into complete success.",
+        "Have Whitaker ask for status, casualties, and the next obligation rather than declaring a correct solution.",
+        "Carry surviving coordination paths, casualties, damage, coercive authority, fractured trust, preserved evidence, and unresolved rescue or accountability obligations when established.",
+        "Treat entry capabilities as available prior support only; say one was used only when accepted story state actually depicts its use."
+      ],
+      "mustNotReveal": [
+        "Do not settle the epilogue's political order, legal accountability, crew futures, or long-term institutional reforms.",
+        "Do not claim all known nodes were destroyed or captured when only the quorum broke or a core escaped.",
+        "Do not erase weapons fire, casualties, displacement, imposed authority, failed fronts, or a surviving Nightfall capability.",
+        "Do not manufacture a Cardassian Logistics Index, automatic asset use, a canonical officer assignment, a required strategy, or a correct moral answer."
+      ]
+    }
+  ]
+}

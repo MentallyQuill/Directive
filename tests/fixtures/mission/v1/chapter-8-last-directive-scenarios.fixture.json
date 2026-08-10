@@ -171,14 +171,14 @@
       "steps": [
         { "claimId": "claim.chapter8.assistant-plan", "policyId": "policy.chapter8.command-plan", "claimType": "decisionRecorded", "targetId": "outcome.chapter8.command-plan", "value": "executablePlanIssued", "sourceRole": "assistant" }
       ],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-allowed"], "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
     },
     {
       "id": "user-cannot-self-certify-front",
       "steps": [
         { "claimId": "claim.chapter8.user-weapons", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "weaponsFreeze", "sourceRole": "user" }
       ],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-allowed"], "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
     },
     {
       "id": "stale-proposal",
@@ -192,14 +192,14 @@
       "steps": [
         { "claimId": "claim.chapter8.wrong-swipe", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.wrong" }
       ],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-ref-stale"], "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"], "transitionTargetId": null }
     },
     {
       "id": "hallucinated-policy-proposal",
       "steps": [
         { "claimId": "claim.chapter8.hallucinated", "policyId": "policy.chapter8.imaginary-node", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" }
       ],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["policy-not-found"], "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"], "transitionTargetId": null }
     }
   ]
 }

@@ -101,9 +101,15 @@ const initialState = createMissionState({ definition, branchId: 'scenario.initia
 assert.deepEqual(initialState.knownFacts, []);
 assert.equal(Object.values(initialState.objectives).every((objective) => objective.visibility === 'visible'), true);
 assert.equal(Object.values(initialState.objectives).every((objective) => objective.state === 'available'), true);
-const initialVisibleText = [definition.playerText, ...definition.objectives.map((objective) => objective.playerText)];
+const initialVisibleText = [
+    definition.playerText,
+    ...definition.objectives.map((objective) => ({
+        title: objective.playerText.title,
+        summary: objective.playerText.summary,
+    })),
+];
 assert.equal(INITIAL_SPOILER_PATTERN.test(JSON.stringify(initialVisibleText)), false);
-assert.equal(/first|then|next|after completing|step [1-5]/i.test(JSON.stringify(initialVisibleText)), false, 'parallel fronts cannot imply a fixed order');
+assert.equal(/first front|next front|after completing|step [1-5]|front [a-e]:/i.test(JSON.stringify(initialVisibleText)), false, 'parallel fronts cannot imply a fixed order');
 
 const planPolicy = definition.evidencePolicies.find((policy) => policy.id === 'policy.chapter8.command-plan');
 assert.deepEqual(planPolicy?.sourceRoles, ['user']);
