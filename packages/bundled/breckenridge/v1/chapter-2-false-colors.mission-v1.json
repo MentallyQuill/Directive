@@ -61,6 +61,38 @@
       "playerText": {
         "summary": "Recovered evidence establishes that a counterfeit platform used identity material connected to the convoy incident and left a weak routing trace toward the Hecate Drift; its operator and wider purpose remain unknown."
       }
+    },
+    {
+      "id": "fact.chapter2.medical-timeline",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Sato's neutral treatment record and Lieutenant Tov Saren's consented account establish an attack timeline independent of Breckenridge telemetry without making care conditional on testimony."
+      }
+    },
+    {
+      "id": "fact.chapter2.flight-profile-reconstruction",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Kieran's maneuver-envelope reconstruction shows that the recorded attacker could imitate the Breckenridge's silhouette but not its mass, turn behavior, and post-refit flight response."
+      }
+    },
+    {
+      "id": "fact.chapter2.systems-baseline",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Imani and Rowan can compare protected Breckenridge calibration results with neutral sensor references to exclude the real ship without exposing command-authentication architecture."
+      }
+    },
+    {
+      "id": "fact.chapter2.joint-witness-session",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Tov Saren and Specialist Jexa Renn will participate in a bounded Compact-Starfleet witness and evidence session that separates observed timing and system behavior from assumptions about attacker identity."
+      }
     }
   ],
   "evidencePolicies": [
@@ -95,6 +127,74 @@
         "exclusions": [
           "A generic request for transparency, a meeting invitation, a single log request, or a private officer concern does not disclose the combined access dispute."
         ]
+      }
+    },
+    {
+      "id": "policy.chapter2.medical-timeline-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.medical-timeline",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.medical-timeline" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Sato's neutral treatment record and Tov's consented account establish a usable attack timeline while care remains unconditional.",
+        "exclusions": ["Treating the wounded, requesting testimony, or inferring a timeline from injuries without the bounded comparison does not disclose this route."]
+      }
+    },
+    {
+      "id": "policy.chapter2.flight-profile-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.flight-profile-reconstruction",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.flight-profile-reconstruction" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Kieran completes a maneuver-envelope reconstruction that distinguishes the attacker's observed motion from the real Breckenridge's post-refit response.",
+        "exclusions": ["Kieran asserting the ship could not be present, a visual mismatch, or an unfinished simulation is not the reconstruction."]
+      }
+    },
+    {
+      "id": "policy.chapter2.systems-baseline-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.systems-baseline",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.systems-baseline" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Imani and Rowan complete a comparison between protected ship calibration and a neutral sensor reference that excludes the real Breckenridge without revealing dangerous authentication systems.",
+        "exclusions": ["Shipboard logs alone, a proposed comparison, or broad system access is not the bounded independent baseline."]
+      }
+    },
+    {
+      "id": "policy.chapter2.joint-witness-session-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.joint-witness-session",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.joint-witness-session" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Tov and Jexa participate in a bounded joint session that records what they observed and distinguishes it from conclusions about identity.",
+        "exclusions": ["Inviting witnesses, a public accusation, compelled testimony, or either witness speaking outside the bounded comparison is not the joint session."]
       }
     },
     {
@@ -290,6 +390,58 @@
       "playerText": {
         "summary": "Preserved independent records and post-refit calibration exclude the real Breckenridge from the recorded attack profile and provide a credible reconstruction baseline."
       }
+    },
+    {
+      "id": "report.chapter2.medical-timeline",
+      "factId": "fact.chapter2.medical-timeline",
+      "evidencePolicyId": "policy.chapter2.medical-timeline-disclosed",
+      "capabilityRoles": ["medical"],
+      "preferredActorIds": ["miriam-sato", "tov-saren"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": { "all": [{ "worldFact": "fact.chapter2.medical-timeline" }, { "not": { "factKnown": "fact.chapter2.medical-timeline" } }] },
+      "playerText": { "summary": "Neutral care records and consented patrol testimony can establish an independent attack timeline." }
+    },
+    {
+      "id": "report.chapter2.flight-profile",
+      "factId": "fact.chapter2.flight-profile-reconstruction",
+      "evidencePolicyId": "policy.chapter2.flight-profile-disclosed",
+      "capabilityRoles": ["flight", "science"],
+      "preferredActorIds": ["kieran-vale"],
+      "fallbackActorIds": ["rowan-saye"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": { "all": [{ "worldFact": "fact.chapter2.flight-profile-reconstruction" }, { "not": { "factKnown": "fact.chapter2.flight-profile-reconstruction" } }] },
+      "playerText": { "summary": "Kieran can reconstruct the attacker's maneuver envelope independently of its projected silhouette." }
+    },
+    {
+      "id": "report.chapter2.systems-baseline",
+      "factId": "fact.chapter2.systems-baseline",
+      "evidencePolicyId": "policy.chapter2.systems-baseline-disclosed",
+      "capabilityRoles": ["engineering", "science"],
+      "preferredActorIds": ["imani-cross", "rowan-saye"],
+      "fallbackActorIds": ["priya-nayar"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": { "all": [{ "worldFact": "fact.chapter2.systems-baseline" }, { "not": { "factKnown": "fact.chapter2.systems-baseline" } }] },
+      "playerText": { "summary": "Engineering and science can compare a neutral sensor baseline without exposing command architecture." }
+    },
+    {
+      "id": "report.chapter2.joint-witness-session",
+      "factId": "fact.chapter2.joint-witness-session",
+      "evidencePolicyId": "policy.chapter2.joint-witness-session-disclosed",
+      "capabilityRoles": ["command", "medical", "operations"],
+      "preferredActorIds": ["tov-saren", "jexa-renn"],
+      "fallbackActorIds": ["miriam-sato", "priya-nayar"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": { "all": [{ "worldFact": "fact.chapter2.joint-witness-session" }, { "not": { "factKnown": "fact.chapter2.joint-witness-session" } }] },
+      "playerText": { "summary": "Two injured patrol witnesses will join a bounded session separating observation from assumed identity." }
     },
     {
       "id": "report.chapter2.counterfeit-route-picture",

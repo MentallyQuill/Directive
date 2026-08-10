@@ -12,6 +12,23 @@
     "title": "Open Orders I: Work Worth Doing",
     "summary": "Choose how the Breckenridge will help the Reach while the Hecate evidence is correlated in the background."
   },
+  "entryCapabilities": [
+    {
+      "id": "capability.open-orders1.compact-verification-framework",
+      "source": {
+        "definitionId": "mission.chapter-2-false-colors",
+        "definitionVersion": "1.0.0",
+        "requirements": [{
+          "dimensionId": "dimension.chapter2.partnership",
+          "in": ["joint-framework"]
+        }]
+      },
+      "playerText": {
+        "label": "Compact Verification Framework",
+        "summary": "A functioning Compact-Starfleet channel can compare disputed records under bounded access. It does not guarantee trust, agreement, or a favorable finding."
+      }
+    }
+  ],
   "facts": [
     {
       "id": "fact.open-orders1.opportunities",

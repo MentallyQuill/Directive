@@ -27,6 +27,42 @@
         "sourceRole": "assistant"
       }
     ],
+    "medical-testimony": [
+      {
+        "claimId": "claim.chapter2.medical-timeline-disclosed",
+        "policyId": "policy.chapter2.medical-timeline-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.medical-timeline",
+        "sourceRole": "assistant"
+      }
+    ],
+    "kieran-flight-profile": [
+      {
+        "claimId": "claim.chapter2.flight-profile-disclosed",
+        "policyId": "policy.chapter2.flight-profile-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.flight-profile-reconstruction",
+        "sourceRole": "assistant"
+      }
+    ],
+    "systems-baseline": [
+      {
+        "claimId": "claim.chapter2.systems-baseline-disclosed",
+        "policyId": "policy.chapter2.systems-baseline-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.systems-baseline",
+        "sourceRole": "assistant"
+      }
+    ],
+    "joint-witness-session": [
+      {
+        "claimId": "claim.chapter2.joint-witness-session-disclosed",
+        "policyId": "policy.chapter2.joint-witness-session-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.joint-witness-session",
+        "sourceRole": "assistant"
+      }
+    ],
     "counterfeit-route": [
       {
         "claimId": "claim.chapter2.counterfeit-evidence-obtained",
@@ -311,6 +347,83 @@
           "objective.chapter2.attack-account": "completed",
           "objective.chapter2.verification-security": "completed",
           "objective.chapter2.joint-framework": "completed"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "medical-testimony-first",
+      "sequence": ["medical-testimony", "medical-stabilized", "access-report", "independent-evidence", "counterfeit-route", "security-protected", "account-independent"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter2.medical-timeline"],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "kieran-flight-profile-first",
+      "sequence": ["kieran-flight-profile", "access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "security-protected", "account-independent"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter2.flight-profile-reconstruction"],
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "independent-baseline-without-joint-access",
+      "sequence": ["systems-baseline", "access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "security-protected", "account-independent"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter2.systems-baseline"],
+        "objectiveDispositions": {
+          "objective.chapter2.joint-framework": null
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "joint-witness-framework",
+      "sequence": ["joint-witness-session", "access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "security-protected", "partnership-joint", "account-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "jointLegitimacy",
+        "acceptedClaimCount": 10,
+        "rejectedReasonCodes": [],
+        "knownFactsIncludes": ["fact.chapter2.joint-witness-session"],
+        "outcomeDimensions": {
+          "dimension.chapter2.partnership": "joint-framework"
+        },
+        "commandBearingAwardIds": ["award.chapter2.joint-framework"],
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "partial-evidence-managed-ambiguity",
+      "sequence": ["medical-testimony", "access-report", "independent-evidence", "counterfeit-route", "medical-with-cost", "security-with-cost", "account-ambiguous"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "managedAmbiguity",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.attack-account": "completedWithCost"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter2.attack-account": "managed-ambiguity"
         },
         "transitionTargetId": "open-orders-1-work-worth-doing"
       }

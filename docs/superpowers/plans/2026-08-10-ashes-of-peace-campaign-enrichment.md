@@ -304,19 +304,19 @@ git commit -m "feat: deepen Empty Convoy routes"
 - Produces: distinct medical, flight-profile, systems-baseline, and joint-witness routes plus `capability.open-orders1.compact-verification-framework`.
 - Consumes: the optional shared-convoy-record capability when earned.
 
-- [ ] **Step 1: Add failing route scenarios**
+- [x] **Step 1: Add failing route scenarios**
 
 Add `medical-testimony-first`, `kieran-flight-profile-first`, `independent-baseline-without-joint-access`, `joint-witness-framework`, and `partial-evidence-managed-ambiguity`. Assert that partial evidence still reaches Hecate without being upgraded to vindication.
 
-- [ ] **Step 2: Add named Aegis Two witnesses and bounded knowledge**
+- [x] **Step 2: Add named Aegis Two witnesses and bounded knowledge**
 
 Author Lieutenant Tov Saren as the injured patrol commander who distrusts Breckenridge telemetry but accepts neutral medical care, and Specialist Jexa Renn as the systems operator who remembers timing but not attacker identity. Keep Kessler's verification demand and Holt's access pressure distinct.
 
-- [ ] **Step 3: Add materially different verification methods**
+- [x] **Step 3: Add materially different verification methods**
 
 Provide four evidence routes: Sato's neutral medical timeline, Kieran's maneuver-envelope reconstruction, Imani and Rowan's independent systems baseline, and a Compact-Starfleet witness/evidence session. Preserve the choice between bounded access, broad access, refusal with an alternative, and refusal without one.
 
-- [ ] **Step 4: Persist the joint framework into Open Orders I**
+- [x] **Step 4: Persist the joint framework into Open Orders I**
 
 Add `capability.open-orders1.compact-verification-framework`, sourced from `dimension.chapter2.partnership=joint-framework`. Its summary must promise a functioning joint verification channel, not Compact trust or agreement.
 

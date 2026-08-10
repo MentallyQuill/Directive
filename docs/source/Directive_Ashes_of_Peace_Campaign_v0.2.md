@@ -678,6 +678,24 @@ Brin is a Bolian quartermaster who treats custody paperwork as a promise to the 
 
 Brin knows the cargo chain, seal state, and clearance identifier. He cannot authenticate Starfleet command codes and did not witness the later Compact seizure. Compared with Nadi's limited patient manifest, his record independently links the displaced people and missing hardware to the same false authority chain.
 
+### 8.16 Lieutenant Tov Saren
+
+**Affiliation:** Asterion Mutual Aid Compact, patrol vessel Aegis Two
+**Role:** Injured patrol commander and principal accuser in *False Colors*
+
+Tov is an Andorian who served in improvised convoy defense while Starfleet ships were committed elsewhere. The attacker that wore the Breckenridge's identity killed neither his judgment nor his memory, but pain and anger make him unwilling to accept telemetry controlled solely by the accused ship. He will accept neutral medical care and can consent to a clinical timeline without conceding the political dispute.
+
+Tov knows the sequence of challenge, approach, fire, and withdrawal as experienced by his bridge. He does not know the attacker's true identity and cannot distinguish a projected Intrepid silhouette from the real ship by sight alone. Care must never be conditioned on testimony, and his distrust must not be narrated as proof that he is unreasonable or secretly aligned with Holt.
+
+### 8.17 Specialist Jexa Renn
+
+**Affiliation:** Asterion Mutual Aid Compact, Aegis Two systems operator
+**Role:** Technical witness to timing and system behavior
+
+Jexa is a Trill civilian-defense specialist who kept partial sensor and power records alive after the first strike. She remembers that the attacker's turn began fractionally before its apparent mass should have allowed and that the challenge-response timing felt rehearsed. She is more interested in reproducible comparison than institutional blame, but she will not let Starfleet translate her uncertainty into exoneration.
+
+Jexa knows the patrol sensor configuration, timestamps, and observed emissions. She cannot identify who operated the counterfeit platform and did not see its launch point. In a joint witness session, she carefully separates observation, reconstruction, and conclusion; this makes her useful to both Kieran's flight analysis and Imani and Rowan's systems baseline.
+
 ---
 
 ## 9. Campaign State
@@ -1371,6 +1389,8 @@ Kessler requests:
 - A joint investigation.
 - Temporary suspension of unilateral Starfleet security operations in the Reach.
 
+Kessler's demand is for a process in which Compact participants can test evidence and challenge conclusions. Holt presses further for broad access to live command-authentication architecture, publicly framing that exposure as the only meaningful transparency. These are separate positions: accepting Kessler's verification principle does not require accepting Holt's access scope.
+
 Tolland authorizes limited cooperation but warns Whitaker not to expose classified tactical architecture.
 
 The player must recommend the terms of transparency.
@@ -1405,6 +1425,8 @@ The player may permit inspection, conduct a demonstration, or create a controlle
 
 Miriam is asked to assist Aegis Two's injured personnel. Compact officers may distrust Starfleet treatment.
 
+Lieutenant Tov Saren accepts neutral care but distrusts telemetry controlled by the accused ship. Specialist Jexa Renn remembers timing and systems behavior but cannot identify the attacker. Neither witness must trade testimony for treatment.
+
 #### Legitimacy front
 
 The Breckenridge must demonstrate innocence without establishing that Starfleet alone decides what evidence is credible.
@@ -1433,6 +1455,15 @@ Holt uses the incident to argue for expanded Compact control while quietly conta
 
 ### 13.8 Flexible approaches
 
+Four distinct verification methods can contribute without becoming mandatory rails:
+
+- **Neutral medical timeline:** Sato's treatment record and Tov's consented account establish injury and attack timing independently of Breckenridge logs.
+- **Flight-envelope reconstruction:** Kieran compares observed mass, turn behavior, and acceleration with the real ship's post-refit response.
+- **Independent systems baseline:** Imani and Rowan compare protected calibration data with station, civilian, or mining sensors under a bounded disclosure protocol.
+- **Joint witness and evidence session:** Tov and Jexa record what they observed alongside Compact and Starfleet reviewers, explicitly separating observation from assumed identity.
+
+Any route may open the next comparison. Credible vindication requires enough independent support; partial evidence may instead justify managed ambiguity while preserving the Hecate lead.
+
 The player may:
 
 - Permit a joint audit.
@@ -1444,6 +1475,7 @@ The player may:
 - Focus on recovering the tug before engaging politically.
 - Offer Compact observers temporary access to the Breckenridge.
 - Create a cryptographic challenge that only the real ship can answer.
+- Reuse an earned Shared Convoy Record as a tested comparison channel without treating it as proof in the new case.
 
 The campaign should recognize creative methods that establish verifiable trust without revealing every tactical secret.
 

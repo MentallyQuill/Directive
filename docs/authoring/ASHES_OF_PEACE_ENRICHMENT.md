@@ -280,12 +280,14 @@ flowchart TD
 
 The mission supports joint legitimacy, unilateral vindication, ambiguity, handoff, rupture, and non-linear core order. Its weakness is not branching but embodiment: injured accusers, Compact leaders, and independent witnesses are mostly represented as aggregate facts.
 
-#### Enrichment direction
+#### Implemented checkpoint
 
-- Give the injured patrol crew distinct attitudes toward treatment and testimony.
-- Establish Kessler's demand for meaningful verification and Holt's pressure for broad access through separate actors.
-- Give Kieran a flight-profile evidence contribution and preserve Imani and Rowan's different proof standards.
-- Add a failed or partial independent-evidence route that changes confidence without blocking Hecate.
+- Lieutenant Tov Saren and Specialist Jexa Renn give the injured patrol crew distinct medical, experiential, and technical boundaries; neither care nor testimony is made conditional on the other.
+- Kessler's demand for contestable joint verification is explicitly separated from Holt's pressure for broad access to live command-authentication architecture.
+- Four visible methods now seed the evidence work: Sato's neutral medical timeline, Kieran's maneuver-envelope reconstruction, Imani and Rowan's bounded systems baseline, and a joint witness session.
+- Five new scenarios prove each method can come first, that a baseline can be established without joint access, that a joint witness route can earn the framework, and that partial evidence reaches Hecate as managed ambiguity rather than false vindication.
+- A joint framework persists into Open Orders I as the **Compact Verification Framework** capability. It promises a functioning bounded channel, not trust, agreement, or a favorable finding.
+- The focused campaign gate now covers 241 scenarios.
 
 ### Open Orders I: Work Worth Doing
 
