@@ -176,9 +176,11 @@ globalThis.requestAnimationFrame = (callback) => callback();
 const {
   __directiveRuntimeShellTestHooks,
   hideDirectiveRuntimePanel,
+  refreshDirectiveRuntimePanel,
   setDirectiveRuntimeApp,
   showDirectiveRuntimePanel
 } = await import('../../src/runtime/runtime-shell.js');
+const { registerActiveCreatorAssistSession } = await import('../../src/ui/character-creator-assist-dialog.js');
 
 setDirectiveRuntimeApp(null);
 const opener = fakeDocument.createElement('button');
@@ -193,10 +195,27 @@ assert.equal(overlay.parentNode, fakeDocument.body, 'runtime overlay should moun
 assert.equal(panel.parentNode, overlay.querySelector('.directive-runtime-panel-host'));
 assert.equal(overlay.hidden, false);
 assert.equal(panel.hidden, false);
+const assistCancellations = [];
+registerActiveCreatorAssistSession({
+  cancel(reason) {
+    assistCancellations.push({ reason, overlayHidden: overlay.hidden, panelHidden: panel.hidden });
+  }
+});
 hideDirectiveRuntimePanel();
+assert.deepEqual(assistCancellations, [{
+  reason: 'directive-closed',
+  overlayHidden: false,
+  panelHidden: false
+}], 'runtime hide should cancel active creator assist before hiding the shell');
 assert.equal(overlay.hidden, true);
 assert.equal(panel.hidden, true);
 assert.equal(opener, fakeDocument.activeElement, 'hide should restore focus to the opener');
+
+await showDirectiveRuntimePanel({ opener });
+const refreshCancellations = [];
+registerActiveCreatorAssistSession({ cancel: (reason) => refreshCancellations.push(reason) });
+await refreshDirectiveRuntimePanel();
+assert.deepEqual(refreshCancellations, ['runtime-refresh'], 'runtime rerender should cancel an assist bound to the old creator form');
 
 __directiveRuntimeShellTestHooks.reset();
 console.log('Directive runtime overlay host tests passed.');

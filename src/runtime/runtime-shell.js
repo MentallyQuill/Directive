@@ -1,4 +1,5 @@
 import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
+import { cancelActiveCreatorAssistSession } from '../ui/character-creator-assist-dialog.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import {
@@ -437,6 +438,7 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
 }
 
 export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
+  cancelActiveCreatorAssistSession('directive-closed');
   const panel = getPanel();
   if (!panel) return { isOpen: false };
   const opener = runtimeOpener;
@@ -461,6 +463,7 @@ export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
 }
 
 export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {}) {
+  cancelActiveCreatorAssistSession('runtime-refresh');
   const panel = ensurePanel();
   if (!panel) return { refreshed: false, activeTab };
   const snapshot = preserveScroll !== false && lastRenderedTab === activeTab ? captureScroll(panel) : [];
