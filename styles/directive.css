@@ -145,7 +145,7 @@
   min-height: 32px;
 }
 
-.directive-assist-button {
+.directive-launcher-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -161,36 +161,13 @@
   line-height: 1;
 }
 
-.directive-assist-button .directive-assist-button-icon {
+.directive-launcher-button .directive-launcher-button-icon {
   width: 28.5px;
   height: 28.5px;
   color: currentColor;
 }
 
-.directive-assist-button .directive-assist-button-spinner {
-  display: none;
-  width: 20px;
-  height: 20px;
-  box-sizing: border-box;
-  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
-  border-top-color: currentColor;
-  border-radius: 50%;
-}
-
-.directive-assist-button[data-directive-assist-busy="true"] .directive-assist-button-icon {
-  display: none;
-}
-
-.directive-assist-button[data-directive-assist-busy="true"] .directive-assist-button-spinner {
-  display: inline-block;
-  animation: directive-assist-spinner 800ms linear infinite;
-}
-
-.directive-assist-button span:empty:not(.directive-assist-button-spinner) {
-  display: none;
-}
-
-@keyframes directive-assist-spinner {
+@keyframes directive-spinner {
   to {
     transform: rotate(360deg);
   }
@@ -320,7 +297,7 @@
   border: 2px solid color-mix(in srgb, currentColor 26%, transparent);
   border-top-color: var(--SmartThemeQuoteColor, #f2a65a);
   border-radius: 50%;
-  animation: directive-assist-spinner 800ms linear infinite;
+  animation: directive-spinner 800ms linear infinite;
 }
 
 .directive-turn-activity-label {
@@ -402,6 +379,288 @@
   .directive-turn-activity-chip {
     animation: none;
   }
+}
+
+/* Directive V1 player projection surfaces. */
+.directive-expanded-shell .directive-v1-kicker {
+  display: block;
+  color: var(--violet);
+  font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .directive-v1-mission,
+.directive-expanded-shell .directive-v1-crew,
+.directive-expanded-shell .directive-v1-ship,
+.directive-expanded-shell .directive-v1-campaign {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 0 10px;
+}
+
+.directive-expanded-shell .directive-v1-campaign-section { display: grid; gap: 8px; }
+.directive-expanded-shell .directive-v1-campaign-section + .directive-v1-campaign-section { margin-top: 8px; }
+.directive-expanded-shell .directive-v1-active-campaigns,
+.directive-expanded-shell .directive-v1-campaign-packages { display: grid; gap: 9px; }
+.directive-expanded-shell .directive-v1-active-campaign,
+.directive-expanded-shell .directive-v1-campaign-package {
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: 6px;
+}
+.directive-expanded-shell .directive-v1-active-campaign { padding: 15px 16px; border-left: 6px solid var(--orange); }
+.directive-expanded-shell .directive-v1-active-campaign > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.directive-expanded-shell .directive-v1-active-campaign h3,
+.directive-expanded-shell .directive-v1-campaign-package h3 { margin: 4px 0 0; color: var(--text); font: 800 20px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .directive-v1-active-campaign header p,
+.directive-expanded-shell .directive-v1-campaign-package p { margin: 5px 0 0; color: var(--muted); }
+.directive-expanded-shell .directive-v1-active-campaign-summary { margin: 12px 0 0; color: var(--text); }
+.directive-expanded-shell .directive-v1-active-campaign-updated { margin: 6px 0 0; color: var(--muted); font-size: 10px; }
+.directive-expanded-shell .directive-v1-campaign-commands { display: flex; flex-wrap: wrap; gap: 7px; }
+.directive-expanded-shell .directive-v1-campaign-package { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(0, 1.4fr); }
+.directive-expanded-shell .directive-v1-campaign-media { position: relative; min-height: 180px; overflow: hidden; background: var(--high); }
+.directive-expanded-shell .directive-v1-campaign-media img { width: 100%; height: 100%; object-fit: cover; }
+.directive-expanded-shell .directive-v1-campaign-package-copy { display: flex; flex-direction: column; align-items: flex-start; padding: 16px; }
+.directive-expanded-shell .directive-v1-campaign-package-copy .directive-v1-campaign-commands { margin-top: auto; padding-top: 14px; }
+.directive-expanded-shell .directive-v1-campaign-package.is-unavailable { filter: grayscale(1); opacity: .55; }
+.directive-expanded-shell .directive-v1-campaign-package.is-unavailable .directive-v1-kicker { color: var(--muted); }
+.directive-expanded-shell .directive-v1-checkpoints { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(248, 239, 224, .12); }
+.directive-expanded-shell .directive-v1-checkpoints h4 { margin: 0 0 8px; color: var(--orange); font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .directive-v1-checkpoints ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.directive-expanded-shell .directive-v1-checkpoint { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; background: var(--high); border-radius: 4px; }
+.directive-expanded-shell .directive-v1-checkpoint strong,
+.directive-expanded-shell .directive-v1-checkpoint span { display: block; }
+.directive-expanded-shell .directive-v1-checkpoint span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.directive-expanded-shell .directive-v1-checkpoint-actions { display: flex; gap: 6px; }
+
+.directive-expanded-shell .directive-v1-settings { display: grid; gap: 10px; width: 100%; padding: 4px 0 10px; }
+.directive-expanded-shell .directive-v1-settings-section { padding: 15px 16px; background: var(--surface); border-left: 5px solid var(--salmon); border-radius: 6px; }
+.directive-expanded-shell .directive-v1-settings-section > header h2 { margin: 4px 0 0; color: var(--text); font: 800 21px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .directive-v1-settings-section > header p { margin: 6px 0 0; color: var(--muted); }
+.directive-expanded-shell .directive-v1-settings-grid { display: grid; gap: 7px; margin-top: 13px; }
+.directive-expanded-shell .directive-v1-setting-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr); align-items: center; gap: 10px; padding: 8px 10px; background: var(--high); border-radius: 4px; }
+.directive-expanded-shell .directive-v1-setting-field > span strong,
+.directive-expanded-shell .directive-v1-setting-field > span small { display: block; }
+.directive-expanded-shell .directive-v1-setting-field > span strong { color: var(--text); font-size: 11px; }
+.directive-expanded-shell .directive-v1-setting-field > span small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.directive-expanded-shell .directive-v1-setting-field .directive-field-control { width: 100%; min-width: 0; }
+.directive-expanded-shell .directive-v1-settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(248, 239, 224, .12); }
+.directive-expanded-shell .directive-v1-settings-feedback { color: var(--muted); font-size: 10px; }
+.directive-expanded-shell .directive-v1-provider-grid { display: grid; gap: 8px; margin-top: 13px; }
+.directive-expanded-shell .directive-v1-provider-card { padding: 13px; background: var(--high); border-top: 4px solid var(--salmon); border-radius: 5px; }
+.directive-expanded-shell .directive-v1-provider-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.directive-expanded-shell .directive-v1-provider-card h3 { margin: 4px 0 0; color: var(--text); font: 800 17px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .directive-v1-provider-state { color: var(--salmon); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-align: right; text-transform: uppercase; }
+.directive-expanded-shell .directive-v1-provider-state.is-ready { color: var(--blue); }
+.directive-expanded-shell .directive-v1-settings-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 13px; }
+.directive-expanded-shell .directive-v1-settings-facts > div { padding: 9px; background: var(--high); border-radius: 4px; }
+.directive-expanded-shell .directive-v1-settings-facts span,
+.directive-expanded-shell .directive-v1-settings-facts strong { display: block; }
+.directive-expanded-shell .directive-v1-settings-facts span { color: var(--muted); font-size: 9px; text-transform: uppercase; }
+.directive-expanded-shell .directive-v1-settings-facts strong { margin-top: 3px; color: var(--text); }
+.directive-expanded-shell .directive-v1-preset.is-highlighted { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.directive-expanded-shell .directive-v1-mission-hero,
+.directive-expanded-shell .directive-v1-mission-section,
+.directive-expanded-shell .directive-v1-mission-terminal,
+.directive-expanded-shell .directive-v1-command-bearing,
+.directive-expanded-shell .directive-v1-person,
+.directive-expanded-shell .directive-v1-operational-status {
+  padding: 15px 16px;
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+.directive-expanded-shell .directive-v1-mission-hero {
+  border-left: 6px solid var(--gold);
+}
+
+.directive-expanded-shell .directive-v1-mission-hero h2,
+.directive-expanded-shell .directive-v1-roster-heading h2,
+.directive-expanded-shell .directive-v1-command-bearing h2,
+.directive-expanded-shell .directive-v1-ship-identity h2,
+.directive-expanded-shell .directive-v1-operational-status h3,
+.directive-expanded-shell .directive-v1-mission-terminal h3 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font: 800 24px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif;
+}
+
+.directive-expanded-shell .directive-v1-mission-hero p,
+.directive-expanded-shell .directive-v1-command-bearing p,
+.directive-expanded-shell .directive-v1-ship-identity p,
+.directive-expanded-shell .directive-v1-mission-terminal p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.directive-expanded-shell .directive-v1-mission-progress {
+  margin-top: 14px;
+  padding-top: 10px;
+  color: var(--gold);
+  border-top: 1px solid rgba(248, 239, 224, .12);
+  font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .directive-v1-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.directive-expanded-shell .directive-v1-section-heading h3,
+.directive-expanded-shell .directive-v1-material-limitations h4,
+.directive-expanded-shell .directive-v1-person-moments h4 {
+  margin: 0;
+  color: var(--violet);
+  font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .directive-v1-section-note {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.directive-expanded-shell .directive-v1-objective-grid,
+.directive-expanded-shell .directive-v1-clock-grid,
+.directive-expanded-shell .directive-v1-roster {
+  display: grid;
+  gap: 7px;
+}
+
+.directive-expanded-shell .directive-v1-objective {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  background: var(--high);
+  border-left: 4px solid var(--gold);
+  border-radius: 4px;
+}
+
+.directive-expanded-shell .directive-v1-objective.is-terminal { border-left-color: var(--blue); }
+.directive-expanded-shell .directive-v1-objective-marker { color: var(--gold); }
+.directive-expanded-shell .directive-v1-objective.is-terminal .directive-v1-objective-marker { color: var(--blue); }
+.directive-expanded-shell .directive-v1-objective-copy strong { color: var(--text); }
+.directive-expanded-shell .directive-v1-objective-copy p { margin: 4px 0 0; color: var(--muted); }
+.directive-expanded-shell .directive-v1-objective-status {
+  color: var(--gold);
+  font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .directive-v1-clock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 12px;
+  background: var(--high);
+  border-left: 4px solid var(--salmon);
+  border-radius: 4px;
+}
+
+.directive-expanded-shell .directive-v1-clock p,
+.directive-expanded-shell .directive-v1-clock small { grid-column: 1 / -1; margin: 0; color: var(--muted); }
+.directive-expanded-shell .directive-v1-clock-value { color: var(--salmon); font-weight: 800; }
+.directive-expanded-shell .directive-v1-information-list { margin: 0; padding-left: 18px; color: var(--text); }
+.directive-expanded-shell .directive-v1-information-list li + li { margin-top: 6px; }
+.directive-expanded-shell .directive-v1-mission-terminal { border-left: 6px solid var(--blue); }
+.directive-expanded-shell .directive-v1-mission-terminal > span { color: var(--blue); }
+
+.directive-expanded-shell .directive-v1-command-bearing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  align-items: center;
+  border-left: 6px solid var(--gold);
+}
+
+.directive-expanded-shell .directive-v1-command-bearing-pips { display: flex; gap: 6px; }
+.directive-expanded-shell .directive-v1-command-bearing-pips span {
+  width: 14px;
+  height: 28px;
+  background: rgba(248, 239, 224, .12);
+  border: 1px solid rgba(248, 239, 224, .2);
+  border-radius: 3px;
+}
+.directive-expanded-shell .directive-v1-command-bearing-pips span.is-filled { background: var(--gold); border-color: var(--gold); }
+.directive-expanded-shell .directive-v1-command-bearing-reason { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid rgba(248, 239, 224, .12); }
+.directive-expanded-shell .directive-v1-roster-heading { padding: 4px 4px 0; }
+.directive-expanded-shell .directive-v1-person { border-top: 4px solid var(--blue); }
+.directive-expanded-shell .directive-v1-person h3 { margin: 0; color: var(--text); font: 800 19px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .directive-v1-person header span { display: block; margin-top: 3px; color: var(--blue); font-size: 11px; }
+.directive-expanded-shell .directive-v1-person-profile { margin: 10px 0 0; color: var(--muted); }
+.directive-expanded-shell .directive-v1-person-posture {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(248, 239, 224, .12);
+}
+.directive-expanded-shell .directive-v1-person-posture span,
+.directive-expanded-shell .directive-v1-person-mission { color: var(--muted); }
+.directive-expanded-shell .directive-v1-person-posture strong { color: var(--violet); text-align: right; }
+.directive-expanded-shell .directive-v1-person-mission { margin: 8px 0 0; font-size: 10px; }
+.directive-expanded-shell .directive-v1-person-moments { margin-top: 12px; }
+.directive-expanded-shell .directive-v1-person-moments ul { margin: 7px 0 0; padding-left: 18px; }
+
+.directive-expanded-shell .directive-v1-ship-hero {
+  position: relative;
+  min-height: 230px;
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: 7px;
+}
+.directive-expanded-shell .directive-v1-ship-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.directive-expanded-shell .directive-v1-ship-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 7, 11, .08), rgba(5, 7, 11, .96)); }
+.directive-expanded-shell .directive-v1-ship-identity { position: absolute; z-index: 1; inset: auto 0 0; padding: 20px; }
+.directive-expanded-shell .directive-v1-ship-identity p { max-width: 620px; }
+.directive-expanded-shell .directive-v1-operational-status { border-left: 6px solid var(--violet); }
+.directive-expanded-shell .directive-v1-operational-summary { margin: 12px 0 0; color: var(--text); font-size: 15px; }
+.directive-expanded-shell .directive-v1-ship-readiness { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(248, 239, 224, .12); }
+.directive-expanded-shell .directive-v1-ship-readiness span { color: var(--muted); }
+.directive-expanded-shell .directive-v1-ship-readiness strong { color: var(--violet); }
+.directive-expanded-shell .directive-v1-material-limitations { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(248, 239, 224, .12); }
+.directive-expanded-shell .directive-v1-material-limitations ul { margin: 8px 0 0; padding-left: 18px; }
+
+@media (min-width: 720px) {
+  .directive-expanded-shell .directive-v1-objective-grid,
+  .directive-expanded-shell .directive-v1-clock-grid,
+  .directive-expanded-shell .directive-v1-roster,
+  .directive-expanded-shell .directive-v1-campaign-packages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .directive-expanded-shell .directive-v1-campaign-package { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .directive-expanded-shell .directive-v1-mission-hero,
+  .directive-expanded-shell .directive-v1-mission-section,
+  .directive-expanded-shell .directive-v1-mission-terminal,
+  .directive-expanded-shell .directive-v1-command-bearing,
+  .directive-expanded-shell .directive-v1-person,
+  .directive-expanded-shell .directive-v1-operational-status { padding: 12px; }
+  .directive-expanded-shell .directive-v1-command-bearing { grid-template-columns: 1fr; }
+  .directive-expanded-shell .directive-v1-command-bearing-reason { grid-column: auto; }
+  .directive-expanded-shell .directive-v1-ship-hero { min-height: 190px; }
+  .directive-expanded-shell .directive-v1-ship-identity { padding: 14px; }
+  .directive-expanded-shell .directive-v1-objective { grid-template-columns: 22px minmax(0, 1fr); }
+  .directive-expanded-shell .directive-v1-objective-status { grid-column: 2; }
+  .directive-expanded-shell .directive-v1-active-campaign > header,
+  .directive-expanded-shell .directive-v1-checkpoint { align-items: stretch; flex-direction: column; }
+  .directive-expanded-shell .directive-v1-campaign-package { grid-template-columns: 1fr; }
+  .directive-expanded-shell .directive-v1-campaign-media { min-height: 150px; }
+  .directive-expanded-shell .directive-v1-settings-section { padding: 12px; }
+  .directive-expanded-shell .directive-v1-setting-field { grid-template-columns: 1fr; }
+  .directive-expanded-shell .directive-v1-provider-card > header { flex-direction: column; }
+  .directive-expanded-shell .directive-v1-provider-state { text-align: left; }
+  .directive-expanded-shell .directive-v1-settings-facts { grid-template-columns: 1fr; }
 }
 
 .directive-assist-menu,
@@ -2026,7 +2285,7 @@
 
 .directive-creator-section-assist-control[data-creator-assist-busy="true"] .directive-creator-assist-busy-spinner {
   display: inline-block;
-  animation: directive-assist-spinner 800ms linear infinite;
+  animation: directive-spinner 800ms linear infinite;
 }
 
 .directive-creator-section-wand {

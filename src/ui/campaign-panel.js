@@ -1,633 +1,220 @@
-import {
-  appendEmpty,
-  createButton,
-  createElement
-} from './runtime-ui-kit.js';
+import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
-import { appendDirectiveModal, removeDirectiveOverlay } from './directive-overlay-root.js';
-import { bindRovingFocus, restoreFocus } from './expanded-interface-focus.js';
-import { renderCampaignBrowser } from './campaign-browser.js';
-
-let selectedCheckpointByCampaign = new Map();
-let selectedCampaignId = '';
-let openMobileCampaignIds = new Set();
-let openMobileCheckpointByCampaign = new Map();
+import {
+  ASHES_V1_PACKAGE_ID,
+  createV1CampaignPanelModel
+} from './v1-player-facing-panel-model.mjs';
 
 export function resetCampaignPanelState() {
-  selectedCheckpointByCampaign = new Map();
-  selectedCampaignId = '';
-  openMobileCampaignIds = new Set();
-  openMobileCheckpointByCampaign = new Map();
+  // V1 Campaign has no hidden selection state.
 }
 
-function asArray(value) {
-  return Array.isArray(value) ? value.filter(Boolean) : [];
+function packageId(pack = {}) {
+  return String(pack.packageId || pack.id || pack.manifest?.id || '').trim();
 }
 
-function formatDate(value, fallback = 'Not yet played') {
-  const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return fallback;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+function packageTitle(pack = {}) {
+  return String(pack.campaign?.title || pack.title || pack.manifest?.title || 'Campaign').trim();
 }
 
-function campaignStateLabel(campaign) {
-  if (campaign?.active) return 'Active';
-  if (String(campaign?.status || '').toLowerCase() === 'complete') return 'Complete';
-  return '';
+function packageSummary(pack = {}) {
+  return String(
+    pack.campaign?.highConcept
+    || pack.campaign?.premise
+    || pack.premise
+    || pack.summary
+    || ''
+  ).trim();
 }
 
-function packageForCampaign(view, campaign) {
-  const packageContext = asArray(view?.campaignIndex?.packageMedia)
-    .find((entry) => entry?.packageId === campaign?.packageId);
-  if (packageContext) return packageContext;
-  const activeId = view?.activePackage?.packageId || view?.activePackage?.package?.id;
-  if (activeId && activeId === campaign?.packageId) return view.activePackage;
-  return {
-    packageId: campaign?.packageId,
-    assets: campaign?.mediaPackage?.assets || {}
-  };
-}
-
-function imageQuery(campaign, variant) {
-  const descriptor = campaign?.image || {};
-  return {
-    kind: descriptor.kind || 'ship.hero',
-    subjectId: descriptor.subjectId || campaign?.mediaPackage?.ship?.id || campaign?.packageId || campaign?.id,
+function packageImage(pack, variant = 'card') {
+  return createPackageImage(pack, {
+    kind: pack.image?.kind || 'ship.hero',
+    subjectId: pack.image?.subjectId || pack.ship?.id || packageId(pack),
     variant
-  };
-}
-
-function createCampaignImage(view, campaign, variant, wrapperClass) {
-  return createPackageImage(packageForCampaign(view, campaign), imageQuery(campaign, variant), {
-    wrapperClass,
-    label: campaign?.title || 'Campaign',
-    icon: 'fa-solid fa-shuttle-space',
-    loading: variant === 'hero' ? 'eager' : 'lazy'
+  }, {
+    wrapperClass: 'directive-v1-campaign-media',
+    label: packageTitle(pack),
+    loading: 'lazy'
   });
 }
 
-async function invoke(action, payload, actions) {
+function formatDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return 'Not yet played';
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function runAndRefresh(action, payload, actions) {
   await action?.(payload);
-  await actions?.refresh?.();
+  await actions.refresh?.();
 }
 
-function createCommand(label, className, onClick, {
-  icon = '',
-  disabled = false
-} = {}) {
-  return createButton({
-    label,
-    icon,
-    className: `campaign-command${className ? ` ${className}` : ''}`,
-    disabled,
-    onClick
-  });
-}
+function createPackageCard(pack, actions) {
+  const available = pack.available === true;
+  const card = createElement('article', `directive-v1-campaign-package${available ? '' : ' is-unavailable'}`);
+  card.dataset.packageId = packageId(pack);
+  card.appendChild(packageImage(pack));
+  const copy = createElement('div', 'directive-v1-campaign-package-copy');
+  const state = createElement('span', 'directive-v1-kicker');
+  state.textContent = available ? 'Playable in V1' : 'Coming later';
+  const title = createElement('h3');
+  title.textContent = packageTitle(pack);
+  const summary = createElement('p');
+  summary.textContent = packageSummary(pack) || (available
+    ? 'Begin the Ashes of Peace campaign aboard the U.S.S. Breckenridge.'
+    : 'This campaign will become playable after its V1-native story data is complete.');
+  copy.append(state, title, summary);
 
-function dialogFocusable(dialog) {
-  return [...(dialog.querySelectorAll?.(
-    'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  ) || [])];
-}
-
-function openDialog({ title, description = '', opener = null, build }) {
-  const overlay = createElement('div', 'directive-campaign-dialog-overlay');
-  const dialog = createElement('section', 'directive-campaign-dialog');
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  const headingId = `directive-campaign-dialog-${Date.now().toString(36)}`;
-  dialog.setAttribute('aria-labelledby', headingId);
-
-  const heading = createElement('h3');
-  heading.id = headingId;
-  heading.textContent = title;
-  dialog.appendChild(heading);
-  if (description) {
-    const copy = createElement('p');
-    copy.textContent = description;
-    dialog.appendChild(copy);
-  }
-
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    document.removeEventListener?.('keydown', onDocumentKeyDown);
-    removeDirectiveOverlay(overlay);
-    restoreFocus(opener);
-  };
-  const onDocumentKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault?.();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    const focusable = dialogFocusable(dialog);
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault?.();
-      last.focus?.();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault?.();
-      first.focus?.();
-    }
-  };
-
-  build(dialog, close);
-  const closeButton = createButton({
-    label: 'Close',
-    icon: 'fa-solid fa-xmark',
-    className: 'directive-campaign-dialog-close',
-    title: 'Close dialog',
-    onClick: close
-  });
-  closeButton.setAttribute('aria-label', 'Close dialog');
-  dialog.appendChild(closeButton);
-  overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) close();
-  });
-  overlay.appendChild(dialog);
-  appendDirectiveModal(overlay, { fallbackParent: document.body || document.documentElement });
-  document.addEventListener?.('keydown', onDocumentKeyDown);
-  queueMicrotask(() => dialogFocusable(dialog)[0]?.focus?.());
-  return close;
-}
-
-function openNewCampaignDialog(view, actions, opener) {
-  const packages = asArray(view?.campaign?.packages);
-  openDialog({
-    title: 'New Campaign',
-    description: 'Choose a campaign package to begin character setup.',
-    opener,
-    build(dialog, close) {
-      renderCampaignBrowser(dialog, { packages, actions, close });
-    }
-  });
-}
-
-function openSaveDialog(campaign, actions, opener) {
-  openDialog({
-    title: 'Save Game',
-    description: 'Create an immutable checkpoint without leaving the active chat.',
-    opener,
-    build(dialog, close) {
-      const label = createElement('label', 'directive-campaign-dialog-field');
-      const caption = createElement('span');
-      caption.textContent = 'Checkpoint name';
-      const input = createElement('input');
-      input.type = 'text';
-      input.maxLength = 80;
-      input.autocomplete = 'off';
-      input.value = campaign?.chapter ? `Before ${campaign.chapter}` : '';
-      label.append(caption, input);
-      const feedback = createElement('div', 'campaign-feedback');
-      feedback.setAttribute('role', 'status');
-      feedback.setAttribute('aria-live', 'polite');
-      const commands = createElement('div', 'campaign-save-command-row');
-      commands.append(
-        createCommand('Save Game', '', async () => {
-          const name = String(input.value || '').trim();
-          if (!name) {
-            feedback.textContent = 'Enter a checkpoint name.';
-            input.focus?.();
-            return;
-          }
-          await invoke(actions?.saveGame, { name }, actions);
-          close();
-        }, { icon: 'fa-solid fa-floppy-disk' }),
-        createCommand('Cancel', 'secondary', close)
-      );
-      dialog.append(label, feedback, commands);
-    }
-  });
-}
-
-function openDeleteDialog(campaign, checkpoint, actions, opener) {
-  openDialog({
-    title: 'Delete Save',
-    description: `Delete “${checkpoint.name}”? This checkpoint and its preserved chat will be removed.`,
-    opener,
-    build(dialog, close) {
-      const commands = createElement('div', 'campaign-save-command-row');
-      commands.append(
-        createCommand('Delete Save', 'danger', async () => {
-          await invoke(actions?.deleteSave, {
-            campaignId: campaign.id,
-            checkpointId: checkpoint.id
-          }, actions);
-          selectedCheckpointByCampaign.delete(campaign.id);
-          openMobileCheckpointByCampaign.delete(campaign.id);
-          close();
-        }, { icon: 'fa-solid fa-trash' }),
-        createCommand('Cancel', 'secondary', close)
-      );
-      dialog.appendChild(commands);
-    }
-  });
-}
-
-function createFact(label, value) {
-  const fact = createElement('div', 'campaign-fact');
-  const key = createElement('span');
-  key.textContent = label;
-  const content = createElement('strong');
-  content.textContent = value || '—';
-  fact.append(key, content);
-  return fact;
-}
-
-function createFacts(campaign) {
-  const facts = createElement('div', 'campaign-facts');
-  facts.append(
-    createFact('Assignment', campaign.setting),
-    createFact('Chapter', campaign.chapter),
-    createFact('Last played', formatDate(campaign.lastPlayedAt))
-  );
-  return facts;
-}
-
-function createCampaignCommands(campaign, actions) {
-  const row = createElement('div', 'campaign-command-row');
-  if (campaign.active) {
-    row.appendChild(createCommand('Open Chat', 'open-chat', async () => {
-      await invoke(actions?.openCampaignChat, {
-        saveId: campaign.activeTimeline?.saveId
-      }, actions);
-    }, {
-      icon: 'fa-solid fa-message',
-      disabled: !campaign.canOpenChat
+  const commands = createElement('div', 'directive-v1-campaign-commands');
+  if (available && pack.actions?.resumeDraft) {
+    commands.appendChild(createButton({
+      label: 'Continue setup',
+      icon: 'fa-solid fa-user-pen',
+      className: 'directive-button directive-primary-command',
+      onClick: () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
+    }));
+  } else {
+    commands.appendChild(createButton({
+      label: available ? 'Start campaign' : 'Unavailable',
+      icon: available ? 'fa-solid fa-play' : 'fa-solid fa-lock',
+      className: 'directive-button directive-primary-command',
+      disabled: !available || pack.actions?.startNewCampaign === false,
+      onClick: available
+        ? () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions)
+        : null
     }));
   }
-  return row;
+  copy.appendChild(commands);
+  card.appendChild(copy);
+  return card;
 }
 
-function createCheckpointCommands(campaign, checkpoint, actions) {
-  if (!checkpoint) {
-    const empty = createElement('div', 'campaign-save-actions-empty');
-    empty.textContent = campaign.checkpoints?.length
-      ? 'Select a saved game to continue or delete it.'
-      : 'No saved games yet.';
-    return empty;
-  }
-  if (campaign.active && checkpoint.current) {
-    const current = createElement('div', 'campaign-save-actions-empty');
-    current.textContent = 'Active timeline selected.';
-    return current;
-  }
-  const row = createElement('div', 'campaign-save-command-row');
-  row.append(
-    createCommand('Load Game', '', async () => {
-      await invoke(actions?.loadCheckpoint, {
+function createCheckpoint(campaign, checkpoint, actions) {
+  const row = createElement('li', 'directive-v1-checkpoint');
+  const copy = createElement('div');
+  const title = createElement('strong');
+  title.textContent = checkpoint.name;
+  const meta = createElement('span');
+  meta.textContent = [checkpoint.chapter, checkpoint.stardate, formatDate(checkpoint.createdAt)].filter(Boolean).join(' / ');
+  copy.append(title, meta);
+  const commands = createElement('div', 'directive-v1-checkpoint-actions');
+  commands.appendChild(createButton({
+    label: 'Load',
+    className: 'directive-button directive-secondary-command',
+    disabled: checkpoint.loadable !== true,
+    onClick: () => runAndRefresh(actions.loadCheckpoint, {
+      campaignId: campaign.id,
+      checkpointId: checkpoint.id
+    }, actions)
+  }));
+  commands.appendChild(createButton({
+    label: 'Delete',
+    className: 'directive-button directive-secondary-command',
+    onClick: async () => {
+      const confirmed = typeof globalThis.confirm !== 'function'
+        || globalThis.confirm(`Delete checkpoint "${checkpoint.name}"?`);
+      if (!confirmed) return;
+      await runAndRefresh(actions.deleteSave, {
         campaignId: campaign.id,
         checkpointId: checkpoint.id
       }, actions);
-    }, { icon: 'fa-solid fa-play' }),
-    createCommand('Delete Save', 'danger', (event) => {
-      openDeleteDialog(campaign, checkpoint, actions, event?.currentTarget);
-    }, { icon: 'fa-solid fa-trash' })
-  );
+    }
+  }));
+  row.append(copy, commands);
   return row;
 }
 
-function createCheckpointRow(campaign, checkpoint, actions, {
-  mobile = false,
-  onSelection = null
-} = {}) {
-  const selectedId = mobile
-    ? openMobileCheckpointByCampaign.get(campaign.id)
-    : selectedCheckpointByCampaign.get(campaign.id);
-  const selected = selectedId === checkpoint.id;
-  const wrapper = mobile ? createElement('div', 'mobile-save-row') : null;
-  const row = createElement('button', `campaign-save-row${selected ? ' selected' : ''}`);
-  row.type = 'button';
-  row.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  const copy = createElement('span', 'campaign-save-copy');
-  const name = createElement('strong');
-  name.textContent = checkpoint.name;
-  const detail = createElement('span');
-  detail.textContent = [
-    checkpoint.chapter,
-    checkpoint.stardate ? `Stardate ${checkpoint.stardate}` : '',
-    formatDate(checkpoint.createdAt, 'Saved game')
-  ].filter(Boolean).join(' / ');
-  copy.append(name, detail);
-  row.appendChild(copy);
-  if (mobile || (campaign.active && checkpoint.current)) {
-    const marker = createElement('span', 'campaign-save-marker');
-    marker.textContent = mobile
-      ? (campaign.active && checkpoint.current ? 'Current' : (selected ? 'Close' : 'View'))
-      : 'Current';
-    row.appendChild(marker);
-  }
-  row.addEventListener('click', () => {
-    if (mobile) {
-      const next = selected ? '' : checkpoint.id;
-      if (next) openMobileCheckpointByCampaign.set(campaign.id, next);
-      else openMobileCheckpointByCampaign.delete(campaign.id);
-    } else {
-      selectedCheckpointByCampaign.set(campaign.id, checkpoint.id);
-    }
-    onSelection?.();
-  });
-  if (!mobile) return row;
-
-  const detailPanel = createElement('div', 'mobile-save-detail');
-  detailPanel.hidden = !selected;
-  detailPanel.appendChild(createCheckpointCommands(campaign, selected ? checkpoint : null, actions));
-  wrapper.append(row, detailPanel);
-  return wrapper;
-}
-
-function createSaves(campaign, actions, rerender, { mobile = false } = {}) {
-  if (!mobile && !selectedCheckpointByCampaign.has(campaign.id)) {
-    const initial = asArray(campaign.checkpoints).find((entry) => entry.current) || asArray(campaign.checkpoints)[0];
-    if (initial) selectedCheckpointByCampaign.set(campaign.id, initial.id);
-  }
-  const section = createElement('section', 'campaign-saves');
-  const heading = createElement('div', 'campaign-saves-head');
-  const title = createElement('span');
-  title.textContent = `Saved Games ${asArray(campaign.checkpoints).length}`;
-  heading.appendChild(title);
-  if (campaign.canSaveGame) {
-    const saveButton = createButton({
-      label: 'Save Game',
-      icon: 'fa-solid fa-floppy-disk',
-      className: 'campaign-save-create',
-      onClick: (event) => openSaveDialog(campaign, actions, event?.currentTarget)
-    });
-    heading.appendChild(saveButton);
-  }
-  section.appendChild(heading);
-
-  const list = createElement('div', 'campaign-save-list');
-  for (const checkpoint of asArray(campaign.checkpoints)) {
-    list.appendChild(createCheckpointRow(campaign, checkpoint, actions, {
-      mobile,
-      onSelection: rerender
+function createCampaignCard(campaign, actions) {
+  const card = createElement('article', 'directive-v1-active-campaign');
+  const header = createElement('header');
+  const copy = createElement('div');
+  const state = createElement('span', 'directive-v1-kicker');
+  state.textContent = campaign.active ? 'Current campaign' : 'Campaign';
+  const title = createElement('h3');
+  title.textContent = campaign.title;
+  const meta = createElement('p');
+  meta.textContent = [campaign.playerName, campaign.playerRole, campaign.shipName].filter(Boolean).join(' / ');
+  copy.append(state, title, meta);
+  const commands = createElement('div', 'directive-v1-campaign-commands');
+  if (campaign.canOpenChat) {
+    commands.appendChild(createButton({
+      label: 'Continue',
+      icon: 'fa-solid fa-arrow-right',
+      className: 'directive-button directive-primary-command',
+      onClick: () => runAndRefresh(actions.openCampaignChat, {
+        saveId: campaign.activeTimeline?.saveId
+      }, actions)
     }));
   }
-  section.appendChild(list);
-
-  if (!mobile) {
-    const checkpoint = asArray(campaign.checkpoints)
-      .find((entry) => entry.id === selectedCheckpointByCampaign.get(campaign.id));
-    section.appendChild(createCheckpointCommands(campaign, checkpoint, actions));
+  if (campaign.canSaveGame) {
+    commands.appendChild(createButton({
+      label: 'Save checkpoint',
+      icon: 'fa-solid fa-bookmark',
+      className: 'directive-button directive-secondary-command',
+      onClick: async () => {
+        const suggested = campaign.chapter ? `Before ${campaign.chapter}` : 'Checkpoint';
+        const name = typeof globalThis.prompt === 'function'
+          ? globalThis.prompt('Checkpoint name', suggested)
+          : suggested;
+        if (!String(name || '').trim()) return;
+        await runAndRefresh(actions.saveGame, { name: String(name).trim() }, actions);
+      }
+    }));
   }
+  header.append(copy, commands);
+  card.appendChild(header);
 
-  const feedback = createElement('div', 'campaign-feedback');
-  feedback.setAttribute('role', 'status');
-  feedback.setAttribute('aria-live', 'polite');
-  section.appendChild(feedback);
-  return section;
+  if (campaign.premise || campaign.chapter) {
+    const detail = createElement('p', 'directive-v1-active-campaign-summary');
+    detail.textContent = campaign.chapter || campaign.premise;
+    card.appendChild(detail);
+  }
+  const updated = createElement('p', 'directive-v1-active-campaign-updated');
+  updated.textContent = `Last played ${formatDate(campaign.lastPlayedAt)}`;
+  card.appendChild(updated);
+
+  if (campaign.checkpoints?.length) {
+    const section = createElement('section', 'directive-v1-checkpoints');
+    const heading = createElement('h4');
+    heading.textContent = 'Checkpoints';
+    const list = createElement('ul');
+    campaign.checkpoints.forEach((checkpoint) => list.appendChild(createCheckpoint(campaign, checkpoint, actions)));
+    section.append(heading, list);
+    card.appendChild(section);
+  }
+  return card;
 }
 
-function createCampaignDetail(view, campaign, actions, rerender, { mobile = false } = {}) {
-  const detail = createElement(mobile ? 'div' : 'article', mobile ? 'mobile-campaign-detail' : 'campaign-detail');
-  const hero = createElement('div', 'campaign-hero');
-  hero.appendChild(createCampaignImage(view, campaign, 'hero', 'campaign-hero-media'));
-  const heroCopy = createElement('div', 'campaign-hero-copy');
-  const status = createElement('div', 'campaign-status');
-  status.textContent = campaignStateLabel(campaign) || 'Campaign';
-  const title = createElement('div', 'campaign-title');
-  title.textContent = campaign.title;
-  const player = createElement('div', 'campaign-player');
-  player.textContent = `${campaign.playerName} / ${campaign.playerRole}`;
-  heroCopy.append(status, title, player);
-  hero.appendChild(heroCopy);
+export function renderCampaignPanel(body, view, actions = {}) {
+  const model = createV1CampaignPanelModel(view);
+  const surface = createElement('div', 'directive-v1-campaign');
 
-  const body = createElement('div', 'campaign-detail-body');
-  body.appendChild(createFacts(campaign));
-  if (campaign.premise) {
-    const premise = createElement('p', 'campaign-premise');
-    premise.textContent = campaign.premise;
-    body.appendChild(premise);
+  if (model.campaigns.length) {
+    const current = createElement('section', 'directive-v1-campaign-section');
+    const heading = createElement('header', 'directive-v1-roster-heading');
+    const kicker = createElement('span', 'directive-v1-kicker');
+    kicker.textContent = 'Your stories';
+    const title = createElement('h2');
+    title.textContent = 'Campaigns';
+    heading.append(kicker, title);
+    const list = createElement('div', 'directive-v1-active-campaigns');
+    model.campaigns.forEach((campaign) => list.appendChild(createCampaignCard(campaign, actions)));
+    current.append(heading, list);
+    surface.appendChild(current);
   }
-  body.append(
-    createCampaignCommands(campaign, actions),
-    createSaves(campaign, actions, rerender, { mobile })
-  );
 
-  detail.append(hero, body);
-  return detail;
-}
-
-function createDesktopCampaigns(body, view, campaigns, selected, actions, rerender) {
-  const journal = createElement('section', 'campaign-journal');
-  journal.dataset.routeView = 'campaign';
-  const index = createElement('aside', 'campaign-index-panel');
-  const heading = createElement('div', 'campaign-index-head');
-  const label = createElement('span');
-  label.textContent = 'Campaigns';
-  const newButton = createElement('button', 'campaign-new-button');
-  newButton.type = 'button';
-  newButton.title = 'New Campaign';
-  newButton.setAttribute('aria-label', 'New Campaign');
-  newButton.dataset.directiveTour = 'campaign.start';
-  newButton.textContent = '+';
-  newButton.addEventListener('click', (event) => openNewCampaignDialog(view, actions, event.currentTarget));
-  heading.append(label, newButton);
-  index.appendChild(heading);
-
-  const list = createElement('nav', 'campaign-index-list');
-  list.setAttribute('aria-label', 'Campaigns');
-  list.dataset.directiveTour = 'campaign.index';
-  for (const campaign of campaigns) {
-    const active = campaign.id === selected?.id;
-    const row = createElement('button', `campaign-row${active ? ' active' : ''}`);
-    row.type = 'button';
-    row.dataset.campaignId = campaign.id;
-    row.setAttribute('aria-selected', active ? 'true' : 'false');
-    row.appendChild(createCampaignImage(view, campaign, 'thumb', 'campaign-row-media'));
-    const copy = createElement('span', 'campaign-row-copy');
-    const title = createElement('strong');
-    title.textContent = campaign.title;
-    const player = createElement('span');
-    player.textContent = campaign.playerName;
-    const chapter = createElement('span');
-    chapter.textContent = formatDate(campaign.lastPlayedAt);
-    copy.append(title, player, chapter);
-    row.appendChild(copy);
-    const state = campaignStateLabel(campaign);
-    if (state) {
-      const badge = createElement('span', 'campaign-row-state');
-      badge.textContent = state.replace(' Campaign', '');
-      row.appendChild(badge);
-    }
-    row.addEventListener('click', () => {
-      selectedCampaignId = campaign.id;
-      rerender();
-    });
-    list.appendChild(row);
-  }
-  if (!campaigns.length) appendEmpty(list, 'No campaigns are available.');
-  bindRovingFocus(list, { selector: '.campaign-row', orientation: 'vertical' });
-  index.appendChild(list);
-  journal.appendChild(index);
-  if (selected) {
-    const detail = createCampaignDetail(view, selected, actions, rerender);
-    detail.dataset.directiveTour = 'campaign.detail';
-    detail.querySelector?.('.campaign-saves')?.setAttribute?.('data-directive-tour', 'campaign.saves');
-    journal.appendChild(detail);
-  }
-  body.appendChild(journal);
-}
-
-function createMobileCampaigns(body, view, campaigns, selected, actions, rerender) {
-  const route = createElement('section', 'directive-mobile-campaign-route');
-  route.dataset.routeView = 'campaign';
-  route.setAttribute('aria-label', 'Campaigns');
-  route.setAttribute('data-directive-mobile-view', mobileCampaignView);
-
-  const selectedId = mobileCampaignId || selected?.id || campaigns[0]?.id || '';
-  const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedId) || null;
-  const openCampaignList = () => {
-    mobileCampaignView = 'list';
-    rerender();
-  };
-  const newButton = createButton({
-    label: 'New Campaign',
-    icon: 'fa-solid fa-plus',
-    className: 'campaign-new-button',
-    onClick: (event) => openNewCampaignDialog(view, actions, event?.currentTarget)
-  });
-
-  if (mobileCampaignView === 'detail' && selectedCampaign) {
-    const header = createElement('header', 'directive-mobile-route-header');
-    const back = createButton({
-      label: 'Campaigns',
-      icon: 'fa-solid fa-chevron-left',
-      className: 'directive-mobile-route-back',
-      onClick: openCampaignList
-    });
-    back.dataset.directiveMobileRouteBack = 'true';
-    const heading = createElement('strong');
-    heading.textContent = selectedCampaign.title;
-    header.append(back, heading, newButton);
-    const detail = createCampaignDetail(view, selectedCampaign, actions, rerender, { mobile: true });
-    detail.classList.add('directive-mobile-route-detail');
-    detail.dataset.directiveMobileSurface = 'detail';
-    detail.dataset.directiveMobileView = 'detail';
-    route.append(header, detail);
-  } else {
-    const header = createElement('header', 'directive-mobile-route-header');
-    const heading = createElement('strong');
-    heading.textContent = 'Campaigns';
-    header.append(heading, newButton);
-    const list = createElement('nav', 'directive-mobile-route-list');
-    list.dataset.directiveMobileSurface = 'list';
-    list.dataset.directiveTour = 'campaign.index';
-    for (const campaign of campaigns) {
-      const row = createElement('button', 'directive-mobile-campaign-row');
-      row.type = 'button';
-      row.dataset.campaignId = campaign.id;
-      row.setAttribute('aria-label', `${campaign.title}, ${campaign.playerName}, ${campaign.playerRole}`);
-      row.appendChild(createCampaignImage(view, campaign, 'thumb', 'directive-mobile-campaign-thumb'));
-      const copy = createElement('span', 'directive-mobile-campaign-copy');
-      const title = createElement('strong');
-      title.textContent = campaign.title;
-      const player = createElement('span');
-      player.textContent = `${campaign.playerName} · ${campaign.playerRole}`;
-      const hook = createElement('small');
-      hook.textContent = campaign.premise || campaign.hook || campaign.setting || 'Campaign preview';
-      copy.append(title, player, hook);
-      const state = createElement('span', 'directive-mobile-campaign-state');
-      state.textContent = campaignStateLabel(campaign) || 'Available';
-      row.append(copy, state);
-      row.addEventListener('click', async () => {
-        mobileCampaignId = campaign.id;
-        mobileCampaignView = 'detail';
-        rerender();
-      });
-      list.appendChild(row);
-    }
-    if (!campaigns.length) appendEmpty(list, 'No campaigns are available.');
-    route.append(header, list);
-  }
-  body.appendChild(route);
-}
-
-function createMobileCampaignAccordion(body, view, campaigns, selected, actions, rerender) {
-  const route = createElement('section', 'mobile-campaign-accordion');
-  route.dataset.routeView = 'campaign';
-  route.setAttribute('aria-label', 'Campaigns');
-  route.dataset.directiveTour = 'campaign.index';
-  const toolbar = createElement('div', 'campaign-index-head');
-  const label = createElement('span');
-  label.textContent = 'Campaigns';
-  const create = createElement('button', 'campaign-new-button');
-  create.type = 'button';
-  create.textContent = '+';
-  create.title = 'New Campaign';
-  create.setAttribute('aria-label', 'New Campaign');
-  create.addEventListener('click', (event) => openNewCampaignDialog(view, actions, event.currentTarget));
-  toolbar.append(label, create);
-  route.appendChild(toolbar);
-  campaigns.forEach((campaign) => {
-    const open = openMobileCampaignIds.has(campaign.id) || (!openMobileCampaignIds.size && campaign.id === selected?.id);
-    const item = createElement('article', `mobile-campaign-item${open ? ' is-open' : ''}`);
-    const head = createElement('div', 'mobile-campaign-head');
-    head.appendChild(createCampaignImage(view, campaign, 'thumb', 'mobile-campaign-image'));
-    const toggle = createElement('button', 'mobile-campaign-toggle');
-    toggle.type = 'button';
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    const copy = createElement('span', 'mobile-campaign-toggle-copy');
-    const title = createElement('strong');
-    title.textContent = campaign.title;
-    const player = createElement('small');
-    player.textContent = `${campaign.playerName} / ${formatDate(campaign.lastPlayedAt)}`;
-    copy.append(title, player);
-    const badges = createElement('span', 'mobile-campaign-badges');
-    const state = createElement('span', 'mobile-campaign-badge');
-    state.textContent = campaignStateLabel(campaign) || 'Available';
-    const chevron = createElement('span', 'mobile-campaign-chevron');
-    chevron.textContent = '\u203a';
-    badges.append(state, chevron);
-    toggle.append(copy, badges);
-    toggle.addEventListener('click', () => {
-      if (open) openMobileCampaignIds.delete(campaign.id);
-      else openMobileCampaignIds.add(campaign.id);
-      selectedCampaignId = campaign.id;
-      rerender();
-    });
-    head.appendChild(toggle);
-    item.appendChild(head);
-    const detail = createElement('div', 'mobile-campaign-detail');
-    detail.hidden = !open;
-    detail.appendChild(createCampaignImage(view, campaign, 'hero', 'mobile-campaign-detail-image'));
-    detail.appendChild(createFacts(campaign));
-    if (campaign.premise) {
-      const premise = createElement('p', 'campaign-premise');
-      premise.textContent = campaign.premise;
-      detail.appendChild(premise);
-    }
-    detail.append(createCampaignCommands(campaign, actions), createSaves(campaign, actions, rerender, { mobile: true }));
-    item.appendChild(detail);
-    route.appendChild(item);
-  });
-  if (!campaigns.length) appendEmpty(route, 'No campaigns are available.');
-  body.appendChild(route);
-}
-
-export function renderCampaignPanel(body, view, actions) {
-  const campaigns = asArray(view?.campaignIndex?.campaigns);
-  if (!selectedCampaignId || !campaigns.some((campaign) => campaign.id === selectedCampaignId)) {
-    selectedCampaignId = view?.campaignIndex?.selectedCampaignId || campaigns[0]?.id || '';
-  }
-  const host = createElement('div', 'directive-expanded-campaign');
-  const rerender = () => {
-    host.replaceChildren?.();
-    if (!host.replaceChildren) host.textContent = '';
-    const selected = campaigns.find((campaign) => campaign.id === selectedCampaignId) || campaigns[0] || null;
-    createDesktopCampaigns(host, view, campaigns, selected, actions, rerender);
-    createMobileCampaignAccordion(host, view, campaigns, selected, actions, rerender);
-  };
-  rerender();
-  body.appendChild(host);
+  const library = createElement('section', 'directive-v1-campaign-section');
+  const heading = createElement('header', 'directive-v1-roster-heading');
+  const kicker = createElement('span', 'directive-v1-kicker');
+  kicker.textContent = 'Story library';
+  const title = createElement('h2');
+  title.textContent = 'Choose a campaign';
+  heading.append(kicker, title);
+  const packages = createElement('div', 'directive-v1-campaign-packages');
+  model.packages.forEach((pack) => packages.appendChild(createPackageCard(pack, actions)));
+  if (!model.packages.length) appendEmpty(packages, 'No V1 campaign packages are installed.');
+  library.append(heading, packages);
+  surface.appendChild(library);
+  body.appendChild(surface);
 }

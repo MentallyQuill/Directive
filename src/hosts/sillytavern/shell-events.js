@@ -1,12 +1,9 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
-import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from '../../runtime/outcome-integrity.mjs';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeDirectiveGuidance } from '../../guidance/directive-guidance.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
-import { disposeDirectiveAssistButton } from './directive-assist-button.js';
-import { disposeDirectiveMessageActions } from './message-actions.js';
-import { disposeMissionComponentsCapture } from './mission-components-capture.js';
+import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
 import {
   cancelActiveDirectiveTurnActivities,
   disposeDirectiveTurnActivity,
@@ -89,19 +86,13 @@ const USER_MESSAGE_FALLBACK_POLL_INTERVAL_MS = 750;
 
 let pendingNativeDeleteIntent = null;
 let nativeDeleteIntentCapture = null;
-let nativeProtectedEditCapture = null;
-let pendingNativeProtectedEditIntent = null;
-let nativeProtectedEditBypass = null;
 let userMessageFallbackObserver = null;
 let lastFallbackUserMessageSignature = null;
 let lastFallbackChatId = null;
 let lastFallbackChatMessageCount = null;
 let pendingFallbackUserMessageSignatures = new Map();
 let fallbackScanScheduled = false;
-let lastProtectedEditOpen = null;
 let eventLifecycle = null;
-
-const OUTCOME_INTEGRITY_EDIT_OPEN_DELAY_MS = 80;
 
 function scheduleSoon(task, delayMs = 0) {
   const scheduler = typeof globalThis.setTimeout === 'function'
@@ -509,138 +500,6 @@ function disposeNativeDeleteIntentCapture() {
   pendingNativeDeleteIntent = null;
 }
 
-function protectedEditDecision(hostMessageId) {
-  const id = String(hostMessageId ?? '').trim();
-  if (!id || !directiveIsEnabled()) return null;
-  const bridge = getSillyTavernDirectiveRuntimeBridge();
-  if (typeof bridge.runtimeApp?.getOutcomeIntegrityNativeEditDecision !== 'function') return null;
-  try {
-    return bridge.runtimeApp.getOutcomeIntegrityNativeEditDecision({
-      hostMessageId: id,
-      message: { hostMessageId: id, id }
-    });
-  } catch (error) {
-    reportFailure('Failed to check Outcome Integrity edit protection', error);
-    return null;
-  }
-}
-
-function isPromiseLike(value) {
-  return value && typeof value.then === 'function';
-}
-
-function preventNativeEditEvent(event = {}) {
-  event.preventDefault?.();
-  event.stopPropagation?.();
-  event.stopImmediatePropagation?.();
-}
-
-function replayNativeEditIfAllowed(hostMessageId, editButton) {
-  if (!editButton || typeof editButton.click !== 'function') return;
-  nativeProtectedEditBypass = {
-    hostMessageId: String(hostMessageId ?? '').trim(),
-    expiresAt: nowMs() + 1000
-  };
-  editButton.click();
-}
-
-function openOutcomeIntegrityEditor(hostMessageId) {
-  const id = String(hostMessageId ?? '').trim();
-  if (!id) return false;
-  const now = nowMs();
-  if (lastProtectedEditOpen?.hostMessageId === id && now - Number(lastProtectedEditOpen.openedAt || 0) < 650) {
-    return true;
-  }
-  lastProtectedEditOpen = { hostMessageId: id, openedAt: now };
-  scheduleSoon(() => {
-    try {
-      runRuntimeAction(OUTCOME_INTEGRITY_EDIT_ACTION_ID, {
-        message: {
-          hostMessageId: id,
-          id
-        }
-      });
-    } catch (error) {
-      reportFailure('Failed to open Outcome Integrity editor', error);
-    }
-  }, OUTCOME_INTEGRITY_EDIT_OPEN_DELAY_MS);
-  return true;
-}
-
-function captureNativeProtectedEditIntent(event = {}) {
-  const target = event?.target;
-  const editButton = target?.closest?.('.mes_edit');
-  if (!editButton || target?.closest?.('.mes_edit_delete')) return false;
-  const row = editButton.closest?.('.mes[mesid]');
-  const hostMessageId = row?.getAttribute?.('mesid');
-  if (
-    nativeProtectedEditBypass
-    && nativeProtectedEditBypass.hostMessageId === String(hostMessageId ?? '').trim()
-    && nowMs() < Number(nativeProtectedEditBypass.expiresAt || 0)
-  ) {
-    nativeProtectedEditBypass = null;
-    return false;
-  }
-  const decision = protectedEditDecision(hostMessageId);
-  if (isPromiseLike(decision)) {
-    preventNativeEditEvent(event);
-    const id = String(hostMessageId ?? '').trim();
-    const pending = pendingNativeProtectedEditIntent;
-    if (pending?.hostMessageId === id && nowMs() - Number(pending.startedAt || 0) < 1000) {
-      return true;
-    }
-    pendingNativeProtectedEditIntent = { hostMessageId: id, startedAt: nowMs() };
-    Promise.resolve(decision)
-      .then((resolvedDecision) => {
-        if (pendingNativeProtectedEditIntent?.hostMessageId === id) {
-          pendingNativeProtectedEditIntent = null;
-        }
-        if (resolvedDecision?.nativeEdit === 'intercept') {
-          openOutcomeIntegrityEditor(hostMessageId);
-        } else {
-          replayNativeEditIfAllowed(hostMessageId, editButton);
-        }
-      })
-      .catch((error) => {
-        if (pendingNativeProtectedEditIntent?.hostMessageId === id) {
-          pendingNativeProtectedEditIntent = null;
-        }
-        reportFailure('Failed to resolve Outcome Integrity edit protection', error);
-      });
-    return true;
-  }
-  if (decision?.nativeEdit !== 'intercept') return false;
-  preventNativeEditEvent(event);
-  openOutcomeIntegrityEditor(hostMessageId);
-  return true;
-}
-
-function installNativeProtectedEditCapture(root = globalThis.document) {
-  if (!root?.addEventListener || nativeProtectedEditCapture?.root === root) return false;
-  if (nativeProtectedEditCapture?.root?.removeEventListener && nativeProtectedEditCapture.handler) {
-    nativeProtectedEditCapture.root.removeEventListener('pointerdown', nativeProtectedEditCapture.handler, true);
-    nativeProtectedEditCapture.root.removeEventListener('click', nativeProtectedEditCapture.handler, true);
-  }
-  const handler = (event) => {
-    captureNativeProtectedEditIntent(event);
-  };
-  root.addEventListener('pointerdown', handler, true);
-  root.addEventListener('click', handler, true);
-  nativeProtectedEditCapture = { root, handler };
-  return true;
-}
-
-function disposeNativeProtectedEditCapture() {
-  if (nativeProtectedEditCapture?.root?.removeEventListener && nativeProtectedEditCapture.handler) {
-    nativeProtectedEditCapture.root.removeEventListener('pointerdown', nativeProtectedEditCapture.handler, true);
-    nativeProtectedEditCapture.root.removeEventListener('click', nativeProtectedEditCapture.handler, true);
-  }
-  nativeProtectedEditCapture = null;
-  lastProtectedEditOpen = null;
-  pendingNativeProtectedEditIntent = null;
-  nativeProtectedEditBypass = null;
-}
-
 function consumeNativeDeleteIntent(payload) {
   const intent = pendingNativeDeleteIntent;
   if (!intent) return payload;
@@ -727,7 +586,7 @@ export async function handleMessageEdited(payload = {}) {
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageEdited?.(payload);
   } catch (error) {
-    reportFailure('Failed to reconcile edited player message', error);
+    reportFailure('Failed to invalidate accepted state after message edit', error);
     return { handled: false, error: error?.message || String(error) };
   }
 }
@@ -737,7 +596,7 @@ export async function handleMessageDeleted(payload = {}) {
   try {
     return await getSillyTavernDirectiveRuntimeBridge().runtimeApp?.handleHostMessageDeleted?.(consumeNativeDeleteIntent(payload));
   } catch (error) {
-    reportFailure('Failed to reconcile deleted player message', error);
+    reportFailure('Failed to invalidate accepted state after message deletion', error);
     return { handled: false, error: error?.message || String(error) };
   }
 }
@@ -794,7 +653,6 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
   }
   disposeUserMessageFallbackObserver();
   disposeNativeDeleteIntentCapture();
-  disposeNativeProtectedEditCapture();
 }
 
 export async function handleExtensionDisabled() {
@@ -818,9 +676,7 @@ export async function handleExtensionDisabled() {
   }
   removeDirectiveGenerationInterceptor();
   removeGlobalBridge();
-  disposeDirectiveAssistButton();
-  disposeDirectiveMessageActions();
-  disposeMissionComponentsCapture();
+  disposeDirectiveLauncherButton();
   disposeDirectiveTurnActivity();
   disposeSillyTavernDirectiveEventLifecycle();
   closeAllDirectiveOverlays('extension-disabled');
@@ -849,7 +705,6 @@ export function wireEvents(ctx) {
   disposeSillyTavernDirectiveEventLifecycle();
   const root = ctx.document || globalThis.document;
   installNativeDeleteIntentCapture(root);
-  installNativeProtectedEditCapture(root);
   const disposers = [];
   if (installUserMessageFallbackObserver(root, ctx)) {
     disposers.push(disposeUserMessageFallbackObserver);
@@ -950,8 +805,6 @@ export const __directiveEventTestHooks = Object.freeze({
   disposeSillyTavernDirectiveEventLifecycle,
   rememberNativeDeleteIntent,
   consumeNativeDeleteIntent,
-  captureNativeProtectedEditIntent,
-  installNativeProtectedEditCapture,
   installUserMessageFallbackObserver,
   disposeUserMessageFallbackObserver,
   resetUserMessageFallbackBaseline,

@@ -18,19 +18,8 @@ import {
   resolveDirectiveRouteId
 } from '../ui/directive-routes.mjs';
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
-import {
-  addTooltip,
-  appendEmpty,
-  appendSectionTitle,
-  clearElement,
-  createElement,
-  createIcon
-} from '../ui/runtime-ui-kit.js';
+import { appendEmpty, appendSectionTitle, clearElement } from '../ui/runtime-ui-kit.js';
 import { appendDirectiveOverlay } from '../ui/directive-overlay-root.js';
-import {
-  buildDirectiveTrainingScenarioView,
-  isDirectiveTrainingScenarioView
-} from '../guidance/directive-training-scenario.mjs';
 import {
   closeDirectiveGuidance,
   resetDirectiveGuidanceProgress,
@@ -39,10 +28,8 @@ import {
   showDirectiveGuidanceTip,
   showDirectiveGuidanceTutorial
 } from '../guidance/directive-guidance.js';
-import { OUTCOME_INTEGRITY_EDIT_ACTION_ID } from './outcome-integrity.mjs';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
-
 export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map((route) => ({
   id: route.id,
   label: route.label
@@ -51,17 +38,15 @@ export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map
 let shellLayout = { activeRoute: 'campaign' };
 let activeTab = 'campaign';
 let routeSelectionExplicit = false;
-shellLayout.activeRoute = activeTab;
 let runtimeApp = null;
-let keydownListenerInstalled = false;
-let popstateListenerInstalled = false;
 let runtimeMountHost = null;
 let runtimeOverlay = null;
 let runtimeFullscreen = false;
 let runtimeOpener = null;
+let keydownListenerInstalled = false;
+let popstateListenerInstalled = false;
 let lastRenderedTab = '';
 let renderBodyRequestId = 0;
-let trainingScenarioSession = null;
 
 function canUseDocument() {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -73,70 +58,24 @@ function isMobileViewport() {
   return Number(window.innerWidth) <= 640;
 }
 
-function tabLabel(tabId) {
-  return getDirectiveRouteLabel(tabId);
+function runtimeHost() {
+  return runtimeMountHost || document.body || document.documentElement;
 }
 
 function getPanel() {
   return canUseDocument() ? document.getElementById(DIRECTIVE_RUNTIME_PANEL_ID) : null;
 }
 
-function runtimeScrollContainers(panel) {
-  const seen = new Set();
-  const selectors = [
-    '[data-directive-runtime-body="true"]'
-  ];
-  const containers = [];
-  for (const selector of selectors) {
-    for (const element of panel?.querySelectorAll?.(selector) || []) {
-      if (!element || seen.has(element)) continue;
-      seen.add(element);
-      containers.push(element);
-    }
-  }
-  return containers;
-}
-
-function captureRuntimeScroll(panel) {
-  return runtimeScrollContainers(panel).map((element, index) => ({
-    index,
-    top: Number(element.scrollTop) || 0,
-    left: Number(element.scrollLeft) || 0
-  }));
-}
-
-function restoreRuntimeScroll(panel, snapshot = []) {
-  if (!snapshot.length) return;
-  const containers = runtimeScrollContainers(panel);
-  const apply = () => {
-    for (const entry of snapshot) {
-      const element = containers[entry.index];
-      if (!element) continue;
-      element.scrollTop = entry.top;
-      element.scrollLeft = entry.left;
-    }
-  };
-  apply();
-  if (typeof globalThis.requestAnimationFrame === 'function') {
-    globalThis.requestAnimationFrame(apply);
-  }
-}
-
-function runtimeHost() {
-  return runtimeMountHost || document.body || document.documentElement;
-}
-
 function ensureRuntimeOverlay() {
   if (!canUseDocument()) return null;
-  const doc = document;
-  let overlay = doc.getElementById?.('directive-runtime-overlay');
+  let overlay = document.getElementById?.('directive-runtime-overlay');
   if (!overlay) {
-    overlay = doc.createElement('div');
+    overlay = document.createElement('div');
     overlay.id = 'directive-runtime-overlay';
     overlay.className = 'directive-runtime-overlay';
     overlay.hidden = true;
     overlay.setAttribute('aria-hidden', 'true');
-    const backdrop = doc.createElement('div');
+    const backdrop = document.createElement('div');
     backdrop.className = 'directive-runtime-backdrop';
     backdrop.setAttribute('aria-hidden', 'true');
     backdrop.addEventListener?.('click', (event) => {
@@ -144,34 +83,21 @@ function ensureRuntimeOverlay() {
       event?.stopPropagation?.();
       hideDirectiveRuntimePanel();
     });
-    const panelHost = doc.createElement('div');
+    const panelHost = document.createElement('div');
     panelHost.className = 'directive-runtime-panel-host';
     overlay.append(backdrop, panelHost);
-    (doc.body || doc.documentElement)?.appendChild?.(overlay);
+    (document.body || document.documentElement)?.appendChild?.(overlay);
   }
-  const backdrop = overlay.querySelector?.('.directive-runtime-backdrop') || null;
-  const panelHost = overlay.querySelector?.('.directive-runtime-panel-host') || null;
-  runtimeOverlay = { overlay, backdrop, panelHost };
+  runtimeOverlay = {
+    overlay,
+    backdrop: overlay.querySelector?.('.directive-runtime-backdrop') || null,
+    panelHost: overlay.querySelector?.('.directive-runtime-panel-host') || null
+  };
   return runtimeOverlay;
 }
 
 function getRuntimeOverlay() {
   return runtimeOverlay?.overlay ? runtimeOverlay : ensureRuntimeOverlay();
-}
-
-function outcomeIntegrityEditorHost() {
-  if (!canUseDocument()) return { element: runtimeHost(), mount: 'viewport' };
-  const chatSurface = document.getElementById('sheld') || document.querySelector('#chat')?.parentElement || document.querySelector('#chat');
-  const rect = chatSurface?.getBoundingClientRect?.();
-  if (chatSurface && Number(rect?.width) >= 320 && Number(rect?.height) >= 320) {
-    return { element: chatSurface, mount: 'chat' };
-  }
-  return { element: runtimeHost(), mount: 'viewport' };
-}
-
-function persistLayout() {
-  shellLayout.activeRoute = activeTab;
-  return shellLayout;
 }
 
 function resetDirectiveRouteUiState() {
@@ -180,74 +106,13 @@ function resetDirectiveRouteUiState() {
   resetSettingsPanelState();
 }
 
-function isTrainingScenarioActive() {
-  return trainingScenarioSession?.active === true;
-}
-
-function tutorialUsesTrainingScenario(tutorial = null) {
-  return tutorial?.trainingScenario !== false;
-}
-
-function startDirectiveTrainingScenario({
-  tutorial = null,
-  tutorialId = '',
-  stepId = '',
-  stepIndex = 0
-} = {}) {
-  if (!tutorialUsesTrainingScenario(tutorial)) {
-    stopDirectiveTrainingScenario({ refresh: false });
-    return { active: false };
-  }
-  const prior = trainingScenarioSession || {
-    previousRoute: activeTab
-  };
-  trainingScenarioSession = {
-    active: true,
-    tutorialId: tutorialId || tutorial?.id || '',
-    stepId,
-    stepIndex: Math.max(0, Number(stepIndex) || 0),
-    previousRoute: prior.previousRoute || activeTab
-  };
-  return { active: true, ...trainingScenarioSession };
-}
-
-function updateDirectiveTrainingScenarioStep({
-  tutorialId = '',
-  stepId = '',
-  stepIndex = 0
-} = {}) {
-  if (!isTrainingScenarioActive()) return { active: false };
-  trainingScenarioSession = {
-    ...trainingScenarioSession,
-    tutorialId: tutorialId || trainingScenarioSession.tutorialId || '',
-    stepId,
-    stepIndex: Math.max(0, Number(stepIndex) || 0)
-  };
-  return { active: true, ...trainingScenarioSession };
-}
-
-function stopDirectiveTrainingScenario({ refresh = true, restoreRoute = true } = {}) {
-  if (!isTrainingScenarioActive()) return { stopped: false };
-  const session = trainingScenarioSession;
-  trainingScenarioSession = null;
-  if (restoreRoute && session.previousRoute) {
-    activeTab = normalizeDirectiveRouteId(session.previousRoute, activeTab);
-    shellLayout.activeRoute = activeTab;
-  }
-  const panel = getPanel();
-  if (panel) {
-    applyShellLayout(panel);
-    syncShellChrome(panel);
-    if (refresh && panel.hidden !== true) {
-      void refreshDirectiveRuntimePanel({ preserveScroll: false });
-    }
-  }
-  return { stopped: true };
+function persistLayout() {
+  shellLayout.activeRoute = activeTab;
+  return shellLayout;
 }
 
 function applyShellLayout(panel = getPanel(), { persist = false } = {}) {
   if (!panel) return null;
-
   panel.dataset.directiveShell = 'expanded';
   panel.dataset.activeRoute = activeTab;
   panel.dataset.mobileActiveTab = activeTab;
@@ -259,18 +124,18 @@ function syncShellChrome(panel = getPanel()) {
   if (!panel) return;
   const route = getDirectiveRoute(activeTab);
   panel.dataset.activeRoute = activeTab;
-  for (const button of panel.querySelectorAll('.directive-route-control')) {
+  for (const button of panel.querySelectorAll?.('.directive-route-control') || []) {
     const selected = button.dataset.routeId === activeTab;
     button.classList.toggle('active', selected);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute?.('aria-current');
   }
-  const routePath = panel.querySelector('.directive-route-path');
+  const routePath = panel.querySelector?.('.directive-route-path');
   if (routePath) routePath.textContent = `${route.label} / ${route.shelfLabel || route.shortLabel || route.label}`;
-  const routeName = panel.querySelector('.directive-route-name');
+  const routeName = panel.querySelector?.('.directive-route-name');
   if (routeName) routeName.textContent = route.label;
-  const routeBody = panel.querySelector('[data-directive-runtime-body="true"]');
+  const routeBody = panel.querySelector?.('[data-directive-runtime-body="true"]');
   if (routeBody) {
     routeBody.dataset.directiveTour = `route-body.${activeTab}`;
     routeBody.dataset.routeView = activeTab;
@@ -284,7 +149,7 @@ function createPanel() {
     label: 'Directive expanded interface',
     routes: DIRECTIVE_PRIMARY_ROUTES,
     activeRouteId: activeTab,
-    onSelectRoute: (routeId) => selectRouteFromSpine(routeId),
+    onSelectRoute: (routeId) => selectRoute(routeId),
     onClose: () => hideDirectiveRuntimePanel()
   });
   applyShellLayout(panel);
@@ -319,535 +184,156 @@ function ensurePanel() {
 }
 
 async function getRuntimeView() {
-  let baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
+  let view = typeof runtimeApp?.getCurrentView === 'function'
     ? await runtimeApp.getCurrentView({ tabId: activeTab })
     : null;
-  const hasActiveCampaign = Boolean(
-    baseView?.currentChatCampaignState
-    || baseView?.campaignState?.campaignChatBinding?.chatId
-  );
-  const resolvedRoute = !routeSelectionExplicit && activeTab === 'campaign' && hasActiveCampaign
+  const hasActiveCampaign = Boolean(view?.campaignState?.campaignChatBinding?.chatId);
+  const route = !routeSelectionExplicit && activeTab === 'campaign' && hasActiveCampaign
     ? 'mission'
     : resolveDirectiveRouteId(activeTab, { hasActiveCampaign });
-  if (resolvedRoute !== activeTab) {
-    activeTab = resolvedRoute;
-    shellLayout.activeRoute = activeTab;
+  if (route !== activeTab) {
+    activeTab = route;
     persistLayout();
-    baseView = runtimeApp && typeof runtimeApp.getCurrentView === 'function'
+    view = typeof runtimeApp?.getCurrentView === 'function'
       ? await runtimeApp.getCurrentView({ tabId: activeTab })
-      : baseView;
+      : view;
   }
-  if (isTrainingScenarioActive()) {
-    return buildDirectiveTrainingScenarioView({
-      baseView,
-      activeTab,
-      tutorialId: trainingScenarioSession.tutorialId,
-      stepId: trainingScenarioSession.stepId
-    });
-  }
-  return baseView;
+  return view;
 }
 
-function setActiveRoute(routeId, { openDrawer = true, persist = true } = {}) {
-  const nextTab = normalizeDirectiveRouteId(routeId, activeTab);
+async function selectRoute(routeId) {
+  activeTab = normalizeDirectiveRouteId(routeId, activeTab);
   routeSelectionExplicit = true;
-  activeTab = nextTab;
-  shellLayout.activeRoute = nextTab;
-  const panel = getPanel();
-  applyShellLayout(panel, { persist });
-  syncShellChrome(panel);
-  return nextTab;
-}
-
-async function selectRouteFromSpine(routeId) {
-  const nextTab = normalizeDirectiveRouteId(routeId, activeTab);
-  activeTab = nextTab;
-  routeSelectionExplicit = true;
-  shellLayout.activeRoute = nextTab;
   persistLayout();
+  applyShellLayout();
+  syncShellChrome();
   await refreshDirectiveRuntimePanel();
   return { activeTab, isOpen: true };
 }
 
-async function navigateToRoute(routeId, { openDrawer = true } = {}) {
-  setActiveRoute(routeId, { openDrawer, persist: true });
-  await refreshDirectiveRuntimePanel();
-  return { activeTab, isOpen: true };
-}
-
-function stopTrainingBeforeRealStateChange() {
-  if (isTrainingScenarioActive()) {
-    stopDirectiveTrainingScenario({ refresh: false, restoreRoute: false });
+function callApp(method, options) {
+  const handler = runtimeApp?.[method];
+  if (typeof handler !== 'function') {
+    throw new Error(`Directive runtime action ${method} is unavailable.`);
   }
-}
-
-function dispatchMissionComponentOpenSource(result = {}) {
-  if (!result?.ok || !canUseDocument()) return;
-  const detail = {
-    component: result.component || null,
-    source: result.source || null
-  };
-  const event = typeof CustomEvent === 'function'
-    ? new CustomEvent('directive:mission-component-open-source', { detail })
-    : { type: 'directive:mission-component-open-source', detail };
-  document.dispatchEvent?.(event);
-}
-
-const TRAINING_INERT_ACTIONS = Object.freeze([
-  'importCampaignPackageArchive',
-  'startCreatorDraft',
-  'resumeCreatorDraft',
-  'saveCreatorDraft',
-  'generateCreatorSectionDraft',
-  'importCreatorPortrait',
-  'removeCreatorPortrait',
-  'cancelCreatorDraft',
-  'returnCreatorToCampaignLibrary',
-  'discardCreatorDraft',
-  'acceptCreatorDraftAndStartCampaign',
-  'importPlayerPortrait',
-  'removePlayerPortrait',
-  'selectCampaign',
-  'saveGame',
-  'loadCheckpoint',
-  'deleteSave',
-  'refreshStorageDiagnostics',
-  'verifyActiveSave',
-  'settleActiveState',
-  'exportActiveSave',
-  'exportSupportDiagnostics',
-  'cleanMissingStorageRecords',
-  'previewDirectorTurn',
-  'commitProvisionalDirectorTurn',
-  'discardProvisionalDirectorTurn',
-  'previewOutcomeReplacement',
-  'deleteCommittedOutcome',
-  'getQuestOpportunities',
-  'offerOpenWorldQuest',
-  'acceptOpenWorldQuest',
-  'activateOpenWorldQuest',
-  'pauseOpenWorldQuest',
-  'delegateOpenWorldQuest',
-  'abandonOpenWorldQuest',
-  'travelOpenWorld',
-  'advanceOpenWorldTime',
-  'retryNarrationForLastTurn',
-  'readyCommandBearingPoint',
-  'cancelReadiedCommandBearingPoint',
-  'recoverCommandBearingPoint',
-  'openCampaignChat',
-  'resolvePendingChatInteraction',
-  'resolveTerminalOutcomeDecision',
-  'retryCommittedChatResponse',
-  'rewriteCampaignIntro',
-  'setReconciliationStart',
-  'setReconciliationEnd',
-  'clearReconciliationMarkers',
-  'reconcileMessage',
-  'reconcileFromHere',
-  'reconcileMarkedPassage',
-  'recalculateFromHere',
-  'openPendingReconciliation',
-  'applyPendingReconciliation',
-  'rejectPendingReconciliation',
-  'retryCampaignActivation',
-  'buildCampaignOpeningScene',
-  'rebindCampaignChat',
-  'rebuildPromptContext',
-  'clearPromptContext',
-  'updateRuntimeHistoryLimit',
-  'updateRuntimeSettings',
-  'updateCampaignDifficulty',
-  'updateProviderSettings',
-  'updateProviderRoleRouting',
-  'resetProviderRoleRouting',
-  'testProvider',
-  'runFactualGroundingReview',
-  'refreshDirectivePresetStatus',
-  'updateDirectivePresetAutoCheck',
-  'installDirectivePreset',
-  'concludeCampaign'
-]);
-
-function createTrainingScenarioActions() {
-  const actions = {};
-  for (const name of TRAINING_INERT_ACTIONS) {
-    actions[name] = async () => ({
-      ok: true,
-      inert: true,
-      trainingScenario: true,
-      reason: 'tutorial-training-scenario'
-    });
-  }
-  actions.setActiveTab = (tabId) => {
-    setActiveRoute(tabId, { openDrawer: true, persist: true });
-  };
-  actions.refresh = refreshDirectiveRuntimePanel;
-  actions.beginGuidanceTutorial = (options = {}) => beginDirectiveGuidanceTutorial(options);
-  actions.showGuidanceTip = (options = {}) => showDirectiveRuntimeGuidanceTip(options);
-  actions.setGuidancePreference = (options = {}) => updateDirectiveGuidancePreference(options);
-  actions.resetGuidanceProgress = () => resetDirectiveGuidanceProgress();
-  return actions;
-}
-
-function appendTrainingScenarioBanner(body, view) {
-  if (!isDirectiveTrainingScenarioView(view)) return;
-  const banner = createElement('aside', 'directive-training-scenario-banner');
-  banner.dataset.directiveTour = 'tutorial.training-scenario';
-  banner.setAttribute('role', 'note');
-  addTooltip(banner, 'Tutorial-only populated campaign preview. Real saves, chats, prompts, and providers are not changed.');
-  const icon = createElement('span', 'directive-training-scenario-icon');
-  icon.appendChild(createIcon('fa-solid fa-graduation-cap'));
-  const copy = createElement('span', 'directive-training-scenario-copy');
-  const title = createElement('strong');
-  title.textContent = view.trainingScenario?.label || 'Training Scenario';
-  const summary = createElement('span');
-  summary.textContent = view.trainingScenario?.summary || 'Tutorial-only populated campaign preview. No real state is changed.';
-  copy.append(title, summary);
-  banner.append(icon, copy);
-  body.appendChild(banner);
+  return handler.call(runtimeApp, options);
 }
 
 function createRuntimeActions() {
   return {
-    setActiveTab(tabId) {
-      setActiveRoute(tabId, { openDrawer: true, persist: true });
-    },
-    selectMissionQuest(options) {
-      return runtimeApp.selectMissionQuest(options);
-    },
+    setActiveTab: (tabId) => selectRoute(tabId),
     refresh: refreshDirectiveRuntimePanel,
-    importCampaignPackageArchive(options) {
-      return runtimeApp.importCampaignPackageArchive(options);
-    },
-    startCreatorDraft(options) {
-      stopTrainingBeforeRealStateChange();
-      return runtimeApp.startCreatorDraft(options);
-    },
-    resumeCreatorDraft(options) {
-      stopTrainingBeforeRealStateChange();
-      return runtimeApp.resumeCreatorDraft(options);
-    },
-    saveCreatorDraft(options) {
-      return runtimeApp.saveCreatorDraft(options);
-    },
-    generateCreatorSectionDraft(options) {
-      return runtimeApp.generateCreatorSectionDraft(options);
-    },
-    importCreatorPortrait(options) {
-      return runtimeApp.importCreatorPortrait(options);
-    },
-    removeCreatorPortrait(options) {
-      return runtimeApp.removeCreatorPortrait(options);
-    },
-    cancelCreatorDraft() {
-      return runtimeApp.cancelCreatorDraft();
-    },
-    returnCreatorToCampaignLibrary(options) {
-      return runtimeApp.returnCreatorToCampaignLibrary(options);
-    },
-    discardCreatorDraft(options) {
-      return runtimeApp.discardCreatorDraft(options);
-    },
-    acceptCreatorDraftAndStartCampaign(options) {
-      stopTrainingBeforeRealStateChange();
-      setActiveRoute('mission', { openDrawer: true, persist: true });
-      return runtimeApp.acceptCreatorDraftAndStartCampaign(options);
-    },
-    importPlayerPortrait(options) {
-      return runtimeApp.importPlayerPortrait(options);
-    },
-    removePlayerPortrait(options) {
-      return runtimeApp.removePlayerPortrait(options);
-    },
-    selectCampaign(options) {
-      return runtimeApp.selectCampaign(options);
-    },
-    saveGame(options) {
-      return runtimeApp.saveGame(options);
-    },
-    loadCheckpoint(options) {
-      stopTrainingBeforeRealStateChange();
-      return runtimeApp.loadCheckpoint(options);
-    },
-    deleteSave(options) {
-      return runtimeApp.deleteSave(options);
-    },
-    refreshStorageDiagnostics() {
-      return runtimeApp.refreshStorageDiagnostics();
-    },
-    verifyActiveSave() {
-      return runtimeApp.verifyActiveSave();
-    },
-    settleActiveState() {
-      return runtimeApp.settleActiveState();
-    },
-    exportActiveSave() {
-      return runtimeApp.exportActiveSave();
-    },
-    exportSupportDiagnostics(options) {
-      return runtimeApp.exportSupportDiagnostics(options);
-    },
-    cleanMissingStorageRecords() {
-      return runtimeApp.cleanMissingStorageRecords();
-    },
-    previewDirectorTurn(options) {
-      return runtimeApp.previewDirectorTurn(options);
-    },
-    commitProvisionalDirectorTurn(options) {
-      return runtimeApp.commitProvisionalDirectorTurn(options);
-    },
-    discardProvisionalDirectorTurn() {
-      return runtimeApp.discardProvisionalDirectorTurn();
-    },
-    previewOutcomeReplacement(options) {
-      return runtimeApp.previewOutcomeReplacement(options);
-    },
-    deleteCommittedOutcome(options) {
-      return runtimeApp.deleteCommittedOutcome(options);
-    },
-    getQuestOpportunities(options) {
-      return runtimeApp.getQuestOpportunities(options);
-    },
-    offerOpenWorldQuest(options) {
-      return runtimeApp.offerOpenWorldQuest(options);
-    },
-    acceptOpenWorldQuest(options) {
-      return runtimeApp.acceptOpenWorldQuest(options);
-    },
-    activateOpenWorldQuest(options) {
-      return runtimeApp.activateOpenWorldQuest(options);
-    },
-    pauseOpenWorldQuest(options) {
-      return runtimeApp.pauseOpenWorldQuest(options);
-    },
-    delegateOpenWorldQuest(options) {
-      return runtimeApp.delegateOpenWorldQuest(options);
-    },
-    abandonOpenWorldQuest(options) {
-      return runtimeApp.abandonOpenWorldQuest(options);
-    },
-    travelOpenWorld(options) {
-      return runtimeApp.travelOpenWorld(options);
-    },
-    advanceOpenWorldTime(options) {
-      return runtimeApp.advanceOpenWorldTime(options);
-    },
-    captureMissionComponentSelection(options) {
-      return runtimeApp.captureMissionComponentSelection(options);
-    },
-    defineSelectionLookup(options) {
-      return runtimeApp.defineSelectionLookup(options);
-    },
-    saveMissionComponent(options) {
-      return runtimeApp.saveMissionComponent(options);
-    },
-    updateMissionComponent(options) {
-      return runtimeApp.updateMissionComponent(options);
-    },
-    archiveMissionComponent(options) {
-      return runtimeApp.archiveMissionComponent(options);
-    },
-    async openMissionComponentSource(options) {
-      const result = await runtimeApp.openMissionComponentSource(options);
-      dispatchMissionComponentOpenSource(result);
+    importCampaignPackageArchive: (options) => callApp('importCampaignPackageArchive', options),
+    startCreatorDraft: (options) => callApp('startCreatorDraft', options),
+    resumeCreatorDraft: (options) => callApp('resumeCreatorDraft', options),
+    saveCreatorDraft: (options) => callApp('saveCreatorDraft', options),
+    generateCreatorSectionDraft: (options) => callApp('generateCreatorSectionDraft', options),
+    importCreatorPortrait: (options) => callApp('importCreatorPortrait', options),
+    removeCreatorPortrait: (options) => callApp('removeCreatorPortrait', options),
+    returnCreatorToCampaignLibrary: (options) => callApp('returnCreatorToCampaignLibrary', options),
+    discardCreatorDraft: (options) => callApp('discardCreatorDraft', options),
+    acceptCreatorDraftAndStartCampaign: async (options) => {
+      const result = await callApp('acceptCreatorDraftAndStartCampaign', options);
+      await selectRoute('mission');
       return result;
     },
-    retryNarrationForLastTurn(options) {
-      return runtimeApp.retryNarrationForLastTurn(options);
-    },
-    readyCommandBearingPoint(options) {
-      return runtimeApp.readyCommandBearingPoint(options);
-    },
-    cancelReadiedCommandBearingPoint(options) {
-      return runtimeApp.cancelReadiedCommandBearingPoint(options);
-    },
-    recoverCommandBearingPoint(options) {
-      return runtimeApp.recoverCommandBearingPoint(options);
-    },
-    openCampaignChat(options) {
-      stopTrainingBeforeRealStateChange();
-      return runtimeApp.openCampaignChat(options);
-    },
-    resolvePendingChatInteraction(options) {
-      return runtimeApp.resolvePendingChatInteraction(options);
-    },
-    resolveTerminalOutcomeDecision(options) {
-      return runtimeApp.resolveTerminalOutcomeDecision(options);
-    },
-    retryCommittedChatResponse(options) {
-      return runtimeApp.retryCommittedChatResponse(options);
-    },
-    rewriteCampaignIntro(options) {
-      return runtimeApp.rewriteCampaignIntro(options);
-    },
-    setReconciliationStart(options) {
-      return runtimeApp.setReconciliationStart(options);
-    },
-    setReconciliationEnd(options) {
-      return runtimeApp.setReconciliationEnd(options);
-    },
-    clearReconciliationMarkers(options) {
-      return runtimeApp.clearReconciliationMarkers(options);
-    },
-    reconcileMessage(options) {
-      return runtimeApp.reconcileMessage(options);
-    },
-    reconcileFromHere(options) {
-      return runtimeApp.reconcileFromHere(options);
-    },
-    reconcileMarkedPassage(options) {
-      return runtimeApp.reconcileMarkedPassage(options);
-    },
-    recalculateFromHere(options) {
-      return runtimeApp.recalculateFromHere(options);
-    },
-    openPendingReconciliation() {
-      return runtimeApp.openPendingReconciliation();
-    },
-    applyPendingReconciliation(options) {
-      return runtimeApp.applyPendingReconciliation(options);
-    },
-    rejectPendingReconciliation(options) {
-      return runtimeApp.rejectPendingReconciliation(options);
-    },
-    retryCampaignActivation() {
-      return runtimeApp.retryCampaignActivation();
-    },
-    buildCampaignOpeningScene() {
-      return runtimeApp.buildCampaignOpeningScene();
-    },
-    rebindCampaignChat(options) {
-      return runtimeApp.rebindCampaignChat(options);
-    },
-    rebuildPromptContext() {
-      return runtimeApp.rebuildPromptContext();
-    },
-    clearPromptContext(options) {
-      return runtimeApp.clearPromptContext(options);
-    },
-    updateRuntimeHistoryLimit(options) {
-      return runtimeApp.updateRuntimeHistoryLimit(options);
-    },
-    updateRuntimeSettings(options) {
-      return runtimeApp.updateRuntimeSettings(options);
-    },
-    updateCampaignDifficulty(options) {
-      return runtimeApp.updateCampaignDifficulty(options);
-    },
-    updateProviderSettings(options) {
-      return runtimeApp.updateProviderSettings(options);
-    },
-    updateProviderRoleRouting(options) {
-      return runtimeApp.updateProviderRoleRouting(options);
-    },
-    resetProviderRoleRouting(options) {
-      return runtimeApp.resetProviderRoleRouting(options);
-    },
-    testProvider(options) {
-      return runtimeApp.testProvider(options);
-    },
-    runFactualGroundingReview(options) {
-      return runtimeApp.runFactualGroundingReview(options);
-    },
-    refreshDirectivePresetStatus() {
-      return runtimeApp.refreshDirectivePresetStatus();
-    },
-    updateDirectivePresetAutoCheck(options) {
-      return runtimeApp.updateDirectivePresetAutoCheck(options);
-    },
-    installDirectivePreset() {
-      return runtimeApp.installDirectivePreset();
-    },
-    concludeCampaign(options) {
-      return runtimeApp.concludeCampaign(options);
-    },
-    beginGuidanceTutorial(options = {}) {
-      return beginDirectiveGuidanceTutorial(options);
-    },
-    showGuidanceTip(options = {}) {
-      return showDirectiveRuntimeGuidanceTip(options);
-    },
-    setGuidancePreference(options = {}) {
-      return updateDirectiveGuidancePreference(options);
-    },
-    resetGuidanceProgress() {
-      return resetDirectiveGuidanceProgress();
-    }
+    openCampaignChat: (options) => callApp('openCampaignChat', options),
+    saveGame: (options) => callApp('saveGame', options),
+    loadCheckpoint: (options) => callApp('loadCheckpoint', options),
+    deleteSave: (options) => callApp('deleteSave', options),
+    refreshStorageDiagnostics: () => callApp('refreshStorageDiagnostics'),
+    verifyActiveSave: () => callApp('verifyActiveSave'),
+    exportActiveSave: () => callApp('exportActiveSave'),
+    exportSupportDiagnostics: (options) => callApp('exportSupportDiagnostics', options),
+    cleanMissingStorageRecords: () => callApp('cleanMissingStorageRecords'),
+    updateProviderSettings: (options) => callApp('updateProviderSettings', options),
+    updateProviderRoleRouting: (options) => callApp('updateProviderRoleRouting', options),
+    resetProviderRoleRouting: (options) => callApp('resetProviderRoleRouting', options),
+    testProvider: (options) => callApp('testProvider', options),
+    refreshDirectivePresetStatus: () => callApp('refreshDirectivePresetStatus'),
+    updateDirectivePresetAutoCheck: (options) => callApp('updateDirectivePresetAutoCheck', options),
+    installDirectivePreset: () => callApp('installDirectivePreset'),
+    updateRuntimeSettings: (options) => callApp('updateRuntimeSettings', options),
+    beginGuidanceTutorial: (options = {}) => beginDirectiveGuidanceTutorial(options),
+    showGuidanceTip: (options = {}) => showDirectiveRuntimeGuidanceTip(options),
+    setGuidancePreference: (options = {}) => updateDirectiveGuidancePreference(options),
+    resetGuidanceProgress: () => resetDirectiveGuidanceProgress()
   };
 }
 
 function renderActivePanel(body, view) {
-  const trainingScenario = isDirectiveTrainingScenarioView(view);
-  const actions = trainingScenario ? createTrainingScenarioActions() : createRuntimeActions();
-  appendTrainingScenarioBanner(body, view);
+  const actions = createRuntimeActions();
   if (activeTab === 'campaign' && view?.activeScreen === 'creator' && view?.creator) {
     renderCharacterCreatorPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'campaign') {
+  } else if (activeTab === 'campaign') {
     renderCampaignPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'mission') {
+  } else if (activeTab === 'mission') {
     renderMissionPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'people') {
+  } else if (activeTab === 'people') {
     renderCrewPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'ship') {
+  } else if (activeTab === 'ship') {
     renderShipPanel(body, view, actions);
-    return;
-  }
-  if (activeTab === 'settings') {
+  } else if (activeTab === 'settings') {
     renderSettingsPanel(body, view, actions);
-    return;
+  } else {
+    appendSectionTitle(body, getDirectiveRouteLabel(activeTab));
+    appendEmpty(body, 'No panel loaded.');
   }
-  appendSectionTitle(body, tabLabel(activeTab));
-  appendEmpty(body, 'No panel loaded.');
 }
 
 function syncRequiredWorkspace(panel, view) {
-  const requiresWorkspace = activeTab === 'campaign'
-    && view?.activeScreen === 'creator'
-    && Boolean(view?.creator);
-  panel.dataset.workspaceRequired = requiresWorkspace ? 'true' : 'false';
+  const required = activeTab === 'campaign' && view?.activeScreen === 'creator' && Boolean(view?.creator);
+  panel.dataset.workspaceRequired = required ? 'true' : 'false';
 }
 
 async function renderBody(panel) {
   const requestId = ++renderBodyRequestId;
-  const body = panel.querySelector('[data-directive-runtime-body="true"]');
-  if (!body) return;
+  const body = panel.querySelector?.('[data-directive-runtime-body="true"]');
+  if (!body) return false;
   clearElement(body);
-
-  let view = null;
   try {
-    view = await getRuntimeView();
+    const view = await getRuntimeView();
+    if (requestId !== renderBodyRequestId) return false;
+    syncRequiredWorkspace(panel, view);
+    renderActivePanel(body, view);
+    return true;
   } catch (error) {
     if (requestId !== renderBodyRequestId) return false;
     clearElement(body);
     syncRequiredWorkspace(panel, null);
-    appendSectionTitle(body, tabLabel(activeTab));
+    appendSectionTitle(body, getDirectiveRouteLabel(activeTab));
     appendEmpty(body, error?.message || String(error));
     return true;
   }
+}
 
-  if (requestId !== renderBodyRequestId) return false;
-  clearElement(body);
-  syncRequiredWorkspace(panel, view);
-  renderActivePanel(body, view);
-  return true;
+function scrollContainers(panel) {
+  return [...(panel?.querySelectorAll?.('[data-directive-runtime-body="true"]') || [])];
+}
+
+function captureScroll(panel) {
+  return scrollContainers(panel).map((element, index) => ({
+    index,
+    top: Number(element.scrollTop) || 0,
+    left: Number(element.scrollLeft) || 0
+  }));
+}
+
+function restoreScroll(panel, snapshot) {
+  const containers = scrollContainers(panel);
+  const apply = () => snapshot.forEach((entry) => {
+    const element = containers[entry.index];
+    if (!element) return;
+    element.scrollTop = entry.top;
+    element.scrollLeft = entry.left;
+  });
+  apply();
+  globalThis.requestAnimationFrame?.(apply);
 }
 
 function onDirectiveShellKeydown(event) {
-  if (event?.key !== 'Escape' || event?.defaultPrevented) return;
   const panel = getPanel();
-  if (!panel || panel.hidden === true) return;
-  const targetTag = String(event.target?.tagName || '').toUpperCase();
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) || event.target?.isContentEditable) return;
-
+  if (event?.key !== 'Escape' || !panel || panel.hidden === true) return;
   hideDirectiveRuntimePanel();
   event.preventDefault?.();
   event.stopPropagation?.();
@@ -859,324 +345,9 @@ function onDirectiveShellPopstate() {
   hideDirectiveRuntimePanel({ skipHistory: true });
 }
 
-export function setDirectiveRuntimeApp(app) {
-  if (!app) {
-    closeDirectiveGuidance('runtime-unmount');
-    stopDirectiveTrainingScenario({ refresh: false });
-  }
-  runtimeApp = app || null;
-}
-
-export function setDirectiveRuntimeMountHost(host = null) {
-  runtimeMountHost = host && typeof host.appendChild === 'function' ? host : null;
-  return {
-    mounted: Boolean(runtimeMountHost),
-    host: runtimeMountHost
-  };
-}
-
-export async function runDirectiveAssistFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.runDirectiveAssist !== 'function') {
-    throw new Error('Directive Assist is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.runDirectiveAssist(payload);
-}
-
-export async function runFactualGroundingReviewFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.runFactualGroundingReview !== 'function') {
-    throw new Error('Factual grounding review is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.runFactualGroundingReview(payload);
-}
-
-export async function runCommandBearingFromRuntime(action, payload = {}) {
-  const actionName = String(action || '').trim();
-  if (actionName === 'view') {
-    if (typeof runtimeApp?.getCurrentView !== 'function') {
-      throw new Error('Command Bearing view is unavailable until the Directive runtime app is initialized.');
-    }
-    const view = await runtimeApp.getCurrentView({ tabId: payload?.tabId || 'mission' });
-    return {
-      commandBearingPlayerView: view?.commandBearingPlayerView || view?.loadedCommandBearingPlayerView || null,
-      view
-    };
-  }
-  const methodByAction = {
-    ready: 'readyCommandBearingPoint',
-    cancel: 'cancelReadiedCommandBearingPoint',
-    recover: 'recoverCommandBearingPoint'
-  };
-  const methodName = methodByAction[actionName];
-  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
-    throw new Error(`Command Bearing action "${actionName || 'unknown'}" is unavailable.`);
-  }
-  return runtimeApp[methodName](payload);
-}
-
-export async function runCampaignIntroRewriteFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.rewriteCampaignIntro !== 'function') {
-    throw new Error('Campaign intro rewrite is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.rewriteCampaignIntro(payload);
-}
-
-export async function runSceneReconciliationFromRuntime(action, payload = {}) {
-  const actionName = String(action || '').trim();
-  const methodByAction = {
-    reconcileMessage: 'reconcileMessage',
-    setStart: 'setReconciliationStart',
-    setEnd: 'setReconciliationEnd',
-    clearMarkers: 'clearReconciliationMarkers',
-    reconcileFromHere: 'reconcileFromHere',
-    recalculateFromHere: 'recalculateFromHere',
-    reconcileMarked: 'reconcileMarkedPassage',
-    openPending: 'openPendingReconciliation',
-    applyPending: 'applyPendingReconciliation',
-    rejectPending: 'rejectPendingReconciliation'
-  };
-  const methodName = methodByAction[actionName];
-  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
-    throw new Error(`Scene reconciliation action "${actionName || 'unknown'}" is unavailable.`);
-  }
-  return runtimeApp[methodName](payload);
-}
-
-export async function runMissionComponentsFromRuntime(action, payload = {}) {
-  const actionName = String(action || '').trim();
-  const methodByAction = {
-    captureSelection: 'captureMissionComponentSelection',
-    save: 'saveMissionComponent',
-    update: 'updateMissionComponent',
-    archive: 'archiveMissionComponent',
-    openSource: 'openMissionComponentSource'
-  };
-  const methodName = methodByAction[actionName];
-  if (!methodName || typeof runtimeApp?.[methodName] !== 'function') {
-    throw new Error(`Mission Components action "${actionName || 'unknown'}" is unavailable.`);
-  }
-  const result = await runtimeApp[methodName](payload);
-  if (actionName === 'openSource') dispatchMissionComponentOpenSource(result);
-  return result;
-}
-
-export async function runDefineSelectionFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.defineSelectionLookup !== 'function') {
-    throw new Error('Define Selection is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.defineSelectionLookup(payload);
-}
-
-export async function runCorrectAsSwipeFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.proposeCorrectAsSwipeCandidate !== 'function') {
-    throw new Error('Correct-as-Swipe is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.proposeCorrectAsSwipeCandidate(payload);
-}
-
-export async function runCorrectAsSwipeSettleFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.settleCorrectAsSwipeCase !== 'function') {
-    throw new Error('Correct-as-Swipe case lifecycle is unavailable until the Directive runtime app is initialized.');
-  }
-  return runtimeApp.settleCorrectAsSwipeCase(payload);
-}
-
-function removeOutcomeIntegrityEditor() {
-  if (!canUseDocument()) return;
-  document.getElementById('directive-outcome-integrity-editor')?.remove();
-}
-
-function compactEditorLine(value = '', maxLength = 260) {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  if (!text) return '';
-  return text.length <= maxLength ? text : `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
-}
-
-function createOutcomeIntegrityLockedSummary(context = {}) {
-  const locked = context.lockedContext || {};
-  const section = document.createElement('section');
-  section.className = 'directive-outcome-integrity-locked';
-  const title = document.createElement('strong');
-  title.textContent = 'Locked Outcome';
-  const list = document.createElement('ul');
-  const rows = [
-    locked.outcomeId ? `Outcome: ${locked.outcomeId}` : '',
-    locked.resultBand ? `Result: ${locked.resultBand}` : '',
-    Array.isArray(locked.changedDomains) && locked.changedDomains.length ? `Committed domains: ${locked.changedDomains.join(', ')}` : '',
-    Array.isArray(locked.commandLog) && locked.commandLog.length ? `Consequences: ${locked.commandLog.map((item) => compactEditorLine(item, 140)).join(' / ')}` : '',
-    locked.commandBearing?.changed ? 'Command Bearing changed in this outcome.' : '',
-    Number(locked.relationshipChangeCount) > 0 ? `Relationship changes: ${locked.relationshipChangeCount}` : ''
-  ].filter(Boolean);
-  for (const row of rows.length ? rows : ['No public committed summary is available for this response.']) {
-    const item = document.createElement('li');
-    item.textContent = row;
-    list.appendChild(item);
-  }
-  section.append(title, list);
-  return section;
-}
-
-function createOutcomeIntegrityEditor(context = {}) {
-  removeOutcomeIntegrityEditor();
-  const overlay = document.createElement('div');
-  overlay.id = 'directive-outcome-integrity-editor';
-  overlay.className = 'directive-outcome-integrity-editor-overlay';
-  overlay.setAttribute('role', 'presentation');
-  overlay.dataset.openedAt = String(Date.now());
-
-  const dialog = document.createElement('section');
-  dialog.className = 'directive-outcome-integrity-editor';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'directive-outcome-integrity-editor-title');
-
-  const header = document.createElement('header');
-  header.className = 'directive-outcome-integrity-editor-header';
-  const heading = document.createElement('div');
-  const title = document.createElement('h2');
-  title.id = 'directive-outcome-integrity-editor-title';
-  title.textContent = 'Edit Message';
-  const status = document.createElement('span');
-  status.className = 'directive-outcome-integrity-mode';
-  status.textContent = `Outcome Integrity ${context.mode === 'relaxed' ? 'Relaxed' : 'Strict'}`;
-  heading.append(title, status);
-
-  const headerActions = document.createElement('div');
-  headerActions.className = 'directive-outcome-integrity-editor-header-actions';
-  const expandButton = document.createElement('button');
-  expandButton.type = 'button';
-  expandButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-expand';
-  expandButton.title = 'Expand editor';
-  expandButton.setAttribute('aria-label', 'Expand editor');
-  const expandIcon = document.createElement('i');
-  expandIcon.className = 'fa-solid fa-up-right-and-down-left-from-center';
-  expandIcon.setAttribute('aria-hidden', 'true');
-  expandButton.appendChild(expandIcon);
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.className = 'directive-button directive-secondary-command directive-outcome-integrity-close';
-  closeButton.title = 'Close editor';
-  closeButton.setAttribute('aria-label', 'Close editor');
-  const closeIcon = document.createElement('i');
-  closeIcon.className = 'fa-solid fa-xmark';
-  closeIcon.setAttribute('aria-hidden', 'true');
-  closeButton.appendChild(closeIcon);
-  headerActions.append(expandButton, closeButton);
-  header.append(heading, headerActions);
-
-  const body = document.createElement('div');
-  body.className = 'directive-outcome-integrity-editor-body';
-  const guidance = document.createElement('p');
-  guidance.className = 'directive-outcome-integrity-guidance';
-  guidance.textContent = context.guidance || 'This response has a committed outcome. Dialogue and wording can change; committed outcomes, costs, facts, relationships, and Command Bearing cannot.';
-  const subguidance = document.createElement('p');
-  subguidance.className = 'directive-outcome-integrity-subguidance';
-  subguidance.textContent = 'You can shorten, reword, or adjust dialogue here. If you want the result itself to change, use outcome recovery instead.';
-  const textarea = document.createElement('textarea');
-  textarea.className = 'directive-outcome-integrity-textarea';
-  textarea.value = context.currentText || '';
-  textarea.maxLength = Number(context.editCharLimit) || 10000;
-  textarea.spellcheck = true;
-  textarea.setAttribute('aria-label', 'Edited assistant prose');
-  const feedback = document.createElement('div');
-  feedback.className = 'directive-outcome-integrity-feedback';
-  feedback.hidden = true;
-  body.append(guidance, subguidance, createOutcomeIntegrityLockedSummary(context), textarea, feedback);
-
-  const footer = document.createElement('footer');
-  footer.className = 'directive-outcome-integrity-editor-footer';
-  const counter = document.createElement('span');
-  counter.className = 'directive-outcome-integrity-counter';
-  const submitButton = document.createElement('button');
-  submitButton.type = 'button';
-  submitButton.className = 'directive-button directive-primary-command directive-outcome-integrity-submit';
-  submitButton.textContent = 'Review And Apply';
-  const cancelButton = document.createElement('button');
-  cancelButton.type = 'button';
-  cancelButton.className = 'directive-button directive-secondary-command';
-  cancelButton.textContent = 'Cancel';
-  footer.append(counter, cancelButton, submitButton);
-  dialog.append(header, body, footer);
-  overlay.appendChild(dialog);
-
-  const updateCounter = () => {
-    const words = textarea.value.trim() ? textarea.value.trim().split(/\s+/).length : 0;
-    counter.textContent = `${words} words / ${textarea.value.length} of ${textarea.maxLength} characters`;
-  };
-  updateCounter();
-  textarea.addEventListener('input', updateCounter);
-  closeButton.addEventListener('click', removeOutcomeIntegrityEditor);
-  cancelButton.addEventListener('click', removeOutcomeIntegrityEditor);
-  overlay.addEventListener('click', (event) => {
-    const openedAt = Number(overlay.dataset.openedAt || 0);
-    if (Date.now() - openedAt < 250) return;
-    if (event.target === overlay) removeOutcomeIntegrityEditor();
-  });
-  expandButton.addEventListener('click', () => {
-    const expanded = !dialog.classList.contains('directive-outcome-integrity-editor-expanded');
-    dialog.classList.toggle('directive-outcome-integrity-editor-expanded', expanded);
-    expandButton.title = expanded ? 'Collapse editor' : 'Expand editor';
-    expandButton.setAttribute('aria-label', expandButton.title);
-    expandIcon.className = expanded
-      ? 'fa-solid fa-down-left-and-up-right-to-center'
-      : 'fa-solid fa-up-right-and-down-left-from-center';
-  });
-  submitButton.addEventListener('click', async () => {
-    submitButton.disabled = true;
-    feedback.hidden = false;
-    feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-working';
-    feedback.textContent = 'Reviewing prose edit...';
-    try {
-      const result = await runtimeApp.submitOutcomeIntegrityEdit({
-        hostMessageId: context.hostMessageId,
-        baseTextHash: context.baseTextHash,
-        proposedText: textarea.value,
-        reviewProviderKind: context.reviewProviderKind
-      });
-      if (result?.accepted) {
-        globalThis.toastr?.success?.(result.summary || 'Prose edit accepted.');
-        removeOutcomeIntegrityEditor();
-        await refreshDirectiveRuntimePanel({ preserveScroll: true });
-        return;
-      }
-      feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-rejected';
-      feedback.textContent = [result?.summary, result?.detail].filter(Boolean).join(' ');
-      globalThis.toastr?.warning?.(result?.summary || 'Outcome Integrity rejected the edit.');
-    } catch (error) {
-      feedback.className = 'directive-outcome-integrity-feedback directive-outcome-integrity-feedback-rejected';
-      feedback.textContent = error?.message || String(error);
-      globalThis.toastr?.error?.(feedback.textContent);
-    } finally {
-      submitButton.disabled = false;
-      updateCounter();
-    }
-  });
-
-  return { overlay, dialog, textarea };
-}
-
-export async function runOutcomeIntegrityEditFromRuntime(payload = {}) {
-  if (typeof runtimeApp?.prepareOutcomeIntegrityEdit !== 'function') {
-    throw new Error('Outcome Integrity is unavailable until the Directive runtime app is initialized.');
-  }
-  const context = await runtimeApp.prepareOutcomeIntegrityEdit(payload);
-  if (!context?.ok) {
-    const summary = context?.summary || context?.reason || 'This message cannot be edited through Outcome Integrity.';
-    globalThis.toastr?.warning?.(summary);
-    return { ok: false, reason: context?.reason || 'unavailable', summary, context };
-  }
-  if (!canUseDocument()) return { ok: false, reason: 'document-unavailable', context };
-  const editor = createOutcomeIntegrityEditor(context);
-  const host = outcomeIntegrityEditorHost();
-  editor.overlay.dataset.mount = host.mount;
-  host.element?.appendChild(editor.overlay);
-  editor.textarea.focus?.();
-  editor.textarea.setSelectionRange?.(0, editor.textarea.value.length);
-  return { ok: true, opened: true, actionId: OUTCOME_INTEGRITY_EDIT_ACTION_ID, context };
-}
-
 function removeDirectivePresetUpdateDialog() {
   if (!canUseDocument()) return;
-  document.getElementById('directive-preset-update-dialog')?.remove();
+  document.getElementById('directive-preset-update-dialog')?.remove?.();
 }
 
 function createDirectivePresetUpdateDialog(reminder) {
@@ -1186,54 +357,54 @@ function createDirectivePresetUpdateDialog(reminder) {
   overlay.id = 'directive-preset-update-dialog';
   overlay.className = 'directive-preset-update-dialog-overlay';
   overlay.setAttribute('role', 'presentation');
-
   const dialog = document.createElement('section');
   dialog.className = 'directive-preset-update-dialog';
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
-  dialog.setAttribute('aria-labelledby', 'directive-preset-update-title');
-  dialog.setAttribute('aria-describedby', 'directive-preset-update-message');
-
   const title = document.createElement('h2');
-  title.id = 'directive-preset-update-title';
   title.textContent = reminder?.title || 'Directive Preset needs attention';
   const message = document.createElement('p');
-  message.id = 'directive-preset-update-message';
   message.textContent = reminder?.message || 'Open Directive Preset settings to install the latest bundled preset.';
   const meta = document.createElement('p');
   meta.className = 'directive-preset-update-meta';
   meta.textContent = `Bundled preset: ${reminder?.bundledVersion || 'latest'}`;
-
   const actions = document.createElement('div');
   actions.className = 'directive-preset-update-dialog-actions';
-
   const openButton = document.createElement('button');
   openButton.type = 'button';
   openButton.className = 'directive-button directive-primary-command';
-  openButton.dataset.presetDialogAction = 'open-settings';
   openButton.textContent = 'Open Preset Settings';
-
   const notNowButton = document.createElement('button');
   notNowButton.type = 'button';
   notNowButton.className = 'directive-button directive-secondary-command';
-  notNowButton.dataset.presetDialogAction = 'not-now';
   notNowButton.textContent = 'Not Now';
-
   const disableButton = document.createElement('button');
   disableButton.type = 'button';
   disableButton.className = 'directive-button directive-secondary-command';
-  disableButton.dataset.presetDialogAction = 'disable';
   disableButton.textContent = "Don't Remind Me Again";
-
   actions.append(openButton, notNowButton, disableButton);
   dialog.append(title, message, meta, actions);
   overlay.appendChild(dialog);
+  return { overlay, openButton, notNowButton, disableButton };
+}
+
+function createDirectiveGuidanceController() {
   return {
-    overlay,
-    openButton,
-    notNowButton,
-    disableButton
+    navigateToRoute: async (routeId) => {
+      await showDirectiveRuntimePanel();
+      await setDirectiveRuntimeTab(routeId);
+    }
   };
+}
+
+export function setDirectiveRuntimeApp(app) {
+  if (!app) closeDirectiveGuidance('runtime-unmount');
+  runtimeApp = app || null;
+}
+
+export function setDirectiveRuntimeMountHost(host = null) {
+  runtimeMountHost = host && typeof host.appendChild === 'function' ? host : null;
+  return { mounted: Boolean(runtimeMountHost), host: runtimeMountHost };
 }
 
 export async function openDirectivePresetSettings({ highlight = true } = {}) {
@@ -1245,20 +416,14 @@ export async function openDirectivePresetSettings({ highlight = true } = {}) {
 }
 
 export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {}) {
-  if (!app || typeof app.getDirectivePresetStartupReminder !== 'function') {
+  if (typeof app?.getDirectivePresetStartupReminder !== 'function') {
     return { shown: false, reason: 'missing-runtime-app' };
   }
   const reminder = await app.getDirectivePresetStartupReminder();
-  if (!reminder?.shouldPrompt) {
-    return { shown: false, reminder };
-  }
+  if (!reminder?.shouldPrompt) return { shown: false, reminder };
   const dialog = createDirectivePresetUpdateDialog(reminder);
-  if (!dialog) {
-    return { shown: false, reason: 'missing-document', reminder };
-  }
+  if (!dialog) return { shown: false, reason: 'missing-document', reminder };
   appendDirectiveOverlay(dialog.overlay, { fallbackParent: runtimeHost() });
-  dialog.openButton.focus?.();
-
   const close = () => dialog.overlay.remove?.();
   dialog.openButton.addEventListener('click', async () => {
     close();
@@ -1266,55 +431,14 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
   });
   dialog.notNowButton.addEventListener('click', async () => {
     close();
-    await app.dismissDirectivePresetStartupReminder?.({
-      bundledVersion: reminder.bundledVersion
-    });
+    await app.dismissDirectivePresetStartupReminder?.({ bundledVersion: reminder.bundledVersion });
   });
   dialog.disableButton.addEventListener('click', async () => {
     close();
-    await app.dismissDirectivePresetStartupReminder?.({
-      disable: true,
-      bundledVersion: reminder.bundledVersion
-    });
+    await app.dismissDirectivePresetStartupReminder?.({ disable: true, bundledVersion: reminder.bundledVersion });
   });
-
+  dialog.openButton.focus?.();
   return { shown: true, reminder };
-}
-
-function createDirectiveGuidanceController() {
-  return {
-    onTutorialStart: async ({ tutorial, tutorialId, stepId, stepIndex } = {}) => {
-      const result = startDirectiveTrainingScenario({
-        tutorial,
-        tutorialId,
-        stepId,
-        stepIndex
-      });
-      if (result.active) {
-        await showDirectiveRuntimePanel();
-        await refreshDirectiveRuntimePanel({ preserveScroll: false });
-      }
-    },
-    onTutorialStep: async ({ tutorialId, stepId, stepIndex } = {}) => {
-      if (!isTrainingScenarioActive()) return;
-      updateDirectiveTrainingScenarioStep({ tutorialId, stepId, stepIndex });
-      await refreshDirectiveRuntimePanel({ preserveScroll: false });
-    },
-    onGuidanceClose: ({ kind, reason } = {}) => {
-      if (kind === 'tutorial') {
-        const runtimeClose = String(reason || '').startsWith('runtime-');
-        stopDirectiveTrainingScenario({
-          refresh: !runtimeClose,
-          restoreRoute: reason !== 'replace' && !runtimeClose
-        });
-      }
-    },
-    navigateToRoute: async (routeId) => {
-      await showDirectiveRuntimePanel();
-      await setDirectiveRuntimeTab(routeId);
-      await refreshDirectiveRuntimePanel({ preserveScroll: false });
-    }
-  };
 }
 
 export async function beginDirectiveGuidanceTutorial(options = {}) {
@@ -1339,7 +463,6 @@ export async function runDirectiveGuidanceStartupOffer() {
 export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   const panel = ensurePanel();
   if (!panel) return { isOpen: false };
-  const shell = getRuntimeOverlay();
   if (isMobileViewport() && window.history?.pushState && panel.dataset.directiveHistoryEntry !== 'true') {
     window.history.pushState({ ...(window.history.state || {}), directiveRuntimeOpen: true }, '');
     panel.dataset.directiveHistoryEntry = 'true';
@@ -1347,9 +470,10 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   runtimeOpener = opener || null;
   runtimeFullscreen = false;
   panel.classList.remove('is-fullscreen');
-  panel.setAttribute('aria-hidden', 'false');
   panel.hidden = false;
+  panel.setAttribute('aria-hidden', 'false');
   panel.classList.add('directive-runtime-panel-open');
+  const shell = getRuntimeOverlay();
   if (shell?.overlay) {
     shell.overlay.hidden = false;
     shell.overlay.setAttribute('aria-hidden', 'false');
@@ -1358,25 +482,20 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   applyShellLayout(panel);
   syncShellChrome(panel);
   await refreshDirectiveRuntimePanel();
-  return {
-    isOpen: true,
-    activeTab,
-    layout: { ...shellLayout }
-  };
+  return { isOpen: true, activeTab, layout: { ...shellLayout } };
 }
 
 export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
   closeDirectiveGuidance('runtime-hide');
-  stopDirectiveTrainingScenario({ refresh: false });
   const panel = getPanel();
   if (!panel) return { isOpen: false };
   const opener = runtimeOpener;
-  const shell = getRuntimeOverlay();
   runtimeFullscreen = false;
   panel.classList.remove('is-fullscreen');
-  panel.setAttribute('aria-hidden', 'true');
   panel.hidden = true;
+  panel.setAttribute('aria-hidden', 'true');
   panel.classList.remove('directive-runtime-panel-open');
+  const shell = getRuntimeOverlay();
   if (shell?.overlay) {
     shell.overlay.hidden = true;
     shell.overlay.setAttribute('aria-hidden', 'true');
@@ -1396,34 +515,23 @@ export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
 export async function refreshDirectiveRuntimePanel({ preserveScroll = true } = {}) {
   const panel = ensurePanel();
   if (!panel) return { refreshed: false, activeTab };
-  const shouldRestoreScroll = preserveScroll !== false && lastRenderedTab === activeTab;
-  const scrollSnapshot = shouldRestoreScroll ? captureRuntimeScroll(panel) : [];
+  const snapshot = preserveScroll !== false && lastRenderedTab === activeTab ? captureScroll(panel) : [];
   applyDirectiveTheme(panel, getDirectiveThemePack());
   applyShellLayout(panel);
   syncShellChrome(panel);
   const rendered = await renderBody(panel);
-  if (!rendered) {
-    return {
-      refreshed: false,
-      stale: true,
-      activeTab
-    };
-  }
-  restoreRuntimeScroll(panel, scrollSnapshot);
+  if (!rendered) return { refreshed: false, stale: true, activeTab };
+  restoreScroll(panel, snapshot);
   lastRenderedTab = activeTab;
-  applyShellLayout(panel);
   syncShellChrome(panel);
-  return {
-    refreshed: true,
-    activeTab
-  };
+  return { refreshed: true, activeTab };
 }
 
 export async function setDirectiveRuntimeTab(tabId) {
-  const requestedTab = String(tabId || '').trim();
-  const nextTab = normalizeDirectiveRouteId(requestedTab, '');
-  if (!nextTab) throw new Error(`Unknown Directive runtime tab "${requestedTab}"`);
-  return navigateToRoute(nextTab, { openDrawer: true });
+  const requested = String(tabId || '').trim();
+  const next = normalizeDirectiveRouteId(requested, '');
+  if (!next) throw new Error(`Unknown Directive runtime tab "${requested}"`);
+  return selectRoute(next);
 }
 
 export function collapseDirectiveRuntimeDrawer() {
@@ -1431,15 +539,13 @@ export function collapseDirectiveRuntimeDrawer() {
 }
 
 export async function toggleDirectiveRuntimeDrawer(tabId = activeTab) {
-  return selectRouteFromSpine(tabId);
+  return selectRoute(tabId);
 }
 
 export function toggleDirectiveRuntimeFullscreen(force) {
   runtimeFullscreen = force === undefined ? !runtimeFullscreen : force === true;
   const panel = getPanel();
   panel?.classList?.toggle('is-fullscreen', runtimeFullscreen);
-  const control = panel?.querySelector?.('[data-shell-action="fullscreen"]');
-  control?.setAttribute?.('aria-pressed', runtimeFullscreen ? 'true' : 'false');
   return { fullscreen: runtimeFullscreen, required: false, viewportBound: true };
 }
 
@@ -1449,11 +555,8 @@ export function toggleDirectiveSpineMode() {
 
 export async function resetDirectiveRuntimeLayout() {
   closeDirectiveGuidance('runtime-reset');
-  stopDirectiveTrainingScenario({ refresh: false });
   resetDirectiveRouteUiState();
-  if (typeof runtimeApp?.resetRuntimeUiState === 'function') {
-    await runtimeApp.resetRuntimeUiState();
-  }
+  await runtimeApp?.resetRuntimeUiState?.();
   shellLayout = { activeRoute: 'campaign' };
   activeTab = 'campaign';
   routeSelectionExplicit = false;
@@ -1467,42 +570,22 @@ export async function resetDirectiveRuntimeLayout() {
 }
 
 export const __directiveRuntimeShellTestHooks = Object.freeze({
-  getActiveTab() {
-    return activeTab;
-  },
-  getLayout() {
-    return { ...shellLayout, viewportBound: true };
-  },
-  getFullscreenMode() {
-    return runtimeFullscreen ? 'fullscreen' : 'bounded';
-  },
-  getRuntimeOverlay() {
-    return getRuntimeOverlay();
-  },
+  getActiveTab: () => activeTab,
+  getLayout: () => ({ ...shellLayout, viewportBound: true }),
+  getFullscreenMode: () => (runtimeFullscreen ? 'fullscreen' : 'bounded'),
+  getRuntimeOverlay,
   reset() {
     closeDirectiveGuidance('runtime-test-reset');
-    stopDirectiveTrainingScenario({ refresh: false });
     shellLayout = { activeRoute: 'campaign' };
     activeTab = 'campaign';
     routeSelectionExplicit = false;
-    shellLayout.activeRoute = activeTab;
     runtimeApp = null;
     runtimeMountHost = null;
     runtimeOverlay = null;
     runtimeFullscreen = false;
     runtimeOpener = null;
-    trainingScenarioSession = null;
-    if (canUseDocument()) {
-      getPanel()?.remove();
-      document.getElementById?.('directive-runtime-overlay')?.remove?.();
-      if (keydownListenerInstalled) {
-        document.removeEventListener?.('keydown', onDirectiveShellKeydown);
-        keydownListenerInstalled = false;
-      }
-      if (popstateListenerInstalled && typeof window !== 'undefined') {
-        window.removeEventListener?.('popstate', onDirectiveShellPopstate);
-        popstateListenerInstalled = false;
-      }
-    }
+    lastRenderedTab = '';
+    renderBodyRequestId = 0;
+    resetDirectiveRouteUiState();
   }
 });

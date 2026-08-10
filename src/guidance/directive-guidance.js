@@ -15,7 +15,6 @@ const HISTORY_LIMIT = 80;
 const POPOVER_ID = 'directive-guidance-popover';
 const TARGET_HIGHLIGHT_CLASS = 'directive-guidance-target-highlight';
 const TARGET_DIM_CLASS = 'directive-guidance-target-dim';
-const GUIDANCE_FIXTURE_ATTRIBUTE = 'data-directive-guidance-fixture';
 
 let activeSession = null;
 let activeTarget = null;
@@ -156,18 +155,10 @@ function removeGuidancePopover() {
   document.getElementById(POPOVER_ID)?.remove?.();
 }
 
-function removeGuidanceFixtures() {
-  if (!canUseDocument()) return;
-  for (const fixture of document.querySelectorAll?.(`[${GUIDANCE_FIXTURE_ATTRIBUTE}]`) || []) {
-    fixture.remove?.();
-  }
-}
-
 export function closeDirectiveGuidance(reason = 'close') {
   const session = activeSession;
   activeSession = null;
   removeActiveTarget();
-  removeGuidanceFixtures();
   removeGuidancePopover();
   if (activeKeydownHandler && typeof document !== 'undefined') {
     document.removeEventListener?.('keydown', activeKeydownHandler);
@@ -196,27 +187,9 @@ function targetSelectors(target = '') {
   const value = String(target || '').trim();
   if (!value) return [];
   if (/^[#.\[]/.test(value)) return [value];
-  if (value.startsWith('assist.action.')) {
-    return [`[data-directive-assist-action="${value.slice('assist.action.'.length)}"]`, `[data-directive-tour="${value}"]`];
-  }
-  if (value.startsWith('assist.preview.')) {
-    return [`[data-directive-assist-preview-action="${value.slice('assist.preview.'.length)}"]`, `[data-directive-tour="${value}"]`];
-  }
-  if (value.startsWith('assist.reconciliation.')) {
-    return [`[data-directive-reconciliation-action="${value.slice('assist.reconciliation.'.length)}"]`, `[data-directive-tour="${value}"]`];
-  }
-  if (value.startsWith('message.action.')) {
-    return [`[data-directive-message-action="${value.slice('message.action.'.length)}"]`, `[data-directive-tour="${value}"]`];
-  }
-  if (value.startsWith('message.marker.')) {
-    return [`[data-directive-reconciliation-action="${value.slice('message.marker.'.length)}"]`, `[data-directive-tour="${value}"]`];
-  }
   const mapped = {
     'runtime.panel': '#directive-runtime-panel',
-    'assist.launcher': '#directive-assist-button',
-    'message.launcher': '[data-directive-message-actions="true"]',
-    'message.marker.status': '[data-directive-reconciliation-status]',
-    'host.message-actions': '.extraMesButtons, .mes_buttons',
+    'runtime.launcher': '#directive-launcher-button',
     'chat.input': '#send_textarea, textarea#send_textarea, textarea[name="send_textarea"]'
   };
   return [mapped[value], `[data-directive-tour="${value}"]`, `[data-directive-tour~="${value}"]`].filter(Boolean);
@@ -235,85 +208,6 @@ export function resolveDirectiveGuidanceTarget(target = '', fallbackTarget = '')
   return null;
 }
 
-function createGuidanceAssistPreviewButton({ label, action, tour, icon = 'fa-solid fa-circle-dot' } = {}) {
-  const button = createElement('button', 'menu_button interactable');
-  button.type = 'button';
-  button.dataset.directiveAssistPreviewAction = action;
-  button.dataset.directiveTour = tour;
-  button.appendChild(createIcon(icon));
-  const text = createElement('span');
-  text.textContent = label;
-  button.appendChild(text);
-  addTooltip(button, label);
-  button.addEventListener?.('click', (event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-  });
-  return button;
-}
-
-function ensureGuidanceAssistPreviewFixture() {
-  if (!canUseDocument()) return null;
-  const existingTarget = resolveDirectiveGuidanceTarget('assist.preview.applyToChat', '');
-  if (existingTarget) return existingTarget.closest?.('.directive-assist-preview') || existingTarget;
-  let preview = document.getElementById?.('directive-guidance-assist-preview');
-  if (preview) return preview;
-
-  preview = createElement('section', 'directive-assist-preview directive-guidance-assist-preview-fixture');
-  preview.id = 'directive-guidance-assist-preview';
-  preview.setAttribute(GUIDANCE_FIXTURE_ATTRIBUTE, 'assist-preview');
-  preview.setAttribute('aria-label', 'Directive Assist tutorial preview');
-  const body = createElement('div', 'directive-assist-preview-body');
-  const title = createElement('strong');
-  title.textContent = 'Assist Preview';
-  const editor = createElement('textarea', 'directive-assist-draft-editor');
-  editor.value = 'Tutorial preview draft. These controls are shown for guidance only.';
-  editor.setAttribute('readonly', 'readonly');
-  const actions = createElement('div', 'directive-assist-preview-actions');
-  actions.append(
-    createGuidanceAssistPreviewButton({
-      label: 'Apply to Chat',
-      action: 'applyToChat',
-      tour: 'assist.preview.applyToChat',
-      icon: 'fa-solid fa-check'
-    }),
-    createGuidanceAssistPreviewButton({
-      label: 'Replace Selection',
-      action: 'replaceSelection',
-      tour: 'assist.preview.replaceSelection',
-      icon: 'fa-solid fa-i-cursor'
-    }),
-    createGuidanceAssistPreviewButton({
-      label: 'Restore Rough Text',
-      action: 'restoreRoughText',
-      tour: 'assist.preview.restoreRoughText',
-      icon: 'fa-solid fa-clock-rotate-left'
-    }),
-    createGuidanceAssistPreviewButton({
-      label: 'Insert Summary',
-      action: 'insertSummary',
-      tour: 'assist.preview.insertSummary',
-      icon: 'fa-solid fa-arrow-turn-down'
-    }),
-    createGuidanceAssistPreviewButton({
-      label: 'Try Again',
-      action: 'tryAgain',
-      tour: 'assist.preview.tryAgain',
-      icon: 'fa-solid fa-arrows-rotate'
-    }),
-    createGuidanceAssistPreviewButton({
-      label: 'Cancel',
-      action: 'cancel',
-      tour: 'assist.preview.cancel',
-      icon: 'fa-solid fa-xmark'
-    })
-  );
-  body.append(title, editor, actions);
-  preview.appendChild(body);
-  appendDirectiveOverlay(preview, { fallbackParent: document.body });
-  return preview;
-}
-
 async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
   if (item.route && typeof controller.navigateToRoute === 'function') {
     await controller.navigateToRoute(item.route);
@@ -321,23 +215,12 @@ async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
   if (!canUseDocument()) return;
   await frameDelay();
   const prepare = String(item.prepare || '').trim();
-  if (prepare !== 'assist-preview') removeGuidanceFixtures();
   if (prepare === 'campaign-command' || prepare === 'campaign-library' || prepare === 'campaign-records') {
     const target = prepare === 'campaign-library'
       ? 'campaign.subtab.library'
       : prepare === 'campaign-records'
         ? 'campaign.subtab.records'
         : 'campaign.subtab.command';
-    document.querySelector?.(`[data-directive-tour="${target}"]`)?.click?.();
-  }
-  if (prepare === 'mission-active' || prepare === 'mission-context' || prepare === 'mission-open-threads' || prepare === 'mission-open-world') {
-    const target = prepare === 'mission-context'
-      ? 'mission.subtab.context'
-      : prepare === 'mission-open-threads'
-        ? 'mission.subtab.open-threads'
-        : prepare === 'mission-open-world'
-          ? 'mission.subtab.open-world'
-          : 'mission.subtab.active';
     document.querySelector?.(`[data-directive-tour="${target}"]`)?.click?.();
   }
   if (prepare === 'crew-character' || prepare === 'crew-roster') {
@@ -351,25 +234,6 @@ async function prepareDirectiveGuidanceTarget(item = {}, controller = {}) {
         ? 'settings.safety-tab'
         : 'settings.systems-tab';
     document.querySelector?.(`[data-directive-tour="${tabTarget}"]`)?.click?.();
-  }
-  if (prepare === 'assist-menu') {
-    const menu = document.getElementById?.('directive-assist-menu');
-    const launcher = document.getElementById?.('directive-assist-button');
-    if (launcher && (!menu || menu.hidden === true)) launcher.click?.();
-  }
-  if (prepare === 'assist-preview' || String(item.target || '').startsWith('assist.preview.')) {
-    if (!resolveDirectiveGuidanceTarget(item.target, '')) ensureGuidanceAssistPreviewFixture();
-  }
-  if (prepare === 'message-menu' || prepare === 'message-host-menu') {
-    const launcher = visibleElement([...(document.querySelectorAll?.('[data-directive-message-actions="true"]') || [])]);
-    const menuId = launcher?.dataset?.directiveMessageActionsMenuId;
-    const menu = menuId ? document.getElementById?.(menuId) : null;
-    if (launcher && (!menu || menu.hidden === true)) launcher.click?.();
-  }
-  if (prepare === 'marker-menu') {
-    const status = visibleElement([...(document.querySelectorAll?.('[data-directive-reconciliation-status]') || [])]);
-    const menu = document.getElementById?.('directive-reconciliation-selection-menu');
-    if (status && (!menu || menu.hidden === true)) status.click?.();
   }
   await frameDelay();
 }
