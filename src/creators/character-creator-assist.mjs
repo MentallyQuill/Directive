@@ -1,4 +1,5 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
+import { buildCharacterCreatorSectionDraftSchema } from './character-creator-section-contract.mjs';
 import {
   PROVIDER_RESPONSE_ERROR_CODES,
   assertProviderResponseText
@@ -114,36 +115,6 @@ const CREATOR_SECTION_DRAFT_PROVIDER_ATTEMPTS = Object.freeze([
     timeoutMs: CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS
   })
 ]);
-
-const CHARACTER_CREATOR_SECTION_DRAFT_JSON_SCHEMA = Object.freeze({
-  type: 'object',
-  additionalProperties: false,
-  required: ['kind', 'sectionId', 'mode', 'fields'],
-  properties: {
-    kind: { const: 'directive.characterCreatorSectionDraftResult' },
-    sectionId: { enum: CHARACTER_CREATOR_SECTION_IDS },
-    mode: { enum: ['create', 'refine'] },
-    fields: {
-      type: 'object',
-      additionalProperties: {
-        anyOf: [
-          { type: 'string' },
-          { type: 'number' },
-          { type: 'boolean' },
-          { type: 'object' }
-        ]
-      }
-    },
-    notes: {
-      type: 'array',
-      items: { type: 'string' }
-    },
-    warnings: {
-      type: 'array',
-      items: { type: 'string' }
-    }
-  }
-});
 
 const RISKY_BACKSTORY_PATTERN = /\b(section\s*31|secret ancestry|hidden powers?|chosen one|war criminal|criminal history|court-?martial|universally admired|impossibly competent|severe trauma|traumatic secret)\b/i;
 const PROVIDER_TRANSPORT_ERROR_CODES = Object.freeze(new Set([
@@ -327,6 +298,16 @@ function allowedOptionsForSection(context, sectionId) {
     }
   }
   return options;
+}
+
+function fieldRulesForSection(context, sectionId) {
+  return SECTION_FIELDS[requireSectionId(sectionId)].map((path) => {
+    const allowedValues = allowedIdsForField(context, path);
+    return {
+      path,
+      ...(allowedValues ? { allowedValues: [...allowedValues] } : {})
+    };
+  });
 }
 
 function flattenFields(source = {}, prefix = '', output = {}) {
@@ -934,6 +915,7 @@ export function buildCharacterCreatorSectionDraftRequest({
     continuityGuardrails: redactHiddenTerms(creatorView?.continuityGuardrails || context.continuityGuardrails || [])
   };
   const prompt = createPrompt(snapshot);
+  const fieldRules = fieldRulesForSection(context, id);
   return {
     context,
     snapshot,
@@ -955,7 +937,11 @@ export function buildCharacterCreatorSectionDraftRequest({
       parameters: cloneJson(CREATOR_ASSIST_PARAMETERS),
       modelPreferences: cloneJson(CREATOR_ASSIST_MODEL_PREFERENCES),
       structuredOutput: true,
-      jsonSchema: cloneJson(CHARACTER_CREATOR_SECTION_DRAFT_JSON_SCHEMA)
+      jsonSchema: buildCharacterCreatorSectionDraftSchema({
+        sectionId: id,
+        mode,
+        fieldRules
+      })
     }
   };
 }

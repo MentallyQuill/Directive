@@ -14,6 +14,10 @@ import {
   runCharacterCreatorSectionDraft
 } from '../../src/creators/character-creator-assist.mjs';
 import {
+  buildCharacterCreatorSectionDraftSchema,
+  validateCharacterCreatorSectionDraftPayload
+} from '../../src/creators/character-creator-section-contract.mjs';
+import {
   PROVIDER_RESPONSE_ERROR_CODES
 } from '../../src/providers/provider-response-normalizer.mjs';
 
@@ -45,6 +49,44 @@ function createGenerationRouter(response) {
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+
+const identityFieldRules = [
+  { path: 'identity.name' },
+  { path: 'identity.speciesId', allowedValues: ['human', 'trill'] }
+];
+const identityContractSchema = buildCharacterCreatorSectionDraftSchema({
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(identityContractSchema.additionalProperties, false);
+assert.equal(identityContractSchema.properties.fields.additionalProperties, false);
+assert.equal(identityContractSchema.properties.fields.minProperties, 1);
+assert.deepEqual(identityContractSchema.properties.fields.properties['identity.speciesId'].enum, ['human', 'trill']);
+assert.equal(Object.hasOwn(identityContractSchema.properties.fields.properties, 'service.careerBackgroundId'), false);
+assert.equal(validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' }
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+}).ok, true);
+const invalidIdentityContract = validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { identity: { name: 'Sam' }, 'identity.speciesId': 'klingon' }
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(invalidIdentityContract.ok, false);
+assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
+assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'enum'), true);
 
 function longSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 160) {
   const sentence = `${seed} `;

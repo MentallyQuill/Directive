@@ -233,6 +233,25 @@ function openAiEndpoint(baseUrl) {
   return `${base}/v1/chat/completions`;
 }
 
+function structuredResponseFormat(request = {}) {
+  const schema = request?.jsonSchema;
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return null;
+  const sourceName = String(request.kind || 'directive_structured_output')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^A-Za-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase()
+    .slice(0, 64) || 'directive_structured_output';
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: sourceName,
+      strict: true,
+      schema
+    }
+  };
+}
+
 async function sendViaCurrentSillyTavern(context, config, request, { retriedForVisibleOutput = false } = {}) {
   const { system, prompt } = requestPrompts(request);
   let response;
@@ -313,6 +332,7 @@ async function sendViaConnectionProfile(context, config, request, { retriedForVi
 async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, retriedForVisibleOutput = false }) {
   if (!config.model) throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', 'OpenAI-compatible model is missing.');
   const { system, prompt } = requestPrompts(request);
+  const responseFormat = structuredResponseFormat(request);
   const response = await fetchImpl(openAiEndpoint(config.baseUrl), {
     method: 'POST',
     headers: {
@@ -330,7 +350,8 @@ async function sendViaOpenAiCompatible(config, request, { fetchImpl, apiKey, ret
       temperature: request.parameters?.temperature ?? request.temperature ?? config.temperature,
       top_p: request.parameters?.top_p ?? request.topP ?? config.topP,
       max_tokens: requestMaxTokens(request, config),
-      stream: false
+      stream: false,
+      ...(responseFormat ? { response_format: responseFormat } : {})
     })
   });
   const textBody = await response.text();

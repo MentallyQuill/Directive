@@ -85,8 +85,15 @@ const client = createDirectiveProviderClient({
 });
 
 const utility = await client.generate('acceptedPairMissionEvidence', {
+  kind: 'directive.testStructuredRequest',
   messages: [{ role: 'user', content: 'Interpret this accepted pair.' }],
-  parameters: { temperature: 0.05, top_p: 0.8, max_tokens: 384 }
+  parameters: { temperature: 0.05, top_p: 0.8, max_tokens: 384 },
+  jsonSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ok'],
+    properties: { ok: { type: 'boolean' } }
+  }
 });
 assert.equal(utility.providerKind, 'utility');
 assert.equal(utility.text, 'utility-visible-answer');
@@ -97,6 +104,19 @@ assert.equal(utilityBody.model, 'utility-small');
 assert.equal(utilityBody.temperature, 0.05);
 assert.equal(utilityBody.top_p, 0.8);
 assert.equal(utilityBody.max_tokens, 384);
+assert.deepEqual(utilityBody.response_format, {
+  type: 'json_schema',
+  json_schema: {
+    name: 'directive_test_structured_request',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['ok'],
+      properties: { ok: { type: 'boolean' } }
+    }
+  }
+});
 
 const reasoning = await client.generate('narration', {
   messages: [{ role: 'user', content: 'Narrate the committed result.' }],
