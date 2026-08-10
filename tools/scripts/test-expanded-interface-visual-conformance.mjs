@@ -111,21 +111,52 @@ try {
       assert.match(metrics.routeFont, /Roboto Condensed|Arial Narrow/);
 
       if (route === 'campaign') {
+        const futureRow = page.locator('button[data-campaign-availability="coming-later"]').first();
+        const row = await futureRow.evaluate((later) => ({
+          ariaDisabled: later.getAttribute('aria-disabled'),
+          tagName: later.tagName,
+          text: later.textContent,
+          description: later.querySelector('.campaign-row-copy span')?.textContent || ''
+        }));
+        assert.equal(row.ariaDisabled, null);
+        assert.equal(row.tagName, 'BUTTON');
+        assert.doesNotMatch(row.text, /Coming later/i);
+        assert.match(row.description, /Nerine Reef/);
+
+        await futureRow.click();
+        await page.waitForSelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
         const campaign = await page.evaluate(() => {
-          const later = document.querySelector('[data-campaign-availability="coming-later"]');
+          const detail = document.querySelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
+          const art = detail.querySelector('.campaign-hero-media');
+          const copy = detail.querySelector('.campaign-hero-copy');
+          const action = document.querySelector('.campaign-detail .campaign-command-primary');
+          const master = document.querySelector('.campaign-master');
+          const selectedRow = document.querySelector('button[data-campaign-availability="coming-later"][aria-pressed="true"]');
+          const detailBox = detail.getBoundingClientRect();
+          const copyBox = copy.getBoundingClientRect();
+          const masterBox = master.getBoundingClientRect();
+          const selectedRowBox = selectedRow.getBoundingClientRect();
           return {
-            disabled: later.getAttribute('aria-disabled'),
-            tabIndex: later.tabIndex,
-            opacity: Number(getComputedStyle(later).opacity),
-            text: later.textContent,
-            description: later.querySelector('[data-campaign-description]')?.textContent || ''
+            status: detail.querySelector('.campaign-status')?.textContent || '',
+            title: detail.querySelector('h2')?.textContent || '',
+            description: detail.querySelector('[data-campaign-description]')?.textContent || '',
+            artOpacity: Number(getComputedStyle(art).opacity),
+            artFilter: getComputedStyle(art).filter,
+            copyWithinHero: copyBox.top >= detailBox.top - .5 && copyBox.bottom <= detailBox.bottom + .5,
+            selectedRowVisible: selectedRowBox.top >= masterBox.top - .5 && selectedRowBox.bottom <= masterBox.bottom + .5,
+            actionDisabled: action?.disabled,
+            actionText: action?.textContent || ''
           };
         });
-        assert.equal(campaign.disabled, 'true');
-        assert.equal(campaign.tabIndex, -1);
-        assert.ok(campaign.opacity <= .5);
-        assert.match(campaign.text, /Coming later/);
+        assert.match(campaign.status, /Coming later/i);
+        assert.match(campaign.title, /Drowned Constellation/);
         assert.match(campaign.description, /Nerine Reef/);
+        assert.ok(campaign.artOpacity <= .5);
+        assert.match(campaign.artFilter, /grayscale\(1\)/);
+        assert.equal(campaign.copyWithinHero, true, `${viewport.width}px future Campaign copy must not clip`);
+        assert.equal(campaign.selectedRowVisible, true, `${viewport.width}px selected future Campaign row must stay visible`);
+        assert.equal(campaign.actionDisabled, true);
+        assert.match(campaign.actionText, /New campaign/i);
         observedVarianceIds.add('campaign-coming-later');
         observedVarianceIds.add('campaign-current-descriptions');
       }
