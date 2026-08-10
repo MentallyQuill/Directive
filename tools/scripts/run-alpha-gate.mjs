@@ -18,6 +18,8 @@ const checks = [
   "test-certified-settings-panel.mjs",
   "test-certified-negative-legacy-ui.mjs",
   "test-certified-character-creator.mjs",
+  "test-expanded-interface-mockup.mjs",
+  "test-expanded-interface-visual-conformance.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
   "test-bundled-package-registry.mjs",
