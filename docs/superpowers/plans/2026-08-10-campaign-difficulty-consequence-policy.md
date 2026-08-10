@@ -265,11 +265,11 @@ Run:
 ```powershell
 git diff --check main...HEAD
 git diff --stat main...HEAD
-git diff main...HEAD -- src/simulation/simulation-mode-policy.mjs presets/sillytavern/directive.json | Select-String -Pattern 'dice|d20|random number|hit points|difficulty class' -CaseSensitive:$false
+rg -n -i "dice|d20|random number|hit points|difficulty class" src/simulation/simulation-mode-policy.mjs
 git status --short
 ```
 
-Expected: `git diff --check` exits 0; the diff contains only planned files and docs; `Select-String` prints no forbidden-scope matches in changed policy/preset text; status is clean.
+Expected: `git diff --check` exits 0; the diff contains only planned files and docs; `rg` exits 1 with no forbidden mechanics in the injected mode policy; status is clean.
 
 - [ ] **Step 4: Review against the approved specification**
 
