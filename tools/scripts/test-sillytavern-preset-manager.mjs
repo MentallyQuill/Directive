@@ -76,19 +76,19 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.10');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.11');
 assert.equal(metadata.supportsDirectiveRuntime, true);
-assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.10'), '0.1.0');
-assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.10'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.10'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.9', 'Directive-0.1.0-pre-alpha.10'), -1);
-assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.11', 'Directive-0.1.0-pre-alpha.10'), 1);
-assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.10'), 1);
+assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.11'), '0.1.0');
+assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.11'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0', 'Directive-0.1.0-pre-alpha.11'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.10', 'Directive-0.1.0-pre-alpha.11'), -1);
+assert.equal(compareDirectivePresetVersions('Directive-0.1.0-pre-alpha.12', 'Directive-0.1.0-pre-alpha.11'), 1);
+assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-pre-alpha.11'), 1);
 
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.10');
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.11');
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-past')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-present')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
@@ -111,6 +111,13 @@ assert.match(
   asset.prompts.find((entry) => entry.identifier === 'main')?.content || '',
   /DIRECTIVE V1 CAMPAIGN CONTEXT/
 );
+const commandCausality = asset.prompts.find((entry) => entry.identifier === 'directive-command-causality')?.content || '';
+assert.match(commandCausality, /causally supported provisional outcome/);
+assert.match(commandCausality, /durable or terminal result/);
+assert.match(commandCausality, /remains provisional until the player accepts that selected response/);
+assert.match(commandCausality, /difficulty and consequence policy in DIRECTIVE V1 CAMPAIGN CONTEXT sets the applicable ceiling/);
+assert.doesNotMatch(commandCausality, /keep uncommitted consequences local, reversible/);
+assert.doesNotMatch(commandCausality, /Command mode|Exploration mode|player character or senior staff death/);
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
   /exact first line/
@@ -342,7 +349,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.10');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.11');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 
