@@ -1,8 +1,10 @@
 # Ashes V1 Open Orders II Readiness
 
-Status: **non-UI second recovery interval authority ready; narrator cutover, visible presentation, open-world scheduling, Chapter 6 migration, legacy-writer retirement, and live certification remain incomplete**
+Status: **non-UI second recovery interval authority ready; narrator cutover, visible presentation, open-world scheduling, Chapter 7 migration, legacy-writer retirement, and live certification remain incomplete**
 
 Date: 2026-08-09
+
+> Subsequent status: Chapter 6 is now V1-native. The verification count below preserves this interval's original certification checkpoint; current successor authority is recorded in [Ashes V1 Chapter 6 Readiness](ASHES_V1_CHAPTER_6_READINESS.md).
 
 ## Certified Scope
 
@@ -71,7 +73,7 @@ The registry now loads Prelude, Empty Convoy, False Colors, Open Orders I, Dead 
 
 Mutating Old Lessons evidence before activation repairs Old Lessons in place. Mutating it after activation prunes Open Orders II and returns to repaired Old Lessons. Mutating terminal Open Orders II reopens the interval without a provider call. The handoff review exposed that two different missions reused the fixture label `two-assignment-normal`; the harness previously derived contribution identity from that label alone. Source, message, swipe, episode, and scene identities now include the stable mission source ID, and the journey asserts contribution uniqueness across every archived and current run.
 
-Terminal Open Orders II targets the existing package quest `chapter-6-the-cost-of-knowing`. Until Chapter 6 has an exact V1 definition, the transition remains durably pending rather than activating legacy content or skipping campaign structure.
+Terminal Open Orders II targets the existing package quest `chapter-6-the-cost-of-knowing`. The exact V1 successor now activates through the journey runtime; its own semantics, reconstruction proof, and Chapter 7 pending boundary are certified separately in [Ashes V1 Chapter 6 Readiness](ASHES_V1_CHAPTER_6_READINESS.md).
 
 ## Adversarial Findings
 
@@ -104,7 +106,7 @@ The inventory consists of 251 explicit checks and 41 package-derived checks: the
 - No transition narration is posted or consumed.
 - No player-facing UI changed.
 - The current V1 journey is linear and does not yet implement package-level sibling scheduling.
-- Chapter 6 has no V1 definition and remains pending.
+- Chapter 6 behavior is outside this interval's original 292-check verification record and is certified separately.
 - Legacy writers remain compatibility/source surfaces until explicit cutover; the premature Old Lessons reaction remains a known hazard outside isolated V1 authority.
 - No Command Bearing award or spend is derived from Open Orders II.
 - Earlier assets and partnerships influence model-observed results but are not yet a deterministic campaign-level scheduling predicate.

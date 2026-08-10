@@ -1,6 +1,6 @@
 # Ashes V1: The Cost of Knowing Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content and deterministic authority only; it does not authorize UI or narrator-prompt changes.
+> Status: implemented and deterministic-gate certified within the approved non-UI scope. Player-facing UI, narrator cutover, open-world scheduling, Chapter 7 migration, legacy retirement, and live certification remain incomplete.
 
 **Goal:** Make `chapter-6-the-cost-of-knowing` the ninth V1-native Ashes journey entry while preserving the chapter's operational, evidentiary, legal, and institutional ambiguity without reproducing its five percentage objectives or eight separate revelations as trackers.
 
@@ -110,27 +110,27 @@ The accepted-pair runtime must prove that incidental secure-room lighting, a rum
 
 ### Task 1: RED contract
 
-- [ ] Create `tests/fixtures/mission/v1/chapter-6-cost-of-knowing-scenarios.fixture.json`.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-6-mission.mjs` and register it in the alpha gate.
-- [ ] Assert exact package/Open Orders II identity, empty legacy graph, exact Chapter 7 target, spoiler-safe opening, three objectives, two reports, four dimensions, no clock, direct and alternate truth routes, early loss fairness, non-linear play, mixed outcomes, and hostile source/revision cases.
+- [x] Create `tests/fixtures/mission/v1/chapter-6-cost-of-knowing-scenarios.fixture.json`.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-6-mission.mjs` and register it in the alpha gate.
+- [x] Assert exact package/Open Orders II identity, empty legacy graph, exact Chapter 7 target, spoiler-safe opening, three objectives, two reports, four dimensions, no clock, direct and alternate truth routes, early loss fairness, non-linear play, mixed outcomes, and hostile source/revision cases.
 
 ### Task 2: Definition and validator
 
-- [ ] Create `packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json`.
-- [ ] Add one known opening fact, two discoverable aggregate facts, one false-emergency event, player-owned operational/Rourke/evidence choices, world-owned network/evidence/Rourke/information results, and route evidence.
-- [ ] Add three required objectives, four dimensions, six terminal dispositions, no clock, and the exact Chapter 7 transition.
-- [ ] Create `tools/scripts/validate-ashes-v1-chapter-6.mjs` and register it in the alpha gate.
+- [x] Create `packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json`.
+- [x] Add one known opening fact, two discoverable aggregate facts, one false-emergency event, player-owned operational/Rourke/evidence choices, world-owned network/evidence/Rourke/information results, and route evidence.
+- [x] Add three required objectives, four dimensions, six terminal dispositions, no clock, and the exact Chapter 7 transition.
+- [x] Create `tools/scripts/validate-ashes-v1-chapter-6.mjs` and register it in the alpha gate.
 
 ### Task 3: Registry, runtime, and journey
 
-- [ ] Register Chapter 6 after Open Orders II without importing its empty legacy graph or legacy availability fact.
-- [ ] Prove exact activation, reload, idempotency, legacy-root isolation, Chapter 7 pending state, journey-wide source identity, and source-mutation descendant pruning.
-- [ ] Create `tools/scripts/test-ashes-v1-chapter-6-runtime.mjs` for accepted-pair batching, report custody, early-loss fairness, anti-spam, invalidation, and restoration proof.
+- [x] Register Chapter 6 after Open Orders II without importing its empty legacy graph or legacy availability fact.
+- [x] Prove exact activation, reload, idempotency, legacy-root isolation, Chapter 7 pending state, journey-wide source identity, and source-mutation descendant pruning.
+- [x] Create `tools/scripts/test-ashes-v1-chapter-6-runtime.mjs` for accepted-pair batching, report custody, early-loss fairness, anti-spam, invalidation, and restoration proof.
 
 ### Task 4: Adversarial review and certification
 
-- [ ] Challenge initial spoilers, authentic-authority caricature, Rourke villainization, secrecy/disclosure moral railroading, archive single points of failure, choice-as-result, early evidence loss blame, Nightfall single-node closure, report spam, false urgency, persistent-consequence bloat, terminal priority, package drift, and live semantic uncertainty.
-- [ ] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
+- [x] Challenge initial spoilers, authentic-authority caricature, Rourke villainization, secrecy/disclosure moral railroading, archive single points of failure, choice-as-result, early evidence loss blame, Nightfall single-node closure, report spam, false urgency, persistent-consequence bloat, terminal priority, package drift, and live semantic uncertainty.
+- [x] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
 
 ## Explicit Non-Goals and Stop Boundary
 

@@ -1,6 +1,6 @@
 # Ashes V1: Open Orders II Migration Plan
 
-> Status: implemented and deterministic-gate certified within the approved non-UI scope. Player-facing UI, narrator cutover, open-world scheduling, Chapter 6 migration, legacy retirement, and live certification remain incomplete.
+> Status: implemented and deterministic-gate certified within the approved non-UI scope. Player-facing UI, narrator cutover, open-world scheduling, Chapter 7 migration, legacy retirement, and live certification remain incomplete. Chapter 6 successor authority is now certified by the later Chapter 6 migration plan and readiness record.
 
 **Goal:** Make `open-orders-2-what-survives` the eighth V1-native Ashes journey entry and preserve the source-authored repair/review interval instead of skipping from Old Lessons directly to Chapter 6.
 
