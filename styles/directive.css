@@ -1374,7 +1374,9 @@
 .directive-creator-command-bar .directive-button {
     font-size: 0.72rem;
   }
+}
 
+@media (max-width: 420px) {
 .directive-creator-assist-dialog-field-list {
     grid-template-columns: 1fr;
   }
@@ -3176,5 +3178,9 @@ textarea.directive-field-control {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+.directive-creator-assist-dialog-spinner {
+    animation: none !important;
   }
 }

@@ -6,9 +6,10 @@ import { chromium } from 'playwright';
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless: true });
 
-async function layoutMetrics(viewport) {
+async function layoutMetrics(viewport, { reducedMotion = 'no-preference' } = {}) {
   const page = await browser.newPage({ viewport });
   try {
+    await page.emulateMedia({ reducedMotion });
     await page.setContent(`
       <style>${css}</style>
       <section id="directive-runtime-panel" class="directive-runtime-panel directive-expanded-shell" style="display:block;position:relative;transform:none;width:100%;height:100%">
@@ -37,6 +38,10 @@ async function layoutMetrics(viewport) {
                 <span class="directive-creator-assist-dialog-spinner"></span>
                 <p class="directive-creator-assist-dialog-progress">Reasoning timed out again. Trying Utility...</p>
               </div>
+              <dl class="directive-creator-assist-dialog-field-list">
+                <dt class="directive-creator-assist-dialog-field-label">Name</dt>
+                <dd class="directive-creator-assist-dialog-field-value">Sam Vickers</dd>
+              </dl>
               <div class="directive-creator-assist-dialog-actions"><button class="directive-button">Cancel</button></div>
             </div>
           </section>
@@ -47,6 +52,7 @@ async function layoutMetrics(viewport) {
       const overlay = document.querySelector('.directive-creator-assist-dialog-overlay');
       const dialog = document.querySelector('.directive-creator-assist-dialog');
       const spinner = document.querySelector('.directive-creator-assist-dialog-spinner');
+      const fieldList = document.querySelector('.directive-creator-assist-dialog-field-list');
       const commandBar = document.querySelector('.directive-creator-command-bar');
       const stepButtons = [...document.querySelectorAll('.directive-creator-step-button')];
       const overlayStyle = getComputedStyle(overlay);
@@ -77,6 +83,7 @@ async function layoutMetrics(viewport) {
           width: Number.parseFloat(spinnerStyle.width),
           height: Number.parseFloat(spinnerStyle.height)
         },
+        fieldGridColumns: getComputedStyle(fieldList).gridTemplateColumns,
         commandPosition: commandStyle.position,
         stepHeights: stepButtons.map((button) => button.getBoundingClientRect().height),
         documentOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth
@@ -108,7 +115,13 @@ try {
     assert.notEqual(metrics.commandPosition, 'sticky', 'creator command bar must not overlap prior form rows');
     assert.ok(metrics.stepHeights.every((height) => height >= 40), 'commissioning step buttons should retain their minimum height');
     assert.equal(metrics.documentOverflowX, false);
+    if (viewport.width <= 420) {
+      assert.equal(metrics.fieldGridColumns.trim().split(/\s+/).length, 1, 'mobile assist fields should use one column');
+    }
   }
+
+  const reducedMotionMetrics = await layoutMetrics({ width: 1200, height: 900 }, { reducedMotion: 'reduce' });
+  assert.equal(reducedMotionMetrics.spinner.animationName, 'none', 'assist spinner should stop for reduced motion');
 } finally {
   await browser.close();
 }
