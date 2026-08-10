@@ -16,6 +16,10 @@ const initial = createMissionPlayerProjection({ definition, state: initialState 
 assert.equal(initial.kind, 'directive.missionPlayerProjection.v1');
 assert.equal(initial.missionId, definition.id);
 assert.equal(initial.title, 'Prelude: A Ship Underway');
+assert.equal(
+    initial.summary,
+    'Complete the command handover, establish a working command rhythm, and bring the Breckenridge to the Asterion Reach.',
+);
 assert.deepEqual(initial.objectives.map((objective) => objective.id), [
     'objective.prelude.command-handover',
     'objective.prelude.staff-readiness',
@@ -26,13 +30,11 @@ assert.deepEqual(initial.progress, {
     optionalCompleted: 0,
     optionalTotal: 0,
 });
-assert.deepEqual(initial.facts, [{
-    id: 'fact.prelude.poker-invitation',
-    summary: 'Lieutenant Kieran Vale has invited the new XO to an established junior-officer poker game after the first watch.',
-}]);
+assert.deepEqual(initial.facts, []);
 assert.deepEqual(initial.clocks, []);
 assert.deepEqual(initial.outcomeDimensions, []);
 assert.equal(initial.terminal, null);
+assert.doesNotMatch(JSON.stringify(initial), /Hesperus|Kieran/i);
 assert.equal(/fraud|falsif|corrupt|inspection|unknown objective/i.test(JSON.stringify(initial)), false);
 assert.deepEqual(initialState, initialSnapshot);
 
@@ -46,6 +48,22 @@ function claim(claimId, claimType, targetId, extra = {}) {
         ...(Object.hasOwn(extra, 'value') ? { value: extra.value } : {}),
     };
 }
+
+const pokerInvitationKnown = reduceMissionEvidence({
+    definition,
+    state: initialState,
+    acceptedClaims: [claim(
+        'prelude-poker-invitation-disclosed',
+        'factDisclosed',
+        'fact.prelude.poker-invitation',
+        { policyId: 'policy.prelude.poker-invitation-disclosed' },
+    )],
+}).state;
+const pokerInvitationProjection = createMissionPlayerProjection({
+    definition,
+    state: pokerInvitationKnown,
+});
+assert.match(JSON.stringify(pokerInvitationProjection), /Kieran Vale has invited/i);
 
 const distressKnown = reduceMissionEvidence({
     definition,

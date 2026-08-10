@@ -329,6 +329,13 @@
     ],
     "redline-poker-hook": [
       {
+        "claimId": "claim.prelude.poker-invitation-disclosed",
+        "policyId": "policy.prelude.poker-invitation-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.poker-invitation",
+        "sourceRole": "assistant"
+      },
+      {
         "claimId": "claim.prelude.poker-conversation-held",
         "policyId": "policy.prelude.poker-conversation-held",
         "claimType": "eventOccurred",
@@ -549,7 +556,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 22,
+        "acceptedClaimCount": 23,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completed"
@@ -623,7 +630,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 17,
+        "acceptedClaimCount": 18,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -641,7 +648,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 20,
+        "acceptedClaimCount": 21,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -661,7 +668,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 18,
+        "acceptedClaimCount": 19,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -681,7 +688,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 21,
+        "acceptedClaimCount": 22,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completedWithCost"
@@ -700,7 +707,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 21,
+        "acceptedClaimCount": 22,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "handedOff"
@@ -719,7 +726,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 21,
+        "acceptedClaimCount": 22,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -741,7 +748,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 23,
+        "acceptedClaimCount": 24,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "failedAfterInformedAction"
@@ -765,7 +772,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 28,
+        "acceptedClaimCount": 29,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-accountability": "completed",

@@ -1094,8 +1094,8 @@
       ],
       "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
-        "title": "Establish what the message system proves",
-        "summary": "Build the strongest supportable account of the system, its use, and the next lead; missing direct evidence changes confidence and cost rather than blocking the campaign.",
+        "title": "Establish what the Hecate Seven evidence proves",
+        "summary": "Build the strongest supportable account from what can be recovered at the site; missing direct evidence changes confidence and cost rather than blocking the campaign.",
         "terminal": [
           { "disposition": "completed", "text": "Direct evidence established the system's character, architecture, access history, and next lead." },
           { "disposition": "completedWithCost", "text": "Alternate corroboration preserved the next lead, but important direct evidence remained unavailable." }
@@ -1217,8 +1217,8 @@
       ],
       "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
       "playerText": {
-        "title": "Resolve the site's physical and human custody",
-        "summary": "Make informed, separate choices about the dangerous system and the personal material it contains, then establish what actually happened to each.",
+        "title": "Resolve the site's custody",
+        "summary": "Make informed choices about any dangerous or sensitive material you find, then establish what actually happens to it.",
         "terminal": [
           { "disposition": "completed", "text": "The physical system and human material reached an accountable protected disposition." },
           { "disposition": "completedWithCost", "text": "Custody was resolved with a deliberate operational, evidentiary, privacy, or transparency cost." },
