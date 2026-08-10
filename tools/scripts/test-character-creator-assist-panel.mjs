@@ -54,6 +54,13 @@ renderCharacterCreatorPanel(body, {
 const form = body.querySelector('[data-creator-form="true"]');
 const wand = body.querySelector('[data-creator-section-wand="identity"]');
 assert(form && wand, 'identity creator controls should render');
+const difficultyField = body.querySelector('.directive-creator-difficulty-field');
+const difficultyTop = body.querySelector('.directive-creator-difficulty-top');
+const difficultyOptions = body.querySelectorAll('.directive-creator-difficulty-option');
+assert(difficultyField && difficultyTop, 'difficulty heading and options should render in a shared top row');
+assert.equal(difficultyOptions.length, 2, 'both campaign difficulty choices should render');
+assert.equal(body.querySelectorAll('.directive-creator-difficulty-option-policy').length, 0, 'difficulty buttons should omit redundant fatality policy copy');
+assert(body.querySelector('.directive-creator-difficulty-fatality'), 'selected mode summary should retain fatality policy copy');
 const nameInput = form.querySelector('[data-input-path="identity.name"]');
 assert.equal(nameInput.value, '');
 

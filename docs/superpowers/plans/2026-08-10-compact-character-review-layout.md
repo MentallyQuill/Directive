@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Do not make the desktop or tablet Review route body vertically scroll at the representative `1200 x 900` CSS-pixel viewport.
+- Do not make the desktop or tablet Review route body vertically scroll at the representative `1200 x 1050` CSS-pixel viewport, where the expanded shell reaches its maximum `900px` height.
 - Keep the fixed bottom route navigation outside the Review content.
 - Keep `Story-forward` and `Full Simulation` inside their selection buttons; remove only the redundant fatality-policy lines.
 - Keep the complete fatality policy and explanatory copy in Selected Mode Summary.
@@ -24,6 +24,7 @@
 
 **Files:**
 - Modify: `tools/scripts/test-character-creator-assist-layout.mjs`
+- Modify: `tools/scripts/test-character-creator-assist-panel.mjs`
 
 **Interfaces:**
 - Consumes: `styles/directive.css` as the production stylesheet and the production class contract used by `createDirectiveExpandedShell()` and `renderCharacterCreatorPanel()`.
@@ -65,7 +66,7 @@ Build the fixture with `.directive-runtime-panel.directive-expanded-shell`, `.di
 
 - [ ] **Step 2: Assert the user-visible geometry and scrolling contract**
 
-Collect literal geometry from the `1200 x 900` desktop fixture and assert:
+Use `test-character-creator-assist-panel.mjs` to assert that the real renderer creates `.directive-creator-difficulty-top`, keeps two option buttons, omits `.directive-creator-difficulty-option-policy`, and retains `.directive-creator-difficulty-fatality` in the summary. Collect literal geometry from the `1200 x 1050` desktop fixture and assert:
 
 ```js
 assert.equal(metrics.routeBody.scrollHeight, metrics.routeBody.clientHeight);
@@ -76,8 +77,6 @@ assert.equal(metrics.difficultyTopColumns, 2);
 assert.ok(metrics.summary.width >= metrics.difficulty.width - 26);
 assert.ok(metrics.textareas.every(({ overflowY, resize }) => overflowY === 'auto' && resize === 'none'));
 ```
-
-Also assert that the two mode options contain no `.directive-creator-difficulty-option-policy` elements while the summary still contains `.directive-creator-difficulty-fatality`.
 
 - [ ] **Step 3: Run the focused test and verify RED**
 
@@ -139,9 +138,9 @@ Scope the field rule to the active Review section so other multiline creator fie
 
 ```css
 .directive-creator-section[data-creator-step="review"] textarea.directive-field-control {
-  height: 124px;
-  min-height: 124px !important;
-  max-height: 124px;
+  height: 96px;
+  min-height: 96px !important;
+  max-height: 96px;
   overflow-y: auto;
   resize: none;
 }
@@ -151,7 +150,7 @@ Scope the field rule to the active Review section so other multiline creator fie
 
 Run: `node tools/scripts/test-character-creator-assist-layout.mjs`
 
-Expected: PASS with no route-body scroll at `1200 x 900`, no control overlap, compact difficulty hierarchy, full summary, and internally scrolling fixed-height dossier fields.
+Expected: PASS with no route-body scroll at `1200 x 1050`, no control overlap, compact difficulty hierarchy, full summary, and internally scrolling fixed-height dossier fields.
 
 - [ ] **Step 5: Run the full alpha gate**
 
@@ -162,7 +161,7 @@ Expected: all focused checks pass with zero failures.
 - [ ] **Step 6: Commit the implementation**
 
 ```powershell
-git add src/ui/character-creator-panel.js styles/directive.css tools/scripts/test-character-creator-assist-layout.mjs
+git add src/ui/character-creator-panel.js styles/directive.css tools/scripts/test-character-creator-assist-layout.mjs tools/scripts/test-character-creator-assist-panel.mjs
 git commit -m "fix(ui): compact creator review layout"
 ```
 
@@ -176,7 +175,7 @@ git commit -m "fix(ui): compact creator review layout"
 - Consumes: the Playwright fixture and final production CSS.
 - Produces: visual evidence that the Review layout matches the approved hierarchy and remains above the fixed route navigation.
 
-- [ ] **Step 1: Capture the `1200 x 900` Review fixture**
+- [ ] **Step 1: Capture the `1200 x 1050` Review fixture**
 
 Use Playwright to render the same authentic fixture used by the regression test and save a temporary PNG outside tracked source files.
 

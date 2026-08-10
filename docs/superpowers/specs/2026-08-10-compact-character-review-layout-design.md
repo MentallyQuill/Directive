@@ -25,7 +25,7 @@ Brief Biography and Public Reputation remain side-by-side at desktop and tablet 
 
 ## Scrolling and Sizing Contract
 
-At the representative `1200 x 900` CSS-pixel desktop viewport:
+At the representative `1200 x 1050` CSS-pixel desktop viewport, which gives the expanded shell its maximum `900px` height:
 
 - The expanded-shell route body does not require vertical scrolling on the Review step.
 - The creator form's visible content remains within the route body's bottom edge.
