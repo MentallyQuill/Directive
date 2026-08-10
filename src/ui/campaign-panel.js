@@ -32,30 +32,11 @@ function packageImage(pack, variant = 'card', wrapperClass = 'campaign-row-art')
   });
 }
 
-function createComingLaterPreview(pack) {
-  const card = createElement('article', 'campaign-row campaign-library-row is-coming-later');
-  card.dataset.campaignAvailability = 'coming-later';
-  card.dataset.packageId = pack.packageId;
-  card.setAttribute('aria-disabled', 'true');
-  card.tabIndex = -1;
-  card.appendChild(packageImage(pack));
-  const copy = createElement('div', 'campaign-row-copy');
-  const state = createElement('span', 'campaign-row-state');
-  state.textContent = 'Coming later';
-  const title = createElement('strong');
-  title.textContent = pack.title;
-  const description = createElement('span', 'campaign-row-description');
-  description.dataset.campaignDescription = 'true';
-  description.textContent = pack.description;
-  copy.append(state, title, description);
-  card.appendChild(copy);
-  return card;
-}
-
-function createSelectableRow({ key, title, meta, state, imageSource, active, onSelect }) {
+function createSelectableRow({ key, title, meta, state, availability = '', imageSource, active, onSelect }) {
   const row = createElement('button', `campaign-row${active ? ' active' : ''}`);
   row.type = 'button';
   row.dataset.campaignRecordKey = key;
+  if (availability) row.dataset.campaignAvailability = availability;
   row.setAttribute('aria-pressed', active ? 'true' : 'false');
   if (imageSource) row.appendChild(packageImage(imageSource));
   const copy = createElement('span', 'campaign-row-copy');
@@ -64,9 +45,12 @@ function createSelectableRow({ key, title, meta, state, imageSource, active, onS
   const detail = createElement('span');
   detail.textContent = meta;
   copy.append(heading, detail);
-  const status = createElement('span', 'campaign-row-state');
-  status.textContent = state;
-  row.append(copy, status);
+  row.appendChild(copy);
+  if (state) {
+    const status = createElement('span', 'campaign-row-state');
+    status.textContent = state;
+    row.appendChild(status);
+  }
   row.addEventListener('click', onSelect);
   return row;
 }
@@ -161,11 +145,13 @@ function appendCampaignDetail(detail, campaign, pack, actions) {
 }
 
 function appendPackageDetail(detail, pack, actions) {
-  const hero = createElement('section', 'campaign-hero campaign-library-hero');
+  const unavailable = pack.disabled === true;
+  const hero = createElement('section', `campaign-hero campaign-library-hero${unavailable ? ' is-coming-later' : ''}`);
+  hero.dataset.campaignAvailability = pack.availability;
   hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
   const copy = createElement('div', 'campaign-hero-copy');
   const status = createElement('span', 'campaign-status');
-  status.textContent = 'Playable in V1';
+  status.textContent = unavailable ? 'Coming later' : 'Playable in V1';
   const title = createElement('h2');
   title.textContent = pack.title;
   const description = createElement('p', 'campaign-summary');
@@ -175,12 +161,15 @@ function appendPackageDetail(detail, pack, actions) {
   hero.appendChild(copy);
   detail.appendChild(hero);
   detail.appendChild(createButton({
-    label: pack.actions?.resumeDraft ? 'Continue setup' : 'Start campaign',
+    label: unavailable ? 'New campaign' : (pack.actions?.resumeDraft ? 'Continue setup' : 'Start campaign'),
     icon: 'fa-solid fa-play',
     className: 'campaign-command campaign-command-primary',
-    onClick: pack.actions?.resumeDraft
-      ? () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
-      : () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions)
+    disabled: unavailable,
+    onClick: unavailable
+      ? null
+      : (pack.actions?.resumeDraft
+        ? () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
+        : () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions))
   }));
 }
 
@@ -207,6 +196,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
     selectedRecordKey = key;
     body.replaceChildren?.();
     renderCampaignPanel(body, view, actions);
+    body.querySelector?.('.campaign-row.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   };
   model.campaigns.forEach((campaign) => {
     const key = `campaign:${campaign.id}`;
@@ -226,16 +216,13 @@ export function renderCampaignPanel(body, view, actions = {}) {
   libraryHeading.textContent = 'Campaign library';
   list.appendChild(libraryHeading);
   model.packages.forEach((pack) => {
-    if (pack.disabled) {
-      list.appendChild(createComingLaterPreview(pack));
-      return;
-    }
     const key = `package:${pack.packageId}`;
     list.appendChild(createSelectableRow({
       key,
       title: pack.title,
       meta: pack.description,
-      state: 'Playable',
+      state: pack.disabled ? '' : 'Playable',
+      availability: pack.availability,
       imageSource: pack,
       active: key === selectedRecordKey,
       onSelect: () => refreshSelection(key)
@@ -253,7 +240,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
       appendCampaignDetail(detail, campaign, pack, actions);
     }
   } else {
-    const pack = model.packages.find((candidate) => candidate.packageId === selectedRecordKey.slice('package:'.length) && !candidate.disabled);
+    const pack = model.packages.find((candidate) => candidate.packageId === selectedRecordKey.slice('package:'.length));
     if (pack) appendPackageDetail(detail, pack, actions);
   }
   if (!detail.children.length) appendEmpty(detail, 'Choose a playable campaign or saved story.');

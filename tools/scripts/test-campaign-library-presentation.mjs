@@ -23,14 +23,19 @@ try {
             <aside class="campaign-master campaign-index-panel" data-directive-scroll-owner="true">
               <header class="campaign-index-head"><span class="campaign-kicker">Story library</span><h2>Campaigns</h2></header>
               <div class="campaign-index-list">
-                <article class="campaign-row campaign-library-row is-coming-later" data-campaign-availability="coming-later" aria-disabled="true">
+                <button type="button" class="campaign-row campaign-library-row" data-campaign-availability="coming-later" aria-pressed="true">
                   <figure class="directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'/%3E"></figure>
                   <div class="campaign-row-copy"><strong>Drowned Constellation</strong><span class="campaign-row-description">Current approved campaign description.</span></div>
-                  <span class="campaign-row-state">Coming later</span>
-                </article>
+                </button>
               </div>
             </aside>
-            <section class="campaign-detail" data-directive-scroll-owner="true"><div class="campaign-hero"></div></section>
+            <section class="campaign-detail" data-directive-scroll-owner="true">
+              <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
+                <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
+                <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2><p class="campaign-summary">Current approved campaign description.</p></div>
+              </section>
+              <button type="button" class="campaign-command campaign-command-primary" disabled><span>New campaign</span></button>
+            </section>
           </div>
         </main>
       </section>
@@ -39,20 +44,29 @@ try {
       const journal = document.querySelector('.campaign-journal');
       const row = document.querySelector('.campaign-row');
       const art = row.querySelector('.directive-media-frame');
-      const style = getComputedStyle(row);
+      const rowStyle = getComputedStyle(row);
+      const heroArt = document.querySelector('.campaign-hero-media');
+      const heroArtStyle = getComputedStyle(heroArt);
+      const action = document.querySelector('.campaign-command-primary');
       const artBox = art.getBoundingClientRect();
       return {
         columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
-        opacity: Number(style.opacity),
-        filter: style.filter,
+        rowOpacity: Number(rowStyle.opacity),
+        rowFilter: rowStyle.filter,
+        heroArtOpacity: Number(heroArtStyle.opacity),
+        heroArtFilter: heroArtStyle.filter,
+        actionDisabled: action.disabled,
         artWidth: artBox.width,
         artHeight: artBox.height,
         overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth
       };
     });
     assert.equal(metrics.columns, viewport.width <= 640 ? 1 : 2, `${viewport.width}px Campaign master/detail columns`);
-    assert.ok(metrics.opacity <= .5, `${viewport.width}px Coming later card must be greyed`);
-    assert.match(metrics.filter, /grayscale\(1\)/, `${viewport.width}px Coming later card must be grayscale`);
+    assert.equal(metrics.rowOpacity, 1, `${viewport.width}px Campaign library row must remain full strength`);
+    assert.equal(metrics.rowFilter, 'none', `${viewport.width}px Campaign library row must remain full color`);
+    assert.ok(metrics.heroArtOpacity <= .5, `${viewport.width}px future Campaign detail art must be greyed`);
+    assert.match(metrics.heroArtFilter, /grayscale\(1\)/, `${viewport.width}px future Campaign detail art must be grayscale`);
+    assert.equal(metrics.actionDisabled, true, `${viewport.width}px New campaign must remain disabled`);
     assert.ok(Math.abs(metrics.artWidth - metrics.artHeight) < .1, `${viewport.width}px Campaign row art must remain square`);
     assert.equal(metrics.overflowX, false, `${viewport.width}px Campaign route must not overflow horizontally`);
     await page.close();
@@ -105,10 +119,21 @@ visit(body);
 
 const comingLater = nodes.filter((node) => node.dataset.campaignAvailability === 'coming-later');
 assert.equal(comingLater.length, V1_CAMPAIGN_LIBRARY_TEASERS.length - 1);
-assert.deepEqual(
-  comingLater.map((node) => node.attributes.get('aria-disabled')),
-  Array(comingLater.length).fill('true')
-);
+const subtreeText = (root) => {
+  const values = [];
+  const collect = (node) => {
+    values.push(node.textContent || '');
+    node.children?.forEach(collect);
+  };
+  collect(root);
+  return values.join(' ');
+};
+for (const row of comingLater) {
+  assert.equal(row.tagName, 'button');
+  assert.equal(row.attributes.has('aria-disabled'), false);
+  assert.equal(row.listeners.has('click'), true);
+  assert.doesNotMatch(subtreeText(row), /Coming later/i);
+}
 for (const teaser of V1_CAMPAIGN_LIBRARY_TEASERS.slice(1)) {
   assert.ok(nodes.some((node) => node.textContent === teaser.campaign.highConcept), `${teaser.title} must retain current description`);
 }
