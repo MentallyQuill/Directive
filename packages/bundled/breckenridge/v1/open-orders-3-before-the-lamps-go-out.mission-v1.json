@@ -52,9 +52,81 @@
       "playerText": {
         "summary": "Repeated alert tests now produce few false positives, the response plan is distributed rather than dependent on one officer, senior responsibilities are independently assigned, Tolland and Mercer have committed support, Kessler is assembling a coalition, and Prel has identified contradictory regional routes that may demand simultaneous action."
       }
+    },
+    {
+      "id": "fact.open-orders3.memorial-positions",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Ceremony organizer Alia Mbeki wants the Breckenridge's original service remembered without command ownership of the grief. Reach survivor Corin Hale will support a shared redesign or ship presence without speeches, but also accepts a separate crew remembrance. Memorial Goodwill requires credible shared ownership, not attendance alone." }
+    },
+    {
+      "id": "fact.open-orders3.relay-constraints",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "The relay experiment depends on three calibration beacons across a subspace eddy. One path may be contaminated and must be rebuilt in a clean room. Priya's undeliverable personal messages make the work human, but the result remains a modest scheduled window rather than Voyager contact or a Pathfinder breakthrough." }
+    },
+    {
+      "id": "fact.open-orders3.imani-consent-terms",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": { "summary": "Imani's decision records duty time, independent counsel, emergency-use limits, privacy, and whether both Cross signatures remain independently necessary. The protocol requires her documented independent consent or a narrowly bounded emergency agreement; command cannot declare what her identity permits." }
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.open-orders3.memorial-redesigned",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.memorial-redesigned", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.name-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Mbeki, Hale, crew representatives, and command accept a shared redesign with ownership of the ceremony explicitly distributed.", "exclusions": ["Attendance, a command speech, or changing a plaque without survivor participation is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.crew-remembrance",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.crew-remembrance-held", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.name-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when the crew holds a distinct remembrance that respects the public memorial dispute without claiming community ownership.", "exclusions": ["A private toast, planning meeting, or command-only observance is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.memorial-positions",
+      "claimType": "factDisclosed", "targetId": "fact.open-orders3.memorial-positions", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders3.memorial-positions" }, { "any": [{ "eventOccurred": "event.open-orders3.memorial-redesigned" }, { "eventOccurred": "event.open-orders3.crew-remembrance-held" }] }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose Mbeki's and Hale's distinct positions and the shared-ownership threshold for goodwill.", "exclusions": ["Do not make survivors unanimous or imply ship presence earns goodwill by itself."] }
+    },
+    {
+      "id": "policy.open-orders3.beacon-recovered",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.calibration-beacon-recovered", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.signal-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when one of three calibration beacons is physically recovered and its timing record authenticated before scheduling the relay.", "exclusions": ["Detecting a beacon, receiving an unverified burst, or scheduling first is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.relay-clean-room",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.relay-clean-room-established", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.signal-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when the contaminated calibration path is excluded and a clean-room reconstruction using the remaining authenticated records is completed.", "exclusions": ["Suspecting contamination, discarding all data, or accepting the suspect path is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.relay-constraints",
+      "claimType": "factDisclosed", "targetId": "fact.open-orders3.relay-constraints", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders3.relay-constraints" }, { "any": [{ "eventOccurred": "event.open-orders3.calibration-beacon-recovered" }, { "eventOccurred": "event.open-orders3.relay-clean-room-established" }] }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose the three-beacon geometry, eddy, contamination risk, disciplined schedule, and Priya's undeliverable messages while preserving the experiment's limits.", "exclusions": ["Do not depict Voyager contact or a decisive Pathfinder breakthrough."] }
+    },
+    {
+      "id": "policy.open-orders3.imani-independent-consent",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.imani-independent-consent-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.signatures-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Imani signs or refuses after protected time with independent counsel and the record treats both Cross signatures as independently necessary.", "exclusions": ["Command approval, one Cross signature, or presumed consent is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.bounded-emergency-consent",
+      "claimType": "eventOccurred", "targetId": "event.open-orders3.bounded-emergency-consent-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders3.signatures-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when Imani independently accepts a narrowly bounded emergency-use agreement with duration, access, privacy, revocation, and post-use review recorded.", "exclusions": ["Operational urgency, implied duty, or command declaration is insufficient."] }
+    },
+    {
+      "id": "policy.open-orders3.imani-consent-terms",
+      "claimType": "factDisclosed", "targetId": "fact.open-orders3.imani-consent-terms", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.open-orders3.imani-consent-terms" }, { "any": [{ "eventOccurred": "event.open-orders3.imani-independent-consent-recorded" }, { "eventOccurred": "event.open-orders3.bounded-emergency-consent-recorded" }] }] },
+      "interpretation": { "evidenceStandard": "explicit", "guidance": "Disclose Imani's independently chosen consent, counsel, duty-time, emergency-use, privacy, and two-signature terms.", "exclusions": ["Do not let the player define Imani's identity or consent for her."] }
+    },
     {
       "id": "policy.open-orders3.name-engagement",
       "claimType": "decisionRecorded",
@@ -168,7 +240,7 @@
         "values": [
           {
             "value": "assetEarned",
-            "guidance": "A publicly credible, community-supported memorial settlement actually earns the Breckenridge Memorial Goodwill."
+            "guidance": "A publicly credible memorial settlement with shared survivor and crew ownership actually earns the Breckenridge Memorial Goodwill; command attendance alone cannot."
           },
           {
             "value": "resolvedWithoutAsset",
@@ -297,7 +369,7 @@
         "values": [
           {
             "value": "assetEarned",
-            "guidance": "A repeatable, responsibly documented calibration actually earns the Long-Range Relay Window."
+            "guidance": "A disciplined three-beacon calibration, with contaminated paths excluded or reconstructed, actually earns the modest Long-Range Relay Window."
           },
           {
             "value": "resolvedWithoutAsset",
@@ -426,7 +498,7 @@
         "values": [
           {
             "value": "assetEarned",
-            "guidance": "Imani independently consents under documented limits that protect representation and precedent, actually earning the Cross Isolation Protocol."
+            "guidance": "Imani independently consents after counsel under documented privacy and use limits, or accepts a narrowly bounded emergency agreement, actually earning the Cross Isolation Protocol."
           },
           {
             "value": "resolvedWithoutAsset",
@@ -1024,7 +1096,13 @@
       "playerText": {
         "summary": "The distributed readiness review was completed."
       }
-    }
+    },
+    { "id": "event.open-orders3.memorial-redesigned", "playerVisibility": "hidden" },
+    { "id": "event.open-orders3.crew-remembrance-held", "playerVisibility": "hidden" },
+    { "id": "event.open-orders3.calibration-beacon-recovered", "playerVisibility": "hidden" },
+    { "id": "event.open-orders3.relay-clean-room-established", "playerVisibility": "hidden" },
+    { "id": "event.open-orders3.imani-independent-consent-recorded", "playerVisibility": "hidden" },
+    { "id": "event.open-orders3.bounded-emergency-consent-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {

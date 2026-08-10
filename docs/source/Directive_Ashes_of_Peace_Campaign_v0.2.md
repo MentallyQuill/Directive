@@ -3237,6 +3237,8 @@ No organizer is secretly manipulating the event. The disagreement concerns genui
 
 Whitaker is uncomfortable with refusing the honor and equally uncomfortable with accepting the original script.
 
+Ceremony organizer **Alia Mbeki** wants the original Breckenridge's service remembered, but does not want command to own the Reach's grief. Survivor **Corin Hale** objects to the original heroic script; he will support a shared redesign or the ship's presence without command speeches, and he respects a separate crew remembrance even when it earns no public goodwill. They represent distinct positions, not a unanimous survivor bloc.
+
 #### Command problem
 
 The player may:
@@ -3265,6 +3267,8 @@ Inspiration may be earned by creating shared ownership of the ceremony. Resolve 
 
 **Breckenridge Memorial Goodwill:** Civilian leaders and ordinary residents are more willing to trust the ship's public warnings during Nightfall.
 
+The goodwill requires credible shared ownership of the public remembrance. Mere attendance, a polished command speech, or changing a plaque without survivor participation may resolve the immediate dispute but does not earn the asset.
+
 Whitaker's rapport may increase if the player helps define what the ship's name should mean without speaking for her.
 
 ---
@@ -3290,6 +3294,8 @@ The Breckenridge must:
 - Maintain exact formation while Rowan measures phase distortion.
 - Coordinate with a distant research station through Priya.
 - Avoid allowing Pale Lantern contamination into the test network.
+
+The three beacons cross a shallow subspace eddy, and one calibration path may be contaminated. The crew can recover a drifting beacon before committing to a schedule or exclude the suspect path and reconstruct it in a clean-room process from the other authenticated records. Priya's undeliverable personal messages give the experiment emotional weight; they do not turn a successful test into contact with their intended recipients.
 
 #### Calm emphasis
 
@@ -3345,6 +3351,8 @@ The decision belongs to Imani. The player controls:
 - Whether the issue is kept private or becomes part of a broader rights challenge.
 
 The player should not "solve" Imani's identity for her.
+
+Any usable agreement records duty time, access to independent counsel, privacy, emergency-use duration and revocation, and whether both Cross signatures are independently necessary. The full protocol can follow Imani's documented independent consent. A narrowly bounded emergency agreement can also support it when Imani herself accepts defined access, duration, revocation, and post-use review. Urgency or command declaration cannot substitute for either path.
 
 #### Complications
 

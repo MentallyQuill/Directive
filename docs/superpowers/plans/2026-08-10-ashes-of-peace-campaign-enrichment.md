@@ -667,23 +667,23 @@ git commit -m "feat: deepen Annex Six settlement"
 - Produces: scene-complete memorial, relay, and legal-identity assignments while preserving three awards and four Chapter 8 capabilities.
 - Consumes: prior command outcomes as tone and access, never as predetermined success.
 
-- [ ] **Step 1: Add failing preparation scenarios**
+- [x] **Step 1: Add failing preparation scenarios**
 
 Add `survivors-redesign-memorial`, `crew-only-remembrance`, `beacon-recovery-before-schedule`, `relay-clean-room-after-contamination`, `imani-independent-signature`, and `emergency-use-with-bounded-consent`.
 
-- [ ] **Step 2: Expand The Name on the Hull**
+- [x] **Step 2: Expand The Name on the Hull**
 
 Give ceremony organizer Alia Mbeki and Reach survivor Corin Hale distinct positions. Support the original ceremony, shared redesign, ship presence without command speeches, separate crew remembrance, or refusal. Memorial Goodwill requires credible shared ownership, not mere attendance.
 
-- [ ] **Step 3: Expand A Signal Toward Home**
+- [x] **Step 3: Expand A Signal Toward Home**
 
 Keep the experiment hopeful and explicitly short of Pathfinder's decisive Voyager contact. Use three calibration beacons, a subspace eddy, a possible contaminated path, and Priya's undeliverable personal messages. The relay window requires disciplined collaboration rather than a dramatic breakthrough.
 
-- [ ] **Step 4: Expand Two Signatures**
+- [x] **Step 4: Expand Two Signatures**
 
 Keep the decision with Imani. Record duty time, independent counsel, emergency-use terms, privacy, and whether both Cross signatures are treated as independently necessary. The Cross Isolation Protocol requires documented independent consent or a narrowly bounded emergency agreement, never the player's declaration about Imani's identity.
 
-- [ ] **Step 5: Verify and commit Open Orders III**
+- [x] **Step 5: Verify and commit Open Orders III**
 
 Run:
 

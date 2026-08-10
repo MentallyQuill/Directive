@@ -573,32 +573,36 @@ flowchart TD
     A[Three final preparation assignments] --> B[The Name on the Hull]
     A --> C[A Signal Toward Home]
     A --> D[Two Signatures]
-    B --> E[Memory and ship-identity disposition]
-    C --> F[Long-range relay disposition]
-    D --> G[Imani agency and legal-precedent disposition]
-    E --> H{Workload conclusion}
-    F --> H
-    G --> H
-    H --> I[Distributed readiness report]
-    I -->|Two resolved| J[Normal preparation]
-    I -->|All with delegation| K[Broad preparation]
-    I -->|Direct overextension| L[Preparation cost]
-    I -->|Leave early| M[Unfinished preparation]
-    J --> N[Last Directive]
-    K --> N
-    L --> N
-    M --> N
+    B --> E{Mbeki and Hale ownership}
+    E -->|Shared redesign| F[Memorial goodwill possible]
+    E -->|Crew-only or limited public role| G[Responsible remembrance without asset]
+    C --> H{Three-beacon calibration}
+    H -->|Recover beacon| I[Authenticate timing]
+    H -->|Contaminated path| J[Clean-room reconstruction]
+    I --> K[Modest relay-window disposition]
+    J --> K
+    D --> L{Imani chooses after counsel}
+    L -->|Independent signature| M[Documented protocol]
+    L -->|Bounded emergency consent| M
+    L -->|Refusal or alternative| N[No protocol asset]
+    F --> O{Workload conclusion}
+    G --> O
+    K --> O
+    M --> O
+    N --> O
+    O --> P[Distributed readiness report]
+    P --> Q[Last Directive]
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-This is the most thoroughly scenario-tested Open Orders interval. Its three assignments are thematically distinct and the readiness report creates a strong convergence gate. The people outside the senior crew remain comparatively thin.
+Six scene-completion scenarios bring the campaign suite to 282 authored scenarios while preserving the interval's three awards, four Chapter 8 entry capabilities, workload conclusions, and readiness gate. Each assignment now has a human or operational complication before its result can be credibly depicted.
 
-#### Enrichment direction
+#### Enrichment delivered
 
-- Establish memorial representatives, relay collaborators, and legal advocates as recurring people.
-- Let prior command patterns affect how partners approach the player without predetermining results.
-- Use the interval to close or deliberately carry unresolved crew threads before the finale.
+- Alia Mbeki and Corin Hale support several legitimate memorial outcomes; goodwill requires shared ownership rather than attendance.
+- The relay uses three beacons, a subspace eddy, recoverable timing evidence, and a clean-room route after contamination, while remaining well short of Voyager contact or Pathfinder's breakthrough.
+- Imani retains the decision after independent counsel, with privacy, duty-time, two-signature, and bounded-emergency terms explicitly recorded.
 
 ### Chapter 8: The Last Directive
 

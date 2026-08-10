@@ -43,6 +43,31 @@
     "conclude-broad": [{ "claimId": "claim.open-orders3.conclude-broad", "policyId": "policy.open-orders3.conclude-broad-coverage", "claimType": "decisionRecorded", "targetId": "outcome.open-orders3.conclusion", "value": "broadCoverage", "sourceRole": "user" }],
     "conclude-overextended": [{ "claimId": "claim.open-orders3.conclude-overextended", "policyId": "policy.open-orders3.conclude-overextended", "claimType": "decisionRecorded", "targetId": "outcome.open-orders3.conclusion", "value": "overextended", "sourceRole": "user" }],
     "depart-early": [{ "claimId": "claim.open-orders3.depart-early", "policyId": "policy.open-orders3.depart-early", "claimType": "decisionRecorded", "targetId": "outcome.open-orders3.conclusion", "value": "departEarly", "sourceRole": "user" }]
+    ,
+    "memorial-redesigned": [
+      { "claimId": "claim.open-orders3.memorial-redesigned", "policyId": "policy.open-orders3.memorial-redesigned", "claimType": "eventOccurred", "targetId": "event.open-orders3.memorial-redesigned", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.memorial-positions-redesign", "policyId": "policy.open-orders3.memorial-positions", "claimType": "factDisclosed", "targetId": "fact.open-orders3.memorial-positions", "sourceRole": "assistant" }
+    ],
+    "crew-remembrance": [
+      { "claimId": "claim.open-orders3.crew-remembrance", "policyId": "policy.open-orders3.crew-remembrance", "claimType": "eventOccurred", "targetId": "event.open-orders3.crew-remembrance-held", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.memorial-positions-crew", "policyId": "policy.open-orders3.memorial-positions", "claimType": "factDisclosed", "targetId": "fact.open-orders3.memorial-positions", "sourceRole": "assistant" }
+    ],
+    "beacon-recovered": [
+      { "claimId": "claim.open-orders3.beacon-recovered", "policyId": "policy.open-orders3.beacon-recovered", "claimType": "eventOccurred", "targetId": "event.open-orders3.calibration-beacon-recovered", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.relay-constraints-beacon", "policyId": "policy.open-orders3.relay-constraints", "claimType": "factDisclosed", "targetId": "fact.open-orders3.relay-constraints", "sourceRole": "assistant" }
+    ],
+    "relay-clean-room": [
+      { "claimId": "claim.open-orders3.relay-clean-room", "policyId": "policy.open-orders3.relay-clean-room", "claimType": "eventOccurred", "targetId": "event.open-orders3.relay-clean-room-established", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.relay-constraints-clean-room", "policyId": "policy.open-orders3.relay-constraints", "claimType": "factDisclosed", "targetId": "fact.open-orders3.relay-constraints", "sourceRole": "assistant" }
+    ],
+    "imani-independent-consent": [
+      { "claimId": "claim.open-orders3.imani-independent-consent", "policyId": "policy.open-orders3.imani-independent-consent", "claimType": "eventOccurred", "targetId": "event.open-orders3.imani-independent-consent-recorded", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.imani-terms-independent", "policyId": "policy.open-orders3.imani-consent-terms", "claimType": "factDisclosed", "targetId": "fact.open-orders3.imani-consent-terms", "sourceRole": "assistant" }
+    ],
+    "bounded-emergency-consent": [
+      { "claimId": "claim.open-orders3.bounded-emergency-consent", "policyId": "policy.open-orders3.bounded-emergency-consent", "claimType": "eventOccurred", "targetId": "event.open-orders3.bounded-emergency-consent-recorded", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders3.imani-terms-emergency", "policyId": "policy.open-orders3.imani-consent-terms", "claimType": "factDisclosed", "targetId": "fact.open-orders3.imani-consent-terms", "sourceRole": "assistant" }
+    ]
   },
   "scenarios": [
     {
@@ -139,6 +164,36 @@
       "id": "assistant-cannot-set-engagement",
       "steps": [{ "claimId": "claim.open-orders3.assistant-engagement", "policyId": "policy.open-orders3.name-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders3.name-engagement", "value": "direct", "sourceRole": "assistant" }],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "survivors-redesign-memorial",
+      "sequence": ["name-direct", "memorial-redesigned", "name-assessment", "name-asset"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.memorial-redesigned"], "transitionTargetId": null }
+    },
+    {
+      "id": "crew-only-remembrance",
+      "sequence": ["name-direct", "crew-remembrance", "name-assessment", "name-limited"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.crew-remembrance-held"], "transitionTargetId": null }
+    },
+    {
+      "id": "beacon-recovery-before-schedule",
+      "sequence": ["signal-direct", "beacon-recovered", "signal-assessment", "signal-asset"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.calibration-beacon-recovered"], "transitionTargetId": null }
+    },
+    {
+      "id": "relay-clean-room-after-contamination",
+      "sequence": ["signal-delegated", "relay-clean-room", "signal-assessment", "signal-asset"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.relay-clean-room-established"], "transitionTargetId": null }
+    },
+    {
+      "id": "imani-independent-signature",
+      "sequence": ["signatures-direct", "imani-independent-consent", "signatures-assessment", "signatures-asset"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.imani-independent-consent-recorded"], "transitionTargetId": null }
+    },
+    {
+      "id": "emergency-use-with-bounded-consent",
+      "sequence": ["signatures-delegated", "bounded-emergency-consent", "signatures-assessment", "signatures-asset"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [], "eventsInclude": ["event.open-orders3.bounded-emergency-consent-recorded"], "transitionTargetId": null }
     },
     {
       "id": "user-cannot-self-certify-result",
