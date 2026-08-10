@@ -1,6 +1,6 @@
 # Ashes V1 Chapter 6 Readiness
 
-Status: **non-UI Chapter 6 authority ready; narrator cutover, visible presentation, open-world scheduling, Chapter 7 migration, legacy-writer retirement, and live certification remain incomplete**
+Status: **non-UI Chapter 6 authority ready; Chapter 7 successor is now V1-native; narrator cutover, visible presentation, open-world scheduling, legacy-writer retirement, and live certification remain incomplete**
 
 Date: 2026-08-09
 
@@ -71,7 +71,7 @@ The registry now loads Prelude, Empty Convoy, False Colors, Open Orders I, Dead 
 
 Mutating Open Orders II evidence before activation repairs the interval in place. Mutating it after activation prunes Chapter 6 and returns to repaired Open Orders II. Mutating terminal Chapter 6 evidence reopens Chapter 6 without calling a provider. Source contribution IDs remain unique across all nine entries.
 
-Terminal Chapter 6 targets the existing package quest `chapter-7-a-peace-of-their-own`. Until Chapter 7 receives an exact V1 definition, the receipt remains durably pending rather than activating legacy content or skipping story structure.
+Terminal Chapter 6 now activates the exact V1 definition for the existing package quest `chapter-7-a-peace-of-their-own`. The successor's independent readiness boundary is recorded in [Ashes V1 Chapter 7 Readiness](ASHES_V1_CHAPTER_7_READINESS.md).
 
 ## Adversarial Findings
 
@@ -105,7 +105,7 @@ The inventory consists of 254 explicit checks and 41 package-derived checks: the
 - No transition narration is posted or consumed.
 - No player-facing UI changed.
 - The current V1 journey is linear and does not yet implement package-level sibling scheduling.
-- Chapter 7 has no V1 definition and remains pending.
+- Chapter 7 is separately V1-native; Open Orders III is the next definition that remains pending.
 - Legacy writers remain compatibility/source surfaces until explicit cutover; the premature Old Lessons reaction remains a known hazard outside isolated V1 authority.
 - No Command Bearing award or spend is derived from Chapter 6.
 - The Farwatch Evidence Package is durable mission authority through the evidence dimension; no additional visible asset row was added.

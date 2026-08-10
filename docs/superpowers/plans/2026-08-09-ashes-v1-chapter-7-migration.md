@@ -152,8 +152,8 @@ An incidental protest rumor, one forged alert, a light-support fault, a weapons-
 
 ### Task 5: Adversarial review and certification
 
-- [ ] Challenge Compact-as-rebels framing, Starfleet-as-default framing, Kessler/Holt flattening, Mercer caricature, proposal-as-success, charter railroading, interface single points of failure, pre-knowledge blame, clock per-turn drift, deadline auto-failure, post-expiry dead ends, report spam, persistent-consequence bloat, terminal priority, package drift, and live semantic uncertainty.
-- [ ] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
+- [x] Challenge Compact-as-rebels framing, Starfleet-as-default framing, Kessler/Holt flattening, Mercer caricature, proposal-as-success, charter railroading, interface single points of failure, pre-knowledge blame, clock per-turn drift, deadline auto-failure, post-expiry dead ends, report spam, persistent-consequence bloat, terminal priority, package drift, and live semantic uncertainty.
+- [x] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index and Ashes migration plan.
 
 ## Explicit Non-Goals and Stop Boundary
 
