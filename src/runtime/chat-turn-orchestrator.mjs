@@ -50,6 +50,7 @@ import { terminalDecisionLedgerView } from './terminal-decision-ledger-view.mjs'
 import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 import { withoutProvisionalDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 import { commitV1AcceptedPairTimeAdvance } from './v1-accepted-pair-time.mjs';
+import { allowsLegacySemanticWriters } from './v1-semantic-authority.mjs';
 
 const CHAT_TURN_ORCHESTRATOR_DEBUG_REVISION = 'chat-turn-orchestrator-hotpath-core-begin-timeout-2026-07-04';
 
@@ -1947,6 +1948,11 @@ export function createChatTurnOrchestrator({
     }
   }
 
+  function legacySemanticWritersAllowed(state = null) {
+    const candidateState = state || getCampaignState?.() || {};
+    return allowsLegacySemanticWriters(acceptedPairSemanticAuthority(candidateState));
+  }
+
   async function prepareV1AcceptedPair(
     state,
     message,
@@ -2294,6 +2300,16 @@ export function createChatTurnOrchestrator({
 
   function scheduleTurnSidecars(decision, turnContext = {}, activityReporter = null) {
     if (!sidecarScheduler?.schedule) return null;
+    if (!legacySemanticWritersAllowed()) {
+      reportActivity(activityReporter, {
+        phase: 'legacySemanticSidecarsSkipped',
+        mode: 'diagnostic',
+        ingressId: turnContext?.ingressId || null,
+        classification: decision?.classification || turnContext?.classification || null,
+        reason: 'v1-story-settlement-authoritative'
+      });
+      return null;
+    }
     return sidecarScheduler.schedule({
       workerPlan: decision?.workerPlan || {},
       turnContext,
@@ -2749,6 +2765,7 @@ export function createChatTurnOrchestrator({
   }
 
   async function scheduleScenePhaseSealForCommittedTurn(input = {}, activityReporter = null) {
+    if (!legacySemanticWritersAllowed(input.state)) return null;
     if (typeof forgeCoordinator?.settleScenePhaseSeal !== 'function') return null;
     const payload = await scenePhaseSealPayloadForCommittedTurn(input);
     if (!payload) return null;
@@ -2817,6 +2834,7 @@ export function createChatTurnOrchestrator({
   }
 
   async function schedulePressureArcDigestForCommittedTurn(input = {}, activityReporter = null) {
+    if (!legacySemanticWritersAllowed(input.state)) return null;
     if (typeof forgeCoordinator?.settlePressureArcDigest !== 'function') return null;
     const payload = await pressureArcDigestPayloadForCommittedTurn(input);
     if (!payload) return null;
@@ -2881,6 +2899,7 @@ export function createChatTurnOrchestrator({
   }
 
   async function scheduleOpenWorldBoundaryForCommittedTurn(input = {}, activityReporter = null) {
+    if (!legacySemanticWritersAllowed(input.state)) return null;
     if (typeof forgeCoordinator?.settleOpenWorldBoundary !== 'function') return null;
     reportActivity(activityReporter, {
       phase: 'openWorldBoundaryPreparing',
@@ -5344,7 +5363,7 @@ export function createChatTurnOrchestrator({
       sourceFrameId: advisorySourceFrameId || null,
       advisoryId: advisory.id
     }, activityReporter);
-    const advisoryEnrichment = typeof scheduleAdvisoryEnrichmentProcessor === 'function'
+    const advisoryEnrichment = legacySemanticWritersAllowed(next) && typeof scheduleAdvisoryEnrichmentProcessor === 'function'
       ? scheduleAdvisoryEnrichmentProcessor({
           ingressId,
           advisoryId: advisory.id,
@@ -5742,7 +5761,8 @@ export function createChatTurnOrchestrator({
       assistantMessageId: dispatched.result.response?.hostMessageId || null,
       assistantText: text
     });
-    if (typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
+    const legacyPostCommitWriters = legacySemanticWritersAllowed(next);
+    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
       try {
         reportActivity(activityReporter, {
           phase: 'postCommitConversation',
@@ -5866,7 +5886,7 @@ export function createChatTurnOrchestrator({
           reason: 'postVisibleResponse'
         })
       : null;
-    if (typeof schedulePostCommitConversationProcessor === 'function') {
+    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor === 'function') {
       reportActivity(activityReporter, {
         phase: 'postCommitConversation',
         mode: 'background',
@@ -6330,7 +6350,8 @@ export function createChatTurnOrchestrator({
       assistantText: text,
       sourceIngress: await findIngressFresh(state, interaction.ingressId)
     });
-    if (typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
+    const legacyPostCommitWriters = legacySemanticWritersAllowed(state);
+    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor !== 'function' && typeof postCommitConversationProcessor === 'function') {
       try {
         reportActivity(activityReporter, {
           phase: 'postCommitConversation',
@@ -6359,7 +6380,7 @@ export function createChatTurnOrchestrator({
         });
       }
     }
-    if (typeof schedulePostCommitConversationProcessor === 'function') {
+    if (legacyPostCommitWriters && typeof schedulePostCommitConversationProcessor === 'function') {
       reportActivity(activityReporter, {
         phase: 'postCommitConversation',
         mode: 'background',

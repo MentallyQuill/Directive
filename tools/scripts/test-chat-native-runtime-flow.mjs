@@ -35,6 +35,7 @@ import { loadV2MaterializedHead } from '../../src/storage/transaction-store-v2.m
 const root = process.cwd();
 const readJson = (filePath) => JSON.parse(fs.readFileSync(path.resolve(root, filePath), 'utf8'));
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+packageData.manifest.architecture = 'directive.openWorldCampaign.v2.sceneReconciliation';
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const graphPaths = [
@@ -596,6 +597,8 @@ assert.equal(typeof heldCampaignIntroResolve, 'function');
 heldCampaignIntroResolve();
 view = await initialActivationPromise;
 assert.equal(view.campaignState.campaign.status, 'active');
+assert.equal(view.campaignState.campaign.runtimeArchitecture, undefined,
+  'This broad regression fixture intentionally exercises the unstamped legacy runtime.');
 assert.equal(view.chatNative.activation.status, 'complete');
 assert.equal(view.chatNative.openingScene.ready, true);
 assert.equal(view.chatNative.openingScene.blocked, false);

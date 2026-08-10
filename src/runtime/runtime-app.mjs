@@ -7357,6 +7357,15 @@ export function createDirectiveRuntimeApp({
     return v1MissionShadowRuntime;
   }
 
+  function resolveRuntimeSemanticAuthority(state = campaignState) {
+    const runtimeAssets = activeRuntimeAssets();
+    return resolveV1SemanticAuthorityContract({
+      campaignState: state,
+      runtimeAssets,
+      definitionResolution: ensureV1MissionShadowRuntime().resolveActiveDefinition(runtimeAssets)
+    });
+  }
+
   function ensureChatNativeServices() {
     if (chatNativeServices) return chatNativeServices;
     if (
@@ -10821,11 +10830,13 @@ export function createDirectiveRuntimeApp({
               arbiterPlan: cloneJson(arbiterPlan)
             }
           : pendingDirectorTurn;
+        const semanticAuthority = resolveRuntimeSemanticAuthority(baseCampaignState);
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState: baseCampaignState,
           turnPacket: turnPacketForCommit,
           spendTrack,
           readiedCommandBearing,
+          semanticAuthorityMode: semanticAuthority.mode,
           confirmWarnings,
           confirmedWarningIds
         });
@@ -10894,7 +10905,7 @@ export function createDirectiveRuntimeApp({
         } else {
           committedCandidateState = await ensureDirectRuntimeCoreIngress({
             state: committedCandidateState,
-            turnPacket: result.turnPacket,
+            turnPacket: result.mechanicsTurnPacket || result.turnPacket,
             playerInput: pendingDirectorTurn?.sceneSnapshot?.playerInput,
             observedAt: timestampFromNow(now)
           });
@@ -10943,10 +10954,12 @@ export function createDirectiveRuntimeApp({
         }
         campaignState = mechanicsCheckpoint.campaignState;
         lastMechanicsCheckpointState = cloneJson(mechanicsCheckpoint.campaignState);
-        const terminalDecision = await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
-          turnPacket: result.turnPacket,
-          ingressId: campaignState.runtimeTracking?.activeIngressId || null
-        });
+        const terminalDecision = semanticAuthority.mode === 'legacy'
+          ? await ensureChatNativeServices()?.endConditionService?.evaluateCommittedTurn?.({
+              turnPacket: result.turnPacket,
+              ingressId: campaignState.runtimeTracking?.activeIngressId || null
+            })
+          : null;
         if (terminalDecision?.campaignState) campaignState = terminalDecision.campaignState;
         campaignState = restoreCommittedOutcomeState(
           campaignState,
@@ -10979,6 +10992,7 @@ export function createDirectiveRuntimeApp({
           commandLogPacket: cloneJson(result.commandLogPacket),
           commandLogSummaryResult: cloneJson(commandLogSummaryResult),
           mechanicsCheckpoint: cloneJson(mechanicsCheckpoint),
+          semanticAuthority: cloneJson(semanticAuthority),
           terminalDecision: cloneJson(terminalDecision || null),
           narrationResult: cloneJson(narrationResult),
           autosave: cloneJson(narrationResult?.autosave || null),

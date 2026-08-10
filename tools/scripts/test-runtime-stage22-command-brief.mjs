@@ -108,6 +108,7 @@ function assertHiddenTermsAbsent(text) {
 const competenceFixture = readJson('tests/fixtures/competence/chapter-1-opening.competence.fixture.json');
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+packageData.manifest.architecture = 'directive.openWorldCampaign.v2.sceneReconciliation';
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const graph = readJson('packages/bundled/breckenridge/prelude-a-ship-underway.mission-graph.json');
 graph.competencePolicy = cloneJson(competenceFixture.policy);

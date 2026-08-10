@@ -1,4 +1,8 @@
-import { commitDirectorTurn } from '../campaign/transaction-state.mjs';
+import {
+  commitDirectorTurn,
+  commitV1DirectorCustodyTurn,
+  createV1DirectorCustodyTurnPacket
+} from '../campaign/transaction-state.mjs';
 import { appendReviewedStoryEvents } from '../story/story-ledger.mjs';
 import {
   COMMAND_BEARING_OUTCOME_LADDER,
@@ -403,6 +407,7 @@ export function commitProvisionalDirectorTurnRuntime({
   turnPacket,
   spendTrack = null,
   readiedCommandBearing = null,
+  semanticAuthorityMode = 'legacy',
   confirmWarnings = false,
   confirmedWarningIds = []
 }) {
@@ -416,6 +421,12 @@ export function commitProvisionalDirectorTurnRuntime({
     : attachProvisionalOutcomeFields(campaignState, turnPacket);
   let finalTurnPacket = spendCandidatePacket;
   const spendRequest = readiedCommandBearing || null;
+  const v1CustodyOnly = semanticAuthorityMode === 'authoritative' || semanticAuthorityMode === 'blocked';
+  if (v1CustodyOnly && spendRequest) {
+    const error = new Error('Legacy tracked Command Bearing spends are unavailable for V1 Story Settlement saves.');
+    error.code = 'DIRECTIVE_V1_LEGACY_COMMAND_BEARING_SPEND_DISABLED';
+    throw error;
+  }
   if (spendRequest) {
     const track = normalizeTrack(spendRequest.track);
     if (!track) {
@@ -487,19 +498,28 @@ export function commitProvisionalDirectorTurnRuntime({
     confirmedWarningIds
   });
 
-  const nextCampaignState = commitDirectorTurn(campaignState, finalTurnPacket, {
-    confirmedWarningIds: confirmedWarnings
-  });
+  const mechanicsTurnPacket = v1CustodyOnly
+    ? createV1DirectorCustodyTurnPacket(finalTurnPacket)
+    : finalTurnPacket;
+  const nextCampaignState = v1CustodyOnly
+    ? commitV1DirectorCustodyTurn(campaignState, mechanicsTurnPacket)
+    : commitDirectorTurn(campaignState, finalTurnPacket, {
+        confirmedWarningIds: confirmedWarnings
+      });
   const committed = spendRequest
     ? applyBearingSpendToCommittedState(nextCampaignState, finalTurnPacket, {
       ...spendRequest,
       track: normalizeTrack(spendRequest.track)
     })
     : { campaignState: nextCampaignState, spendRecord: null };
-  const campaignStateWithStory = applyReviewedStoryDelta(committed.campaignState, finalTurnPacket);
+  const campaignStateWithStory = v1CustodyOnly
+    ? committed.campaignState
+    : applyReviewedStoryDelta(committed.campaignState, finalTurnPacket);
   return {
     kind: 'directive.runtimeCommittedDirectorTurn',
     turnPacket: finalTurnPacket,
+    mechanicsTurnPacket,
+    semanticAuthorityMode,
     campaignState: campaignStateWithStory,
     commandBearingSpend: cloneJson(committed.spendRecord),
     competencePacket: cloneJson(finalTurnPacket.competencePacket || null),

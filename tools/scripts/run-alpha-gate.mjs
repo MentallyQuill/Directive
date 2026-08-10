@@ -114,6 +114,7 @@ const checks = [
   'test-v1-mission-transition-narration.mjs',
   'test-v1-mission-journey-rebuild.mjs',
   'test-v1-semantic-authority-cutover.mjs',
+  'test-v1-semantic-writer-gates.mjs',
   'test-v1-accepted-pair-orchestrator.mjs',
   'test-v1-source-mutation-runtime.mjs',
   'test-ashes-v1-migration-inventory.mjs',

@@ -45,6 +45,7 @@ function createSequence(values) {
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+packageData.manifest.architecture = 'directive.openWorldCampaign.v2.sceneReconciliation';
 const projection = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json');
 const crewDataset = readJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json');
 const shipDataset = readJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json');

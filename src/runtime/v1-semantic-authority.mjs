@@ -98,5 +98,8 @@ export function resolveV1SemanticAuthority({
 }
 
 export function allowsLegacySemanticWriters(input = {}) {
+  if (isObject(input) && Object.prototype.hasOwnProperty.call(input, 'mode')) {
+    return input.mode === 'legacy';
+  }
   return resolveV1SemanticAuthority(input).mode === 'legacy';
 }

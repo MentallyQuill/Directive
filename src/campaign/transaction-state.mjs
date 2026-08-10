@@ -643,6 +643,70 @@ function appendLedgerEntry(state, turnPacket) {
   state.turnLedger.swipeRerollForbidden = true;
 }
 
+export function createV1DirectorCustodyTurnPacket(turnPacket) {
+  if (!turnPacket || typeof turnPacket !== 'object' || Array.isArray(turnPacket)) {
+    throw new Error('turnPacket must be an object');
+  }
+  const next = cloneJson(turnPacket);
+  next.semanticAuthority = 'storySettlement';
+  next.semanticStateDeltaApplied = false;
+  next.stateDelta = {};
+  next.competencePacket = null;
+  if (next.outcomePacket && typeof next.outcomePacket === 'object') {
+    next.outcomePacket.commandDecisionAwards = [];
+  }
+  if (next.provisionalOutcome && typeof next.provisionalOutcome === 'object') {
+    next.provisionalOutcome.commandDecisionAwards = [];
+  }
+  if (next.finalOutcome && typeof next.finalOutcome === 'object') {
+    next.finalOutcome.commandDecisionAwards = [];
+  }
+  next.bearingSpend = null;
+  next.commandBearingAdjustment = null;
+  return next;
+}
+
+export function commitV1DirectorCustodyTurn(campaignState, custodyTurnPacket) {
+  const turnPacket = createV1DirectorCustodyTurnPacket(custodyTurnPacket);
+  const outcomeId = String(turnPacket.outcomePacket?.id || '').trim();
+  const turnId = String(turnPacket.turnId || turnPacket.id || '').trim();
+  if (!outcomeId) throw new Error('V1 Director custody turn requires outcomePacket.id');
+  if (!turnId) throw new Error('V1 Director custody turn requires turnId');
+  if (String(turnPacket.narratorPacket?.sourceOutcomeId || '').trim() !== outcomeId) {
+    throw new Error('V1 Director custody narrator packet must reference the committed outcome');
+  }
+  if (String(turnPacket.commandLogPacket?.sourceOutcomeId || '').trim() !== outcomeId) {
+    throw new Error('V1 Director custody Command Log packet must reference the committed outcome');
+  }
+
+  const nextState = cloneJson(campaignState);
+  appendCommandLog(nextState, turnPacket);
+  if (!nextState.turnLedger) {
+    nextState.turnLedger = { entries: [], swipeRerollForbidden: true };
+  }
+  const entries = ensureArrayOwner(nextState.turnLedger, 'entries');
+  entries.push({
+    turnId,
+    outcomeId,
+    resultBand: turnPacket.outcomePacket.resultBand,
+    semanticAuthority: 'storySettlement',
+    semanticStateDeltaApplied: false,
+    competencePacket: null,
+    continuityProjection: cloneJson(turnPacket.provenance?.continuityProjection || null),
+    narratorSourceOutcomeId: turnPacket.narratorPacket.sourceOutcomeId,
+    commandLogSourceOutcomeId: turnPacket.commandLogPacket.sourceOutcomeId,
+    snapshotBeforeRetained: false,
+    narrationStatus: 'pending',
+    narration: null,
+    narrationFailures: [],
+    narrationRevisions: []
+  });
+  nextState.turnLedger.lastCommittedOutcomeId = outcomeId;
+  nextState.turnLedger.swipeRerollForbidden = true;
+  pruneTurnLedgerSnapshots(nextState);
+  return nextState;
+}
+
 export function commitDirectorTurn(campaignState, turnPacket, { confirmedWarningIds = [] } = {}) {
   let nextState = cloneJson(campaignState);
 
