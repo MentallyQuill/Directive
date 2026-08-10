@@ -234,7 +234,15 @@ await app.openCampaignChat({ saveId: missionView.activeSaveId });
 assert.equal(chat.getCurrentChatId(), boundCampaignChatId);
 const installedPrompt = host.prompt.inspect().blocks[0]?.text || '';
 assert.match(installedPrompt, /"simulationMode": "Command"/);
-assert.match(installedPrompt, /Command mode: preserve full causal consequence severity/);
+assert.match(installedPrompt, /COMMAND MODE - FULL SIMULATION/);
+assert.match(installedPrompt, /There is no protagonist protection/);
+assert.match(installedPrompt, /do not default to the safest credible outcome/);
+assert.match(installedPrompt, /miraculous rescue or last-second intervention/);
+assert.match(installedPrompt, /supersedes any general instruction to keep uncommitted consequences local, reversible, or nonfatal/);
+assert.match(installedPrompt, /Story Settlement remains the only durable semantic authority/);
+assert.match(installedPrompt, /Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy/);
+assert.doesNotMatch(installedPrompt, /trackers, or consequences/);
+assert.doesNotMatch(installedPrompt, /Directive Command Causality|active Directive preset|required Directive preset/);
 
 const activeSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
 const creditedSave = await host.storage.readJson(activeSavePath);

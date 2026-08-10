@@ -27,6 +27,7 @@
 - Modify: `tools/scripts/run-alpha-gate.mjs`
 - Modify: `tools/scripts/test-v1-runtime-app.mjs`
 - Modify: `src/simulation/simulation-mode-policy.mjs`
+- Modify: `src/runtime/runtime-app.mjs`
 
 **Interfaces:**
 - Consumes: `createSimulationModePolicy(mode)` and `simulationModeDifficultyOption(mode)` from `src/simulation/simulation-mode-policy.mjs`.
@@ -84,6 +85,8 @@ assert.match(installedPrompt, /do not default to the safest credible outcome/);
 assert.match(installedPrompt, /miraculous rescue or last-second intervention/);
 assert.match(installedPrompt, /supersedes any general instruction to keep uncommitted consequences local, reversible, or nonfatal/);
 assert.match(installedPrompt, /Story Settlement remains the only durable semantic authority/);
+assert.match(installedPrompt, /Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy/);
+assert.doesNotMatch(installedPrompt, /trackers, or consequences/);
 assert.doesNotMatch(installedPrompt, /Directive Command Causality|active Directive preset|required Directive preset/);
 ```
 
@@ -132,6 +135,14 @@ This Exploration fatality ceiling supersedes any conflicting fatality policy in 
 
 Do not add new properties, exported functions, resolution bands, or randomness.
 
+In `src/runtime/runtime-app.mjs`, replace the generic sentence that forbids all invented consequences with:
+
+```js
+'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
+```
+
+This removes the internal contradiction without granting unsupported state changes.
+
 - [ ] **Step 4: Run focused policy and browser-import tests and verify GREEN**
 
 Run:
@@ -147,7 +158,7 @@ Expected: all three PASS with no import or assertion failures.
 - [ ] **Step 5: Commit the policy contract**
 
 ```powershell
-git add src/simulation/simulation-mode-policy.mjs tools/scripts/test-simulation-mode-policy.mjs tools/scripts/test-v1-runtime-app.mjs tools/scripts/run-alpha-gate.mjs
+git add src/simulation/simulation-mode-policy.mjs src/runtime/runtime-app.mjs tools/scripts/test-simulation-mode-policy.mjs tools/scripts/test-v1-runtime-app.mjs tools/scripts/run-alpha-gate.mjs
 git commit -m "feat(simulation): harden difficulty policy"
 ```
 
@@ -245,7 +256,7 @@ Expected: all four commands exit 0.
 npm.cmd test
 ```
 
-Expected: `passed 66 focused checks` after registering the new simulation policy test.
+Expected: `passed 73 focused checks` after registering the new simulation policy test.
 
 - [ ] **Step 3: Audit the final diff and forbidden scope**
 
@@ -281,4 +292,4 @@ npm.cmd test
 git push origin main
 ```
 
-Expected: merge succeeds without unrelated changes, the merged alpha gate reports 66 passing checks, and `origin/main` advances to the merge commit.
+Expected: merge succeeds without unrelated changes, the merged alpha gate reports 73 passing checks, and `origin/main` advances to the merge commit.
