@@ -3561,3 +3561,42 @@ textarea.directive-field-control {
   .directive-expanded-shell .people-detail-identity h2 { font-size: 22px; }
   .directive-expanded-shell .people-detail-block { margin-right: 12px; margin-left: 18px; }
 }
+
+/* Certified Ship hero and operational board. */
+.directive-expanded-shell .directive-expanded-ship {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(220px, 42%) minmax(0, 1fr);
+  gap: 11px;
+  min-height: 0;
+  margin: 11px 0;
+}
+.directive-expanded-shell .ship-hero { position: relative; width: 100%; height: 100%; min-height: 0; margin: 0; overflow: hidden; background: var(--directive-expanded-surface); border: 1px solid rgba(155, 130, 207, .42); border-radius: 6px; }
+.directive-expanded-shell .ship-hero > .directive-media-image { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 48%; }
+.directive-expanded-shell .ship-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 7, 11, .02) 15%, rgba(5, 7, 11, .92) 100%); pointer-events: none; }
+.directive-expanded-shell .ship-hero-identity { position: absolute; z-index: 1; inset: auto 0 0; padding: 19px 22px; }
+.directive-expanded-shell .ship-hero-identity span { color: var(--directive-expanded-violet); font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-hero-identity h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 29px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .ship-hero-identity p { margin: 6px 0 0; max-width: 780px; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
+
+.directive-expanded-shell .ship-board { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; padding-bottom: 2px; }
+.directive-expanded-shell .ship-operational-status,
+.directive-expanded-shell .ship-board-section { padding: 15px 18px; background: var(--directive-expanded-surface); border-left: 6px solid var(--directive-expanded-violet); border-radius: 6px; }
+.directive-expanded-shell .ship-operational-status > span { color: var(--directive-expanded-violet); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-operational-status h3 { margin: 3px 0 0; color: var(--directive-expanded-text); font: 800 22px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: capitalize; }
+.directive-expanded-shell .ship-operational-status p { margin: 7px 0 0; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.45; }
+.directive-expanded-shell .ship-board-section h3 { margin: 0; color: var(--directive-expanded-violet); font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-record-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.directive-expanded-shell .ship-record { padding: 10px 11px; background: var(--directive-expanded-high); border-top: 3px solid rgba(155, 130, 207, .72); border-radius: 4px; }
+.directive-expanded-shell .ship-record strong { color: var(--directive-expanded-text); font-size: 12px; line-height: 1.3; }
+.directive-expanded-shell .ship-record p { margin: 4px 0 0; color: var(--directive-expanded-muted); font-size: 10px; line-height: 1.4; }
+
+@media (max-width: 640px) {
+  .directive-expanded-shell .directive-expanded-ship { grid-template-rows: minmax(155px, 31%) minmax(0, 1fr); gap: 7px; margin: 7px 0; }
+  .directive-expanded-shell .ship-hero-identity { padding: 12px 14px; }
+  .directive-expanded-shell .ship-hero-identity h2 { font-size: 23px; }
+  .directive-expanded-shell .ship-hero-identity p { display: none; }
+  .directive-expanded-shell .ship-operational-status,
+  .directive-expanded-shell .ship-board-section { padding: 12px 13px; }
+  .directive-expanded-shell .ship-record-list { grid-template-columns: minmax(0, 1fr); }
+}

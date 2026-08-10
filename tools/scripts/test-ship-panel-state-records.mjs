@@ -111,8 +111,8 @@ assert.match(renderedText, /Certified for service while integrated validation co
 assert.match(renderedText, /Operational status/);
 assert.match(renderedText, /Material limitations/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
-assert.equal(elementsByClass(body, 'directive-v1-operational-status').length, 1);
-assert.equal(elementsByClass(body, 'directive-v1-material-limitations').length, 1);
+assert.equal(elementsByClass(body, 'ship-operational-status').length, 1);
+assert.equal(elementsByClass(body, 'ship-board-section').length, 1);
 
 delete globalThis.document;
 

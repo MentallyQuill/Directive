@@ -14,6 +14,7 @@ const checks = [
   "test-certified-people-panel.mjs",
   "test-responsive-record-list.mjs",
   "test-reorderable-collection.mjs",
+  "test-certified-ship-panel.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
   "test-bundled-package-registry.mjs",
