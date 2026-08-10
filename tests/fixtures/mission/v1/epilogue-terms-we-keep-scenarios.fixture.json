@@ -71,7 +71,7 @@
     {
       "id": "accountable-peace",
       "sequence": ["aftermath", "authority-position", "accountability-position", "settlement-accountable", "command-expanded"],
-      "expected": { "status": "terminal", "terminalDisposition": "accountablePeace", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "transitionTargetId": "ashes-authored-conclusion", "outcomeDimensions": { "dimension.epilogue.compact": "mutual-aid-body", "dimension.epilogue.defense": "joint-command", "dimension.epilogue.command": "broader-authority" } }
+      "expected": { "status": "terminal", "terminalDisposition": "accountablePeace", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.epilogue.aftermath": "completed", "objective.epilogue.authority": "completed", "objective.epilogue.accountability": "completed", "objective.epilogue.command": "completed" }, "transitionTargetId": "ashes-authored-conclusion", "outcomeDimensions": { "dimension.epilogue.compact": "mutual-aid-body", "dimension.epilogue.defense": "joint-command", "dimension.epilogue.command": "broader-authority" } }
     },
     {
       "id": "managed-settlement-nonlinear",
@@ -144,7 +144,7 @@
       "steps": [
         { "claimId": "claim.epilogue.wrong-swipe", "policyId": "policy.epilogue.aftermath-report", "claimType": "eventOccurred", "targetId": "event.epilogue.aftermath-report-complete", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.rejected" }
       ],
-      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-not-accepted"], "transitionTargetId": null }
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"], "transitionTargetId": null }
     },
     {
       "id": "hallucinated-policy-proposal",

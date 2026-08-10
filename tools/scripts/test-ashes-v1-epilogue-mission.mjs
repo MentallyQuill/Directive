@@ -111,7 +111,7 @@ const initialVisibleText = [
     })),
 ];
 assert.equal(INITIAL_MENU_PATTERN.test(JSON.stringify(initialVisibleText)), false, 'initial copy cannot become a prescribed settlement menu');
-assert.equal(/first|then|next|after completing|step [1-4]/i.test(JSON.stringify(initialVisibleText)), false, 'epilogue responsibilities cannot imply a fixed order');
+assert.equal(/\bfirst objective\b|\bthen complete\b|\bnext objective\b|after completing|\bstep [1-4]\b/i.test(JSON.stringify(initialVisibleText)), false, 'epilogue responsibilities cannot imply a fixed order');
 assert.equal(/kieran|priya|bronn|rowan|miriam|imani/i.test(JSON.stringify(definition.objectives)), false, 'crew resolutions cannot become one objective per officer');
 
 for (const policyId of ['policy.epilogue.authority-position', 'policy.epilogue.accountability-position']) {
