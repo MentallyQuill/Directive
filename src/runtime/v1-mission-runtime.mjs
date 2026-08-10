@@ -106,6 +106,9 @@ export function resolveActiveV1MissionDefinition({ campaignState = {}, runtimeAs
         if (matches.length === 0) return unavailable('definition-id-unavailable');
         if (matches.length > 1) return unavailable('definition-ambiguous');
         const definition = matches[0].definition;
+        if (compact(campaignState?.mission?.activeMissionId) !== compact(definition.packageBinding?.sourceId)) {
+            return unavailable('mission-locator-mismatch');
+        }
         const reasonCode = bindingReason(definition, packageId, packageVersion);
         if (reasonCode) return unavailable(reasonCode);
         const persistedBindingMatches = currentV1.definitionVersion === definition.version

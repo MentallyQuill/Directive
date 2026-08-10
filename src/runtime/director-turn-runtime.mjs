@@ -1,218 +1,122 @@
 import {
   commitV1DirectorCustodyTurn,
-  createV1DirectorCustodyTurnPacket
+  createV1DirectorCustodyTurnPacket,
 } from '../campaign/transaction-state.mjs';
-import { buildOpenWorldSceneSnapshot, createDirectorCoordinatorTurn, createDirectorCoordinatorTurnAsync } from '../directors/open-world-turn-coordinator.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
 function requireObject(value, label) {
-  if (!isObject(value)) {
-    throw new Error(`${label} must be an object`);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${label} must be an object`);
   }
 }
 
 function requireNonEmptyString(value, label) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
+  const text = String(value ?? '').trim();
+  if (!text) throw new TypeError(`${label} must be a non-empty string`);
+  return text;
 }
 
-function attachProvisionalOutcomeFields(turnPacket) {
-  const next = cloneJson(turnPacket);
-  const provisionalOutcome = cloneJson(next.outcomePacket);
-  next.provisionalOutcome = provisionalOutcome;
-  next.bearingEligibility = null;
-  next.warningConfirmation = null;
-  next.anchoredConsequences = cloneJson(provisionalOutcome.costs || []);
-  next.finalOutcome = null;
-  next.bearingSpend = null;
-  return next;
-}
-
-function finalizeTurnPacket(provisionalTurnPacket) {
-  const next = cloneJson(provisionalTurnPacket);
-  const provisionalOutcome = next.provisionalOutcome || cloneJson(next.outcomePacket);
-  next.provisionalOutcome = cloneJson(provisionalOutcome);
-  next.finalOutcome = cloneJson(next.outcomePacket);
-  next.bearingSpend = null;
-  next.commandBearingAdjustment = null;
-  return next;
-}
-
-function seniorCrewIds(campaignState) {
-  return (campaignState.crew?.seniorCrewIds || []).filter(Boolean);
-}
-
-function defaultPresentCharacters(campaignState, activePhaseId) {
-  const playerId = campaignState.player?.id || 'player-commander';
-  const captainId = campaignState.captainState?.crewId || 'mara-whitaker';
-  if ([
-    'senior-readiness-conference',
-    'fallback-command-drill',
-    'combined-load-test',
-    'final-command-review'
-  ].includes(activePhaseId)) {
-    return [...new Set([playerId, ...seniorCrewIds(campaignState), captainId])];
-  }
-  return [...new Set([playerId, captainId])];
+function presentCharacters(campaignState, overrides = {}) {
+  const explicit = Array.isArray(overrides.presentCharacters)
+    ? overrides.presentCharacters.filter(Boolean)
+    : [];
+  if (explicit.length > 0) return [...new Set(explicit)];
+  return [...new Set([
+    campaignState.player?.id || 'player-commander',
+    campaignState.captainState?.crewId,
+  ].filter(Boolean))];
 }
 
 export function buildSceneSnapshotFromCampaignState(campaignState, {
   playerInput,
   overrides = {},
-  packageData
 } = {}) {
   requireObject(campaignState, 'campaignState');
-  requireObject(packageData, 'packageData');
   const input = requireNonEmptyString(playerInput, 'playerInput');
-  return buildOpenWorldSceneSnapshot(campaignState, packageData, input, overrides);
+  return {
+    kind: 'directive.v1NarrationSceneSnapshot',
+    campaignId: requireNonEmptyString(campaignState.campaign?.id, 'campaignState.campaign.id'),
+    missionId: requireNonEmptyString(campaignState.mission?.activeMissionId, 'campaignState.mission.activeMissionId'),
+    locationId: String(overrides.locationId || campaignState.worldState?.currentLocationId || '').trim() || null,
+    stardate: overrides.stardate ?? campaignState.worldState?.currentStardate ?? null,
+    presentCharacters: presentCharacters(campaignState, overrides),
+    playerInput: input,
+  };
 }
 
-export function createProvisionalDirectorTurnRuntime({
+function createNarrationTurn({
   campaignState,
-  packageData,
-  graph = null,
-  projection,
-  crewDataset,
-  shipDataset = null,
-  graphPath,
-  projectionPath,
   turnId,
   playerInput,
   sceneSnapshotOverrides = {},
   arbiterPlan = null,
-  coreRecallEntries = []
-}) {
+} = {}) {
   requireObject(campaignState, 'campaignState');
-  requireObject(packageData, 'packageData');
-  requireObject(projection, 'projection');
-  requireObject(crewDataset, 'crewDataset');
   const id = requireNonEmptyString(turnId, 'turnId');
-  const coordinated = createDirectorCoordinatorTurn({
-    campaignState,
-    packageData,
-    graph,
-    projection,
-    crewDataset,
-    shipDataset,
-    graphPath,
-    projectionPath,
-    turnId: id,
+  const sceneSnapshot = buildSceneSnapshotFromCampaignState(campaignState, {
     playerInput,
-    sceneSnapshotOverrides,
-    arbiterPlan,
-    coreRecallEntries
+    overrides: sceneSnapshotOverrides,
   });
-  const turnPacket = coordinated.turnPacket;
-  const provisionalTurnPacket = attachProvisionalOutcomeFields(turnPacket);
   return {
-    kind: 'directive.runtimeProvisionalDirectorTurn',
-    coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
-    turnPacket: provisionalTurnPacket,
-    provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
-    competencePacket: null,
-    warningConfirmation: null,
-    commandBearingPrompt: null,
-    narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
-    commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
+    kind: 'directive.v1NarrationTurn',
+    turnId: id,
+    semanticAuthority: 'acceptedPairSettlement',
+    semanticStateDeltaApplied: false,
+    sceneSnapshot,
+    arbiterPlan: cloneJson(arbiterPlan),
+    narratorPacket: {
+      kind: 'directive.v1NarratorPacket',
+      sourceTurnId: id,
+      playerInput: sceneSnapshot.playerInput,
+      guidance: [
+        'Continue the current scene from the player input without declaring hidden facts or mission completion.',
+        'Narration is provisional until the player sends their next message and accepts this response.',
+        'Do not create trackers, rewards, relationship changes, ship issues, or mission state in prose metadata.',
+      ],
+      rawHiddenValuesExposed: false,
+      directorOnlyDataIncluded: false,
+    },
   };
 }
 
+export function createProvisionalDirectorTurnRuntime(options = {}) {
+  const turnPacket = createNarrationTurn(options);
+  return {
+    kind: 'directive.v1ProvisionalNarrationTurn',
+    turnPacket,
+    narratorPacket: cloneJson(turnPacket.narratorPacket),
+  };
+}
 
-export async function createProvisionalDirectorTurnRuntimeAsync({
-  campaignState,
-  packageData,
-  graph = null,
-  projection,
-  crewDataset,
-  shipDataset = null,
-  graphPath,
-  projectionPath,
-  turnId,
-  playerInput,
-  sceneSnapshotOverrides = {},
-  generationRouter = null,
-  arbiterPlan = null,
-  coreRecallEntries = [],
-  message = null,
-  recentTranscript = [],
-  sourceFrameRef = null
-}) {
+export async function createProvisionalDirectorTurnRuntimeAsync(options = {}) {
+  return createProvisionalDirectorTurnRuntime(options);
+}
+
+export function commitProvisionalDirectorTurnRuntime({ campaignState, turnPacket } = {}) {
   requireObject(campaignState, 'campaignState');
-  requireObject(packageData, 'packageData');
-  requireObject(projection, 'projection');
-  requireObject(crewDataset, 'crewDataset');
-  const id = requireNonEmptyString(turnId, 'turnId');
-  const coordinated = await createDirectorCoordinatorTurnAsync({
-    campaignState, packageData, graph, projection, crewDataset, shipDataset, graphPath, projectionPath,
-    turnId: id, playerInput, sceneSnapshotOverrides, generationRouter, arbiterPlan, coreRecallEntries,
-    message, recentTranscript, sourceFrameRef
-  });
-  const provisionalTurnPacket = attachProvisionalOutcomeFields(coordinated.turnPacket);
+  const custodyPacket = createV1DirectorCustodyTurnPacket(turnPacket);
   return {
-    kind: 'directive.runtimeProvisionalDirectorTurn',
-    coordinatorDiagnostics: cloneJson(coordinated.diagnostics),
-    turnPacket: provisionalTurnPacket,
-    provisionalOutcome: cloneJson(provisionalTurnPacket.provisionalOutcome),
-    competencePacket: null,
-    warningConfirmation: null,
-    commandBearingPrompt: null,
-    narratorPacket: cloneJson(provisionalTurnPacket.narratorPacket),
-    commandLogPacket: cloneJson(provisionalTurnPacket.commandLogPacket)
-  };
-}
-export function commitProvisionalDirectorTurnRuntime({
-  campaignState,
-  turnPacket,
-  spendTrack = null,
-  readiedCommandBearing = null
-}) {
-  requireObject(campaignState, 'campaignState');
-  requireObject(turnPacket, 'turnPacket');
-  if (spendTrack || readiedCommandBearing) {
-    const error = new Error('Command Bearing spending requires the V1 neutral-reserve mechanic.');
-    error.code = 'DIRECTIVE_V1_COMMAND_BEARING_UNAVAILABLE';
-    throw error;
-  }
-  const spendCandidatePacket = turnPacket.provisionalOutcome
-    ? cloneJson(turnPacket)
-    : attachProvisionalOutcomeFields(turnPacket);
-  const finalTurnPacket = finalizeTurnPacket(spendCandidatePacket);
-  const mechanicsTurnPacket = createV1DirectorCustodyTurnPacket(finalTurnPacket);
-  const nextCampaignState = commitV1DirectorCustodyTurn(campaignState, mechanicsTurnPacket);
-  return {
-    kind: 'directive.runtimeCommittedDirectorTurn',
-    turnPacket: finalTurnPacket,
-    mechanicsTurnPacket,
-    campaignState: nextCampaignState,
-    commandBearingSpend: null,
-    competencePacket: null,
-    warningConfirmation: null,
-    narratorPacket: cloneJson(finalTurnPacket.narratorPacket),
-    commandLogPacket: cloneJson(finalTurnPacket.commandLogPacket)
+    kind: 'directive.v1CommittedNarrationTurn',
+    turnPacket: custodyPacket,
+    mechanicsTurnPacket: custodyPacket,
+    campaignState: commitV1DirectorCustodyTurn(campaignState, custodyPacket),
+    narratorPacket: cloneJson(custodyPacket.narratorPacket),
   };
 }
 
-export function runDirectorTurnRuntime(options) {
+export function runDirectorTurnRuntime(options = {}) {
   const provisional = createProvisionalDirectorTurnRuntime(options);
   const committed = commitProvisionalDirectorTurnRuntime({
     campaignState: options.campaignState,
-    turnPacket: provisional.turnPacket
+    turnPacket: provisional.turnPacket,
   });
   return {
-    kind: 'directive.runtimeDirectorTurn',
-    coordinatorDiagnostics: cloneJson(provisional.coordinatorDiagnostics || null),
+    kind: 'directive.v1NarrationRuntimeTurn',
     turnPacket: committed.turnPacket,
     campaignState: committed.campaignState,
     narratorPacket: cloneJson(committed.narratorPacket),
-    commandLogPacket: cloneJson(committed.commandLogPacket)
   };
 }

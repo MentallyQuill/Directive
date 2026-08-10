@@ -38,6 +38,7 @@ import { createCampaignActivationCoordinator } from './campaign-activation-coord
 import { createCampaignConclusionService } from './campaign-conclusion-service.mjs';
 import { createChatTurnOrchestrator } from './chat-turn-orchestrator.mjs';
 import { buildV1RuntimePlayerProjection, createV1MissionRuntime } from './v1-mission-runtime.mjs';
+import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
 import { resolveV1SemanticAuthority as resolveV1SemanticAuthorityContract } from './v1-semantic-authority.mjs';
 import {
   buildContinuityProjectionDiagnostics,
@@ -61,7 +62,6 @@ import { createCoreTurnRuntime } from './core-turn-runtime.mjs';
 import {
   createRuntimeLedgerViewAsync,
   createRuntimeLedgerView,
-  findLedgerIngressAsync,
   readRuntimeCoreProjections
 } from './runtime-ledger-view.mjs';
 import { buildSupportDiagnosticsExport } from './support-diagnostics-export.mjs';
@@ -75,7 +75,6 @@ import {
   recordTurnIngress,
   updateDirectiveResponse
 } from './state-delta-gateway.mjs';
-import { createTurnSourceFrame } from './frame-contracts.mjs';
 import {
   indexRuntimeAssets,
   loadBundledCampaignPackageRecords,
@@ -275,9 +274,7 @@ function applyRuntimeSettings(campaignState, {
 
 function committedMessageCount(campaignState) {
   const turnCount = campaignState?.turnLedger?.entries?.length;
-  if (Number.isFinite(Number(turnCount)) && Number(turnCount) > 0) return Number(turnCount);
-  const runtimeCount = campaignState?.runtimeTracking?.lastCommittedTurn?.sequence;
-  return Number.isFinite(Number(runtimeCount)) ? Number(runtimeCount) : 0;
+  return Number.isFinite(Number(turnCount)) ? Number(turnCount) : 0;
 }
 
 function shouldAutosaveStableTurn(campaignState) {
@@ -830,10 +827,10 @@ function mergeRuntimePersistPendingRequest(priorRequest = null, nextRequest = nu
   };
 }
 
-function hasTurnLedgerOutcome(state = null, outcomeId = null) {
-  const id = compactString(outcomeId);
+function hasTurnLedgerTurn(state = null, turnId = null) {
+  const id = compactString(turnId);
   if (!id) return false;
-  return (state?.turnLedger?.entries || []).some((entry) => entry?.outcomeId === id);
+  return (state?.turnLedger?.entries || []).some((entry) => entry?.turnId === id);
 }
 
 function coreProjectionFreshnessEvidence(projections = null) {
@@ -886,19 +883,6 @@ function buildCoreStoreHeadSnapshot(state = {}) {
   };
 }
 
-function restoreCommittedOutcomeState(state = null, checkpointState = null, outcomeId = null) {
-  const id = compactString(outcomeId);
-  if (!state || !checkpointState || !id) return state;
-  if (hasTurnLedgerOutcome(state, id) || !hasTurnLedgerOutcome(checkpointState, id)) return state;
-  const next = cloneJson(state);
-  next.turnLedger = cloneJson(checkpointState.turnLedger);
-  if (next.runtimeTracking) {
-    next.runtimeTracking.history = [];
-    next.runtimeTracking.historyIndex = -1;
-  }
-  return next;
-}
-
 export const __directiveRuntimeAppTestHooks = Object.freeze({
   createPlayerCharacterView,
   coreProjectionFreshnessEvidence,
@@ -906,7 +890,6 @@ export const __directiveRuntimeAppTestHooks = Object.freeze({
   activeSessionCacheCurrentForSave,
   promptPacketFromLensFlushResult,
   mergeRuntimePersistPendingRequest,
-  restoreCommittedOutcomeState,
   shouldPreferInMemoryCampaignState,
   mutateCampaignStateForTest,
   mutateCoreStoreStateForTest
@@ -1016,7 +999,6 @@ export function createDirectiveRuntimeApp({
   let lastPackageImportResult = null;
   let lastDirectorTurn = null;
   let lastNarrationResult = null;
-  let lastMechanicsCheckpointState = null;
   let pendingDirectorTurn = null;
   let lastCharacterCreatorSectionDraftResult = null;
   let lastStateSafetyResult = null;
@@ -1776,129 +1758,6 @@ export function createDirectiveRuntimeApp({
       return typeof store?.loadHead === 'function' ? store.loadHead() : null;
     }
   };
-
-  function unknownDirectRuntimeExternalPromptEnvironment(observedAt) {
-    return {
-      kind: 'directive.externalPromptEnvironment.v1',
-      schemaVersion: 1,
-      host: runtimeHost?.id || 'direct-runtime',
-      status: 'unknown',
-      observedAt,
-      worldInfo: {},
-      memoryBooks: {},
-      summaryception: {},
-      vectFox: {},
-      knownExternalPromptKeys: [],
-      unknownSignals: ['direct-runtime-source-frame'],
-      redactions: []
-    };
-  }
-
-  function directRuntimeSourceFrame({ state, playerInput, turnPacket, observedAt }) {
-    const binding = bindingFromState(state);
-    const turnId = compactString(turnPacket?.turnId || turnPacket?.id || '');
-    const textHash = fnv1a(playerInput);
-    const ingressId = `ingress:direct-runtime:${state?.campaign?.id || 'campaign'}:${turnId || 'turn'}:${textHash}`;
-    const chatId = binding?.chatId || state?.campaignChatBinding?.chatId || 'direct-runtime';
-    return {
-      ingressId,
-      sourceFrame: createTurnSourceFrame({
-        id: `frame:${ingressId}`,
-        campaignId: state?.campaign?.id || null,
-        saveId: state?.campaignChatBinding?.saveId || null,
-        chatId,
-        hostMessageId: ingressId,
-        textHash,
-        sourceRevision: state?.runtimeTracking?.revision || 0,
-        externalPromptEnvironment: unknownDirectRuntimeExternalPromptEnvironment(observedAt),
-        visibility: 'direct-runtime',
-        currentPlayer: {
-          hostMessageId: ingressId,
-          role: 'player',
-          textHash
-        },
-        createdAt: observedAt
-      })
-    };
-  }
-
-  async function ensureDirectRuntimeCoreIngress({
-    state,
-    turnPacket,
-    playerInput,
-    observedAt
-  } = {}) {
-    const tracked = initializeCampaignRuntimeTracking(state);
-    const input = compactString(playerInput || turnPacket?.sceneSnapshot?.playerInput || '');
-    if (!input) {
-      const error = new Error('Direct runtime Director turn requires player input before CORE mechanics persistence.');
-      error.code = 'DIRECTIVE_CORE_DIRECT_RUNTIME_SOURCE_REQUIRED';
-      throw error;
-    }
-    const inputHash = fnv1a(input);
-    const turnId = compactString(turnPacket?.turnId || turnPacket?.id || '');
-    const activeIngressId = compactString(tracked.runtimeTracking?.activeIngressId);
-    if (activeIngressId) {
-      const existing = await findLedgerIngressAsync(tracked, { id: activeIngressId }, { coreTurnStore: runtimeCoreTurnStore });
-      const existingTransactionId = compactString(existing?.coreTransactionId);
-      const matchesInput = compactString(existing?.textHash) === inputHash;
-      const matchesTurn = turnId && turnId.includes(activeIngressId);
-      if (existingTransactionId && (matchesInput || matchesTurn)) return tracked;
-    }
-    const { ingressId, sourceFrame } = directRuntimeSourceFrame({
-      state: tracked,
-      playerInput: input,
-      turnPacket,
-      observedAt
-    });
-    const transactionId = `txn:${sourceFrame.id}`;
-    const transaction = await runtimeCoreTurnStore.beginTurn(sourceFrame, {
-      transactionId,
-      ingressId,
-      chatId: sourceFrame.chatId,
-      idempotencyKey: `direct-runtime:${ingressId}`
-    });
-    const coreTransactionId = compactString(transaction?.id || transactionId);
-    if (!coreTransactionId) {
-      const error = new Error('CORE turn source observation is required before direct runtime mechanics persistence.');
-      error.code = 'DIRECTIVE_CORE_INGRESS_REQUIRED';
-      error.ingressId = ingressId;
-      error.sourceFrameId = sourceFrame.id;
-      throw error;
-    }
-    return recordTurnIngress(tracked, {
-      id: ingressId,
-      hostMessageId: ingressId,
-      chatId: sourceFrame.chatId || null,
-      campaignId: sourceFrame.campaignId || null,
-      textHash: sourceFrame.textHash || null,
-      receivedAt: observedAt,
-      stateRevision: tracked.runtimeTracking?.revision || 0,
-      sourceFrameId: sourceFrame.id,
-      sourceFrame,
-      coreTransactionId,
-      authority: 'compatibilityProjection',
-      projectionSource: 'coreStoreV2',
-      status: 'received',
-      turnId: turnPacket?.turnId || turnPacket?.id || null,
-      outcomeId: turnPacket?.outcomePacket?.id || turnPacket?.finalOutcome?.id || null,
-      coreProjection: {
-        kind: 'directive.coreIngressDirectRuntimeProjectionRef.v1',
-        ingressId,
-        transactionId: coreTransactionId,
-        sourceFrameId: sourceFrame.id,
-        status: 'sourceObserved'
-      },
-      compatibilityMirror: {
-        kind: 'directive.coreIngressCompatibilityMirror.v1',
-        status: 'sourceObserved',
-        transactionId: coreTransactionId,
-        sourceFrameId: sourceFrame.id
-      }
-    }, {
-      missingCoreWriteMode: 'reject'
-    });
-  }
 
   function ensureLensPromptScheduler() {
     if (lensPromptScheduler) return lensPromptScheduler;
@@ -2931,7 +2790,7 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  async function autosaveStableTurn(outcomeId) {
+  async function autosaveStableTurn(turnId) {
     const interval = normalizeAutosaveEveryMessages(campaignState?.settings?.autosaveEveryMessages);
     const messageCount = committedMessageCount(campaignState);
     if (!shouldAutosaveStableTurn(campaignState)) {
@@ -2939,7 +2798,7 @@ export function createDirectiveRuntimeApp({
         ok: true,
         skipped: true,
         reason: 'autosave-interval',
-        outcomeId: outcomeId || null,
+        turnId: turnId || null,
         messageCount,
         autosaveEveryMessages: interval,
         nextAutosaveIn: messageCount > 0 ? interval - (messageCount % interval) : interval
@@ -2955,7 +2814,7 @@ export function createDirectiveRuntimeApp({
       return {
         ok: true,
         skipped: false,
-        outcomeId: outcomeId || null,
+        turnId: turnId || null,
         messageCount,
         autosaveEveryMessages: interval,
         ...cloneJson(result)
@@ -2975,21 +2834,35 @@ export function createDirectiveRuntimeApp({
   } = {}) {
     requireObject(campaignState, 'campaignState');
     requireObject(lastDirectorTurn, 'lastDirectorTurn');
-    const outcomeId = lastDirectorTurn.outcomePacket?.id;
-    campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
+    const turnId = lastDirectorTurn.turnId;
     let directiveGenerationStartedAt = null;
     try {
       const narrationContext = await resolveDirectiveNarrationContext(runtimeHost, {
         roleId: 'narration'
       });
       const assets = optionalActiveRuntimeAssets();
+      const v1Projection = assets
+        ? buildV1RuntimePlayerProjection({ campaignState, runtimeAssets: assets })
+        : null;
+      if (!v1Projection?.ok) {
+        const error = new Error('V1 player projection is required for narration.');
+        error.code = 'DIRECTIVE_V1_NARRATION_PROJECTION_REQUIRED';
+        throw error;
+      }
+      const storyPromptProjection = createV1PromptProjection({
+        storyProjection: v1Projection.projection.story,
+        activeMissionId: lastDirectorTurn.sceneSnapshot?.missionId || null,
+        participantIds: lastDirectorTurn.sceneSnapshot?.presentCharacters || [],
+        locationId: lastDirectorTurn.sceneSnapshot?.locationId || null,
+      });
       const narration = await generateNarrationFromTurn({
         campaignState,
         turnPacket: lastDirectorTurn,
         provider,
         narrationContext,
-        packageData: assets?.packageData || null,
         crewDataset: assets?.crewDataset || null,
+        playerProjection: v1Projection.projection,
+        storyPromptProjection,
         now: () => timestampFromNow(now),
         onGenerationStart: (event) => {
           directiveGenerationStartedAt = event?.directiveGenerationStartedAt || event?.generatedAt || null;
@@ -2999,16 +2872,15 @@ export function createDirectiveRuntimeApp({
         || directiveGenerationStartedAt
         || narration.generatedAt
         || null;
-      campaignState = restoreCommittedOutcomeState(campaignState, lastMechanicsCheckpointState, outcomeId);
-      campaignState = recordNarrationSuccess(campaignState, outcomeId, narration);
+      campaignState = recordNarrationSuccess(campaignState, turnId, narration);
       const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
         campaignState,
-        outcomeId,
+        turnId,
         status: 'complete',
         directiveGenerationStartedAt
       });
       campaignState = narrationCheckpoint.campaignState;
-      const autosave = await autosaveStableTurn(outcomeId);
+      const autosave = await autosaveStableTurn(turnId);
       lastNarrationResult = {
         ok: true,
         narration,
@@ -3034,11 +2906,11 @@ export function createDirectiveRuntimeApp({
         retryable: true
       };
       let narrationCheckpointSave = null;
-      if (hasTurnLedgerOutcome(campaignState, outcomeId)) {
-        campaignState = recordNarrationFailure(campaignState, outcomeId, failure);
+      if (hasTurnLedgerTurn(campaignState, turnId)) {
+        campaignState = recordNarrationFailure(campaignState, turnId, failure);
         const narrationCheckpoint = await ensureTurnCommitCoordinator().markNarration({
           campaignState,
-          outcomeId,
+          turnId,
           status: 'failed',
           error: failure,
           directiveGenerationStartedAt
@@ -5720,30 +5592,16 @@ export function createDirectiveRuntimeApp({
     async runDirectorTurn({
       playerInput,
       sceneSnapshotOverrides = {},
-      turnId = null,
-      coreRecallEntries = null
+      turnId = null
     } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
-        const resolvedCoreRecallEntries = Array.isArray(coreRecallEntries)
-          ? coreRecallEntries
-          : await coreRecallEntriesForPromptSync();
         const result = runDirectorTurnRuntime({
           campaignState,
-          packageData: assets.packageData,
-          graph: graphRecord.graph,
-          projection: assets.projection,
-          crewDataset: assets.crewDataset,
-          shipDataset: assets.shipDataset,
-          graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
-          projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
           playerInput,
-          sceneSnapshotOverrides,
-          coreRecallEntries: resolvedCoreRecallEntries
+          sceneSnapshotOverrides
         });
         campaignState = result.campaignState;
         lastDirectorTurn = result.turnPacket;
@@ -5751,10 +5609,8 @@ export function createDirectiveRuntimeApp({
         pendingDirectorTurn = null;
         activeScreen = 'campaign';
         return {
-          coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
           turnPacket: cloneJson(result.turnPacket),
           narratorPacket: cloneJson(result.narratorPacket),
-          commandLogPacket: cloneJson(result.commandLogPacket),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
@@ -5766,49 +5622,25 @@ export function createDirectiveRuntimeApp({
       sceneSnapshotOverrides = {},
       turnId = null,
       arbiterPlan = null,
-      coreRecallEntries = null,
-      generationRouter = defaultGenerationRouter,
-      message = null,
-      recentTranscript = [],
-      sourceFrameRef = null
+      generationRouter = defaultGenerationRouter
     } = {}) {
       return run(async () => {
         await ensureInitialized();
         requireObject(campaignState, 'campaignState');
-        const assets = activeRuntimeAssets();
-        const graphRecord = activeMissionGraphRecord(assets, sceneSnapshotOverrides);
-        const resolvedCoreRecallEntries = Array.isArray(coreRecallEntries)
-          ? coreRecallEntries
-          : await coreRecallEntriesForPromptSync();
         const result = await createProvisionalDirectorTurnRuntimeAsync({
           campaignState,
-          packageData: assets.packageData,
-          graph: graphRecord.graph,
-          projection: assets.projection,
-          crewDataset: assets.crewDataset,
-          shipDataset: assets.shipDataset,
-          graphPath: graphRecord.path || campaignState.mission?.activeMissionGraphPath,
-          projectionPath: assets.projectionPath,
           turnId: turnId || idFactory('turn'),
           playerInput,
           sceneSnapshotOverrides,
           arbiterPlan,
-          coreRecallEntries: resolvedCoreRecallEntries,
-          generationRouter,
-          message,
-          recentTranscript,
-          sourceFrameRef
+          generationRouter
         });
         pendingDirectorTurn = result.turnPacket;
         lastNarrationResult = null;
         activeScreen = 'campaign';
         return {
-          coordinatorDiagnostics: cloneJson(result.coordinatorDiagnostics || null),
           turnPacket: cloneJson(result.turnPacket),
-          provisionalOutcome: cloneJson(result.provisionalOutcome),
-          commandBearingPrompt: cloneJson(result.commandBearingPrompt),
           narratorPacket: cloneJson(result.narratorPacket),
-          commandLogPacket: cloneJson(result.commandLogPacket),
           campaignState: cloneJson(campaignState),
           view: viewEnvelope('mission')
         };
@@ -5834,26 +5666,15 @@ export function createDirectiveRuntimeApp({
         const turnPacketForCommit = arbiterPlan
           ? { ...pendingDirectorTurn, arbiterPlan: cloneJson(arbiterPlan) }
           : pendingDirectorTurn;
-        const beforeCampaignState = cloneJson(campaignState);
         const result = commitProvisionalDirectorTurnRuntime({
           campaignState,
           turnPacket: turnPacketForCommit
         });
-        const committedCandidateState = await ensureDirectRuntimeCoreIngress({
-          state: result.campaignState,
-          turnPacket: result.mechanicsTurnPacket || result.turnPacket,
-          playerInput: pendingDirectorTurn?.sceneSnapshot?.playerInput,
-          observedAt: timestampFromNow(now)
+        const custodyCheckpoint = await ensureTurnCommitCoordinator().checkpointNarrationCustody({
+          campaignState: result.campaignState,
+          turnPacket: result.turnPacket
         });
-        const mechanicsIngressId = committedCandidateState.runtimeTracking?.activeIngressId || null;
-        const mechanicsCheckpoint = await ensureTurnCommitCoordinator().checkpointMechanics({
-          beforeCampaignState,
-          campaignState: committedCandidateState,
-          turnPacket: result.turnPacket,
-          ingressId: mechanicsIngressId
-        });
-        campaignState = mechanicsCheckpoint.campaignState;
-        lastMechanicsCheckpointState = cloneJson(campaignState);
+        campaignState = custodyCheckpoint.campaignState;
         lastDirectorTurn = result.turnPacket;
         pendingDirectorTurn = null;
         lastNarrationResult = null;
@@ -5865,12 +5686,9 @@ export function createDirectiveRuntimeApp({
             })
           : null;
         return {
-          coordinatorDiagnostics: {
-            continuityProjection: cloneJson(result.turnPacket?.provenance?.continuityProjection || null)
-          },
           turnPacket: cloneJson(result.turnPacket),
           narratorPacket: cloneJson(result.narratorPacket),
-          mechanicsCheckpoint: cloneJson(mechanicsCheckpoint),
+          custodyCheckpoint: cloneJson(custodyCheckpoint),
           semanticAuthority: cloneJson(semanticAuthority),
           narrationResult: cloneJson(narrationResult),
           autosave: cloneJson(narrationResult?.autosave || null),

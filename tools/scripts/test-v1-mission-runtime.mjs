@@ -16,6 +16,7 @@ import {
 import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 import { validateMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import { createV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -54,15 +55,21 @@ function campaignStateFor({ definition = canonicalDefinition, activeMissionId = 
         campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
         mission: {
             activeMissionId,
-            legacyStatus: 'unchanged',
-            openAssignments: [{ id: 'legacy.assignment', title: 'Do not alter' }],
         },
-        ship: { technicalDebt: [{ id: 'legacy.ship-entry' }] },
-        relationships: { people: [{ id: 'legacy.relationship' }] },
-        threadLedger: { records: [{ id: 'legacy.thread' }] },
-        quests: [{ id: 'legacy.quest' }],
-        commandLog: { entries: [{ id: 'legacy.command' }] },
-        commandBearing: { current: 3 },
+        ship: {
+            id: 'uss-breckenridge',
+            name: 'U.S.S. Breckenridge',
+            class: 'Intrepid-class',
+            registry: 'NCC-74638',
+            operationalOverview: {
+                kind: 'directive.shipOperationalOverview.v1',
+                status: 'serviceable',
+                summary: 'The Breckenridge is certified for service after refit.',
+                materialLimitations: [],
+                history: [],
+            },
+        },
+        commandBearing: createV1CommandBearing(),
     };
 }
 
@@ -201,11 +208,11 @@ assert.equal(malformedProjection.reasonCode, 'projection-state-invalid');
 
 const v1BoundState = campaignStateFor();
 v1BoundState.mission.v1 = createMissionState({ definition: canonicalDefinition, branchId: 'save.alpha' });
-v1BoundState.mission.activeMissionId = 'legacy-wrong-id';
+v1BoundState.mission.activeMissionId = 'wrong-mission-id';
 assert.equal(resolveActiveV1MissionDefinition({
     campaignState: v1BoundState,
     runtimeAssets: runtimeAssetsFor(),
-}).ok, true, 'persisted V1 definition identity outranks the legacy active mission mirror');
+}).reasonCode, 'mission-locator-mismatch');
 
 const ambiguousDefinition = {
     ...structuredClone(canonicalDefinition),
@@ -242,7 +249,7 @@ const settlementHarness = createHarness({
         }],
     })],
 });
-const legacyBefore = structuredClone(settlementHarness.campaignState);
+const stateBefore = structuredClone(settlementHarness.campaignState);
 const settlement = await settlementHarness.runtime.settleAcceptedPair({
     runtimeAssets: settlementHarness.assets,
     snapshot: snapshotFor(),
@@ -265,9 +272,11 @@ assert.deepEqual(
     ['assistant', 'user'],
 );
 assert.equal(settlement.reviewToken, null);
-assert.deepEqual(settlementHarness.campaignState.mission.openAssignments, legacyBefore.mission.openAssignments);
-for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
-    assert.deepEqual(settlementHarness.campaignState[root], legacyBefore[root], `${root} remains legacy-authoritative in shadow mode`);
+for (const root of ['ship', 'commandBearing']) {
+    assert.deepEqual(settlementHarness.campaignState[root], stateBefore[root], `${root} remains outside mission settlement`);
+}
+for (const forbiddenRoot of ['relationships', 'threadLedger', 'quests', 'commandLog']) {
+    assert.equal(Object.hasOwn(settlementHarness.campaignState, forbiddenRoot), false, forbiddenRoot);
 }
 assert.equal(
     settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence[0].excerpt,
@@ -345,10 +354,8 @@ assert.deepEqual(continuation.reviewToken, {
     episodeRevision: continuationHarness.campaignState.storySettlement.revision,
     checkpointSequence: 1,
 });
-assert.equal(continuationHarness.campaignState.ship.technicalDebt.length, 1);
-assert.equal(continuationHarness.campaignState.relationships.people.length, 1);
-assert.equal(continuationHarness.campaignState.quests.length, 1);
-assert.equal(continuationHarness.campaignState.commandLog.entries.length, 1);
+assert.equal(continuationHarness.campaignState.ship.operationalOverview.status, 'serviceable');
+assert.equal(continuationHarness.campaignState.commandBearing.kind, 'directive.commandBearing.v1');
 const replayedContinuation = await continuationHarness.runtime.settleAcceptedPair({
     runtimeAssets: continuationHarness.assets,
     snapshot: snapshotFor({ sourceRangeHash: 'range.continuation-2', pairNumber: 30 }),
@@ -572,7 +579,7 @@ assert.deepEqual(validateMissionJourney({
 }), { ok: true, errors: [] });
 assert.equal(twoDefinitionHarness.campaignState.storySettlement.episodes.length, 1);
 assert.equal(twoDefinitionHarness.campaignState.storySettlement.episodes[0].status, 'sealed');
-for (const root of ['ship', 'relationships', 'threadLedger', 'quests', 'commandLog', 'commandBearing']) {
+for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(
         twoDefinitionHarness.campaignState[root],
         campaignStateFor({ definition: transitionSourceDefinition })[root],
