@@ -11,6 +11,7 @@ import {
   createDirectiveProviderClient
 } from '../../src/hosts/sillytavern/provider-client.mjs';
 import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/generation-client.mjs';
+import { createMissionAcceptedPairInterpretationPrompt } from '../../src/mission/v1/accepted-pair-interpreter.mjs';
 import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.mjs';
 
 assert.deepEqual(GENERATION_ROLE_IDS, [
@@ -40,6 +41,9 @@ const context = {
   ConnectionManagerRequestService: {
     async sendRequest(profileId, messages, maxTokens, options, payload) {
       profileCalls.push({ profileId, messages, maxTokens, options, payload });
+      if (payload?.json_schema) {
+        return { content: { draft: 'profile-structured-answer' }, reasoning: '' };
+      }
       return { text: 'profile-visible-answer' };
     }
   }
@@ -94,10 +98,13 @@ const currentModelContext = {
     chat_completion_source: 'nanogpt'
   },
   getChatCompletionModel: () => 'zai-org/glm-5.1:thinking',
+  getPresetManager: () => ({
+    getCompletionPresetByName: (name) => name === 'Directive' ? { reasoning_effort: 'auto' } : null
+  }),
   ChatCompletionService: {
     async processRequest(requestData, options, extractData, signal) {
       currentModelCalls.push({ requestData, options, extractData, signal });
-      return { content: 'controlled-current-answer', reasoning: '' };
+      return { content: { ok: true }, reasoning: '' };
     }
   }
 };
@@ -132,7 +139,7 @@ const currentModelResult = await currentModelClient.generate('utilityJson', {
   },
   jsonSchema: currentModelSchema
 });
-assert.equal(currentModelResult.text, 'controlled-current-answer');
+assert.equal(currentModelResult.text, JSON.stringify({ ok: true }));
 assert.deepEqual(currentModelCalls, [{
   requestData: {
     stream: false,
@@ -145,12 +152,72 @@ assert.deepEqual(currentModelCalls, [{
     max_tokens: 320,
     temperature: 0.05,
     top_p: 0.75,
-    json_schema: currentModelSchema
+    json_schema: {
+      name: 'directive_structured_output',
+      value: currentModelSchema,
+      strict: true
+    }
   },
   options: { presetName: 'Directive' },
   extractData: true,
   signal: undefined
 }]);
+
+const acceptedPairPrompt = createMissionAcceptedPairInterpretationPrompt({
+  candidatePacket: {
+    missionId: 'mission-1',
+    definitionVersion: '1',
+    branchId: 'branch-1',
+    baseRevision: 4,
+    candidates: []
+  },
+  sourcePair: {
+    previousAssistant: { text: 'The officer reports the visible result.' },
+    currentPlayer: { text: 'I accept the report.' }
+  }
+});
+await currentModelClient.generate('acceptedPairMissionEvidence', acceptedPairPrompt);
+assert.deepEqual(currentModelCalls[1].requestData.messages, acceptedPairPrompt.messages);
+
+let missingPresetServiceCalls = 0;
+const missingPresetRawCalls = [];
+const missingPresetContext = {
+  extensionSettings: {},
+  mainApi: 'openai',
+  chatCompletionSettings: {
+    chat_completion_source: 'nanogpt'
+  },
+  getChatCompletionModel: () => 'zai-org/glm-5.1:thinking',
+  getPresetManager: () => ({
+    getCompletionPresetByName: () => null
+  }),
+  ChatCompletionService: {
+    async processRequest() {
+      missingPresetServiceCalls += 1;
+      return { content: 'uncontrolled-service-answer' };
+    }
+  },
+  async generateRaw(request) {
+    missingPresetRawCalls.push(request);
+    return 'raw-fallback-answer';
+  }
+};
+const missingPresetStore = createSillyTavernProviderSettingsStore({
+  context: missingPresetContext,
+  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+});
+const missingPresetClient = createDirectiveProviderClient({
+  contextFactory: () => missingPresetContext,
+  settingsStore: missingPresetStore,
+  fetchImpl
+});
+const missingPresetResult = await missingPresetClient.generate('utilityJson', {
+  systemPrompt: 'Return bounded utility output.',
+  prompt: 'Use the raw fallback.'
+});
+assert.equal(missingPresetResult.text, 'raw-fallback-answer');
+assert.equal(missingPresetServiceCalls, 0);
+assert.equal(missingPresetRawCalls.length, 1);
 
 const utility = await client.generate('acceptedPairMissionEvidence', {
   kind: 'directive.testStructuredRequest',
@@ -264,6 +331,36 @@ await assert.rejects(
 );
 assert.equal(requiredParameterFailureCalls, 1);
 
+let unrelatedOptionalParameterFailureCalls = 0;
+const unrelatedOptionalParameterFailureClient = createDirectiveProviderClient({
+  contextFactory: () => context,
+  settingsStore: store,
+  fetchImpl: async () => {
+    unrelatedOptionalParameterFailureCalls += 1;
+    return {
+      ok: false,
+      status: 429,
+      async text() {
+        return JSON.stringify({
+          error: {
+            message: 'Rate limit exceeded while validating temperature',
+            type: 'rate_limit_error',
+            param: 'temperature',
+            code: 'rate_limit_exceeded'
+          }
+        });
+      }
+    };
+  }
+});
+await assert.rejects(
+  unrelatedOptionalParameterFailureClient.generate('utilityJson', {
+    messages: [{ role: 'user', content: 'Do not retry unrelated failures.' }]
+  }),
+  (error) => error?.code === 'DIRECTIVE_PROVIDER_REQUEST_FAILED'
+);
+assert.equal(unrelatedOptionalParameterFailureCalls, 1);
+
 const reasoningSchema = {
   type: 'object',
   additionalProperties: false,
@@ -276,11 +373,15 @@ const reasoning = await client.generate('characterCreatorSectionDraft', {
   jsonSchema: reasoningSchema
 });
 assert.equal(reasoning.providerKind, 'reasoning');
-assert.equal(reasoning.text, 'profile-visible-answer');
+assert.equal(reasoning.text, JSON.stringify({ draft: 'profile-structured-answer' }));
 assert.equal(profileCalls.length, 1);
 assert.equal(profileCalls[0].profileId, 'reasoning-profile');
 assert.equal(profileCalls[0].maxTokens, 700);
-assert.deepEqual(profileCalls[0].payload.json_schema, reasoningSchema);
+assert.deepEqual(profileCalls[0].payload.json_schema, {
+  name: 'directive_structured_output',
+  value: reasoningSchema,
+  strict: true
+});
 
 const utilityOverride = await client.generate('characterCreatorSectionDraft', {
   kind: 'directive.characterCreatorSectionDraftRepairRequest',
