@@ -1,0 +1,1994 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.open-orders-3-before-the-lamps-go-out",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "open-orders-3-before-the-lamps-go-out"
+  },
+  "playerText": {
+    "title": "Open Orders III: Before the Lamps Go Out",
+    "summary": "Choose how the Breckenridge will use its narrowing preparation window while the crew readies for a regional crisis that may demand simultaneous action."
+  },
+  "facts": [
+    {
+      "id": "fact.open-orders3.opportunities",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "The Name on the Hull, A Signal Toward Home, and Two Signatures are available. Resolving two is a normal command load; taking on all three requires credible delegation or risks overextension."
+      }
+    },
+    {
+      "id": "fact.open-orders3.name-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The name dispute is a genuine conflict over memory, ownership, and what the Breckenridge represents rather than covert manipulation. Whitaker's personal stake is real, and a durable resolution must acknowledge both the ship's history and the people who now depend on it."
+      }
+    },
+    {
+      "id": "fact.open-orders3.signal-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The signal work can establish a modest, repeatable long-range relay window, but it is neither direct contact with Voyager nor a decisive Pathfinder breakthrough. Its real value is a dependable regional communications method with clearly recorded limits."
+      }
+    },
+    {
+      "id": "fact.open-orders3.signatures-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The legal office is not acting maliciously, but its process exposes a real representation gap and a dangerous precedent. Imani owns the decision about her participation; the player's legitimate choices concern support and pressure boundaries, and the Helix need remains real regardless of her answer."
+      }
+    },
+    {
+      "id": "fact.open-orders3.distributed-readiness",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Repeated alert tests now produce few false positives, the response plan is distributed rather than dependent on one officer, senior responsibilities are independently assigned, Tolland and Mercer have committed support, Kessler is assembling a coalition, and Prel has identified contradictory regional routes that may demand simultaneous action."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.open-orders3.name-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.name-engagement",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.opportunities"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "pending"
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake The Name on the Hull directly, delegate it, or decline it.",
+        "values": [
+          {
+            "value": "direct",
+            "guidance": "The player explicitly commits to direct command involvement."
+          },
+          {
+            "value": "delegated",
+            "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor."
+          },
+          {
+            "value": "declined",
+            "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval."
+          }
+        ],
+        "exclusions": [
+          "Interest, discussion, a request for more information, or the assignment appearing in a list is not an engagement decision."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.name-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders3.name-assessed",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.name-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of the memory dispute, Whitaker's conflict, the affected communities, and the consequences of the available resolutions.",
+        "exclusions": [
+          "Selecting or delegating the assignment, beginning a conversation, inspecting one clue, or expressing a theory does not complete the assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.name-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders3.name-assessment",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.name-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.name-assessed"
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: the dispute is genuine rather than secretly manufactured, Whitaker's stake is real, and a durable resolution must respect both history and present dependence.",
+        "exclusions": [
+          "A partial clue, private non-player knowledge, a generic concern, or an unsupported accusation does not disclose the aggregate assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.name-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders3.name-result",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "factKnown": "fact.open-orders3.name-assessment"
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of The Name on the Hull after the assessment is player-known.",
+        "values": [
+          {
+            "value": "assetEarned",
+            "guidance": "A publicly credible, community-supported memorial settlement actually earns the Breckenridge Memorial Goodwill."
+          },
+          {
+            "value": "resolvedWithoutAsset",
+            "guidance": "The immediate dispute receives a responsible but materially limited settlement without the goodwill asset."
+          },
+          {
+            "value": "failedAfterInformedAction",
+            "guidance": "The assignment materially fails after known memory, community, or authority concerns are deliberately mishandled or rejected."
+          }
+        ],
+        "exclusions": [
+          "Selection, delegation, an assessment alone, a promise, or merely naming Breckenridge Memorial Goodwill does not establish the result."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signal-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.signal-engagement",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.opportunities"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "pending"
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake A Signal Toward Home directly, delegate it, or decline it.",
+        "values": [
+          {
+            "value": "direct",
+            "guidance": "The player explicitly commits to direct command involvement."
+          },
+          {
+            "value": "delegated",
+            "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor."
+          },
+          {
+            "value": "declined",
+            "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval."
+          }
+        ],
+        "exclusions": [
+          "Interest, discussion, a request for more information, or the assignment appearing in a list is not an engagement decision."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signal-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders3.signal-assessed",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.signal-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of the signal source, calibration limits, repeatability, and realistic communications value.",
+        "exclusions": [
+          "Selecting or delegating the assignment, beginning a conversation, inspecting one clue, or expressing a theory does not complete the assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signal-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders3.signal-assessment",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.signal-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.signal-assessed"
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: the work supports a modest repeatable relay window, not direct Voyager contact or a decisive Pathfinder breakthrough.",
+        "exclusions": [
+          "A partial clue, private non-player knowledge, a generic concern, or an unsupported accusation does not disclose the aggregate assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signal-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders3.signal-result",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "factKnown": "fact.open-orders3.signal-assessment"
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of A Signal Toward Home after the assessment is player-known.",
+        "values": [
+          {
+            "value": "assetEarned",
+            "guidance": "A repeatable, responsibly documented calibration actually earns the Long-Range Relay Window."
+          },
+          {
+            "value": "resolvedWithoutAsset",
+            "guidance": "The signal is responsibly characterized or contained without earning a dependable relay asset."
+          },
+          {
+            "value": "failedAfterInformedAction",
+            "guidance": "The assignment materially fails after known calibration, certainty, or operational limits are deliberately mishandled or rejected."
+          }
+        ],
+        "exclusions": [
+          "Selection, delegation, an assessment alone, a promise, or merely naming Long-Range Relay Window does not establish the result."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signatures-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.signatures-engagement",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.opportunities"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "pending"
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake Two Signatures directly, delegate it, or decline it.",
+        "values": [
+          {
+            "value": "direct",
+            "guidance": "The player explicitly commits to direct command involvement."
+          },
+          {
+            "value": "delegated",
+            "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor."
+          },
+          {
+            "value": "declined",
+            "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval."
+          }
+        ],
+        "exclusions": [
+          "Interest, discussion, a request for more information, or the assignment appearing in a list is not an engagement decision."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signatures-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders3.signatures-assessed",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.signatures-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of the representation gap, precedent risk, Helix need, and Imani's independent consent.",
+        "exclusions": [
+          "Selecting or delegating the assignment, beginning a conversation, inspecting one clue, or expressing a theory does not complete the assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signatures-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders3.signatures-assessment",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.signatures-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.signatures-assessed"
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: the office is not malicious, the representation and precedent risks are real, the Helix need is genuine, and Imani owns the decision.",
+        "exclusions": [
+          "A partial clue, private non-player knowledge, a generic concern, or an unsupported accusation does not disclose the aggregate assessment."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.signatures-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders3.signatures-result",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "factKnown": "fact.open-orders3.signatures-assessment"
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Two Signatures after the assessment is player-known and Imani's independent answer is respected.",
+        "values": [
+          {
+            "value": "assetEarned",
+            "guidance": "Imani independently consents under documented limits that protect representation and precedent, actually earning the Cross Isolation Protocol."
+          },
+          {
+            "value": "resolvedWithoutAsset",
+            "guidance": "Imani refuses or the agreement is responsibly limited while the immediate need receives a defensible alternative, without earning the protocol asset."
+          },
+          {
+            "value": "failedAfterInformedAction",
+            "guidance": "The assignment materially fails after known consent, representation, or precedent risks are deliberately mishandled or coercively overridden."
+          }
+        ],
+        "exclusions": [
+          "Selection, delegation, an assessment alone, a promise, or merely naming Cross Isolation Protocol does not establish the result."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.readiness-prepared",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders3.readiness-prepared",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "worldFact": "fact.open-orders3.distributed-readiness"
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the completed distributed readiness review: repeated alert testing, an operational response plan, independently assigned senior responsibilities, and the relevant regional support and route intelligence.",
+        "exclusions": [
+          "One drill, a verbal promise, a single officer's readiness, or vague concern about future alerts does not complete the aggregate review."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.readiness-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders3.distributed-readiness",
+      "sourceRoles": [
+        "assistant",
+        "runtime",
+        "adjudicator"
+      ],
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.distributed-readiness"
+          },
+          {
+            "eventOccurred": "event.open-orders3.readiness-prepared"
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose tells the player the aggregate readiness result: low false alerts, a distributed plan and independent senior roles, Tolland and Mercer support, Kessler's coalition work, and Prel's contradictory routes.",
+        "exclusions": [
+          "Evidence known only to non-player characters, one readiness detail, or an unexplained warning is not a delivered report."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.conclude-after-two",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.conclusion",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          },
+          {
+            "any": [
+              {
+                "all": [
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.name",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  },
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.signal",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.name",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  },
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.signatures",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "all": [
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.signal",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  },
+                  {
+                    "objectiveDisposition": {
+                      "id": "objective.open-orders3.signatures",
+                      "in": [
+                        "completed",
+                        "completedWithCost",
+                        "failedAfterInformedAction"
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "not": {
+              "all": [
+                {
+                  "objectiveDisposition": {
+                    "id": "objective.open-orders3.name",
+                    "in": [
+                      "completed",
+                      "completedWithCost",
+                      "failedAfterInformedAction"
+                    ]
+                  }
+                },
+                {
+                  "objectiveDisposition": {
+                    "id": "objective.open-orders3.signal",
+                    "in": [
+                      "completed",
+                      "completedWithCost",
+                      "failedAfterInformedAction"
+                    ]
+                  }
+                },
+                {
+                  "objectiveDisposition": {
+                    "id": "objective.open-orders3.signatures",
+                    "in": [
+                      "completed",
+                      "completedWithCost",
+                      "failedAfterInformedAction"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude the interval after exactly two assignments have actual resolved dispositions and the distributed-readiness report is known.",
+        "values": [
+          {
+            "value": "concludeAfterTwo",
+            "guidance": "The player explicitly concludes the normal two-assignment interval."
+          }
+        ],
+        "exclusions": [
+          "The second result or readiness report occurring does not auto-close the interval; an explicit conclusion is required."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.conclude-broad-coverage",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.conclusion",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.name",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signal",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signatures",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "any": [
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.name-engagement",
+                  "equals": "delegated"
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signal-engagement",
+                  "equals": "delegated"
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signatures-engagement",
+                  "equals": "delegated"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude after all three assignments resolve, at least one was credibly delegated, and the distributed-readiness report is known.",
+        "values": [
+          {
+            "value": "broadCoverage",
+            "guidance": "All three assignments resolved with delegation preventing automatic overextension."
+          }
+        ],
+        "exclusions": [
+          "Delegating before an actual result, resolving all three directly, or concluding before the readiness report does not establish broad coverage."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.conclude-overextended",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.conclusion",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.name",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signal",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signatures",
+              "in": [
+                "completed",
+                "completedWithCost",
+                "failedAfterInformedAction"
+              ]
+            }
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-engagement",
+              "equals": "direct"
+            }
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-engagement",
+              "equals": "direct"
+            }
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-engagement",
+              "equals": "direct"
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit interval conclusion after all three assignments resolved under direct command and the readiness report is known, carrying the overextension cost.",
+        "values": [
+          {
+            "value": "overextended",
+            "guidance": "All three direct-command assignments resolved and the interval closes overextended."
+          }
+        ],
+        "exclusions": [
+          "Selecting all three, resolving only two, delegating one, or concluding before the readiness report does not establish direct-command overextension."
+        ]
+      }
+    },
+    {
+      "id": "policy.open-orders3.depart-early",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders3.conclusion",
+      "sourceRoles": [
+        "user"
+      ],
+      "when": {
+        "all": [
+          {
+            "factKnown": "fact.open-orders3.opportunities"
+          },
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to end Open Orders III before completing the normal assignment load, after the campaign-critical readiness report is known and with unfinished opportunities understood.",
+        "values": [
+          {
+            "value": "departEarly",
+            "guidance": "The player explicitly ends the interval early and accepts that local opportunities remain unfinished."
+          }
+        ],
+        "exclusions": [
+          "Ignoring an assignment for a scene, ordinary travel discussion, or leaving before the readiness report does not end the interval."
+        ]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.open-orders3.name-assessment",
+      "factId": "fact.open-orders3.name-assessment",
+      "evidencePolicyId": "policy.open-orders3.name-assessment-disclosed",
+      "capabilityRoles": [
+        "command",
+        "counseling"
+      ],
+      "preferredActorIds": [
+        "mara-whitaker",
+        "miriam-sato"
+      ],
+      "fallbackActorIds": [
+        "priya-nayar"
+      ],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.name-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.name-assessed"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-engagement",
+              "in": [
+                "direct",
+                "delegated"
+              ]
+            }
+          },
+          {
+            "not": {
+              "factKnown": "fact.open-orders3.name-assessment"
+            }
+          }
+        ]
+      },
+      "playerText": {
+        "summary": "The dispute is genuine rather than covertly manufactured. Whitaker's personal stake is real, and a durable settlement must respect both the ship's history and the people who now depend on it."
+      }
+    },
+    {
+      "id": "report.open-orders3.signal-assessment",
+      "factId": "fact.open-orders3.signal-assessment",
+      "evidencePolicyId": "policy.open-orders3.signal-assessment-disclosed",
+      "capabilityRoles": [
+        "science",
+        "operations"
+      ],
+      "preferredActorIds": [
+        "rowan-saye",
+        "priya-nayar"
+      ],
+      "fallbackActorIds": [
+        "mara-whitaker"
+      ],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.signal-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.signal-assessed"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-engagement",
+              "in": [
+                "direct",
+                "delegated"
+              ]
+            }
+          },
+          {
+            "not": {
+              "factKnown": "fact.open-orders3.signal-assessment"
+            }
+          }
+        ]
+      },
+      "playerText": {
+        "summary": "The work can support a modest, repeatable long-range relay window. It is not direct contact with Voyager or a decisive Pathfinder breakthrough, and its limits must remain explicit."
+      }
+    },
+    {
+      "id": "report.open-orders3.signatures-assessment",
+      "factId": "fact.open-orders3.signatures-assessment",
+      "evidencePolicyId": "policy.open-orders3.signatures-assessment-disclosed",
+      "capabilityRoles": [
+        "engineering",
+        "counseling",
+        "command"
+      ],
+      "preferredActorIds": [
+        "imani-cross",
+        "miriam-sato"
+      ],
+      "fallbackActorIds": [
+        "mara-whitaker"
+      ],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.signatures-assessment"
+          },
+          {
+            "eventOccurred": "event.open-orders3.signatures-assessed"
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-engagement",
+              "in": [
+                "direct",
+                "delegated"
+              ]
+            }
+          },
+          {
+            "not": {
+              "factKnown": "fact.open-orders3.signatures-assessment"
+            }
+          }
+        ]
+      },
+      "playerText": {
+        "summary": "The office is not malicious, but the representation gap and precedent risk are real. Imani owns the decision, and the Helix need remains genuine regardless of her answer."
+      }
+    },
+    {
+      "id": "report.open-orders3.distributed-readiness",
+      "factId": "fact.open-orders3.distributed-readiness",
+      "evidencePolicyId": "policy.open-orders3.readiness-disclosed",
+      "capabilityRoles": [
+        "command",
+        "operations",
+        "security"
+      ],
+      "preferredActorIds": [
+        "priya-nayar",
+        "hadrik-bronn"
+      ],
+      "fallbackActorIds": [
+        "mara-whitaker"
+      ],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          {
+            "worldFact": "fact.open-orders3.distributed-readiness"
+          },
+          {
+            "eventOccurred": "event.open-orders3.readiness-prepared"
+          },
+          {
+            "not": {
+              "factKnown": "fact.open-orders3.distributed-readiness"
+            }
+          }
+        ]
+      },
+      "playerText": {
+        "summary": "Alert testing is stable, the response plan and senior roles are distributed, Tolland and Mercer support the preparation, Kessler is assembling a coalition, and Prel has found contradictory regional routes."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.open-orders3.name-assessed",
+      "playerVisibility": "hidden",
+      "playerText": {
+        "summary": "The Name on the Hull received a usable aggregate assessment."
+      }
+    },
+    {
+      "id": "event.open-orders3.signal-assessed",
+      "playerVisibility": "hidden",
+      "playerText": {
+        "summary": "A Signal Toward Home received a usable aggregate assessment."
+      }
+    },
+    {
+      "id": "event.open-orders3.signatures-assessed",
+      "playerVisibility": "hidden",
+      "playerText": {
+        "summary": "Two Signatures received a usable aggregate assessment."
+      }
+    },
+    {
+      "id": "event.open-orders3.readiness-prepared",
+      "playerVisibility": "hidden",
+      "playerText": {
+        "summary": "The distributed readiness review was completed."
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.open-orders3.name-engagement",
+      "allowedValues": [
+        "pending",
+        "direct",
+        "delegated",
+        "declined"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The chosen engagement mode for The Name on the Hull."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.name-result",
+      "allowedValues": [
+        "pending",
+        "assetEarned",
+        "resolvedWithoutAsset",
+        "failedAfterInformedAction"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The aggregate result of The Name on the Hull."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.signal-engagement",
+      "allowedValues": [
+        "pending",
+        "direct",
+        "delegated",
+        "declined"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The chosen engagement mode for A Signal Toward Home."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.signal-result",
+      "allowedValues": [
+        "pending",
+        "assetEarned",
+        "resolvedWithoutAsset",
+        "failedAfterInformedAction"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The aggregate result of A Signal Toward Home."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.signatures-engagement",
+      "allowedValues": [
+        "pending",
+        "direct",
+        "delegated",
+        "declined"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The chosen engagement mode for Two Signatures."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.signatures-result",
+      "allowedValues": [
+        "pending",
+        "assetEarned",
+        "resolvedWithoutAsset",
+        "failedAfterInformedAction"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The aggregate result of Two Signatures."
+      }
+    },
+    {
+      "id": "outcome.open-orders3.conclusion",
+      "allowedValues": [
+        "pending",
+        "concludeAfterTwo",
+        "broadCoverage",
+        "overextended",
+        "departEarly"
+      ],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The explicit conclusion of the second Open Orders interval."
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.open-orders3.conclusion",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-engagement",
+              "in": [
+                "direct",
+                "delegated",
+                "declined"
+              ]
+            }
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-engagement",
+              "in": [
+                "direct",
+                "delegated",
+                "declined"
+              ]
+            }
+          },
+          {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-engagement",
+              "in": [
+                "direct",
+                "delegated",
+                "declined"
+              ]
+            }
+          },
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "in": [
+                "concludeAfterTwo",
+                "broadCoverage"
+              ]
+            }
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "in": [
+                "overextended",
+                "departEarly"
+              ]
+            }
+          }
+        }
+      ],
+      "supportedDispositions": [
+        "completed",
+        "completedWithCost"
+      ],
+      "playerText": {
+        "title": "Choose and conclude the Breckenridge's final preparation work",
+        "summary": "Resolve two assignments as a normal load, pursue all three with credible delegation, or knowingly leave early with unfinished opportunities recorded.",
+        "terminal": [
+          {
+            "disposition": "completed",
+            "text": "The interval concluded after a responsible normal or delegated work program."
+          },
+          {
+            "disposition": "completedWithCost",
+            "text": "The interval concluded with overextension or unfinished opportunities recorded."
+          }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders3.name",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "availableWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "visibleWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.name-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.name-result",
+                  "equals": "pending"
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.name-engagement",
+                  "in": [
+                    "pending",
+                    "declined"
+                  ]
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.conclusion",
+                  "in": [
+                    "concludeAfterTwo",
+                    "broadCoverage",
+                    "overextended",
+                    "departEarly"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": [
+        "completed",
+        "completedWithCost",
+        "knowinglyDeclined",
+        "failedAfterInformedAction"
+      ],
+      "playerText": {
+        "title": "The Name on the Hull",
+        "summary": "Help settle what the Breckenridge's name should mean without treating memory, identity, or command authority as props.",
+        "terminal": [
+          {
+            "disposition": "completed",
+            "text": "The Name on the Hull produced a durable capability: Breckenridge Memorial Goodwill."
+          },
+          {
+            "disposition": "completedWithCost",
+            "text": "The Name on the Hull received a responsible but materially limited resolution."
+          },
+          {
+            "disposition": "knowinglyDeclined",
+            "text": "The Name on the Hull was knowingly left unpursued this interval."
+          },
+          {
+            "disposition": "failedAfterInformedAction",
+            "text": "The Name on the Hull failed after its known risks were deliberately mishandled."
+          }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders3.signal",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "availableWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "visibleWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.signal-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signal-result",
+                  "equals": "pending"
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signal-engagement",
+                  "in": [
+                    "pending",
+                    "declined"
+                  ]
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.conclusion",
+                  "in": [
+                    "concludeAfterTwo",
+                    "broadCoverage",
+                    "overextended",
+                    "departEarly"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": [
+        "completed",
+        "completedWithCost",
+        "knowinglyDeclined",
+        "failedAfterInformedAction"
+      ],
+      "playerText": {
+        "title": "A Signal Toward Home",
+        "summary": "Evaluate a long-range signal opportunity and establish whatever dependable communications capability the evidence actually supports.",
+        "terminal": [
+          {
+            "disposition": "completed",
+            "text": "A Signal Toward Home produced a durable capability: Long-Range Relay Window."
+          },
+          {
+            "disposition": "completedWithCost",
+            "text": "A Signal Toward Home received a responsible but materially limited resolution."
+          },
+          {
+            "disposition": "knowinglyDeclined",
+            "text": "A Signal Toward Home was knowingly left unpursued this interval."
+          },
+          {
+            "disposition": "failedAfterInformedAction",
+            "text": "A Signal Toward Home failed after its known risks were deliberately mishandled."
+          }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders3.signatures",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "availableWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "visibleWhen": {
+        "factKnown": "fact.open-orders3.opportunities"
+      },
+      "progressWhen": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.signatures-engagement",
+          "in": [
+            "direct",
+            "delegated"
+          ]
+        }
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signatures-result",
+                  "equals": "pending"
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.signatures-engagement",
+                  "in": [
+                    "pending",
+                    "declined"
+                  ]
+                }
+              },
+              {
+                "outcomeIs": {
+                  "id": "outcome.open-orders3.conclusion",
+                  "in": [
+                    "concludeAfterTwo",
+                    "broadCoverage",
+                    "overextended",
+                    "departEarly"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": [
+        "completed",
+        "completedWithCost",
+        "knowinglyDeclined",
+        "failedAfterInformedAction"
+      ],
+      "playerText": {
+        "title": "Two Signatures",
+        "summary": "Support Imani's independent decision while addressing the Helix need and the precedent created by the proposed agreement.",
+        "terminal": [
+          {
+            "disposition": "completed",
+            "text": "Two Signatures produced a durable capability: Cross Isolation Protocol."
+          },
+          {
+            "disposition": "completedWithCost",
+            "text": "Two Signatures received a responsible but materially limited resolution."
+          },
+          {
+            "disposition": "knowinglyDeclined",
+            "text": "Two Signatures was knowingly left unpursued this interval."
+          },
+          {
+            "disposition": "failedAfterInformedAction",
+            "text": "Two Signatures failed after its known risks were deliberately mishandled."
+          }
+        ]
+      }
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.open-orders3.load",
+      "playerText": {
+        "label": "Interval load"
+      },
+      "derive": [
+        {
+          "value": "normal-two",
+          "priority": 100,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "equals": "concludeAfterTwo"
+            }
+          }
+        },
+        {
+          "value": "broad-delegated-coverage",
+          "priority": 90,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "equals": "broadCoverage"
+            }
+          }
+        },
+        {
+          "value": "overextended-direct",
+          "priority": 80,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "equals": "overextended"
+            }
+          }
+        },
+        {
+          "value": "departed-early",
+          "priority": 70,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.conclusion",
+              "equals": "departEarly"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.open-orders3.name",
+      "playerText": {
+        "label": "The Name on the Hull"
+      },
+      "derive": [
+        {
+          "value": "asset-earned",
+          "priority": 100,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "value": "resolved-without-asset",
+          "priority": 90,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "value": "failed-after-informed-action",
+          "priority": 80,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "value": "declined",
+          "priority": 70,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.name",
+              "equals": "knowinglyDeclined"
+            }
+          }
+        },
+        {
+          "value": "delegated",
+          "priority": 60,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-engagement",
+              "equals": "delegated"
+            }
+          }
+        },
+        {
+          "value": "direct",
+          "priority": 50,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.name-engagement",
+              "equals": "direct"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.open-orders3.signal",
+      "playerText": {
+        "label": "A Signal Toward Home"
+      },
+      "derive": [
+        {
+          "value": "asset-earned",
+          "priority": 100,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "value": "resolved-without-asset",
+          "priority": 90,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "value": "failed-after-informed-action",
+          "priority": 80,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "value": "declined",
+          "priority": 70,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signal",
+              "equals": "knowinglyDeclined"
+            }
+          }
+        },
+        {
+          "value": "delegated",
+          "priority": 60,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-engagement",
+              "equals": "delegated"
+            }
+          }
+        },
+        {
+          "value": "direct",
+          "priority": 50,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signal-engagement",
+              "equals": "direct"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimension.open-orders3.signatures",
+      "playerText": {
+        "label": "Two Signatures"
+      },
+      "derive": [
+        {
+          "value": "asset-earned",
+          "priority": 100,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "assetEarned"
+            }
+          }
+        },
+        {
+          "value": "resolved-without-asset",
+          "priority": 90,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "resolvedWithoutAsset"
+            }
+          }
+        },
+        {
+          "value": "failed-after-informed-action",
+          "priority": 80,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-result",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        },
+        {
+          "value": "declined",
+          "priority": 70,
+          "when": {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signatures",
+              "equals": "knowinglyDeclined"
+            }
+          }
+        },
+        {
+          "value": "delegated",
+          "priority": 60,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-engagement",
+              "equals": "delegated"
+            }
+          }
+        },
+        {
+          "value": "direct",
+          "priority": 50,
+          "when": {
+            "outcomeIs": {
+              "id": "outcome.open-orders3.signatures-engagement",
+              "equals": "direct"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "objectiveDisposition": {
+      "id": "objective.open-orders3.conclusion",
+      "in": [
+        "completed",
+        "completedWithCost"
+      ]
+    }
+  },
+  "terminalDispositions": [
+    {
+      "id": "earlyDepartureForward",
+      "priority": 500,
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.conclusion",
+          "equals": "departEarly"
+        }
+      },
+      "playerText": {
+        "title": "The Breckenridge leaves preparation work unfinished",
+        "summary": "The campaign continues after the critical readiness report, with deliberately unfinished Open Orders opportunities carried forward."
+      }
+    },
+    {
+      "id": "limitedWorkForward",
+      "priority": 450,
+      "when": {
+        "any": [
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.name",
+              "equals": "failedAfterInformedAction"
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signal",
+              "equals": "failedAfterInformedAction"
+            }
+          },
+          {
+            "objectiveDisposition": {
+              "id": "objective.open-orders3.signatures",
+              "equals": "failedAfterInformedAction"
+            }
+          }
+        ]
+      },
+      "playerText": {
+        "title": "Useful work closes with a serious limitation",
+        "summary": "The interval produced local value while an informed assignment failure remains part of the campaign record."
+      }
+    },
+    {
+      "id": "overextendedWithCost",
+      "priority": 400,
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.open-orders3.conclusion",
+          "equals": "overextended"
+        }
+      },
+      "playerText": {
+        "title": "Broad work at an overextended pace",
+        "summary": "All three assignments were carried under direct command, and the resulting fatigue or delayed preparation is recorded."
+      }
+    },
+    {
+      "id": "regionalCapabilityBuilt",
+      "priority": 200,
+      "when": {
+        "any": [
+          {
+            "all": [
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.name",
+                  "equals": "completed"
+                }
+              },
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.signal",
+                  "equals": "completed"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.name",
+                  "equals": "completed"
+                }
+              },
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.signatures",
+                  "equals": "completed"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.signal",
+                  "equals": "completed"
+                }
+              },
+              {
+                "objectiveDisposition": {
+                  "id": "objective.open-orders3.signatures",
+                  "equals": "completed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "playerText": {
+        "title": "Regional capability survives the preparation window",
+        "summary": "At least two assignments produced durable capabilities before the next campaign escalation."
+      }
+    },
+    {
+      "id": "responsibleInterval",
+      "priority": 100,
+      "when": {
+        "objectiveDisposition": {
+          "id": "objective.open-orders3.conclusion",
+          "equals": "completed"
+        }
+      },
+      "playerText": {
+        "title": "A responsible preparation interval",
+        "summary": "The Breckenridge completed a responsible work program with its limits and obligations recorded."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.open-orders3.last-directive",
+      "priority": 100,
+      "when": {
+        "all": [
+          {
+            "missionStatus": {
+              "equals": "terminal"
+            }
+          },
+          {
+            "factKnown": "fact.open-orders3.distributed-readiness"
+          }
+        ]
+      },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-8-the-last-directive",
+        "playerSafeSetup": "The Breckenridge's distributed response plan is ready just as contradictory regional alerts demand decisions that no single ship can satisfy alone."
+      },
+      "mustNarrate": [
+        "Acknowledge only the assignments actually resolved, declined, or left unfinished.",
+        "Carry forward Breckenridge Memorial Goodwill, the Long-Range Relay Window, or the Cross Isolation Protocol only when its corresponding V1 result is assetEarned.",
+        "Carry forward overextension, informed failure, limited resolution, or early departure when recorded.",
+        "Ground the next mission in the player-known distributed readiness report, the independent senior responsibilities, committed regional support, Kessler's coalition work, and Prel's contradictory routes."
+      ],
+      "mustNotReveal": [
+        "Do not imply completion of an unselected, declined, or unresolved assignment.",
+        "Do not turn the relay window into direct Voyager contact or a decisive Pathfinder breakthrough.",
+        "Do not imply Imani consented, or that the Cross Isolation Protocol exists, unless the corresponding asset was actually earned through independent consent and documented limits.",
+        "Do not reveal the number, location, cause, solution, or priority of the coming alerts before Chapter 8 establishes them.",
+        "Do not erase assignment limits, failure, overextension, unfinished obligations, or the distinction between support and coercion."
+      ]
+    }
+  ]
+}
