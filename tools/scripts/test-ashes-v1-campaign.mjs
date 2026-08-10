@@ -70,7 +70,25 @@ function runScenario(definition, fixture, scenario) {
     }),
     ...(scenario.steps || [])
   ];
-  let state = createMissionState({ definition, branchId });
+  const entryCapabilityIds = scenario.entryCapabilityIds || [];
+  const entryContext = entryCapabilityIds.length ? {
+    kind: 'directive.missionEntryContext.v1',
+    capabilities: entryCapabilityIds.map((capabilityId, capabilityIndex) => {
+      const capability = (definition.entryCapabilities || []).find((candidate) => candidate.id === capabilityId);
+      assert.ok(capability, `${definition.id}:${scenario.id}: unknown entry capability ${capabilityId}`);
+      return {
+        id: capability.id,
+        sourceRunId: `run.${scenario.id}.${capabilityIndex + 1}`,
+        sourceDefinitionId: capability.source.definitionId,
+        sourceDefinitionVersion: capability.source.definitionVersion,
+        dimensions: capability.source.requirements.map((requirement) => ({
+          id: requirement.dimensionId,
+          value: requirement.in[0]
+        }))
+      };
+    })
+  } : undefined;
+  let state = createMissionState({ definition, branchId, entryContext });
   let acceptedClaimCount = 0;
   const rejectedReasonCodes = [];
   for (const [index, step] of steps.entries()) {

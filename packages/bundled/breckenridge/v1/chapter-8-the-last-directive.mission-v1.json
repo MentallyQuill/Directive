@@ -241,22 +241,22 @@
   "evidencePolicies": [
     {
       "id": "policy.chapter8.use-medical-cooperative",
-      "claimType": "eventOccurred", "targetId": "event.chapter8.medical-cooperative-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "claimType": "eventOccurred", "targetId": "event.chapter8.medical-cooperative-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": { "capabilityAvailable": "capability.chapter8.asterion-medical-cooperative" },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Asterion Medical Cooperative is depicted accepting named casualties or safe-haven responsibility, freeing Sato or a trusted channel for another front.", "exclusions": ["Capability availability, contacting a clinic, or predicting help is not use. Record any medical or coordination limit rather than silently improving both fronts."] }
     },
     {
       "id": "policy.chapter8.use-relay-window",
-      "claimType": "eventOccurred", "targetId": "event.chapter8.relay-window-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "claimType": "eventOccurred", "targetId": "event.chapter8.relay-window-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": { "capabilityAvailable": "capability.chapter8.long-range-relay-window" },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Long-Range Relay Window carries one depicted external confirmation, such as Mercer's authentic order, across compromised regional networks.", "exclusions": ["Capability availability, opening the window without a confirmed exchange, or using it repeatedly is insufficient."] }
     },
     {
       "id": "policy.chapter8.use-defense-codes",
-      "claimType": "eventOccurred", "targetId": "event.chapter8.defense-codes-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "claimType": "eventOccurred", "targetId": "event.chapter8.defense-codes-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": { "capabilityAvailable": "capability.chapter8.orison-defense-codes" },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Orison Defense Codes are accepted by a named platform crew and depicted disabling, reassigning, or preserving that platform without destruction.", "exclusions": ["Capability availability, transmitting unauthenticated codes, or destroying the platform is not this use."] }
     },
     {
       "id": "policy.chapter8.use-cross-isolation",
-      "claimType": "eventOccurred", "targetId": "event.chapter8.cross-isolation-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "claimType": "eventOccurred", "targetId": "event.chapter8.cross-isolation-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": { "capabilityAvailable": "capability.chapter8.cross-isolation-protocol" },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Cross Isolation Protocol is depicted disconnecting one compromised command or power pathway under its consented limits without cascading failure.", "exclusions": ["Capability availability, naming the protocol, or isolating an unrelated circuit is not use."] }
     },
     {

@@ -637,7 +637,7 @@ flowchart TD
 
 #### Implemented checkpoint
 
-Six cross-front and capability-use scenarios bring the campaign suite to 288 authored scenarios while retaining all five terminal dispositions and the three-path quorum. The mission now names regional owners on every front and records capability use separately from entry availability.
+Six cross-front and capability-use scenarios plus an unavailable-capability guard bring the campaign suite through this checkpoint while retaining all five terminal dispositions and the three-path quorum. The mission now names regional owners on every front and records capability use separately from entry availability.
 
 #### Enrichment delivered
 
@@ -668,7 +668,7 @@ flowchart TD
 
 #### Implemented checkpoint
 
-Six coda-combination scenarios bring the campaign suite to 294 authored scenarios. Crew, regional, Rhee, and Daro codas are optional facts and events: they can enrich any supported ending tone but remain outside the four-objective closure boundary and cannot block the exact authored conclusion receipt.
+Six coda-combination scenarios plus unsupported and mutually exclusive coda guards bring the complete campaign suite to 297 authored scenarios. Crew, regional, Rhee, and Daro codas are optional facts and events: they can enrich any supported ending tone but remain outside the four-objective closure boundary and cannot block the exact authored conclusion receipt.
 
 #### Enrichment delivered
 
@@ -730,8 +730,8 @@ The fixture path in each row is the authoritative full scenario-ID list. The enr
 | Chapter 6 | Lacuna access, false recall, containment, archive, Lir/Edden corroboration, Rourke/Tolland boundaries | 3 objectives; six dispositions from `operationalRuptureForward` through `responsibleHandoff` | No Command Bearing; evidence dimension feeds Chapter 8 and epilogue Farwatch packages | Archive loss, public rupture, controlled secrecy, and operational rupture retain different obligations | `chapter-6-cost-of-knowing-scenarios.fixture.json` — 24 |
 | Chapter 7 | Civilian corridor, Vahl refusal, Mercer demonstration, political/technical truth, implementation mechanism | 3 objectives; seven dispositions from `openConflict` through `responsibleHandoff` | No Command Bearing; settlement dimension feeds Chapter 8 and epilogue provisional-accord capabilities | Failed/absent enforcement overrides a positive label to `fragmentedAuthority`; coercive and violent costs persist | `chapter-7-peace-of-their-own-scenarios.fixture.json` — 25 |
 | Open Orders III | Memorial ownership, three-beacon relay, Imani consent; direct/delegated/declined routes | 4 objectives; five workload dispositions | Three assignment awards; feeds Memorial Goodwill, Relay Window, Cross Isolation, and Distributed Readiness | Crew-only remembrance, bounded consent, refusal, contamination, overextension, and early departure remain distinct | `open-orders-3-scenarios.fixture.json` — 29 |
-| Chapter 8 | Five fronts with named local owners; resource shifts; three-path quorum; accepted capability-use events | 5 objectives; `ashes`, `fracturedSurvival`, `imposedOrder`, `peaceAtCost`, `lanternExtinguished` | No Command Bearing; all five dimensions feed `capability.epilogue.nightfall-aftermath-record` | Fronts settle independently; quorum may break while the core escapes; civilian protection may coexist with fractured command | `chapter-8-last-directive-scenarios.fixture.json` — 22 |
-| Epilogue | Aftermath, authority, accountability, command review, optional crew/regional/Rhee/Daro codas | 4 required objectives; `contestedAftermath`, `accountablePeace`, `managedSettlement` | Exact conclusion receipt `completion.ashes.terms-we-keep-resolved`; no new award or meter | Optional codas never block closure; contested and managed endings preserve unresolved people and obligations | `epilogue-terms-we-keep-scenarios.fixture.json` — 21 |
+| Chapter 8 | Five fronts with named local owners; resource shifts; three-path quorum; accepted capability-use events | 5 objectives; `ashes`, `fracturedSurvival`, `imposedOrder`, `peaceAtCost`, `lanternExtinguished` | No Command Bearing; all five dimensions feed `capability.epilogue.nightfall-aftermath-record` | Fronts settle independently; quorum may break while the core escapes; civilian protection may coexist with fractured command | `chapter-8-last-directive-scenarios.fixture.json` — 23 |
+| Epilogue | Aftermath, authority, accountability, command review, optional crew/regional/Rhee/Daro codas | 4 required objectives; `contestedAftermath`, `accountablePeace`, `managedSettlement` | Exact conclusion receipt `completion.ashes.terms-we-keep-resolved`; no new award or meter | Optional codas never block closure; contested and managed endings preserve unresolved people and obligations | `epilogue-terms-we-keep-scenarios.fixture.json` — 23 |
 
 ### Enrichment Scenario IDs
 
@@ -746,8 +746,8 @@ The fixture path in each row is the authoritative full scenario-ID list. The enr
 - Chapter 6: `lacuna-telemetry-before-rourke-boundary`, `rourke-choice-reveals-constraint`, `tolland-delay-crosses-concealment-line`, `analyst-corroboration-without-archive`, `evidence-owner-refuses-public-release`.
 - Chapter 7: `civilian-corridor-before-constitutional-talks`, `compact-security-refusal-opens-channel`, `mercer-demonstration-changes-leverage`, `settlement-without-enforcement-fails-forward`, `armed-stand-down-with-verification-cell`.
 - Open Orders III: `survivors-redesign-memorial`, `crew-only-remembrance`, `beacon-recovery-before-schedule`, `relay-clean-room-after-contamination`, `imani-independent-signature`, `emergency-use-with-bounded-consent`.
-- Chapter 8: `medical-cooperative-frees-command-mesh`, `relay-window-confirms-mercer-order`, `defense-codes-preserve-platform`, `cross-isolation-protects-core-path`, `quorum-broken-core-escapes`, `civilians-protected-command-fractures`.
-- Epilogue: `accountable-peace-personal-codas`, `managed-settlement-unresolved-obligations`, `contested-aftermath-no-invented-reconciliation`, `rhee-custody-coda`, `rhee-treatment-handoff-coda`, `daro-care-coda`.
+- Chapter 8: `medical-cooperative-frees-command-mesh`, `relay-window-confirms-mercer-order`, `defense-codes-preserve-platform`, `cross-isolation-protects-core-path`, `quorum-broken-core-escapes`, `civilians-protected-command-fractures`, `capability-use-rejected-when-unavailable`.
+- Epilogue: `accountable-peace-personal-codas`, `managed-settlement-unresolved-obligations`, `contested-aftermath-no-invented-reconciliation`, `rhee-custody-coda`, `rhee-treatment-handoff-coda`, `daro-care-coda`, `unsupported-personal-codas-rejected`, `rhee-custody-excludes-treatment-coda`.
 
 ### Deliberately Linear Convergence
 
@@ -762,7 +762,7 @@ Promotion, romance, retirement, permanent reassignment, later prosecution or rel
 
 ### Certification Result
 
-- Verified 13 mission contracts and 294 authored scenarios, up from 221 before enrichment.
+- Verified 13 mission contracts and 297 authored scenarios, up from 221 before enrichment.
 - Verified mission contracts, package lint, reducer behavior, mission-entry capabilities, full journey, transition narration, Command Bearing, and the exact campaign-conclusion receipt.
 - Verified all objective terminal texts, terminal disposition summaries, and transition narration guardrails are present.
 - The forbidden-drift scan found only three explicit guardrail statements forbidding a Rhee/Pale Lantern connection; it found no affirmative Voyager, Hesperus, redline, meter, morality-score, or graph-data drift.

@@ -54,6 +54,21 @@
         "label": "Provisional Regional Accord",
         "summary": "The prior accord or stand-down provides a recognized starting point for long-term terms without predetermining them."
       }
+    },
+    {
+      "id": "capability.epilogue.rhee-lawful-custody",
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-lawful-custody"] }] },
+      "playerText": { "label": "Rhee Lawful Custody Record", "summary": "The supported Prelude custody disposition is available for a bounded personal coda." }
+    },
+    {
+      "id": "capability.epilogue.rhee-treatment-handoff",
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-treatment-handoff"] }] },
+      "playerText": { "label": "Rhee Treatment Handoff Record", "summary": "The supported Prelude treatment or responsible-handoff disposition is available for a bounded personal coda." }
+    },
+    {
+      "id": "capability.epilogue.daro-confidential-care",
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.daro-care", "in": ["confidential-treatment"] }] },
+      "playerText": { "label": "Daro Confidential Care Record", "summary": "Daro's established confidential treatment and duty boundary are available for a bounded personal coda." }
     }
   ],
   "facts": [
@@ -140,7 +155,7 @@
     {
       "id": "policy.epilogue.rhee-custody-coda",
       "claimType": "eventOccurred", "targetId": "event.epilogue.rhee-custody-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "when": { "all": [{ "factKnown": "fact.epilogue.aftermath-record" }, { "capabilityAvailable": "capability.epilogue.rhee-lawful-custody" }] },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes Rhee in lawful custody and the coda preserves medical access and due process.", "exclusions": ["Do not use this coda after treatment handoff, escape, or an undiscovered thread; do not connect Rhee to Pale Lantern."] }
     },
     {
@@ -152,7 +167,7 @@
     {
       "id": "policy.epilogue.rhee-treatment-coda",
       "claimType": "eventOccurred", "targetId": "event.epilogue.rhee-treatment-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "when": { "all": [{ "factKnown": "fact.epilogue.aftermath-record" }, { "capabilityAvailable": "capability.epilogue.rhee-treatment-handoff" }] },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes treatment without custody or responsible handoff and names the continuing custodian or process.", "exclusions": ["Do not use this coda after lawful custody, escape, or an undiscovered thread; do not promise recovery."] }
     },
     {
@@ -164,7 +179,7 @@
     {
       "id": "policy.epilogue.daro-care-coda",
       "claimType": "eventOccurred", "targetId": "event.epilogue.daro-care-coda-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.epilogue.aftermath-record" },
+      "when": { "all": [{ "factKnown": "fact.epilogue.aftermath-record" }, { "capabilityAvailable": "capability.epilogue.daro-confidential-care" }] },
       "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the Prelude Story Settlement establishes Daro's confidential treatment and duty disposition.", "exclusions": ["Do not mention an undiscovered thread, infer guilt, or invent recovery, discharge, or later service."] }
     },
     {

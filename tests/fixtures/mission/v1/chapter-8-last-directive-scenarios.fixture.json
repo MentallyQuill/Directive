@@ -195,21 +195,25 @@
     },
     {
       "id": "medical-cooperative-frees-command-mesh",
+      "entryCapabilityIds": ["capability.chapter8.asterion-medical-cooperative"],
       "sequence": ["use-medical-cooperative", "mesh-trusted"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.medical-cooperative-used"], "transitionTargetId": null }
     },
     {
       "id": "relay-window-confirms-mercer-order",
+      "entryCapabilityIds": ["capability.chapter8.long-range-relay-window"],
       "sequence": ["executable-plan", "use-relay-window", "command-shared"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.relay-window-used"], "transitionTargetId": null }
     },
     {
       "id": "defense-codes-preserve-platform",
+      "entryCapabilityIds": ["capability.chapter8.orison-defense-codes"],
       "sequence": ["use-defense-codes", "weapons-freeze"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.defense-codes-used"], "transitionTargetId": null }
     },
     {
       "id": "cross-isolation-protects-core-path",
+      "entryCapabilityIds": ["capability.chapter8.cross-isolation-protocol"],
       "sequence": ["use-cross-isolation", "core-all"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.cross-isolation-used"], "transitionTargetId": null }
     },
@@ -222,6 +226,11 @@
       "id": "civilians-protected-command-fractures",
       "sequence": ["executable-plan", "civilians-protected", "command-fractured"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 7, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.civilians": "completed", "objective.chapter8.command": "completedWithCost" }, "transitionTargetId": null }
+    },
+    {
+      "id": "capability-use-rejected-when-unavailable",
+      "sequence": ["use-medical-cooperative", "use-relay-window", "use-defense-codes", "use-cross-isolation"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"], "eventsExclude": ["event.chapter8.medical-cooperative-used", "event.chapter8.relay-window-used", "event.chapter8.defense-codes-used", "event.chapter8.cross-isolation-used"], "transitionTargetId": null }
     },
     {
       "id": "user-cannot-self-certify-front",

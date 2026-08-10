@@ -152,18 +152,32 @@
     },
     {
       "id": "rhee-custody-coda",
+      "entryCapabilityIds": ["capability.epilogue.rhee-lawful-custody"],
       "sequence": ["aftermath", "rhee-custody-coda"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.epilogue.rhee-custody-coda-recorded"], "transitionTargetId": null }
     },
     {
       "id": "rhee-treatment-handoff-coda",
+      "entryCapabilityIds": ["capability.epilogue.rhee-treatment-handoff"],
       "sequence": ["aftermath", "rhee-treatment-coda"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.epilogue.rhee-treatment-coda-recorded"], "transitionTargetId": null }
     },
     {
       "id": "daro-care-coda",
+      "entryCapabilityIds": ["capability.epilogue.daro-confidential-care"],
       "sequence": ["aftermath", "daro-care-coda"],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.epilogue.daro-care-coda-recorded"], "transitionTargetId": null }
+    },
+    {
+      "id": "unsupported-personal-codas-rejected",
+      "sequence": ["aftermath", "rhee-custody-coda", "rhee-treatment-coda", "daro-care-coda"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 2, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"], "eventsExclude": ["event.epilogue.rhee-custody-coda-recorded", "event.epilogue.rhee-treatment-coda-recorded", "event.epilogue.daro-care-coda-recorded"], "transitionTargetId": null }
+    },
+    {
+      "id": "rhee-custody-excludes-treatment-coda",
+      "entryCapabilityIds": ["capability.epilogue.rhee-lawful-custody"],
+      "sequence": ["aftermath", "rhee-custody-coda", "rhee-treatment-coda"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met"], "eventsInclude": ["event.epilogue.rhee-custody-coda-recorded"], "eventsExclude": ["event.epilogue.rhee-treatment-coda-recorded"], "transitionTargetId": null }
     },
     {
       "id": "user-cannot-self-certify-settlement",

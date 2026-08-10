@@ -1667,6 +1667,13 @@
           "when": { "eventOccurred": "event.prelude.redline-wrong-person-detained" }
         }
       ]
+    },
+    {
+      "id": "dimension.prelude.daro-care",
+      "playerText": { "label": "Daro Tem care" },
+      "derive": [
+        { "value": "confidential-treatment", "priority": 100, "when": { "outcomeIs": { "id": "outcome.prelude.daro-care", "equals": "confidentialTreatment" } } }
+      ]
     }
   ],
   "clocks": [
