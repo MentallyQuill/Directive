@@ -115,7 +115,11 @@ export function validateMissionStateAuthority({ definition = {}, state = {} } = 
     const batches = evidenceBatches(state.evidenceLog, errors);
     if (errors.length > 0) return { ok: false, errors };
 
-    let rebuilt = createMissionState({ definition, branchId: state.branchId });
+    let rebuilt = createMissionState({
+        definition,
+        branchId: state.branchId,
+        ...(state.entryContext === undefined ? {} : { entryContext: state.entryContext }),
+    });
     try {
         for (const batch of batches) {
             rebuilt = reduceMissionEvidence({
@@ -140,6 +144,7 @@ export function validateMissionStateAuthority({ definition = {}, state = {} } = 
         'outcomeDimensions',
         'acceptedEvidenceKeys',
         'terminalDisposition',
+        ...(state.entryContext === undefined ? [] : ['entryContext']),
     ]) {
         if (!jsonEqual(state[field], rebuilt[field])) {
             errors.push(`${field} does not match replayed accepted evidence`);

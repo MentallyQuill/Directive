@@ -6,6 +6,7 @@ import {
 } from '../mission/v1/evidence-contracts.mjs';
 import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
+import { deriveMissionEntryContext } from '../mission/v1/mission-entry-capabilities.mjs';
 import {
     createInitialMissionJourney,
     createSuccessorMissionJourney,
@@ -797,7 +798,18 @@ export function createV1StateSpine({
         const survivingEvidence = (matchedRun.state.evidenceLog || []).filter(
             (entry) => !missionInvalidated.has(entry.sourceContributionId),
         );
-        let rebuiltMission = createMissionState({ definition: matchedDefinition, branchId });
+        const priorHistoryForRun = hasJourney ? history.slice(0, matchedRun.index) : [];
+        const rebuiltEntryContext = deriveMissionEntryContext({
+            targetDefinition: matchedDefinition,
+            history: priorHistoryForRun,
+        });
+        let rebuiltMission = createMissionState({
+            definition: matchedDefinition,
+            branchId,
+            ...(matchedDefinition.entryCapabilities?.length > 0
+                ? { entryContext: rebuiltEntryContext }
+                : {}),
+        });
         const dependencyPrunedEvidence = [];
         for (const batch of orderedEvidenceBatches(survivingEvidence)) {
             const replayable = revalidateMissionEvidenceReplay({
@@ -858,7 +870,7 @@ export function createV1StateSpine({
         let missionPatch = { v1: rebuiltMission };
         let journeyRollback = null;
         if (hasJourney) {
-            const priorHistory = history.slice(0, matchedRun.index);
+            const priorHistory = priorHistoryForRun;
             const baseJourney = {
                 ...structuredClone(campaignState.mission.v1Journey),
                 revision: matchedRun.index,

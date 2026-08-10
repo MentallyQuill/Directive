@@ -2,6 +2,7 @@ const PREDICATE_OPERATORS = new Set([
     'all',
     'any',
     'not',
+    'capabilityAvailable',
     'factKnown',
     'worldFact',
     'eventOccurred',
@@ -88,6 +89,14 @@ function validateNode(predicate, index, path, errors, refs) {
     if (operator === 'factKnown' || operator === 'worldFact') {
         refs.facts.add(value);
         if (!index?.facts?.has(value)) errors.push(`${path} references unknown fact: ${value}`);
+        return;
+    }
+    if (operator === 'capabilityAvailable') {
+        if (typeof value !== 'string' || value.length === 0) {
+            errors.push(`${path} capabilityAvailable requires an id`);
+        } else if (!index?.entryCapabilities?.has(value)) {
+            errors.push(`${path} references unknown capability: ${value}`);
+        }
         return;
     }
     if (operator === 'eventOccurred') {
@@ -188,6 +197,14 @@ function evaluateNode(predicate, context, reasons) {
     if (Object.hasOwn(predicate, 'not')) return !evaluateNode(predicate.not, context, reasons);
     if (Object.hasOwn(predicate, 'factKnown')) {
         return recordReason(reasons, 'factKnown', predicate.factKnown, hasValue(context.knownFacts, predicate.factKnown));
+    }
+    if (Object.hasOwn(predicate, 'capabilityAvailable')) {
+        return recordReason(
+            reasons,
+            'capabilityAvailable',
+            predicate.capabilityAvailable,
+            hasValue(context.entryCapabilities, predicate.capabilityAvailable),
+        );
     }
     if (Object.hasOwn(predicate, 'worldFact')) {
         return recordReason(reasons, 'worldFact', predicate.worldFact, hasValue(context.worldFacts, predicate.worldFact));

@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 
 import { validateMissionStateAuthority } from './mission-state-authority.mjs';
 import { createMissionState } from './mission-state.mjs';
+import {
+    deriveMissionEntryContext,
+    validateMissionEntryCapabilitySources,
+    validateMissionEntryContext,
+} from './mission-entry-capabilities.mjs';
 
 export const MISSION_JOURNEY_KIND = 'directive.missionJourney.v1';
 export const MISSION_RUN_ARCHIVE_KIND = 'directive.missionRunArchive.v1';
@@ -211,6 +216,13 @@ export function createSuccessorMissionJourney({
     'successor activation source must be the unarchived current run');
     assertJourneyCondition(sourceState?.status === 'terminal', 'successor activation requires terminal source state');
     assertJourneyCondition(sourceState?.transitionReceipt, 'successor activation requires a transition receipt');
+    const sourceEntryAuthority = validateMissionEntryContext({
+        definition: sourceDefinition,
+        entryContext: sourceState?.entryContext,
+        history,
+    });
+    assertJourneyCondition(sourceEntryAuthority.ok,
+        'successor activation source entry capability authority is invalid');
     assertJourneyCondition(sourceDefinition.id !== targetDefinition.id, 'successor activation cannot self-target');
     assertJourneyCondition(targetMatchesDefinition(sourceState.transitionReceipt.target, targetDefinition),
         'successor target definition does not match the authored transition');
@@ -236,6 +248,11 @@ export function createSuccessorMissionJourney({
         sourceMissionRevision: sourceState.revision,
         targetDefinition,
     });
+    const nextHistory = [...cloneJson(history || []), archived];
+    const entryContext = deriveMissionEntryContext({
+        targetDefinition,
+        history: nextHistory,
+    });
     return {
         journey: {
             kind: MISSION_JOURNEY_KIND,
@@ -244,8 +261,12 @@ export function createSuccessorMissionJourney({
             revision: nextRevision,
             activeRunId,
         },
-        history: [...cloneJson(history || []), archived],
-        currentState: createMissionState({ definition: targetDefinition, branchId: journey.branchId }),
+        history: nextHistory,
+        currentState: createMissionState({
+            definition: targetDefinition,
+            branchId: journey.branchId,
+            ...(targetDefinition.entryCapabilities?.length > 0 ? { entryContext } : {}),
+        }),
     };
 }
 
@@ -274,6 +295,11 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
     const currentDefinition = definitionById(availableDefinitions, currentState.definitionId);
     if (!currentDefinition) errors.push('current mission definition is unavailable or ambiguous');
     if (currentDefinition) {
+        const sourceContracts = validateMissionEntryCapabilitySources({
+            definition: currentDefinition,
+            definitions: availableDefinitions,
+        });
+        if (!sourceContracts.ok) errors.push('current mission entry capability source contract is invalid');
         const currentAuthority = validateMissionStateAuthority({ definition: currentDefinition, state: currentState });
         if (!currentAuthority.ok) errors.push('current mission state authority is invalid');
         if (mission.activeMissionId !== currentDefinition.packageBinding.sourceId) {
@@ -309,6 +335,11 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
         if (!definition) {
             errors.push('mission archive definition is unavailable or ambiguous');
         } else {
+            const sourceContracts = validateMissionEntryCapabilitySources({
+                definition,
+                definitions: availableDefinitions,
+            });
+            if (!sourceContracts.ok) errors.push('mission archive entry capability source contract is invalid');
             if (archive.definitionVersion !== definition.version
                 || archive.sourceId !== definition.packageBinding.sourceId
                 || !sameJson(archive.packageBinding, definition.packageBinding)
@@ -319,6 +350,12 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
             }
             const authority = validateMissionStateAuthority({ definition, state: archive.state });
             if (!authority.ok) errors.push('mission archive state authority is invalid');
+            const archiveEntry = validateMissionEntryContext({
+                definition,
+                entryContext: archive.state?.entryContext,
+                history: history.slice(0, index),
+            });
+            if (!archiveEntry.ok) errors.push('mission archive entry capability authority is invalid');
             try {
                 expectedRunId = index === 0
                     ? initialMissionRunId({ branchId, definition })
@@ -344,6 +381,12 @@ export function validateMissionJourney({ campaignState = {}, definitions = [] } 
     if (definitionIds.has(currentState.definitionId)) errors.push('current mission definition duplicates archived history');
     if (runIds.has(journey.activeRunId)) errors.push('mission v1Journey active run duplicates archived run identity');
     if (currentDefinition) {
+        const currentEntry = validateMissionEntryContext({
+            definition: currentDefinition,
+            entryContext: currentState.entryContext,
+            history: Array.isArray(history) ? history : [],
+        });
+        if (!currentEntry.ok) errors.push('current mission entry capability authority is invalid');
         let expectedActiveRunId = null;
         try {
             expectedActiveRunId = previousArchive

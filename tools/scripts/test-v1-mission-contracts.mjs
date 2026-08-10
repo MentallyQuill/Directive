@@ -15,6 +15,9 @@ assert.equal(missionSchema.properties.kind.const, 'directive.missionDefinition.v
 for (const boundary of [
     'packageBinding',
     'playerText',
+    'entryCapability',
+    'entryCapabilitySource',
+    'entryCapabilityRequirement',
     'objective',
     'fact',
     'evidencePolicy',
@@ -48,6 +51,8 @@ assert.deepEqual(missionSchema.$defs.reportRoute.properties.deliveryRequirement.
 ]);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('modelInstructions'), false);
 assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('sourceCode'), false);
+assert.equal(missionSchema.properties.entryCapabilities.items.$ref, '#/$defs/entryCapability');
+assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('capabilityAvailable'), true);
 assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('worldFactEstablished'), true);
 assert.deepEqual(
     [...MISSION_EVIDENCE_POLICY_SOURCE_ROLES],

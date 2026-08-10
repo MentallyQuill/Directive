@@ -1,6 +1,7 @@
 import { createMissionState } from './mission-state.mjs';
 import { createMissionPlayerProjection } from './player-projection.mjs';
 import { validateMissionDefinition } from './mission-contracts.mjs';
+import { validateMissionEntryCapabilitySources } from './mission-entry-capabilities.mjs';
 
 export const DEFAULT_MISSION_SPOILER_TERMS = Object.freeze([
     'fraud',
@@ -99,6 +100,7 @@ function lintReportReachability(definition, errors) {
 
 export function lintMissionPackage({
     definition = {},
+    knownDefinitions = [],
     knownTransitionTargetIds = [],
     scenarioExpectations = [],
     spoilerTerms = DEFAULT_MISSION_SPOILER_TERMS,
@@ -109,6 +111,13 @@ export function lintMissionPackage({
     errors.push(...definitionValidation.errors.map((error) => `definition: ${error}`));
     if (!definitionValidation.ok) {
         return { ok: false, errors: [...new Set(errors)].sort(), warnings };
+    }
+    if ((definition.entryCapabilities || []).length > 0) {
+        const sourceValidation = validateMissionEntryCapabilitySources({
+            definition,
+            definitions: knownDefinitions,
+        });
+        errors.push(...sourceValidation.errors.map((error) => `definition: ${error}`));
     }
 
     const initialState = createMissionState({ definition, branchId: 'lint.initial' });

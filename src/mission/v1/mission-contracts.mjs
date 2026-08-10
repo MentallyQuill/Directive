@@ -302,6 +302,7 @@ function findObjectiveDependencyCycle(dependencies) {
 
 export function indexMissionDefinition(definition = {}) {
     return {
+        entryCapabilities: byId(definition.entryCapabilities),
         objectives: byId(definition.objectives),
         facts: byId(definition.facts),
         evidencePolicies: byId(definition.evidencePolicies),
@@ -351,6 +352,7 @@ export function validateMissionDefinition(definition = {}) {
     }
     const ids = new Set();
     for (const key of [
+        'entryCapabilities',
         'objectives',
         'facts',
         'evidencePolicies',
@@ -371,6 +373,42 @@ export function validateMissionDefinition(definition = {}) {
     const factsById = byId(definition?.facts);
     const factIds = new Set(factsById.keys());
     const definitionIndex = indexMissionDefinition(definition);
+    for (const capability of Array.isArray(definition?.entryCapabilities) ? definition.entryCapabilities : []) {
+        const capabilityId = capability?.id || '<unknown entry capability>';
+        if (!isStableId(capability?.source?.definitionId)) {
+            errors.push(`${capabilityId} source definitionId must be a stable id`);
+        } else if (capability.source.definitionId === definition.id) {
+            errors.push(`${capabilityId} cannot import capability authority from itself`);
+        }
+        if (!isNonEmptyString(capability?.source?.definitionVersion)) {
+            errors.push(`${capabilityId} source definitionVersion must be a non-empty string`);
+        }
+        const requirements = capability?.source?.requirements;
+        if (!Array.isArray(requirements) || requirements.length === 0) {
+            errors.push(`${capabilityId} source requirements must contain at least one outcome dimension`);
+        } else {
+            const dimensionIds = new Set();
+            for (const requirement of requirements) {
+                if (!isStableId(requirement?.dimensionId)) {
+                    errors.push(`${capabilityId} requirement dimensionId must be a stable id`);
+                } else if (dimensionIds.has(requirement.dimensionId)) {
+                    errors.push(`${capabilityId} source requirements contain duplicate dimensionId: ${requirement.dimensionId}`);
+                }
+                dimensionIds.add(requirement?.dimensionId);
+                if (!Array.isArray(requirement?.in)
+                    || requirement.in.length === 0
+                    || requirement.in.some((value) => !isNonEmptyString(value))) {
+                    errors.push(`${capabilityId} requirement in must contain at least one non-empty value`);
+                } else if (new Set(requirement.in).size !== requirement.in.length) {
+                    errors.push(`${capabilityId} requirement in must not contain duplicates`);
+                }
+            }
+        }
+        if (!isNonEmptyString(capability?.playerText?.label)
+            || !isNonEmptyString(capability?.playerText?.summary)) {
+            errors.push(`${capabilityId} playerText requires a non-empty label and summary`);
+        }
+    }
     if (definition.projectionHints !== undefined) {
         const hints = definition.projectionHints;
         if (!hints || typeof hints !== 'object' || Array.isArray(hints)) {

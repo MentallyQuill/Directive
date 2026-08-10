@@ -29,6 +29,21 @@ function definitionFor(id, sourceId, targetId) {
 
 const missionA = definitionFor('mission.journey-a', 'journey-a', 'journey-b');
 const missionB = definitionFor('mission.journey-b', 'journey-b', 'journey-c');
+missionB.entryCapabilities = [{
+    id: 'capability.journey-a-rescue-practice',
+    source: {
+        definitionId: missionA.id,
+        definitionVersion: missionA.version,
+        requirements: [{
+            dimensionId: 'dimension.lives-protected',
+            in: ['full', 'full-with-cost'],
+        }],
+    },
+    playerText: {
+        label: 'Journey A rescue practice',
+        summary: 'Reuse the rescue practice proven during Journey A.',
+    },
+}];
 const missionC = definitionFor('mission.journey-c', 'journey-c', null);
 const definitions = [missionA, missionB, missionC];
 const runtimeAssets = {
@@ -270,11 +285,16 @@ const laterMutation = await laterHarness.runtime.invalidateSourceMutation({
     hostMessageId: 'message.journey.assistant.2',
     eventType: 'directiveResponseEdited',
 });
-assert.equal(laterMutation.status, 'invalidated');
+assert.equal(laterMutation.status, 'invalidated', JSON.stringify(laterMutation));
 assert.deepEqual(laterHarness.campaignState.mission.v1History, [archivedA], 'earlier archived mission remains exact');
 assert.equal(laterHarness.campaignState.mission.v1.definitionId, missionB.id);
 assert.equal(laterHarness.campaignState.mission.v1.status, 'active');
 assert.equal(laterHarness.campaignState.mission.v1Journey.revision, 1);
+assert.deepEqual(
+    laterHarness.campaignState.mission.v1.entryContext.capabilities.map((capability) => capability.id),
+    ['capability.journey-a-rescue-practice'],
+    'rebuilding a capability-bearing mission preserves its archived entry authority',
+);
 assert.deepEqual(
     selectCurrentStoryEpisodes(laterHarness.campaignState.storySettlement).map((episode) => episode.id),
     [storyAId],

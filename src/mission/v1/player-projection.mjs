@@ -72,6 +72,17 @@ function projectOutcomeDimensions(definition, state) {
         }));
 }
 
+function projectCapabilities(definition, state, index) {
+    const available = new Set((state.entryContext?.capabilities || []).map((capability) => capability.id));
+    return (definition.entryCapabilities || [])
+        .filter((capability) => available.has(capability.id) && index.entryCapabilities.has(capability.id))
+        .map((capability) => ({
+            id: capability.id,
+            label: capability.playerText.label,
+            summary: capability.playerText.summary,
+        }));
+}
+
 function projectTerminal(definition, state, index) {
     if (state.status !== 'terminal' || !state.terminalDisposition) return null;
     const terminal = index.terminalDispositions.get(state.terminalDisposition);
@@ -104,6 +115,7 @@ export function createMissionPlayerProjection({ definition = {}, state = {} } = 
         summary: definition.playerText?.summary || '',
         objectives,
         progress: progressFor(objectives),
+        capabilities: projectCapabilities(definition, state, index),
         facts: projectFacts(definition, state),
         clocks: projectClocks(definition, state),
         outcomeDimensions: projectOutcomeDimensions(definition, state),

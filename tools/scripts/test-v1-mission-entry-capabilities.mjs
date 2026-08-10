@@ -8,6 +8,7 @@ import {
 import {
     deriveMissionEntryContext,
     MISSION_ENTRY_CONTEXT_KIND,
+    validateMissionEntryCapabilitySources,
     validateMissionEntryContext,
 } from '../../src/mission/v1/mission-entry-capabilities.mjs';
 import {
@@ -78,6 +79,10 @@ targetDefinition.entryCapabilities = [
 
 assert.equal(validateMissionDefinition(sourceDefinition).ok, true);
 assert.equal(validateMissionDefinition(targetDefinition).ok, true);
+assert.deepEqual(validateMissionEntryCapabilitySources({
+    definition: targetDefinition,
+    definitions: [sourceDefinition, targetDefinition],
+}), { ok: true, errors: [] });
 assert.deepEqual(
     [...indexMissionDefinition(targetDefinition).entryCapabilities.keys()],
     targetDefinition.entryCapabilities.map((capability) => capability.id),
@@ -96,6 +101,22 @@ for (const [label, mutate, pattern] of [
     const candidate = structuredClone(targetDefinition);
     mutate(candidate);
     const result = validateMissionDefinition(candidate);
+    assert.equal(result.ok, false, label);
+    assert.match(result.errors.join('\n'), pattern, label);
+}
+
+for (const [label, mutate, pattern] of [
+    ['unknown source definition', (definition) => { definition.entryCapabilities[0].source.definitionId = 'mission.unknown'; }, /source definition/i],
+    ['source version drift', (definition) => { definition.entryCapabilities[0].source.definitionVersion = '9.9.9'; }, /version/i],
+    ['unknown source dimension', (definition) => { definition.entryCapabilities[0].source.requirements[0].dimensionId = 'dimension.unknown'; }, /dimension/i],
+    ['unknown source value', (definition) => { definition.entryCapabilities[0].source.requirements[0].in = ['impossible']; }, /value/i],
+]) {
+    const candidate = structuredClone(targetDefinition);
+    mutate(candidate);
+    const result = validateMissionEntryCapabilitySources({
+        definition: candidate,
+        definitions: [sourceDefinition, candidate],
+    });
     assert.equal(result.ok, false, label);
     assert.match(result.errors.join('\n'), pattern, label);
 }
@@ -246,5 +267,44 @@ const missingContext = structuredClone(successor.currentState);
 delete missingContext.entryContext;
 assert.equal(validateMissionState({ definition: targetDefinition, state: missingContext }).ok, false);
 assert.equal(validateMissionState({ definition: sourceDefinition, state: terminalSource }).ok, true);
+
+const finalDefinition = structuredClone(sourceDefinition);
+finalDefinition.id = 'mission.entry-final';
+finalDefinition.packageBinding.sourceId = 'entry-final';
+finalDefinition.playerText = { title: 'Entry Final', summary: 'Continue after the capability-bearing mission.' };
+targetDefinition.transitions[0].target = {
+    kind: 'mission',
+    id: finalDefinition.packageBinding.sourceId,
+    playerSafeSetup: 'Continue to the final mission.',
+};
+const terminalTarget = reduceMissionEvidence({
+    definition: targetDefinition,
+    state: successor.currentState,
+    acceptedClaims: [{
+        claimId: 'claim.entry.target-close',
+        policyId: 'policy.hesperus-survivors-transferred',
+        claimType: 'eventOccurred',
+        targetId: 'event.hesperus-survivors-transferred',
+        evidenceKey: 'evidence.entry.target-close',
+    }],
+    sourceContribution: {
+        id: 'contribution.entry.target',
+        messageId: 'message.entry.target',
+        swipeId: '0',
+        role: 'assistant',
+        textHash: '5678efab',
+        acceptedAtRevision: 1,
+    },
+}).state;
+assert.equal(terminalTarget.status, 'terminal');
+const forgedTerminalTarget = structuredClone(terminalTarget);
+forgedTerminalTarget.entryContext.capabilities[0].sourceRunId = 'mission-run.forged';
+assert.throws(() => createSuccessorMissionJourney({
+    journey: successor.journey,
+    history: successor.history,
+    sourceState: forgedTerminalTarget,
+    sourceDefinition: targetDefinition,
+    targetDefinition: finalDefinition,
+}), /entry|capabilit|history/i, 'activation rejects structurally valid but historically forged source receipts');
 
 console.log('V1 mission-entry capability tests passed.');

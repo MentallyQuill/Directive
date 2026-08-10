@@ -1,5 +1,10 @@
 import { indexMissionDefinition, MISSION_OBJECTIVE_STATES } from './mission-contracts.mjs';
 import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
+import {
+    cloneMissionEntryContext,
+    emptyMissionEntryContext,
+    validateMissionEntryContext,
+} from './mission-entry-capabilities.mjs';
 
 export const MISSION_STATE_KIND = 'directive.missionState.v1';
 
@@ -48,6 +53,12 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
         errors.push('revision must be a non-negative integer');
     }
     if (!MISSION_STATUSES.has(state?.status)) errors.push('status is unknown');
+
+    const entryContext = validateMissionEntryContext({
+        definition,
+        entryContext: state?.entryContext,
+    });
+    errors.push(...entryContext.errors);
 
     const objectiveIds = new Set(index.objectives.keys());
     if (validateExactRecordKeys(state?.objectives, objectiveIds, 'objectives', errors)) {
@@ -176,6 +187,7 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
 export function missionStateContext(definition, state) {
     return {
         index: indexMissionDefinition(definition),
+        entryCapabilities: new Set((state.entryContext?.capabilities || []).map((capability) => capability.id)),
         knownFacts: new Set(state.knownFacts || []),
         worldFacts: new Set(state.worldFacts || []),
         events: new Set(state.events || []),
@@ -192,7 +204,7 @@ function predicateValue(predicate, definition, state) {
     return result.value;
 }
 
-export function createMissionState({ definition = {}, branchId = 'main' } = {}) {
+export function createMissionState({ definition = {}, branchId = 'main', entryContext } = {}) {
     const state = {
         kind: MISSION_STATE_KIND,
         schemaVersion: 1,
@@ -225,6 +237,20 @@ export function createMissionState({ definition = {}, branchId = 'main' } = {}) 
         terminalDisposition: null,
         transitionReceipt: null,
     };
+
+    if (Array.isArray(definition.entryCapabilities) && definition.entryCapabilities.length > 0) {
+        const normalizedEntryContext = entryContext === undefined
+            ? emptyMissionEntryContext()
+            : cloneMissionEntryContext(entryContext);
+        const validation = validateMissionEntryContext({
+            definition,
+            entryContext: normalizedEntryContext,
+        });
+        if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
+        state.entryContext = normalizedEntryContext;
+    } else if (entryContext !== undefined) {
+        throw new TypeError('entryContext is not authored for this mission');
+    }
 
     for (const objective of definition.objectives || []) {
         state.objectives[objective.id] = {
