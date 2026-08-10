@@ -1,42 +1,12 @@
 import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
-import {
-  ASHES_V1_PACKAGE_ID,
-  createV1CampaignPanelModel
-} from './v1-player-facing-panel-model.mjs';
+import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
+import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
+
+let selectedRecordKey = null;
 
 export function resetCampaignPanelState() {
-  // V1 Campaign has no hidden selection state.
-}
-
-function packageId(pack = {}) {
-  return String(pack.packageId || pack.id || pack.manifest?.id || '').trim();
-}
-
-function packageTitle(pack = {}) {
-  return String(pack.campaign?.title || pack.title || pack.manifest?.title || 'Campaign').trim();
-}
-
-function packageSummary(pack = {}) {
-  return String(
-    pack.campaign?.highConcept
-    || pack.campaign?.premise
-    || pack.premise
-    || pack.summary
-    || ''
-  ).trim();
-}
-
-function packageImage(pack, variant = 'card') {
-  return createPackageImage(pack, {
-    kind: pack.image?.kind || 'ship.hero',
-    subjectId: pack.image?.subjectId || pack.ship?.id || packageId(pack),
-    variant
-  }, {
-    wrapperClass: 'directive-v1-campaign-media',
-    label: packageTitle(pack),
-    loading: 'lazy'
-  });
+  selectedRecordKey = null;
 }
 
 function formatDate(value) {
@@ -50,108 +20,124 @@ async function runAndRefresh(action, payload, actions) {
   await actions.refresh?.();
 }
 
-function createPackageCard(pack, actions) {
-  const available = pack.available === true;
-  const card = createElement('article', `directive-v1-campaign-package${available ? '' : ' is-unavailable'}`);
-  card.dataset.packageId = packageId(pack);
-  card.appendChild(packageImage(pack));
-  const copy = createElement('div', 'directive-v1-campaign-package-copy');
-  const state = createElement('span', 'directive-v1-kicker');
-  state.textContent = available ? 'Playable in V1' : 'Coming later';
-  const title = createElement('h3');
-  title.textContent = packageTitle(pack);
-  const summary = createElement('p', 'directive-v1-campaign-hook');
-  summary.textContent = packageSummary(pack) || (available
-    ? 'Begin the Ashes of Peace campaign aboard the U.S.S. Breckenridge.'
-    : 'This campaign will become playable after its V1-native story data is complete.');
-  copy.append(state, title, summary);
+function packageImage(pack, variant = 'card', wrapperClass = 'campaign-row-art') {
+  return createPackageImage(pack, {
+    kind: pack.image?.kind || 'ship.hero',
+    subjectId: pack.image?.subjectId || pack.ship?.id || pack.packageId,
+    variant
+  }, {
+    wrapperClass,
+    label: pack.title,
+    loading: 'lazy'
+  });
+}
 
-  const commands = createElement('div', 'directive-v1-campaign-commands');
-  if (available && pack.actions?.resumeDraft) {
-    commands.appendChild(createButton({
-      label: 'Continue setup',
-      icon: 'fa-solid fa-user-pen',
-      className: 'directive-button directive-primary-command',
-      onClick: () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
-    }));
-  } else {
-    commands.appendChild(createButton({
-      label: available ? 'Start campaign' : 'Unavailable',
-      icon: available ? 'fa-solid fa-play' : 'fa-solid fa-lock',
-      className: 'directive-button directive-primary-command',
-      disabled: !available || pack.actions?.startNewCampaign === false,
-      onClick: available
-        ? () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions)
-        : null
-    }));
-  }
-  copy.appendChild(commands);
+function createComingLaterPreview(pack) {
+  const card = createElement('article', 'campaign-row campaign-library-row is-coming-later');
+  card.dataset.campaignAvailability = 'coming-later';
+  card.dataset.packageId = pack.packageId;
+  card.setAttribute('aria-disabled', 'true');
+  card.tabIndex = -1;
+  card.appendChild(packageImage(pack));
+  const copy = createElement('div', 'campaign-row-copy');
+  const state = createElement('span', 'campaign-row-state');
+  state.textContent = 'Coming later';
+  const title = createElement('strong');
+  title.textContent = pack.title;
+  const description = createElement('span', 'campaign-row-description');
+  description.dataset.campaignDescription = 'true';
+  description.textContent = pack.description;
+  copy.append(state, title, description);
   card.appendChild(copy);
   return card;
 }
 
-function createCheckpoint(campaign, checkpoint, actions) {
-  const row = createElement('li', 'directive-v1-checkpoint');
-  const copy = createElement('div');
+function createSelectableRow({ key, title, meta, state, imageSource, active, onSelect }) {
+  const row = createElement('button', `campaign-row${active ? ' active' : ''}`);
+  row.type = 'button';
+  row.dataset.campaignRecordKey = key;
+  row.setAttribute('aria-pressed', active ? 'true' : 'false');
+  if (imageSource) row.appendChild(packageImage(imageSource));
+  const copy = createElement('span', 'campaign-row-copy');
+  const heading = createElement('strong');
+  heading.textContent = title;
+  const detail = createElement('span');
+  detail.textContent = meta;
+  copy.append(heading, detail);
+  const status = createElement('span', 'campaign-row-state');
+  status.textContent = state;
+  row.append(copy, status);
+  row.addEventListener('click', onSelect);
+  return row;
+}
+
+function createCheckpointRow(campaign, checkpoint, actions) {
+  const row = createElement('li', 'campaign-save-row');
+  const copy = createElement('div', 'campaign-save-copy');
   const title = createElement('strong');
-  title.textContent = checkpoint.name;
+  title.textContent = checkpoint.name || 'Checkpoint';
   const meta = createElement('span');
   meta.textContent = [checkpoint.chapter, checkpoint.stardate, formatDate(checkpoint.createdAt)].filter(Boolean).join(' / ');
   copy.append(title, meta);
-  const commands = createElement('div', 'directive-v1-checkpoint-actions');
-  commands.appendChild(createButton({
-    label: 'Load',
-    className: 'directive-button directive-secondary-command',
-    disabled: checkpoint.loadable !== true,
-    onClick: () => runAndRefresh(actions.loadCheckpoint, {
-      campaignId: campaign.id,
-      checkpointId: checkpoint.id
-    }, actions)
-  }));
-  commands.appendChild(createButton({
-    label: 'Delete',
-    className: 'directive-button directive-secondary-command',
-    onClick: async () => {
-      const confirmed = typeof globalThis.confirm !== 'function'
-        || globalThis.confirm(`Delete checkpoint "${checkpoint.name}"?`);
-      if (!confirmed) return;
-      await runAndRefresh(actions.deleteSave, {
+  const commands = createElement('div', 'campaign-save-actions');
+  commands.append(
+    createButton({
+      label: 'Load',
+      className: 'campaign-command',
+      disabled: checkpoint.loadable !== true,
+      onClick: () => runAndRefresh(actions.loadCheckpoint, {
         campaignId: campaign.id,
         checkpointId: checkpoint.id
-      }, actions);
-    }
-  }));
+      }, actions)
+    }),
+    createButton({
+      label: 'Delete',
+      className: 'campaign-command campaign-command-danger',
+      onClick: async () => {
+        const confirmed = typeof globalThis.confirm !== 'function'
+          || globalThis.confirm(`Delete checkpoint "${checkpoint.name}"?`);
+        if (!confirmed) return;
+        await runAndRefresh(actions.deleteSave, {
+          campaignId: campaign.id,
+          checkpointId: checkpoint.id
+        }, actions);
+      }
+    })
+  );
   row.append(copy, commands);
   return row;
 }
 
-function createCampaignCard(campaign, actions) {
-  const card = createElement('article', 'directive-v1-active-campaign');
-  const header = createElement('header');
-  const copy = createElement('div');
-  const state = createElement('span', 'directive-v1-kicker');
-  state.textContent = campaign.active ? 'Current campaign' : 'Campaign';
-  const title = createElement('h3');
+function appendCampaignDetail(detail, campaign, pack, actions) {
+  const hero = createElement('section', 'campaign-hero');
+  if (pack) hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
+  const copy = createElement('div', 'campaign-hero-copy');
+  const status = createElement('span', 'campaign-status');
+  status.textContent = campaign.active ? 'Current campaign' : 'Campaign';
+  const title = createElement('h2');
   title.textContent = campaign.title;
   const meta = createElement('p');
-  meta.textContent = [campaign.playerName, campaign.playerRole, campaign.shipName].filter(Boolean).join(' / ');
-  copy.append(state, title, meta);
-  const commands = createElement('div', 'directive-v1-campaign-commands');
+  meta.textContent = [campaign.playerName, campaign.playerRole, campaign.setting].filter(Boolean).join(' / ');
+  const summary = createElement('p', 'campaign-summary');
+  summary.textContent = campaign.premise || campaign.chapter || '';
+  copy.append(status, title, meta, summary);
+  hero.appendChild(copy);
+  detail.appendChild(hero);
+
+  const commands = createElement('div', 'campaign-detail-actions');
   if (campaign.canOpenChat) {
     commands.appendChild(createButton({
       label: 'Continue',
       icon: 'fa-solid fa-arrow-right',
-      className: 'directive-button directive-primary-command',
-      onClick: () => runAndRefresh(actions.openCampaignChat, {
-        saveId: campaign.activeTimeline?.saveId
-      }, actions)
+      className: 'campaign-command campaign-command-primary',
+      onClick: () => runAndRefresh(actions.openCampaignChat, { saveId: campaign.activeTimeline?.saveId }, actions)
     }));
   }
   if (campaign.canSaveGame) {
     commands.appendChild(createButton({
       label: 'Save checkpoint',
       icon: 'fa-solid fa-bookmark',
-      className: 'directive-button directive-secondary-command',
+      className: 'campaign-command',
       onClick: async () => {
         const suggested = campaign.chapter ? `Before ${campaign.chapter}` : 'Checkpoint';
         const name = typeof globalThis.prompt === 'function'
@@ -162,59 +148,116 @@ function createCampaignCard(campaign, actions) {
       }
     }));
   }
-  header.append(copy, commands);
-  card.appendChild(header);
+  detail.appendChild(commands);
 
-  if (campaign.premise || campaign.chapter) {
-    const detail = createElement('p', 'directive-v1-active-campaign-summary');
-    detail.textContent = campaign.chapter || campaign.premise;
-    card.appendChild(detail);
-  }
-  const updated = createElement('p', 'directive-v1-active-campaign-updated');
-  updated.textContent = `Last played ${formatDate(campaign.lastPlayedAt)}`;
-  card.appendChild(updated);
+  const saves = createElement('section', 'campaign-saves');
+  const heading = createElement('h3');
+  heading.textContent = 'Campaign saves';
+  const list = createElement('ul', 'campaign-save-list');
+  (campaign.checkpoints || []).forEach((checkpoint) => list.appendChild(createCheckpointRow(campaign, checkpoint, actions)));
+  if (!campaign.checkpoints?.length) appendEmpty(list, 'No checkpoints saved yet.');
+  saves.append(heading, list);
+  detail.appendChild(saves);
+}
 
-  if (campaign.checkpoints?.length) {
-    const section = createElement('section', 'directive-v1-checkpoints');
-    const heading = createElement('h4');
-    heading.textContent = 'Checkpoints';
-    const list = createElement('ul');
-    campaign.checkpoints.forEach((checkpoint) => list.appendChild(createCheckpoint(campaign, checkpoint, actions)));
-    section.append(heading, list);
-    card.appendChild(section);
-  }
-  return card;
+function appendPackageDetail(detail, pack, actions) {
+  const hero = createElement('section', 'campaign-hero campaign-library-hero');
+  hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
+  const copy = createElement('div', 'campaign-hero-copy');
+  const status = createElement('span', 'campaign-status');
+  status.textContent = 'Playable in V1';
+  const title = createElement('h2');
+  title.textContent = pack.title;
+  const description = createElement('p', 'campaign-summary');
+  description.dataset.campaignDescription = 'true';
+  description.textContent = pack.description;
+  copy.append(status, title, description);
+  hero.appendChild(copy);
+  detail.appendChild(hero);
+  detail.appendChild(createButton({
+    label: pack.actions?.resumeDraft ? 'Continue setup' : 'Start campaign',
+    icon: 'fa-solid fa-play',
+    className: 'campaign-command campaign-command-primary',
+    onClick: pack.actions?.resumeDraft
+      ? () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
+      : () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions)
+  }));
 }
 
 export function renderCampaignPanel(body, view, actions = {}) {
-  const model = createV1CampaignPanelModel(view);
-  const surface = createElement('div', 'directive-v1-campaign');
+  const model = buildCertifiedCampaignView(view);
+  const defaultKey = model.selectedCampaignId
+    ? `campaign:${model.selectedCampaignId}`
+    : `package:${model.packages.find((pack) => !pack.disabled)?.packageId || ''}`;
+  if (!selectedRecordKey) selectedRecordKey = defaultKey;
 
-  if (model.campaigns.length) {
-    const current = createElement('section', 'directive-v1-campaign-section');
-    const heading = createElement('header', 'directive-v1-roster-heading');
-    const kicker = createElement('span', 'directive-v1-kicker');
-    kicker.textContent = 'Your stories';
-    const title = createElement('h2');
-    title.textContent = 'Campaigns';
-    heading.append(kicker, title);
-    const list = createElement('div', 'directive-v1-active-campaigns');
-    model.campaigns.forEach((campaign) => list.appendChild(createCampaignCard(campaign, actions)));
-    current.append(heading, list);
-    surface.appendChild(current);
-  }
-
-  const library = createElement('section', 'directive-v1-campaign-section');
-  const heading = createElement('header', 'directive-v1-roster-heading');
-  const kicker = createElement('span', 'directive-v1-kicker');
-  kicker.textContent = 'Story library';
+  const surface = createElement('div', 'directive-expanded-campaign campaign-layout campaign-journal');
+  const master = createElement('aside', 'campaign-master campaign-index-panel');
+  master.dataset.directiveScrollOwner = 'true';
+  const head = createElement('header', 'campaign-index-head');
+  const kicker = createElement('span', 'campaign-kicker');
+  kicker.textContent = 'Your stories';
   const title = createElement('h2');
-  title.textContent = 'Choose a campaign';
-  heading.append(kicker, title);
-  const packages = createElement('div', 'directive-v1-campaign-packages');
-  model.packages.forEach((pack) => packages.appendChild(createPackageCard(pack, actions)));
-  if (!model.packages.length) appendEmpty(packages, 'No V1 campaign packages are installed.');
-  library.append(heading, packages);
-  surface.appendChild(library);
+  title.textContent = 'Campaigns';
+  head.append(kicker, title);
+  master.appendChild(head);
+
+  const list = createElement('div', 'campaign-index-list');
+  const refreshSelection = (key) => {
+    selectedRecordKey = key;
+    body.replaceChildren?.();
+    renderCampaignPanel(body, view, actions);
+  };
+  model.campaigns.forEach((campaign) => {
+    const key = `campaign:${campaign.id}`;
+    const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
+    list.appendChild(createSelectableRow({
+      key,
+      title: campaign.title,
+      meta: [campaign.playerName, campaign.chapter].filter(Boolean).join(' / '),
+      state: campaign.active ? 'Current' : 'Saved',
+      imageSource: pack,
+      active: key === selectedRecordKey,
+      onSelect: () => refreshSelection(key)
+    }));
+  });
+
+  const libraryHeading = createElement('h3', 'campaign-library-heading');
+  libraryHeading.textContent = 'Campaign library';
+  list.appendChild(libraryHeading);
+  model.packages.forEach((pack) => {
+    if (pack.disabled) {
+      list.appendChild(createComingLaterPreview(pack));
+      return;
+    }
+    const key = `package:${pack.packageId}`;
+    list.appendChild(createSelectableRow({
+      key,
+      title: pack.title,
+      meta: pack.description,
+      state: 'Playable',
+      imageSource: pack,
+      active: key === selectedRecordKey,
+      onSelect: () => refreshSelection(key)
+    }));
+  });
+  master.appendChild(list);
+
+  const detail = createElement('section', 'campaign-detail');
+  detail.dataset.directiveScrollOwner = 'true';
+  const [kind, id] = String(selectedRecordKey).split(':', 2);
+  if (kind === 'campaign') {
+    const campaign = model.campaigns.find((candidate) => candidate.id === id) || model.campaigns[0];
+    if (campaign) {
+      const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
+      appendCampaignDetail(detail, campaign, pack, actions);
+    }
+  } else {
+    const pack = model.packages.find((candidate) => candidate.packageId === selectedRecordKey.slice('package:'.length) && !candidate.disabled);
+    if (pack) appendPackageDetail(detail, pack, actions);
+  }
+  if (!detail.children.length) appendEmpty(detail, 'Choose a playable campaign or saved story.');
+
+  surface.append(master, detail);
   body.appendChild(surface);
 }

@@ -1,65 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-
 import { chromium } from 'playwright';
 
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
-import { renderCampaignPanel } from '../../src/ui/campaign-panel.js';
+import { renderCampaignPanel, resetCampaignPanelState } from '../../src/ui/campaign-panel.js';
 
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
-const svg = (width, height) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"/>`)}`;
 const browser = await chromium.launch({ headless: true });
-
-async function layoutMetrics(viewport) {
-  const page = await browser.newPage({ viewport });
-  try {
-    await page.setContent(`
-      <style>${css}</style>
-      <div class="directive-expanded-shell">
-        <div class="directive-v1-campaign-packages" style="width:min(900px, calc(100vw - 32px))">
-          <article class="directive-v1-campaign-package">
-            <figure class="directive-media-frame directive-v1-campaign-media"><img src="${svg(640, 640)}"></figure>
-            <div class="directive-v1-campaign-package-copy">
-              <p class="directive-v1-campaign-hook">A four-sentence campaign hook occupies enough lines to make the copy column taller than its image. Its cover must retain the shared ratio. The typography remains compact and readable. The card must not stretch or clip the artwork.</p>
-            </div>
-          </article>
-          <article class="directive-v1-campaign-package">
-            <figure class="directive-media-frame directive-v1-campaign-media"><img src="${svg(960, 540)}"></figure>
-            <div class="directive-v1-campaign-package-copy">
-              <p class="directive-v1-campaign-hook">A second four-sentence campaign hook verifies the widescreen source. Its cover must match the square source. The typography remains compact and readable. The card must not stretch or clip the artwork.</p>
-            </div>
-          </article>
-        </div>
-      </div>
-    `);
-    await page.waitForFunction(() => [...document.images].every((image) => image.complete));
-    return await page.evaluate(() => {
-      const cards = [...document.querySelectorAll('.directive-v1-campaign-package')];
-      return {
-        viewport: { width: window.innerWidth, height: window.innerHeight },
-        covers: cards.map((card) => {
-          const box = card.querySelector('.directive-v1-campaign-media').getBoundingClientRect();
-          return { width: box.width, height: box.height };
-        }),
-        fits: cards.map((card) => getComputedStyle(card.querySelector('img')).objectFit),
-        hooks: cards.map((card) => {
-          const hook = card.querySelector('.directive-v1-campaign-hook');
-          const style = getComputedStyle(hook);
-          return {
-            fontSize: Number.parseFloat(style.fontSize),
-            lineHeight: Number.parseFloat(style.lineHeight),
-            lineClamp: style.webkitLineClamp,
-            overflowMode: style.overflow,
-            overflow: hook.scrollHeight > hook.clientHeight + 1
-          };
-        }),
-        overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth
-      };
-    });
-  } finally {
-    await page.close();
-  }
-}
 
 try {
   for (const viewport of [
@@ -67,26 +14,48 @@ try {
     { width: 680, height: 900 },
     { width: 390, height: 844 }
   ]) {
-    const metrics = await layoutMetrics(viewport);
-    assert.ok(
-      Math.abs(metrics.covers[0].height - metrics.covers[1].height) < 0.1,
-      `${viewport.width}px intrinsic image ratios must not change cover height`
-    );
-    for (const cover of metrics.covers) {
-      assert.ok(
-        Math.abs(cover.width / cover.height - 16 / 9) < 0.01,
-        `${viewport.width}px campaign cover must render at 16:9: ${JSON.stringify(cover)}`
-      );
-    }
-    assert.deepEqual(metrics.fits, ['cover', 'cover']);
-    for (const hook of metrics.hooks) {
-      assert.ok(Math.abs(hook.fontSize - 13.12) < 0.01, `${viewport.width}px hook font must compute to 0.82rem`);
-      assert.ok(Math.abs(hook.lineHeight - 18.368) < 0.01, `${viewport.width}px hook line height must compute to 1.4`);
-      assert.equal(hook.overflow, false, `${viewport.width}px hook text must remain unclipped`);
-      assert.notEqual(hook.overflowMode, 'hidden', `${viewport.width}px hook text must remain unclamped`);
-      assert.ok(hook.lineClamp === 'none' || hook.lineClamp === '', `${viewport.width}px hook text must not use a line clamp`);
-    }
-    assert.equal(metrics.overflowX, false, `${viewport.width}px campaign grid must not overflow horizontally`);
+    const page = await browser.newPage({ viewport });
+    await page.setContent(`
+      <style>${css}</style>
+      <section class="directive-runtime-panel directive-expanded-shell" style="position:relative!important;inset:auto!important;width:100%!important;height:760px!important;margin:0!important">
+        <main class="directive-route-body">
+          <div class="directive-expanded-campaign campaign-layout campaign-journal">
+            <aside class="campaign-master campaign-index-panel" data-directive-scroll-owner="true">
+              <header class="campaign-index-head"><span class="campaign-kicker">Story library</span><h2>Campaigns</h2></header>
+              <div class="campaign-index-list">
+                <article class="campaign-row campaign-library-row is-coming-later" data-campaign-availability="coming-later" aria-disabled="true">
+                  <figure class="directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'/%3E"></figure>
+                  <div class="campaign-row-copy"><strong>Drowned Constellation</strong><span class="campaign-row-description">Current approved campaign description.</span></div>
+                  <span class="campaign-row-state">Coming later</span>
+                </article>
+              </div>
+            </aside>
+            <section class="campaign-detail" data-directive-scroll-owner="true"><div class="campaign-hero"></div></section>
+          </div>
+        </main>
+      </section>
+    `);
+    const metrics = await page.evaluate(() => {
+      const journal = document.querySelector('.campaign-journal');
+      const row = document.querySelector('.campaign-row');
+      const art = row.querySelector('.directive-media-frame');
+      const style = getComputedStyle(row);
+      const artBox = art.getBoundingClientRect();
+      return {
+        columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
+        opacity: Number(style.opacity),
+        filter: style.filter,
+        artWidth: artBox.width,
+        artHeight: artBox.height,
+        overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth
+      };
+    });
+    assert.equal(metrics.columns, viewport.width <= 640 ? 1 : 2, `${viewport.width}px Campaign master/detail columns`);
+    assert.ok(metrics.opacity <= .5, `${viewport.width}px Coming later card must be greyed`);
+    assert.match(metrics.filter, /grayscale\(1\)/, `${viewport.width}px Coming later card must be grayscale`);
+    assert.ok(Math.abs(metrics.artWidth - metrics.artHeight) < .1, `${viewport.width}px Campaign row art must remain square`);
+    assert.equal(metrics.overflowX, false, `${viewport.width}px Campaign route must not overflow horizontally`);
+    await page.close();
   }
 } finally {
   await browser.close();
@@ -100,6 +69,7 @@ class Element {
     this.attributes = new Map();
     this.listeners = new Map();
     this.className = '';
+    this.textContent = '';
     this.classList = {
       add: (...names) => {
         const values = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -108,10 +78,10 @@ class Element {
       }
     };
   }
-
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
 }
 
@@ -121,6 +91,7 @@ globalThis.document = {
 };
 
 const body = new Element('div');
+resetCampaignPanelState();
 renderCampaignPanel(body, {
   campaign: { packages: V1_CAMPAIGN_LIBRARY_TEASERS },
   campaignIndex: { campaigns: [] }
@@ -131,10 +102,15 @@ const visit = (node) => {
   node.children?.forEach(visit);
 };
 visit(body);
-assert.equal(
-  nodes.filter((node) => node.tagName === 'p' && /directive-v1-campaign-hook/.test(node.className)).length,
-  6,
-  'every rendered campaign package must expose the scoped hook class'
+
+const comingLater = nodes.filter((node) => node.dataset.campaignAvailability === 'coming-later');
+assert.equal(comingLater.length, V1_CAMPAIGN_LIBRARY_TEASERS.length - 1);
+assert.deepEqual(
+  comingLater.map((node) => node.attributes.get('aria-disabled')),
+  Array(comingLater.length).fill('true')
 );
+for (const teaser of V1_CAMPAIGN_LIBRARY_TEASERS.slice(1)) {
+  assert.ok(nodes.some((node) => node.textContent === teaser.campaign.highConcept), `${teaser.title} must retain current description`);
+}
 
 console.log('PASS campaign library presentation');
