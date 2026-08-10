@@ -810,7 +810,7 @@ git commit -m "feat: enrich Ashes epilogue codas"
 - Consumes: all enriched mission definitions and fixtures.
 - Produces: final reviewed enrichment matrix with implemented, deferred, and deliberately linear paths identified.
 
-- [ ] **Step 1: Run the complete campaign-data verification set**
+- [x] **Step 1: Run the complete campaign-data verification set**
 
 Run:
 
@@ -828,7 +828,7 @@ node tools/scripts/test-v1-campaign-conclusion.mjs
 
 Expected: every command exits zero; the Ashes gate reports 13 mission contracts and a scenario total greater than 221.
 
-- [ ] **Step 2: Audit completion, reward, and route coverage**
+- [x] **Step 2: Audit completion, reward, and route coverage**
 
 For each mission, record in the enrichment document:
 
@@ -840,7 +840,7 @@ costly-success acknowledgement | failure-forward acknowledgement | scenario IDs
 
 Every promised reward must name the exact existing-architecture field that persists it.
 
-- [ ] **Step 3: Scan for forbidden drift and accidental conspiracy inflation**
+- [x] **Step 3: Scan for forbidden drift and accidental conspiracy inflation**
 
 Run:
 
@@ -850,15 +850,15 @@ rg -n -i "voyager.*asterion|rhee.*pale lantern|hesperus.*pale lantern|redline.*p
 
 Expected: no claim connects Voyager, Hesperus, or redline to Pale Lantern; no new meter or graph-data proposal appears.
 
-- [ ] **Step 4: Review player-facing completion language**
+- [x] **Step 4: Review player-facing completion language**
 
 Confirm every objective terminal text and mission terminal summary names the achieved disposition and any material cost. Confirm transition `mustNarrate` clauses acknowledge only established outcomes and never claim an available capability was used without accepted story evidence.
 
-- [ ] **Step 5: Update the living enrichment document**
+- [x] **Step 5: Update the living enrichment document**
 
 Mark implemented paths and rewards as complete, preserve deliberate linear sequences with their rationale, list any intentionally unresolved character futures, and replace provisional hypotheses with the final verified result.
 
-- [ ] **Step 6: Commit final campaign certification**
+- [x] **Step 6: Commit final campaign certification**
 
 ```powershell
 git add docs/authoring/ASHES_OF_PEACE_ENRICHMENT.md
