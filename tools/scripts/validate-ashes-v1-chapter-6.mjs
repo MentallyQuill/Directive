@@ -262,6 +262,12 @@ const initialPlayerSafeSurfaces = [
 if (/eighty-three days|deliberately (?:kept|left)|current (?:starfleet )?(?:challenge )?codes|without (?:recognized )?(?:local )?(?:authority|warrants)|rourke warned|false (?:emergency|recall)|nightfall|regional defense and evacuation|portable interface/i.test(JSON.stringify(initialPlayerSafeSurfaces))) {
     errors.push('initial player-safe Chapter 6 surfaces reveal director-only truth or Chapter 7 information');
 }
+const openingFactText = JSON.stringify(initiallyKnownFacts[0]?.playerText || {});
+if (!/premature disclosure/i.test(openingFactText)
+    || !/(?:unrelated (?:agents|operations)|weapons traffickers)/i.test(openingFactText)
+    || !/(?:genuine|credible|real) (?:threat )?intelligence/i.test(openingFactText)) {
+    errors.push('the spoiler-safe opening caricatures Rourke by omitting his legitimate counterintelligence case');
+}
 const transitionText = JSON.stringify(definition.transitions?.[0]);
 if (!/annex six/i.test(transitionText) || !/kessler/i.test(transitionText) || !/task group/i.test(transitionText)) {
     errors.push('Chapter 7 transition loses a required source-authored setup beat');
