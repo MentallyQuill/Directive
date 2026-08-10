@@ -1,8 +1,10 @@
 # Ashes V1 Chapter 7 Readiness
 
-Status: **non-UI Chapter 7 authority ready; Open Orders III migration, narrator cutover, visible presentation, open-world scheduling, legacy-writer retirement, and live certification remain incomplete**
+Status: **non-UI Chapter 7 authority ready; Open Orders III successor is now V1-native; narrator cutover, visible presentation, open-world scheduling, legacy-writer retirement, and live certification remain incomplete**
 
 Date: 2026-08-09
+
+> Subsequent status: Open Orders III is now V1-native. The verification count below preserves Chapter 7's original certification checkpoint; current successor authority is recorded in [Ashes V1 Open Orders III Readiness](ASHES_V1_OPEN_ORDERS_3_READINESS.md).
 
 ## Certified Scope
 
@@ -84,7 +86,7 @@ The registry now loads Prelude, Empty Convoy, False Colors, Open Orders I, Dead 
 
 Mutating Chapter 6 evidence before activation repairs Chapter 6 in place. Mutating it after activation prunes Chapter 7 and returns to repaired Chapter 6. Mutating terminal Chapter 7 evidence reopens Chapter 7 without calling a provider. Source contribution IDs remain unique across all ten entries.
 
-Terminal Chapter 7 targets V1-only Open Orders III. Until that interval receives an exact V1 definition, the receipt remains durably pending rather than inventing a legacy quest row or skipping directly to Chapter 8.
+Terminal Chapter 7 now activates the exact V1-only Open Orders III definition without inventing a legacy quest row or skipping directly to Chapter 8. The successor's independent readiness boundary is recorded in [Ashes V1 Open Orders III Readiness](ASHES_V1_OPEN_ORDERS_3_READINESS.md).
 
 ## Adversarial Findings
 
@@ -118,7 +120,7 @@ The inventory consists of 258 explicit checks and 41 package-derived checks: the
 - Live semantic recall, false-positive/false-negative rates, actor scheduling, timing, and prose quality remain uncertified.
 - No transition narration is posted or consumed.
 - No player-facing UI changed, including objective layout, dimensions, countdown treatment, notifications, or the send-tray launcher.
-- Open Orders III has no V1 definition and remains pending.
+- Open Orders III is separately V1-native; Chapter 8 is the next definition that remains pending.
 - The current V1 journey is linear and does not yet implement package-level sibling scheduling.
 - Legacy writers remain compatibility/source surfaces until explicit cutover; the premature Old Lessons reaction remains a known hazard outside isolated V1 authority.
 - No Command Bearing award or spend is derived from Chapter 7.

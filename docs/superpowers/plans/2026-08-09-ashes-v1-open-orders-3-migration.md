@@ -1,6 +1,6 @@
 # Ashes V1: Open Orders III Migration Plan
 
-> Status: approved implementation work under the standing V1 architecture scope. This plan covers non-UI content and deterministic authority; it does not authorize UI or narrator-prompt changes.
+> Status: completed for the approved non-UI deterministic scope on 2026-08-09. Chapter 8 migration, narrator/UI cutover, legacy-writer retirement, and live certification remain separate work.
 
 **Goal:** Make `open-orders-3-before-the-lamps-go-out` the eleventh V1-native Ashes journey entry while preserving a calm, reflective preparation interval, a normal two-assignment load, Imani's independent agency, and campaign-critical distributed readiness without turning quiet scenes, false-alert tests, every officer's finale assignment, or each asset effect into separate trackers.
 
@@ -139,26 +139,26 @@ The mission fixture and runtime proof must cover:
 
 ### Task 1: RED contract
 
-- [ ] Create `tests/fixtures/mission/v1/open-orders-3-scenarios.fixture.json`.
-- [ ] Create `tools/scripts/test-ashes-v1-open-orders-3-mission.mjs` and register it in the alpha gate.
-- [ ] Assert exact V1-only identity, three legacy side-quest inputs, Chapter 8 successor, spoiler-safe opening, normal load, four reports, no clock, agency boundaries, assets, non-linear routes, and hostile source/revision cases.
+- [x] Create `tests/fixtures/mission/v1/open-orders-3-scenarios.fixture.json`.
+- [x] Create `tools/scripts/test-ashes-v1-open-orders-3-mission.mjs` and register it in the alpha gate.
+- [x] Assert exact V1-only identity, three legacy side-quest inputs, Chapter 8 successor, spoiler-safe opening, normal load, four reports, no clock, agency boundaries, assets, non-linear routes, and hostile source/revision cases.
 
 ### Task 2: Definition and validator
 
-- [ ] Create `packages/bundled/breckenridge/v1/open-orders-3-before-the-lamps-go-out.mission-v1.json`.
-- [ ] Add one known opportunities fact, four discoverable aggregate facts, four hidden completion events, three player engagement choices, three world results, one player conclusion, four objectives, four dimensions, eighteen evidence policies, five terminal dispositions, and no clock.
-- [ ] Create `tools/scripts/validate-ashes-v1-open-orders-3.mjs` and register it in the alpha gate.
+- [x] Create `packages/bundled/breckenridge/v1/open-orders-3-before-the-lamps-go-out.mission-v1.json`.
+- [x] Add one known opportunities fact, four discoverable aggregate facts, four hidden completion events, three player engagement choices, three world results, one player conclusion, four objectives, four dimensions, eighteen evidence policies, five terminal dispositions, and no clock.
+- [x] Create `tools/scripts/validate-ashes-v1-open-orders-3.mjs` and register it in the alpha gate.
 
 ### Task 3: Registry, runtime, and journey
 
-- [ ] Register Open Orders III after Chapter 7 without adding a legacy quest row or executing the three legacy side quests as parallel authority.
-- [ ] Prove exact activation, reload, idempotency, legacy-root isolation, V1-only identity, Chapter 8 pending state, eleven-entry contribution identity, and source-mutation descendant pruning.
-- [ ] Create `tools/scripts/test-ashes-v1-open-orders-3-runtime.mjs` for report custody, batching, agency, asset/result separation, quiet-scene anti-spam, invalidation, and restoration.
+- [x] Register Open Orders III after Chapter 7 without adding a legacy quest row or executing the three legacy side quests as parallel authority.
+- [x] Prove exact activation, reload, idempotency, legacy-root isolation, V1-only identity, Chapter 8 pending state, eleven-entry contribution identity, and source-mutation descendant pruning.
+- [x] Create `tools/scripts/test-ashes-v1-open-orders-3-runtime.mjs` for report custody, batching, agency, asset/result separation, quiet-scene anti-spam, invalidation, and restoration.
 
 ### Task 4: Adversarial review and certification
 
-- [ ] Challenge hidden-crisis intrusion, remembrance moral railroading, Voyager/Pathfinder overclaim, Imani identity or consent override, legal-office villainization, asset-on-selection, delegation-as-success, quiet-scene tracking, fake urgency, background-report spam, finale spoilers, result priority, package drift, and live semantic uncertainty.
-- [ ] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index, Ashes migration plan, and Chapter 7 successor status.
+- [x] Challenge hidden-crisis intrusion, remembrance moral railroading, Voyager/Pathfinder overclaim, Imani identity or consent override, legal-office villainization, asset-on-selection, delegation-as-success, quiet-scene tracking, fake urgency, background-report spam, finale spoilers, result priority, package drift, and live semantic uncertainty.
+- [x] Fix every Critical or Important non-UI finding, run focused and full gates, then create the readiness record and update the documentation index, Ashes migration plan, and Chapter 7 successor status.
 
 ## Explicit Non-Goals and Stop Boundary
 

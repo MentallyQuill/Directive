@@ -105,7 +105,7 @@ The inventory consists of 254 explicit checks and 41 package-derived checks: the
 - No transition narration is posted or consumed.
 - No player-facing UI changed.
 - The current V1 journey is linear and does not yet implement package-level sibling scheduling.
-- Chapter 7 is separately V1-native; Open Orders III is the next definition that remains pending.
+- Chapter 7 and Open Orders III are separately V1-native; Chapter 8 is the next definition that remains pending.
 - Legacy writers remain compatibility/source surfaces until explicit cutover; the premature Old Lessons reaction remains a known hazard outside isolated V1 authority.
 - No Command Bearing award or spend is derived from Chapter 6.
 - The Farwatch Evidence Package is durable mission authority through the evidence dimension; no additional visible asset row was added.
