@@ -18,7 +18,7 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
           <header class="directive-topbar"><div class="directive-brand">DIRECTIVE</div></header>
           <div class="directive-route-heading"><span class="directive-route-cap"></span><div class="directive-route-name">Campaign</div></div>
           <section class="directive-runtime-body directive-route-body">
-            <form class="directive-creator-form directive-creator-console directive-lcars-console directive-lcars-panel" data-creator-active-step="review">
+            <form class="directive-creator-form directive-creator-console directive-lcars-console directive-lcars-panel" data-creator-active-step="review" data-directive-scroll-owner="true">
               <section class="directive-creator-overview directive-lcars-panel"><div class="directive-creator-overview-media-deck"><div class="directive-creator-overview-media"></div><div class="directive-creator-player-portrait"></div></div><div class="directive-creator-overview-copy"><span class="directive-lcars-kicker">Starfleet Personnel Command</span><h3 class="directive-card-title">Commissioning File</h3><p class="directive-creator-overview-summary">Commander, Executive Officer</p></div></section>
               <header class="directive-creator-progress-header">
                 <span class="directive-lcars-kicker">Commissioning Steps</span>
@@ -76,7 +76,7 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
               <h2 class="directive-creator-assist-dialog-title">Refining Identity</h2>
               <button class="directive-creator-assist-dialog-close">×</button>
             </header>
-            <div class="directive-creator-assist-dialog-body">
+            <div class="directive-creator-assist-dialog-body" data-directive-scroll-owner="true">
               <div class="directive-creator-assist-dialog-loading">
                 <span class="directive-creator-assist-dialog-spinner"></span>
                 <p class="directive-creator-assist-dialog-progress">Reasoning timed out again. Trying Utility...</p>
@@ -103,6 +103,7 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
       const spinner = document.querySelector('.directive-creator-assist-dialog-spinner');
       const fieldList = document.querySelector('.directive-creator-assist-dialog-field-list');
       const routeBody = document.querySelector('.directive-route-body');
+      const dialogBody = document.querySelector('.directive-creator-assist-dialog-body');
       const form = document.querySelector('.directive-creator-form');
       const review = document.querySelector('[data-creator-step="review"]');
       const difficulty = document.querySelector('.directive-creator-difficulty-field');
@@ -114,6 +115,8 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
       const difficultyOptions = [...document.querySelectorAll('.directive-creator-difficulty-option')];
       const overlayStyle = getComputedStyle(overlay);
       const dialogStyle = getComputedStyle(dialog);
+      const dialogBodyStyle = getComputedStyle(dialogBody);
+      const routeBodyStyle = getComputedStyle(routeBody);
       const spinnerStyle = getComputedStyle(spinner);
       const commandStyle = getComputedStyle(commandBar);
       const overlayRect = overlay.getBoundingClientRect();
@@ -146,7 +149,9 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
         dialog: {
           width: dialogRect.width,
           height: dialogRect.height,
-          overflowY: dialogStyle.overflowY
+          overflowY: dialogStyle.overflowY,
+          bodyOverflowY: dialogBodyStyle.overflowY,
+          titleFont: getComputedStyle(document.querySelector('.directive-creator-assist-dialog-title')).fontFamily
         },
         spinner: {
           display: spinnerStyle.display,
@@ -158,7 +163,8 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZo
         routeBody: {
           bottom: routeBodyRect.bottom,
           clientHeight: routeBody.clientHeight,
-          scrollHeight: routeBody.scrollHeight
+          scrollHeight: routeBody.scrollHeight,
+          overflowY: routeBodyStyle.overflowY
         },
         form: {
           bottom: formRect.bottom,
@@ -218,14 +224,16 @@ try {
     assert.ok(Math.abs(metrics.overlay.height - viewport.height) < 0.1);
     assert.ok(metrics.dialog.width <= viewport.width - 24, `${viewport.width}px dialog should fit horizontally`);
     assert.ok(metrics.dialog.height <= viewport.height - 24, `${viewport.width}px dialog should fit vertically`);
-    assert.equal(metrics.dialog.overflowY, 'auto');
+    assert.equal(metrics.dialog.overflowY, 'hidden');
+    assert.equal(metrics.dialog.bodyOverflowY, 'auto');
+    assert.match(metrics.dialog.titleFont, /Roboto Condensed|Arial Narrow/);
     assert.notEqual(metrics.spinner.display, 'none');
     assert.equal(metrics.spinner.animationName, 'directive-spinner');
     assert.ok(metrics.spinner.width >= 18 && metrics.spinner.height >= 18);
     assert.notEqual(metrics.commandPosition, 'sticky', 'creator command bar must not overlap prior form rows');
     assert.ok(metrics.stepHeights.every((height) => height >= 40), 'commissioning step buttons should retain their minimum height');
     if (viewport.width > 680) {
-      assert.equal(metrics.routeBody.scrollHeight, metrics.routeBody.clientHeight, 'desktop Review route body should not scroll');
+      assert.equal(metrics.routeBody.overflowY, 'hidden', 'desktop Review route body should not scroll');
       assert.ok(metrics.form.scrollHeight <= metrics.form.clientHeight, 'creator form must not hide overflow below its visible height');
       assert.ok(metrics.reviewBottom <= metrics.routeBody.bottom + 0.5, 'Review content should end above the route navigation');
       assert.ok(metrics.commandTop >= metrics.stepsBottom - 0.5, 'creator command bar must not overlap commissioning controls');
@@ -237,8 +245,8 @@ try {
       assert.equal(metrics.difficultyOptionContentFits, true, 'difficulty button labels should remain fully visible');
       assert.ok(metrics.textareas.every(({ overflowY, resize }) => overflowY === 'auto' && resize === 'none'), 'Review textareas should scroll internally without resizing');
     } else {
-      assert.ok(metrics.routeBody.scrollHeight > metrics.routeBody.clientHeight, 'mobile Review route body should retain its existing scrolling composition');
-      assert.ok(metrics.form.scrollHeight <= metrics.form.clientHeight, 'mobile creator form should expose its full content to the route scroller');
+      assert.equal(metrics.routeBody.overflowY, 'hidden', 'mobile Review route body must remain fixed');
+      assert.ok(metrics.form.scrollHeight >= metrics.form.clientHeight, 'mobile creator form should own any required overflow');
     }
     assert.equal(metrics.documentOverflowX, false);
     if (viewport.width <= 420) {

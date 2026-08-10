@@ -28,6 +28,7 @@ const modalRoot = fakeDocument.getElementById('directive-modal-root');
 assert(modalRoot, 'assist should mount through the Directive modal root');
 assert.equal(assist.dialog.getAttribute('role'), 'dialog');
 assert.equal(assist.dialog.getAttribute('aria-modal'), 'true');
+assert.equal(assist.dialog.querySelector('.directive-creator-assist-dialog-body').dataset.directiveScrollOwner, 'true');
 assert.equal(assist.overlay.dataset.creatorAssistModal, 'identity');
 assert.equal(assist.progress.textContent, 'Generating with Reasoning...');
 assert.equal(assist.progress.getAttribute('aria-live'), 'polite');

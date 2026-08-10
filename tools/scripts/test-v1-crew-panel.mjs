@@ -106,10 +106,10 @@ renderCrewPanel(body, {
   }
 }, {});
 
-const playerCards = elementsByClass(body, 'directive-v1-player');
+const playerCards = elementsByClass(body, 'people-detail');
 assert.equal(playerCards.length, 1);
 assert.match(textOf(playerCards[0]), /Ren Okada/);
-assert.match(textOf(playerCards[0]), /Commander · Executive Officer/);
+assert.match(textOf(playerCards[0]), /Commander \/ Executive Officer/);
 assert.match(textOf(playerCards[0]), /Human/);
 assert.match(textOf(playerCards[0]), /Attentive and deliberate/);
 
@@ -120,8 +120,8 @@ assert.equal(portraits[0].alt, 'Portrait of Commander Ren Okada');
 
 const all = allElements(body);
 const playerIndex = all.indexOf(playerCards[0]);
-const seniorStaffIndex = all.indexOf(elementsByClass(body, 'directive-v1-roster-heading')[0]);
-assert.ok(playerIndex >= 0 && playerIndex < seniorStaffIndex);
+const commandBearingIndex = all.indexOf(elementsByClass(body, 'directive-command-bearing-strip')[0]);
+assert.ok(commandBearingIndex >= 0 && commandBearingIndex < playerIndex);
 assert.equal(elementsByClass(body, 'directive-crew-player-portrait-import').length, 0);
 assert.equal(elementsByClass(body, 'directive-crew-player-portrait-remove').length, 0);
 
