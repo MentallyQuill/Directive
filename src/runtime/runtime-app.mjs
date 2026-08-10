@@ -90,24 +90,34 @@ function timeHeader(state) {
   return `*Stardate ${stardate.toFixed(1).padStart(7, '0')} | ${clock}*`;
 }
 
-function createGenerationRouter(host) {
+export function createDirectiveGenerationRouter(host) {
   return {
-    async generate(roleId, request) {
+    async generate(roleId, request, options = {}) {
       try {
-        const response = await host.generation.generate(roleId, request);
+        const response = await host.generation.generate(roleId, request, options);
         return {
           ok: true,
           response: clone(response),
           diagnostics: {
             providerId: response?.providerId || null,
-            model: response?.model || null
+            model: response?.model || null,
+            usage: clone(response?.usage || null),
+            providerKind: response?.providerKind || null
           }
         };
       } catch (error) {
         return {
           ok: false,
-          error: { code: error?.code || 'DIRECTIVE_PROVIDER_FAILED', message: error?.message || String(error) },
-          diagnostics: {}
+          error: {
+            code: error?.code || 'DIRECTIVE_PROVIDER_FAILED',
+            message: error?.message || String(error),
+            retryable: error?.retryable === true,
+            ...(error?.details ? { details: clone(error.details) } : {})
+          },
+          diagnostics: {
+            providerKind: error?.providerKind || null,
+            transportCode: error?.details?.transportCode || null
+          }
         };
       }
     }
@@ -229,7 +239,7 @@ export function createDirectiveRuntimeApp({
   idFactory = null
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
-  const generationRouter = createGenerationRouter(host);
+  const generationRouter = createDirectiveGenerationRouter(host);
   let initialized = false;
   let records = null;
   let runtimeAssets = null;

@@ -125,9 +125,9 @@ export function createSillyTavernGenerationClient({
 } = {}) {
   const narrator = narrationProvider || createSillyTavernNarrationProvider({ contextFactory });
 
-  async function perform(roleId, request) {
+  async function perform(roleId, request, options = {}) {
     if (providerClient?.generate) {
-      return providerClient.generate(roleId, request);
+      return providerClient.generate(roleId, request, options);
     }
     if (roleId === 'narration' && narrationProvider) {
       return narrator.generateNarration(request);
@@ -142,12 +142,12 @@ export function createSillyTavernGenerationClient({
     };
   }
 
-  async function generate(roleId, request = {}) {
+  async function generate(roleId, request = {}, options = {}) {
     return withOwnedGeneration(async () => {
-      let response = await perform(roleId, request);
+      let response = await perform(roleId, request, options);
       let retriedForVisibleOutput = false;
-      if (isReasoningOnly(normalizeText(response))) {
-        response = await perform(roleId, retryRequest(request));
+      if (options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {
+        response = await perform(roleId, retryRequest(request), options);
         retriedForVisibleOutput = true;
       }
       const text = normalizeText(response);

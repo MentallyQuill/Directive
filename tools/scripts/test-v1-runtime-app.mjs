@@ -8,13 +8,63 @@ import {
   createFakeJsonStorage
 } from '../../src/hosts/fake/fake-host.mjs';
 import { awardV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
-import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
+import {
+  createDirectiveGenerationRouter,
+  createDirectiveRuntimeApp
+} from '../../src/runtime/runtime-app.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
 import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
 
 function json(relative) {
   return JSON.parse(fs.readFileSync(new URL(`../../${relative}`, import.meta.url), 'utf8'));
 }
+
+const runtimeGenerationCalls = [];
+const runtimeGenerationRouter = createDirectiveGenerationRouter({
+  generation: {
+    async generate(roleId, request, options) {
+      runtimeGenerationCalls.push({ roleId, request, options });
+      return {
+        text: '{"ok":true}',
+        providerId: 'fake-runtime-provider',
+        model: 'fake-model',
+        providerKind: 'utility',
+        usage: { prompt_tokens: 10, completion_tokens: 3 }
+      };
+    }
+  }
+});
+const runtimeRoutedResult = await runtimeGenerationRouter.generate('characterCreatorSectionDraft', {
+  prompt: 'Repair malformed JSON.'
+}, {
+  providerKind: 'utility',
+  timeoutMs: 30000
+});
+assert.equal(runtimeRoutedResult.ok, true);
+assert.deepEqual(runtimeGenerationCalls[0].options, {
+  providerKind: 'utility',
+  timeoutMs: 30000
+});
+assert.equal(runtimeRoutedResult.diagnostics.providerKind, 'utility');
+assert.deepEqual(runtimeRoutedResult.diagnostics.usage, { prompt_tokens: 10, completion_tokens: 3 });
+
+const runtimeFailedRouter = createDirectiveGenerationRouter({
+  generation: {
+    async generate() {
+      const error = new Error('connection failed');
+      error.code = 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR';
+      error.retryable = true;
+      error.providerKind = 'utility';
+      error.details = { transportCode: 'ECONNRESET' };
+      throw error;
+    }
+  }
+});
+const runtimeFailedResult = await runtimeFailedRouter.generate('characterCreatorSectionDraft', {});
+assert.equal(runtimeFailedResult.error.retryable, true);
+assert.deepEqual(runtimeFailedResult.error.details, { transportCode: 'ECONNRESET' });
+assert.equal(runtimeFailedResult.diagnostics.providerKind, 'utility');
+assert.equal(runtimeFailedResult.diagnostics.transportCode, 'ECONNRESET');
 
 const definitionNames = [
   'prelude-a-ship-underway', 'chapter-1-the-empty-convoy', 'chapter-2-false-colors',

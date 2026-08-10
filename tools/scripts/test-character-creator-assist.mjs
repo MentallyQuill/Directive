@@ -10,9 +10,14 @@ import {
   CHARACTER_CREATOR_SECTION_DRAFT_TIMEOUT_RETRY_LIMIT,
   CHARACTER_CREATOR_SECTION_DRAFT_UTILITY_TIMEOUT_MS,
   CHARACTER_CREATOR_SECTION_DRAFT_ROLE_ID,
+  CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS,
   buildCharacterCreatorSectionDraftRequest,
   runCharacterCreatorSectionDraft
 } from '../../src/creators/character-creator-assist.mjs';
+import {
+  buildCharacterCreatorSectionDraftSchema,
+  validateCharacterCreatorSectionDraftPayload
+} from '../../src/creators/character-creator-section-contract.mjs';
 import {
   PROVIDER_RESPONSE_ERROR_CODES
 } from '../../src/providers/provider-response-normalizer.mjs';
@@ -45,6 +50,71 @@ function createGenerationRouter(response) {
 }
 
 const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
+
+const identityFieldRules = [
+  { path: 'identity.name' },
+  { path: 'identity.speciesId', allowedValues: ['human', 'trill'] }
+];
+const identityContractSchema = buildCharacterCreatorSectionDraftSchema({
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(identityContractSchema.additionalProperties, false);
+assert.deepEqual(identityContractSchema.required, ['kind', 'sectionId', 'mode', 'fields', 'notes', 'warnings']);
+assert.equal(identityContractSchema.properties.fields.additionalProperties, false);
+assert.equal(identityContractSchema.properties.fields.minProperties, undefined);
+assert.deepEqual(identityContractSchema.properties.fields.required, ['identity.name', 'identity.speciesId']);
+assert.deepEqual(identityContractSchema.properties.fields.properties['identity.speciesId'].enum, ['human', 'trill']);
+assert.equal(Object.hasOwn(identityContractSchema.properties.fields.properties, 'service.careerBackgroundId'), false);
+assert.equal(validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' },
+  notes: [],
+  warnings: []
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+}).ok, true);
+const invalidIdentityContract = validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { identity: { name: 'Sam' }, 'identity.speciesId': 'klingon' }
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(invalidIdentityContract.ok, false);
+assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
+assert.equal(invalidIdentityContract.diagnostics.some((entry) => entry.keyword === 'enum'), true);
+const missingTopLevelContract = validateCharacterCreatorSectionDraftPayload({
+  kind: 'directive.characterCreatorSectionDraftResult',
+  sectionId: 'identity',
+  mode: 'create',
+  fields: { 'identity.name': 'Sam', 'identity.speciesId': 'human' }
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(missingTopLevelContract.ok, false);
+assert.deepEqual(missingTopLevelContract.diagnostics.filter((entry) => entry.keyword === 'required').map((entry) => entry.detail), ['notes', 'warnings']);
+const boundedContractDiagnostics = validateCharacterCreatorSectionDraftPayload({
+  kind: 'wrong-kind',
+  sectionId: 'wrong-section',
+  mode: 'wrong-mode',
+  fields: Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`unexpected.${index}`, index]))
+}, {
+  sectionId: 'identity',
+  mode: 'create',
+  fieldRules: identityFieldRules
+});
+assert.equal(boundedContractDiagnostics.diagnostics.length, 12);
 
 function longSelfFillText(seed, minimumLength = CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT + 160) {
   const sentence = `${seed} `;
@@ -99,9 +169,7 @@ const validRouter = createGenerationRouter({
     fields: {
       'identity.name': 'Talia Renn',
       'identity.speciesId': 'trill',
-      identity: {
-        appearance: 'A composed Starfleet officer with close-cropped hair and a quiet, observant posture.'
-      }
+      'identity.appearance': 'A composed Starfleet officer with close-cropped hair and a quiet, observant posture.'
     },
     notes: ['Kept the existing command role grounded.'],
     warnings: []
@@ -130,6 +198,304 @@ assert.equal(validRouter.calls()[0].request.jsonSchema?.properties?.kind?.const,
 assert.equal(validRouter.calls()[0].request.parameters.max_tokens, CHARACTER_CREATOR_SECTION_DRAFT_MAX_TOKENS);
 assert.equal(validRouter.calls()[0].options.providerKind, 'reasoning');
 assert.equal(validRouter.calls()[0].options.timeoutMs, CHARACTER_CREATOR_SECTION_DRAFT_REASONING_TIMEOUT_MS);
+assert.equal(validRouter.calls()[0].options.allowVisibleOutputRetry, false);
+assert.equal(validRouter.calls()[0].request.jsonSchema.properties.fields.minProperties, undefined);
+
+const repairedDraftCalls = [];
+const repairedDraftProgress = [];
+const repairedDraftRouter = {
+  async generate(roleId, request, options = {}) {
+    repairedDraftCalls.push({ roleId, request, options });
+    if (repairedDraftCalls.length === 1) {
+      return {
+        ok: true,
+        response: {
+          text: "{'kind':'directive.characterCreatorSectionDraftResult','sectionId':'identity','mode':'refine','fields':{'identity.name':'Talia Renn','identity.speciesId':'trill'}}"
+        },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: {
+            'identity.name': 'Talia Renn',
+            'identity.speciesId': 'trill'
+          },
+          notes: ['Recovered the malformed provider draft.'],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const repairedDraft = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: { identity: { name: 'Talia' } },
+  generationRouter: repairedDraftRouter,
+  onProgress: (progress) => repairedDraftProgress.push(progress)
+});
+assert.equal(repairedDraft.source, 'provider');
+assert.equal(repairedDraft.fields['identity.name'], 'Talia Renn');
+assert.deepEqual(repairedDraftCalls.map((call) => call.options.providerKind), ['reasoning', 'utility']);
+assert.equal(repairedDraftCalls[1].request.kind, 'directive.characterCreatorSectionDraftRepairRequest');
+const repairPayload = JSON.parse(repairedDraftCalls[1].request.messages[1].content);
+assert.deepEqual(Object.keys(repairPayload).sort(), ['damagedOutput', 'schemaDiagnostics', 'targetSchema']);
+assert.equal(repairPayload.damagedOutput.startsWith("{'kind'"), true);
+assert.equal(repairPayload.targetSchema.properties.sectionId.const, 'identity');
+assert.equal(JSON.stringify(repairPayload).includes('campaignContext'), false);
+assert.equal(repairedDraft.diagnostics.repairAttempted, true);
+assert.equal(repairedDraft.diagnostics.repairSucceeded, true);
+assert.equal(repairedDraftProgress.some((entry) => entry.message === 'Repairing malformed draft with Utility...'), true);
+
+const targetedRegenerationCalls = [];
+const targetedRegenerationRouter = {
+  async generate(roleId, request, options = {}) {
+    targetedRegenerationCalls.push({ roleId, request, options });
+    if (targetedRegenerationCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'kind':'broken','fields':{'identity.name':'Do not repeat this damaged text marker'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    if (targetedRegenerationCalls.length === 2) {
+      return {
+        ok: true,
+        response: { text: 'still not valid JSON' },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+const targetedRegeneration = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: targetedRegenerationRouter
+});
+assert.equal(targetedRegeneration.source, 'provider');
+assert.deepEqual(targetedRegenerationCalls.map((call) => call.options.providerKind), ['reasoning', 'utility', 'reasoning']);
+assert.match(targetedRegenerationCalls[2].request.messages.at(-1).content, /json_invalid/);
+assert.equal(targetedRegenerationCalls[2].request.messages.at(-1).content.includes('Do not repeat this damaged text marker'), false);
+assert.equal(targetedRegeneration.diagnostics.repairAttempted, true);
+assert.equal(targetedRegeneration.diagnostics.repairSucceeded, false);
+assert.equal(targetedRegeneration.diagnostics.targetedRegenerationAttempted, true);
+
+const schemaRepairCalls = [];
+const schemaRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    schemaRepairCalls.push({ roleId, request, options });
+    if (schemaRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: {
+          text: JSON.stringify({
+            sectionId: 'identity',
+            mode: 'create',
+            fields: { identity: { name: 'Ari Venn' } }
+          })
+        },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const schemaRepairedDraft = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: schemaRepairRouter
+});
+assert.equal(schemaRepairedDraft.source, 'provider');
+assert.deepEqual(schemaRepairCalls.map((call) => call.options.providerKind), ['reasoning', 'utility']);
+const schemaRepairPayload = JSON.parse(schemaRepairCalls[1].request.messages[1].content);
+assert.equal(schemaRepairPayload.schemaDiagnostics.some((entry) => entry.keyword === 'required'), true);
+assert.equal(schemaRepairPayload.schemaDiagnostics.some((entry) => entry.keyword === 'additionalProperties'), true);
+
+const unsafeMalformedCalls = [];
+const unsafeMalformedRouter = {
+  async generate(roleId, request, options = {}) {
+    unsafeMalformedCalls.push({ roleId, request, options });
+    if (unsafeMalformedCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'fields':{'identity.appearance':'Privately assigned to Pale Lantern'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+const unsafeMalformedRecovered = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: unsafeMalformedRouter
+});
+assert.equal(unsafeMalformedRecovered.source, 'provider');
+assert.deepEqual(unsafeMalformedCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning']);
+assert.equal(unsafeMalformedCalls.some((call) => call.request.kind === 'directive.characterCreatorSectionDraftRepairRequest'), false);
+
+const crossTermUnsafeCalls = [];
+const crossTermUnsafeRouter = {
+  async generate(roleId, request, options = {}) {
+    crossTermUnsafeCalls.push({ roleId, request, options });
+    if (crossTermUnsafeCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'fields':{'identity.appearance':'Privately assigned to Pale Lantern'}}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'refine',
+          fields: { 'identity.name': 'Kestrel', 'identity.speciesId': 'human', 'identity.appearance': 'A reserved officer.' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+    };
+  }
+};
+await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: { identity: { name: 'Kestrel' } },
+  generationRouter: crossTermUnsafeRouter
+});
+assert.deepEqual(crossTermUnsafeCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning']);
+assert.equal(crossTermUnsafeCalls.some((call) => call.request.kind === 'directive.characterCreatorSectionDraftRepairRequest'), false,
+  'allowlisting one player-supplied hidden term must not expose a different hidden term to Utility');
+
+const oversizedRepairCalls = [];
+const oversizedRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    oversizedRepairCalls.push({ roleId, request, options });
+    if (oversizedRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: `{"broken":"${'x'.repeat(CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS + 500)}` },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Ari Venn', 'identity.speciesId': 'human' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: oversizedRepairRouter
+});
+const oversizedRepairPayload = JSON.parse(oversizedRepairCalls[1].request.messages[1].content);
+assert.equal(oversizedRepairPayload.damagedOutput.length, CHARACTER_CREATOR_SECTION_REPAIR_MAX_CHARACTERS);
+
+const lateRepairController = new AbortController();
+const lateRepairCalls = [];
+const lateRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    lateRepairCalls.push({ roleId, request, options });
+    if (lateRepairCalls.length === 1) {
+      return {
+        ok: true,
+        response: { text: "{'kind':'broken'}" },
+        diagnostics: { providerId: 'fake-character-creator', model: 'fake-reasoner' }
+      };
+    }
+    lateRepairController.abort('dialog-closed');
+    return {
+      ok: true,
+      response: {
+        text: JSON.stringify({
+          kind: 'directive.characterCreatorSectionDraftResult',
+          sectionId: 'identity',
+          mode: 'create',
+          fields: { 'identity.name': 'Late Result' },
+          notes: [],
+          warnings: []
+        })
+      },
+      diagnostics: { providerId: 'fake-character-creator', model: 'fake-utility' }
+    };
+  }
+};
+const lateRepairResult = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: lateRepairRouter,
+  signal: lateRepairController.signal
+});
+assert.equal(lateRepairCalls.length, 2);
+assert.equal(lateRepairResult.source, 'canceled');
+assert.equal(lateRepairResult.diagnostics.repairAttempted, true);
 
 const retryRouterCalls = [];
 const retryRouter = {
@@ -314,15 +680,15 @@ const parseRejectedFallbackIdentity = await runCharacterCreatorSectionDraft({
   onProgress: (progress) => parseRejectedFallbackProgress.push(progress)
 });
 assert.equal(parseRejectedFallbackIdentity.source, 'provider');
-assert.equal(parseRejectedFallbackIdentity.diagnostics.finalProviderKind, 'utility');
+assert.equal(parseRejectedFallbackIdentity.diagnostics.finalProviderKind, 'reasoning');
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts.length, 3);
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[0].providerOutputRejected, true);
 assert.equal(parseRejectedFallbackIdentity.diagnostics.providerAttempts[1].providerOutputRejected, true);
-assert.deepEqual(parseRejectedFallbackCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.deepEqual(parseRejectedFallbackCalls.map((call) => call.options.providerKind), ['reasoning', 'utility', 'reasoning']);
 assert.deepEqual(parseRejectedFallbackProgress.map((entry) => entry.message), [
   'Generating with Reasoning...',
-  'Reasoning returned an unusable draft. Retrying Reasoning...',
-  'Reasoning returned another unusable draft. Trying Utility...'
+  'Repairing malformed draft with Utility...',
+  'Regenerating draft with corrected JSON instructions...'
 ]);
 
 const localFallbackAfterUtilityCalls = [];
@@ -472,11 +838,73 @@ const localFallbackAfterRejectedOutput = await runCharacterCreatorSectionDraft({
 });
 assert.equal(localFallbackAfterRejectedOutput.source, 'deterministic-fallback');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerOutputRejected, true);
-assert.equal(localFallbackAfterRejectedOutput.diagnostics.finalProviderKind, 'utility');
+assert.equal(localFallbackAfterRejectedOutput.diagnostics.finalProviderKind, 'reasoning');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.validationErrorCode, 'json_invalid');
 assert.equal(localFallbackAfterRejectedOutput.diagnostics.providerAttempts.length, 3);
 assert.equal(localFallbackAfterRejectedOutputCalls.length, 3);
-assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Utility returned an unusable draft. Using local fallback...');
+assert.equal(localFallbackAfterRejectedOutputProgress.at(-1).message, 'Reasoning returned an unusable draft. Using local fallback...');
+
+const preservedFailureCalls = [];
+const preservedFailureRouter = {
+  async generate(roleId, request, options = {}) {
+    preservedFailureCalls.push({ roleId, request, options });
+    if (preservedFailureCalls.length === 1) {
+      return { ok: true, response: { text: 'original malformed json' }, diagnostics: {} };
+    }
+    if (preservedFailureCalls.length === 2) {
+      return { ok: true, response: { text: '{"kind":"still-wrong"}' }, diagnostics: {} };
+    }
+    return {
+      ok: false,
+      error: { code: 'DIRECTIVE_GENERATION_TIMEOUT', message: 'targeted regeneration timed out', retryable: true },
+      diagnostics: {}
+    };
+  }
+};
+const preservedFailureFallback = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: preservedFailureRouter
+});
+assert.equal(preservedFailureFallback.diagnostics.validationErrorCode, 'json_invalid');
+assert.match(preservedFailureFallback.warnings.join(' '), /invalid structured JSON/i);
+assert.equal(preservedFailureFallback.diagnostics.providerAttempts.at(-1).errorCode, 'DIRECTIVE_GENERATION_TIMEOUT');
+
+const exhaustedRepairCalls = [];
+const exhaustedRepairRouter = {
+  async generate(roleId, request, options = {}) {
+    exhaustedRepairCalls.push({ roleId, request, options });
+    if (exhaustedRepairCalls.length === 1) {
+      return {
+        ok: false,
+        error: { code: 'DIRECTIVE_GENERATION_TIMEOUT', message: 'primary timed out', retryable: true },
+        diagnostics: {}
+      };
+    }
+    if (exhaustedRepairCalls.length === 2) {
+      return { ok: true, response: { text: 'original malformed json after retry' }, diagnostics: {} };
+    }
+    return {
+      ok: false,
+      error: { code: 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR', message: 'repair transport failed', retryable: true },
+      diagnostics: { transportCode: 'ECONNRESET' }
+    };
+  }
+};
+const exhaustedRepairFallback = await runCharacterCreatorSectionDraft({
+  packageData,
+  sectionId: 'identity',
+  input: {},
+  generationRouter: exhaustedRepairRouter
+});
+assert.deepEqual(exhaustedRepairCalls.map((call) => call.options.providerKind), ['reasoning', 'reasoning', 'utility']);
+assert.equal(exhaustedRepairFallback.diagnostics.repairAttempted, true);
+assert.equal(exhaustedRepairFallback.diagnostics.repairSucceeded, false);
+assert.equal(exhaustedRepairFallback.diagnostics.targetedRegenerationAttempted, false);
+assert.equal(exhaustedRepairFallback.diagnostics.validationErrorCode, 'json_invalid');
+assert.match(exhaustedRepairFallback.warnings.join(' '), /invalid structured JSON/i);
+assert.equal(exhaustedRepairFallback.diagnostics.providerAttempts.at(-1).errorCode, 'DIRECTIVE_PROVIDER_TRANSPORT_ERROR');
 
 const canceledController = new AbortController();
 const canceledRouterCalls = [];
@@ -502,8 +930,7 @@ const canceledIdentity = await runCharacterCreatorSectionDraft({
   generationRouter: canceledRouter,
   signal: canceledController.signal
 });
-assert.equal(canceledRouterCalls.length, 1);
-assert.equal(canceledRouterCalls[0].options.signal, canceledController.signal);
+assert.equal(canceledRouterCalls.length, 0, 'an already-aborted run must not start a provider call');
 assert.equal(canceledIdentity.ok, false);
 assert.equal(canceledIdentity.source, 'canceled');
 assert.equal(canceledIdentity.diagnostics.canceled, true);
@@ -578,7 +1005,7 @@ const longReviewRouter = createGenerationRouter({
   text: JSON.stringify({
     kind: 'directive.characterCreatorSectionDraftResult',
     sectionId: 'review',
-    mode: 'refine',
+    mode: 'create',
     fields: {
       'dossier.briefBiography': overLimitBiography,
       'dossier.publicReputation': overLimitReputation
