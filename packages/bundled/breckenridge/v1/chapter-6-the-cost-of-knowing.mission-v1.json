@@ -594,7 +594,7 @@
       "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Maintain command and network safety",
-        "summary": "Keep the Breckenridge coherent through the Lacuna operation and establish the real result of the authenticated-path crisis.",
+        "summary": "Keep the Breckenridge coherent through the Lacuna operation and establish the actual result of the command-network risk.",
         "terminal": [
           { "disposition": "completed", "text": "Command continuity and the active network threat received an accountable disposition." },
           { "disposition": "completedWithCost", "text": "The mission moved forward with material command disruption or authenticated exposure recorded." }
@@ -629,8 +629,8 @@
       ],
       "supportedDispositions": ["completed"],
       "playerText": {
-        "title": "Establish Farwatch's conduct and the remaining risk",
-        "summary": "Build a usable account of what Farwatch did and what Pale Lantern can still do, even if the physical archive is incomplete.",
+        "title": "Establish the classified operation's conduct and remaining risk",
+        "summary": "Build a usable account of what the authorized operation did and what danger remains, even if the physical archive is incomplete.",
         "terminal": [
           { "disposition": "completed", "text": "The Farwatch account and the remaining authenticated-path risk are player-known through aggregate reports." }
         ]

@@ -717,6 +717,8 @@ All thirteen campaign missions now have implemented enrichment checkpoints. The 
 
 The fixture path in each row is the authoritative full scenario-ID list. The enrichment-only IDs added in this pass are recorded below the matrix. Required closure remains objective-driven; optional discoveries and codas never silently block completion.
 
+Final campaign-data certification also audits the initial player projection for all thirteen missions. The Mission page may restate only the opening assignment or accepted transition; it cannot introduce later discoveries through its summary or visible objectives. The Prelude now begins with no Known Information items: Kieran's poker invitation, the Hesperus distress, and the redline thread remain absent until accepted story evidence discloses them.
+
 | Mission | Opening hooks and approach routes | Closure and terminal dispositions | Rewards and persistence | Cost and failure-forward acknowledgement | Scenario fixture |
 |---|---|---|---|---|---|
 | Prelude | Three-day refit; poker/Chen, Sato inventory, Hesperus shortage, Daro care; audit, medical, witness, physical, and handoff routes | 6 objectives; Rhee apprehension optional; `limitedFailureForward`, `primarySuccessWithCost`, `primarySuccess` | `award.prelude.hesperus-accountability`, `award.prelude.rhee-apprehension`; `dimension.prelude.redline` feeds Open Orders safeguards plus `capability.epilogue.rhee-lawful-custody` or `capability.epilogue.rhee-treatment-handoff`; `dimension.prelude.daro-care` feeds `capability.epilogue.daro-confidential-care` | Wrong-person custody, compromised evidence, escape, treatment, handoff, and partial rescue remain distinct | `prelude-hesperus-scenarios.fixture.json` — 23 |

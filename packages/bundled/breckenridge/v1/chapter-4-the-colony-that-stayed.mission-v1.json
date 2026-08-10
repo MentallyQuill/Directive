@@ -1101,7 +1101,7 @@
       "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Establish the supported Demeris account",
-        "summary": "Determine what the interface was used for, whom it helped and harmed, and what continuing access proves without requiring one prescribed investigation path.",
+        "summary": "Determine what happened on Demeris, whom it helped or harmed, and what continuing risks the evidence supports without requiring one prescribed investigation path.",
         "terminal": [
           { "disposition": "completed", "text": "Direct inquiry established the supported Demeris account and its next lead." },
           { "disposition": "completedWithCost", "text": "Corroboration established the essential account, while limits in access or testimony remain recorded." }
@@ -1179,7 +1179,7 @@
       "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
       "playerText": {
         "title": "Resolve personal and technical accountability",
-        "summary": "After the relevant record is known, decide how Solenn and the interface should be handled, then establish what actually happens to each.",
+        "summary": "After the relevant record is known, decide how responsible people and any dangerous technology should be handled, then establish what actually happens to each.",
         "terminal": [
           { "disposition": "completed", "text": "Personal accountability and technical custody reached a defensible local or shared resolution." },
           { "disposition": "completedWithCost", "text": "Accountability was resolved with a recorded jurisdictional, evidentiary, liberty, or custody cost." },

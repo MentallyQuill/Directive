@@ -875,8 +875,8 @@
       ],
       "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
       "playerText": {
-        "title": "Find and resolve the operation's real objective",
-        "summary": "Determine what the diversion is protecting or exposing, then establish what actually happens to the technical target and the surviving operator evidence.",
+        "title": "Determine and resolve the crisis's purpose",
+        "summary": "Determine whether the crisis has a coordinated purpose and establish a defensible disposition for any consequential evidence you actually uncover.",
         "terminal": [
           { "disposition": "completed", "text": "The technical target and direct operator evidence reached accountable control." },
           { "disposition": "completedWithCost", "text": "The operation ended with authentication or operator evidence lost, destroyed, or escaped." },
@@ -926,7 +926,7 @@
       "supportedDispositions": ["completed", "completedWithCost"],
       "playerText": {
         "title": "Establish how the crisis was created",
-        "summary": "Build the strongest supported account of the traffic manipulation, tactical mismatch, authentication target, and relationship between local actors and the wider system.",
+        "summary": "Build the strongest supported account of how the crisis was created and what actors or systems are involved.",
         "terminal": [
           { "disposition": "completed", "text": "Direct evidence established the operation's concentration pattern, target, doctrinal model, and control chain." },
           { "disposition": "completedWithCost", "text": "Corroboration established the essential account, while limits in direct evidence remain recorded." }

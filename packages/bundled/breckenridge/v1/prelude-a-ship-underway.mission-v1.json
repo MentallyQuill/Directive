@@ -10,7 +10,7 @@
   },
   "playerText": {
     "title": "Prelude: A Ship Underway",
-    "summary": "Over the final three days to the Asterion Reach, complete the command handover, establish a working command rhythm, answer the Hesperus distress call, and follow any shipboard concern you choose to pursue."
+    "summary": "Complete the command handover, establish a working command rhythm, and bring the Breckenridge to the Asterion Reach."
   },
   "projectionHints": {
     "shipReadinessObjectiveId": "objective.prelude.final-readiness-arrival",
@@ -76,7 +76,7 @@
     {
       "id": "fact.prelude.poker-invitation",
       "initiallyTrue": true,
-      "visibility": "known",
+      "visibility": "discoverable",
       "playerText": {
         "summary": "Lieutenant Kieran Vale has invited the new XO to an established junior-officer poker game after the first watch."
       }
@@ -147,6 +147,18 @@
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.prelude.poker-invitation-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.prelude.poker-invitation",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.prelude.poker-invitation" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted prose explicitly depicts Kieran Vale inviting the player to the established junior-officer poker game after first watch.",
+        "exclusions": ["Kieran being present, mentioning off-duty plans, or the player independently asking about poker does not establish that the invitation was given."]
+      }
+    },
     {
       "id": "policy.hesperus.distress-established",
       "claimType": "worldFactEstablished",

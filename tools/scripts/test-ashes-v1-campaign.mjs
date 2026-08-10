@@ -7,6 +7,7 @@ import {
   eligibleMissionCommandBearingAwards,
   reduceMissionEvidence
 } from '../../src/mission/v1/mission-reducer.mjs';
+import { createMissionPlayerProjection } from '../../src/mission/v1/player-projection.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -36,6 +37,13 @@ const EXPECTED_SOURCE_CHAIN = [
   'chapter-8-the-last-directive',
   'epilogue-the-terms-we-keep'
 ];
+const FORBIDDEN_INITIAL_MISSION_COPY = new Map([
+  ['mission.prelude-a-ship-underway', /Hesperus|Kieran/i],
+  ['mission.chapter-3-dead-letters', /message system|personal material|dangerous system/i],
+  ['mission.chapter-4-the-colony-that-stayed', /the interface|Solenn and the interface/i],
+  ['mission.chapter-5-old-lessons', /diversion is protecting|technical target|operator evidence|authentication target|wider system/i],
+  ['mission.chapter-6-the-cost-of-knowing', /Farwatch's conduct|authenticated-path crisis/i]
+]);
 
 function readJson(path) {
   return JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -206,6 +214,19 @@ const bySourceId = new Map(missionDefinitions.map((definition) => [definition.pa
 assert.equal(byId.size, missionDefinitions.length, 'mission definition ids must be unique');
 assert.equal(bySourceId.size, missionDefinitions.length, 'mission source ids must be unique');
 assert.equal(packageData.manifest.openingMissionId, EXPECTED_SOURCE_CHAIN[0]);
+
+for (const definition of missionDefinitions) {
+  const forbidden = FORBIDDEN_INITIAL_MISSION_COPY.get(definition.id);
+  if (!forbidden) continue;
+  const state = createMissionState({ definition, branchId: `entry-audit.${definition.packageBinding.sourceId}` });
+  const projection = createMissionPlayerProjection({ definition, state });
+  const entryCopy = JSON.stringify({
+    title: projection.title,
+    summary: projection.summary,
+    objectives: projection.objectives
+  });
+  assert.doesNotMatch(entryCopy, forbidden, `${definition.id}: initial Mission page copy reveals an undiscovered concept`);
+}
 
 for (const [index, sourceId] of EXPECTED_SOURCE_CHAIN.entries()) {
   const definition = bySourceId.get(sourceId);
