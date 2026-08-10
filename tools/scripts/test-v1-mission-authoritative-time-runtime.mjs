@@ -59,13 +59,14 @@ function snapshot(suffix = 'main') {
 
 function timeBoundaryFor(sceneSnapshot, {
     id = 'time.boundary.accepted-scene',
+    kind = 'directive.timeBoundary.v1',
     elapsedMinutes = 90,
     currentPlayerHostMessageId = sceneSnapshot.source.currentPlayer.hostMessageId,
     rangeHash = sceneSnapshot.source.sourceRangeHash,
 } = {}) {
     return {
         id,
-        kind: 'directive.timeBoundary.v1',
+        kind,
         type: 'time-advance',
         reason: 'explicit-duration',
         elapsedMinutes,
@@ -164,7 +165,11 @@ const advanced = await mainHarness.runtime.settleAcceptedPair({
     runtimeAssets: mainHarness.runtimeAssets,
     snapshot: mainSnapshot,
 });
-assert.equal(advanced.ok, true);
+assert.equal(advanced.ok, true, JSON.stringify({
+    status: advanced.status,
+    reasonCode: advanced.reasonCode,
+    diagnostics: advanced.diagnostics,
+}));
 assert.equal(advanced.status, 'settled');
 assert.equal(advanced.diagnostics.acceptedClaimCount, 1);
 assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].state, 'running');
@@ -173,11 +178,11 @@ const timeEvidence = mainHarness.campaignState.mission.v1.evidenceLog.find(
     (entry) => entry.claimType === 'timeAdvanced',
 );
 assert.equal(timeEvidence.value, 1.5);
-assert.match(timeEvidence.sourceRef.messageId, /^time-boundary:/);
 const timeContribution = mainHarness.campaignState.storySettlement.episodes
     .flatMap((episode) => episode.contributions)
     .find((contribution) => contribution.id === timeEvidence.sourceContributionId);
 assert.equal(timeContribution.role, 'runtime');
+assert.match(timeContribution.messageId, /^time-boundary:/);
 assert.notEqual(timeContribution.messageId, mainSnapshot.source.currentPlayer.hostMessageId);
 
 const replay = await mainHarness.runtime.settleAcceptedPair({
@@ -214,6 +219,7 @@ assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.find(
 
 for (const [label, testDefinition, boundaryOptions] of [
     ['mismatched boundary', clockReadyDefinition(), { currentPlayerHostMessageId: 'message.other.player', rangeHash: 'range.other' }],
+    ['non-authoritative ledger entry', clockReadyDefinition(), { kind: 'directive.timeProposal.v1' }],
     ['not-started clock', clockReadyDefinition({ startWhen: false }), {}],
     ['unsupported clock unit', clockReadyDefinition({ unit: 'fortnights' }), {}],
 ]) {
