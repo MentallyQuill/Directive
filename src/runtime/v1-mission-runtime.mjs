@@ -22,6 +22,10 @@ import {
 } from '../mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
 import {
+    createCampaignConclusionReceipt,
+    inspectCampaignConclusionTarget,
+} from '../mission/v1/campaign-conclusion.mjs';
+import {
     resolveMissionTransitionTarget,
     validateMissionJourney,
 } from '../mission/v1/mission-journey.mjs';
@@ -168,6 +172,29 @@ export function inspectV1MissionTransition({ campaignState = {}, runtimeAssets =
             status: 'invalid',
             sourceDefinitionId: resolved.definition.id,
             activatable: false,
+        };
+    }
+    if (missionState.transitionReceipt.target?.kind === 'phase') {
+        const conclusion = inspectCampaignConclusionTarget({
+            campaignState,
+            sourceDefinition: resolved.definition,
+            packageData: runtimeAssets.packageData,
+        });
+        return {
+            ok: conclusion.ok,
+            attempted: false,
+            status: conclusion.status,
+            reasonCode: conclusion.reasonCode,
+            activatable: conclusion.activatable,
+            sourceDefinitionId: resolved.definition.id,
+            sourceRunId: campaignState.mission.v1Journey.activeRunId,
+            targetDefinitionId: null,
+            targetPhaseId: conclusion.phaseId,
+            endConditionId: conclusion.endConditionId,
+            conclusionId: conclusion.receipt?.id || null,
+            committedRoots: [],
+            noChange: true,
+            diagnostics: {},
         };
     }
     const target = resolveMissionTransitionTarget({
@@ -759,6 +786,12 @@ export function createV1MissionRuntime({
                 status: 'no-pending-transition',
             };
         }
+        if (inspection.status === 'concluded') {
+            return {
+                ...inspection,
+                status: 'campaign-already-concluded',
+            };
+        }
         if (inspection.status !== 'ready') {
             return {
                 ...inspection,
@@ -770,6 +803,78 @@ export function createV1MissionRuntime({
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
         const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
+        if (inspection.targetPhaseId) {
+            try {
+                const receipt = createCampaignConclusionReceipt({
+                    campaignState,
+                    sourceDefinition: resolved.definition,
+                    packageData: runtimeAssets.packageData,
+                    completedAt: now(),
+                });
+                await stateDeltaGateway.applyProposal({
+                    operations: [{ op: 'set', path: 'mission.v1Conclusion', value: receipt }],
+                    domains: ['mission'],
+                    baseRevision: gatewayBaseRevision,
+                    source: 'v1CampaignConclusion',
+                    reason: 'Committed an authored V1 campaign conclusion from exact terminal mission authority.',
+                    metadata: {
+                        conclusionId: receipt.id,
+                        phaseId: receipt.phaseId,
+                        endConditionId: receipt.endConditionId,
+                        sourceRunId: receipt.source.runId,
+                        sourceDefinitionId: receipt.source.definitionId,
+                    },
+                });
+                return {
+                    ok: true,
+                    attempted: true,
+                    status: 'concluded',
+                    reasonCode: null,
+                    activatable: false,
+                    sourceDefinitionId: resolved.definition.id,
+                    sourceRunId: receipt.source.runId,
+                    targetDefinitionId: null,
+                    targetPhaseId: receipt.phaseId,
+                    endConditionId: receipt.endConditionId,
+                    conclusionId: receipt.id,
+                    committedRoots: ['mission'],
+                    noChange: false,
+                    diagnostics: {},
+                };
+            } catch (error) {
+                const reasonCode = errorReasonCode(error);
+                if (reasonCode === 'persistence-rollback-conflict') {
+                    return {
+                        ok: false,
+                        attempted: true,
+                        status: 'indeterminate',
+                        reasonCode,
+                        activatable: false,
+                        sourceDefinitionId: resolved.definition.id,
+                        sourceRunId: inspection.sourceRunId,
+                        targetDefinitionId: null,
+                        targetPhaseId: inspection.targetPhaseId,
+                        endConditionId: inspection.endConditionId,
+                        conclusionId: null,
+                        committedRoots: ['mission'],
+                        noChange: false,
+                        requiresReconciliation: true,
+                        retrySafe: false,
+                        diagnostics: {},
+                    };
+                }
+                return {
+                    ...unavailable(reasonCode, {}, { attempted: true }),
+                    activatable: false,
+                    sourceDefinitionId: resolved.definition.id,
+                    sourceRunId: inspection.sourceRunId,
+                    targetDefinitionId: null,
+                    targetPhaseId: inspection.targetPhaseId,
+                    endConditionId: inspection.endConditionId,
+                    conclusionId: null,
+                };
+            }
+        }
         const spine = createV1StateSpine({
             getState,
             stateDeltaGateway,

@@ -695,7 +695,22 @@
       "properties": {
         "kind": { "type": "string", "enum": ["phase", "mission"] },
         "id": { "$ref": "#/$defs/stableId" },
-        "playerSafeSetup": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        "playerSafeSetup": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "campaignConclusion": { "$ref": "#/$defs/campaignConclusionTarget" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["campaignConclusion"] },
+          "then": { "properties": { "kind": { "const": "phase" } } }
+        }
+      ]
+    },
+    "campaignConclusionTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endConditionId"],
+      "properties": {
+        "endConditionId": { "$ref": "#/$defs/stableId" }
       }
     },
     "transition": {

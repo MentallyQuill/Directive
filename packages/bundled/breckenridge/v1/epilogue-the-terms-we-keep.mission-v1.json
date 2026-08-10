@@ -611,7 +611,10 @@
       "target": {
         "kind": "phase",
         "id": "ashes-authored-conclusion",
-        "playerSafeSetup": "Ashes of Peace reaches its authored conclusion with the operational aftermath, settlement axes, public account, and command future preserved."
+        "playerSafeSetup": "Ashes of Peace reaches its authored conclusion with the operational aftermath, settlement axes, public account, and command future preserved.",
+        "campaignConclusion": {
+          "endConditionId": "completion.ashes.terms-we-keep-resolved"
+        }
       },
       "mustNarrate": [
         "State the actual settlement disposition and the adopted results across all seven epilogue outcome dimensions without turning them into a moral score.",

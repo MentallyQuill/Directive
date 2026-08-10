@@ -22,6 +22,7 @@ function readJson(path) {
 const definition = readJson('packages/bundled/breckenridge/v1/epilogue-the-terms-we-keep.mission-v1.json');
 const chapter8Definition = readJson('packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json');
 const chapter8Scenarios = readJson('tests/fixtures/mission/v1/chapter-8-last-directive-scenarios.fixture.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const priorDefinitionPaths = [
     'prelude-a-ship-underway',
     'chapter-1-the-empty-convoy',
@@ -41,12 +42,7 @@ const definitionRecords = allDefinitions.map((missionDefinition) => ({
     definition: missionDefinition,
 }));
 const runtimeAssets = {
-    packageData: {
-        manifest: {
-            id: definition.packageBinding.packageId,
-            version: definition.packageBinding.packageVersion,
-        },
-    },
+    packageData,
     missionDefinitions: definitionRecords,
     missionDefinitionsById: new Map(definitionRecords.map((record) => [record.definition.id, record])),
 };
@@ -417,11 +413,13 @@ assert.equal(mainHarness.campaignState.mission.v1.transitionReceipt.target.id, '
 assert.equal(mainHarness.campaignState.mission.activeMissionId, definition.packageBinding.sourceId);
 const pendingConclusion = mainHarness.runtime.inspectPendingTransition({ runtimeAssets });
 assert.equal(pendingConclusion.ok, true);
-assert.equal(pendingConclusion.status, 'pending');
-assert.equal(pendingConclusion.reasonCode, 'phase-target-contract-unavailable');
+assert.equal(pendingConclusion.status, 'ready');
+assert.equal(pendingConclusion.reasonCode, null);
 assert.equal(pendingConclusion.sourceDefinitionId, definition.id);
 assert.equal(pendingConclusion.targetDefinitionId, null);
-assert.equal(pendingConclusion.activatable, false);
+assert.equal(pendingConclusion.targetPhaseId, 'ashes-authored-conclusion');
+assert.equal(pendingConclusion.endConditionId, 'completion.ashes.terms-we-keep-resolved');
+assert.equal(pendingConclusion.activatable, true);
 assert.equal(pendingConclusion.noChange, true);
 assert.deepEqual(mainHarness.campaignState.mission.v1.entryContext, initialState.mission.v1.entryContext);
 assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
@@ -429,6 +427,29 @@ assert.deepEqual(validateMissionJourney({
     campaignState: mainHarness.campaignState,
     definitions: allDefinitions,
 }), { ok: true, errors: [] });
+
+const persistBeforeConclusion = mainHarness.persistCount;
+const generationBeforeConclusion = mainHarness.generationCount;
+const conclusion = await mainHarness.runtime.activatePendingTransition({ runtimeAssets });
+assert.equal(conclusion.ok, true);
+assert.equal(conclusion.status, 'concluded');
+assert.equal(conclusion.targetPhaseId, 'ashes-authored-conclusion');
+assert.equal(conclusion.endConditionId, 'completion.ashes.terms-we-keep-resolved');
+assert.equal(conclusion.noChange, false);
+assert.equal(mainHarness.persistCount, persistBeforeConclusion + 1);
+assert.equal(mainHarness.generationCount, generationBeforeConclusion, 'campaign conclusion cannot call a provider');
+assert.equal(mainHarness.campaignState.mission.v1Conclusion.kind, 'directive.campaignConclusion.v1');
+assert.equal(mainHarness.campaignState.mission.v1Conclusion.id, conclusion.conclusionId);
+assert.equal(mainHarness.campaignState.mission.v1Conclusion.source.definitionId, definition.id);
+assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
+const firstConclusionId = conclusion.conclusionId;
+
+const conclusionReplay = await mainHarness.runtime.activatePendingTransition({ runtimeAssets });
+assert.equal(conclusionReplay.ok, true);
+assert.equal(conclusionReplay.status, 'campaign-already-concluded');
+assert.equal(conclusionReplay.noChange, true);
+assert.equal(mainHarness.persistCount, persistBeforeConclusion + 1, 'campaign conclusion replay cannot persist twice');
+assert.equal(mainHarness.generationCount, generationBeforeConclusion, 'campaign conclusion replay cannot call a provider');
 
 const generationBeforeInvalidation = mainHarness.generationCount;
 const invalidatedCommandReport = await mainHarness.runtime.invalidateSourceMutation({
@@ -438,6 +459,7 @@ const invalidatedCommandReport = await mainHarness.runtime.invalidateSourceMutat
 });
 assert.equal(invalidatedCommandReport.status, 'invalidated');
 assert.equal(mainHarness.generationCount, generationBeforeInvalidation, 'source rebuild cannot call a provider');
+assert.equal(mainHarness.campaignState.mission.v1Conclusion, null, 'source invalidation clears the stale conclusion receipt');
 assert.equal(mainHarness.campaignState.mission.v1.status, 'active');
 assert.equal(mainHarness.campaignState.mission.v1.knownFacts.includes('fact.epilogue.command-review'), false);
 assert.equal(mainHarness.campaignState.mission.v1.outcomes['outcome.epilogue.command-future'], 'continuedAuthority');
@@ -454,6 +476,16 @@ assert.equal(mainHarness.campaignState.mission.v1.terminalDisposition, 'managedS
 const restoredCommandEvidence = mainHarness.campaignState.mission.v1.evidenceLog
     .find((entry) => entry.targetId === 'fact.epilogue.command-review');
 assert.equal(restoredCommandEvidence.sourceContributionId.endsWith('.r1'), true);
+const restoredConclusionReady = mainHarness.runtime.inspectPendingTransition({ runtimeAssets });
+assert.equal(restoredConclusionReady.ok, true);
+assert.equal(restoredConclusionReady.status, 'ready');
+const generationBeforeReConclusion = mainHarness.generationCount;
+const restoredConclusion = await mainHarness.runtime.activatePendingTransition({ runtimeAssets });
+assert.equal(restoredConclusion.ok, true);
+assert.equal(restoredConclusion.status, 'concluded');
+assert.notEqual(restoredConclusion.conclusionId, firstConclusionId, 'rebuilt terminal authority produces a new receipt identity');
+assert.equal(mainHarness.generationCount, generationBeforeReConclusion, 're-conclusion cannot call a provider');
+assert.deepEqual(legacyRoots(mainHarness.campaignState), rootsBefore);
 assert.deepEqual(validateMissionJourney({
     campaignState: JSON.parse(JSON.stringify(mainHarness.campaignState)),
     definitions: allDefinitions,

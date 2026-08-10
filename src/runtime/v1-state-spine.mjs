@@ -766,9 +766,15 @@ export function createV1StateSpine({
                     reviewToken: createPendingEpisodeReviewToken(currentStorySettlement),
                 };
             }
+            const conclusionCleared = campaignState?.mission?.v1Conclusion != null;
             const committed = await stateDeltaGateway.applyProposal({
-                operations: [{ op: 'set', path: 'storySettlement', value: storySettlement }],
-                domains: ['storySettlement'],
+                operations: [
+                    { op: 'set', path: 'storySettlement', value: storySettlement },
+                    ...(conclusionCleared
+                        ? [{ op: 'set', path: 'mission.v1Conclusion', value: null }]
+                        : []),
+                ],
+                domains: conclusionCleared ? ['storySettlement', 'mission'] : ['storySettlement'],
                 baseRevision: capturedGatewayRevision,
                 source: 'v1StateSpineShadow',
                 reason: 'Rebuilt Story Settlement after a non-mission source invalidation.',
@@ -781,7 +787,8 @@ export function createV1StateSpine({
                 invalidatedContributionIds: [...newContributionIds],
                 noChange: false,
                 reviewToken: createPendingEpisodeReviewToken(storySettlement),
-                missionChanged: false,
+                missionChanged: conclusionCleared,
+                conclusionCleared,
             };
         }
 
@@ -939,6 +946,9 @@ export function createV1StateSpine({
         const missionOperations = [
             { op: 'set', path: 'storySettlement', value: storySettlement },
             { op: 'set', path: 'mission.v1', value: missionPatch.v1 },
+            ...(campaignState?.mission?.v1Conclusion != null
+                ? [{ op: 'set', path: 'mission.v1Conclusion', value: null }]
+                : []),
             ...(hasJourney ? [
                 { op: 'set', path: 'mission.v1Journey', value: missionPatch.v1Journey },
                 { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },

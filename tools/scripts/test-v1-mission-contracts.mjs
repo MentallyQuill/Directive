@@ -30,6 +30,7 @@ for (const boundary of [
     'clock',
     'terminalDisposition',
     'transition',
+    'campaignConclusionTarget',
 ]) {
     assert.equal(missionSchema.$defs[boundary].additionalProperties, false, `${boundary} must be strict`);
 }
@@ -690,6 +691,55 @@ for (const [label, target, pattern] of [
     ['target kind', { kind: 'chapter', id: 'chapter.next', playerSafeSetup: 'Continue.' }, /target kind/],
     ['target id', { kind: 'phase', id: '', playerSafeSetup: 'Continue.' }, /target id/],
     ['target setup', { kind: 'phase', id: 'phase.next', playerSafeSetup: '' }, /playerSafeSetup/],
+]) {
+    assert.match(
+        validateMissionDefinition({
+            ...referenceMission,
+            transitions: [{ ...referenceMission.transitions[0], target }],
+        }).errors.join('\n'),
+        pattern,
+        label,
+    );
+}
+
+const authoredConclusionMission = {
+    ...referenceMission,
+    transitions: [{
+        ...referenceMission.transitions[0],
+        target: {
+            ...referenceMission.transitions[0].target,
+            campaignConclusion: {
+                endConditionId: 'completion.ashes.terms-we-keep-resolved',
+            },
+        },
+    }],
+};
+assert.equal(validateMissionDefinition(authoredConclusionMission).ok, true);
+for (const [label, target, pattern] of [
+    ['mission target conclusion', {
+        kind: 'mission',
+        id: 'mission.next',
+        playerSafeSetup: 'Continue.',
+        campaignConclusion: { endConditionId: 'completion.next' },
+    }, /only valid for a phase target/],
+    ['malformed conclusion', {
+        kind: 'phase',
+        id: 'phase.next',
+        playerSafeSetup: 'Continue.',
+        campaignConclusion: null,
+    }, /must be an object/],
+    ['invalid conclusion id', {
+        kind: 'phase',
+        id: 'phase.next',
+        playerSafeSetup: 'Continue.',
+        campaignConclusion: { endConditionId: 'not a stable id' },
+    }, /endConditionId must be a stable id/],
+    ['unknown conclusion field', {
+        kind: 'phase',
+        id: 'phase.next',
+        playerSafeSetup: 'Continue.',
+        campaignConclusion: { endConditionId: 'completion.next', legacyQuestId: 'quest.next' },
+    }, /contains unknown fields/],
 ]) {
     assert.match(
         validateMissionDefinition({

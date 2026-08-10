@@ -146,7 +146,11 @@ assert.equal(concluded.activatable, false);
 assert.deepEqual(concluded.receipt, receipt);
 
 for (const [label, mutate, expectedReason] of [
-    ['missing authored metadata', (state, definition) => { delete definition.transitions[0].target.campaignConclusion; }, 'phase-target-contract-unavailable'],
+    ['missing authored metadata', (state, definition) => {
+        delete definition.transitions[0].target.campaignConclusion;
+        delete state.mission.v1.transitionReceipt.target.campaignConclusion;
+        delete state.mission.v1.transitionReceipt.packet.next.campaignConclusion;
+    }, 'phase-target-contract-unavailable'],
     ['missing end condition', (state, definition, data) => { data.endConditions.conditions = []; }, 'campaign-conclusion-end-condition-unavailable'],
     ['wrong end-condition family', (state, definition, data) => { data.endConditions.conditions[0].family = 'terminalCandidate'; }, 'campaign-conclusion-end-condition-invalid'],
 ]) {
@@ -192,5 +196,27 @@ const forgedInspection = inspectCampaignConclusionTarget({
 assert.equal(forgedInspection.ok, false);
 assert.equal(forgedInspection.status, 'invalid');
 assert.equal(forgedInspection.reasonCode, 'campaign-conclusion-receipt-invalid');
+
+const driftedTargetState = structuredClone(campaignState);
+driftedTargetState.mission.v1.transitionReceipt.target.playerSafeSetup = 'A forged transition target.';
+const driftedTarget = inspectCampaignConclusionTarget({
+    campaignState: driftedTargetState,
+    sourceDefinition,
+    packageData,
+});
+assert.equal(driftedTarget.ok, false);
+assert.equal(driftedTarget.status, 'invalid');
+assert.equal(driftedTarget.reasonCode, 'campaign-conclusion-target-drift');
+
+const driftedSourceState = structuredClone(campaignState);
+driftedSourceState.mission.v1Journey.branchId = 'save.forged';
+const driftedSource = inspectCampaignConclusionTarget({
+    campaignState: driftedSourceState,
+    sourceDefinition,
+    packageData,
+});
+assert.equal(driftedSource.ok, false);
+assert.equal(driftedSource.status, 'invalid');
+assert.equal(driftedSource.reasonCode, 'campaign-conclusion-source-invalid');
 
 console.log('V1 campaign conclusion receipt tests passed.');

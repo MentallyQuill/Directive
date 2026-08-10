@@ -576,6 +576,24 @@ export function validateMissionDefinition(definition = {}) {
         if (!isNonEmptyString(transition?.target?.playerSafeSetup)) {
             errors.push(`${transitionId} target playerSafeSetup is required`);
         }
+        if (transition?.target?.campaignConclusion !== undefined) {
+            const conclusion = transition.target.campaignConclusion;
+            if (transition.target.kind !== 'phase') {
+                errors.push(`${transitionId} campaignConclusion is only valid for a phase target`);
+            }
+            if (!conclusion || typeof conclusion !== 'object' || Array.isArray(conclusion)) {
+                errors.push(`${transitionId} campaignConclusion must be an object`);
+            } else {
+                if (!isStableId(conclusion.endConditionId)) {
+                    errors.push(`${transitionId} campaignConclusion endConditionId must be a stable id`);
+                }
+                const unknownConclusionFields = Object.keys(conclusion)
+                    .filter((field) => field !== 'endConditionId');
+                if (unknownConclusionFields.length > 0) {
+                    errors.push(`${transitionId} campaignConclusion contains unknown fields: ${unknownConclusionFields.join(', ')}`);
+                }
+            }
+        }
         if (!Array.isArray(transition?.mustNarrate) || transition.mustNarrate.some((item) => !isNonEmptyString(item))) {
             errors.push(`${transitionId} mustNarrate must be an array of non-empty strings`);
         }

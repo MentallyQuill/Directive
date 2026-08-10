@@ -16,6 +16,7 @@ import { createEmptyStorySettlement } from '../../src/story/story-settlement-con
 import {
     acceptStoryContributions,
     openStoryEpisode,
+    sealStoryEpisode,
 } from '../../src/story/story-settlement.mjs';
 
 const preludeDefinition = readJson('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json');
@@ -31,6 +32,7 @@ const chapter7Definition = readJson('packages/bundled/breckenridge/v1/chapter-7-
 const openOrders3Definition = readJson('packages/bundled/breckenridge/v1/open-orders-3-before-the-lamps-go-out.mission-v1.json');
 const chapter8Definition = readJson('packages/bundled/breckenridge/v1/chapter-8-the-last-directive.mission-v1.json');
 const epilogueDefinition = readJson('packages/bundled/breckenridge/v1/epilogue-the-terms-we-keep.mission-v1.json');
+const packageData = readJson('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const preludeScenarios = readJson('tests/fixtures/mission/v1/prelude-hesperus-scenarios.fixture.json');
 const chapterScenarios = readJson('tests/fixtures/mission/v1/chapter-1-empty-convoy-scenarios.fixture.json');
 const chapter2Scenarios = readJson('tests/fixtures/mission/v1/chapter-2-false-colors-scenarios.fixture.json');
@@ -154,12 +156,7 @@ function assetsFor(definitions) {
         definition,
     }));
     return {
-        packageData: {
-            manifest: {
-                id: preludeDefinition.packageBinding.packageId,
-                version: preludeDefinition.packageBinding.packageVersion,
-            },
-        },
+        packageData,
         missionDefinitions: records,
         missionDefinitionsById: new Map(records.map((record) => [record.definition.id, record])),
     };
@@ -1497,7 +1494,21 @@ const epilogueMutationStepIndex = stepsForScenario(
 assert.notEqual(epilogueMutationStepIndex, -1);
 const epilogueMutationMessageId = epilogueStory.contributions[epilogueMutationStepIndex].messageId;
 campaignState.mission.v1 = terminalEpilogue;
-campaignState.storySettlement = epilogueStory.settlement;
+let combinedConclusionSettlement = sealStoryEpisode(chapter8Story.settlement, {
+    boundaryReason: 'Chapter 8 closed before the authored epilogue.',
+    summary: 'Nightfall reached its terminal operational disposition.',
+    significance: { lastingChange: true },
+});
+const epilogueEpisode = epilogueStory.settlement.episodes[0];
+combinedConclusionSettlement = openStoryEpisode(combinedConclusionSettlement, {
+    episodeId: epilogueEpisode.id,
+    sceneId: epilogueEpisode.sceneId,
+    references: epilogueEpisode.references,
+});
+campaignState.storySettlement = acceptStoryContributions(
+    combinedConclusionSettlement,
+    epilogueStory.contributions,
+);
 const conclusionJourney = validateMissionJourney({
     campaignState,
     definitions: [
@@ -1519,10 +1530,33 @@ const conclusionJourney = validateMissionJourney({
 assert.equal(conclusionJourney.ok, true, conclusionJourney.errors.join('\n'));
 const conclusionPending = runtime.inspectPendingTransition({ runtimeAssets: epilogueAssets });
 assert.equal(conclusionPending.ok, true);
-assert.equal(conclusionPending.status, 'pending');
-assert.equal(conclusionPending.reasonCode, 'phase-target-contract-unavailable');
+assert.equal(conclusionPending.status, 'ready');
+assert.equal(conclusionPending.reasonCode, null);
 assert.equal(conclusionPending.targetDefinitionId, null);
-assert.equal(conclusionPending.activatable, false);
+assert.equal(conclusionPending.targetPhaseId, 'ashes-authored-conclusion');
+assert.equal(conclusionPending.endConditionId, 'completion.ashes.terms-we-keep-resolved');
+assert.equal(conclusionPending.activatable, true);
+const conclusion = await runtime.activatePendingTransition({ runtimeAssets: epilogueAssets });
+assert.equal(conclusion.ok, true);
+assert.equal(conclusion.status, 'concluded');
+assert.equal(conclusion.noChange, false);
+assert.equal(conclusion.conclusionId, campaignState.mission.v1Conclusion.id);
+assert.equal(campaignState.mission.v1Conclusion.kind, 'directive.campaignConclusion.v1');
+assert.equal(campaignState.mission.v1Conclusion.source.definitionId, epilogueDefinition.id);
+assert.equal(persistCount, 13);
+assert.deepEqual({
+    ship: campaignState.ship,
+    relationships: campaignState.relationships,
+    questLedger: campaignState.questLedger,
+    threadLedger: campaignState.threadLedger,
+    commandLog: campaignState.commandLog,
+    commandBearing: campaignState.commandBearing,
+}, unrelatedBefore, 'campaign conclusion cannot mutate legacy tracking roots');
+const conclusionReplay = await runtime.activatePendingTransition({ runtimeAssets: epilogueAssets });
+assert.equal(conclusionReplay.ok, true);
+assert.equal(conclusionReplay.status, 'campaign-already-concluded');
+assert.equal(conclusionReplay.noChange, true);
+assert.equal(persistCount, 13, 'campaign conclusion replay cannot persist twice');
 const terminalEpilogueCampaignState = structuredClone(campaignState);
 
 const journeyContributionIds = [
@@ -1886,18 +1920,26 @@ assert.deepEqual(
 );
 assert.equal(chapter8Mutation.generationCount, 0, 'Chapter 8 reconstruction cannot call a provider');
 
-const chapter8DescendantMutation = createMutationHarness(epilogueActivatedCampaignState);
+const chapter8DescendantMutation = createMutationHarness(terminalEpilogueCampaignState);
+assert.equal(
+    terminalEpilogueCampaignState.storySettlement.episodes.some(
+        (episode) => episode.contributions.some((entry) => entry.messageId === chapter8MutationMessageId),
+    ),
+    true,
+    'concluded journey retains the selected Chapter 8 source provenance before invalidation',
+);
 const chapter8DescendantMutationResult = await chapter8DescendantMutation.mutationRuntime.invalidateSourceMutation({
     runtimeAssets: epilogueAssets,
     hostMessageId: chapter8MutationMessageId,
     eventType: 'directiveResponseSelectedSwipeChanged',
 });
-assert.equal(chapter8DescendantMutationResult.ok, true);
+assert.equal(chapter8DescendantMutationResult.ok, true, JSON.stringify(chapter8DescendantMutationResult));
 assert.equal(chapter8DescendantMutationResult.status, 'invalidated');
 assert.equal(chapter8DescendantMutation.state.mission.v1.definitionId, chapter8Definition.id);
 assert.equal(chapter8DescendantMutation.state.mission.v1.status, 'active');
 assert.equal(chapter8DescendantMutation.state.mission.v1History.length, 11);
 assert.equal(chapter8DescendantMutation.state.mission.v1Journey.revision, 11);
+assert.equal(chapter8DescendantMutation.state.mission.v1Conclusion, null);
 assert.equal(JSON.stringify(chapter8DescendantMutation.state.mission.v1).includes('objective.epilogue.'), false);
 assert.equal(chapter8DescendantMutation.generationCount, 0, 'Chapter 8 descendant pruning cannot call a provider');
 
@@ -1913,6 +1955,7 @@ assert.equal(epilogueMutation.state.mission.v1.definitionId, epilogueDefinition.
 assert.equal(epilogueMutation.state.mission.v1.status, 'active');
 assert.equal(epilogueMutation.state.mission.v1.terminalDisposition, null);
 assert.equal(epilogueMutation.state.mission.v1.transitionReceipt, null);
+assert.equal(epilogueMutation.state.mission.v1Conclusion, null);
 assert.equal(epilogueMutation.state.mission.v1History.length, 12);
 assert.equal(epilogueMutation.state.mission.v1Journey.revision, 12);
 assert.equal(epilogueMutation.state.mission.v1.knownFacts.includes('fact.epilogue.command-review'), false);
