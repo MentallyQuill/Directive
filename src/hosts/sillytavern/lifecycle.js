@@ -1,6 +1,6 @@
 import { exposeGlobalBridge } from '../../extension/global-bridge.js';
 import { refreshRuntimeSafely } from '../../extension/runtime-mount.js';
-import { setSillyTavernDirectiveFeatureEnabled } from './feature-toggle.mjs';
+import { activateSillyTavernDirectiveRuntime } from './runtime-activation.mjs';
 import { handleExtensionDisabled } from './shell-events.js';
 
 export async function directiveOnInstall() {
@@ -13,7 +13,7 @@ export async function directiveOnUpdate() {
 
 export async function directiveOnEnable() {
   exposeGlobalBridge();
-  return setSillyTavernDirectiveFeatureEnabled(true);
+  return activateSillyTavernDirectiveRuntime();
 }
 
 export async function directiveOnDisable() {
@@ -33,5 +33,5 @@ export async function directiveOnClean() {
 
 export async function directiveOnActivate() {
   exposeGlobalBridge();
-  return setSillyTavernDirectiveFeatureEnabled(true);
+  return activateSillyTavernDirectiveRuntime();
 }

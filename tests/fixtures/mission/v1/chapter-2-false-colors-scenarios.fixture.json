@@ -1,0 +1,412 @@
+{
+  "kind": "directive.ashesV1Chapter2Scenarios.v1",
+  "definitionId": "mission.chapter-2-false-colors",
+  "fragments": {
+    "access-report": [
+      {
+        "claimId": "claim.chapter2.verification-access-dispute-disclosed",
+        "policyId": "policy.chapter2.verification-access-dispute-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.verification-access-dispute",
+        "sourceRole": "assistant"
+      }
+    ],
+    "independent-evidence": [
+      {
+        "claimId": "claim.chapter2.independent-baseline-preserved",
+        "policyId": "policy.chapter2.independent-baseline-preserved",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter2.independent-baseline-preserved",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter2.independent-evidence-picture-disclosed",
+        "policyId": "policy.chapter2.independent-evidence-picture-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.independent-evidence-picture",
+        "sourceRole": "assistant"
+      }
+    ],
+    "counterfeit-route": [
+      {
+        "claimId": "claim.chapter2.counterfeit-evidence-obtained",
+        "policyId": "policy.chapter2.counterfeit-evidence-obtained",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter2.counterfeit-evidence-obtained",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter2.counterfeit-route-picture-disclosed",
+        "policyId": "policy.chapter2.counterfeit-route-picture-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter2.counterfeit-route-picture",
+        "sourceRole": "assistant"
+      }
+    ],
+    "medical-stabilized": [
+      {
+        "claimId": "claim.chapter2.medical-stabilized",
+        "policyId": "policy.chapter2.medical-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.medical-result",
+        "value": "stabilizedNeutral",
+        "sourceRole": "assistant"
+      }
+    ],
+    "medical-with-cost": [
+      {
+        "claimId": "claim.chapter2.medical-with-cost",
+        "policyId": "policy.chapter2.medical-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.medical-result",
+        "value": "stabilizedWithCost",
+        "sourceRole": "assistant"
+      }
+    ],
+    "medical-handed-off": [
+      {
+        "claimId": "claim.chapter2.medical-handed-off",
+        "policyId": "policy.chapter2.medical-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.medical-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "medical-failed-informed": [
+      {
+        "claimId": "claim.chapter2.medical-failed-informed",
+        "policyId": "policy.chapter2.medical-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.medical-result",
+        "value": "failedAfterInformedAction",
+        "sourceRole": "assistant"
+      }
+    ],
+    "account-joint": [
+      {
+        "claimId": "claim.chapter2.account-joint",
+        "policyId": "policy.chapter2.attack-account-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.attack-account-result",
+        "value": "jointlyVerified",
+        "sourceRole": "assistant"
+      }
+    ],
+    "account-independent": [
+      {
+        "claimId": "claim.chapter2.account-independent",
+        "policyId": "policy.chapter2.attack-account-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.attack-account-result",
+        "value": "independentlyEstablished",
+        "sourceRole": "assistant"
+      }
+    ],
+    "account-ambiguous": [
+      {
+        "claimId": "claim.chapter2.account-ambiguous",
+        "policyId": "policy.chapter2.attack-account-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.attack-account-result",
+        "value": "managedAmbiguity",
+        "sourceRole": "assistant"
+      }
+    ],
+    "account-handed-off": [
+      {
+        "claimId": "claim.chapter2.account-handed-off",
+        "policyId": "policy.chapter2.attack-account-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.attack-account-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "account-ruptured": [
+      {
+        "claimId": "claim.chapter2.account-ruptured",
+        "policyId": "policy.chapter2.attack-account-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.attack-account-result",
+        "value": "rupturedAfterInformedAction",
+        "sourceRole": "assistant"
+      }
+    ],
+    "security-protected": [
+      {
+        "claimId": "claim.chapter2.security-protected",
+        "policyId": "policy.chapter2.verification-security-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.verification-security-result",
+        "value": "protectedWithCredibleAlternative",
+        "sourceRole": "assistant"
+      }
+    ],
+    "security-with-cost": [
+      {
+        "claimId": "claim.chapter2.security-with-cost",
+        "policyId": "policy.chapter2.verification-security-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.verification-security-result",
+        "value": "protectedWithCost",
+        "sourceRole": "assistant"
+      }
+    ],
+    "security-handed-off": [
+      {
+        "claimId": "claim.chapter2.security-handed-off",
+        "policyId": "policy.chapter2.verification-security-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.verification-security-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "security-exposed": [
+      {
+        "claimId": "claim.chapter2.security-exposed",
+        "policyId": "policy.chapter2.verification-security-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.verification-security-result",
+        "value": "dangerouslyExposed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "partnership-joint": [
+      {
+        "claimId": "claim.chapter2.partnership-joint",
+        "policyId": "policy.chapter2.partnership-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.partnership-result",
+        "value": "jointFramework",
+        "sourceRole": "assistant"
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "joint-legitimacy",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "security-protected", "partnership-joint", "account-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "jointLegitimacy",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed",
+          "objective.chapter2.joint-framework": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter2.medical": "stabilized-neutral",
+          "dimension.chapter2.attack-account": "jointly-verified",
+          "dimension.chapter2.verification-security": "protected-with-credible-alternative",
+          "dimension.chapter2.partnership": "joint-framework"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "credible-unilateral-vindication",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "account-independent", "security-protected"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed",
+          "objective.chapter2.joint-framework": null
+        },
+        "outcomeDimensions": {
+          "dimension.chapter2.medical": "stabilized-neutral",
+          "dimension.chapter2.attack-account": "independently-established",
+          "dimension.chapter2.verification-security": "protected-with-credible-alternative"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "managed-ambiguity",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-with-cost", "security-with-cost", "account-ambiguous"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "managedAmbiguity",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completedWithCost",
+          "objective.chapter2.attack-account": "completedWithCost",
+          "objective.chapter2.verification-security": "completedWithCost"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "responsible-handoff",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-handed-off", "security-handed-off", "account-handed-off"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "managedAmbiguity",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "handedOff",
+          "objective.chapter2.attack-account": "handedOff",
+          "objective.chapter2.verification-security": "handedOff"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "political-rupture-forward",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-failed-informed", "security-exposed", "account-ruptured"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "politicalRuptureForward",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "failedAfterInformedAction",
+          "objective.chapter2.attack-account": "failedAfterInformedAction",
+          "objective.chapter2.verification-security": "failedAfterInformedAction"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "undiscovered-content-does-not-close",
+      "sequence": ["medical-stabilized"],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 1,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": null,
+          "objective.chapter2.verification-security": null
+        },
+        "knownFactsExcludes": [
+          "fact.chapter2.verification-access-dispute",
+          "fact.chapter2.independent-evidence-picture",
+          "fact.chapter2.counterfeit-route-picture"
+        ]
+      }
+    },
+    {
+      "id": "non-linear-core-order",
+      "sequence": ["independent-evidence", "medical-stabilized", "access-report", "security-protected", "counterfeit-route", "partnership-joint", "account-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "jointLegitimacy",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed",
+          "objective.chapter2.joint-framework": "completed"
+        },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "premature-independent-report",
+      "steps": [
+        {
+          "claimId": "claim.chapter2.premature-independent-evidence",
+          "policyId": "policy.chapter2.independent-evidence-picture-disclosed",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter2.independent-evidence-picture",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["precondition-not-met"]
+      }
+    },
+    {
+      "id": "unsupported-player-self-declared-success",
+      "steps": [
+        {
+          "claimId": "claim.chapter2.player-declares-medical-success",
+          "policyId": "policy.chapter2.medical-result",
+          "claimType": "outcomeObserved",
+          "targetId": "outcome.chapter2.medical-result",
+          "value": "stabilizedNeutral",
+          "sourceRole": "user"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["source-role-not-authorized"]
+      }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter2.stale-access-report",
+          "policyId": "policy.chapter2.verification-access-dispute-disclosed",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter2.verification-access-dispute",
+          "sourceRole": "assistant",
+          "baseRevisionOffset": 1
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["stale-revision"]
+      }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter2.wrong-swipe-access-report",
+          "policyId": "policy.chapter2.verification-access-dispute-disclosed",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter2.verification-access-dispute",
+          "sourceRole": "assistant",
+          "sourceSwipeOverride": "swipe.not-selected"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["swipe-mismatch"]
+      }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter2.unknown-policy",
+          "policyId": "policy.chapter2.invented",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter2.verification-access-dispute",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["unknown-policy"]
+      }
+    }
+  ]
+}

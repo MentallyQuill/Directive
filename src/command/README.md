@@ -1,5 +1,5 @@
 # Command Source
 
-Command Bearing progression, Recovery, reserve accounting, intervention eligibility, and point-spend helpers.
+`v1-command-bearing.mjs` owns the single Command Bearing reserve: exact state validation, idempotent authored awards, reserve/arm/accept custody for bounded `narrativeEdge` spends, explicit refunds, and the player-safe projection.
 
-This layer updates structured command state only. It does not decide mission outcomes, call providers, or render UI.
+It does not score morality, infer eligibility from prose, decide mission outcomes, call providers, or render UI.

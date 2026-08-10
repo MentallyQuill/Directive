@@ -131,7 +131,11 @@ function isMobileRuntimeTooltipSurface(element) {
     ?? ((Number(globalThis.innerWidth) || 1024) <= 640);
   if (mobileInput) return true;
   if (!element?.closest) return false;
-  return Boolean(element.closest('.directive-runtime-mobile-shell, [data-mobile-shell="true"], .directive-command-mobile-nav, .directive-mobile-bottom-bar'));
+  if (!element.closest('.directive-expanded-shell')) return false;
+  if (typeof globalThis.matchMedia === 'function') {
+    return globalThis.matchMedia('(max-width: 640px)').matches;
+  }
+  return Number(globalThis.innerWidth) > 0 && Number(globalThis.innerWidth) <= 640;
 }
 
 function isTouchLikeTooltipInput() {

@@ -1,101 +1,97 @@
-export const CAMPAIGN_PACKAGE_SPINE = [
-  'manifest', 'ship', 'crew', 'characterCreation', 'world', 'storyArcs',
-  'endConditions', 'questTemplates', 'threadTemplates', 'reactionRules',
-  'directorCards', 'contextPolicy', 'guardrails', 'assets'
-];
+export const CAMPAIGN_PACKAGE_SPINE = Object.freeze([
+  'manifest',
+  'campaign',
+  'ship',
+  'crew',
+  'characterCreation',
+  'world',
+  'guardrails',
+  'assets'
+]);
 
-function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
-function isObject(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
-function requireObject(value, label) { if (!isObject(value)) throw new Error(`${label} must be an object`); }
-function cloneArray(value) { return Array.isArray(value) ? cloneJson(value) : []; }
-function campaignRecord(packageData) { return packageData.storyArcs?.campaign || {}; }
-function labelFromId(value) {
-  return String(value || '')
-    .split(/[-_\s]+/g)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(' ');
+function clone(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function createTraitCategoryOptions(creation) {
-  const explicit = cloneArray(creation.traitCategories);
-  if (explicit.length > 0) return explicit;
-  if (!isObject(creation.traits)) return [];
-  return Object.entries(creation.traits)
-    .filter(([, options]) => Array.isArray(options))
-    .map(([id, options]) => ({
-      id,
-      label: labelFromId(id),
-      options: cloneArray(options)
-    }));
+function object(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function createFlawOptions(creation) {
-  if (Array.isArray(creation.flaws)) {
-    return {
-      requiredSelections: 1,
-      customAllowed: false,
-      options: cloneArray(creation.flaws)
-    };
-  }
-  return cloneJson(creation.flaws || { requiredSelections: 0, customAllowed: false, options: [] });
+function text(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
-function createCampaignEraLabel(packageData) {
-  const contextEra = packageData.characterCreation?.campaignContext?.eraLabel;
-  if (contextEra) return contextEra;
-  const canonEra = packageData.guardrails?.canonEra || {};
-  const parts = [];
-  if (canonEra.year) parts.push(String(canonEra.year));
-  if (canonEra.postDominionWar) parts.push('after the Dominion War');
-  if (canonEra.voyagerStatus) parts.push(canonEra.voyagerStatus);
-  return parts.join(', ');
+function array(value) {
+  return Array.isArray(value) ? clone(value) : [];
 }
 
-function createSeniorCrewPreview(packageData) {
-  return cloneArray(packageData.crew?.senior).filter((crew) => crew.id).map((crew) => ({ id: crew.id, name: crew.name, rank: crew.rank, billet: crew.billet, species: crew.species, packageRole: crew.packageRole || '' }));
+function requireObject(value, label, errors) {
+  if (!object(value)) errors.push(`${label} must be an object`);
 }
 
-function createQuestPreview(packageData) {
-  return cloneArray(packageData.questTemplates?.templates)
-    .filter((quest) => ['onboarding', 'main', 'epilogue'].includes(quest.kind))
-    .map((quest) => ({ id: quest.id, kind: quest.kind, title: quest.title, question: quest.dramaticQuestion, locationIds: cloneArray(quest.anchors?.locationIds) }));
-}
-
-function createEndConditionPreview(packageData) {
-  return cloneArray(packageData.endConditions?.conditions)
-    .map((condition) => ({
-      id: condition.id,
-      family: condition.family,
-      severity: condition.severity,
-      title: condition.title,
-      defaultTerminalOutcomeBand: condition.defaultTerminalOutcomeBand
-    }));
+function requireText(value, label, errors) {
+  if (!text(value)) errors.push(`${label} must be a non-empty string`);
 }
 
 export function getCampaignPackageSpineErrors(packageData) {
   const errors = [];
-  if (!isObject(packageData)) return ['packageData must be an object'];
-  for (const key of CAMPAIGN_PACKAGE_SPINE) if (!(key in packageData)) errors.push(`missing top-level key "${key}"`);
-  for (const key of Object.keys(packageData)) if (!CAMPAIGN_PACKAGE_SPINE.includes(key)) errors.push(`unexpected top-level key "${key}"`);
+  if (!object(packageData)) return ['packageData must be an object'];
+  for (const key of CAMPAIGN_PACKAGE_SPINE) {
+    if (!(key in packageData)) errors.push(`missing top-level key "${key}"`);
+  }
+  for (const key of Object.keys(packageData)) {
+    if (!CAMPAIGN_PACKAGE_SPINE.includes(key)) errors.push(`unexpected top-level key "${key}"`);
+  }
+  for (const key of CAMPAIGN_PACKAGE_SPINE) requireObject(packageData[key], `packageData.${key}`, errors);
+  if (errors.length) return errors;
+
+  if (packageData.manifest.kind !== 'directive.campaignPackage.v1') {
+    errors.push('packageData.manifest.kind must equal "directive.campaignPackage.v1"');
+  }
+  if (packageData.manifest.schemaVersion !== 1) {
+    errors.push('packageData.manifest.schemaVersion must equal 1');
+  }
+  for (const [value, label] of [
+    [packageData.manifest.id, 'packageData.manifest.id'],
+    [packageData.manifest.slug, 'packageData.manifest.slug'],
+    [packageData.manifest.title, 'packageData.manifest.title'],
+    [packageData.manifest.version, 'packageData.manifest.version'],
+    [packageData.manifest.openingMissionId, 'packageData.manifest.openingMissionId'],
+    [packageData.campaign.id, 'packageData.campaign.id'],
+    [packageData.campaign.title, 'packageData.campaign.title'],
+    [packageData.campaign.theater, 'packageData.campaign.theater'],
+    [packageData.campaign.highConcept, 'packageData.campaign.highConcept'],
+    [packageData.campaign.openingMessage, 'packageData.campaign.openingMessage'],
+    [packageData.ship.id, 'packageData.ship.id'],
+    [packageData.ship.name, 'packageData.ship.name'],
+    [packageData.world.id, 'packageData.world.id'],
+    [packageData.world.openingLocationId, 'packageData.world.openingLocationId']
+  ]) requireText(value, label, errors);
+  if (!Number.isFinite(Number(packageData.manifest.openingMinuteOfDay))) {
+    errors.push('packageData.manifest.openingMinuteOfDay must be numeric');
+  }
+  if (!Number.isFinite(Number(packageData.campaign.openingStardate))) {
+    errors.push('packageData.campaign.openingStardate must be numeric');
+  }
+  if (!Array.isArray(packageData.crew.senior)) errors.push('packageData.crew.senior must be an array');
+  if (!Array.isArray(packageData.guardrails.simulationModes) || packageData.guardrails.simulationModes.length === 0) {
+    errors.push('packageData.guardrails.simulationModes must be a non-empty array');
+  }
+  if (!Array.isArray(packageData.assets.images)) errors.push('packageData.assets.images must be an array');
   return errors;
 }
 
 export function assertCampaignPackageSpine(packageData) {
   const errors = getCampaignPackageSpineErrors(packageData);
-  if (errors.length) throw new Error(`Invalid campaign package spine:\n${errors.map((error) => `- ${error}`).join('\n')}`);
+  if (errors.length) {
+    throw new Error(`Invalid Directive V1 campaign package:\n${errors.map((error) => `- ${error}`).join('\n')}`);
+  }
+  return packageData;
 }
 
 export function createCampaignPackageSummary(packageData) {
   assertCampaignPackageSpine(packageData);
-  requireObject(packageData.manifest, 'packageData.manifest');
-  requireObject(packageData.ship, 'packageData.ship');
-  requireObject(packageData.storyArcs, 'packageData.storyArcs');
-  requireObject(packageData.endConditions, 'packageData.endConditions');
-  requireObject(packageData.characterCreation, 'packageData.characterCreation');
-  const campaign = campaignRecord(packageData);
-  const storyArcs = cloneArray(packageData.storyArcs?.arcs);
-  const templates = cloneArray(packageData.questTemplates?.templates);
+  const creation = packageData.characterCreation;
   return {
     packageId: packageData.manifest.id,
     slug: packageData.manifest.slug,
@@ -103,69 +99,80 @@ export function createCampaignPackageSummary(packageData) {
     version: packageData.manifest.version,
     status: packageData.manifest.status,
     bundled: packageData.manifest.bundled === true,
-    transportExtension: packageData.manifest.transportExtension,
-    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation, registry: packageData.ship.registry || null, openingStardate: packageData.ship.openingStardate, openingCondition: packageData.ship.openingCondition || '' },
-    campaign: {
-      id: campaign.id,
-      title: campaign.title,
-      theater: campaign.theater,
-      openingStardate: campaign.openingStardate,
-      openingYear: campaign.openingYear || packageData.guardrails?.canonEra?.year || null,
-      highConcept: campaign.highConcept || '',
-      thesis: campaign.thesis || '',
-      eraLabel: createCampaignEraLabel(packageData),
-      structure: {
-        model: 'open-world',
-        expectedSessions: campaign.expectedSessions || null,
-        storyArcCount: storyArcs.length,
-        endConditionCount: cloneArray(packageData.endConditions?.conditions).length,
-        continuationFrameCount: cloneArray(packageData.endConditions?.continuationFrames).length,
-        questTemplateCount: templates.length,
-        mainQuestCount: templates.filter((quest) => ['onboarding', 'main', 'epilogue'].includes(quest.kind)).length,
-        sideQuestCount: templates.filter((quest) => ['side', 'dynamic-side'].includes(quest.kind)).length,
-        locationCount: cloneArray(packageData.world?.locations).length
-      },
-      quests: createQuestPreview(packageData)
+    campaign: clone(packageData.campaign),
+    ship: {
+      id: packageData.ship.id,
+      name: packageData.ship.name,
+      class: packageData.ship.class,
+      affiliation: packageData.ship.affiliation,
+      registry: packageData.ship.registry || null,
+      openingStardate: packageData.ship.openingStardate,
+      openingCondition: packageData.ship.openingCondition
     },
-    endConditions: createEndConditionPreview(packageData),
     playerRole: {
-      mode: packageData.characterCreation.roleMode,
-      label: packageData.characterCreation.lockedRole?.roleLabel || packageData.characterCreation.campaignContext?.playerRoleRule || '',
-      rank: packageData.characterCreation.lockedRole?.rank || '',
-      billet: packageData.characterCreation.lockedRole?.billet || '',
-      authority: packageData.characterCreation.lockedRole?.commandAuthority || packageData.ship.commandStructure?.playerRole || ''
+      mode: creation.roleMode,
+      label: creation.lockedRole?.roleLabel || '',
+      rank: creation.lockedRole?.rank || '',
+      billet: creation.lockedRole?.billet || '',
+      authority: creation.lockedRole?.commandAuthority || ''
     },
-    simulationModes: cloneArray(packageData.guardrails?.simulationModes),
-    defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
-    seniorCrewPreview: createSeniorCrewPreview(packageData),
-    assets: {
-      images: cloneArray(packageData.assets?.images)
-    },
-    datasetCount: cloneArray(packageData.assets?.datasets).length
+    simulationModes: array(packageData.guardrails.simulationModes),
+    defaultSimulationMode: packageData.guardrails.defaultSimulationMode,
+    seniorCrewPreview: array(packageData.crew.senior)
+      .filter((crew) => text(crew.id))
+      .map(({ id, name, rank, billet, species, packageRole = '' }) => ({
+        id, name, rank, billet, species, packageRole
+      })),
+    assets: { images: array(packageData.assets.images) }
   };
 }
 
 export function createCharacterCreationContext(packageData) {
   assertCampaignPackageSpine(packageData);
   const creation = packageData.characterCreation;
-  const campaign = campaignRecord(packageData);
-  const lockedRole = creation.roleMode === 'lockedRole' ? creation.lockedRole : null;
   return {
-    package: { id: packageData.manifest.id, slug: packageData.manifest.slug, title: packageData.manifest.title, version: packageData.manifest.version, status: packageData.manifest.status },
-    campaign: { id: campaign.id, title: campaign.title, theater: campaign.theater, openingStardate: campaign.openingStardate },
-    ship: { id: packageData.ship.id, name: packageData.ship.name, class: packageData.ship.class, affiliation: packageData.ship.affiliation, registry: packageData.ship.registry || null },
-    defaultSimulationMode: packageData.guardrails?.defaultSimulationMode || packageData.guardrails?.defaultDifficultyMode || null,
-    roleMode: creation.roleMode,
-    lockedRole: lockedRole ? cloneJson(lockedRole) : null,
-    selectableRoles: cloneArray(creation.selectableRoles),
-    campaignContext: cloneJson(creation.campaignContext || {}),
-    flow: cloneJson(creation.flow || {}),
-    fields: { required: cloneArray(creation.requiredFields), optional: cloneArray(creation.optionalFields) },
-    options: {
-      ageBands: cloneArray(creation.ageBands), allowedSpecies: cloneArray(creation.allowedSpecies), careerBackgrounds: cloneArray(creation.careerBackgrounds),
-      formativeExperiences: cloneArray(creation.formativeExperiences), assignmentReasons: cloneArray(creation.assignmentReasons), traitCategories: createTraitCategoryOptions(creation),
-      flaws: createFlawOptions(creation)
+    package: {
+      id: packageData.manifest.id,
+      slug: packageData.manifest.slug,
+      title: packageData.manifest.title,
+      version: packageData.manifest.version,
+      status: packageData.manifest.status
     },
-    dossier: cloneJson(creation.dossier || {}), generationRules: cloneJson(creation.generationRules || {}), continuityGuardrails: cloneArray(creation.continuityGuardrails), localFallback: cloneJson(creation.localFallback || {})
+    campaign: {
+      id: packageData.campaign.id,
+      title: packageData.campaign.title,
+      theater: packageData.campaign.theater,
+      openingStardate: packageData.campaign.openingStardate
+    },
+    ship: {
+      id: packageData.ship.id,
+      name: packageData.ship.name,
+      class: packageData.ship.class,
+      affiliation: packageData.ship.affiliation,
+      registry: packageData.ship.registry || null
+    },
+    defaultSimulationMode: packageData.guardrails.defaultSimulationMode,
+    roleMode: creation.roleMode,
+    lockedRole: clone(creation.lockedRole || null),
+    selectableRoles: array(creation.selectableRoles),
+    campaignContext: clone(creation.campaignContext || {}),
+    flow: clone(creation.flow || {}),
+    fields: {
+      required: array(creation.requiredFields),
+      optional: array(creation.optionalFields)
+    },
+    options: {
+      ageBands: array(creation.ageBands),
+      allowedSpecies: array(creation.allowedSpecies),
+      careerBackgrounds: array(creation.careerBackgrounds),
+      formativeExperiences: array(creation.formativeExperiences),
+      assignmentReasons: array(creation.assignmentReasons),
+      traitCategories: array(creation.traitCategories),
+      flaws: clone(creation.flaws || { requiredSelections: 0, customAllowed: false, options: [] })
+    },
+    dossier: clone(creation.dossier || {}),
+    generationRules: clone(creation.generationRules || {}),
+    continuityGuardrails: array(creation.continuityGuardrails),
+    localFallback: clone(creation.localFallback || {})
   };
 }

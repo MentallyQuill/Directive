@@ -3,10 +3,7 @@ import {
   createHostContractError,
   normalizeDirectiveHost
 } from '../host-contract.mjs';
-import {
-  listProviderRoleRouting,
-  providerKindForRole
-} from '../../providers/directive-provider-settings.mjs';
+import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -61,6 +58,9 @@ export function createFakeEventAdapter() {
       }
       handlers.get(eventName).add(handler);
       return () => handlers.get(eventName)?.delete(handler);
+    },
+    off(eventName, handler) {
+      handlers.get(eventName)?.delete(handler);
     },
     emit(eventName, payload) {
       for (const handler of handlers.get(eventName) || []) {
@@ -626,8 +626,7 @@ export function createFakeProviderAdapter(initial = {}) {
       temperature: 0.7,
       topP: 0.98,
       ...(initial.reasoning || {})
-    },
-    roleProviderKinds: cloneJson(initial.roleProviderKinds || {})
+    }
   };
   const profiles = cloneJson(initial.profiles || []);
 
@@ -638,7 +637,7 @@ export function createFakeProviderAdapter(initial = {}) {
   }
 
   function roleKind(roleId) {
-    return providerKindForRole(roleId, settings);
+    return providerKindForRole(roleId);
   }
 
   return {
@@ -659,26 +658,7 @@ export function createFakeProviderAdapter(initial = {}) {
       for (const id of ['utility', 'reasoning']) {
         if (update[id]) settings[id] = { ...settings[id], ...cloneJson(update[id]) };
       }
-      if (update.roleProviderKinds && typeof update.roleProviderKinds === 'object' && !Array.isArray(update.roleProviderKinds)) {
-        settings.roleProviderKinds = { ...(settings.roleProviderKinds || {}), ...cloneJson(update.roleProviderKinds) };
-      }
       return cloneJson(settings);
-    },
-    updateRoleProviderKind(roleId, providerKind) {
-      const roleDefault = providerKindForRole(roleId);
-      const kind = String(providerKind || '').toLowerCase() === 'reasoning' ? 'reasoning' : 'utility';
-      settings.roleProviderKinds = { ...(settings.roleProviderKinds || {}) };
-      if (kind === roleDefault) delete settings.roleProviderKinds[roleId];
-      else settings.roleProviderKinds[roleId] = kind;
-      return listProviderRoleRouting(settings).find((entry) => entry.roleId === roleId);
-    },
-    resetRoleProviderKind(roleId) {
-      settings.roleProviderKinds = { ...(settings.roleProviderKinds || {}) };
-      delete settings.roleProviderKinds[roleId];
-      return listProviderRoleRouting(settings).find((entry) => entry.roleId === roleId);
-    },
-    listRoleRouting() {
-      return listProviderRoleRouting(settings);
     },
     listConnectionProfiles() {
       return cloneJson(profiles);

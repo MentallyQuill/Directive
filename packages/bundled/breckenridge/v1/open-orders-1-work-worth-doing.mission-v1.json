@@ -1,0 +1,731 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.open-orders-1-work-worth-doing",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "open-orders-1-work-worth-doing"
+  },
+  "playerText": {
+    "title": "Open Orders I: Work Worth Doing",
+    "summary": "Choose how the Breckenridge will help the Reach while the Hecate evidence is correlated in the background."
+  },
+  "facts": [
+    {
+      "id": "fact.open-orders1.opportunities",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "The Long Repair, Borrowed Wings, and Quiet Channels are available. Resolving two is a normal command load; taking on all three requires credible delegation or risks overextension."
+      }
+    },
+    {
+      "id": "fact.open-orders1.long-repair-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The Breckenridge's remaining technical debt is ordinary accumulated work rather than sabotage; the ship can become safer through honest priorities, documented limits, and bounded Helix Yard support without pretending every system is fully repaired."
+      }
+    },
+    {
+      "id": "fact.open-orders1.borrowed-wings-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The civilian pilots have useful local experience but uneven preparation; a credible rescue capability depends on honest qualification, command, escort, and abort limits rather than treating them as Starfleet crew."
+      }
+    },
+    {
+      "id": "fact.open-orders1.quiet-channels-assessment",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The informal channels are primarily ordinary mutual-aid relationships, not a spy network, but favors and insecure traffic can create real institutional obligations that require bounded authority and accountability."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.open-orders1.long-repair-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.long-repair-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake The Long Repair directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for more information, or an assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.long-repair-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.long-repair-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable technical-debt and support assessment after direct engagement or delegation.",
+        "exclusions": ["Selecting the assignment, scheduling a review, assigning engineers, or inspecting one isolated issue does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.long-repair-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders1.long-repair-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.long-repair-assessment" },
+          { "eventOccurred": "event.open-orders1.long-repair-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: ordinary technical debt, achievable safety gains without fictional full repair, and the need for honest priorities, limits, and bounded yard support.",
+        "exclusions": ["A single ship issue, a repair order, a suspicion of sabotage, or a generic readiness concern does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.long-repair-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders1.long-repair-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.long-repair-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of The Long Repair after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "An accountable stabilization plan is committed and Helix Yard Support is actually secured." },
+          { "value": "resolvedWithLimits", "guidance": "The immediate technical-debt problem receives a responsible but materially limited disposition without the full support asset." },
+          { "value": "failedInformed", "guidance": "The assignment materially fails after the known technical risk and limits are deliberately mishandled or rejected." }
+        ],
+        "exclusions": ["Selecting, delegating, starting repairs, naming priorities, or negotiating without a committed disposition does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.borrowed-wings-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.borrowed-wings-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake Borrowed Wings directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for more information, or an assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.borrowed-wings-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.borrowed-wings-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of pilots, craft, route conditions, qualifications, command, escort, and abort needs.",
+        "exclusions": ["Selecting the assignment, meeting one pilot, opening training, or running one unassessed exercise does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.borrowed-wings-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders1.borrowed-wings-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.borrowed-wings-assessment" },
+          { "eventOccurred": "event.open-orders1.borrowed-wings-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: useful local experience, uneven preparation, and the need for honest qualification, command, escort, and abort limits.",
+        "exclusions": ["One pilot's performance, a training order, a hidden-compromise theory, or generic praise does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.borrowed-wings-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders1.borrowed-wings-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.borrowed-wings-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Borrowed Wings after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "A credible qualified capability is demonstrated and the Civilian Rescue Wing is actually established." },
+          { "value": "resolvedWithLimits", "guidance": "A useful but materially restricted pilot capability or alternative route is responsibly established without the full asset." },
+          { "value": "failedInformed", "guidance": "The assignment materially fails after known qualification, command, or abort risks are deliberately mishandled." }
+        ],
+        "exclusions": ["Selecting, delegating, beginning training, passing one exercise, or declaring the pilots ready does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.quiet-channels-engagement",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.quiet-channels-engagement",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.opportunities" },
+          { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to undertake Quiet Channels directly, delegate it, or decline it.",
+        "values": [
+          { "value": "direct", "guidance": "The player explicitly commits to direct command involvement." },
+          { "value": "delegated", "guidance": "The player explicitly delegates the assignment to a named or competent responsible actor." },
+          { "value": "declined", "guidance": "The player explicitly declines or leaves the assignment unpursued for this interval." }
+        ],
+        "exclusions": ["Interest, discussion, a request for more information, or an assignment appearing in a list is not an engagement decision."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.quiet-channels-assessed",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.quiet-channels-assessed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "in": ["direct", "delegated"] } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed, usable assessment of the contact network, favors, verification practices, insecure traffic, and authority obligations.",
+        "exclusions": ["Selecting the assignment, contacting one person, receiving one message, or mapping one favor does not complete the assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.quiet-channels-assessment-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.open-orders1.quiet-channels-assessment",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.quiet-channels-assessment" },
+          { "eventOccurred": "event.open-orders1.quiet-channels-assessed" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the aggregate assessment: ordinary mutual-aid relationships rather than a spy front, with favors and insecure traffic creating real obligations that need bounded authority.",
+        "exclusions": ["One favor, one compromised message, a Pale Lantern theory, or a general warning about informal channels does not disclose the aggregate assessment."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.quiet-channels-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.open-orders1.quiet-channels-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.quiet-channels-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Quiet Channels after the assessment is player-known.",
+        "values": [
+          { "value": "assetEarned", "guidance": "A resilient, bounded, accountable civilian communications route is actually established as the Quiet Channels Network." },
+          { "value": "resolvedWithLimits", "guidance": "The immediate network problem receives a useful but materially limited disposition without the full asset." },
+          { "value": "failedInformed", "guidance": "The assignment materially fails after known trust, security, or authority risks are deliberately mishandled." }
+        ],
+        "exclusions": ["Selecting, delegating, authorizing one contact, resolving one favor, or declaring the network safe does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.conclude-after-two",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              },
+              {
+                "all": [
+                  { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                  { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+                ]
+              }
+            ]
+          },
+          {
+            "not": {
+              "all": [
+                { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+                { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } }
+              ]
+            }
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude the interval after exactly two assignments have actual resolved dispositions.",
+        "values": [{ "value": "concludeAfterTwo", "guidance": "The player explicitly concludes the normal two-assignment interval." }],
+        "exclusions": ["The second result occurring does not auto-close the interval; an explicit conclusion is required."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.conclude-broad-coverage",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          {
+            "any": [
+              { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "delegated" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "delegated" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "delegated" } }
+            ]
+          }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to conclude after all three assignments resolve and at least one was credibly delegated.",
+        "values": [{ "value": "broadCoverage", "guidance": "All three assignments resolved with delegation preventing automatic overextension." }],
+        "exclusions": ["Delegating an assignment before its result, or resolving all three directly, does not establish broad delegated coverage."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.conclude-overextended",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.conclusion",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "in": ["completed", "completedWithCost", "failedAfterInformedAction"] } },
+          { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "direct" } },
+          { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "direct" } },
+          { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "direct" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit interval conclusion after all three assignments resolved under direct command, carrying the known overextension cost.",
+        "values": [{ "value": "overextended", "guidance": "All three direct-command assignments resolved and the interval closes overextended." }],
+        "exclusions": ["Selecting all three, resolving only two, or delegating one does not establish direct-command overextension."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.depart-early",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.open-orders1.conclusion",
+      "sourceRoles": ["user"],
+      "when": { "factKnown": "fact.open-orders1.opportunities" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only an explicit decision to end Open Orders I before completing the normal assignment load, with the unfinished opportunity cost understood.",
+        "values": [{ "value": "departEarly", "guidance": "The player explicitly ends the interval early and accepts that local opportunities remain unfinished." }],
+        "exclusions": ["Ignoring an assignment for a scene, asking about Chapter 3, or ordinary travel discussion does not end the interval."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.open-orders1.long-repair-assessment",
+      "factId": "fact.open-orders1.long-repair-assessment",
+      "evidencePolicyId": "policy.open-orders1.long-repair-assessment-disclosed",
+      "capabilityRoles": ["engineering"],
+      "preferredActorIds": ["imani-cross"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.long-repair-assessment" },
+          { "eventOccurred": "event.open-orders1.long-repair-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders1.long-repair-assessment" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The remaining technical debt is ordinary accumulated work, not sabotage. Honest priorities, documented limits, and bounded Helix Yard support can make the ship safer without pretending every system is fully repaired."
+      }
+    },
+    {
+      "id": "report.open-orders1.borrowed-wings-assessment",
+      "factId": "fact.open-orders1.borrowed-wings-assessment",
+      "evidencePolicyId": "policy.open-orders1.borrowed-wings-assessment-disclosed",
+      "capabilityRoles": ["flight", "security"],
+      "preferredActorIds": ["kieran-vale", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.borrowed-wings-assessment" },
+          { "eventOccurred": "event.open-orders1.borrowed-wings-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders1.borrowed-wings-assessment" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The civilian pilots bring useful local experience but uneven preparation. A credible rescue capability needs honest qualification, command, escort, and abort limits rather than treating them as Starfleet crew."
+      }
+    },
+    {
+      "id": "report.open-orders1.quiet-channels-assessment",
+      "factId": "fact.open-orders1.quiet-channels-assessment",
+      "evidencePolicyId": "policy.open-orders1.quiet-channels-assessment-disclosed",
+      "capabilityRoles": ["operations", "communications"],
+      "preferredActorIds": ["priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.open-orders1.quiet-channels-assessment" },
+          { "eventOccurred": "event.open-orders1.quiet-channels-assessed" },
+          { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "in": ["direct", "delegated"] } },
+          { "not": { "factKnown": "fact.open-orders1.quiet-channels-assessment" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The channels are primarily ordinary mutual aid, not a spy network, but favors and insecure traffic create real obligations that need bounded authority and accountability."
+      }
+    }
+  ],
+  "events": [
+    { "id": "event.open-orders1.long-repair-assessed", "playerVisibility": "visible", "playerText": { "summary": "The Long Repair received a usable aggregate assessment." } },
+    { "id": "event.open-orders1.borrowed-wings-assessed", "playerVisibility": "visible", "playerText": { "summary": "Borrowed Wings received a usable aggregate assessment." } },
+    { "id": "event.open-orders1.quiet-channels-assessed", "playerVisibility": "visible", "playerText": { "summary": "Quiet Channels received a usable aggregate assessment." } }
+  ],
+  "outcomes": [
+    { "id": "outcome.open-orders1.long-repair-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for The Long Repair." } },
+    { "id": "outcome.open-orders1.long-repair-result", "allowedValues": ["pending", "assetEarned", "resolvedWithLimits", "failedInformed"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of The Long Repair." } },
+    { "id": "outcome.open-orders1.borrowed-wings-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for Borrowed Wings." } },
+    { "id": "outcome.open-orders1.borrowed-wings-result", "allowedValues": ["pending", "assetEarned", "resolvedWithLimits", "failedInformed"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of Borrowed Wings." } },
+    { "id": "outcome.open-orders1.quiet-channels-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for Quiet Channels." } },
+    { "id": "outcome.open-orders1.quiet-channels-result", "allowedValues": ["pending", "assetEarned", "resolvedWithLimits", "failedInformed"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of Quiet Channels." } },
+    { "id": "outcome.open-orders1.conclusion", "allowedValues": ["pending", "concludeAfterTwo", "broadCoverage", "overextended", "departEarly"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The explicit conclusion of the first Open Orders interval." } }
+  ],
+  "objectives": [
+    {
+      "id": "objective.open-orders1.conclusion",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "in": ["direct", "delegated", "declined"] } },
+          { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "in": ["direct", "delegated", "declined"] } },
+          { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "in": ["direct", "delegated", "declined"] } }
+        ]
+      },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["overextended", "departEarly"] } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Choose and conclude the Breckenridge's local work",
+        "summary": "Resolve two assignments as a normal load, pursue all three with credible delegation, or knowingly leave early with unfinished opportunities recorded.",
+        "terminal": [
+          { "disposition": "completed", "text": "The interval concluded after a responsible normal or delegated work program." },
+          { "disposition": "completedWithCost", "text": "The interval concluded with overextension or unfinished local opportunities recorded." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders1.long-repair",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "resolvedWithLimits" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "failedInformed" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "The Long Repair",
+        "summary": "Turn accumulated Breckenridge technical debt into an accountable stabilization plan with bounded Helix Yard support.",
+        "terminal": [
+          { "disposition": "completed", "text": "An accountable stabilization plan earned Helix Yard Support." },
+          { "disposition": "completedWithCost", "text": "The technical-debt problem received a responsible but limited disposition." },
+          { "disposition": "knowinglyDeclined", "text": "The Long Repair was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The repair effort failed after known technical risks were deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders1.borrowed-wings",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "resolvedWithLimits" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "failedInformed" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Borrowed Wings",
+        "summary": "Build a credible civilian rescue-pilot capability with honest qualification, command, and abort limits.",
+        "terminal": [
+          { "disposition": "completed", "text": "A credible qualification program established the Civilian Rescue Wing." },
+          { "disposition": "completedWithCost", "text": "A useful but materially restricted civilian capability was established." },
+          { "disposition": "knowinglyDeclined", "text": "Borrowed Wings was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The pilot effort failed after known qualification or command risks were deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.open-orders1.quiet-channels",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "availableWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "visibleWhen": { "factKnown": "fact.open-orders1.opportunities" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "in": ["direct", "delegated"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "assetEarned" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "resolvedWithLimits" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "failedInformed" } } },
+        {
+          "disposition": "knowinglyDeclined",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "declined" } },
+              { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "in": ["concludeAfterTwo", "broadCoverage", "overextended", "departEarly"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Quiet Channels",
+        "summary": "Preserve useful informal communication while setting bounded authority, security, and accountability for its obligations.",
+        "terminal": [
+          { "disposition": "completed", "text": "A bounded, resilient Quiet Channels Network was established." },
+          { "disposition": "completedWithCost", "text": "The network problem received a useful but materially limited disposition." },
+          { "disposition": "knowinglyDeclined", "text": "Quiet Channels was knowingly left unpursued this interval." },
+          { "disposition": "failedAfterInformedAction", "text": "The network effort failed after known trust, security, or authority risks were deliberately mishandled." }
+        ]
+      }
+    }
+  ],
+  "commandBearingAwards": [
+    {
+      "id": "award.open-orders1.long-repair",
+      "sourceObjectiveId": "objective.open-orders1.long-repair",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried The Long Repair to a usable disposition."
+    },
+    {
+      "id": "award.open-orders1.borrowed-wings",
+      "sourceObjectiveId": "objective.open-orders1.borrowed-wings",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Borrowed Wings to a usable disposition."
+    },
+    {
+      "id": "award.open-orders1.quiet-channels",
+      "sourceObjectiveId": "objective.open-orders1.quiet-channels",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Quiet Channels to a usable disposition."
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.open-orders1.load",
+      "playerText": { "label": "Interval load" },
+      "derive": [
+        { "value": "normal-two", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "concludeAfterTwo" } } },
+        { "value": "broad-delegated-coverage", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "broadCoverage" } } },
+        { "value": "overextended-direct", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "overextended" } } },
+        { "value": "departed-early", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "departEarly" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders1.long-repair",
+      "playerText": { "label": "The Long Repair" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "assetEarned" } } },
+        { "value": "resolved-with-limits", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "resolvedWithLimits" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-result", "equals": "failedInformed" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders1.long-repair-engagement", "equals": "direct" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders1.borrowed-wings",
+      "playerText": { "label": "Borrowed Wings" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "assetEarned" } } },
+        { "value": "resolved-with-limits", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "resolvedWithLimits" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-result", "equals": "failedInformed" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders1.borrowed-wings-engagement", "equals": "direct" } } }
+      ]
+    },
+    {
+      "id": "dimension.open-orders1.quiet-channels",
+      "playerText": { "label": "Quiet Channels" },
+      "derive": [
+        { "value": "asset-earned", "priority": 100, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "assetEarned" } } },
+        { "value": "resolved-with-limits", "priority": 90, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "resolvedWithLimits" } } },
+        { "value": "failed-after-informed-action", "priority": 80, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-result", "equals": "failedInformed" } } },
+        { "value": "declined", "priority": 70, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "declined" } } },
+        { "value": "delegated", "priority": 60, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "delegated" } } },
+        { "value": "direct", "priority": 50, "when": { "outcomeIs": { "id": "outcome.open-orders1.quiet-channels-engagement", "equals": "direct" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "objectiveDisposition": { "id": "objective.open-orders1.conclusion", "in": ["completed", "completedWithCost"] }
+  },
+  "terminalDispositions": [
+    {
+      "id": "earlyDepartureForward",
+      "priority": 500,
+      "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "departEarly" } },
+      "playerText": { "title": "The Breckenridge leaves local work unfinished", "summary": "The campaign continues with the deliberately unfinished Open Orders opportunities carried forward." }
+    },
+    {
+      "id": "overextendedWithCost",
+      "priority": 400,
+      "when": { "outcomeIs": { "id": "outcome.open-orders1.conclusion", "equals": "overextended" } },
+      "playerText": { "title": "Broad work at an overextended pace", "summary": "All three assignments were carried under direct command, and the resulting fatigue or delayed investigation is recorded." }
+    },
+    {
+      "id": "limitedWorkForward",
+      "priority": 450,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "equals": "failedAfterInformedAction" } }
+        ]
+      },
+      "playerText": { "title": "Useful work closes with a serious limitation", "summary": "The interval produced local value while an informed assignment failure remains part of the campaign record." }
+    },
+    {
+      "id": "resilienceBuilt",
+      "priority": 200,
+      "when": {
+        "any": [
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "equals": "completed" } }
+            ]
+          },
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders1.long-repair", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "equals": "completed" } }
+            ]
+          },
+          {
+            "all": [
+              { "objectiveDisposition": { "id": "objective.open-orders1.borrowed-wings", "equals": "completed" } },
+              { "objectiveDisposition": { "id": "objective.open-orders1.quiet-channels", "equals": "completed" } }
+            ]
+          }
+        ]
+      },
+      "playerText": { "title": "Practical resilience built in the Reach", "summary": "At least two local assignments produced durable capabilities while the wider investigation continued." }
+    },
+    {
+      "id": "workWorthDoing",
+      "priority": 100,
+      "when": { "objectiveDisposition": { "id": "objective.open-orders1.conclusion", "equals": "completed" } },
+      "playerText": { "title": "Work worth doing", "summary": "The Breckenridge completed a responsible local work program with its limits and obligations recorded." }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.open-orders1.dead-letters",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-3-dead-letters",
+        "playerSafeSetup": "Rowan and Priya have correlated the preserved Hecate traffic well enough for Whitaker to order a mission into the Drift."
+      },
+      "mustNarrate": [
+        "Acknowledge only the assignments actually resolved, declined, or left unfinished.",
+        "Carry forward earned local capabilities only when the corresponding V1 result is assetEarned.",
+        "Carry forward overextension or early departure when recorded.",
+        "Explain that background analysis has matured the weak Hecate trace into the next mission without making the player manage that analysis as another checklist."
+      ],
+      "mustNotReveal": [
+        "Do not imply completion of an unselected, declined, or unresolved assignment.",
+        "Do not identify Pale Lantern, Holt's wider role, or the source inside the Hecate Drift.",
+        "Do not erase assignment limits, failure, overextension, or unfinished local obligations."
+      ]
+    }
+  ]
+}

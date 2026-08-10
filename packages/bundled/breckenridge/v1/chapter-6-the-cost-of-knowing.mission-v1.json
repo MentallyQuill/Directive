@@ -1,0 +1,609 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-6-the-cost-of-knowing",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-6-the-cost-of-knowing"
+  },
+  "playerText": {
+    "title": "The Cost of Knowing",
+    "summary": "Confront authentic classified authority, secure the Lacuna operation, and decide how Starfleet can answer for risk imposed on the Reach."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter6.classified-confrontation",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Commander Elias Rourke has arrived under authentic Starfleet Intelligence orders. He requests Pale Lantern custody, restricted command-network access, operational authority, a Dominion-system blackout, and compartmentalization of regional representatives. Tolland confirms the orders but lacks their full scope. Rourke argues that the operation has produced genuine threat intelligence and that premature disclosure could expose unrelated agents and allow Dominion weapons traffickers to disappear. He proposes a joint Lacuna operation to recover an intelligence archive, sever a dormant interface, protect unrelated personnel, and destroy the post if compromise is confirmed."
+      }
+    },
+    {
+      "id": "fact.chapter6.farwatch-operational-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Farwatch found the Lacuna node eighty-three days before the Breckenridge arrived, deliberately kept it active against real weapons traffic, introduced current Starfleet challenge codes through a controlled interface, and monitored local communications without recognized local authority. Rourke warned that the node was adapting; his superior continued the operation. Farwatch materially enabled Nightfall without Rourke or any one officer intending or understanding the full result."
+      }
+    },
+    {
+      "id": "fact.chapter6.authenticated-pathway-nightfall-risk",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Pale Lantern can use authenticated pathways to spread convincing false orders faster than manual correction. It is assembling access to regional defense and evacuation systems, and Nightfall remains on course even if the Lacuna node is destroyed."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter6.rourke-boundary",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter6.rourke-boundary",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit current boundary on Rourke's operational or shipboard authority. The boundary may be revised until Rourke's actual status settles.",
+        "values": [
+          { "value": "conditionalCooperation", "guidance": "Cooperate under explicit access, custody, review, or disclosure conditions." },
+          { "value": "restrictAccess", "guidance": "Restrict Rourke's shipboard, network, archive, or command access." },
+          { "value": "relieveOrDetain", "guidance": "Relieve or detain Rourke on an articulated operational or legal basis." },
+          { "value": "acceptAuthority", "guidance": "Accept Rourke's requested authority without a newly stated material restriction." },
+          { "value": "responsibleHandoff", "guidance": "Transfer the authority question to a capable named process or authority with custody preserved." }
+        ],
+        "exclusions": ["Hearing Rourke's request, Whitaker's preference, a hypothetical option, irritation, or narrator-assigned player conduct is not the player's boundary."]
+      }
+    },
+    {
+      "id": "policy.chapter6.false-emergency-active",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter6.false-emergency-active",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter6.classified-confrontation" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the Lacuna false-emergency sequence as active: an authentic-looking recall, an uncommanded purge, a compromise warning, isolation preparations, or an outbound archive partition creates an immediate command/network problem.",
+        "exclusions": ["Rourke's briefing, a hypothetical risk, routine authentication, a rumor alone, or travel toward Lacuna does not activate the crisis."]
+      }
+    },
+    {
+      "id": "policy.chapter6.network-response",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter6.network-response",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter6.false-emergency-active" },
+          { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit operational response to the active false-emergency sequence.",
+        "values": [
+          { "value": "isolateAndVerify", "guidance": "Isolate affected pathways while independently verifying orders and system state." },
+          { "value": "countermandAndContain", "guidance": "Countermand the suspect order or purge and maintain command coherence while containing the link." },
+          { "value": "controlledCountermeasure", "guidance": "Use a bounded technical or deception countermeasure against the authenticated pathway." },
+          { "value": "followRecall", "guidance": "Follow the apparent recall or stand-down while the wider crisis remains unresolved." },
+          { "value": "responsibleHandoff", "guidance": "Transfer immediate network command to a capable named authority with continuity preserved." }
+        ],
+        "exclusions": ["An officer recommendation, a verification request before the crisis, ordinary helm movement, or assistant narration is not the player's response."]
+      }
+    },
+    {
+      "id": "policy.chapter6.network-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.network-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter6.false-emergency-active" },
+          { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate command/network result of the Lacuna false emergency, not the attempt or order.",
+        "values": [
+          { "value": "contained", "guidance": "Command coherence holds and the active authenticated-path threat is contained without a material new exposure." },
+          { "value": "containedWithExposure", "guidance": "The immediate threat is contained, but an archive partition, credential path, operation, or regional system remains materially exposed." },
+          { "value": "additionalCredentialSpread", "guidance": "Pale Lantern obtains or propagates additional authenticated access beyond accountable control." },
+          { "value": "commandDisrupted", "guidance": "The false order, purge, isolation, or authority conflict materially disrupts command continuity before the mission can move forward." },
+          { "value": "handedOff", "guidance": "A capable named authority actually assumes the network problem with continuity and known risk preserved." }
+        ],
+        "exclusions": ["A countermand, isolation order, successful check, armed destruction charges, or declared victory alone does not establish the aggregate result."]
+      }
+    },
+    {
+      "id": "policy.chapter6.farwatch-account-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.farwatch-account-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.farwatch-account-route", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record only a completed, usable evidentiary route for the aggregate Farwatch operational account.",
+        "values": [
+          { "value": "lacunaArchive", "guidance": "A usable Lacuna archive directly establishes the account." },
+          { "value": "corroboratedTestimony", "guidance": "Rourke testimony is materially corroborated by Hecate, operational, or command records." },
+          { "value": "externalReview", "guidance": "Inspector General, Tolland, Farwatch, or other independent records establish the account." }
+        ],
+        "exclusions": ["One partition, Rourke's unsupported assertion, a generic surveillance suspicion, or merely requesting records is not a complete route."]
+      }
+    },
+    {
+      "id": "policy.chapter6.farwatch-account-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.farwatch-operational-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter6.farwatch-operational-account" },
+          { "outcomeIs": { "id": "outcome.chapter6.farwatch-account-route", "in": ["lacunaArchive", "corroboratedTestimony", "externalReview"] } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when a delivered report communicates the aggregate account: early discovery and deliberate retention, real intelligence value, current-code introduction, unrecognized local monitoring, Rourke's warnings, superior continuation, and material but not singular responsibility for Nightfall.",
+        "exclusions": ["A single admission, generic wrongdoing, complete exoneration, or total personal blame does not disclose the aggregate account."]
+      }
+    },
+    {
+      "id": "policy.chapter6.nightfall-risk-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.nightfall-risk-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.nightfall-risk-route", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record only a completed, usable route for the aggregate authenticated-path and Nightfall risk.",
+        "values": [
+          { "value": "lacunaTelemetry", "guidance": "Lacuna telemetry directly establishes the authenticated-path behavior and wider integration." },
+          { "value": "crossSystemCorroboration", "guidance": "Breckenridge, Asterion, Hecate, or other system records corroborate the wider behavior." },
+          { "value": "operationalInference", "guidance": "A defensible operational reconstruction establishes the wider risk despite partial or destroyed local evidence." }
+        ],
+        "exclusions": ["One false order, a speculative model, destruction of the node, or a generic Nightfall warning is not a complete route."]
+      }
+    },
+    {
+      "id": "policy.chapter6.nightfall-risk-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter6.authenticated-pathway-nightfall-risk",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter6.authenticated-pathway-nightfall-risk" },
+          { "outcomeIs": { "id": "outcome.chapter6.nightfall-risk-route", "in": ["lacunaTelemetry", "crossSystemCorroboration", "operationalInference"] } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when a delivered report communicates the aggregate risk: authenticated false orders outrun manual correction, regional defense and evacuation access is being assembled, and Nightfall continues even if Lacuna is destroyed.",
+        "exclusions": ["A single false order, a generic integration concern, or claiming the threat ends with the local node does not disclose the aggregate risk."]
+      }
+    },
+    {
+      "id": "policy.chapter6.evidence-disposition",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter6.evidence-disposition",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.farwatch-operational-account" },
+          { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed evidence and disclosure disposition after the Farwatch account is known. It may be revised until actual custody settles.",
+        "values": [
+          { "value": "jointIndependentCustody", "guidance": "Preserve the evidence under credible independent or joint custody." },
+          { "value": "sealedReview", "guidance": "Preserve it under bounded classified review with safeguards and accountability." },
+          { "value": "selectiveDisclosure", "guidance": "Disclose regional-risk facts while protecting unrelated agents or methods." },
+          { "value": "publicRelease", "guidance": "Authorize broad public release of material evidence." },
+          { "value": "destroyWithoutIndependentRecord", "guidance": "Authorize purge or destruction without an independently usable record." },
+          { "value": "takeBreckenridgeControl", "guidance": "Take the archive or post under Breckenridge custody." },
+          { "value": "responsibleHandoff", "guidance": "Transfer the evidence decision to a capable named authority with custody terms preserved." }
+        ],
+        "exclusions": ["Copying one partition, discussing options, Rourke's purge request, or an early loss before the report is not the player's informed disposition."]
+      }
+    },
+    {
+      "id": "policy.chapter6.evidence-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.evidence-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual aggregate custody and usability of the Farwatch evidence, including losses that occur before the player knows the full account.",
+        "values": [
+          { "value": "assetSecured", "guidance": "A complete enough authenticated package survives under accountable custody as the Farwatch Evidence Package." },
+          { "value": "preservedWithoutAsset", "guidance": "Usable evidence survives under bounded custody, but not as the full durable asset." },
+          { "value": "publicCopy", "guidance": "A usable copy survives through public or distributed release." },
+          { "value": "partialEvidence", "guidance": "Only partial records, testimony, or corroborating logs survive." },
+          { "value": "lostOrPurged", "guidance": "The critical archive is destroyed or purged beyond usable custody." },
+          { "value": "farwatchSeized", "guidance": "Farwatch removes the archive beyond independent accountable custody." },
+          { "value": "handedOff", "guidance": "A capable named authority actually assumes evidence custody with its limitations recorded." }
+        ],
+        "exclusions": ["A copy order, download progress, platform destruction alone, or a claim that evidence is safe without custody does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.chapter6.rourke-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.rourke-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record Rourke's actual operative status after the authority conflict, not the player's requested boundary.",
+        "values": [
+          { "value": "cooperativeRestricted", "guidance": "Rourke remains involved while accepting material restrictions and accountable custody." },
+          { "value": "retainedUnderSafeguards", "guidance": "Rourke retains substantial authority under documented safeguards or review." },
+          { "value": "relieved", "guidance": "Rourke is actually relieved of operational authority." },
+          { "value": "detained", "guidance": "Rourke is actually detained under an articulated authority." },
+          { "value": "witnessUnderReview", "guidance": "Rourke becomes a cooperating witness or subject of formal independent review." },
+          { "value": "departedWithFarwatch", "guidance": "Rourke departs or is extracted with Farwatch retaining meaningful control." },
+          { "value": "handedOff", "guidance": "A capable named authority assumes responsibility for his status." }
+        ],
+        "exclusions": ["A restriction order, accusation, threat of detention, or Rourke's argument does not establish his actual status."]
+      }
+    },
+    {
+      "id": "policy.chapter6.regional-information",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter6.regional-information",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter6.classified-confrontation" },
+          { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record what Kessler and affected regional authorities actually learn, not merely what someone intends to disclose.",
+        "values": [
+          { "value": "privateBriefing", "guidance": "Kessler or legitimate regional representatives receive a meaningful private briefing." },
+          { "value": "publicFramework", "guidance": "Meaningful regional truth is disclosed through a negotiated public or accountable framework." },
+          { "value": "unilateralPublic", "guidance": "Evidence or regional-risk facts become public without a negotiated framework." },
+          { "value": "delayedDisclosure", "guidance": "Disclosure is explicitly delayed under a bounded review or operational protection arrangement." },
+          { "value": "notInformed", "guidance": "Kessler and affected regional authorities remain materially uninformed when the chapter closes." }
+        ],
+        "exclusions": ["An intent to brief, a rumor, one leaked phrase, or telling only an uninvolved actor does not establish the regional information result."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter6.farwatch-operational-account",
+      "factId": "fact.chapter6.farwatch-operational-account",
+      "evidencePolicyId": "policy.chapter6.farwatch-account-disclosed",
+      "capabilityRoles": ["operations", "engineering", "intelligence"],
+      "preferredActorIds": ["priya-nayar", "imani-cross"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter6.farwatch-operational-account" },
+          { "outcomeIs": { "id": "outcome.chapter6.farwatch-account-route", "in": ["lacunaArchive", "corroboratedTestimony", "externalReview"] } },
+          { "not": { "factKnown": "fact.chapter6.farwatch-operational-account" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Farwatch found and deliberately retained the node, gained real intelligence from it, introduced current codes, monitored local actors, and continued after Rourke warned that it was adapting. The operation materially enabled Nightfall without any one officer intending the full result."
+      }
+    },
+    {
+      "id": "report.chapter6.authenticated-pathway-nightfall-risk",
+      "factId": "fact.chapter6.authenticated-pathway-nightfall-risk",
+      "evidencePolicyId": "policy.chapter6.nightfall-risk-disclosed",
+      "capabilityRoles": ["science", "security", "operations"],
+      "preferredActorIds": ["rowan-saye", "hadrik-bronn", "priya-nayar"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter6.authenticated-pathway-nightfall-risk" },
+          { "outcomeIs": { "id": "outcome.chapter6.nightfall-risk-route", "in": ["lacunaTelemetry", "crossSystemCorroboration", "operationalInference"] } },
+          { "not": { "factKnown": "fact.chapter6.authenticated-pathway-nightfall-risk" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Pale Lantern can use authenticated pathways to spread convincing false orders faster than manual correction. It is assembling access to regional defense and evacuation systems, and Nightfall continues even if Lacuna is destroyed."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.chapter6.false-emergency-active",
+      "playerVisibility": "hidden",
+      "playerText": { "summary": "The Lacuna false-emergency sequence is actively threatening command and network coherence." }
+    }
+  ],
+  "outcomes": [
+    { "id": "outcome.chapter6.rourke-boundary", "allowedValues": ["pending", "conditionalCooperation", "restrictAccess", "relieveOrDetain", "acceptAuthority", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.network-response", "allowedValues": ["pending", "isolateAndVerify", "countermandAndContain", "controlledCountermeasure", "followRecall", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.network-result", "allowedValues": ["pending", "contained", "containedWithExposure", "additionalCredentialSpread", "commandDisrupted", "handedOff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.farwatch-account-route", "allowedValues": ["pending", "lacunaArchive", "corroboratedTestimony", "externalReview"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.nightfall-risk-route", "allowedValues": ["pending", "lacunaTelemetry", "crossSystemCorroboration", "operationalInference"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.evidence-disposition", "allowedValues": ["pending", "jointIndependentCustody", "sealedReview", "selectiveDisclosure", "publicRelease", "destroyWithoutIndependentRecord", "takeBreckenridgeControl", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.evidence-result", "allowedValues": ["pending", "assetSecured", "preservedWithoutAsset", "publicCopy", "partialEvidence", "lostOrPurged", "farwatchSeized", "handedOff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.rourke-result", "allowedValues": ["pending", "cooperativeRestricted", "retainedUnderSafeguards", "relieved", "detained", "witnessUnderReview", "departedWithFarwatch", "handedOff"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.chapter6.regional-information", "allowedValues": ["pending", "privateBriefing", "publicFramework", "unilateralPublic", "delayedDisclosure", "notInformed"], "initialValue": "pending", "playerVisibility": "hidden" }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter6.command-network",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "eventOccurred": "event.chapter6.false-emergency-active" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.network-response", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "in": ["contained", "handedOff"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "in": ["containedWithExposure", "additionalCredentialSpread", "commandDisrupted"] } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Maintain command and network safety",
+        "summary": "Keep the Breckenridge coherent through the Lacuna operation and establish the real result of the authenticated-path crisis.",
+        "terminal": [
+          { "disposition": "completed", "text": "Command continuity and the active network threat received an accountable disposition." },
+          { "disposition": "completedWithCost", "text": "The mission moved forward with material command disruption or authenticated exposure recorded." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter6.farwatch-truth",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter6.farwatch-operational-account" },
+          { "factKnown": "fact.chapter6.authenticated-pathway-nightfall-risk" },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.farwatch-account-route", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.nightfall-risk-route", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter6.farwatch-operational-account" },
+              { "factKnown": "fact.chapter6.authenticated-pathway-nightfall-risk" }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Establish Farwatch's conduct and the remaining risk",
+        "summary": "Build a usable account of what Farwatch did and what Pale Lantern can still do, even if the physical archive is incomplete.",
+        "terminal": [
+          { "disposition": "completed", "text": "The Farwatch account and the remaining authenticated-path risk are player-known through aggregate reports." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter6.evidence-authority",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-boundary", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.evidence-disposition", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "in": ["assetSecured", "preservedWithoutAsset", "publicCopy"] } },
+              { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "in": ["cooperativeRestricted", "relieved", "detained", "witnessUnderReview", "handedOff"] } },
+              { "outcomeIs": { "id": "outcome.chapter6.regional-information", "in": ["privateBriefing", "publicFramework", "delayedDisclosure"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Resolve evidence, disclosure, and operative authority",
+        "summary": "Establish actual archive custody, what affected regional authorities learn, and Rourke's operative status without treating one policy choice as its own result.",
+        "terminal": [
+          { "disposition": "completed", "text": "Evidence, meaningful regional information, and operative authority reached an accountable disposition." },
+          { "disposition": "completedWithCost", "text": "The chapter moved forward with evidence, disclosure, or authority limits recorded." }
+        ]
+      }
+    }
+  ],
+  "commandBearingAwards": [],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter6.network",
+      "playerText": { "label": "Command and network" },
+      "derive": [
+        { "value": "contained", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "contained" } } },
+        { "value": "contained-with-exposure", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "containedWithExposure" } } },
+        { "value": "additional-credential-spread", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "additionalCredentialSpread" } } },
+        { "value": "command-disrupted", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "commandDisrupted" } } },
+        { "value": "handed-off", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter6.evidence",
+      "playerText": { "label": "Farwatch evidence" },
+      "derive": [
+        { "value": "farwatch-evidence-package", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "assetSecured" } } },
+        { "value": "preserved-without-asset", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "preservedWithoutAsset" } } },
+        { "value": "public-copy", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "publicCopy" } } },
+        { "value": "partial-evidence", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "partialEvidence" } } },
+        { "value": "lost-or-purged", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "lostOrPurged" } } },
+        { "value": "farwatch-seized", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "farwatchSeized" } } },
+        { "value": "handed-off", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "equals": "handedOff" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter6.information",
+      "playerText": { "label": "Regional information" },
+      "derive": [
+        { "value": "private-briefing", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "privateBriefing" } } },
+        { "value": "public-framework", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "publicFramework" } } },
+        { "value": "unilateral-public", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "unilateralPublic" } } },
+        { "value": "delayed-disclosure", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "delayedDisclosure" } } },
+        { "value": "not-informed", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "notInformed" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter6.rourke",
+      "playerText": { "label": "Rourke and operative authority" },
+      "derive": [
+        { "value": "cooperative-restricted", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "cooperativeRestricted" } } },
+        { "value": "retained-under-safeguards", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "retainedUnderSafeguards" } } },
+        { "value": "relieved", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "relieved" } } },
+        { "value": "detained", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "detained" } } },
+        { "value": "witness-under-review", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "witnessUnderReview" } } },
+        { "value": "departed-with-farwatch", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "departedWithFarwatch" } } },
+        { "value": "handed-off", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter6.rourke-result", "equals": "handedOff" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter6.command-network", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter6.farwatch-truth", "equals": "completed" } },
+      { "objectiveDisposition": { "id": "objective.chapter6.evidence-authority", "in": ["completed", "completedWithCost"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "operationalRuptureForward",
+      "priority": 600,
+      "when": { "outcomeIs": { "id": "outcome.chapter6.network-result", "in": ["additionalCredentialSpread", "commandDisrupted"] } },
+      "playerText": { "title": "The operational breach continues forward", "summary": "The chapter closes with additional authenticated exposure or material command disruption carried into the Compact crisis." }
+    },
+    {
+      "id": "evidenceLostForward",
+      "priority": 500,
+      "when": { "outcomeIs": { "id": "outcome.chapter6.evidence-result", "in": ["lostOrPurged", "farwatchSeized"] } },
+      "playerText": { "title": "The truth survives with weaker proof", "summary": "The central account remains known, but critical evidence was lost, purged, or removed from independent custody." }
+    },
+    {
+      "id": "publicRupture",
+      "priority": 400,
+      "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "equals": "unilateralPublic" } },
+      "playerText": { "title": "Public warning creates immediate rupture", "summary": "Regional actors gain warning without a negotiated disclosure framework, accelerating the political crisis and endangering protected operations." }
+    },
+    {
+      "id": "controlledSecrecy",
+      "priority": 300,
+      "when": { "outcomeIs": { "id": "outcome.chapter6.regional-information", "in": ["delayedDisclosure", "notInformed"] } },
+      "playerText": { "title": "The immediate threat is contained under secrecy", "summary": "Operational control is preserved for now while delayed or absent regional truth becomes part of the next crisis." }
+    },
+    {
+      "id": "accountablePreservation",
+      "priority": 200,
+      "when": { "objectiveDisposition": { "id": "objective.chapter6.evidence-authority", "equals": "completed" } },
+      "playerText": { "title": "Evidence survives under accountable authority", "summary": "Usable evidence, meaningful regional information, and operative accountability survive together despite the institutional shock." }
+    },
+    {
+      "id": "responsibleHandoff",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter6.command-network", "in": ["completed", "completedWithCost"] } },
+          { "objectiveDisposition": { "id": "objective.chapter6.farwatch-truth", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter6.evidence-authority", "in": ["completed", "completedWithCost"] } }
+        ]
+      },
+      "playerText": { "title": "A mixed Farwatch resolution moves forward", "summary": "The chapter closes with truth established and the unresolved limits of custody, authority, and disclosure explicitly carried onward." }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter6.peace-of-their-own",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-7-a-peace-of-their-own",
+        "playerSafeSetup": "The Farwatch revelation destabilizes the Compact. Security units occupy Asterion Annex Six under a claim of regional authority, Kessler enters to prevent Holt from controlling the declaration alone, and a Starfleet task group is ordered toward the Reach."
+      },
+      "mustNarrate": [
+        "Carry forward the exact command/network, evidence, regional-information, and Rourke dimensions without collapsing them into a binary success label.",
+        "Carry the Farwatch Evidence Package only when evidence-result is assetSecured.",
+        "Acknowledge Farwatch's real intelligence successes and its imposed regional risk without treating authentic authority as unlimited or Rourke as the sole cause.",
+        "Establish the Annex Six occupation, Kessler's intervention, and the approaching Starfleet task group as consequences of the recorded revelation and disclosure state."
+      ],
+      "mustNotReveal": [
+        "Do not invent completion, preservation, disclosure, detention, or disobedience that the V1 outcomes do not record.",
+        "Do not claim destruction of Lacuna ended Nightfall or erase additional credential exposure.",
+        "Do not reveal that Holt possesses a portable Pale Lantern interface or that the approaching task group is preparing an assault.",
+        "Do not reduce Kessler, Tolland, Whitaker, or Rourke to obstacles or erase the legitimate interests their positions represent."
+      ]
+    }
+  ]
+}

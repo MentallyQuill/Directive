@@ -1,0 +1,210 @@
+{
+  "kind": "directive.ashesV1Chapter8Scenarios.v1",
+  "definitionId": "mission.chapter-8-the-last-directive",
+  "fragments": {
+    "executable-plan": [
+      { "claimId": "claim.chapter8.command-plan", "policyId": "policy.chapter8.command-plan", "claimType": "decisionRecorded", "targetId": "outcome.chapter8.command-plan", "value": "executablePlanIssued", "sourceRole": "user" }
+    ],
+    "command-shared": [
+      { "claimId": "claim.chapter8.command-report", "policyId": "policy.chapter8.command-report", "claimType": "eventOccurred", "targetId": "event.chapter8.command-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-shared", "policyId": "policy.chapter8.command-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.command-result", "value": "sharedAuthority", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-disclosed", "policyId": "policy.chapter8.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.command-account", "sourceRole": "assistant" }
+    ],
+    "command-contested": [
+      { "claimId": "claim.chapter8.command-report", "policyId": "policy.chapter8.command-report", "claimType": "eventOccurred", "targetId": "event.chapter8.command-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-contested", "policyId": "policy.chapter8.command-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.command-result", "value": "contestedFunctional", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-disclosed", "policyId": "policy.chapter8.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.command-account", "sourceRole": "assistant" }
+    ],
+    "command-starfleet": [
+      { "claimId": "claim.chapter8.command-report", "policyId": "policy.chapter8.command-report", "claimType": "eventOccurred", "targetId": "event.chapter8.command-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-starfleet", "policyId": "policy.chapter8.command-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.command-result", "value": "starfleetImposed", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-disclosed", "policyId": "policy.chapter8.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.command-account", "sourceRole": "assistant" }
+    ],
+    "command-compact": [
+      { "claimId": "claim.chapter8.command-report", "policyId": "policy.chapter8.command-report", "claimType": "eventOccurred", "targetId": "event.chapter8.command-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-compact", "policyId": "policy.chapter8.command-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.command-result", "value": "compactImposed", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-disclosed", "policyId": "policy.chapter8.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.command-account", "sourceRole": "assistant" }
+    ],
+    "command-fractured": [
+      { "claimId": "claim.chapter8.command-report", "policyId": "policy.chapter8.command-report", "claimType": "eventOccurred", "targetId": "event.chapter8.command-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-fractured", "policyId": "policy.chapter8.command-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.command-result", "value": "fracturedAuthority", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.command-disclosed", "policyId": "policy.chapter8.command-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.command-account", "sourceRole": "assistant" }
+    ],
+    "mesh-trusted": [
+      { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-trusted", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "trustedSharedMesh", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-disclosed", "policyId": "policy.chapter8.mesh-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.mesh-account", "sourceRole": "assistant" }
+    ],
+    "mesh-manual": [
+      { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-manual", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "manualMeshWithGaps", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-disclosed", "policyId": "policy.chapter8.mesh-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.mesh-account", "sourceRole": "assistant" }
+    ],
+    "mesh-isolated": [
+      { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-isolated", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "isolatedAlliances", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-disclosed", "policyId": "policy.chapter8.mesh-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.mesh-account", "sourceRole": "assistant" }
+    ],
+    "mesh-collapsed": [
+      { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-collapsed", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "collapsedMesh", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-disclosed", "policyId": "policy.chapter8.mesh-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.mesh-account", "sourceRole": "assistant" }
+    ],
+    "weapons-freeze": [
+      { "claimId": "claim.chapter8.weapons-report", "policyId": "policy.chapter8.weapons-report", "claimType": "eventOccurred", "targetId": "event.chapter8.weapons-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-freeze", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "weaponsFreeze", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-disclosed", "policyId": "policy.chapter8.weapons-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.weapons-account", "sourceRole": "assistant" }
+    ],
+    "weapons-damage": [
+      { "claimId": "claim.chapter8.weapons-report", "policyId": "policy.chapter8.weapons-report", "claimType": "eventOccurred", "targetId": "event.chapter8.weapons-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-damage", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "manualControlWithDamage", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-disclosed", "policyId": "policy.chapter8.weapons-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.weapons-account", "sourceRole": "assistant" }
+    ],
+    "weapons-contained": [
+      { "claimId": "claim.chapter8.weapons-report", "policyId": "policy.chapter8.weapons-report", "claimType": "eventOccurred", "targetId": "event.chapter8.weapons-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-contained", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "fireContained", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-disclosed", "policyId": "policy.chapter8.weapons-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.weapons-account", "sourceRole": "assistant" }
+    ],
+    "weapons-sustained": [
+      { "claimId": "claim.chapter8.weapons-report", "policyId": "policy.chapter8.weapons-report", "claimType": "eventOccurred", "targetId": "event.chapter8.weapons-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-sustained", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "sustainedExchange", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.weapons-disclosed", "policyId": "policy.chapter8.weapons-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.weapons-account", "sourceRole": "assistant" }
+    ],
+    "core-all": [
+      { "claimId": "claim.chapter8.core-report", "policyId": "policy.chapter8.core-report", "claimType": "eventOccurred", "targetId": "event.chapter8.core-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-all", "policyId": "policy.chapter8.core-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.core-result", "value": "allNodesSecured", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-disclosed", "policyId": "policy.chapter8.core-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.core-account", "sourceRole": "assistant" }
+    ],
+    "core-quorum": [
+      { "claimId": "claim.chapter8.core-report", "policyId": "policy.chapter8.core-report", "claimType": "eventOccurred", "targetId": "event.chapter8.core-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-quorum", "policyId": "policy.chapter8.core-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.core-result", "value": "quorumBroken", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-disclosed", "policyId": "policy.chapter8.core-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.core-account", "sourceRole": "assistant" }
+    ],
+    "core-local": [
+      { "claimId": "claim.chapter8.core-report", "policyId": "policy.chapter8.core-report", "claimType": "eventOccurred", "targetId": "event.chapter8.core-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-local", "policyId": "policy.chapter8.core-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.core-result", "value": "localContainmentCoreEscaped", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-disclosed", "policyId": "policy.chapter8.core-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.core-account", "sourceRole": "assistant" }
+    ],
+    "core-active": [
+      { "claimId": "claim.chapter8.core-report", "policyId": "policy.chapter8.core-report", "claimType": "eventOccurred", "targetId": "event.chapter8.core-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-active", "policyId": "policy.chapter8.core-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.core-result", "value": "nightfallStillCoordinating", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.core-disclosed", "policyId": "policy.chapter8.core-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.core-account", "sourceRole": "assistant" }
+    ],
+    "civilians-protected": [
+      { "claimId": "claim.chapter8.civilians-report", "policyId": "policy.chapter8.civilians-report", "claimType": "eventOccurred", "targetId": "event.chapter8.civilians-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-protected", "policyId": "policy.chapter8.civilians-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.civilians-result", "value": "evacuationProtected", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-disclosed", "policyId": "policy.chapter8.civilians-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.civilians-account", "sourceRole": "assistant" }
+    ],
+    "civilians-cost": [
+      { "claimId": "claim.chapter8.civilians-report", "policyId": "policy.chapter8.civilians-report", "claimType": "eventOccurred", "targetId": "event.chapter8.civilians-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-cost", "policyId": "policy.chapter8.civilians-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.civilians-result", "value": "protectedWithCasualties", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-disclosed", "policyId": "policy.chapter8.civilians-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.civilians-account", "sourceRole": "assistant" }
+    ],
+    "civilians-severe": [
+      { "claimId": "claim.chapter8.civilians-report", "policyId": "policy.chapter8.civilians-report", "claimType": "eventOccurred", "targetId": "event.chapter8.civilians-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-severe", "policyId": "policy.chapter8.civilians-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.civilians-result", "value": "severeLosses", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.civilians-disclosed", "policyId": "policy.chapter8.civilians-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter8.civilians-account", "sourceRole": "assistant" }
+    ],
+    "mesh-result-without-disclosure": [
+      { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter8.mesh-trusted", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "trustedSharedMesh", "sourceRole": "assistant" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "lantern-extinguished",
+      "sequence": ["executable-plan", "command-shared", "mesh-trusted", "weapons-freeze", "core-all", "civilians-protected"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "lanternExtinguished", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter8.command": "completed", "objective.chapter8.mesh": "completed", "objective.chapter8.weapons": "completed", "objective.chapter8.core": "completed", "objective.chapter8.civilians": "completed" },
+        "outcomeDimensions": { "dimension.chapter8.command": "shared-authority", "dimension.chapter8.mesh": "trusted-shared-mesh", "dimension.chapter8.weapons": "weapons-freeze", "dimension.chapter8.core": "all-nodes-secured", "dimension.chapter8.civilians": "evacuation-protected" },
+        "transitionTargetId": "epilogue-the-terms-we-keep"
+      }
+    },
+    {
+      "id": "peace-at-cost-nonlinear-quorum",
+      "sequence": ["core-quorum", "civilians-cost", "executable-plan", "weapons-damage", "mesh-manual", "command-contested"],
+      "expected": { "status": "terminal", "terminalDisposition": "peaceAtCost", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "transitionTargetId": "epilogue-the-terms-we-keep" }
+    },
+    {
+      "id": "starfleet-imposed-order",
+      "sequence": ["executable-plan", "mesh-trusted", "weapons-freeze", "core-quorum", "civilians-protected", "command-starfleet"],
+      "expected": { "status": "terminal", "terminalDisposition": "imposedOrder", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "transitionTargetId": "epilogue-the-terms-we-keep" }
+    },
+    {
+      "id": "compact-imposed-order",
+      "sequence": ["executable-plan", "command-compact", "core-all", "weapons-damage", "mesh-manual", "civilians-protected"],
+      "expected": { "status": "terminal", "terminalDisposition": "imposedOrder", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "transitionTargetId": "epilogue-the-terms-we-keep" }
+    },
+    {
+      "id": "fractured-survival",
+      "sequence": ["core-local", "mesh-isolated", "civilians-cost", "weapons-contained", "executable-plan", "command-fractured"],
+      "expected": { "status": "terminal", "terminalDisposition": "fracturedSurvival", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.command": "completedWithCost", "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
+    },
+    {
+      "id": "ashes",
+      "sequence": ["executable-plan", "command-fractured", "mesh-collapsed", "core-active", "weapons-sustained", "civilians-severe"],
+      "expected": { "status": "terminal", "terminalDisposition": "ashes", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.weapons": "completedWithCost", "objective.chapter8.civilians": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
+    },
+    {
+      "id": "failed-core-does-not-end-other-fronts",
+      "sequence": ["core-active"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": null }
+    },
+    {
+      "id": "settled-front-cannot-be-reported-twice",
+      "sequence": ["mesh-trusted", "mesh-collapsed"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 3, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met"], "objectiveDispositions": { "objective.chapter8.mesh": "completed" }, "outcomeDimensions": { "dimension.chapter8.mesh": "trusted-shared-mesh" }, "transitionTargetId": null }
+    },
+    {
+      "id": "plan-alone-does-not-close",
+      "sequence": ["executable-plan"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": [], "transitionTargetId": null }
+    },
+    {
+      "id": "fronts-before-plan-leave-command-open",
+      "sequence": ["mesh-trusted", "weapons-freeze", "core-all", "civilians-protected", "command-shared"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 12, "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met"], "transitionTargetId": null }
+    },
+    {
+      "id": "result-without-disclosure-does-not-resolve",
+      "sequence": ["mesh-result-without-disclosure"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 2, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.mesh": null }, "transitionTargetId": null }
+    },
+    {
+      "id": "assistant-cannot-issue-player-plan",
+      "steps": [
+        { "claimId": "claim.chapter8.assistant-plan", "policyId": "policy.chapter8.command-plan", "claimType": "decisionRecorded", "targetId": "outcome.chapter8.command-plan", "value": "executablePlanIssued", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "user-cannot-self-certify-front",
+      "steps": [
+        { "claimId": "claim.chapter8.user-weapons", "policyId": "policy.chapter8.weapons-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.weapons-result", "value": "weaponsFreeze", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.chapter8.stale", "policyId": "policy.chapter8.command-plan", "claimType": "decisionRecorded", "targetId": "outcome.chapter8.command-plan", "value": "executablePlanIssued", "sourceRole": "user", "baseRevisionOffset": -1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"], "transitionTargetId": null }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.chapter8.wrong-swipe", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.wrong" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"], "transitionTargetId": null }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.chapter8.hallucinated", "policyId": "policy.chapter8.imaginary-node", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"], "transitionTargetId": null }
+    }
+  ]
+}

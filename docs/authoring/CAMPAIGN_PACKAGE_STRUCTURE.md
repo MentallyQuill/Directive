@@ -1,184 +1,24 @@
-# Campaign Package Structure
+# V1 Campaign Package Structure
 
-Directive campaign packages normalize to strict data-only JSON package records. Import/export transports use `.directive-campaign.zip`.
+Directive V1 loads one exact data-only campaign package, one crew dataset, one ship dataset, and an ordered set of mission definitions.
 
-## Required Root Spine
-
-Every package must provide:
+The campaign package has exactly eight roots:
 
 ```text
 manifest
+campaign
 ship
 crew
 characterCreation
 world
-storyArcs
-endConditions
-questTemplates
-threadTemplates
-reactionRules
-directorCards
-contextPolicy
 guardrails
 assets
 ```
 
-The schema root is `schemas/campaign-package.schema.json`.
+`manifest.kind` is `directive.campaignPackage.v1`. The manifest binds the package ID, version, opening mission, opening time, and bundled status. Runtime saves repeat the exact package ID and version; mismatches are rejected.
 
-## End Conditions
+Crew and ship datasets are concise V1 narrative resources, not card indexes. Crew records contain identity, a public profile summary, and bounded narration guidance. The ship dataset contains identity, a public capability summary, narration guidance, and a few hard facts.
 
-The required `endConditions` root defines campaign conclusion and terminal-outcome behavior. It must include:
+Each `directive.missionDefinition.v1` binds to the same package ID/version and a unique campaign source ID. Mission IDs and transition targets must be stable. Every mission needs authored scenario fixtures proving important success, partial-success, optional, deadline, informed-failure, and spoiler cases.
 
-- a versioned root;
-- default checkpoint policy, including preferred source, fallback sources, branch behavior, and snapshot retention;
-- the six result bands;
-- continuation frames for playable aftermath states;
-- condition records with triggers, fair-warning metadata, resolution actions, `Push On` policy, final-band rules, ending-axis effects, and player-safe recovery copy.
-
-End-condition authoring must follow [Campaign End Conditions](../design/CAMPAIGN_END_CONDITIONS.md): terminal candidates offer checkpoint replay, `Push On` when a plausible continuation exists, explicit snapshot-retention expectations, final outcome band mapping, and player-safe recovery copy. Player-facing condition copy must not reveal hidden clocks, raw predicates, or Director-only notes.
-
-## Zip Transport
-
-The import normalizer accepts:
-
-- a filename ending in `.directive-campaign.zip`;
-- relative archive paths only;
-- exactly one package root JSON payload:
-  - `package.json`, or
-  - a file ending in `.campaign-package.json`;
-- passive supporting files.
-
-The importer rejects:
-
-- path traversal;
-- absolute paths;
-- scripts;
-- HTML;
-- executables;
-- scriptable SVG;
-- WebAssembly;
-- invalid JSON;
-- ambiguous package root payloads;
-- packages whose manifest id does not match an expected id.
-
-## Suggested Archive Layout
-
-```text
-my-campaign.directive-campaign.zip
-  package.json
-  assets/
-    campaign-card.png
-    ship-hero.png
-    crew/
-      officer-name.png
-  docs/
-    author-notes.md
-```
-
-Author notes may be retained as passive reference material, but runtime behavior must come from package JSON and validated assets.
-
-## Bundled Layout
-
-Bundled packages live under:
-
-```text
-packages/bundled/<package-slug>/
-```
-
-The current reference package uses:
-
-```text
-packages/bundled/breckenridge/
-  ashes-of-peace.campaign-package.json
-  ashes-of-peace.campaign-projection.json
-  breckenridge-senior-staff.crew-dataset.json
-  prelude-a-ship-underway.mission-graph.json
-  chapter-1-the-empty-convoy.mission-graph.json
-  chapter-2-false-colors.mission-graph.json
-```
-
-The bundled Glass Harbor draft package uses:
-
-```text
-packages/bundled/glass-harbor/
-  drowned-constellation.campaign-package.json
-  drowned-constellation.campaign-projection.json
-  glass-harbor-senior-staff.crew-dataset.json
-  mission-graphs/
-    prelude-soundings.mission-graph.json
-    chapter-1-aster-basin.mission-graph.json
-    chapter-2-caligo-sounding.mission-graph.json
-```
-
-The bundled Serein draft package uses:
-
-```text
-packages/bundled/serein/
-  black-current.campaign-package.json
-  black-current.campaign-projection.json
-  serein-senior-staff.crew-dataset.json
-  mission-graphs/
-    prelude-wreckfall.mission-graph.json
-    chapter-1-first-manifest.mission-graph.json
-    chapter-2-forty-seven-hours-late.mission-graph.json
-```
-
-The bundled Eudora Vale draft package uses:
-
-```text
-packages/bundled/eudora-vale/
-  broken-accord.campaign-package.json
-  broken-accord.campaign-projection.json
-  eudora-vale-senior-staff.crew-dataset.json
-  mission-graphs/
-    prelude-the-captains-chair.mission-graph.json
-    chapter-1-bread-and-weather.mission-graph.json
-    chapter-2-the-weight-of-water.mission-graph.json
-```
-
-The bundled Aster Vale draft package uses:
-
-```text
-packages/bundled/aster-vale/
-  unseen-border.campaign-package.json
-  unseen-border.campaign-projection.json
-  aster-vale-senior-staff.crew-dataset.json
-  mission-graphs/
-    prelude-the-blank-route.mission-graph.json
-    chapter-1-the-missing-colony.mission-graph.json
-    chapter-2-haldens-shuttle.mission-graph.json
-```
-
-## Package And Campaign Boundary
-
-Package data:
-
-- can define templates, starting facts, assets, and guardrails;
-- should be reusable across playthroughs;
-- should not record one player's campaign outcomes.
-
-Campaign state:
-
-- records the player character;
-- records mission and quest progress;
-- records relationship, crew, ship, thread, world, and command changes;
-- owns the turn ledger and Command Log;
-- owns save branches and recovery state.
-
-## Validation Commands
-
-```powershell
-node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\breckenridge\ashes-of-peace.campaign-package.json
-node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\glass-harbor\drowned-constellation.campaign-package.json
-node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\serein\black-current.campaign-package.json
-node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\eudora-vale\broken-accord.campaign-package.json
-node tools\scripts\validate-campaign-package.mjs schemas\campaign-package.schema.json packages\bundled\aster-vale\unseen-border.campaign-package.json
-node tools\scripts\test-campaign-package-importer.mjs
-node tools\scripts\test-package-update-diagnostics.mjs
-```
-
-Run the alpha gate before promoting a package or docs change into a release-facing checkpoint:
-
-```powershell
-node tools\scripts\run-alpha-gate.mjs
-```
+Assets are package-relative records. Preview campaigns may use a separate static registry entry, but they do not receive partial package objects or runtime activation paths.

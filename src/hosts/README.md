@@ -2,16 +2,10 @@
 
 Host adapters are the boundary between Directive's shared game engine and specific runtime hosts.
 
-The shared engine owns mission state, packages, adjudication, transactions, retrieval, generation roles, sidecar job contracts, and the host-neutral UI model. Host adapters own lifecycle, storage mapping, generation access, event subscriptions, UI mounting, prompt integration, host-specific diagnostics, and theme-token mapping.
+The shared runtime owns exact V1 state, Story Settlement, mission validation and reduction, narration context, and player-safe projections. A host adapter supplies chat events, accepted-message identity, generation, exact logical storage, UI mounting, and host settings.
 
-Current status:
+- `host-contract.mjs` defines that boundary.
+- `fake/` provides test-only host behavior.
+- `sillytavern/` is the production adapter.
 
-- `host-contract.mjs` defines the first host capability and adapter contract scaffold.
-- `fake/` contains test-only host utilities.
-- `sillytavern/` contains the active SillyTavern bootstrap/lifecycle/event shell, `DirectiveHost` factory, physical file API, storage, generation, narration, event, and UI-progress adapters. The manifest-facing `src/extension/` files delegate host-specific shell behavior here.
-- `tools/scripts/test-host-import-boundaries.mjs` guards the transition by allowing only host adapter folders and narrow shared storage mapping helpers to reference host-specific globals or paths.
-- `src/extension/` remains only as the SillyTavern manifest entrypoint plus shared extension UI helpers such as menu mounting, runtime action registration, and the global bridge.
-
-The only active pre-alpha host descriptor is `manifest.json` for SillyTavern. Future host adapters can reuse the host contract after the SillyTavern alpha stabilizes.
-
-Frontend direction: shared route metadata, route panels, and the viewport-bound expanded shell remain host-neutral where that improves SillyTavern quality and fake-host tests. SillyTavern mounts the shell through its extension menu. Future host adapters must not fork route structure, route order, responsive behavior, or player-safe view models.
+Host code must not create alternate campaign state, semantic trackers, or compatibility stores.

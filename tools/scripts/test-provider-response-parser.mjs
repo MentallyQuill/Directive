@@ -86,21 +86,21 @@ assert.equal(commented.value.replacementText, 'Line one\nLine two');
 assert.equal(repairCommonJson('{"a":1,}'), '{"a":1}');
 
 const repairedMissingOperationCloser = parseStructuredJsonText(`{
-  "id": "ship-delta",
+  "id": "candidate-batch",
   "operations": [
-    {"op":"merge","path":"ship.technicalDebt","value":{"ship.command-network-certificate-compatibility":{"owner":"Commander Cross","status":"active"}}},
-    {"op":"append","path":"ship.damage","value":{"id":"damage-1","summary":"Minor damage."}}
+    {"op":"select","path":"mission.candidates","value":{"candidate.handover":{"sourceSlot":"previousAssistant","status":"supported"}}},
+    {"op":"append","path":"mission.claims","value":{"id":"claim-1","summary":"The handover was completed."}}
   ],
   "summary": "Valid JSON already stays unchanged."
 }`);
 assert.equal(repairedMissingOperationCloser.ok, true);
 assert.equal(repairedMissingOperationCloser.value.operations.length, 2);
 
-const malformedMissingOperationCloser = parseStructuredJsonText('{"id":"ship-delta","operations":[{"op":"merge","path":"ship.technicalDebt","value":{"ship.command-network-certificate-compatibility":{"owner":"Commander Cross","status":"active"}},{"op":"append","path":"ship.damage","value":{"id":"damage-1","summary":"Minor damage."}}],"summary":"Recovered missing operation closer."}');
+const malformedMissingOperationCloser = parseStructuredJsonText('{"id":"candidate-batch","operations":[{"op":"select","path":"mission.candidates","value":{"candidate.handover":{"sourceSlot":"previousAssistant","status":"supported"}},{"op":"append","path":"mission.claims","value":{"id":"claim-1","summary":"The handover was completed."}}],"summary":"Recovered missing operation closer."}');
 assert.equal(malformedMissingOperationCloser.ok, true);
 assert.equal(malformedMissingOperationCloser.repaired, true);
 assert.equal(malformedMissingOperationCloser.value.operations.length, 2);
-assert.match(repairMissingArrayElementObjectClosers('{"operations":[{"op":"merge","path":"ship.technicalDebt","value":{"a":{"b":1}},{"op":"append","path":"ship.damage","value":{"id":"x"}}]}'), /"b":1\}\}\},\{"op":"append"/);
+assert.match(repairMissingArrayElementObjectClosers('{"operations":[{"op":"select","path":"mission.candidates","value":{"a":{"b":1}},{"op":"append","path":"mission.claims","value":{"id":"x"}}]}'), /"b":1\}\}\},\{"op":"append"/);
 
 const invalid = parseStructuredJsonText('no object here');
 assert.equal(invalid.ok, false);

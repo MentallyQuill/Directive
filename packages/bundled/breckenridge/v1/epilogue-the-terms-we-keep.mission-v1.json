@@ -1,0 +1,634 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.epilogue-the-terms-we-keep",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "epilogue-the-terms-we-keep"
+  },
+  "playerText": {
+    "title": "Epilogue: The Terms We Keep",
+    "summary": "The fighting has stopped enough for its costs to be named. Establish the record, decide what authority and accountability now require, and carry the consequences into whatever comes next."
+  },
+  "entryCapabilities": [
+    {
+      "id": "capability.epilogue.nightfall-aftermath-record",
+      "source": {
+        "definitionId": "mission.chapter-8-the-last-directive",
+        "definitionVersion": "1.0.0",
+        "requirements": [
+          { "dimensionId": "dimension.chapter8.command", "in": ["shared-authority", "contested-functional", "starfleet-imposed", "compact-imposed", "fractured-authority"] },
+          { "dimensionId": "dimension.chapter8.mesh", "in": ["trusted-shared-mesh", "manual-mesh-with-gaps", "isolated-alliances", "collapsed-mesh"] },
+          { "dimensionId": "dimension.chapter8.weapons", "in": ["weapons-freeze", "manual-control-with-damage", "fire-contained", "sustained-exchange"] },
+          { "dimensionId": "dimension.chapter8.core", "in": ["all-nodes-secured", "quorum-broken", "local-containment-core-escaped", "nightfall-still-coordinating"] },
+          { "dimensionId": "dimension.chapter8.civilians", "in": ["evacuation-protected", "protected-with-casualties", "severe-losses"] }
+        ]
+      },
+      "playerText": {
+        "label": "Nightfall Aftermath Record",
+        "summary": "The confirmed command, communications, weapons, coordination, and humanitarian results are available to the settlement without being rewritten as new objectives."
+      }
+    },
+    {
+      "id": "capability.epilogue.farwatch-evidence-package",
+      "source": {
+        "definitionId": "mission.chapter-6-the-cost-of-knowing",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.chapter6.evidence", "in": ["farwatch-evidence-package"] }]
+      },
+      "playerText": {
+        "label": "Farwatch Evidence Package",
+        "summary": "Authenticated evidence is available to support an inquiry or public account if the player chooses to use it."
+      }
+    },
+    {
+      "id": "capability.epilogue.provisional-regional-accord",
+      "source": {
+        "definitionId": "mission.chapter-7-a-peace-of-their-own",
+        "definitionVersion": "1.0.0",
+        "requirements": [{ "dimensionId": "dimension.chapter7.settlement", "in": ["provisional-accord", "armed-stand-down"] }]
+      },
+      "playerText": {
+        "label": "Provisional Regional Accord",
+        "summary": "The prior accord or stand-down provides a recognized starting point for long-term terms without predetermining them."
+      }
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact.epilogue.aftermath-record",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The aftermath record states the actual command, communications, weapons, Nightfall, and humanitarian results without upgrading partial or costly outcomes."
+      }
+    },
+    {
+      "id": "fact.epilogue.settlement-account",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "The settlement account records the authority, defense, accountability, custody, participation, and public terms that were actually adopted."
+      }
+    },
+    {
+      "id": "fact.epilogue.command-review",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Whitaker's private assessment records the command responsibility the player demonstrated and the authority they will carry forward."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.epilogue.authority-position",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.epilogue.authority-position",
+      "sourceRoles": ["user"],
+      "when": { "outcomeIs": { "id": "outcome.epilogue.authority-position", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record the player's own language only when they state or explicitly adopt a sufficiently concrete free-form position on regional civil authority and defense control. The position may combine, revise, or reject proposals discussed across several turns.",
+        "values": [
+          { "value": "positionStated", "guidance": "The player takes responsibility for a concrete authority-and-defense recommendation without requiring a menu phrase." }
+        ],
+        "exclusions": [
+          "A question, brainstorming, request for options, assistant-authored proposal the player has not adopted, or one isolated administrative detail is not the player's position."
+        ]
+      }
+    },
+    {
+      "id": "policy.epilogue.accountability-position",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.epilogue.accountability-position",
+      "sourceRoles": ["user"],
+      "when": { "outcomeIs": { "id": "outcome.epilogue.accountability-position", "equals": "pending" } },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record the player's own language only when they state or explicitly adopt a sufficiently concrete free-form position on evidence custody, Farwatch accountability, Pale Lantern custody, and the scope of public truth. The position may combine, revise, or reject proposals discussed across several turns.",
+        "values": [
+          { "value": "positionStated", "guidance": "The player takes responsibility for a concrete evidence-and-accountability recommendation without requiring a menu phrase." }
+        ],
+        "exclusions": [
+          "A question, brainstorming, desire for generic accountability, assistant-authored proposal the player has not adopted, or one isolated custody instruction is not the player's position."
+        ]
+      }
+    },
+    {
+      "id": "policy.epilogue.aftermath-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.epilogue.aftermath-report-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "eventOccurred": "event.epilogue.aftermath-report-complete" } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose gives a materially complete aggregate account of the five established Nightfall fronts, including severe costs and surviving obligations.",
+        "exclusions": ["One casualty, one damage report, a celebratory summary, or an account that erases an established costly front is not the complete aftermath record."]
+      }
+    },
+    {
+      "id": "policy.epilogue.aftermath-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.epilogue.aftermath-record",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "worldFact": "fact.epilogue.aftermath-record" }, { "eventOccurred": "event.epilogue.aftermath-report-complete" }, { "not": { "factKnown": "fact.epilogue.aftermath-record" } }] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the aggregate aftermath record is communicated to the player character.",
+        "exclusions": ["Director-only history, an incomplete status fragment, or undisclosed archival state does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.epilogue.settlement-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.epilogue.settlement-record-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [
+        { "factKnown": "fact.epilogue.aftermath-record" },
+        { "outcomeIs": { "id": "outcome.epilogue.authority-position", "equals": "positionStated" } },
+        { "outcomeIs": { "id": "outcome.epilogue.accountability-position", "equals": "positionStated" } },
+        { "not": { "eventOccurred": "event.epilogue.settlement-record-complete" } }
+      ] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a completed aggregate settlement account after the player's authority and accountability positions were known, including what was actually adopted across all six axes.",
+        "exclusions": ["A proposal, opening statement, partial agreement, one axis, a recess, or the player's recommendation by itself is not the completed settlement record."]
+      }
+    },
+    {
+      "id": "policy.epilogue.compact-status",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.compact-status",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the Compact's actual civil status under the completed settlement, not the player's recommendation alone.",
+        "values": [
+          { "value": "federationAdministration", "guidance": "Compact services return to Federation administration." },
+          { "value": "permanentRegionalAuthority", "guidance": "The Compact becomes a permanent recognized regional civil authority." },
+          { "value": "sunsetCharter", "guidance": "The Compact continues temporarily under a defined sunset charter." },
+          { "value": "dividedSystems", "guidance": "Member systems divide into separate political arrangements." },
+          { "value": "mutualAidBody", "guidance": "The Compact becomes a recognized mutual-aid and emergency-governance body." },
+          { "value": "autonomousSecurityBloc", "guidance": "The Compact hardens into an autonomous regional security bloc." }
+        ],
+        "exclusions": ["Negotiating leverage, a draft clause, one delegate's position, or an unratified recommendation is not the adopted civil status."]
+      }
+    },
+    {
+      "id": "policy.epilogue.defense-control",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.defense-control",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual post-settlement control of the regional defense infrastructure.",
+        "values": [
+          { "value": "starfleetControl", "guidance": "Starfleet retains operational control." },
+          { "value": "compactControl", "guidance": "Compact authority retains operational control." },
+          { "value": "jointCommand", "guidance": "Defense operates under accountable joint command." },
+          { "value": "localSharedAuthentication", "guidance": "Local systems control defense under shared authentication safeguards." },
+          { "value": "civilianConversion", "guidance": "Platforms are dismantled or converted to civilian functions." }
+        ],
+        "exclusions": ["One platform transfer, temporary emergency command, a proposed safeguard, or a player's stated preference is not the adopted regional control model."]
+      }
+    },
+    {
+      "id": "policy.epilogue.farwatch-accountability",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.farwatch-accountability",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual adopted scope of Farwatch review and responsibility.",
+        "values": [
+          { "value": "classifiedReview", "guidance": "Accountability remains within an internal classified review." },
+          { "value": "inspectorGeneral", "guidance": "An Inspector General investigation receives authority and evidence." },
+          { "value": "publicInquiry", "guidance": "A public inquiry is established." },
+          { "value": "criminalProceedings", "guidance": "Criminal or disciplinary proceedings begin against supported subjects." },
+          { "value": "politicalConcealment", "guidance": "Political authority suppresses meaningful exposure or review." },
+          { "value": "partialExposure", "guidance": "A bounded exposure preserves accountability while protecting unrelated operations." }
+        ],
+        "exclusions": ["A demand for accountability, possession of evidence, one accusation, or an announced intent to investigate is not the adopted process."]
+      }
+    },
+    {
+      "id": "policy.epilogue.lantern-custody",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.lantern-custody",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual custody or destruction status of the known Pale Lantern material after settlement.",
+        "values": [
+          { "value": "destroyed", "guidance": "The known retained material is destroyed under an adopted process." },
+          { "value": "starfleetCustody", "guidance": "Starfleet retains classified custody." },
+          { "value": "jointCustody", "guidance": "Custody is shared by accountable regional and Federation authorities." },
+          { "value": "federationOversight", "guidance": "Federation scientific and legal oversight governs custody." },
+          { "value": "fragmentedMissing", "guidance": "Material remains fragmented, unaccounted for, or missing." },
+          { "value": "publicRecordRestricted", "guidance": "The existence and history are documented publicly while dangerous technical details remain restricted." }
+        ],
+        "exclusions": ["A proposed custody rule, an intended destruction, one secured fragment, or a claim that every node is gone is not the actual custody result."]
+      }
+    },
+    {
+      "id": "policy.epilogue.cardassian-participation",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.cardassian-participation",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record Cardassian participation actually recognized by the settlement.",
+        "values": [
+          { "value": "reconstructionGovernance", "guidance": "Relief representatives participate in reconstruction governance." },
+          { "value": "technicalCooperation", "guidance": "Participation is limited to technical cooperation." },
+          { "value": "excluded", "guidance": "Cardassian representatives are excluded after political backlash." },
+          { "value": "treatedAsSuspects", "guidance": "The settlement treats Cardassian participants primarily as suspects." },
+          { "value": "witnessesAndPartners", "guidance": "They are recognized as necessary witnesses and partners." }
+        ],
+        "exclusions": ["Prel's presence, one technical exchange, public hostility, or the player's invitation alone is not the adopted participation status."]
+      }
+    },
+    {
+      "id": "policy.epilogue.public-narrative",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.public-narrative",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.settlement-record-complete" }, { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the public account that actually becomes dominant or officially sustained, even when it differs from objective truth.",
+        "values": [
+          { "value": "jointPrevention", "guidance": "Starfleet and the Compact are credited with jointly preventing a contingency attack." },
+          { "value": "starfleetSecrecyExposed", "guidance": "Starfleet secrecy is blamed and local resistance is credited with exposure." },
+          { "value": "compactExtremistsBlamed", "guidance": "Compact extremists are blamed for nearly beginning a war." },
+          { "value": "communitiesSelfSaved", "guidance": "Asterion communities are credited with saving themselves." },
+          { "value": "breckenridgeForce", "guidance": "The Breckenridge is publicly credited with restoring peace through force." },
+          { "value": "truthClassifiedContested", "guidance": "The complete truth remains classified and publicly contested." }
+        ],
+        "exclusions": ["One speech, an internal truth, a desired message, or one news report is not yet the durable public narrative."]
+      }
+    },
+    {
+      "id": "policy.epilogue.settlement-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.epilogue.settlement-account",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [
+        { "worldFact": "fact.epilogue.settlement-account" },
+        { "eventOccurred": "event.epilogue.settlement-record-complete" },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "pending" } } },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "pending" } } },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "pending" } } },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "pending" } } },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "pending" } } },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "pending" } } },
+        { "not": { "factKnown": "fact.epilogue.settlement-account" } }
+      ] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when the completed six-axis settlement account is communicated to the player character.",
+        "exclusions": ["Private director state, an incomplete axis set, a recommendation without adoption, or an undisclosed result does not establish player knowledge."]
+      }
+    },
+    {
+      "id": "policy.epilogue.command-report",
+      "claimType": "eventOccurred",
+      "targetId": "event.epilogue.command-review-complete",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "factKnown": "fact.epilogue.aftermath-record" }, { "not": { "eventOccurred": "event.epilogue.command-review-complete" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts Whitaker's materially complete private review of the player's command patterns and the resulting command boundary.",
+        "exclusions": ["Praise, criticism, one recalled decision, a formal board opening, or a generic relationship beat is not the completed command review."]
+      }
+    },
+    {
+      "id": "policy.epilogue.command-future",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.epilogue.command-future",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [{ "eventOccurred": "event.epilogue.command-review-complete" }, { "outcomeIs": { "id": "outcome.epilogue.command-future", "equals": "pending" } }] },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Record the actual command authority Whitaker establishes after her assessment, grounded in campaign conduct rather than one line or a hidden score.",
+        "values": [
+          { "value": "broaderAuthority", "guidance": "Whitaker entrusts the player with broader independent authority." },
+          { "value": "continuedAuthority", "guidance": "The player continues with materially similar authority and an explicit growth path." },
+          { "value": "boundedAuthority", "guidance": "Whitaker continues the relationship under clearer limits, review, or reduced discretion." }
+        ],
+        "exclusions": ["One compliment, one disagreement, Command Bearing balance, or the player's self-assessment does not establish the command future."]
+      }
+    },
+    {
+      "id": "policy.epilogue.command-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.epilogue.command-review",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "all": [
+        { "worldFact": "fact.epilogue.command-review" },
+        { "eventOccurred": "event.epilogue.command-review-complete" },
+        { "not": { "outcomeIs": { "id": "outcome.epilogue.command-future", "equals": "pending" } } },
+        { "not": { "factKnown": "fact.epilogue.command-review" } }
+      ] },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Whitaker's completed assessment and the resulting command boundary are communicated to the player character.",
+        "exclusions": ["Private director judgment, an incomplete conversation, or an undisclosed command result does not establish player knowledge."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.epilogue.aftermath-record",
+      "factId": "fact.epilogue.aftermath-record",
+      "evidencePolicyId": "policy.epilogue.aftermath-disclosed",
+      "capabilityRoles": ["command", "operations", "medical"],
+      "preferredActorIds": ["priya-nayar", "miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.epilogue.aftermath-record" }, { "eventOccurred": "event.epilogue.aftermath-report-complete" }, { "not": { "factKnown": "fact.epilogue.aftermath-record" } }] },
+      "playerText": { "summary": "Report the established command, communications, weapons, Nightfall, and humanitarian aftermath without erasing costs." }
+    },
+    {
+      "id": "report.epilogue.settlement-account",
+      "factId": "fact.epilogue.settlement-account",
+      "evidencePolicyId": "policy.epilogue.settlement-disclosed",
+      "capabilityRoles": ["command", "operations", "diplomacy"],
+      "preferredActorIds": ["priya-nayar", "mara-whitaker"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.epilogue.settlement-account" }, { "eventOccurred": "event.epilogue.settlement-record-complete" }, { "not": { "factKnown": "fact.epilogue.settlement-account" } }] },
+      "playerText": { "summary": "Report the authority, defense, accountability, custody, participation, and public terms actually adopted." }
+    },
+    {
+      "id": "report.epilogue.command-review",
+      "factId": "fact.epilogue.command-review",
+      "evidencePolicyId": "policy.epilogue.command-disclosed",
+      "capabilityRoles": ["captain", "command"],
+      "preferredActorIds": ["mara-whitaker"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "routine",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": { "all": [{ "worldFact": "fact.epilogue.command-review" }, { "eventOccurred": "event.epilogue.command-review-complete" }, { "not": { "factKnown": "fact.epilogue.command-review" } }] },
+      "playerText": { "summary": "Complete Whitaker's private command assessment and record the authority the player will carry forward." }
+    }
+  ],
+  "events": [
+    { "id": "event.epilogue.aftermath-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.settlement-record-complete", "playerVisibility": "hidden" },
+    { "id": "event.epilogue.command-review-complete", "playerVisibility": "hidden" }
+  ],
+  "outcomes": [
+    { "id": "outcome.epilogue.authority-position", "allowedValues": ["pending", "positionStated"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.accountability-position", "allowedValues": ["pending", "positionStated"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.compact-status", "allowedValues": ["pending", "federationAdministration", "permanentRegionalAuthority", "sunsetCharter", "dividedSystems", "mutualAidBody", "autonomousSecurityBloc"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.defense-control", "allowedValues": ["pending", "starfleetControl", "compactControl", "jointCommand", "localSharedAuthentication", "civilianConversion"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.farwatch-accountability", "allowedValues": ["pending", "classifiedReview", "inspectorGeneral", "publicInquiry", "criminalProceedings", "politicalConcealment", "partialExposure"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.lantern-custody", "allowedValues": ["pending", "destroyed", "starfleetCustody", "jointCustody", "federationOversight", "fragmentedMissing", "publicRecordRestricted"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.cardassian-participation", "allowedValues": ["pending", "reconstructionGovernance", "technicalCooperation", "excluded", "treatedAsSuspects", "witnessesAndPartners"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.public-narrative", "allowedValues": ["pending", "jointPrevention", "starfleetSecrecyExposed", "compactExtremistsBlamed", "communitiesSelfSaved", "breckenridgeForce", "truthClassifiedContested"], "initialValue": "pending", "playerVisibility": "hidden" },
+    { "id": "outcome.epilogue.command-future", "allowedValues": ["pending", "broaderAuthority", "continuedAuthority", "boundedAuthority"], "initialValue": "pending", "playerVisibility": "hidden" }
+  ],
+  "objectives": [
+    {
+      "id": "objective.epilogue.aftermath",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.epilogue.aftermath-report-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "factKnown": "fact.epilogue.aftermath-record" } }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Establish the operational and humanitarian aftermath",
+        "summary": "Put the command, communications, weapons, Nightfall, and civilian results on one accurate record, including costs and surviving obligations.",
+        "terminal": [{ "disposition": "completed", "text": "The established aftermath was recorded without erasing its costs." }]
+      }
+    },
+    {
+      "id": "objective.epilogue.authority",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "outcomeIs": { "id": "outcome.epilogue.authority-position", "equals": "positionStated" } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "outcomeIs": { "id": "outcome.epilogue.authority-position", "equals": "positionStated" } }, { "factKnown": "fact.epilogue.settlement-account" }] } }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Set terms for regional authority and defense",
+        "summary": "State what legitimate civil authority and defensible control should look like, then establish what the settlement actually adopts.",
+        "terminal": [{ "disposition": "completed", "text": "The player's position and the adopted authority-and-defense terms were recorded." }]
+      }
+    },
+    {
+      "id": "objective.epilogue.accountability",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "outcomeIs": { "id": "outcome.epilogue.accountability-position", "equals": "positionStated" } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "all": [{ "outcomeIs": { "id": "outcome.epilogue.accountability-position", "equals": "positionStated" } }, { "factKnown": "fact.epilogue.settlement-account" }] } }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Set terms for evidence, custody, and accountability",
+        "summary": "State what responsibility and repair require, then establish how evidence, dangerous material, participation, and public truth will be handled.",
+        "terminal": [{ "disposition": "completed", "text": "The player's position and the adopted accountability-and-custody terms were recorded." }]
+      }
+    },
+    {
+      "id": "objective.epilogue.command",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.epilogue.command-review-complete" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "factKnown": "fact.epilogue.command-review" } }
+      ],
+      "supportedDispositions": ["completed"],
+      "playerText": {
+        "title": "Complete the command review and name what continues",
+        "summary": "Account for the command patterns the campaign revealed and establish the responsibility and authority that follow the player beyond the crisis.",
+        "terminal": [{ "disposition": "completed", "text": "Whitaker completed the assessment and established the player's continuing command boundary." }]
+      }
+    }
+  ],
+  "commandBearingAwards": [],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.epilogue.compact",
+      "playerText": { "label": "Compact status" },
+      "derive": [
+        { "value": "federation-administration", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "federationAdministration" } } },
+        { "value": "permanent-regional-authority", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "permanentRegionalAuthority" } } },
+        { "value": "sunset-charter", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "sunsetCharter" } } },
+        { "value": "divided-systems", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "dividedSystems" } } },
+        { "value": "mutual-aid-body", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "mutualAidBody" } } },
+        { "value": "autonomous-security-bloc", "priority": 50, "when": { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "autonomousSecurityBloc" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.defense",
+      "playerText": { "label": "Defense control" },
+      "derive": [
+        { "value": "starfleet-control", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "starfleetControl" } } },
+        { "value": "compact-control", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "compactControl" } } },
+        { "value": "joint-command", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "jointCommand" } } },
+        { "value": "local-shared-authentication", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "localSharedAuthentication" } } },
+        { "value": "civilian-conversion", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.defense-control", "equals": "civilianConversion" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.farwatch",
+      "playerText": { "label": "Farwatch accountability" },
+      "derive": [
+        { "value": "classified-review", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "classifiedReview" } } },
+        { "value": "inspector-general", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "inspectorGeneral" } } },
+        { "value": "public-inquiry", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "publicInquiry" } } },
+        { "value": "criminal-proceedings", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "criminalProceedings" } } },
+        { "value": "political-concealment", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "politicalConcealment" } } },
+        { "value": "partial-exposure", "priority": 50, "when": { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "equals": "partialExposure" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.lantern",
+      "playerText": { "label": "Pale Lantern custody" },
+      "derive": [
+        { "value": "destroyed", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "destroyed" } } },
+        { "value": "starfleet-custody", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "starfleetCustody" } } },
+        { "value": "joint-custody", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "jointCustody" } } },
+        { "value": "federation-oversight", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "federationOversight" } } },
+        { "value": "fragmented-or-missing", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "fragmentedMissing" } } },
+        { "value": "public-record-technical-restriction", "priority": 50, "when": { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "publicRecordRestricted" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.cardassian",
+      "playerText": { "label": "Cardassian participation" },
+      "derive": [
+        { "value": "reconstruction-governance", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "reconstructionGovernance" } } },
+        { "value": "technical-cooperation", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "technicalCooperation" } } },
+        { "value": "excluded", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "excluded" } } },
+        { "value": "treated-as-suspects", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "treatedAsSuspects" } } },
+        { "value": "witnesses-and-partners", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.cardassian-participation", "equals": "witnessesAndPartners" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.public-narrative",
+      "playerText": { "label": "Public narrative" },
+      "derive": [
+        { "value": "joint-prevention", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "jointPrevention" } } },
+        { "value": "starfleet-secrecy-exposed", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "starfleetSecrecyExposed" } } },
+        { "value": "compact-extremists-blamed", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "compactExtremistsBlamed" } } },
+        { "value": "communities-self-saved", "priority": 70, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "communitiesSelfSaved" } } },
+        { "value": "breckenridge-restored-peace-through-force", "priority": 60, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "breckenridgeForce" } } },
+        { "value": "truth-classified-and-contested", "priority": 50, "when": { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "truthClassifiedContested" } } }
+      ]
+    },
+    {
+      "id": "dimension.epilogue.command",
+      "playerText": { "label": "Command future" },
+      "derive": [
+        { "value": "broader-authority", "priority": 100, "when": { "outcomeIs": { "id": "outcome.epilogue.command-future", "equals": "broaderAuthority" } } },
+        { "value": "continued-authority", "priority": 90, "when": { "outcomeIs": { "id": "outcome.epilogue.command-future", "equals": "continuedAuthority" } } },
+        { "value": "bounded-authority", "priority": 80, "when": { "outcomeIs": { "id": "outcome.epilogue.command-future", "equals": "boundedAuthority" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.epilogue.aftermath", "equals": "completed" } },
+      { "objectiveDisposition": { "id": "objective.epilogue.authority", "equals": "completed" } },
+      { "objectiveDisposition": { "id": "objective.epilogue.accountability", "equals": "completed" } },
+      { "objectiveDisposition": { "id": "objective.epilogue.command", "equals": "completed" } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "contestedAftermath",
+      "priority": 300,
+      "when": { "any": [
+        { "outcomeIs": { "id": "outcome.epilogue.compact-status", "equals": "dividedSystems" } },
+        { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "equals": "fragmentedMissing" } },
+        { "outcomeIs": { "id": "outcome.epilogue.public-narrative", "equals": "truthClassifiedContested" } }
+      ] },
+      "playerText": {
+        "title": "Contested aftermath",
+        "summary": "The crisis ended, but divided governance, missing Lantern material, or an irreconcilable public account leaves the Reach's settlement materially contested."
+      }
+    },
+    {
+      "id": "accountablePeace",
+      "priority": 200,
+      "when": { "all": [
+        { "outcomeIs": { "id": "outcome.epilogue.farwatch-accountability", "in": ["inspectorGeneral", "publicInquiry", "criminalProceedings", "partialExposure"] } },
+        { "outcomeIs": { "id": "outcome.epilogue.lantern-custody", "in": ["destroyed", "starfleetCustody", "jointCustody", "federationOversight", "publicRecordRestricted"] } },
+        { "outcomeIs": { "id": "outcome.epilogue.compact-status", "in": ["federationAdministration", "permanentRegionalAuthority", "sunsetCharter", "mutualAidBody", "autonomousSecurityBloc"] } }
+      ] },
+      "playerText": {
+        "title": "Accountable peace",
+        "summary": "The settlement preserves a credible path for evidence, differentiated responsibility, secure custody, and regional repair even where important parties disagree."
+      }
+    },
+    {
+      "id": "managedSettlement",
+      "priority": 100,
+      "when": true,
+      "playerText": {
+        "title": "Managed settlement",
+        "summary": "The immediate peace and recovery framework hold while important accountability, legitimacy, or trust questions remain limited or unresolved."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.epilogue.ashes-authored-conclusion",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "phase",
+        "id": "ashes-authored-conclusion",
+        "playerSafeSetup": "Ashes of Peace reaches its authored conclusion with the operational aftermath, settlement axes, public account, and command future preserved.",
+        "campaignConclusion": {
+          "endConditionId": "completion.ashes.terms-we-keep-resolved"
+        }
+      },
+      "mustNarrate": [
+        "State the actual settlement disposition and the adopted results across all seven epilogue outcome dimensions without turning them into a moral score.",
+        "Preserve the exact Chapter 8 command, communications, weapons, Nightfall, and humanitarian aftermath carried by the entry record.",
+        "End on one source-compatible final scene whose tone follows the established campaign state and leaves ordinary command, inquiry, repair, or continued responsibility possible.",
+        "Treat prior advantages as available context only; say one was used only when accepted story state depicts its use."
+      ],
+      "mustNotReveal": [
+        "Do not upgrade casualties, damage, fractured authority, sustained fire, or surviving Nightfall capability into a clean victory.",
+        "Do not declare one political structure, custody model, disclosure choice, or public narrative to be the objectively correct moral answer.",
+        "Do not invent individual crew futures, promotions, discipline, relationships, or Command Bearing awards that accepted Story Settlement state does not support.",
+        "Do not promise a specific next campaign, erase unresolved obligations, or invent tracking state outside the committed V1 conclusion."
+      ]
+    }
+  ]
+}

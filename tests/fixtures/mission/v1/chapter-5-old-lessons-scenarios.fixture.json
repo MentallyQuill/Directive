@@ -1,0 +1,271 @@
+{
+  "kind": "directive.ashesV1Chapter5Scenarios.v1",
+  "definitionId": "mission.chapter-5-old-lessons",
+  "fragments": {
+    "pattern-evidence": [
+      { "claimId": "claim.chapter5.pattern-evidence", "policyId": "policy.chapter5.concentration-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.concentration-pattern-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.pattern-disclosed", "policyId": "policy.chapter5.concentration-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter5.concentration-and-model-gap", "sourceRole": "assistant" }
+    ],
+    "target-evidence": [
+      { "claimId": "claim.chapter5.target-evidence", "policyId": "policy.chapter5.sigma-target-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.sigma-target-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.target-disclosed", "policyId": "policy.chapter5.sigma-target-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter5.sigma-target-and-doctrine-model", "sourceRole": "assistant" }
+    ],
+    "chain-evidence": [
+      { "claimId": "claim.chapter5.chain-evidence", "policyId": "policy.chapter5.control-chain-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.control-chain-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter5.chain-disclosed", "policyId": "policy.chapter5.control-chain-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter5.holt-initiation-and-autonomous-escalation", "sourceRole": "assistant" }
+    ],
+    "route-direct": [
+      { "claimId": "claim.chapter5.route-direct", "policyId": "policy.chapter5.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.evidence-route", "value": "direct", "sourceRole": "assistant" }
+    ],
+    "route-mixed": [
+      { "claimId": "claim.chapter5.route-mixed", "policyId": "policy.chapter5.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.evidence-route", "value": "mixed", "sourceRole": "assistant" }
+    ],
+    "route-external": [
+      { "claimId": "claim.chapter5.route-external", "policyId": "policy.chapter5.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.evidence-route", "value": "external", "sourceRole": "assistant" }
+    ],
+    "traffic-stable": [
+      { "claimId": "claim.chapter5.traffic-stable", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "stabilized", "sourceRole": "assistant" }
+    ],
+    "traffic-cost": [
+      { "claimId": "claim.chapter5.traffic-cost", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "stabilizedWithCost", "sourceRole": "assistant" }
+    ],
+    "traffic-cascade": [
+      { "claimId": "claim.chapter5.traffic-cascade", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "cascade", "sourceRole": "assistant" }
+    ],
+    "traffic-handoff": [
+      { "claimId": "claim.chapter5.traffic-handoff", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "platform-controlled": [
+      { "claimId": "claim.chapter5.platform-controlled", "policyId": "policy.chapter5.platform-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.platform-result", "value": "controlled", "sourceRole": "assistant" }
+    ],
+    "platform-disabled": [
+      { "claimId": "claim.chapter5.platform-disabled", "policyId": "policy.chapter5.platform-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.platform-result", "value": "disabled", "sourceRole": "assistant" }
+    ],
+    "platform-fired": [
+      { "claimId": "claim.chapter5.platform-fired", "policyId": "policy.chapter5.platform-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.platform-result", "value": "firedWithDamage", "sourceRole": "assistant" }
+    ],
+    "platform-hazard": [
+      { "claimId": "claim.chapter5.platform-hazard", "policyId": "policy.chapter5.platform-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.platform-result", "value": "remainsHazard", "sourceRole": "assistant" }
+    ],
+    "platform-handoff": [
+      { "claimId": "claim.chapter5.platform-handoff", "policyId": "policy.chapter5.platform-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.platform-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "sigma-recover-choice": [
+      { "claimId": "claim.chapter5.sigma-recover-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "recoverOrIsolate", "sourceRole": "user" }
+    ],
+    "sigma-destroy-record-choice": [
+      { "claimId": "claim.chapter5.sigma-destroy-record-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "destroyWithRecord", "sourceRole": "user" }
+    ],
+    "sigma-destroy-no-record-choice": [
+      { "claimId": "claim.chapter5.sigma-destroy-no-record-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "destroyWithoutRecord", "sourceRole": "user" }
+    ],
+    "sigma-handoff-choice": [
+      { "claimId": "claim.chapter5.sigma-handoff-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "handoff", "sourceRole": "user" }
+    ],
+    "sigma-secured": [
+      { "claimId": "claim.chapter5.sigma-secured", "policyId": "policy.chapter5.sigma-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.sigma-result", "value": "secured", "sourceRole": "assistant" }
+    ],
+    "sigma-destroyed-record": [
+      { "claimId": "claim.chapter5.sigma-destroyed-record", "policyId": "policy.chapter5.sigma-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.sigma-result", "value": "destroyedWithRecord", "sourceRole": "assistant" }
+    ],
+    "sigma-destroyed-no-record": [
+      { "claimId": "claim.chapter5.sigma-destroyed-no-record", "policyId": "policy.chapter5.sigma-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.sigma-result", "value": "destroyedWithoutRecord", "sourceRole": "assistant" }
+    ],
+    "sigma-core-taken": [
+      { "claimId": "claim.chapter5.sigma-core-taken", "policyId": "policy.chapter5.sigma-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.sigma-result", "value": "coreTaken", "sourceRole": "assistant" }
+    ],
+    "sigma-handoff-result": [
+      { "claimId": "claim.chapter5.sigma-handoff-result", "policyId": "policy.chapter5.sigma-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.sigma-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "operator-captured": [
+      { "claimId": "claim.chapter5.operator-captured", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "operatorCaptured", "sourceRole": "assistant" }
+    ],
+    "interface-recovered": [
+      { "claimId": "claim.chapter5.interface-recovered", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "interfaceRecovered", "sourceRole": "assistant" }
+    ],
+    "operator-identified-escape": [
+      { "claimId": "claim.chapter5.operator-identified-escape", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "identifiedEscaped", "sourceRole": "assistant" }
+    ],
+    "operator-unknown-escape": [
+      { "claimId": "claim.chapter5.operator-unknown-escape", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "escapedUnidentified", "sourceRole": "assistant" }
+    ],
+    "operator-evidence-destroyed": [
+      { "claimId": "claim.chapter5.operator-evidence-destroyed", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "evidenceDestroyed", "sourceRole": "assistant" }
+    ],
+    "operator-handoff": [
+      { "claimId": "claim.chapter5.operator-handoff", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "handedOff", "sourceRole": "assistant" }
+    ],
+    "command-integrate": [
+      { "claimId": "claim.chapter5.command-integrate", "policyId": "policy.chapter5.command-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.command-posture", "value": "integrateAndTest", "sourceRole": "user" }
+    ],
+    "command-follow": [
+      { "claimId": "claim.chapter5.command-follow", "policyId": "policy.chapter5.command-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.command-posture", "value": "followWithoutTesting", "sourceRole": "user" }
+    ],
+    "command-alternative": [
+      { "claimId": "claim.chapter5.command-alternative", "policyId": "policy.chapter5.command-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.command-posture", "value": "evidenceBasedAlternative", "sourceRole": "user" }
+    ],
+    "command-dismiss": [
+      { "claimId": "claim.chapter5.command-dismiss", "policyId": "policy.chapter5.command-posture", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.command-posture", "value": "dismissWithoutTesting", "sourceRole": "user" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "multi-front-success",
+      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "lives-saved-core-lost-before-knowledge",
+      "sequence": ["traffic-stable", "platform-disabled", "sigma-core-taken", "operator-identified-escape", "pattern-evidence", "target-evidence", "chain-evidence", "route-external"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "core-taken", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "pending" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "core-saved-at-cost",
+      "sequence": ["traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "stabilized-with-cost", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "interface-recovered", "dimension.chapter5.command": "follow-without-testing" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "cascade-forward",
+      "sequence": ["traffic-cascade", "platform-fired", "sigma-core-taken", "operator-unknown-escape", "chain-evidence", "pattern-evidence", "target-evidence", "route-external"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "cascadeForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "cascade", "dimension.chapter5.authentication": "core-taken", "dimension.chapter5.operator": "escaped-unidentified" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "partial-containment",
+      "sequence": ["traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-with-record", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "evidence-based-alternative" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "responsible-handoff",
+      "sequence": ["traffic-handoff", "platform-handoff", "pattern-evidence", "target-evidence", "chain-evidence", "route-external", "sigma-handoff-choice", "sigma-handoff-result", "operator-handoff"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "handedOff", "objective.chapter5.operation": "handedOff", "objective.chapter5.understanding": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter5.orison": "handed-off", "dimension.chapter5.authentication": "handed-off", "dimension.chapter5.operator": "handed-off" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "informed-destruction-without-record",
+      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-disabled", "sigma-destroy-no-record-choice", "sigma-destroyed-no-record", "operator-evidence-destroyed"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "failedAfterInformedAction", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-without-record", "dimension.chapter5.operator": "evidence-destroyed" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "non-linear-front-order-no-command-posture",
+      "sequence": ["operator-captured", "chain-evidence", "traffic-stable", "target-evidence", "platform-controlled", "pattern-evidence", "route-direct", "sigma-recover-choice", "sigma-secured"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "pending" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "clean-success-dismissive-posture",
+      "sequence": ["traffic-stable", "platform-controlled", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-dismiss"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.command": "dismissed-without-testing" },
+        "transitionTargetId": "open-orders-2-what-survives"
+      }
+    },
+    {
+      "id": "choices-alone-do-not-resolve",
+      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "command-integrate"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": null, "objective.chapter5.understanding": "completed" },
+        "outcomeDimensions": { "dimension.chapter5.authentication": "pending", "dimension.chapter5.operator": "pending" }
+      }
+    },
+    {
+      "id": "sigma-choice-before-target-known",
+      "sequence": ["sigma-recover-choice"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "command-posture-before-model-gap",
+      "sequence": ["command-follow"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "assistant-owned-sigma-choice",
+      "steps": [
+        { "claimId": "claim.chapter5.assistant-sigma-choice", "policyId": "policy.chapter5.sigma-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter5.sigma-decision", "value": "recoverOrIsolate", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "player-declared-traffic-result",
+      "steps": [
+        { "claimId": "claim.chapter5.player-traffic", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "stabilized", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "player-declared-operator-result",
+      "steps": [
+        { "claimId": "claim.chapter5.player-operator", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "operatorCaptured", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "premature-target-report",
+      "steps": [
+        { "claimId": "claim.chapter5.premature-target", "policyId": "policy.chapter5.sigma-target-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter5.sigma-target-and-doctrine-model", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.chapter5.stale-traffic", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "stabilized", "sourceRole": "assistant", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.chapter5.wrong-swipe", "policyId": "policy.chapter5.traffic-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.traffic-result", "value": "stabilized", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-controller-policy",
+      "steps": [
+        { "claimId": "claim.chapter5.invented-controller", "policyId": "policy.chapter5.holt-controls-network", "claimType": "factDisclosed", "targetId": "fact.chapter5.holt-initiation-and-autonomous-escalation", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}

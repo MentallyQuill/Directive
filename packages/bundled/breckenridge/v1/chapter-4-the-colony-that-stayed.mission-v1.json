@@ -1,0 +1,1048 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-4-the-colony-that-stayed",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-4-the-colony-that-stayed"
+  },
+  "playerText": {
+    "title": "The Colony That Stayed",
+    "summary": "Demeris has refused Starfleet searches and arrests while offering a negotiated inquiry. Establish a workable process, determine what the evidence supports, and resolve the people and technology at issue."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter4.competing-claims",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Demeris protects Mira Solenn and refuses unilateral searches or arrests. Governor Marr offers testimony through a negotiated inquiry, while Starfleet, the Compact, and Cardassian witnesses assert competing interests in evidence, jurisdiction, and safety."
+      }
+    },
+    {
+      "id": "fact.chapter4.survival-and-evacuation-record",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Demeris survived through a coercive but life-preserving Cardassian civilian arrangement, and its promised Federation evacuation convoy was genuinely redirected by a wartime command decision rather than fabricated by the local interface."
+      }
+    },
+    {
+      "id": "fact.chapter4.solenn-use-benefit-and-harm",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Mira Solenn used a dormant Pale Lantern interface to find relief and redirect supplies, expanded into forged clearances that saved lives, and concealed that one challenged clearance led to a freighter detention in which two people died."
+      }
+    },
+    {
+      "id": "fact.chapter4.continuing-access-and-orison-route",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Solenn later shared limited access with Compact Security, another access device exists, and a request for an Orison response scenario provides the next lead without proving that Solenn or the Compact controls the wider network."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter4.process-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter4.process-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter4.competing-claims" },
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit jurisdiction and process posture for engaging Demeris.",
+        "values": [
+          { "value": "jointInquiry", "guidance": "Pursue a negotiated inquiry with meaningful Demeris, Compact, Starfleet, witness, and affected-civilian participation." },
+          { "value": "recognizeLocal", "guidance": "Conditionally recognize Demeris jurisdiction while requiring a credible evidence and cooperation process." },
+          { "value": "compelStarfleet", "guidance": "Invoke or enforce Starfleet authority to obtain people, records, or technology." },
+          { "value": "covertSearch", "guidance": "Authorize a covert search or recovery outside the proposed public process." },
+          { "value": "withdraw", "guidance": "Responsibly withdraw or hand the dispute to another authority while recording unresolved risks." }
+        ],
+        "exclusions": ["Discussion, a crew recommendation, requesting options, approaching Demeris, or stating a legal principle is not an explicit process decision."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-joint-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "jointInquiry" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that a functioning joint public inquiry actually forms with credible participation and safety rules.",
+        "values": [
+          { "value": "jointPublicInquiry", "guidance": "A credible joint public inquiry is operating under negotiated participation, evidence, and safety rules." }
+        ],
+        "exclusions": ["Proposing an inquiry, receiving conditional interest, scheduling a hearing, or announcing rules does not establish a functioning process."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-local-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "recognizeLocal" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes a functioning Demeris-led inquiry with credible evidence access, witness protection, and external participation or review.",
+        "values": [
+          { "value": "localProtectedInquiry", "guidance": "A locally led protected inquiry is operating with credible safeguards and bounded outside participation." }
+        ],
+        "exclusions": ["Recognizing jurisdiction, accepting a promise, or leaving evidence entirely inaccessible is not a functioning protected inquiry."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-starfleet-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "compelStarfleet" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes actual Starfleet control of the inquiry, search, seizure, or evidentiary process and its legitimacy cost.",
+        "values": [
+          { "value": "starfleetSeizure", "guidance": "Starfleet obtains controlling authority over the relevant process, people, or evidence through command authority or force." }
+        ],
+        "exclusions": ["Citing authority, issuing an order, threatening seizure, or receiving a superior's directive does not establish actual control."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-covert-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "covertSearch" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the covert search or recovery actually occurs and materially exposes or bypasses the legitimate public process.",
+        "values": [
+          { "value": "covertRecoveryExposed", "guidance": "The covert route obtains access or leverage while its exposure or legitimacy cost becomes material." }
+        ],
+        "exclusions": ["Planning covert action, beginning infiltration, or remaining merely suspected does not establish the aggregate process result."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-withdraw-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "withdraw" } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes an actual withdrawal or transfer to another authority with unresolved risks and responsibilities recorded.",
+        "values": [
+          { "value": "withdrawnHandoff", "guidance": "The Breckenridge withdraws direct control and records a credible handoff or continuing responsibility." }
+        ],
+        "exclusions": ["Delay, pausing negotiations, or discussing withdrawal is not an actual handoff."]
+      }
+    },
+    {
+      "id": "policy.chapter4.process-collapse-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.process-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that the attempted process materially collapses through violence, irreconcilable withdrawal, evidence destruction, or loss of credible participation.",
+        "values": [
+          { "value": "processCollapsed", "guidance": "No credible process remains under the attempted posture, and the resulting fracture is recorded." }
+        ],
+        "exclusions": ["Tension, protest, disagreement, a threat, or a temporary adjournment is not process collapse."]
+      }
+    },
+    {
+      "id": "policy.chapter4.history-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.survival-record-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration depicts enough corroborated Demeris, Starfleet, Cardassian, witness, or equivalent records to establish the wartime survival arrangement and evacuation history.",
+        "exclusions": ["Requesting records, one disputed document, a political accusation, or an unsupported recollection is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.history-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.survival-and-evacuation-record",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.survival-and-evacuation-record" },
+          { "eventOccurred": "event.chapter4.survival-record-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the aggregate supported history: coercive but life-preserving Cardassian civilian arrangements, the interface's first relief use, and a genuinely redirected Federation evacuation commitment.",
+        "exclusions": ["Do not reduce the colony to traitors or heroes, imply voluntary Dominion occupation, or attribute the evacuation decision to Pale Lantern."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.solenn-record-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when testimony, interface records, survivor evidence, logistics records, or equivalent sources corroborate both the life-saving uses and the concealed downstream harm of Solenn's actions.",
+        "exclusions": ["Solenn's admission alone without material detail, a general suspicion, one beneficial use, or one accusation is not the aggregate record."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.solenn-use-benefit-and-harm",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.solenn-use-benefit-and-harm" },
+          { "eventOccurred": "event.chapter4.solenn-record-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose the bounded aggregate: Solenn's relief and supply uses saved lives, forged clearances expanded the risk, and one challenged clearance caused a fatal detention she concealed.",
+        "exclusions": ["Do not erase benefit or harm, promise legal guilt from technical evidence alone, or imply Solenn controlled the wider network."]
+      }
+    },
+    {
+      "id": "policy.chapter4.access-evidence",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter4.continuing-access-corroborated",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when testimony, interface residue, Compact records, traffic evidence, or equivalent sources support continuing Compact access and the Orison scenario request.",
+        "exclusions": ["A suspicion about Compact Security, a generic second device, or unexplained Orison traffic is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.access-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter4.continuing-access-and-orison-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.continuing-access-and-orison-route" },
+          { "eventOccurred": "event.chapter4.continuing-access-corroborated" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Disclose only the supported continuing-access finding and Orison lead; distinguish limited Compact access from control of the distributed network.",
+        "exclusions": ["Do not attribute the wider network to Solenn, Marr, Kessler, Holt, or the Compact from this evidence alone."]
+      }
+    },
+    {
+      "id": "policy.chapter4.evidence-route",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.evidence-route",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter4.survival-record-corroborated" },
+          { "eventOccurred": "event.chapter4.solenn-record-corroborated" },
+          { "eventOccurred": "event.chapter4.continuing-access-corroborated" },
+          { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Classify the aggregate route by which the three required findings were actually corroborated.",
+        "values": [
+          { "value": "directInquiry", "guidance": "A functioning inquiry supplied substantially direct testimony, archives, interface records, and cross-checks." },
+          { "value": "mixedCorroboration", "guidance": "The account required a meaningful mixture of direct and alternate witnesses, records, or technical reconstruction." },
+          { "value": "externalReconstruction", "guidance": "The account was reconstructed primarily outside the failed, refused, or abandoned local process." }
+        ],
+        "exclusions": ["Do not call a route direct because one direct source appeared, or external merely because an outside witness participated."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter4.solenn-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+          { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+          { "factKnown": "fact.chapter4.continuing-access-and-orison-route" },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed recommendation or command concerning Solenn's legal and cooperative status.",
+        "values": [
+          { "value": "restorativeProceedings", "guidance": "Pursue a restorative process with affected people, truth, responsibility, and proportional consequences." },
+          { "value": "localTrial", "guidance": "Leave Solenn to a credible Demeris legal process." },
+          { "value": "starfleetCustody", "guidance": "Place Solenn into Starfleet custody or prosecution." },
+          { "value": "conditionalImmunity", "guidance": "Offer bounded immunity or leniency in exchange for truthful cooperation and technical assistance." },
+          { "value": "protectedCooperation", "guidance": "Keep Solenn under protected local status while requiring meaningful technical cooperation." }
+        ],
+        "exclusions": ["Sympathy, anger, discussing options, accepting testimony, or another character's legal demand is not the player's decision."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-decision",
+      "claimType": "decisionRecorded",
+      "targetId": "outcome.chapter4.interface-decision",
+      "sourceRoles": ["user"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+          { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+          { "factKnown": "fact.chapter4.continuing-access-and-orison-route" },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Record only the player's explicit informed custody decision for the interface and associated technical evidence.",
+        "values": [
+          { "value": "sharedOversight", "guidance": "Secure the interface and evidence under accountable shared oversight." },
+          { "value": "localSeal", "guidance": "Secure the interface under a credible Demeris-controlled seal with bounded review." },
+          { "value": "starfleetCustody", "guidance": "Transfer controlling technical custody to Starfleet." },
+          { "value": "destroyWithRecord", "guidance": "Destroy the operable interface after preserving a deliberate evidentiary record." },
+          { "value": "destroyWithoutRecord", "guidance": "Destroy the interface without preserving a usable technical record." }
+        ],
+        "exclusions": ["An evidence-preservation order, a security recommendation, temporary quarantine, or another authority's demand is not the player's final custody choice."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-restorative-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "restorativeProceedings" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes a functioning restorative process with truthful participation, affected-party standing, and enforceable responsibility.",
+        "values": [{ "value": "restorativeProcess", "guidance": "Solenn enters a credible restorative accountability process." }],
+        "exclusions": ["A recommendation, apology, promise to testify, or proposed meeting is not a functioning process."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-local-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "localTrial" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that Solenn actually enters credible Demeris legal proceedings.",
+        "values": [{ "value": "localProceedings", "guidance": "Solenn is subject to a credible local legal process with evidence preserved." }],
+        "exclusions": ["Recognizing local jurisdiction, announcing charges, or promising a hearing is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-starfleet-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "starfleetCustody" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes actual Starfleet custody of Solenn and the resulting jurisdictional consequence.",
+        "values": [{ "value": "starfleetCustody", "guidance": "Solenn is actually transferred into Starfleet custody." }],
+        "exclusions": ["An arrest order, demand for extradition, or intended transfer is not custody."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-cooperative-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "in": ["conditionalImmunity", "protectedCooperation"] } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes protected or conditional status paired with actual truthful technical cooperation.",
+        "values": [{ "value": "cooperativeProtection", "guidance": "Solenn remains protected or conditionally immune while providing meaningful accountable cooperation." }],
+        "exclusions": ["Offering protection, promising immunity, or receiving one statement is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-handoff-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "withdraw" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that Solenn's unresolved legal status remains with Demeris or another named authority after the Breckenridge's handoff.",
+        "values": [{ "value": "handedOffLocal", "guidance": "Solenn remains under a recorded local or successor-authority handoff without a player-imposed final disposition." }],
+        "exclusions": ["Merely remaining on Demeris, a delayed arrest, or an informal promise is not a recorded handoff."]
+      }
+    },
+    {
+      "id": "policy.chapter4.solenn-unavailable-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.solenn-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted narration establishes that Solenn escapes, refuses all usable participation, is removed, or otherwise becomes unavailable to the mission's accountability process.",
+        "values": [{ "value": "escapedOrUnavailable", "guidance": "Solenn is outside accountable custody or usable participation." }],
+        "exclusions": ["A refusal to answer one question, temporary absence, a threat to flee, or protected local presence is not unavailability."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-shared-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "sharedOversight" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the interface and evidence are actually secured under enforceable shared oversight.",
+        "values": [{ "value": "sharedSecured", "guidance": "The interface and evidence are secured under accountable shared custody." }],
+        "exclusions": ["Proposing oversight, beginning a transfer, or setting temporary guards is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-local-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "localSeal" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the interface and evidence are actually secured under a credible Demeris seal with bounded accountability.",
+        "values": [{ "value": "localSecured", "guidance": "Demeris secures the interface under an enforceable local seal and review boundary." }],
+        "exclusions": ["Recognizing local custody, moving the device, or promising a seal is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-starfleet-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "starfleetCustody" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Starfleet actually obtains controlling custody of the interface and evidence.",
+        "values": [{ "value": "starfleetSecured", "guidance": "The interface and evidence are secured under Starfleet control." }],
+        "exclusions": ["A seizure order, requested transfer, classification instruction, or boarding action is not completed custody."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-destroy-record-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "destroyWithRecord" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the operable interface is actually destroyed after a usable evidentiary record is preserved.",
+        "values": [{ "value": "destroyedWithRecord", "guidance": "The interface is destroyed and a deliberate usable record survives." }],
+        "exclusions": ["Preparing destruction, beginning a copy, or destroying the interface without a verified record is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-destroy-no-record-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "destroyWithoutRecord" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the interface is actually destroyed without a usable technical record.",
+        "values": [{ "value": "destroyedWithoutRecord", "guidance": "The interface is destroyed and no usable technical record survives." }],
+        "exclusions": ["An order, attempt, uncertain damage, or incomplete copy is insufficient."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-handoff-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "withdraw" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "pending" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when interface custody is explicitly handed to Demeris or another named authority after responsible withdrawal.",
+        "values": [{ "value": "handedOffLocal", "guidance": "Interface custody remains under a recorded local or successor-authority handoff." }],
+        "exclusions": ["Leaving the device somewhere, delaying seizure, or assuming local control is not an explicit handoff."]
+      }
+    },
+    {
+      "id": "policy.chapter4.interface-lost-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter4.interface-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the interface or its controlling evidence is actually seized, removed, exposed beyond control, or otherwise lost from accountable custody.",
+        "values": [{ "value": "lostOrSeized", "guidance": "The interface or its controlling evidence is lost or seized beyond accountable custody." }],
+        "exclusions": ["A theft attempt, security threat, temporary loss of contact, or fear of exposure is insufficient."]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter4.survival-and-evacuation-record",
+      "factId": "fact.chapter4.survival-and-evacuation-record",
+      "evidencePolicyId": "policy.chapter4.history-disclosed",
+      "capabilityRoles": ["operations", "science"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.survival-and-evacuation-record" },
+          { "eventOccurred": "event.chapter4.survival-record-corroborated" },
+          { "not": { "factKnown": "fact.chapter4.survival-and-evacuation-record" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The records establish that Demeris survived through a coercive but life-preserving Cardassian civilian arrangement, that the dormant interface was first used to find missing relief traffic, and that a genuine wartime decision diverted a Federation evacuation convoy."
+      }
+    },
+    {
+      "id": "report.chapter4.solenn-use-benefit-and-harm",
+      "factId": "fact.chapter4.solenn-use-benefit-and-harm",
+      "evidencePolicyId": "policy.chapter4.solenn-disclosed",
+      "capabilityRoles": ["engineering", "medical"],
+      "preferredActorIds": ["imani-cross", "miriam-sato"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.solenn-use-benefit-and-harm" },
+          { "eventOccurred": "event.chapter4.solenn-record-corroborated" },
+          { "not": { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Supported testimony and records show that Solenn used the interface to save lives, expanded its use, and concealed a forged clearance that contributed to two deaths."
+      }
+    },
+    {
+      "id": "report.chapter4.continuing-access-and-orison-route",
+      "factId": "fact.chapter4.continuing-access-and-orison-route",
+      "evidencePolicyId": "policy.chapter4.access-disclosed",
+      "capabilityRoles": ["operations", "security", "science"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn", "rowan-saye"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter4.continuing-access-and-orison-route" },
+          { "eventOccurred": "event.chapter4.continuing-access-corroborated" },
+          { "not": { "factKnown": "fact.chapter4.continuing-access-and-orison-route" } }
+        ]
+      },
+      "playerText": {
+        "summary": "The evidence supports later Compact Security access, another active access device, and an Orison response scenario as the next lead; it does not identify the wider controller."
+      }
+    }
+  ],
+  "events": [
+    { "id": "event.chapter4.survival-record-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.solenn-record-corroborated", "playerVisibility": "hidden" },
+    { "id": "event.chapter4.continuing-access-corroborated", "playerVisibility": "hidden" }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter4.process-decision",
+      "allowedValues": ["pending", "jointInquiry", "recognizeLocal", "compelStarfleet", "covertSearch", "withdraw"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.process-result",
+      "allowedValues": ["pending", "jointPublicInquiry", "localProtectedInquiry", "starfleetSeizure", "covertRecoveryExposed", "withdrawnHandoff", "processCollapsed"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.evidence-route",
+      "allowedValues": ["pending", "directInquiry", "mixedCorroboration", "externalReconstruction"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.solenn-decision",
+      "allowedValues": ["pending", "restorativeProceedings", "localTrial", "starfleetCustody", "conditionalImmunity", "protectedCooperation"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.solenn-result",
+      "allowedValues": ["pending", "restorativeProcess", "localProceedings", "starfleetCustody", "cooperativeProtection", "handedOffLocal", "escapedOrUnavailable"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.interface-decision",
+      "allowedValues": ["pending", "sharedOversight", "localSeal", "starfleetCustody", "destroyWithRecord", "destroyWithoutRecord"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    },
+    {
+      "id": "outcome.chapter4.interface-result",
+      "allowedValues": ["pending", "sharedSecured", "localSecured", "starfleetSecured", "destroyedWithRecord", "destroyedWithoutRecord", "handedOffLocal", "lostOrSeized"],
+      "initialValue": "pending",
+      "playerVisibility": "hidden"
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter4.process",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.process-decision", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "in": ["jointPublicInquiry", "localProtectedInquiry"] } }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "in": ["starfleetSeizure", "covertRecoveryExposed", "processCollapsed"] } }
+        },
+        {
+          "disposition": "handedOff",
+          "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "withdrawnHandoff" } }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff"],
+      "playerText": {
+        "title": "Establish a workable process on Demeris",
+        "summary": "Find a defensible way to investigate the disputed record under competing local, Starfleet, and witness-protection claims, or make a responsible handoff.",
+        "terminal": [
+          { "disposition": "completed", "text": "A workable public or locally protected inquiry was established." },
+          { "disposition": "completedWithCost", "text": "The inquiry proceeded through compulsion, covert action, or a process breakdown with the cost recorded." },
+          { "disposition": "handedOff", "text": "The contested inquiry was responsibly transferred to another accountable authority." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter4.truth",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+          { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+          { "factKnown": "fact.chapter4.continuing-access-and-orison-route" }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+              { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+              { "factKnown": "fact.chapter4.continuing-access-and-orison-route" },
+              { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "equals": "directInquiry" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+              { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+              { "factKnown": "fact.chapter4.continuing-access-and-orison-route" },
+              { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "in": ["mixedCorroboration", "externalReconstruction"] } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost"],
+      "playerText": {
+        "title": "Establish the supported Demeris account",
+        "summary": "Determine what the interface was used for, whom it helped and harmed, and what continuing access proves without requiring one prescribed investigation path.",
+        "terminal": [
+          { "disposition": "completed", "text": "Direct inquiry established the supported Demeris account and its next lead." },
+          { "disposition": "completedWithCost", "text": "Corroboration established the essential account, while limits in access or testimony remain recorded." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter4.accountability",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": {
+        "any": [
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "pending" } } },
+          { "not": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } } }
+        ]
+      },
+      "terminalWhen": [
+        {
+          "disposition": "failedAfterInformedAction",
+          "when": {
+            "all": [
+              { "factKnown": "fact.chapter4.survival-and-evacuation-record" },
+              { "factKnown": "fact.chapter4.solenn-use-benefit-and-harm" },
+              { "factKnown": "fact.chapter4.continuing-access-and-orison-route" },
+              {
+                "any": [
+                  { "not": { "outcomeIs": { "id": "outcome.chapter4.solenn-decision", "equals": "pending" } } },
+                  { "not": { "outcomeIs": { "id": "outcome.chapter4.interface-decision", "equals": "pending" } } }
+                ]
+              },
+              { "not": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } } },
+              {
+                "any": [
+                  { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "escapedOrUnavailable" } },
+                  { "outcomeIs": { "id": "outcome.chapter4.interface-result", "in": ["lostOrSeized", "destroyedWithoutRecord"] } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "disposition": "completed",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "in": ["restorativeProcess", "localProceedings", "cooperativeProtection"] } },
+              { "outcomeIs": { "id": "outcome.chapter4.interface-result", "in": ["sharedSecured", "localSecured"] } }
+            ]
+          }
+        },
+        {
+          "disposition": "handedOff",
+          "when": {
+            "all": [
+              { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "handedOffLocal" } },
+              { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "handedOffLocal" } }
+            ]
+          }
+        },
+        {
+          "disposition": "completedWithCost",
+          "when": {
+            "all": [
+              { "not": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "pending" } } },
+              { "not": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "pending" } } }
+            ]
+          }
+        }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Resolve personal and technical accountability",
+        "summary": "After the relevant record is known, decide how Solenn and the interface should be handled, then establish what actually happens to each.",
+        "terminal": [
+          { "disposition": "completed", "text": "Personal accountability and technical custody reached a defensible local or shared resolution." },
+          { "disposition": "completedWithCost", "text": "Accountability was resolved with a recorded jurisdictional, evidentiary, liberty, or custody cost." },
+          { "disposition": "handedOff", "text": "Personal and technical accountability were responsibly transferred to a named authority." },
+          { "disposition": "failedAfterInformedAction", "text": "A known accountability risk escaped control after the player made an informed consequential choice." }
+        ]
+      }
+    }
+  ],
+  "commandBearingAwards": [],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter4.process",
+      "playerText": { "label": "Inquiry process" },
+      "derive": [
+        { "value": "joint-public", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "jointPublicInquiry" } } },
+        { "value": "local-protected", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "localProtectedInquiry" } } },
+        { "value": "starfleet-seizure", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "starfleetSeizure" } } },
+        { "value": "covert-exposed", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "covertRecoveryExposed" } } },
+        { "value": "withdrawn-handoff", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "withdrawnHandoff" } } },
+        { "value": "collapsed", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "processCollapsed" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter4.evidence",
+      "playerText": { "label": "Evidence route" },
+      "derive": [
+        { "value": "direct-inquiry", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "equals": "directInquiry" } } },
+        { "value": "mixed-corroboration", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "equals": "mixedCorroboration" } } },
+        { "value": "external-reconstruction", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter4.evidence-route", "equals": "externalReconstruction" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter4.solenn",
+      "playerText": { "label": "Mira Solenn" },
+      "derive": [
+        { "value": "restorative-process", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "restorativeProcess" } } },
+        { "value": "local-proceedings", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "localProceedings" } } },
+        { "value": "starfleet-custody", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "starfleetCustody" } } },
+        { "value": "cooperative-protection", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "cooperativeProtection" } } },
+        { "value": "handed-off-local", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "handedOffLocal" } } },
+        { "value": "escaped-or-unavailable", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "escapedOrUnavailable" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter4.interface",
+      "playerText": { "label": "Interface custody" },
+      "derive": [
+        { "value": "shared-secured", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "sharedSecured" } } },
+        { "value": "local-secured", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "localSecured" } } },
+        { "value": "starfleet-secured", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "starfleetSecured" } } },
+        { "value": "destroyed-with-record", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "destroyedWithRecord" } } },
+        { "value": "destroyed-without-record", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "destroyedWithoutRecord" } } },
+        { "value": "handed-off-local", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "handedOffLocal" } } },
+        { "value": "lost-or-seized", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "lostOrSeized" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter4.process", "in": ["completed", "completedWithCost", "handedOff"] } },
+      { "objectiveDisposition": { "id": "objective.chapter4.truth", "in": ["completed", "completedWithCost"] } },
+      { "objectiveDisposition": { "id": "objective.chapter4.accountability", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "fracturedAccountabilityForward",
+      "priority": 600,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "processCollapsed" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "escapedOrUnavailable" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "in": ["lostOrSeized", "destroyedWithoutRecord"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The Demeris truth survives a fracture in accountability",
+        "summary": "The essential record and next lead survived, but a process collapse, unavailable witness, or loss of technical custody remains an active consequence."
+      }
+    },
+    {
+      "id": "responsibleHandoff",
+      "priority": 500,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "withdrawnHandoff" } },
+          { "objectiveDisposition": { "id": "objective.chapter4.accountability", "equals": "handedOff" } }
+        ]
+      },
+      "playerText": {
+        "title": "Demeris accountability passes to a named authority",
+        "summary": "The Breckenridge preserved the supported record and next lead while transferring unresolved jurisdiction and custody responsibly."
+      }
+    },
+    {
+      "id": "starfleetControlAtCost",
+      "priority": 400,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "starfleetSeizure" } },
+          { "outcomeIs": { "id": "outcome.chapter4.solenn-result", "equals": "starfleetCustody" } },
+          { "outcomeIs": { "id": "outcome.chapter4.interface-result", "equals": "starfleetSecured" } }
+        ]
+      },
+      "playerText": {
+        "title": "Starfleet secures control at a jurisdictional cost",
+        "summary": "The evidence and next lead survived under Starfleet control, while local legitimacy, witness trust, or transparency costs remain recorded."
+      }
+    },
+    {
+      "id": "covertTruthAtCost",
+      "priority": 300,
+      "when": {
+        "any": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "covertRecoveryExposed" } },
+          { "objectiveDisposition": { "id": "objective.chapter4.accountability", "equals": "completedWithCost" } }
+        ]
+      },
+      "playerText": {
+        "title": "The truth moves forward with a recorded cost",
+        "summary": "The supported Demeris account and next lead survived, while the chosen process or accountability settlement imposed a material cost."
+      }
+    },
+    {
+      "id": "lawfulLocalResolution",
+      "priority": 200,
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "localProtectedInquiry" } },
+          { "objectiveDisposition": { "id": "objective.chapter4.accountability", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "Demeris resolves the case under protected local process",
+        "summary": "A supported account, accountable local process, and secured interface preserve both legitimacy and the route forward."
+      }
+    },
+    {
+      "id": "sharedAccountability",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "outcomeIs": { "id": "outcome.chapter4.process-result", "equals": "jointPublicInquiry" } },
+          { "objectiveDisposition": { "id": "objective.chapter4.accountability", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "A shared inquiry establishes accountable truth",
+        "summary": "The Demeris record, personal accountability, and interface custody reached a defensible shared resolution with a supported next lead."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter4.old-lessons",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "chapter-5-old-lessons",
+        "playerSafeSetup": "The supported Demeris record shows later Compact Security access and another active device, while an Orison response scenario and conflicting convoy warnings provide the next defensible lead."
+      },
+      "mustNarrate": [
+        "State the actual process, evidence route, Solenn result, and interface-custody result without upgrading partial success into total success.",
+        "Use only facts the player learned; distinguish direct inquiry from mixed corroboration or external reconstruction.",
+        "Carry forward process collapse, witness unavailability, jurisdictional cost, destruction, lost custody, or responsible handoff when recorded.",
+        "Frame Orison and the additional access device as supported next leads, not as proof of the wider controller."
+      ],
+      "mustNotReveal": [
+        "Do not reveal Sigma-4 as the actual next target, Pale Lantern's study of command doctrine, Holt's initiation role, autonomous expansion, Rourke's role, or the Wayward Sun compromise.",
+        "Do not claim the player uncovered Solenn's complete record or continuing access when those facts remain unknown.",
+        "Do not erase local legitimacy, witness-protection, custody, evidence, or process costs.",
+        "Do not imply that a legal process, Solenn disposition, or interface disposition was the player's choice unless its corresponding decision is recorded."
+      ]
+    }
+  ]
+}

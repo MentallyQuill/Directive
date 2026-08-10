@@ -1,0 +1,454 @@
+{
+  "kind": "directive.ashesV1Chapter1Scenarios.v1",
+  "definitionId": "mission.chapter-1-the-empty-convoy",
+  "fragments": {
+    "authority-report": [
+      {
+        "claimId": "claim.chapter1.authority-conflict-disclosed",
+        "policyId": "policy.chapter1.authority-conflict-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.authority-conflict",
+        "sourceRole": "assistant"
+      }
+    ],
+    "first-contact": [
+      {
+        "claimId": "claim.chapter1.initial-assessment-completed",
+        "policyId": "policy.chapter1.initial-assessment-completed",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter1.initial-assessment-completed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter1.dispersal-picture-disclosed",
+        "policyId": "policy.chapter1.dispersal-picture-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.dispersal-picture",
+        "sourceRole": "assistant"
+      }
+    ],
+    "recovery-picture": [
+      {
+        "claimId": "claim.chapter1.recovery-evidence-obtained",
+        "policyId": "policy.chapter1.recovery-evidence-obtained",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter1.recovery-evidence-obtained",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter1.recovery-authentication-picture-disclosed",
+        "policyId": "policy.chapter1.recovery-authentication-picture-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.recovery-authentication-picture",
+        "sourceRole": "assistant"
+      }
+    ],
+    "relief-safe": [
+      {
+        "claimId": "claim.chapter1.relief-safe",
+        "policyId": "policy.chapter1.relief-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.relief-result",
+        "value": "safe",
+        "sourceRole": "assistant"
+      }
+    ],
+    "relief-safe-with-cost": [
+      {
+        "claimId": "claim.chapter1.relief-safe-with-cost",
+        "policyId": "policy.chapter1.relief-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.relief-result",
+        "value": "safeWithCost",
+        "sourceRole": "assistant"
+      }
+    ],
+    "relief-handed-off": [
+      {
+        "claimId": "claim.chapter1.relief-handed-off",
+        "policyId": "policy.chapter1.relief-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.relief-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "relief-failed-informed": [
+      {
+        "claimId": "claim.chapter1.relief-failed-informed",
+        "policyId": "policy.chapter1.relief-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.relief-result",
+        "value": "failedInformed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-joint": [
+      {
+        "claimId": "claim.chapter1.authority-joint",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "jointDisposition",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-starfleet": [
+      {
+        "claimId": "claim.chapter1.authority-starfleet",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "lawfulStarfleetDisposition",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-contained-with-cost": [
+      {
+        "claimId": "claim.chapter1.authority-contained-with-cost",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "containedWithCost",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-handed-off": [
+      {
+        "claimId": "claim.chapter1.authority-handed-off",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-declined": [
+      {
+        "claimId": "claim.chapter1.authority-declined",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "knowinglyDeclined",
+        "sourceRole": "assistant"
+      }
+    ],
+    "authority-failed-informed": [
+      {
+        "claimId": "claim.chapter1.authority-failed-informed",
+        "policyId": "policy.chapter1.authority-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.authority-result",
+        "value": "failedInformed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-joint": [
+      {
+        "claimId": "claim.chapter1.hardware-joint",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "recoveredJointly",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-starfleet": [
+      {
+        "claimId": "claim.chapter1.hardware-starfleet",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "securedByAuthority",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-with-cost": [
+      {
+        "claimId": "claim.chapter1.hardware-with-cost",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "recoveredWithCost",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-handed-off": [
+      {
+        "claimId": "claim.chapter1.hardware-handed-off",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-declined": [
+      {
+        "claimId": "claim.chapter1.hardware-declined",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "knowinglyDeclined",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hardware-lost-informed": [
+      {
+        "claimId": "claim.chapter1.hardware-lost-informed",
+        "policyId": "policy.chapter1.hardware-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.hardware-result",
+        "value": "lostAfterInformedAction",
+        "sourceRole": "assistant"
+      }
+    ],
+    "joint-record": [
+      {
+        "claimId": "claim.chapter1.joint-record",
+        "policyId": "policy.chapter1.incident-record",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.incident-record",
+        "value": "jointRecord",
+        "sourceRole": "assistant"
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "cooperative-success",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "relief-safe", "hardware-joint", "joint-record", "authority-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "cooperativeSuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed",
+          "objective.chapter1.shared-record": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.relief": "safe",
+          "dimension.chapter1.authority": "joint",
+          "dimension.chapter1.hardware": "recovered-jointly",
+          "dimension.chapter1.cooperation": "joint-record"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "lawful-unilateral-success",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "authority-starfleet", "relief-safe", "hardware-starfleet"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed",
+          "objective.chapter1.shared-record": null
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.relief": "safe",
+          "dimension.chapter1.authority": "lawful-starfleet",
+          "dimension.chapter1.hardware": "secured-by-authority"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "success-by-handoff",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "relief-handed-off", "authority-handed-off", "hardware-handed-off"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "containedWithSeriousCost",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "handedOff",
+          "objective.chapter1.authority": "handedOff",
+          "objective.chapter1.hardware": "handedOff"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.relief": "handed-off",
+          "dimension.chapter1.authority": "handed-off",
+          "dimension.chapter1.hardware": "handed-off"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "success-with-cost",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "hardware-with-cost", "authority-contained-with-cost", "relief-safe-with-cost"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "containedWithSeriousCost",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completedWithCost",
+          "objective.chapter1.authority": "completedWithCost",
+          "objective.chapter1.hardware": "completedWithCost"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.relief": "safe-with-cost",
+          "dimension.chapter1.authority": "contained-with-cost",
+          "dimension.chapter1.hardware": "recovered-with-cost"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "informed-failure-forward",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "relief-failed-informed", "hardware-lost-informed", "authority-failed-informed"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "limitedFailureForward",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "failedAfterInformedAction",
+          "objective.chapter1.authority": "failedAfterInformedAction",
+          "objective.chapter1.hardware": "failedAfterInformedAction"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.relief": "failed-after-informed-action",
+          "dimension.chapter1.authority": "failed-after-informed-action",
+          "dimension.chapter1.hardware": "lost-after-informed-action"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "undiscovered-content-does-not-close",
+      "sequence": ["authority-report", "relief-safe"],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 2,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": null,
+          "objective.chapter1.hardware": null
+        },
+        "knownFactsExcludes": [
+          "fact.chapter1.dispersal-picture",
+          "fact.chapter1.recovery-authentication-picture"
+        ]
+      }
+    },
+    {
+      "id": "knowing-decline-after-disclosure",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "relief-safe", "hardware-declined", "authority-declined"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "limitedFailureForward",
+        "acceptedClaimCount": 8,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "knowinglyDeclined",
+          "objective.chapter1.hardware": "knowinglyDeclined"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "non-linear-core-order",
+      "sequence": ["first-contact", "authority-report", "recovery-picture", "authority-joint", "joint-record", "hardware-joint", "relief-safe"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "cooperativeSuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed",
+          "objective.chapter1.shared-record": "completed"
+        },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "unsupported-player-self-declared-success",
+      "steps": [
+        {
+          "claimId": "claim.chapter1.player-declares-relief-safe",
+          "policyId": "policy.chapter1.relief-result",
+          "claimType": "outcomeObserved",
+          "targetId": "outcome.chapter1.relief-result",
+          "value": "safe",
+          "sourceRole": "user"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["source-role-not-authorized"]
+      }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter1.stale-authority-report",
+          "policyId": "policy.chapter1.authority-conflict-disclosed",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter1.authority-conflict",
+          "sourceRole": "assistant",
+          "baseRevisionOffset": 1
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["stale-revision"]
+      }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter1.wrong-swipe-authority-report",
+          "policyId": "policy.chapter1.authority-conflict-disclosed",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter1.authority-conflict",
+          "sourceRole": "assistant",
+          "sourceSwipeOverride": "swipe.not-selected"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["swipe-mismatch"]
+      }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        {
+          "claimId": "claim.chapter1.unknown-policy",
+          "policyId": "policy.chapter1.invented",
+          "claimType": "factDisclosed",
+          "targetId": "fact.chapter1.authority-conflict",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["unknown-policy"]
+      }
+    }
+  ]
+}

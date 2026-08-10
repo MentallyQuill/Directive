@@ -1,5 +1,4 @@
 export const DIRECTIVE_SILLYTAVERN_SETTINGS_NAMESPACE = 'directive';
-export const DIRECTIVE_SILLYTAVERN_ENABLED_SETTING = 'enabled';
 export const DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_SETTING = 'presetAutoCheckOnStartup';
 export const DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_DISMISSED_VERSION_SETTING = 'presetAutoCheckDismissedVersion';
 
@@ -46,18 +45,6 @@ export function getSillyTavernDirectiveSettings(context = null) {
     root[DIRECTIVE_SILLYTAVERN_SETTINGS_NAMESPACE] = {};
   }
   return root[DIRECTIVE_SILLYTAVERN_SETTINGS_NAMESPACE];
-}
-
-export function isSillyTavernDirectiveEnabled(context = null) {
-  return getSillyTavernDirectiveSettings(context)[DIRECTIVE_SILLYTAVERN_ENABLED_SETTING] !== false;
-}
-
-export function setSillyTavernDirectiveEnabledSetting(value, context = null) {
-  const enabled = value !== false;
-  const settings = getSillyTavernDirectiveSettings(context);
-  settings[DIRECTIVE_SILLYTAVERN_ENABLED_SETTING] = enabled;
-  saveSettings(context);
-  return enabled;
 }
 
 export function getSillyTavernDirectivePresetAutoCheckPreference(context = null) {

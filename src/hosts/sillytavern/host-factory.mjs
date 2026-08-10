@@ -11,10 +11,6 @@ import { createSillyTavernPromptAdapter } from './prompt-adapter.mjs';
 import { createSillyTavernProviderSettingsStore } from '../../providers/directive-provider-settings.mjs';
 import { createDirectiveProviderClient } from './provider-client.mjs';
 import { createSillyTavernDirectivePresetManager } from './preset-manager.mjs';
-import {
-  reportDirectiveJobProgress,
-  reportDirectiveStorageProgress
-} from './turn-activity-indicator.js';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -50,12 +46,6 @@ function createSillyTavernUiAdapter({ mount = null, send = null } = {}) {
       if (typeof send === 'function') send(message);
     },
     reportProgress(payload) {
-      try {
-        reportDirectiveJobProgress(payload);
-        reportDirectiveStorageProgress(payload);
-      } catch (error) {
-        console.warn('[Directive] Failed to render job progress:', error);
-      }
       this.send({ type: 'directive.job.progress', payload: cloneJson(payload) });
     },
     messages() {
@@ -105,7 +95,6 @@ export function createSillyTavernDirectiveHost({
     || typeof globalThis.SillyTavern?.setExtensionPrompt === 'function';
   const hasPresetManager = hasChatCompletionPresetManager(resolvedContext);
   const uiAdapter = createSillyTavernUiAdapter(ui);
-  const reportStorageProgress = (payload) => uiAdapter.reportProgress(payload);
 
   return normalizeDirectiveHost({
     id: 'sillytavern',
@@ -179,8 +168,7 @@ export function createSillyTavernDirectiveHost({
       ? createSillyTavernStorageAdapter({
           getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
             ? () => resolvedContext.getRequestHeaders()
-            : undefined,
-          onProgress: reportStorageProgress
+            : undefined
         })
       : createSillyTavernFileStorageAdapter({
           getRequestHeaders: typeof resolvedContext.getRequestHeaders === 'function'
@@ -198,15 +186,6 @@ export function createSillyTavernDirectiveHost({
       getSettings: () => providerSettings.getAll(),
       updateSettings(kind, patch) {
         return providerSettings.update(kind, patch);
-      },
-      updateRoleProviderKind(roleId, providerKind) {
-        return providerSettings.updateRoleProviderKind(roleId, providerKind);
-      },
-      resetRoleProviderKind(roleId) {
-        return providerSettings.resetRoleProviderKind(roleId);
-      },
-      listRoleRouting() {
-        return providerSettings.listRoleRouting();
       },
       validate: (kind = null) => providerSettings.validate(kind),
       test: (kind) => providerClient.test(kind),

@@ -3,7 +3,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'campaign',
     label: 'Campaign',
     shortLabel: 'Campaign',
-    shelfLabel: 'Playthroughs & Saves',
+    shelfLabel: 'Campaigns & Saves',
     iconSlot: 'route.campaign',
     icon: 'fa-solid fa-rocket',
     description: 'Create, save, and load Directive campaigns.'
@@ -12,10 +12,10 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     id: 'mission',
     label: 'Mission',
     shortLabel: 'Mission',
-    shelfLabel: 'Quest Journal',
+    shelfLabel: 'Objectives & Outcomes',
     iconSlot: 'route.mission',
     icon: 'fa-solid fa-compass',
-    description: 'Review quests, objectives, urgency, and known information.'
+    description: 'Review the active mission, objectives, known clocks, and outcomes.'
   },
   {
     id: 'people',
@@ -42,16 +42,13 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'General',
     iconSlot: 'route.settings',
     icon: 'fa-solid fa-sliders',
-    description: 'Change player preferences and open advanced troubleshooting.'
+    description: 'Change player preferences and provider configuration.'
   }
 ]);
-
-const REMOVED_ROUTE_IDS = new Set(['log', 'intel', 'inventory', 'map', 'open-threads', 'open-world', 'context', 'components', 'recovery']);
 
 export function resolveDirectiveRouteId(routeId, { hasActiveCampaign = false, fallback = '' } = {}) {
   const value = String(routeId || '').trim();
   if (DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === value)) return value;
-  if (REMOVED_ROUTE_IDS.has(value) || !value) return hasActiveCampaign ? 'mission' : 'campaign';
   return fallback || (hasActiveCampaign ? 'mission' : 'campaign');
 }
 

@@ -1,0 +1,760 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/mission/mission-v1.schema.json",
+  "title": "Directive V1 Mission Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "id",
+    "version",
+    "packageBinding",
+    "playerText",
+    "facts",
+    "evidencePolicies",
+    "reportRoutes",
+    "events",
+    "outcomes",
+    "objectives",
+    "commandBearingAwards",
+    "outcomeDimensions",
+    "clocks",
+    "closeWhen",
+    "terminalDispositions",
+    "transitions"
+  ],
+  "properties": {
+    "kind": { "const": "directive.missionDefinition.v1" },
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/stableId" },
+    "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+    "packageBinding": { "$ref": "#/$defs/packageBinding" },
+    "playerText": { "$ref": "#/$defs/playerText" },
+    "projectionHints": { "$ref": "#/$defs/projectionHints" },
+    "entryCapabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entryCapability" },
+      "uniqueItems": true
+    },
+    "facts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fact" }
+    },
+    "evidencePolicies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidencePolicy" }
+    },
+    "reportRoutes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reportRoute" }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "outcomes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/outcome" }
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/objective" }
+    },
+    "commandBearingAwards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/commandBearingAward" }
+    },
+    "outcomeDimensions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/outcomeDimension" }
+    },
+    "clocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/clock" }
+    },
+    "closeWhen": { "$ref": "#/$defs/predicate" },
+    "terminalDispositions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/terminalDisposition" }
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/transition" }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "packageBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "packageVersion", "sourceId"],
+      "properties": {
+        "packageId": { "$ref": "#/$defs/stableId" },
+        "packageVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "sourceId": { "$ref": "#/$defs/stableId" }
+      }
+    },
+    "projectionHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shipReadinessObjectiveId", "shipReadinessDimensionId"],
+      "properties": {
+        "shipReadinessObjectiveId": { "$ref": "#/$defs/stableId" },
+        "shipReadinessDimensionId": { "$ref": "#/$defs/stableId" }
+      }
+    },
+    "playerText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "summary"],
+      "properties": {
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "entryCapabilityRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimensionId", "in"],
+      "properties": {
+        "dimensionId": { "$ref": "#/$defs/stableId" },
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "entryCapabilitySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definitionId", "definitionVersion", "requirements"],
+      "properties": {
+        "definitionId": { "$ref": "#/$defs/stableId" },
+        "definitionVersion": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/entryCapabilityRequirement" }
+        }
+      }
+    },
+    "entryCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "playerText"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "source": { "$ref": "#/$defs/entryCapabilitySource" },
+        "playerText": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "summary"],
+          "properties": {
+            "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "summaryText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "terminalText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "text"],
+      "properties": {
+        "disposition": { "$ref": "#/$defs/objectiveDisposition" },
+        "text": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "objectivePlayerText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "summary", "terminal"],
+      "properties": {
+        "title": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "summary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "terminal": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/terminalText" }
+        }
+      }
+    },
+    "objectiveDisposition": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "completedWithCost",
+        "handedOff",
+        "knowinglyDeclined",
+        "waived",
+        "failedAfterInformedAction",
+        "expiredAfterKnownDeadline"
+      ]
+    },
+    "enumMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "equals": { "type": "string", "minLength": 1 },
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "oneOf": [
+        { "required": ["equals"] },
+        { "required": ["in"] }
+      ]
+    },
+    "missionStatusMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "equals": {
+          "type": "string",
+          "enum": ["inactive", "active", "terminal", "invalidated"]
+        },
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["inactive", "active", "terminal", "invalidated"]
+          },
+          "uniqueItems": true
+        }
+      },
+      "oneOf": [
+        { "required": ["equals"] },
+        { "required": ["in"] }
+      ]
+    },
+    "predicate": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["all"],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not"],
+          "properties": {
+            "not": { "$ref": "#/$defs/predicate" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["capabilityAvailable"],
+          "properties": {
+            "capabilityAvailable": { "$ref": "#/$defs/stableId" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["factKnown"],
+          "properties": {
+            "factKnown": { "$ref": "#/$defs/stableId" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["worldFact"],
+          "properties": {
+            "worldFact": { "$ref": "#/$defs/stableId" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eventOccurred"],
+          "properties": {
+            "eventOccurred": { "$ref": "#/$defs/stableId" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcomeIs"],
+          "properties": {
+            "outcomeIs": { "$ref": "#/$defs/enumMatch" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["objectiveState"],
+          "properties": {
+            "objectiveState": { "$ref": "#/$defs/enumMatch" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["objectiveDisposition"],
+          "properties": {
+            "objectiveDisposition": { "$ref": "#/$defs/enumMatch" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clockState"],
+          "properties": {
+            "clockState": { "$ref": "#/$defs/enumMatch" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["missionStatus"],
+          "properties": {
+            "missionStatus": { "$ref": "#/$defs/missionStatusMatch" }
+          }
+        }
+      ]
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "initiallyTrue", "visibility"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "initiallyTrue": { "type": "boolean" },
+        "visibility": {
+          "type": "string",
+          "enum": ["known", "discoverable", "hidden"]
+        },
+        "playerText": { "$ref": "#/$defs/summaryText" }
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "claimType", "targetId", "sourceRoles", "when"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "claimType": {
+          "type": "string",
+          "enum": [
+            "intentExpressed",
+            "decisionRecorded",
+            "worldFactEstablished",
+            "factDisclosed",
+            "eventOccurred",
+            "outcomeObserved",
+            "timeAdvanced"
+          ]
+        },
+        "targetId": { "$ref": "#/$defs/stableId" },
+        "sourceRoles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["user", "assistant", "runtime", "adjudicator"]
+          }
+        },
+        "interpretation": { "$ref": "#/$defs/evidenceInterpretation" },
+        "when": { "$ref": "#/$defs/predicate" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceRoles": {
+                "contains": { "enum": ["user", "assistant"] }
+              }
+            }
+          },
+          "then": { "required": ["interpretation"] }
+        }
+      ]
+    },
+    "evidenceInterpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceStandard", "guidance", "exclusions"],
+      "properties": {
+        "evidenceStandard": {
+          "type": "string",
+          "enum": ["explicit", "clearOutcome"]
+        },
+        "guidance": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidenceInterpretationValue" }
+        },
+        "exclusions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "evidenceInterpretationValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "guidance"],
+      "properties": {
+        "value": {},
+        "guidance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reportRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "factId",
+        "evidencePolicyId",
+        "capabilityRoles",
+        "preferredActorIds",
+        "fallbackActorIds",
+        "urgency",
+        "confidence",
+        "deliveryRequirement",
+        "when",
+        "playerText"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "factId": { "$ref": "#/$defs/stableId" },
+        "evidencePolicyId": { "$ref": "#/$defs/stableId" },
+        "capabilityRoles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "preferredActorIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "fallbackActorIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "urgency": {
+          "type": "string",
+          "enum": ["routine", "material", "urgent"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["preliminary", "credible", "confirmed"]
+        },
+        "deliveryRequirement": {
+          "type": "string",
+          "enum": ["optional", "required"]
+        },
+        "when": { "$ref": "#/$defs/predicate" },
+        "playerText": { "$ref": "#/$defs/summaryText" }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "playerVisibility"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "playerVisibility": {
+          "type": "string",
+          "enum": ["visible", "hidden"]
+        },
+        "playerText": { "$ref": "#/$defs/summaryText" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "allowedValues", "initialValue", "playerVisibility"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "allowedValues": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "initialValue": { "type": "string", "minLength": 1 },
+        "playerVisibility": {
+          "type": "string",
+          "enum": ["visible", "hidden"]
+        },
+        "playerText": { "$ref": "#/$defs/summaryText" }
+      }
+    },
+    "activationRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["factId", "mandatory", "playerVisible"],
+      "properties": {
+        "factId": { "$ref": "#/$defs/stableId" },
+        "mandatory": { "type": "boolean" },
+        "playerVisible": { "type": "boolean" }
+      }
+    },
+    "terminalRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "when"],
+      "properties": {
+        "disposition": { "$ref": "#/$defs/objectiveDisposition" },
+        "when": { "$ref": "#/$defs/predicate" }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "class",
+        "activatedAs",
+        "activationWhen",
+        "availableWhen",
+        "visibleWhen",
+        "progressWhen",
+        "terminalWhen",
+        "supportedDispositions",
+        "playerText"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "class": {
+          "type": "string",
+          "enum": ["required", "optional", "conditional"]
+        },
+        "activatedAs": {
+          "type": ["string", "null"],
+          "enum": ["required", "optional", null]
+        },
+        "activationRoute": { "$ref": "#/$defs/activationRoute" },
+        "activationWhen": { "$ref": "#/$defs/predicate" },
+        "availableWhen": { "$ref": "#/$defs/predicate" },
+        "visibleWhen": { "$ref": "#/$defs/predicate" },
+        "progressWhen": { "$ref": "#/$defs/predicate" },
+        "terminalWhen": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/terminalRule" }
+        },
+        "supportedDispositions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/objectiveDisposition" },
+          "uniqueItems": true
+        },
+        "playerText": { "$ref": "#/$defs/objectivePlayerText" }
+      }
+    },
+    "commandBearingAward": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceObjectiveId", "eligibleDispositions", "reason"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "sourceObjectiveId": { "$ref": "#/$defs/stableId" },
+        "eligibleDispositions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["completed", "completedWithCost", "handedOff"]
+          },
+          "uniqueItems": true
+        },
+        "reason": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "dimensionDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "priority", "when"],
+      "properties": {
+        "value": { "type": ["string", "number", "boolean"] },
+        "priority": { "type": "integer" },
+        "when": { "$ref": "#/$defs/predicate" }
+      }
+    },
+    "outcomeDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "playerText", "derive"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "playerText": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": {
+            "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+          }
+        },
+        "derive": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/dimensionDerivation" }
+        }
+      }
+    },
+    "clockConsequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effectType", "targetId", "value"],
+      "properties": {
+        "effectType": { "$ref": "#/$defs/stableId" },
+        "targetId": { "$ref": "#/$defs/stableId" },
+        "value": { "type": ["string", "number", "boolean", "null"] }
+      }
+    },
+    "clockPlayerText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "deadline", "consequence"],
+      "properties": {
+        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "deadline": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "consequence": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "unit",
+        "direction",
+        "initialValue",
+        "startWhen",
+        "advanceSources",
+        "expireWhen",
+        "visibleWhen",
+        "consequence",
+        "playerText"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "unit": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "direction": { "type": "string", "enum": ["down", "up"] },
+        "initialValue": { "type": "number" },
+        "startWhen": { "$ref": "#/$defs/predicate" },
+        "advanceSources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/stableId" },
+          "uniqueItems": true
+        },
+        "pauseWhen": { "$ref": "#/$defs/predicate" },
+        "resumeWhen": { "$ref": "#/$defs/predicate" },
+        "expireWhen": { "$ref": "#/$defs/predicate" },
+        "resolveWhen": { "$ref": "#/$defs/predicate" },
+        "visibleWhen": { "$ref": "#/$defs/predicate" },
+        "consequence": { "$ref": "#/$defs/clockConsequence" },
+        "playerText": { "$ref": "#/$defs/clockPlayerText" }
+      }
+    },
+    "terminalDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "priority", "when", "playerText"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "priority": { "type": "integer" },
+        "when": { "$ref": "#/$defs/predicate" },
+        "playerText": { "$ref": "#/$defs/playerText" }
+      }
+    },
+    "transitionTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "playerSafeSetup"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["phase", "mission"] },
+        "id": { "$ref": "#/$defs/stableId" },
+        "playerSafeSetup": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "campaignConclusion": { "$ref": "#/$defs/campaignConclusionTarget" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["campaignConclusion"] },
+          "then": { "properties": { "kind": { "const": "phase" } } }
+        }
+      ]
+    },
+    "campaignConclusionTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endConditionId"],
+      "properties": {
+        "endConditionId": { "$ref": "#/$defs/stableId" }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "priority", "when", "target", "mustNarrate", "mustNotReveal"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "priority": { "type": "integer" },
+        "when": { "$ref": "#/$defs/predicate" },
+        "target": { "$ref": "#/$defs/transitionTarget" },
+        "mustNarrate": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "mustNotReveal": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}

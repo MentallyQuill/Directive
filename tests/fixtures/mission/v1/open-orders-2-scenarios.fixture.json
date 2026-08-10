@@ -1,0 +1,277 @@
+{
+  "kind": "directive.ashesV1OpenOrders2Scenarios.v1",
+  "definitionId": "mission.open-orders-2-what-survives",
+  "fragments": {
+    "watch-direct": [
+      { "claimId": "claim.open-orders2.watch-direct", "policyId": "policy.open-orders2.last-watch-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.last-watch-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "watch-delegated": [
+      { "claimId": "claim.open-orders2.watch-delegated", "policyId": "policy.open-orders2.last-watch-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.last-watch-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "watch-declined": [
+      { "claimId": "claim.open-orders2.watch-declined", "policyId": "policy.open-orders2.last-watch-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.last-watch-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "watch-assessment": [
+      { "claimId": "claim.open-orders2.watch-assessed", "policyId": "policy.open-orders2.last-watch-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders2.last-watch-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders2.watch-assessment-disclosed", "policyId": "policy.open-orders2.last-watch-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.last-watch-assessment", "sourceRole": "assistant" }
+    ],
+    "watch-asset": [
+      { "claimId": "claim.open-orders2.watch-asset", "policyId": "policy.open-orders2.last-watch-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.last-watch-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "watch-limited": [
+      { "claimId": "claim.open-orders2.watch-limited", "policyId": "policy.open-orders2.last-watch-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.last-watch-result", "value": "resolvedWithoutAsset", "sourceRole": "assistant" }
+    ],
+    "watch-failed": [
+      { "claimId": "claim.open-orders2.watch-failed", "policyId": "policy.open-orders2.last-watch-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.last-watch-result", "value": "failedAfterInformedAction", "sourceRole": "assistant" }
+    ],
+    "opinion-direct": [
+      { "claimId": "claim.open-orders2.opinion-direct", "policyId": "policy.open-orders2.second-opinion-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.second-opinion-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "opinion-delegated": [
+      { "claimId": "claim.open-orders2.opinion-delegated", "policyId": "policy.open-orders2.second-opinion-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.second-opinion-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "opinion-declined": [
+      { "claimId": "claim.open-orders2.opinion-declined", "policyId": "policy.open-orders2.second-opinion-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.second-opinion-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "opinion-assessment": [
+      { "claimId": "claim.open-orders2.opinion-assessed", "policyId": "policy.open-orders2.second-opinion-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders2.second-opinion-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders2.opinion-assessment-disclosed", "policyId": "policy.open-orders2.second-opinion-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.second-opinion-assessment", "sourceRole": "assistant" }
+    ],
+    "opinion-asset": [
+      { "claimId": "claim.open-orders2.opinion-asset", "policyId": "policy.open-orders2.second-opinion-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.second-opinion-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "opinion-limited": [
+      { "claimId": "claim.open-orders2.opinion-limited", "policyId": "policy.open-orders2.second-opinion-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.second-opinion-result", "value": "resolvedWithoutAsset", "sourceRole": "assistant" }
+    ],
+    "opinion-failed": [
+      { "claimId": "claim.open-orders2.opinion-failed", "policyId": "policy.open-orders2.second-opinion-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.second-opinion-result", "value": "failedAfterInformedAction", "sourceRole": "assistant" }
+    ],
+    "result-direct": [
+      { "claimId": "claim.open-orders2.result-direct", "policyId": "policy.open-orders2.unwelcome-result-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.unwelcome-result-engagement", "value": "direct", "sourceRole": "user" }
+    ],
+    "result-delegated": [
+      { "claimId": "claim.open-orders2.result-delegated", "policyId": "policy.open-orders2.unwelcome-result-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.unwelcome-result-engagement", "value": "delegated", "sourceRole": "user" }
+    ],
+    "result-declined": [
+      { "claimId": "claim.open-orders2.result-declined", "policyId": "policy.open-orders2.unwelcome-result-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.unwelcome-result-engagement", "value": "declined", "sourceRole": "user" }
+    ],
+    "result-assessment": [
+      { "claimId": "claim.open-orders2.result-assessed", "policyId": "policy.open-orders2.unwelcome-result-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders2.unwelcome-result-assessed", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders2.result-assessment-disclosed", "policyId": "policy.open-orders2.unwelcome-result-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.unwelcome-result-assessment", "sourceRole": "assistant" }
+    ],
+    "result-asset": [
+      { "claimId": "claim.open-orders2.result-asset", "policyId": "policy.open-orders2.unwelcome-result-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.unwelcome-result-result", "value": "assetEarned", "sourceRole": "assistant" }
+    ],
+    "result-limited": [
+      { "claimId": "claim.open-orders2.result-limited", "policyId": "policy.open-orders2.unwelcome-result-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.unwelcome-result-result", "value": "resolvedWithoutAsset", "sourceRole": "assistant" }
+    ],
+    "result-failed": [
+      { "claimId": "claim.open-orders2.result-failed", "policyId": "policy.open-orders2.unwelcome-result-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.unwelcome-result-result", "value": "failedAfterInformedAction", "sourceRole": "assistant" }
+    ],
+    "credentials": [
+      { "claimId": "claim.open-orders2.credentials-corroborated", "policyId": "policy.open-orders2.credential-path-corroborated", "claimType": "eventOccurred", "targetId": "event.open-orders2.credential-path-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders2.credentials-disclosed", "policyId": "policy.open-orders2.credential-path-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.current-starfleet-credential-path", "sourceRole": "assistant" }
+    ],
+    "conclude-two": [
+      { "claimId": "claim.open-orders2.conclude-two", "policyId": "policy.open-orders2.conclude-after-two", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.conclusion", "value": "concludeAfterTwo", "sourceRole": "user" }
+    ],
+    "conclude-broad": [
+      { "claimId": "claim.open-orders2.conclude-broad", "policyId": "policy.open-orders2.conclude-broad-coverage", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.conclusion", "value": "broadCoverage", "sourceRole": "user" }
+    ],
+    "conclude-overextended": [
+      { "claimId": "claim.open-orders2.conclude-overextended", "policyId": "policy.open-orders2.conclude-overextended", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.conclusion", "value": "overextended", "sourceRole": "user" }
+    ],
+    "depart-early": [
+      { "claimId": "claim.open-orders2.depart-early", "policyId": "policy.open-orders2.depart-early", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.conclusion", "value": "departEarly", "sourceRole": "user" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "two-assignment-normal",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-asset", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "completed", "objective.open-orders2.unwelcome-result": null
+        },
+        "outcomeDimensions": {
+          "dimension.open-orders2.load": "normal-two", "dimension.open-orders2.last-watch": "asset-earned", "dimension.open-orders2.second-opinion": "asset-earned"
+        },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "broad-coverage-with-delegation",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-asset", "result-delegated", "result-assessment", "result-asset", "credentials", "conclude-broad"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "completed", "objective.open-orders2.unwelcome-result": "completed"
+        },
+        "outcomeDimensions": { "dimension.open-orders2.load": "broad-delegated-coverage", "dimension.open-orders2.unwelcome-result": "asset-earned" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "three-direct-overextension",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-asset", "result-direct", "result-assessment", "result-asset", "credentials", "conclude-overextended"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "overextendedWithCost", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders2.conclusion": "completedWithCost", "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "completed", "objective.open-orders2.unwelcome-result": "completed"
+        },
+        "outcomeDimensions": { "dimension.open-orders2.load": "overextended-direct" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "overextended-with-informed-failure",
+      "sequence": ["watch-direct", "watch-assessment", "watch-failed", "opinion-direct", "opinion-assessment", "opinion-asset", "result-direct", "result-assessment", "result-asset", "credentials", "conclude-overextended"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders2.conclusion": "completedWithCost", "objective.open-orders2.last-watch": "failedAfterInformedAction", "objective.open-orders2.second-opinion": "completed", "objective.open-orders2.unwelcome-result": "completed"
+        },
+        "outcomeDimensions": { "dimension.open-orders2.load": "overextended-direct" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "limited-mixed-results",
+      "sequence": ["watch-direct", "watch-assessment", "watch-limited", "result-delegated", "result-assessment", "result-asset", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "completedWithCost", "objective.open-orders2.unwelcome-result": "completed" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "informed-assignment-failure",
+      "sequence": ["watch-direct", "watch-assessment", "watch-failed", "opinion-direct", "opinion-assessment", "opinion-asset", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "failedAfterInformedAction", "objective.open-orders2.second-opinion": "completed" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "early-departure-after-background-report",
+      "sequence": ["credentials", "depart-early"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "earlyDepartureForward", "acceptedClaimCount": 3, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": "completedWithCost" },
+        "outcomeDimensions": { "dimension.open-orders2.load": "departed-early" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "all-declined-departure",
+      "sequence": ["watch-declined", "opinion-declined", "result-declined", "credentials", "depart-early"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "earlyDepartureForward", "acceptedClaimCount": 6, "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.open-orders2.conclusion": "completedWithCost", "objective.open-orders2.last-watch": "knowinglyDeclined", "objective.open-orders2.second-opinion": "knowinglyDeclined", "objective.open-orders2.unwelcome-result": "knowinglyDeclined"
+        },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "decline-then-reconsider",
+      "sequence": ["watch-declined", "watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-asset", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "completed" },
+        "outcomeDimensions": { "dimension.open-orders2.load": "normal-two", "dimension.open-orders2.last-watch": "asset-earned" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "non-linear-assignment-order",
+      "sequence": ["result-direct", "result-assessment", "result-asset", "watch-delegated", "watch-assessment", "watch-asset", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": null, "objective.open-orders2.unwelcome-result": "completed" },
+        "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "selection-alone-does-not-close",
+      "sequence": ["watch-direct"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": null, "objective.open-orders2.last-watch": null },
+        "knownFactsExcludes": ["fact.open-orders2.last-watch-assessment", "fact.open-orders2.current-starfleet-credential-path"]
+      }
+    },
+    {
+      "id": "delegation-order-does-not-earn-asset",
+      "sequence": ["watch-delegated"],
+      "steps": [
+        { "claimId": "claim.open-orders2.premature-delegated-asset", "policyId": "policy.open-orders2.last-watch-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.last-watch-result", "value": "assetEarned", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 1, "rejectedReasonCodes": ["precondition-not-met"], "objectiveDispositions": { "objective.open-orders2.last-watch": null } }
+    },
+    {
+      "id": "premature-assignment-report",
+      "steps": [
+        { "claimId": "claim.open-orders2.premature-watch-report", "policyId": "policy.open-orders2.last-watch-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.last-watch-assessment", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "premature-credential-disclosure",
+      "steps": [
+        { "claimId": "claim.open-orders2.premature-credentials", "policyId": "policy.open-orders2.credential-path-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders2.current-starfleet-credential-path", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"], "knownFactsExcludes": ["fact.open-orders2.current-starfleet-credential-path"] }
+    },
+    {
+      "id": "conclusion-before-credential-report",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-asset", "conclude-two"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 8, "rejectedReasonCodes": ["precondition-not-met"],
+        "objectiveDispositions": { "objective.open-orders2.conclusion": null, "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "completed" },
+        "knownFactsExcludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": null
+      }
+    },
+    {
+      "id": "unsupported-player-world-result",
+      "steps": [
+        { "claimId": "claim.open-orders2.player-claims-watch-result", "policyId": "policy.open-orders2.last-watch-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders2.last-watch-result", "value": "assetEarned", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders2.stale-watch-selection", "policyId": "policy.open-orders2.last-watch-engagement", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.last-watch-engagement", "value": "direct", "sourceRole": "user", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders2.wrong-swipe-report", "policyId": "policy.open-orders2.last-watch-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders2.last-watch-assessed", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        { "claimId": "claim.open-orders2.unknown-policy", "policyId": "policy.open-orders2.invented", "claimType": "decisionRecorded", "targetId": "outcome.open-orders2.last-watch-engagement", "value": "direct", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}

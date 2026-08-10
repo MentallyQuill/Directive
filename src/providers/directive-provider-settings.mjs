@@ -34,10 +34,6 @@ export const DEFAULT_DIRECTIVE_PROVIDER_SETTINGS = Object.freeze({
 });
 
 const DEFAULT_GENERATION_ROLE_REGISTRY = createGenerationRoleRegistry();
-const DEFAULT_ROLE_PROVIDER_KINDS = Object.freeze(Object.fromEntries(
-  DEFAULT_GENERATION_ROLE_REGISTRY.list().map((role) => [role.id, role.providerKind])
-));
-
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -57,50 +53,8 @@ function normalizeProviderType(value) {
   return PROVIDER_TYPES.includes(provider) ? provider : 'st';
 }
 
-function normalizeProviderKind(value, fallback = 'utility') {
-  const kind = String(value || fallback).trim().toLowerCase();
-  return PROVIDER_KINDS.includes(kind) ? kind : fallback;
-}
-
-function roleProviderKindsFromSettings(settings = {}) {
-  const source = isObject(settings) ? settings : {};
-  return isObject(source.roleProviderKinds) ? source.roleProviderKinds : {};
-}
-
-function normalizeRoleProviderKinds(value = {}) {
-  const source = isObject(value) ? value : {};
-  const normalized = {};
-  for (const role of DEFAULT_GENERATION_ROLE_REGISTRY.list()) {
-    if (!Object.prototype.hasOwnProperty.call(source, role.id)) continue;
-    normalized[role.id] = normalizeProviderKind(source[role.id], role.providerKind);
-  }
-  return normalized;
-}
-
-export function providerKindForRole(roleId, settings = null) {
-  const role = DEFAULT_GENERATION_ROLE_REGISTRY.get(roleId);
-  const overrides = roleProviderKindsFromSettings(settings);
-  return Object.prototype.hasOwnProperty.call(overrides, role.id)
-    ? normalizeProviderKind(overrides[role.id], role.providerKind)
-    : role.providerKind;
-}
-
-export function listProviderRoleRouting(settings = null) {
-  const overrides = normalizeRoleProviderKinds(roleProviderKindsFromSettings(settings));
-  return DEFAULT_GENERATION_ROLE_REGISTRY.list().map((role) => ({
-    roleId: role.id,
-    label: role.label,
-    defaultProviderKind: role.providerKind,
-    providerKind: overrides[role.id] || role.providerKind,
-    overridden: Boolean(overrides[role.id] && overrides[role.id] !== role.providerKind),
-    blocking: role.blocking === true,
-    output: role.output,
-    structuredOutput: role.structuredOutput === true,
-    mayProposeState: role.mayProposeState === true,
-    mayInjectPrompt: role.mayInjectPrompt === true,
-    mayRunDuringMainGeneration: role.mayRunDuringMainGeneration === true,
-    fallback: role.fallback || null
-  }));
+export function providerKindForRole(roleId) {
+  return DEFAULT_GENERATION_ROLE_REGISTRY.get(roleId).providerKind;
 }
 
 export function normalizeDirectiveProviderSettings(settings = {}) {
@@ -120,7 +74,6 @@ export function normalizeDirectiveProviderSettings(settings = {}) {
       maxTokens: Math.round(finiteNumber(value.maxTokens, defaults.maxTokens, { min: 64, max: 131072 }))
     };
   }
-  normalized.roleProviderKinds = normalizeRoleProviderKinds(source.roleProviderKinds);
   return normalized;
 }
 
@@ -217,14 +170,8 @@ export function createSillyTavernProviderSettingsStore({
       }
       return cloneJson(providers);
     },
-    getRoleProviderKinds() {
-      return cloneJson(this.getAll().roleProviderKinds || {});
-    },
     getRoleProviderKind(roleId) {
-      return providerKindForRole(roleId, this.getAll());
-    },
-    listRoleRouting() {
-      return listProviderRoleRouting(this.getAll());
+      return providerKindForRole(roleId);
     },
     get(kind) {
       const id = String(kind || '');
@@ -249,32 +196,6 @@ export function createSillyTavernProviderSettingsStore({
       saveDebounced();
       return this.get(id);
     },
-    updateRoleProviderKind(roleId, providerKind) {
-      const role = DEFAULT_GENERATION_ROLE_REGISTRY.get(roleId);
-      const kind = normalizeProviderKind(providerKind, role.providerKind);
-      const current = normalizeDirectiveProviderSettings(extensionState.providers);
-      const nextRoleProviderKinds = { ...(current.roleProviderKinds || {}) };
-      if (kind === role.providerKind) delete nextRoleProviderKinds[role.id];
-      else nextRoleProviderKinds[role.id] = kind;
-      extensionState.providers = {
-        ...current,
-        roleProviderKinds: nextRoleProviderKinds
-      };
-      saveDebounced();
-      return listProviderRoleRouting(extensionState.providers).find((entry) => entry.roleId === role.id);
-    },
-    resetRoleProviderKind(roleId) {
-      const role = DEFAULT_GENERATION_ROLE_REGISTRY.get(roleId);
-      const current = normalizeDirectiveProviderSettings(extensionState.providers);
-      const next = { ...(current.roleProviderKinds || {}) };
-      delete next[role.id];
-      extensionState.providers = {
-        ...current,
-        roleProviderKinds: next
-      };
-      saveDebounced();
-      return listProviderRoleRouting(extensionState.providers).find((entry) => entry.roleId === role.id);
-    },
     getApiKey(kind) {
       return secretStore.get(String(kind || ''));
     },
@@ -292,4 +213,3 @@ export function createSillyTavernProviderSettingsStore({
 
 export const DIRECTIVE_PROVIDER_TYPES = PROVIDER_TYPES;
 export const DIRECTIVE_PROVIDER_KINDS = PROVIDER_KINDS;
-export const DEFAULT_DIRECTIVE_ROLE_PROVIDER_KINDS = DEFAULT_ROLE_PROVIDER_KINDS;

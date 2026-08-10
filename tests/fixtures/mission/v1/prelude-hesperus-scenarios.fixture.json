@@ -1,0 +1,575 @@
+{
+  "kind": "directive.ashesV1PreludeScenarios.v1",
+  "definitionId": "mission.prelude-a-ship-underway",
+  "fragments": {
+    "command-handover": [
+      {
+        "claimId": "claim.command-handover-completed",
+        "policyId": "policy.prelude.command-handover-completed",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.command-handover-completed",
+        "sourceRole": "assistant"
+      }
+    ],
+    "staff-readiness": [
+      {
+        "claimId": "claim.staff-readiness-established",
+        "policyId": "policy.prelude.staff-readiness-established",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.staff-readiness-established",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hesperus-open": [
+      {
+        "claimId": "claim.hesperus-distress-established",
+        "policyId": "policy.hesperus.distress-established",
+        "claimType": "worldFactEstablished",
+        "targetId": "fact.hesperus.distress-established",
+        "sourceRole": "runtime"
+      },
+      {
+        "claimId": "claim.hesperus-distress-disclosed",
+        "policyId": "policy.hesperus.distress-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.distress-established",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-response-begun",
+        "policyId": "policy.hesperus.rescue-response-begun",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.rescue-response-begun",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-passenger-risk-disclosed",
+        "policyId": "policy.hesperus.passenger-risk-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.passenger-risk",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-injector-limit-disclosed",
+        "policyId": "policy.hesperus.injector-limit-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.injector-limit",
+        "sourceRole": "assistant"
+      }
+    ],
+    "hesperus-open-without-risk-report": [
+      {
+        "claimId": "claim.hesperus-distress-established",
+        "policyId": "policy.hesperus.distress-established",
+        "claimType": "worldFactEstablished",
+        "targetId": "fact.hesperus.distress-established",
+        "sourceRole": "runtime"
+      },
+      {
+        "claimId": "claim.hesperus-distress-disclosed",
+        "policyId": "policy.hesperus.distress-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.distress-established",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-response-begun",
+        "policyId": "policy.hesperus.rescue-response-begun",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.rescue-response-begun",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-injector-limit-disclosed",
+        "policyId": "policy.hesperus.injector-limit-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.injector-limit",
+        "sourceRole": "assistant"
+      }
+    ],
+    "rescue-safe": [
+      {
+        "claimId": "claim.hesperus-rescue-safe",
+        "policyId": "policy.hesperus.rescue-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-result",
+        "value": "safe",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-cost-none",
+        "policyId": "policy.hesperus.rescue-cost",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-cost",
+        "value": "none",
+        "sourceRole": "assistant"
+      }
+    ],
+    "rescue-safe-with-cost": [
+      {
+        "claimId": "claim.hesperus-rescue-safe-with-cost",
+        "policyId": "policy.hesperus.rescue-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-result",
+        "value": "safeWithCost",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-cost-material",
+        "policyId": "policy.hesperus.rescue-cost",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-cost",
+        "value": "material",
+        "sourceRole": "assistant"
+      }
+    ],
+    "records-through-discrepancy": [
+      {
+        "claimId": "claim.hesperus-records-reviewed",
+        "policyId": "policy.hesperus.records-reviewed",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.records-reviewed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-record-inconsistency-disclosed",
+        "policyId": "policy.hesperus.record-inconsistency-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.record-inconsistency",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-record-discrepancy-disclosed",
+        "policyId": "policy.hesperus.record-discrepancy-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.record-discrepancy",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-preliminary-records-handed-off",
+        "policyId": "policy.hesperus.records-disposition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.records-disposition",
+        "value": "preliminaryHandOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "records-through-confirmation": [
+      {
+        "claimId": "claim.hesperus-records-reviewed",
+        "policyId": "policy.hesperus.records-reviewed",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.records-reviewed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-record-inconsistency-disclosed",
+        "policyId": "policy.hesperus.record-inconsistency-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.record-inconsistency",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-record-discrepancy-disclosed",
+        "policyId": "policy.hesperus.record-discrepancy-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.record-discrepancy",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-record-falsified-disclosed",
+        "policyId": "policy.hesperus.record-falsified-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.record-falsified",
+        "sourceRole": "assistant"
+      }
+    ],
+    "accountability-proportionate": [
+      {
+        "claimId": "claim.hesperus-accountability-proportionate-decision",
+        "policyId": "policy.hesperus.accountability-decision",
+        "claimType": "decisionRecorded",
+        "targetId": "outcome.hesperus.accountability-decision",
+        "value": "proportionateAction",
+        "sourceRole": "user"
+      },
+      {
+        "claimId": "claim.hesperus-accountability-proportionate-result",
+        "policyId": "policy.hesperus.accountability-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.accountability-result",
+        "value": "proportionateActionCommitted",
+        "sourceRole": "assistant"
+      }
+    ],
+    "accountability-knowing-inaction": [
+      {
+        "claimId": "claim.hesperus-accountability-declined",
+        "policyId": "policy.hesperus.accountability-decision",
+        "claimType": "decisionRecorded",
+        "targetId": "outcome.hesperus.accountability-decision",
+        "value": "knowinglyDeclined",
+        "sourceRole": "user"
+      }
+    ],
+    "rescue-failed-informed": [
+      {
+        "claimId": "claim.hesperus-proceed-known-risk",
+        "policyId": "policy.hesperus.rescue-risk-decision",
+        "claimType": "decisionRecorded",
+        "targetId": "outcome.hesperus.rescue-risk-decision",
+        "value": "proceedKnownRisk",
+        "sourceRole": "user"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-failed-informed",
+        "policyId": "policy.hesperus.rescue-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-result",
+        "value": "failedInformed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-failure-cost",
+        "policyId": "policy.hesperus.rescue-cost",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-cost",
+        "value": "material",
+        "sourceRole": "assistant"
+      }
+    ],
+    "rescue-failed-after-omitted-report": [
+      {
+        "claimId": "claim.hesperus-material-report-omitted",
+        "policyId": "policy.hesperus.material-report-omitted",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.material-report-omitted",
+        "sourceRole": "runtime"
+      },
+      {
+        "claimId": "claim.hesperus-rescue-failed-after-omitted-report",
+        "policyId": "policy.hesperus.rescue-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-result",
+        "value": "failedAfterOmittedReport",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-omitted-report-cost",
+        "policyId": "policy.hesperus.rescue-cost",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.rescue-cost",
+        "value": "material",
+        "sourceRole": "assistant"
+      }
+    ],
+    "final-clean": [
+      {
+        "claimId": "claim.prelude-final-load-reviewed",
+        "policyId": "policy.prelude.final-load-reviewed",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.final-load-reviewed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-command-ready",
+        "policyId": "policy.prelude.command-readiness",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.command-readiness",
+        "value": "ready",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-arrival-reached",
+        "policyId": "policy.prelude.arrival-reached",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.arrival-reached",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-arrival-on-schedule",
+        "policyId": "policy.prelude.arrival-condition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.arrival-condition",
+        "value": "onSchedule",
+        "sourceRole": "assistant"
+      }
+    ],
+    "final-with-limitation": [
+      {
+        "claimId": "claim.prelude-final-load-reviewed",
+        "policyId": "policy.prelude.final-load-reviewed",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.final-load-reviewed",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-command-ready-with-limitation",
+        "policyId": "policy.prelude.command-readiness",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.command-readiness",
+        "value": "readyWithLimitation",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-arrival-reached",
+        "policyId": "policy.prelude.arrival-reached",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.arrival-reached",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.prelude-arrival-with-limitation",
+        "policyId": "policy.prelude.arrival-condition",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.prelude.arrival-condition",
+        "value": "withLimitation",
+        "sourceRole": "assistant"
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "rescue-success-no-discovery",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 13,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.command-handover": "completed",
+          "objective.prelude.staff-readiness": "completed",
+          "objective.prelude.hesperus-rescue": "completed",
+          "objective.prelude.final-readiness-arrival": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.rescue-quality": "full",
+          "dimension.hesperus.rescue-cost": "none",
+          "dimension.prelude.command-readiness": "ready",
+          "dimension.prelude.arrival": "on-schedule"
+        },
+        "knownFactsExcludes": ["fact.hesperus.record-inconsistency", "fact.hesperus.record-discrepancy", "fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "rescue-success-with-cost-no-discovery",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "rescue-safe-with-cost", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccessWithCost",
+        "acceptedClaimCount": 13,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-rescue": "completedWithCost",
+          "objective.prelude.final-readiness-arrival": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.rescue-quality": "full-with-cost",
+          "dimension.hesperus.rescue-cost": "material"
+        },
+        "knownFactsExcludes": ["fact.hesperus.record-discrepancy", "fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "discrepancy-known-prudent-handoff",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "records-through-discrepancy", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 17,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-rescue": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "preliminary-records-handed-off"
+        },
+        "knownFactsIncludes": ["fact.hesperus.record-discrepancy"],
+        "knownFactsExcludes": ["fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "confirmed-record-action-proportionate",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "records-through-confirmation", "accountability-proportionate", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 19,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-accountability": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "proportionate-action"
+        },
+        "knownFactsIncludes": ["fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "confirmed-record-knowing-inaction",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "records-through-confirmation", "accountability-knowing-inaction", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 18,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-accountability": "knowinglyDeclined"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "knowingly-declined"
+        },
+        "knownFactsIncludes": ["fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "informed-rescue-failure",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "rescue-failed-informed", "final-with-limitation"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "limitedFailureForward",
+        "acceptedClaimCount": 14,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-rescue": "failedAfterInformedAction",
+          "objective.prelude.final-readiness-arrival": "completedWithCost"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.rescue-quality": "failure-after-informed-action",
+          "dimension.hesperus.rescue-cost": "material",
+          "dimension.prelude.command-readiness": "ready-with-limitation",
+          "dimension.prelude.arrival": "with-limitation"
+        },
+        "knownFactsIncludes": ["fact.hesperus.passenger-risk"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "omitted-report-rescue-failure",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open-without-risk-report", "rescue-failed-after-omitted-report", "final-with-limitation"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "limitedFailureForward",
+        "acceptedClaimCount": 13,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-rescue": "handedOff",
+          "objective.prelude.final-readiness-arrival": "completedWithCost"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.rescue-quality": "safeguarded-by-handoff",
+          "dimension.hesperus.rescue-cost": "material"
+        },
+        "knownFactsExcludes": ["fact.hesperus.passenger-risk", "fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "reversed-command-objective-order",
+      "sequence": ["staff-readiness", "command-handover", "hesperus-open", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 13,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.command-handover": "completed",
+          "objective.prelude.staff-readiness": "completed",
+          "objective.prelude.hesperus-rescue": "completed",
+          "objective.prelude.final-readiness-arrival": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.rescue-quality": "full",
+          "dimension.hesperus.rescue-cost": "none",
+          "dimension.prelude.command-readiness": "ready",
+          "dimension.prelude.arrival": "on-schedule"
+        },
+        "knownFactsExcludes": ["fact.hesperus.record-inconsistency", "fact.hesperus.record-discrepancy", "fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "unsupported-player-self-declared-success",
+      "steps": [
+        {
+          "claimId": "claim.player-self-declared-handover-success",
+          "policyId": "policy.prelude.command-handover-completed",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.command-handover-completed",
+          "sourceRole": "user"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["source-role-not-authorized"],
+        "objectiveDispositions": {
+          "objective.prelude.command-handover": null
+        }
+      }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        {
+          "claimId": "claim.stale-command-handover",
+          "policyId": "policy.prelude.command-handover-completed",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.command-handover-completed",
+          "sourceRole": "assistant",
+          "baseRevisionOffset": -1
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["stale-revision"]
+      }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        {
+          "claimId": "claim.wrong-swipe-command-handover",
+          "policyId": "policy.prelude.command-handover-completed",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.command-handover-completed",
+          "sourceRole": "assistant",
+          "sourceSwipeOverride": "swipe.not-selected"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["swipe-mismatch"]
+      }
+    },
+    {
+      "id": "hallucinated-policy-proposal",
+      "steps": [
+        {
+          "claimId": "claim.hallucinated-policy-command-handover",
+          "policyId": "policy.model-invented-success",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.command-handover-completed",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["unknown-policy"]
+      }
+    }
+  ]
+}

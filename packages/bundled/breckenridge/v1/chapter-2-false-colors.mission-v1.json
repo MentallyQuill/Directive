@@ -1,0 +1,601 @@
+{
+  "kind": "directive.missionDefinition.v1",
+  "schemaVersion": 1,
+  "id": "mission.chapter-2-false-colors",
+  "version": "1.0.0",
+  "packageBinding": {
+    "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+    "packageVersion": "0.3.0-pre-alpha.1",
+    "sourceId": "chapter-2-false-colors"
+  },
+  "playerText": {
+    "title": "Chapter 2: False Colors",
+    "summary": "Answer the accusation against the Breckenridge, protect the wounded, and establish a credible path forward."
+  },
+  "facts": [
+    {
+      "id": "fact.chapter2.false-colors-crisis",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Aegis Two was attacked by a vessel presenting as the U.S.S. Breckenridge. Three patrol officers are injured, the real ship was at the convoy site, and Starfleet-controlled records alone cannot settle the dispute."
+      }
+    },
+    {
+      "id": "fact.chapter2.verification-access-dispute",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Compact leaders require independently credible verification, while a demand for broad system access conflicts with Starfleet's duty to protect dangerous command-authentication architecture."
+      }
+    },
+    {
+      "id": "fact.chapter2.independent-evidence-picture",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Preserved non-Starfleet records and the Breckenridge's post-refit calibration establish that the real ship could not have produced the recorded attack profile and provide a credible reconstruction baseline."
+      }
+    },
+    {
+      "id": "fact.chapter2.counterfeit-route-picture",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Recovered evidence establishes that a counterfeit platform used identity material connected to the convoy incident and left a weak routing trace toward the Hecate Drift; its operator and wider purpose remain unknown."
+      }
+    }
+  ],
+  "evidencePolicies": [
+    {
+      "id": "policy.chapter2.false-colors-crisis-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.false-colors-crisis",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "worldFact": "fact.chapter2.false-colors-crisis" },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the Aegis Two attack accusation, casualties, the real Breckenridge's convoy alibi, and why Starfleet-only proof is disputed.",
+        "exclusions": [
+          "Arrival at Asterion, a vague security concern, the chapter title, or mention of Aegis Two without the material crisis does not disclose this fact."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.verification-access-dispute-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.verification-access-dispute",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.verification-access-dispute" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose tells the player that Compact verification must be independently credible, broad command-system access is being pressed, and dangerous authentication architecture cannot be surrendered.",
+        "exclusions": [
+          "A generic request for transparency, a meeting invitation, a single log request, or a private officer concern does not disclose the combined access dispute."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.independent-baseline-preserved",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter2.independent-baseline-preserved",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.false-colors-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts a credible civilian, station, neutral, or jointly witnessed evidence baseline actually preserved with usable custody and comparison data.",
+        "exclusions": [
+          "Proposing an audit, requesting records, ordering a scan, inviting an observer, locating one unverified datum, or beginning preservation does not complete the baseline."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.independent-evidence-picture-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.independent-evidence-picture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.independent-evidence-picture" },
+          { "eventOccurred": "event.chapter2.independent-baseline-preserved" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates that preserved independent records plus the real ship's calibration exclude the Breckenridge from the recorded attack profile and provide a credible reconstruction baseline.",
+        "exclusions": [
+          "The ship's own alibi, one mismatch, a theory of impersonation, a preliminary scan, or Starfleet-only records do not establish the aggregate independent evidence picture."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.counterfeit-evidence-obtained",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter2.counterfeit-evidence-obtained",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts usable debris, traffic records, voluntary testimony, control telemetry, or equivalent evidence actually obtained and preserved well enough to characterize the counterfeit route.",
+        "exclusions": [
+          "Opening a search, pursuing a signal, ordering recovery, suspecting Holt, observing an unidentified contact, or naming the Hecate Drift without usable evidence does not complete this event."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.counterfeit-route-picture-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter2.counterfeit-route-picture",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.counterfeit-route-picture" },
+          { "eventOccurred": "event.chapter2.counterfeit-evidence-obtained" },
+          { "factKnown": "fact.chapter2.independent-evidence-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the combined player-safe conclusion: a counterfeit platform used identity material connected to Chapter 1 and left a weak Hecate routing trace, while the operator and wider conspiracy remain unknown.",
+        "exclusions": [
+          "A weak signal alone, recovered debris without provenance, the missing Chapter 1 hardware alone, an accusation against Holt, or director-only Pale Lantern knowledge does not establish this picture."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.medical-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter2.medical-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.false-colors-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual care disposition of the injured Aegis Two officers. Treatment success does not require testimony, access, admission, or political cooperation.",
+        "values": [
+          { "value": "stabilizedNeutral", "guidance": "The wounded are stabilized and care remains independent of political or evidentiary leverage." },
+          { "value": "stabilizedWithCost", "guidance": "The wounded reach a stable disposition with delay, distrust, lost testimony, injury, or another material cost." },
+          { "value": "handedOff", "guidance": "A competent medical authority actually assumes the remaining care responsibility." },
+          { "value": "failedAfterInformedAction", "guidance": "Care materially fails after a known medical risk and a deliberate action, refusal, or coercive condition." }
+        ],
+        "exclusions": [
+          "Offering help, opening a channel, sending a team, requesting testimony, or asserting that care should succeed does not establish the medical result."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.attack-account-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter2.attack-account-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.counterfeit-route-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the committed public, institutional, or investigative disposition of the attack account after the independent and counterfeit-route evidence is player-known.",
+        "values": [
+          { "value": "jointlyVerified", "guidance": "Starfleet and Compact participants accept a credible shared account that excludes the real Breckenridge and preserves the next lead." },
+          { "value": "independentlyEstablished", "guidance": "The Breckenridge's innocence and the next evidence route are credibly established without a joint Compact settlement." },
+          { "value": "managedAmbiguity", "guidance": "The parties responsibly pause or limit claims while preserving evidence and a viable next investigative route." },
+          { "value": "handedOff", "guidance": "A competent authority actually assumes the attack-account investigation with the evidence and next lead preserved." },
+          { "value": "rupturedAfterInformedAction", "guidance": "The accusation hardens or cooperation ruptures after the known evidence and risk are deliberately mishandled, rejected, destroyed, or overclaimed." }
+        ],
+        "exclusions": [
+          "Proving only the convoy alibi, announcing innocence, opening an investigation, accusing a faction, or preserving one clue does not establish the final attack-account disposition."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.verification-security-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter2.verification-security-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.verification-access-dispute" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the committed verification and command-system access boundary after the competing needs are player-known.",
+        "values": [
+          { "value": "protectedWithCredibleAlternative", "guidance": "Dangerous architecture remains protected while a credible independent, controlled, or cryptographic verification alternative is actually accepted or used." },
+          { "value": "protectedWithCost", "guidance": "Dangerous architecture remains protected, but the verification boundary carries material distrust, delay, restricted access, or another cost." },
+          { "value": "handedOff", "guidance": "A competent authority actually assumes responsibility for the bounded verification process." },
+          { "value": "dangerouslyExposed", "guidance": "Known dangerous command-authentication architecture is materially exposed through a committed course of action." },
+          { "value": "refusedWithoutAlternative", "guidance": "Access is refused after the verification need is known without providing a credible alternative, producing a material legitimacy consequence." }
+        ],
+        "exclusions": [
+          "Suggesting an annex, refusing one demand, sharing one log, planning a demonstration, or stating a security preference does not establish the final boundary."
+        ]
+      }
+    },
+    {
+      "id": "policy.chapter2.partnership-result",
+      "claimType": "outcomeObserved",
+      "targetId": "outcome.chapter2.partnership-result",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the optional joint-investigation opportunity.",
+        "values": [
+          { "value": "jointFramework", "guidance": "Starfleet and Compact participants commit a credible shared investigation framework and protected evidence record." },
+          { "value": "limitedFramework", "guidance": "A real but materially limited joint framework is established." },
+          { "value": "starfleetOnly", "guidance": "Starfleet preserves a usable investigation record without Compact participation." },
+          { "value": "fragmented", "guidance": "The surviving investigation record is materially divided or contested." },
+          { "value": "knowinglyDeclined", "guidance": "The player knowingly declines the joint-framework opportunity after it is understood." }
+        ],
+        "exclusions": [
+          "Inviting observers, proposing cooperation, Kessler expressing interest, or opening negotiations does not establish a framework."
+        ]
+      }
+    }
+  ],
+  "reportRoutes": [
+    {
+      "id": "report.chapter2.verification-access-dispute",
+      "factId": "fact.chapter2.verification-access-dispute",
+      "evidencePolicyId": "policy.chapter2.verification-access-dispute-disclosed",
+      "capabilityRoles": ["operations", "security", "command"],
+      "preferredActorIds": ["priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.verification-access-dispute" },
+          { "factKnown": "fact.chapter2.false-colors-crisis" },
+          { "not": { "factKnown": "fact.chapter2.verification-access-dispute" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Compact leaders require independent verification, but the demand for broad access would expose dangerous command-authentication architecture; the Breckenridge needs a credible bounded alternative."
+      }
+    },
+    {
+      "id": "report.chapter2.independent-evidence-picture",
+      "factId": "fact.chapter2.independent-evidence-picture",
+      "evidencePolicyId": "policy.chapter2.independent-evidence-picture-disclosed",
+      "capabilityRoles": ["operations", "science", "engineering"],
+      "preferredActorIds": ["priya-nayar", "rowan-saye", "imani-cross"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "urgent",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.independent-evidence-picture" },
+          { "eventOccurred": "event.chapter2.independent-baseline-preserved" },
+          { "not": { "factKnown": "fact.chapter2.independent-evidence-picture" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Preserved independent records and post-refit calibration exclude the real Breckenridge from the recorded attack profile and provide a credible reconstruction baseline."
+      }
+    },
+    {
+      "id": "report.chapter2.counterfeit-route-picture",
+      "factId": "fact.chapter2.counterfeit-route-picture",
+      "evidencePolicyId": "policy.chapter2.counterfeit-route-picture-disclosed",
+      "capabilityRoles": ["science", "operations", "security", "engineering"],
+      "preferredActorIds": ["rowan-saye", "priya-nayar", "hadrik-bronn"],
+      "fallbackActorIds": ["mara-whitaker"],
+      "urgency": "material",
+      "confidence": "confirmed",
+      "deliveryRequirement": "required",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter2.counterfeit-route-picture" },
+          { "eventOccurred": "event.chapter2.counterfeit-evidence-obtained" },
+          { "factKnown": "fact.chapter2.independent-evidence-picture" },
+          { "not": { "factKnown": "fact.chapter2.counterfeit-route-picture" } }
+        ]
+      },
+      "playerText": {
+        "summary": "Recovered evidence establishes that a counterfeit platform used identity material connected to the convoy incident and left a weak Hecate routing trace; its operator and wider purpose remain unknown."
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "event.chapter2.independent-baseline-preserved",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "A credible independent evidence baseline was preserved for the Aegis Two attack."
+      }
+    },
+    {
+      "id": "event.chapter2.counterfeit-evidence-obtained",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "The investigation obtained usable evidence about the counterfeit attack route."
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "outcome.chapter2.medical-result",
+      "allowedValues": ["pending", "stabilizedNeutral", "stabilizedWithCost", "handedOff", "failedAfterInformedAction"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed care disposition of the injured Aegis Two officers." }
+    },
+    {
+      "id": "outcome.chapter2.attack-account-result",
+      "allowedValues": ["pending", "jointlyVerified", "independentlyEstablished", "managedAmbiguity", "handedOff", "rupturedAfterInformedAction"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed disposition of the attack account and its next investigative route." }
+    },
+    {
+      "id": "outcome.chapter2.verification-security-result",
+      "allowedValues": ["pending", "protectedWithCredibleAlternative", "protectedWithCost", "handedOff", "dangerouslyExposed", "refusedWithoutAlternative"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The committed balance between credible verification and command-system security." }
+    },
+    {
+      "id": "outcome.chapter2.partnership-result",
+      "allowedValues": ["pending", "jointFramework", "limitedFramework", "starfleetOnly", "fragmented", "knowinglyDeclined"],
+      "initialValue": "pending",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The disposition of the optional joint-investigation framework." }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "objective.chapter2.medical",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "factKnown": "fact.chapter2.false-colors-crisis" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "stabilizedNeutral" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "stabilizedWithCost" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "handedOff" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "failedAfterInformedAction" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Protect the wounded aboard Aegis Two",
+        "summary": "Bring the injured patrol officers to a responsible care disposition without making treatment political leverage.",
+        "terminal": [
+          { "disposition": "completed", "text": "The wounded were stabilized and care remained independent of political leverage." },
+          { "disposition": "completedWithCost", "text": "The wounded reached a stable disposition with a material cost recorded." },
+          { "disposition": "handedOff", "text": "A competent medical authority assumed the remaining care responsibility." },
+          { "disposition": "failedAfterInformedAction", "text": "Care materially failed after a known medical risk was deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter2.attack-account",
+      "class": "required",
+      "activatedAs": null,
+      "activationWhen": true,
+      "availableWhen": true,
+      "visibleWhen": true,
+      "progressWhen": { "eventOccurred": "event.chapter2.independent-baseline-preserved" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "in": ["jointlyVerified", "independentlyEstablished"] } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "managedAmbiguity" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "handedOff" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "rupturedAfterInformedAction" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Establish a credible account of the attack",
+        "summary": "Build an independently credible account that can answer the accusation and preserve a responsible next investigative step.",
+        "terminal": [
+          { "disposition": "completed", "text": "A credible account excluded the real Breckenridge and preserved the next investigative route." },
+          { "disposition": "completedWithCost", "text": "The crisis was contained under managed uncertainty with evidence preserved." },
+          { "disposition": "handedOff", "text": "A competent authority assumed the attack investigation with the evidence preserved." },
+          { "disposition": "failedAfterInformedAction", "text": "The attack account ruptured after known evidence or risk was deliberately mishandled." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter2.verification-security",
+      "class": "conditional",
+      "activatedAs": "required",
+      "activationRoute": {
+        "factId": "fact.chapter2.verification-access-dispute",
+        "mandatory": true,
+        "playerVisible": true
+      },
+      "activationWhen": { "factKnown": "fact.chapter2.verification-access-dispute" },
+      "availableWhen": { "factKnown": "fact.chapter2.verification-access-dispute" },
+      "visibleWhen": { "factKnown": "fact.chapter2.verification-access-dispute" },
+      "progressWhen": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "protectedWithCredibleAlternative" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "protectedWithCost" } } },
+        { "disposition": "handedOff", "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "handedOff" } } },
+        { "disposition": "failedAfterInformedAction", "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "in": ["dangerouslyExposed", "refusedWithoutAlternative"] } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
+      "playerText": {
+        "title": "Set a safe and credible verification boundary",
+        "summary": "Meet the legitimate need for independent proof without surrendering dangerous command-authentication architecture.",
+        "terminal": [
+          { "disposition": "completed", "text": "A credible verification alternative protected dangerous command architecture." },
+          { "disposition": "completedWithCost", "text": "The verification boundary protected the ship with a material legitimacy or access cost." },
+          { "disposition": "handedOff", "text": "A competent authority assumed the bounded verification process." },
+          { "disposition": "failedAfterInformedAction", "text": "The known verification risk ended in dangerous exposure or unsupported refusal." }
+        ]
+      }
+    },
+    {
+      "id": "objective.chapter2.joint-framework",
+      "class": "conditional",
+      "activatedAs": "optional",
+      "activationWhen": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "availableWhen": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "visibleWhen": { "factKnown": "fact.chapter2.independent-evidence-picture" },
+      "progressWhen": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "in": ["jointFramework", "limitedFramework", "starfleetOnly", "fragmented", "knowinglyDeclined"] } },
+      "terminalWhen": [
+        { "disposition": "completed", "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "jointFramework" } } },
+        { "disposition": "completedWithCost", "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "in": ["limitedFramework", "starfleetOnly", "fragmented"] } } },
+        { "disposition": "knowinglyDeclined", "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "knowinglyDeclined" } } }
+      ],
+      "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined"],
+      "playerText": {
+        "title": "Establish a joint investigation framework",
+        "summary": "Give the Compact meaningful participation in the evidence record and the investigation that follows.",
+        "terminal": [
+          { "disposition": "completed", "text": "Starfleet and Compact participants established a credible joint investigation framework." },
+          { "disposition": "completedWithCost", "text": "A usable but limited, unilateral, or fragmented investigation record survived." },
+          { "disposition": "knowinglyDeclined", "text": "The opportunity for a joint investigation framework was knowingly declined." }
+        ]
+      }
+    }
+  ],
+  "commandBearingAwards": [
+    {
+      "id": "award.chapter2.joint-framework",
+      "sourceObjectiveId": "objective.chapter2.joint-framework",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You turned the known joint-investigation opportunity into a workable framework."
+    }
+  ],
+  "outcomeDimensions": [
+    {
+      "id": "dimension.chapter2.medical",
+      "playerText": { "label": "Aegis Two care" },
+      "derive": [
+        { "value": "stabilized-neutral", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "stabilizedNeutral" } } },
+        { "value": "stabilized-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "stabilizedWithCost" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "handedOff" } } },
+        { "value": "failed-after-informed-action", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter2.medical-result", "equals": "failedAfterInformedAction" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter2.attack-account",
+      "playerText": { "label": "Attack account" },
+      "derive": [
+        { "value": "jointly-verified", "priority": 110, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "jointlyVerified" } } },
+        { "value": "independently-established", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "independentlyEstablished" } } },
+        { "value": "managed-ambiguity", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "managedAmbiguity" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "handedOff" } } },
+        { "value": "political-rupture", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "rupturedAfterInformedAction" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter2.verification-security",
+      "playerText": { "label": "Verification boundary" },
+      "derive": [
+        { "value": "protected-with-credible-alternative", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "protectedWithCredibleAlternative" } } },
+        { "value": "protected-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "protectedWithCost" } } },
+        { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "handedOff" } } },
+        { "value": "dangerously-exposed", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "dangerouslyExposed" } } },
+        { "value": "refused-without-alternative", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter2.verification-security-result", "equals": "refusedWithoutAlternative" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter2.partnership",
+      "playerText": { "label": "Compact partnership" },
+      "derive": [
+        { "value": "joint-framework", "priority": 100, "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "jointFramework" } } },
+        { "value": "limited-framework", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "limitedFramework" } } },
+        { "value": "starfleet-only", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "starfleetOnly" } } },
+        { "value": "fragmented", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "fragmented" } } },
+        { "value": "knowingly-declined", "priority": 60, "when": { "outcomeIs": { "id": "outcome.chapter2.partnership-result", "equals": "knowinglyDeclined" } } }
+      ]
+    }
+  ],
+  "clocks": [],
+  "closeWhen": {
+    "all": [
+      { "objectiveDisposition": { "id": "objective.chapter2.medical", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter2.attack-account", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } },
+      { "objectiveDisposition": { "id": "objective.chapter2.verification-security", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } }
+    ]
+  },
+  "terminalDispositions": [
+    {
+      "id": "politicalRuptureForward",
+      "priority": 400,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter2.medical", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.attack-account", "equals": "failedAfterInformedAction" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.verification-security", "equals": "failedAfterInformedAction" } }
+        ]
+      },
+      "playerText": {
+        "title": "The accusation closes in political rupture",
+        "summary": "The campaign continues with the informed failure, dangerous exposure, or hardened accusation carried into the record."
+      }
+    },
+    {
+      "id": "managedAmbiguity",
+      "priority": 300,
+      "when": {
+        "any": [
+          { "objectiveDisposition": { "id": "objective.chapter2.medical", "in": ["completedWithCost", "handedOff"] } },
+          { "objectiveDisposition": { "id": "objective.chapter2.attack-account", "in": ["completedWithCost", "handedOff"] } },
+          { "objectiveDisposition": { "id": "objective.chapter2.verification-security", "in": ["completedWithCost", "handedOff"] } }
+        ]
+      },
+      "playerText": {
+        "title": "The crisis settles under managed ambiguity",
+        "summary": "The immediate accusation is contained with uncertainty, cost, or transferred obligations while evidence and future work remain viable."
+      }
+    },
+    {
+      "id": "jointLegitimacy",
+      "priority": 200,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter2.medical", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.attack-account", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.verification-security", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.joint-framework", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "A joint legitimacy framework",
+        "summary": "The wounded, evidence, and security boundary were protected through a credible shared investigation with the Compact."
+      }
+    },
+    {
+      "id": "credibleVindication",
+      "priority": 100,
+      "when": {
+        "all": [
+          { "objectiveDisposition": { "id": "objective.chapter2.medical", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.attack-account", "equals": "completed" } },
+          { "objectiveDisposition": { "id": "objective.chapter2.verification-security", "equals": "completed" } }
+        ]
+      },
+      "playerText": {
+        "title": "The Breckenridge answers the accusation",
+        "summary": "The wounded were protected, a credible attack account survived, and dangerous command architecture remained secure."
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "transition.chapter2.open-orders-1",
+      "priority": 100,
+      "when": { "missionStatus": { "equals": "terminal" } },
+      "target": {
+        "kind": "mission",
+        "id": "open-orders-1-work-worth-doing",
+        "playerSafeSetup": "With the immediate accusation disposition recorded, the Breckenridge remains in the Reach under temporary Open Orders while the weak Hecate trace is correlated."
+      },
+      "mustNarrate": [
+        "Acknowledge the actual medical, attack-account, and verification-boundary dispositions.",
+        "Carry forward Compact partnership only if a joint or limited framework was actually established.",
+        "Explain that the Hecate trace is too weak for immediate pursuit and the Breckenridge will remain available under temporary Open Orders."
+      ],
+      "mustNotReveal": [
+        "Do not identify Holt, Pale Lantern, the operator of the counterfeit platform, or the wider purpose behind the attack.",
+        "Do not imply joint legitimacy if the optional framework was absent, declined, or fragmented.",
+        "Do not convert managed ambiguity, dangerous exposure, medical loss, or political rupture into clean vindication."
+      ]
+    }
+  ]
+}

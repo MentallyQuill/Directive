@@ -1,0 +1,284 @@
+{
+  "kind": "directive.ashesV1Chapter4Scenarios.v1",
+  "definitionId": "mission.chapter-4-the-colony-that-stayed",
+  "fragments": {
+    "process-joint-choice": [
+      { "claimId": "claim.chapter4.process-joint-choice", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "jointInquiry", "sourceRole": "user" }
+    ],
+    "process-local-choice": [
+      { "claimId": "claim.chapter4.process-local-choice", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "recognizeLocal", "sourceRole": "user" }
+    ],
+    "process-compel-choice": [
+      { "claimId": "claim.chapter4.process-compel-choice", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "compelStarfleet", "sourceRole": "user" }
+    ],
+    "process-covert-choice": [
+      { "claimId": "claim.chapter4.process-covert-choice", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "covertSearch", "sourceRole": "user" }
+    ],
+    "process-withdraw-choice": [
+      { "claimId": "claim.chapter4.process-withdraw-choice", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "withdraw", "sourceRole": "user" }
+    ],
+    "process-joint-result": [
+      { "claimId": "claim.chapter4.process-joint-result", "policyId": "policy.chapter4.process-joint-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "jointPublicInquiry", "sourceRole": "assistant" }
+    ],
+    "process-local-result": [
+      { "claimId": "claim.chapter4.process-local-result", "policyId": "policy.chapter4.process-local-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "localProtectedInquiry", "sourceRole": "assistant" }
+    ],
+    "process-seizure-result": [
+      { "claimId": "claim.chapter4.process-seizure-result", "policyId": "policy.chapter4.process-starfleet-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "starfleetSeizure", "sourceRole": "assistant" }
+    ],
+    "process-covert-result": [
+      { "claimId": "claim.chapter4.process-covert-result", "policyId": "policy.chapter4.process-covert-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "covertRecoveryExposed", "sourceRole": "assistant" }
+    ],
+    "process-withdraw-result": [
+      { "claimId": "claim.chapter4.process-withdraw-result", "policyId": "policy.chapter4.process-withdraw-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "withdrawnHandoff", "sourceRole": "assistant" }
+    ],
+    "process-collapse-result": [
+      { "claimId": "claim.chapter4.process-collapse-result", "policyId": "policy.chapter4.process-collapse-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "processCollapsed", "sourceRole": "assistant" }
+    ],
+    "history-evidence": [
+      { "claimId": "claim.chapter4.history-evidence", "policyId": "policy.chapter4.history-evidence", "claimType": "eventOccurred", "targetId": "event.chapter4.survival-record-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.history-disclosed", "policyId": "policy.chapter4.history-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter4.survival-and-evacuation-record", "sourceRole": "assistant" }
+    ],
+    "solenn-evidence": [
+      { "claimId": "claim.chapter4.solenn-evidence", "policyId": "policy.chapter4.solenn-evidence", "claimType": "eventOccurred", "targetId": "event.chapter4.solenn-record-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.solenn-disclosed", "policyId": "policy.chapter4.solenn-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter4.solenn-use-benefit-and-harm", "sourceRole": "assistant" }
+    ],
+    "access-evidence": [
+      { "claimId": "claim.chapter4.access-evidence", "policyId": "policy.chapter4.access-evidence", "claimType": "eventOccurred", "targetId": "event.chapter4.continuing-access-corroborated", "sourceRole": "assistant" },
+      { "claimId": "claim.chapter4.access-disclosed", "policyId": "policy.chapter4.access-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter4.continuing-access-and-orison-route", "sourceRole": "assistant" }
+    ],
+    "route-direct": [
+      { "claimId": "claim.chapter4.route-direct", "policyId": "policy.chapter4.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.evidence-route", "value": "directInquiry", "sourceRole": "assistant" }
+    ],
+    "route-mixed": [
+      { "claimId": "claim.chapter4.route-mixed", "policyId": "policy.chapter4.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.evidence-route", "value": "mixedCorroboration", "sourceRole": "assistant" }
+    ],
+    "route-external": [
+      { "claimId": "claim.chapter4.route-external", "policyId": "policy.chapter4.evidence-route", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.evidence-route", "value": "externalReconstruction", "sourceRole": "assistant" }
+    ],
+    "solenn-restorative-choice": [
+      { "claimId": "claim.chapter4.solenn-restorative-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "restorativeProceedings", "sourceRole": "user" }
+    ],
+    "solenn-local-choice": [
+      { "claimId": "claim.chapter4.solenn-local-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "localTrial", "sourceRole": "user" }
+    ],
+    "solenn-starfleet-choice": [
+      { "claimId": "claim.chapter4.solenn-starfleet-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "starfleetCustody", "sourceRole": "user" }
+    ],
+    "solenn-immunity-choice": [
+      { "claimId": "claim.chapter4.solenn-immunity-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "conditionalImmunity", "sourceRole": "user" }
+    ],
+    "solenn-protection-choice": [
+      { "claimId": "claim.chapter4.solenn-protection-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "protectedCooperation", "sourceRole": "user" }
+    ],
+    "interface-shared-choice": [
+      { "claimId": "claim.chapter4.interface-shared-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "sharedOversight", "sourceRole": "user" }
+    ],
+    "interface-local-choice": [
+      { "claimId": "claim.chapter4.interface-local-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "localSeal", "sourceRole": "user" }
+    ],
+    "interface-starfleet-choice": [
+      { "claimId": "claim.chapter4.interface-starfleet-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "starfleetCustody", "sourceRole": "user" }
+    ],
+    "interface-destroy-record-choice": [
+      { "claimId": "claim.chapter4.interface-destroy-record-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "destroyWithRecord", "sourceRole": "user" }
+    ],
+    "interface-destroy-no-record-choice": [
+      { "claimId": "claim.chapter4.interface-destroy-no-record-choice", "policyId": "policy.chapter4.interface-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.interface-decision", "value": "destroyWithoutRecord", "sourceRole": "user" }
+    ],
+    "solenn-restorative-result": [
+      { "claimId": "claim.chapter4.solenn-restorative-result", "policyId": "policy.chapter4.solenn-restorative-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "restorativeProcess", "sourceRole": "assistant" }
+    ],
+    "solenn-local-result": [
+      { "claimId": "claim.chapter4.solenn-local-result", "policyId": "policy.chapter4.solenn-local-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "localProceedings", "sourceRole": "assistant" }
+    ],
+    "solenn-starfleet-result": [
+      { "claimId": "claim.chapter4.solenn-starfleet-result", "policyId": "policy.chapter4.solenn-starfleet-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "starfleetCustody", "sourceRole": "assistant" }
+    ],
+    "solenn-cooperative-result": [
+      { "claimId": "claim.chapter4.solenn-cooperative-result", "policyId": "policy.chapter4.solenn-cooperative-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "cooperativeProtection", "sourceRole": "assistant" }
+    ],
+    "solenn-handoff-result": [
+      { "claimId": "claim.chapter4.solenn-handoff-result", "policyId": "policy.chapter4.solenn-handoff-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "handedOffLocal", "sourceRole": "assistant" }
+    ],
+    "solenn-escaped-result": [
+      { "claimId": "claim.chapter4.solenn-escaped-result", "policyId": "policy.chapter4.solenn-unavailable-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.solenn-result", "value": "escapedOrUnavailable", "sourceRole": "assistant" }
+    ],
+    "interface-shared-result": [
+      { "claimId": "claim.chapter4.interface-shared-result", "policyId": "policy.chapter4.interface-shared-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "sharedSecured", "sourceRole": "assistant" }
+    ],
+    "interface-local-result": [
+      { "claimId": "claim.chapter4.interface-local-result", "policyId": "policy.chapter4.interface-local-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "localSecured", "sourceRole": "assistant" }
+    ],
+    "interface-starfleet-result": [
+      { "claimId": "claim.chapter4.interface-starfleet-result", "policyId": "policy.chapter4.interface-starfleet-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "starfleetSecured", "sourceRole": "assistant" }
+    ],
+    "interface-destroy-record-result": [
+      { "claimId": "claim.chapter4.interface-destroy-record-result", "policyId": "policy.chapter4.interface-destroy-record-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "destroyedWithRecord", "sourceRole": "assistant" }
+    ],
+    "interface-destroy-no-record-result": [
+      { "claimId": "claim.chapter4.interface-destroy-no-record-result", "policyId": "policy.chapter4.interface-destroy-no-record-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "destroyedWithoutRecord", "sourceRole": "assistant" }
+    ],
+    "interface-handoff-result": [
+      { "claimId": "claim.chapter4.interface-handoff-result", "policyId": "policy.chapter4.interface-handoff-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "handedOffLocal", "sourceRole": "assistant" }
+    ],
+    "interface-lost-result": [
+      { "claimId": "claim.chapter4.interface-lost-result", "policyId": "policy.chapter4.interface-lost-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "lostOrSeized", "sourceRole": "assistant" }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "shared-accountability",
+      "sequence": ["process-joint-choice", "process-joint-result", "history-evidence", "solenn-evidence", "access-evidence", "route-direct", "solenn-restorative-choice", "interface-shared-choice", "solenn-restorative-result", "interface-shared-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "sharedAccountability", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completed", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.process": "joint-public", "dimension.chapter4.evidence": "direct-inquiry", "dimension.chapter4.solenn": "restorative-process", "dimension.chapter4.interface": "shared-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "lawful-local-resolution",
+      "sequence": ["process-local-choice", "process-local-result", "access-evidence", "history-evidence", "solenn-evidence", "route-mixed", "solenn-local-choice", "interface-local-choice", "solenn-local-result", "interface-local-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "lawfulLocalResolution", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.process": "local-protected", "dimension.chapter4.evidence": "mixed-corroboration", "dimension.chapter4.solenn": "local-proceedings", "dimension.chapter4.interface": "local-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "starfleet-seizure",
+      "sequence": ["process-compel-choice", "process-seizure-result", "history-evidence", "solenn-evidence", "access-evidence", "route-direct", "solenn-starfleet-choice", "interface-starfleet-choice", "solenn-starfleet-result", "interface-starfleet-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "starfleetControlAtCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completedWithCost", "objective.chapter4.truth": "completed", "objective.chapter4.accountability": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter4.process": "starfleet-seizure", "dimension.chapter4.solenn": "starfleet-custody", "dimension.chapter4.interface": "starfleet-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "covert-truth-at-cost",
+      "sequence": ["process-covert-choice", "process-covert-result", "solenn-evidence", "access-evidence", "history-evidence", "route-mixed", "solenn-immunity-choice", "interface-destroy-record-choice", "solenn-cooperative-result", "interface-destroy-record-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "covertTruthAtCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completedWithCost", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter4.process": "covert-exposed", "dimension.chapter4.solenn": "cooperative-protection", "dimension.chapter4.interface": "destroyed-with-record" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "responsible-handoff",
+      "sequence": ["process-withdraw-choice", "process-withdraw-result", "history-evidence", "solenn-evidence", "access-evidence", "route-external", "solenn-handoff-result", "interface-handoff-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "handedOff", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "handedOff" },
+        "outcomeDimensions": { "dimension.chapter4.process": "withdrawn-handoff", "dimension.chapter4.evidence": "external-reconstruction", "dimension.chapter4.solenn": "handed-off-local", "dimension.chapter4.interface": "handed-off-local" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "process-collapse-before-final-choice",
+      "sequence": ["process-joint-choice", "process-collapse-result", "history-evidence", "solenn-evidence", "access-evidence", "route-external", "solenn-escaped-result", "interface-lost-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "fracturedAccountabilityForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completedWithCost", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "completedWithCost" },
+        "outcomeDimensions": { "dimension.chapter4.process": "collapsed", "dimension.chapter4.solenn": "escaped-or-unavailable", "dimension.chapter4.interface": "lost-or-seized" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "flight-and-loss-after-informed-choice",
+      "sequence": ["process-joint-choice", "process-joint-result", "history-evidence", "solenn-evidence", "access-evidence", "route-mixed", "solenn-protection-choice", "interface-shared-choice", "solenn-escaped-result", "interface-lost-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "fracturedAccountabilityForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "failedAfterInformedAction" },
+        "outcomeDimensions": { "dimension.chapter4.solenn": "escaped-or-unavailable", "dimension.chapter4.interface": "lost-or-seized" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "informed-destruction-without-record",
+      "sequence": ["process-joint-choice", "process-joint-result", "history-evidence", "solenn-evidence", "access-evidence", "route-mixed", "solenn-restorative-choice", "interface-destroy-no-record-choice", "solenn-restorative-result", "interface-destroy-no-record-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "fracturedAccountabilityForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completedWithCost", "objective.chapter4.accountability": "failedAfterInformedAction" },
+        "outcomeDimensions": { "dimension.chapter4.solenn": "restorative-process", "dimension.chapter4.interface": "destroyed-without-record" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "non-linear-evidence-order",
+      "sequence": ["process-local-choice", "access-evidence", "solenn-evidence", "process-local-result", "history-evidence", "route-direct", "interface-local-choice", "solenn-local-choice", "interface-local-result", "solenn-local-result"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "lawfulLocalResolution", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.process": "completed", "objective.chapter4.truth": "completed", "objective.chapter4.accountability": "completed" },
+        "outcomeDimensions": { "dimension.chapter4.evidence": "direct-inquiry", "dimension.chapter4.interface": "local-secured" },
+        "transitionTargetId": "chapter-5-old-lessons"
+      }
+    },
+    {
+      "id": "choice-alone-does-not-resolve",
+      "sequence": ["process-joint-choice", "process-joint-result", "history-evidence", "solenn-evidence", "access-evidence", "route-direct", "solenn-restorative-choice", "interface-shared-choice"],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.chapter4.accountability": null },
+        "outcomeDimensions": { "dimension.chapter4.solenn": "pending", "dimension.chapter4.interface": "pending" }
+      }
+    },
+    {
+      "id": "process-order-only",
+      "steps": [
+        { "claimId": "claim.chapter4.process-order-only", "policyId": "policy.chapter4.process-joint-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "jointPublicInquiry", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "final-choice-before-knowledge",
+      "sequence": ["solenn-restorative-choice"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "assistant-owned-solenn-choice",
+      "steps": [
+        { "claimId": "claim.chapter4.assistant-solenn-choice", "policyId": "policy.chapter4.solenn-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.solenn-decision", "value": "starfleetCustody", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "player-declared-interface-result",
+      "steps": [
+        { "claimId": "claim.chapter4.player-interface-result", "policyId": "policy.chapter4.interface-shared-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.interface-result", "value": "sharedSecured", "sourceRole": "user" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"] }
+    },
+    {
+      "id": "premature-continuing-access-report",
+      "steps": [
+        { "claimId": "claim.chapter4.premature-access-report", "policyId": "policy.chapter4.access-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter4.continuing-access-and-orison-route", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
+    },
+    {
+      "id": "stale-proposal",
+      "steps": [
+        { "claimId": "claim.chapter4.stale-process", "policyId": "policy.chapter4.process-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter4.process-decision", "value": "jointInquiry", "sourceRole": "user", "baseRevisionOffset": 1 }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["stale-revision"] }
+    },
+    {
+      "id": "wrong-swipe-proposal",
+      "steps": [
+        { "claimId": "claim.chapter4.wrong-swipe-process", "policyId": "policy.chapter4.process-joint-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter4.process-result", "value": "jointPublicInquiry", "sourceRole": "assistant", "sourceSwipeOverride": "swipe.not-selected" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["swipe-mismatch"] }
+    },
+    {
+      "id": "hallucinated-controller-policy",
+      "steps": [
+        { "claimId": "claim.chapter4.invented-controller", "policyId": "policy.chapter4.holt-controls-network", "claimType": "factDisclosed", "targetId": "fact.chapter4.continuing-access-and-orison-route", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["unknown-policy"] }
+    }
+  ]
+}

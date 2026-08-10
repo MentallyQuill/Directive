@@ -1,9 +1,10 @@
 import { createCharacterCreationContext } from '../packages/campaign-package-context.mjs';
-import { activateQuest } from '../quests/quest-director.mjs';
-import { createSeededThreadLedger } from '../threads/thread-package-seeds.mjs';
-import { createThreadLedger } from '../threads/thread-ledger.mjs';
-import { normalizeCampaignTimeState } from '../time/campaign-time-state.mjs';
-import { normalizeContinuityState } from '../continuity/state.mjs';
+import { createV1RuntimeArchitectureStamp } from '../runtime/v1-semantic-authority.mjs';
+import { createV1CommandBearing } from '../command/v1-command-bearing.mjs';
+import { createV1StateCustody } from '../runtime/v1-campaign-state.mjs';
+import { createMissionState } from '../mission/v1/mission-state.mjs';
+import { createInitialMissionJourney } from '../mission/v1/mission-journey.mjs';
+import { createEmptyStorySettlement } from '../story/story-settlement-contracts.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -11,53 +12,6 @@ function cloneJson(value) {
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeEntriesOwner(value, defaults = {}) {
-  const owner = isObject(value) ? value : {};
-  const entries = Array.isArray(value)
-    ? value
-    : (Array.isArray(value?.entries) ? value.entries : []);
-  return {
-    ...defaults,
-    ...owner,
-    entries
-  };
-}
-
-function normalizeInitialThreadLedger(value, packageData) {
-  const seeded = createSeededThreadLedger(packageData);
-  const owner = isObject(value) ? value : {};
-  const seedById = new Map(seeded.records.map((record) => [record.id, record]));
-  const rawRecords = Array.isArray(owner.records) ? owner.records : [];
-  const records = rawRecords.length > 0
-    ? rawRecords.map((raw) => {
-        const seed = seedById.get(raw?.id) || seedById.get(raw?.templateId) || {};
-        return {
-          ...seed,
-          ...raw,
-          status: raw?.status || seed.status,
-          shape: raw?.shape || seed.shape,
-          type: raw?.type || seed.type,
-          episodeFunction: raw?.episodeFunction || seed.episodeFunction,
-          title: raw?.title || seed.title,
-          playerSummary: raw?.playerSummary || seed.playerSummary || '',
-          summary: raw?.summary || seed.summary || raw?.playerSummary || seed.playerSummary || '',
-          observableSeed: raw?.observableSeed || seed.observableSeed || raw?.summary || raw?.title || '',
-          storyQuestion: raw?.storyQuestion || seed.storyQuestion,
-          naturalTrigger: raw?.naturalTrigger || seed.naturalTrigger,
-          participants: raw?.participants || raw?.participantIds || raw?.linkedCrewIds || seed.participantIds,
-          linkedCrewIds: raw?.linkedCrewIds || seed.linkedCrewIds,
-          tags: raw?.tags || seed.tags,
-          supportingEvidence: raw?.supportingEvidence || raw?.evidence || seed.supportingEvidence
-        };
-      })
-    : seeded.records;
-  return createThreadLedger({
-    ...seeded,
-    ...owner,
-    records
-  });
 }
 
 function requireObject(value, label) {
@@ -240,12 +194,12 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
     species: {
       id: choices.species.id,
       label: choices.species.selectedLabel,
-      summary: choices.species.summary
+      summary: choices.species.summary || ''
     },
     ageBand: {
       id: choices.ageBand.id,
       label: choices.ageBand.label,
-      summary: choices.ageBand.summary
+      summary: choices.ageBand.summary || ''
     },
     appearance,
     firstImpression: identity.firstImpression?.trim() || '',
@@ -284,23 +238,15 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
 
 export function createInitialCampaignStateFromCreatorReview({
   packageData,
-  projection,
+  missionDefinitions = [],
   creatorReview,
   campaignId,
+  saveId,
   createdAt,
   simulationMode = 'Command',
   creatorDraftId = null
 }) {
-  requireObject(projection, 'projection');
-  requireObject(projection.initialState, 'projection.initialState');
   const context = createCharacterCreationContext(packageData);
-
-  if (projection.sourcePackage?.packageId !== context.package.id) {
-    throw new Error(`Projection package id "${projection.sourcePackage?.packageId}" does not match package "${context.package.id}"`);
-  }
-  if (projection.sourcePackage?.campaignId !== context.campaign.id) {
-    throw new Error(`Projection campaign id "${projection.sourcePackage?.campaignId}" does not match package campaign "${context.campaign.id}"`);
-  }
 
   const id = requireNonEmptyString(campaignId, 'campaignId');
   const timestamp = requireNonEmptyString(createdAt, 'createdAt');
@@ -325,64 +271,90 @@ export function createInitialCampaignStateFromCreatorReview({
     };
   }
 
-  let state = cloneJson(projection.initialState);
-  state.campaign.id = id;
-  state.campaign.status = 'activating';
-  state.campaign.createdAt = timestamp;
-  state.campaign.startedAt = timestamp;
-  state.campaign.characterCreatorDraftId = creatorDraftId;
-  state.campaign.packageTitle = context.package.title;
-  state.activeCampaignPackage.packageId = context.package.id;
-  state.activeCampaignPackage.packageVersion = context.package.version;
-  state.player = player;
-  state.values.personal = cloneJson(player.personalValues || []);
-  state.turnLedger = normalizeEntriesOwner(state.turnLedger, {
-    entries: [],
-    lastCommittedOutcomeId: null,
-    swipeRerollForbidden: true
-  });
-  state.commandLog = normalizeEntriesOwner(state.commandLog, {
-    entries: [],
-    summariesGeneratedFromCommittedStateOnly: true
-  });
-  state.threadLedger = normalizeInitialThreadLedger(state.threadLedger, packageData);
-  state.ui.activeTab = 'Mission';
-  state.settings.simulationMode = simulationMode;
-  state.settings.allowedSimulationModes = cloneJson(allowedModes);
-  state.continuity = normalizeContinuityState(state.continuity);
-
-  const foregroundQuestId = state.questLedger?.foregroundQuestId || state.attentionState?.foregroundQuestId || null;
-  if (foregroundQuestId) {
-    state = activateQuest(state, packageData, foregroundQuestId, {
-      now: timestamp,
-      reason: 'campaign-start-foreground-normalization',
-      pushCurrent: false
-    });
+  const openingStardate = Number(context.campaign.openingStardate ?? packageData.ship?.openingStardate);
+  const openingMinuteOfDay = Number(packageData.manifest?.openingMinuteOfDay);
+  const openingMissionId = requireNonEmptyString(packageData.manifest?.openingMissionId, 'packageData.manifest.openingMissionId');
+  const branchId = requireNonEmptyString(saveId, 'saveId');
+  const openingMissionMatches = missionDefinitions.filter((definition) => (
+    definition?.packageBinding?.sourceId === openingMissionId
+    && definition?.packageBinding?.packageId === context.package.id
+    && definition?.packageBinding?.packageVersion === context.package.version
+  ));
+  if (openingMissionMatches.length !== 1) {
+    throw new Error('The V1 campaign package requires exactly one matching opening mission definition.');
   }
-
-  state = normalizeCampaignTimeState(state, {
-    projection,
-    now: timestamp,
-    reason: 'campaign-start'
-  }).campaignState;
-
-  state.commandLog.entries = [
-    ...(state.commandLog.entries || []),
-    {
-      id: `campaign-start.${id}`,
-      type: 'campaignStart',
-      stardate: state.campaign.currentStardate,
-      source: 'characterCreatorReview',
-      summaryInputs: [
-        `${player.name} accepted assignment as ${player.rank}, ${player.billet} aboard ${context.ship.name}.`,
-        `Campaign started in ${simulationMode} mode.`
-      ],
-      visibleConsequences: [
-        'Player character created.',
-        'First mission state initialized from package projection.'
-      ]
-    }
-  ];
-
-  return state;
+  const openingMissionDefinition = openingMissionMatches[0];
+  const initialMissionJourney = createInitialMissionJourney({ branchId, definition: openingMissionDefinition });
+  if (!Number.isFinite(openingStardate) || !Number.isInteger(openingMinuteOfDay) || openingMinuteOfDay < 0 || openingMinuteOfDay > 1439) {
+    throw new Error('The V1 campaign package requires a valid opening stardate and openingMinuteOfDay.');
+  }
+  return {
+    campaign: {
+      id,
+      title: context.campaign.title,
+      status: 'activating',
+      createdAt: timestamp,
+      startedAt: timestamp,
+      characterCreatorDraftId: creatorDraftId,
+      packageTitle: context.package.title,
+      openingStardate,
+      currentStardate: openingStardate,
+      openingMinuteOfDay,
+      runtimeArchitecture: createV1RuntimeArchitectureStamp({ packageData })
+    },
+    activeCampaignPackage: {
+      packageId: context.package.id,
+      packageVersion: context.package.version
+    },
+    player,
+    ship: {
+      id: context.ship.id,
+      name: context.ship.name,
+      class: context.ship.class,
+      registry: context.ship.registry,
+      operationalOverview: {
+        kind: 'directive.shipOperationalOverview.v1',
+        status: 'serviceable',
+        summary: String(packageData.ship?.openingCondition || '').trim(),
+        materialLimitations: [],
+        history: []
+      }
+    },
+    mission: {
+      activeMissionId: openingMissionId,
+      v1: createMissionState({ definition: openingMissionDefinition, branchId }),
+      v1Journey: initialMissionJourney.journey,
+      v1History: initialMissionJourney.history
+    },
+    storySettlement: createEmptyStorySettlement({ branchId }),
+    commandBearing: createV1CommandBearing(),
+    settings: {
+      simulationMode,
+      allowedSimulationModes: cloneJson(allowedModes)
+    },
+    worldState: {
+      kind: 'directive.worldState.v1',
+      version: 1,
+      regionId: packageData.world?.id || null,
+      currentLocationId: packageData.world?.openingLocationId || null,
+      currentStardate: openingStardate,
+      openingMinuteOfDay,
+      elapsedMinutes: 0,
+      visitedLocationIds: [packageData.world?.openingLocationId].filter(Boolean)
+    },
+    timeLedger: {
+      kind: 'directive.timeLedger.v1',
+      version: 1,
+      openingMinuteOfDay,
+      elapsedMinutes: 0,
+      stardate: openingStardate,
+      shipClock: {
+        minuteOfDay: openingMinuteOfDay,
+        display: `${String(Math.floor(openingMinuteOfDay / 60)).padStart(2, '0')}${String(openingMinuteOfDay % 60).padStart(2, '0')} hours`
+      },
+      entries: [],
+      updatedAt: timestamp
+    },
+    stateCustody: createV1StateCustody()
+  };
 }

@@ -1,8 +1,18 @@
-import { stripCampaignReplyHeader } from './campaign-time-header.mjs';
-import {
-  resolveElapsedMinutes,
-  resolveOpeningMinuteOfDay
-} from './campaign-time-state.mjs';
+const CAMPAIGN_REPLY_HEADER = /^\s*\*?Stardate\s+\d{4,6}(?:\.\d+)?\s*\|\s*\d{4}\s+hours\*?(?:\s*(?:\r?\n)+|\s*$)/i;
+
+function stripCampaignReplyHeader(text = '') {
+  return String(text ?? '').replace(CAMPAIGN_REPLY_HEADER, '').trimStart();
+}
+
+function resolveOpeningMinuteOfDay(campaignState = {}) {
+  const value = Number(campaignState?.timeLedger?.openingMinuteOfDay);
+  return Number.isInteger(value) && value >= 0 && value < 1440 ? value : null;
+}
+
+function resolveElapsedMinutes(campaignState = {}) {
+  const value = Number(campaignState?.timeLedger?.elapsedMinutes);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+}
 
 export const TIME_ADVANCE_ADJUDICATOR_ROLE_ID = 'timeAdvanceAdjudicator';
 export const TIME_ADVANCE_PROPOSAL_KIND = 'directive.timeAdvanceProposal.v1';

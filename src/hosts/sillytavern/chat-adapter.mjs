@@ -1,8 +1,8 @@
 import {
   hashStableJson,
-  normalizeHostMessageVisibility,
+  normalizeV1HostMessageVisibility,
   stableJsonByteLength
-} from '../../runtime/architecture-redesign-contracts.mjs';
+} from '../../runtime/v1-host-message-contracts.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -937,12 +937,7 @@ export function normalizeSillyTavernMessage(message, index = null, options = {})
     isSystem: message.is_system === true || message.role === 'system',
     directiveOwned: Boolean(metadata),
     isDirectiveOwned: Boolean(metadata),
-    visibility: normalizeHostMessageVisibility(message, {
-      index: Number.isInteger(index) ? index : null,
-      hostMessageId,
-      chatMetadata: options.chatMetadata || options.chat_metadata || null,
-      visibilityMap: options.visibilityMap || null
-    }),
+    visibility: normalizeV1HostMessageVisibility(message),
     metadata: cloneJson(metadata),
     raw: cloneJson(message)
   };
@@ -1017,12 +1012,7 @@ export function normalizeSillyTavernMessagePayload(context, payload = null) {
     isUser: message.is_user === true || message.role === 'user',
     isSystem: message.is_system === true || message.role === 'system',
     isDirectiveOwned: Boolean(directiveMetadata(message)),
-    visibility: normalizeHostMessageVisibility(message, {
-      index: index >= 0 ? index : null,
-      hostMessageId: normalizeMessageId(message, index >= 0 ? index : null),
-      chatMetadata,
-      visibilityMap: payload?.visibilityMap || payload?.visibility_map || null
-    }),
+    visibility: normalizeV1HostMessageVisibility(message),
     metadata: cloneJson(directiveMetadata(message)),
     raw: cloneJson(message)
   };

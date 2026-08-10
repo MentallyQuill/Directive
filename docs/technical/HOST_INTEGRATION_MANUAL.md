@@ -1,113 +1,17 @@
 # Host Integration Manual
 
-This document explains how Directive integrates with SillyTavern and the fake test host.
+Directive's shared runtime depends on a normalized host contract. SillyTavern supplies storage, chat observation, prompt installation, generation access, event subscription, preset management, and the launcher/UI mount. The fake host supplies the same boundaries for deterministic tests.
 
-## Plain-Language Model
+## SillyTavern lifecycle
 
-Directive keeps its campaign engine behind host contracts. Host adapters are translators. They know how to open UI, read/write storage, observe chat, call generation, install prompt context, and post responses in a specific host. They should not contain campaign rules.
+On extension load, Directive creates the host, initializes exact V1 storage, loads bundled Ashes assets, mounts the UI, installs the global action bridge and generation interceptor, wires events, and adds the ship launcher beside the composer.
 
-## Shared Host Contract
+The extension subscribes to chat changes, player messages, message edits, selected-swipe changes, message deletions, generation stops, and extension disable. Player-message handling schedules settlement without blocking SillyTavern's generation. The generation interceptor waits for any pending settlement, installs the current chat-bound V1 prompt, and lets normal host generation continue.
 
-Host adapters should provide these services:
+Prompt installation uses the single key `directive.campaign.v1` and refuses to install into a chat other than the save's exact `campaignChatBinding.chatId`. Chat changes clear or restore the packet according to that binding.
 
-| Service | Responsibility |
-| --- | --- |
-| Lifecycle | Enable, disable, update, clean, delete, refresh. |
-| Storage | Map logical Directive records to host storage. |
-| Generation | Run role-based generation requests and batch sidecars if supported. |
-| Prompt | Install, update, rebuild, inspect, suspend, and clear Directive-owned prompt blocks. |
-| Chat | Identify current chat, create/open campaign chat, post assistant messages, store binding metadata. |
-| Events | Observe player message, edit, delete, and chat switch events. |
-| Shell | Mount the Directive runtime shell into the host UI. |
-| Diagnostics | Report capabilities, failures, and host-specific state without leaking hidden campaign facts. |
+Storage maps logical V1 JSON keys into SillyTavern user files. Paths are validated before mapping. No host adapter discovers, translates, or hydrates other Directive file layouts.
 
-## SillyTavern Adapter
+Edits, deletions, visibility changes, and selected-swipe changes invalidate source custody, rebuild dependent V1 state, and reinstall prompt context. Generation stop cancels transient activity only; it does not commit prose.
 
-Primary source folder: `src/hosts/sillytavern`.
-
-Current responsibilities:
-
-- extension lifecycle through `lifecycle.js`;
-- feature enablement through `feature-toggle.mjs` and settings store;
-- host factory in `host-factory.mjs`;
-- file API and logical storage mapping;
-- prompt adapter over `setExtensionPrompt`;
-- chat adapter for chat identity and fresh campaign chat creation;
-- event wiring for player messages, edits, deletes, chat changes, and extension disable;
-- generation client and narration provider;
-- provider client for current host model, Connection Profile, and direct OpenAI-compatible endpoints;
-- runtime bridge and generation interceptor;
-- message actions for reconciliation;
-- Assist button integration beside the SillyTavern input.
-
-### Context-Extension Coexistence
-
-SillyTavern users may run native World Info / Lorebooks, Memory Books, Summaryception, VectFox, and other context-extension tools while playing a Directive campaign. The SillyTavern adapter must coexist with those systems without turning them into Directive subsystems.
-
-Rules for the adapter:
-
-- clear, rebuild, and overwrite only Directive-owned prompt keys;
-- preserve host-owned prompt keys such as World Info surfaces, `summaryception`, `3_vectfox*`, Memory Books-produced World Info, and unknown third-party keys;
-- observe host-visible prompt keys, chat metadata, settings hashes, visibility markers, disabled/unavailable states, and timing hints only as compact diagnostics;
-- avoid private extension APIs as runtime dependencies unless a future reviewed interop flow explicitly approves that dependency;
-- classify evidence honestly as browser-confirmed, disk-confirmed, settings-only, disabled, not-installed, unavailable, or indeterminate;
-- redact raw prompt bodies, lorebook text, generated Memory Books text, Summaryception summaries, vector payloads, embeddings, collection names, endpoint URLs, provider errors, API keys, Qdrant secrets, and hidden Director material.
-
-External context may influence generation, but it is not Directive authority. Host adapters should surface `externalPromptEnvironmentRef`, target summaries, unavailable reasons, fixture-depth labels, and external latency/privacy diagnostics without committing external content to campaign state.
-
-## Fake Host
-
-Primary source folder: `src/hosts/fake`.
-
-The fake host is for repeatable tests. It should model the host contract without importing SillyTavern globals.
-
-## Future Hosts
-
-Future host adapters, including possible Lumiverse support, should be added only after the SillyTavern alpha contract is stable. They should reuse the host contract, route-panel view models, logical storage boundary, and sidecar orchestration without forking campaign rules.
-
-## Host Boundary Diagram
-
-```mermaid
-flowchart TB
-  subgraph Shared["Shared Directive engine"]
-    Runtime["runtime-app"]
-    Director["Director and adjudication"]
-    StorageLogic["logical storage paths"]
-    GenerationRoles["generation roles"]
-    State["state transactions"]
-    UI["route panels and view models"]
-  end
-
-  subgraph ST["SillyTavern adapter"]
-    STEvents["events/interceptor"]
-    STPrompt["setExtensionPrompt"]
-    STFiles["/user/files storage"]
-    STShell["extension shell mount"]
-  end
-
-  ST --> Shared
-```
-
-## Integration Rules
-
-- Host adapters may reference host globals; shared engine modules should not.
-- Host adapters may translate storage paths; shared runtime should use logical keys.
-- Host adapters may call host generation; shared runtime should call generation roles.
-- Host adapters may mount UI; shared UI route order and view models should stay host-neutral.
-- Host adapters may expose diagnostics; diagnostics should be sanitized.
-
-## Render Slots
-
-Runtime shell examples:
-
-<p align="center">
-  <img src="../../assets/documentation/renders/docs-directive-campaign-command.png" alt="SillyTavern-hosted Directive command spine">
-</p>
-
-<p align="center">
-  <img src="../../assets/documentation/renders/docs-mobile-directive-campaign.png" alt="Mobile Directive shell">
-</p>
-
-<p align="center">
-  <img src="../../assets/documentation/renders/docs-directive-host-specific-surfaces.png" alt="SillyTavern launcher, message actions with Directive reconciliation commands, and Directive Assist beside the composer">
-</p>
+Disabling Directive removes the interceptor, prompt, launcher, overlays, event subscriptions, and global bridge without mutating campaign data.

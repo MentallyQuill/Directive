@@ -1,731 +1,69 @@
 export const GENERATION_ROLE_IDS = Object.freeze([
   'narration',
-  'campaignIntro',
-  'campaignConclusion',
-  'missionDirectorAdvisor',
-  'missionDirectorStoryPositioner',
-  'missionDirectorStoryPositionReviewer',
-  'missionDirectorOutcomePlanner',
-  'missionDirectorStoryDeltaPlanner',
-  'missionDirectorStoryDeltaReviewer',
-  'missionDirectorPlanReviewer',
-  'utilityTurnClassifier',
-  'utilityTurnArbiter',
-  'questActionInterpreter',
-  'questArchitect',
-  'sceneDeltaExtractor',
-  'sceneReconciliationExtractor',
-  'sceneHandshakeSettler',
-  'sourceSettlementLatestPair',
+  'acceptedPairMissionEvidence',
   'timeAdvanceAdjudicator',
-  'relationshipEvaluator',
-  'commandBearingFitChecker',
-  'commandBearingSpendValidator',
-  'commandBearingEvaluator',
-  'outcomeIntegrityReview',
-  'promptContextBuilder',
-  'continuityProjectionPlanner',
-  'continuityContradictionReviewer',
-  'continuityClaimExtractor',
-  'continuityProjectionCompressor',
-  'continuityTracker',
-  'crewDirector',
-  'shipDirector',
-  'commandLogSummarizer',
-  'recapSummarizer',
-  'factualGroundingReviewer',
-  'storyQualityReviewer',
-  'defineSelection',
-  'directiveAssist',
   'characterCreatorSectionDraft',
   'utilityJson'
 ]);
 
-export const GENERATION_PROVIDER_KINDS = Object.freeze([
-  'utility',
-  'reasoning'
-]);
-
-const BLOCKING_PROSE_TIMEOUT_MS = 120000;
-const BLOCKING_UTILITY_TIMEOUT_MS = 45000;
+export const GENERATION_PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
 
 const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
-  narration: {
+  narration: Object.freeze({
     id: 'narration',
-    label: 'Narration',
+    label: 'Story narration',
     providerKind: 'reasoning',
     blocking: true,
     output: 'prose',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
+    timeoutMs: 120000,
     structuredOutput: false,
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'fail-retryable'
-  },
-
-  campaignIntro: {
-    id: 'campaignIntro',
-    label: 'Campaign Intro',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'prose',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
-    structuredOutput: false,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'local-fallback'
-  },
-  campaignConclusion: {
-    id: 'campaignConclusion',
-    label: 'Campaign Conclusion',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'prose',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
-    structuredOutput: false,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'local-fallback'
-  },
-  utilityTurnClassifier: {
-    id: 'utilityTurnClassifier',
-    label: 'Utility Turn Classifier',
+  }),
+  acceptedPairMissionEvidence: Object.freeze({
+    id: 'acceptedPairMissionEvidence',
+    label: 'Mission evidence',
     providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
+    timeoutMs: 120000,
     structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'deterministic'
-  },
-  utilityTurnArbiter: {
-    id: 'utilityTurnArbiter',
-    label: 'Utility Turn Arbiter',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'fail-closed'
-  },
-  questActionInterpreter: {
-    id: 'questActionInterpreter',
-    label: 'Quest Action Interpreter',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'deterministic'
-  },
-  questArchitect: {
-    id: 'questArchitect',
-    label: 'Quest Architect',
-    providerKind: 'reasoning',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'balanced',
-      latency: 'medium',
-      capability: 'reasoning-writing'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  sceneDeltaExtractor: {
-    id: 'sceneDeltaExtractor',
-    label: 'Scene Delta Extractor',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 20000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  sceneReconciliationExtractor: {
-    id: 'sceneReconciliationExtractor',
-    label: 'Scene Reconciliation Extractor',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'medium',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  sceneHandshakeSettler: {
-    id: 'sceneHandshakeSettler',
-    label: 'Scene Handshake Settler',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'defer'
-  },
-  sourceSettlementLatestPair: {
-    id: 'sourceSettlementLatestPair',
-    label: 'Source Settlement Latest Pair',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  timeAdvanceAdjudicator: {
+  }),
+  timeAdvanceAdjudicator: Object.freeze({
     id: 'timeAdvanceAdjudicator',
-    label: 'Time Advance Adjudicator',
+    label: 'Story time',
     providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 15000,
     structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'deterministic'
-  },
-  relationshipEvaluator: {
-    id: 'relationshipEvaluator',
-    label: 'Relationship Evaluator',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'journal-only'
-  },
-  commandBearingFitChecker: {
-    id: 'commandBearingFitChecker',
-    label: 'Command Bearing Fit Check',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  commandBearingSpendValidator: {
-    id: 'commandBearingSpendValidator',
-    label: 'Command Bearing Spend Validator',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  commandBearingEvaluator: {
-    id: 'commandBearingEvaluator',
-    label: 'Command Bearing Evaluator',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'journal-only'
-  },
-  outcomeIntegrityReview: {
-    id: 'outcomeIntegrityReview',
-    label: 'Outcome Integrity Review',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'fail-closed'
-  },
-  promptContextBuilder: {
-    id: 'promptContextBuilder',
-    label: 'Prompt Context Builder',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 15000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: true,
-    mayRunDuringMainGeneration: true,
-    fallback: 'deterministic'
-  },
-  continuityProjectionPlanner: {
-    id: 'continuityProjectionPlanner',
-    label: 'Continuity Projection Planner',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 15000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'last-good-then-deterministic'
-  },
-  continuityContradictionReviewer: {
-    id: 'continuityContradictionReviewer',
-    label: 'Continuity Contradiction Reviewer',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  continuityClaimExtractor: {
-    id: 'continuityClaimExtractor',
-    label: 'Continuity Claim Extractor',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'skip'
-  },
-  continuityProjectionCompressor: {
-    id: 'continuityProjectionCompressor',
-    label: 'Continuity Projection Compressor',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  missionDirectorAdvisor: {
-    id: 'missionDirectorAdvisor',
-    label: 'Mission Director Advisor',
-    providerKind: 'reasoning',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 60000,
-    structuredOutput: true,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'skip'
-  },
-  missionDirectorStoryPositioner: {
-    id: 'missionDirectorStoryPositioner',
-    label: 'Mission Director Story Positioner',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  missionDirectorStoryPositionReviewer: {
-    id: 'missionDirectorStoryPositionReviewer',
-    label: 'Mission Director Story Position Reviewer',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  missionDirectorOutcomePlanner: {
-    id: 'missionDirectorOutcomePlanner',
-    label: 'Mission Director Outcome Planner',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'balanced',
-      latency: 'medium',
-      capability: 'reasoning-writing'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  missionDirectorStoryDeltaPlanner: {
-    id: 'missionDirectorStoryDeltaPlanner',
-    label: 'Mission Director Story Delta Planner',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'balanced',
-      latency: 'medium',
-      capability: 'reasoning-writing'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  missionDirectorStoryDeltaReviewer: {
-    id: 'missionDirectorStoryDeltaReviewer',
-    label: 'Mission Director Story Delta Reviewer',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  missionDirectorPlanReviewer: {
-    id: 'missionDirectorPlanReviewer',
-    label: 'Mission Director Plan Reviewer',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_UTILITY_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'fail-closed'
-  },
-  continuityTracker: {
-    id: 'continuityTracker',
-    label: 'Continuity Tracker',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'journal-only'
-  },
-  crewDirector: {
-    id: 'crewDirector',
-    label: 'Crew Director',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'journal-only'
-  },
-  shipDirector: {
-    id: 'shipDirector',
-    label: 'Ship Director',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: true,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'journal-only'
-  },
-  commandLogSummarizer: {
-    id: 'commandLogSummarizer',
-    label: 'Command Log Summarizer',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 8000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'skip'
-  },
-  recapSummarizer: {
-    id: 'recapSummarizer',
-    label: 'Recap Summarizer',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 45000,
-    structuredOutput: true,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'defer'
-  },
-  factualGroundingReviewer: {
-    id: 'factualGroundingReviewer',
-    label: 'Factual Grounding Reviewer',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: 60000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'medium',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'skip'
-  },
-  storyQualityReviewer: {
-    id: 'storyQualityReviewer',
-    label: 'Story Quality Reviewer',
-    providerKind: 'utility',
-    blocking: false,
-    output: 'structured-json',
-    timeoutMs: BLOCKING_PROSE_TIMEOUT_MS,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'medium',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'skip'
-  },
-  defineSelection: {
-    id: 'defineSelection',
-    label: 'Define Selection',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'low',
-      latency: 'fast',
-      capability: 'utility-reasoning'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'deterministic'
-  },
-  directiveAssist: {
-    id: 'directiveAssist',
-    label: 'Directive Assist',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 90000,
-    structuredOutput: true,
-    modelPreferences: {
-      cost: 'balanced',
-      latency: 'medium',
-      capability: 'authoring-assist'
-    },
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'fail-retryable'
-  },
-  characterCreatorSectionDraft: {
+  }),
+  characterCreatorSectionDraft: Object.freeze({
     id: 'characterCreatorSectionDraft',
-    label: 'Character Creator Section Draft',
+    label: 'Character draft',
     providerKind: 'reasoning',
     blocking: true,
     output: 'structured-json',
     timeoutMs: 45000,
     structuredOutput: true,
-    modelPreferences: {
-      cost: 'balanced',
-      latency: 'medium',
-      capability: 'reasoning-writing'
-    },
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'local-fallback'
-  },
-  utilityJson: {
+  }),
+  utilityJson: Object.freeze({
     id: 'utilityJson',
-    label: 'Utility JSON',
+    label: 'Story distillation',
     providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
@@ -735,82 +73,63 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'fail-retryable'
-  }
+  })
 });
 
-function cloneJson(value) {
+function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
-function isObject(value) {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function requireNonEmptyString(value, label) {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
-}
-
-function normalizeProviderKind(value, label) {
-  const providerKind = requireNonEmptyString(value, label);
-  if (!GENERATION_PROVIDER_KINDS.includes(providerKind)) {
-    throw new Error(`${label} must be one of: ${GENERATION_PROVIDER_KINDS.join(', ')}`);
-  }
-  return providerKind;
+function required(value, label) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${label} must be a non-empty string`);
+  return text;
 }
 
 export function getDefaultGenerationRoleDefinitions() {
-  return cloneJson(DEFAULT_ROLE_DEFINITIONS);
+  return clone(DEFAULT_ROLE_DEFINITIONS);
 }
 
 export function normalizeGenerationRoleDefinition(definition = {}) {
-  if (!isObject(definition)) {
-    throw new Error('generation role definition must be an object');
-  }
-  const id = requireNonEmptyString(definition.id, 'generation role id');
-  if (!GENERATION_ROLE_IDS.includes(id)) {
-    throw new Error(`Unknown generation role "${id}"`);
-  }
+  const id = required(definition.id, 'generation role id');
+  if (!GENERATION_ROLE_IDS.includes(id)) throw new Error(`Unknown generation role "${id}"`);
   const defaults = DEFAULT_ROLE_DEFINITIONS[id];
+  const providerKind = required(definition.providerKind ?? defaults.providerKind, `generation role ${id} providerKind`);
+  if (!GENERATION_PROVIDER_KINDS.includes(providerKind)) {
+    throw new Error(`generation role ${id} providerKind must be utility or reasoning`);
+  }
   return {
-    ...cloneJson(defaults),
-    ...cloneJson(definition),
+    ...clone(defaults),
+    ...clone(definition),
     id,
-    label: requireNonEmptyString(definition.label || defaults.label, `generation role ${id} label`),
-    providerKind: normalizeProviderKind(definition.providerKind ?? defaults.providerKind, `generation role ${id} providerKind`),
-    timeoutMs: Math.max(1, Number(definition.timeoutMs ?? defaults.timeoutMs ?? 30000))
+    label: required(definition.label || defaults.label, `generation role ${id} label`),
+    providerKind,
+    timeoutMs: Math.max(1, Number(definition.timeoutMs ?? defaults.timeoutMs))
   };
 }
 
 export function createGenerationRoleRegistry(overrides = {}) {
   for (const roleId of Object.keys(overrides || {})) {
-    if (!GENERATION_ROLE_IDS.includes(roleId)) {
-      throw new Error(`Unknown generation role override "${roleId}"`);
-    }
+    if (!GENERATION_ROLE_IDS.includes(roleId)) throw new Error(`Unknown generation role override "${roleId}"`);
   }
-  const roles = new Map();
-  for (const roleId of GENERATION_ROLE_IDS) {
-    roles.set(roleId, normalizeGenerationRoleDefinition({
+  const roles = new Map(GENERATION_ROLE_IDS.map((roleId) => [
+    roleId,
+    normalizeGenerationRoleDefinition({
       ...DEFAULT_ROLE_DEFINITIONS[roleId],
       ...(overrides[roleId] || {})
-    }));
-  }
-  return {
+    })
+  ]));
+  return Object.freeze({
     get(roleId) {
-      const id = requireNonEmptyString(roleId, 'roleId');
-      const role = roles.get(id);
-      if (!role) {
-        throw new Error(`Unknown generation role "${id}"`);
-      }
-      return cloneJson(role);
+      const id = required(roleId, 'roleId');
+      if (!roles.has(id)) throw new Error(`Unknown generation role "${id}"`);
+      return clone(roles.get(id));
     },
     list() {
-      return [...roles.values()].map(cloneJson);
+      return [...roles.values()].map(clone);
     },
     has(roleId) {
       return roles.has(roleId);
     }
-  };
+  });
 }
