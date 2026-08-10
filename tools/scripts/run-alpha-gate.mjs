@@ -17,6 +17,7 @@ const checks = [
   "test-certified-ship-panel.mjs",
   "test-certified-settings-panel.mjs",
   "test-certified-negative-legacy-ui.mjs",
+  "test-certified-character-creator.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
   "test-bundled-package-registry.mjs",

@@ -65,6 +65,7 @@ export function createCharacterCreatorAssistDialog({
   loadingActions.appendChild(cancel);
 
   const body = createElement('div', 'directive-creator-assist-dialog-body');
+  body.dataset.directiveScrollOwner = 'true';
   body.append(loading, loadingActions);
   dialog.append(header, body);
   overlay.appendChild(dialog);

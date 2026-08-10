@@ -761,6 +761,7 @@ export function renderCharacterCreatorPanel(body, view, actions) {
 
   const form = createElement('form', 'directive-creator-form directive-creator-console directive-lcars-console directive-lcars-panel');
   setDataset(form, 'creatorForm', 'true');
+  setDataset(form, 'directiveScrollOwner', 'true');
   form.dataset.creatorActiveStep = activeStepId;
   form.addEventListener('submit', (event) => event.preventDefault());
 
