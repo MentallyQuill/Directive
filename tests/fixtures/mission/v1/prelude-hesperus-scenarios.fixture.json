@@ -406,6 +406,7 @@
         "outcomeDimensions": {
           "dimension.hesperus.accountability": "proportionate-action"
         },
+        "commandBearingAwardIds": ["award.prelude.hesperus-accountability"],
         "knownFactsIncludes": ["fact.hesperus.record-falsified"],
         "transitionTargetId": "chapter-1-the-empty-convoy"
       }

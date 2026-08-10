@@ -3,7 +3,10 @@ import fs from 'node:fs';
 
 import { validateMissionEvidenceProposal } from '../../src/mission/v1/evidence-contracts.mjs';
 import { lintMissionPackage } from '../../src/mission/v1/mission-package-linter.mjs';
-import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
+import {
+  eligibleMissionCommandBearingAwards,
+  reduceMissionEvidence
+} from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -144,6 +147,13 @@ function assertScenarioResult(definition, scenario, result) {
   for (const [id, value] of Object.entries(expected.clockStates || {})) {
     assert.equal(result.state.clocks[id]?.state, value.state, `${label}:${id}:state`);
     assert.equal(result.state.clocks[id]?.value, value.value, `${label}:${id}:value`);
+  }
+  if (Object.hasOwn(expected, 'commandBearingAwardIds')) {
+    assert.deepEqual(
+      eligibleMissionCommandBearingAwards(definition, result.state).map((award) => award.id),
+      expected.commandBearingAwardIds,
+      `${label}: Command Bearing awards`
+    );
   }
   assert.equal(result.state.transitionReceipt?.target?.id || null, expected.transitionTargetId || null, `${label}: transition`);
 }
