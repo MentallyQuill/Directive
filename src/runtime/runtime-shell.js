@@ -144,6 +144,8 @@ function createPanel() {
     onSelectRoute: (routeId) => selectRoute(routeId),
     onClose: () => hideDirectiveRuntimePanel()
   });
+  panel.hidden = true;
+  panel.setAttribute('aria-hidden', 'true');
   applyShellLayout(panel);
   syncShellChrome(panel);
   return panel;

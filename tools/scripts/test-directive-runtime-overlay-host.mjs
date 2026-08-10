@@ -186,10 +186,17 @@ setDirectiveRuntimeApp(null);
 const opener = fakeDocument.createElement('button');
 fakeDocument.body.appendChild(opener);
 
-const shown = await showDirectiveRuntimePanel({ opener });
-assert.equal(shown.isOpen, true);
+await refreshDirectiveRuntimePanel();
 const overlay = fakeDocument.getElementById('directive-runtime-overlay');
 const panel = fakeDocument.getElementById('directive-runtime-panel');
+assert(overlay, 'background refresh should mount the runtime overlay');
+assert(panel, 'background refresh should mount the runtime panel');
+assert.equal(overlay.hidden, true, 'background refresh should keep the runtime overlay hidden');
+assert.equal(panel.hidden, true, 'background refresh should keep the runtime panel hidden');
+assert.equal(panel.getAttribute('aria-hidden'), 'true');
+
+const shown = await showDirectiveRuntimePanel({ opener });
+assert.equal(shown.isOpen, true);
 assert(overlay, 'runtime overlay should exist');
 assert.equal(overlay.parentNode, fakeDocument.body, 'runtime overlay should mount at document body level');
 assert.equal(panel.parentNode, overlay.querySelector('.directive-runtime-panel-host'));
