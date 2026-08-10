@@ -155,6 +155,7 @@ export function createSillyTavernDirectiveHost({
       presets: {
         narrationContext: hasPresetManager,
         chatCompletion: hasPresetManager,
+        narrationLifecycle: hasPresetManager,
         install: hasPresetManager,
         versionedInstall: hasPresetManager
       },

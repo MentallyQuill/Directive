@@ -5,6 +5,10 @@ import {
   disposeSillyTavernDirectiveEventLifecycle,
   wireEvents
 } from '../../src/hosts/sillytavern/shell-events.js';
+import {
+  clearSillyTavernDirectiveRuntimeBridge,
+  setSillyTavernDirectiveRuntimeBridge
+} from '../../src/hosts/sillytavern/runtime-bridge.mjs';
 
 const eventSource = createFakeEventAdapter();
 const eventTypes = {
@@ -28,5 +32,20 @@ __directiveEventTestHooks.captureDeleteIntent({
   target: { closest: (selector) => selector === '.mes_edit_delete' ? deleteButton : null }
 });
 assert.equal(__directiveEventTestHooks.payloadWithDeleteIntent({}).hostMessageId, '42');
+
+let restoreCount = 0;
+setSillyTavernDirectiveRuntimeBridge({
+  app: { async clearDirectivePrompt() {} },
+  directiveHost: {
+    presets: {
+      async restoreNarrationPreset() {
+        restoreCount += 1;
+      }
+    }
+  }
+});
+await __directiveEventTestHooks.handleExtensionDisabled();
+assert.equal(restoreCount, 1, 'extension disable must restore the preset selected before campaign play');
+clearSillyTavernDirectiveRuntimeBridge();
 
 console.log('PASS V1 SillyTavern event wiring');

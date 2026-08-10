@@ -385,7 +385,7 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
     return {
       state: 'missing',
       pill: 'Not Installed',
-      message: 'Install the bundled Directive preset, then select it manually in SillyTavern for campaign play.',
+      message: 'Install the bundled Directive preset. Directive activates it automatically while a bound campaign chat is open.',
       installedVersion: 'not found',
       bundledVersion,
       actionLabel: 'Install Preset',
@@ -485,9 +485,158 @@ export function createSillyTavernDirectivePresetManager({
   let bundledPresetCache = null;
   let installConfirmed = false;
   let latestStatus = null;
+  let narrationLease = null;
+  let presetTransition = Promise.resolve();
 
   function manager() {
     return presetManagerFromContext(getContext());
+  }
+
+  function enqueuePresetTransition(operation) {
+    const pending = presetTransition.then(operation, operation);
+    presetTransition = pending.then(() => undefined, () => undefined);
+    return pending;
+  }
+
+  function selectedPresetIdentity(pm) {
+    let name = '';
+    let value = '';
+    try {
+      name = typeof pm?.getSelectedPresetName === 'function'
+        ? String(pm.getSelectedPresetName() || '').trim()
+        : '';
+    } catch (_) {}
+    try {
+      value = typeof pm?.getSelectedPreset === 'function' ? pm.getSelectedPreset() : '';
+    } catch (_) {}
+    return { name, value };
+  }
+
+  function presetOptionValue(pm, name) {
+    let value = null;
+    try {
+      value = typeof pm?.findPreset === 'function' ? pm.findPreset(name) : null;
+    } catch (_) {
+      value = null;
+    }
+    return value !== null && value !== undefined && value !== '' ? value : name;
+  }
+
+  async function selectPresetAndWait(pm, value) {
+    const context = getContext();
+    const eventSource = context?.eventSource;
+    const events = context?.eventTypes || context?.event_types || {};
+    const eventName = events.OAI_PRESET_CHANGED_AFTER || '';
+    let finish = null;
+    let timeoutId = null;
+    let applied = Promise.resolve(false);
+
+    if (eventName && typeof eventSource?.once === 'function') {
+      applied = new Promise((resolve) => {
+        finish = () => {
+          if (timeoutId !== null) globalThis.clearTimeout?.(timeoutId);
+          eventSource.removeListener?.(eventName, finish);
+          resolve(true);
+        };
+        eventSource.once(eventName, finish);
+        timeoutId = globalThis.setTimeout?.(() => {
+          eventSource.removeListener?.(eventName, finish);
+          resolve(false);
+        }, 1500) ?? null;
+      });
+    }
+
+    try {
+      pm.selectPreset(value);
+    } catch (error) {
+      if (finish) eventSource?.removeListener?.(eventName, finish);
+      if (timeoutId !== null) globalThis.clearTimeout?.(timeoutId);
+      throw error;
+    }
+    return applied;
+  }
+
+  function activateNarrationPreset() {
+    return enqueuePresetTransition(async () => {
+      const pm = manager();
+      if (!pm || typeof pm.selectPreset !== 'function') {
+        return { ok: false, active: false, reason: 'preset-manager-unavailable' };
+      }
+      const installed = getInstalledDirectivePreset(pm);
+      if (!installed.name) {
+        return { ok: false, active: false, reason: 'directive-preset-missing' };
+      }
+
+      const current = selectedPresetIdentity(pm);
+      const directiveSelected = current.name.toLowerCase() === installed.name.toLowerCase();
+      if (!narrationLease) {
+        narrationLease = {
+          previousPresetName: current.name,
+          previousPresetValue: current.value,
+          restoreNeeded: !directiveSelected
+        };
+      } else if (!directiveSelected) {
+        narrationLease.previousPresetName = current.name;
+        narrationLease.previousPresetValue = current.value;
+        narrationLease.restoreNeeded = true;
+      }
+
+      if (directiveSelected) {
+        return {
+          ok: true,
+          active: true,
+          changed: false,
+          presetName: installed.name,
+          previousPresetName: narrationLease.previousPresetName || installed.name
+        };
+      }
+
+      const appliedEventObserved = await selectPresetAndWait(pm, presetOptionValue(pm, installed.name));
+      const selected = selectedPresetIdentity(pm);
+      if (selected.name.toLowerCase() !== installed.name.toLowerCase()) {
+        narrationLease = null;
+        return { ok: false, active: false, reason: 'directive-preset-selection-failed' };
+      }
+      return {
+        ok: true,
+        active: true,
+        changed: true,
+        presetName: installed.name,
+        previousPresetName: narrationLease.previousPresetName,
+        appliedEventObserved
+      };
+    });
+  }
+
+  function restoreNarrationPreset() {
+    return enqueuePresetTransition(async () => {
+      const lease = narrationLease;
+      narrationLease = null;
+      if (!lease) return { ok: true, restored: false, reason: 'no-active-narration-preset' };
+      if (!lease.restoreNeeded) return { ok: true, restored: false, reason: 'directive-was-already-selected' };
+
+      const pm = manager();
+      if (!pm || typeof pm.selectPreset !== 'function') {
+        return { ok: false, restored: false, reason: 'preset-manager-unavailable' };
+      }
+      const current = selectedPresetIdentity(pm);
+      if (current.name.toLowerCase() !== DIRECTIVE_PRESET_NAME.toLowerCase()) {
+        return { ok: true, restored: false, reason: 'selection-changed' };
+      }
+      if (lease.previousPresetValue === null || lease.previousPresetValue === undefined || lease.previousPresetValue === '') {
+        return { ok: false, restored: false, reason: 'previous-preset-unavailable' };
+      }
+
+      const appliedEventObserved = await selectPresetAndWait(pm, lease.previousPresetValue);
+      const restored = selectedPresetIdentity(pm);
+      return {
+        ok: restored.name === lease.previousPresetName,
+        restored: restored.name === lease.previousPresetName,
+        presetName: restored.name || null,
+        appliedEventObserved,
+        ...(restored.name === lease.previousPresetName ? {} : { reason: 'previous-preset-selection-failed' })
+      };
+    });
   }
 
   function getStatus() {
@@ -592,7 +741,9 @@ export function createSillyTavernDirectivePresetManager({
     dismissAutoCheckForVersion,
     getStartupCheck,
     loadBundledPreset,
-    installBundledPreset
+    installBundledPreset,
+    activateNarrationPreset,
+    restoreNarrationPreset
   };
 }
 

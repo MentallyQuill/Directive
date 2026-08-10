@@ -389,4 +389,96 @@ assert.equal(unrelatedSelectedContext.compatible, false);
 assert.equal(unrelatedSelectedContext.source, 'unrelated-active-preset');
 assert.equal(unrelatedSelectedContext.perspective, DIRECTIVE_DEFAULT_POV_RULE);
 
-console.log('SillyTavern preset manager tests passed: metadata, status comparison, install, and selection restore');
+function createNarrationLeaseFixture({
+  selectedName = 'Wandlight-1.3',
+  includeDirective = true
+} = {}) {
+  const optionValues = new Map([
+    ['Wandlight-1.3', 'preset-7'],
+    ['Alternate', 'preset-8'],
+    ['Directive', 'preset-9']
+  ]);
+  const namesByValue = new Map([...optionValues.entries()].map(([name, value]) => [value, name]));
+  const presets = new Map([
+    ['Wandlight-1.3', { prompts: [] }],
+    ['Alternate', { prompts: [] }],
+    ...(includeDirective ? [['Directive', asset]] : [])
+  ]);
+  const listeners = new Map();
+  let currentName = selectedName;
+  let presetApplied = true;
+  const eventSource = {
+    once(eventName, handler) {
+      listeners.set(eventName, handler);
+    },
+    removeListener(eventName, handler) {
+      if (listeners.get(eventName) === handler) listeners.delete(eventName);
+    },
+    emit(eventName) {
+      const handler = listeners.get(eventName);
+      listeners.delete(eventName);
+      handler?.();
+    }
+  };
+  const presetManager = {
+    getAllPresets: () => [...presets.keys()],
+    getCompletionPresetByName: (name) => presets.get(name) || null,
+    getSelectedPreset: () => optionValues.get(currentName) || '',
+    getSelectedPresetName: () => currentName,
+    findPreset: (name) => optionValues.get(name) || '',
+    selectPreset(value) {
+      currentName = namesByValue.get(value) || String(value || '');
+      presetApplied = false;
+      queueMicrotask(() => {
+        presetApplied = true;
+        eventSource.emit('oai-preset-applied');
+      });
+    }
+  };
+  const adapter = createSillyTavernDirectivePresetManager({
+    contextFactory: () => ({
+      eventSource,
+      eventTypes: { OAI_PRESET_CHANGED_AFTER: 'oai-preset-applied' },
+      getPresetManager: () => presetManager
+    })
+  });
+  return {
+    adapter,
+    presetManager,
+    selectedName: () => currentName,
+    presetApplied: () => presetApplied
+  };
+}
+
+const narrationLease = createNarrationLeaseFixture();
+const activated = await narrationLease.adapter.activateNarrationPreset();
+assert.equal(activated.ok, true);
+assert.equal(activated.changed, true);
+assert.equal(activated.previousPresetName, 'Wandlight-1.3');
+assert.equal(narrationLease.selectedName(), 'Directive');
+assert.equal(narrationLease.presetApplied(), true, 'activation must wait until SillyTavern applies the preset');
+
+const repeatedActivation = await narrationLease.adapter.activateNarrationPreset();
+assert.equal(repeatedActivation.changed, false);
+assert.equal(repeatedActivation.previousPresetName, 'Wandlight-1.3');
+
+narrationLease.presetManager.selectPreset('preset-8');
+await new Promise((resolve) => queueMicrotask(resolve));
+const reasserted = await narrationLease.adapter.activateNarrationPreset();
+assert.equal(reasserted.changed, true);
+assert.equal(reasserted.previousPresetName, 'Alternate');
+assert.equal(narrationLease.selectedName(), 'Directive');
+
+const restoredNarrationPreset = await narrationLease.adapter.restoreNarrationPreset();
+assert.equal(restoredNarrationPreset.ok, true);
+assert.equal(restoredNarrationPreset.restored, true);
+assert.equal(restoredNarrationPreset.presetName, 'Alternate');
+assert.equal(narrationLease.selectedName(), 'Alternate');
+
+const missingNarrationPreset = createNarrationLeaseFixture({ includeDirective: false });
+const missingActivation = await missingNarrationPreset.adapter.activateNarrationPreset();
+assert.equal(missingActivation.ok, false);
+assert.equal(missingActivation.reason, 'directive-preset-missing');
+assert.equal(missingNarrationPreset.selectedName(), 'Wandlight-1.3');
+
+console.log('SillyTavern preset manager tests passed: metadata, status comparison, install, and narration selection lifecycle');

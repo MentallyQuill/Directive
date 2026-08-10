@@ -117,11 +117,22 @@ const generation = createFakeGenerationClient({
   }
 });
 const runtimeWarnings = [];
+const narrationPresetLifecycle = [];
 const host = createFakeDirectiveHost({
   chatNative: true,
   chat,
   generation,
   storage,
+  presets: {
+    async activateNarrationPreset() {
+      narrationPresetLifecycle.push('activate');
+      return { ok: true, active: true };
+    },
+    async restoreNarrationPreset() {
+      narrationPresetLifecycle.push('restore');
+      return { ok: true, restored: true };
+    }
+  },
   logger: { warn: (...args) => runtimeWarnings.push(args), info() {}, error() {} }
 });
 let nextId = 0;
@@ -264,11 +275,17 @@ assert.equal(
 );
 await app.openCampaignChat({ saveId: recoverableCampaignView.activeSaveId });
 const missionView = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(narrationPresetLifecycle.includes('activate'), true, 'opening a bound campaign chat must activate the Directive narration preset');
 assert.equal(missionView.campaignState.campaign.status, 'active');
 assert.equal(missionView.campaignState.campaignChatBinding.kind, 'directive.campaignChatBinding.v1');
 assert.equal(missionView.v1PlayerProjection.kind, 'directive.playerProjection.v1');
 assert.equal(chat.messages().filter((message) => !message.isUser).length, 1);
 const boundCampaignChatId = missionView.campaignState.campaignChatBinding.chatId;
+chat.setCurrentChatId('unbound-preset-lifecycle');
+await app.handleHostChatChanged();
+assert.equal(narrationPresetLifecycle.at(-1), 'restore', 'leaving a bound campaign chat must restore the prior preset');
+await app.openCampaignChat({ saveId: missionView.activeSaveId });
+assert.equal(narrationPresetLifecycle.at(-1), 'activate', 'reopening a bound campaign chat must reactivate Directive narration');
 chat.setCurrentChatId('unbound-open-failure');
 const messagesBeforeOpenFailure = chat.messages().length;
 const openBoundCampaignChat = host.chat.openCampaignChat;
@@ -347,7 +364,12 @@ assert.equal(settled.mission.ok, false);
 assert.equal(settled.mission.reasonCode, 'provider-empty');
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision, 0);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'reserved');
+const activationsBeforeGeneration = narrationPresetLifecycle.filter((entry) => entry === 'activate').length;
 const intercepted = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.ok(
+  narrationPresetLifecycle.filter((entry) => entry === 'activate').length > activationsBeforeGeneration,
+  'every bound host generation must reassert the Directive narration preset before prompt synchronization'
+);
 assert.equal(intercepted.acceptedPairReplay.replayed, 1);
 assert.equal(intercepted.acceptedPairReplay.retryPending, false);
 assert.equal(missionInterpretationCalls, 2);
