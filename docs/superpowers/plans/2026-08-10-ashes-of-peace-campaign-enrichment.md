@@ -714,23 +714,23 @@ git commit -m "feat: expand Open Orders III closure"
 - Produces: named actors, cross-front resource choices, and explicit accepted use routes for existing entry capabilities.
 - Consumes: fourteen existing Chapter 8 entry capabilities plus the enriched earlier mission history.
 
-- [ ] **Step 1: Add failing cross-front and capability-use scenarios**
+- [x] **Step 1: Add failing cross-front and capability-use scenarios**
 
 Add `medical-cooperative-frees-command-mesh`, `relay-window-confirms-mercer-order`, `defense-codes-preserve-platform`, `cross-isolation-protects-core-path`, `quorum-broken-core-escapes`, and `civilians-protected-command-fractures`.
 
-- [ ] **Step 2: Assign named owners to all five fronts**
+- [x] **Step 2: Assign named owners to all five fronts**
 
 Use Whitaker, Kessler, Mercer, Holt, Prel, Ivers, Sato, Bronn, Priya, Rowan, Kieran, and Imani according to established roles. Each front must contain at least one regional actor with authority to cooperate, refuse, or impose a cost; no front is resolved solely by a senior officer reporting a result.
 
-- [ ] **Step 3: Make cross-front costs explicit**
+- [x] **Step 3: Make cross-front costs explicit**
 
 Author events for shifting shuttle capacity, trusted channels, engineering attention, medical support, and weapons-control personnel. Moving support may improve one front while recording a cost or delayed response on another; it must not silently rewrite an already accepted result.
 
-- [ ] **Step 4: Distinguish available capability from depicted use**
+- [x] **Step 4: Distinguish available capability from depicted use**
 
 For each capability-use scenario, require an accepted event or outcome depicting its use before transition narration may credit it. Preserve the current rule that entry capability availability alone is not use.
 
-- [ ] **Step 5: Verify and commit Chapter 8**
+- [x] **Step 5: Verify and commit Chapter 8**
 
 Run:
 

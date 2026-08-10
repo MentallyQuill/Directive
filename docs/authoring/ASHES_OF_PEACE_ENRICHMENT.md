@@ -617,28 +617,34 @@ flowchart TD
     A --> F[Protect evacuation and medical response]
     E --> G[Neutralize any two paths]
     G --> H[Break synchronized action]
-    E --> I[Neutralize all three paths]
-    I --> J[Capture or destroy core capability]
-    B --> K[Regional authority result]
-    C --> K
-    D --> K
-    H --> K
-    J --> K
-    F --> K
-    K --> L[Peace, peace at cost, imposed order, fractured survival, or ashes]
-    L --> M[Epilogue]
+    H --> I{Surviving core path}
+    I -->|Escapes| J[Containment with future risk]
+    I -->|Captured| K[Comprehensive core result]
+    C --> L[Depict relay or trusted-channel use]
+    D --> M[Depict codes and platform-crew acceptance]
+    E --> N[Depict Cross isolation or sensor use]
+    F --> O[Depict medical or rescue support]
+    B --> P[Regional authority result]
+    L --> P
+    M --> P
+    N --> P
+    O --> P
+    J --> P
+    K --> P
+    P --> Q[Peace, peace at cost, imposed order, fractured survival, or ashes]
+    Q --> R[Epilogue]
 ```
 
-#### Assessment
+#### Implemented checkpoint
 
-The finale has five independent fronts, a quorum mechanic, non-linear front resolution, costly peace, imposed-order outcomes, fragmentation, and catastrophic failure forward. It is structurally the richest mission. Its main enrichment need is human legibility under scale.
+Six cross-front and capability-use scenarios bring the campaign suite to 288 authored scenarios while retaining all five terminal dispositions and the three-path quorum. The mission now names regional owners on every front and records capability use separately from entry availability.
 
-#### Enrichment direction
+#### Enrichment delivered
 
-- Assign named local actors and senior officers to each front without making them passive messengers.
-- Make cross-front tradeoffs explicit when resources or trusted channels move.
-- Preserve the distinction between stopping synchronized Nightfall and solving every local crisis.
-- Ensure previous assets and relationships create visible opportunities, not automatic victories.
+- Whitaker, Kessler, Mercer, Holt, Prel, Ivers, Sato, Bronn, Priya, Rowan, Kieran, Imani, and local operators hold bounded authority across the five fronts.
+- Shuttle, medical, communications, engineering, and weapons-control shifts must carry an explicit benefit and cost without rewriting settled fronts.
+- Quorum break, core capture, civilian protection, and command legitimacy remain independently recordable.
+- Medical Cooperative, Relay Window, Defense Codes, and Cross Isolation benefits require accepted depicted-use events.
 
 ### Epilogue: The Terms We Keep
 

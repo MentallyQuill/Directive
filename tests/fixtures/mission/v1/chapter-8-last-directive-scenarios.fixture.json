@@ -108,6 +108,21 @@
     "mesh-result-without-disclosure": [
       { "claimId": "claim.chapter8.mesh-report", "policyId": "policy.chapter8.mesh-report", "claimType": "eventOccurred", "targetId": "event.chapter8.mesh-report-complete", "sourceRole": "assistant" },
       { "claimId": "claim.chapter8.mesh-trusted", "policyId": "policy.chapter8.mesh-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter8.mesh-result", "value": "trustedSharedMesh", "sourceRole": "assistant" }
+    ],
+    "use-medical-cooperative": [
+      { "claimId": "claim.chapter8.use-medical-cooperative", "policyId": "policy.chapter8.use-medical-cooperative", "claimType": "eventOccurred", "targetId": "event.chapter8.medical-cooperative-used", "sourceRole": "assistant" }
+    ],
+    "use-relay-window": [
+      { "claimId": "claim.chapter8.use-relay-window", "policyId": "policy.chapter8.use-relay-window", "claimType": "eventOccurred", "targetId": "event.chapter8.relay-window-used", "sourceRole": "assistant" }
+    ],
+    "use-defense-codes": [
+      { "claimId": "claim.chapter8.use-defense-codes", "policyId": "policy.chapter8.use-defense-codes", "claimType": "eventOccurred", "targetId": "event.chapter8.defense-codes-used", "sourceRole": "assistant" }
+    ],
+    "use-cross-isolation": [
+      { "claimId": "claim.chapter8.use-cross-isolation", "policyId": "policy.chapter8.use-cross-isolation", "claimType": "eventOccurred", "targetId": "event.chapter8.cross-isolation-used", "sourceRole": "assistant" }
+    ],
+    "core-escaped-after-quorum": [
+      { "claimId": "claim.chapter8.core-escaped-after-quorum", "policyId": "policy.chapter8.core-escaped-after-quorum", "claimType": "eventOccurred", "targetId": "event.chapter8.quorum-broken-core-escaped", "sourceRole": "assistant" }
     ]
   },
   "scenarios": [
@@ -177,6 +192,36 @@
         { "claimId": "claim.chapter8.assistant-plan", "policyId": "policy.chapter8.command-plan", "claimType": "decisionRecorded", "targetId": "outcome.chapter8.command-plan", "value": "executablePlanIssued", "sourceRole": "assistant" }
       ],
       "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["source-role-not-authorized"], "transitionTargetId": null }
+    },
+    {
+      "id": "medical-cooperative-frees-command-mesh",
+      "sequence": ["use-medical-cooperative", "mesh-trusted"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.medical-cooperative-used"], "transitionTargetId": null }
+    },
+    {
+      "id": "relay-window-confirms-mercer-order",
+      "sequence": ["executable-plan", "use-relay-window", "command-shared"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.relay-window-used"], "transitionTargetId": null }
+    },
+    {
+      "id": "defense-codes-preserve-platform",
+      "sequence": ["use-defense-codes", "weapons-freeze"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.defense-codes-used"], "transitionTargetId": null }
+    },
+    {
+      "id": "cross-isolation-protects-core-path",
+      "sequence": ["use-cross-isolation", "core-all"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.cross-isolation-used"], "transitionTargetId": null }
+    },
+    {
+      "id": "quorum-broken-core-escapes",
+      "sequence": ["core-local", "core-escaped-after-quorum"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 4, "rejectedReasonCodes": [], "eventsInclude": ["event.chapter8.quorum-broken-core-escaped"], "objectiveDispositions": { "objective.chapter8.core": "completedWithCost" }, "transitionTargetId": null }
+    },
+    {
+      "id": "civilians-protected-command-fractures",
+      "sequence": ["executable-plan", "civilians-protected", "command-fractured"],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 7, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.civilians": "completed", "objective.chapter8.command": "completedWithCost" }, "transitionTargetId": null }
     },
     {
       "id": "user-cannot-self-certify-front",

@@ -3438,6 +3438,7 @@ Nightfall creates four principal fronts and one command front. The player cannot
 #### Front A: The command mesh
 
 **Primary officers:** Priya Nayar; Captain Whitaker; Director Kessler if allied  
+**Regional owners:** Administrator Asha Prel and archivist Nella Ivers, who can validate local routes and records but may refuse a channel that conceals provenance or exposes civilians.
 **Location:** Breckenridge, Asterion Station, and civilian relay points
 
 Objective:
@@ -3467,6 +3468,7 @@ Parties act on incompatible realities, increasing weapons fire and civilian pani
 #### Front B: The Orison weapons grid
 
 **Primary officer:** Hadrik Bronn  
+**Regional owners:** Captain Mercer, Holt, and the named Orison platform crews. They can accept manual control or authenticated codes, refuse a perceived seizure, or demand that preserving a platform take priority over destroying it.
 **Location:** Orison Belt, Asterion Annex Six, and task-group tactical network
 
 Objective:
@@ -3497,6 +3499,7 @@ Weapons fire begins. Bronn must choose which assets to disable or destroy, and c
 
 **Primary officers:** Rowan Saye and Imani Cross  
 **Delivery and maneuver:** Kieran Vale  
+**Regional owners:** operators at the surviving Hecate, Lacuna, Annex, or Orison path. Their access, refusal, and exposure costs must be depicted rather than reduced to a sensor return.
 **Location:** Hecate Drift, Lacuna node, or another surviving core pathway depending on prior choices
 
 Objective:
@@ -3529,6 +3532,7 @@ Nightfall continues coordinating events even if individual platforms are disable
 
 **Primary officer:** Commander Miriam Sato
 **Flight support:** Kieran or civilian pilots if available  
+**Regional owners:** Nella Ivers, local clinicians, convoy masters, and safe-haven coordinators who can accept triage burdens, refuse politically restricted access, or identify ships the central plan has missed.
 **Location:** Pelion, Demeris, Suvek, and moving civilian convoys
 
 Objective:
@@ -3560,6 +3564,7 @@ Humanitarian Strain becomes direct casualties, and political leaders become less
 #### Front E: Command legitimacy
 
 **Primary officers:** The player and Whitaker  
+**Regional owners:** Kessler, Mercer, Holt, and Prel. Each controls cooperation the player cannot simply requisition and may attach a lawful, political, or humanitarian cost.
 **Location:** Wherever the player chooses to command
 
 Objective:
@@ -3593,6 +3598,10 @@ Examples of valid alternatives:
 
 Adjudication should account for officer competence, relationship state, established injuries, and prior preparation.
 
+Moving resources across fronts must be explicit. Shuttle capacity, medical support, trusted channels, engineering attention, and weapons-control personnel can improve one front while delaying or limiting another. A shift cannot silently rewrite an already accepted result. Examples include the Asterion Medical Cooperative accepting safe-haven duty so Sato can reinforce the command mesh, or engineering attention moving to a core-path isolation while a damaged civilian system waits.
+
+Prior capabilities create opportunities, not outcomes. Availability alone is never depicted use. Credit one only after an accepted scene establishes its actual operation and consequence—for example, the relay window carries Mercer's authenticated order, Orison codes are accepted by a platform crew and preserve the platform, or the Cross protocol disconnects a compromised core path under its consented limits.
+
 ### 22.6 The network's physical and logical center
 
 Pale Lantern has no single irreplaceable computer. Nightfall is currently coordinated through a **quorum of three active nodes**:
@@ -3602,6 +3611,8 @@ Pale Lantern has no single irreplaceable computer. Nightfall is currently coordi
 3. A regional command interface located in Annex Six, an Orison platform, or Holt's portable unit depending on prior outcomes.
 
 Neutralizing any two breaks synchronized Nightfall. Neutralizing all three permits capture or comprehensive destruction.
+
+Breaking the quorum and securing the core are separate achievements. Two disabled paths can end synchronized action while the surviving core escapes. Conversely, protecting civilians does not imply that command authority held, and a fractured command result does not erase an already accepted evacuation success.
 
 This structure ensures earlier choices materially alter the finale without making one missed clue fatal.
 

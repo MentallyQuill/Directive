@@ -190,6 +190,14 @@
   ],
   "facts": [
     {
+      "id": "fact.chapter8.front-owners",
+      "initiallyTrue": true,
+      "visibility": "known",
+      "playerText": {
+        "summary": "Whitaker coordinates Kessler, Mercer, and Holt on regional authority; Priya works with Administrator Prel and Nella Ivers on trusted communications; Bronn and local platform crews own weapons-control compliance; Rowan and Imani trace and isolate the core paths; Sato, Kieran, and Ivers coordinate triage and evacuation. Every front includes a regional actor who can cooperate, refuse, or impose a cost."
+      }
+    },
+    {
       "id": "fact.chapter8.command-account",
       "initiallyTrue": true,
       "visibility": "discoverable",
@@ -231,6 +239,32 @@
     }
   ],
   "evidencePolicies": [
+    {
+      "id": "policy.chapter8.use-medical-cooperative",
+      "claimType": "eventOccurred", "targetId": "event.chapter8.medical-cooperative-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Asterion Medical Cooperative is depicted accepting named casualties or safe-haven responsibility, freeing Sato or a trusted channel for another front.", "exclusions": ["Capability availability, contacting a clinic, or predicting help is not use. Record any medical or coordination limit rather than silently improving both fronts."] }
+    },
+    {
+      "id": "policy.chapter8.use-relay-window",
+      "claimType": "eventOccurred", "targetId": "event.chapter8.relay-window-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Long-Range Relay Window carries one depicted external confirmation, such as Mercer's authentic order, across compromised regional networks.", "exclusions": ["Capability availability, opening the window without a confirmed exchange, or using it repeatedly is insufficient."] }
+    },
+    {
+      "id": "policy.chapter8.use-defense-codes",
+      "claimType": "eventOccurred", "targetId": "event.chapter8.defense-codes-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Orison Defense Codes are accepted by a named platform crew and depicted disabling, reassigning, or preserving that platform without destruction.", "exclusions": ["Capability availability, transmitting unauthenticated codes, or destroying the platform is not this use."] }
+    },
+    {
+      "id": "policy.chapter8.use-cross-isolation",
+      "claimType": "eventOccurred", "targetId": "event.chapter8.cross-isolation-used", "sourceRoles": ["assistant", "runtime", "adjudicator"], "when": true,
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim only when the available Cross Isolation Protocol is depicted disconnecting one compromised command or power pathway under its consented limits without cascading failure.", "exclusions": ["Capability availability, naming the protocol, or isolating an unrelated circuit is not use."] }
+    },
+    {
+      "id": "policy.chapter8.core-escaped-after-quorum",
+      "claimType": "eventOccurred", "targetId": "event.chapter8.quorum-broken-core-escaped", "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "outcomeIs": { "id": "outcome.chapter8.core-result", "equals": "localContainmentCoreEscaped" } },
+      "interpretation": { "evidenceStandard": "clearOutcome", "guidance": "Claim when two paths have been neutralized far enough to break synchronized Nightfall action while the surviving core path demonstrably escapes capture.", "exclusions": ["Breaking the quorum does not imply all nodes were secured, and a missing core without a broken quorum is insufficient."] }
+    },
     {
       "id": "policy.chapter8.command-plan",
       "claimType": "decisionRecorded",
@@ -531,7 +565,12 @@
     { "id": "event.chapter8.mesh-report-complete", "playerVisibility": "hidden" },
     { "id": "event.chapter8.weapons-report-complete", "playerVisibility": "hidden" },
     { "id": "event.chapter8.core-report-complete", "playerVisibility": "hidden" },
-    { "id": "event.chapter8.civilians-report-complete", "playerVisibility": "hidden" }
+    { "id": "event.chapter8.civilians-report-complete", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.medical-cooperative-used", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.relay-window-used", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.defense-codes-used", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.cross-isolation-used", "playerVisibility": "hidden" },
+    { "id": "event.chapter8.quorum-broken-core-escaped", "playerVisibility": "hidden" }
   ],
   "outcomes": [
     {
