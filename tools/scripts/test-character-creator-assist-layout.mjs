@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
 const browser = await chromium.launch({ headless: true });
 
-async function layoutMetrics(viewport, { reducedMotion = 'no-preference' } = {}) {
+async function layoutMetrics(viewport, { reducedMotion = 'no-preference', pageZoom = 1 } = {}) {
   const page = await browser.newPage({ viewport });
   try {
     await page.emulateMedia({ reducedMotion });
@@ -91,7 +91,13 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference' } = {})
         </div>
       </div>
     `);
+    if (pageZoom !== 1) {
+      await page.evaluate((zoom) => {
+        document.body.style.zoom = String(zoom);
+      }, pageZoom);
+    }
     const metrics = await page.evaluate(() => {
+      const panel = document.querySelector('.directive-runtime-panel');
       const overlay = document.querySelector('.directive-creator-assist-dialog-overlay');
       const dialog = document.querySelector('.directive-creator-assist-dialog');
       const spinner = document.querySelector('.directive-creator-assist-dialog-spinner');
@@ -111,6 +117,7 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference' } = {})
       const spinnerStyle = getComputedStyle(spinner);
       const commandStyle = getComputedStyle(commandBar);
       const overlayRect = overlay.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
       const dialogRect = dialog.getBoundingClientRect();
       const routeBodyRect = routeBody.getBoundingClientRect();
       const formRect = form.getBoundingClientRect();
@@ -121,6 +128,12 @@ async function layoutMetrics(viewport, { reducedMotion = 'no-preference' } = {})
       const stepRects = stepButtons.map((button) => button.getBoundingClientRect());
       return {
         viewport: { width: innerWidth, height: innerHeight },
+        panel: {
+          top: panelRect.top,
+          right: panelRect.right,
+          bottom: panelRect.bottom,
+          left: panelRect.left
+        },
         overlay: {
           position: overlayStyle.position,
           display: overlayStyle.display,
@@ -235,6 +248,15 @@ try {
 
   const reducedMotionMetrics = await layoutMetrics({ width: 1200, height: 1050 }, { reducedMotion: 'reduce' });
   assert.equal(reducedMotionMetrics.spinner.animationName, 'none', 'assist spinner should stop for reduced motion');
+
+  const zoomedMetrics = await layoutMetrics(
+    { width: 986, height: 952 },
+    { pageZoom: 1.25 }
+  );
+  assert.ok(zoomedMetrics.panel.top >= 0, 'scaled desktop shell must retain its top edge');
+  assert.ok(zoomedMetrics.panel.left >= 0, 'scaled desktop shell must retain its left edge');
+  assert.ok(zoomedMetrics.panel.right <= zoomedMetrics.viewport.width, 'scaled desktop shell must retain its right edge');
+  assert.ok(zoomedMetrics.panel.bottom <= zoomedMetrics.viewport.height, 'scaled desktop shell must retain its bottom edge');
 } finally {
   await browser.close();
 }
