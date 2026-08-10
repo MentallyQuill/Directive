@@ -47,6 +47,11 @@ export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
     'failedAfterInformedAction',
     'expiredAfterKnownDeadline',
 ]));
+export const MISSION_COMMAND_BEARING_CREDITABLE_DISPOSITIONS = Object.freeze(new Set([
+    'completed',
+    'completedWithCost',
+    'handedOff',
+]));
 
 function byId(items) {
     return new Map((Array.isArray(items) ? items : []).filter((item) => item?.id).map((item) => [item.id, item]));
@@ -313,6 +318,7 @@ export function indexMissionDefinition(definition = {}) {
         clocks: byId(definition.clocks),
         terminalDispositions: byId(definition.terminalDispositions),
         transitions: byId(definition.transitions),
+        commandBearingAwards: byId(definition.commandBearingAwards),
     };
 }
 
@@ -344,6 +350,7 @@ export function validateMissionDefinition(definition = {}) {
         'events',
         'outcomes',
         'outcomeDimensions',
+        'commandBearingAwards',
         'clocks',
         'terminalDispositions',
         'transitions',
@@ -360,6 +367,7 @@ export function validateMissionDefinition(definition = {}) {
         'events',
         'outcomes',
         'outcomeDimensions',
+        'commandBearingAwards',
         'clocks',
         'terminalDispositions',
         'transitions',
@@ -477,6 +485,36 @@ export function validateMissionDefinition(definition = {}) {
         if (!isNonEmptyString(objective?.playerText?.title) || !isNonEmptyString(objective?.playerText?.summary)) {
             errors.push(`${objectiveId} playerText requires a non-empty title and summary`);
         }
+    }
+    const awardedObjectiveIds = new Set();
+    for (const award of Array.isArray(definition?.commandBearingAwards) ? definition.commandBearingAwards : []) {
+        const awardId = award?.id || '<unknown Command Bearing award>';
+        const sourceObjective = definitionIndex.objectives.get(award?.sourceObjectiveId);
+        const effectiveClass = sourceObjective?.class === 'conditional'
+            ? sourceObjective.activatedAs
+            : sourceObjective?.class;
+        if (effectiveClass !== 'optional') {
+            errors.push(`${awardId} must reference an optional objective`);
+        }
+        if (awardedObjectiveIds.has(award?.sourceObjectiveId)) {
+            errors.push(`${award?.sourceObjectiveId || '<unknown objective>'} has more than one Command Bearing award`);
+        }
+        awardedObjectiveIds.add(award?.sourceObjectiveId);
+        if (!Array.isArray(award?.eligibleDispositions) || award.eligibleDispositions.length === 0) {
+            errors.push(`${awardId} eligibleDispositions must contain at least one disposition`);
+        } else {
+            if (new Set(award.eligibleDispositions).size !== award.eligibleDispositions.length) {
+                errors.push(`${awardId} eligibleDispositions must not contain duplicates`);
+            }
+            for (const disposition of award.eligibleDispositions) {
+                if (!MISSION_COMMAND_BEARING_CREDITABLE_DISPOSITIONS.has(disposition)) {
+                    errors.push(`${awardId} cannot credit disposition ${disposition}`);
+                } else if (!sourceObjective?.supportedDispositions?.includes(disposition)) {
+                    errors.push(`${awardId} eligible disposition is not supported by ${award?.sourceObjectiveId}`);
+                }
+            }
+        }
+        if (!isNonEmptyString(award?.reason)) errors.push(`${awardId} reason must be non-empty`);
     }
     for (const fact of Array.isArray(definition?.facts) ? definition.facts : []) {
         const factId = fact?.id || '<unknown fact>';

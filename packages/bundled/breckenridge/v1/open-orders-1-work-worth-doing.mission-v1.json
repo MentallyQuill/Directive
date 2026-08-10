@@ -574,6 +574,26 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.open-orders1.long-repair",
+      "sourceObjectiveId": "objective.open-orders1.long-repair",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried The Long Repair to a usable disposition."
+    },
+    {
+      "id": "award.open-orders1.borrowed-wings",
+      "sourceObjectiveId": "objective.open-orders1.borrowed-wings",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Borrowed Wings to a usable disposition."
+    },
+    {
+      "id": "award.open-orders1.quiet-channels",
+      "sourceObjectiveId": "objective.open-orders1.quiet-channels",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Quiet Channels to a usable disposition."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.open-orders1.load",

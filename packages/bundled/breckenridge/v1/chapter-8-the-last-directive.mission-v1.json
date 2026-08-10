@@ -683,6 +683,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter8.command",

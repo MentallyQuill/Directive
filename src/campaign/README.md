@@ -1,9 +1,8 @@
 # Campaign Source
 
-Authoritative campaign state, campaign-state projection, state manager, turn ledger, transaction manager, rollback manager, and campaign import/export code.
+Campaign creation for the Ashes V1 package.
 
-`campaign-start.mjs` turns an accepted package-driven Character Creator review into initialized campaign state from the active projection.
+- `campaign-start.mjs` turns an accepted package-owned player dossier into exact `directive.campaignState.v1` state.
+- `campaign-start-service.mjs` coordinates creator drafts, campaign creation, checkpoints, and exact V1 loading through the storage repository.
 
-`campaign-start-service.mjs` is the runtime-facing workflow layer for starting/resuming Character Creator drafts, accepting a draft into the first campaign save, Save Game, Save Game As, stable-turn autosaves, and Load Game.
-
-`transaction-state.mjs` commits Director turn packets into campaign-owned state, including optional Command Competence ledger records, counsel records, confirmed warning records, and accepted-risk records when a turn carries a `competencePacket`.
+Ongoing story and mission mutation belongs to the V1 runtime, not this folder.

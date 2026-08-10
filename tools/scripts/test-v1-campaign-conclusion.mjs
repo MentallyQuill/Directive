@@ -34,13 +34,6 @@ const sourceDefinition = {
 };
 const packageData = {
     manifest: { id: packageBinding.packageId, version: packageBinding.packageVersion },
-    endConditions: {
-        version: 1,
-        conditions: [{
-            id: 'completion.ashes.terms-we-keep-resolved',
-            family: 'authoredCompletion',
-        }],
-    },
 };
 const missionState = {
     kind: 'directive.missionState.v1',
@@ -107,7 +100,7 @@ const receipt = createCampaignConclusionReceipt({
 });
 assert.equal(receipt.kind, CAMPAIGN_CONCLUSION_KIND);
 assert.equal(receipt.contractVersion, 1);
-assert.match(receipt.id, /^campaign-conclusion\.[a-f0-9]{24}$/);
+assert.match(receipt.id, /^campaign-conclusion\.[a-f0-9]{16}$/);
 assert.deepEqual(receipt.packageBinding, {
     packageId: packageBinding.packageId,
     packageVersion: packageBinding.packageVersion,
@@ -151,8 +144,6 @@ for (const [label, mutate, expectedReason] of [
         delete state.mission.v1.transitionReceipt.target.campaignConclusion;
         delete state.mission.v1.transitionReceipt.packet.next.campaignConclusion;
     }, 'phase-target-contract-unavailable'],
-    ['missing end condition', (state, definition, data) => { data.endConditions.conditions = []; }, 'campaign-conclusion-end-condition-unavailable'],
-    ['wrong end-condition family', (state, definition, data) => { data.endConditions.conditions[0].family = 'terminalCandidate'; }, 'campaign-conclusion-end-condition-invalid'],
 ]) {
     const state = structuredClone(campaignState);
     const definition = structuredClone(sourceDefinition);
@@ -171,7 +162,7 @@ for (const [label, mutate] of [
     ['mission revision drift', (value) => { value.source.missionRevision = 14; }],
     ['journey revision drift', (value) => { value.journeyRevision = 11; }],
     ['end-condition drift', (value) => { value.endConditionId = 'completion.forged'; }],
-    ['unknown field', (value) => { value.legacyQuestStatus = 'resolved'; }],
+    ['unknown field', (value) => { value.unexpectedField = 'resolved'; }],
 ]) {
     const forged = structuredClone(receipt);
     mutate(forged);

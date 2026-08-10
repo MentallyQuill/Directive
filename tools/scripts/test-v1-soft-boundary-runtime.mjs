@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
@@ -17,18 +18,14 @@ import {
     observeStoryWorkingEvidence,
     openStoryEpisode,
 } from '../../src/story/story-settlement.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
     'utf8',
 ));
 const runtimeAssets = {
-    packageData: {
-        manifest: {
-            id: definition.packageBinding.packageId,
-            version: definition.packageBinding.packageVersion,
-        },
-    },
+    ...loadAshesRuntimeAssets(),
     missionDefinitions: [{ path: 'prelude.mission-v1.json', definition }],
     missionDefinitionsById: new Map([[definition.id, { path: 'prelude.mission-v1.json', definition }]]),
 };
@@ -73,25 +70,21 @@ function createActiveCampaignState() {
         status: 'active',
     }]);
     storySettlement = checkpointStoryEpisode(storySettlement, { force: true });
-    return {
-        campaign: { id: 'campaign.ashes' },
-        activeCampaignPackage: {
-            packageId: definition.packageBinding.packageId,
-            packageVersion: definition.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId: branchId, chatId: 'chat.soft-review' },
-        mission: {
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId: branchId,
+        chatId: 'chat.soft-review',
+    });
+    const journey = createInitialMissionJourney({ branchId, definition });
+    state.mission = {
             activeMissionId: definition.packageBinding.sourceId,
             v1: createMissionState({ definition, branchId }),
-            openAssignments: [{ id: 'legacy.assignment' }],
-        },
-        storySettlement,
-        ship: { technicalDebt: [{ id: 'legacy.ship' }] },
-        relationships: { people: [{ id: 'legacy.relationship' }] },
-        quests: [{ id: 'legacy.quest' }],
-        commandLog: { entries: [{ id: 'legacy.command' }] },
-        commandBearing: { current: 3 },
+            v1Journey: journey.journey,
+            v1History: journey.history,
     };
+    state.storySettlement = storySettlement;
+    state.commandBearing.balance = 3;
+    return state;
 }
 
 function proposalFor(request, decision = 'continue') {
@@ -146,7 +139,7 @@ function createHarness({
             if (persistConflict) {
                 campaignState = {
                     ...structuredClone(campaignState),
-                    commandBearing: { current: 99 },
+                    commandBearing: { ...campaignState.commandBearing, balance: 2 },
                 };
             }
             if (persistError) throw persistError;
@@ -200,7 +193,7 @@ assert.equal(continuedEpisode.workingCapsule.observedContributionCount, continue
 assert.equal(continuedEpisode.workingCapsule.lastEvaluatedCheckpointSequence, 1);
 assert.equal(continuedEpisode.workingCapsule.needsReview, false);
 assert.deepEqual(continueHarness.campaignState.mission, continueBefore.mission);
-for (const root of ['ship', 'relationships', 'quests', 'commandLog', 'commandBearing']) {
+for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(continueHarness.campaignState[root], continueBefore[root], `${root} is outside soft review authority`);
 }
 
@@ -301,7 +294,7 @@ assert.equal(JSON.stringify(failed).includes('SECRET-ERROR'), false);
 const conflictHarness = createHarness({
     evaluator: async ({ request, gateway }) => {
         await gateway.applyProposal({
-            patch: { commandBearing: { current: 4 } },
+            patch: { commandBearing: { balance: 2 } },
             domains: ['commandBearing'],
             baseRevision: gateway.revision(),
             source: 'test.concurrent-change',
@@ -400,11 +393,11 @@ assert.equal(indeterminate.status, 'indeterminate');
 assert.equal(indeterminate.reasonCode, 'persistence-rollback-conflict');
 assert.equal(indeterminate.noChange, false);
 assert.deepEqual(indeterminate.committedRoots, ['storySettlement']);
-assert.equal(indeterminate.requiresReconciliation, true);
+assert.equal(indeterminate.requiresOperatorReview, true);
 assert.equal(indeterminate.retrySafe, false);
 assert.equal(indeterminate.reviewToken, null);
 assert.equal(indeterminateHarness.campaignState.storySettlement.episodes[0].workingCapsule.lastEvaluatedCheckpointSequence, 1);
-assert.equal(indeterminateHarness.campaignState.commandBearing.current, 99);
+assert.equal(indeterminateHarness.campaignState.commandBearing.balance, 2);
 assert.equal(JSON.stringify(indeterminate).includes('SECRET-CONCURRENT-PERSISTENCE-FAILURE'), false);
 
 console.log('V1 soft-boundary runtime tests passed.');

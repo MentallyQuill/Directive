@@ -1,4 +1,4 @@
-import { appendEmpty, createElement } from './runtime-ui-kit.js';
+import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
 import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
 import {
   createV1CrewPanelModel,
@@ -9,7 +9,7 @@ export function resetCrewPanelState() {
   // V1 Crew has no hidden route-local selection or edit state.
 }
 
-function createCommandBearingCard(commandBearing) {
+function createCommandBearingCard(commandBearing, actions) {
   const card = createElement('section', 'directive-v1-command-bearing');
   card.dataset.directiveTour = 'crew.command-bearing';
   const copy = createElement('div');
@@ -39,6 +39,35 @@ function createCommandBearingCard(commandBearing) {
     spend.textContent = `Most recently used: ${commandBearing.latestSpend.reason}`;
     card.appendChild(spend);
   }
+  const actionRow = createElement('div', 'directive-v1-command-bearing-actions');
+  if (commandBearing.pendingEdge) {
+    const pending = createElement('p', 'directive-v1-command-bearing-pending');
+    pending.textContent = commandBearing.pendingEdge.status === 'armed'
+      ? 'Edge armed for the response generated from your latest message. It commits when you reply to the selected response.'
+      : 'Edge reserved. It will arm when Directive generates your next response.';
+    actionRow.appendChild(pending);
+    actionRow.appendChild(createButton({
+      label: 'Cancel edge',
+      className: 'directive-button directive-secondary-command',
+      disabled: typeof actions?.cancelCommandBearingEdge !== 'function',
+      onClick: async () => {
+        await actions.cancelCommandBearingEdge();
+        await actions.refresh?.();
+      }
+    }));
+  } else {
+    actionRow.appendChild(createButton({
+      label: 'Use Command Bearing',
+      className: 'directive-button directive-primary-command',
+      tooltip: 'Spend one point for a bounded favorable edge in the next generated response.',
+      disabled: commandBearing.balance < 1 || typeof actions?.reserveCommandBearingEdge !== 'function',
+      onClick: async () => {
+        await actions.reserveCommandBearingEdge();
+        await actions.refresh?.();
+      }
+    }));
+  }
+  card.appendChild(actionRow);
   return card;
 }
 
@@ -69,11 +98,6 @@ function createPersonCard(person) {
     posture.append(label, value);
     card.appendChild(posture);
   }
-  if (person.missionLink?.title) {
-    const link = createElement('p', 'directive-v1-person-mission');
-    link.textContent = `Current mission: ${person.missionLink.title}`;
-    card.appendChild(link);
-  }
   if (person.moments?.length) {
     const moments = createElement('section', 'directive-v1-person-moments');
     const label = createElement('h4');
@@ -90,7 +114,7 @@ function createPersonCard(person) {
   return card;
 }
 
-export function renderCrewPanel(body, view) {
+export function renderCrewPanel(body, view, actions = {}) {
   const projection = requireV1PlayerProjection(view);
   if (!projection) {
     appendEmpty(body, currentChatEmptyMessage(view));
@@ -98,7 +122,7 @@ export function renderCrewPanel(body, view) {
   }
   const model = createV1CrewPanelModel(projection);
   const surface = createElement('div', 'directive-v1-crew');
-  surface.appendChild(createCommandBearingCard(model.commandBearing));
+  surface.appendChild(createCommandBearingCard(model.commandBearing, actions));
 
   const heading = createElement('header', 'directive-v1-roster-heading');
   const kicker = createElement('span', 'directive-v1-kicker');

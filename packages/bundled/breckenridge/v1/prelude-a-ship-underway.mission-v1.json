@@ -204,8 +204,8 @@
       "when": true,
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "Claim only when accepted assistant prose depicts Whitaker and the player completing the substantive command handover and establishing authority or working boundaries.",
-        "exclusions": ["A greeting, assignment announcement, invitation to talk, or handover still in progress is not completion."]
+        "guidance": "This policy defines a joint accepted-pair condition. Claim from previousAssistant when it depicts Whitaker's settled authority boundaries or completed transfer offer and either that prose itself completes the XO-watch transfer or currentPlayer explicitly accepts those boundaries or takes the watch. A closed transfer packet, confirmation that the watch or chair is now the player's, or the player proceeding as XO are valid completion signals. Anchor the claim to previousAssistant even when currentPlayer supplies the player-controlled acceptance. The scene may remain open for a different next decision.",
+        "exclusions": ["A greeting, assignment announcement, invitation to negotiate, unilateral player assertion without Whitaker's settled terms, or discussion that leaves the authority boundaries or transfer unresolved is not completion."]
       }
     },
     {
@@ -922,6 +922,14 @@
           { "disposition": "failedAfterInformedAction", "text": "The known evidence was lost after an informed course of action." }
         ]
       }
+    }
+  ],
+  "commandBearingAwards": [
+    {
+      "id": "award.prelude.hesperus-accountability",
+      "sourceObjectiveId": "objective.prelude.hesperus-accountability",
+      "eligibleDispositions": ["completed", "handedOff"],
+      "reason": "You carried the known Hesperus accountability question to a responsible disposition."
     }
   ],
   "outcomeDimensions": [

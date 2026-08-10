@@ -17,6 +17,7 @@
     "events",
     "outcomes",
     "objectives",
+    "commandBearingAwards",
     "outcomeDimensions",
     "clocks",
     "closeWhen",
@@ -60,6 +61,10 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/objective" }
+    },
+    "commandBearingAwards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/commandBearingAward" }
     },
     "outcomeDimensions": {
       "type": "array",
@@ -588,6 +593,25 @@
           "uniqueItems": true
         },
         "playerText": { "$ref": "#/$defs/objectivePlayerText" }
+      }
+    },
+    "commandBearingAward": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceObjectiveId", "eligibleDispositions", "reason"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "sourceObjectiveId": { "$ref": "#/$defs/stableId" },
+        "eligibleDispositions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["completed", "completedWithCost", "handedOff"]
+          },
+          "uniqueItems": true
+        },
+        "reason": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
       }
     },
     "dimensionDerivation": {

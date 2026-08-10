@@ -1,4 +1,7 @@
-import { createMissionAcceptedPairInterpreter } from '../mission/v1/accepted-pair-interpreter.mjs';
+import {
+    createMissionAcceptedPairInterpreter,
+    MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
+} from '../mission/v1/accepted-pair-interpreter.mjs';
 import { createMissionInterpretationCandidatePacket } from '../mission/v1/interpretation-candidates.mjs';
 import { validateMissionDefinition } from '../mission/v1/mission-contracts.mjs';
 import {
@@ -266,7 +269,7 @@ function acceptedSceneTimeBoundary(campaignState = {}, snapshot = {}) {
     const currentPlayerHostMessageId = compact(snapshot?.source?.currentPlayer?.hostMessageId);
     const byPlayer = findTimeBoundaryForPlayerMessage(campaignState, currentPlayerHostMessageId);
     const expectedAnchor = {
-        kind: 'sceneHandshakePair',
+        kind: 'acceptedPair',
         previousAssistantHostMessageId: compact(snapshot?.source?.previousAssistant?.hostMessageId) || null,
         currentPlayerHostMessageId: currentPlayerHostMessageId || null,
         rangeHash: compact(snapshot?.source?.sourceRangeHash) || null,
@@ -633,7 +636,8 @@ function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
 }
 
 function errorReasonCode(error) {
-    if (error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT') return 'state-revision-conflict';
+    if (error?.code === 'DIRECTIVE_V1_STATE_REVISION_CONFLICT'
+        || error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT') return 'state-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_STALE') return 'mission-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_DEFINITION_MISMATCH') return 'definition-mismatch';
     if (error?.code === 'DIRECTIVE_MISSION_RECONSTRUCTION_SEQUENCE_INVALID') {
@@ -643,8 +647,8 @@ function errorReasonCode(error) {
     if (error?.code === 'DIRECTIVE_MISSION_JOURNEY_INVALID') return 'mission-journey-invalid';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_STALE') return 'episode-review-stale';
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_INVALID') return 'episode-review-invalid';
-    if (error?.code === 'DIRECTIVE_STATE_PERSISTENCE_FAILED') return 'persistence-failed';
-    if (error?.code === 'DIRECTIVE_STATE_PERSISTENCE_ROLLBACK_CONFLICT') return 'persistence-rollback-conflict';
+    if (error?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_FAILED') return 'persistence-failed';
+    if (error?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT') return 'persistence-rollback-conflict';
     return 'settlement-failed';
 }
 
@@ -714,7 +718,7 @@ export function createV1MissionRuntime({
     generationRouter = null,
     interpretAcceptedPair = null,
     now = () => new Date().toISOString(),
-    timeoutMs = 10000,
+    timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
     evaluateEpisode = null,
     episodeReviewTimeoutMs = 8000,
     checkpointEveryContributions = 8,
@@ -846,7 +850,7 @@ export function createV1MissionRuntime({
                         conclusionId: null,
                         committedRoots: ['mission'],
                         noChange: false,
-                        requiresReconciliation: true,
+                        requiresOperatorReview: true,
                         retrySafe: false,
                         diagnostics: {},
                     };
@@ -905,7 +909,7 @@ export function createV1MissionRuntime({
                     targetRunId: null,
                     committedRoots: ['mission'],
                     noChange: false,
-                    requiresReconciliation: true,
+                    requiresOperatorReview: true,
                     retrySafe: false,
                     diagnostics: {},
                 };
@@ -1211,7 +1215,13 @@ export function createV1MissionRuntime({
                 hardBoundary,
                 missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
             });
-            const committedRoots = settled.noChange ? [] : ['mission', 'storySettlement'];
+            const committedRoots = settled.noChange
+                ? []
+                : [
+                    'mission',
+                    'storySettlement',
+                    ...(settled.commandBearingAwardCount > 0 ? ['commandBearing'] : []),
+                ];
             const acceptedClaimCount = settled.evidence?.acceptedClaims?.length || 0;
             const rejectedClaimCount = settled.evidence?.rejectedClaims?.length || 0;
             const acceptedDutyReportCount = (settled.evidence?.acceptedClaims || [])
@@ -1249,6 +1259,7 @@ export function createV1MissionRuntime({
                     acceptedDutyReportCount,
                     acceptedTimeAdvanceCount: (settled.evidence?.acceptedClaims || [])
                         .filter((claim) => claim?.claimType === 'timeAdvanced').length,
+                    commandBearingAwardCount: settled.commandBearingAwardCount || 0,
                     strippedRequiredDutyReportClaimCount: dutyProposal.strippedRequiredClaimCount,
                     rejectedDutyReportReasonCode,
                     authoritativeTimeBoundaryId: authoritativeTime.boundary?.id || null,
@@ -1423,7 +1434,7 @@ export function createV1MissionRuntime({
                     committedRoots: ['storySettlement'],
                     noChange: false,
                     reviewToken: createPendingEpisodeReviewToken(getState()?.storySettlement),
-                    requiresReconciliation: true,
+                    requiresOperatorReview: true,
                     retrySafe: false,
                 };
             }

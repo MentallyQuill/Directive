@@ -82,10 +82,13 @@ export function validateStoryWorkingCapsule(value, {
 } = {}) {
     const errors = [];
     const episodeId = isStableId(episode?.id) ? episode.id : '<unknown episode>';
-    if (value === undefined) return { ok: true, errors };
     if (new Set(['sealed', 'invalidated']).has(episode?.status)) {
+        if (value === undefined) return { ok: true, errors };
         errors.push(`${episodeId} terminal episodes cannot retain workingCapsule`);
         return { ok: false, errors };
+    }
+    if (value === undefined) {
+        return { ok: false, errors: [`${episodeId} workingCapsule is required for a current episode`] };
     }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return { ok: false, errors: [`${episodeId} workingCapsule must be an object`] };

@@ -1,9 +1,9 @@
 # Package Source
 
-Runtime package schema adapters, package loading, package library records, bundled-package discovery, and import/export helpers.
+Exact V1 bundled package access.
 
-`campaign-package-context.mjs` is the first pure adapter. It turns validated package JSON into Campaign-tab summary data and package-driven Character Creator context without mutating package templates.
+- `bundled-package-registry.mjs` names Ashes as the only playable package and supplies static disabled preview metadata for future campaigns.
+- `campaign-package-context.mjs` exposes validated Ashes campaign and Character Creator context.
+- `package-image-resolver.mjs` resolves package-owned media variants.
 
-`bundled-package-registry.mjs` is the authoritative source for bundled package paths, projections, crew datasets, mission graphs, asset roots, package status, and product-facing manifest titles. Runtime loading and the alpha gate consume this registry instead of maintaining separate hardcoded path lists.
-
-`package-contract.mjs` owns strict package manifest and release-facing asset policy checks shared by import diagnostics and local validators.
+There is no runtime package importer or package-format migration path in V1.

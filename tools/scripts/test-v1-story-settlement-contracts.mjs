@@ -65,27 +65,6 @@ for (const [label, value, pattern] of [
     assert.match(validateStorySettlement(value).errors.join('\n'), pattern, label);
 }
 
-const openEpisode = {
-    kind: 'directive.storyEpisode.v1',
-    id: 'episode.alpha',
-    branchId: 'save.alpha',
-    sceneId: 'scene.bridge-handover',
-    status: 'open',
-    openedAtRevision: 1,
-    sealedAtRevision: null,
-    boundaryReason: null,
-    summary: null,
-    contributions: [],
-    effects: [],
-    unresolvedConsequences: [],
-};
-
-assert.equal(validateStorySettlement({
-    ...empty,
-    activeEpisode: 'episode.alpha',
-    episodes: [openEpisode],
-}).ok, true, 'legacy schema-version-1 episodes remain readable without boundaryState');
-
 const boundaryState = {
     kind: 'directive.episodeBoundaryState.v1',
     checkpointSequence: 0,
@@ -114,13 +93,57 @@ const workingCapsule = {
     updatedAtRevision: 1,
 };
 
+const openEpisode = {
+    kind: 'directive.storyEpisode.v1',
+    id: 'episode.alpha',
+    branchId: 'save.alpha',
+    sceneId: 'scene.bridge-handover',
+    status: 'open',
+    openedAtRevision: 1,
+    sealedAtRevision: null,
+    boundaryReason: null,
+    summary: null,
+    contributions: [],
+    effects: [],
+    unresolvedConsequences: [],
+    boundaryState,
+    hardBoundary: null,
+    references,
+    characterMoments: [],
+    workingCapsule,
+};
+function asTerminal(overrides = {}) {
+    const episode = { ...openEpisode, ...overrides };
+    delete episode.workingCapsule;
+    return episode;
+}
+
 assert.equal(validateStorySettlement({
     ...empty,
+    revision: 1,
     activeEpisode: 'episode.alpha',
-    episodes: [{ ...openEpisode, boundaryState }],
+    episodes: [openEpisode],
 }).ok, true);
+
+for (const [field, pattern] of [
+    ['boundaryState', /boundaryState must be an object/],
+    ['references', /references must be an object/],
+    ['characterMoments', /characterMoments must be an array/],
+    ['workingCapsule', /workingCapsule is required/],
+    ['hardBoundary', /hardBoundary is required/],
+]) {
+    const incompleteEpisode = { ...openEpisode };
+    delete incompleteEpisode[field];
+    assert.match(validateStorySettlement({
+        ...empty,
+        revision: 1,
+        activeEpisode: 'episode.alpha',
+        episodes: [incompleteEpisode],
+    }).errors.join('\n'), pattern, `missing ${field}`);
+}
 assert.equal(validateStorySettlement({
     ...empty,
+    revision: 1,
     activeEpisode: 'episode.alpha',
     episodes: [{ ...openEpisode, references }],
 }).ok, true);
@@ -232,8 +255,8 @@ assert.match(
     validateStorySettlement({
         ...empty,
         episodes: [
-            { ...openEpisode, status: 'invalidated' },
-            { ...openEpisode, status: 'sealed', sealedAtRevision: 2, boundaryReason: 'scene-change', summary: 'Bridge handover completed.' },
+            asTerminal({ status: 'invalidated' }),
+            asTerminal({ status: 'sealed', sealedAtRevision: 2, boundaryReason: 'scene-change', summary: 'Bridge handover completed.' }),
         ],
     }).errors.join('\n'),
     /duplicate episode id/,
@@ -242,7 +265,7 @@ assert.match(
 assert.match(
     validateStorySettlement({
         ...empty,
-        episodes: [{ ...openEpisode, status: 'sealed' }],
+        episodes: [asTerminal({ status: 'sealed' })],
     }).errors.join('\n'),
     /sealedAtRevision.*boundaryReason.*summary/s,
 );
@@ -293,8 +316,7 @@ const softBoundary = {
     effectIds: ['effect.alpha'],
     checkpointSequence: 1,
 };
-const softSealedEpisode = {
-    ...openEpisode,
+const softSealedEpisode = asTerminal({
     status: 'sealed',
     sealedAtRevision: 2,
     boundaryReason: softBoundary.reason,
@@ -302,7 +324,7 @@ const softSealedEpisode = {
     contributions: [contribution],
     effects: [{ ...effect, sourceContributionIds: ['contribution.alpha'] }],
     softBoundary,
-};
+});
 assert.equal(validateStorySettlement({
     ...empty,
     revision: 2,
@@ -409,8 +431,7 @@ assert.match(
     /sourceMessageIds must be unique/,
 );
 
-const sealedEpisode = {
-    ...openEpisode,
+const sealedEpisode = asTerminal({
     status: 'sealed',
     sealedAtRevision: 2,
     boundaryReason: 'scene-change',
@@ -420,7 +441,7 @@ const sealedEpisode = {
         status: 'unresolved',
         playerVisibility: 'visible',
     }],
-};
+});
 
 const supersededEpisode = {
     ...sealedEpisode,

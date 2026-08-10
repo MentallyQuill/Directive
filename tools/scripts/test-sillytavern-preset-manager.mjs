@@ -109,11 +109,11 @@ assert.match(
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'main')?.content || '',
-  /\[Directive: Reply Header\]/
+  /DIRECTIVE V1 CAMPAIGN CONTEXT/
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
-  /Reply Header/
+  /exact first line/
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
@@ -226,7 +226,7 @@ for (const entry of secondPersonAsset.prompt_order[0].order) {
 }
 const secondPersonContext = directiveNarrationContextFromPreset(secondPersonAsset, {
   presetName: 'Directive',
-  roleId: 'campaignIntro'
+  roleId: 'narration'
 });
 assert.equal(secondPersonContext.compatible, true);
 assert.equal(secondPersonContext.source, 'active-directive-preset');
@@ -268,13 +268,6 @@ const currentManager = createPresetManager({
   }
 });
 assert.equal(directivePresetStatus({ manager: currentManager }).state, 'current');
-
-const legacyManager = createPresetManager({
-  presets: {
-    'Directive Star Trek Command': bundled
-  }
-});
-assert.equal(directivePresetStatus({ manager: legacyManager }).state, 'legacy-name');
 
 let autoCheckSaveCount = 0;
 const autoCheckContext = {
@@ -367,7 +360,7 @@ const selectedDirectiveAdapter = createSillyTavernDirectivePresetManager({
     }
   })
 });
-assert.match(selectedDirectiveAdapter.getNarrationContext({ roleId: 'campaignIntro' }).perspective, /second person external/);
+assert.match(selectedDirectiveAdapter.getNarrationContext({ roleId: 'narration' }).perspective, /second person external/);
 
 const unrelatedSelectedManager = createPresetManager({
   presets: {
@@ -384,9 +377,9 @@ const unrelatedSelectedAdapter = createSillyTavernDirectivePresetManager({
     }
   })
 });
-const unrelatedSelectedContext = unrelatedSelectedAdapter.getNarrationContext({ roleId: 'campaignIntro' });
+const unrelatedSelectedContext = unrelatedSelectedAdapter.getNarrationContext({ roleId: 'narration' });
 assert.equal(unrelatedSelectedContext.compatible, false);
 assert.equal(unrelatedSelectedContext.source, 'unrelated-active-preset');
 assert.equal(unrelatedSelectedContext.perspective, DIRECTIVE_DEFAULT_POV_RULE);
 
-console.log('SillyTavern preset manager tests passed: metadata, status comparison, legacy detection, install, and selection restore');
+console.log('SillyTavern preset manager tests passed: metadata, status comparison, install, and selection restore');

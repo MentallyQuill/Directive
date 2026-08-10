@@ -479,6 +479,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter6.network",

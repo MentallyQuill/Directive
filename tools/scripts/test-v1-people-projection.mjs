@@ -38,13 +38,9 @@ assert.equal(baseline.people.length, 7);
 assert.equal(baseline.people.every((person) => person.moments.length === 0), true);
 assert.equal(baseline.people.every((person) => person.relationshipPosture === null), true);
 assert.equal(
-    baseline.people.find((person) => person.id === 'mara-whitaker').missionLink?.missionId,
-    definition.id,
-);
-assert.equal(
-    baseline.people.filter((person) => person.id !== 'mara-whitaker').every((person) => person.missionLink === null),
+    baseline.people.every((person) => !Object.hasOwn(person, 'missionLink')),
     true,
-    'mission relevance is authored; presence in the senior staff does not imply a mission link',
+    'the People page does not duplicate the active mission',
 );
 assert.match(baseline.people.find((person) => person.id === 'mara-whitaker').profileSummary, /first and current commanding officer/i);
 for (const forbidden of [

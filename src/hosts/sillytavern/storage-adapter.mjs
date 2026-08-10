@@ -5,7 +5,6 @@ export function createSillyTavernStorageAdapter(options = {}) {
   const physicalStorage = options.storage || createSillyTavernFileStorageAdapter(options);
   return createLogicalStorageAdapter({
     storage: physicalStorage,
-    hostId: 'sillytavern',
-    onProgress: options.onProgress
+    hostId: 'sillytavern'
   });
 }

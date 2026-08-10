@@ -1,19 +1,11 @@
 # SillyTavern Host Adapter
 
-Planned home for SillyTavern lifecycle, event, storage, generation, UI-mount, and theme integration.
+This is Directive V1's production host boundary.
 
-Current status:
+- Chat and lifecycle adapters identify the current chat and accepted message sequence.
+- Generation adapters provide narration and Story Settlement calls.
+- The prompt adapter injects the single `DIRECTIVE V1 CAMPAIGN CONTEXT` packet.
+- The storage adapter maps exact logical V1 keys into SillyTavern user files.
+- The launcher mounts the ship icon beside the composer and opens the bounded five-route UI.
 
-- `generation-client.mjs` wraps the existing SillyTavern generation surface behind the host generation client shape.
-- `narration-provider.mjs` owns SillyTavern current-chat narration calls and is consumed through the generation client.
-- `file-api.mjs` owns SillyTavern `/api/files/*` and `/user/files` physical storage calls.
-- `storage-adapter.mjs` maps logical Directive storage keys to SillyTavern `/user/files` paths through the existing file storage adapter shape.
-- `events-adapter.mjs` wraps SillyTavern context event subscriptions without calling runtime actions directly.
-- `host-factory.mjs` composes stubbed SillyTavern surfaces into a contract-valid `DirectiveHost`.
-- `bootstrap.js`, `lifecycle.js`, and `shell-events.js` own the active SillyTavern shell implementation. The manifest-facing `src/extension/` files re-export or delegate here.
-- The active SillyTavern bootstrap creates a `DirectiveHost` and passes it into `createDirectiveRuntimeApp({ host })`.
-- Logical storage is the active default; physical SillyTavern `/user/files` paths are adapter output, not repository input.
-
-Remaining extraction work: do not add new SillyTavern-specific assumptions outside this folder. Any remaining SillyTavern manifest shims should stay thin and delegate here.
-
-Frontend direction: SillyTavern uses Directive's viewport-bound expanded interface. The host adapter supplies mounting, storage, generation, and host tokens; `src/runtime/runtime-shell.js` owns route orchestration while `src/ui/directive-expanded-shell.js` owns the shared desktop/console and phone frame. Route panels remain host-neutral where that keeps the SillyTavern runtime testable.
+This folder must not translate prior Directive formats or maintain alternate state. Unsupported stored data is rejected by the V1 runtime.

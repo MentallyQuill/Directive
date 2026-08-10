@@ -367,7 +367,11 @@
         "summary",
         "contributions",
         "effects",
-        "unresolvedConsequences"
+        "unresolvedConsequences",
+        "boundaryState",
+        "hardBoundary",
+        "references",
+        "characterMoments"
       ],
       "properties": {
         "kind": { "const": "directive.storyEpisode.v1" },
@@ -427,7 +431,25 @@
           "maxLength": 256
         },
         "diagnostics": { "$ref": "#/$defs/diagnostics" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["open", "sealPending", "recoveryRequired"] }
+            }
+          },
+          "then": { "required": ["workingCapsule"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["sealed", "invalidated"] }
+            }
+          },
+          "then": { "not": { "required": ["workingCapsule"] } }
+        }
+      ]
     },
     "receipt": {
       "type": "object",

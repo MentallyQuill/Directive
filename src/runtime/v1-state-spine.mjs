@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-
+import { awardV1CommandBearing } from '../command/v1-command-bearing.mjs';
 import {
     revalidateMissionEvidenceReplay,
     validateMissionEvidenceProposal,
@@ -39,11 +38,12 @@ import {
     createEpisodeEvaluationRequest,
     parseEpisodeEvaluationProposal,
 } from '../story/episode-evaluator.mjs';
+import { stableHash24 } from './v1-stable-hash.mjs';
 
 export const EPISODE_REVIEW_TOKEN_KIND = 'directive.episodeReviewToken.v1';
 
 function stableHash(value = '') {
-    return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+    return stableHash24(value);
 }
 
 function jsonEqual(left, right) {
@@ -481,6 +481,19 @@ export function createV1StateSpine({
             allowJourneyInitialization: true,
         });
         const { missionPatch, transitionActivation } = transitionPlan;
+        let commandBearing = structuredClone(campaignState.commandBearing);
+        let commandBearingAwardCount = 0;
+        for (const award of missionResult.commandBearingAwards || []) {
+            const result = awardV1CommandBearing(commandBearing, {
+                awardId: award.id,
+                sourceId: award.sourceObjectiveId,
+                reason: award.reason,
+                now,
+            });
+            commandBearing = result.commandBearing;
+            if (result.applied) commandBearingAwardCount += 1;
+        }
+        const commandBearingChanged = !jsonEqual(campaignState.commandBearing, commandBearing);
 
         const currentStorySettlement = initialStorySettlement(campaignState, proposal.branchId);
         let storySettlement = currentStorySettlement;
@@ -560,7 +573,9 @@ export function createV1StateSpine({
 
         const currentMissionRoot = campaignState?.mission || {};
         const nextMissionRoot = { ...structuredClone(currentMissionRoot), ...structuredClone(missionPatch) };
-        if (jsonEqual(currentMissionRoot, nextMissionRoot) && jsonEqual(currentStorySettlement, storySettlement)) {
+        if (jsonEqual(currentMissionRoot, nextMissionRoot)
+            && jsonEqual(currentStorySettlement, storySettlement)
+            && !commandBearingChanged) {
             return {
                 evidence,
                 missionResult,
@@ -569,6 +584,7 @@ export function createV1StateSpine({
                 noChange: true,
                 reviewToken,
                 transitionActivation,
+                commandBearingAwardCount,
             };
         }
 
@@ -579,13 +595,24 @@ export function createV1StateSpine({
                 { op: 'set', path: 'mission.v1Journey', value: missionPatch.v1Journey },
                 { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },
                 { op: 'set', path: 'mission.activeMissionId', value: missionPatch.activeMissionId },
+                ...(commandBearingChanged
+                    ? [{ op: 'set', path: 'commandBearing', value: commandBearing }]
+                    : []),
             ]
             : null;
         const committed = await stateDeltaGateway.applyProposal({
             ...(activationOperations
                 ? { operations: activationOperations }
-                : { patch: { storySettlement, mission: missionPatch } }),
-            domains: ['storySettlement', 'mission'],
+                : { patch: {
+                    storySettlement,
+                    mission: missionPatch,
+                    ...(commandBearingChanged ? { commandBearing } : {}),
+                } }),
+            domains: [
+                'storySettlement',
+                'mission',
+                ...(commandBearingChanged ? ['commandBearing'] : []),
+            ],
             baseRevision: capturedGatewayRevision,
             source: 'v1StateSpine',
             reason: 'Settled an accepted source pair into authoritative V1 state.',
@@ -596,6 +623,7 @@ export function createV1StateSpine({
                 rejectedClaimCount: evidence.rejectedClaims.length,
                 transitionActivationStatus: transitionActivation.status,
                 transitionTargetDefinitionId: transitionActivation.targetDefinitionId,
+                commandBearingAwardCount,
             },
         });
         return {
@@ -606,6 +634,7 @@ export function createV1StateSpine({
             noChange: false,
             reviewToken,
             transitionActivation,
+            commandBearingAwardCount,
         };
     }
 

@@ -72,30 +72,25 @@ assert.deepEqual(selected, ['people', 'people'], 'arrow navigation should focus 
 const all = [];
 const visit = (node) => { all.push(node); (node.children || []).forEach(visit); };
 visit(shell);
-assert.equal(all.some((node) => /command-spine|command-drawer|resize/.test(node.className)), false);
-assert.equal(all.filter((node) => /directive-route-heading/.test(node.className)).length, 1, 'expanded shell must render the frozen route-heading layer exactly once');
+assert.equal(all.filter((node) => /directive-route-heading/.test(node.className)).length, 1, 'expanded shell must render the route heading exactly once');
 assert.equal(all.some((node) => node.dataset?.shellAction === 'back'), false);
 assert.equal(all.filter((node) => node.dataset?.shellAction === 'close').length, 1);
-assert.equal(all.filter((node) => node.dataset?.shellAction === 'fullscreen').length, 0, 'frozen shell has no fullscreen control');
+assert.equal(all.filter((node) => node.dataset?.shellAction === 'fullscreen').length, 0, 'V1 shell has no fullscreen control');
 all.find((node) => node.dataset?.shellAction === 'close').click();
 assert.equal(closed, 1);
 assert.ok(all.some((node) => node.dataset?.directiveRuntimeBody === 'true'));
 assert.deepEqual(
   all.filter((node) => /directive-lcars-rail-segment/.test(node.className)).map((node) => node.children[1]?.textContent),
   ['CPN', 'MSN', 'CRW', 'SHP', 'SYS'],
-  'LCARS rail codes must match the frozen mockup'
+  'LCARS rail codes must match the five V1 routes'
 );
 
 const runtimeShellSource = fs.readFileSync(new URL('../../src/runtime/runtime-shell.js', import.meta.url), 'utf8');
-const runtimeMountSource = fs.readFileSync(new URL('../../src/extension/runtime-mount.js', import.meta.url), 'utf8');
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
 assert.match(runtimeShellSource, /createDirectiveExpandedShell/);
-assert.doesNotMatch(runtimeShellSource, /directive-command-spine-shell|directive-shell-layout/);
-assert.doesNotMatch(runtimeMountSource, /toggleDrawer|toggleFullscreen|resetLayout|command spine|route drawer|Directive drawer/i);
 assert.match(css, /directive-route-heading|directive-route-cap|directive-route-name/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50%\s*!important;[\s\S]*?left:\s*50%\s*!important;[\s\S]*?width:\s*min\(940px,\s*calc\(100vw\s*-\s*32px\)\)\s*!important;[\s\S]*?height:\s*min\(900px,\s*calc\(100dvh\s*-\s*150px\)\)\s*!important;[\s\S]*?min-height:\s*min\(620px,\s*100dvh\)\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)\s*!important;/);
-assert.doesNotMatch(css, /\.directive-runtime-panel\.directive-expanded-shell\.is-fullscreen\s*\{/);
 assert.match(css, /\.directive-runtime-overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0[\s\S]*?height:\s*100dvh/);
 assert.match(css, /\.directive-runtime-backdrop\s*\{[\s\S]*?pointer-events:\s*auto/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell::before,\s*\.directive-runtime-panel\.directive-expanded-shell::after\s*\{[\s\S]*?content:\s*none\s*!important;[\s\S]*?display:\s*none\s*!important;/);

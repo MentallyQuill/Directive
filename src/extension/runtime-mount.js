@@ -1,10 +1,8 @@
 import {
-  beginDirectiveGuidanceTutorial,
   hideDirectiveRuntimePanel,
   refreshDirectiveRuntimePanel,
   setDirectiveRuntimeApp,
   setDirectiveRuntimeTab,
-  showDirectiveRuntimeGuidanceTip,
   showDirectiveRuntimePanel,
 } from '../runtime/runtime-shell.js';
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
@@ -59,18 +57,6 @@ export function configureRuntimeActions() {
       category: 'ui',
       label: 'Refresh Directive UI',
       handler: async () => refreshDirectiveRuntimePanel(),
-    },
-    {
-      id: 'guidance.beginTutorial',
-      category: 'guidance',
-      label: 'Begin Directive tutorial',
-      handler: async (payload = {}) => beginDirectiveGuidanceTutorial(payload),
-    },
-    {
-      id: 'guidance.showTip',
-      category: 'guidance',
-      label: 'Show Directive tip',
-      handler: async (payload = {}) => showDirectiveRuntimeGuidanceTip(payload),
     },
   ], { replace: true });
 }

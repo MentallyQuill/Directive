@@ -1,20 +1,11 @@
 # Storage Source
 
-SillyTavern file API adapters, storage indexes, stale-write protection, domain storage, campaign storage, package storage, mission storage, and diagnostics.
+Exact V1 persistence.
 
-`save-records.mjs` owns the first storage-agnostic campaign save record helpers: first save, Save Game overwrite, Save Game As, autosave records, Load Game clone behavior, and save-list metadata.
+- `v1-storage-repository.mjs` stores only the V1 index, creator drafts, active campaign records, and explicit checkpoints.
+- `v1-player-portrait-storage.mjs` stores the accepted player portrait.
+- `logical-storage-paths.mjs` defines the allowed logical keys.
+- `logical-storage-adapter.mjs` delegates those keys to the active host.
+- `directive-storage-filenames.mjs` validates the SillyTavern physical filename mapping.
 
-`directive-storage-filenames.mjs` owns flat `directive-` filename and `/user/files/` JSON path validation.
-
-Host-specific physical storage APIs live under `src/hosts/<host>/`. SillyTavern's `/api/files/*` wrapper is owned by `src/hosts/sillytavern/file-api.mjs`.
-
-`directive-storage-repository.mjs` owns the async adapter-backed persistence boundary for Character Creator drafts, campaign saves, and rolling autosave pruning. It reads and writes host-neutral logical keys; host adapters own physical path mapping.
-
-`logical-storage-paths.mjs` defines host-neutral logical keys and maps them to SillyTavern flat `/user/files` paths. The fake host keeps direct logical-key mapping for deterministic tests and future host-adapter prototyping.
-
-`logical-storage-adapter.mjs` wraps a host storage adapter so repository code can read and write logical keys while the host adapter owns the physical path mapping.
-
-It also owns storage diagnostics and active-save recovery:
-
-- `diagnoseDirectiveStorage(...)` initializes indexes, verifies indexed payload paths when the adapter supports file verification, and reports save/draft/file counts without reading every payload. Pass `deepPayloadCheck: true` for maintenance scans that parse indexed payloads and detect unreadable or wrong-kind records.
-- `recoverActiveCampaignSave(...)` tries the indexed active save first, then current save rows, then newest save rows, repairing the active-save pointer when a readable fallback is found.
+Every loaded payload must have the exact V1 kind and shape. The repository does not scan for, recover, translate, or rewrite unsupported data.

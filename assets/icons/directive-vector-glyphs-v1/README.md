@@ -1,19 +1,12 @@
 # Directive Vector Glyphs v1
 
-Original LCARS-inspired vector glyphs for Directive's left command spine and single-drawer shell.
+Original LCARS-inspired vector glyphs for Directive's five V1 routes and composer launcher.
 
 ## Contents
 
-- Six primary route glyphs: Campaign, Mission, Crew, Ship, Log, Settings.
-- Five runtime shell glyphs: collapse, expand, close, refresh, and resize. Full-screen, restore, and shelf label show/hide controls intentionally use conventional Font Awesome utility icons in the runtime icon pack.
-- Individual SVG files rendered through the runtime mask pipeline. The primary
-  route and drawer-state replacements are normalized to 128 x 128 output with
-  their original vector `viewBox`; smaller utility glyphs remain on the original
-  32 x 32 grid.
-- `directive-glyphs.svg`, an external SVG symbol sprite.
-- `directive-glyphs.css`, a CSS-mask utility for state-aware coloring.
-- `directive-glyphs.mjs`, a small semantic registry.
-- `preview.svg`, `preview.png`, and `preview.html`.
+- Five route glyphs: Campaign, Mission, People, Ship, and Settings.
+- Individual SVG files rendered through the runtime mask pipeline.
+- `preview.png`, retained as a static visual reference.
 
 ## Intended rendering
 
@@ -22,20 +15,10 @@ the glyph itself as a monochrome silhouette in runtime chrome and let the
 surrounding LCARS route block or drawer control supply color, hover, selected,
 and disabled states.
 
-Recommended shelf sizes:
+Recommended sizes:
 
-- Compact route glyph: 24 px.
-- Expanded route glyph: 26 px.
-- Drawer title glyph: 22-24 px.
-- Shell action glyph: 18-20 px.
-
-## Inline sprite example
-
-```html
-<svg class="directive-route-glyph" aria-hidden="true" viewBox="0 0 32 32">
-  <use href="./directive-glyphs.svg#directive-route-mission"></use>
-</svg>
-```
+- Route glyph: 20-26 px.
+- Composer launcher glyph: 18-22 px.
 
 ## CSS-mask example
 
@@ -43,7 +26,7 @@ Recommended shelf sizes:
 <span class="directive-vector-glyph" data-glyph="route-mission" aria-hidden="true"></span>
 ```
 
-The mask method is recommended for Directive because it preserves `currentColor` across the amber route blocks, black drawer controls, route titles, hover states, and disabled states.
+The mask method preserves `currentColor` across route controls, the launcher, hover states, and disabled states.
 
 ## Design constraints
 
@@ -51,4 +34,4 @@ The mask method is recommended for Directive because it preserves `currentColor`
 - No text or micro-detail inside the icon.
 - One dominant silhouette with restrained telemetry details.
 - Shared square icon canvas and rounded terminal geometry.
-- Directional bias toward the right, matching the shelf drawer movement.
+- Clear silhouettes at compact touch-control sizes.

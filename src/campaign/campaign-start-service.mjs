@@ -73,6 +73,7 @@ export function deleteGame({ adapter, saveId, now }) {
 export async function acceptCreatorDraftAndCreateFirstSave({
   adapter,
   packageData,
+  missionDefinitions,
   draftId,
   campaignId,
   saveId,
@@ -86,15 +87,17 @@ export async function acceptCreatorDraftAndCreateFirstSave({
 
   const campaignState = createInitialCampaignStateFromCreatorReview({
     packageData,
+    missionDefinitions,
     creatorReview: acceptedDraft.acceptedReview,
     campaignId: required(campaignId, 'campaignId'),
+    saveId: required(saveId, 'saveId'),
     createdAt: acceptedAt,
     simulationMode,
     creatorDraftId: acceptedDraft.id
   });
   assertV1CampaignState(campaignState);
   const firstSave = await storeV1CampaignSave(adapter, createV1CampaignSave({
-    id: required(saveId, 'saveId'),
+    id: saveId,
     name: `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
     slotType: 'active',
     state: campaignState,

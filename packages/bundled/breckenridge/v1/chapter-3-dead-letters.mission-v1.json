@@ -825,6 +825,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter3.access",

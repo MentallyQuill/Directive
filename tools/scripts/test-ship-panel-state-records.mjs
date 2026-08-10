@@ -69,102 +69,44 @@ globalThis.document = new FakeDocument();
 
 const body = document.createElement('main');
 renderShipPanel(body, {
-  activePackage: {
+  activePackage: { assets: {} },
+  campaignState: { campaign: { title: 'Ashes of Peace' } },
+  v1PlayerProjection: {
+    kind: 'directive.playerProjection.v1',
+    mission: { kind: 'directive.missionPlayerProjection.v1' },
+    people: { kind: 'directive.peoplePlayerProjection.v1' },
+    commandBearing: { kind: 'directive.commandBearingPlayerProjection.v1' },
     ship: {
+      kind: 'directive.shipPlayerProjection.v1',
+      shipId: 'uss-breckenridge',
       id: 'uss-breckenridge',
       name: 'U.S.S. Breckenridge',
       class: 'Intrepid-class',
-      affiliation: 'Starfleet',
-      openingCondition: 'Returned to service after repair.',
-      commandStructure: {
-        commandingOfficer: 'mara-whitaker',
-        playerBillet: 'Executive Officer',
-        actingXoBeforePlayer: 'hadrik-bronn',
-        captainRetainsFinalAuthority: true
-      },
-      systems: {
-        knownTechnicalDebt: [
-          {
-            id: 'integrated-validation',
-            label: 'Integrated validation pending',
-            playerSafeSummary: 'Integrated validation still required under sustained deployment conditions.',
-            status: 'active'
-          }
-        ]
-      }
-    },
-    crew: {
-      senior: [
-        {
-          id: 'mara-whitaker',
-          name: 'Mara Whitaker',
-          rank: 'Captain',
-          billet: 'Commanding Officer'
-        },
-        {
-          id: 'hadrik-bronn',
-          name: 'Hadrik Bronn',
-          rank: 'Lieutenant Commander',
-          billet: 'Chief Tactical and Security Officer'
-        }
-      ]
-    }
-  },
-  campaignState: {
-    campaign: {
-      title: 'Ashes of Peace'
-    },
-    player: {
-      name: 'Talia Serrin',
-      rank: 'Commander',
-      billet: 'Executive Officer'
-    },
-    ship: {
-      id: 'uss-breckenridge',
-      name: 'U.S.S. Breckenridge',
-      class: 'Intrepid-class',
-      condition: 'Returned to service after repair.',
-      damage: [
-        { id: 'hidden-damage', summary: 'Hidden damage should not render.', visibility: 'hidden' }
-      ],
-      activeRestrictions: [
-        {
+      registry: 'NCC-74638',
+      capabilitySummary: 'A long-range explorer returned to service after modernization.',
+      operationalStatus: {
+        status: 'serviceable',
+        summary: 'Certified for service while integrated validation continues.',
+        readiness: null,
+        materialLimitations: [{
           id: 'warp-temporary-limit',
-          summary: 'Maximum warp is temporarily restricted pending integrated validation.',
-          playerVisible: true,
-          detectorScore: 'hidden implementation detail'
-        },
-        {
-          id: 'hidden-restriction',
-          summary: 'Hidden restriction should not render.',
-          visibility: 'hidden'
-        }
-      ],
-      technicalDebt: [
-        {
-          id: 'certificate-compatibility',
-          playerSafeSummary: 'Command-network certificate compatibility issue remains open.',
-          status: 'active'
-        }
-      ]
+          summary: 'Maximum warp is temporarily restricted pending integrated validation.'
+        }],
+        readinessObjectiveLink: null
+      }
     }
   }
 });
 
 const renderedText = textOf(body);
 assert.match(renderedText, /Maximum warp is temporarily restricted pending integrated validation/);
-assert.match(renderedText, /Command-network certificate compatibility issue remains open/);
-assert.match(renderedText, /Operational Issues/);
+assert.match(renderedText, /Certified for service while integrated validation continues/);
+assert.match(renderedText, /Operational status/);
+assert.match(renderedText, /Material limitations/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
-assert.doesNotMatch(renderedText, /Bridge Authority/);
-assert.doesNotMatch(renderedText, /Hidden restriction should not render|Hidden damage should not render|hidden implementation detail/);
-assert.equal(elementsByClass(body, 'directive-ship-readiness-folder').length, 0);
-assert.ok(elementsByClass(body, 'ship-issue').length > 0, 'player-safe ship state should render as operational issue records');
-assert.equal(elementsByClass(body, 'directive-ship-history').length, 0, 'retired technical-history composition should not render');
-assert.equal(elementsByClass(body, 'directive-ship-detail-section').length, 0, 'retired ship detail sections should not render');
-assert.equal(elementsByClass(body, 'directive-ship-command-card').length, 0);
-assert.equal(elementsByClass(body, 'directive-ship-caveat-card').length, 0);
+assert.equal(elementsByClass(body, 'directive-v1-operational-status').length, 1);
+assert.equal(elementsByClass(body, 'directive-v1-material-limitations').length, 1);
 
 delete globalThis.document;
 
-console.log('Ship panel state record tests passed: player-safe operational issues render without hidden leakage');
+console.log('Ship panel tests passed: one player-safe operational aggregate renders without tracking spam');

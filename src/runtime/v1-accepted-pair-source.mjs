@@ -134,6 +134,21 @@ function previousAssistantFromRecent(recentMessages = [], currentPlayerMessage =
   return { ok: false, reason: 'no-previous-assistant' };
 }
 
+function promptingPlayerBeforeAssistant(recentMessages = [], assistantMessage = {}) {
+  const messages = Array.isArray(recentMessages) ? recentMessages : [];
+  const assistantId = messageId(assistantMessage);
+  const assistantIndex = assistantId
+    ? messages.findIndex((message) => messageId(message) === assistantId)
+    : messages.indexOf(assistantMessage);
+  if (assistantIndex < 0) return null;
+  for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || isSystem(message)) continue;
+    return isUser(message) ? messageId(message) : null;
+  }
+  return null;
+}
+
 function unsafeAssistantReason(message = {}) {
   const status = compact(message?.status || message?.raw?.status || message?.metadata?.status, 80).toLowerCase();
   if (new Set(['deleted', 'invalidated', 'superseded', 'interrupted', 'streaming', 'control']).has(status)) {
@@ -186,6 +201,7 @@ export function prepareV1AcceptedPairSnapshot({
   const previousTextHash = stableHash(previousText);
   const playerTextHash = stableHash(playerText);
   const sourceRangeHash = stableHash(`${previousId || ''}:${previousTextHash}:${playerId || ''}:${playerTextHash}`);
+  const promptingPlayerHostMessageId = promptingPlayerBeforeAssistant(recentMessages, resolved.message);
   return {
     ok: true,
     reason: null,
@@ -203,6 +219,7 @@ export function prepareV1AcceptedPairSnapshot({
       source: {
         previousAssistant: {
           hostMessageId: previousId,
+          promptingPlayerHostMessageId,
           selectedVariantId: selected.value.selectedVariantId,
           selectedSwipeIndex: selected.value.selectedSwipeIndex,
           sourceIntegrity: 'clean',
@@ -225,5 +242,6 @@ export function prepareV1AcceptedPairSnapshot({
 export const __v1AcceptedPairSourceTestHooks = Object.freeze({
   stableHash,
   selectedAssistantVariant,
-  previousAssistantFromRecent
+  previousAssistantFromRecent,
+  promptingPlayerBeforeAssistant
 });

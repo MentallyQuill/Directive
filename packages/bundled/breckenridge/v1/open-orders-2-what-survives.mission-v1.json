@@ -634,6 +634,26 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.open-orders2.last-watch",
+      "sourceObjectiveId": "objective.open-orders2.last-watch",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried The Last Watch to a usable disposition."
+    },
+    {
+      "id": "award.open-orders2.second-opinion",
+      "sourceObjectiveId": "objective.open-orders2.second-opinion",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Second Opinion to a usable disposition."
+    },
+    {
+      "id": "award.open-orders2.unwelcome-result",
+      "sourceObjectiveId": "objective.open-orders2.unwelcome-result",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried An Unwelcome Result to a usable disposition."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.open-orders2.load",

@@ -138,6 +138,12 @@ assert.deepEqual(
     ],
 );
 assert.deepEqual(accountability.transitionPacket.optionalOutcomeSummaries, ['Evidence was preserved and handed off for review.']);
+assert.deepEqual(accountability.commandBearingAwards, [{
+    id: 'award.hesperus-accountability',
+    sourceMissionId: 'mission.hesperus-reference',
+    sourceObjectiveId: 'objective.hesperus-accountability',
+    reason: 'You carried the known Hesperus accountability question to a responsible disposition.',
+}]);
 
 const reorderedAccountability = reduceMissionEvidence({
     definition,

@@ -1,7 +1,4 @@
 import {
-  getDirectiveGuidancePreferences
-} from '../guidance/directive-guidance.js';
-import {
   appendEmpty,
   createButton,
   createElement
@@ -88,42 +85,6 @@ function createSelect(value, options) {
   });
   select.value = value;
   return select;
-}
-
-function appendRuntimeSettings(surface, view, actions) {
-  const state = view?.campaignState;
-  if (!state) return;
-  const settings = state.settings || {};
-  const section = createSection(
-    'Save cadence',
-    'Control checkpoint history and autosave frequency for the active campaign.'
-  );
-  const form = createElement('div', 'directive-v1-settings-grid');
-  const history = createNumberInput(settings.maxTurnSaveHistory ?? 20, { min: 1, max: 100 });
-  const autosave = createNumberInput(settings.autosaveEveryMessages ?? 5, { min: 1, max: 50 });
-  form.append(
-    createField('Turn recovery history', history, 'Recent accepted turns retained for safe recovery.'),
-    createField('Autosave every messages', autosave, 'Accepted player messages between automatic checkpoints.')
-  );
-  const feedback = createElement('span', 'directive-v1-settings-feedback');
-  const commands = createElement('div', 'directive-v1-settings-actions');
-  commands.appendChild(createButton({
-    label: 'Apply',
-    icon: 'fa-solid fa-floppy-disk',
-    className: 'directive-button directive-primary-command',
-    disabled: typeof actions.updateRuntimeSettings !== 'function',
-    onClick: async () => {
-      await actions.updateRuntimeSettings({
-        maxTurnSaveHistory: Number(history.value),
-        autosaveEveryMessages: Number(autosave.value)
-      });
-      feedback.textContent = 'Saved';
-      await actions.refresh?.();
-    }
-  }));
-  commands.appendChild(feedback);
-  section.append(form, commands);
-  surface.appendChild(section);
 }
 
 function providerStatusText(status = {}) {
@@ -335,46 +296,12 @@ function downloadJson({ fileName = 'directive-export.json', jsonText = '' } = {}
 
 function appendSupport(surface, view, actions) {
   const section = createSection(
-    'Help and support',
-    'Replay the V1 walkthrough, inspect local save health, or export a support bundle.'
+    'Save and support',
+    'Verify the active save or export a compact support bundle.'
   );
-  const preferences = getDirectiveGuidancePreferences();
-  const tutorials = createElement('input');
-  tutorials.type = 'checkbox';
-  tutorials.checked = !preferences.tutorialPromptsDisabled;
-  tutorials.addEventListener('change', () => actions.setGuidancePreference?.({
-    key: 'tutorialPromptsDisabled',
-    value: !tutorials.checked
-  }));
-  const tips = createElement('input');
-  tips.type = 'checkbox';
-  tips.checked = !preferences.tipsDisabled;
-  tips.addEventListener('change', () => actions.setGuidancePreference?.({
-    key: 'tipsDisabled',
-    value: !tips.checked
-  }));
-  const grid = createElement('div', 'directive-v1-settings-grid');
-  grid.append(
-    createField('Offer the V1 walkthrough', tutorials),
-    createField('Show occasional tips', tips)
-  );
-  section.appendChild(grid);
-
   const feedback = createElement('span', 'directive-v1-settings-feedback');
   const commands = createElement('div', 'directive-v1-settings-actions');
   commands.append(
-    createButton({
-      label: 'Start walkthrough',
-      icon: 'fa-solid fa-graduation-cap',
-      className: 'directive-button directive-secondary-command',
-      onClick: () => actions.beginGuidanceTutorial?.({ tutorialId: 'tutorial.basic' })
-    }),
-    createButton({
-      label: 'Show next tip',
-      icon: 'fa-solid fa-lightbulb',
-      className: 'directive-button directive-secondary-command',
-      onClick: () => actions.showGuidanceTip?.({ direction: 'next' })
-    }),
     createButton({
       label: 'Verify active save',
       icon: 'fa-solid fa-circle-check',
@@ -404,7 +331,6 @@ function appendSupport(surface, view, actions) {
 
 export function renderSettingsPanel(body, view, actions = {}) {
   const surface = createElement('div', 'directive-v1-settings');
-  appendRuntimeSettings(surface, view, actions);
   appendProviders(surface, view, actions);
   appendPreset(surface, view, actions);
   appendSupport(surface, view, actions);

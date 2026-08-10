@@ -1,33 +1,49 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import {
-    createStateDeltaGateway,
-    DIRECTIVE_MUTABLE_STATE_DOMAINS,
-} from '../../src/runtime/state-delta-gateway.mjs';
+import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { V1_MUTABLE_STATE_DOMAINS } from '../../src/runtime/v1-campaign-state.mjs';
 import {
     createPendingEpisodeReviewToken,
     createV1StateSpine,
 } from '../../src/runtime/v1-state-spine.mjs';
 import { createEpisodeHardBoundary } from '../../src/story/episode-boundary.mjs';
+import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
-assert.equal(DIRECTIVE_MUTABLE_STATE_DOMAINS.includes('storySettlement'), true);
-const projectionSchema = JSON.parse(fs.readFileSync('schemas/campaign/campaign-state-projection.schema.json', 'utf8'));
-assert.equal(Boolean(projectionSchema.$defs.initialState.properties.storySettlement), true);
-assert.equal(Boolean(projectionSchema.$defs.initialState.properties.mission.properties.v1), true);
-assert.equal(projectionSchema.$defs.initialState.required.includes('storySettlement'), false);
+assert.equal(V1_MUTABLE_STATE_DOMAINS.includes('storySettlement'), true);
 
 const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
-let campaignState = {
-    campaign: { id: 'campaign.ashes' },
-    activeCampaignPackage: {
-        packageId: definition.packageBinding.packageId,
-        packageVersion: definition.packageBinding.packageVersion,
-    },
-    campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
-    mission: {
-        activeMissionId: definition.packageBinding.sourceId,
-    },
+const rewardedObjective = definition.objectives.find((objective) => objective.id === 'objective.hesperus-accountability');
+rewardedObjective.class = 'optional';
+rewardedObjective.activatedAs = null;
+rewardedObjective.activationWhen = true;
+rewardedObjective.availableWhen = true;
+rewardedObjective.visibleWhen = true;
+rewardedObjective.progressWhen = { eventOccurred: 'event.hesperus-survivors-transferred' };
+rewardedObjective.terminalWhen = [{
+    disposition: 'completed',
+    when: { eventOccurred: 'event.hesperus-survivors-transferred' },
+}];
+rewardedObjective.playerText.terminal = [{ disposition: 'completed', text: 'The accountability implications were addressed.' }];
+definition.commandBearingAwards = [{
+    id: 'award.hesperus-accountability',
+    sourceObjectiveId: 'objective.hesperus-accountability',
+    eligibleDispositions: ['completed'],
+    reason: 'You carried the Hesperus accountability review through to completion.',
+}];
+let campaignState = createAshesInitialState({
+    campaignId: 'campaign.ashes',
+    saveId: 'save.alpha',
+    chatId: 'chat.alpha',
+});
+const initialJourney = createInitialMissionJourney({ definition, branchId: 'save.alpha' });
+campaignState.mission = {
+    activeMissionId: definition.packageBinding.sourceId,
+    v1: createMissionState({ definition, branchId: 'save.alpha' }),
+    v1Journey: initialJourney.journey,
+    v1History: initialJourney.history,
 };
 let persistCount = 0;
 const gateway = createStateDeltaGateway({
@@ -80,6 +96,7 @@ const proposal = {
 
 const settled = await spine.settleAcceptedPair({
     definition,
+    missionDefinitions: [definition],
     proposal,
     sourceContribution,
     sourceObservations: [{
@@ -105,6 +122,9 @@ assert.equal(campaignState.storySettlement.episodes.length, 1);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(campaignState.mission.v1.status, 'terminal');
 assert.equal(campaignState.mission.v1.terminalDisposition, 'primarySuccess');
+assert.equal(settled.commandBearingAwardCount, 1);
+assert.equal(campaignState.commandBearing.balance, 1);
+assert.equal(campaignState.commandBearing.awards['award.hesperus-accountability'].sourceId, 'objective.hesperus-accountability');
 
 assert.throws(
     () => spine.reduceMissionProposal({
@@ -124,6 +144,7 @@ assert.throws(
 await assert.rejects(
     () => spine.settleAcceptedPair({
         definition,
+        missionDefinitions: [definition],
         proposal: { ...proposal, baseRevision: 1 },
         sourceContribution,
         gatewayBaseRevision: 0,
@@ -141,6 +162,7 @@ assert.equal(persistCount, 1);
 await assert.rejects(
     () => spine.settleAcceptedPair({
         definition,
+        missionDefinitions: [definition],
         proposal: { ...proposal, baseRevision: 0 },
         sourceContribution,
         gatewayBaseRevision: 1,
@@ -200,8 +222,8 @@ const accumulationDefinition = {
     id: 'mission.accumulation-reference',
     version: '1.0.0',
     packageBinding: {
-        packageId: 'directive:campaign-package:accumulation-reference',
-        packageVersion: '1.0.0',
+        packageId: definition.packageBinding.packageId,
+        packageVersion: definition.packageBinding.packageVersion,
         sourceId: 'accumulation-reference',
     },
     playerText: { title: 'Accumulation', summary: 'Accumulate a semantic scene.' },
@@ -223,9 +245,20 @@ const accumulationDefinition = {
     terminalDispositions: [],
     transitions: [],
 };
-let accumulationState = {
-    campaign: { id: 'campaign.accumulation' },
-    mission: {},
+let accumulationState = createAshesInitialState({
+    campaignId: 'campaign.accumulation',
+    saveId: 'save.accumulation',
+    chatId: 'chat.accumulation',
+});
+const accumulationJourney = createInitialMissionJourney({
+    definition: accumulationDefinition,
+    branchId: 'save.accumulation',
+});
+accumulationState.mission = {
+    activeMissionId: accumulationDefinition.packageBinding.sourceId,
+    v1: createMissionState({ definition: accumulationDefinition, branchId: 'save.accumulation' }),
+    v1Journey: accumulationJourney.journey,
+    v1History: accumulationJourney.history,
 };
 let accumulationPersistCount = 0;
 const accumulationSources = new Map();
@@ -473,7 +506,21 @@ assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-2'
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-1'), true);
 assert.equal(accumulationState.mission.v1.events.includes('event.accumulation-6'), true);
 
-let insignificantState = { campaign: { id: 'campaign.insignificant' }, mission: {} };
+let insignificantState = createAshesInitialState({
+    campaignId: 'campaign.insignificant',
+    saveId: 'save.insignificant',
+    chatId: 'chat.insignificant',
+});
+const insignificantJourney = createInitialMissionJourney({
+    definition: accumulationDefinition,
+    branchId: 'save.insignificant',
+});
+insignificantState.mission = {
+    activeMissionId: accumulationDefinition.packageBinding.sourceId,
+    v1: createMissionState({ definition: accumulationDefinition, branchId: 'save.insignificant' }),
+    v1Journey: insignificantJourney.journey,
+    v1History: insignificantJourney.history,
+};
 let insignificantPersistCount = 0;
 const insignificantGateway = createStateDeltaGateway({
     getState: () => insignificantState,

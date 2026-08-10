@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const sourceDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -24,7 +27,7 @@ function clockReadyDefinition({ unit = 'hours', startWhen = undefined } = {}) {
 
 function snapshot(suffix = 'main') {
     return {
-        kind: 'directive.sceneHandshakeSnapshot.v1',
+        kind: 'directive.acceptedPairSnapshot.v1',
         envelope: {
             campaignId: 'campaign.ashes',
             saveId: `save.time.${suffix}`,
@@ -72,7 +75,7 @@ function timeBoundaryFor(sceneSnapshot, {
         elapsedMinutes,
         source: 'timeAdvanceAdjudicator',
         sourceAnchorRange: {
-            kind: 'sceneHandshakePair',
+            kind: 'acceptedPair',
             previousAssistantHostMessageId: sceneSnapshot.source.previousAssistant.hostMessageId,
             currentPlayerHostMessageId,
             rangeHash,
@@ -84,30 +87,31 @@ function initialCampaignState(definition, sceneSnapshot, {
     suffix = 'main',
     boundary = timeBoundaryFor(sceneSnapshot),
 } = {}) {
-    return {
-        campaign: { id: 'campaign.ashes' },
-        activeCampaignPackage: {
-            packageId: definition.packageBinding.packageId,
-            packageVersion: definition.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId: `save.time.${suffix}`, chatId: `chat.time.${suffix}` },
-        mission: { activeMissionId: definition.packageBinding.sourceId },
-        timeLedger: {
-            entries: boundary ? [structuredClone(boundary)] : [],
-            lastBoundary: boundary ? structuredClone(boundary) : null,
-        },
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId: `save.time.${suffix}`,
+        chatId: `chat.time.${suffix}`,
+    });
+    const branchId = `save.time.${suffix}`;
+    const initialJourney = createInitialMissionJourney({ definition, branchId });
+    state.mission = {
+        activeMissionId: definition.packageBinding.sourceId,
+        v1: createMissionState({ definition, branchId }),
+        v1Journey: initialJourney.journey,
+        v1History: initialJourney.history,
     };
+    state.timeLedger.entries = boundary ? [structuredClone(boundary)] : [];
+    state.timeLedger.lastBoundary = boundary ? structuredClone(boundary) : null;
+    return state;
 }
 
 function runtimeAssets(definition) {
     const record = { path: 'test/clock-ready-definition.json', definition };
+    const ashesAssets = loadAshesRuntimeAssets();
     return {
-        packageData: {
-            manifest: {
-                id: definition.packageBinding.packageId,
-                version: definition.packageBinding.packageVersion,
-            },
-        },
+        packageData: ashesAssets.packageData,
+        crewDataset: ashesAssets.crewDataset,
+        shipDataset: ashesAssets.shipDataset,
         missionDefinitions: [record],
         missionDefinitionsById: new Map([[definition.id, record]]),
     };

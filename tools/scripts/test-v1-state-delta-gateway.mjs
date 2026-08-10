@@ -2,38 +2,12 @@ import assert from 'node:assert/strict';
 
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import {
-  assertV1CampaignState,
-  createV1StateCustody
+  assertV1CampaignState
 } from '../../src/runtime/v1-campaign-state.mjs';
+import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
 function state() {
-  return {
-    campaign: {
-      id: 'campaign.one',
-      runtimeArchitecture: {
-        kind: 'directive.gameplayArchitecture.v1',
-        contractVersion: 1,
-        semanticAuthority: 'storySettlement',
-        packageId: 'package.ashes',
-        packageVersion: '1.0.0',
-        createdForNewSave: true
-      }
-    },
-    activeCampaignPackage: { packageId: 'package.ashes', packageVersion: '1.0.0' },
-    player: {},
-    crew: {},
-    ship: {},
-    mission: { activeMissionId: 'prelude' },
-    commandBearing: {},
-    values: {},
-    turnLedger: {},
-    ui: {},
-    settings: {},
-    captainState: {},
-    worldState: {},
-    timeLedger: {},
-    stateCustody: createV1StateCustody()
-  };
+  return createAshesInitialState({ campaignId: 'campaign.one', saveId: 'save.one', chatId: 'chat.one' });
 }
 
 let current = state();
@@ -75,15 +49,31 @@ assert.equal(gateway.revision(), 1);
 assert.equal(persisted.length, 1);
 
 assert.throws(
-  () => assertV1CampaignState({ ...state(), questLedger: {} }),
+  () => assertV1CampaignState({ ...state(), unsupportedTracker: {} }),
   (error) => error?.code === 'DIRECTIVE_V1_STATE_FORBIDDEN_ROOT'
+);
+assert.throws(
+  () => assertV1CampaignState({ ...state(), commandBearing: {} }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_COMMAND_BEARING_INVALID'
+);
+const withoutStorySettlement = state();
+delete withoutStorySettlement.storySettlement;
+assert.throws(
+  () => assertV1CampaignState(withoutStorySettlement),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_REQUIRED_ROOT_MISSING'
+);
+const withoutMissionAuthority = state();
+delete withoutMissionAuthority.mission.v1;
+assert.throws(
+  () => assertV1CampaignState(withoutMissionAuthority),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_MISSION_INVALID'
 );
 await assert.rejects(
   gateway.applyProposal({
     id: 'proposal.bad-root',
     baseRevision: 1,
-    domains: ['questLedger'],
-    patch: { questLedger: {} }
+    domains: ['unsupportedTracker'],
+    patch: { unsupportedTracker: {} }
   }),
   (error) => error?.code === 'DIRECTIVE_V1_STATE_DOMAIN_FORBIDDEN'
 );

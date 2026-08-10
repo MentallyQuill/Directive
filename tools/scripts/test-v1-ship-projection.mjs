@@ -45,7 +45,7 @@ const campaignState = {
 const unsupportedShipState = {
     ship: {
         id: 'uss-breckenridge',
-        condition: 'Legacy condition text.',
+        condition: 'Untrusted condition text.',
         damage: [{
             id: 'damage.port-sensor-array',
             label: 'Port sensor array degraded',

@@ -1,6 +1,5 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
-import { closeDirectiveGuidance } from '../../guidance/directive-guidance.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
@@ -122,7 +121,6 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
 
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
-  closeDirectiveGuidance('extension-disabled');
   try {
     await app()?.clearDirectivePrompt?.({ reason: 'extension-disabled' });
   } catch (error) {

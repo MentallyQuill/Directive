@@ -1,4 +1,3 @@
-export const V1_GAMEPLAY_ARCHITECTURE_ID = 'directive.v1GameplayArchitecture.storySettlement';
 export const V1_RUNTIME_ARCHITECTURE_KIND = 'directive.gameplayArchitecture.v1';
 export const V1_RUNTIME_ARCHITECTURE_CONTRACT_VERSION = 1;
 export const V1_SEMANTIC_AUTHORITY = 'storySettlement';
@@ -32,7 +31,9 @@ function safeReasonCode(value, fallback = 'definition-unavailable') {
 
 export function createV1RuntimeArchitectureStamp({ packageData = null } = {}) {
   const manifest = packageData?.manifest;
-  if (!isObject(manifest) || manifest.architecture !== V1_GAMEPLAY_ARCHITECTURE_ID) return null;
+  if (!isObject(manifest)
+    || manifest.kind !== 'directive.campaignPackage.v1'
+    || manifest.schemaVersion !== 1) return null;
   const packageId = compact(manifest.id);
   const packageVersion = compact(manifest.version);
   if (!packageId || !packageVersion) return null;
@@ -76,7 +77,8 @@ export function resolveV1SemanticAuthority({
   }
 
   const runtimeManifest = runtimeAssets?.packageData?.manifest || {};
-  if (runtimeManifest.architecture !== V1_GAMEPLAY_ARCHITECTURE_ID
+  if (runtimeManifest.kind !== 'directive.campaignPackage.v1'
+    || runtimeManifest.schemaVersion !== 1
     || compact(runtimeManifest.id) !== compact(stamp.packageId)
     || compact(runtimeManifest.version) !== compact(stamp.packageVersion)) {
     return result('blocked', 'runtime-package-mismatch', { stamp });

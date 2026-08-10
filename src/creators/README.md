@@ -1,9 +1,8 @@
 # Creator Source
 
-Reserved for future Starship Creator and Mission Creator workflows.
+Ashes V1 player-character creation.
 
-Creator drafts must normalize into the same final package and mission schemas used by bundled content.
+- `character-creator-draft.mjs` owns the exact partial draft and accepted-review contract.
+- `character-creator-assist.mjs` may propose package-safe field values through the configured provider and falls back to bounded local suggestions when generation is unavailable.
 
-The campaign-start Character Creator should consume `characterCreation` context from package adapters rather than embedding Ashes of Peace choices in creator UI code.
-
-`character-creator-draft.mjs` owns the pre-runtime Character Creator draft record contract: partial saves, restore, progress, autosave history, and review acceptance.
+The creator consumes package-owned choices and templates. It does not create campaigns, ships, missions, or imported package formats.

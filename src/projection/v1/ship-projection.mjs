@@ -33,15 +33,6 @@ function materialLimitations(records = []) {
         .sort((left, right) => left.id.localeCompare(right.id));
 }
 
-function capabilityCard(shipDataset = {}) {
-    return (shipDataset.cards || []).find((card) => (
-        card?.type === 'ship.profile'
-        && card?.visibility === 'publicPackage'
-        && card?.payload?.narratorSafe === true
-        && compact(card?.payload?.summary)
-    )) || null;
-}
-
 function readinessProjection(definition = {}, missionProjection = {}) {
     const dimensionId = definition?.projectionHints?.shipReadinessDimensionId;
     const dimension = (missionProjection.outcomeDimensions || []).find((item) => item.id === dimensionId);
@@ -66,7 +57,7 @@ export function createShipPlayerProjection({
 } = {}) {
     const current = requireV1ShipState(campaignState);
     const overview = current.operationalOverview;
-    const capability = capabilityCard(runtimeAssets.shipDataset);
+    const capability = runtimeAssets.shipDataset?.profile || {};
     const readiness = readinessProjection(definition, missionProjection);
     const readinessObjective = readinessObjectiveLink(definition, missionProjection);
     const missionIds = [readinessObjective?.id, readiness?.id].filter(Boolean);
@@ -76,7 +67,7 @@ export function createShipPlayerProjection({
         name: compact(current.name),
         class: compact(current.class),
         registry: compact(current.registry),
-        capabilitySummary: compact(capability?.payload?.summary),
+        capabilitySummary: compact(capability.summary),
         operationalStatus: {
             status: compact(overview.status),
             summary: compact(overview.summary),
@@ -87,7 +78,6 @@ export function createShipPlayerProjection({
         sourceRefs: {
             packageIds: [
                 runtimeAssets?.shipDataset?.manifest?.id,
-                capability?.id,
             ].filter(Boolean),
             statePaths: ['ship.operationalOverview'],
             missionIds,

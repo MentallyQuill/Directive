@@ -183,11 +183,6 @@ function requestMaxTokens(request = {}, config = {}) {
   return request.parameters?.max_tokens || request.maxTokens || config.maxTokens;
 }
 
-function requestProviderKindOverride(request = {}) {
-  const kind = String(request?.role?.providerKind || request?.providerKind || '').trim().toLowerCase();
-  return ['utility', 'reasoning'].includes(kind) ? kind : null;
-}
-
 function extractText(value, options = {}) {
   return assertProviderResponseText(value, options).trim();
 }
@@ -363,9 +358,8 @@ export function createDirectiveProviderClient({
 
   async function generate(roleId, request = {}) {
     const settings = settingsStore.getAll?.() || null;
-    const kind = requestProviderKindOverride(request)
-      || settingsStore.getRoleProviderKind?.(roleId)
-      || providerKindForRole(roleId, settings);
+    const kind = settingsStore.getRoleProviderKind?.(roleId)
+      || providerKindForRole(roleId);
     const config = settingsStore.get(kind);
     const context = contextFactory();
     async function sendOnce(requestToSend, retryOptions = {}) {
@@ -411,7 +405,7 @@ export function createDirectiveProviderClient({
   }
 
   async function test(kind) {
-    const roleId = kind === 'utility' ? 'utilityJson' : 'missionDirectorAdvisor';
+    const roleId = kind === 'utility' ? 'utilityJson' : 'narration';
     try {
       const response = await generate(roleId, {
         systemPrompt: 'Connectivity test only. Return exactly DIRECTIVE_PROVIDER_OK as the complete visible answer. Do not include reasoning, analysis, markdown, or extra text.',

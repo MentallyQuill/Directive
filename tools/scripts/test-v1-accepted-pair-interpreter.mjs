@@ -34,13 +34,16 @@ const sourcePair = {
 };
 
 const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair });
-assert.equal(prompt.metadata.roleId, 'sourceSettlementLatestPair');
+assert.equal(prompt.metadata.roleId, 'acceptedPairMissionEvidence');
 assert.equal(prompt.metadata.missionId, definition.id);
 assert.match(prompt.systemPrompt, /plans, attempts, guesses, questions/i);
 assert.match(prompt.systemPrompt, /do not create/i);
+assert.match(prompt.systemPrompt, /joint accepted-pair condition/i);
 assert.match(prompt.messages[1].content, /last patient aboard/);
 assert.match(prompt.messages[1].content, /safer plan/);
 assert.equal(prompt.messages[1].content.includes('mustNotReveal'), false);
+assert.equal(prompt.maxTokens, 2500);
+assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 2500 });
 
 const validOutput = {
     kind: 'directive.missionEvidenceInterpretation.v1',
@@ -178,7 +181,7 @@ const interpreted = await interpreter({ candidatePacket, sourcePair });
 assert.equal(interpreted.ok, true);
 assert.equal(interpreted.status, 'interpreted');
 assert.equal(interpreted.proposal.claims.length, 2);
-assert.equal(generatedRequests[0].roleId, 'sourceSettlementLatestPair');
+assert.equal(generatedRequests[0].roleId, 'acceptedPairMissionEvidence');
 assert.equal(interpreted.diagnostics.providerId, 'fake-utility');
 assert.equal(Object.hasOwn(interpreted.diagnostics, 'rawResponse'), false);
 

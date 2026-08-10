@@ -65,6 +65,7 @@ export function createV1CrewPanelModel(projection) {
       balance: projection.commandBearing.balance,
       capacity: projection.commandBearing.capacity,
       latestAwardReason: projection.commandBearing.latestAwardReason || null,
+      pendingEdge: copy(projection.commandBearing.pendingEdge),
       latestSpend: copy(projection.commandBearing.latestSpend)
     }
   };

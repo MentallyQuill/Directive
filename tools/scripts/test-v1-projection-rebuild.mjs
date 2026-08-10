@@ -14,23 +14,16 @@ import {
     openStoryEpisode,
     sealStoryEpisode,
 } from '../../src/story/story-settlement.mjs';
+import {
+    createAshesInitialState,
+    loadAshesRuntimeAssets,
+} from './v1-test-fixtures.mjs';
 
 const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
     'utf8',
 ));
-const campaignProjection = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json',
-    'utf8',
-));
-const crewDataset = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json',
-    'utf8',
-));
-const shipDataset = JSON.parse(fs.readFileSync(
-    'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
-    'utf8',
-));
+const runtimeAssets = loadAshesRuntimeAssets();
 const branchId = 'save.rebuild';
 
 const source = (suffix) => ({
@@ -89,24 +82,12 @@ storySettlement = sealStoryEpisode(storySettlement, {
 });
 
 const campaignState = {
-    ...structuredClone(campaignProjection.initialState),
-    activeCampaignPackage: {
-        packageId: definition.packageBinding.packageId,
-        packageVersion: definition.packageBinding.packageVersion,
-    },
-    campaignChatBinding: { saveId: branchId, chatId: 'chat.rebuild' },
+    ...createAshesInitialState({ saveId: branchId, chatId: 'chat.rebuild' }),
     mission: {
-        ...structuredClone(campaignProjection.initialState.mission),
+        activeMissionId: definition.packageBinding.sourceId,
         v1: createMissionState({ definition, branchId }),
     },
     storySettlement,
-};
-const runtimeAssets = {
-    packageData: { manifest: { id: definition.packageBinding.packageId, version: definition.packageBinding.packageVersion } },
-    projection: campaignProjection,
-    crewDataset,
-    shipDataset,
-    missionDefinitions: [{ path: 'prelude.mission-v1.json', definition }],
 };
 const before = createV1PlayerProjection({ campaignState, runtimeAssets, definition });
 assert.deepEqual(before.story.entries.map((entry) => entry.id), ['episode.before-edit']);
@@ -180,17 +161,11 @@ function interpretation(candidateId) {
 }
 
 let atomicState = {
-    ...structuredClone(campaignProjection.initialState),
-    campaign: { ...structuredClone(campaignProjection.initialState.campaign), id: 'campaign.ashes.atomic' },
-    activeCampaignPackage: {
-        packageId: definition.packageBinding.packageId,
-        packageVersion: definition.packageBinding.packageVersion,
-    },
-    campaignChatBinding: { saveId: 'save.atomic-rebuild', chatId: 'chat.atomic-rebuild' },
-    mission: {
-        ...structuredClone(campaignProjection.initialState.mission),
-        activeMissionId: definition.packageBinding.sourceId,
-    },
+    ...createAshesInitialState({
+        campaignId: 'campaign.ashes.atomic',
+        saveId: 'save.atomic-rebuild',
+        chatId: 'chat.atomic-rebuild',
+    }),
 };
 let generationIndex = 0;
 const atomicOutputs = [

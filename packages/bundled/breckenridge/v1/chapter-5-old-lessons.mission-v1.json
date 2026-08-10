@@ -572,6 +572,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter5.orison",

@@ -10,8 +10,11 @@ import {
     resolveMissionTransitionNarrationReview,
     validateMissionTransitionNarrationPacket,
 } from '../../src/mission/v1/mission-transition-narration.mjs';
+import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const fixture = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -32,32 +35,26 @@ targetDefinition.playerText = {
     title: 'Command Review',
     summary: 'Review the completed response with the senior staff.',
 };
+const ashesAssets = loadAshesRuntimeAssets();
 const runtimeAssets = {
-    packageData: {
-        manifest: {
-            id: sourceDefinition.packageBinding.packageId,
-            version: sourceDefinition.packageBinding.packageVersion,
-        },
-    },
+    ...ashesAssets,
     missionDefinitions: [sourceDefinition, targetDefinition].map((definition) => ({
         path: `${definition.id}.json`,
         definition,
     })),
 };
 
-let campaignState = {
-    campaign: { id: 'campaign.ashes' },
-    activeCampaignPackage: {
-        packageId: sourceDefinition.packageBinding.packageId,
-        packageVersion: sourceDefinition.packageBinding.packageVersion,
-    },
-    campaignChatBinding: { saveId: 'save.narration', chatId: 'chat.narration' },
-    mission: {
-        activeMissionId: sourceDefinition.packageBinding.sourceId,
-        legacyHiddenTracker: 'HIDDEN_TRACKER_CANARY',
-    },
-    runtimeTracking: { providerDiagnostics: 'PROVIDER_DIAGNOSTIC_CANARY' },
-    commandBearing: { current: 8 },
+let campaignState = createAshesInitialState({
+    campaignId: 'campaign.ashes',
+    saveId: 'save.narration',
+    chatId: 'chat.narration',
+});
+const initialJourney = createInitialMissionJourney({ definition: sourceDefinition, branchId: 'save.narration' });
+campaignState.mission = {
+    activeMissionId: sourceDefinition.packageBinding.sourceId,
+    v1: createMissionState({ definition: sourceDefinition, branchId: 'save.narration' }),
+    v1Journey: initialJourney.journey,
+    v1History: initialJourney.history,
 };
 let persistCount = 0;
 let generationCount = 0;
@@ -96,7 +93,7 @@ const runtime = createV1MissionRuntime({
 const settled = await runtime.settleAcceptedPair({
     runtimeAssets,
     snapshot: {
-        kind: 'directive.latestPairSceneSnapshot.v1',
+        kind: 'directive.acceptedPairSnapshot.v1',
         envelope: {
             campaignId: 'campaign.ashes',
             saveId: 'save.narration',
@@ -159,8 +156,6 @@ assert.equal(generationCount, generationBeforePreparation, 'preparation calls no
 
 const serialized = JSON.stringify(prepared);
 for (const forbidden of [
-    'HIDDEN_TRACKER_CANARY',
-    'PROVIDER_DIAGNOSTIC_CANARY',
     'evidenceLog',
     'acceptedEvidenceKeys',
     'textHash',

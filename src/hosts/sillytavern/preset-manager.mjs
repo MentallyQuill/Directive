@@ -8,10 +8,6 @@ export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
 export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.10';
 export const DIRECTIVE_PRESET_ASSET_URL = new URL('../../../presets/sillytavern/directive.json', import.meta.url);
-export const DIRECTIVE_LEGACY_PRESET_NAMES = Object.freeze([
-  'Directive Star Trek Command',
-  'directive-star-trek-command'
-]);
 export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
 export const DIRECTIVE_DEFAULT_TENSE_RULE = 'past tense';
 export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nWrite in past tense, third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. Typed narration, planning notes, stage direction, and private inner monologue are not audible. Treat only explicit dialogue, spoken orders, transmissions, or established telepathic contact as information other characters can perceive. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
@@ -24,8 +20,7 @@ const DIRECTIVE_POV_PROMPT_PREFIX = 'directive-pov-';
 const DIRECTIVE_PRESET_STARTUP_PROMPT_STATES = Object.freeze(new Set([
   'missing',
   'behind',
-  'unknown',
-  'legacy-name'
+  'unknown'
 ]));
 
 function cloneJson(value) {
@@ -168,7 +163,7 @@ function compatibleDirectivePreset(preset, presetName = '') {
   const metadata = directivePresetMetadata(preset);
   if (metadata.presetName === DIRECTIVE_PRESET_NAME || metadata.supportsDirectiveRuntime || metadata.supportsPromptContextBlocks) return true;
   const normalizedName = String(presetName || '').trim().toLowerCase();
-  if ([DIRECTIVE_PRESET_NAME, ...DIRECTIVE_LEGACY_PRESET_NAMES].some((name) => name.toLowerCase() === normalizedName)) return true;
+  if (DIRECTIVE_PRESET_NAME.toLowerCase() === normalizedName) return true;
   return presetHasDirectivePovControls(preset)
     && Boolean(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER));
 }
@@ -181,7 +176,7 @@ function missingDirectiveStyleReason({ tense = '', perspective = '' } = {}) {
   return `Directive-compatible preset did not expose enabled ${missing.join(' and ')} value${missing.length === 1 ? '' : 's'}; Directive default style applied.`;
 }
 
-export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'campaignIntro' } = {}) {
+export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'narration' } = {}) {
   const base = {
     kind: 'directive.narrationPresetContext',
     roleId,
@@ -350,26 +345,26 @@ export function directivePresetMetadata(preset, { fallbackVersion = '' } = {}) {
 
 export function getInstalledDirectivePreset(manager, { installedConfirmed = false } = {}) {
   const names = typeof manager?.getAllPresets === 'function' ? manager.getAllPresets() : [];
-  const candidates = [DIRECTIVE_PRESET_NAME, ...DIRECTIVE_LEGACY_PRESET_NAMES];
   let installedName = '';
   if (Array.isArray(names)) {
-    installedName = candidates
-      .map((candidate) => names.find((name) => String(name || '').trim().toLowerCase() === candidate.toLowerCase()) || '')
-      .find(Boolean) || '';
+    installedName = names.find((name) => (
+      String(name || '').trim().toLowerCase() === DIRECTIVE_PRESET_NAME.toLowerCase()
+    )) || '';
   }
   if (!installedName) {
-    installedName = candidates.find((candidate) => readPresetByName(manager, candidate)) || '';
+    installedName = readPresetByName(manager, DIRECTIVE_PRESET_NAME)
+      ? DIRECTIVE_PRESET_NAME
+      : '';
   }
   if (installedName) {
     return {
       name: installedName,
-      preset: readPresetByName(manager, installedName),
-      legacyName: installedName.toLowerCase() !== DIRECTIVE_PRESET_NAME.toLowerCase()
+      preset: readPresetByName(manager, installedName)
     };
   }
   return installedConfirmed
-    ? { name: DIRECTIVE_PRESET_NAME, preset: null, legacyName: false, assumed: true }
-    : { name: '', preset: null, legacyName: false };
+    ? { name: DIRECTIVE_PRESET_NAME, preset: null, assumed: true }
+    : { name: '', preset: null };
 }
 
 export function directivePresetStatus({ manager = null, installedConfirmed = false } = {}) {
@@ -406,15 +401,11 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
   const comparison = installed.assumed
     ? 0
     : compareDirectivePresetVersions(installedMeta.displayVersion, bundledVersion);
-  const legacyNameMessage = installed.legacyName
-    ? ` Legacy preset name "${installed.name}" was found; updating installs the stable "${DIRECTIVE_PRESET_NAME}" preset name.`
-    : '';
-
   if (comparison === null) {
     return {
       state: 'unknown',
       pill: 'Version Unknown',
-      message: `A Directive preset is installed, but its version metadata is missing or unreadable.${legacyNameMessage}`,
+      message: 'A Directive preset is installed, but its version metadata is missing or unreadable.',
       installedVersion,
       bundledVersion,
       installedName: installed.name,
@@ -428,7 +419,7 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
     return {
       state: 'behind',
       pill: 'Update Available',
-      message: `The installed Directive preset is older than the bundled preset.${legacyNameMessage}`,
+      message: 'The installed Directive preset is older than the bundled preset.',
       installedVersion,
       bundledVersion,
       installedName: installed.name,
@@ -438,7 +429,7 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
     };
   }
 
-  if (comparison > 0 && !installed.legacyName) {
+  if (comparison > 0) {
     return {
       state: 'ahead',
       pill: 'Newer Installed',
@@ -446,20 +437,6 @@ export function directivePresetStatus({ manager = null, installedConfirmed = fal
       installedVersion,
       bundledVersion,
       installedName: installed.name,
-      canInstall: true
-    };
-  }
-
-  if (installed.legacyName) {
-    return {
-      state: 'legacy-name',
-      pill: 'Legacy Name',
-      message: legacyNameMessage.trim(),
-      installedVersion,
-      bundledVersion,
-      installedName: installed.name,
-      actionLabel: 'Update Preset',
-      primaryAction: true,
       canInstall: true
     };
   }
@@ -525,13 +502,13 @@ export function createSillyTavernDirectivePresetManager({
     const pm = manager();
     if (!pm) {
       return directiveNarrationContextFromPreset(null, {
-        roleId: options.roleId || 'campaignIntro'
+        roleId: options.roleId || 'narration'
       });
     }
     const selected = selectedPresetRecord(pm);
     return cloneJson(directiveNarrationContextFromPreset(selected.preset, {
       presetName: selected.name,
-      roleId: options.roleId || 'campaignIntro'
+      roleId: options.roleId || 'narration'
     }));
   }
 

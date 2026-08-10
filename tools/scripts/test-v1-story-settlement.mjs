@@ -102,14 +102,12 @@ assert.deepEqual(checkpointed.episodes[0].boundaryState, {
 assert.deepEqual(checkpointStoryEpisode(checkpointed, { minimumNewContributions: 2 }), checkpointed);
 assert.equal(JSON.stringify(checkpointed).includes('assistant prose'), false);
 
-const legacyOpen = structuredClone(opened);
-delete legacyOpen.episodes[0].boundaryState;
-const normalizedLegacyCheckpoint = checkpointStoryEpisode(legacyOpen, {
-    minimumNewContributions: 1,
-    force: true,
-});
-assert.equal(normalizedLegacyCheckpoint.episodes[0].boundaryState.kind, 'directive.episodeBoundaryState.v1');
-assert.equal(normalizedLegacyCheckpoint.episodes[0].status, 'open');
+const malformedOpen = structuredClone(opened);
+delete malformedOpen.episodes[0].boundaryState;
+assert.throws(
+    () => checkpointStoryEpisode(malformedOpen, { minimumNewContributions: 1, force: true }),
+    /boundaryState must be an object/,
+);
 
 const effect = {
     id: 'effect.handover-complete',

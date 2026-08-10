@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 
 import {
+  armV1CommandBearingEdge,
   awardV1CommandBearing,
+  commitV1CommandBearingEdge,
   createV1CommandBearing,
   projectV1CommandBearing,
   refundV1CommandBearingSpend,
-  spendV1CommandBearing,
+  reserveV1CommandBearingEdge,
   validateV1CommandBearing
 } from '../../src/command/v1-command-bearing.mjs';
 
@@ -36,25 +38,46 @@ assert.equal(award.applied, false);
 assert.equal(award.reasonCode, 'already-awarded');
 assert.equal(award.commandBearing.balance, 1);
 
-let spend = spendV1CommandBearing(bearing, {
+let spend = reserveV1CommandBearingEdge(bearing, {
   spendId: 'spend.turn.42',
-  sourceId: 'turn.42',
-  effect: 'narrativeEdge',
   reason: 'Create one credible favorable edge without erasing established costs.'
 });
 assert.equal(spend.applied, true);
 assert.equal(spend.commandBearing.balance, 0);
-assert.equal(spend.commandBearing.spends['spend.turn.42'].status, 'committed');
+assert.equal(spend.commandBearing.spends['spend.turn.42'].status, 'reserved');
 bearing = spend.commandBearing;
 
-spend = spendV1CommandBearing(bearing, {
-  spendId: 'spend.turn.42',
-  sourceId: 'turn.42',
-  effect: 'narrativeEdge',
-  reason: 'Duplicate retry must not spend again.'
+spend = reserveV1CommandBearingEdge(bearing, {
+  spendId: 'spend.turn.43',
+  reason: 'Only one edge may be pending.'
 });
 assert.equal(spend.applied, false);
-assert.equal(spend.reasonCode, 'already-spent');
+assert.equal(spend.reasonCode, 'edge-already-pending');
+
+let armed = armV1CommandBearingEdge(bearing, {
+  spendId: 'spend.turn.42',
+  playerMessageId: 'player.42'
+});
+assert.equal(armed.applied, true);
+assert.equal(armed.commandBearing.spends['spend.turn.42'].status, 'armed');
+bearing = armed.commandBearing;
+
+armed = armV1CommandBearingEdge(bearing, {
+  spendId: 'spend.turn.42',
+  playerMessageId: 'player.42'
+});
+assert.equal(armed.applied, false);
+assert.equal(armed.reasonCode, 'already-armed');
+
+const committed = commitV1CommandBearingEdge(bearing, {
+  spendId: 'spend.turn.42',
+  assistantMessageId: 'assistant.42',
+  assistantTextHash: '1234abcd',
+  acceptedByPlayerMessageId: 'player.43'
+});
+assert.equal(committed.applied, true);
+assert.equal(committed.commandBearing.spends['spend.turn.42'].status, 'committed');
+bearing = committed.commandBearing;
 
 const refunded = refundV1CommandBearingSpend(bearing, {
   spendId: 'spend.turn.42',
@@ -74,6 +97,7 @@ assert.deepEqual(projection, {
   balance: 1,
   capacity: 3,
   latestAwardReason: 'You acted proportionately after the relevant stakes were disclosed.',
+  pendingEdge: null,
   latestSpend: {
     id: 'spend.turn.42',
     effect: 'narrativeEdge',
@@ -81,5 +105,10 @@ assert.deepEqual(projection, {
     reason: 'Create one credible favorable edge without erasing established costs.'
   }
 });
+
+assert.deepEqual(validateV1CommandBearing({
+  ...refunded.commandBearing,
+  extraState: true
+}).errors, ['Command Bearing contains unsupported field extraState']);
 
 console.log('V1 Command Bearing tests passed.');

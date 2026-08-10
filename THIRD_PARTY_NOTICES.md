@@ -1,6 +1,16 @@
 # Third-Party Notices
 
-Directive's chat-native provider routing and tracked-state implementation were developed with reference to the following MIT-licensed projects. Directive adapts architectural ideas and selected implementation patterns while retaining its own domain model, schemas, storage, host contracts, and runtime modules.
+Directive's provider routing and story-distillation behavior were developed with reference to working SillyTavern extensions. Directive owns its domain model, schemas, storage, host contracts, and runtime modules; these projects are not runtime dependencies.
+
+## Behavioral reference pins
+
+The V1 episode-evaluator behavior fixture pins the inspected extension versions so later changes do not silently reinterpret the borrowed behavior:
+
+- Summaryception `5.5.3`, revision `c67626ab83ee86ec1be4f55b9b3d1d19adb79999`: replace prior summary understanding instead of appending duplicate memory; allow no-memory output.
+- VectFox `3.6.8`, revision `886a0144ff8608aabcef4fe1b408a13260c1a730`: bounded semantic selection rather than mention-level capture.
+- CharMemory `2.3.1`, revision `37b21025e120acfbe1dcdeaa8becb05efe7188b4`: retain only concise character-relevant moments.
+
+The executable behavior cases live in `tests/fixtures/story/v1/episode-evaluator-borrowed-behavior.fixture.json`. Changing a pin or borrowed behavior requires a deliberate fixture and architecture review.
 
 ## Saga
 

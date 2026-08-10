@@ -123,7 +123,7 @@ for (const [label, mutate, pattern] of [
 
 const branchId = 'save.entry-capabilities';
 const sourceState = createMissionState({ definition: sourceDefinition, branchId });
-assert.equal(Object.hasOwn(sourceState, 'entryContext'), false, 'legacy-compatible definitions gain no state field');
+assert.equal(Object.hasOwn(sourceState, 'entryContext'), false, 'definitions without entry context gain no state field');
 const terminalSource = reduceMissionEvidence({
     definition: sourceDefinition,
     state: sourceState,

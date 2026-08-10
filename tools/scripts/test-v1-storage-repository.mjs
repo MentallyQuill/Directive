@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-
 import {
   V1_STORAGE_PATHS,
   V1_CREATOR_DRAFT_KIND,
@@ -12,7 +11,7 @@ import {
   storeV1CampaignSave,
   storeV1CreatorDraft
 } from '../../src/storage/v1-storage-repository.mjs';
-import { createV1StateCustody } from '../../src/runtime/v1-campaign-state.mjs';
+import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(structuredClone(seed)));
@@ -32,41 +31,19 @@ function memoryAdapter(seed = {}) {
 }
 
 function state() {
-  return {
-    campaign: {
-      id: 'campaign.one',
-      title: 'Ashes of Peace',
-      currentStardate: 53051.1,
-      runtimeArchitecture: {
-        kind: 'directive.gameplayArchitecture.v1',
-        contractVersion: 1,
-        semanticAuthority: 'storySettlement',
-        packageId: 'package.ashes',
-        packageVersion: '1.0.0',
-        createdForNewSave: true
-      }
-    },
-    activeCampaignPackage: { packageId: 'package.ashes', packageVersion: '1.0.0' },
-    player: { name: 'Ren Okada', role: 'Executive Officer' },
-    crew: {},
-    ship: { name: 'U.S.S. Breckenridge' },
-    mission: { activeMissionId: 'prelude' },
-    commandBearing: {},
-    values: {},
-    turnLedger: {},
-    ui: {},
-    settings: {},
-    captainState: {},
-    worldState: {},
-    timeLedger: {},
-    stateCustody: createV1StateCustody()
-  };
+  const value = createAshesInitialState({
+    campaignId: 'campaign.one',
+    saveId: 'save.one',
+    chatId: 'chat.one',
+  });
+  value.campaign.currentStardate = 53051.1;
+  return value;
 }
 
 const adapter = memoryAdapter({
   'indexes/saves.v1.json': {
     kind: 'directive.saveIndex',
-    saves: { legacy: { id: 'legacy' } }
+    saves: { incompatible: { id: 'incompatible' } }
   }
 });
 await initializeV1Storage(adapter, { now: '2026-08-10T00:00:00.000Z' });
@@ -114,11 +91,11 @@ assert.deepEqual((await listV1CampaignSaves(adapter)).map((entry) => entry.id), 
 await assert.rejects(
   loadV1CampaignSave(memoryAdapter({
     [V1_STORAGE_PATHS.index]: {
-      kind: 'directive.storageIndex.v1', version: 1, activeSaveId: 'old', drafts: {},
-      saves: { old: { id: 'old' } }, updatedAt: '2026-08-10T00:00:00.000Z'
+      kind: 'directive.storageIndex.v1', version: 1, activeSaveId: 'invalid', drafts: {},
+      saves: { invalid: { id: 'invalid' } }, updatedAt: '2026-08-10T00:00:00.000Z'
     },
-    [V1_STORAGE_PATHS.save('old')]: { kind: 'directive.saveManifest.v2', id: 'old' }
-  }), 'old'),
+    [V1_STORAGE_PATHS.save('invalid')]: { kind: 'directive.unsupportedSave', id: 'invalid' }
+  }), 'invalid'),
   (error) => error?.code === 'DIRECTIVE_V1_SAVE_REJECTED'
 );
 

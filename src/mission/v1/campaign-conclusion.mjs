@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { hashStableJson } from '../../runtime/v1-host-message-contracts.mjs';
 
 export const CAMPAIGN_CONCLUSION_KIND = 'directive.campaignConclusion.v1';
 export const CAMPAIGN_CONCLUSION_CONTRACT_VERSION = 1;
@@ -59,7 +59,7 @@ function conclusionId({
     transitionId,
     missionRevision,
 } = {}) {
-    return `campaign-conclusion.${createHash('sha256').update([
+    return `campaign-conclusion.${hashStableJson([
         packageId,
         packageVersion,
         branchId,
@@ -68,7 +68,7 @@ function conclusionId({
         sourceRunId,
         transitionId,
         missionRevision,
-    ].map((part) => String(part ?? '')).join('|')).digest('hex').slice(0, 24)}`;
+    ].map((part) => String(part ?? ''))).slice(0, 24)}`;
 }
 
 function conclusionTarget({ campaignState = {}, sourceDefinition = {} } = {}) {
@@ -89,16 +89,6 @@ function conclusionTarget({ campaignState = {}, sourceDefinition = {} } = {}) {
         return { ok: false, reasonCode: 'phase-target-contract-unavailable', target, transition: authored };
     }
     return { ok: true, reasonCode: null, target, transition: authored };
-}
-
-function matchingEndCondition(packageData = {}, endConditionId = '') {
-    const matches = (packageData?.endConditions?.conditions || [])
-        .filter((condition) => condition?.id === endConditionId);
-    if (matches.length !== 1) return { ok: false, reasonCode: 'campaign-conclusion-end-condition-unavailable' };
-    if (matches[0].family !== 'authoredCompletion') {
-        return { ok: false, reasonCode: 'campaign-conclusion-end-condition-invalid' };
-    }
-    return { ok: true, condition: matches[0] };
 }
 
 function sourceContext({ campaignState = {}, sourceDefinition = {}, packageData = {} } = {}) {
@@ -165,9 +155,6 @@ export function validateCampaignConclusionReceipt({
     const context = sourceContext({ campaignState, sourceDefinition, packageData });
     errors.push(...context.errors);
     const endConditionId = targetResult.target?.campaignConclusion?.endConditionId;
-    const condition = matchingEndCondition(packageData, endConditionId);
-    if (!condition.ok) errors.push(condition.reasonCode);
-
     if (context.ok && targetResult.ok) {
         const expectedPackage = {
             packageId: sourceDefinition.packageBinding.packageId,
@@ -237,18 +224,6 @@ export function inspectCampaignConclusionTarget({
         };
     }
     const endConditionId = targetResult.target.campaignConclusion.endConditionId;
-    const condition = matchingEndCondition(packageData, endConditionId);
-    if (!condition.ok) {
-        return {
-            ok: true,
-            status: 'pending',
-            reasonCode: condition.reasonCode,
-            activatable: false,
-            phaseId: targetResult.target.id,
-            endConditionId,
-            receipt: null,
-        };
-    }
     const existing = campaignState?.mission?.v1Conclusion;
     if (existing !== undefined && existing !== null) {
         const validation = validateCampaignConclusionReceipt({

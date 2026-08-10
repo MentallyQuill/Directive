@@ -36,6 +36,10 @@ const packageData = JSON.parse(fs.readFileSync(
   new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url),
   'utf8'
 ));
+const openingMissionDefinition = JSON.parse(fs.readFileSync(
+  new URL('../../packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json', import.meta.url),
+  'utf8'
+));
 const adapter = memoryAdapter();
 const draft = await startCharacterCreatorDraft({
   adapter,
@@ -77,6 +81,7 @@ assert.equal((await resumeCharacterCreatorDraft({ adapter, draftId: draft.id }))
 const started = await acceptCreatorDraftAndCreateFirstSave({
   adapter,
   packageData,
+  missionDefinitions: [openingMissionDefinition],
   draftId: draft.id,
   campaignId: 'campaign.service',
   saveId: 'save.service',
@@ -86,6 +91,11 @@ assert.equal(started.firstSave.kind, 'directive.campaignSave.v1');
 assert.equal(started.firstSave.slotType, 'active');
 assert.equal(started.campaignState.player.name, 'Ren Okada');
 assert.equal(started.campaignState.stateCustody.kind, 'directive.stateCustody.v1');
+assert.equal(started.campaignState.mission.v1.kind, 'directive.missionState.v1');
+assert.equal(started.campaignState.mission.v1Journey.kind, 'directive.missionJourney.v1');
+assert.deepEqual(started.campaignState.mission.v1History, []);
+assert.equal(started.campaignState.storySettlement.kind, 'directive.storySettlement.v1');
+assert.equal(started.campaignState.storySettlement.branchId, 'save.service');
 assert.equal(Object.hasOwn(started.campaignState, 'runtimeTracking'), false);
 
 const advanced = structuredClone(started.campaignState);

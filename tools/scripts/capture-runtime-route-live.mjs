@@ -218,12 +218,12 @@ async function setViewport(connection, viewport) {
 
 async function openRuntime(connection) {
   await waitFor(connection, "document.readyState === 'complete'", 60000);
-  await waitFor(connection, "typeof globalThis.Directive?.bridge?.showRuntime === 'function' || typeof globalThis.Directive?.bridge?.runAction === 'function' || typeof globalThis.Directive?.actions?.run === 'function' || document.getElementById('directive-extensions-menu-button')", 60000);
+  await waitFor(connection, "typeof globalThis.Directive?.bridge?.showRuntime === 'function' || typeof globalThis.Directive?.bridge?.runAction === 'function' || typeof globalThis.Directive?.actions?.run === 'function' || document.getElementById('directive-launcher-button')", 60000);
   await evaluate(connection, `(async () => {
     if (typeof globalThis.Directive?.bridge?.showRuntime === 'function') { await globalThis.Directive.bridge.showRuntime(); return true; }
     if (typeof globalThis.Directive?.bridge?.runAction === 'function') { await globalThis.Directive.bridge.runAction('runtime.open'); return true; }
     if (typeof globalThis.Directive?.actions?.run === 'function') { await globalThis.Directive.actions.run('runtime.open'); return true; }
-    document.getElementById('directive-extensions-menu-button')?.click();
+    document.getElementById('directive-launcher-button')?.click();
     return true;
   })()`);
   await waitFor(connection, "document.querySelector('#directive-runtime-panel [data-directive-runtime-body=\"true\"]')", 30000);

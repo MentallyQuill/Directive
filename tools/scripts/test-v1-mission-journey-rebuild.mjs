@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { validateMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import {
+    createInitialMissionJourney,
+    validateMissionJourney,
+} from '../../src/mission/v1/mission-journey.mjs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createStoryPlayerProjection } from '../../src/projection/v1/story-projection.mjs';
 import { selectCurrentStoryEpisodes } from '../../src/story/story-settlement.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const fixture = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -46,13 +51,11 @@ missionB.entryCapabilities = [{
 }];
 const missionC = definitionFor('mission.journey-c', 'journey-c', null);
 const definitions = [missionA, missionB, missionC];
+const ashesAssets = loadAshesRuntimeAssets();
 const runtimeAssets = {
-    packageData: {
-        manifest: {
-            id: missionA.packageBinding.packageId,
-            version: missionA.packageBinding.packageVersion,
-        },
-    },
+    packageData: ashesAssets.packageData,
+    crewDataset: ashesAssets.crewDataset,
+    shipDataset: ashesAssets.shipDataset,
     missionDefinitions: definitions.map((definition) => ({
         path: `${definition.id}.json`,
         definition,
@@ -60,31 +63,26 @@ const runtimeAssets = {
 };
 
 function initialState(saveId = branchId) {
-    return {
-        activeCampaignPackage: {
-            packageId: missionA.packageBinding.packageId,
-            packageVersion: missionA.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId, chatId: `chat.${saveId}` },
-        mission: {
-            activeMissionId: missionA.packageBinding.sourceId,
-            legacyStatus: 'unchanged',
-            openAssignments: [{ id: 'legacy.assignment' }],
-        },
-        ship: { technicalDebt: [{ id: 'legacy.ship' }] },
-        relationships: { people: [{ id: 'legacy.relationship' }] },
-        threadLedger: { records: [{ id: 'legacy.thread' }] },
-        questLedger: { records: [{ id: 'legacy.quest' }] },
-        commandLog: { entries: [{ id: 'legacy.command' }] },
-        commandBearing: { current: 7 },
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId,
+        chatId: `chat.${saveId}`,
+    });
+    const initialJourney = createInitialMissionJourney({ definition: missionA, branchId: saveId });
+    state.mission = {
+        activeMissionId: missionA.packageBinding.sourceId,
+        v1: createMissionState({ definition: missionA, branchId: saveId }),
+        v1Journey: initialJourney.journey,
+        v1History: initialJourney.history,
     };
+    return state;
 }
 
 function snapshot(definition, number) {
     const assistantHash = ((number % 14) + 1).toString(16).repeat(64);
     const playerHash = (((number + 1) % 14) + 1).toString(16).repeat(64);
     return {
-        kind: 'directive.latestPairSceneSnapshot.v1',
+        kind: 'directive.acceptedPairSnapshot.v1',
         envelope: {
             campaignId: 'campaign.ashes',
             saveId: branchId,
@@ -246,10 +244,9 @@ assert.equal(
     false,
     'descendant Story summaries are not retained as current or audit prose',
 );
-for (const root of ['ship', 'relationships', 'threadLedger', 'questLedger', 'commandLog', 'commandBearing']) {
+for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(rollbackHarness.campaignState[root], beforeRollback[root], `${root} remains outside causal rollback`);
 }
-assert.deepEqual(rollbackHarness.campaignState.mission.openAssignments, beforeRollback.mission.openAssignments);
 
 const replayRevision = rollbackHarness.gateway.revision();
 const replay = await rollbackHarness.runtime.invalidateSourceMutation({

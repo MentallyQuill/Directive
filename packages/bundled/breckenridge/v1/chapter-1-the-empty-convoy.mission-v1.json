@@ -464,6 +464,14 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.chapter1.shared-record",
+      "sourceObjectiveId": "objective.chapter1.shared-record",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You established a credible shared incident record instead of leaving the known dispute fragmented."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter1.relief",

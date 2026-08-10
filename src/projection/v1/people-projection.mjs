@@ -6,16 +6,6 @@ function compact(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function profileCardFor(crewDataset, characterId) {
-    return (crewDataset?.cards || []).find((card) => (
-        card?.type === 'crew.profile'
-        && card?.visibility === 'publicPackage'
-        && card?.payload?.narratorSafe === true
-        && card?.scope?.characters?.includes(characterId)
-        && compact(card?.payload?.summary)
-    )) || null;
-}
-
 function visibleRelationshipPosture(storySettlement, characterId) {
     const episodes = selectCurrentStoryEpisodes(storySettlement);
     for (let episodeIndex = episodes.length - 1; episodeIndex >= 0; episodeIndex -= 1) {
@@ -61,37 +51,24 @@ function momentsByCharacter(storySettlement = {}) {
     return byCharacter;
 }
 
-function currentMissionLink(definition, missionProjection, profileCard) {
-    if (!missionProjection?.missionId || missionProjection.missionId !== definition?.id) return null;
-    if (!profileCard?.scope?.missions?.includes(definition?.packageBinding?.sourceId)) return null;
-    return {
-        missionId: missionProjection.missionId,
-        title: missionProjection.title || definition?.playerText?.title || '',
-    };
-}
-
 export function createPeoplePlayerProjection({
     runtimeAssets = {},
-    definition = {},
     missionProjection = {},
     storySettlement = {},
 } = {}) {
     const crewDataset = runtimeAssets.crewDataset || {};
     const moments = momentsByCharacter(storySettlement);
     const people = (crewDataset.officers || []).map((officer) => {
-        const profileCard = profileCardFor(crewDataset, officer.id);
         const personMoments = structuredClone(moments.get(officer.id) || []);
         return {
             id: officer.id,
             name: officer.name,
             billet: officer.billet,
-            profileSummary: compact(profileCard?.payload?.summary),
+            profileSummary: compact(officer.profileSummary),
             relationshipPosture: visibleRelationshipPosture(storySettlement, officer.id),
             moments: personMoments,
-            missionLink: currentMissionLink(definition, missionProjection, profileCard),
             sourceRefs: {
                 datasetId: crewDataset?.manifest?.id || null,
-                profileCardId: profileCard?.id || null,
                 episodeIds: [...new Set(personMoments.map((moment) => moment.episodeId))],
             },
         };

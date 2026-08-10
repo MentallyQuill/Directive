@@ -35,14 +35,8 @@ function normalizedEpisodeReferences(references = {}) {
     };
 }
 
-function ensureWorkingCapsule(episode, updatedAtRevision) {
-    if (!episode.workingCapsule) {
-        episode.workingCapsule = createEmptyStoryWorkingCapsule({ updatedAtRevision });
-    }
-    return episode.workingCapsule;
-}
-
 export function openStoryEpisode(settlement, { episodeId, sceneId, references = {} } = {}) {
+    assertValid(settlement);
     if (settlement.episodes.some((episode) => episode.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.receipts.some((receipt) => receipt.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.activeEpisode !== null) throw new TypeError('cannot open a second active episode');
@@ -72,6 +66,7 @@ export function openStoryEpisode(settlement, { episodeId, sceneId, references = 
 }
 
 export function acceptStoryContribution(settlement, contribution) {
+    assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
     if (settlement.episodes.some((item) => item.contributions.some((entry) => entry.id === contribution?.id))) {
@@ -80,7 +75,6 @@ export function acceptStoryContribution(settlement, contribution) {
     const next = structuredClone(settlement);
     next.revision += 1;
     const nextEpisode = activeEpisode(next);
-    ensureWorkingCapsule(nextEpisode, next.revision);
     nextEpisode.contributions.push(structuredClone(contribution));
     return assertValid(next);
 }
@@ -92,6 +86,7 @@ export function acceptStoryContributions(settlement, contributions = []) {
 }
 
 export function appendStoryEffects(settlement, effects = []) {
+    assertValid(settlement);
     if (!activeEpisode(settlement)) throw new TypeError('an active episode is required');
     const contributionIds = new Set(settlement.episodes.flatMap((episode) => episode.contributions.map((item) => item.id)));
     const existingEffectIds = new Set(settlement.episodes.flatMap((episode) => episode.effects.map((item) => item.id)));
@@ -107,7 +102,6 @@ export function appendStoryEffects(settlement, effects = []) {
     const next = structuredClone(settlement);
     next.revision += 1;
     const nextEpisode = activeEpisode(next);
-    ensureWorkingCapsule(nextEpisode, next.revision);
     nextEpisode.effects.push(...structuredClone(additions));
     return assertValid(next);
 }
@@ -116,12 +110,11 @@ export function observeStoryWorkingEvidence(settlement, {
     branchId,
     observations = [],
 } = {}) {
+    assertValid(settlement);
     if (branchId !== settlement.branchId) throw new TypeError('working evidence branch does not match story settlement');
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
-    const currentCapsule = episode.workingCapsule || createEmptyStoryWorkingCapsule({
-        updatedAtRevision: episode.openedAtRevision,
-    });
+    const currentCapsule = episode.workingCapsule;
     const updatedAtRevision = settlement.revision + 1;
     const workingCapsule = appendStoryWorkingEvidence(currentCapsule, {
         episode,
@@ -138,11 +131,10 @@ export function observeStoryWorkingEvidence(settlement, {
 }
 
 export function replaceStoryWorkingCapsule(settlement, options = {}) {
+    assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
-    const currentCapsule = episode.workingCapsule || createEmptyStoryWorkingCapsule({
-        updatedAtRevision: episode.openedAtRevision,
-    });
+    const currentCapsule = episode.workingCapsule;
     const updatedAtRevision = settlement.revision + 1;
     const workingCapsule = replaceStoryWorkingSemantics(currentCapsule, {
         ...options,
@@ -166,6 +158,7 @@ export function applyStoryWorkingCapsuleReview(settlement, {
     sourceContributionIds = [],
     effectIds = [],
 } = {}) {
+    assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode?.workingCapsule) throw new TypeError('an active episode with a working capsule is required');
     if (!Number.isInteger(checkpointSequence) || checkpointSequence < 1) {
@@ -201,21 +194,19 @@ export function checkpointStoryEpisode(settlement, {
     minimumNewContributions = 8,
     force = false,
 } = {}) {
+    assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
     if (!Number.isInteger(minimumNewContributions) || minimumNewContributions < 1) {
         throw new TypeError('minimumNewContributions must be a positive integer');
     }
-    const previous = episode.boundaryState || createInitialEpisodeBoundaryState({
-        openedAtRevision: episode.openedAtRevision,
-    });
+    const previous = episode.boundaryState;
     const newContributionCount = episode.contributions.length - previous.contributionCountAtLastReview;
     if (!force && newContributionCount < minimumNewContributions) return structuredClone(settlement);
 
     const next = structuredClone(settlement);
     next.revision += 1;
     const nextEpisode = activeEpisode(next);
-    ensureWorkingCapsule(nextEpisode, next.revision);
     const start = Math.max(0, previous.contributionCountAtLastReview);
     nextEpisode.boundaryState = {
         kind: previous.kind,
@@ -238,6 +229,7 @@ export function sealStoryEpisode(settlement, {
     characterMoments = [],
     significance = {},
 } = {}) {
+    assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
     if (hardBoundary && softBoundary) throw new TypeError('episode cannot have both hard and soft boundaries');
@@ -279,6 +271,7 @@ export function settleInsignificantScene(settlement, {
     sourceContributionIds = [],
     sourceContributions = [],
 } = {}) {
+    assertValid(settlement);
     if (settlement.episodes.some((episode) => episode.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.receipts.some((receipt) => receipt.sceneId === sceneId)) return structuredClone(settlement);
     if (settlement.activeEpisode !== null) throw new TypeError('cannot settle another scene while an episode is active');
@@ -307,6 +300,7 @@ export function settleInsignificantScene(settlement, {
 }
 
 export function setEmergentFocus(settlement, focus) {
+    assertValid(settlement);
     if (focus === null) {
         if (settlement.focus === null) return structuredClone(settlement);
         const next = structuredClone(settlement);
@@ -481,6 +475,7 @@ export function pruneStoryEffects(settlement, {
     effectIds = [],
     summarizeEffects = null,
 } = {}) {
+    assertValid(settlement);
     const requested = new Set((Array.isArray(effectIds) ? effectIds : []).filter(Boolean));
     if (requested.size === 0) return structuredClone(settlement);
     const affected = (settlement.episodes || []).filter((episode) => (
@@ -500,14 +495,11 @@ export function pruneStoryEffects(settlement, {
         );
         if (next.activeEpisode === episode.id) {
             episode.effects = survivorEffects;
-            ensureWorkingCapsule(episode, next.revision);
             episode.workingCapsule = repairStoryWorkingCapsule(episode.workingCapsule, {
                 episode,
                 updatedAtRevision: next.revision,
             });
-            const boundaryState = episode.boundaryState || createInitialEpisodeBoundaryState({
-                openedAtRevision: episode.openedAtRevision,
-            });
+            const boundaryState = episode.boundaryState;
             episode.boundaryState = {
                 ...boundaryState,
                 checkpointSequence: boundaryState.checkpointSequence + 1,
@@ -552,6 +544,7 @@ export function invalidateStorySources(settlement, {
     reason = 'source-invalidated',
     summarizeEffects = null,
 } = {}) {
+    assertValid(settlement);
     const requested = new Set((Array.isArray(contributionIds) ? contributionIds : []).filter(Boolean));
     if (requested.size === 0) return structuredClone(settlement);
     const episodeWork = new Map();
@@ -609,15 +602,12 @@ export function invalidateStorySources(settlement, {
                 activeEpisodeIdsToRemove.add(episode.id);
                 next.activeEpisode = null;
             } else {
-                ensureWorkingCapsule(episode, next.revision);
                 episode.workingCapsule = repairStoryWorkingCapsule(episode.workingCapsule, {
                     episode,
                     invalidatedContributionIds: pending,
                     updatedAtRevision: next.revision,
                 });
-                const boundaryState = episode.boundaryState || createInitialEpisodeBoundaryState({
-                    openedAtRevision: episode.openedAtRevision,
-                });
+                const boundaryState = episode.boundaryState;
                 episode.boundaryState = {
                     ...boundaryState,
                     checkpointSequence: boundaryState.checkpointSequence + 1,
@@ -700,6 +690,7 @@ export function invalidateStorySourcesAndDescendants(settlement, {
     summarizeEffects = null,
     cutoffMissionId = null,
 } = {}) {
+    assertValid(settlement);
     const requested = new Set((Array.isArray(contributionIds) ? contributionIds : []).filter(Boolean));
     const alreadyInvalidated = requested.size > 0 && [...requested].every((contributionId) => (
         (settlement.receipts || []).some((receipt) => (

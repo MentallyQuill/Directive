@@ -15,8 +15,11 @@ import {
 } from '../../src/mission/v1/duty-report-delivery.mjs';
 import { selectPendingDutyReport } from '../../src/mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
-import { validateMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
-import { createV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
+import {
+    createInitialMissionJourney,
+    validateMissionJourney,
+} from '../../src/mission/v1/mission-journey.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -26,12 +29,8 @@ const transitionDefinition = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
     'utf8',
 ));
-const packageData = {
-    manifest: {
-        id: canonicalDefinition.packageBinding.packageId,
-        version: canonicalDefinition.packageBinding.packageVersion,
-    },
-};
+const ashesAssets = loadAshesRuntimeAssets();
+const packageData = ashesAssets.packageData;
 
 function runtimeAssetsFor(definitions = [canonicalDefinition], packageOverride = packageData) {
     const records = definitions.map((definition) => ({
@@ -40,37 +39,27 @@ function runtimeAssetsFor(definitions = [canonicalDefinition], packageOverride =
     }));
     return {
         packageData: packageOverride,
+        crewDataset: ashesAssets.crewDataset,
+        shipDataset: ashesAssets.shipDataset,
         missionDefinitions: records,
         missionDefinitionsById: new Map(records.map((record) => [record.definition.id, record])),
     };
 }
 
 function campaignStateFor({ definition = canonicalDefinition, activeMissionId = definition.packageBinding.sourceId } = {}) {
-    return {
-        campaign: { id: 'campaign.ashes' },
-        activeCampaignPackage: {
-            packageId: definition.packageBinding.packageId,
-            packageVersion: definition.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId: 'save.alpha', chatId: 'chat.alpha' },
-        mission: {
-            activeMissionId,
-        },
-        ship: {
-            id: 'uss-breckenridge',
-            name: 'U.S.S. Breckenridge',
-            class: 'Intrepid-class',
-            registry: 'NCC-74638',
-            operationalOverview: {
-                kind: 'directive.shipOperationalOverview.v1',
-                status: 'serviceable',
-                summary: 'The Breckenridge is certified for service after refit.',
-                materialLimitations: [],
-                history: [],
-            },
-        },
-        commandBearing: createV1CommandBearing(),
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId: 'save.alpha',
+        chatId: 'chat.alpha',
+    });
+    const initialJourney = createInitialMissionJourney({ definition, branchId: 'save.alpha' });
+    state.mission = {
+        activeMissionId,
+        v1: createMissionState({ definition, branchId: 'save.alpha' }),
+        v1Journey: initialJourney.journey,
+        v1History: initialJourney.history,
     };
+    return state;
 }
 
 function snapshotFor({
@@ -83,7 +72,7 @@ function snapshotFor({
     const assistantHash = (pairNumber % 15 + 1).toString(16).repeat(64);
     const playerHash = ((pairNumber + 1) % 15 + 1).toString(16).repeat(64);
     return {
-        kind: 'directive.latestPairSceneSnapshot.v1',
+        kind: 'directive.acceptedPairSnapshot.v1',
         envelope: {
             campaignId: 'campaign.ashes',
             saveId: 'save.alpha',
@@ -214,10 +203,7 @@ assert.equal(resolveActiveV1MissionDefinition({
     runtimeAssets: runtimeAssetsFor(),
 }).reasonCode, 'mission-locator-mismatch');
 
-const ambiguousDefinition = {
-    ...structuredClone(canonicalDefinition),
-    id: 'mission.ambiguous-prelude',
-};
+const ambiguousDefinition = structuredClone(canonicalDefinition);
 assert.equal(resolveActiveV1MissionDefinition({
     campaignState: campaignStateFor(),
     runtimeAssets: runtimeAssetsFor([canonicalDefinition, ambiguousDefinition]),
@@ -230,10 +216,6 @@ assert.equal(resolveActiveV1MissionDefinition({
     campaignState: campaignStateFor(),
     runtimeAssets: runtimeAssetsFor([{ ...canonicalDefinition, kind: 'directive.invalid' }]),
 }).reasonCode, 'definition-invalid');
-assert.equal(resolveActiveV1MissionDefinition({
-    campaignState: campaignStateFor({ activeMissionId: 'chapter-1-the-empty-convoy' }),
-    runtimeAssets: runtimeAssetsFor(),
-}).reasonCode, 'active-mission-unavailable');
 assert.equal(resolveActiveV1MissionDefinition({
     campaignState: campaignStateFor(),
     runtimeAssets: runtimeAssetsFor([canonicalDefinition], {
@@ -275,7 +257,7 @@ assert.equal(settlement.reviewToken, null);
 for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(settlementHarness.campaignState[root], stateBefore[root], `${root} remains outside mission settlement`);
 }
-for (const forbiddenRoot of ['relationships', 'threadLedger', 'quests', 'commandLog']) {
+for (const forbiddenRoot of ['unexpectedTracker']) {
     assert.equal(Object.hasOwn(settlementHarness.campaignState, forbiddenRoot), false, forbiddenRoot);
 }
 assert.equal(
@@ -476,7 +458,8 @@ const conflict = await conflictRuntime.settleAcceptedPair({
 });
 assert.equal(conflict.ok, false);
 assert.equal(conflict.reasonCode, 'state-revision-conflict');
-assert.equal(conflictState.mission.v1, undefined);
+assert.equal(conflictState.mission.v1.revision, 0);
+assert.equal(conflictState.storySettlement.revision, 0);
 
 const wrongEnvelopeHarness = createHarness({ outputs: [interpretationOutput({ claims: [] })] });
 for (const [field, value, reasonCode] of [

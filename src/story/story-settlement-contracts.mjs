@@ -13,6 +13,16 @@ export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
 const TERMINAL_EPISODE_STATUSES = new Set(['sealed', 'invalidated']);
 const SOURCE_CONTRIBUTION_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
 const SETTLEMENT_RECEIPT_DISPOSITIONS = new Set(['sealed', 'insignificant', 'invalidated']);
+const SETTLEMENT_FIELDS = new Set([
+    'kind', 'schemaVersion', 'branchId', 'revision', 'activeEpisode', 'episodes', 'receipts', 'focus',
+]);
+const EPISODE_FIELDS = new Set([
+    'kind', 'id', 'branchId', 'sceneId', 'status', 'openedAtRevision', 'sealedAtRevision',
+    'boundaryReason', 'summary', 'contributions', 'effects', 'unresolvedConsequences',
+    'boundaryState', 'hardBoundary', 'softBoundary', 'references', 'characterMoments',
+    'workingCapsule', 'supersedesEpisodeId', 'supersedesEpisodeIds', 'invalidationReason',
+    'diagnostics',
+]);
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.length > 0;
@@ -23,7 +33,6 @@ function isStableId(value) {
 }
 
 function validateBoundaryState(boundaryState, episode, errors, episodeId) {
-    if (boundaryState === undefined) return;
     if (!boundaryState || typeof boundaryState !== 'object' || Array.isArray(boundaryState)) {
         errors.push(`${episodeId} boundaryState must be an object`);
         return;
@@ -66,7 +75,6 @@ function validateBoundaryState(boundaryState, episode, errors, episodeId) {
 }
 
 function validateEpisodeReferences(references, errors, episodeId) {
-    if (references === undefined) return;
     if (!references || typeof references !== 'object' || Array.isArray(references)) {
         errors.push(`${episodeId} references must be an object`);
         return;
@@ -103,6 +111,9 @@ export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
 
 export function validateStorySettlement(value = {}) {
     const errors = [];
+    for (const field of Object.keys(value || {})) {
+        if (!SETTLEMENT_FIELDS.has(field)) errors.push(`story settlement contains unknown field: ${field}`);
+    }
     if (value?.kind !== STORY_SETTLEMENT_KIND) {
         errors.push(`kind must be ${STORY_SETTLEMENT_KIND}`);
     }
@@ -121,6 +132,9 @@ export function validateStorySettlement(value = {}) {
             const contributionIds = new Set();
             const effectIds = new Set();
             const episodeId = isStableId(episode?.id) ? episode.id : '<unknown>';
+            for (const field of Object.keys(episode || {})) {
+                if (!EPISODE_FIELDS.has(field)) errors.push(`${episodeId} contains unknown field: ${field}`);
+            }
             if (episodeId === '<unknown>') errors.push('episode id must be a stable id');
             if (episodeIds.has(episodeId)) errors.push(`duplicate episode id: ${episodeId}`);
             episodeIds.add(episodeId);
@@ -137,6 +151,12 @@ export function validateStorySettlement(value = {}) {
             if (!Array.isArray(episode?.effects)) errors.push(`${episodeId} effects must be an array`);
             if (!Array.isArray(episode?.unresolvedConsequences)) {
                 errors.push(`${episodeId} unresolvedConsequences must be an array`);
+            }
+            if (!Array.isArray(episode?.characterMoments)) {
+                errors.push(`${episodeId} characterMoments must be an array`);
+            }
+            if (!Object.hasOwn(episode || {}, 'hardBoundary')) {
+                errors.push(`${episodeId} hardBoundary is required`);
             }
             if (episode?.kind !== STORY_EPISODE_KIND) {
                 errors.push(`${episodeId} kind must be ${STORY_EPISODE_KIND}`);

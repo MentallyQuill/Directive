@@ -1,8 +1,7 @@
-import { createHash } from 'node:crypto';
-
 import { validateMissionJourney } from './mission-journey.mjs';
 import { validateStorySettlement } from '../../story/story-settlement-contracts.mjs';
 import { selectCurrentStoryEpisodes } from '../../story/story-settlement.mjs';
+import { stableHash24 } from '../../runtime/v1-stable-hash.mjs';
 
 export const MISSION_TRANSITION_NARRATION_PACKET_KIND = 'directive.missionTransitionNarrationPacket.v1';
 export const MISSION_TRANSITION_NARRATION_REQUEST_KIND = 'directive.missionTransitionNarrationRequest.v1';
@@ -88,10 +87,7 @@ function transitionError(reasonCode) {
 }
 
 function stableTransitionKey(parts) {
-    return `mission-transition.${createHash('sha256')
-        .update(parts.map((part) => String(part ?? '')).join('|'))
-        .digest('hex')
-        .slice(0, 24)}`;
+    return `mission-transition.${stableHash24(parts.map((part) => String(part ?? '')).join('|'))}`;
 }
 
 function definitionList(definitions = []) {

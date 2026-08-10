@@ -1,5 +1,12 @@
-# Schemas
+# Directive V1 schemas
 
-JSON schemas and schema-adjacent contracts for Directive package and campaign data.
+Only V1-native contracts live here:
 
-The current top-level schema is `campaign-package.schema.json`; field-level schemas will be split as pre-production continues.
+- `campaign-package-v1.schema.json`
+- `mission/mission-v1.schema.json`
+- the bundled crew and ship dataset schemas
+- `story/story-settlement.schema.json`
+- the live V1 soak report schema
+
+Runtime code also validates campaign packages, mission definitions, and save state
+before they can become authoritative.

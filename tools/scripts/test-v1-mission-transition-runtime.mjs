@@ -10,6 +10,7 @@ import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const fixture = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
@@ -56,49 +57,28 @@ function terminalState(definition = sourceDefinition) {
 
 function stateFor({ definition = sourceDefinition, missionState = terminalState(definition) } = {}) {
     const journey = createInitialMissionJourney({ branchId, definition });
-    return {
-        activeCampaignPackage: {
-            packageId: definition.packageBinding.packageId,
-            packageVersion: definition.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId: branchId, chatId: 'chat.pending-transition' },
-        mission: {
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId: branchId,
+        chatId: 'chat.pending-transition',
+    });
+    state.mission = {
             activeMissionId: definition.packageBinding.sourceId,
-            legacyStatus: 'preserve-me',
             v1: structuredClone(missionState),
             v1Journey: journey.journey,
             v1History: journey.history,
-        },
-        storySettlement: {
-            kind: 'directive.storySettlement.v1',
-            contractVersion: 1,
-            branchId,
-            revision: 1,
-            activeEpisode: null,
-            episodes: [{ id: 'episode.source', status: 'sealed' }],
-            contributions: [],
-            effects: [],
-            receipts: [],
-            invalidatedSourceContributionIds: [],
-            checkpoint: null,
-        },
-        ship: { conditions: [{ id: 'ship.unchanged' }] },
-        relationships: { people: [{ id: 'relationship.unchanged' }] },
-        questLedger: { records: [{ id: 'quest.unchanged' }] },
-        threadLedger: { records: [{ id: 'thread.unchanged' }] },
-        commandLog: { entries: [{ id: 'log.unchanged' }] },
-        commandBearing: { current: 4 },
-    };
+        };
+    return state;
 }
 
 function assetsFor(definitions, packageVersion = sourceDefinition.packageBinding.packageVersion) {
+    const ashesAssets = loadAshesRuntimeAssets();
     return {
-        packageData: {
-            manifest: {
-                id: sourceDefinition.packageBinding.packageId,
-                version: packageVersion,
-            },
-        },
+        packageData: packageVersion === sourceDefinition.packageBinding.packageVersion
+            ? ashesAssets.packageData
+            : { ...ashesAssets.packageData, manifest: { ...ashesAssets.packageData.manifest, version: packageVersion } },
+        crewDataset: ashesAssets.crewDataset,
+        shipDataset: ashesAssets.shipDataset,
         missionDefinitions: definitions.map((definition) => ({
             path: `${definition.id}.json`,
             definition,
@@ -269,7 +249,7 @@ assert.deepEqual(validateMissionJourney({
     campaignState: activationHarness.campaignState,
     definitions: [sourceDefinition, targetDefinition],
 }), { ok: true, errors: [] });
-for (const root of ['storySettlement', 'ship', 'relationships', 'questLedger', 'threadLedger', 'commandLog', 'commandBearing']) {
+for (const root of ['storySettlement', 'ship', 'commandBearing']) {
     assert.deepEqual(activationHarness.campaignState[root], beforeActivation[root], `${root} is unchanged by recovery activation`);
 }
 
@@ -313,8 +293,8 @@ const conflictHarness = createHarness({
         if (conflictInjected) return;
         conflictInjected = true;
         await baseGateway.applyProposal({
-            patch: { ship: { externalRevisionMarker: true } },
-            domains: ['ship'],
+            patch: { campaign: { externalRevisionMarker: true } },
+            domains: ['campaign'],
             baseRevision: baseGateway.revision(),
             source: 'test.concurrent-state',
             reason: 'Simulate a concurrent state mutation.',
@@ -325,7 +305,7 @@ const conflicted = await conflictHarness.runtime.activatePendingTransition({ run
 assert.equal(conflicted.ok, false);
 assert.equal(conflicted.reasonCode, 'state-revision-conflict');
 assert.equal(conflictHarness.campaignState.mission.v1.definitionId, sourceDefinition.id);
-assert.equal(conflictHarness.campaignState.ship.externalRevisionMarker, true);
+assert.equal(conflictHarness.campaignState.campaign.externalRevisionMarker, true);
 
 const rollbackConflictHarness = createHarness({
     persist: async (_state, _proposal, controls) => {
@@ -337,7 +317,7 @@ const rollbackConflict = await rollbackConflictHarness.runtime.activatePendingTr
 assert.equal(rollbackConflict.ok, false);
 assert.equal(rollbackConflict.status, 'indeterminate');
 assert.equal(rollbackConflict.reasonCode, 'persistence-rollback-conflict');
-assert.equal(rollbackConflict.requiresReconciliation, true);
+assert.equal(rollbackConflict.requiresOperatorReview, true);
 assert.equal(rollbackConflict.retrySafe, false);
 assert.equal(JSON.stringify(rollbackConflict).includes('SECRET_ROLLBACK_CONFLICT'), false);
 

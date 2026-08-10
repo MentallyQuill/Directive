@@ -876,6 +876,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter4.process",

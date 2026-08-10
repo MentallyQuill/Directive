@@ -1,5 +1,3 @@
 # Source
 
-Directive runtime source code.
-
-Keep modules split by ownership. Do not recreate a monolithic `directive-panel.js` equivalent to the previous large runtime-owner pattern.
+Directive V1 runtime source. Each folder owns one exact concern; no folder may translate prior Directive formats or maintain a second semantic store.

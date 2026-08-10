@@ -20,14 +20,6 @@ import {
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
 import { appendEmpty, appendSectionTitle, clearElement } from '../ui/runtime-ui-kit.js';
 import { appendDirectiveOverlay } from '../ui/directive-overlay-root.js';
-import {
-  closeDirectiveGuidance,
-  resetDirectiveGuidanceProgress,
-  runDirectiveGuidanceStartupOffer as runGuidanceStartupOffer,
-  setDirectiveGuidancePreference,
-  showDirectiveGuidanceTip,
-  showDirectiveGuidanceTutorial
-} from '../guidance/directive-guidance.js';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
 export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map((route) => ({
@@ -41,7 +33,6 @@ let routeSelectionExplicit = false;
 let runtimeApp = null;
 let runtimeMountHost = null;
 let runtimeOverlay = null;
-let runtimeFullscreen = false;
 let runtimeOpener = null;
 let keydownListenerInstalled = false;
 let popstateListenerInstalled = false;
@@ -223,7 +214,6 @@ function createRuntimeActions() {
   return {
     setActiveTab: (tabId) => selectRoute(tabId),
     refresh: refreshDirectiveRuntimePanel,
-    importCampaignPackageArchive: (options) => callApp('importCampaignPackageArchive', options),
     startCreatorDraft: (options) => callApp('startCreatorDraft', options),
     resumeCreatorDraft: (options) => callApp('resumeCreatorDraft', options),
     saveCreatorDraft: (options) => callApp('saveCreatorDraft', options),
@@ -241,23 +231,15 @@ function createRuntimeActions() {
     saveGame: (options) => callApp('saveGame', options),
     loadCheckpoint: (options) => callApp('loadCheckpoint', options),
     deleteSave: (options) => callApp('deleteSave', options),
-    refreshStorageDiagnostics: () => callApp('refreshStorageDiagnostics'),
     verifyActiveSave: () => callApp('verifyActiveSave'),
-    exportActiveSave: () => callApp('exportActiveSave'),
     exportSupportDiagnostics: (options) => callApp('exportSupportDiagnostics', options),
-    cleanMissingStorageRecords: () => callApp('cleanMissingStorageRecords'),
     updateProviderSettings: (options) => callApp('updateProviderSettings', options),
-    updateProviderRoleRouting: (options) => callApp('updateProviderRoleRouting', options),
-    resetProviderRoleRouting: (options) => callApp('resetProviderRoleRouting', options),
     testProvider: (options) => callApp('testProvider', options),
     refreshDirectivePresetStatus: () => callApp('refreshDirectivePresetStatus'),
     updateDirectivePresetAutoCheck: (options) => callApp('updateDirectivePresetAutoCheck', options),
     installDirectivePreset: () => callApp('installDirectivePreset'),
-    updateRuntimeSettings: (options) => callApp('updateRuntimeSettings', options),
-    beginGuidanceTutorial: (options = {}) => beginDirectiveGuidanceTutorial(options),
-    showGuidanceTip: (options = {}) => showDirectiveRuntimeGuidanceTip(options),
-    setGuidancePreference: (options = {}) => updateDirectiveGuidancePreference(options),
-    resetGuidanceProgress: () => resetDirectiveGuidanceProgress()
+    reserveCommandBearingEdge: () => callApp('reserveCommandBearingEdge'),
+    cancelCommandBearingEdge: () => callApp('cancelCommandBearingEdge'),
   };
 }
 
@@ -388,17 +370,7 @@ function createDirectivePresetUpdateDialog(reminder) {
   return { overlay, openButton, notNowButton, disableButton };
 }
 
-function createDirectiveGuidanceController() {
-  return {
-    navigateToRoute: async (routeId) => {
-      await showDirectiveRuntimePanel();
-      await setDirectiveRuntimeTab(routeId);
-    }
-  };
-}
-
 export function setDirectiveRuntimeApp(app) {
-  if (!app) closeDirectiveGuidance('runtime-unmount');
   runtimeApp = app || null;
 }
 
@@ -441,25 +413,6 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
   return { shown: true, reminder };
 }
 
-export async function beginDirectiveGuidanceTutorial(options = {}) {
-  return showDirectiveGuidanceTutorial(options, createDirectiveGuidanceController());
-}
-
-export async function showDirectiveRuntimeGuidanceTip(options = {}) {
-  return showDirectiveGuidanceTip(options, createDirectiveGuidanceController());
-}
-
-export function updateDirectiveGuidancePreference({ key = '', value = false } = {}) {
-  return setDirectiveGuidancePreference(key, value);
-}
-
-export async function runDirectiveGuidanceStartupOffer() {
-  if (canUseDocument() && document.getElementById('directive-preset-update-dialog')) {
-    return { shown: false, reason: 'preset-dialog-active' };
-  }
-  return runGuidanceStartupOffer(createDirectiveGuidanceController());
-}
-
 export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   const panel = ensurePanel();
   if (!panel) return { isOpen: false };
@@ -468,8 +421,6 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
     panel.dataset.directiveHistoryEntry = 'true';
   }
   runtimeOpener = opener || null;
-  runtimeFullscreen = false;
-  panel.classList.remove('is-fullscreen');
   panel.hidden = false;
   panel.setAttribute('aria-hidden', 'false');
   panel.classList.add('directive-runtime-panel-open');
@@ -486,12 +437,9 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
 }
 
 export function hideDirectiveRuntimePanel({ skipHistory = false } = {}) {
-  closeDirectiveGuidance('runtime-hide');
   const panel = getPanel();
   if (!panel) return { isOpen: false };
   const opener = runtimeOpener;
-  runtimeFullscreen = false;
-  panel.classList.remove('is-fullscreen');
   panel.hidden = true;
   panel.setAttribute('aria-hidden', 'true');
   panel.classList.remove('directive-runtime-panel-open');
@@ -534,55 +482,17 @@ export async function setDirectiveRuntimeTab(tabId) {
   return selectRoute(next);
 }
 
-export function collapseDirectiveRuntimeDrawer() {
-  return hideDirectiveRuntimePanel();
-}
-
-export async function toggleDirectiveRuntimeDrawer(tabId = activeTab) {
-  return selectRoute(tabId);
-}
-
-export function toggleDirectiveRuntimeFullscreen(force) {
-  runtimeFullscreen = force === undefined ? !runtimeFullscreen : force === true;
-  const panel = getPanel();
-  panel?.classList?.toggle('is-fullscreen', runtimeFullscreen);
-  return { fullscreen: runtimeFullscreen, required: false, viewportBound: true };
-}
-
-export function toggleDirectiveSpineMode() {
-  return { expanded: true, fullscreen: runtimeFullscreen, viewportBound: true };
-}
-
-export async function resetDirectiveRuntimeLayout() {
-  closeDirectiveGuidance('runtime-reset');
-  resetDirectiveRouteUiState();
-  await runtimeApp?.resetRuntimeUiState?.();
-  shellLayout = { activeRoute: 'campaign' };
-  activeTab = 'campaign';
-  routeSelectionExplicit = false;
-  const panel = getPanel();
-  if (panel) {
-    applyShellLayout(panel);
-    syncShellChrome(panel);
-    if (panel.hidden !== true) await refreshDirectiveRuntimePanel();
-  }
-  return { reset: true, activeTab, layout: { ...shellLayout } };
-}
-
 export const __directiveRuntimeShellTestHooks = Object.freeze({
   getActiveTab: () => activeTab,
   getLayout: () => ({ ...shellLayout, viewportBound: true }),
-  getFullscreenMode: () => (runtimeFullscreen ? 'fullscreen' : 'bounded'),
   getRuntimeOverlay,
   reset() {
-    closeDirectiveGuidance('runtime-test-reset');
     shellLayout = { activeRoute: 'campaign' };
     activeTab = 'campaign';
     routeSelectionExplicit = false;
     runtimeApp = null;
     runtimeMountHost = null;
     runtimeOverlay = null;
-    runtimeFullscreen = false;
     runtimeOpener = null;
     lastRenderedTab = '';
     renderBodyRequestId = 0;

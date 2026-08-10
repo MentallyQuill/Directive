@@ -288,6 +288,14 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.hesperus-accountability",
+      "sourceObjectiveId": "objective.hesperus-accountability",
+      "eligibleDispositions": ["completed", "handedOff"],
+      "reason": "You carried the known Hesperus accountability question to a responsible disposition."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.lives-protected",

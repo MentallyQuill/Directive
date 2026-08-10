@@ -1,7 +1,12 @@
 import { parseStructuredJsonText } from '../../providers/structured-output-parser.mjs';
+import { createGenerationRoleRegistry } from '../../generation/generation-roles.mjs';
 
 export const MISSION_EVIDENCE_INTERPRETATION_KIND = 'directive.missionEvidenceInterpretation.v1';
-export const MISSION_EVIDENCE_INTERPRETER_ROLE_ID = 'sourceSettlementLatestPair';
+export const MISSION_EVIDENCE_INTERPRETER_ROLE_ID = 'acceptedPairMissionEvidence';
+export const MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS = createGenerationRoleRegistry()
+    .get(MISSION_EVIDENCE_INTERPRETER_ROLE_ID).timeoutMs;
+
+const MISSION_EVIDENCE_MAX_TOKENS = 2500;
 
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
@@ -128,6 +133,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
         'The previous assistant text is eligible only if the current player reply accepts, continues from, or acts on that selected response.',
         'Mark the assistant response rejected, corrected, or ambiguous when the player disputes it or does not clearly proceed from it.',
         'The current player text may prove only candidates authorized for currentPlayer. It never proves action success or world truth.',
+        'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
         'Return exactly one JSON object with no markdown or prose:',
@@ -150,6 +156,12 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
     return {
         prompt: `${systemPrompt}\n\n${user}`,
         systemPrompt,
+        maxTokens: MISSION_EVIDENCE_MAX_TOKENS,
+        parameters: {
+            temperature: 0,
+            top_p: 1,
+            max_tokens: MISSION_EVIDENCE_MAX_TOKENS,
+        },
         messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: user },
@@ -241,7 +253,10 @@ async function runWithTimeout(promise, timeoutMs) {
     }
 }
 
-export function createMissionAcceptedPairInterpreter({ generationRouter = null, timeoutMs = 10000 } = {}) {
+export function createMissionAcceptedPairInterpreter({
+    generationRouter = null,
+    timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
+} = {}) {
     return async function interpretMissionAcceptedPair({ candidatePacket = {}, sourcePair = {} } = {}) {
         if (!Array.isArray(candidatePacket.candidates) || candidatePacket.candidates.length === 0) {
             const interpretation = {

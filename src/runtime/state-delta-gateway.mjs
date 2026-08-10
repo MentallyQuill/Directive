@@ -219,8 +219,7 @@ export function createStateDeltaGateway({
       await persist(after, descriptor);
     } catch (cause) {
       const current = getState();
-      if (current?.stateCustody?.revision === after.stateCustody.revision
-        && current?.stateCustody?.recentCommitIds?.at(-1) === after.stateCustody.recentCommitIds.at(-1)) {
+      if (stableJson(current) === stableJson(after)) {
         setState(before);
         throw gatewayError(
           'DIRECTIVE_V1_STATE_PERSISTENCE_FAILED',

@@ -452,6 +452,14 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.chapter2.joint-framework",
+      "sourceObjectiveId": "objective.chapter2.joint-framework",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You turned the known joint-investigation opportunity into a workable framework."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.chapter2.medical",

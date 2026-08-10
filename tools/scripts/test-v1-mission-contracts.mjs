@@ -19,6 +19,7 @@ for (const boundary of [
     'entryCapabilitySource',
     'entryCapabilityRequirement',
     'objective',
+    'commandBearingAward',
     'fact',
     'evidencePolicy',
     'evidenceInterpretation',
@@ -39,6 +40,7 @@ assert.equal(missionSchema.$defs.fact.required.includes('initiallyTrue'), true);
 assert.equal(missionSchema.required.includes('evidencePolicies'), true);
 assert.equal(missionSchema.required.includes('reportRoutes'), true);
 assert.equal(missionSchema.required.includes('packageBinding'), true);
+assert.equal(missionSchema.required.includes('commandBearingAwards'), true);
 assert.equal(missionSchema.$defs.reportRoute.required.includes('confidence'), true);
 assert.equal(missionSchema.$defs.reportRoute.required.includes('deliveryRequirement'), true);
 assert.deepEqual(missionSchema.$defs.reportRoute.properties.confidence.enum, [
@@ -237,6 +239,14 @@ const referenceMission = {
             },
         },
     ],
+    commandBearingAwards: [
+        {
+            id: 'award.hesperus-accountability',
+            sourceObjectiveId: 'objective.hesperus-accountability',
+            eligibleDispositions: ['completed', 'handedOff'],
+            reason: 'You carried the known Hesperus accountability question to a responsible disposition.',
+        },
+    ],
     outcomeDimensions: [
         {
             id: 'dimension.lives-protected',
@@ -316,6 +326,7 @@ assert.equal(result.ok, true, result.errors.join('\n'));
 
 const index = indexMissionDefinition(referenceMission);
 assert.equal(index.objectives.get('objective.hesperus-rescue')?.class, 'required');
+assert.equal(index.commandBearingAwards.get('award.hesperus-accountability')?.sourceObjectiveId, 'objective.hesperus-accountability');
 assert.equal(index.facts.has('fact.hesperus-discrepancy-known'), true);
 assert.equal(index.evidencePolicies.has('policy.hesperus-discrepancy-disclosed'), true);
 assert.equal(index.reportRoutes.has('report.hesperus-discrepancy'), true);
@@ -324,6 +335,28 @@ assert.equal(index.outcomes.has('outcome.hesperus-evidence-preserved'), true);
 assert.equal(index.clocks.has('clock.hesperus-life-support'), true);
 assert.equal(index.terminalDispositions.has('primarySuccess'), true);
 assert.equal(index.transitions.has('transition.hesperus-command-review'), true);
+
+for (const [label, awards, pattern] of [
+    ['required objective award', [{
+        ...referenceMission.commandBearingAwards[0],
+        sourceObjectiveId: 'objective.hesperus-rescue',
+    }], /must reference an optional objective/],
+    ['unsupported eligible disposition', [{
+        ...referenceMission.commandBearingAwards[0],
+        eligibleDispositions: ['completedWithCost'],
+    }], /eligible disposition is not supported/],
+    ['non-creditable disposition', [{
+        ...referenceMission.commandBearingAwards[0],
+        eligibleDispositions: ['knowinglyDeclined'],
+    }], /cannot credit disposition/],
+    ['duplicate source objective award', [
+        referenceMission.commandBearingAwards[0],
+        { ...referenceMission.commandBearingAwards[0], id: 'award.hesperus-accountability-again' },
+    ], /more than one Command Bearing award/],
+]) {
+    const validation = validateMissionDefinition({ ...referenceMission, commandBearingAwards: awards });
+    assert.match(validation.errors.join('\n'), pattern, label);
+}
 
 function replacePolicy(indexToReplace, replacement) {
     return {
@@ -738,7 +771,7 @@ for (const [label, target, pattern] of [
         kind: 'phase',
         id: 'phase.next',
         playerSafeSetup: 'Continue.',
-        campaignConclusion: { endConditionId: 'completion.next', legacyQuestId: 'quest.next' },
+        campaignConclusion: { endConditionId: 'completion.next', unexpectedField: 'quest.next' },
     }, /contains unknown fields/],
 ]) {
     assert.match(

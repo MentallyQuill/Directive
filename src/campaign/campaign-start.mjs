@@ -2,6 +2,9 @@ import { createCharacterCreationContext } from '../packages/campaign-package-con
 import { createV1RuntimeArchitectureStamp } from '../runtime/v1-semantic-authority.mjs';
 import { createV1CommandBearing } from '../command/v1-command-bearing.mjs';
 import { createV1StateCustody } from '../runtime/v1-campaign-state.mjs';
+import { createMissionState } from '../mission/v1/mission-state.mjs';
+import { createInitialMissionJourney } from '../mission/v1/mission-journey.mjs';
+import { createEmptyStorySettlement } from '../story/story-settlement-contracts.mjs';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -191,12 +194,12 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
     species: {
       id: choices.species.id,
       label: choices.species.selectedLabel,
-      summary: choices.species.summary
+      summary: choices.species.summary || ''
     },
     ageBand: {
       id: choices.ageBand.id,
       label: choices.ageBand.label,
-      summary: choices.ageBand.summary
+      summary: choices.ageBand.summary || ''
     },
     appearance,
     firstImpression: identity.firstImpression?.trim() || '',
@@ -235,8 +238,10 @@ export function createPlayerCharacterFromCreatorReview({ packageData, creatorRev
 
 export function createInitialCampaignStateFromCreatorReview({
   packageData,
+  missionDefinitions = [],
   creatorReview,
   campaignId,
+  saveId,
   createdAt,
   simulationMode = 'Command',
   creatorDraftId = null
@@ -269,6 +274,17 @@ export function createInitialCampaignStateFromCreatorReview({
   const openingStardate = Number(context.campaign.openingStardate ?? packageData.ship?.openingStardate);
   const openingMinuteOfDay = Number(packageData.manifest?.openingMinuteOfDay);
   const openingMissionId = requireNonEmptyString(packageData.manifest?.openingMissionId, 'packageData.manifest.openingMissionId');
+  const branchId = requireNonEmptyString(saveId, 'saveId');
+  const openingMissionMatches = missionDefinitions.filter((definition) => (
+    definition?.packageBinding?.sourceId === openingMissionId
+    && definition?.packageBinding?.packageId === context.package.id
+    && definition?.packageBinding?.packageVersion === context.package.version
+  ));
+  if (openingMissionMatches.length !== 1) {
+    throw new Error('The V1 campaign package requires exactly one matching opening mission definition.');
+  }
+  const openingMissionDefinition = openingMissionMatches[0];
+  const initialMissionJourney = createInitialMissionJourney({ branchId, definition: openingMissionDefinition });
   if (!Number.isFinite(openingStardate) || !Number.isInteger(openingMinuteOfDay) || openingMinuteOfDay < 0 || openingMinuteOfDay > 1439) {
     throw new Error('The V1 campaign package requires a valid opening stardate and openingMinuteOfDay.');
   }
@@ -291,9 +307,6 @@ export function createInitialCampaignStateFromCreatorReview({
       packageVersion: context.package.version
     },
     player,
-    crew: {
-      seniorCrewIds: (packageData.crew?.senior || []).map((officer) => officer?.id).filter(Boolean)
-    },
     ship: {
       id: context.ship.id,
       name: context.ship.name,
@@ -308,29 +321,16 @@ export function createInitialCampaignStateFromCreatorReview({
       }
     },
     mission: {
-      activeMissionId: openingMissionId
+      activeMissionId: openingMissionId,
+      v1: createMissionState({ definition: openingMissionDefinition, branchId }),
+      v1Journey: initialMissionJourney.journey,
+      v1History: initialMissionJourney.history
     },
+    storySettlement: createEmptyStorySettlement({ branchId }),
     commandBearing: createV1CommandBearing(),
-    values: {
-      personal: cloneJson(player.personalValues || [])
-    },
-    turnLedger: {
-      entries: [],
-      lastCommittedOutcomeId: null
-    },
-    ui: {
-      activeTab: 'Mission',
-      availableTabs: ['Campaign', 'Mission', 'Crew', 'Ship', 'Settings']
-    },
     settings: {
       simulationMode,
-      allowedSimulationModes: cloneJson(allowedModes),
-      maxTurnSaveHistory: 8,
-      autosaveEveryMessages: 5,
-      storagePointerOnly: true
-    },
-    captainState: {
-      crewId: packageData.ship?.commandStructure?.commandingOfficer || 'mara-whitaker'
+      allowedSimulationModes: cloneJson(allowedModes)
     },
     worldState: {
       kind: 'directive.worldState.v1',

@@ -3,6 +3,16 @@ import {
   V1_RUNTIME_ARCHITECTURE_KIND,
   V1_SEMANTIC_AUTHORITY
 } from './v1-semantic-authority.mjs';
+import { validateV1CommandBearing } from '../command/v1-command-bearing.mjs';
+import { MISSION_STATE_KIND } from '../mission/v1/mission-state.mjs';
+import {
+  MISSION_JOURNEY_CONTRACT_VERSION,
+  MISSION_JOURNEY_KIND
+} from '../mission/v1/mission-journey.mjs';
+import {
+  STORY_SETTLEMENT_KIND,
+  validateStorySettlement
+} from '../story/story-settlement-contracts.mjs';
 
 export const V1_STATE_CUSTODY_KIND = 'directive.stateCustody.v1';
 export const V1_STATE_CUSTODY_RECENT_COMMIT_LIMIT = 64;
@@ -11,16 +21,11 @@ export const V1_CAMPAIGN_STATE_ROOTS = Object.freeze([
   'campaign',
   'activeCampaignPackage',
   'player',
-  'crew',
   'ship',
   'mission',
   'storySettlement',
   'commandBearing',
-  'values',
-  'turnLedger',
-  'ui',
   'settings',
-  'captainState',
   'worldState',
   'timeLedger',
   'campaignChatBinding',
@@ -34,24 +39,18 @@ export const V1_MUTABLE_STATE_DOMAINS = Object.freeze([
   'commandBearing',
   'worldState',
   'timeLedger',
-  'turnLedger',
-  'campaignChatBinding',
-  'settings'
+  'campaignChatBinding'
 ]);
 
 const REQUIRED_ROOTS = Object.freeze([
   'campaign',
   'activeCampaignPackage',
   'player',
-  'crew',
   'ship',
   'mission',
+  'storySettlement',
   'commandBearing',
-  'values',
-  'turnLedger',
-  'ui',
   'settings',
-  'captainState',
   'worldState',
   'timeLedger',
   'stateCustody'
@@ -137,6 +136,72 @@ export function assertV1CampaignState(state) {
     throw stateError(
       'DIRECTIVE_V1_STATE_CUSTODY_REQUIRED',
       'Directive V1 campaign state requires exact directive.stateCustody.v1 metadata.'
+    );
+  }
+  const mission = state.mission;
+  const missionKeys = Object.keys(mission || {});
+  const allowedMissionKeys = new Set(['activeMissionId', 'v1', 'v1Journey', 'v1History', 'v1Conclusion']);
+  const missionBranchId = compact(mission?.v1?.branchId);
+  const missionInvalid = !isObject(mission)
+    || missionKeys.some((key) => !allowedMissionKeys.has(key))
+    || !compact(mission.activeMissionId)
+    || !isObject(mission.v1)
+    || mission.v1.kind !== MISSION_STATE_KIND
+    || mission.v1.schemaVersion !== 1
+    || !compact(mission.v1.definitionId)
+    || !compact(mission.v1.definitionVersion)
+    || mission.v1.packageBinding?.packageId !== state.activeCampaignPackage.packageId
+    || mission.v1.packageBinding?.packageVersion !== state.activeCampaignPackage.packageVersion
+    || compact(mission.v1.packageBinding?.sourceId) !== compact(mission.activeMissionId)
+    || !missionBranchId
+    || !isObject(mission.v1Journey)
+    || mission.v1Journey.kind !== MISSION_JOURNEY_KIND
+    || mission.v1Journey.contractVersion !== MISSION_JOURNEY_CONTRACT_VERSION
+    || compact(mission.v1Journey.branchId) !== missionBranchId
+    || !Number.isInteger(mission.v1Journey.revision)
+    || mission.v1Journey.revision < 0
+    || !compact(mission.v1Journey.activeRunId)
+    || !Array.isArray(mission.v1History);
+  if (missionInvalid) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_MISSION_INVALID',
+      'Directive V1 campaign state requires exact mission state and journey authority.'
+    );
+  }
+  const storyValidation = validateStorySettlement(state.storySettlement);
+  if (state.storySettlement?.kind !== STORY_SETTLEMENT_KIND
+    || !storyValidation.ok
+    || compact(state.storySettlement.branchId) !== missionBranchId) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_STORY_SETTLEMENT_INVALID',
+      'Directive V1 campaign state requires exact story settlement authority.',
+      { errors: storyValidation.errors }
+    );
+  }
+  const boundSaveId = compact(state.campaignChatBinding?.saveId);
+  if (boundSaveId && boundSaveId !== missionBranchId) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_BRANCH_MISMATCH',
+      'Directive V1 campaign, mission, and story branches must match.'
+    );
+  }
+  const commandBearing = validateV1CommandBearing(state.commandBearing);
+  if (!commandBearing.ok) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_COMMAND_BEARING_INVALID',
+      `Directive V1 campaign state contains invalid Command Bearing: ${commandBearing.errors.join('; ')}`,
+      { errors: commandBearing.errors }
+    );
+  }
+  const settingKeys = Object.keys(state.settings || {});
+  if (settingKeys.length !== 2
+    || !settingKeys.includes('simulationMode')
+    || !settingKeys.includes('allowedSimulationModes')
+    || !Array.isArray(state.settings.allowedSimulationModes)
+    || !state.settings.allowedSimulationModes.includes(state.settings.simulationMode)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_SETTINGS_INVALID',
+      'Directive V1 campaign settings must contain only its selected and allowed simulation modes.'
     );
   }
   return state;

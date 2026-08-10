@@ -58,8 +58,7 @@ const projection = {
       billet: 'Commanding Officer',
       profileSummary: 'An experienced captain who gives the new XO room to grow.',
       relationshipPosture: 'Encouraging, but watchful',
-      moments: [{ id: 'moment.one', summary: 'She trusted the XO to lead the rescue.' }],
-      missionLink: { missionId: 'mission.prelude-a-ship-underway', title: 'Prelude: A Ship Underway' }
+      moments: [{ id: 'moment.one', summary: 'She trusted the XO to lead the rescue.' }]
     }]
   },
   ship: {
@@ -82,6 +81,11 @@ const projection = {
     balance: 1,
     capacity: 3,
     latestAwardReason: 'Protected the Hesperus passengers.',
+    pendingEdge: {
+      id: 'command-bearing-edge.1',
+      status: 'reserved',
+      reason: 'Create one credible favorable edge without erasing established costs.'
+    },
     latestSpend: null
   }
 };
@@ -107,6 +111,11 @@ assert.deepEqual(crew.commandBearing, {
   balance: 1,
   capacity: 3,
   latestAwardReason: 'Protected the Hesperus passengers.',
+  pendingEdge: {
+    id: 'command-bearing-edge.1',
+    status: 'reserved',
+    reason: 'Create one credible favorable edge without erasing established costs.'
+  },
   latestSpend: null
 });
 assert.equal(Object.hasOwn(crew.people[0], 'history'), false);

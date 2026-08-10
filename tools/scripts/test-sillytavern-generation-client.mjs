@@ -42,15 +42,15 @@ assert.equal(utility.roleId, 'utilityJson');
 assert.match(rawCalls[1].prompt, /system: Return JSON/);
 assert.match(rawCalls[1].prompt, /user: Summarize visible continuity/);
 
-const commandLogSummary = await rawClient.generate('commandLogSummarizer', {
+const settlement = await rawClient.generate('acceptedPairMissionEvidence', {
   messages: [
     {
       role: 'system',
-      content: 'Return compact Command Log JSON.'
+      content: 'Return exact accepted-pair settlement JSON.'
     },
     {
       role: 'user',
-      content: 'Summarize a committed outcome.'
+      content: 'Interpret the accepted pair.'
     }
   ],
   parameters: {
@@ -62,10 +62,10 @@ const commandLogSummary = await rawClient.generate('commandLogSummarizer', {
     capability: 'utility'
   }
 });
-assert.equal(commandLogSummary.providerId, 'sillytavern-current-provider');
-assert.equal(commandLogSummary.roleId, 'commandLogSummarizer');
-assert.match(rawCalls[2].prompt, /Return compact Command Log JSON/);
-assert.match(rawCalls[2].prompt, /Summarize a committed outcome/);
+assert.equal(settlement.providerId, 'sillytavern-current-provider');
+assert.equal(settlement.roleId, 'acceptedPairMissionEvidence');
+assert.match(rawCalls[2].prompt, /Return exact accepted-pair settlement JSON/);
+assert.match(rawCalls[2].prompt, /Interpret the accepted pair/);
 assert.equal(rawCalls[2].responseLength, 220);
 
 const rawSignalController = new AbortController();
@@ -84,20 +84,20 @@ assert.equal(roleResult.text, 'raw:Role provider request.');
 
 const batch = await rawClient.batch([
   {
-    roleId: 'relationshipEvaluator',
-    prompt: 'Track relationships.'
+    roleId: 'timeAdvanceAdjudicator',
+    prompt: 'Adjudicate elapsed time.'
   },
   {
-    roleId: 'shipDirector',
-    prompt: 'Track ship state.'
+    roleId: 'characterCreatorSectionDraft',
+    prompt: 'Draft the character section.'
   }
 ], {
   concurrent: true
 });
-assert.equal(batch[0].roleId, 'relationshipEvaluator');
-assert.equal(batch[0].text, 'raw:Track relationships.');
-assert.equal(batch[1].roleId, 'shipDirector');
-assert.equal(batch[1].text, 'raw:Track ship state.');
+assert.equal(batch[0].roleId, 'timeAdvanceAdjudicator');
+assert.equal(batch[0].text, 'raw:Adjudicate elapsed time.');
+assert.equal(batch[1].roleId, 'characterCreatorSectionDraft');
+assert.equal(batch[1].text, 'raw:Draft the character section.');
 
 let textRequest = null;
 const textClient = createSillyTavernGenerationClient({
@@ -108,7 +108,7 @@ const textClient = createSillyTavernGenerationClient({
     }
   })
 });
-const textResult = await textClient.generate('missionDirectorAdvisor', {
+const textResult = await textClient.generate('characterCreatorSectionDraft', {
   prompt: 'Advise only.',
   source: {
     turnId: 'turn-1'
@@ -124,7 +124,7 @@ const missingContextClient = createSillyTavernGenerationClient({
   contextFactory: () => null
 });
 await assert.rejects(
-  () => missingContextClient.generate('continuityTracker', {}),
+  () => missingContextClient.generate('utilityJson', {}),
   /context is not available/
 );
 
@@ -132,7 +132,7 @@ const unsupportedClient = createSillyTavernGenerationClient({
   contextFactory: () => ({})
 });
 await assert.rejects(
-  () => unsupportedClient.generate('shipDirector', {}),
+  () => unsupportedClient.generate('narration', {}),
   /does not expose a supported generation method/
 );
 

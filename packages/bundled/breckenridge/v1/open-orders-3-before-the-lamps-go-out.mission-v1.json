@@ -1557,6 +1557,26 @@
       }
     }
   ],
+  "commandBearingAwards": [
+    {
+      "id": "award.open-orders3.name",
+      "sourceObjectiveId": "objective.open-orders3.name",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried The Name on the Hull to a usable disposition."
+    },
+    {
+      "id": "award.open-orders3.signal",
+      "sourceObjectiveId": "objective.open-orders3.signal",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried A Signal Toward Home to a usable disposition."
+    },
+    {
+      "id": "award.open-orders3.signatures",
+      "sourceObjectiveId": "objective.open-orders3.signatures",
+      "eligibleDispositions": ["completed", "completedWithCost"],
+      "reason": "You carried Two Signatures to a usable disposition."
+    }
+  ],
   "outcomeDimensions": [
     {
       "id": "dimension.open-orders3.load",

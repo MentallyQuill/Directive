@@ -181,6 +181,7 @@ export function createCampaignViewModel({ campaignLibrary, drafts, saves, active
 export function createCampaignStartController({
   adapter,
   packages,
+  missionDefinitions = [],
   campaignLibrary = [],
   idFactory = null,
   now = null
@@ -191,6 +192,16 @@ export function createCampaignStartController({
     throw new Error('Directive V1 runtime accepts exactly one playable package: Ashes of Peace.');
   }
   const packageData = clone(packageRecords[0]);
+  const definitions = clone(missionDefinitions);
+  const openingMissionId = packageData.manifest?.openingMissionId;
+  const openingMatches = definitions.filter((definition) => (
+    definition?.packageBinding?.sourceId === openingMissionId
+    && definition?.packageBinding?.packageId === ASHES_V1_PACKAGE_ID
+    && definition?.packageBinding?.packageVersion === packageData.manifest?.version
+  ));
+  if (openingMatches.length !== 1) {
+    throw new Error('Directive V1 requires exactly one opening Ashes mission definition.');
+  }
   const nextId = normalizeIdFactory(idFactory);
   const currentTime = normalizeNow(now);
   let activeSave = null;
@@ -276,6 +287,7 @@ export function createCampaignStartController({
       const result = await acceptCreatorDraftAndCreateFirstSave({
         adapter,
         packageData,
+        missionDefinitions: definitions,
         draftId: required(draftId, 'draftId'),
         campaignId: nextId('campaign'),
         saveId: nextId('save'),

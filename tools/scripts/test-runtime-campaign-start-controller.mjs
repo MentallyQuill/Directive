@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 import { createCampaignStartController } from '../../src/runtime/campaign-start-controller.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
+import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(seed));
@@ -24,6 +25,7 @@ const packageData = JSON.parse(fs.readFileSync(
   new URL('../../packages/bundled/breckenridge/ashes-of-peace.campaign-package.json', import.meta.url),
   'utf8'
 ));
+const { missionDefinitions } = loadAshesRuntimeAssets();
 let id = 0;
 let minute = 0;
 const controller = createCampaignStartController({
@@ -31,6 +33,7 @@ const controller = createCampaignStartController({
     'indexes/saves.v1.json': { kind: 'directive.saveIndex', saves: { old: {} } }
   }),
   packages: [packageData],
+  missionDefinitions,
   campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
   idFactory: (prefix) => `${prefix}.${++id}`,
   now: () => `2026-08-10T02:${String(minute++).padStart(2, '0')}:00.000Z`
@@ -78,6 +81,8 @@ assert.equal(savedDraft.view.canBeginCampaign, true);
 const campaign = await controller.acceptCreatorDraftAndStartCampaign({ draftId: savedDraft.draft.id });
 assert.equal(campaign.firstSave.kind, 'directive.campaignSave.v1');
 assert.equal(controller.getActiveCampaignState().player.name, 'Ren Okada');
+assert.equal(controller.getActiveCampaignState().mission.v1.kind, 'directive.missionState.v1');
+assert.equal(controller.getActiveCampaignState().storySettlement.kind, 'directive.storySettlement.v1');
 const campaignView = await controller.getCampaignView();
 assert.equal(campaignView.campaigns.length, 1);
 assert.equal(campaignView.campaigns[0].checkpoints.length, 0);

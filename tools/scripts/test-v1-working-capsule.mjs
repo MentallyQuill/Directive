@@ -223,10 +223,9 @@ const insignificant = settleInsignificantScene(empty, {
 assert.equal(insignificant.episodes.length, 0);
 assert.equal(JSON.stringify(insignificant).includes('storyWorkingCapsule'), false);
 
-const legacyOpen = structuredClone(opened);
-delete legacyOpen.episodes[0].workingCapsule;
-assert.equal(validateStorySettlement(legacyOpen).ok, true, 'legacy V1 open episodes remain readable');
-const normalizedLegacy = checkpointStoryEpisode(legacyOpen, { force: true });
-assert.equal(normalizedLegacy.episodes[0].workingCapsule.kind, 'directive.storyWorkingCapsule.v1');
+const malformedOpen = structuredClone(opened);
+delete malformedOpen.episodes[0].workingCapsule;
+assert.match(validateStorySettlement(malformedOpen).errors.join('\n'), /workingCapsule is required/);
+assert.throws(() => checkpointStoryEpisode(malformedOpen, { force: true }), /workingCapsule is required/);
 
 console.log('V1 working capsule tests passed.');

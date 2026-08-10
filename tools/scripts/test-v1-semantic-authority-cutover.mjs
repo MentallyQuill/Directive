@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 
 import {
-  V1_GAMEPLAY_ARCHITECTURE_ID,
   V1_RUNTIME_ARCHITECTURE_KIND,
   createV1RuntimeArchitectureStamp,
   resolveV1SemanticAuthority
@@ -12,9 +10,10 @@ const packageId = 'directive:campaign-package:breckenridge-ashes-of-peace';
 const packageVersion = '0.3.0-pre-alpha.1';
 const packageData = {
   manifest: {
+    kind: 'directive.campaignPackage.v1',
+    schemaVersion: 1,
     id: packageId,
-    version: packageVersion,
-    architecture: V1_GAMEPLAY_ARCHITECTURE_ID
+    version: packageVersion
   }
 };
 const definition = {
@@ -28,7 +27,7 @@ const definition = {
 };
 
 assert.equal(createV1RuntimeArchitectureStamp({
-  packageData: { manifest: { id: packageId, version: packageVersion, architecture: 'legacy' } }
+  packageData: { manifest: { kind: 'directive.campaignPackage.invalid', schemaVersion: 1, id: packageId, version: packageVersion } }
 }), null, 'packages must opt new saves into the exact V1 architecture');
 
 const stamp = createV1RuntimeArchitectureStamp({ packageData });
@@ -135,15 +134,5 @@ for (const [label, statePatch, assetsPatch, definitionResolution, reasonCode] of
   assert.equal(result.mode, 'blocked', label);
   assert.equal(result.reasonCode, reasonCode, label);
 }
-
-const packageManifest = JSON.parse(fs.readFileSync(
-  'packages/bundled/breckenridge/ashes-of-peace.campaign-package.json',
-  'utf8'
-));
-assert.equal(packageManifest.manifest.architecture, V1_GAMEPLAY_ARCHITECTURE_ID);
-
-const campaignStartSource = fs.readFileSync('src/campaign/campaign-start.mjs', 'utf8');
-assert.match(campaignStartSource, /createV1RuntimeArchitectureStamp/);
-assert.match(campaignStartSource, /runtimeArchitecture/);
 
 console.log('V1 semantic authority cutover tests passed.');

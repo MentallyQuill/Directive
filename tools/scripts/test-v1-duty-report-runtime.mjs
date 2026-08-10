@@ -3,10 +3,12 @@ import fs from 'node:fs';
 
 import { createDutyReportManifest } from '../../src/mission/v1/duty-report-delivery.mjs';
 import { deliveredDutyReportIds } from '../../src/mission/v1/duty-report-planner.mjs';
+import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createV1PlayerProjection } from '../../src/projection/v1/player-projection.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -16,12 +18,7 @@ const canonicalDefinition = JSON.parse(fs.readFileSync(
 function assetsFor(definition) {
     const record = { path: 'prelude.mission-v1.json', definition };
     return {
-        packageData: {
-            manifest: {
-                id: definition.packageBinding.packageId,
-                version: definition.packageBinding.packageVersion,
-            },
-        },
+        ...loadAshesRuntimeAssets(),
         missionDefinitions: [record],
         missionDefinitionsById: new Map([[definition.id, record]]),
     };
@@ -36,24 +33,21 @@ function definitionFor(reportId) {
 }
 
 function stateFor(definition) {
-    return {
-        campaign: { id: 'campaign.ashes' },
-        activeCampaignPackage: {
-            packageId: definition.packageBinding.packageId,
-            packageVersion: definition.packageBinding.packageVersion,
-        },
-        campaignChatBinding: { saveId: 'save.report', chatId: 'chat.report' },
-        mission: {
+    const branchId = 'save.report';
+    const journey = createInitialMissionJourney({ branchId, definition });
+    const state = createAshesInitialState({
+        campaignId: 'campaign.ashes',
+        saveId: branchId,
+        chatId: 'chat.report',
+    });
+    state.mission = {
             activeMissionId: definition.packageBinding.sourceId,
-            v1: createMissionState({ definition, branchId: 'save.report' }),
-        },
-        ship: { technicalDebt: [{ id: 'legacy.ship-sentinel' }] },
-        relationships: { people: [{ id: 'legacy.relationship-sentinel' }] },
-        threadLedger: { records: [{ id: 'legacy.thread-sentinel' }] },
-        quests: [{ id: 'legacy.quest-sentinel' }],
-        commandLog: { entries: [{ id: 'legacy.command-sentinel' }] },
-        commandBearing: { current: 3 },
+            v1: createMissionState({ definition, branchId }),
+            v1Journey: journey.journey,
+            v1History: journey.history,
     };
+    state.commandBearing.balance = 3;
+    return state;
 }
 
 function acceptedInterpretation(assistantAcceptance = 'accepted') {
@@ -114,13 +108,9 @@ function prepare(harness, runtimeAssets, reportId, suffix = '1') {
     });
 }
 
-function unrelatedTrackingRoots(state) {
+function protectedStateRoots(state) {
     return structuredClone({
         ship: state.ship,
-        relationships: state.relationships,
-        threadLedger: state.threadLedger,
-        quests: state.quests,
-        commandLog: state.commandLog,
         commandBearing: state.commandBearing,
     });
 }
@@ -139,7 +129,7 @@ function snapshotFor({ preparation, definition, suffix = '1' }) {
     return {
         manifest,
         snapshot: {
-            kind: 'directive.sceneHandshakeSnapshot.v1',
+            kind: 'directive.acceptedPairSnapshot.v1',
             envelope: {
                 campaignId: 'campaign.ashes',
                 saveId: 'save.report',
@@ -183,7 +173,7 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
     const runtimeAssets = assetsFor(definition);
     const harness = createHarness({ definition, outputs: [acceptedInterpretation()] });
     const stateBeforePreparation = structuredClone(harness.campaignState);
-    const unrelatedBefore = unrelatedTrackingRoots(harness.campaignState);
+    const protectedBefore = protectedStateRoots(harness.campaignState);
     const preparation = prepare(harness, runtimeAssets, reportId, reportId.split('.').at(-1));
     assert.equal(preparation.ok, true, reportId);
     assert.equal(preparation.status, 'ready', reportId);
@@ -223,9 +213,9 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
     assert.equal(settled.ok, true, `${reportId}: ${JSON.stringify(settled)}`);
     assert.equal(settled.diagnostics.acceptedDutyReportCount, 1, reportId);
     assert.deepEqual(
-        unrelatedTrackingRoots(harness.campaignState),
-        unrelatedBefore,
-        `${reportId}: delivery does not create ship, relationship, quest, log, or Command Bearing tracking spam`,
+        protectedStateRoots(harness.campaignState),
+        protectedBefore,
+        `${reportId}: delivery stays within mission and story authority`,
     );
     assert.deepEqual(
         deliveredDutyReportIds({ definition, state: harness.campaignState.mission.v1 }),
@@ -281,7 +271,7 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
         assert.equal(projectionAfterMutation.mission.clocks.some((item) => item.id === 'clock.hesperus-life-support'), false);
     }
     assert.equal(prepare(harness, runtimeAssets, reportId, 'eligible-again').packet.reportId, reportId);
-    assert.deepEqual(unrelatedTrackingRoots(harness.campaignState), unrelatedBefore, `${reportId}: repair stays scoped`);
+    assert.deepEqual(protectedStateRoots(harness.campaignState), protectedBefore, `${reportId}: repair stays scoped`);
 }
 
 const rejectedDefinition = definitionFor('report.hesperus.distress');

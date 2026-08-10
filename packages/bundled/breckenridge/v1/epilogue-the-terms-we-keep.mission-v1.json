@@ -476,6 +476,7 @@
       }
     }
   ],
+  "commandBearingAwards": [],
   "outcomeDimensions": [
     {
       "id": "dimension.epilogue.compact",
@@ -626,7 +627,7 @@
         "Do not upgrade casualties, damage, fractured authority, sustained fire, or surviving Nightfall capability into a clean victory.",
         "Do not declare one political structure, custody model, disclosure choice, or public narrative to be the objectively correct moral answer.",
         "Do not invent individual crew futures, promotions, discipline, relationships, or Command Bearing awards that accepted Story Settlement state does not support.",
-        "Do not promise a specific next campaign, erase unresolved obligations, or mutate legacy quest and phase trackers as V1 authority."
+        "Do not promise a specific next campaign, erase unresolved obligations, or invent tracking state outside the committed V1 conclusion."
       ]
     }
   ]

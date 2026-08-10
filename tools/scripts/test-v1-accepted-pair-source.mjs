@@ -47,7 +47,6 @@ assert.equal(typeof prepared.snapshot.source.sourceRangeHash, 'string');
 assert.equal(Object.hasOwn(prepared.snapshot, 'safety'), false);
 assert.equal(Object.hasOwn(prepared.snapshot, 'threads'), false);
 assert.equal(Object.hasOwn(prepared.snapshot, 'quests'), false);
-assert.equal(JSON.stringify(prepared.snapshot).includes('sceneHandshake'), false);
 
 const directiveOwned = prepareV1AcceptedPairSnapshot({
   campaignState,
@@ -102,5 +101,18 @@ const systemBetween = prepareV1AcceptedPairSnapshot({
 });
 assert.equal(systemBetween.ok, true);
 assert.equal(systemBetween.snapshot.source.previousAssistant.hostMessageId, 'assistant.1');
+
+const generationAnchored = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.3' },
+  recentMessages: [
+    { id: 'player.1', role: 'user', text: 'Give me an opening.' },
+    { id: 'assistant.2', role: 'assistant', text: 'A credible opening appears.' },
+    { ...player, id: 'player.3' }
+  ],
+  chatId: 'chat.ashes'
+});
+assert.equal(generationAnchored.ok, true);
+assert.equal(generationAnchored.snapshot.source.previousAssistant.promptingPlayerHostMessageId, 'player.1');
 
 console.log('V1 accepted-pair source tests passed.');

@@ -1,7 +1,6 @@
-import { createHash } from 'node:crypto';
-
 import { validateMissionStateAuthority } from './mission-state-authority.mjs';
 import { createMissionState } from './mission-state.mjs';
+import { stableHash24 } from '../../runtime/v1-stable-hash.mjs';
 import {
     deriveMissionEntryContext,
     validateMissionEntryCapabilitySources,
@@ -49,7 +48,7 @@ function stableId(value) {
 }
 
 function stableHash(value = '') {
-    return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+    return stableHash24(value);
 }
 
 function sameJson(left, right) {

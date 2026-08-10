@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 
 import {
   adjudicateTimeAdvance,
@@ -9,8 +7,18 @@ import {
   __timeAdvanceAdjudicatorTestHooks
 } from '../../src/time/time-advance-adjudicator.mjs';
 
-const projection = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'packages/bundled/breckenridge/ashes-of-peace.campaign-projection.json'), 'utf8'));
-const campaignState = JSON.parse(JSON.stringify(projection.initialState));
+const campaignState = {
+  campaign: { currentStardate: 53049.2 },
+  worldState: { currentStardate: 53049.2 },
+  timeLedger: {
+    kind: 'directive.timeLedger.v1',
+    version: 1,
+    openingMinuteOfDay: 510,
+    elapsedMinutes: 0,
+    stardate: 53049.2,
+    entries: []
+  }
+};
 
 const quietConversation = await adjudicateTimeAdvance({
   campaignState,
@@ -241,7 +249,7 @@ const overlappingAcceptedPairBoundary = findTimeBoundaryForSourceAnchorRange({
       id: 'time-boundary-1',
       elapsedMinutes: 10080,
       sourceAnchorRange: {
-        kind: 'sceneHandshakePair',
+        kind: 'acceptedPair',
         previousAssistantHostMessageId: 'assistant-42',
         currentPlayerHostMessageId: 'player-42',
         rangeHash: 'range-a'
@@ -249,7 +257,7 @@ const overlappingAcceptedPairBoundary = findTimeBoundaryForSourceAnchorRange({
     }]
   }
 }, {
-  kind: 'sceneHandshakePair',
+  kind: 'acceptedPair',
   previousAssistantHostMessageId: 'assistant-42',
   currentPlayerHostMessageId: 'player-43',
   rangeHash: 'range-b'

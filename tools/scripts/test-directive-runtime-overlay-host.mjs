@@ -177,8 +177,7 @@ const {
   __directiveRuntimeShellTestHooks,
   hideDirectiveRuntimePanel,
   setDirectiveRuntimeApp,
-  showDirectiveRuntimePanel,
-  toggleDirectiveRuntimeFullscreen
+  showDirectiveRuntimePanel
 } = await import('../../src/runtime/runtime-shell.js');
 
 setDirectiveRuntimeApp(null);
@@ -194,13 +193,6 @@ assert.equal(overlay.parentNode, fakeDocument.body, 'runtime overlay should moun
 assert.equal(panel.parentNode, overlay.querySelector('.directive-runtime-panel-host'));
 assert.equal(overlay.hidden, false);
 assert.equal(panel.hidden, false);
-assert.equal(__directiveRuntimeShellTestHooks.getFullscreenMode(), 'bounded');
-
-const entered = toggleDirectiveRuntimeFullscreen();
-assert.deepEqual(entered, { fullscreen: true, required: false, viewportBound: true });
-assert.equal(panel.classList.contains('is-fullscreen'), true);
-assert.equal(panel.querySelector('[data-shell-action="fullscreen"]').getAttribute('aria-pressed'), 'true');
-
 hideDirectiveRuntimePanel();
 assert.equal(overlay.hidden, true);
 assert.equal(panel.hidden, true);

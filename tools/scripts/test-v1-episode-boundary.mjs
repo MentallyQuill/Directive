@@ -66,7 +66,7 @@ assert.equal(validateEpisodeHardBoundary({
     branchId: 'save.alpha',
     elapsedMinutes: 5,
     reason: 'conversation elapsed',
-}).ok, false, 'an ordinary legacy time advance is not a semantic hard boundary');
+}).ok, false, 'an ordinary time advance is not a semantic hard boundary');
 
 assert.equal(validateEpisodeHardBoundary({
     ...valid,

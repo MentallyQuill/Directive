@@ -151,6 +151,21 @@ function objectiveTerminalText(objective, disposition) {
     return objective?.playerText?.terminal?.find((item) => item.disposition === disposition)?.text || null;
 }
 
+export function eligibleMissionCommandBearingAwards(definition = {}, state = {}) {
+    return (definition.commandBearingAwards || [])
+        .filter((award) => {
+            const objective = state.objectives?.[award.sourceObjectiveId];
+            return objective?.state === 'terminal'
+                && award.eligibleDispositions.includes(objective.disposition);
+        })
+        .map((award) => ({
+            id: award.id,
+            sourceMissionId: definition.id,
+            sourceObjectiveId: award.sourceObjectiveId,
+            reason: award.reason,
+        }));
+}
+
 function createTransitionPacket(definition, state, transition, effects) {
     const terminal = (definition.terminalDispositions || []).find((item) => item.id === state.terminalDisposition);
     const optionalOutcomeSummaries = [];
@@ -183,7 +198,12 @@ export function reduceMissionEvidence({
 } = {}) {
     const state = structuredClone(inputState);
     if (state.transitionReceipt && acceptedClaims.every((claim) => state.acceptedEvidenceKeys.includes(claim.evidenceKey))) {
-        return { state, effects: [], transitionPacket: structuredClone(state.transitionReceipt.packet) };
+        return {
+            state,
+            effects: [],
+            transitionPacket: structuredClone(state.transitionReceipt.packet),
+            commandBearingAwards: eligibleMissionCommandBearingAwards(definition, state),
+        };
     }
     const index = indexMissionDefinition(definition);
     const effects = [];
@@ -216,7 +236,12 @@ export function reduceMissionEvidence({
         });
         changed = true;
     }
-    if (!changed) return { state, effects: [], transitionPacket: state.transitionReceipt?.packet || null };
+    if (!changed) return {
+        state,
+        effects: [],
+        transitionPacket: state.transitionReceipt?.packet || null,
+        commandBearingAwards: eligibleMissionCommandBearingAwards(definition, state),
+    };
 
     reduceClocks(definition, state, effects, sourceContribution);
     reduceObjectives(definition, state);
@@ -242,5 +267,10 @@ export function reduceMissionEvidence({
             packet: structuredClone(transitionPacket),
         };
     }
-    return { state, effects, transitionPacket };
+    return {
+        state,
+        effects,
+        transitionPacket,
+        commandBearingAwards: eligibleMissionCommandBearingAwards(definition, state),
+    };
 }

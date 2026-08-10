@@ -1,5 +1,8 @@
-# Test Fixtures
+# Directive V1 fixtures
 
-Small deterministic test fixtures for retrieval, Command Competence, mission graph, and Director contract tests.
+This tree contains only executable V1 evidence:
 
-Fixtures should be purpose-built and should not duplicate full package data unless the test needs it.
+- `mission/v1/` holds the exact Ashes mission reference and authored scenario matrices.
+- `story/v1/` holds the bounded episode-evaluation behavior fixture.
+
+Fixtures for retired runtimes, trackers, retrieval layers, and migration paths are intentionally absent.

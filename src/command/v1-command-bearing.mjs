@@ -2,6 +2,16 @@ export const V1_COMMAND_BEARING_KIND = 'directive.commandBearing.v1';
 export const V1_COMMAND_BEARING_PLAYER_PROJECTION_KIND = 'directive.commandBearingPlayerProjection.v1';
 
 const ALLOWED_EFFECTS = new Set(['narrativeEdge']);
+const PENDING_STATUSES = new Set(['reserved', 'armed']);
+const SPEND_STATUSES = new Set(['reserved', 'armed', 'committed', 'refunded']);
+const COMMAND_BEARING_FIELDS = new Set(['kind', 'version', 'balance', 'capacity', 'awards', 'spends']);
+const AWARD_FIELDS = new Set(['id', 'sourceId', 'reason', 'credited', 'recordedAt']);
+const SPEND_FIELDS = new Set([
+  'id', 'effect', 'reason', 'status', 'reservedAt',
+  'armedByPlayerMessageId', 'armedAt',
+  'assistantMessageId', 'assistantTextHash', 'acceptedByPlayerMessageId', 'committedAt',
+  'refundReason', 'refundedAt'
+]);
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -27,6 +37,17 @@ function ownRecordMap(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? cloneJson(value) : {};
 }
 
+function unsupportedFields(value, allowed) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).filter((key) => !allowed.has(key))
+    : [];
+}
+
+function pendingRecord(commandBearing) {
+  return Object.values(commandBearing?.spends || {})
+    .find((record) => PENDING_STATUSES.has(record?.status)) || null;
+}
+
 export function createV1CommandBearing({ capacity = 3 } = {}) {
   return {
     kind: V1_COMMAND_BEARING_KIND,
@@ -40,6 +61,9 @@ export function createV1CommandBearing({ capacity = 3 } = {}) {
 
 export function validateV1CommandBearing(value) {
   const errors = [];
+  for (const field of unsupportedFields(value, COMMAND_BEARING_FIELDS)) {
+    errors.push(`Command Bearing contains unsupported field ${field}`);
+  }
   if (value?.kind !== V1_COMMAND_BEARING_KIND) errors.push('kind must be directive.commandBearing.v1');
   if (value?.version !== 1) errors.push('version must be 1');
   if (!Number.isInteger(value?.capacity) || value.capacity < 1 || value.capacity > 5) {
@@ -55,15 +79,41 @@ export function validateV1CommandBearing(value) {
     errors.push('spends must be a record map');
   }
   for (const [id, record] of Object.entries(value?.awards || {})) {
+    for (const field of unsupportedFields(record, AWARD_FIELDS)) {
+      errors.push(`award ${id} contains unsupported field ${field}`);
+    }
     if (compact(record?.id) !== id) errors.push(`award ${id} id mismatch`);
     if (!compact(record?.sourceId)) errors.push(`award ${id} sourceId is required`);
     if (!compact(record?.reason)) errors.push(`award ${id} reason is required`);
     if (typeof record?.credited !== 'boolean') errors.push(`award ${id} credited must be boolean`);
+    if (!compact(record?.recordedAt)) errors.push(`award ${id} recordedAt is required`);
   }
   for (const [id, record] of Object.entries(value?.spends || {})) {
+    for (const field of unsupportedFields(record, SPEND_FIELDS)) {
+      errors.push(`spend ${id} contains unsupported field ${field}`);
+    }
     if (compact(record?.id) !== id) errors.push(`spend ${id} id mismatch`);
     if (!ALLOWED_EFFECTS.has(record?.effect)) errors.push(`spend ${id} effect is not allowed`);
-    if (!new Set(['committed', 'refunded']).has(record?.status)) errors.push(`spend ${id} status is invalid`);
+    if (!compact(record?.reason)) errors.push(`spend ${id} reason is required`);
+    if (!SPEND_STATUSES.has(record?.status)) errors.push(`spend ${id} status is invalid`);
+    if (!compact(record?.reservedAt)) errors.push(`spend ${id} reservedAt is required`);
+    if (new Set(['armed', 'committed']).has(record?.status)) {
+      if (!compact(record?.armedByPlayerMessageId)) errors.push(`spend ${id} armedByPlayerMessageId is required`);
+      if (!compact(record?.armedAt)) errors.push(`spend ${id} armedAt is required`);
+    }
+    if (record?.status === 'committed') {
+      if (!compact(record?.assistantMessageId)) errors.push(`spend ${id} assistantMessageId is required`);
+      if (!compact(record?.assistantTextHash)) errors.push(`spend ${id} assistantTextHash is required`);
+      if (!compact(record?.acceptedByPlayerMessageId)) errors.push(`spend ${id} acceptedByPlayerMessageId is required`);
+      if (!compact(record?.committedAt)) errors.push(`spend ${id} committedAt is required`);
+    }
+    if (record?.status === 'refunded') {
+      if (!compact(record?.refundReason)) errors.push(`spend ${id} refundReason is required`);
+      if (!compact(record?.refundedAt)) errors.push(`spend ${id} refundedAt is required`);
+    }
+  }
+  if (Object.values(value?.spends || {}).filter((record) => PENDING_STATUSES.has(record?.status)).length > 1) {
+    errors.push('only one Command Bearing edge may be pending');
   }
   return { ok: errors.length === 0, errors };
 }
@@ -111,23 +161,22 @@ export function awardV1CommandBearing(commandBearing, {
   };
 }
 
-export function spendV1CommandBearing(commandBearing, {
+export function reserveV1CommandBearingEdge(commandBearing, {
   spendId,
-  sourceId,
-  effect,
   reason,
   now = null
 } = {}) {
   const next = requireValid(commandBearing);
   const id = compact(spendId, 160);
-  const source = compact(sourceId, 160);
   const explanation = compact(reason);
-  const normalizedEffect = compact(effect, 80);
-  if (!id || !source || !explanation || !ALLOWED_EFFECTS.has(normalizedEffect)) {
-    throw new TypeError('spendId, sourceId, an allowed effect, and reason are required');
+  if (!id || !explanation) {
+    throw new TypeError('spendId and reason are required');
   }
   if (next.spends[id]) {
     return { applied: false, reasonCode: 'already-spent', commandBearing: next };
+  }
+  if (pendingRecord(next)) {
+    return { applied: false, reasonCode: 'edge-already-pending', commandBearing: next };
   }
   if (next.balance < 1) {
     return { applied: false, reasonCode: 'reserve-empty', commandBearing: next };
@@ -135,12 +184,65 @@ export function spendV1CommandBearing(commandBearing, {
   next.balance -= 1;
   next.spends[id] = {
     id,
-    sourceId: source,
-    effect: normalizedEffect,
+    effect: 'narrativeEdge',
     reason: explanation,
-    status: 'committed',
-    committedAt: timestamp(now)
+    status: 'reserved',
+    reservedAt: timestamp(now)
   };
+  return { applied: true, reasonCode: null, commandBearing: next };
+}
+
+export function armV1CommandBearingEdge(commandBearing, {
+  spendId,
+  playerMessageId,
+  now = null
+} = {}) {
+  const next = requireValid(commandBearing);
+  const id = compact(spendId, 160);
+  const playerId = compact(playerMessageId, 180);
+  if (!id || !playerId) throw new TypeError('spendId and playerMessageId are required');
+  const spend = next.spends[id];
+  if (!spend) return { applied: false, reasonCode: 'spend-not-found', commandBearing: next };
+  if (spend.status === 'armed') {
+    return { applied: false, reasonCode: 'already-armed', commandBearing: next };
+  }
+  if (spend.status !== 'reserved') {
+    return { applied: false, reasonCode: 'edge-not-reserved', commandBearing: next };
+  }
+  spend.status = 'armed';
+  spend.armedByPlayerMessageId = playerId;
+  spend.armedAt = timestamp(now);
+  return { applied: true, reasonCode: null, commandBearing: next };
+}
+
+export function commitV1CommandBearingEdge(commandBearing, {
+  spendId,
+  assistantMessageId,
+  assistantTextHash,
+  acceptedByPlayerMessageId,
+  now = null
+} = {}) {
+  const next = requireValid(commandBearing);
+  const id = compact(spendId, 160);
+  const assistantId = compact(assistantMessageId, 180);
+  const textHash = compact(assistantTextHash, 80);
+  const playerId = compact(acceptedByPlayerMessageId, 180);
+  if (!id || !assistantId || !textHash || !playerId) {
+    throw new TypeError('spendId, assistantMessageId, assistantTextHash, and acceptedByPlayerMessageId are required');
+  }
+  const spend = next.spends[id];
+  if (!spend) return { applied: false, reasonCode: 'spend-not-found', commandBearing: next };
+  if (spend.status === 'committed') {
+    return { applied: false, reasonCode: 'already-committed', commandBearing: next };
+  }
+  if (spend.status !== 'armed') {
+    return { applied: false, reasonCode: 'edge-not-armed', commandBearing: next };
+  }
+  spend.status = 'committed';
+  spend.assistantMessageId = assistantId;
+  spend.assistantTextHash = textHash;
+  spend.acceptedByPlayerMessageId = playerId;
+  spend.committedAt = timestamp(now);
   return { applied: true, reasonCode: null, commandBearing: next };
 }
 
@@ -170,12 +272,18 @@ export function projectV1CommandBearing(commandBearing) {
   const awards = Object.values(ownRecordMap(bearing.awards));
   const spends = Object.values(ownRecordMap(bearing.spends));
   const latestAward = [...awards].reverse().find((record) => record.credited === true) || null;
-  const latestSpend = spends.at(-1) || null;
+  const pendingEdge = [...spends].reverse().find((record) => PENDING_STATUSES.has(record.status)) || null;
+  const latestSpend = [...spends].reverse().find((record) => new Set(['committed', 'refunded']).has(record.status)) || null;
   return {
     kind: V1_COMMAND_BEARING_PLAYER_PROJECTION_KIND,
     balance: bearing.balance,
     capacity: bearing.capacity,
     latestAwardReason: latestAward?.reason || null,
+    pendingEdge: pendingEdge ? {
+      id: pendingEdge.id,
+      status: pendingEdge.status,
+      reason: pendingEdge.reason
+    } : null,
     latestSpend: latestSpend ? {
       id: latestSpend.id,
       effect: latestSpend.effect,
@@ -183,4 +291,9 @@ export function projectV1CommandBearing(commandBearing) {
       reason: latestSpend.reason
     } : null
   };
+}
+
+export function pendingV1CommandBearingEdge(commandBearing) {
+  const bearing = requireValid(commandBearing);
+  return cloneJson(pendingRecord(bearing));
 }

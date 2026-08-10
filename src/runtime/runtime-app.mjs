@@ -1,6 +1,14 @@
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
+import {
+  armV1CommandBearingEdge,
+  commitV1CommandBearingEdge,
+  pendingV1CommandBearingEdge,
+  refundV1CommandBearingSpend,
+  reserveV1CommandBearingEdge
+} from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
+import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import {
   deleteV1PlayerPortrait,
   storeV1PlayerPortrait
@@ -22,14 +30,6 @@ import {
   createV1MissionRuntime
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
-
-const ASHES_OPENING_FALLBACK = [
-  '*Stardate 53049.2 | 0830 hours*',
-  '',
-  'The U.S.S. Breckenridge is underway again, four months of repair and modernization still audible in the unfamiliar rhythm of her decks.',
-  '',
-  'Captain Mara Whitaker waits in the ready room with the command-transfer packet open between two untouched cups of coffee. “Come in, Commander. Before this ship reaches the Asterion Reach, you and I need to decide how we are going to run her.”'
-].join('\n');
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -114,13 +114,17 @@ function createGenerationRouter(host) {
   };
 }
 
-function promptPacket({ state, projection }) {
+function promptPacket({ state, projection, runtimeAssets }) {
+  const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
     storyProjection: projection.story,
     activeMissionId: projection.mission?.missionId,
     participantIds: projection.people?.people?.map((person) => person.id) || [],
     locationId: state.worldState?.currentLocationId || null
   });
+  const armedEdge = projection.commandBearing?.pendingEdge?.status === 'armed'
+    ? projection.commandBearing.pendingEdge
+    : null;
   const payload = {
     player: {
       name: state.player?.name,
@@ -133,12 +137,27 @@ function promptPacket({ state, projection }) {
       title: state.campaign?.title,
       missionId: state.mission?.activeMissionId,
       locationId: state.worldState?.currentLocationId,
-      timeHeader: timeHeader(state)
+      timeHeader: timeHeader(state),
+      simulationMode: simulationPolicy.simulationMode,
+      consequencePolicy: simulationPolicy.settingsSummary
     },
     mission: projection.mission,
     people: projection.people,
     ship: projection.ship,
     commandBearing: projection.commandBearing,
+    narrativeEdge: armedEdge ? {
+      spendId: armedEdge.id,
+      instruction: 'Create one credible favorable opening or soften one immediate cost. Do not guarantee success, override established facts, decide the player action, or erase a consequence.'
+    } : null,
+    narrationGuidance: {
+      crew: (runtimeAssets?.crewDataset?.officers || []).map((officer) => ({
+        id: officer.id,
+        name: officer.name,
+        billet: officer.billet,
+        ...clone(officer.narrationGuide)
+      })),
+      ship: clone(runtimeAssets?.shipDataset?.profile || null)
+    },
     acceptedStory: story
   };
   const text = [
@@ -148,6 +167,10 @@ function promptPacket({ state, projection }) {
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, trackers, or consequences.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
+    armedEdge
+      ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
+      : '',
+    simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
     payload.campaign.timeHeader
       ? `Begin the assistant response with exactly: ${payload.campaign.timeHeader}`
@@ -214,6 +237,7 @@ export function createDirectiveRuntimeApp({
   let activeScreen = 'campaign';
   let storageDiagnostics = null;
   let settlementQueue = Promise.resolve();
+  let acceptedPairReplayNeeded = false;
 
   function activeSave() {
     return controller?.getActiveSave?.() || null;
@@ -269,8 +293,100 @@ export function createDirectiveRuntimeApp({
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),
-      packet: promptPacket({ state, projection: result.projection })
+      packet: promptPacket({ state, projection: result.projection, runtimeAssets })
     });
+  }
+
+  async function commitCommandBearingChange(result, {
+    proposalId,
+    source
+  } = {}) {
+    if (!result?.applied) return result;
+    const committed = await gateway.applyProposal({
+      id: proposalId,
+      baseRevision: gateway.revision(),
+      domains: ['commandBearing'],
+      patch: { commandBearing: result.commandBearing },
+      source
+    });
+    setState(committed.campaignState);
+    return { ...result, commandBearing: clone(state.commandBearing) };
+  }
+
+  async function armPendingCommandBearingEdge(playerMessage) {
+    const pending = state ? pendingV1CommandBearingEdge(state.commandBearing) : null;
+    const playerMessageId = messageId(playerMessage, normalizeMessage(host, playerMessage));
+    if (!pending || pending.status !== 'reserved' || !playerMessageId) {
+      return { applied: false, reasonCode: pending ? 'edge-not-reservable' : 'no-pending-edge' };
+    }
+    const result = armV1CommandBearingEdge(state.commandBearing, {
+      spendId: pending.id,
+      playerMessageId,
+      now
+    });
+    return commitCommandBearingChange(result, {
+      proposalId: `v1-command-bearing.arm.${pending.id}.${playerMessageId}`,
+      source: 'commandBearingGenerationBoundary'
+    });
+  }
+
+  async function commitAcceptedCommandBearingEdge(snapshot) {
+    const pending = state ? pendingV1CommandBearingEdge(state.commandBearing) : null;
+    if (!pending || pending.status !== 'armed') {
+      return { applied: false, reasonCode: 'no-armed-edge' };
+    }
+    const previousAssistant = snapshot?.source?.previousAssistant;
+    const currentPlayer = snapshot?.source?.currentPlayer;
+    if (!previousAssistant?.hostMessageId || !previousAssistant?.textHash || !currentPlayer?.hostMessageId) {
+      return { applied: false, reasonCode: 'accepted-source-incomplete' };
+    }
+    if (previousAssistant.promptingPlayerHostMessageId !== pending.armedByPlayerMessageId) {
+      return { applied: false, reasonCode: 'edge-generation-anchor-mismatch' };
+    }
+    const result = commitV1CommandBearingEdge(state.commandBearing, {
+      spendId: pending.id,
+      assistantMessageId: previousAssistant.hostMessageId,
+      assistantTextHash: previousAssistant.textHash,
+      acceptedByPlayerMessageId: currentPlayer.hostMessageId,
+      now
+    });
+    return commitCommandBearingChange(result, {
+      proposalId: `v1-command-bearing.commit.${pending.id}.${previousAssistant.hostMessageId}.${currentPlayer.hostMessageId}`,
+      source: 'commandBearingAcceptedPair'
+    });
+  }
+
+  async function refundCommandBearingForInvalidatedMessage(hostMessageId, eventType) {
+    const matches = Object.values(state?.commandBearing?.spends || {}).filter((spend) => (
+      spend.status !== 'refunded'
+      && [
+        spend.armedByPlayerMessageId,
+        spend.assistantMessageId,
+        spend.acceptedByPlayerMessageId
+      ].includes(hostMessageId)
+    ));
+    if (!matches.length) return { applied: false, reasonCode: 'no-matching-edge' };
+    let commandBearing = clone(state.commandBearing);
+    let refundedCount = 0;
+    for (const spend of matches) {
+      const result = refundV1CommandBearingSpend(commandBearing, {
+        spendId: spend.id,
+        reason: `The source was invalidated by ${eventType}.`,
+        now
+      });
+      commandBearing = result.commandBearing;
+      if (result.applied) refundedCount += 1;
+    }
+    if (!refundedCount) return { applied: false, reasonCode: 'no-refundable-edge' };
+    const committed = await gateway.applyProposal({
+      id: `v1-command-bearing.refund.${hostMessageId}.${eventType}.${matches.map((item) => item.id).join('.')}`,
+      baseRevision: gateway.revision(),
+      domains: ['commandBearing'],
+      patch: { commandBearing },
+      source: 'commandBearingSourceInvalidation'
+    });
+    setState(committed.campaignState);
+    return { applied: true, refundedCount, commandBearing: clone(state.commandBearing) };
   }
 
   async function ensureInitialized() {
@@ -326,28 +442,7 @@ export function createDirectiveRuntimeApp({
   async function postOpeningIfEmpty() {
     const messages = await host.chat.getRecentMessages?.({ limit: 4 }) || [];
     if (messages.some((message) => !message.isSystem && message.role !== 'system')) return { posted: false, reason: 'chat-not-empty' };
-    let opening = compact(records.packageData?.campaign?.openingMessage);
-    if (!opening) {
-      const projection = projectionResult();
-      const request = {
-        systemPrompt: 'Write the opening assistant message for Directive V1. Use only the supplied accepted state. Do not reveal hidden facts, complete objectives, or create trackers. End with a clear opening for the player to act.',
-        prompt: JSON.stringify({
-          player: state.player,
-          campaign: state.campaign,
-          mission: projection.ok ? projection.projection.mission : null,
-          people: projection.ok ? projection.projection.people : null,
-          ship: projection.ok ? projection.projection.ship : null,
-          requiredHeader: timeHeader(state)
-        }, null, 2)
-      };
-      try {
-        const generated = await host.generation.generate('narration', request);
-        opening = compact(generated?.text || generated?.content);
-      } catch (error) {
-        host.logger?.warn?.('[Directive] Opening narration provider unavailable; using the Ashes V1 fallback.', error);
-      }
-    }
-    opening ||= ASHES_OPENING_FALLBACK;
+    let opening = compact(records.packageData.campaign.openingMessage);
     if (timeHeader(state) && !opening.startsWith(timeHeader(state))) opening = `${timeHeader(state)}\n\n${opening}`;
     return host.chat.postAssistantMessage({
       text: opening,
@@ -365,7 +460,7 @@ export function createDirectiveRuntimeApp({
     return next;
   }
 
-  async function settleSnapshot(snapshot, ingressId = null) {
+  async function settleSnapshot(snapshot, ingressId = null, { syncPromptAfter = true } = {}) {
     const time = await commitV1AcceptedPairTimeAdvance({
       campaignState: state,
       snapshot,
@@ -380,11 +475,13 @@ export function createDirectiveRuntimeApp({
       runtimeAssets,
       snapshot
     });
+    if (mission?.ok === false) acceptedPairReplayNeeded = true;
     if (missionRuntime.pendingEpisodeReview()) {
       await missionRuntime.reviewPendingEpisode({ runtimeAssets });
     }
-    await syncPrompt();
-    return { time, mission, campaignState: clone(state) };
+    const commandBearing = await commitAcceptedCommandBearingEdge(snapshot);
+    if (syncPromptAfter) await syncPrompt();
+    return { time, mission, commandBearing, campaignState: clone(state) };
   }
 
   async function acceptedSnapshotForMessage(currentPlayerMessage, recentMessages, ingressId = null) {
@@ -398,17 +495,33 @@ export function createDirectiveRuntimeApp({
   }
 
   async function rebuildAcceptedStateFromChat() {
-    if (!state || !currentChatIsBound()) return { replayed: 0 };
+    if (!state || !currentChatIsBound()) return { replayed: 0, blocked: false };
     const messages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
     let replayed = 0;
+    let blockedAtMessageId = null;
+    acceptedPairReplayNeeded = false;
     for (const message of messages) {
       if (!isUserMessage(message)) continue;
-      const prepared = await acceptedSnapshotForMessage(message, messages, `replay.${message.hostMessageId || message.id}`);
+      const hostMessageId = message.hostMessageId || message.id;
+      const prepared = await acceptedSnapshotForMessage(message, messages, `replay.${hostMessageId}`);
       if (!prepared.ok) continue;
-      const result = await settleSnapshot(prepared.snapshot, `replay.${message.hostMessageId || message.id}`);
+      const result = await settleSnapshot(prepared.snapshot, `replay.${hostMessageId}`, {
+        syncPromptAfter: false
+      });
+      if (result.mission?.ok === false) {
+        blockedAtMessageId = hostMessageId || null;
+        acceptedPairReplayNeeded = true;
+        break;
+      }
       if (result.mission?.status !== 'already-settled') replayed += 1;
     }
-    return { replayed };
+    await syncPrompt({ rebuild: true });
+    return {
+      replayed,
+      blocked: acceptedPairReplayNeeded,
+      blockedAtMessageId,
+      retryPending: acceptedPairReplayNeeded
+    };
   }
 
   async function invalidateSource(payload, eventType) {
@@ -431,9 +544,9 @@ export function createDirectiveRuntimeApp({
         eventType
       });
       if (time.campaignState) setState(time.campaignState);
+      const commandBearing = await refundCommandBearingForInvalidatedMessage(id, eventType);
       const replay = await rebuildAcceptedStateFromChat();
-      await syncPrompt({ rebuild: true });
-      return { handled: true, mission, time, replay };
+      return { handled: true, mission, time, commandBearing, replay };
     });
   }
 
@@ -474,18 +587,23 @@ export function createDirectiveRuntimeApp({
       await settlementQueue;
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
       const latestPlayerMessage = await host.chat.getLatestPlayerMessage?.();
-      if (latestPlayerMessage) {
+      let acceptedPairReplay = null;
+      if (acceptedPairReplayNeeded) {
+        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+      } else if (latestPlayerMessage) {
         await publicApi.observeHostPlayerMessage({
           message: latestPlayerMessage,
           source: 'v1-generation-boundary'
         });
         await settlementQueue;
       }
+      if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
       await syncPrompt();
       return {
         handled: true,
         abortDefaultGeneration: false,
-        responseStrategy: 'injectAndContinue'
+        responseStrategy: 'injectAndContinue',
+        acceptedPairReplay
       };
     }
   };
@@ -498,6 +616,7 @@ export function createDirectiveRuntimeApp({
       controller = createCampaignStartController({
         adapter: host.storage,
         packages: [records.packageData],
+        missionDefinitions: records.missionDefinitions,
         campaignLibrary: records.campaignLibrary || createV1CampaignLibrary(),
         idFactory,
         now
@@ -524,9 +643,62 @@ export function createDirectiveRuntimeApp({
       return clone(projectionResult());
     },
 
+    async reserveCommandBearingEdge() {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound()) return { applied: false, reasonCode: 'inactive-or-unbound' };
+      return enqueueSettlement(async () => {
+        const createdAt = now();
+        const spendId = typeof idFactory === 'function'
+          ? idFactory('command-bearing-edge')
+          : `command-bearing-edge.${state.stateCustody.revision + 1}.${stableHash(`${activeSave()?.id || ''}.${createdAt}`)}`;
+        const result = reserveV1CommandBearingEdge(state.commandBearing, {
+          spendId,
+          reason: 'Create one credible favorable edge without erasing established costs.',
+          now: createdAt
+        });
+        const committed = await commitCommandBearingChange(result, {
+          proposalId: `v1-command-bearing.reserve.${spendId}`,
+          source: 'commandBearingPlayerAction'
+        });
+        await syncPrompt();
+        return { ...committed, spendId };
+      });
+    },
+
+    async cancelCommandBearingEdge() {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound()) return { applied: false, reasonCode: 'inactive-or-unbound' };
+      return enqueueSettlement(async () => {
+        const pending = pendingV1CommandBearingEdge(state.commandBearing);
+        if (!pending) return { applied: false, reasonCode: 'no-pending-edge' };
+        const result = refundV1CommandBearingSpend(state.commandBearing, {
+          spendId: pending.id,
+          reason: 'The player cancelled the reserved edge before acceptance.',
+          now
+        });
+        const committed = await commitCommandBearingChange(result, {
+          proposalId: `v1-command-bearing.cancel.${pending.id}`,
+          source: 'commandBearingPlayerAction'
+        });
+        await syncPrompt();
+        return { ...committed, spendId: pending.id };
+      });
+    },
+
     async observeHostPlayerMessage(payload = {}) {
       await ensureInitialized();
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+      if (acceptedPairReplayNeeded) {
+        const acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+        return {
+          handled: acceptedPairReplay.blocked !== true,
+          reason: acceptedPairReplay.blocked ? 'accepted-pair-replay-pending' : null,
+          responseStrategy: 'injectAndContinue',
+          abortDefaultGeneration: false,
+          acceptedPairReplay,
+          campaignState: clone(state)
+        };
+      }
       const current = normalizeMessage(host, payload) || await host.chat.getLatestPlayerMessage?.();
       if (!current || !isUserMessage(current) || !compact(current.text || current.mes || current.content)) {
         return { handled: false, reason: 'no-player-message' };
@@ -567,9 +739,12 @@ export function createDirectiveRuntimeApp({
         setState(await controller.loadGame({ saveId: metadata.saveId }));
         configureStateRuntime();
       }
-      if (currentChatIsBound()) await syncPrompt({ rebuild: true });
+      let acceptedPairReplay = null;
+      if (currentChatIsBound()) {
+        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+      }
       else await host.prompt.clear?.({ reason: 'chat-changed-unbound' });
-      return { active: currentChatIsBound(), chatId };
+      return { active: currentChatIsBound(), chatId, acceptedPairReplay };
     },
 
     async handleHostGenerationStopped() {
@@ -749,30 +924,7 @@ export function createDirectiveRuntimeApp({
       return { result, view: await campaignViewEnvelope('campaign') };
     },
 
-    async updateRuntimeSettings(patch = {}) {
-      await ensureInitialized();
-      if (!state) throw new Error('No active V1 campaign is available.');
-      const maxTurnSaveHistory = Math.max(1, Math.min(100, Math.round(Number(patch.maxTurnSaveHistory) || 8)));
-      const autosaveEveryMessages = Math.max(1, Math.min(50, Math.round(Number(patch.autosaveEveryMessages) || 5)));
-      await gateway.applyProposal({
-        id: `v1-settings.${gateway.revision()}.${maxTurnSaveHistory}.${autosaveEveryMessages}`,
-        baseRevision: gateway.revision(),
-        domains: ['settings'],
-        patch: { settings: { maxTurnSaveHistory, autosaveEveryMessages } },
-        source: 'v1Settings'
-      });
-      return campaignViewEnvelope('settings');
-    },
-
-    async refreshStorageDiagnostics() {
-      storageDiagnostics = await controller.verifyStorage();
-      return clone(storageDiagnostics);
-    },
     verifyActiveSave: () => controller.verifyStorage(),
-    async exportActiveSave() {
-      const save = activeSave();
-      return { fileName: `directive-v1-${save?.id || 'no-save'}.json`, jsonText: JSON.stringify(save, null, 2) };
-    },
     async exportSupportDiagnostics() {
       const bundle = {
         kind: 'directive.supportBundle.v1',
@@ -791,8 +943,6 @@ export function createDirectiveRuntimeApp({
       };
       return { fileName: `directive-support-${Date.now()}.json`, jsonText: JSON.stringify(bundle, null, 2) };
     },
-    cleanMissingStorageRecords: () => controller.verifyStorage(),
-
     async updateProviderSettings({ kind, patch } = {}) {
       const result = host.providers?.updateSettings
         ? host.providers.updateSettings(kind, patch)
