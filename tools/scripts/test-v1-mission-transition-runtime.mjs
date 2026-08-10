@@ -293,7 +293,7 @@ const conflictHarness = createHarness({
         if (conflictInjected) return;
         conflictInjected = true;
         await baseGateway.applyProposal({
-            patch: { campaign: { externalRevisionMarker: true } },
+            patch: { campaign: { status: 'concluded' } },
             domains: ['campaign'],
             baseRevision: baseGateway.revision(),
             source: 'test.concurrent-state',
@@ -305,7 +305,7 @@ const conflicted = await conflictHarness.runtime.activatePendingTransition({ run
 assert.equal(conflicted.ok, false);
 assert.equal(conflicted.reasonCode, 'state-revision-conflict');
 assert.equal(conflictHarness.campaignState.mission.v1.definitionId, sourceDefinition.id);
-assert.equal(conflictHarness.campaignState.campaign.externalRevisionMarker, true);
+assert.equal(conflictHarness.campaignState.campaign.status, 'concluded');
 
 const rollbackConflictHarness = createHarness({
     persist: async (_state, _proposal, controls) => {

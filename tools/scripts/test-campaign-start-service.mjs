@@ -100,6 +100,10 @@ assert.equal(Object.hasOwn(started.campaignState, 'runtimeTracking'), false);
 
 const advanced = structuredClone(started.campaignState);
 advanced.campaign.currentStardate = 53051.2;
+advanced.worldState.currentStardate = 53051.2;
+advanced.worldState.elapsedMinutes = 2880;
+advanced.timeLedger.elapsedMinutes = 2880;
+advanced.timeLedger.stardate = 53051.2;
 await persistActiveCampaign({
   adapter,
   saveId: started.firstSave.id,

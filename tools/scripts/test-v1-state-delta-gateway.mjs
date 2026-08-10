@@ -22,6 +22,19 @@ const gateway = createStateDeltaGateway({
 assert.equal(assertV1CampaignState(current), current);
 assert.equal(gateway.revision(), 0);
 
+const invalidCampaign = state();
+invalidCampaign.campaign.title = '';
+assert.throws(
+  () => assertV1CampaignState(invalidCampaign),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_CAMPAIGN_INVALID'
+);
+const invalidPackageBinding = state();
+invalidPackageBinding.activeCampaignPackage.unexpectedPackageId = 'other-package';
+assert.throws(
+  () => assertV1CampaignState(invalidPackageBinding),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PACKAGE_INVALID'
+);
+
 const first = await gateway.applyProposal({
   id: 'proposal.one',
   baseRevision: 0,
@@ -55,6 +68,50 @@ assert.throws(
 assert.throws(
   () => assertV1CampaignState({ ...state(), commandBearing: {} }),
   (error) => error?.code === 'DIRECTIVE_V1_STATE_COMMAND_BEARING_INVALID'
+);
+assert.throws(
+  () => assertV1CampaignState({ ...state(), player: {} }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PLAYER_INVALID'
+);
+const numericPlayerName = state();
+numericPlayerName.player.name = 7;
+assert.throws(
+  () => assertV1CampaignState(numericPlayerName),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PLAYER_INVALID'
+);
+assert.throws(
+  () => assertV1CampaignState({ ...state(), ship: {} }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_SHIP_INVALID'
+);
+assert.throws(
+  () => assertV1CampaignState({ ...state(), worldState: {} }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_WORLD_INVALID'
+);
+assert.throws(
+  () => assertV1CampaignState({ ...state(), timeLedger: {} }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_TIME_INVALID'
+);
+const nonAuthoritativeTime = state();
+nonAuthoritativeTime.timeLedger.entries = [{
+  id: 'time.proposal.invalid',
+  kind: 'directive.timeProposal.v1',
+  elapsedMinutes: 30
+}];
+assert.throws(
+  () => assertV1CampaignState(nonAuthoritativeTime),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_TIME_INVALID'
+);
+const inconsistentTime = state();
+inconsistentTime.timeLedger.elapsedMinutes = 5;
+assert.throws(
+  () => assertV1CampaignState(inconsistentTime),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_TIME_MISMATCH'
+);
+const invalidBinding = state();
+invalidBinding.campaignChatBinding.kind = 'directive.campaignChatBinding.old';
+assert.throws(
+  () => assertV1CampaignState(invalidBinding),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_CHAT_BINDING_INVALID'
 );
 const withoutStorySettlement = state();
 delete withoutStorySettlement.storySettlement;

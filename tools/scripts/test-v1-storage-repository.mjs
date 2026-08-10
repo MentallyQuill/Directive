@@ -36,7 +36,6 @@ function state() {
     saveId: 'save.one',
     chatId: 'chat.one',
   });
-  value.campaign.currentStardate = 53051.1;
   return value;
 }
 

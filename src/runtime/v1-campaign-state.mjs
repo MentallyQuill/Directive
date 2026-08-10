@@ -13,6 +13,10 @@ import {
   STORY_SETTLEMENT_KIND,
   validateStorySettlement
 } from '../story/story-settlement-contracts.mjs';
+import {
+  DIRECTIVE_STORAGE_IMAGE_EXTENSIONS,
+  validateDirectiveUserFilesPath
+} from '../storage/directive-storage-filenames.mjs';
 
 export const V1_STATE_CUSTODY_KIND = 'directive.stateCustody.v1';
 export const V1_STATE_CUSTODY_RECENT_COMMIT_LIMIT = 64;
@@ -64,6 +68,158 @@ function compact(value) {
   return String(value ?? '').trim();
 }
 
+function requiredText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function onlyKeys(value, allowed) {
+  return isObject(value) && Object.keys(value).every((key) => allowed.has(key));
+}
+
+const CAMPAIGN_KEYS = new Set([
+  'id', 'title', 'status', 'createdAt', 'startedAt', 'characterCreatorDraftId',
+  'packageTitle', 'openingStardate', 'currentStardate', 'openingMinuteOfDay',
+  'runtimeArchitecture'
+]);
+const ACTIVE_PACKAGE_KEYS = new Set(['packageId', 'packageVersion']);
+
+function validateV1Campaign(campaign) {
+  return onlyKeys(campaign, CAMPAIGN_KEYS)
+    && ['id', 'title', 'createdAt', 'startedAt', 'packageTitle'].every((key) => requiredText(campaign[key]))
+    && ['activating', 'active', 'concluded'].includes(campaign.status)
+    && (campaign.characterCreatorDraftId === null || requiredText(campaign.characterCreatorDraftId))
+    && Number.isFinite(campaign.openingStardate)
+    && Number.isFinite(campaign.currentStardate)
+    && Number.isInteger(campaign.openingMinuteOfDay)
+    && campaign.openingMinuteOfDay >= 0
+    && campaign.openingMinuteOfDay < 1440;
+}
+
+const PLAYER_KEYS = new Set([
+  'id', 'creationStatus', 'name', 'pronounsOrAddress', 'rank', 'billet', 'role', 'roleMode',
+  'shipId', 'shipName', 'species', 'ageBand', 'appearance', 'firstImpression', 'service',
+  'personality', 'dossier', 'personalValues', 'creatorAcceptedAt', 'adjudicationProfile', 'portrait'
+]);
+
+function validPlayerPortrait(portrait) {
+  if (portrait === null || portrait === undefined) return true;
+  return portrait.kind === 'directive.playerPortrait'
+    && isObject(portrait.asset)
+    && validateDirectiveUserFilesPath(portrait.asset.path, {
+      allowedExtensions: DIRECTIVE_STORAGE_IMAGE_EXTENSIONS
+    }).ok;
+}
+
+function validateV1Player(player) {
+  return onlyKeys(player, PLAYER_KEYS)
+    && player.creationStatus === 'complete'
+    && ['id', 'name', 'pronounsOrAddress', 'rank', 'billet', 'role', 'roleMode', 'shipId', 'shipName', 'appearance', 'creatorAcceptedAt']
+      .every((key) => requiredText(player[key]))
+    && isObject(player.species)
+    && requiredText(player.species.id)
+    && requiredText(player.species.label)
+    && isObject(player.ageBand)
+    && requiredText(player.ageBand.id)
+    && requiredText(player.ageBand.label)
+    && typeof player.firstImpression === 'string'
+    && isObject(player.service)
+    && isObject(player.personality)
+    && isObject(player.dossier)
+    && Array.isArray(player.personalValues)
+    && isObject(player.adjudicationProfile)
+    && validPlayerPortrait(player.portrait);
+}
+
+const SHIP_KEYS = new Set(['id', 'name', 'class', 'registry', 'operationalOverview']);
+const SHIP_OVERVIEW_KEYS = new Set(['kind', 'status', 'summary', 'materialLimitations', 'history']);
+
+function validateV1Ship(ship) {
+  const overview = ship?.operationalOverview;
+  return onlyKeys(ship, SHIP_KEYS)
+    && ['id', 'name', 'class', 'registry'].every((key) => requiredText(ship[key]))
+    && onlyKeys(overview, SHIP_OVERVIEW_KEYS)
+    && overview.kind === 'directive.shipOperationalOverview.v1'
+    && requiredText(overview.status)
+    && typeof overview.summary === 'string'
+    && Array.isArray(overview.materialLimitations)
+    && Array.isArray(overview.history);
+}
+
+const WORLD_KEYS = new Set([
+  'kind', 'version', 'regionId', 'currentLocationId', 'currentStardate',
+  'openingMinuteOfDay', 'elapsedMinutes', 'visitedLocationIds'
+]);
+
+function nullableText(value) {
+  return value === null || requiredText(value);
+}
+
+function validateV1WorldState(world) {
+  return onlyKeys(world, WORLD_KEYS)
+    && world.kind === 'directive.worldState.v1'
+    && world.version === 1
+    && nullableText(world.regionId)
+    && nullableText(world.currentLocationId)
+    && Number.isFinite(world.currentStardate)
+    && Number.isInteger(world.openingMinuteOfDay)
+    && world.openingMinuteOfDay >= 0
+    && world.openingMinuteOfDay < 1440
+    && Number.isInteger(world.elapsedMinutes)
+    && world.elapsedMinutes >= 0
+    && Array.isArray(world.visitedLocationIds)
+    && world.visitedLocationIds.every(requiredText);
+}
+
+const TIME_LEDGER_KEYS = new Set([
+  'kind', 'version', 'openingMinuteOfDay', 'elapsedMinutes', 'stardate',
+  'shipClock', 'entries', 'lastBoundary', 'updatedAt'
+]);
+
+function validTimeBoundary(boundary) {
+  return isObject(boundary)
+    && boundary.kind === 'directive.timeBoundary.v1'
+    && requiredText(boundary.id)
+    && Number.isInteger(boundary.elapsedMinutes)
+    && boundary.elapsedMinutes >= 0;
+}
+
+function validateV1TimeLedger(ledger) {
+  return onlyKeys(ledger, TIME_LEDGER_KEYS)
+    && ledger.kind === 'directive.timeLedger.v1'
+    && ledger.version === 1
+    && Number.isInteger(ledger.openingMinuteOfDay)
+    && ledger.openingMinuteOfDay >= 0
+    && ledger.openingMinuteOfDay < 1440
+    && Number.isInteger(ledger.elapsedMinutes)
+    && ledger.elapsedMinutes >= 0
+    && Number.isFinite(ledger.stardate)
+    && isObject(ledger.shipClock)
+    && Number.isInteger(ledger.shipClock.minuteOfDay)
+    && ledger.shipClock.minuteOfDay >= 0
+    && ledger.shipClock.minuteOfDay < 1440
+    && requiredText(ledger.shipClock.display)
+    && Array.isArray(ledger.entries)
+    && ledger.entries.every(validTimeBoundary)
+    && (!Object.hasOwn(ledger, 'lastBoundary')
+      || ledger.lastBoundary === null
+      || validTimeBoundary(ledger.lastBoundary))
+    && requiredText(ledger.updatedAt);
+}
+
+function validateCampaignChatBinding(binding, campaignState, missionBranchId) {
+  if (binding === null || binding === undefined) return true;
+  return isObject(binding)
+    && binding.kind === 'directive.campaignChatBinding.v1'
+    && binding.version === 1
+    && requiredText(binding.campaignId)
+    && binding.campaignId === campaignState?.campaign?.id
+    && requiredText(binding.saveId)
+    && binding.saveId === missionBranchId
+    && (binding.chatId === null || requiredText(binding.chatId))
+    && ['bound', 'unbound'].includes(binding.status)
+    && (binding.status !== 'bound' || requiredText(binding.chatId));
+}
+
 function stateError(code, message, details = null) {
   const error = new Error(message);
   error.code = code;
@@ -112,17 +268,31 @@ export function assertV1CampaignState(state) {
       { missingRoots: missing }
     );
   }
+  if (!validateV1Campaign(state.campaign)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_CAMPAIGN_INVALID',
+      'Directive V1 campaign state requires exact campaign identity and chronology.'
+    );
+  }
   const stamp = state.campaign?.runtimeArchitecture;
   if (!isObject(stamp)
     || stamp.kind !== V1_RUNTIME_ARCHITECTURE_KIND
     || stamp.contractVersion !== V1_RUNTIME_ARCHITECTURE_CONTRACT_VERSION
     || stamp.semanticAuthority !== V1_SEMANTIC_AUTHORITY
     || stamp.createdForNewSave !== true
-    || !compact(stamp.packageId)
-    || !compact(stamp.packageVersion)) {
+    || !requiredText(stamp.packageId)
+    || !requiredText(stamp.packageVersion)) {
     throw stateError(
       'DIRECTIVE_V1_STATE_ARCHITECTURE_REQUIRED',
       'Directive V1 rejects campaign state without its exact V1 architecture stamp.'
+    );
+  }
+  if (!onlyKeys(state.activeCampaignPackage, ACTIVE_PACKAGE_KEYS)
+    || !requiredText(state.activeCampaignPackage.packageId)
+    || !requiredText(state.activeCampaignPackage.packageVersion)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_PACKAGE_INVALID',
+      'Directive V1 campaign state requires one exact active package binding.'
     );
   }
   if (compact(state.activeCampaignPackage?.packageId) !== compact(stamp.packageId)
@@ -130,6 +300,52 @@ export function assertV1CampaignState(state) {
     throw stateError(
       'DIRECTIVE_V1_STATE_PACKAGE_MISMATCH',
       'Directive V1 campaign state package binding does not match its architecture stamp.'
+    );
+  }
+  if (!validateV1Player(state.player)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_PLAYER_INVALID',
+      'Directive V1 campaign state requires one exact accepted player record.'
+    );
+  }
+  if (!validateV1Ship(state.ship)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_SHIP_INVALID',
+      'Directive V1 campaign state requires one exact immutable ship record.'
+    );
+  }
+  if (!validateV1WorldState(state.worldState)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_WORLD_INVALID',
+      'Directive V1 campaign state requires exact world-state custody.'
+    );
+  }
+  if (!validateV1TimeLedger(state.timeLedger)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_TIME_INVALID',
+      'Directive V1 campaign state requires exact accepted-time custody.'
+    );
+  }
+  const expectedShipMinute = (state.timeLedger.openingMinuteOfDay + state.timeLedger.elapsedMinutes) % 1440;
+  const timeMismatch = !Number.isFinite(state.campaign?.currentStardate)
+    || !Number.isInteger(state.campaign?.openingMinuteOfDay)
+    || state.campaign.openingMinuteOfDay !== state.worldState.openingMinuteOfDay
+    || state.campaign.openingMinuteOfDay !== state.timeLedger.openingMinuteOfDay
+    || state.worldState.elapsedMinutes !== state.timeLedger.elapsedMinutes
+    || state.campaign.currentStardate !== state.worldState.currentStardate
+    || state.campaign.currentStardate !== state.timeLedger.stardate
+    || state.timeLedger.shipClock.minuteOfDay !== expectedShipMinute;
+  if (timeMismatch) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_TIME_MISMATCH',
+      'Directive V1 campaign, world, and accepted-time custody must agree.'
+    );
+  }
+  if (compact(state.player.shipId) !== compact(state.ship?.id)
+    || compact(state.player.shipName) !== compact(state.ship?.name)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_PLAYER_SHIP_MISMATCH',
+      'Directive V1 player and ship identity must remain bound to the same vessel.'
     );
   }
   if (!validateV1StateCustody(state.stateCustody)) {
@@ -176,6 +392,12 @@ export function assertV1CampaignState(state) {
       'DIRECTIVE_V1_STATE_STORY_SETTLEMENT_INVALID',
       'Directive V1 campaign state requires exact story settlement authority.',
       { errors: storyValidation.errors }
+    );
+  }
+  if (!validateCampaignChatBinding(state.campaignChatBinding, state, missionBranchId)) {
+    throw stateError(
+      'DIRECTIVE_V1_STATE_CHAT_BINDING_INVALID',
+      'Directive V1 campaign state contains an invalid campaign-chat binding.'
     );
   }
   const boundSaveId = compact(state.campaignChatBinding?.saveId);

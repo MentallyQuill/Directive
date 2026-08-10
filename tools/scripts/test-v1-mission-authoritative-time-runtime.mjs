@@ -223,7 +223,6 @@ assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.find(
 
 for (const [label, testDefinition, boundaryOptions] of [
     ['mismatched boundary', clockReadyDefinition(), { currentPlayerHostMessageId: 'message.other.player', rangeHash: 'range.other' }],
-    ['non-authoritative ledger entry', clockReadyDefinition(), { kind: 'directive.timeProposal.v1' }],
     ['not-started clock', clockReadyDefinition({ startWhen: false }), {}],
     ['unsupported clock unit', clockReadyDefinition({ unit: 'fortnights' }), {}],
 ]) {

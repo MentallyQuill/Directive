@@ -74,7 +74,8 @@ export function createAshesInitialState({
     version: 1,
     campaignId,
     saveId,
-    chatId
+    chatId,
+    status: 'bound'
   };
   return state;
 }

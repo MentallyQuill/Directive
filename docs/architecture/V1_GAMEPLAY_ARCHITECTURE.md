@@ -25,7 +25,7 @@ An assistant response is not accepted merely because it was generated. It become
 
 ## State authority
 
-Every save is `directive.campaignSave.v1` and contains an exact, architecture-stamped campaign state. The allowed roots are fixed in `src/runtime/v1-campaign-state.mjs`; unknown and missing roots are rejected. State changes pass through a compare-and-swap gateway with exact domain allowlisting and persistence conflict handling.
+Every save is `directive.campaignSave.v1` and contains an exact, architecture-stamped campaign state. The allowed roots are fixed in `src/runtime/v1-campaign-state.mjs`; unknown and missing roots are rejected. Campaign and package identity, the immutable player and ship records, world and accepted-time custody, mission and story authority, Command Bearing, settings, chat binding, and state custody are structurally validated before load or commit. Cross-root player/ship, package, branch, and time bindings must agree. State changes pass through a compare-and-swap gateway with exact domain allowlisting and persistence conflict handling.
 
 The semantic authorities are:
 

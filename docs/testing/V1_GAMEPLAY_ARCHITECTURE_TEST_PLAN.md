@@ -5,7 +5,7 @@
 ## Required coverage
 
 - exact campaign, crew, ship, mission, state, save, draft, and prompt kinds;
-- rejection of unknown roots, incomplete episodes, mismatched package bindings, unsafe paths, and non-V1 records;
+- rejection of unknown roots, malformed campaign/player/ship/world/time/chat records, cross-root custody mismatches, incomplete episodes, mismatched package bindings, unsafe paths, and non-V1 records;
 - accepted-pair selection, swipe identity, content hashes, and chat/branch binding;
 - time adjudication, invalidation, and replay;
 - closed mission candidate construction, evidence validation, reducer idempotency, objective order variation, clocks, terminal dispositions, and transitions;
