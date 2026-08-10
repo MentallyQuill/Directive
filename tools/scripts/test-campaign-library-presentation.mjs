@@ -10,50 +10,84 @@ const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.ur
 const svg = (width, height) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"/>`)}`;
 const browser = await chromium.launch({ headless: true });
 
-try {
-  const page = await browser.newPage({ viewport: { width: 680, height: 900 } });
-  await page.setContent(`
-    <style>${css}</style>
-    <div class="directive-expanded-shell">
-      <figure id="square" class="directive-media-frame directive-v1-campaign-media" style="width:320px"><img src="${svg(640, 640)}"></figure>
-      <figure id="wide" class="directive-media-frame directive-v1-campaign-media" style="width:320px"><img src="${svg(960, 540)}"></figure>
-      <article class="directive-v1-campaign-package" style="width:640px">
-        <figure id="tablet" class="directive-media-frame directive-v1-campaign-media"><img src="${svg(640, 640)}"></figure>
-        <div class="directive-v1-campaign-package-copy">
-          <p id="control">Ordinary campaign copy.</p>
-          <p id="hook" class="directive-v1-campaign-hook">A four-sentence campaign hook occupies enough lines to make the copy column taller than its image. Its cover must retain the shared ratio. The typography remains compact and readable. The card must not stretch the artwork.</p>
+async function layoutMetrics(viewport) {
+  const page = await browser.newPage({ viewport });
+  try {
+    await page.setContent(`
+      <style>${css}</style>
+      <div class="directive-expanded-shell">
+        <div class="directive-v1-campaign-packages" style="width:min(900px, calc(100vw - 32px))">
+          <article class="directive-v1-campaign-package">
+            <figure class="directive-media-frame directive-v1-campaign-media"><img src="${svg(640, 640)}"></figure>
+            <div class="directive-v1-campaign-package-copy">
+              <p class="directive-v1-campaign-hook">A four-sentence campaign hook occupies enough lines to make the copy column taller than its image. Its cover must retain the shared ratio. The typography remains compact and readable. The card must not stretch or clip the artwork.</p>
+            </div>
+          </article>
+          <article class="directive-v1-campaign-package">
+            <figure class="directive-media-frame directive-v1-campaign-media"><img src="${svg(960, 540)}"></figure>
+            <div class="directive-v1-campaign-package-copy">
+              <p class="directive-v1-campaign-hook">A second four-sentence campaign hook verifies the widescreen source. Its cover must match the square source. The typography remains compact and readable. The card must not stretch or clip the artwork.</p>
+            </div>
+          </article>
         </div>
-      </article>
-    </div>
-  `);
-  await page.waitForFunction(() => [...document.images].every((image) => image.complete));
-  const metrics = await page.evaluate(() => {
-    const rect = (selector) => {
-      const box = document.querySelector(selector).getBoundingClientRect();
-      return { width: box.width, height: box.height };
-    };
-    const hook = getComputedStyle(document.querySelector('#hook'));
-    const control = getComputedStyle(document.querySelector('#control'));
-    return {
-      square: rect('#square'),
-      wide: rect('#wide'),
-      tablet: rect('#tablet'),
-      fits: [...document.querySelectorAll('.directive-v1-campaign-media img')].map((image) => getComputedStyle(image).objectFit),
-      hookFont: Number.parseFloat(hook.fontSize),
-      controlFont: Number.parseFloat(control.fontSize),
-      hookLineHeight: Number.parseFloat(hook.lineHeight)
-    };
-  });
+      </div>
+    `);
+    await page.waitForFunction(() => [...document.images].every((image) => image.complete));
+    return await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.directive-v1-campaign-package')];
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        covers: cards.map((card) => {
+          const box = card.querySelector('.directive-v1-campaign-media').getBoundingClientRect();
+          return { width: box.width, height: box.height };
+        }),
+        fits: cards.map((card) => getComputedStyle(card.querySelector('img')).objectFit),
+        hooks: cards.map((card) => {
+          const hook = card.querySelector('.directive-v1-campaign-hook');
+          const style = getComputedStyle(hook);
+          return {
+            fontSize: Number.parseFloat(style.fontSize),
+            lineHeight: Number.parseFloat(style.lineHeight),
+            lineClamp: style.webkitLineClamp,
+            overflowMode: style.overflow,
+            overflow: hook.scrollHeight > hook.clientHeight + 1
+          };
+        }),
+        overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth
+      };
+    });
+  } finally {
+    await page.close();
+  }
+}
 
-  assert.equal(metrics.square.height, metrics.wide.height, 'intrinsic image ratios must not change cover height');
-  assert.ok(Math.abs(metrics.square.width / metrics.square.height - 16 / 9) < 0.01, 'campaign covers must render at 16:9');
-  assert.ok(
-    Math.abs(metrics.tablet.width / metrics.tablet.height - 16 / 9) < 0.01,
-    `two-column cards must retain the shared cover ratio: ${JSON.stringify(metrics.tablet)}`
-  );
-  assert.deepEqual(metrics.fits, ['cover', 'cover', 'cover']);
-  assert.ok(metrics.hookFont < metrics.controlFont, 'campaign hook type must be smaller than ordinary card copy');
-  assert.ok(metrics.hookLineHeight > metrics.hookFont, 'campaign hooks must retain readable line spacing');
+try {
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 680, height: 900 },
+    { width: 390, height: 844 }
+  ]) {
+    const metrics = await layoutMetrics(viewport);
+    assert.ok(
+      Math.abs(metrics.covers[0].height - metrics.covers[1].height) < 0.1,
+      `${viewport.width}px intrinsic image ratios must not change cover height`
+    );
+    for (const cover of metrics.covers) {
+      assert.ok(
+        Math.abs(cover.width / cover.height - 16 / 9) < 0.01,
+        `${viewport.width}px campaign cover must render at 16:9: ${JSON.stringify(cover)}`
+      );
+    }
+    assert.deepEqual(metrics.fits, ['cover', 'cover']);
+    for (const hook of metrics.hooks) {
+      assert.ok(Math.abs(hook.fontSize - 13.12) < 0.01, `${viewport.width}px hook font must compute to 0.82rem`);
+      assert.ok(Math.abs(hook.lineHeight - 18.368) < 0.01, `${viewport.width}px hook line height must compute to 1.4`);
+      assert.equal(hook.overflow, false, `${viewport.width}px hook text must remain unclipped`);
+      assert.notEqual(hook.overflowMode, 'hidden', `${viewport.width}px hook text must remain unclamped`);
+      assert.ok(hook.lineClamp === 'none' || hook.lineClamp === '', `${viewport.width}px hook text must not use a line clamp`);
+    }
+    assert.equal(metrics.overflowX, false, `${viewport.width}px campaign grid must not overflow horizontally`);
+  }
 } finally {
   await browser.close();
 }
