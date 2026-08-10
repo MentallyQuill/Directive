@@ -179,7 +179,7 @@ function promptPacket({ state, projection, runtimeAssets }) {
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
     'Continue a story-first command RPG from the accepted state below.',
     'Only this packet and the visible chat are canon. Never expose undiscovered facts or hidden objective text.',
-    'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, trackers, or consequences.',
+    'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
     armedEdge
