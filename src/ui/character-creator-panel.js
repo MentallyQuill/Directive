@@ -9,6 +9,10 @@ import {
   setDataset
 } from './runtime-ui-kit.js';
 import { createPackageImage, createPlayerPortraitImage } from './directive-media.js';
+import {
+  createCharacterCreatorAssistDialog,
+  registerActiveCreatorAssistSession
+} from './character-creator-assist-dialog.js';
 import { CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT } from '../creators/character-creator-assist.mjs';
 import {
   normalizeSimulationMode,
@@ -197,24 +201,6 @@ function creatorAssistProgressMessage(progress = {}) {
   return 'Generating with Reasoning...';
 }
 
-function clearCreatorAssistPreview(section) {
-  for (const preview of section.querySelectorAll('.directive-creator-assist-preview')) {
-    preview.remove();
-  }
-}
-
-function showCreatorAssistMessage(section, message, tone = 'neutral') {
-  clearCreatorAssistPreview(section);
-  const preview = createElement('div', `directive-creator-assist-preview directive-creator-assist-preview-${tone}`);
-  preview.setAttribute('role', 'status');
-  preview.setAttribute('aria-live', 'polite');
-  const copy = createElement('p', 'directive-creator-assist-preview-copy');
-  copy.textContent = message;
-  preview.appendChild(copy);
-  section.appendChild(preview);
-  return preview;
-}
-
 function isCanceledCreatorAssistResult(result = {}) {
   return result?.source === 'canceled'
     || result?.diagnostics?.canceled === true
@@ -252,139 +238,18 @@ async function saveAppliedCreatorSection(form, actions, activeStepId, input) {
   });
 }
 
-function appendCreatorAssistPreview(section, {
-  form,
-  actions,
-  activeStepId,
-  stepId,
-  result,
-  regenerate
-}) {
-  clearCreatorAssistPreview(section);
-  const fields = result?.fields || {};
-  const preview = createElement('div', 'directive-creator-assist-preview directive-lcars-panel');
-  preview.dataset.creatorAssistPreview = stepId;
-
-  const header = createElement('div', 'directive-creator-assist-preview-header');
-  const title = createElement('strong');
-  title.textContent = result?.mode === 'refine' ? 'Suggested Refinement' : 'Suggested Draft';
-  const source = createElement('span');
-  source.textContent = providerSourceLabel(result);
-  header.append(title, source);
-
-  const list = createElement('dl', 'directive-creator-assist-field-list');
-  for (const [path, value] of Object.entries(fields)) {
-    const term = createElement('dt');
-    term.textContent = CREATOR_FIELD_LABELS[path] || path;
-    const description = createElement('dd');
-    description.textContent = displayValueForField(form, path, value);
-    list.append(term, description);
-  }
-
-  const messages = [
-    ...(result?.warnings || []),
-    ...(result?.notes || [])
-  ].filter(Boolean).slice(0, 3);
-  const note = createElement('p', 'directive-creator-assist-preview-copy');
-  note.textContent = messages.join(' ') || 'Review before applying to this section.';
-
-  const actionsRow = createElement('div', 'directive-creator-assist-preview-actions');
-  actionsRow.append(
-    createButton({
-      label: 'Apply',
-      icon: 'fa-solid fa-check',
-      className: 'directive-button directive-creator-assist-apply',
-      title: 'Apply this section draft',
-      onClick: async () => {
-        const input = applyCreatorSectionFields(form, fields);
-        await saveAppliedCreatorSection(form, actions, activeStepId, input);
-        showCreatorAssistMessage(section, 'Draft applied.', 'success');
-      }
-    }),
-    createButton({
-      label: 'Regenerate',
-      icon: 'fa-solid fa-rotate-right',
-      className: 'directive-button directive-creator-assist-regenerate',
-      title: 'Generate another section draft',
-      onClick: regenerate
-    }),
-    createButton({
-      label: 'Dismiss',
-      icon: 'fa-solid fa-xmark',
-      className: 'directive-button directive-creator-assist-dismiss',
-      title: 'Dismiss this section draft',
-      onClick: async () => {
-        clearCreatorAssistPreview(section);
-      }
-    })
-  );
-
-  preview.append(header, list, note, actionsRow);
-  section.appendChild(preview);
-  return preview;
+function creatorAssistDialogFields(form, fields = {}) {
+  return Object.entries(fields).map(([path, value]) => ({
+    label: CREATOR_FIELD_LABELS[path] || path,
+    value: displayValueForField(form, path, value)
+  }));
 }
 
-async function runCreatorSectionAssist({
-  form,
-  section,
-  stepId,
-  activeStepId,
-  actions,
-  signal = null,
-  regenerate = null
-}) {
-  if (typeof actions.generateCreatorSectionDraft !== 'function') return;
-  const input = collectCreatorInput(form);
-  const empty = !sectionHasMeaningfulInput(input, stepId);
-  showCreatorAssistMessage(section, empty ? 'Generating with Reasoning...' : 'Generating with Reasoning from current details...', 'loading');
-  const onProgress = (progress = {}) => {
-    if (signal?.aborted) return;
-    showCreatorAssistMessage(section, creatorAssistProgressMessage(progress), 'loading');
-  };
-  try {
-    const response = await actions.generateCreatorSectionDraft({
-      sectionId: stepId,
-      input,
-      signal,
-      onProgress
-    });
-    const result = normalizeCreatorSectionDraftResponse(response);
-    if (isCanceledCreatorAssistResult(result)) {
-      showCreatorAssistMessage(section, 'Draft canceled.', 'neutral');
-      return;
-    }
-    const fields = result?.fields || {};
-    if (!result?.ok || Object.keys(fields).length === 0) {
-      showCreatorAssistMessage(section, 'No usable section draft was returned.', 'warning');
-      return;
-    }
-    if (empty && result?.source === 'provider') {
-      const nextInput = applyCreatorSectionFields(form, fields);
-      await saveAppliedCreatorSection(form, actions, activeStepId, nextInput);
-      showCreatorAssistMessage(section, 'Draft applied.', 'success');
-      return;
-    }
-    appendCreatorAssistPreview(section, {
-      form,
-      actions,
-      activeStepId,
-      stepId,
-      result,
-      regenerate: regenerate || (async () => runCreatorSectionAssist({
-        form,
-        section,
-        stepId,
-        activeStepId,
-        actions
-      }))
-    });
-  } catch (error) {
-    if (error?.code === 'DIRECTIVE_GENERATION_ABORTED' || signal?.aborted) {
-      showCreatorAssistMessage(section, 'Draft canceled.', 'neutral');
-      return;
-    }
-    showCreatorAssistMessage(section, error?.message || 'Section drafting failed.', 'warning');
-  }
+function creatorAssistDialogMessage(result = {}) {
+  return [
+    ...(result?.warnings || []),
+    ...(result?.notes || [])
+  ].filter(Boolean).slice(0, 3).join(' ') || 'Review before applying to this section.';
 }
 
 function creatorInputStepComplete(input, stepId) {
@@ -581,7 +446,9 @@ function createCreatorSection(stepId, creator, activeStepId, {
   const assistButton = createElement('button', 'directive-icon-button directive-creator-section-wand');
   assistButton.type = 'button';
   assistButton.dataset.creatorSectionWand = stepId;
-  let activeAssistController = null;
+  let activeAssistRun = null;
+  let assistDialog = null;
+  let unregisterActiveAssist = null;
 
   const setAssistState = (busy = false, { canceling = false } = {}) => setCreatorAssistControlState({
     wrapper: assistControl,
@@ -592,29 +459,115 @@ function createCreatorSection(stepId, creator, activeStepId, {
     disabled: !assistAvailable
   });
 
+  const closeAssist = (reason = 'dismissed', { abort = true } = {}) => {
+    const run = activeAssistRun;
+    activeAssistRun = null;
+    if (abort) run?.controller?.abort?.(reason);
+    unregisterActiveAssist?.();
+    unregisterActiveAssist = null;
+    const dialog = assistDialog;
+    assistDialog = null;
+    dialog?.close?.(reason);
+    setAssistState(false);
+  };
+
   const startAssist = async () => {
-    if (activeAssistController) {
-      activeAssistController.abort?.();
+    if (activeAssistRun) {
       setAssistState(true, { canceling: true });
+      closeAssist('wand-canceled');
       return;
     }
+    const input = collectCreatorInput(form);
+    const mode = sectionHasMeaningfulInput(input, stepId) ? 'refine' : 'create';
+    const initialMessage = mode === 'refine'
+      ? 'Generating with Reasoning from current details...'
+      : 'Generating with Reasoning...';
+    if (!assistDialog?.isOpen?.()) {
+      assistDialog = createCharacterCreatorAssistDialog({
+        sectionId: stepId,
+        sectionLabel: step.label,
+        mode,
+        opener: assistButton,
+        progressMessage: initialMessage,
+        onRequestClose: (reason) => closeAssist(reason)
+      });
+      unregisterActiveAssist = registerActiveCreatorAssistSession({
+        cancel: (reason) => closeAssist(reason)
+      });
+    } else {
+      assistDialog.showProgress(initialMessage);
+    }
     const runController = typeof AbortController === 'function' ? new AbortController() : null;
-    const activeToken = runController || { signal: null, abort() {} };
-    activeAssistController = activeToken;
+    const run = {
+      controller: runController || { signal: null, abort() {} }
+    };
+    activeAssistRun = run;
     setAssistState(true);
+    const isCurrent = () => activeAssistRun === run
+      && assistDialog?.isOpen?.()
+      && form?.isConnected !== false;
+    const retry = () => startAssist();
+    const dismiss = () => closeAssist('dismissed', { abort: false });
     try {
-      await runCreatorSectionAssist({
-        form,
-        section,
-        stepId,
-        activeStepId,
-        actions,
-        signal: activeToken.signal,
-        regenerate: startAssist
+      const response = await actions.generateCreatorSectionDraft({
+        sectionId: stepId,
+        input,
+        signal: run.controller.signal,
+        onProgress: (progress = {}) => {
+          if (!isCurrent() || run.controller.signal?.aborted) return;
+          assistDialog.showProgress(creatorAssistProgressMessage(progress));
+        }
+      });
+      if (!isCurrent()) return;
+      const result = normalizeCreatorSectionDraftResponse(response);
+      if (isCanceledCreatorAssistResult(result)) {
+        closeAssist('canceled', { abort: false });
+        return;
+      }
+      const fields = result?.fields || {};
+      if (!result?.ok || Object.keys(fields).length === 0) {
+        activeAssistRun = null;
+        setAssistState(false);
+        assistDialog.showError({
+          message: 'No usable section draft was returned.',
+          onRetry: retry,
+          onDismiss: dismiss
+        });
+        return;
+      }
+      activeAssistRun = null;
+      setAssistState(false);
+      const resultDialog = assistDialog;
+      resultDialog.showResult({
+        title: result?.mode === 'refine' ? 'Suggested Refinement' : 'Suggested Draft',
+        source: providerSourceLabel(result),
+        fields: creatorAssistDialogFields(form, fields),
+        message: creatorAssistDialogMessage(result),
+        onApply: async () => {
+          if (assistDialog !== resultDialog || !resultDialog.isOpen() || form?.isConnected === false) return;
+          const nextInput = applyCreatorSectionFields(form, fields);
+          await saveAppliedCreatorSection(form, actions, activeStepId, nextInput);
+          closeAssist('applied', { abort: false });
+        },
+        onRegenerate: retry,
+        onDismiss: dismiss
+      });
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (error?.code === 'DIRECTIVE_GENERATION_ABORTED' || run.controller.signal?.aborted) {
+        closeAssist('canceled', { abort: false });
+        return;
+      }
+      activeAssistRun = null;
+      setAssistState(false);
+      assistDialog.showError({
+        message: error?.message || 'Section drafting failed.',
+        onRetry: retry,
+        onDismiss: dismiss
       });
     } finally {
-      if (activeAssistController === activeToken) {
-        activeAssistController = null;
+      if (activeAssistRun === run) {
+        activeAssistRun = null;
         setAssistState(false);
       }
     }
