@@ -12,6 +12,23 @@
     "title": "Chapter 2: False Colors",
     "summary": "Answer the accusation against the Breckenridge, protect the wounded, and establish a credible path forward."
   },
+  "entryCapabilities": [
+    {
+      "id": "capability.chapter2.shared-convoy-record",
+      "source": {
+        "definitionId": "mission.chapter-1-the-empty-convoy",
+        "definitionVersion": "1.0.0",
+        "requirements": [{
+          "dimensionId": "dimension.chapter1.cooperation",
+          "in": ["joint-record"]
+        }]
+      },
+      "playerText": {
+        "label": "Shared Convoy Record",
+        "summary": "Compact and Starfleet participants already possess one jointly authenticated incident record and a tested chain for comparing disputed evidence. It can support the joint investigation but does not automatically vindicate the Breckenridge."
+      }
+    }
+  ],
   "facts": [
     {
       "id": "fact.chapter2.false-colors-crisis",
@@ -217,7 +234,7 @@
       "when": { "factKnown": "fact.chapter2.independent-evidence-picture" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the optional joint-investigation opportunity.",
+        "guidance": "Claim only when accepted assistant prose depicts the actual disposition of the optional joint-investigation opportunity. If the Shared Convoy Record capability is active, it supplies a tested evidence-comparison chain but does not itself establish this outcome or vindicate the Breckenridge.",
         "values": [
           { "value": "jointFramework", "guidance": "Starfleet and Compact participants commit a credible shared investigation framework and protected evidence record." },
           { "value": "limitedFramework", "guidance": "A real but materially limited joint framework is established." },
@@ -443,7 +460,7 @@
       "supportedDispositions": ["completed", "completedWithCost", "knowinglyDeclined"],
       "playerText": {
         "title": "Establish a joint investigation framework",
-        "summary": "Give the Compact meaningful participation in the evidence record and the investigation that follows.",
+        "summary": "Give the Compact meaningful participation in the evidence record and the investigation that follows; use any prior Shared Convoy Record as leverage, never as automatic vindication.",
         "terminal": [
           { "disposition": "completed", "text": "Starfleet and Compact participants established a credible joint investigation framework." },
           { "disposition": "completedWithCost", "text": "A usable but limited, unilateral, or fragmented investigation record survived." },

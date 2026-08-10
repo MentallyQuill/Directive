@@ -43,6 +43,56 @@
         "sourceRole": "assistant"
       }
     ],
+    "recovery-picture-disclosure": [
+      {
+        "claimId": "claim.chapter1.recovery-authentication-picture-disclosed-alternate",
+        "policyId": "policy.chapter1.recovery-authentication-picture-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.recovery-authentication-picture",
+        "sourceRole": "assistant"
+      }
+    ],
+    "ivers-testimony-route": [
+      {
+        "claimId": "claim.chapter1.ivers-testimony-disclosed",
+        "policyId": "policy.chapter1.ivers-testimony-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.ivers-testimony",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter1.ivers-recovery-evidence-obtained",
+        "policyId": "policy.chapter1.ivers-recovery-evidence-obtained",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter1.recovery-evidence-obtained",
+        "sourceRole": "assistant"
+      }
+    ],
+    "survivor-manifest-route": [
+      {
+        "claimId": "claim.chapter1.survivor-manifest-disclosed",
+        "policyId": "policy.chapter1.survivor-manifest-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.chapter1.survivor-cargo-manifest",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.chapter1.manifest-recovery-evidence-obtained",
+        "policyId": "policy.chapter1.manifest-recovery-evidence-obtained",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter1.recovery-evidence-obtained",
+        "sourceRole": "assistant"
+      }
+    ],
+    "compact-custody-opened": [
+      {
+        "claimId": "claim.chapter1.compact-custody-negotiation-opened",
+        "policyId": "policy.chapter1.compact-custody-negotiation-opened",
+        "claimType": "eventOccurred",
+        "targetId": "event.chapter1.compact-custody-negotiation-opened",
+        "sourceRole": "assistant"
+      }
+    ],
     "relief-safe": [
       {
         "claimId": "claim.chapter1.relief-safe",
@@ -372,6 +422,75 @@
           "objective.chapter1.hardware": "completed",
           "objective.chapter1.shared-record": "completed"
         },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "ivers-testimony-before-hardware",
+      "sequence": ["first-contact", "ivers-testimony-route", "authority-report", "recovery-picture-disclosure", "relief-safe", "authority-starfleet", "hardware-starfleet"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed"
+        },
+        "knownFactsIncludes": ["fact.chapter1.ivers-testimony", "fact.chapter1.recovery-authentication-picture"],
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "survivor-manifest-before-authority",
+      "sequence": ["first-contact", "survivor-manifest-route", "authority-report", "recovery-picture-disclosure", "relief-safe", "authority-joint", "hardware-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed"
+        },
+        "knownFactsIncludes": ["fact.chapter1.survivor-cargo-manifest", "fact.chapter1.recovery-authentication-picture"],
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "compact-custody-first",
+      "sequence": ["first-contact", "compact-custody-opened", "authority-report", "ivers-testimony-route", "recovery-picture-disclosure", "authority-joint", "hardware-joint", "relief-safe"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 10,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed"
+        },
+        "eventsInclude": ["event.chapter1.compact-custody-negotiation-opened"],
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "shared-record-imports-to-false-colors",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "relief-safe", "hardware-joint", "joint-record", "authority-joint"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "cooperativeSuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.shared-record": "completed"
+        },
+        "outcomeDimensions": {
+          "dimension.chapter1.cooperation": "joint-record"
+        },
+        "commandBearingAwardIds": ["award.chapter1.shared-record"],
         "transitionTargetId": "chapter-2-false-colors"
       }
     },

@@ -660,6 +660,24 @@ Rhee offered Daro redline as a practical way to stay alert. He does not know the
 
 Daro can provide human evidence only through a properly handled statement corroborated by a dose, access record, witnessed exchange, or other independent evidence. Threatening his career may produce compliance, but it should damage trust and must not turn an unsupported statement into proof. A player who separates treatment, temporary duty restriction, and discipline gives Daro a credible path to recovery and later honest service.
 
+### 8.14 Doctor Samira Nadi
+
+**Affiliation:** Civilian relief service, Relief Convoy Twelve
+**Role:** Convoy physician and custodian of the incomplete survivor manifest
+
+Nadi is a Human physician who spent the war moving between overcrowded shelters and small transport convoys. She maintains her own patient movement record because official manifests often lagged behind evacuations, but she omits diagnoses and protected identities when a receiving authority does not need them. Her record can show who left which ship and under what clearance without surrendering confidential medical details.
+
+Nadi knows the evacuation sequence, the medical condition of the survivors, and that one clearance identifier appears across several transfers. She does not know who forged the quarantine order or where the missing transponder modules went. She will cooperate with a bounded comparison and resist a demand for unrestricted patient files.
+
+### 8.15 Olan Brin
+
+**Affiliation:** Civilian relief service, Relief Convoy Twelve
+**Role:** Cargo custodian responsible for the secured emergency-hardware release record
+
+Brin is a Bolian quartermaster who treats custody paperwork as a promise to the people waiting for every crate. He released the decommissioned transponder module only after a technically valid emergency clearance matched the quarantine order. He is ashamed that correct procedure enabled the theft and initially speaks defensively, but he has preserved the original release trace instead of altering it to protect himself.
+
+Brin knows the cargo chain, seal state, and clearance identifier. He cannot authenticate Starfleet command codes and did not witness the later Compact seizure. Compared with Nadi's limited patient manifest, his record independently links the displaced people and missing hardware to the same false authority chain.
+
 ---
 
 ## 9. Campaign State
@@ -1184,6 +1202,14 @@ Lieutenant Pell claims Compact emergency jurisdiction and refuses to release Ive
 
 The player must preserve logs, identify the false order, and determine why one cargo module was taken.
 
+No single evidence order is privileged. Three fair routes can produce usable recovery evidence:
+
+- **Ivers's testimony:** Once located or released, Ivers can give a firsthand account connecting the authenticated evacuation order, the dispersal, and the moment secured modules disappeared.
+- **Survivor and cargo records:** Nadi's privacy-bounded patient manifest and Brin's preserved release trace become probative when compared, without exposing diagnoses.
+- **Technical reconstruction:** Volatile convoy logs, traffic-relay timing, shuttle telemetry, or recovered module emissions can independently reconstruct the same chain.
+
+Ivers is a witness, not the sole key to the mission. Nadi and Brin each possess incomplete evidence and must not speak beyond their knowledge. The player may open the Compact custody dispute before recovering hardware, place rescue first, or divide these fronts among officers.
+
 ### 12.7 Required revelations
 
 At least four of the following should become established:
@@ -1196,6 +1222,8 @@ At least four of the following should become established:
 6. The two false messages were generated from different apparent sources but share a distinctive timing signature.
 7. Someone expected the convoy to follow emergency procedure predictably.
 
+The combined recovery-and-authentication picture requires the authority mismatch, the dispersal, and one preserved evidence route. It does not require physical recovery of the module before the player can understand how it was taken.
+
 ### 12.8 Flexible approaches
 
 The player may:
@@ -1207,6 +1235,9 @@ The player may:
 - Offer a joint inspection.
 - Treat the Compact cutter as a hostile seizure.
 - Share or withhold evidence.
+- Record Ivers's testimony before pursuing the missing hardware.
+- Compare Nadi's limited patient movement record with Brin's cargo trace under a privacy boundary.
+- Begin a bounded custody negotiation with Pell before asserting a final Starfleet or joint disposition.
 - Recover the missing module by pursuit, negotiation, or a legal undertaking.
 - Prioritize rescue over investigation or divide the crew across both.
 
@@ -1274,6 +1305,7 @@ Record:
 - Whether Ivers trusts the player.
 - Whether Pell is detained, released, injured, or recruited as a witness.
 - Whether the Compact receives access to the investigation.
+- Whether Ivers's testimony or the Nadi-Brin cross-reference survives as the primary evidentiary route.
 - Whether the transponder module is recovered intact.
 - Whether the player publicly acknowledges a Starfleet authentication failure.
 - Any technical debt created during the Parnell rescue.
@@ -1281,6 +1313,8 @@ Record:
 ### 12.14 Transition
 
 The Breckenridge finally reaches Asterion Station. Before the formal briefing is complete, a Compact patrol reports that it has been fired upon by a vessel identifying itself as the U.S.S. Breckenridge.
+
+If a joint incident record was completed, Chapter 2 imports it as the **Shared Convoy Record**: a tested Compact-Starfleet evidence chain that can support a joint investigation. It does not prove the Breckenridge innocent and must not replace fresh verification of the attack.
 
 ---
 

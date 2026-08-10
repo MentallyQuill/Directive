@@ -44,6 +44,22 @@
       "playerText": {
         "summary": "The preserved records and recovery lead connect the missing emergency hardware to a false order containing authentic Starfleet code fragments, while the wider source remains unknown."
       }
+    },
+    {
+      "id": "fact.chapter1.ivers-testimony",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Captain Nella Ivers can testify that a technically authenticated quarantine order directed the evacuation and that secured transponder modules disappeared during the resulting dispersal."
+      }
+    },
+    {
+      "id": "fact.chapter1.survivor-cargo-manifest",
+      "initiallyTrue": true,
+      "visibility": "discoverable",
+      "playerText": {
+        "summary": "Dr. Samira Nadi's incomplete patient manifest and Olan Brin's cargo-release record independently place survivors and missing emergency hardware under the same false clearance chain."
+      }
     }
   ],
   "evidencePolicies": [
@@ -125,6 +141,86 @@
         "exclusions": [
           "Wanting the hardware found, opening a search route, ordering an investigation, locating an unverified signal, or accusing a party does not mean usable recovery evidence was obtained."
         ]
+      }
+    },
+    {
+      "id": "policy.chapter1.ivers-testimony-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.ivers-testimony",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.ivers-testimony" },
+          { "factKnown": "fact.chapter1.dispersal-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Ivers gives a usable account connecting the authenticated evacuation order, the crew's dispersal, and the disappearance of secured transponder modules.",
+        "exclusions": ["Knowing Ivers commands the convoy, locating her, or hearing that she distrusted the order is not her usable testimony."]
+      }
+    },
+    {
+      "id": "policy.chapter1.ivers-recovery-evidence-obtained",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter1.recovery-evidence-obtained",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter1.ivers-testimony" },
+          { "factKnown": "fact.chapter1.dispersal-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Ivers's statement is actually recorded and preserved as usable recovery evidence.",
+        "exclusions": ["An informal conversation, an anticipated interview, or unrecorded hearsay is not obtained evidence."]
+      }
+    },
+    {
+      "id": "policy.chapter1.survivor-manifest-disclosed",
+      "claimType": "factDisclosed",
+      "targetId": "fact.chapter1.survivor-cargo-manifest",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.survivor-cargo-manifest" },
+          { "factKnown": "fact.chapter1.dispersal-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when Nadi's patient manifest and Brin's cargo record are compared and explicitly link the dispersal and missing hardware to one clearance chain.",
+        "exclusions": ["Either incomplete record alone, a head count, or a cargo shortage without the cross-reference is not the survivor-and-cargo manifest picture."]
+      }
+    },
+    {
+      "id": "policy.chapter1.manifest-recovery-evidence-obtained",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter1.recovery-evidence-obtained",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter1.survivor-cargo-manifest" },
+          { "factKnown": "fact.chapter1.dispersal-picture" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the cross-referenced patient and cargo records are preserved as usable recovery evidence.",
+        "exclusions": ["Requesting records or observing discrepancies without preserving the comparison is not obtained evidence."]
+      }
+    },
+    {
+      "id": "policy.chapter1.compact-custody-negotiation-opened",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter1.compact-custody-negotiation-opened",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter1.dispersal-picture" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the player or a delegated officer actually opens a bounded custody discussion with Compact personnel before imposing a final authority disposition.",
+        "exclusions": ["A demand, threat, unanswered hail, or unilateral transfer order is not an opened custody negotiation."]
       }
     },
     {
@@ -298,6 +394,44 @@
       "playerText": {
         "summary": "Preserved records and recovery evidence connect the missing emergency hardware to a false order containing authentic Starfleet code fragments; the wider source remains unknown."
       }
+    },
+    {
+      "id": "report.chapter1.ivers-testimony",
+      "factId": "fact.chapter1.ivers-testimony",
+      "evidencePolicyId": "policy.chapter1.ivers-testimony-disclosed",
+      "capabilityRoles": ["command", "operations", "security"],
+      "preferredActorIds": ["nella-ivers"],
+      "fallbackActorIds": ["priya-nayar", "hadrik-bronn"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.ivers-testimony" },
+          { "factKnown": "fact.chapter1.dispersal-picture" },
+          { "not": { "factKnown": "fact.chapter1.ivers-testimony" } }
+        ]
+      },
+      "playerText": { "summary": "Captain Ivers can give a firsthand account of the evacuation order and the missing secured modules." }
+    },
+    {
+      "id": "report.chapter1.survivor-cargo-manifest",
+      "factId": "fact.chapter1.survivor-cargo-manifest",
+      "evidencePolicyId": "policy.chapter1.survivor-manifest-disclosed",
+      "capabilityRoles": ["medical", "operations"],
+      "preferredActorIds": ["samira-nadi", "olan-brin"],
+      "fallbackActorIds": ["miriam-sato", "priya-nayar"],
+      "urgency": "material",
+      "confidence": "credible",
+      "deliveryRequirement": "optional",
+      "when": {
+        "all": [
+          { "worldFact": "fact.chapter1.survivor-cargo-manifest" },
+          { "factKnown": "fact.chapter1.dispersal-picture" },
+          { "not": { "factKnown": "fact.chapter1.survivor-cargo-manifest" } }
+        ]
+      },
+      "playerText": { "summary": "The relief physician and cargo custodian hold incomplete records that become probative when compared." }
     }
   ],
   "events": [
@@ -313,6 +447,13 @@
       "playerVisibility": "visible",
       "playerText": {
         "summary": "The crew obtained usable evidence connecting the missing hardware, convoy records, and authority conflict."
+      }
+    },
+    {
+      "id": "event.chapter1.compact-custody-negotiation-opened",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "A bounded custody discussion with Compact personnel began before the final authority disposition."
       }
     }
   ],

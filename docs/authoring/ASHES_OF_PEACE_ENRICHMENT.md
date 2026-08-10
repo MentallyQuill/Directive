@@ -246,12 +246,14 @@ flowchart TD
 
 The objective structure is genuinely parallel, and fixtures prove non-linear order, handoff, informed failure, and undiscovered-content safety. The story data is thin relative to the situation: survivors, convoy officers, Compact custodians, and Captain Nella Ivers have little authored presence.
 
-#### Enrichment direction
+#### Implemented checkpoint
 
-- Give rescue, custody, and hardware fronts named participants with conflicting but credible needs.
-- Establish Ivers through evidence, testimony, or absence rather than only as a later name.
-- Provide at least two routes to the false-order/code-fragment conclusion.
-- Let known Prelude readiness or medical consequences color available resources without silently changing success thresholds.
+- Captain Ivers's recorded testimony and the cross-reference between Dr. Samira Nadi's limited patient manifest and Olan Brin's cargo release trace now provide two embodied alternatives to technical reconstruction.
+- Ivers, Nadi, and Brin have bounded motives and knowledge limits; neither medical privacy nor a single incomplete record is treated as automatic proof.
+- The Compact custody discussion can open before hardware recovery or final jurisdiction, while the existing required-objective closure contract remains unchanged.
+- A completed joint incident record now persists into Chapter 2 as the **Shared Convoy Record** capability. It provides a tested evidence-comparison chain but cannot automatically vindicate the Breckenridge.
+- Four new scenarios cover testimony-first, manifest-before-authority, custody-first, and the imported shared-record payoff. The focused campaign gate now covers 236 scenarios.
+- Prelude readiness and medical echoes remain scheduled for the Open Orders and later medical checkpoints, where they can color participation without changing success thresholds.
 
 ### Chapter 2: False Colors
 

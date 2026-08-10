@@ -236,25 +236,25 @@ git commit -m "feat: enrich Ashes Prelude investigation"
 - Produces: two fair routes to `fact.chapter1.recovery-authentication-picture` and entry capability `capability.chapter2.shared-convoy-record`.
 - Consumes: existing relief, authority, hardware, and shared-record dispositions.
 
-- [ ] **Step 1: Add failing scenarios for alternate discovery and approach order**
+- [x] **Step 1: Add failing scenarios for alternate discovery and approach order**
 
 Add `ivers-testimony-before-hardware`, `survivor-manifest-before-authority`, `compact-custody-first`, and `shared-record-imports-to-false-colors`. The first three must reach existing terminal dispositions through different evidence orderings; the fourth must establish `dimension.chapter1.cooperation=joint-record`.
 
-- [ ] **Step 2: Run the campaign gate and observe missing route evidence**
+- [x] **Step 2: Run the campaign gate and observe missing route evidence**
 
 Run: `node tools/scripts/test-ashes-v1-campaign.mjs`
 
 Expected: FAIL on the new Chapter 1 fragments or the new Chapter 2 entry capability.
 
-- [ ] **Step 3: Add embodied convoy evidence**
+- [x] **Step 3: Add embodied convoy evidence**
 
 Establish Captain Nella Ivers as the convoy commander and recurring witness. Add Dr. Samira Nadi as the relief physician protecting incomplete patient manifests, and Olan Brin as the cargo custodian responsible for emergency-hardware custody. Give each a limited knowledge boundary. Add separate facts for Ivers's testimony and the survivor/cargo manifest; either route may corroborate the false order's authentic code fragments.
 
-- [ ] **Step 4: Preserve the existing closure contract while expanding methods**
+- [x] **Step 4: Preserve the existing closure contract while expanding methods**
 
 Do not add another required objective. Add evidence policies for rescue-first, authority-first, hardware-first, independent sensor reconstruction, witness testimony, and responsible handoff. Each method must resolve into the existing relief, authority, hardware, and incident-record outcomes.
 
-- [ ] **Step 5: Persist the shared-record accomplishment into Chapter 2**
+- [x] **Step 5: Persist the shared-record accomplishment into Chapter 2**
 
 Add to Chapter 2:
 
