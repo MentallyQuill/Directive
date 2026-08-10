@@ -13,7 +13,8 @@
     ],
     "long-assessment": [
       { "claimId": "claim.open-orders1.long-assessed", "policyId": "policy.open-orders1.long-repair-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.long-repair-assessed", "sourceRole": "assistant" },
-      { "claimId": "claim.open-orders1.long-assessment-disclosed", "policyId": "policy.open-orders1.long-repair-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.long-repair-assessment", "sourceRole": "assistant" }
+      { "claimId": "claim.open-orders1.long-assessment-disclosed", "policyId": "policy.open-orders1.long-repair-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.long-repair-assessment", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.long-complication", "policyId": "policy.open-orders1.long-repair-complication", "claimType": "eventOccurred", "targetId": "event.open-orders1.long-repair-complication", "sourceRole": "assistant" }
     ],
     "long-asset": [
       { "claimId": "claim.open-orders1.long-asset", "policyId": "policy.open-orders1.long-repair-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.long-repair-result", "value": "assetEarned", "sourceRole": "assistant" }
@@ -35,7 +36,8 @@
     ],
     "wings-assessment": [
       { "claimId": "claim.open-orders1.wings-assessed", "policyId": "policy.open-orders1.borrowed-wings-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.borrowed-wings-assessed", "sourceRole": "assistant" },
-      { "claimId": "claim.open-orders1.wings-assessment-disclosed", "policyId": "policy.open-orders1.borrowed-wings-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.borrowed-wings-assessment", "sourceRole": "assistant" }
+      { "claimId": "claim.open-orders1.wings-assessment-disclosed", "policyId": "policy.open-orders1.borrowed-wings-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.borrowed-wings-assessment", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.wings-complication", "policyId": "policy.open-orders1.borrowed-wings-complication", "claimType": "eventOccurred", "targetId": "event.open-orders1.borrowed-wings-complication", "sourceRole": "assistant" }
     ],
     "wings-asset": [
       { "claimId": "claim.open-orders1.wings-asset", "policyId": "policy.open-orders1.borrowed-wings-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.borrowed-wings-result", "value": "assetEarned", "sourceRole": "assistant" }
@@ -57,7 +59,8 @@
     ],
     "channels-assessment": [
       { "claimId": "claim.open-orders1.channels-assessed", "policyId": "policy.open-orders1.quiet-channels-assessed", "claimType": "eventOccurred", "targetId": "event.open-orders1.quiet-channels-assessed", "sourceRole": "assistant" },
-      { "claimId": "claim.open-orders1.channels-assessment-disclosed", "policyId": "policy.open-orders1.quiet-channels-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.quiet-channels-assessment", "sourceRole": "assistant" }
+      { "claimId": "claim.open-orders1.channels-assessment-disclosed", "policyId": "policy.open-orders1.quiet-channels-assessment-disclosed", "claimType": "factDisclosed", "targetId": "fact.open-orders1.quiet-channels-assessment", "sourceRole": "assistant" },
+      { "claimId": "claim.open-orders1.channels-complication", "policyId": "policy.open-orders1.quiet-channels-complication", "claimType": "eventOccurred", "targetId": "event.open-orders1.quiet-channels-complication", "sourceRole": "assistant" }
     ],
     "channels-asset": [
       { "claimId": "claim.open-orders1.channels-asset", "policyId": "policy.open-orders1.quiet-channels-result", "claimType": "outcomeObserved", "targetId": "outcome.open-orders1.quiet-channels-result", "value": "assetEarned", "sourceRole": "assistant" }
@@ -86,13 +89,14 @@
       "id": "two-assignment-normal",
       "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "conclude-two"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": null
         },
         "outcomeDimensions": {
           "dimension.open-orders1.load": "normal-two", "dimension.open-orders1.long-repair": "asset-earned", "dimension.open-orders1.borrowed-wings": "asset-earned"
         },
+        "commandBearingAwardIds": ["award.open-orders1.long-repair", "award.open-orders1.borrowed-wings"],
         "transitionTargetId": "chapter-3-dead-letters"
       }
     },
@@ -100,7 +104,7 @@
       "id": "broad-coverage-with-delegation",
       "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "channels-delegated", "channels-assessment", "channels-asset", "conclude-broad"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": "completed"
         },
@@ -112,7 +116,7 @@
       "id": "three-direct-overextension",
       "sequence": ["long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "channels-direct", "channels-assessment", "channels-asset", "conclude-overextended"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "overextendedWithCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "overextendedWithCost", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completedWithCost", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": "completed"
         },
@@ -124,11 +128,12 @@
       "id": "overextended-with-informed-failure",
       "sequence": ["long-direct", "long-assessment", "long-failed", "wings-direct", "wings-assessment", "wings-asset", "channels-direct", "channels-assessment", "channels-asset", "conclude-overextended"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completedWithCost", "objective.open-orders1.long-repair": "failedAfterInformedAction", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": "completed"
         },
         "outcomeDimensions": { "dimension.open-orders1.load": "overextended-direct" },
+        "commandBearingAwardIds": ["award.open-orders1.borrowed-wings", "award.open-orders1.quiet-channels"],
         "transitionTargetId": "chapter-3-dead-letters"
       }
     },
@@ -136,7 +141,7 @@
       "id": "limited-mixed-results",
       "sequence": ["long-direct", "long-assessment", "long-limited", "channels-delegated", "channels-assessment", "channels-asset", "conclude-two"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "workWorthDoing", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "workWorthDoing", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completedWithCost", "objective.open-orders1.quiet-channels": "completed"
         },
@@ -147,10 +152,31 @@
       "id": "informed-assignment-failure",
       "sequence": ["long-direct", "long-assessment", "long-failed", "wings-direct", "wings-assessment", "wings-asset", "conclude-two"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "failedAfterInformedAction", "objective.open-orders1.borrowed-wings": "completed"
         },
+        "commandBearingAwardIds": ["award.open-orders1.borrowed-wings"],
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "borrowed-wings-informed-failure-no-award",
+      "sequence": ["long-delegated", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-failed", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "failedAfterInformedAction" },
+        "commandBearingAwardIds": ["award.open-orders1.long-repair"],
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "quiet-channels-informed-failure-no-award",
+      "sequence": ["long-delegated", "long-assessment", "long-asset", "channels-direct", "channels-assessment", "channels-failed", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders1.long-repair": "completed", "objective.open-orders1.quiet-channels": "failedAfterInformedAction" },
+        "commandBearingAwardIds": ["award.open-orders1.long-repair"],
         "transitionTargetId": "chapter-3-dead-letters"
       }
     },
@@ -179,7 +205,7 @@
       "id": "decline-then-reconsider",
       "sequence": ["long-declined", "long-direct", "long-assessment", "long-asset", "wings-direct", "wings-assessment", "wings-asset", "conclude-two"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": "completed", "objective.open-orders1.quiet-channels": null
         },
@@ -193,10 +219,47 @@
       "id": "non-linear-assignment-order",
       "sequence": ["channels-direct", "channels-assessment", "channels-asset", "long-delegated", "long-assessment", "long-asset", "conclude-two"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.open-orders1.conclusion": "completed", "objective.open-orders1.long-repair": "completed", "objective.open-orders1.borrowed-wings": null, "objective.open-orders1.quiet-channels": "completed"
         },
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "long-repair-limit-before-plan",
+      "sequence": ["long-direct", "long-assessment", "long-limited", "wings-delegated", "wings-assessment", "wings-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "workWorthDoing", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders1.long-repair": "completedWithCost", "objective.open-orders1.borrowed-wings": "completed" },
+        "commandBearingAwardIds": ["award.open-orders1.long-repair", "award.open-orders1.borrowed-wings"],
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "borrowed-wings-ors-self-disclosure",
+      "sequence": ["wings-direct", "wings-assessment", "wings-asset", "long-delegated", "long-assessment", "long-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "commandBearingAwardIds": ["award.open-orders1.long-repair", "award.open-orders1.borrowed-wings"],
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "quiet-channels-redline-echo",
+      "sequence": ["channels-direct", "channels-assessment", "channels-asset", "long-delegated", "long-assessment", "long-asset", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "commandBearingAwardIds": ["award.open-orders1.long-repair", "award.open-orders1.quiet-channels"],
+        "transitionTargetId": "chapter-3-dead-letters"
+      }
+    },
+    {
+      "id": "all-three-delegated-without-overextension",
+      "sequence": ["long-delegated", "long-assessment", "long-asset", "wings-delegated", "wings-assessment", "wings-asset", "channels-delegated", "channels-assessment", "channels-asset", "conclude-broad"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "resilienceBuilt", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
+        "commandBearingAwardIds": ["award.open-orders1.long-repair", "award.open-orders1.borrowed-wings", "award.open-orders1.quiet-channels"],
         "transitionTargetId": "chapter-3-dead-letters"
       }
     },

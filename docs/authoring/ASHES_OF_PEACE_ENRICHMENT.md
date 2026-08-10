@@ -318,12 +318,14 @@ flowchart TD
 
 The assignment selection is strong and explicitly non-linear. Each assignment is currently compressed into one aggregate assessment and one result, which risks making a side mission feel like a summary rather than an episode.
 
-#### Enrichment direction
+#### Implemented checkpoint
 
-- Give each assignment an opening person, complication, and resolution scene.
-- Make Quiet Channels echo the redline case when supported by accepted story, without turning it into the same problem.
-- Make Borrowed Wings a real Kieran command-development episode.
-- Give Long Repair local Helix Yard engineers with their own limits and priorities.
+- Every selected assignment now requires its player-known assessment followed by a distinct complication event before any result can be accepted.
+- Dev Adebayo exposes The Long Repair's combined-load limit; Lena Ors's trauma response can surface through self-disclosure, controlled observation, or training; Mara Venn presents a concrete Quiet Channels obligation and accountability boundary.
+- A handled Prelude redline case imports as **Medical Supply Accountability**, sharpening Quiet Channels scrutiny without making the network causal. The Chapter 2 verification framework remains separately available.
+- Delegation remains a substantive command method: all three assignments can be completed through credible delegation without the direct-command overextension result.
+- Explicit reward scenarios prove each assignment's success can make its own Command Bearing award eligible, each failure cannot, and all three successful delegated assignments may expose all three authored awards to the existing reserve rules.
+- Six new scenarios bring the focused campaign gate to 247 scenarios.
 
 ### Chapter 3: Dead Letters
 

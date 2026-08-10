@@ -27,6 +27,21 @@
         "label": "Compact Verification Framework",
         "summary": "A functioning Compact-Starfleet channel can compare disputed records under bounded access. It does not guarantee trust, agreement, or a favorable finding."
       }
+    },
+    {
+      "id": "capability.open-orders1.redline-accountability-context",
+      "source": {
+        "definitionId": "mission.prelude-a-ship-underway",
+        "definitionVersion": "1.0.0",
+        "requirements": [{
+          "dimensionId": "dimension.prelude.redline",
+          "in": ["contained-lawful-custody", "contained-treatment-handoff", "contained-with-evidence-cost"]
+        }]
+      },
+      "playerText": {
+        "label": "Medical Supply Accountability",
+        "summary": "The Breckenridge has recent experience distinguishing useful informal logistics from undocumented access and diverted medical supply. That history sharpens scrutiny without implicating the Quiet Channels network in redline."
+      }
     }
   ],
   "facts": [
@@ -120,7 +135,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders1.long-repair-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders1.long-repair-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.long-repair-assessment" },
+          { "eventOccurred": "event.open-orders1.long-repair-complication" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of The Long Repair after the assessment is player-known.",
@@ -130,6 +150,18 @@
           { "value": "failedInformed", "guidance": "The assignment materially fails after the known technical risk and limits are deliberately mishandled or rejected." }
         ],
         "exclusions": ["Selecting, delegating, starting repairs, naming priorities, or negotiating without a committed disposition does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.long-repair-complication",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.long-repair-complication",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.long-repair-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Dev Adebayo and Imani expose a combined-load limit that is individually within certification but unsafe under the proposed repair plan, forcing priorities, a bounded deferral, delegation, or overreach.",
+        "exclusions": ["The opening assessment, one routine repair, a plan that has not met a load limit, or generic technical debt is not the complication."]
       }
     },
     {
@@ -188,7 +220,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders1.borrowed-wings-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders1.borrowed-wings-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.borrowed-wings-assessment" },
+          { "eventOccurred": "event.open-orders1.borrowed-wings-complication" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Borrowed Wings after the assessment is player-known.",
@@ -198,6 +235,18 @@
           { "value": "failedInformed", "guidance": "The assignment materially fails after known qualification, command, or abort risks are deliberately mishandled." }
         ],
         "exclusions": ["Selecting, delegating, beginning training, passing one exercise, or declaring the pilots ready does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.borrowed-wings-complication",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.borrowed-wings-complication",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.borrowed-wings-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Lena Ors's sensor-triggered trauma response is disclosed by her, observed under controlled conditions, or surfaces during training and must be separated from her overall ability.",
+        "exclusions": ["A rumor, diagnosis without observed duty relevance, Kieran's suspicion, or ordinary training difficulty is not the complication."]
       }
     },
     {
@@ -256,7 +305,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.open-orders1.quiet-channels-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.open-orders1.quiet-channels-assessment" },
+      "when": {
+        "all": [
+          { "factKnown": "fact.open-orders1.quiet-channels-assessment" },
+          { "eventOccurred": "event.open-orders1.quiet-channels-complication" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the actual final disposition of Quiet Channels after the assessment is player-known.",
@@ -266,6 +320,18 @@
           { "value": "failedInformed", "guidance": "The assignment materially fails after known trust, security, or authority risks are deliberately mishandled." }
         ],
         "exclusions": ["Selecting, delegating, authorizing one contact, resolving one favor, or declaring the network safe does not establish the result."]
+      }
+    },
+    {
+      "id": "policy.open-orders1.quiet-channels-complication",
+      "claimType": "eventOccurred",
+      "targetId": "event.open-orders1.quiet-channels-complication",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.open-orders1.quiet-channels-assessment" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when Mara Venn presents a real favor, verification gap, or insecure traffic obligation that forces Priya's network into an accountable boundary. If Medical Supply Accountability is active, it may sharpen the scrutiny but never makes Quiet Channels the source of redline.",
+        "exclusions": ["One harmless contact, generalized suspicion, a Pale Lantern theory, or an assertion that the network supplied redline is not the complication."]
       }
     },
     {
@@ -447,8 +513,11 @@
   ],
   "events": [
     { "id": "event.open-orders1.long-repair-assessed", "playerVisibility": "visible", "playerText": { "summary": "The Long Repair received a usable aggregate assessment." } },
+    { "id": "event.open-orders1.long-repair-complication", "playerVisibility": "visible", "playerText": { "summary": "A combined-load limit forced The Long Repair to confront priorities and bounded support." } },
     { "id": "event.open-orders1.borrowed-wings-assessed", "playerVisibility": "visible", "playerText": { "summary": "Borrowed Wings received a usable aggregate assessment." } },
-    { "id": "event.open-orders1.quiet-channels-assessed", "playerVisibility": "visible", "playerText": { "summary": "Quiet Channels received a usable aggregate assessment." } }
+    { "id": "event.open-orders1.borrowed-wings-complication", "playerVisibility": "visible", "playerText": { "summary": "Lena Ors's trauma response became a specific qualification question rather than a judgment of her whole ability." } },
+    { "id": "event.open-orders1.quiet-channels-assessed", "playerVisibility": "visible", "playerText": { "summary": "Quiet Channels received a usable aggregate assessment." } },
+    { "id": "event.open-orders1.quiet-channels-complication", "playerVisibility": "visible", "playerText": { "summary": "A concrete favor or verification gap forced the informal network into an accountable boundary." } }
   ],
   "outcomes": [
     { "id": "outcome.open-orders1.long-repair-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for The Long Repair." } },

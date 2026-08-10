@@ -1587,7 +1587,7 @@ Imani concludes that continued operation is unsafe. A complete shutdown and rebu
 
 #### Key NPC
 
-**Chief Engineer Dena Rusk**, civilian yard superintendent. Rusk is proud of what her people kept operating and hears Starfleet criticism as ignorance of wartime necessity.
+**Dev Adebayo**, civilian Helix Yard systems engineer. Adebayo is proud of what local crews kept operating and hears unbounded Starfleet criticism as ignorance of wartime necessity. He is nevertheless the first to show Imani that individually certified repairs become unsafe under one specific combined load.
 
 #### Hidden truth
 
@@ -1615,10 +1615,11 @@ Possible approaches include:
 - Imani discovers a repair undocumented because the engineer who performed it died during the war.
 - Kieran asks whether Breckenridge shuttle power systems can carry part of the grid load.
 - Priya identifies political conditions attached to Federation reconstruction funding.
+- Adebayo's combined-load test invalidates the first stabilization plan without proving that a full shutdown is the only responsible answer.
 
 #### Command Moments
 
-Inspiration may be earned by building a legitimate shared plan and recognizing the yard's expertise. Resolve may be earned by enforcing a necessary safety boundary despite political cost.
+One Command Bearing point may be earned by carrying the assessed combined-load risk to an accountable stabilization plan, responsible bounded limitation, or other supported completion. Selection, an unfinished plan, overreach, or informed failure does not award it.
 
 #### Reward
 
@@ -1665,9 +1666,11 @@ The player decides:
 - Miriam insists that medical privacy limits what can be disclosed to other pilots.
 - Rowan proposes a sensor overlay that reduces one trigger but may create dependence on Breckenridge hardware.
 
+Ors may disclose the sensor trigger herself, permit it to be observed under controlled conditions, or have it surface during training. None of these routes makes her diagnosis public or predetermines certification. Kieran's task is to build a capable wing with honest limits, not personally rescue every exercise.
+
 #### Command Moments
 
-Inspiration may be earned by preserving Ors's agency while building a safe team. Resolve may be earned by imposing a defensible qualification boundary despite pressure and personal sympathy.
+One Command Bearing point may be earned by reaching a defensible completed qualification disposition that preserves both Ors's agency and the wing's safety. Certification, restriction, retraining, or reassignment may be responsible according to the established evidence; informed failure does not award it.
 
 #### Reward
 
@@ -1691,7 +1694,7 @@ The network violates postwar customs controls and uses authentication methods th
 
 #### Key NPC
 
-**Tomas Venn**, a civilian communications broker who coordinates the network from a cargo office on Asterion Station.
+**Mara Venn**, a civilian communications broker who coordinates the network from a cargo office on Asterion Station. She will name the favors and verification gaps the network actually carries, but refuses to let Starfleet quietly use informal operators while publicly disowning them.
 
 #### Hidden truth
 
@@ -1718,9 +1721,11 @@ Priya can solve the immediate administrative problem quietly, but doing so may m
 - Bronn warns that a communications channel no one controls is an infiltration route.
 - One Compact official threatens to expose the network if excluded from it.
 
+If the Prelude redline case was responsibly handled, Sato and Priya can use that experience to explain why undocumented access and favors require accountable boundaries. The history changes the scrutiny, not the network's culpability: Quiet Channels did not supply redline and is not retroactively part of Rhee's conduct.
+
 #### Command Moments
 
-Inspiration may be earned by converting informal trust into a durable cooperative institution. Resolve may be earned by imposing necessary security and accountability without pretending the network can continue unchanged.
+One Command Bearing point may be earned by converting the assessed network and its concrete obligation into a durable, bounded disposition. Formalization, bounded continuation, shutdown, or responsible handoff may be supported by the evidence; informed failure does not award it.
 
 #### Reward
 

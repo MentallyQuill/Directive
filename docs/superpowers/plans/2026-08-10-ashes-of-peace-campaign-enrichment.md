@@ -345,23 +345,23 @@ git commit -m "feat: enrich False Colors evidence routes"
 - Produces: opening, complication, and resolution evidence for Long Repair, Borrowed Wings, and Quiet Channels.
 - Consumes: existing optional objectives, three Command Bearing awards, three outcome dimensions, and optional Compact verification capability.
 
-- [ ] **Step 1: Add failing three-beat assignment scenarios**
+- [x] **Step 1: Add failing three-beat assignment scenarios**
 
 Add `long-repair-limit-before-plan`, `borrowed-wings-ors-self-disclosure`, `quiet-channels-redline-echo`, and `all-three-delegated-without-overextension`. Each selected assignment must require an opening fact and a complication event before its result is accepted.
 
-- [ ] **Step 2: Expand Long Repair**
+- [x] **Step 2: Expand Long Repair**
 
 Use Helix Yard engineer Dev Adebayo to present a combined-load risk that is individually within certification but unsafe in combination. Allow a joint stabilization plan, a bounded deferral, direct overreach, or responsible delegation. The Helix capability remains earned only by a durable cooperative plan.
 
-- [ ] **Step 3: Expand Borrowed Wings**
+- [x] **Step 3: Expand Borrowed Wings**
 
 Preserve Lena Ors's agency. Let her disclose the sensor-triggered trauma response, be observed under controlled conditions, or have the issue surface during training. Kieran must learn to build a capable wing rather than personally rescue the exercise. Certification, restriction, retraining, or reassignment remain defensible according to evidence.
 
-- [ ] **Step 4: Expand Quiet Channels**
+- [x] **Step 4: Expand Quiet Channels**
 
 Give Priya's civilian contacts an accountable spokesperson, Mara Venn. If `dimension.prelude.redline` records a handled case, let that history change why informal supply favors are scrutinized; do not imply the network supplied redline. Support formalization, bounded continuation, shutdown, or responsible handoff.
 
-- [ ] **Step 5: Prove assignment rewards remain scarce and idempotent**
+- [x] **Step 5: Prove assignment rewards remain scarce and idempotent**
 
 Add explicit `commandBearingAwardIds` expectations to one success and one failure scenario for each assignment. Assert that resolving all three through delegation may make three awards eligible, while the reserve's capacity behavior remains governed by the existing Command Bearing system.
 
