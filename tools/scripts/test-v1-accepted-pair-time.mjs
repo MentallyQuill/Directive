@@ -28,27 +28,22 @@ const state = {
     openingMinuteOfDay: 510
   },
   worldState: {
+    kind: 'directive.worldState.v1',
+    version: 1,
     currentStardate: 53049.2,
     elapsedMinutes: 0,
     elapsedHours: 0,
     currentLocationId: 'breckenridge.underway'
   },
   timeLedger: {
-    schemaVersion: 1,
+    kind: 'directive.timeLedger.v1',
+    version: 1,
     openingMinuteOfDay: 510,
     elapsedMinutes: 0,
     entries: []
   },
   mission: { sentinel: 'unchanged-mission' },
-  questLedger: { sentinel: 'unchanged-quests' },
-  threadLedger: { sentinel: 'unchanged-threads' },
-  eventLedger: { sentinel: 'unchanged-events' },
-  storyArcLedger: { sentinel: 'unchanged-story-arcs' },
-  dynamicQuestCatalog: { sentinel: 'unchanged-dynamic-quests' },
-  attentionState: { sentinel: 'unchanged-attention' },
-  relationships: { sentinel: 'unchanged-relationships' },
-  ship: { sentinel: 'unchanged-ship' },
-  runtimeTracking: { sentinel: 'unchanged-runtime' }
+  ship: { sentinel: 'unchanged-ship' }
 };
 const packageData = {
   world: {
@@ -103,22 +98,14 @@ assert.equal(adjudicationCalls, 1);
 assert.equal(commits, 1);
 assert.deepEqual(commitMetadata.domains, ['campaign', 'worldState', 'timeLedger']);
 assert.equal(settled.campaignState.worldState.elapsedMinutes, 12);
-assert.equal(settled.campaignState.timeLedger.lastBoundary.kind, 'directive.timeBoundary.v1');
-assert.equal(settled.campaignState.timeLedger.lastBoundary.elapsedMinutes, 12);
-assert.equal(settled.campaignState.timeLedger.lastBoundary.sourceAnchorRange.rangeHash, 'range.accepted-pair.11');
-assert.equal(settled.boundary.id, settled.campaignState.timeLedger.lastBoundary.id);
+assert.equal(settled.campaignState.timeLedger.entries.at(-1).kind, 'directive.timeBoundary.v1');
+assert.equal(settled.campaignState.timeLedger.entries.at(-1).elapsedMinutes, 12);
+assert.equal(settled.campaignState.timeLedger.entries.at(-1).sourceAnchorRange.rangeHash, 'range.accepted-pair.11');
+assert.equal(settled.boundary.id, settled.campaignState.timeLedger.entries.at(-1).id);
 
 for (const root of [
   'mission',
-  'questLedger',
-  'threadLedger',
-  'eventLedger',
-  'storyArcLedger',
-  'dynamicQuestCatalog',
-  'attentionState',
-  'relationships',
-  'ship',
-  'runtimeTracking'
+  'ship'
 ]) {
   assert.deepEqual(settled.campaignState[root], state[root], `${root} must not change during V1 time custody`);
 }

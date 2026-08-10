@@ -1,16 +1,9 @@
-import {
-  adjudicateTimeAdvance,
-  findTimeBoundaryForPlayerMessage,
-  findTimeBoundaryForSourceAnchorRange
-} from '../time/time-advance-adjudicator.mjs';
-import {
-  buildCampaignReplyHeader,
-  resolveCampaignMinuteOfDay
-} from '../time/campaign-time-header.mjs';
-import { appendCampaignTimeLedgerEntry } from '../time/campaign-time-state.mjs';
-import { advanceWorldTime } from '../world/world-director.mjs';
+import { adjudicateTimeAdvance } from '../time/time-advance-adjudicator.mjs';
 
-function cloneJson(value) {
+const DAY_MINUTES = 1440;
+const LEDGER_LIMIT = 128;
+
+function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
@@ -36,33 +29,45 @@ function sourceAnchorRange(snapshot = {}) {
   };
 }
 
-function existingBoundary(campaignState, anchor) {
-  return findTimeBoundaryForPlayerMessage(campaignState, anchor.currentPlayerHostMessageId)
-    || findTimeBoundaryForSourceAnchorRange(campaignState, anchor)
-    || null;
+function sameAnchor(left = {}, right = {}) {
+  return Boolean(
+    left.rangeHash && left.rangeHash === right.rangeHash
+    && left.previousAssistantHostMessageId === right.previousAssistantHostMessageId
+    && left.currentPlayerHostMessageId === right.currentPlayerHostMessageId
+  );
 }
 
-function safeProposal(proposal = {}) {
-  const elapsedMinutes = Number(proposal?.elapsedMinutes);
+function existingBoundary(state, anchor) {
+  return (state?.timeLedger?.entries || []).find((entry) => sameAnchor(entry.sourceAnchorRange, anchor)) || null;
+}
+
+function safeProposal(value = {}) {
+  const elapsedMinutes = Number(value.elapsedMinutes);
   return {
     elapsedMinutes: Number.isFinite(elapsedMinutes) ? Math.max(0, Math.round(elapsedMinutes)) : 0,
-    reason: compact(proposal?.reason).slice(0, 180) || 'accepted-scene-time',
-    confidence: Number.isFinite(Number(proposal?.confidence))
-      ? Math.max(0, Math.min(1, Number(proposal.confidence)))
+    reason: compact(value.reason).slice(0, 180) || 'accepted-scene-time',
+    confidence: Number.isFinite(Number(value.confidence))
+      ? Math.max(0, Math.min(1, Number(value.confidence)))
       : null,
-    source: compact(proposal?.source).slice(0, 120) || 'timeAdvanceAdjudicator'
+    source: compact(value.source).slice(0, 120) || 'timeAdvanceAdjudicator'
   };
+}
+
+function formatShipTime(minuteOfDay) {
+  const minute = ((Math.round(minuteOfDay) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}${String(minute % 60).padStart(2, '0')} hours`;
+}
+
+function formatStardate(value) {
+  return Number(value).toFixed(1).padStart(7, '0');
+}
+
+function header(stardate, minuteOfDay) {
+  return `*Stardate ${formatStardate(stardate)} | ${formatShipTime(minuteOfDay)}*`;
 }
 
 function unavailable(campaignState, reasonCode) {
-  return {
-    ok: false,
-    status: 'unavailable',
-    reasonCode,
-    campaignState,
-    proposal: null,
-    boundary: null
-  };
+  return { ok: false, status: 'unavailable', reasonCode, campaignState, proposal: null, boundary: null };
 }
 
 export async function commitV1AcceptedPairTimeAdvance({
@@ -75,7 +80,12 @@ export async function commitV1AcceptedPairTimeAdvance({
   ingressId = null,
   now = null
 } = {}) {
-  if (!campaignState || !snapshot || !packageData?.world || typeof stateDeltaGateway?.commit !== 'function') {
+  if (!campaignState
+    || campaignState.worldState?.kind !== 'directive.worldState.v1'
+    || campaignState.timeLedger?.kind !== 'directive.timeLedger.v1'
+    || !snapshot
+    || !packageData?.world
+    || typeof stateDeltaGateway?.commit !== 'function') {
     return unavailable(campaignState, 'time-custody-unavailable');
   }
   const anchor = sourceAnchorRange(snapshot);
@@ -90,18 +100,17 @@ export async function commitV1AcceptedPairTimeAdvance({
       reasonCode: null,
       campaignState,
       proposal: null,
-      boundary: cloneJson(committedBoundary)
+      boundary: clone(committedBoundary)
     };
   }
 
-  let rawProposal;
+  let proposed;
   try {
-    rawProposal = await adjudicate({
+    proposed = await adjudicate({
       campaignState,
       packageData,
       generationRouter,
       acceptedPreviousResponse: true,
-      playerReplyRelation: null,
       previousAssistantText: String(snapshot.source.previousAssistant.text || ''),
       currentPlayerText: String(snapshot.source.currentPlayer.text || ''),
       previousAssistantHostMessageId: anchor.previousAssistantHostMessageId,
@@ -111,81 +120,118 @@ export async function commitV1AcceptedPairTimeAdvance({
   } catch {
     return unavailable(campaignState, 'time-adjudication-failed');
   }
-  const proposal = safeProposal(rawProposal);
+  const proposal = safeProposal(proposed);
   if (proposal.elapsedMinutes <= 0) {
-    return {
-      ok: true,
-      status: 'no-change',
-      reasonCode: null,
-      campaignState,
-      proposal,
-      boundary: null
-    };
+    return { ok: true, status: 'no-change', reasonCode: null, campaignState, proposal, boundary: null };
   }
 
-  const previousStardate = Number(
-    campaignState?.worldState?.currentStardate
-    ?? campaignState?.campaign?.currentStardate
-    ?? 0
-  );
-  const previousShipMinute = resolveCampaignMinuteOfDay(campaignState);
-  const previousHeader = buildCampaignReplyHeader(campaignState);
-  const advanced = advanceWorldTime({
-    world: packageData.world,
-    worldState: campaignState.worldState,
-    minutes: proposal.elapsedMinutes,
-    reason: proposal.reason,
-    now
-  });
-  let next = cloneJson(campaignState);
-  next.worldState = advanced.worldState;
-  next.campaign = {
-    ...(next.campaign || {}),
-    currentStardate: advanced.worldState.currentStardate
-  };
-  const boundaryId = `v1-time.${stableHash([
-    anchor.previousAssistantHostMessageId,
-    anchor.currentPlayerHostMessageId,
-    anchor.rangeHash
-  ].join('|'))}`;
-  next = appendCampaignTimeLedgerEntry(next, {
+  const previousElapsed = Number(campaignState.timeLedger.elapsedMinutes || 0);
+  const nextElapsed = previousElapsed + proposal.elapsedMinutes;
+  const openingMinute = Number(campaignState.timeLedger.openingMinuteOfDay || 0);
+  const previousMinute = ((openingMinute + previousElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+  const nextMinute = ((openingMinute + nextElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+  const previousStardate = Number(campaignState.worldState.currentStardate);
+  const stardatePerDay = Number(packageData.world?.layout?.stardatePerDay ?? 1);
+  const nextStardate = Number((previousStardate + (proposal.elapsedMinutes / DAY_MINUTES) * stardatePerDay).toFixed(3));
+  const boundaryId = `v1-time.${stableHash(`${anchor.previousAssistantHostMessageId}|${anchor.currentPlayerHostMessageId}|${anchor.rangeHash}`)}`;
+  const timestamp = typeof now === 'function' ? now() : (now || new Date().toISOString());
+  const boundary = {
     id: boundaryId,
-    type: 'time-advance',
-    reason: proposal.reason,
+    kind: 'directive.timeBoundary.v1',
     elapsedMinutes: proposal.elapsedMinutes,
-    previousStardate,
-    previousShipMinute,
-    previousHeader,
-    currentHeader: buildCampaignReplyHeader(next),
+    reason: proposal.reason,
     confidence: proposal.confidence,
     source: proposal.source,
+    previousStardate,
+    currentStardate: nextStardate,
+    previousShipMinute: previousMinute,
+    currentShipMinute: nextMinute,
+    previousHeader: header(previousStardate, previousMinute),
+    currentHeader: header(nextStardate, nextMinute),
     sourceAnchorRange: anchor,
     evidenceMessageIds: [anchor.previousAssistantHostMessageId, anchor.currentPlayerHostMessageId],
-    adjudication: proposal,
-    sourceEventId: advanced.event.id
-  }, { now });
+    committedAt: timestamp
+  };
+  const next = clone(campaignState);
+  next.campaign.currentStardate = nextStardate;
+  next.worldState = {
+    ...next.worldState,
+    currentStardate: nextStardate,
+    elapsedMinutes: nextElapsed
+  };
+  next.timeLedger = {
+    kind: 'directive.timeLedger.v1',
+    version: 1,
+    openingMinuteOfDay: openingMinute,
+    elapsedMinutes: nextElapsed,
+    stardate: nextStardate,
+    shipClock: { minuteOfDay: nextMinute, display: formatShipTime(nextMinute) },
+    entries: [...(next.timeLedger.entries || []), boundary].slice(-LEDGER_LIMIT),
+    updatedAt: timestamp
+  };
   const committed = await stateDeltaGateway.commit(next, {
     id: `${boundaryId}:commit`,
     source: 'v1AcceptedPairTimeCustody',
-    reason: `Accepted scene advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
-    summary: `Accepted scene advanced campaign time by ${proposal.elapsedMinutes} minutes.`,
     domains: ['campaign', 'worldState', 'timeLedger'],
     ingressId,
-    sourceAnchorRange: anchor,
-    stable: true,
-    metadata: {
-      boundaryId,
-      elapsedMinutes: proposal.elapsedMinutes,
-      sourceRangeHash: anchor.rangeHash
-    }
+    sourceAnchorRange: anchor
   });
-  const boundary = committed?.timeLedger?.lastBoundary || next.timeLedger.lastBoundary;
   return {
     ok: true,
     status: 'committed',
     reasonCode: null,
-    campaignState: committed || next,
+    campaignState: committed,
     proposal,
-    boundary: cloneJson(boundary)
+    boundary: clone(boundary)
+  };
+}
+
+export async function invalidateV1AcceptedPairTimeByHostMessage({
+  campaignState,
+  hostMessageId,
+  packageData,
+  stateDeltaGateway,
+  now = null,
+  eventType = 'source-invalidated'
+} = {}) {
+  const id = compact(hostMessageId);
+  if (!id
+    || campaignState?.timeLedger?.kind !== 'directive.timeLedger.v1'
+    || typeof stateDeltaGateway?.commit !== 'function') {
+    return { ok: false, status: 'unavailable', reasonCode: 'time-invalidation-unavailable' };
+  }
+  const entries = campaignState.timeLedger.entries || [];
+  const retained = entries.filter((entry) => !(entry.evidenceMessageIds || []).map(String).includes(id));
+  if (retained.length === entries.length) {
+    return { ok: true, status: 'no-change', invalidatedBoundaryCount: 0, campaignState };
+  }
+  const elapsedMinutes = retained.reduce((total, entry) => total + Math.max(0, Number(entry.elapsedMinutes) || 0), 0);
+  const openingMinute = Number(campaignState.timeLedger.openingMinuteOfDay || 0);
+  const minuteOfDay = ((openingMinute + elapsedMinutes) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+  const openingStardate = Number(campaignState.campaign.openingStardate);
+  const stardatePerDay = Number(packageData?.world?.layout?.stardatePerDay ?? 1);
+  const stardate = Number((openingStardate + (elapsedMinutes / DAY_MINUTES) * stardatePerDay).toFixed(3));
+  const timestamp = typeof now === 'function' ? now() : (now || new Date().toISOString());
+  const next = clone(campaignState);
+  next.campaign.currentStardate = stardate;
+  next.worldState = { ...next.worldState, currentStardate: stardate, elapsedMinutes };
+  next.timeLedger = {
+    ...next.timeLedger,
+    elapsedMinutes,
+    stardate,
+    shipClock: { minuteOfDay, display: formatShipTime(minuteOfDay) },
+    entries: retained,
+    updatedAt: timestamp
+  };
+  const committed = await stateDeltaGateway.commit(next, {
+    id: `v1-time-invalidate.${stableHash(`${id}|${eventType}|${entries.length}`)}`,
+    source: 'v1AcceptedPairTimeCustody',
+    domains: ['campaign', 'worldState', 'timeLedger']
+  });
+  return {
+    ok: true,
+    status: 'invalidated',
+    invalidatedBoundaryCount: entries.length - retained.length,
+    campaignState: committed
   };
 }

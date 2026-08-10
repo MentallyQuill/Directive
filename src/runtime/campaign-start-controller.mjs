@@ -135,7 +135,7 @@ function campaignSummaryFromSave(save, activeSaveId, checkpoints) {
     stardate: save.stardate,
     lastPlayedAt: save.updatedAt,
     active: save.id === activeSaveId,
-    canOpenChat: Boolean(save.chatId),
+    canOpenChat: true,
     canSaveGame: save.id === activeSaveId,
     activeTimeline: { saveId: save.id, chatId: save.chatId },
     checkpoints: checkpoints.map((checkpoint) => ({
@@ -313,26 +313,52 @@ export function createCampaignStartController({
       });
     },
 
+    async bindCheckpointChat({ checkpointId, binding } = {}) {
+      const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
+      if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
+      const nextState = clone(checkpoint.state);
+      nextState.campaignChatBinding = {
+        ...clone(binding),
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: checkpoint.campaignId,
+        saveId: checkpoint.id,
+        status: 'bound'
+      };
+      const next = createV1CampaignSave({
+        id: checkpoint.id,
+        name: checkpoint.name,
+        slotType: 'checkpoint',
+        parentSaveId: checkpoint.parentSaveId,
+        state: nextState,
+        createdAt: checkpoint.createdAt,
+        updatedAt: currentTime()
+      });
+      await storeV1CampaignSave(adapter, next, { makeActive: false });
+      return clone(next);
+    },
+
     async loadCheckpoint({ checkpointId } = {}) {
       const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
-      const timelineId = nextId('save');
+      if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
       const state = clone(checkpoint.state);
       if (state.campaignChatBinding) {
-        state.campaignChatBinding.saveId = timelineId;
+        state.campaignChatBinding.saveId = activeSave.id;
         state.campaignChatBinding.chatId = null;
         state.campaignChatBinding.status = 'unbound';
       }
       const timeline = createV1CampaignSave({
-        id: timelineId,
-        name: `${checkpoint.name} - continuation`,
+        id: activeSave.id,
+        name: activeSave.name,
         state,
-        createdAt: currentTime()
+        createdAt: activeSave.createdAt,
+        updatedAt: currentTime()
       });
       await storeV1CampaignSave(adapter, timeline);
       activeSave = clone(timeline);
       activeState = clone(state);
-      return clone(timeline);
+      return { timeline: clone(timeline), checkpoint: clone(checkpoint) };
     },
 
     async deleteSave({ checkpointId = null, saveId = null } = {}) {

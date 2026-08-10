@@ -62,6 +62,9 @@ export function createFakeEventAdapter() {
       handlers.get(eventName).add(handler);
       return () => handlers.get(eventName)?.delete(handler);
     },
+    off(eventName, handler) {
+      handlers.get(eventName)?.delete(handler);
+    },
     emit(eventName, payload) {
       for (const handler of handlers.get(eventName) || []) {
         handler(payload);

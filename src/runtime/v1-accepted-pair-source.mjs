@@ -1,5 +1,10 @@
 import { parseDutyReportManifestEnvelope } from '../mission/v1/duty-report-delivery.mjs';
-import { stripCampaignReplyHeader } from '../time/campaign-time-header.mjs';
+
+const CAMPAIGN_REPLY_HEADER = /^\s*\*?Stardate\s+\d{4,6}(?:\.\d+)?\s*\|\s*\d{4}\s+hours\*?(?:\s*(?:\r?\n)+|\s*$)/i;
+
+function stripCampaignReplyHeader(text = '') {
+  return String(text ?? '').replace(CAMPAIGN_REPLY_HEADER, '').trimStart();
+}
 
 const MAX_ASSISTANT_CHARS = 7000;
 const MAX_PLAYER_CHARS = 2500;

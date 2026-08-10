@@ -1,104 +1,7 @@
-import { DIRECTIVE_STATIC_PROMPT_KEYS } from '../../continuity/prompt-keys.mjs';
-import {
-  createExternalPromptEnvironmentRef,
-  isDirectivePromptKey,
-  summarizeExternalPromptEnvironmentTargets
-} from '../../runtime/architecture-redesign-contracts.mjs';
-import {
-  observeSillyTavernExternalPromptEnvironment
-} from './external-context-observer.mjs';
+export const DIRECTIVE_V1_PROMPT_KEY = 'directive.campaign.v1';
 
-const PROMPT_KEY_PREFIX = 'directive.campaign';
-
-export { DIRECTIVE_STATIC_PROMPT_KEYS };
-
-function cloneJson(value) {
+function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-}
-
-function promptApi(context) {
-  const setExtensionPrompt = context?.setExtensionPrompt || globalThis.setExtensionPrompt;
-  const types = context?.extension_prompt_types || globalThis.extension_prompt_types || {};
-  const roles = context?.extension_prompt_roles || globalThis.extension_prompt_roles || {};
-  return {
-    setExtensionPrompt,
-    types,
-    roles
-  };
-}
-
-function normalizePosition(api, placement) {
-  const value = String(placement || '').toLowerCase();
-  if (value === 'beforeprompt' || value === 'before_prompt') {
-    return Number.isFinite(Number(api.types.BEFORE_PROMPT)) ? api.types.BEFORE_PROMPT : 0;
-  }
-  if (value === 'inprompt' || value === 'in_prompt') {
-    return Number.isFinite(Number(api.types.IN_PROMPT)) ? api.types.IN_PROMPT : 0;
-  }
-  return Number.isFinite(Number(api.types.IN_CHAT)) ? api.types.IN_CHAT : 1;
-}
-
-function normalizeRole(api, role) {
-  const value = String(role || 'system').toLowerCase();
-  if (value === 'user') return Number.isFinite(Number(api.roles.USER)) ? api.roles.USER : 1;
-  if (value === 'assistant') return Number.isFinite(Number(api.roles.ASSISTANT)) ? api.roles.ASSISTANT : 2;
-  return Number.isFinite(Number(api.roles.SYSTEM)) ? api.roles.SYSTEM : 0;
-}
-
-function promptKey(blockId) {
-  return `${PROMPT_KEY_PREFIX}.${String(blockId || '').replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
-}
-
-function blockPromptKey(block = {}) {
-  const explicit = String(block.promptKey || '').trim().replace(/[^a-zA-Z0-9_.-]/g, '-');
-  return explicit.startsWith('directive.') ? explicit : promptKey(block.id);
-}
-
-function directivePromptKeySet(keys = []) {
-  return new Set([...keys].filter(isDirectivePromptKey));
-}
-
-function externalEnvironmentMayInfluencePrompt(environment = {}) {
-  return Boolean(
-    environment.worldInfo?.active
-    || environment.memoryBooks?.enabled
-    || environment.summaryception?.enabled
-    || environment.summaryception?.promptKeyActive
-    || environment.vectFox?.enabled
-    || environment.vectFox?.generationInterceptorActive
-    || (environment.knownExternalPromptKeys || []).length > 0
-  );
-}
-
-function externalPromptInspectionMetadata(context, binding = {}) {
-  try {
-    const environment = observeSillyTavernExternalPromptEnvironment(context, {
-      userHandle: binding?.userHandle,
-      chatId: binding?.chatId || contextChatId(context),
-      campaignId: binding?.campaignId,
-      saveId: binding?.saveId
-    });
-    const ref = createExternalPromptEnvironmentRef(environment);
-    return {
-      externalPromptEnvironmentRef: ref,
-      knownExternalPromptKeys: ref.knownExternalPromptKeys || [],
-      finalHostPromptMayIncludeExternal: externalEnvironmentMayInfluencePrompt(environment),
-      externalPromptEnvironmentTargets: summarizeExternalPromptEnvironmentTargets(environment),
-      externalPromptDiagnostics: Array.isArray(environment.diagnostics) ? cloneJson(environment.diagnostics) : [],
-      unavailableSignals: Array.isArray(environment.unknownSignals) ? [...environment.unknownSignals] : [],
-      redactions: Array.isArray(environment.redactions) ? [...environment.redactions] : []
-    };
-  } catch (error) {
-    return {
-      externalPromptEnvironmentRef: null,
-      knownExternalPromptKeys: [],
-      finalHostPromptMayIncludeExternal: null,
-      externalPromptEnvironmentTargets: null,
-      unavailableSignals: ['external-prompt-environment-observation-failed'],
-      redactions: [],
-      externalPromptEnvironmentError: { message: error?.message || String(error) }
-    };
-  }
 }
 
 function contextChatId(context) {
@@ -106,159 +9,129 @@ function contextChatId(context) {
     ?? context?.chat_id
     ?? context?.currentChatId
     ?? context?.current_chat_id
-    ?? (typeof context?.getCurrentChatId === 'function' ? context.getCurrentChatId() : null)
+    ?? context?.getCurrentChatId?.()
     ?? context?.chatMetadata?.chat_id
     ?? context?.chat_metadata?.chat_id;
-  return value === null || value === undefined ? null : String(value).trim() || null;
+  return String(value ?? '').trim() || null;
 }
 
-function ensurePromptApi(context) {
-  const api = promptApi(context);
-  if (typeof api.setExtensionPrompt !== 'function') {
+function api(context) {
+  return {
+    set: context?.setExtensionPrompt || globalThis.setExtensionPrompt,
+    types: context?.extension_prompt_types || globalThis.extension_prompt_types || {},
+    roles: context?.extension_prompt_roles || globalThis.extension_prompt_roles || {}
+  };
+}
+
+function requireApi(context) {
+  const promptApi = api(context);
+  if (typeof promptApi.set !== 'function') {
     const error = new Error('SillyTavern setExtensionPrompt is unavailable.');
     error.code = 'DIRECTIVE_PROMPT_API_UNAVAILABLE';
     throw error;
   }
-  return api;
+  return promptApi;
+}
+
+function packetText(packet) {
+  if (typeof packet?.text === 'string' && packet.text.trim()) return packet.text.trim();
+  const blocks = Array.isArray(packet?.blocks) ? packet.blocks : [];
+  return blocks.map((block) => String(block?.text || block?.content || '').trim()).filter(Boolean).join('\n\n');
+}
+
+function packetRevision(packet) {
+  const value = Number(packet?.revision);
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function stableHash(value = '') {
+  let hash = 0x811c9dc5;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
   const getContext = typeof contextFactory === 'function'
     ? contextFactory
     : () => globalThis.SillyTavern?.getContext?.() || null;
-  const installed = new Map();
   let activeBinding = null;
   let activePacket = null;
-  let status = 'inactive';
+  let installed = false;
   let updatedAt = null;
   let lastError = null;
 
-  function setBlock(context, block) {
-    const api = ensurePromptApi(context);
-    const key = blockPromptKey(block);
-    if (!isDirectivePromptKey(key)) {
-      const error = new Error(`Refusing to install non-Directive prompt key ${key}.`);
-      error.code = 'DIRECTIVE_PROMPT_KEY_SCOPE';
-      error.details = { key };
-      throw error;
-    }
-    api.setExtensionPrompt(
-      key,
-      block.text || String(block.content || ''),
-      normalizePosition(api, block.placement),
-      Math.max(0, Math.min(1000, Number(block.depth) || 0)),
+  function set(text) {
+    const context = getContext();
+    const promptApi = requireApi(context);
+    promptApi.set(
+      DIRECTIVE_V1_PROMPT_KEY,
+      text,
+      Number.isFinite(Number(promptApi.types.IN_CHAT)) ? promptApi.types.IN_CHAT : 1,
+      0,
       false,
-      normalizeRole(api, block.role)
+      Number.isFinite(Number(promptApi.roles.SYSTEM)) ? promptApi.roles.SYSTEM : 0
     );
-    installed.set(key, {
-      key,
-      id: block.id,
-      promptKey: key,
-      title: block.title,
-      hash: block.hash || null,
-      priority: block.priority,
-      depth: block.depth,
-      sourceIds: Array.isArray(block.sourceIds) ? [...block.sourceIds] : [],
-      sourceRevision: block.source?.revision ?? null
-    });
-  }
-
-  function clearKey(context, key) {
-    if (!isDirectivePromptKey(key)) {
-      installed.delete(key);
-      return { skipped: true, reason: 'non-directive-prompt-key', key };
-    }
-    const api = ensurePromptApi(context);
-    api.setExtensionPrompt(
-      key,
-      '',
-      Number.isFinite(Number(api.types.IN_CHAT)) ? api.types.IN_CHAT : 1,
-      4,
-      false,
-      Number.isFinite(Number(api.roles.SYSTEM)) ? api.roles.SYSTEM : 0
-    );
-    installed.delete(key);
   }
 
   async function clear({ reason = 'clear', preservePacket = false } = {}) {
-    const context = getContext();
-    if (!context) {
-      installed.clear();
-      if (!preservePacket) activeBinding = null;
-      if (!preservePacket) activePacket = null;
-      status = 'inactive';
-      return { ok: true, reason, transport: 'no-context' };
-    }
     try {
-      for (const key of directivePromptKeySet([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) clearKey(context, key);
-      if (!preservePacket) activeBinding = null;
-      if (!preservePacket) activePacket = null;
-      status = 'inactive';
+      if (getContext()) set('');
+      installed = false;
+      if (!preservePacket) {
+        activeBinding = null;
+        activePacket = null;
+      }
       updatedAt = new Date().toISOString();
       lastError = null;
       return { ok: true, reason, cleared: true };
     } catch (error) {
+      installed = false;
       lastError = error;
-      status = 'error';
       return { ok: false, reason, error: { message: error?.message || String(error) } };
     }
   }
 
-  async function install(options = {}) {
-    const binding = options.binding;
-    const packet = options.packet || (Array.isArray(options.blocks) ? {
-      kind: 'directive.playerSafePromptContext',
-      blocks: options.blocks,
-      revision: Number(options.contextRevision || 0),
-      hash: options.hash || null,
-      text: options.text || ''
-    } : null);
+  async function install({ binding, packet } = {}) {
     const context = getContext();
     if (!context) throw new Error('SillyTavern context is unavailable for prompt installation.');
-    if (!binding?.chatId) throw new Error('Campaign chat binding is required for prompt installation.');
-    if (!packet || !Array.isArray(packet.blocks)) throw new Error('Prompt packet with blocks is required.');
-    const activeChatId = contextChatId(context);
-    if (activeChatId && String(binding.chatId) !== activeChatId) {
-      const error = new Error(`Refusing to install Directive campaign context into unbound chat ${activeChatId}.`);
+    const chatId = String(binding?.chatId ?? '').trim();
+    if (!chatId) throw new Error('A V1 campaign chat binding is required for prompt installation.');
+    const current = contextChatId(context);
+    if (current && current !== chatId) {
+      const error = new Error(`Refusing to install Directive V1 context into unbound chat ${current}.`);
       error.code = 'DIRECTIVE_PROMPT_CHAT_MISMATCH';
-      error.details = { activeChatId, boundChatId: String(binding.chatId) };
       throw error;
     }
+    const text = packetText(packet);
+    if (!text) throw new Error('Directive V1 prompt packet text is required.');
     try {
-      const desiredKeys = directivePromptKeySet(packet.blocks.map(blockPromptKey));
-      for (const key of directivePromptKeySet([...DIRECTIVE_STATIC_PROMPT_KEYS, ...installed.keys()])) {
-        if (!desiredKeys.has(key)) clearKey(context, key);
-      }
-      for (const block of packet.blocks) setBlock(context, block);
-      const externalMetadata = externalPromptInspectionMetadata(context, binding);
-      activeBinding = cloneJson(binding);
+      set(text);
+      activeBinding = clone(binding);
       activePacket = {
-        ...cloneJson(packet),
-        ...cloneJson(externalMetadata)
+        kind: 'directive.promptPacket.v1',
+        revision: packetRevision(packet),
+        hash: packet?.hash || stableHash(text),
+        text
       };
-      status = 'active';
+      installed = true;
       updatedAt = new Date().toISOString();
       lastError = null;
       return {
         ok: true,
-        status,
-        chatId: binding.chatId,
-        revision: packet.revision,
-        hash: packet.hash,
-        blockCount: packet.blocks.length,
-        externalPromptEnvironmentRef: cloneJson(externalMetadata.externalPromptEnvironmentRef),
-        knownExternalPromptKeys: cloneJson(externalMetadata.knownExternalPromptKeys)
+        status: 'active',
+        chatId,
+        revision: activePacket.revision,
+        hash: activePacket.hash,
+        blockCount: 1
       };
     } catch (error) {
-      await clear({ reason: 'install-failed', preservePacket: true });
-      status = 'error';
       lastError = error;
+      installed = false;
       throw error;
     }
-  }
-
-  async function update(options = {}) {
-    return install(options);
   }
 
   async function rebuild(options = {}) {
@@ -267,82 +140,41 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
   }
 
   async function syncForChat(identity = {}) {
-    const boundChatId = activeBinding?.chatId;
-    if (!boundChatId || String(identity?.chatId || '') !== String(boundChatId)) {
-      if (installed.size > 0) await clear({ reason: 'unbound-chat', preservePacket: true });
-      return {
-        ok: true,
-        active: false,
-        reason: 'unbound-chat'
-      };
+    if (!activeBinding?.chatId || String(identity?.chatId || '') !== String(activeBinding.chatId)) {
+      if (installed) await clear({ reason: 'unbound-chat', preservePacket: true });
+      return { ok: true, active: false, reason: 'unbound-chat' };
     }
-    if (installed.size === 0 && activePacket) {
-      return install({ binding: activeBinding, packet: activePacket });
-    }
-    return {
-      ok: true,
-      active: true,
-      chatId: boundChatId
-    };
-  }
-
-  function inspect({ includeText = false } = {}) {
-    const context = getContext();
-    const externalMetadata = context
-      ? externalPromptInspectionMetadata(context, activeBinding || {})
-      : {
-          externalPromptEnvironmentRef: activePacket?.externalPromptEnvironmentRef || null,
-          knownExternalPromptKeys: activePacket?.knownExternalPromptKeys || [],
-          finalHostPromptMayIncludeExternal: activePacket?.finalHostPromptMayIncludeExternal ?? null,
-          externalPromptEnvironmentTargets: activePacket?.externalPromptEnvironmentTargets || null,
-          externalPromptDiagnostics: activePacket?.externalPromptDiagnostics || [],
-          unavailableSignals: activePacket?.unavailableSignals || [],
-          redactions: activePacket?.redactions || []
-        };
-    return {
-      kind: 'directive.promptInspection',
-      status,
-      binding: cloneJson(activeBinding),
-      revision: activePacket?.revision ?? null,
-      hash: activePacket?.hash || null,
-      blockCount: installed.size,
-      blocks: [...installed.values()].map(cloneJson),
-      externalPromptEnvironmentRef: cloneJson(externalMetadata.externalPromptEnvironmentRef),
-      knownExternalPromptKeys: cloneJson(externalMetadata.knownExternalPromptKeys || []),
-      directiveOwnedPromptKeys: [...installed.keys()].filter(isDirectivePromptKey).sort(),
-      finalHostPromptMayIncludeExternal: externalMetadata.finalHostPromptMayIncludeExternal ?? null,
-      externalPromptEnvironmentTargets: cloneJson(externalMetadata.externalPromptEnvironmentTargets || null),
-      externalPromptDiagnostics: cloneJson(externalMetadata.externalPromptDiagnostics || []),
-      unavailableSignals: cloneJson(externalMetadata.unavailableSignals || []),
-      redactions: cloneJson(externalMetadata.redactions || []),
-      ...(externalMetadata.externalPromptEnvironmentError ? { externalPromptEnvironmentError: cloneJson(externalMetadata.externalPromptEnvironmentError) } : {}),
-      updatedAt,
-      lastError: lastError ? { message: lastError.message || String(lastError) } : null,
-      ...(includeText ? { text: activePacket?.text || '' } : {})
-    };
-  }
-
-  function isAvailable() {
-    return typeof promptApi(getContext()).setExtensionPrompt === 'function';
+    if (!installed && activePacket) return install({ binding: activeBinding, packet: activePacket });
+    return { ok: true, active: installed, chatId: activeBinding.chatId };
   }
 
   return {
-    id: 'sillytavern-prompt-adapter',
-    isAvailable,
+    id: 'sillytavern-v1-prompt-adapter',
+    isAvailable: () => typeof api(getContext()).set === 'function',
     install,
-    update,
+    update: install,
     clear,
     rebuild,
-    inspect,
-    syncForChat
+    syncForChat,
+    inspect({ includeText = false } = {}) {
+      return {
+        kind: 'directive.promptInspection.v1',
+        status: installed ? 'active' : 'inactive',
+        key: DIRECTIVE_V1_PROMPT_KEY,
+        binding: clone(activeBinding),
+        revision: activePacket?.revision ?? null,
+        hash: activePacket?.hash || null,
+        blockCount: installed ? 1 : 0,
+        updatedAt,
+        lastError: lastError ? { message: lastError.message || String(lastError) } : null,
+        ...(includeText ? { text: activePacket?.text || '' } : {})
+      };
+    }
   };
 }
 
 export const __sillyTavernPromptAdapterTestHooks = Object.freeze({
-  promptKey,
-  blockPromptKey,
-  DIRECTIVE_STATIC_PROMPT_KEYS,
-  normalizePosition,
-  normalizeRole,
-  contextChatId
+  contextChatId,
+  packetText,
+  stableHash
 });

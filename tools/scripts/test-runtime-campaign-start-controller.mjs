@@ -86,8 +86,8 @@ const checkpoint = await controller.createCheckpoint({ name: 'Before Hesperus' }
 assert.equal(checkpoint.slotType, 'checkpoint');
 assert.equal((await controller.getCampaignView()).campaigns[0].checkpoints.length, 1);
 const continuation = await controller.loadCheckpoint({ checkpointId: checkpoint.id });
-assert.equal(continuation.slotType, 'active');
-assert.notEqual(continuation.id, checkpoint.parentSaveId);
+assert.equal(continuation.timeline.slotType, 'active');
+assert.equal(continuation.timeline.id, checkpoint.parentSaveId);
 assert.equal(controller.getActiveCampaignState().player.name, 'Ren Okada');
 
 console.log('PASS V1 campaign controller');
