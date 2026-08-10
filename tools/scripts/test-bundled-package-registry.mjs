@@ -179,8 +179,9 @@ assert.deepEqual(ashesRef.missionDefinitionPaths, [
   'packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json',
   'packages/bundled/breckenridge/v1/chapter-5-old-lessons.mission-v1.json',
   'packages/bundled/breckenridge/v1/open-orders-2-what-survives.mission-v1.json',
-  'packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json'
-], 'Ashes loads the certified Prelude through Chapter 6 V1 definitions in journey order');
+  'packages/bundled/breckenridge/v1/chapter-6-the-cost-of-knowing.mission-v1.json',
+  'packages/bundled/breckenridge/v1/chapter-7-a-peace-of-their-own.mission-v1.json'
+], 'Ashes loads the certified Prelude through Chapter 7 V1 definitions in journey order');
 assert.equal(
   BUNDLED_CAMPAIGN_PACKAGE_REFS.filter((ref) => ref.id !== ashesRef.id)
     .every((ref) => ref.missionDefinitionPaths.length === 0),
