@@ -3473,3 +3473,91 @@ textarea.directive-field-control {
   .directive-expanded-shell .mission-objective-status { grid-column: 2; }
   .directive-expanded-shell .mission-clock-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Certified People journal with fixed Command Bearing utility. */
+.directive-expanded-shell .directive-expanded-people {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 0;
+  margin: 11px 0;
+}
+
+.directive-expanded-shell .directive-command-bearing-strip {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 13px;
+  align-items: center;
+  padding: 11px 14px;
+  background: var(--directive-expanded-high);
+  border-left: 6px solid var(--directive-expanded-gold);
+  border-radius: 6px;
+}
+.directive-expanded-shell .directive-command-bearing-copy { display: grid; gap: 2px; }
+.directive-expanded-shell .directive-command-bearing-copy > span { color: var(--directive-expanded-lilac); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .directive-command-bearing-copy h2 { margin: 0; color: var(--directive-expanded-text); font: 800 18px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .directive-command-bearing-copy p { margin: 0; color: var(--directive-expanded-muted); font-size: 10px; }
+.directive-expanded-shell .directive-command-bearing-pips { display: flex; gap: 5px; }
+.directive-expanded-shell .directive-command-bearing-pips span { width: 15px; height: 27px; background: rgba(248, 239, 224, .12); border: 1px solid rgba(248, 239, 224, .25); border-radius: 3px; }
+.directive-expanded-shell .directive-command-bearing-pips span.is-filled { background: var(--directive-expanded-gold); border-color: var(--directive-expanded-gold); box-shadow: 0 0 10px rgba(255, 199, 102, .25); }
+.directive-expanded-shell .directive-command-bearing-actions { display: flex; }
+.directive-expanded-shell .people-command { min-height: 34px; padding: 6px 10px; color: var(--directive-expanded-gold); background: var(--directive-expanded-surface); border: 1px solid rgba(255, 199, 102, .4); border-radius: 4px; font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-command-primary { color: var(--directive-expanded-bg); background: var(--directive-expanded-gold); }
+.directive-expanded-shell .people-command:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .5; }
+
+.directive-expanded-shell .people-journal {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+}
+.directive-expanded-shell .people-roster,
+.directive-expanded-shell .people-detail { min-width: 0; min-height: 0; background: var(--directive-expanded-surface); }
+.directive-expanded-shell .people-roster { border-right: 4px solid var(--directive-expanded-blue); border-radius: 6px 0 0 6px; }
+.directive-expanded-shell .people-detail { border-radius: 0 6px 6px 0; box-shadow: inset 7px 0 0 rgba(119, 167, 239, .28); }
+.directive-expanded-shell .people-roster-head { display: grid; gap: 2px; padding: 12px; border-bottom: 1px solid rgba(119, 167, 239, .28); font-family: "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-roster-head span { color: var(--directive-expanded-blue); font-size: 9px; font-weight: 800; }
+.directive-expanded-shell .people-roster-head h2 { margin: 0; color: var(--directive-expanded-text); font-size: 20px; line-height: 1.05; }
+.directive-expanded-shell .people-roster-list { display: grid; }
+.directive-expanded-shell .people-row { appearance: none; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; margin: 0; padding: 10px 11px; color: var(--directive-expanded-text); background: transparent; border: 0; border-bottom: 1px solid rgba(248, 239, 224, .08); border-radius: 0; text-align: left; cursor: pointer; }
+.directive-expanded-shell .people-row:hover,
+.directive-expanded-shell .people-row:focus-visible { background: rgba(119, 167, 239, .08); outline: 0; }
+.directive-expanded-shell .people-row.active { background: linear-gradient(90deg, rgba(119, 167, 239, .22), rgba(13, 16, 24, .96)); box-shadow: inset 4px 0 0 var(--directive-expanded-blue); }
+.directive-expanded-shell .people-row-state { grid-row: 1 / span 2; align-self: start; padding: 2px 4px; color: var(--directive-expanded-blue); border: 1px solid rgba(119, 167, 239, .45); border-radius: 3px; font: 800 8px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-row strong { font: 800 14px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .people-row-billet { overflow: hidden; color: var(--directive-expanded-muted); font-size: 10px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+
+.directive-expanded-shell .people-detail-hero { display: grid; grid-template-columns: minmax(130px, 36%) minmax(0, 1fr); min-height: 230px; background: var(--directive-expanded-high); }
+.directive-expanded-shell .people-detail-hero > .people-detail-identity:only-child { grid-column: 1 / -1; }
+.directive-expanded-shell .people-detail-portrait { min-width: 0; min-height: 230px; margin: 0; overflow: hidden; border: 0; border-radius: 0; }
+.directive-expanded-shell .people-detail-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
+.directive-expanded-shell .people-detail-identity { display: flex; flex-direction: column; justify-content: center; padding: 18px 20px; }
+.directive-expanded-shell .people-detail-identity > span:first-child { color: var(--directive-expanded-blue); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-detail-identity h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 27px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .people-detail-identity strong { margin-top: 5px; color: var(--directive-expanded-blue); font-size: 12px; }
+.directive-expanded-shell .people-detail-species { margin-top: 7px; color: var(--directive-expanded-muted); font-size: 10px; text-transform: uppercase; }
+.directive-expanded-shell .people-detail-block { margin: 15px 20px 0 26px; }
+.directive-expanded-shell .people-detail-block h3 { margin: 0; color: var(--directive-expanded-blue); font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-detail-block p,
+.directive-expanded-shell .people-detail-block li { color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.45; }
+.directive-expanded-shell .people-detail-block p { margin: 6px 0 0; }
+.directive-expanded-shell .people-detail-block ul { margin: 7px 0 0; padding-left: 18px; }
+
+@media (max-width: 640px) {
+  .directive-expanded-shell .directive-expanded-people { gap: 7px; margin: 7px 0; }
+  .directive-expanded-shell .directive-command-bearing-strip { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 10px; }
+  .directive-expanded-shell .directive-command-bearing-copy p { display: none; }
+  .directive-expanded-shell .directive-command-bearing-actions { grid-column: 1 / -1; }
+  .directive-expanded-shell .people-command { width: 100%; }
+  .directive-expanded-shell .people-journal { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .directive-expanded-shell .people-roster { max-height: 32%; border-right: 0; border-bottom: 4px solid var(--directive-expanded-blue); border-radius: 6px; }
+  .directive-expanded-shell .people-detail { border-radius: 6px; }
+  .directive-expanded-shell .people-detail-hero { grid-template-columns: 112px minmax(0, 1fr); min-height: 170px; }
+  .directive-expanded-shell .people-detail-portrait { min-height: 170px; }
+  .directive-expanded-shell .people-detail-identity { padding: 12px; }
+  .directive-expanded-shell .people-detail-identity h2 { font-size: 22px; }
+  .directive-expanded-shell .people-detail-block { margin-right: 12px; margin-left: 18px; }
+}
