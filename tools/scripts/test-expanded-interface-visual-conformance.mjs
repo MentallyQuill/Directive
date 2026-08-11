@@ -69,8 +69,11 @@ try {
   await mkdir(artifactRoot, { recursive: true });
 
   const reference = await browser.newPage({ viewport: viewports[0] });
+  const referenceErrors = [];
+  reference.on('pageerror', (error) => referenceErrors.push(error.message));
   await reference.goto(`${baseUrl}/reference`);
   await reference.waitForSelector('.directive-screen');
+  assert.deepEqual(referenceErrors, [], 'certified interactive reference must load without page errors');
   await reference.screenshot({ path: path.join(artifactRoot, 'reference-certified.png'), fullPage: true });
   await reference.close();
 

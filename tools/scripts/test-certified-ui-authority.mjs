@@ -7,7 +7,7 @@ const blob = execFileSync('git', [
   'docs/design/mockups/directive-expanded-interface.html'
 ], { encoding: 'utf8' }).trim();
 
-assert.equal(blob, '954d50e508772557fd827d93c58c0b442888cacb');
+assert.equal(blob, 'ef26440203a59a8e9b07c2a19cad67a2260350f7');
 
 const variances = JSON.parse(readFileSync(
   'tools/fixtures/certified-v1-ui-variances.json',

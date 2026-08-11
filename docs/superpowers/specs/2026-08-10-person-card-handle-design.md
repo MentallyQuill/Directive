@@ -1,5 +1,7 @@
 # Person Card Handle and Certified Drag Design
 
+> **Superseded interaction:** The no-reflow People-card pointer behavior below is retained as historical context. `2026-08-10-crew-card-drag-animation-design.md` is the current authority for People-card lift, live-slot displacement, whole-card mobile hold, docking, and cancellation. Handle and pip requirements in this document remain current.
+
 ## Goal
 
 Differentiate individual People records from People categories by applying the supplied two-horizontal-line handle to person cards while preserving the existing dotted category handle.

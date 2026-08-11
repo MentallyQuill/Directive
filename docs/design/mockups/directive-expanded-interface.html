@@ -64,6 +64,13 @@
 </style>
 
 <style>
+  .collection-person-drop-slot{box-sizing:border-box;min-height:48px;border:1px solid rgba(119,167,239,.92);border-radius:5px;background:rgba(119,167,239,.1);box-shadow:inset 0 0 0 1px rgba(119,167,239,.16)}
+  .collection-person-drop-slot.is-drop-committing{border-color:var(--blue);background:rgba(119,167,239,.2);box-shadow:inset 0 0 0 1px rgba(248,239,224,.16),0 0 12px rgba(119,167,239,.22)}
+  .collection-person-drag-ghost{transform:scale(1.015);transform-origin:center;opacity:.96}
+  @media(prefers-reduced-motion:reduce){.collection-person-drop-slot,.collection-person-drag-ghost{transition:none}}
+</style>
+
+<style>
   .directive-screen[data-active-route="campaign"]{--current-route-color:var(--amber)}.directive-screen[data-active-route="campaign"] .campaign-journal[data-route-view="campaign"]{display:grid!important}.mobile-campaign-accordion{display:none!important}
   .campaign-journal{grid-template-columns:minmax(220px,.62fr) minmax(0,1.38fr);gap:12px;margin:11px 0;min-height:590px}.campaign-index-panel{display:flex;flex-direction:column;min-width:0;overflow:hidden;background:var(--surface);border-radius:6px}.campaign-index-head{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 9px 0 12px;color:var(--amber);border-bottom:1px solid rgba(255,159,74,.28);font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.campaign-new-button{display:grid;place-items:center;width:30px;height:30px;padding:0;color:var(--amber);background:transparent;border:0;border-radius:4px;font-size:22px;cursor:pointer}.campaign-new-button:hover,.campaign-new-button:focus-visible{background:rgba(255,159,74,.12);outline:1px solid rgba(255,159,74,.48)}.campaign-index-list{display:grid;align-content:start}.campaign-row{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:74px;padding:8px 9px;color:var(--text);background:transparent;border:0;border-bottom:1px solid rgba(248,239,224,.08);text-align:left;cursor:pointer}.campaign-row:hover,.campaign-row:focus-visible{background:rgba(255,159,74,.08);outline:0}.campaign-row.active{background:linear-gradient(90deg,rgba(255,159,74,.22),rgba(13,16,24,.96));box-shadow:inset 5px 0 0 var(--amber)}.campaign-row img{width:58px;height:58px;object-fit:cover;border-radius:5px}.campaign-row-copy{display:grid;gap:2px;min-width:0}.campaign-row-copy strong{font:800 15px/1.2 "Roboto Condensed","Arial Narrow",sans-serif}.campaign-row-copy span{overflow:hidden;color:var(--muted);font-size:11px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}.campaign-row-state{align-self:start;padding:3px 5px;color:var(--amber);border:1px solid rgba(255,159,74,.55);border-radius:3px;font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}
   .campaign-detail{min-width:0;overflow:hidden;background:var(--high);border-radius:6px;box-shadow:inset 8px 0 0 var(--amber)}.campaign-hero{position:relative;height:230px;overflow:hidden;background:var(--surface)}.campaign-hero img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 50%}.campaign-hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 20%,rgba(5,7,11,.94) 100%)}.campaign-hero-copy{position:absolute;z-index:1;inset:auto 0 0;padding:18px 21px}.campaign-status{color:var(--amber);font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.campaign-title{margin-top:3px;font:800 29px/1.08 "Roboto Condensed","Arial Narrow",sans-serif}.campaign-player{margin-top:4px;color:var(--muted);font-size:13px}.campaign-detail-body{padding:16px 20px 18px 26px}.campaign-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.campaign-fact{min-width:0;padding:8px 9px;background:var(--surface);border-left:3px solid rgba(255,159,74,.72)}.campaign-fact span{display:block;color:var(--muted);font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.campaign-fact strong{display:block;overflow:hidden;margin-top:3px;font-size:11px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}.campaign-premise{margin:13px 0 0;color:var(--muted);font-size:13px;line-height:1.45}.campaign-command-row,.campaign-save-command-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.campaign-command{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:7px 12px;color:var(--bg);background:var(--amber);border:0;border-radius:5px;font:800 11px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase;cursor:pointer}.campaign-command.secondary{color:var(--amber);background:var(--surface);border:1px solid rgba(255,159,74,.42)}.campaign-command.danger{color:var(--salmon);background:var(--surface);border:1px solid rgba(239,127,114,.42)}.campaign-command:hover,.campaign-command:focus-visible{filter:brightness(1.1);outline:1px solid var(--gold);outline-offset:1px}.campaign-saves{margin-top:16px;padding-top:13px;border-top:1px solid rgba(248,239,224,.12)}.campaign-saves-head{display:flex;align-items:center;justify-content:space-between;color:var(--gold);font:800 13px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.campaign-save-list{display:grid;margin-top:8px;border-top:1px solid rgba(248,239,224,.08)}.campaign-save-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-height:52px;padding:8px 9px;color:var(--text);background:transparent;border:0;border-bottom:1px solid rgba(248,239,224,.08);text-align:left;cursor:pointer}.campaign-save-row:hover,.campaign-save-row:focus-visible{background:rgba(255,159,74,.07);outline:0}.campaign-save-row.selected{background:rgba(255,159,74,.12);box-shadow:inset 3px 0 0 var(--amber)}.campaign-save-copy{display:grid;gap:2px}.campaign-save-copy strong{font-size:12px;line-height:1.25}.campaign-save-copy span{color:var(--muted);font-size:10px}.campaign-save-marker{color:var(--amber);font:800 9px/1.2 "Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase}.campaign-save-actions-empty{margin-top:9px;color:var(--muted);font-size:11px}.campaign-feedback{min-height:18px;margin-top:8px;color:var(--amber);font-size:11px}
@@ -824,7 +831,17 @@
         selectCrewPreview(personId, false);
         renderPeopleCollections();
       });
-      row.appendChild(makeCollectionHandle('card', personId, `Move ${person.name}`));
+      const mobileHandle = makeCollectionHandle('card', personId, `Move ${person.name}`);
+      row.appendChild(mobileHandle);
+      row.addEventListener('pointerdown', (event) => {
+        if (!['touch','pen'].includes(event.pointerType) || mobileHandle.contains(event.target)) return;
+        beginPeopleCollectionDrag(event,mobileHandle);
+      });
+      row.addEventListener('click', (event) => {
+        if (Date.now() >= peopleCollectionTouchClickUntil) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      },true);
       return row;
     }
     const button = document.createElement('button');
@@ -970,32 +987,65 @@
     requestAnimationFrame(() => document.getElementById(hostId)?.querySelector(`[data-collection-drag-kind="${kind}"][data-collection-drag-id="${id}"]`)?.focus());
   }
   let peopleCollectionDrag = null;
-  function beginPeopleCollectionDrag(event) {
-    event.preventDefault();
+  let peopleCollectionTouchClickUntil = 0;
+  function peopleCollectionReducedMotion() { return matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true; }
+  function movePeopleCollectionPlaceholder(parent,before=null) {
+    const state = peopleCollectionDrag;
+    if (!state?.placeholder || !parent || (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before)) return;
+    const elements = [state.placeholder,...state.host.querySelectorAll('.collection-person-row')].filter((item) => item.getClientRects().length);
+    const previous = new Map(elements.map((item) => [item,item.getBoundingClientRect()]));
+    state.reflowAnimations?.forEach((animation) => animation.cancel());
+    state.reflowAnimations = [];
+    parent.insertBefore(state.placeholder,before);
+    if (peopleCollectionReducedMotion()) return;
+    elements.forEach((item) => {
+      if (!item.isConnected || typeof item.animate !== 'function') return;
+      const next = item.getBoundingClientRect();
+      const deltaY = previous.get(item).top-next.top;
+      if (Math.abs(deltaY) < .5) return;
+      state.reflowAnimations.push(item.animate([{transform:`translateY(${deltaY}px)`},{transform:'translateY(0)'}],{duration:170,easing:'cubic-bezier(.2,.8,.2,1)'}));
+    });
+  }
+  function beginPeopleCollectionDrag(event,explicitHandle=null) {
+    const handle = explicitHandle || event.currentTarget;
+    const coarse = event.pointerType === 'touch' || event.pointerType === 'pen';
+    if (!coarse) event.preventDefault();
     event.stopPropagation();
-    const handle = event.currentTarget;
     const kind = handle.dataset.collectionDragKind;
     const item = kind === 'category' ? handle.closest('.collection-category') : handle.closest('.collection-person-row');
-    peopleCollectionDrag = {kind,id:handle.dataset.collectionDragId,item,host:handle.closest('.category-card-collection'),pointerId:event.pointerId,originX:event.clientX,originY:event.clientY,x:event.clientX,y:event.clientY,started:false,target:null,ghost:null,hold:null};
-    handle.setPointerCapture?.(event.pointerId);
-    const coarse = event.pointerType === 'touch' || event.pointerType === 'pen';
+    const itemRect = item.getBoundingClientRect();
+    peopleCollectionDrag = {kind,id:handle.dataset.collectionDragId,item,handle,host:handle.closest('.category-card-collection'),pointerId:event.pointerId,pointerType:event.pointerType || 'mouse',originX:event.clientX,originY:event.clientY,x:event.clientX,y:event.clientY,offsetY:event.clientY-itemRect.top,hitX:itemRect.left+itemRect.width/2,started:false,target:null,ghost:null,placeholder:null,hold:null,reflowAnimations:[]};
     peopleCollectionDrag.hold = setTimeout(liftPeopleCollectionDrag,coarse ? 175 : 0);
     document.addEventListener('pointermove',movePeopleCollectionDrag,true);
     document.addEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.addEventListener('pointercancel',cancelPeopleCollectionDrag,true);
+    document.addEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
   }
   function liftPeopleCollectionDrag() {
     const state = peopleCollectionDrag;
     if (!state || state.started) return;
     state.started = true;
-    const source = state.kind === 'category' ? state.item.querySelector('.collection-category-head') : (state.item.querySelector('.mobile-accordion-head') || state.item);
+    state.handle.setPointerCapture?.(state.pointerId);
+    const source = state.kind === 'category' ? state.item.querySelector('.collection-category-head') : state.item;
     const rect = source.getBoundingClientRect();
+    if (state.kind === 'card') {
+      const style = getComputedStyle(state.item);
+      state.originList = state.item.parentNode;
+      state.originNextSibling = state.item.nextSibling;
+      state.placeholder = document.createElement('div');
+      state.placeholder.className = 'collection-person-drop-slot';
+      state.placeholder.style.height = `${rect.height}px`;
+      state.placeholder.style.marginTop = style.marginTop;
+      state.placeholder.style.marginBottom = style.marginBottom;
+      state.item.replaceWith(state.placeholder);
+      if (['touch','pen'].includes(state.pointerType)) peopleCollectionTouchClickUntil = Date.now()+600;
+    }
     state.ghost = source.cloneNode(true);
-    state.ghost.className = 'collection-drag-ghost';
+    state.ghost.className = `collection-drag-ghost${state.kind === 'card' ? ' collection-person-drag-ghost' : ''}`;
     state.ghost.style.width = `${rect.width}px`;
     state.ghost.style.height = `${rect.height}px`;
     state.ghost.style.left = `${rect.left}px`;
-    state.ghost.style.top = `${state.y - rect.height/2}px`;
+    state.ghost.style.top = `${state.y-state.offsetY}px`;
     document.body.appendChild(state.ghost);
     state.item.classList.add('is-dragging');
     navigator.vibrate?.(10);
@@ -1011,9 +1061,9 @@
     if (!state.started && (Math.abs(state.x-state.originX)>8 || Math.abs(state.y-state.originY)>8)) return cancelPeopleCollectionDrag(event);
     if (!state.started) return;
     event.preventDefault();
-    state.ghost.style.top = `${state.y-state.ghost.getBoundingClientRect().height/2}px`;
+    state.ghost.style.top = `${state.y-state.offsetY}px`;
     state.ghost.hidden = true;
-    const hovered = document.elementFromPoint(state.x,state.y);
+    const hovered = document.elementFromPoint(state.kind === 'card' ? state.hitX : state.x,state.y);
     state.ghost.hidden = false;
     clearPeopleDropMarkers();
     state.target = null;
@@ -1032,37 +1082,57 @@
     const category = hovered.closest('.collection-category');
     if (!category) return;
     const targetCategoryId = category.dataset.collectionCategoryId;
-    if (card && card !== state.item) {
+    const body = category.querySelector('.collection-category-body');
+    if (card) {
       const rect = card.getBoundingClientRect();
       const nextCard = card.nextElementSibling?.dataset.collectionCardId || '';
       const beforeCardId = state.y < rect.top + rect.height/2 ? card.dataset.collectionCardId : nextCard;
       state.target = {targetCategoryId,beforeCardId};
-      (beforeCardId ? category.querySelector(`[data-collection-card-id="${beforeCardId}"]`) : card).classList.add(beforeCardId ? 'is-drop-before' : 'is-drop-target');
-    } else {
+      const before = beforeCardId ? category.querySelector(`[data-collection-card-id="${beforeCardId}"]`) : card.nextElementSibling;
+      movePeopleCollectionPlaceholder(body,before);
+    } else if (!body.hidden) {
       state.target = {targetCategoryId,beforeCardId:''};
-      category.classList.add('is-drop-target');
+      movePeopleCollectionPlaceholder(body,body.querySelector('.collection-empty'));
     }
   }
-  function clearPeopleCollectionDrag(commit) {
+  function finalizePeopleCollectionDrag(commit) {
     const state = peopleCollectionDrag;
     if (!state) return;
-    clearTimeout(state.hold);
     clearPeopleDropMarkers();
     if (commit && state.started && state.target) {
       if (state.kind === 'category') movePeopleCategory(state.id,state.target.beforeCategoryId);
       else movePeopleCard(state.id,state.target.targetCategoryId,state.target.beforeCardId);
     }
+    if (state.placeholder?.isConnected) state.placeholder.replaceWith(state.item);
     state.item?.classList.remove('is-dragging');
     state.ghost?.remove();
+    state.reflowAnimations?.forEach((animation) => animation.cancel());
+    try { state.handle.releasePointerCapture?.(state.pointerId); } catch {}
+    peopleCollectionDrag = null;
+    if (commit && state.started && state.target) { navigator.vibrate?.(8); renderPeopleCollections(); }
+  }
+  function clearPeopleCollectionDrag(commit) {
+    const state = peopleCollectionDrag;
+    if (!state) return;
+    clearTimeout(state.hold);
     document.removeEventListener('pointermove',movePeopleCollectionDrag,true);
     document.removeEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.removeEventListener('pointercancel',cancelPeopleCollectionDrag,true);
-    if (commit && state.started) navigator.vibrate?.(8);
-    peopleCollectionDrag = null;
-    if (commit) renderPeopleCollections();
+    document.removeEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
+    if (!state.started || state.kind === 'category') return finalizePeopleCollectionDrag(commit);
+    const validCommit = commit && !!state.target;
+    if (!validCommit) movePeopleCollectionPlaceholder(state.originList,state.originNextSibling?.parentNode === state.originList ? state.originNextSibling : null);
+    state.ghost.classList.add('is-snapping');
+    state.placeholder.classList.add('is-drop-committing');
+    const ghostRect = state.ghost.getBoundingClientRect();
+    const slotRect = state.placeholder.getBoundingClientRect();
+    const duration = peopleCollectionReducedMotion() ? 0 : 160;
+    if (!duration || typeof state.ghost.animate !== 'function') return queueMicrotask(() => finalizePeopleCollectionDrag(validCommit));
+    state.ghost.animate([{left:`${ghostRect.left}px`,top:`${ghostRect.top}px`,transform:'scale(1.015)',boxShadow:'0 10px 24px rgba(0,0,0,.55)'},{left:`${slotRect.left}px`,top:`${slotRect.top}px`,transform:'scale(1)',boxShadow:'0 1px 3px rgba(0,0,0,.18)'}],{duration,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'}).finished.catch(() => {}).finally(() => finalizePeopleCollectionDrag(validCommit));
   }
   function finishPeopleCollectionDrag(event) { if (!peopleCollectionDrag || event.pointerId !== peopleCollectionDrag.pointerId) return; event.preventDefault(); event.stopPropagation(); clearPeopleCollectionDrag(true); }
   function cancelPeopleCollectionDrag(event) { event?.preventDefault?.(); clearPeopleCollectionDrag(false); }
+  function keyboardCancelPeopleCollectionDrag(event) { if (event.key !== 'Escape') return; event.preventDefault(); event.stopPropagation(); clearPeopleCollectionDrag(false); }
   function setMobileItemOpen(item, open) {
     if (!item) return;
     item.classList.toggle('is-open', open);
