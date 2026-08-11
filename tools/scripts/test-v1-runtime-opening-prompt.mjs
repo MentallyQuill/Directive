@@ -75,6 +75,9 @@ assert.doesNotMatch(firstMeetingPacket.text, /OPENING REGENERATION/);
 assert.match(firstMeetingPacket.text, /At 0830 the following morning/);
 assert.match(firstMeetingPacket.text, /Whitaker greets the player by name/);
 assert.match(firstMeetingPacket.text, /FIRST MEETING:/);
+assert.match(firstMeetingPacket.text, /This response is only the greeting, ordinary courtesy, and one genuine conversational opening/);
+assert.match(firstMeetingPacket.text, /Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet/);
+assert.match(firstMeetingPacket.text, /End after Whitaker gives the player a natural opening to answer/);
 
 const postHandoverState = structuredClone(firstMeetingState);
 postHandoverState.mission.v1.objectives['objective.prelude.command-handover'] = {

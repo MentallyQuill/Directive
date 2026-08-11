@@ -220,7 +220,7 @@ export function createV1RuntimePromptPacket({ state, projection, runtimeAssets }
       ? 'OPENING REGENERATION: Preserve every established opening beat in opening.canonicalOpeningMessage and opening.continuitySummary. Wording may vary, but end at opening.firstPlayableScene. Do not take the player through the ready-room door, decide their action, or advance into the meeting.'
       : 'Treat opening.continuitySummary as established past experience. Do not replay or recap it unless the player naturally calls for it.',
     payload.opening.phase === 'firstMeeting'
-      ? 'FIRST MEETING: Follow opening.firstSceneGuidance in order while leaving room for the player to establish their own social posture.'
+      ? 'FIRST MEETING: This response is only the greeting, ordinary courtesy, and one genuine conversational opening. Follow opening.firstSceneGuidance in order. Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet. End after Whitaker gives the player a natural opening to answer and establish their own social posture.'
       : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'

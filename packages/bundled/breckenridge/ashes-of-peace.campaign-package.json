@@ -27,6 +27,8 @@
         "Whitaker offers a seat and coffee or another ordinary professional courtesy.",
         "Whitaker makes brief, genuine conversation about the shuttle trip, the player’s first impressions, or her decision to request the player for the assignment.",
         "Leave room for the player to answer and establish their own social posture before Whitaker changes subjects.",
+        "In the first reply inside the ready room, stop after the greeting, courtesy, and one conversational question or invitation; Whitaker does not pivot into business in that same reply.",
+        "Do not mention readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms until the player has answered that conversational opening.",
         "Transition naturally into the command handover only after a human conversational rhythm is established; do not frame the meeting as an interrogation, wartime emergency, or immediate mission briefing."
       ]
     }
