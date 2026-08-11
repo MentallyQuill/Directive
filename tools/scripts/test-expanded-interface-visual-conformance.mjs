@@ -238,6 +238,38 @@ try {
       if (route === 'people') {
         const portraits = await page.locator('.people-row-image img, .mobile-crew-avatar img').count();
         assert.ok(portraits >= 4, `${viewport.width}px People must resolve package portraits`);
+        const portraitControls = await page.evaluate(() => {
+          const controls = [...document.querySelectorAll('.directive-crew-player-portrait-controls')]
+            .find((node) => node.getClientRects().length > 0);
+          const portrait = controls?.closest('.people-detail-portrait');
+          const controlsBox = controls?.getBoundingClientRect();
+          const portraitBox = portrait?.getBoundingClientRect();
+          const uploadIcon = controls?.querySelector('.directive-crew-player-portrait-upload-icon');
+          const removeIcon = controls?.querySelector('.directive-crew-player-portrait-remove-icon');
+          const uploadStyle = uploadIcon ? getComputedStyle(uploadIcon) : null;
+          const removeStyle = removeIcon ? getComputedStyle(removeIcon) : null;
+          return {
+            width: controlsBox?.width || 0,
+            height: controlsBox?.height || 0,
+            withinPortrait: Boolean(controlsBox && portraitBox
+              && controlsBox.top >= portraitBox.top
+              && controlsBox.right <= portraitBox.right
+              && controlsBox.bottom <= portraitBox.bottom),
+            topGap: controlsBox && portraitBox ? controlsBox.top - portraitBox.top : -1,
+            rightGap: controlsBox && portraitBox ? portraitBox.right - controlsBox.right : -1,
+            uploadMask: uploadStyle?.maskImage || uploadStyle?.webkitMaskImage || '',
+            removeMask: removeStyle?.maskImage || removeStyle?.webkitMaskImage || '',
+            visibleText: controls?.textContent?.trim() || ''
+          };
+        });
+        assert.ok(portraitControls.width >= 58 && portraitControls.width <= 64, `${viewport.width}px portrait controls must be a compact attached pair`);
+        assert.ok(portraitControls.height >= 29 && portraitControls.height <= 31, `${viewport.width}px portrait controls must remain icon-sized`);
+        assert.equal(portraitControls.withinPortrait, true, `${viewport.width}px portrait controls must stay inside the portrait`);
+        assert.ok(portraitControls.topGap >= 7 && portraitControls.topGap <= 9, `${viewport.width}px portrait controls must sit in the upper-right corner`);
+        assert.ok(portraitControls.rightGap >= 7 && portraitControls.rightGap <= 9, `${viewport.width}px portrait controls must sit in the upper-right corner`);
+        assert.match(portraitControls.uploadMask, /upload-pc-image\.svg/, `${viewport.width}px portrait upload must use the supplied upload icon`);
+        assert.match(portraitControls.removeMask, /remove-pc-image\.svg/, `${viewport.width}px portrait remove must use the supplied remove icon`);
+        assert.equal(portraitControls.visibleText, '', `${viewport.width}px portrait controls must not show text labels`);
         const handleStyles = await page.evaluate(() => {
           const person = document.querySelector('.collection-person-row .collection-drag-handle');
           const category = document.querySelector('.collection-category > .collection-category-head > .collection-drag-handle');
@@ -281,6 +313,33 @@ try {
   await peoplePage.evaluate(() => localStorage.clear());
   await peoplePage.reload();
   await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const desktopPortraitControls = peoplePage.locator('.people-desktop-journal .directive-crew-player-portrait-controls');
+  const visualRemoveControl = desktopPortraitControls.locator('.directive-crew-player-portrait-remove');
+  await visualRemoveControl.evaluate((button) => { button.disabled = false; });
+  await visualRemoveControl.click();
+  const confirmationState = await desktopPortraitControls.evaluate((controls) => {
+    const confirm = controls.querySelector('.directive-crew-player-portrait-confirm');
+    const cancel = controls.querySelector('.directive-crew-player-portrait-cancel');
+    return {
+      confirmText: confirm?.textContent || '',
+      cancelText: cancel?.textContent || '',
+      confirmColor: confirm ? getComputedStyle(confirm).color : '',
+      cancelColor: cancel ? getComputedStyle(cancel).color : '',
+      uploadCount: controls.querySelectorAll('.directive-crew-player-portrait-upload').length,
+      removeCount: controls.querySelectorAll('.directive-crew-player-portrait-remove').length
+    };
+  });
+  assert.deepEqual(confirmationState, {
+    confirmText: '✓',
+    cancelText: '×',
+    confirmColor: 'rgb(239, 127, 114)',
+    cancelColor: 'rgba(248, 239, 224, 0.68)',
+    uploadCount: 0,
+    removeCount: 0
+  }, 'portrait removal must replace both icons with a red check and grey cancel X');
+  await desktopPortraitControls.locator('.directive-crew-player-portrait-cancel').click();
+  assert.equal(await desktopPortraitControls.locator('.directive-crew-player-portrait-upload').count(), 1, 'portrait removal cancel must restore upload');
+  assert.equal(await desktopPortraitControls.locator('.directive-crew-player-portrait-remove').count(), 1, 'portrait removal cancel must restore remove');
   const maraThumb = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .people-row-image img');
   assert.match(await maraThumb.getAttribute('src'), /mara-whitaker\.thumb\.webp$/);
   await peoplePage.locator('.people-desktop-journal .people-row[data-person-id="mara-whitaker"]').click();

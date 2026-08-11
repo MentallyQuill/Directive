@@ -1,4 +1,4 @@
-import { createButton, createElement } from './runtime-ui-kit.js';
+import { createElement } from './runtime-ui-kit.js';
 import { createPackageImage, createPlayerPortraitImage } from './directive-media.js';
 import { bindPresentationReorderHandle } from './expanded-interface-reorder.js';
 import { createPeopleCollectionPreferences } from './people-collection-preferences.js';
@@ -283,11 +283,36 @@ function appendDefinition(detail, label, value) {
   detail.appendChild(block);
 }
 
+function createPortraitControl({ label, className, iconClass = '', glyph = '', disabled = false, onClick = null }) {
+  const button = createElement('button', `directive-crew-player-portrait-control ${className}`);
+  button.type = 'button';
+  button.disabled = disabled;
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  const visual = createElement('span', iconClass || 'directive-crew-player-portrait-confirmation-glyph');
+  visual.setAttribute('aria-hidden', 'true');
+  visual.textContent = glyph;
+  button.appendChild(visual);
+  if (typeof onClick === 'function') {
+    button.addEventListener('click', async (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      button.disabled = true;
+      try {
+        await onClick();
+      } finally {
+        button.disabled = disabled;
+      }
+    });
+  }
+  return button;
+}
+
 function createPlayerPortraitActions(record, view, actions) {
   const supported = view?.media?.playerPortraitImportSupported === true
     && typeof actions.importCampaignPlayerPortrait === 'function'
     && typeof actions.removeCampaignPlayerPortrait === 'function';
-  const row = createElement('div', 'directive-crew-player-portrait-actions');
+  const row = createElement('div', 'directive-crew-player-portrait-controls');
   const fileInput = createElement('input', 'directive-crew-player-portrait-input');
   fileInput.type = 'file';
   fileInput.accept = 'image/png,image/jpeg,image/webp';
@@ -299,32 +324,44 @@ function createPlayerPortraitActions(record, view, actions) {
     fileInput.value = '';
     await actions.refresh?.();
   });
-  row.appendChild(createButton({
-    label: record.portrait?.asset?.path ? 'Replace image' : 'Add image',
-    icon: 'fa-solid fa-image',
-    className: 'directive-button directive-crew-player-portrait-import',
-    title: supported ? 'Choose a player portrait image' : 'Portrait changes are not available on this host',
-    disabled: !supported,
-    onClick: async () => fileInput.click?.()
-  }));
-  if (record.portrait?.asset?.path) {
-    row.appendChild(createButton({
-      label: 'Remove image',
-      icon: 'fa-solid fa-trash-can',
-      className: 'directive-button directive-crew-player-portrait-remove',
-      title: 'Remove this player portrait from the campaign',
+  const renderNormal = () => {
+    const upload = createPortraitControl({
+      label: record.portrait?.asset?.path ? 'Replace player image' : 'Add player image',
+      className: 'directive-crew-player-portrait-upload',
+      iconClass: 'directive-crew-player-portrait-icon directive-crew-player-portrait-upload-icon',
       disabled: !supported,
+      onClick: () => fileInput.click?.()
+    });
+    const remove = createPortraitControl({
+      label: record.portrait?.asset?.path ? 'Remove player image' : 'No player image to remove',
+      className: 'directive-crew-player-portrait-remove',
+      iconClass: 'directive-crew-player-portrait-icon directive-crew-player-portrait-remove-icon',
+      disabled: !supported || !record.portrait?.asset?.path,
+      onClick: renderConfirmation
+    });
+    row.replaceChildren(upload, remove, fileInput);
+  };
+
+  const renderConfirmation = () => {
+    const confirm = createPortraitControl({
+      label: 'Confirm remove image',
+      className: 'directive-crew-player-portrait-confirm',
+      glyph: '✓',
       onClick: async () => {
-        const confirmed = typeof globalThis.confirm === 'function'
-          ? globalThis.confirm('Remove your crew image? The image file will be deleted from this campaign.')
-          : true;
-        if (!confirmed) return;
         await actions.removeCampaignPlayerPortrait();
         await actions.refresh?.();
       }
-    }));
-  }
-  row.appendChild(fileInput);
+    });
+    const cancel = createPortraitControl({
+      label: 'Cancel remove image',
+      className: 'directive-crew-player-portrait-cancel',
+      glyph: '×',
+      onClick: renderNormal
+    });
+    row.replaceChildren(confirm, cancel, fileInput);
+  };
+
+  renderNormal();
   return row;
 }
 
@@ -334,7 +371,9 @@ export function createPeopleDetail(model, record, { mobile = false, view = {}, a
   if (!record) return detail;
   detail.dataset.personId = record.id;
   const hero = createElement('header', 'people-detail-hero');
-  hero.appendChild(portrait(model, record, 'detail', 'people-detail-portrait'));
+  const portraitVisual = portrait(model, record, 'detail', 'people-detail-portrait');
+  if (record.isPlayer) portraitVisual.appendChild(createPlayerPortraitActions(record, view, actions));
+  hero.appendChild(portraitVisual);
   const identity = createElement('div', 'people-detail-identity');
   const kicker = createElement('span');
   kicker.textContent = record.isPlayer ? 'Your commander' : 'Personnel record';
@@ -352,7 +391,6 @@ export function createPeopleDetail(model, record, { mobile = false, view = {}, a
     species.textContent = record.species.label;
     identity.appendChild(species);
   }
-  if (record.isPlayer) identity.appendChild(createPlayerPortraitActions(record, view, actions));
   hero.appendChild(identity);
   detail.appendChild(hero);
   appendDefinition(detail, 'Profile', record.profileSummary || record.appearance || record.dossier?.identitySummary || record.dossier?.briefBiography);

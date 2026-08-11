@@ -45,6 +45,12 @@ class FakeElement {
     this.children.push(node);
     return node;
   }
+
+  replaceChildren(...nodes) {
+    for (const child of this.children) child.parentNode = null;
+    this.children = [];
+    this.append(...nodes);
+  }
 }
 
 class FakeDocument {
@@ -141,14 +147,20 @@ const all = allElements(body);
 const playerIndex = all.indexOf(playerCards[0]);
 const commandBearingIndex = all.indexOf(elementsByClass(body, 'directive-command-bearing-strip')[0]);
 assert.ok(commandBearingIndex >= 0 && commandBearingIndex < playerIndex);
-assert.equal(elementsByClass(body, 'directive-crew-player-portrait-import').length, 2);
+const portraitControlGroups = elementsByClass(body, 'directive-crew-player-portrait-controls');
+assert.equal(portraitControlGroups.length, 2);
+for (const group of portraitControlGroups) {
+  assert.equal(String(group.parentNode.className).split(/\s+/).includes('people-detail-portrait'), true);
+  assert.doesNotMatch(textOf(group), /Add image|Replace image|Remove image/);
+}
+assert.equal(elementsByClass(body, 'directive-crew-player-portrait-upload').length, 2);
 assert.equal(elementsByClass(body, 'directive-crew-player-portrait-remove').length, 2);
-assert.match(textOf(playerCards[0]), /Replace image/);
-assert.match(textOf(playerCards[0]), /Remove image/);
+assert.equal(elementsByClass(body, 'directive-crew-player-portrait-upload-icon').length, 2);
+assert.equal(elementsByClass(body, 'directive-crew-player-portrait-remove-icon').length, 2);
 
 const portraitInputs = elementsByClass(body, 'directive-crew-player-portrait-input');
 assert.equal(portraitInputs.length, 2);
-await elementsByClass(body, 'directive-crew-player-portrait-import')[0].click();
+await elementsByClass(body, 'directive-crew-player-portrait-upload')[0].click();
 assert.equal(portraitInputs[0].clickCount, 1);
 const replacementFile = { name: 'replacement.webp', type: 'image/webp' };
 portraitInputs[0].files = [replacementFile];
@@ -157,21 +169,24 @@ assert.deepEqual(importedFiles, [replacementFile]);
 assert.equal(refreshes, 1);
 assert.equal(portraitInputs[0].value, '');
 
-let confirmations = 0;
-globalThis.confirm = () => {
-  confirmations += 1;
-  return false;
-};
-await elementsByClass(body, 'directive-crew-player-portrait-remove')[0].click();
-assert.equal(confirmations, 1);
+globalThis.confirm = () => { throw new Error('Crew portrait removal must use inline confirmation.'); };
+const desktopPortraitControls = portraitControlGroups[0];
+await elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-remove')[0].click();
 assert.equal(removedPortraits, 0);
 assert.equal(refreshes, 1);
-globalThis.confirm = () => {
-  confirmations += 1;
-  return true;
-};
-await elementsByClass(body, 'directive-crew-player-portrait-remove')[0].click();
-assert.equal(confirmations, 2);
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-upload').length, 0);
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-remove').length, 0);
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-confirm').length, 1);
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-cancel').length, 1);
+
+await elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-cancel')[0].click();
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-upload').length, 1);
+assert.equal(elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-remove').length, 1);
+assert.equal(removedPortraits, 0);
+assert.equal(refreshes, 1);
+
+await elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-remove')[0].click();
+await elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-confirm')[0].click();
 assert.equal(removedPortraits, 1);
 assert.equal(refreshes, 2);
 
@@ -188,8 +203,7 @@ const npcDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }
     async removeCampaignPlayerPortrait() {}
   }
 });
-assert.equal(elementsByClass(npcDetail, 'directive-crew-player-portrait-import').length, 0);
-assert.equal(elementsByClass(npcDetail, 'directive-crew-player-portrait-remove').length, 0);
+assert.equal(elementsByClass(npcDetail, 'directive-crew-player-portrait-controls').length, 0);
 
 const playerWithoutPortrait = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
   id: 'player-commander',
@@ -204,8 +218,8 @@ const playerWithoutPortrait = createPeopleDetail({ packageData: { assets: { imag
     async removeCampaignPlayerPortrait() {}
   }
 });
-assert.match(textOf(playerWithoutPortrait), /Add image/);
-assert.equal(elementsByClass(playerWithoutPortrait, 'directive-crew-player-portrait-remove').length, 0);
+assert.equal(elementsByClass(playerWithoutPortrait, 'directive-crew-player-portrait-upload').length, 1);
+assert.equal(elementsByClass(playerWithoutPortrait, 'directive-crew-player-portrait-remove')[0].disabled, true);
 
 const unsupportedPlayerDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
   id: 'player-commander',
@@ -223,7 +237,7 @@ const unsupportedPlayerDetail = createPeopleDetail({ packageData: { assets: { im
     async removeCampaignPlayerPortrait() {}
   }
 });
-assert.equal(elementsByClass(unsupportedPlayerDetail, 'directive-crew-player-portrait-import')[0].disabled, true);
+assert.equal(elementsByClass(unsupportedPlayerDetail, 'directive-crew-player-portrait-upload')[0].disabled, true);
 assert.equal(elementsByClass(unsupportedPlayerDetail, 'directive-crew-player-portrait-remove')[0].disabled, true);
 
 delete globalThis.document;
