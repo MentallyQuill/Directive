@@ -144,23 +144,45 @@ function appendCampaignDetail(detail, campaign, pack, actions) {
   detail.appendChild(saves);
 }
 
+function createCampaignFact({ label, value }) {
+  const fact = createElement('div', 'campaign-fact');
+  const key = createElement('span');
+  key.textContent = label;
+  const content = createElement('strong');
+  content.textContent = value;
+  fact.append(key, content);
+  return fact;
+}
+
 function appendPackageDetail(detail, pack, actions) {
   const unavailable = pack.disabled === true;
   const hero = createElement('section', `campaign-hero campaign-library-hero${unavailable ? ' is-coming-later' : ''}`);
   hero.dataset.campaignAvailability = pack.availability;
   hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
   const copy = createElement('div', 'campaign-hero-copy');
-  const status = createElement('span', 'campaign-status');
-  status.textContent = unavailable ? 'Coming later' : 'Playable in V1';
+  if (unavailable) {
+    const status = createElement('span', 'campaign-status');
+    status.textContent = 'Coming later';
+    copy.appendChild(status);
+  }
   const title = createElement('h2');
   title.textContent = pack.title;
+  copy.appendChild(title);
+  hero.appendChild(copy);
+  detail.appendChild(hero);
+
+  const body = createElement('div', 'campaign-library-detail-body');
   const description = createElement('p', 'campaign-summary');
   description.dataset.campaignDescription = 'true';
   description.textContent = pack.description;
-  copy.append(status, title, description);
-  hero.appendChild(copy);
-  detail.appendChild(hero);
-  detail.appendChild(createButton({
+  description.classList.add('campaign-library-description');
+  body.appendChild(description);
+  if (pack.facts?.length) {
+    const facts = createElement('div', 'campaign-facts campaign-library-facts');
+    pack.facts.forEach((fact) => facts.appendChild(createCampaignFact(fact)));
+    body.appendChild(facts);
+  }
+  body.appendChild(createButton({
     label: unavailable ? 'New campaign' : (pack.actions?.resumeDraft ? 'Continue setup' : 'Start campaign'),
     icon: 'fa-solid fa-play',
     className: 'campaign-command campaign-command-primary',
@@ -171,6 +193,7 @@ function appendPackageDetail(detail, pack, actions) {
         ? () => runAndRefresh(actions.resumeCreatorDraft, { draftId: pack.actions.resumeDraft }, actions)
         : () => runAndRefresh(actions.startCreatorDraft, { packageId: ASHES_V1_PACKAGE_ID }, actions))
   }));
+  detail.appendChild(body);
 }
 
 export function renderCampaignPanel(body, view, actions = {}) {

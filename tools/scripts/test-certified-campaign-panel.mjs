@@ -51,8 +51,30 @@ const body = new Element('div');
 const view = {
   campaign: {
     packages: [
-      { packageId: ashesId, title: 'Ashes of Peace', campaign: { highConcept: 'Current Ashes description.' }, assets: { images: [] } },
-      { packageId: 'directive:campaign-package:glass-harbor-drowned-constellation', title: 'Drowned Constellation', campaign: { highConcept: 'Current approved campaign description.' }, assets: { images: [] } }
+      {
+        packageId: ashesId,
+        title: 'Ashes of Peace',
+        campaign: {
+          highConcept: 'Current Ashes description.',
+          eraLabel: '2376, Post-Dominion War',
+          theater: 'Asterion Reach'
+        },
+        ship: { name: 'U.S.S. Breckenridge', class: 'Intrepid-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
+      },
+      {
+        packageId: 'directive:campaign-package:glass-harbor-drowned-constellation',
+        title: 'Drowned Constellation',
+        campaign: {
+          highConcept: 'Current approved campaign description.',
+          eraLabel: '2373, Dominion War',
+          theater: 'Nerine Reef'
+        },
+        ship: { name: 'U.S.S. Glass Harbor', class: 'Steamrunner-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
+      }
     ]
   },
   campaignIndex: {
@@ -93,7 +115,25 @@ assert.match(textOf(previews[0]), /Current approved campaign description\./);
 assert.match(textOf(body), /Current save/);
 assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Import package/i);
 
-previews[0].click();
+const availablePreview = byData(body, 'campaignAvailability', 'available').find((node) => node.tagName === 'BUTTON');
+assert.ok(availablePreview);
+availablePreview.click();
+
+const ashesHero = byClass(body, 'campaign-library-hero')[0];
+assert.ok(ashesHero);
+assert.equal(textOf(byClass(ashesHero, 'campaign-hero-copy')[0]).trim(), 'Ashes of Peace');
+const ashesBody = byClass(body, 'campaign-library-detail-body')[0];
+assert.ok(ashesBody);
+assert.match(textOf(ashesBody), /Current Ashes description\./);
+const ashesFacts = byClass(ashesBody, 'campaign-library-facts')[0];
+assert.ok(ashesFacts);
+assert.equal(ashesFacts.children.length, 4);
+assert.match(textOf(ashesFacts), /Era 2376, Post-Dominion War/);
+assert.match(textOf(ashesFacts), /Theater Asterion Reach/);
+assert.match(textOf(ashesFacts), /Assignment U\.S\.S\. Breckenridge, Intrepid-class/);
+assert.match(textOf(ashesFacts), /Your Role Commander, Executive Officer/);
+
+byData(body, 'campaignAvailability', 'coming-later').find((node) => node.tagName === 'BUTTON').click();
 
 const futureDetail = byClass(body, 'campaign-library-hero')[0];
 assert.ok(futureDetail);
@@ -101,7 +141,17 @@ assert.equal(futureDetail.dataset.campaignAvailability, 'coming-later');
 assert.equal(futureDetail.classList.contains('is-coming-later'), true);
 assert.match(textOf(futureDetail), /Coming later/);
 assert.match(textOf(futureDetail), /Drowned Constellation/);
-assert.match(textOf(futureDetail), /Current approved campaign description\./);
+assert.doesNotMatch(textOf(futureDetail), /Current approved campaign description\./);
+const futureBody = byClass(body, 'campaign-library-detail-body')[0];
+assert.ok(futureBody);
+assert.match(textOf(futureBody), /Current approved campaign description\./);
+const futureFacts = byClass(futureBody, 'campaign-library-facts')[0];
+assert.ok(futureFacts);
+assert.equal(futureFacts.children.length, 4);
+assert.match(textOf(futureFacts), /Era 2373, Dominion War/);
+assert.match(textOf(futureFacts), /Theater Nerine Reef/);
+assert.match(textOf(futureFacts), /Assignment U\.S\.S\. Glass Harbor, Steamrunner-class/);
+assert.match(textOf(futureFacts), /Your Role Commander, Executive Officer/);
 const futureAction = byClass(body, 'campaign-command-primary')[0];
 assert.ok(futureAction);
 assert.match(textOf(futureAction), /New campaign/);
