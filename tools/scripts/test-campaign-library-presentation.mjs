@@ -64,6 +64,10 @@ try {
       const artBox = art.getBoundingClientRect();
       const facts = document.querySelector('.campaign-library-facts');
       const hero = document.querySelector('.campaign-library-hero');
+      const detail = document.querySelector('.campaign-detail');
+      detail.scrollTop = detail.scrollHeight;
+      const detailBox = detail.getBoundingClientRect();
+      const actionBox = action.getBoundingClientRect();
       return {
         columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
         rowOpacity: Number(rowStyle.opacity),
@@ -79,6 +83,8 @@ try {
         factValueWhiteSpace: getComputedStyle(facts.querySelector('strong')).whiteSpace,
         heroHeight: hero.getBoundingClientRect().height,
         actionAfterFacts: Boolean(document.querySelector('.campaign-library-facts + .campaign-command-primary')),
+        detailOverflowY: getComputedStyle(detail).overflowY,
+        actionReachableAfterScroll: actionBox.top >= detailBox.top - .5 && actionBox.bottom <= detailBox.bottom + .5,
         actionDisabled: action.disabled,
         artWidth: artBox.width,
         artHeight: artBox.height,
@@ -99,6 +105,8 @@ try {
     assert.equal(metrics.factValueWhiteSpace, 'normal', `${viewport.width}px Campaign fact values must wrap`);
     assert.equal(metrics.heroHeight, viewport.width <= 640 ? 170 : 230, `${viewport.width}px Campaign hero height`);
     assert.equal(metrics.actionAfterFacts, true, `${viewport.width}px Campaign action must follow facts`);
+    assert.match(metrics.detailOverflowY, /auto|scroll/, `${viewport.width}px Campaign detail must own local scrolling`);
+    assert.equal(metrics.actionReachableAfterScroll, true, `${viewport.width}px Campaign action must be reachable inside the detail scroller`);
     assert.equal(metrics.actionDisabled, true, `${viewport.width}px New campaign must remain disabled`);
     assert.ok(Math.abs(metrics.artWidth - metrics.artHeight) < .1, `${viewport.width}px Campaign row art must remain square`);
     assert.equal(metrics.overflowX, false, `${viewport.width}px Campaign route must not overflow horizontally`);

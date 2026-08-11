@@ -74,6 +74,38 @@ const view = {
         ship: { name: 'U.S.S. Glass Harbor', class: 'Steamrunner-class' },
         playerRole: { rank: 'Commander', billet: 'Executive Officer' },
         assets: { images: [] }
+      },
+      {
+        packageId: 'directive:campaign-package:serein-black-current',
+        title: 'Black Current',
+        campaign: { highConcept: 'Black Current approved description.', eraLabel: '2376, Post-Dominion War', theater: 'Vanta Wake' },
+        ship: { name: 'U.S.S. Serein', class: 'Steamrunner-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
+      },
+      {
+        packageId: 'directive:campaign-package:eudora-vale-broken-accord',
+        title: 'Broken Accord',
+        campaign: { highConcept: 'Broken Accord approved description.', eraLabel: '2378, Post-Dominion War', theater: 'Ilyra System' },
+        ship: { name: 'U.S.S. Eudora Vale', class: 'Intrepid-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
+      },
+      {
+        packageId: 'directive:campaign-package:aster-vale-unseen-border',
+        title: 'Unseen Border',
+        campaign: { highConcept: 'Unseen Border approved description.', eraLabel: '2371', theater: 'Lacuna March' },
+        ship: { name: 'U.S.S. Aster Vale', class: 'New Orleans-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
+      },
+      {
+        packageId: 'directive:campaign-package:celandine-enemys-garden',
+        title: "Enemy's Garden",
+        campaign: { highConcept: "Enemy's Garden approved description.", eraLabel: '2376, Post-Dominion War', theater: 'Cyradon Relief Cluster' },
+        ship: { name: 'U.S.S. Celandine', class: 'Norway-class' },
+        playerRole: { rank: 'Commander', billet: 'Executive Officer' },
+        assets: { images: [] }
       }
     ]
   },
@@ -105,12 +137,14 @@ assert.equal(byClass(body, 'campaign-detail').length, 1);
 assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 2);
 
 const previews = byData(body, 'campaignAvailability', 'coming-later');
-assert.equal(previews.length, 1);
-assert.equal(previews[0].tagName, 'BUTTON');
-assert.equal(previews[0].getAttribute('aria-disabled'), null);
-assert.equal(previews[0].tabIndex, 0);
-assert.equal(previews[0].listeners.has('click'), true);
-assert.doesNotMatch(textOf(previews[0]), /Coming later/i);
+assert.equal(previews.length, 5);
+for (const preview of previews) {
+  assert.equal(preview.tagName, 'BUTTON');
+  assert.equal(preview.getAttribute('aria-disabled'), null);
+  assert.equal(preview.tabIndex, 0);
+  assert.equal(preview.listeners.has('click'), true);
+  assert.doesNotMatch(textOf(preview), /Coming later/i);
+}
 assert.match(textOf(previews[0]), /Current approved campaign description\./);
 assert.match(textOf(body), /Current save/);
 assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Import package/i);
@@ -158,5 +192,22 @@ assert.match(textOf(futureAction), /New campaign/);
 assert.equal(futureAction.disabled, true);
 futureAction.click();
 assert.equal(startCampaignCalls, 0);
+
+const sizeDisclosure = /\b(?:mission|chapter)\s+count\b|\bexpected sessions\b|\bstory arcs\b|\bquest templates\b|\b\d+\s+(?:missions|chapters|sessions)\b/i;
+for (const pack of view.campaign.packages) {
+  const row = byData(body, 'campaignRecordKey', `package:${pack.packageId}`).find((node) => node.tagName === 'BUTTON');
+  assert.ok(row, `${pack.title} must remain selectable`);
+  row.click();
+  const heroCopy = byClass(body, 'campaign-hero-copy')[0];
+  const packageBody = byClass(body, 'campaign-library-detail-body')[0];
+  assert.ok(heroCopy, `${pack.title} must render hero copy`);
+  assert.ok(packageBody, `${pack.title} must render below-hero detail`);
+  assert.match(textOf(heroCopy), new RegExp(pack.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(textOf(heroCopy), new RegExp(pack.campaign.highConcept.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(textOf(packageBody), new RegExp(pack.campaign.highConcept.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(byClass(packageBody, 'campaign-fact').length, 4, `${pack.title} must render four campaign facts`);
+  assert.doesNotMatch(textOf(packageBody), sizeDisclosure, `${pack.title} must not reveal campaign size`);
+  assert.doesNotMatch(textOf(heroCopy), /Playable in V1/i);
+}
 
 console.log('PASS certified Campaign panel');
