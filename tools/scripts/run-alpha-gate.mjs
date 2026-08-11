@@ -94,7 +94,8 @@ const checks = [
   "test-player-facing-route-contracts.mjs",
   "test-character-creator-assist.mjs",
   "test-provider-response-parser.mjs",
-  "test-directive-provider-routing.mjs"
+  "test-directive-provider-routing.mjs",
+  "test-directive-provider-policy.mjs"
 ];
 
 for (const script of checks) {

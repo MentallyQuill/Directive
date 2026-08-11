@@ -711,11 +711,13 @@ Identity and capabilities come from the active campaign package and ship dataset
 
 ## Settings Route
 
-Settings remains a primary route for player-chosen controls. The approved baseline separates ordinary player controls under General from provider routing and diagnostics under Advanced.
+Settings remains a primary route for player-chosen controls. The approved V1 revision uses one full-width scrolling column; it does not render the former General/Advanced navigation rail. Utility and Reasoning provider cards remain stacked at every viewport so their contextual controls can use the available width.
 
 Settings should prioritize options the player intentionally changes. Diagnostics, repair, storage verification, and provider tooling must be contextual or placed behind an explicit advanced/system surface rather than dominating the normal experience.
 
 General Settings does not contain campaign-specific controls. Remove Turn Recovery History, Autosave Frequency, Outcome Integrity, Review Provider, and the entire active-campaign settings section. Campaign behavior remains campaign-owned and automatic rather than becoming player-facing settings bloat.
+
+The current V1 surface includes the persisted Tooltips preference, Current Model or Connection Profile source selection, contextual preset/instruct/sampler/structured-output policy, the Directive preset, a read-only model-call routing summary, and collapsed privacy-bounded Diagnostics. Directive-managed endpoints and keys are prohibited. Tutorial Prompts, Startup Tips, and Help & Tutorials remain deferred.
 
 Do not import the older card-heavy Settings reference wholesale.
 

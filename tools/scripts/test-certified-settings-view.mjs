@@ -12,25 +12,29 @@ const view = {
     settings: { utility: { provider: 'profile', profileId: 'profile.utility' }, reasoning: { provider: 'st' } },
     status: { utility: { ready: true }, reasoning: { ready: true } }
   },
-  legacy: { tutorial: true, diagnostics: true }
+  generationRouting: [
+    { id: 'narration', label: 'Story narration', providerKind: 'reasoning' },
+    { id: 'utilityJson', label: 'Story distillation', providerKind: 'utility' }
+  ],
+  diagnostics: { transcriptAvailable: false },
+  legacy: { tutorial: true, help: true, directEndpoint: true }
 };
 
 assert.deepEqual(buildCertifiedSettingsView(view), {
-  selectedSectionId: 'general',
   sections: [
+    { id: 'interface', label: 'Interface' },
+    { id: 'providers', label: 'Model Lanes', providerConfiguration: view.providerConfiguration },
+    { id: 'preset', label: 'Directive Preset', directivePreset: view.directivePreset },
+    { id: 'routing', label: 'Model-Call Routing', generationRouting: view.generationRouting },
     {
-      id: 'general',
-      label: 'General',
-      directivePreset: view.directivePreset,
-      support: { activeSaveId: 'save.current' }
-    },
-    {
-      id: 'advanced',
-      label: 'Advanced',
-      providerConfiguration: view.providerConfiguration
+      id: 'diagnostics',
+      label: 'Diagnostics',
+      support: { activeSaveId: 'save.current', transcriptAvailable: false }
     }
   ]
 });
-assert.equal(JSON.stringify(buildCertifiedSettingsView(view)).includes('tutorial'), false);
+const serialized = JSON.stringify(buildCertifiedSettingsView(view));
+assert.equal(serialized.includes('tutorial'), false);
+assert.equal(serialized.includes('directEndpoint'), false);
 
 console.log('PASS certified Settings view');

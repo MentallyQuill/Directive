@@ -3,7 +3,11 @@ import {
   createHostContractError,
   normalizeDirectiveHost
 } from '../host-contract.mjs';
-import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
+import {
+  normalizeDirectiveProviderSettings,
+  providerKindForRole,
+  validateDirectiveProviderSettings
+} from '../../providers/directive-provider-settings.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -604,30 +608,7 @@ export function createFakePromptAdapter() {
 }
 
 export function createFakeProviderAdapter(initial = {}) {
-  let settings = {
-    utility: {
-      provider: 'st',
-      profileId: '',
-      baseUrl: '',
-      model: '',
-      apiKeySet: false,
-      maxTokens: 8192,
-      temperature: 0.1,
-      topP: 0.95,
-      ...(initial.utility || {})
-    },
-    reasoning: {
-      provider: 'st',
-      profileId: '',
-      baseUrl: '',
-      model: '',
-      apiKeySet: false,
-      maxTokens: 8192,
-      temperature: 0.7,
-      topP: 0.98,
-      ...(initial.reasoning || {})
-    }
-  };
+  let settings = normalizeDirectiveProviderSettings(initial);
   const profiles = cloneJson(initial.profiles || []);
 
   function requireKind(kind) {
@@ -645,18 +626,23 @@ export function createFakeProviderAdapter(initial = {}) {
     getAll: () => cloneJson(settings),
     update(kind, patch = {}) {
       const id = requireKind(kind);
-      settings[id] = { ...settings[id], ...cloneJson(patch) };
-      if (Object.prototype.hasOwnProperty.call(patch, 'apiKey')) {
-        settings[id].apiKeySet = Boolean(String(patch.apiKey || '').trim());
-        delete settings[id].apiKey;
-      }
+      settings = normalizeDirectiveProviderSettings({
+        ...settings,
+        [id]: {
+          ...settings[id],
+          ...cloneJson(patch),
+          ...(Object.keys(patch || {}).some((key) => key !== 'certification')
+            ? { certification: { status: 'not-run' } }
+            : {})
+        }
+      });
       return cloneJson(settings[id]);
     },
     updateSettings(kind, patch = {}) {
       if (typeof kind === 'string') return this.update(kind, patch);
       const update = kind && typeof kind === 'object' ? kind : {};
       for (const id of ['utility', 'reasoning']) {
-        if (update[id]) settings[id] = { ...settings[id], ...cloneJson(update[id]) };
+        if (update[id]) this.update(id, update[id]);
       }
       return cloneJson(settings);
     },
@@ -667,18 +653,8 @@ export function createFakeProviderAdapter(initial = {}) {
       return cloneJson(profiles);
     },
     validate(kind = null) {
-      const ids = kind ? [requireKind(kind)] : ['utility', 'reasoning'];
-      const diagnostics = [];
-      for (const id of ids) {
-        const config = settings[id];
-        if (config.provider === 'profile' && !config.profileId) {
-          diagnostics.push({ kind: id, severity: 'error', code: 'profile-required' });
-        }
-        if (config.provider === 'openai_compatible' && (!config.baseUrl || !config.model)) {
-          diagnostics.push({ kind: id, severity: 'error', code: 'endpoint-required' });
-        }
-      }
-      return { ok: diagnostics.length === 0, settings: cloneJson(settings), diagnostics };
+      if (kind) requireKind(kind);
+      return validateDirectiveProviderSettings(settings, kind);
     },
     status(kind = 'utility') {
       const id = requireKind(kind);
@@ -687,19 +663,19 @@ export function createFakeProviderAdapter(initial = {}) {
       return {
         kind: id,
         provider: config.provider,
-        ready: config.provider === 'profile'
-          ? Boolean(profile)
-          : config.provider === 'openai_compatible'
-            ? Boolean(config.baseUrl && config.model)
-            : true,
+        ready: config.provider === 'profile' ? Boolean(profile) : true,
         label: config.provider === 'profile'
           ? (profile?.model || profile?.label || config.profileId || 'Profile not selected')
-          : (config.model || 'Current fake chat model'),
+          : 'Current fake chat model',
         sourceLabel: config.provider === 'profile'
           ? 'Fake Connection Profile'
-          : config.provider === 'openai_compatible'
-            ? 'Fake OpenAI-compatible endpoint'
-            : 'Current fake chat model'
+          : 'Current Model',
+        completionMode: profile?.completionMode || 'chat',
+        identity: config.provider === 'profile'
+          ? `profile:${config.profileId}:${profile?.model || 'unknown'}`
+          : 'current:fake:chat:current-model',
+        profile: profile || null,
+        certification: cloneJson(config.certification || { status: 'not-run' })
       };
     },
     resolve(roleId) {
@@ -708,7 +684,13 @@ export function createFakeProviderAdapter(initial = {}) {
     },
     async test(kind) {
       const id = requireKind(kind);
-      return { ok: this.status(id).ready, kind: id, providerId: `fake:${id}`, text: 'DIRECTIVE_PROVIDER_OK' };
+      return {
+        ok: this.status(id).ready,
+        kind: id,
+        providerId: `fake:${id}`,
+        maxTokens: 512,
+        capabilities: { connectivity: true, structuredOutput: 'native-schema' }
+      };
     }
   };
 }

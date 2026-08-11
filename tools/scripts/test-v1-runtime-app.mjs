@@ -149,6 +149,43 @@ assert.equal(initial.kind, 'directive.runtimeView.v1');
 assert.equal(initial.campaignState, null);
 assert.deepEqual(initial.media, { playerPortraitImportSupported: true });
 assert.equal(app.getChatTurnOrchestrator() != null, true);
+assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
+  { id: 'narration', providerKind: 'reasoning' },
+  { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
+  { id: 'timeAdvanceAdjudicator', providerKind: 'utility' },
+  { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' },
+  { id: 'utilityJson', providerKind: 'utility' }
+]);
+assert.deepEqual(initial.diagnostics, { transcriptAvailable: true });
+assert.equal(JSON.stringify(initial.providerConfiguration).includes('baseUrl'), false);
+assert.equal(JSON.stringify(initial.providerConfiguration).includes('apiKey'), false);
+
+const getRecentMessagesForRuntime = host.chat.getRecentMessages;
+host.chat.getRecentMessages = () => [
+  { hostMessageId: 'visible-user', text: 'Visible player message', isUser: true, isSystem: false, visibility: { hiddenByHost: false, sourceMutation: false }, raw: { secret: 'RAW_SECRET' } },
+  { hostMessageId: 'visible-assistant', text: 'Selected visible answer', isUser: false, isSystem: false, visibility: { hiddenByHost: false, sourceMutation: false }, swipes: ['Selected visible answer', 'ALTERNATE_SECRET'] },
+  { hostMessageId: 'system', text: 'SYSTEM_SECRET', isUser: false, isSystem: true, visibility: { hiddenByHost: false, sourceMutation: false } },
+  { hostMessageId: 'hidden', text: 'HIDDEN_SECRET', isUser: false, isSystem: false, visibility: { hiddenByHost: true, sourceMutation: false } },
+  { hostMessageId: 'deleted', text: 'DELETED_SECRET', isUser: true, isSystem: false, visibility: { hiddenByHost: false, sourceMutation: true } }
+];
+const metadataOnlySupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: false })).jsonText);
+assert.equal('storyTranscript' in metadataOnlySupport, false);
+assert.equal('prompt' in metadataOnlySupport, false);
+assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
+assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
+assert.equal(metadataOnlySupport.routing.length, 5);
+const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
+assert.deepEqual(transcriptSupport.storyTranscript, {
+  kind: 'directive.playerVisibleTranscript.v1',
+  messages: [
+    { hostMessageId: 'visible-user', role: 'user', text: 'Visible player message' },
+    { hostMessageId: 'visible-assistant', role: 'assistant', text: 'Selected visible answer' }
+  ]
+});
+for (const secret of ['RAW_SECRET', 'ALTERNATE_SECRET', 'SYSTEM_SECRET', 'HIDDEN_SECRET', 'DELETED_SECRET']) {
+  assert.equal(JSON.stringify(transcriptSupport).includes(secret), false);
+}
+host.chat.getRecentMessages = getRecentMessagesForRuntime;
 
 const incompleteStorageView = await createDirectiveRuntimeApp({
   host: createFakeDirectiveHost(),

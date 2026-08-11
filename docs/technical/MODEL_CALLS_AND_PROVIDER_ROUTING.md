@@ -10,15 +10,26 @@ Directive exposes two provider lanes: Utility for fast structured analysis and R
 | `characterCreatorSectionDraft` | Reasoning | structured draft | none |
 | `utilityJson` | Utility | bounded story distillation | none |
 
-Providers may use the current SillyTavern model, a SillyTavern connection profile, or an explicitly configured OpenAI-compatible endpoint. API keys for direct endpoints remain session-only.
+Each lane uses exactly one SillyTavern-native source:
 
-Directive separates narration prompts from auxiliary generation parameters. Gameplay narration uses the full bundled Directive preset plus the V1 campaign context packet. Utility and structured Reasoning calls instead send only their role-local system prompt, user prompt, and schema; they do not inherit the preset's narration prompt stack.
+- **Current Model** uses the connection and model active in SillyTavern.
+- **Connection Profile** uses a supported chat/text profile from SillyTavern's Connection Manager.
+
+Directive has no direct endpoint transport and stores no provider API keys. Credentials remain entirely inside SillyTavern's native connection handling.
+
+## Generation policy
+
+Both sources use the same policy:
+
+- Behavioral Preset defaults to Isolated. Full source preset opts into the source's generation preset.
+- Instruct Formatting defaults to Auto, which enables instruct for text completion and disables it for chat completion.
+- Samplers defaults to SillyTavern settings. Directive override sends the configured Temperature and Top P; otherwise those fields are omitted.
+- Structured Output defaults to Auto. Prompt JSON omits schema metadata. Native schema requires the exact current configuration to pass certification. Auto uses Native schema only while that certification fingerprint remains current.
+- Output token ceiling caps the role request without increasing a smaller requested limit.
+
+Changing a source, profile, completion mode, or policy value invalidates the prior test result. Explicit Native schema fails before transport when the exact configuration is uncertified; it never silently downgrades. Auto safely remains on Prompt JSON until certification succeeds.
 
 The runtime treats the installed `Directive` preset as a chat-scoped narration lease. Opening or generating in a bound campaign chat selects it through SillyTavern's canonical preset manager and waits for `OAI_PRESET_CHANGED_AFTER` before campaign prompt synchronization continues. Leaving for an unbound chat or disabling the extension restores the user's previous preset. A manual preset choice made during campaign play becomes the next restore target if Directive must reassert its narration preset at the following generation boundary.
-
-For a Directive-owned auxiliary call routed through the current SillyTavern Chat Completion model, Directive applies the bundled `Directive` preset as a per-request generation-parameter baseline without changing the preset selected in the main SillyTavern UI. Connection-profile calls use the profile's configured preset in the same parameter-only role. This keeps `reasoning_effort` at the bundled preset's model-neutral `auto` setting while preserving Directive-owned temperature, top-p, token, and schema overrides.
-
-Direct OpenAI-compatible calls do not depend on a SillyTavern preset. If an endpoint rejects an optional top-level generation field that Directive actually sent, Directive retries once without that exact field. Required fields, unknown fields, nested fields, and structured-output contracts are never removed, and no model-name compatibility table is maintained.
 
 Structured output is parsed, size-limited, shape-validated, and checked against a closed candidate set. Provider failure cannot produce partial semantic mutation. Mission evidence fails closed; time adjudication has a deterministic fallback where the contract permits it; character drafting may use the local authored fallback.
 

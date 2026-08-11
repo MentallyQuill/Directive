@@ -7,6 +7,7 @@ import { renderCrewPanel, resetCrewPanelState } from '/src/ui/crew-panel.js';
 import { renderShipPanel } from '/src/ui/ship-panel.js';
 import { renderSettingsPanel, resetSettingsPanelState } from '/src/ui/settings-panel.js';
 import { createCharacterCreatorAssistDialog } from '/src/ui/character-creator-assist-dialog.js';
+import { createGenerationRoleRegistry } from '/src/generation/generation-roles.mjs';
 
 const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-peace.campaign-package.json').then((response) => response.json());
 
@@ -120,15 +121,25 @@ function fixtureView() {
     providerConfiguration: {
       profiles: [{ id: 'profile.utility', label: 'Utility profile', model: 'utility-model' }],
       settings: {
-        utility: { provider: 'profile', profileId: 'profile.utility', temperature: .1, topP: .95, maxTokens: 8192 },
-        reasoning: { provider: 'st', temperature: .7, topP: .95, maxTokens: 16384 }
+        utility: {
+          provider: 'profile', profileId: 'profile.utility', presetMode: 'isolated', instructMode: 'auto',
+          samplerMode: 'profile', structuredOutputMode: 'auto', temperature: .1, topP: .95, maxTokens: 8192,
+          certification: { status: 'not-run' }
+        },
+        reasoning: {
+          provider: 'st', profileId: '', presetMode: 'isolated', instructMode: 'auto',
+          samplerMode: 'directive', structuredOutputMode: 'auto', temperature: .4, topP: .95, maxTokens: 16384,
+          certification: { status: 'not-run' }
+        }
       },
       status: { utility: { ready: true, label: 'Utility profile' }, reasoning: { ready: true, label: 'Current SillyTavern model' } }
     },
     directivePreset: {
       status: { state: 'current', pill: 'Current', installedVersion: '1.0.0', bundledVersion: '1.0.0', canInstall: true },
       autoCheck: { enabled: true }
-    }
+    },
+    generationRouting: createGenerationRoleRegistry().list(),
+    diagnostics: { transcriptAvailable: true }
   };
 }
 
