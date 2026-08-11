@@ -32,7 +32,7 @@ const profileCalls = [];
 const profileService = {
   getSupportedProfiles: () => profiles,
   getProfile: (id) => profiles.find((profile) => profile.id === id) || null,
-  validateProfile: (profile) => ({ selected: profile?.api }),
+  validateProfile: (profile) => ({ selected: profile?.api, source: 'nanogpt', type: 'llamacpp' }),
   async sendRequest(profileId, messages, maxTokens, options, payload) {
     profileCalls.push({ profileId, messages, maxTokens, options, payload });
     if (payload?.json_schema) return { content: { ok: true }, reasoning: '' };
@@ -42,7 +42,16 @@ const profileService = {
 const profileContext = {
   extensionSettings: {},
   saveSettingsDebounced() {},
-  ConnectionManagerRequestService: profileService
+  ConnectionManagerRequestService: profileService,
+  getPresetManager: () => ({
+    getCompletionPresetByName: (name) => name === 'Local Chat Preset' ? { temperature: 0.6, top_p: 0.9 } : null
+  }),
+  ChatCompletionService: {
+    TYPE: 'openai',
+    async presetToGeneratePayload(_preset, _overrides, basePayload) {
+      return { ...basePayload, temperature: 0.6, top_p: 0.9, top_k: 40, custom_url: 'DO_NOT_PROJECT' };
+    }
+  }
 };
 
 assert.deepEqual(listSillyTavernConnectionProfiles(profileContext), [
@@ -135,7 +144,7 @@ assert.deepEqual(profileCalls[0], {
     includeInstruct: false,
     signal: undefined
   },
-  payload: {}
+  payload: { temperature: 0.6, top_p: 0.9, top_k: 40 }
 });
 assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
 
@@ -174,6 +183,33 @@ assert.deepEqual(profileStore.get('utility').certification, {
   structuredOutput: 'native-schema',
   testedAt: '2026-08-10T12:00:00.000Z'
 });
+
+const promptOnlyCalls = [];
+const promptOnlyContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    async sendRequest(profileId, messages, maxTokens, options, payload) {
+      promptOnlyCalls.push({ profileId, messages, maxTokens, options, payload });
+      return payload?.json_schema
+        ? { content: 'schema metadata ignored' }
+        : { content: 'DIRECTIVE_PROVIDER_OK' };
+    }
+  }
+};
+const promptOnlyStore = createSillyTavernProviderSettingsStore({ context: promptOnlyContext });
+promptOnlyStore.update('utility', { provider: 'profile', profileId: 'chat.local' });
+const promptOnlyClient = createDirectiveProviderClient({
+  contextFactory: () => promptOnlyContext,
+  settingsStore: promptOnlyStore,
+  now: () => '2026-08-10T12:00:00.000Z'
+});
+const promptOnlyTest = await promptOnlyClient.test('utility');
+assert.equal(promptOnlyTest.ok, true);
+assert.deepEqual(promptOnlyTest.capabilities, { connectivity: true, structuredOutput: 'prompt-json' });
+assert.equal(promptOnlyCalls.length, 2);
+assert.equal(promptOnlyStore.get('utility').certification.structuredOutput, 'prompt-json');
 
 const nativeResult = await profileClient.generate('utilityJson', {
   messages: [{ role: 'user', content: 'Schema after certification.' }],
@@ -257,6 +293,24 @@ assert.deepEqual(currentCalls[0], {
   extractData: true,
   signal: undefined
 });
+
+const policyIncompleteContext = {
+  extensionSettings: {},
+  mainApi: 'openai',
+  chatCompletionSettings: { chat_completion_source: 'nanogpt' },
+  getChatCompletionModel: () => 'legacy-current-model',
+  async generateRaw() { return 'must not bypass provider policy'; }
+};
+const policyIncompleteStore = createSillyTavernProviderSettingsStore({ context: policyIncompleteContext });
+const policyIncompleteClient = createDirectiveProviderClient({
+  contextFactory: () => policyIncompleteContext,
+  settingsStore: policyIncompleteStore
+});
+assert.equal(policyIncompleteClient.status('utility').ready, false);
+await assert.rejects(
+  policyIncompleteClient.generate('utilityJson', { prompt: 'Do not use an incomplete transport.' }),
+  (error) => error?.code === 'DIRECTIVE_PROVIDER_UNAVAILABLE'
+);
 
 const invalidProfileContext = {
   extensionSettings: {},

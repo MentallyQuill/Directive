@@ -7,6 +7,7 @@ import {
   PROVIDER_RESPONSE_ERROR_CODES,
   assertProviderResponseText
 } from '../../providers/provider-response-normalizer.mjs';
+import { projectSillyTavernSamplerPayload } from './profile-samplers.mjs';
 
 export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
 const FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE = 'Return the final visible answer now. Do not return private reasoning, analysis tags, or planning notes.';
@@ -137,7 +138,8 @@ function currentInstructName(context = {}) {
 function resolveProfile(context, profileId) {
   const service = requireConnectionManagerService(context || {});
   const profile = service.getProfile(profileId);
-  const metadata = profileMetadata(service, profile);
+  const apiMap = profile ? (service.validateProfile(profile) || {}) : {};
+  const metadata = profileMetadata({ validateProfile: () => apiMap }, profile);
   if (!metadata) {
     throw providerError(
       'DIRECTIVE_PROFILE_UNAVAILABLE',
@@ -145,7 +147,7 @@ function resolveProfile(context, profileId) {
       { profileId: textValue(profileId) || null }
     );
   }
-  return { service, profile, metadata };
+  return { service, profile, metadata, apiMap };
 }
 
 function requestMessages(request = {}) {
@@ -354,10 +356,22 @@ function policyFor(kind, config, context, { forceStructuredOutput = null } = {})
 }
 
 async function sendViaConnectionProfile(context, config, request, resolved) {
-  const { service, metadata } = resolveProfile(context, config.profileId);
+  const { service, profile, metadata, apiMap } = resolveProfile(context, config.profileId);
   const schema = resolved.policy.structuredOutputMethod === 'native-schema' ? schemaContract(request) : null;
+  let samplerPayload = resolved.policy.samplerOverrides || {};
+  let samplerSource = resolved.policy.samplerMode;
+  let samplerDiagnosticCode = '';
+  if (resolved.policy.samplerMode === 'profile' && !resolved.policy.includePreset) {
+    try {
+      samplerPayload = await projectSillyTavernSamplerPayload({ context, profile, apiMap });
+    } catch {
+      samplerSource = 'directive-fallback';
+      samplerDiagnosticCode = 'profile-sampler-projection-failed';
+      samplerPayload = { temperature: config.temperature, top_p: config.topP };
+    }
+  }
   const payload = {
-    ...(resolved.policy.samplerOverrides || {}),
+    ...samplerPayload,
     ...(schema ? { json_schema: schema } : {})
   };
   const response = await service.sendRequest(
@@ -373,19 +387,44 @@ async function sendViaConnectionProfile(context, config, request, resolved) {
     },
     payload
   );
-  return { response, providerId: `sillytavern-profile:${metadata.id}`, model: metadata.model || null };
+  return {
+    response,
+    providerId: `sillytavern-profile:${metadata.id}`,
+    model: metadata.model || null,
+    samplerSource,
+    samplerDiagnosticCode
+  };
 }
 
 async function sendViaCurrentModel(context, config, request, resolved) {
-  const { messages, system, prompt } = requestPrompts(request);
+  const { messages } = requestPrompts(request);
   const schema = resolved.policy.structuredOutputMethod === 'native-schema' ? schemaContract(request) : null;
-  const samplers = resolved.policy.samplerOverrides || {};
   const maxTokens = requestMaxTokens(request, config);
   const model = currentSillyTavernModelName(context);
+  const presetName = currentPresetName(context, resolved.completionMode);
+  let samplers = resolved.policy.samplerOverrides || {};
+  let samplerSource = resolved.policy.samplerMode;
+  let samplerDiagnosticCode = '';
+  if (resolved.policy.samplerMode === 'profile' && !resolved.policy.includePreset) {
+    const apiMap = resolved.completionMode === 'chat'
+      ? { selected: 'openai', source: textValue(context?.chatCompletionSettings?.chat_completion_source) }
+      : { selected: 'textgenerationwebui', type: textValue(context?.textCompletionSettings?.type || context?.textGenType) };
+    try {
+      samplers = await projectSillyTavernSamplerPayload({
+        context,
+        profile: { model, preset: presetName },
+        apiMap
+      });
+    } catch {
+      samplerSource = 'directive-fallback';
+      samplerDiagnosticCode = 'current-sampler-projection-failed';
+      samplers = { temperature: config.temperature, top_p: config.topP };
+    }
+  }
   let response;
   if (resolved.completionMode === 'chat' && typeof context?.ChatCompletionService?.processRequest === 'function') {
     const source = textValue(context?.chatCompletionSettings?.chat_completion_source);
-    const presetName = resolved.policy.includePreset ? currentPresetName(context, 'chat') : '';
+    const appliedPresetName = resolved.policy.includePreset ? presetName : '';
     response = await context.ChatCompletionService.processRequest({
       stream: false,
       messages,
@@ -394,9 +433,9 @@ async function sendViaCurrentModel(context, config, request, resolved) {
       max_tokens: maxTokens,
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
-    }, presetName ? { presetName } : {}, true, request.signal);
+    }, appliedPresetName ? { presetName: appliedPresetName } : {}, true, request.signal);
   } else if (resolved.completionMode === 'text' && typeof context?.TextCompletionService?.processRequest === 'function') {
-    const presetName = resolved.policy.includePreset ? currentPresetName(context, 'text') : '';
+    const appliedPresetName = resolved.policy.includePreset ? presetName : '';
     const instructName = resolved.policy.includeInstruct ? currentInstructName(context) : '';
     response = await context.TextCompletionService.processRequest({
       stream: false,
@@ -406,30 +445,22 @@ async function sendViaCurrentModel(context, config, request, resolved) {
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
     }, {
-      ...(presetName ? { presetName } : {}),
+      ...(appliedPresetName ? { presetName: appliedPresetName } : {}),
       ...(instructName ? { instructName } : {})
     }, true, request.signal);
-  } else if (typeof context?.generateRaw === 'function') {
-    response = await context.generateRaw({
-      systemPrompt: system,
-      prompt,
-      prefill: request.prefill || '',
-      responseLength: maxTokens,
-      instructOverride: resolved.policy.includeInstruct,
-      ...samplers,
-      ...(schema ? { jsonSchema: schema } : {}),
-      ...(request.signal ? { signal: request.signal } : {})
-    });
-  } else if (typeof context?.generateQuietPrompt === 'function') {
-    response = await context.generateQuietPrompt({
-      quietPrompt: [system, prompt].filter(Boolean).join('\n\n'),
-      responseLength: maxTokens,
-      ...(request.signal ? { signal: request.signal } : {})
-    });
   } else {
-    throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'SillyTavern does not expose a supported current-model generation method.');
+    throw providerError(
+      'DIRECTIVE_PROVIDER_UNAVAILABLE',
+      'SillyTavern does not expose the native current-model request service required for Directive provider policy.'
+    );
   }
-  return { response, providerId: 'sillytavern-current-model', model: model || null };
+  return {
+    response,
+    providerId: 'sillytavern-current-model',
+    model: model || null,
+    samplerSource,
+    samplerDiagnosticCode
+  };
 }
 
 export function createDirectiveProviderClient({
@@ -476,7 +507,9 @@ export function createDirectiveProviderClient({
         includePreset: resolved.policy.includePreset,
         includeInstruct: resolved.policy.includeInstruct,
         samplerMode: resolved.policy.samplerMode,
-        structuredOutputMethod: resolved.policy.structuredOutputMethod
+        samplerSource: sent.samplerSource || resolved.policy.samplerMode,
+        structuredOutputMethod: resolved.policy.structuredOutputMethod,
+        diagnosticCodes: sent.samplerDiagnosticCode ? [sent.samplerDiagnosticCode] : []
       },
       identity: resolved.identity,
       completionMode: resolved.completionMode
@@ -543,7 +576,7 @@ export function createDirectiveProviderClient({
 
       let structuredOutput = 'prompt-json';
       try {
-        await sendTransport(id, config, {
+        const nativeProbe = await sendTransport(id, config, {
           systemPrompt: 'Native schema capability test.',
           prompt: 'Return the requested object.',
           maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
@@ -554,6 +587,16 @@ export function createDirectiveProviderClient({
             properties: { ok: { type: 'boolean' } }
           }
         }, { forceStructuredOutput: 'native-schema', allowUncertifiedNative: true });
+        const parsed = JSON.parse(nativeProbe.text);
+        if (
+          !parsed
+          || typeof parsed !== 'object'
+          || Array.isArray(parsed)
+          || parsed.ok !== true
+          || Object.keys(parsed).some((key) => key !== 'ok')
+        ) {
+          throw providerError('DIRECTIVE_NATIVE_SCHEMA_PROBE_FAILED', 'Native schema probe returned an invalid object.');
+        }
         structuredOutput = 'native-schema';
       } catch {
         structuredOutput = 'prompt-json';
@@ -627,10 +670,10 @@ export function createDirectiveProviderClient({
     const completionMode = currentCompletionMode(context || {});
     const model = currentSillyTavernModelName(context);
     const ready = completionMode === 'chat'
-      ? typeof context?.ChatCompletionService?.processRequest === 'function' || typeof context?.generateRaw === 'function'
+      ? typeof context?.ChatCompletionService?.processRequest === 'function'
       : completionMode === 'text'
-        ? typeof context?.TextCompletionService?.processRequest === 'function' || typeof context?.generateRaw === 'function'
-        : typeof context?.generateRaw === 'function' || typeof context?.generateQuietPrompt === 'function';
+        ? typeof context?.TextCompletionService?.processRequest === 'function'
+        : false;
     return {
       kind: id,
       provider: 'st',
