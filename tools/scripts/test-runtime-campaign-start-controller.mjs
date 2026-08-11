@@ -112,4 +112,70 @@ assert.equal(checkpointDeletion.deleted, true);
 assert.equal(checkpointDeletion.slotType, 'checkpoint');
 assert.equal(checkpointDeletion.campaignChatBinding.chatId, 'fake-chat-disposable-checkpoint');
 
+await assert.rejects(
+  controller.prepareCampaignDeletion({ campaignId: campaign.firstSave.campaignId }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_DELETE_CHARACTER_REQUIRED'
+);
+
+const deletionState = controller.getActiveCampaignState();
+deletionState.campaignChatBinding = {
+  kind: 'directive.campaignChatBinding.v1',
+  version: 1,
+  hostId: 'sillytavern',
+  chatId: 'Ren Okada - Ashes of Peace',
+  campaignId: campaign.firstSave.campaignId,
+  saveId: campaign.firstSave.id,
+  status: 'bound',
+  entityType: 'character',
+  entityId: '0'
+};
+await controller.persistActiveCampaign({ campaignState: deletionState });
+await assert.rejects(
+  controller.prepareCampaignDeletion({ campaignId: campaign.firstSave.campaignId }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_DELETE_CHARACTER_REQUIRED'
+);
+
+deletionState.campaignChatBinding = {
+  kind: 'directive.campaignChatBinding.v1',
+  version: 1,
+  hostId: 'sillytavern',
+  chatId: 'Ren Okada - Ashes of Peace',
+  campaignId: campaign.firstSave.campaignId,
+  saveId: campaign.firstSave.id,
+  status: 'bound',
+  entityType: 'character',
+  entityId: '0',
+  entityName: 'Ren Okada - Ashes of Peace'
+};
+await controller.persistActiveCampaign({ campaignState: deletionState });
+const deletionCheckpoint = await controller.createCheckpoint({ name: 'Delete with campaign' });
+const deletionView = await controller.getCampaignView();
+assert.equal(deletionView.campaigns[0].characterName, 'Ren Okada - Ashes of Peace');
+
+const deletionTarget = await controller.prepareCampaignDeletion({
+  campaignId: campaign.firstSave.campaignId
+});
+assert.equal(deletionTarget.saveId, campaign.firstSave.id);
+assert.deepEqual(
+  new Set(deletionTarget.checkpointIds),
+  new Set([checkpoint.id, deletionCheckpoint.id])
+);
+assert.deepEqual(deletionTarget.campaignChatBinding, deletionState.campaignChatBinding);
+
+await assert.rejects(
+  controller.prepareCampaignDeletion({ campaignId: 'campaign.missing' }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_DELETE_TARGET_NOT_FOUND'
+);
+
+const campaignDeletion = await controller.deleteCampaign({
+  campaignId: deletionTarget.campaignId,
+  saveId: deletionTarget.saveId
+});
+assert.equal(campaignDeletion.deleted, true);
+assert.equal(campaignDeletion.saveId, campaign.firstSave.id);
+assert.deepEqual(new Set(campaignDeletion.checkpointIds), new Set([checkpoint.id, deletionCheckpoint.id]));
+assert.equal(controller.getActiveSave(), null);
+assert.equal(controller.getActiveCampaignState(), null);
+assert.equal((await controller.getCampaignView()).campaigns.length, 0);
+
 console.log('PASS V1 campaign controller');
