@@ -10,11 +10,45 @@ class Element {
     this.listeners = new Map();
     this.className = '';
     this.textContent = '';
-    this.classList = { add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); } };
+    this.scrollTop = 0;
+    this.replaceChildrenCount = 0;
+    const classes = () => new Set(this.className.split(/\s+/).filter(Boolean));
+    const writeClasses = (values) => { this.className = [...values].join(' '); };
+    this.classList = {
+      add: (...names) => { const values = classes(); names.forEach((name) => values.add(name)); writeClasses(values); },
+      remove: (...names) => { const values = classes(); names.forEach((name) => values.delete(name)); writeClasses(values); },
+      contains: (name) => classes().has(name),
+      toggle: (name, force) => {
+        const values = classes();
+        const enabled = force === undefined ? !values.has(name) : Boolean(force);
+        if (enabled) values.add(name); else values.delete(name);
+        writeClasses(values);
+        return enabled;
+      }
+    };
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
-  replaceChildren(...children) { this.children = []; this.append(...children); }
+  replaceChildren(...children) {
+    this.replaceChildrenCount += 1;
+    this.children.forEach((child) => { child.parentNode = null; });
+    this.children = [];
+    this.append(...children);
+  }
+  replaceChild(next, previous) {
+    const index = this.children.indexOf(previous);
+    if (index < 0) return null;
+    previous.parentNode = null;
+    next.parentNode = this;
+    this.children[index] = next;
+    return previous;
+  }
+  remove() {
+    const parent = this.parentNode;
+    if (!parent) return;
+    parent.children = parent.children.filter((child) => child !== this);
+    this.parentNode = null;
+  }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
@@ -91,11 +125,30 @@ assert.match(text, /Sam Vickers/);
 assert.match(text, /Mara Whitaker/);
 assert.doesNotMatch(text, /Marks|Ranks|Resolve|Inspiration/);
 
-const openMobileToggle = nodes.find((node) => node.dataset.personId === 'player.sam' && node.className.split(/\s+/).includes('mobile-accordion-toggle'));
-openMobileToggle.listeners.get('click')();
-assert.equal(all(body).filter((node) => node.className.split(/\s+/).includes('mobile-crew-item') && node.className.split(/\s+/).includes('is-open')).length, 0, 'the selected mobile person can be explicitly collapsed');
+const originalScrollOwner = byClass('people-journal-host')[0];
+originalScrollOwner.scrollTop = 237;
+const replacementCount = body.replaceChildrenCount;
+const whitakerMobileToggle = nodes.find((node) => node.dataset.personId === 'person.whitaker' && node.className.split(/\s+/).includes('mobile-accordion-toggle'));
+whitakerMobileToggle.listeners.get('click')();
+const mobileSelection = all(body);
+assert.equal(body.replaceChildrenCount, replacementCount, 'mobile disclosure must not rebuild the People panel');
+assert.equal(mobileSelection.includes(originalScrollOwner), true, 'mobile disclosure must retain the original scroll owner');
+assert.equal(originalScrollOwner.scrollTop, 237, 'mobile disclosure must preserve roster scroll position');
+assert.deepEqual(
+  mobileSelection
+    .filter((node) => node.className.split(/\s+/).includes('mobile-crew-item') && node.className.split(/\s+/).includes('is-open'))
+    .map((node) => node.dataset.personId),
+  ['person.whitaker'],
+  'mobile disclosure keeps exactly the selected record open'
+);
+assert.equal(whitakerMobileToggle.attributes.get('aria-expanded'), 'true');
+assert.equal(
+  mobileSelection.find((node) => node.dataset.personId === 'person.whitaker' && node.className.split(/\s+/).includes('collection-person-row') && node.className.split(/\s+/).includes('active')) !== undefined,
+  true,
+  'mobile selection synchronizes the desktop roster state'
+);
 
-const whitakerRow = nodes.find((node) => node.dataset.personId === 'person.whitaker' && node.className.split(/\s+/).includes('people-row'));
+const whitakerRow = mobileSelection.find((node) => node.dataset.personId === 'person.whitaker' && node.className.split(/\s+/).includes('people-row'));
 whitakerRow.listeners.get('click')();
 const rerendered = all(body);
 const detailPortrait = rerendered.find((node) => node.className.split(/\s+/).includes('people-detail-portrait'));
