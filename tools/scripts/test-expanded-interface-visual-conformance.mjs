@@ -38,12 +38,6 @@ const mobilePanelGeometry = {
     detail: '.mission-detail',
     heading: '.mission-hero h2'
   },
-  people: {
-    layout: '.people-layout',
-    master: '.people-roster',
-    detail: '.people-detail',
-    heading: '.people-detail-identity h2'
-  }
 };
 
 async function waitForServer() {
@@ -98,11 +92,13 @@ try {
         const workspace = shell.querySelector('.directive-workspace');
         const routeBody = shell.querySelector('.directive-route-body');
         const rect = shell.getBoundingClientRect();
-        const owners = [...shell.querySelectorAll('[data-directive-scroll-owner="true"]')];
+        const owners = [...shell.querySelectorAll('[data-directive-scroll-owner="true"]')]
+          .filter((node) => node.getClientRects().length && /(auto|scroll)/.test(`${getComputedStyle(node).overflowX} ${getComputedStyle(node).overflowY}`));
         const illegal = [...shell.querySelectorAll('*')]
           .filter((node) => {
             const style = getComputedStyle(node);
-            return /(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)
+            return node.getClientRects().length > 0
+              && /(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)
               && node.dataset.directiveScrollOwner !== 'true';
           })
           .map((node) => node.className);
@@ -118,7 +114,7 @@ try {
           documentOverflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight,
           routeFont: getComputedStyle(shell.querySelector('.directive-route-name')).fontFamily
         };
-      }, { route, ownerCount: expectedOwnerCounts[route] });
+      }, { route, ownerCount: route === 'people' && viewport.width <= 640 ? 1 : expectedOwnerCounts[route] });
 
       assert.equal(metrics.shell.overflow, 'hidden');
       assert.equal(metrics.workspaceOverflow, 'hidden');
@@ -212,6 +208,14 @@ try {
         observedVarianceIds.add('campaign-coming-later');
         observedVarianceIds.add('campaign-current-descriptions');
       }
+      if (route === 'people') {
+        const portraits = await page.locator('.people-row-image img, .mobile-crew-avatar img').count();
+        assert.ok(portraits >= 4, `${viewport.width}px People must resolve package portraits`);
+        if (viewport.width <= 640) {
+          assert.equal(await page.locator('.mobile-crew-accordion').evaluate((node) => getComputedStyle(node).display !== 'none'), true);
+          assert.equal(await page.locator('.mobile-crew-item.is-open .people-detail-portrait').count(), 1);
+        }
+      }
       observedVarianceIds.add('bounded-scroll-ownership');
 
       const name = `${route}-${viewport.width}x${viewport.height}.png`;
@@ -220,6 +224,61 @@ try {
       await page.close();
     }
   }
+
+  const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await peoplePage.goto(`${baseUrl}/production?route=people`);
+  await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await peoplePage.evaluate(() => localStorage.clear());
+  await peoplePage.reload();
+  await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const maraThumb = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .people-row-image img');
+  assert.match(await maraThumb.getAttribute('src'), /mara-whitaker\.thumb\.webp$/);
+  await peoplePage.locator('.people-desktop-journal .people-row[data-person-id="mara-whitaker"]').click();
+  assert.match(await peoplePage.locator('.people-desktop-journal .people-detail-portrait img').getAttribute('src'), /mara-whitaker\.detail\.webp$/);
+
+  await peoplePage.locator('.people-desktop-journal .people-add-category').click();
+  const categoryInput = peoplePage.locator('.people-desktop-journal .collection-category-input');
+  await categoryInput.fill('Bridge Team');
+  await categoryInput.press('Enter');
+  const bridgeCategory = peoplePage.locator('.people-desktop-journal .collection-category', { hasText: 'Bridge Team' });
+  assert.equal(await bridgeCategory.count(), 1);
+
+  const bronnHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle');
+  await bronnHandle.focus();
+  await bronnHandle.press('ArrowDown');
+  assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1, 'keyboard boundary movement must cross categories');
+  await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId === 'hadrik-bronn');
+
+  const maraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const maraBox = await maraHandle.boundingBox();
+  const bridgeDropBox = await bridgeCategory.locator('.collection-category-head').boundingBox();
+  await peoplePage.mouse.move(maraBox.x + maraBox.width / 2, maraBox.y + maraBox.height / 2);
+  await peoplePage.mouse.down();
+  await peoplePage.mouse.move(bridgeDropBox.x + bridgeDropBox.width / 2, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
+  await peoplePage.mouse.up();
+  const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
+  assert.equal(pointerMoved, 1, 'pointer drag must cross categories');
+  assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').count(), 5, 'reordering must preserve every fixture person');
+
+  const touchHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const touchBox = await touchHandle.boundingBox();
+  await touchHandle.dispatchEvent('pointerdown', {
+    pointerId: 71, pointerType: 'touch', button: 0,
+    clientX: touchBox.x + touchBox.width / 2, clientY: touchBox.y + touchBox.height / 2
+  });
+  await peoplePage.waitForTimeout(100);
+  assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 0, 'touch drag must not lift before the hold delay');
+  await peoplePage.waitForTimeout(100);
+  assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 1, 'touch drag must lift after 175ms');
+  await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 71, pointerType: 'touch', bubbles: true })));
+
+  await peoplePage.reload();
+  await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const restoredBridge = peoplePage.locator('.people-desktop-journal .collection-category', { hasText: 'Bridge Team' });
+  assert.equal(await restoredBridge.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1);
+  assert.equal(await restoredBridge.locator('.collection-person-row[data-person-id="mara-whitaker"]').count(), 1);
+  observedVarianceIds.add('people-restored-collections');
+  await peoplePage.close();
 
   const modalPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await modalPage.goto(`${baseUrl}/production?route=people`);

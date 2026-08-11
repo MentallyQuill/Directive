@@ -82,6 +82,54 @@ function reorderHandle(label, options) {
   return bindPresentationReorderHandle(handle, options);
 }
 
+function focusPersonHandle(personId) {
+  const escaped = globalThis.CSS?.escape?.(personId) || personId.replace(/["\\]/g, '\\$&');
+  globalThis.requestAnimationFrame?.(() => {
+    const handles = [...(globalThis.document?.querySelectorAll?.(`.collection-person-row[data-person-id="${escaped}"] .collection-drag-handle`) || [])];
+    (handles.find((candidate) => candidate.getClientRects().length > 0) || handles[0])?.focus();
+  });
+}
+
+function personReorderHandle(person, category, controller, rerender, options = {}) {
+  const handle = reorderHandle(person.name, {
+    ...options,
+    itemSelector: '.collection-person-row',
+    listSelector: '.collection-person-list',
+    idAttribute: 'data-person-id',
+    order: () => controller.snapshot().categories.find(({ id }) => id === category.id)?.recordIds || [],
+    onCommit: (ids) => {
+      ids.forEach((id, index) => controller.moveRecord(id, category.id, index));
+      rerender();
+      focusPersonHandle(person.id);
+    },
+    dropListSelector: '.collection-person-list',
+    dropZoneSelector: '.collection-category',
+    onDrop: ({ id, toList, toIndex }) => {
+      controller.moveRecord(id, toList.dataset.categoryId, toIndex);
+      rerender();
+      focusPersonHandle(id);
+    }
+  });
+  handle.addEventListener('keydown', (event) => {
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    const snapshot = controller.snapshot();
+    const categoryIndex = snapshot.categories.findIndex(({ id }) => id === category.id);
+    const recordIndex = snapshot.categories[categoryIndex]?.recordIds.indexOf(person.id) ?? -1;
+    const atBoundary = event.key === 'ArrowUp'
+      ? recordIndex === 0
+      : recordIndex === snapshot.categories[categoryIndex]?.recordIds.length - 1;
+    if (!atBoundary) return;
+    const adjacent = snapshot.categories[categoryIndex + (event.key === 'ArrowUp' ? -1 : 1)];
+    if (!adjacent) return;
+    event.preventDefault();
+    event.stopPropagation();
+    controller.moveRecord(person.id, adjacent.id, event.key === 'ArrowUp' ? adjacent.recordIds.length : 0);
+    rerender();
+    focusPersonHandle(person.id);
+  });
+  return handle;
+}
+
 function applyCategoryOrder(controller, ids) {
   ids.forEach((id, index) => controller.moveCategory(id, index));
 }
@@ -164,15 +212,7 @@ function createDesktopRecord(model, person, category, controller, rerender) {
   select.setAttribute('aria-pressed', controller.snapshot().selectedPersonId === person.id ? 'true' : 'false');
   select.append(portrait(model, person, 'thumb', 'people-row-image'), createRecordCopy(person));
   select.addEventListener('click', () => { controller.select(person.id); rerender(); });
-  const handle = reorderHandle(person.name, {
-    itemSelector: '.collection-person-row',
-    listSelector: '.collection-person-list',
-    idAttribute: 'data-person-id',
-    order: () => controller.snapshot().categories.find(({ id }) => id === category.id)?.recordIds || [],
-    onCommit: (ids) => {
-      ids.forEach((id, index) => controller.moveRecord(id, category.id, index));
-      rerender();
-    },
+  const handle = personReorderHandle(person, category, controller, rerender, {
     previewSelector: '.people-row',
     previewClass: 'people-drag-ghost'
   });
@@ -223,7 +263,7 @@ function appendDefinition(detail, label, value) {
 
 export function createPeopleDetail(model, record, { mobile = false } = {}) {
   const detail = createElement('section', `people-detail${mobile ? ' people-detail-mobile' : ''}`);
-  detail.dataset.directiveScrollOwner = 'true';
+  if (!mobile) detail.dataset.directiveScrollOwner = 'true';
   if (!record) return detail;
   detail.dataset.personId = record.id;
   const hero = createElement('header', 'people-detail-hero');
@@ -284,12 +324,7 @@ function createMobileRecord(model, person, category, controller, rerender) {
     controller.select(person.id);
     rerender();
   });
-  head.append(toggle, reorderHandle(person.name, {
-    itemSelector: '.collection-person-row',
-    listSelector: '.collection-person-list',
-    idAttribute: 'data-person-id',
-    order: () => controller.snapshot().categories.find(({ id }) => id === category.id)?.recordIds || [],
-    onCommit: (ids) => { ids.forEach((id, index) => controller.moveRecord(id, category.id, index)); rerender(); },
+  head.append(toggle, personReorderHandle(person, category, controller, rerender, {
     previewSelector: '.mobile-accordion-head',
     previewClass: 'people-drag-ghost'
   }));
@@ -334,12 +369,13 @@ export function createPeopleJournal(model, rerender, { storage = globalThis.loca
   const snapshot = controller.snapshot();
   const selected = recordById(model, snapshot.selectedPersonId);
   const host = createElement('div', 'people-journal-host');
+  host.dataset.directiveScrollOwner = 'true';
 
   const desktop = createElement('div', 'people-layout people-journal people-desktop-journal');
   const roster = createElement('aside', 'people-roster');
-  roster.dataset.directiveScrollOwner = 'true';
   roster.appendChild(createToolbar(controller, rerender));
   const categories = createElement('div', 'people-category-list');
+  categories.dataset.directiveScrollOwner = 'true';
   for (const category of snapshot.categories) categories.appendChild(createCategory(model, category, controller, rerender));
   roster.appendChild(categories);
   desktop.append(roster, createPeopleDetail(model, selected));

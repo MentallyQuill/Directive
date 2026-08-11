@@ -79,7 +79,7 @@ assert.equal(byClass('people-row-image').length, 2);
 assert.equal(byClass('mobile-crew-avatar').length, 2);
 assert.equal(byClass('directive-command-bearing-strip').length, 1);
 assert.ok(firstIndex('directive-command-bearing-strip') < firstIndex('people-layout'));
-assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 3);
+assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 3, 'desktop list/detail and mobile accordion each own their bounded scroll region');
 assert.match(text, /1 of 3 available/);
 assert.match(text, /Sam Vickers/);
 assert.match(text, /Mara Whitaker/);

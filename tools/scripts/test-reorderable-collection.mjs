@@ -31,6 +31,18 @@ assert.equal(changes[0].detail.kind, 'record');
 controller.moveRecordByKeyboard({ recordId: 'chakotay', direction: 'up' });
 assert.deepEqual(controller.snapshot()[1].recordIds, ['chakotay', 'tuvok']);
 
+controller.moveRecordByKeyboard({ recordId: 'chakotay', direction: 'up' });
+assert.deepEqual(controller.snapshot(), [
+  { id: 'command', recordIds: ['janeway', 'chakotay'] },
+  { id: 'science', recordIds: ['tuvok'] }
+], 'ArrowUp at a category boundary moves into the previous category');
+
+controller.moveRecordByKeyboard({ recordId: 'chakotay', direction: 'down' });
+assert.deepEqual(controller.snapshot(), [
+  { id: 'command', recordIds: ['janeway'] },
+  { id: 'science', recordIds: ['chakotay', 'tuvok'] }
+], 'ArrowDown at a category boundary moves into the next category');
+
 controller.moveCategory({ categoryId: 'science', toIndex: 0 });
 assert.deepEqual(controller.snapshot().map((item) => item.id), ['science', 'command']);
 

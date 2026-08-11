@@ -8,6 +8,8 @@ import { renderShipPanel } from '/src/ui/ship-panel.js';
 import { renderSettingsPanel, resetSettingsPanelState } from '/src/ui/settings-panel.js';
 import { createCharacterCreatorAssistDialog } from '/src/ui/character-creator-assist-dialog.js';
 
+const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-peace.campaign-package.json').then((response) => response.json());
+
 const requestedRoute = new URL(globalThis.location.href).searchParams.get('route');
 let activeRouteId = DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === requestedRoute) ? requestedRoute : 'campaign';
 globalThis.__directiveFixtureActions = [];
@@ -22,6 +24,8 @@ const projection = {
     rank: 'Commander',
     billet: 'Executive Officer',
     role: 'Principal mission commander and coordinator of shipboard operations.',
+    categoryId: 'ships-company',
+    service: { organization: 'starfleet', department: 'command', rankCode: 'commander', rankLabel: 'Commander' },
     species: { id: 'human', label: 'Human', summary: 'A Human Starfleet officer.' },
     appearance: 'Attentive and deliberate, with a practical command presence.',
     firstImpression: 'Measured until action is required.',
@@ -50,10 +54,10 @@ const projection = {
     kind: 'directive.peoplePlayerProjection.v1',
     missionId: 'mission.prelude-a-ship-underway',
     people: [
-      { id: 'person.mara-whitaker', name: 'Mara Whitaker', billet: 'Commanding Officer', profileSummary: 'The Breckenridge commanding officer is deliberate, principled, and politically sensitive.', relationshipPosture: 'Encouraging, but watchful', moments: [{ id: 'moment.handover', summary: 'She entrusted the incoming XO with the command handover.' }] },
-      { id: 'person.kieran-vale', name: 'Kieran Vale', billet: 'Flight Control Officer', profileSummary: 'An exceptional flight-control officer known for high-stress navigation and visible ambition.', relationshipPosture: 'Friendly and testing boundaries', moments: [] },
-      { id: 'person.priya-nayar', name: 'Priya Nayar', billet: 'Operations Officer', profileSummary: 'A resourceful operations officer with an informal communications network.', relationshipPosture: 'Curious', moments: [] },
-      { id: 'person.hadrik-bronn', name: 'Hadrik Bronn', billet: 'Chief Tactical and Security Officer', profileSummary: 'A disciplined officer who served as acting executive officer before the transfer.', relationshipPosture: 'Professional but watchful', moments: [] }
+      { id: 'mara-whitaker', name: 'Mara Whitaker', billet: 'Commanding Officer', categoryId: 'ships-company', portrait: { kind: 'crew.portrait.formal', subjectId: 'mara-whitaker' }, service: { organization: 'starfleet', department: 'command', rankCode: 'captain', rankLabel: 'Captain' }, profileSummary: 'The Breckenridge commanding officer is deliberate, principled, and politically sensitive.', relationshipPosture: 'Encouraging, but watchful', moments: [{ id: 'moment.handover', summary: 'She entrusted the incoming XO with the command handover.' }] },
+      { id: 'kieran-vale', name: 'Kieran Vale', billet: 'Flight Control Officer', categoryId: 'ships-company', portrait: { kind: 'crew.portrait.formal', subjectId: 'kieran-vale' }, service: { organization: 'starfleet', department: 'flight', rankCode: 'lieutenant', rankLabel: 'Lieutenant' }, profileSummary: 'An exceptional flight-control officer known for high-stress navigation and visible ambition.', relationshipPosture: 'Friendly and testing boundaries', moments: [] },
+      { id: 'priya-nayar', name: 'Priya Nayar', billet: 'Operations Officer', categoryId: 'ships-company', portrait: { kind: 'crew.portrait.formal', subjectId: 'priya-nayar' }, service: { organization: 'starfleet', department: 'operations', rankCode: 'lieutenant', rankLabel: 'Lieutenant' }, profileSummary: 'A resourceful operations officer with an informal communications network.', relationshipPosture: 'Curious', moments: [] },
+      { id: 'hadrik-bronn', name: 'Hadrik Bronn', billet: 'Chief Tactical and Security Officer', categoryId: 'ships-company', portrait: { kind: 'crew.portrait.formal', subjectId: 'hadrik-bronn' }, service: { organization: 'starfleet', department: 'tactical', rankCode: 'lieutenant_commander', rankLabel: 'Lieutenant Commander' }, profileSummary: 'A disciplined officer who served as acting executive officer before the transfer.', relationshipPosture: 'Professional but watchful', moments: [] }
     ]
   },
   ship: {
@@ -93,7 +97,7 @@ function fixtureView() {
   return {
     activeTab: activeRouteId,
     activePackage,
-    currentChatActivePackage: activePackage,
+    currentChatActivePackage: bundledPackageData,
     campaignState: { campaign: { id: 'campaign.ashes', title: 'Ashes of Peace' } },
     v1PlayerProjection: projection,
     campaign: { packages: V1_CAMPAIGN_LIBRARY_TEASERS },

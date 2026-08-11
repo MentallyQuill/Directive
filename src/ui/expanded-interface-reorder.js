@@ -39,6 +39,9 @@ export function bindPresentationReorderHandle(handle, {
   onCommit,
   previewSelector = '',
   previewClass = '',
+  dropListSelector = '',
+  dropZoneSelector = '',
+  onDrop = null,
   longPressMs = 175
 } = {}) {
   const commitKeyboard = (offset) => {
@@ -61,14 +64,28 @@ export function bindPresentationReorderHandle(handle, {
     if (!state) return;
     clearTimeout(state.timer);
     state.blurTarget?.removeEventListener?.('blur', state.onWindowBlur);
+    state.ownerDocument?.removeEventListener?.('pointermove', state.onPointerMove, true);
+    state.ownerDocument?.removeEventListener?.('pointerup', state.onPointerUp, true);
+    state.ownerDocument?.removeEventListener?.('pointercancel', state.onPointerCancel, true);
     if (state.active) {
       const list = state.list;
       if (commit) {
+        const dropList = state.dropList || list;
         state.placeholder.replaceWith(state.item);
-        const next = [...list.querySelectorAll(`:scope > ${itemSelector}`)]
+        const next = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)]
           .map((item) => item.getAttribute(idAttribute))
           .filter(Boolean);
-        onCommit(next, { id: state.id, input: state.pointerType });
+        if (onDrop) {
+          onDrop({
+            id: state.id,
+            input: state.pointerType,
+            fromList: list,
+            toList: dropList,
+            toIndex: next.indexOf(state.id)
+          });
+        } else {
+          onCommit(next, { id: state.id, input: state.pointerType });
+        }
       } else {
         state.placeholder.replaceWith(state.item);
       }
@@ -119,7 +136,7 @@ export function bindPresentationReorderHandle(handle, {
       boxShadow: '0 10px 24px rgba(0, 0, 0, .48)',
       opacity: previewClass === 'people-drag-ghost' ? '.5' : '.9'
     });
-    state.item.before(placeholder);
+    state.item.replaceWith(placeholder);
     state.item.classList.add('is-dragging');
     const ghostHost = document.createElement('div');
     ghostHost.className = 'directive-expanded-shell directive-drag-layer';
@@ -147,6 +164,41 @@ export function bindPresentationReorderHandle(handle, {
       scroll: scrollContainerFor(state.list)
     });
   };
+  const movePointer = (event) => {
+    if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    state.x = event.clientX; state.y = event.clientY;
+    if (!state.active) return;
+    state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
+    state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
+    state.ghost.hidden = true;
+    const hovered = state.ownerDocument.elementFromPoint(event.clientX, event.clientY);
+    state.ghost.hidden = false;
+    let dropList = dropListSelector ? hovered?.closest(dropListSelector) : state.list;
+    if (!dropList && dropZoneSelector) dropList = hovered?.closest(dropZoneSelector)?.querySelector(dropListSelector);
+    const target = hovered?.closest(itemSelector);
+    if (dropList && target && target !== state.item && target.parentElement === dropList) {
+      const rect = target.getBoundingClientRect();
+      target.parentElement.insertBefore(state.placeholder, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
+      state.dropList = dropList;
+    } else if (dropList) {
+      dropList.appendChild(state.placeholder);
+      state.dropList = dropList;
+    }
+    const scroll = state.scroll;
+    if (scroll) {
+      const rect = scroll === state.ownerDocument.scrollingElement ? { top: 0, bottom: state.blurTarget.innerHeight } : scroll.getBoundingClientRect();
+      if (event.clientY < rect.top + 44) scroll.scrollTop -= 14;
+      else if (event.clientY > rect.bottom - 44) scroll.scrollTop += 14;
+    }
+  };
+  const finishPointer = (event) => {
+    if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    end(true);
+  };
+  const cancelPointer = (event) => {
+    if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    end(false);
+  };
   handle.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button !== 0) return;
     const item = handle.closest(itemSelector);
@@ -156,32 +208,26 @@ export function bindPresentationReorderHandle(handle, {
     event.preventDefault();
     end(false);
     try { handle.setPointerCapture?.(event.pointerId); } catch { /* Synthetic and legacy touch events may not expose an active pointer. */ }
+    const ownerDocument = handle.ownerDocument || document;
     const blurTarget = handle.ownerDocument?.defaultView || globalThis;
     const onWindowBlur = () => end(false);
-    state = { item, list, id, x: event.clientX, y: event.clientY, pointerType: event.pointerType || 'mouse', active: false, timer: 0, blurTarget, onWindowBlur };
+    state = {
+      item, list, id,
+      x: event.clientX, y: event.clientY,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType || 'mouse',
+      active: false, timer: 0,
+      ownerDocument, blurTarget, onWindowBlur,
+      onPointerMove: movePointer,
+      onPointerUp: finishPointer,
+      onPointerCancel: cancelPointer
+    };
     blurTarget.addEventListener?.('blur', onWindowBlur, { once: true });
-    state.timer = setTimeout(activate, ['touch', 'pen'].includes(state.pointerType) ? longPressMs : 0);
+    ownerDocument.addEventListener('pointermove', movePointer, true);
+    ownerDocument.addEventListener('pointerup', finishPointer, true);
+    ownerDocument.addEventListener('pointercancel', cancelPointer, true);
+    if (['touch', 'pen'].includes(state.pointerType)) state.timer = setTimeout(activate, longPressMs);
+    else activate();
   });
-  handle.addEventListener('pointermove', (event) => {
-    if (!state) return;
-    state.x = event.clientX; state.y = event.clientY;
-    if (!state.active) return;
-    state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
-    state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(itemSelector);
-    if (target && target !== state.item && target.parentElement === state.list) {
-      const rect = target.getBoundingClientRect();
-      target.parentElement.insertBefore(state.placeholder, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
-    }
-    const scroll = state.scroll;
-    if (scroll) {
-      const rect = scroll === document.scrollingElement ? { top: 0, bottom: innerHeight } : scroll.getBoundingClientRect();
-      if (event.clientY < rect.top + 44) scroll.scrollTop -= 14;
-      else if (event.clientY > rect.bottom - 44) scroll.scrollTop += 14;
-    }
-  });
-  handle.addEventListener('pointerup', () => end(true));
-  handle.addEventListener('pointercancel', () => end(false));
-  handle.addEventListener('lostpointercapture', () => end(false));
   return handle;
 }

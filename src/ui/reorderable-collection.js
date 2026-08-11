@@ -92,7 +92,25 @@ export function createReorderableCollectionController({ categories = [], onChang
       if (!located || !['up', 'down'].includes(direction)) return snapshot();
       const offset = direction === 'up' ? -1 : 1;
       const target = located.recordIndex + offset;
-      if (target < 0 || target >= state[located.categoryIndex].recordIds.length) return snapshot();
+      if (target < 0 || target >= state[located.categoryIndex].recordIds.length) {
+        const adjacentCategoryIndex = located.categoryIndex + offset;
+        if (adjacentCategoryIndex < 0 || adjacentCategoryIndex >= state.length) return snapshot();
+        const next = snapshot();
+        next[located.categoryIndex].recordIds.splice(located.recordIndex, 1);
+        const adjacent = next[adjacentCategoryIndex];
+        const toIndex = direction === 'up' ? adjacent.recordIds.length : 0;
+        adjacent.recordIds.splice(toIndex, 0, located.id);
+        const fromCategoryId = next[located.categoryIndex].id;
+        state = next;
+        return emit({
+          kind: 'record',
+          recordId: located.id,
+          direction,
+          fromCategoryId,
+          toCategoryId: adjacent.id,
+          toIndex
+        });
+      }
       const next = snapshot();
       next[located.categoryIndex].recordIds = moveItemInList(
         next[located.categoryIndex].recordIds,
