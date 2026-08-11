@@ -293,6 +293,31 @@ function appendDefinition(detail, label, value) {
   detail.appendChild(block);
 }
 
+function appendServiceRecord(detail, publicRecord = {}) {
+  const rows = [
+    ['Age', publicRecord.age],
+    ['Birthplace', publicRecord.birthplace],
+    ['Service background', publicRecord.serviceBackground],
+    ['Assignment history', publicRecord.assignmentHistory]
+  ].filter(([, value]) => String(value || '').trim());
+  if (!rows.length) return;
+  const block = createElement('section', 'people-detail-block people-service-record');
+  const heading = createElement('h3');
+  heading.textContent = 'Service record';
+  const list = createElement('dl');
+  for (const [label, value] of rows) {
+    const row = createElement('div');
+    const term = createElement('dt');
+    term.textContent = label;
+    const description = createElement('dd');
+    description.textContent = value;
+    row.append(term, description);
+    list.appendChild(row);
+  }
+  block.append(heading, list);
+  detail.appendChild(block);
+}
+
 function createPortraitControl({ label, className, iconClass = '', glyph = '', disabled = false, onClick = null }) {
   const button = createElement('button', `directive-crew-player-portrait-control ${className}`);
   button.type = 'button';
@@ -396,14 +421,16 @@ export function createPeopleDetail(model, record, { mobile = false, view = {}, a
   const billet = createElement('strong');
   billet.textContent = [record.rank, record.billet || record.role].filter(Boolean).join(' / ');
   identity.append(kicker, nameLine, billet);
-  if (record.species?.label) {
+  const speciesLabel = typeof record.species === 'string' ? record.species : record.species?.label;
+  if (speciesLabel) {
     const species = createElement('span', 'people-detail-species');
-    species.textContent = record.species.label;
+    species.textContent = speciesLabel;
     identity.appendChild(species);
   }
   hero.appendChild(identity);
   detail.appendChild(hero);
   appendDefinition(detail, 'Profile', record.profileSummary || record.appearance || record.dossier?.identitySummary || record.dossier?.briefBiography);
+  appendServiceRecord(detail, record.publicRecord);
   appendDefinition(detail, 'Current posture', record.relationshipPosture);
   if (record.moments?.length) {
     const block = createElement('section', 'people-detail-block');

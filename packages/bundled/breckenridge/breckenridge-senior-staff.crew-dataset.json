@@ -5,7 +5,7 @@
     "id": "breckenridge.senior-staff",
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "title": "U.S.S. Breckenridge Senior Staff",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "officers": [
     {
@@ -13,6 +13,13 @@
       "name": "Mara Whitaker",
       "billet": "Commanding Officer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "47",
+        "birthplace": "Kingston, Ontario, Earth",
+        "serviceBackground": "Science operations, diplomacy, executive command",
+        "assignmentHistory": "Commanding officer since the Breckenridge's 2372 commission"
+      },
       "service": { "organization": "starfleet", "department": "command", "rankCode": "captain", "rankLabel": "Captain" },
       "profileSummary": "Captain Mara Whitaker is the Breckenridge's first and current commanding officer, known for deliberative command, principled process, and politically sensitive assignments.",
       "narrationGuide": {
@@ -29,6 +36,13 @@
       "name": "Kieran Vale",
       "billet": "Flight Control Officer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "29",
+        "birthplace": "Tycho City, Luna",
+        "serviceBackground": "Shuttle operations, tactical flight, high-stress navigation",
+        "assignmentHistory": "Previous posting: U.S.S. Valorous"
+      },
       "service": { "organization": "starfleet", "department": "flight", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Kieran Vale is an exceptional flight-control officer known for high-stress navigation, visible ambition, and a wartime rescue maneuver that earned both commendation and reprimand.",
       "narrationGuide": {
@@ -44,6 +58,13 @@
       "name": "Priya Nayar",
       "billet": "Operations Officer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "36",
+        "birthplace": "Starbase 12",
+        "serviceBackground": "Logistics, communications, personnel coordination, operations management",
+        "assignmentHistory": "Previous posting: U.S.S. Valorous"
+      },
       "service": { "organization": "starfleet", "department": "operations", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Priya Nayar is an operations officer with an enlisted-to-officer path, wartime logistics experience, and a gift for seeing dependencies among people, permissions, systems, and timing.",
       "narrationGuide": {
@@ -59,6 +80,13 @@
       "name": "Hadrik Bronn",
       "billet": "Chief Tactical and Security Officer",
       "categoryId": "ships-company",
+      "species": "Tellarite",
+      "publicRecord": {
+        "age": "Late fifties by human comparison",
+        "birthplace": "Drekon Cooperative District, Tellar Prime",
+        "serviceBackground": "Border security, convoy protection, shipboard defense, crisis containment",
+        "assignmentHistory": "Original Breckenridge senior officer; acting XO during post-refit transit"
+      },
       "service": { "organization": "starfleet", "department": "tactical", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran tactical and security chief, an original senior officer, and the temporary acting XO during the post-refit transit.",
       "narrationGuide": {
@@ -74,6 +102,13 @@
       "name": "Rowan Saye",
       "billet": "Chief Science Officer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "41",
+        "birthplace": "Utopia Colony, Mars",
+        "serviceBackground": "Astrophysics, subspace phenomena, scientific intelligence, anomaly analysis",
+        "assignmentHistory": "Previous posting: U.S.S. Huxley"
+      },
       "service": { "organization": "starfleet", "department": "science", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Rowan Saye is a brilliant, exacting science officer whose Helios Wake disclosure left them vindicated, censured, and alert to institutional pressure on evidence.",
       "narrationGuide": {
@@ -89,6 +124,13 @@
       "name": "Miriam Sato",
       "billet": "Chief Medical Officer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "43",
+        "birthplace": "Sapporo, Earth",
+        "serviceBackground": "Trauma surgery, emergency medicine, bioethics, operational health",
+        "assignmentHistory": "Previous posting: U.S.S. Huxley"
+      },
       "service": { "organization": "starfleet", "department": "medical", "rankCode": "commander", "rankLabel": "Commander" },
       "profileSummary": "Commander Miriam Sato is the chief medical officer, a trauma and bioethics specialist who names the human and medical cost of command decisions without demanding that command become risk-free.",
       "narrationGuide": {
@@ -104,6 +146,13 @@
       "name": "Imani Cross",
       "billet": "Chief Engineer",
       "categoryId": "ships-company",
+      "species": "Human",
+      "publicRecord": {
+        "age": "39",
+        "birthplace": "Nairobi, Earth",
+        "serviceBackground": "Starship systems integration, bio-neural architecture, propulsion-control validation",
+        "assignmentHistory": "Previous posting: Utopia Planitia systems-integration and refit program"
+      },
       "service": { "organization": "starfleet", "department": "engineering", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Imani Cross is the Breckenridge's chief engineer, a systems-integration expert with deep knowledge of the refit and legally recognized continuity after a 2374 transporter duplication.",
       "narrationGuide": {

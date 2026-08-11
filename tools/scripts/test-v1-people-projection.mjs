@@ -54,6 +54,21 @@ assert.deepEqual(baselineWhitaker.service, {
     rankCode: 'captain',
     rankLabel: 'Captain',
 });
+assert.equal(baselineWhitaker.species, 'Human');
+assert.deepEqual(baselineWhitaker.publicRecord, {
+    age: '47',
+    birthplace: 'Kingston, Ontario, Earth',
+    serviceBackground: 'Science operations, diplomacy, executive command',
+    assignmentHistory: "Commanding officer since the Breckenridge's 2372 commission",
+});
+const baselineBronn = baseline.people.find((person) => person.id === 'hadrik-bronn');
+assert.equal(baselineBronn.species, 'Tellarite');
+assert.equal(baseline.people.every((person) => (
+    Boolean(person.species)
+    && Boolean(person.publicRecord?.age)
+    && Boolean(person.publicRecord?.birthplace)
+    && Boolean(person.publicRecord?.serviceBackground)
+)), true);
 assert.equal(baselineWhitaker.categoryId, 'ships-company');
 for (const forbidden of [
     'professionalConfidence',
@@ -62,6 +77,12 @@ for (const forbidden of [
     'hiddenQuestion',
     'supports-with-reservations',
     'memoryLedger',
+    'publicReputation',
+    'centralStrength',
+    'centralFlaw',
+    'campaignFunction',
+    'narrationGuide',
+    'distinguishingHistory',
 ]) {
     assert.equal(JSON.stringify(baseline).includes(forbidden), false, forbidden);
 }

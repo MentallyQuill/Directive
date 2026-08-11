@@ -398,9 +398,48 @@ assert.equal(packageData.manifest.schemaVersion, 1);
 assert.deepEqual(Object.keys(crewDataset).sort(), ['manifest', 'officers']);
 assert.equal(crewDataset.manifest.kind, 'directive.crewDataset.v1');
 assert.equal(crewDataset.manifest.packageId, packageData.manifest.id);
+assert.equal(crewDataset.manifest.version, '1.1.0');
 assert.equal(crewDataset.officers.length, 7);
+const expectedCrewPublicRecords = {
+  'mara-whitaker': {
+    species: 'Human', age: '47', birthplace: 'Kingston, Ontario, Earth',
+    serviceBackground: 'Science operations, diplomacy, executive command',
+    assignmentHistory: "Commanding officer since the Breckenridge's 2372 commission"
+  },
+  'kieran-vale': {
+    species: 'Human', age: '29', birthplace: 'Tycho City, Luna',
+    serviceBackground: 'Shuttle operations, tactical flight, high-stress navigation',
+    assignmentHistory: 'Previous posting: U.S.S. Valorous'
+  },
+  'priya-nayar': {
+    species: 'Human', age: '36', birthplace: 'Starbase 12',
+    serviceBackground: 'Logistics, communications, personnel coordination, operations management',
+    assignmentHistory: 'Previous posting: U.S.S. Valorous'
+  },
+  'hadrik-bronn': {
+    species: 'Tellarite', age: 'Late fifties by human comparison',
+    birthplace: 'Drekon Cooperative District, Tellar Prime',
+    serviceBackground: 'Border security, convoy protection, shipboard defense, crisis containment',
+    assignmentHistory: 'Original Breckenridge senior officer; acting XO during post-refit transit'
+  },
+  'rowan-saye': {
+    species: 'Human', age: '41', birthplace: 'Utopia Colony, Mars',
+    serviceBackground: 'Astrophysics, subspace phenomena, scientific intelligence, anomaly analysis',
+    assignmentHistory: 'Previous posting: U.S.S. Huxley'
+  },
+  'miriam-sato': {
+    species: 'Human', age: '43', birthplace: 'Sapporo, Earth',
+    serviceBackground: 'Trauma surgery, emergency medicine, bioethics, operational health',
+    assignmentHistory: 'Previous posting: U.S.S. Huxley'
+  },
+  'imani-cross': {
+    species: 'Human', age: '39', birthplace: 'Nairobi, Earth',
+    serviceBackground: 'Starship systems integration, bio-neural architecture, propulsion-control validation',
+    assignmentHistory: 'Previous posting: Utopia Planitia systems-integration and refit program'
+  }
+};
 for (const officer of crewDataset.officers) {
-  assert.deepEqual(Object.keys(officer).sort(), ['billet', 'categoryId', 'id', 'name', 'narrationGuide', 'profileSummary', 'service']);
+  assert.deepEqual(Object.keys(officer).sort(), ['billet', 'categoryId', 'id', 'name', 'narrationGuide', 'profileSummary', 'publicRecord', 'service', 'species']);
   assert.equal(officer.categoryId, 'ships-company');
   assert.equal(officer.service.organization, 'starfleet');
   assert.equal(Boolean(officer.service.department), true);
@@ -409,6 +448,12 @@ for (const officer of crewDataset.officers) {
   assert.equal(Boolean(officer.profileSummary.trim()), true);
   assert.equal(Boolean(officer.narrationGuide.voice.trim()), true);
   assert.equal(officer.narrationGuide.constraints.length > 0, true);
+  const expected = expectedCrewPublicRecords[officer.id];
+  assert.ok(expected, `${officer.id}: public record snapshot exists`);
+  assert.deepEqual({ species: officer.species, ...officer.publicRecord }, expected, `${officer.id}: public record`);
+  for (const forbidden of ['publicReputation', 'centralStrength', 'centralFlaw', 'campaignFunction', 'narrationGuide', 'distinguishingHistory']) {
+    assert.equal(Object.hasOwn(officer.publicRecord, forbidden), false, `${officer.id}: ${forbidden} is private`);
+  }
 }
 assert.deepEqual(Object.keys(shipDataset).sort(), ['manifest', 'profile']);
 assert.equal(shipDataset.manifest.kind, 'directive.shipDataset.v1');

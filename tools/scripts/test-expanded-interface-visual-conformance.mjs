@@ -347,6 +347,12 @@ try {
   assert.match(await maraThumb.getAttribute('src'), /mara-whitaker\.thumb\.webp$/);
   await peoplePage.locator('.people-desktop-journal .people-row[data-person-id="mara-whitaker"]').click();
   assert.match(await peoplePage.locator('.people-desktop-journal .people-detail-portrait img').getAttribute('src'), /mara-whitaker\.detail\.webp$/);
+  const maraDetail = peoplePage.locator('.people-desktop-journal .people-detail');
+  const maraServiceRecord = maraDetail.locator('.people-service-record');
+  assert.equal(await maraServiceRecord.count(), 1, 'Mara detail must render one public service record');
+  assert.match(await maraDetail.textContent(), /Human/);
+  assert.match(await maraServiceRecord.textContent(), /Age47BirthplaceKingston, Ontario, EarthService backgroundScience operations, diplomacy, executive commandAssignment historyCommanding officer since the Breckenridge's 2372 commission/);
+  assert.equal(await maraServiceRecord.evaluate((record) => record.scrollWidth <= record.clientWidth), true, 'public service record must not overflow its detail column');
 
   await peoplePage.locator('.people-desktop-journal .people-add-category').click();
   const categoryInput = peoplePage.locator('.people-desktop-journal .collection-category-input');
@@ -537,6 +543,10 @@ try {
   assert.equal(await mobilePeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"].active').count(), 1, 'mobile disclosure must synchronize desktop selection');
   const expandedTouchCard = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="hadrik-bronn"]');
   const expandedTouchDetail = expandedTouchCard.locator('.mobile-accordion-detail');
+  const mobileServiceRecord = expandedTouchDetail.locator('.people-service-record');
+  assert.equal(await mobileServiceRecord.count(), 1, 'expanded mobile crew detail must render one public service record');
+  assert.match(await mobileServiceRecord.textContent(), /Late fifties by human comparison/);
+  assert.equal(await mobileServiceRecord.evaluate((record) => record.scrollWidth <= record.clientWidth), true, 'mobile public service record must not overflow its detail column');
   const expandedTouchCardBox = await expandedTouchCard.boundingBox();
   const expandedTouchDetailBox = await expandedTouchDetail.boundingBox();
   await expandedTouchDetail.dispatchEvent('pointerdown', {
