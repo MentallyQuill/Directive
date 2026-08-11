@@ -1192,6 +1192,33 @@ export function createDirectiveRuntimeApp({
       return { ok: true, binding: clone(binding), view: await campaignViewEnvelope('mission') };
     },
 
+    async deleteCampaign({ campaignId, saveId = null } = {}) {
+      await ensureInitialized();
+      const target = await controller.prepareCampaignDeletion({ campaignId, saveId });
+      if (typeof host.chat.deleteCampaignCharacter !== 'function') {
+        const error = new Error('SillyTavern character deletion is unavailable.');
+        error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE';
+        throw error;
+      }
+      const hostDeletion = await host.chat.deleteCampaignCharacter(target.campaignChatBinding);
+      const result = await controller.deleteCampaign({
+        campaignId: target.campaignId,
+        saveId: target.saveId
+      });
+      setState(null);
+      configureStateRuntime();
+      activeScreen = 'campaign';
+      creatorView = null;
+      activeDraftId = null;
+      await restoreNarrationPreset();
+      await host.prompt.clear?.({ reason: 'campaign-deleted' });
+      return {
+        result: clone(result),
+        hostDeletion: clone(hostDeletion),
+        view: await campaignViewEnvelope('campaign')
+      };
+    },
+
     async saveGame({ name } = {}) {
       await ensureInitialized();
       const sourceChatId = compact(state?.campaignChatBinding?.chatId);
