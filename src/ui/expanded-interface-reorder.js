@@ -27,6 +27,27 @@ const DRAG_THEME_PROPERTIES = [
   '--salmon', '--lilac', '--blue', '--violet', '--directive-focus'
 ];
 
+const activeGrabbingOwners = new WeakMap();
+
+function acquireGrabbingCursor(ownerDocument) {
+  const root = ownerDocument?.documentElement;
+  if (!root) return false;
+  activeGrabbingOwners.set(ownerDocument, (activeGrabbingOwners.get(ownerDocument) || 0) + 1);
+  root.classList.add('directive-reorder-grabbing');
+  return true;
+}
+
+function releaseGrabbingCursor(ownerDocument) {
+  if (!ownerDocument) return;
+  const remaining = (activeGrabbingOwners.get(ownerDocument) || 0) - 1;
+  if (remaining > 0) {
+    activeGrabbingOwners.set(ownerDocument, remaining);
+    return;
+  }
+  activeGrabbingOwners.delete(ownerDocument);
+  ownerDocument.documentElement?.classList.remove('directive-reorder-grabbing');
+}
+
 function copyInheritedCustomProperties(source, target) {
   const sourceStyle = getComputedStyle(source);
   for (const property of DRAG_THEME_PROPERTIES) target.style.setProperty(property, sourceStyle.getPropertyValue(property));
@@ -104,19 +125,11 @@ export function bindPresentationReorderHandle(handle, {
     state.ghostMoveFrame = state.blurTarget?.requestAnimationFrame?.(flushGhostPosition) || 0;
     if (!state.ghostMoveFrame) flushGhostPosition();
   };
-  const settlePlaceholderPosition = () => {
-    if (!state?.placeholder || !state.reflowAnimations) return;
-    for (const animation of [...state.reflowAnimations]) {
-      if (animation.effect?.target !== state.placeholder) continue;
-      animation.cancel();
-      state.reflowAnimations.delete(animation);
-    }
-  };
   const relocatePlaceholder = (parent, before = null) => {
     if (!state?.placeholder || !parent) return;
     if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
     const root = reflowRootSelector ? state.list.closest(reflowRootSelector) : state.ownerDocument;
-    const elements = [state.placeholder, ...(root?.querySelectorAll?.(itemSelector) || [])]
+    const elements = [...(root?.querySelectorAll?.(itemSelector) || [])]
       .filter((element) => element?.getClientRects?.().length > 0);
     const beforeRects = new Map(elements.map((element) => [element, element.getBoundingClientRect()]));
     state.reflowAnimations?.forEach((animation) => animation.cancel());
@@ -204,6 +217,7 @@ export function bindPresentationReorderHandle(handle, {
       state.ghostHost?.remove();
       if (!commit && state.restoreFocusOnCancel) state.handle.focus?.({ preventScroll: true });
     }
+    if (state.ownsGrabbingCursor) releaseGrabbingCursor(state.ownerDocument);
     state = null;
   };
   const end = (commit = true, { instant = false } = {}) => {
@@ -223,7 +237,6 @@ export function bindPresentationReorderHandle(handle, {
       finalize(false);
       return;
     }
-    settlePlaceholderPosition();
     const ghostRect = state.ghost.getBoundingClientRect();
     const slotRect = state.placeholder.getBoundingClientRect();
     state.ghost.classList.add('is-snapping');
@@ -335,6 +348,7 @@ export function bindPresentationReorderHandle(handle, {
       originNextSibling,
       hitTestX: itemRect.left + (itemRect.width / 2)
     });
+    state.ownsGrabbingCursor = acquireGrabbingCursor(state.ownerDocument);
     requestVibration(liftVibrationMs);
   };
   const updateDropTarget = (clientX, clientY) => {

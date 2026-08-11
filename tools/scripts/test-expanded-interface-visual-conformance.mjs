@@ -394,12 +394,45 @@ try {
   await peoplePage.mouse.move(cancelledPriyaBox.x + cancelledPriyaBox.width / 2, cancelledPriyaBox.y + cancelledPriyaBox.height / 2);
   await peoplePage.mouse.down();
   await peoplePage.mouse.move(cancelledDropBox.x + cancelledDropBox.width / 2, cancelledDropBox.y + cancelledDropBox.height / 2, { steps: 6 });
+  assert.deepEqual(await peoplePage.evaluate(() => ({
+    rootClass: document.documentElement.classList.contains('directive-reorder-grabbing'),
+    root: getComputedStyle(document.documentElement).cursor,
+    card: getComputedStyle(document.querySelector('.people-row')).cursor,
+    slot: getComputedStyle(document.querySelector('.people-card-drop-slot')).cursor
+  })), { rootClass: true, root: 'grabbing', card: 'grabbing', slot: 'grabbing' });
   await peoplePage.keyboard.press('Escape');
-  await peoplePage.waitForTimeout(500);
+  await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), false);
   assert.equal(await peoplePage.locator('.people-drag-ghost').count(), 0, 'Escape must finish the return-to-origin animation');
   assert.equal(await peoplePage.evaluate(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId), 'priya-nayar', 'Escape must restore focus to the returned card handle');
   await peoplePage.mouse.up();
   assert.equal(await peoplePage.locator(`.people-desktop-journal .collection-person-list[data-category-id="${cancelledPriyaCategory}"] .collection-person-row[data-person-id="priya-nayar"]`).count(), 1, 'Escape must restore the person to the original list');
+
+  const overlappingPriyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
+  const overlappingMaraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const overlappingPriyaBox = await overlappingPriyaHandle.boundingBox();
+  const overlappingMaraBox = await overlappingMaraHandle.boundingBox();
+  await overlappingPriyaHandle.dispatchEvent('pointerdown', {
+    pointerId: 80, pointerType: 'mouse', button: 0,
+    clientX: overlappingPriyaBox.x + overlappingPriyaBox.width / 2,
+    clientY: overlappingPriyaBox.y + overlappingPriyaBox.height / 2
+  });
+  await overlappingMaraHandle.dispatchEvent('pointerdown', {
+    pointerId: 81, pointerType: 'mouse', button: 0,
+    clientX: overlappingMaraBox.x + overlappingMaraBox.width / 2,
+    clientY: overlappingMaraBox.y + overlappingMaraBox.height / 2
+  });
+  assert.equal(await peoplePage.locator('.people-drag-ghost').count(), 2, 'independent reorder controllers can overlap while one card is docking');
+  await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', {
+    pointerId: 80, pointerType: 'mouse', bubbles: true
+  })));
+  await peoplePage.waitForFunction(() => document.querySelectorAll('.people-drag-ghost').length === 1);
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), true, 'finishing one controller must preserve cursor ownership for another active drag');
+  await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', {
+    pointerId: 81, pointerType: 'mouse', bubbles: true
+  })));
+  await peoplePage.waitForFunction(() => document.querySelectorAll('.people-drag-ghost').length === 0);
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), false, 'the final controller must release shared cursor ownership');
 
   const invalidPriyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
   const invalidPriyaBox = await invalidPriyaHandle.boundingBox();
@@ -531,7 +564,7 @@ try {
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 0, 'touch drag must not lift before the hold delay');
   await peoplePage.waitForTimeout(100);
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 1, 'touch drag must lift after 175ms');
-  assert.equal(Math.round((await peoplePage.locator('.mobile-drag-ghost').boundingBox()).x), Math.round(touchCardBox.x), 'sub-threshold touch drift must not shift a vertically locked card');
+  assert.equal(Math.round((await peoplePage.locator('.mobile-drag-ghost').boundingBox()).x), Math.round(touchCardBox.x), 'sub-threshold touch drift must not shift a horizontally locked card');
   await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 71, pointerType: 'touch', bubbles: true })));
 
   const bridgeCategoryHandle = bridgeCategory.locator(':scope > .collection-category-head > .collection-drag-handle');
@@ -546,6 +579,51 @@ try {
   assert.equal(await restoredBridge.locator('.collection-person-row[data-person-id="mara-whitaker"]').count(), 1);
   observedVarianceIds.add('people-restored-collections');
   await peoplePage.close();
+
+  const thresholdPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await thresholdPage.goto(`${baseUrl}/production?route=people`);
+  await thresholdPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const thresholdHandle = thresholdPage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
+  const thresholdHandleBox = await thresholdHandle.boundingBox();
+  const thresholdPeerBox = await thresholdPage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').boundingBox();
+  await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdHandleBox.y + thresholdHandleBox.height / 2);
+  await thresholdPage.mouse.down();
+  await thresholdPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
+  await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdPeerBox.y + thresholdPeerBox.height / 2 + 1);
+  const thresholdState = await thresholdPage.evaluate(async () => {
+    const slot = document.querySelector('.people-card-drop-slot');
+    const peer = document.querySelector('.collection-person-row[data-person-id="mara-whitaker"]');
+    if (!slot || !peer) throw new Error('threshold slot and Mara peer must be present');
+    const sample = () => {
+      const slotRect = slot.getBoundingClientRect();
+      const peerRect = peer.getBoundingClientRect();
+      return {
+        slotTop: slotRect.top,
+        slotLeft: slotRect.left,
+        peerTop: peerRect.top
+      };
+    };
+    const first = sample();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const second = sample();
+    return {
+      slotAnimations: slot.getAnimations().length,
+      peerAnimating: peer.getAnimations().some(({ playState }) => playState === 'running'),
+      adjacent: slot.previousElementSibling === peer,
+      first,
+      second
+    };
+  });
+  assert.equal(thresholdState.slotAnimations, 0, 'crossing a card midpoint must settle the destination slot immediately');
+  assert.equal(thresholdState.peerAnimating, true, 'crossing a card midpoint must retain sibling glide');
+  assert.equal(thresholdState.adjacent, true, 'the sampled sibling must border the destination slot');
+  assert.equal(thresholdState.second.slotTop, thresholdState.first.slotTop, 'the destination slot top must remain fixed across sibling reflow frames');
+  assert.equal(thresholdState.second.slotLeft, thresholdState.first.slotLeft, 'the destination slot left must remain fixed across sibling reflow frames');
+  assert.ok(thresholdState.second.peerTop < thresholdState.first.peerTop, 'Mara must glide upward from her former visual position toward the settled position');
+  await thresholdPage.keyboard.press('Escape');
+  await thresholdPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await thresholdPage.mouse.up();
+  await thresholdPage.close();
 
   const immediateDropPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await immediateDropPage.goto(`${baseUrl}/production?route=people`);
