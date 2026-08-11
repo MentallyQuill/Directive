@@ -52,7 +52,12 @@ const projection = {
   story: { branchId: 'save-opening', revision: 0, focus: null, entries: [] }
 };
 
-const packet = createV1RuntimePromptPacket({ state, projection, runtimeAssets });
+const packet = createV1RuntimePromptPacket({
+  state,
+  projection,
+  runtimeAssets,
+  acceptedPairLineage: []
+});
 assert.match(packet.text, /"phase": "unanswered"/);
 assert.match(packet.text, /"canonicalOpeningMessage":/);
 assert.match(packet.text, /Yesterday morning, your shuttle rendezvoused/);
@@ -63,11 +68,15 @@ const firstMeetingState = structuredClone(state);
 firstMeetingState.storySettlement.receipts.push({
   id: 'receipt.opening.insignificant',
   disposition: 'insignificant'
+}, {
+  id: 'receipt.opening.invalidated-replay',
+  disposition: 'invalidated'
 });
 const firstMeetingPacket = createV1RuntimePromptPacket({
   state: firstMeetingState,
   projection,
-  runtimeAssets
+  runtimeAssets,
+  acceptedPairLineage: [{ currentPlayerHostMessageId: 'player-entry-1-replayed' }]
 });
 assert.match(firstMeetingPacket.text, /"phase": "firstMeeting"/);
 assert.match(firstMeetingPacket.text, /"stage": "introductionPending"/);
@@ -81,14 +90,15 @@ assert.match(firstMeetingPacket.text, /Do not discuss readiness problems, crew c
 assert.match(firstMeetingPacket.text, /End after Whitaker gives the player a natural opening to answer/);
 
 const conversationAnsweredState = structuredClone(firstMeetingState);
-conversationAnsweredState.storySettlement.receipts.push({
-  id: 'receipt.opening.conversation-answered',
-  disposition: 'insignificant'
-});
+conversationAnsweredState.storySettlement.receipts = [];
 const conversationAnsweredPacket = createV1RuntimePromptPacket({
   state: conversationAnsweredState,
   projection,
-  runtimeAssets
+  runtimeAssets,
+  acceptedPairLineage: [
+    { currentPlayerHostMessageId: 'player-entry-1-replayed' },
+    { currentPlayerHostMessageId: 'player-entry-2' }
+  ]
 });
 assert.match(conversationAnsweredPacket.text, /"phase": "firstMeeting"/);
 assert.match(conversationAnsweredPacket.text, /"stage": "conversationAnswered"/);
@@ -107,7 +117,11 @@ postHandoverState.mission.v1.objectives['objective.prelude.command-handover'] = 
 const postHandoverPacket = createV1RuntimePromptPacket({
   state: postHandoverState,
   projection,
-  runtimeAssets
+  runtimeAssets,
+  acceptedPairLineage: [
+    { currentPlayerHostMessageId: 'player-entry-1-replayed' },
+    { currentPlayerHostMessageId: 'player-entry-2' }
+  ]
 });
 assert.match(postHandoverPacket.text, /"phase": "continuity"/);
 assert.match(postHandoverPacket.text, /"continuitySummary":/);

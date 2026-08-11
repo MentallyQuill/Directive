@@ -129,13 +129,13 @@ function playerPortraitImportSupported(host) {
     && typeof host?.storage?.deleteFile === 'function';
 }
 
-function openingPromptProjection({ state, runtimeAssets }) {
+function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [] }) {
   const campaign = runtimeAssets?.packageData?.campaign;
   const openingContext = campaign?.openingContext;
   if (!openingContext) {
     throw new Error('Directive V1 runtime assets require campaign.openingContext.');
   }
-  const acceptedPairCount = state.storySettlement?.receipts?.length || 0;
+  const acceptedPairCount = acceptedPairLineage.length;
   const unanswered = acceptedPairCount === 0;
   if (unanswered) {
     return {
@@ -164,7 +164,12 @@ function openingPromptProjection({ state, runtimeAssets }) {
   };
 }
 
-export function createV1RuntimePromptPacket({ state, projection, runtimeAssets }) {
+export function createV1RuntimePromptPacket({
+  state,
+  projection,
+  runtimeAssets,
+  acceptedPairLineage = []
+}) {
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
     storyProjection: projection.story,
@@ -208,7 +213,7 @@ export function createV1RuntimePromptPacket({ state, projection, runtimeAssets }
       })),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
-    opening: openingPromptProjection({ state, runtimeAssets }),
+    opening: openingPromptProjection({ state, runtimeAssets, acceptedPairLineage }),
     acceptedStory: story
   };
   const text = [
@@ -381,10 +386,25 @@ export function createDirectiveRuntimeApp({
       error.code = 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE';
       throw error;
     }
+    const recentMessages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+    const acceptedPairLineage = [];
+    const seenPlayerMessageIds = new Set();
+    for (const message of recentMessages) {
+      if (!isUserMessage(message)) continue;
+      const id = messageId(message, normalizeMessage(host, message));
+      if (!id || seenPlayerMessageIds.has(id)) continue;
+      seenPlayerMessageIds.add(id);
+      acceptedPairLineage.push({ currentPlayerHostMessageId: id });
+    }
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),
-      packet: createV1RuntimePromptPacket({ state, projection: result.projection, runtimeAssets })
+      packet: createV1RuntimePromptPacket({
+        state,
+        projection: result.projection,
+        runtimeAssets,
+        acceptedPairLineage
+      })
     });
   }
 
