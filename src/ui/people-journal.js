@@ -90,6 +90,14 @@ function focusPersonHandle(personId) {
   });
 }
 
+function focusCategoryHandle(categoryId) {
+  const escaped = globalThis.CSS?.escape?.(categoryId) || categoryId.replace(/["\\]/g, '\\$&');
+  globalThis.requestAnimationFrame?.(() => {
+    const handles = [...(globalThis.document?.querySelectorAll?.(`.collection-category[data-category-id="${escaped}"] > .collection-category-head > .collection-drag-handle`) || [])];
+    (handles.find((candidate) => candidate.getClientRects().length > 0) || handles[0])?.focus();
+  });
+}
+
 function personReorderHandle(person, category, controller, rerender, options = {}) {
   const handle = reorderHandle(person.name, {
     ...options,
@@ -104,6 +112,7 @@ function personReorderHandle(person, category, controller, rerender, options = {
     },
     dropListSelector: '.collection-person-list',
     dropZoneSelector: '.collection-category',
+    keyboard: false,
     onDrop: ({ id, toList, toIndex }) => {
       controller.moveRecord(id, toList.dataset.categoryId, toIndex);
       rerender();
@@ -113,17 +122,21 @@ function personReorderHandle(person, category, controller, rerender, options = {
   handle.addEventListener('keydown', (event) => {
     if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
     const snapshot = controller.snapshot();
-    const categoryIndex = snapshot.categories.findIndex(({ id }) => id === category.id);
+    const categoryIndex = snapshot.categories.findIndex(({ recordIds }) => recordIds.includes(person.id));
     const recordIndex = snapshot.categories[categoryIndex]?.recordIds.indexOf(person.id) ?? -1;
-    const atBoundary = event.key === 'ArrowUp'
-      ? recordIndex === 0
-      : recordIndex === snapshot.categories[categoryIndex]?.recordIds.length - 1;
-    if (!atBoundary) return;
-    const adjacent = snapshot.categories[categoryIndex + (event.key === 'ArrowUp' ? -1 : 1)];
-    if (!adjacent) return;
+    if (categoryIndex < 0 || recordIndex < 0) return;
     event.preventDefault();
     event.stopPropagation();
-    controller.moveRecord(person.id, adjacent.id, event.key === 'ArrowUp' ? adjacent.recordIds.length : 0);
+    const offset = event.key === 'ArrowUp' ? -1 : 1;
+    const targetIndex = recordIndex + offset;
+    if (targetIndex >= 0 && targetIndex < snapshot.categories[categoryIndex].recordIds.length) {
+      controller.moveRecord(person.id, snapshot.categories[categoryIndex].id, targetIndex);
+    } else {
+      const adjacent = snapshot.categories[categoryIndex + offset];
+      if (!adjacent) return;
+      if (snapshot.collapsedCategoryIds.includes(adjacent.id)) controller.toggleCategory(adjacent.id);
+      controller.moveRecord(person.id, adjacent.id, event.key === 'ArrowUp' ? adjacent.recordIds.length : 0);
+    }
     rerender();
     focusPersonHandle(person.id);
   });
@@ -230,7 +243,11 @@ function createCategory(model, category, controller, rerender, mobile = false) {
     listSelector: mobile ? '.mobile-crew-accordion' : '.people-category-list',
     idAttribute: 'data-category-id',
     order: () => controller.snapshot().categories.map(({ id }) => id),
-    onCommit: (ids) => { applyCategoryOrder(controller, ids); rerender(); },
+    onCommit: (ids) => {
+      applyCategoryOrder(controller, ids);
+      rerender();
+      focusCategoryHandle(category.id);
+    },
     previewSelector: '.collection-category-head',
     previewClass: 'people-category-drag-ghost'
   }));
@@ -306,7 +323,9 @@ export function createPeopleDetail(model, record, { mobile = false } = {}) {
 }
 
 function createMobileRecord(model, person, category, controller, rerender) {
-  const openId = openMobilePersonByScope.get(model.scopeKey) || controller.snapshot().selectedPersonId;
+  const openId = openMobilePersonByScope.has(model.scopeKey)
+    ? openMobilePersonByScope.get(model.scopeKey)
+    : controller.snapshot().selectedPersonId;
   const open = openId === person.id;
   const item = createElement('article', `mobile-accordion-item mobile-crew-item collection-person-row${open ? ' is-open' : ''}`);
   item.dataset.personId = person.id;

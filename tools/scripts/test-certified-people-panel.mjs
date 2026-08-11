@@ -85,6 +85,10 @@ assert.match(text, /Sam Vickers/);
 assert.match(text, /Mara Whitaker/);
 assert.doesNotMatch(text, /Marks|Ranks|Resolve|Inspiration/);
 
+const openMobileToggle = nodes.find((node) => node.dataset.personId === 'player.sam' && node.className.split(/\s+/).includes('mobile-accordion-toggle'));
+openMobileToggle.listeners.get('click')();
+assert.equal(all(body).filter((node) => node.className.split(/\s+/).includes('mobile-crew-item') && node.className.split(/\s+/).includes('is-open')).length, 0, 'the selected mobile person can be explicitly collapsed');
+
 const whitakerRow = nodes.find((node) => node.dataset.personId === 'person.whitaker' && node.className.split(/\s+/).includes('people-row'));
 whitakerRow.listeners.get('click')();
 const rerendered = all(body);

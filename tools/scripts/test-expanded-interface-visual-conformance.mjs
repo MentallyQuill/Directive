@@ -243,10 +243,19 @@ try {
   const bridgeCategory = peoplePage.locator('.people-desktop-journal .collection-category', { hasText: 'Bridge Team' });
   assert.equal(await bridgeCategory.count(), 1);
 
+  const priyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
+  await priyaHandle.focus();
+  await priyaHandle.press('ArrowDown');
+  assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="priya-nayar"]').count(), 0, 'one non-boundary Arrow key must move exactly one position');
+  const bridgeDisclosure = bridgeCategory.locator('.collection-disclosure');
+  await bridgeDisclosure.click();
+  assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'false');
   const bronnHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle');
   await bronnHandle.focus();
   await bronnHandle.press('ArrowDown');
+  await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
   assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1, 'keyboard boundary movement must cross categories');
+  assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'true', 'keyboard movement must expand a collapsed target category');
   await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId === 'hadrik-bronn');
 
   const maraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
@@ -271,6 +280,11 @@ try {
   await peoplePage.waitForTimeout(100);
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 1, 'touch drag must lift after 175ms');
   await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 71, pointerType: 'touch', bubbles: true })));
+
+  const bridgeCategoryHandle = bridgeCategory.locator(':scope > .collection-category-head > .collection-drag-handle');
+  await bridgeCategoryHandle.focus();
+  await bridgeCategoryHandle.press('ArrowUp');
+  await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-category')?.querySelector('.collection-category-copy strong')?.textContent === 'Bridge Team');
 
   await peoplePage.reload();
   await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);

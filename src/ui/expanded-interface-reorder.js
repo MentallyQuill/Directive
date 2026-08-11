@@ -42,6 +42,7 @@ export function bindPresentationReorderHandle(handle, {
   dropListSelector = '',
   dropZoneSelector = '',
   onDrop = null,
+  keyboard = true,
   longPressMs = 175
 } = {}) {
   const commitKeyboard = (offset) => {
@@ -53,11 +54,13 @@ export function bindPresentationReorderHandle(handle, {
     if (next === current) return;
     onCommit(next, { id, input: 'keyboard' });
   };
-  handle.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-    event.preventDefault();
-    commitKeyboard(event.key === 'ArrowUp' ? -1 : 1);
-  });
+  if (keyboard) {
+    handle.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      commitKeyboard(event.key === 'ArrowUp' ? -1 : 1);
+    });
+  }
 
   let state = null;
   const end = (commit = true) => {
