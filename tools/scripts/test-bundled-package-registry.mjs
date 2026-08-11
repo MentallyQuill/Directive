@@ -16,6 +16,23 @@ import {
 assert.deepEqual(BUNDLED_CAMPAIGN_PACKAGE_REFS, [ASHES_V1_BUNDLED_REF]);
 assert.equal(V1_CAMPAIGN_LIBRARY_TEASERS.length, 6);
 assert.equal(V1_CAMPAIGN_LIBRARY_TEASERS.filter((entry) => entry.teaserOnly).length, 6);
+assert.deepEqual(
+  V1_CAMPAIGN_LIBRARY_TEASERS.map((entry) => ({
+    title: entry.title,
+    era: entry.campaign?.eraLabel,
+    theater: entry.campaign?.theater,
+    assignment: [entry.ship?.name, entry.ship?.class].filter(Boolean).join(', '),
+    role: [entry.playerRole?.rank, entry.playerRole?.billet].filter(Boolean).join(', ')
+  })),
+  [
+    { title: 'Ashes of Peace', era: '2376, Post-Dominion War', theater: 'Asterion Reach', assignment: 'U.S.S. Breckenridge, Intrepid-class', role: 'Commander, Executive Officer' },
+    { title: 'Drowned Constellation', era: '2373, Dominion War', theater: 'Nerine Reef', assignment: 'U.S.S. Glass Harbor, Steamrunner-class', role: 'Commander, Executive Officer' },
+    { title: 'Black Current', era: '2376, Post-Dominion War', theater: 'Vanta Wake', assignment: 'U.S.S. Serein, Steamrunner-class', role: 'Commander, Executive Officer' },
+    { title: 'Broken Accord', era: '2378, Post-Dominion War', theater: 'Ilyra System', assignment: 'U.S.S. Eudora Vale, Intrepid-class', role: 'Commander, Executive Officer' },
+    { title: 'Unseen Border', era: '2371', theater: 'Lacuna March', assignment: 'U.S.S. Aster Vale, New Orleans-class', role: 'Commander, Executive Officer' },
+    { title: "Enemy's Garden", era: '2376, Post-Dominion War', theater: 'Cyradon Relief Cluster', assignment: 'U.S.S. Celandine, Norway-class', role: 'Commander, Executive Officer' }
+  ]
+);
 
 function sentenceCount(value) {
   return String(value || '').match(/[.!?](?=\s+[A-Z]|$)/g)?.length || 0;

@@ -38,13 +38,14 @@ export const ASHES_V1_BUNDLED_REF = Object.freeze({
 
 export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([ASHES_V1_BUNDLED_REF]);
 
-function teaser({ id, title, shipId, shipName, summary, imageRoot }) {
+function teaser({ id, title, era, theater, shipId, shipName, shipClass, rank, billet, summary, imageRoot }) {
   return Object.freeze({
     packageId: id,
     id,
     title,
-    campaign: { title, highConcept: summary },
-    ship: { id: shipId, name: shipName },
+    campaign: { title, highConcept: summary, eraLabel: era, theater },
+    ship: { id: shipId, name: shipName, class: shipClass },
+    playerRole: { rank, billet },
     assets: {
       images: [{
         id: `${shipId}.teaser`,
@@ -66,48 +67,78 @@ export const V1_CAMPAIGN_LIBRARY_TEASERS = Object.freeze([
   teaser({
     id: ASHES_V1_PACKAGE_ID,
     title: 'Ashes of Peace',
+    era: '2376, Post-Dominion War',
+    theater: 'Asterion Reach',
     shipId: 'uss-breckenridge',
     shipName: 'U.S.S. Breckenridge',
+    shipClass: 'Intrepid-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'The Dominion War is over, but the choices made to survive it still shape Federation worlds. You join the USS Breckenridge as its new executive officer while a mostly reconstituted crew returns to service. Three days later, a stabilization assignment begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape the crew, and decide what Starfleet principles require when restoring the old order may not be enough.',
     imageRoot: 'assets/packages/breckenridge/images/ship'
   }),
   teaser({
     id: 'directive:campaign-package:glass-harbor-drowned-constellation',
     title: 'Drowned Constellation',
+    era: '2373, Dominion War',
+    theater: 'Nerine Reef',
     shipId: 'uss-glass-harbor',
     shipName: 'U.S.S. Glass Harbor',
+    shipClass: 'Steamrunner-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'As the newly promoted executive officer of the USS Glass Harbor, you enter the unmapped currents of the Nerine Reef. When the captain and her shuttle vanish during a gravitic inversion, you assume acting command. Rescue, survey, escort, and diplomacy all depend on charts that different communities need for different reasons. Decide who may map the Reef when every reliable route can save lives, expose a sanctuary, create a border, or become a weapon.',
     imageRoot: 'assets/packages/glass-harbor/images/ship'
   }),
   teaser({
     id: 'directive:campaign-package:serein-black-current',
     title: 'Black Current',
+    era: '2376, Post-Dominion War',
+    theater: 'Vanta Wake',
     shipId: 'uss-serein',
     shipName: 'U.S.S. Serein',
+    shipClass: 'Steamrunner-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'The Dominion War is over, but the Vanta Wake continues to deliver its wreckage. A migrating subspace current releases damaged vessels, live ordnance, records, and survivors months after the battles that trapped them. Command the USS Serein through rescue operations where every recovered person and object carries competing claims. Decide who owns what returns, which people are still legally alive, and what it means to come home to a world that already buried you.',
     imageRoot: 'assets/packages/serein/images/ship'
   }),
   teaser({
     id: 'directive:campaign-package:eudora-vale-broken-accord',
     title: 'Broken Accord',
+    era: '2378, Post-Dominion War',
+    theater: 'Ilyra System',
     shipId: 'uss-eudora-vale',
     shipName: 'U.S.S. Eudora Vale',
+    shipClass: 'Intrepid-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'Five inhabited worlds depend on a shared terraforming lattice that has kept their fragile environments alive for generations. When a lattice surge leaves the USS Eudora Vale without its captain, you inherit your first independent command. Keeping the system alive means discovering why its benefits and burdens were never shared honestly. Balance finite Starfleet resources, competing planetary needs, and the question of what lawful authority can replace a peace built on unequal sacrifice.',
     imageRoot: 'assets/packages/eudora-vale/images/ship'
   }),
   teaser({
     id: 'directive:campaign-package:aster-vale-unseen-border',
     title: 'Unseen Border',
+    era: '2371',
+    theater: 'Lacuna March',
     shipId: 'uss-aster-vale',
     shipName: 'U.S.S. Aster Vale',
+    shipClass: 'New Orleans-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'Starfleet charts say the Lacuna March is empty in places where families are raising children and convoys still travel by mutable markers. When an official colony route ends in empty space, you take the USS Aster Vale beyond the boundary of reliable maps. Every route you restore may save a settlement, expose a sanctuary, or reveal whose orders made entire communities disappear on paper. Command the ship, protect the witnesses, and decide whether visibility is rescue, betrayal, or both.',
     imageRoot: 'assets/packages/aster-vale/images/ship'
   }),
   teaser({
     id: 'directive:campaign-package:celandine-enemys-garden',
     title: "Enemy's Garden",
+    era: '2376, Post-Dominion War',
+    theater: 'Cyradon Relief Cluster',
     shipId: 'uss-celandine',
     shipName: 'U.S.S. Celandine',
+    shipClass: 'Norway-class',
+    rank: 'Commander',
+    billet: 'Executive Officer',
     summary: 'Several worlds survived the final years of the Dominion War by adopting K-17 crops that thrive in damaged soil. The harvest prevented famine, but it also displaced local seed lines and bound each world to a dangerous biological inheritance. When the USS Celandine captain enters quarantine, you assume acting command over a relief mission no planet can survive alone. Guide the transition through planting deadlines, finite clean stock, and competing claims over who controls the seeds, the science, and the future.',
     imageRoot: 'assets/packages/celandine/images/ship'
   })

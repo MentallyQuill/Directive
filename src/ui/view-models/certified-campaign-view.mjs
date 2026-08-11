@@ -12,11 +12,20 @@ export function buildCertifiedCampaignView(view = {}) {
   const packages = model.packages.map((pack) => {
     const packageId = pack.packageId || pack.id || pack.manifest?.id || '';
     const available = packageId === ASHES_V1_PACKAGE_ID;
+    const facts = [
+      { label: 'Era', value: pack.campaign?.eraLabel || pack.campaign?.openingYear },
+      { label: 'Theater', value: pack.campaign?.theater },
+      { label: 'Assignment', value: [pack.ship?.name, pack.ship?.class].filter(Boolean).join(', ') },
+      { label: 'Your Role', value: [pack.playerRole?.rank, pack.playerRole?.billet].filter(Boolean).join(', ') }
+    ]
+      .map(({ label, value }) => ({ label, value: String(value || '').trim() }))
+      .filter(({ value }) => value);
     return {
       ...clone(pack),
       packageId,
       title: pack.title || pack.campaign?.title || pack.manifest?.title || 'Untitled campaign',
       description: pack.description || pack.campaign?.highConcept || pack.manifest?.description || '',
+      facts,
       availability: available ? 'available' : 'coming-later',
       disabled: !available
     };
