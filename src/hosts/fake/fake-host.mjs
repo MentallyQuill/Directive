@@ -486,6 +486,33 @@ export function createFakeChatAdapter({
       calls.push({ type: 'deleteCampaignChat', chatId });
       return { deleted, chatId };
     },
+    async deleteCampaignCharacter(nextBinding) {
+      const targetEntityId = String(nextBinding?.entityId || '');
+      const targetEntityName = String(nextBinding?.entityName || '');
+      if (nextBinding?.entityType !== 'character'
+        || targetEntityId !== String(entityId)
+        || targetEntityName !== String(entityName)) {
+        const error = new Error('The fake campaign character binding does not match the owned character.');
+        error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_MISMATCH';
+        throw error;
+      }
+      const deletedChatIds = [...chatsById.keys()];
+      chatsById.clear();
+      metadataByChatId.clear();
+      binding = null;
+      currentChatId = '';
+      calls.push({
+        type: 'deleteCampaignCharacter',
+        entityId: targetEntityId,
+        entityName: targetEntityName,
+        deletedChatIds
+      });
+      return {
+        deleted: true,
+        entityId: targetEntityId,
+        entityName: targetEntityName
+      };
+    },
     setCurrentChatId(nextChatId, metadata = undefined) {
       currentChatId = nextChatId || '';
       messagesForChat(currentChatId);

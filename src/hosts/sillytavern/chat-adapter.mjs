@@ -1998,6 +1998,40 @@ export function createSillyTavernChatAdapter({
     return { deleted: true, chatId };
   }
 
+  async function deleteCampaignCharacter(binding) {
+    const ctx = context();
+    const entityId = nonEmptyString(binding?.entityId);
+    const entityName = nonEmptyString(binding?.entityName);
+    if (!ctx || binding?.entityType !== 'character' || !entityId || !entityName) {
+      const error = new Error('Directive requires an exact SillyTavern character binding to delete a campaign.');
+      error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_INVALID';
+      throw error;
+    }
+    const target = characterForEntity(ctx, binding);
+    if (!target?.character
+      || String(target.index) !== entityId
+      || characterEntryName(target.character) !== entityName) {
+      const error = new Error(`Directive will not delete a character that does not match "${entityName}".`);
+      error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_MISMATCH';
+      throw error;
+    }
+    const script = scriptModule || (typeof importScript === 'function'
+      ? await importScript()
+      : await import('/script.js'));
+    if (typeof script?.deleteCharacter !== 'function') {
+      const error = new Error('SillyTavern character deletion is unavailable.');
+      error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE';
+      throw error;
+    }
+    const deleted = await script.deleteCharacter(target.character.avatar, { deleteChats: true });
+    if (deleted !== true) {
+      const error = new Error(`SillyTavern could not delete character "${entityName}".`);
+      error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_FAILED';
+      throw error;
+    }
+    return { deleted: true, entityId, entityName };
+  }
+
   return {
     id: 'sillytavern-chat-adapter',
     getCurrentChatId: () => contextChatId(context()),
@@ -2006,6 +2040,7 @@ export function createSillyTavernChatAdapter({
     cloneCampaignChat,
     openCampaignChat: open,
     deleteCampaignChat,
+    deleteCampaignCharacter,
     isCurrentChat,
     getRecentMessages,
     refreshCurrentChat,
