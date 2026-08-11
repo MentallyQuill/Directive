@@ -112,6 +112,10 @@ function personReorderHandle(person, category, controller, rerender, options = {
     },
     dropListSelector: '.collection-person-list',
     dropZoneSelector: '.collection-category',
+    deferredDrop: true,
+    dropRootSelector: '.people-journal-host',
+    dropBeforeClass: 'is-drop-before',
+    dropTargetClass: 'is-drop-target',
     keyboard: false,
     onDrop: ({ id, toList, toIndex }) => {
       controller.moveRecord(id, toList.dataset.categoryId, toIndex);
@@ -119,6 +123,7 @@ function personReorderHandle(person, category, controller, rerender, options = {
       focusPersonHandle(id);
     }
   });
+  handle.classList.add('collection-person-drag-handle');
   handle.addEventListener('keydown', (event) => {
     if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
     const snapshot = controller.snapshot();
@@ -226,7 +231,6 @@ function createDesktopRecord(model, person, category, controller, rerender) {
   select.append(portrait(model, person, 'thumb', 'people-row-image'), createRecordCopy(person));
   select.addEventListener('click', () => { controller.select(person.id); rerender(); });
   const handle = personReorderHandle(person, category, controller, rerender, {
-    previewSelector: '.people-row',
     previewClass: 'people-drag-ghost'
   });
   row.append(select, handle);

@@ -42,6 +42,10 @@ export function bindPresentationReorderHandle(handle, {
   dropListSelector = '',
   dropZoneSelector = '',
   onDrop = null,
+  deferredDrop = false,
+  dropRootSelector = '',
+  dropBeforeClass = 'is-drop-before',
+  dropTargetClass = 'is-drop-target',
   keyboard = true,
   longPressMs = 175
 } = {}) {
@@ -63,6 +67,12 @@ export function bindPresentationReorderHandle(handle, {
   }
 
   let state = null;
+  const clearDropMarkers = () => {
+    if (!state || !deferredDrop) return;
+    const root = dropRootSelector ? state.list.closest(dropRootSelector) : state.ownerDocument;
+    root?.querySelectorAll?.(`.${dropBeforeClass},.${dropTargetClass}`)
+      .forEach((item) => item.classList.remove(dropBeforeClass, dropTargetClass));
+  };
   const end = (commit = true) => {
     if (!state) return;
     clearTimeout(state.timer);
@@ -72,7 +82,23 @@ export function bindPresentationReorderHandle(handle, {
     state.ownerDocument?.removeEventListener?.('pointercancel', state.onPointerCancel, true);
     if (state.active) {
       const list = state.list;
-      if (commit) {
+      if (deferredDrop) {
+        clearDropMarkers();
+        if (commit && state.dropList) {
+          const dropList = state.dropList;
+          const next = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)]
+            .map((item) => item.getAttribute(idAttribute))
+            .filter((id) => id && id !== state.id);
+          const beforeId = state.beforeItem?.getAttribute(idAttribute) || '';
+          const toIndex = beforeId && next.includes(beforeId) ? next.indexOf(beforeId) : next.length;
+          if (onDrop) {
+            onDrop({ id: state.id, input: state.pointerType, fromList: list, toList: dropList, toIndex });
+          } else if (dropList === list) {
+            next.splice(toIndex, 0, state.id);
+            onCommit(next, { id: state.id, input: state.pointerType });
+          }
+        }
+      } else if (commit) {
         const dropList = state.dropList || list;
         state.placeholder.replaceWith(state.item);
         const next = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)]
@@ -105,16 +131,19 @@ export function bindPresentationReorderHandle(handle, {
     const previewSource = preview || state.item;
     const rect = previewSource.getBoundingClientRect();
     const handleRect = handle.getBoundingClientRect();
-    const itemStyle = getComputedStyle(state.item);
-    const placeholder = document.createElement('div');
-    placeholder.className = 'mobile-drag-placeholder';
-    Object.assign(placeholder.style, {
-      boxSizing: 'border-box',
-      height: `${itemRect.height}px`,
-      minHeight: '0',
-      marginTop: itemStyle.marginTop,
-      marginBottom: itemStyle.marginBottom
-    });
+    let placeholder = null;
+    if (!deferredDrop) {
+      const itemStyle = getComputedStyle(state.item);
+      placeholder = document.createElement('div');
+      placeholder.className = 'mobile-drag-placeholder';
+      Object.assign(placeholder.style, {
+        boxSizing: 'border-box',
+        height: `${itemRect.height}px`,
+        minHeight: '0',
+        marginTop: itemStyle.marginTop,
+        marginBottom: itemStyle.marginBottom
+      });
+    }
     const ghost = previewSource.cloneNode(true);
     copyRenderedStyles(previewSource, ghost);
     ghost.classList.remove('is-dragging');
@@ -137,9 +166,9 @@ export function bindPresentationReorderHandle(handle, {
       top: `${state.y - handleCenterY}px`,
       pointerEvents: 'none',
       boxShadow: '0 10px 24px rgba(0, 0, 0, .48)',
-      opacity: previewClass === 'people-drag-ghost' ? '.5' : '.9'
+      opacity: deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9')
     });
-    state.item.replaceWith(placeholder);
+    if (placeholder) state.item.replaceWith(placeholder);
     state.item.classList.add('is-dragging');
     const ghostHost = document.createElement('div');
     ghostHost.className = 'directive-expanded-shell directive-drag-layer';
@@ -169,9 +198,13 @@ export function bindPresentationReorderHandle(handle, {
   };
   const movePointer = (event) => {
     if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    const movedBeforeLift = Math.abs(event.clientX - state.originX) > 8 || Math.abs(event.clientY - state.originY) > 8;
     state.x = event.clientX; state.y = event.clientY;
-    if (!state.active) return;
-    state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
+    if (!state.active) {
+      if (movedBeforeLift) end(false);
+      return;
+    }
+    if (!deferredDrop) state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
     state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
     state.ghost.hidden = true;
     const hovered = state.ownerDocument.elementFromPoint(event.clientX, event.clientY);
@@ -179,7 +212,24 @@ export function bindPresentationReorderHandle(handle, {
     let dropList = dropListSelector ? hovered?.closest(dropListSelector) : state.list;
     if (!dropList && dropZoneSelector) dropList = hovered?.closest(dropZoneSelector)?.querySelector(dropListSelector);
     const target = hovered?.closest(itemSelector);
-    if (dropList && target && target !== state.item && target.parentElement === dropList) {
+    if (deferredDrop) {
+      clearDropMarkers();
+      state.dropList = null;
+      state.beforeItem = null;
+      if (dropList && target && target !== state.item && target.parentElement === dropList) {
+        const candidates = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)].filter((item) => item !== state.item);
+        const targetIndex = candidates.indexOf(target);
+        const rect = target.getBoundingClientRect();
+        const beforeItem = event.clientY < rect.top + rect.height / 2 ? target : candidates[targetIndex + 1] || null;
+        state.dropList = dropList;
+        state.beforeItem = beforeItem;
+        if (beforeItem) beforeItem.classList.add(dropBeforeClass);
+        else dropList.closest(dropZoneSelector)?.classList.add(dropTargetClass);
+      } else if (dropList && target !== state.item) {
+        state.dropList = dropList;
+        dropList.closest(dropZoneSelector)?.classList.add(dropTargetClass);
+      }
+    } else if (dropList && target && target !== state.item && target.parentElement === dropList) {
       const rect = target.getBoundingClientRect();
       target.parentElement.insertBefore(state.placeholder, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
       state.dropList = dropList;
@@ -217,6 +267,7 @@ export function bindPresentationReorderHandle(handle, {
     state = {
       item, list, id,
       x: event.clientX, y: event.clientY,
+      originX: event.clientX, originY: event.clientY,
       pointerId: event.pointerId,
       pointerType: event.pointerType || 'mouse',
       active: false, timer: 0,
