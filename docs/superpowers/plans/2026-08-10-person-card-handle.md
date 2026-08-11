@@ -16,6 +16,7 @@
 - Mouse, touch, keyboard, cross-category movement, persistence, Command Bearing, and story state remain unchanged.
 - Person-card pointer dragging must not relocate a placeholder or reflow the roster before pointer-up.
 - The frozen mockup at `docs/design/mockups/directive-expanded-interface.html:972-1065` is authoritative for People-card pointer behavior.
+- Pip colors must match `docs/design/mockups/directive-expanded-interface.html:115-118` exactly: command `#a60400`, operations `#dd8a12`, science `#004880`.
 
 ---
 
@@ -242,4 +243,64 @@ Expected: all focused checks PASS.
 ```powershell
 git add docs/superpowers/specs/2026-08-10-person-card-handle-design.md docs/superpowers/plans/2026-08-10-person-card-handle.md src/ui/expanded-interface-reorder.js src/ui/people-journal.js styles/directive.css tools/scripts/test-expanded-interface-visual-conformance.mjs
 git commit -m "fix(people): restore certified drag behavior"
+```
+
+### Task 3: Restore Certified Division Pip Colors
+
+**Files:**
+- Modify: `styles/directive.css:3614-3616`
+- Test: `tools/scripts/test-expanded-interface-visual-conformance.mjs:208-238`
+
+**Interfaces:**
+- Consumes: the existing `.people-pips-command`, `.people-pips-operations`, and `.people-pips-science` division classes.
+- Produces: literal certified colors without changing pip layout or projection data.
+
+- [ ] **Step 1: Write failing computed-color assertions**
+
+Within the People route block, read the real computed color for one visible strip in each division and assert hand-derived RGB values:
+
+```js
+const pipColors = await page.evaluate(() => Object.fromEntries(['command', 'operations', 'science'].map((division) => [
+  division,
+  getComputedStyle(document.querySelector(`.people-pips-${division}`)).color
+])));
+assert.deepEqual(pipColors, {
+  command: 'rgb(166, 4, 0)',
+  operations: 'rgb(221, 138, 18)',
+  science: 'rgb(0, 72, 128)'
+});
+```
+
+- [ ] **Step 2: Run visual conformance and verify RED**
+
+Run: `node tools/scripts/test-expanded-interface-visual-conformance.mjs`
+
+Expected: FAIL because production currently maps the divisions to generic theme gold, coral, and blue.
+
+- [ ] **Step 3: Apply the literal certified colors**
+
+Replace only the three color declarations:
+
+```css
+.directive-expanded-shell .people-pips-command { color: #a60400; }
+.directive-expanded-shell .people-pips-operations { color: #dd8a12; }
+.directive-expanded-shell .people-pips-science { color: #004880; }
+```
+
+- [ ] **Step 4: Verify GREEN and run the full gate**
+
+Run:
+
+```powershell
+node tools/scripts/test-expanded-interface-visual-conformance.mjs
+npm.cmd test
+```
+
+Expected: visual conformance and all focused checks PASS.
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add docs/superpowers/specs/2026-08-10-person-card-handle-design.md docs/superpowers/plans/2026-08-10-person-card-handle.md styles/directive.css tools/scripts/test-expanded-interface-visual-conformance.mjs
+git commit -m "fix(people): restore certified pip colors"
 ```

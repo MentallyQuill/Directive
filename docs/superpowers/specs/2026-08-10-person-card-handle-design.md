@@ -13,6 +13,8 @@ Restore the frozen certified People-card drag behavior so grabbing and reorderin
 - The supplied SVG is copied into Directive under a person-specific asset name so its product role is unambiguous.
 - The person glyph renders as a CSS mask. It inherits the existing blue handle color without changing the source geometry.
 - Person handles retain the existing 32px interactive width and accessible `Reorder <name>` label.
+- Starfleet rank pips use the frozen certified division colors literally: command `#a60400`, operations `#dd8a12`, and science `#004880`.
+- Department-to-division mapping, solid/hollow pip shapes, counts, sizes, and accessible labels remain unchanged.
 
 ## Component Boundary
 
@@ -36,6 +38,7 @@ Individual People-card pointer dragging follows the frozen mockup implementation
 
 - A component test distinguishes category handles from person handles and confirms both desktop and mobile person records receive the new class.
 - Browser visual conformance confirms the person handle resolves the supplied mask while the category handle retains its dotted background.
+- Browser computed-style assertions verify all three certified pip colors at every covered People viewport.
 - A browser interaction test asserts that an active person drag creates no placeholder, keeps the source row connected, preserves roster geometry, and exposes a certified drop marker before pointer-up.
 - Existing pointer, touch, keyboard, cross-category, focus, and persistence assertions remain green.
 - The complete alpha gate remains green.
