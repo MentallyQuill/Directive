@@ -135,7 +135,8 @@ function openingPromptProjection({ state, runtimeAssets }) {
   if (!openingContext) {
     throw new Error('Directive V1 runtime assets require campaign.openingContext.');
   }
-  const unanswered = (state.storySettlement?.receipts?.length || 0) === 0;
+  const acceptedPairCount = state.storySettlement?.receipts?.length || 0;
+  const unanswered = acceptedPairCount === 0;
   if (unanswered) {
     return {
       phase: 'unanswered',
@@ -151,6 +152,7 @@ function openingPromptProjection({ state, runtimeAssets }) {
   if (inOpeningMission && !handoverTerminal) {
     return {
       phase: 'firstMeeting',
+      stage: acceptedPairCount === 1 ? 'introductionPending' : 'conversationAnswered',
       continuitySummary: openingContext.continuitySummary,
       firstPlayableScene: openingContext.firstPlayableScene,
       firstSceneGuidance: clone(openingContext.firstSceneGuidance)
@@ -219,8 +221,11 @@ export function createV1RuntimePromptPacket({ state, projection, runtimeAssets }
     payload.opening.phase === 'unanswered'
       ? 'OPENING REGENERATION: Preserve every established opening beat in opening.canonicalOpeningMessage and opening.continuitySummary. Wording may vary, but end at opening.firstPlayableScene. Do not take the player through the ready-room door, decide their action, or advance into the meeting.'
       : 'Treat opening.continuitySummary as established past experience. Do not replay or recap it unless the player naturally calls for it.',
-    payload.opening.phase === 'firstMeeting'
+    payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'introductionPending'
       ? 'FIRST MEETING: This response is only the greeting, ordinary courtesy, and one genuine conversational opening. Follow opening.firstSceneGuidance in order. Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet. End after Whitaker gives the player a natural opening to answer and establish their own social posture.'
+      : '',
+    payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'conversationAnswered'
+      ? 'FIRST MEETING CONTINUATION: The player has answered Whitaker’s conversational opening, so the first-reply-only restrictions in opening.firstSceneGuidance are satisfied and no longer apply. Preserve the established warmth and transition naturally into the command handover without turning it into an interrogation, wartime emergency, or abrupt mission briefing.'
       : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'

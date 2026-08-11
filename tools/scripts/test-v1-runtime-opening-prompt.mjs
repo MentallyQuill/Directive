@@ -70,6 +70,7 @@ const firstMeetingPacket = createV1RuntimePromptPacket({
   runtimeAssets
 });
 assert.match(firstMeetingPacket.text, /"phase": "firstMeeting"/);
+assert.match(firstMeetingPacket.text, /"stage": "introductionPending"/);
 assert.doesNotMatch(firstMeetingPacket.text, /"canonicalOpeningMessage":/);
 assert.doesNotMatch(firstMeetingPacket.text, /OPENING REGENERATION/);
 assert.match(firstMeetingPacket.text, /At 0830 the following morning/);
@@ -79,7 +80,25 @@ assert.match(firstMeetingPacket.text, /This response is only the greeting, ordin
 assert.match(firstMeetingPacket.text, /Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet/);
 assert.match(firstMeetingPacket.text, /End after Whitaker gives the player a natural opening to answer/);
 
-const postHandoverState = structuredClone(firstMeetingState);
+const conversationAnsweredState = structuredClone(firstMeetingState);
+conversationAnsweredState.storySettlement.receipts.push({
+  id: 'receipt.opening.conversation-answered',
+  disposition: 'insignificant'
+});
+const conversationAnsweredPacket = createV1RuntimePromptPacket({
+  state: conversationAnsweredState,
+  projection,
+  runtimeAssets
+});
+assert.match(conversationAnsweredPacket.text, /"phase": "firstMeeting"/);
+assert.match(conversationAnsweredPacket.text, /"stage": "conversationAnswered"/);
+assert.match(conversationAnsweredPacket.text, /Whitaker greets the player by name/);
+assert.match(conversationAnsweredPacket.text, /FIRST MEETING CONTINUATION:/);
+assert.match(conversationAnsweredPacket.text, /transition naturally into the command handover/);
+assert.doesNotMatch(conversationAnsweredPacket.text, /This response is only the greeting/);
+assert.doesNotMatch(conversationAnsweredPacket.text, /Do not discuss readiness problems/);
+
+const postHandoverState = structuredClone(conversationAnsweredState);
 postHandoverState.mission.v1.objectives['objective.prelude.command-handover'] = {
   state: 'terminal',
   visibility: 'resolved',
