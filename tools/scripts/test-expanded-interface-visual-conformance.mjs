@@ -225,6 +225,15 @@ try {
         assert.match(handleStyles.personMask, /handle-person\.svg/, `${viewport.width}px person handles must use the supplied two-line mask`);
         assert.match(handleStyles.categoryBackground, /radial-gradient/, `${viewport.width}px category handles must retain the dotted glyph`);
         assert.doesNotMatch(handleStyles.categoryMask, /handle-person\.svg/, `${viewport.width}px category handles must not use the person mask`);
+        const pipColors = await page.evaluate(() => Object.fromEntries(['command', 'operations', 'science'].map((division) => [
+          division,
+          getComputedStyle(document.querySelector(`.people-pips-${division}`)).color
+        ])));
+        assert.deepEqual(pipColors, {
+          command: 'rgb(166, 4, 0)',
+          operations: 'rgb(221, 138, 18)',
+          science: 'rgb(0, 72, 128)'
+        }, `${viewport.width}px People pips must use the certified division colors`);
         if (viewport.width <= 640) {
           assert.equal(await page.locator('.mobile-crew-accordion').evaluate((node) => getComputedStyle(node).display !== 'none'), true);
           assert.equal(await page.locator('.mobile-crew-item.is-open .people-detail-portrait').count(), 1);
@@ -268,6 +277,7 @@ try {
   await bronnHandle.focus();
   await bronnHandle.press('ArrowDown');
   await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
+  await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
   assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1, 'keyboard boundary movement must cross categories');
   assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'true', 'keyboard movement must expand a collapsed target category');
   await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId === 'hadrik-bronn');
@@ -296,7 +306,19 @@ try {
   await peoplePage.mouse.up();
   const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
   assert.equal(pointerMoved, 1, 'pointer drag must cross categories');
-  assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').count(), 5, 'reordering must preserve every fixture person');
+  assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').count(), 6, 'reordering must preserve every fixture person');
+
+  const cancelledTouchHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
+  const cancelledTouchBox = await cancelledTouchHandle.boundingBox();
+  await cancelledTouchHandle.dispatchEvent('pointerdown', {
+    pointerId: 70, pointerType: 'touch', button: 0,
+    clientX: cancelledTouchBox.x + cancelledTouchBox.width / 2, clientY: cancelledTouchBox.y + cancelledTouchBox.height / 2
+  });
+  await peoplePage.evaluate(({ x, y }) => document.dispatchEvent(new PointerEvent('pointermove', {
+    pointerId: 70, pointerType: 'touch', bubbles: true, clientX: x + 12, clientY: y
+  })), { x: cancelledTouchBox.x + cancelledTouchBox.width / 2, y: cancelledTouchBox.y + cancelledTouchBox.height / 2 });
+  await peoplePage.waitForTimeout(200);
+  assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 0, 'touch movement beyond 8px must cancel before the hold lifts');
 
   const touchHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
   const touchBox = await touchHandle.boundingBox();

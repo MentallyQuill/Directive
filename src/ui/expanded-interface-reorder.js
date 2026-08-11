@@ -198,8 +198,12 @@ export function bindPresentationReorderHandle(handle, {
   };
   const movePointer = (event) => {
     if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    const movedBeforeLift = Math.abs(event.clientX - state.originX) > 8 || Math.abs(event.clientY - state.originY) > 8;
     state.x = event.clientX; state.y = event.clientY;
-    if (!state.active) return;
+    if (!state.active) {
+      if (movedBeforeLift) end(false);
+      return;
+    }
     if (!deferredDrop) state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
     state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
     state.ghost.hidden = true;
@@ -263,6 +267,7 @@ export function bindPresentationReorderHandle(handle, {
     state = {
       item, list, id,
       x: event.clientX, y: event.clientY,
+      originX: event.clientX, originY: event.clientY,
       pointerId: event.pointerId,
       pointerType: event.pointerType || 'mouse',
       active: false, timer: 0,

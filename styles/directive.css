@@ -3608,9 +3608,9 @@ textarea.directive-field-control {
 .directive-expanded-shell .people-row-copy { display: grid; gap: 2px; min-width: 0; }
 .directive-expanded-shell .people-row-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .directive-expanded-shell .people-pips { display: flex; align-items: center; gap: 3px; min-height: 8px; color: var(--directive-expanded-blue); }
-.directive-expanded-shell .people-pips-command { color: var(--directive-expanded-gold); }
-.directive-expanded-shell .people-pips-operations { color: var(--directive-expanded-coral); }
-.directive-expanded-shell .people-pips-science { color: var(--directive-expanded-blue); }
+.directive-expanded-shell .people-pips-command { color: #a60400; }
+.directive-expanded-shell .people-pips-operations { color: #dd8a12; }
+.directive-expanded-shell .people-pips-science { color: #004880; }
 .directive-expanded-shell .people-pip { display: block; width: 5px; height: 5px; border: 1px solid currentColor; border-radius: 50%; }
 .directive-expanded-shell .people-pip-solid { background: currentColor; }
 .directive-expanded-shell .people-pip-hollow { background: transparent; }
