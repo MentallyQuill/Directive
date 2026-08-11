@@ -223,6 +223,8 @@ function createRuntimeActions() {
     generateCreatorSectionDraft: (options) => callApp('generateCreatorSectionDraft', options),
     importCreatorPortrait: (options) => callApp('importCreatorPortrait', options),
     removeCreatorPortrait: (options) => callApp('removeCreatorPortrait', options),
+    importCampaignPlayerPortrait: (options) => callApp('importCampaignPlayerPortrait', options),
+    removeCampaignPlayerPortrait: () => callApp('removeCampaignPlayerPortrait'),
     returnCreatorToCampaignLibrary: (options) => callApp('returnCreatorToCampaignLibrary', options),
     discardCreatorDraft: (options) => callApp('discardCreatorDraft', options),
     acceptCreatorDraftAndStartCampaign: async (options) => {

@@ -338,6 +338,99 @@ assert.equal(missionView.campaignState.campaignChatBinding.kind, 'directive.camp
 assert.equal(missionView.v1PlayerProjection.kind, 'directive.playerProjection.v1');
 assert.equal(chat.messages().filter((message) => !message.isUser).length, 1);
 const boundCampaignChatId = missionView.campaignState.campaignChatBinding.chatId;
+
+const importedCampaignPortrait = await app.importCampaignPlayerPortrait({
+  bytes: new Uint8Array([13, 14, 15, 16]),
+  mimeType: 'image/png',
+  fileName: 'active-campaign.png'
+});
+const importedCampaignPortraitPath = importedCampaignPortrait.portrait.asset.path;
+assert.match(importedCampaignPortraitPath, /^\/user\/files\/directive-player-portrait-/);
+assert.equal(
+  (await app.getCurrentView({ tabId: 'crew' })).campaignState.player.portrait.asset.path,
+  importedCampaignPortraitPath,
+  'active campaign portrait import must update the current runtime state'
+);
+assert.equal(
+  (await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))).state.player.portrait.asset.path,
+  importedCampaignPortraitPath,
+  'active campaign portrait import must persist the authoritative save'
+);
+
+const deleteFileBeforeCampaignReplacement = host.storage.deleteFile;
+let persistedPathAtCampaignReplacementCleanup = null;
+host.storage.deleteFile = async (path, options) => {
+  if (path === importedCampaignPortraitPath) {
+    persistedPathAtCampaignReplacementCleanup = (
+      await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))
+    ).state.player.portrait.asset.path;
+  }
+  return deleteFileBeforeCampaignReplacement.call(host.storage, path, options);
+};
+const replacedCampaignPortrait = await app.importCampaignPlayerPortrait({
+  bytes: new Uint8Array([17, 18, 19, 20]),
+  mimeType: 'image/webp',
+  fileName: 'active-campaign-replacement.webp'
+});
+host.storage.deleteFile = deleteFileBeforeCampaignReplacement;
+assert.deepEqual(replacedCampaignPortrait.previousCleanup, {
+  attempted: true,
+  deleted: true,
+  path: importedCampaignPortraitPath
+});
+assert.equal(
+  persistedPathAtCampaignReplacementCleanup,
+  replacedCampaignPortrait.portrait.asset.path,
+  'replacement must persist before Directive deletes the superseded portrait file'
+);
+
+const writeJsonBeforeFailedCampaignPortrait = host.storage.writeJson;
+const storedBeforeFailedCampaignPortrait = storedPortraitPaths.length;
+const deletedBeforeFailedCampaignPortrait = deletedPortraitPaths.length;
+host.storage.writeJson = async (path, value) => {
+  if (path === V1_STORAGE_PATHS.save(missionView.activeSaveId)) {
+    throw new Error('fake active campaign portrait persistence failure');
+  }
+  return writeJsonBeforeFailedCampaignPortrait.call(host.storage, path, value);
+};
+await assert.rejects(
+  app.importCampaignPlayerPortrait({
+    bytes: new Uint8Array([21, 22, 23, 24]),
+    mimeType: 'image/png',
+    fileName: 'active-campaign-rollback.png'
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_FAILED'
+);
+host.storage.writeJson = writeJsonBeforeFailedCampaignPortrait;
+assert.equal(storedPortraitPaths.length, storedBeforeFailedCampaignPortrait + 1);
+assert.equal(deletedPortraitPaths.length, deletedBeforeFailedCampaignPortrait + 1);
+assert.equal(deletedPortraitPaths.at(-1), storedPortraitPaths.at(-1));
+assert.equal(
+  (await app.getCurrentView({ tabId: 'crew' })).campaignState.player.portrait.asset.path,
+  replacedCampaignPortrait.portrait.asset.path,
+  'failed portrait persistence must retain the prior in-memory portrait'
+);
+
+const deleteFileBeforeCampaignRemoval = host.storage.deleteFile;
+let persistedPortraitAtCampaignRemovalCleanup = 'not-observed';
+host.storage.deleteFile = async (path, options) => {
+  if (path === replacedCampaignPortrait.portrait.asset.path) {
+    persistedPortraitAtCampaignRemovalCleanup = (
+      await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))
+    ).state.player.portrait;
+  }
+  return deleteFileBeforeCampaignRemoval.call(host.storage, path, options);
+};
+const removedCampaignPortrait = await app.removeCampaignPlayerPortrait();
+host.storage.deleteFile = deleteFileBeforeCampaignRemoval;
+assert.deepEqual(removedCampaignPortrait.portraitCleanup, {
+  attempted: true,
+  deleted: true,
+  path: replacedCampaignPortrait.portrait.asset.path
+});
+assert.equal(persistedPortraitAtCampaignRemovalCleanup, null);
+assert.equal((await app.getCurrentView({ tabId: 'crew' })).campaignState.player.portrait, null);
+
 chat.setCurrentChatId('unbound-preset-lifecycle');
 await app.handleHostChatChanged();
 assert.equal(narrationPresetLifecycle.at(-1), 'restore', 'leaving a bound campaign chat must restore the prior preset');

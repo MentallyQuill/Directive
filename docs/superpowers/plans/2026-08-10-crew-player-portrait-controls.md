@@ -4,7 +4,7 @@
 
 **Goal:** Let a player add, replace, or confirm removal of their portrait from the active campaign's Crew page.
 
-**Architecture:** Add active-campaign portrait mutations to the V1 runtime through the state-delta gateway, then expose them through runtime-shell actions. Extend the shared People detail renderer with player-only controls so desktop and mobile use one behavior path.
+**Architecture:** Add a path-restricted `playerPortrait` mutation domain to the V1 state-delta gateway, expose active-campaign portrait actions through the runtime shell, and extend the shared People detail renderer with player-only controls so desktop and mobile use one behavior path. Every other accepted player field remains immutable.
 
 **Tech Stack:** JavaScript ES modules, Node.js assertion scripts, fake Directive host/storage adapters, DOM fakes, CSS.
 
@@ -14,6 +14,7 @@
 - Require confirmation before removing a portrait.
 - Persist the authoritative campaign state before deleting a replaced or removed file.
 - Roll back a newly stored portrait file if campaign persistence fails.
+- Permit the `playerPortrait` domain to set only `player.portrait`; do not add the `player` root as a mutable domain.
 - Never render portrait mutation controls for NPC records.
 - Run the complete alpha gate before integration and again on merged `main`.
 
@@ -25,9 +26,12 @@
 - Modify: `tools/scripts/test-v1-runtime-app.mjs`
 - Modify: `src/runtime/runtime-app.mjs`
 - Modify: `src/runtime/runtime-shell.js`
+- Modify: `src/runtime/state-delta-gateway.mjs`
+- Modify: `src/runtime/v1-campaign-state.mjs`
+- Modify: `tools/scripts/test-v1-state-delta-gateway.mjs`
 
 **Interfaces:**
-- Consumes: `createPlayerPortraitUpload(...)`, `storeV1PlayerPortrait(...)`, `cleanupPlayerPortrait(...)`, and `gateway.applyProposal(...)`.
+- Consumes: `createPlayerPortraitUpload(...)`, `storeV1PlayerPortrait(...)`, `cleanupPlayerPortrait(...)`, and `gateway.applyProposal(...)` with the path-restricted `playerPortrait` domain.
 - Produces: `importCampaignPlayerPortrait({ file, bytes, arrayBuffer, base64, mimeType, fileName })` and `removeCampaignPlayerPortrait()` runtime actions returning the updated portrait, cleanup result, and current view.
 
 - [ ] **Step 1: Write failing runtime tests**
@@ -64,14 +68,14 @@ In `runtime-app.mjs`, add public methods that require an active state. Import st
 const committed = await gateway.applyProposal({
   id: `v1-player-portrait.import.${state.campaign.id}.${portrait.asset.updatedAt}`,
   baseRevision: gateway.revision(),
-  domains: ['player'],
+  domains: ['playerPortrait'],
   operations: [{ op: 'set', path: ['player', 'portrait'], value: portrait }],
   source: 'playerPortraitImport'
 });
 setState(committed.campaignState);
 ```
 
-After success, clean the previous portrait when its path differs. Removal commits `null` through the same `player` domain before cleanup. Expose both methods from `createRuntimeActions()` in `runtime-shell.js`.
+Authorize `playerPortrait` in `V1_MUTABLE_STATE_DOMAINS`, map it to the `player` root for changed-root custody, and reject any mutation where the player record excluding `portrait` differs. After success, clean the previous portrait when its path differs. Removal commits `null` through the same narrow domain before cleanup. Expose both methods from `createRuntimeActions()` in `runtime-shell.js`.
 
 - [ ] **Step 4: Run the runtime test and verify GREEN**
 
@@ -82,7 +86,7 @@ Expected: PASS with persistence, cleanup, warning, and rollback assertions green
 - [ ] **Step 5: Commit the runtime custody slice**
 
 ```powershell
-git add tools/scripts/test-v1-runtime-app.mjs src/runtime/runtime-app.mjs src/runtime/runtime-shell.js
+git add tools/scripts/test-v1-runtime-app.mjs tools/scripts/test-v1-state-delta-gateway.mjs src/runtime/runtime-app.mjs src/runtime/runtime-shell.js src/runtime/state-delta-gateway.mjs src/runtime/v1-campaign-state.mjs
 git commit -m "feat(runtime): manage campaign portraits"
 ```
 

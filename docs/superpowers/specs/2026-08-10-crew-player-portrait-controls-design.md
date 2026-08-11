@@ -17,6 +17,8 @@ Directive accepts a player portrait during Character Creator and carries it into
 
 Active-campaign portrait actions reuse `createPlayerPortraitUpload`, `storeV1PlayerPortrait`, and `deleteV1PlayerPortrait`. Replacement writes the new file, persists the new descriptor to `campaignState.player.portrait`, and only then attempts to delete the superseded file. If campaign persistence fails, Directive deletes the new file and retains the prior state and portrait.
 
+This design supersedes the earlier creator-only portrait constraint for the portrait field alone. The accepted player identity remains immutable: a dedicated `playerPortrait` state-delta domain may set only `player.portrait`, and the gateway rejects changes to every other player field.
+
 Removal first persists `campaignState.player.portrait = null`, then attempts file cleanup. A cleanup failure is logged and returned as a warning result, but the saved state stays cleared so it never points at a file Directive could not confirm exists.
 
 ## UI flow
