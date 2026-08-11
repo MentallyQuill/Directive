@@ -989,6 +989,7 @@
   let peopleCollectionDrag = null;
   let peopleCollectionTouchClickUntil = 0;
   function peopleCollectionReducedMotion() { return matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true; }
+  function preventPeopleCollectionTouchScroll(event) { if (peopleCollectionDrag?.started) event.preventDefault(); }
   function movePeopleCollectionPlaceholder(parent,before=null) {
     const state = peopleCollectionDrag;
     if (!state?.placeholder || !parent || (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before)) return;
@@ -1020,6 +1021,7 @@
     document.addEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.addEventListener('pointercancel',cancelPeopleCollectionDrag,true);
     document.addEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
+    if (coarse) document.addEventListener('touchmove',preventPeopleCollectionTouchScroll,{capture:true,passive:false});
   }
   function liftPeopleCollectionDrag() {
     const state = peopleCollectionDrag;
@@ -1119,6 +1121,7 @@
     document.removeEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.removeEventListener('pointercancel',cancelPeopleCollectionDrag,true);
     document.removeEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
+    document.removeEventListener('touchmove',preventPeopleCollectionTouchScroll,true);
     if (!state.started || state.kind === 'category') return finalizePeopleCollectionDrag(commit);
     const validCommit = commit && !!state.target;
     if (!validCommit) movePeopleCollectionPlaceholder(state.originList,state.originNextSibling?.parentNode === state.originList ? state.originNextSibling : null);

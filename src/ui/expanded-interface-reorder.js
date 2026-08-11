@@ -125,6 +125,7 @@ export function bindPresentationReorderHandle(handle, {
     state.ownerDocument?.removeEventListener?.('pointerup', state.onPointerUp, true);
     state.ownerDocument?.removeEventListener?.('pointercancel', state.onPointerCancel, true);
     state.ownerDocument?.removeEventListener?.('keydown', state.onKeyDown, true);
+    state.ownerDocument?.removeEventListener?.('touchmove', state.onTouchMove, true);
   };
   const finalize = (commit = true) => {
     if (!state) return;
@@ -374,6 +375,9 @@ export function bindPresentationReorderHandle(handle, {
     const ownerDocument = handle.ownerDocument || document;
     const blurTarget = handle.ownerDocument?.defaultView || globalThis;
     const onWindowBlur = () => end(false);
+    const onTouchMove = (touchEvent) => {
+      if (state?.active) touchEvent.preventDefault();
+    };
     const onKeyDown = (keyEvent) => {
       if (keyEvent.key !== 'Escape') return;
       keyEvent.preventDefault();
@@ -387,7 +391,7 @@ export function bindPresentationReorderHandle(handle, {
       pointerId: event.pointerId,
       pointerType,
       active: false, timer: 0,
-      ownerDocument, blurTarget, onWindowBlur, onKeyDown,
+      ownerDocument, blurTarget, onWindowBlur, onKeyDown, onTouchMove,
       captureTarget: event.currentTarget || handle,
       onPointerMove: movePointer,
       onPointerUp: finishPointer,
@@ -398,6 +402,7 @@ export function bindPresentationReorderHandle(handle, {
     ownerDocument.addEventListener('pointerup', finishPointer, true);
     ownerDocument.addEventListener('pointercancel', cancelPointer, true);
     ownerDocument.addEventListener('keydown', onKeyDown, true);
+    if (coarse) ownerDocument.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
     if (coarse) state.timer = setTimeout(activate, longPressMs);
     else activate();
   };

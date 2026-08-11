@@ -471,6 +471,11 @@ try {
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch must not lift before the hold delay');
   await mobilePeoplePage.waitForTimeout(100);
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 1, 'whole-card touch must lift after 175ms');
+  assert.equal(await mobilePeoplePage.evaluate(() => {
+    const event = new TouchEvent('touchmove', { bubbles: true, cancelable: true });
+    document.dispatchEvent(event);
+    return event.defaultPrevented;
+  }), true, 'an active whole-card drag must take custody of touch scrolling');
   await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 81, pointerType: 'touch', bubbles: true })));
   await mobilePeoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
   await mobileTouchSurface.dispatchEvent('click');
