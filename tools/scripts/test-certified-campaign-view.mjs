@@ -32,6 +32,7 @@ const view = {
       packageId: ashesId,
       title: 'Ashes of Peace',
       active: true,
+      characterName: 'Ren Okada - Ashes of Peace',
       checkpoints: [{ id: 'save.current', name: 'Current save', loadable: true }]
     }]
   }
@@ -51,6 +52,7 @@ assert.deepEqual(campaign.packages[0].facts, [
   { label: 'Your Role', value: 'Commander, Executive Officer' }
 ]);
 assert.equal(campaign.selectedCampaignId, 'campaign.ashes');
+assert.equal(campaign.campaigns[0].characterName, 'Ren Okada - Ashes of Peace');
 assert.equal(campaign.campaigns[0].checkpoints[0].id, 'save.current');
 view.campaign.packages[0].title = 'Mutated input';
 view.campaign.packages[0].campaign.eraLabel = 'Mutated era';

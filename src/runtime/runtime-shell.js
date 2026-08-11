@@ -233,6 +233,7 @@ function createRuntimeActions() {
       return result;
     },
     openCampaignChat: (options) => callApp('openCampaignChat', options),
+    deleteCampaign: (options) => callApp('deleteCampaign', options),
     saveGame: (options) => callApp('saveGame', options),
     loadCheckpoint: (options) => callApp('loadCheckpoint', options),
     deleteSave: (options) => callApp('deleteSave', options),

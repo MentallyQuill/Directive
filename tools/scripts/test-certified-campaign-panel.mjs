@@ -113,6 +113,7 @@ const view = {
     selectedCampaignId: 'campaign.ashes',
     campaigns: [{
       id: 'campaign.ashes', packageId: ashesId, title: 'Ashes of Peace', active: true,
+      characterName: 'Ren Okada - Ashes of Peace',
       playerName: 'Sam Vickers', playerRole: 'Executive Officer', chapter: 'Prelude: A Ship Underway',
       canOpenChat: true, canSaveGame: true, activeTimeline: { saveId: 'save.current' },
       checkpoints: [{ id: 'save.current', name: 'Current save', loadable: true }]
@@ -148,6 +149,15 @@ for (const preview of previews) {
 assert.match(textOf(previews[0]), /Current approved campaign description\./);
 assert.match(textOf(body), /Current save/);
 assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Import package/i);
+const campaignActions = byClass(body, 'campaign-detail-actions')[0];
+assert.ok(campaignActions);
+assert.deepEqual(campaignActions.children.map((node) => textOf(node).trim()), [
+  'Continue',
+  'Delete',
+  'Save checkpoint'
+]);
+assert.equal(campaignActions.children[1].classList.contains('campaign-command-danger'), true);
+assert.equal(campaignActions.children[1].listeners.has('click'), true);
 
 const availablePreview = byData(body, 'campaignAvailability', 'available').find((node) => node.tagName === 'BUTTON');
 assert.ok(availablePreview);

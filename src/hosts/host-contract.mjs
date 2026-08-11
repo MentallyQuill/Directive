@@ -147,6 +147,7 @@ export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
     'cloneCampaignChat',
     'openCampaignChat',
     'deleteCampaignChat',
+    'deleteCampaignCharacter',
     'postAssistantMessage',
     'appendAssistantMessageSwipe',
     'updateBindingMetadata',

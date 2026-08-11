@@ -726,4 +726,35 @@ assert.equal(
 await app.cancelCommandBearingEdge();
 await app.deleteSave({ checkpointId: restoreFailureCheckpoint.checkpoint.id });
 
+const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
+const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;
+const deleteCampaignCharacter = host.chat.deleteCampaignCharacter;
+host.chat.deleteCampaignCharacter = async () => {
+  const error = new Error('fake character deletion failure');
+  error.code = 'FAKE_CHARACTER_DELETE_FAILED';
+  throw error;
+};
+await assert.rejects(
+  app.deleteCampaign({ campaignId: deletionCampaignId }),
+  (error) => error?.code === 'FAKE_CHARACTER_DELETE_FAILED'
+);
+host.chat.deleteCampaignCharacter = deleteCampaignCharacter;
+const afterFailedCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
+assert.equal(afterFailedCampaignDeletion.campaignIndex.campaigns.length, 1);
+assert.equal(afterFailedCampaignDeletion.activeSaveId, beforeCampaignDeletion.activeSaveId);
+assert.notEqual(afterFailedCampaignDeletion.campaignState, null);
+
+const campaignDeletion = await app.deleteCampaign({ campaignId: deletionCampaignId });
+assert.equal(campaignDeletion.hostDeletion.deleted, true);
+assert.equal(campaignDeletion.result.deleted, true);
+assert.equal(campaignDeletion.view.activeScreen, 'campaign');
+assert.equal(campaignDeletion.view.campaignIndex.campaigns.length, 0);
+assert.equal(campaignDeletion.view.activeSaveId, null);
+assert.equal(campaignDeletion.view.campaignState, null);
+assert.equal(
+  chat.calls().some((call) => call.type === 'deleteCampaignCharacter'),
+  true
+);
+assert.equal(host.prompt.inspect().blocks.length, 0);
+
 console.log('PASS V1 runtime app');

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const port = 55836;
+const port = 54000 + (process.pid % 10000);
 const baseUrl = `http://127.0.0.1:${port}`;
 const artifactRoot = path.join(repoRoot, 'artifacts', 'expanded-interface-conformance');
 const routes = ['campaign', 'mission', 'people', 'ship', 'settings'];
@@ -57,7 +57,7 @@ async function waitForServer() {
 const server = spawn(process.execPath, ['tools/scripts/serve-expanded-interface-preview.mjs'], {
   cwd: repoRoot,
   env: { ...process.env, DIRECTIVE_MOCKUP_PORT: String(port) },
-  stdio: ['ignore', 'pipe', 'pipe']
+  stdio: ['ignore', 'ignore', 'inherit']
 });
 
 const browser = await chromium.launch({ headless: true });
@@ -318,6 +318,10 @@ try {
   })));
   await peoplePage.mouse.move(maraBox.x + maraBox.width / 2, maraBox.y + maraBox.height / 2);
   await peoplePage.mouse.down();
+  await peoplePage.waitForFunction(() => (
+    document.querySelector('.collection-person-row[data-person-id="mara-whitaker"].is-dragging')
+    && !document.querySelector('.mobile-drag-placeholder')
+  ));
   const ghostInitialBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
   await peoplePage.mouse.move(bridgeDropBox.x + bridgeDropBox.width / 2, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
   const ghostDropBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
@@ -432,7 +436,14 @@ try {
   await writeFile(path.join(artifactRoot, 'report.json'), `${JSON.stringify({ approvedVariances, report }, null, 2)}\n`);
 } finally {
   await browser.close();
-  server.kill();
+  if (server.exitCode === null) {
+    const exited = new Promise((resolve) => server.once('exit', resolve));
+    server.kill();
+    await Promise.race([
+      exited,
+      new Promise((resolve) => setTimeout(resolve, 2000))
+    ]);
+  }
 }
 
 console.log(`Expanded interface visual conformance passed ${routes.length * viewports.length} route/viewports and the approved modal state.`);

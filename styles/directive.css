@@ -3877,9 +3877,161 @@ textarea.directive-field-control {
   background: linear-gradient(180deg, transparent, rgba(5, 7, 11, .98) 28%);
 }
 
+.campaign-delete-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100230;
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  height: 100dvh;
+  padding: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(2, 3, 6, .8);
+  backdrop-filter: blur(4px) saturate(.68);
+  pointer-events: auto;
+}
+
+.campaign-delete-dialog {
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  box-sizing: border-box;
+  color: var(--directive-expanded-text, #f8efe0);
+  border: 1px solid rgba(239, 127, 114, .68);
+  border-radius: 6px;
+  background: linear-gradient(145deg, rgba(18, 13, 18, .995), rgba(5, 7, 11, .998));
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .72), inset 7px 0 0 rgba(239, 127, 114, .7);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.campaign-delete-dialog-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 13px 11px 18px;
+  border-bottom: 1px solid rgba(239, 127, 114, .36);
+  background: var(--directive-expanded-surface, #0d1018);
+}
+
+.campaign-delete-dialog-title {
+  min-width: 0;
+  margin: 0;
+  color: var(--directive-expanded-salmon, #ef7f72);
+  font: 900 17px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.campaign-delete-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0;
+  color: var(--directive-expanded-salmon, #ef7f72);
+  background: rgba(7, 9, 14, .84);
+  border: 1px solid rgba(239, 127, 114, .48);
+  border-radius: 5px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.campaign-delete-dialog-close:focus-visible,
+.campaign-delete-dialog-close:hover {
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 1px;
+}
+
+.campaign-delete-dialog-body {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  gap: 13px;
+  padding: 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 127, 114, .62) transparent;
+}
+
+.campaign-delete-dialog-warning,
+.campaign-delete-dialog-instruction,
+.campaign-delete-dialog-error {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.campaign-delete-dialog-warning { font-weight: 650; }
+.campaign-delete-dialog-instruction { color: var(--directive-expanded-muted, #b9b1a5); }
+.campaign-delete-dialog-error { color: var(--directive-expanded-salmon, #ef7f72); font-weight: 700; }
+
+.campaign-delete-dialog-field { display: grid; gap: 6px; }
+.campaign-delete-dialog-label {
+  color: var(--directive-expanded-gold, #ffc766);
+  font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+.campaign-delete-dialog-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  color: var(--directive-expanded-text, #f8efe0);
+  background: rgba(5, 7, 11, .9);
+  border: 1px solid rgba(255, 159, 74, .5);
+  border-radius: 5px;
+  font: 600 15px/1.2 "Segoe UI", system-ui, sans-serif;
+}
+.campaign-delete-dialog-input:focus-visible {
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 1px;
+}
+
+.campaign-delete-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  padding-top: 3px;
+}
+.campaign-delete-dialog-actions .campaign-command {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 13px;
+  color: var(--directive-expanded-amber, #ff9f4a);
+  background: var(--directive-expanded-surface, #0d1018);
+  border: 1px solid rgba(255, 159, 74, .42);
+  border-radius: 5px;
+  font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.campaign-delete-dialog-actions .campaign-command-danger {
+  color: var(--directive-expanded-salmon, #ef7f72);
+  border-color: rgba(239, 127, 114, .58);
+}
+.campaign-delete-dialog-actions .campaign-command:disabled,
+.campaign-delete-dialog-close:disabled,
+.campaign-delete-dialog-input:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 @media (max-width: 640px) {
   .directive-expanded-shell .directive-creator-form { margin: 6px 0; }
   .directive-creator-assist-dialog-overlay { padding: 10px; }
   .directive-creator-assist-dialog { width: calc(100vw - 28px); max-height: calc(100dvh - 20px); }
   .directive-creator-assist-dialog-body { padding: 14px; }
+  .campaign-delete-dialog-overlay { padding: 10px; }
+  .campaign-delete-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
+  .campaign-delete-dialog-body { padding: 15px; }
 }

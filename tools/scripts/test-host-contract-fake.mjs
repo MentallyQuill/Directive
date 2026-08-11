@@ -6,6 +6,7 @@ import {
   normalizeDirectiveHost
 } from '../../src/hosts/host-contract.mjs';
 import {
+  createFakeChatAdapter,
   createFakeDirectiveHost,
   createFakeJsonStorage
 } from '../../src/hosts/fake/fake-host.mjs';
@@ -107,5 +108,29 @@ assert.equal(capabilities.chat.domRegistry, false);
 assert.equal(capabilities.worldBooks.attachments, false);
 assert.equal(capabilities.presets.variables, false);
 assert.equal(capabilities.installer.unifiedHubInstall, false);
+
+const campaignChat = createFakeChatAdapter({
+  chatId: 'campaign-chat',
+  entityId: 'fake-character-1',
+  entityName: 'Directive Campaign'
+});
+await campaignChat.cloneCampaignChat({
+  sourceChatId: 'campaign-chat',
+  targetName: 'Campaign checkpoint',
+  campaignId: 'campaign-1',
+  saveId: 'save-1'
+});
+assert.equal(Object.keys(campaignChat.chats()).length, 2);
+const fakeCharacterDeletion = await campaignChat.deleteCampaignCharacter({
+  entityType: 'character',
+  entityId: 'fake-character-1',
+  entityName: 'Directive Campaign'
+});
+assert.equal(fakeCharacterDeletion.deleted, true);
+assert.equal(Object.keys(campaignChat.chats()).length, 0);
+assert.equal(
+  campaignChat.calls().some((call) => call.type === 'deleteCampaignCharacter'),
+  true
+);
 
 console.log('Host contract fake tests passed.');

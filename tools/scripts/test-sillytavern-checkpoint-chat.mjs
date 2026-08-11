@@ -6,6 +6,7 @@ let currentChatId = 'active-chat';
 let currentChat = [{ id: 'm1', is_user: true, mes: 'Engage.' }];
 const saved = new Map();
 const deleted = [];
+const deletedCharacters = [];
 const context = {
   characters: [{ name: 'Directive Campaign', avatar: 'directive.png', chat: 'active-chat' }],
   characterId: 0,
@@ -74,7 +75,13 @@ const context = {
 
 const adapter = createSillyTavernChatAdapter({
   contextFactory: () => context,
-  now: () => '2026-07-22T18:00:00.000Z'
+  now: () => '2026-07-22T18:00:00.000Z',
+  scriptModule: {
+    async deleteCharacter(avatar, options) {
+      deletedCharacters.push({ avatar, options });
+      return true;
+    }
+  }
 });
 
 const checkpointBinding = await adapter.cloneCampaignChat({
@@ -110,5 +117,45 @@ assert.deepEqual(deleted[0], {
   chatfile: 'Checkpoint One.jsonl',
   avatar_url: 'directive.png'
 });
+
+const characterDeletion = await adapter.deleteCampaignCharacter({
+  ...context.chatMetadata.directiveCampaignBinding,
+  kind: 'directive.campaignChatBinding.v1',
+  version: 1,
+  status: 'bound'
+});
+assert.deepEqual(characterDeletion, {
+  deleted: true,
+  entityId: '0',
+  entityName: 'Directive Campaign'
+});
+assert.deepEqual(deletedCharacters, [{
+  avatar: 'directive.png',
+  options: { deleteChats: true }
+}]);
+
+await assert.rejects(
+  adapter.deleteCampaignCharacter({
+    ...context.chatMetadata.directiveCampaignBinding,
+    entityType: 'group'
+  }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_INVALID'
+);
+await assert.rejects(
+  adapter.deleteCampaignCharacter({
+    ...context.chatMetadata.directiveCampaignBinding,
+    entityName: 'Wrong Character'
+  }),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_MISMATCH'
+);
+
+const unavailableAdapter = createSillyTavernChatAdapter({
+  contextFactory: () => context,
+  importScript: async () => ({})
+});
+await assert.rejects(
+  unavailableAdapter.deleteCampaignCharacter(context.chatMetadata.directiveCampaignBinding),
+  (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE'
+);
 
 console.log('SillyTavern checkpoint chat tests passed.');

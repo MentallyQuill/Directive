@@ -34,6 +34,12 @@ function required(value, label) {
   return text;
 }
 
+function campaignDeletionError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
 function normalizeNow(now) {
   if (typeof now === 'function') return now;
   if (typeof now === 'string' && now.trim()) return () => now;
@@ -126,18 +132,19 @@ function campaignSummaryFromSave(save, activeSaveId, checkpoints) {
   return {
     id: save.campaignId,
     packageId: save.packageId,
-    title: save.campaignTitle || 'Campaign',
+    title: save.campaignTitle || save.state?.campaign?.title || 'Campaign',
     premise: null,
-    playerName: save.playerName,
-    playerRole: save.playerRole,
-    shipName: save.shipName,
-    chapter: save.chapter,
-    stardate: save.stardate,
+    playerName: save.playerName || save.state?.player?.name || null,
+    playerRole: save.playerRole || save.state?.player?.role || save.state?.player?.billet || null,
+    shipName: save.shipName || save.state?.ship?.name || null,
+    chapter: save.chapter || save.state?.mission?.activeMissionId || null,
+    stardate: save.stardate || save.state?.campaign?.currentStardate || null,
     lastPlayedAt: save.updatedAt,
     active: save.id === activeSaveId,
     canOpenChat: true,
     canSaveGame: save.id === activeSaveId,
-    activeTimeline: { saveId: save.id, chatId: save.chatId },
+    characterName: save.state?.campaignChatBinding?.entityName || null,
+    activeTimeline: { saveId: save.id, chatId: save.chatId || save.state?.campaignChatBinding?.chatId || null },
     checkpoints: checkpoints.map((checkpoint) => ({
       id: checkpoint.id,
       name: checkpoint.name,
@@ -231,11 +238,18 @@ export function createCampaignStartController({
     getActivePackageContext: () => createRuntimePackageContext(packageData),
 
     async getCampaignView() {
-      const [drafts, saves, index] = await Promise.all([
+      const [drafts, saveSummaries, index] = await Promise.all([
         listV1CreatorDrafts(adapter),
         listV1CampaignSaves(adapter),
         initializeV1Storage(adapter, { now: currentTime() })
       ]);
+      const activeSaves = await Promise.all(saveSummaries
+        .filter((save) => save.slotType === 'active')
+        .map((save) => loadV1CampaignSave(adapter, save.id)));
+      const saves = [
+        ...activeSaves,
+        ...saveSummaries.filter((save) => save.slotType !== 'active')
+      ];
       return createCampaignViewModel({ campaignLibrary, drafts, saves, activeSaveId: index.activeSaveId });
     },
 
@@ -386,6 +400,71 @@ export function createCampaignStartController({
         checkpointChatIsDistinct: save.slotType === 'checkpoint'
           && Boolean(campaignChatBinding?.chatId)
           && campaignChatBinding.chatId !== activeState?.campaignChatBinding?.chatId
+      };
+    },
+
+    async prepareCampaignDeletion({ campaignId, saveId = null } = {}) {
+      const expectedCampaignId = required(campaignId, 'campaignId');
+      const expectedSaveId = saveId ? required(saveId, 'saveId') : null;
+      const saves = await listV1CampaignSaves(adapter);
+      const summary = saves.find((candidate) => (
+        candidate.slotType === 'active'
+        && candidate.campaignId === expectedCampaignId
+        && (!expectedSaveId || candidate.id === expectedSaveId)
+      ));
+      if (!summary) {
+        throw campaignDeletionError(
+          'DIRECTIVE_CAMPAIGN_DELETE_TARGET_NOT_FOUND',
+          'The selected V1 campaign was not found.'
+        );
+      }
+      const save = await loadV1CampaignSave(adapter, summary.id);
+      const binding = clone(save.state?.campaignChatBinding || null);
+      const entityId = String(binding?.entityId ?? '').trim();
+      const entityName = String(binding?.entityName ?? '').trim();
+      const exactCharacterBinding = binding?.kind === 'directive.campaignChatBinding.v1'
+        && binding.version === 1
+        && binding.status === 'bound'
+        && binding.entityType === 'character'
+        && Boolean(entityId)
+        && Boolean(entityName)
+        && binding.campaignId === save.campaignId
+        && binding.saveId === save.id;
+      if (!exactCharacterBinding) {
+        throw campaignDeletionError(
+          'DIRECTIVE_CAMPAIGN_DELETE_CHARACTER_REQUIRED',
+          'The selected campaign has no exact SillyTavern character binding.'
+        );
+      }
+      return {
+        campaignId: save.campaignId,
+        saveId: save.id,
+        checkpointIds: saves
+          .filter((candidate) => (
+            candidate.slotType === 'checkpoint'
+            && candidate.campaignId === save.campaignId
+            && candidate.parentSaveId === save.id
+          ))
+          .map((candidate) => candidate.id),
+        campaignChatBinding: binding
+      };
+    },
+
+    async deleteCampaign({ campaignId, saveId } = {}) {
+      const target = await this.prepareCampaignDeletion({ campaignId, saveId });
+      for (const checkpointId of target.checkpointIds) {
+        await deleteV1CampaignSave(adapter, checkpointId, { now: currentTime() });
+      }
+      const activeDeletion = await deleteV1CampaignSave(adapter, target.saveId, { now: currentTime() });
+      if (activeSave?.id === target.saveId) {
+        activeSave = null;
+        activeState = null;
+      }
+      return {
+        deleted: activeDeletion.deleted,
+        campaignId: target.campaignId,
+        saveId: target.saveId,
+        checkpointIds: clone(target.checkpointIds)
       };
     },
 
