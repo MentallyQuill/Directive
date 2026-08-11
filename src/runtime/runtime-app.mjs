@@ -129,7 +129,40 @@ function playerPortraitImportSupported(host) {
     && typeof host?.storage?.deleteFile === 'function';
 }
 
-function promptPacket({ state, projection, runtimeAssets }) {
+function openingPromptProjection({ state, runtimeAssets }) {
+  const campaign = runtimeAssets?.packageData?.campaign;
+  const openingContext = campaign?.openingContext;
+  if (!openingContext) {
+    throw new Error('Directive V1 runtime assets require campaign.openingContext.');
+  }
+  const unanswered = (state.storySettlement?.receipts?.length || 0) === 0;
+  if (unanswered) {
+    return {
+      phase: 'unanswered',
+      canonicalOpeningMessage: campaign.openingMessage,
+      continuitySummary: openingContext.continuitySummary,
+      firstPlayableScene: openingContext.firstPlayableScene,
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+    };
+  }
+  const openingMissionId = runtimeAssets.packageData.manifest.openingMissionId;
+  const inOpeningMission = state.mission?.activeMissionId === openingMissionId;
+  const handoverTerminal = state.mission?.v1?.objectives?.['objective.prelude.command-handover']?.state === 'terminal';
+  if (inOpeningMission && !handoverTerminal) {
+    return {
+      phase: 'firstMeeting',
+      continuitySummary: openingContext.continuitySummary,
+      firstPlayableScene: openingContext.firstPlayableScene,
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+    };
+  }
+  return {
+    phase: 'continuity',
+    continuitySummary: openingContext.continuitySummary
+  };
+}
+
+export function createV1RuntimePromptPacket({ state, projection, runtimeAssets }) {
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
     storyProjection: projection.story,
@@ -173,6 +206,7 @@ function promptPacket({ state, projection, runtimeAssets }) {
       })),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
+    opening: openingPromptProjection({ state, runtimeAssets }),
     acceptedStory: story
   };
   const text = [
@@ -182,6 +216,12 @@ function promptPacket({ state, projection, runtimeAssets }) {
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
+    payload.opening.phase === 'unanswered'
+      ? 'OPENING REGENERATION: Preserve every established opening beat in opening.canonicalOpeningMessage and opening.continuitySummary. Wording may vary, but end at opening.firstPlayableScene. Do not take the player through the ready-room door, decide their action, or advance into the meeting.'
+      : 'Treat opening.continuitySummary as established past experience. Do not replay or recap it unless the player naturally calls for it.',
+    payload.opening.phase === 'firstMeeting'
+      ? 'FIRST MEETING: Follow opening.firstSceneGuidance in order while leaving room for the player to establish their own social posture.'
+      : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
       : '',
@@ -339,7 +379,7 @@ export function createDirectiveRuntimeApp({
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),
-      packet: promptPacket({ state, projection: result.projection, runtimeAssets })
+      packet: createV1RuntimePromptPacket({ state, projection: result.projection, runtimeAssets })
     });
   }
 
