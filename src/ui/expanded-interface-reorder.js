@@ -196,6 +196,7 @@ export function bindPresentationReorderHandle(handle, {
       state.ghostHost?.remove();
       if (!commit && state.restoreFocusOnCancel) state.handle.focus?.({ preventScroll: true });
     }
+    state.ownerDocument?.documentElement?.classList.remove('directive-reorder-grabbing');
     state = null;
   };
   const end = (commit = true, { instant = false } = {}) => {
@@ -326,6 +327,7 @@ export function bindPresentationReorderHandle(handle, {
       originNextSibling,
       hitTestX: itemRect.left + (itemRect.width / 2)
     });
+    state.ownerDocument.documentElement?.classList.add('directive-reorder-grabbing');
     requestVibration(liftVibrationMs);
   };
   const updateDropTarget = (clientX, clientY) => {

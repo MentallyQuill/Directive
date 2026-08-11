@@ -394,8 +394,15 @@ try {
   await peoplePage.mouse.move(cancelledPriyaBox.x + cancelledPriyaBox.width / 2, cancelledPriyaBox.y + cancelledPriyaBox.height / 2);
   await peoplePage.mouse.down();
   await peoplePage.mouse.move(cancelledDropBox.x + cancelledDropBox.width / 2, cancelledDropBox.y + cancelledDropBox.height / 2, { steps: 6 });
+  assert.deepEqual(await peoplePage.evaluate(() => ({
+    rootClass: document.documentElement.classList.contains('directive-reorder-grabbing'),
+    root: getComputedStyle(document.documentElement).cursor,
+    card: getComputedStyle(document.querySelector('.people-row')).cursor,
+    slot: getComputedStyle(document.querySelector('.people-card-drop-slot')).cursor
+  })), { rootClass: true, root: 'grabbing', card: 'grabbing', slot: 'grabbing' });
   await peoplePage.keyboard.press('Escape');
-  await peoplePage.waitForTimeout(500);
+  await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), false);
   assert.equal(await peoplePage.locator('.people-drag-ghost').count(), 0, 'Escape must finish the return-to-origin animation');
   assert.equal(await peoplePage.evaluate(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId), 'priya-nayar', 'Escape must restore focus to the returned card handle');
   await peoplePage.mouse.up();
