@@ -309,23 +309,67 @@ try {
   assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'true', 'keyboard movement must expand a collapsed target category');
   await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId === 'hadrik-bronn');
 
+  const cancelledPriya = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"]');
+  const cancelledPriyaCategory = await cancelledPriya.locator('xpath=..').getAttribute('data-category-id');
+  const cancelledPriyaHandle = cancelledPriya.locator('.collection-drag-handle');
+  const cancelledPriyaBox = await cancelledPriyaHandle.boundingBox();
+  const cancelledDropBox = await bridgeCategory.locator('.collection-category-head').boundingBox();
+  await peoplePage.mouse.move(cancelledPriyaBox.x + cancelledPriyaBox.width / 2, cancelledPriyaBox.y + cancelledPriyaBox.height / 2);
+  await peoplePage.mouse.down();
+  await peoplePage.mouse.move(cancelledDropBox.x + cancelledDropBox.width / 2, cancelledDropBox.y + cancelledDropBox.height / 2, { steps: 6 });
+  await peoplePage.keyboard.press('Escape');
+  await peoplePage.waitForTimeout(500);
+  assert.equal(await peoplePage.locator('.people-drag-ghost').count(), 0, 'Escape must finish the return-to-origin animation');
+  await peoplePage.mouse.up();
+  assert.equal(await peoplePage.locator(`.people-desktop-journal .collection-person-list[data-category-id="${cancelledPriyaCategory}"] .collection-person-row[data-person-id="priya-nayar"]`).count(), 1, 'Escape must restore the person to the original list');
+
+  const invalidPriyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
+  const invalidPriyaBox = await invalidPriyaHandle.boundingBox();
+  await invalidPriyaHandle.dispatchEvent('pointerdown', {
+    pointerId: 82, pointerType: 'mouse', button: 0,
+    clientX: invalidPriyaBox.x + invalidPriyaBox.width / 2, clientY: invalidPriyaBox.y + invalidPriyaBox.height / 2
+  });
+  await peoplePage.evaluate(({ x, y }) => document.dispatchEvent(new PointerEvent('pointermove', {
+    pointerId: 82, pointerType: 'mouse', bubbles: true, clientX: x, clientY: y
+  })), { x: cancelledDropBox.x + cancelledDropBox.width / 2, y: cancelledDropBox.y + cancelledDropBox.height / 2 });
+  assert.equal(await peoplePage.locator('.people-card-drop-slot').evaluate((slot) => slot.closest('.collection-category')?.textContent.includes('Bridge Team')), true, 'invalid-release setup must first establish a valid destination');
+  await peoplePage.evaluate(() => {
+    document.dispatchEvent(new PointerEvent('pointermove', { pointerId: 82, pointerType: 'mouse', bubbles: true, clientX: 800, clientY: 4 }));
+    document.dispatchEvent(new PointerEvent('pointerup', { pointerId: 82, pointerType: 'mouse', bubbles: true, clientX: 800, clientY: 4 }));
+  });
+  await peoplePage.waitForTimeout(500);
+  assert.equal(await peoplePage.locator(`.people-desktop-journal .collection-person-list[data-category-id="${cancelledPriyaCategory}"] .collection-person-row[data-person-id="priya-nayar"]`).count(), 1, 'release outside the vertical roster must restore the original position');
+
   const maraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
   const maraBox = await maraHandle.boundingBox();
   const maraCardBox = await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').boundingBox();
   const bridgeDropBox = await bridgeCategory.locator('.collection-category-head').boundingBox();
+  await peoplePage.evaluate(() => {
+    globalThis.__directiveDragVibrations = [];
+    Object.defineProperty(navigator, 'vibrate', {
+      configurable: true,
+      value: (duration) => { globalThis.__directiveDragVibrations.push(duration); return true; }
+    });
+  });
   await peoplePage.mouse.move(maraBox.x + maraBox.width / 2, maraBox.y + maraBox.height / 2);
   await peoplePage.mouse.down();
+  assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10], 'lifting a person card must request one short haptic pulse');
   const ghostInitialBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
-  await peoplePage.mouse.move(bridgeDropBox.x + bridgeDropBox.width / 2, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
+  await peoplePage.mouse.move(800, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
   const ghostDropBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
   assert.equal(await peoplePage.locator('.people-card-drop-slot').count(), 1, 'People dragging must expose one exact landing slot');
   assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').count(), 0, 'the lifted person must be detached from the active roster flow');
   assert.equal(await peoplePage.locator('.people-card-drop-slot').evaluate((slot) => getComputedStyle(slot).borderStyle), 'solid', 'the active destination must use a full-card outline');
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').evaluate((ghost) => getComputedStyle(ghost).opacity), '0.96', 'the lifted card must remain nearly solid');
   assert.equal(Math.round(ghostDropBox.x), Math.round(ghostInitialBox.x), 'the certified drag ghost must remain horizontally aligned with the roster');
+  assert.equal(await peoplePage.locator('.people-card-drop-slot').evaluate((slot) => slot.closest('.collection-category')?.textContent.includes('Bridge Team')), true, 'horizontal pointer drift must not change the vertical roster target');
   assert.equal(Math.round((await peoplePage.locator('.people-card-drop-slot').boundingBox()).height), Math.round(maraCardBox.height), 'the landing slot must preserve the exact card height');
   assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.some((row) => row.getAnimations().some((animation) => animation.playState === 'running'))), true, 'cards displaced by the landing slot must animate');
   await peoplePage.mouse.up();
+  assert.equal(await peoplePage.locator('.people-drag-ghost.is-snapping').count(), 1, 'pointer-up must begin a visible docking phase');
+  assert.equal(await peoplePage.locator('.people-card-drop-slot.is-drop-committing').count(), 1, 'the landing slot must brighten while the card docks');
+  await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10, 8], 'successful docking must request a distinct completion pulse');
   const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
   assert.equal(pointerMoved, 1, 'pointer drag must cross categories');
   assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').count(), 6, 'reordering must preserve every fixture person');
@@ -388,7 +432,81 @@ try {
   assert.ok(Math.abs(mobileScrollAfter.scrollTop - mobileScrollBefore) < 1, 'mobile disclosure must preserve the roster scroll offset');
   assert.equal(await mobilePeoplePage.locator('.mobile-crew-item.is-open').getAttribute('data-person-id'), 'hadrik-bronn');
   assert.equal(await mobilePeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"].active').count(), 1, 'mobile disclosure must synchronize desktop selection');
+  const expandedTouchCard = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="hadrik-bronn"]');
+  const expandedTouchDetail = expandedTouchCard.locator('.mobile-accordion-detail');
+  const expandedTouchCardBox = await expandedTouchCard.boundingBox();
+  const expandedTouchDetailBox = await expandedTouchDetail.boundingBox();
+  await expandedTouchDetail.dispatchEvent('pointerdown', {
+    pointerId: 79, pointerType: 'touch', button: 0,
+    clientX: expandedTouchDetailBox.x + expandedTouchDetailBox.width / 2, clientY: expandedTouchDetailBox.y + 10
+  });
+  await mobilePeoplePage.waitForTimeout(200);
+  assert.equal(Math.round((await mobilePeoplePage.locator('.people-drag-ghost').boundingBox()).height), Math.round(expandedTouchCardBox.height), 'touch-holding an expanded card must lift the complete rendered card');
+  await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 79, pointerType: 'touch', bubbles: true })));
+  await mobilePeoplePage.waitForTimeout(500);
+  const scrollingTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="priya-nayar"] .mobile-accordion-toggle');
+  const scrollingTouchBox = await scrollingTouchSurface.boundingBox();
+  await scrollingTouchSurface.dispatchEvent('pointerdown', {
+    pointerId: 80, pointerType: 'touch', button: 0,
+    clientX: scrollingTouchBox.x + scrollingTouchBox.width / 2, clientY: scrollingTouchBox.y + scrollingTouchBox.height / 2
+  });
+  await mobilePeoplePage.evaluate(({ x, y }) => document.dispatchEvent(new PointerEvent('pointermove', {
+    pointerId: 80, pointerType: 'touch', bubbles: true, clientX: x, clientY: y + 12
+  })), { x: scrollingTouchBox.x + scrollingTouchBox.width / 2, y: scrollingTouchBox.y + scrollingTouchBox.height / 2 });
+  await mobilePeoplePage.waitForTimeout(200);
+  assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch movement beyond 8px must remain ordinary scrolling');
+  await mobilePeoplePage.evaluate(({ x, y }) => document.dispatchEvent(new PointerEvent('pointerup', {
+    pointerId: 80, pointerType: 'touch', bubbles: true, clientX: x, clientY: y + 12
+  })), { x: scrollingTouchBox.x + scrollingTouchBox.width / 2, y: scrollingTouchBox.y + scrollingTouchBox.height / 2 });
+  const mobileTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="mara-whitaker"] .mobile-accordion-toggle');
+  const mobileTouchBox = await mobileTouchSurface.boundingBox();
+  await mobileTouchSurface.dispatchEvent('pointerdown', {
+    pointerId: 81, pointerType: 'touch', button: 0,
+    clientX: mobileTouchBox.x + mobileTouchBox.width / 2, clientY: mobileTouchBox.y + mobileTouchBox.height / 2
+  });
+  await mobilePeoplePage.waitForTimeout(100);
+  assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch must not lift before the hold delay');
+  await mobilePeoplePage.waitForTimeout(100);
+  assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 1, 'whole-card touch must lift after 175ms');
+  await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 81, pointerType: 'touch', bubbles: true })));
+  await mobilePeoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await mobileTouchSurface.dispatchEvent('click');
+  assert.equal(await mobilePeoplePage.locator('.mobile-crew-item[data-person-id="mara-whitaker"].is-open').count(), 0, 'a completed whole-card hold must suppress its trailing click');
   await mobilePeoplePage.close();
+
+  const reducedPeoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await reducedPeoplePage.emulateMedia({ reducedMotion: 'reduce' });
+  await reducedPeoplePage.goto(`${baseUrl}/production?route=people`);
+  await reducedPeoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const reducedHandle = reducedPeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const reducedHandleBox = await reducedHandle.boundingBox();
+  const reducedTargetBox = await reducedPeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"]').boundingBox();
+  await reducedPeoplePage.mouse.move(reducedHandleBox.x + reducedHandleBox.width / 2, reducedHandleBox.y + reducedHandleBox.height / 2);
+  await reducedPeoplePage.mouse.down();
+  await reducedPeoplePage.mouse.move(reducedTargetBox.x + reducedTargetBox.width / 2, reducedTargetBox.y + reducedTargetBox.height / 2);
+  assert.equal(await reducedPeoplePage.locator('.people-card-drop-slot').count(), 1, 'reduced motion must retain the exact landing slot');
+  assert.equal(await reducedPeoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.some((row) => row.getAnimations().some((animation) => animation.playState === 'running'))), false, 'reduced motion must remove sibling displacement animation');
+  await reducedPeoplePage.mouse.up();
+  await reducedPeoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await reducedPeoplePage.close();
+
+  const scrollPeoplePage = await browser.newPage({ viewport: { width: 1024, height: 500 } });
+  await scrollPeoplePage.goto(`${baseUrl}/production?route=people`);
+  await scrollPeoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const peopleRosterScroll = scrollPeoplePage.locator('.people-desktop-journal .people-category-list');
+  const rosterScrollBox = await peopleRosterScroll.boundingBox();
+  const scrollHandle = scrollPeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const scrollBeforeEdge = await peopleRosterScroll.evaluate((node) => { node.scrollTop = 20; return node.scrollTop; });
+  const scrollHandleBox = await scrollHandle.boundingBox();
+  await scrollPeoplePage.mouse.move(scrollHandleBox.x + scrollHandleBox.width / 2, scrollHandleBox.y + scrollHandleBox.height / 2);
+  await scrollPeoplePage.mouse.down();
+  await scrollPeoplePage.mouse.move(scrollHandleBox.x + scrollHandleBox.width / 2, rosterScrollBox.y + rosterScrollBox.height - 1);
+  const scrollAfterEdge = await peopleRosterScroll.evaluate((node) => node.scrollTop);
+  assert.equal(scrollAfterEdge - scrollBeforeEdge, 16, 'the nearest People roster must reach the approved 16px edge-scroll step');
+  await scrollPeoplePage.keyboard.press('Escape');
+  await scrollPeoplePage.waitForTimeout(500);
+  await scrollPeoplePage.mouse.up();
+  await scrollPeoplePage.close();
 
   const modalPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await modalPage.goto(`${baseUrl}/production?route=people`);
