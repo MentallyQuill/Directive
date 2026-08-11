@@ -26,7 +26,11 @@ The Ship page gives one operational assessment and any material active limitatio
 
 ## Settings
 
-Configure Utility and Reasoning model lanes, install or refresh the Directive preset, verify V1 storage, and export support diagnostics. Direct endpoint API keys last only for the browser session.
+Configure the Utility and Reasoning model lanes, install or refresh the Directive preset, inspect the read-only V1 role map, verify V1 storage, and export support diagnostics. Each lane uses either SillyTavern's Current Model or a SillyTavern Connection Profile; Directive does not accept endpoints or API keys.
+
+The default provider policy is isolated and keeps SillyTavern's sampler settings. Instruct Auto follows the selected source's chat/text completion mode. Temperature and Top P appear only when Directive override is selected. Structured Output Auto uses Prompt JSON until the exact source configuration passes the provider test's native-schema check.
+
+Tooltips can be disabled from Interface. Diagnostics excludes credentials, system prompts, hidden messages, alternate swipes, and unselected branches. Story transcript export is opt-in and contains only player-visible messages from the active selected branch.
 
 ## Swipes and corrections
 

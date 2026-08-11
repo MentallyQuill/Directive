@@ -7,6 +7,8 @@ import {
   reserveV1CommandBearingEdge
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
+import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
+import { normalizeDirectiveProviderSettings } from '../providers/directive-provider-settings.mjs';
 import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import {
@@ -210,16 +212,66 @@ function promptPacket({ state, projection, runtimeAssets }) {
 }
 
 function providerConfiguration(host) {
-  const settings = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.() || {};
+  const settings = normalizeDirectiveProviderSettings(
+    host.providers?.getSettings?.() || host.providers?.settings?.getAll?.() || {}
+  );
   const status = {};
   for (const kind of ['utility', 'reasoning']) {
-    status[kind] = host.providers?.status?.(kind) || { ready: true, label: 'Current SillyTavern model' };
+    const source = host.providers?.status?.(kind) || { ready: true, label: 'Current SillyTavern model' };
+    status[kind] = {
+      kind,
+      provider: source.provider === 'profile' ? 'profile' : 'st',
+      ready: source.ready === true,
+      label: compact(source.label) || 'Current SillyTavern model',
+      sourceLabel: compact(source.sourceLabel) || (source.provider === 'profile' ? 'Connection Profile' : 'Current Model'),
+      completionMode: ['chat', 'text'].includes(source.completionMode) ? source.completionMode : 'unknown',
+      identity: compact(source.identity) || null,
+      profile: source.profile ? {
+        id: compact(source.profile.id),
+        label: compact(source.profile.label || source.profile.name || source.profile.id),
+        name: compact(source.profile.name || source.profile.label || source.profile.id),
+        model: compact(source.profile.model),
+        completionMode: ['chat', 'text'].includes(source.profile.completionMode) ? source.profile.completionMode : 'unknown'
+      } : null,
+      certification: clone(source.certification || settings[kind]?.certification || { status: 'not-run' })
+    };
   }
+  const profiles = (host.providers?.listProfiles?.() || []).map((profile) => ({
+    id: compact(profile.id),
+    label: compact(profile.label || profile.name || profile.id),
+    name: compact(profile.name || profile.label || profile.id),
+    model: compact(profile.model),
+    completionMode: ['chat', 'text'].includes(profile.completionMode) ? profile.completionMode : 'unknown'
+  })).filter((profile) => profile.id);
   return {
     settings: clone(settings),
     status: clone(status),
-    profiles: clone(host.providers?.listProfiles?.() || [])
+    profiles: clone(profiles)
   };
+}
+
+const GENERATION_ROUTING = createGenerationRoleRegistry().list();
+
+function diagnosticsConfiguration(host) {
+  return { transcriptAvailable: typeof host.chat?.getRecentMessages === 'function' };
+}
+
+async function playerVisibleTranscript(host) {
+  if (typeof host.chat?.getRecentMessages !== 'function') return null;
+  const source = await host.chat.getRecentMessages({ limit: 10000, playerSafeOnly: true });
+  if (!Array.isArray(source)) return null;
+  const messages = source.filter((message) => (
+    message
+    && message.isSystem !== true
+    && message.visibility?.hiddenByHost !== true
+    && message.visibility?.sourceMutation !== true
+    && compact(message.text)
+  )).map((message) => ({
+    hostMessageId: compact(message.hostMessageId || message.id) || null,
+    role: message.isUser === true ? 'user' : 'assistant',
+    text: String(message.text)
+  }));
+  return { kind: 'directive.playerVisibleTranscript.v1', messages };
 }
 
 function presetConfiguration(host) {
@@ -710,7 +762,9 @@ export function createDirectiveRuntimeApp({
         playerPortraitImportSupported: playerPortraitImportSupported(host)
       },
       providerConfiguration: providerConfiguration(host),
-      directivePreset: presetConfiguration(host)
+      directivePreset: presetConfiguration(host),
+      generationRouting: clone(GENERATION_ROUTING),
+      diagnostics: diagnosticsConfiguration(host)
     };
   }
 
@@ -1189,15 +1243,15 @@ export function createDirectiveRuntimeApp({
     },
 
     verifyActiveSave: () => controller.verifyStorage(),
-    async exportSupportDiagnostics() {
+    async exportSupportDiagnostics({ includeStoryTranscript = false } = {}) {
       const bundle = {
         kind: 'directive.supportBundle.v1',
         createdAt: now(),
         hostId: host.id,
         activeSaveId: activeSave()?.id || null,
         storage: await controller.verifyStorage(),
-        prompt: host.prompt.inspect?.() || null,
         providers: providerConfiguration(host),
+        routing: clone(GENERATION_ROUTING),
         stateEnvelope: state ? {
           campaignId: state.campaign.id,
           package: state.activeCampaignPackage,
@@ -1205,6 +1259,10 @@ export function createDirectiveRuntimeApp({
           revision: state.stateCustody.revision
         } : null
       };
+      if (includeStoryTranscript === true) {
+        const transcript = await playerVisibleTranscript(host);
+        if (transcript) bundle.storyTranscript = transcript;
+      }
       return { fileName: `directive-support-${Date.now()}.json`, jsonText: JSON.stringify(bundle, null, 2) };
     },
     async updateProviderSettings({ kind, patch } = {}) {

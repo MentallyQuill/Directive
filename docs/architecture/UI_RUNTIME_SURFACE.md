@@ -8,7 +8,7 @@ The ship icon beside SillyTavern's send controls is the single launcher. The exp
 - Mission: visible objectives, optional/conditional labeling, progress, known clocks, visible outcomes, and terminal result.
 - People: Command Bearing reserve/use/cancel, public crew profiles, visible relationship posture, and a few defining moments.
 - Ship: identity, capability summary, one operational aggregate, material limitations, and mission-linked readiness.
-- Settings: provider routing, preset state, storage verification, and support export.
+- Settings: tooltip preference, SillyTavern-native provider policy, preset state, read-only V1 role routing, storage verification, and privacy-bounded support export.
 
 Each fact has one primary home. Mission titles are not repeated on People cards. Mention-level ship observations are not listed. Campaign previews cannot be selected unless a complete V1 package exists. Errors use concise fail-closed empty states; the UI never offers manual semantic editing or reconciliation.
 

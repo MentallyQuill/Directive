@@ -22,7 +22,7 @@ const requiredSelectors = {
   mission: ['.mission-layout', '.mission-collection', '.mission-detail', '.mission-objective-row'],
   people: ['.people-route', '.directive-command-bearing-strip', '.people-layout', '.people-roster', '.people-detail'],
   ship: ['.ship-layout', '.ship-hero', '.ship-board', '.ship-operational-status'],
-  settings: ['.settings-layout', '.settings-navigation', '.settings-content', '.settings-provider-card']
+  settings: ['.settings-layout', '.settings-content', '.settings-provider-grid', '.settings-provider-card', '.settings-diagnostics']
 };
 const expectedOwnerCounts = { campaign: 2, mission: 2, people: 2, ship: 1, settings: 1 };
 const mobilePanelGeometry = {
@@ -126,6 +126,29 @@ try {
       assert.ok(metrics.shell.left >= 0 && metrics.shell.top >= 0);
       assert.ok(metrics.shell.right <= viewport.width + .5 && metrics.shell.bottom <= viewport.height + .5);
       assert.match(metrics.routeFont, /Roboto Condensed|Arial Narrow/);
+
+      if (route === 'settings') {
+        const settingsGeometry = await page.evaluate(() => {
+          const layout = document.querySelector('.settings-layout');
+          const content = document.querySelector('.settings-content');
+          const cards = [...document.querySelectorAll('.settings-provider-card')].map((card) => card.getBoundingClientRect());
+          const layoutBox = layout.getBoundingClientRect();
+          const contentBox = content.getBoundingClientRect();
+          return {
+            navigationCount: document.querySelectorAll('.settings-navigation').length,
+            contentWidthRatio: contentBox.width / layoutBox.width,
+            cardsStacked: cards.length === 2
+              && Math.abs(cards[0].left - cards[1].left) <= .5
+              && Math.abs(cards[0].width - cards[1].width) <= .5
+              && cards[1].top > cards[0].bottom,
+            cardWithinContent: cards.every((card) => card.left >= contentBox.left - .5 && card.right <= contentBox.right + .5)
+          };
+        });
+        assert.equal(settingsGeometry.navigationCount, 0, `${viewport.width}px Settings must not render redundant navigation`);
+        assert.ok(settingsGeometry.contentWidthRatio >= .98, `${viewport.width}px Settings content must use the full route width`);
+        assert.equal(settingsGeometry.cardsStacked, true, `${viewport.width}px provider cards must remain stacked`);
+        assert.equal(settingsGeometry.cardWithinContent, true, `${viewport.width}px provider cards must stay inside Settings content`);
+      }
 
       if (viewport.width === 360 && [500, 800].includes(viewport.height) && mobilePanelGeometry[route]) {
         const geometry = await page.evaluate((selectors) => {

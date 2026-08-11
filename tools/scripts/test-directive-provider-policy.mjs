@@ -10,6 +10,7 @@ import {
   directiveProviderConfigFingerprint,
   resolveDirectiveGenerationPolicy
 } from '../../src/providers/generation-policy.mjs';
+import { createFakeProviderAdapter } from '../../src/hosts/fake/fake-host.mjs';
 
 const expectedUtility = {
   provider: 'st',
@@ -213,5 +214,18 @@ assert.equal(store.get('utility').provider, 'profile');
 assert.equal(saveCalls, 1);
 assert.equal(JSON.stringify(context.extensionSettings).includes('private.example'), false);
 assert.equal(JSON.stringify(context.extensionSettings).includes('apiKey'), false);
+
+const fakeProvider = createFakeProviderAdapter({
+  utility: {
+    provider: 'openai_compatible',
+    baseUrl: 'https://obsolete.example/v1',
+    model: 'obsolete-model',
+    apiKeySet: true
+  }
+});
+assert.deepEqual(fakeProvider.getSettings().utility, expectedUtility);
+assert.equal(fakeProvider.status('utility').sourceLabel, 'Current Model');
+assert.equal(JSON.stringify(fakeProvider.getSettings()).includes('baseUrl'), false);
+assert.equal(JSON.stringify(fakeProvider.getSettings()).includes('apiKey'), false);
 
 console.log('PASS Directive provider settings and generation policy');

@@ -8,6 +8,6 @@ The shell owns the five routes: Campaign, Mission, People, Ship, and Settings. P
 - Mission: revealed mission purpose, objectives, known clocks, and optional commitments.
 - People: concise public crew profiles and durable character moments.
 - Ship: one aggregated operational picture.
-- Settings: provider, preset, tutorial, and state controls.
+- Settings: tooltip preference, SillyTavern-native provider policy, preset state, read-only model-call routing, storage verification, and privacy-bounded support export.
 
 Route-local expansion and ordering are presentation preferences only. Long content scrolls inside the bounded Directive frame.
