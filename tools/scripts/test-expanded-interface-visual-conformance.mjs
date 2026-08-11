@@ -538,7 +538,7 @@ try {
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 0, 'touch drag must not lift before the hold delay');
   await peoplePage.waitForTimeout(100);
   assert.equal(await peoplePage.locator('.mobile-drag-ghost').count(), 1, 'touch drag must lift after 175ms');
-  assert.equal(Math.round((await peoplePage.locator('.mobile-drag-ghost').boundingBox()).x), Math.round(touchCardBox.x), 'sub-threshold touch drift must not shift a vertically locked card');
+  assert.equal(Math.round((await peoplePage.locator('.mobile-drag-ghost').boundingBox()).x), Math.round(touchCardBox.x), 'sub-threshold touch drift must not shift a horizontally locked card');
   await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 71, pointerType: 'touch', bubbles: true })));
 
   const bridgeCategoryHandle = bridgeCategory.locator(':scope > .collection-category-head > .collection-drag-handle');
@@ -564,24 +564,36 @@ try {
   await thresholdPage.mouse.down();
   await thresholdPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
   await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdPeerBox.y + thresholdPeerBox.height / 2 + 1);
-  const thresholdState = await (await thresholdPage.waitForFunction(() => {
+  const thresholdState = await thresholdPage.evaluate(async () => {
     const slot = document.querySelector('.people-card-drop-slot');
     const peer = document.querySelector('.collection-person-row[data-person-id="mara-whitaker"]');
-    if (!slot || !peer) return false;
-    const slotRect = slot.getBoundingClientRect();
-    const peerRect = peer.getBoundingClientRect();
-    const state = {
+    if (!slot || !peer) throw new Error('threshold slot and Mara peer must be present');
+    const sample = () => {
+      const slotRect = slot.getBoundingClientRect();
+      const peerRect = peer.getBoundingClientRect();
+      return {
+        slotTop: slotRect.top,
+        slotLeft: slotRect.left,
+        peerTop: peerRect.top
+      };
+    };
+    const first = sample();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const second = sample();
+    return {
       slotAnimations: slot.getAnimations().length,
       peerAnimating: peer.getAnimations().some(({ playState }) => playState === 'running'),
       adjacent: slot.previousElementSibling === peer,
-      overlap: Math.min(slotRect.bottom, peerRect.bottom) - Math.max(slotRect.top, peerRect.top)
+      first,
+      second
     };
-    return state.slotAnimations === 0 && state.peerAnimating && state.adjacent && state.overlap <= 0.5 ? state : false;
-  })).jsonValue();
+  });
   assert.equal(thresholdState.slotAnimations, 0, 'crossing a card midpoint must settle the destination slot immediately');
   assert.equal(thresholdState.peerAnimating, true, 'crossing a card midpoint must retain sibling glide');
   assert.equal(thresholdState.adjacent, true, 'the sampled sibling must border the destination slot');
-  assert.ok(thresholdState.overlap <= 0.5, 'the settled destination slot must not intersect its displaced sibling');
+  assert.equal(thresholdState.second.slotTop, thresholdState.first.slotTop, 'the destination slot top must remain fixed across sibling reflow frames');
+  assert.equal(thresholdState.second.slotLeft, thresholdState.first.slotLeft, 'the destination slot left must remain fixed across sibling reflow frames');
+  assert.ok(thresholdState.second.peerTop < thresholdState.first.peerTop, 'Mara must glide upward from her former visual position toward the settled position');
   await thresholdPage.keyboard.press('Escape');
   await thresholdPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
   await thresholdPage.mouse.up();

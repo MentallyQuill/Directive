@@ -29,30 +29,43 @@
 
 - [ ] **Step 1: Write the failing browser regression**
 
-After lifting the player-character card and crossing the next card's midpoint, sample the active slot and displaced card. Assert that the slot has no animations, sibling animation is running, and the two rectangles have no positive intersection:
+After lifting the player-character card and crossing Mara Whitaker's midpoint, sample the active slot and displaced card across two animation frames. Assert that the slot has no animations and retains the same top and left while Mara's running FLIP changes her visual top upward toward the settled position:
 
 ```js
-const thresholdState = await peoplePage.evaluate(() => {
+const thresholdState = await peoplePage.evaluate(async () => {
   const slot = document.querySelector('.people-card-drop-slot');
   const peer = document.querySelector('.collection-person-row[data-person-id="mara-whitaker"]');
-  const slotRect = slot.getBoundingClientRect();
-  const peerRect = peer.getBoundingClientRect();
+  const sample = () => {
+    const slotRect = slot.getBoundingClientRect();
+    const peerRect = peer.getBoundingClientRect();
+    return {
+      slotTop: slotRect.top,
+      slotLeft: slotRect.left,
+      peerTop: peerRect.top
+    };
+  };
+  const first = sample();
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  const second = sample();
   return {
     slotAnimations: slot.getAnimations().length,
     peerAnimating: peer.getAnimations().some(({ playState }) => playState === 'running'),
-    overlap: Math.min(slotRect.bottom, peerRect.bottom) - Math.max(slotRect.top, peerRect.top)
+    first,
+    second
   };
 });
 assert.equal(thresholdState.slotAnimations, 0);
 assert.equal(thresholdState.peerAnimating, true);
-assert.ok(thresholdState.overlap <= 0.5);
+assert.equal(thresholdState.second.slotTop, thresholdState.first.slotTop);
+assert.equal(thresholdState.second.slotLeft, thresholdState.first.slotLeft);
+assert.ok(thresholdState.second.peerTop < thresholdState.first.peerTop);
 ```
 
 - [ ] **Step 2: Run the focused suite and verify RED**
 
 Run: `node tools/scripts/test-expanded-interface-visual-conformance.mjs`
 
-Expected: FAIL because the slot has a running FLIP animation and overlaps the peer.
+Expected: FAIL because the slot has a running FLIP animation and changes position across frames with motion opposing Mara's glide.
 
 - [ ] **Step 3: Exclude the placeholder from FLIP elements**
 
@@ -155,15 +168,15 @@ git commit -m "fix(people): hold grabbing cursor during drag"
 
 - [ ] **Step 1: Update the living contract**
 
-Specify that the destination outline relocates without crossing the peer, only siblings glide, and the active cursor remains grabbing over the complete viewport interaction path.
+Specify that the destination outline settles immediately and remains stationary while only siblings glide from their old visual positions, and that the active person-card cursor remains grabbing over the complete viewport interaction path.
 
 - [ ] **Step 2: Capture and inspect the threshold frame**
 
-Use the production People fixture at `1024x768`. Lift the player-character card and cross Mara Whitaker's midpoint by one pixel. Capture while sibling animation is active and verify the slot is stationary with no overlap.
+Use the production People fixture at `1024x768`. Lift the player-character card and cross Mara Whitaker's midpoint by one pixel. Capture two frames while sibling animation is active and verify the slot stays fixed while Mara glides upward from her old visual position.
 
 - [ ] **Step 3: Inspect phone hold-drag**
 
-Use `390x844`; verify the fixed slot, vertically locked ghost, and unchanged touch-scroll custody.
+Use `390x844`; verify the fixed slot, the ghost's horizontal roster lock while it follows vertical pointer movement, and unchanged touch-scroll custody before activation.
 
 - [ ] **Step 4: Run complete verification**
 
