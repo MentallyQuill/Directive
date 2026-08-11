@@ -70,6 +70,15 @@ export function createPeoplePlayerProjection({
                 subjectId: officer.id,
             },
             service: structuredClone(officer.service || null),
+            species: compact(officer.species),
+            publicRecord: {
+                age: compact(officer.publicRecord?.age),
+                birthplace: compact(officer.publicRecord?.birthplace),
+                serviceBackground: compact(officer.publicRecord?.serviceBackground),
+                ...(compact(officer.publicRecord?.assignmentHistory)
+                    ? { assignmentHistory: compact(officer.publicRecord.assignmentHistory) }
+                    : {}),
+            },
             profileSummary: compact(officer.profileSummary),
             relationshipPosture: visibleRelationshipPosture(storySettlement, officer.id),
             moments: personMoments,
