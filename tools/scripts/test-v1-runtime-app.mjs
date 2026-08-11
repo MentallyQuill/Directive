@@ -250,24 +250,44 @@ await app.saveCreatorDraft({
   }
 });
 const chatBeforeFailedCampaignStart = host.chat.getCurrentChatId();
-const updateBindingMetadata = host.chat.updateBindingMetadata;
-host.chat.updateBindingMetadata = async () => {
-  const error = new Error('fake campaign chat metadata failure');
-  error.code = 'FAKE_CAMPAIGN_CHAT_METADATA_FAILED';
+const createOrBindCampaignChat = host.chat.createOrBindCampaignChat;
+const failedFreshChatBinding = {
+  hostId: 'fake',
+  chatId: 'failed-fresh-chat',
+  campaignId: 'campaign.failed-fresh-chat',
+  saveId: 'save.failed-fresh-chat',
+  entityType: 'character',
+  entityId: 'fake-character-1',
+  entityName: 'Failed fresh chat',
+  createdByDirective: true
+};
+host.chat.createOrBindCampaignChat = async () => {
+  chat.setCurrentChatId(failedFreshChatBinding.chatId);
+  const error = new Error("Directive could not persist fresh campaign chat Author's Note isolation.");
+  error.code = 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED';
+  error.retryable = true;
+  error.createdBinding = structuredClone(failedFreshChatBinding);
   throw error;
 };
 await assert.rejects(
   app.acceptCreatorDraftAndStartCampaign(),
-  (error) => error?.code === 'FAKE_CAMPAIGN_CHAT_METADATA_FAILED'
+  (error) => error?.code === 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED'
 );
-host.chat.updateBindingMetadata = updateBindingMetadata;
+host.chat.createOrBindCampaignChat = createOrBindCampaignChat;
 const recoverableCampaignView = await app.getCurrentView({ tabId: 'campaign' });
 assert.equal(recoverableCampaignView.activeScreen, 'campaign');
 assert.equal(recoverableCampaignView.creator, null);
 assert.equal(recoverableCampaignView.campaignIndex.campaigns.length, 1);
 assert.equal(recoverableCampaignView.campaignState, null);
 assert.equal(host.chat.getCurrentChatId(), chatBeforeFailedCampaignStart);
-assert.equal(chat.calls().some((call) => call.type === 'deleteCampaignChat'), true);
+assert.equal(
+  chat.calls().some((call) => (
+    call.type === 'deleteCampaignChat'
+    && call.chatId === failedFreshChatBinding.chatId
+  )),
+  true,
+  'a fresh chat that fails prompt hygiene before binding returns must be deleted after reopening the prior chat'
+);
 assert.equal(
   (await host.storage.readJson(V1_STORAGE_PATHS.save(recoverableCampaignView.activeSaveId))).state.campaignChatBinding?.chatId ?? null,
   null,

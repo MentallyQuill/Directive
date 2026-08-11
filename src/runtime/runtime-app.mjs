@@ -569,6 +569,9 @@ export function createDirectiveRuntimeApp({
       await host.chat.updateBindingMetadata?.(exactBinding);
       return exactBinding;
     } catch (error) {
+      if (!binding && error?.createdBinding?.createdByDirective === true) {
+        binding = clone(error.createdBinding);
+      }
       try {
         const restored = await controller.persistActiveCampaign({
           campaignState: previousState,
