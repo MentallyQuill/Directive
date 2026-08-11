@@ -16,7 +16,7 @@ The player-character fallback emblem is rendered by the shared media placeholder
 
 Add narrowly scoped CSS beneath the existing Crew roster media and drop-slot rules:
 
-- Reset the compact player placeholder's minimum height and gap, and hide its label only inside `.people-row-image.directive-player-portrait-frame`.
+- Reset the compact player placeholder's minimum height and gap, remove the mask icon's inline baseline, and hide its label only inside `.people-row-image.directive-player-portrait-frame`.
 - Override `border-radius` to `0` only for `.people-card-drop-slot`.
 
 No JavaScript or asset changes are required.

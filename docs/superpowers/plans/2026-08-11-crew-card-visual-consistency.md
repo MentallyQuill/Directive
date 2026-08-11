@@ -83,8 +83,9 @@ Add beside the existing Crew thumbnail and drop-slot rules:
   min-height: 0;
   gap: 0;
 }
+.directive-expanded-shell .people-row-image.directive-player-portrait-frame .directive-asset-mask-icon { display: block; }
 .directive-expanded-shell .people-row-image.directive-player-portrait-frame .directive-media-placeholder-label { display: none; }
-.directive-expanded-shell .people-card-drop-slot { border-radius: 0; }
+.directive-expanded-shell .people-desktop-journal .people-card-drop-slot { border-radius: 0; }
 ```
 
 - [ ] **Step 5: Run the focused test and verify GREEN**

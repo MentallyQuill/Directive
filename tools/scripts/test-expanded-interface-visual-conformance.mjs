@@ -343,6 +343,53 @@ try {
   await desktopPortraitControls.locator('.directive-crew-player-portrait-cancel').click();
   assert.equal(await desktopPortraitControls.locator('.directive-crew-player-portrait-upload').count(), 1, 'portrait removal cancel must restore upload');
   assert.equal(await desktopPortraitControls.locator('.directive-crew-player-portrait-remove').count(), 1, 'portrait removal cancel must restore remove');
+  await peoplePage.evaluate(async () => {
+    const { createPlayerPortraitImage } = await import('/src/ui/directive-media.js');
+    const current = document.querySelector('.people-desktop-journal .people-row-image.directive-player-portrait-frame');
+    current.replaceWith(createPlayerPortraitImage(null, { wrapperClass: 'people-row-image', label: 'Sam Vickers' }));
+  });
+  const compactPlayerFallback = await peoplePage.locator(
+    '.people-desktop-journal .people-row-image.directive-player-portrait-frame'
+  ).evaluate((frame) => {
+    const icon = frame.querySelector('.directive-asset-mask-icon');
+    const label = frame.querySelector('.directive-media-placeholder-label');
+    const frameRect = frame.getBoundingClientRect();
+    const iconRect = icon.getBoundingClientRect();
+    return {
+      frameCenterX: frameRect.left + frameRect.width / 2,
+      frameCenterY: frameRect.top + frameRect.height / 2,
+      iconCenterX: iconRect.left + iconRect.width / 2,
+      iconCenterY: iconRect.top + iconRect.height / 2,
+      labelDisplay: getComputedStyle(label).display
+    };
+  });
+  assert.ok(Math.abs(compactPlayerFallback.iconCenterX - compactPlayerFallback.frameCenterX) <= 1, 'the compact PC fallback emblem must be horizontally centered');
+  assert.ok(Math.abs(compactPlayerFallback.iconCenterY - compactPlayerFallback.frameCenterY) <= 1, 'the compact PC fallback emblem must be vertically centered');
+  assert.equal(compactPlayerFallback.labelDisplay, 'none', 'the compact PC fallback must reserve the thumbnail for the emblem');
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-compact-player-fallback-1024x768.png') });
+  const fallbackPlayerHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
+  const fallbackPlayerHandleBox = await fallbackPlayerHandle.boundingBox();
+  await peoplePage.mouse.move(fallbackPlayerHandleBox.x + 2, fallbackPlayerHandleBox.y + fallbackPlayerHandleBox.height / 2);
+  await peoplePage.mouse.down();
+  await peoplePage.waitForFunction(() => document.querySelector('.people-drag-ghost') && document.querySelector('.people-card-drop-slot'));
+  await peoplePage.mouse.move(
+    fallbackPlayerHandleBox.x + 2,
+    fallbackPlayerHandleBox.y + fallbackPlayerHandleBox.height / 2 + 34,
+    { steps: 4 }
+  );
+  await peoplePage.waitForFunction(() => {
+    const ghost = document.querySelector('.people-drag-ghost')?.getBoundingClientRect();
+    const slot = document.querySelector('.people-card-drop-slot')?.getBoundingClientRect();
+    return Boolean(ghost && slot && ghost.top > slot.top + 10);
+  });
+  assert.deepEqual(await peoplePage.evaluate(() => ({
+    ghost: getComputedStyle(document.querySelector('.people-drag-ghost')).borderRadius,
+    slot: getComputedStyle(document.querySelector('.people-card-drop-slot')).borderRadius
+  })), { ghost: '0px', slot: '0px' }, 'the held PC card and its destination outline must share square corners');
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-compact-player-fallback-active-drag-1024x768.png') });
+  await peoplePage.keyboard.press('Escape');
+  await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await peoplePage.mouse.up();
   const maraThumb = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .people-row-image img');
   assert.match(await maraThumb.getAttribute('src'), /mara-whitaker\.thumb\.webp$/);
   await peoplePage.locator('.people-desktop-journal .people-row[data-person-id="mara-whitaker"]').click();
@@ -697,6 +744,7 @@ try {
   await mobilePeoplePage.waitForTimeout(200);
   const expandedTouchGhostBox = await mobilePeoplePage.locator('.people-drag-ghost').boundingBox();
   assert.ok(Math.abs((expandedTouchGhostBox.height / expandedTouchCardBox.height) - 1.015) < 0.005, 'touch-holding an expanded card must lift the complete rendered card at the approved 1.015 scale');
+  assert.equal(await mobilePeoplePage.locator('.people-card-drop-slot').evaluate((slot) => getComputedStyle(slot).borderRadius), '5px', 'desktop slot geometry must not remove mobile card rounding');
   await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 79, pointerType: 'touch', bubbles: true })));
   await mobilePeoplePage.waitForTimeout(500);
   const scrollingTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="priya-nayar"] .mobile-accordion-toggle');

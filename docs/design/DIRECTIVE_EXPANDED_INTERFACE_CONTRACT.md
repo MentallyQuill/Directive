@@ -513,10 +513,13 @@ Categories and person records use the same collection system as other reorderabl
 - person reordering within and across categories;
 - baseline categories and package-owned people cannot be deleted;
 - model-proposed categorization is advisory because players can organize records themselves.
+- a compact player-character fallback centers the emblem alone inside its `48px` roster frame, while initials remain reserved for larger portrait placeholders.
 
 Person-card handling uses a People-specific presentation layered on the shared ordering primitive. A primary mouse press lifts immediately from the dedicated handle. Touch and pen may lift from anywhere on a mobile person card after a `175ms` hold; movement beyond `8px` before activation remains ordinary scrolling. The lifted card preserves its pickup offset and stays locked to the roster's horizontal track. It renders in a body-level layer above the expanded shell as one complete dossier—including portrait, copy, status marks, full four-sided blue outline, and right-side handle—without retaining the selected record's left-edge treatment. It follows the pointer through a compositor transform and remains nearly opaque rather than disappearing beneath the shell.
 
 An exact-height blue outlined slot occupies the candidate destination. Crossing peer midpoints relocates that outline directly to its settled insertion point within or across expanded categories; the slot stays stationary while only real displaced sibling cards glide from their former visual positions for `170ms` with `cubic-bezier(.2,.8,.2,1)`, so a departing sibling may transiently pass over the fixed outline. Throughout an active person-card drag, the complete viewport interaction path—including the document root, cards, controls, and destination slot—retains the `grabbing` cursor until the drag reaches successful docking, cancellation, blur, or another terminal cleanup. The nearest roster auto-scrolls inside a `52px` edge zone up to a `16px` step. A valid release docks the lifted card into the slot for `160ms` and commits once. Escape, pointer cancellation, window blur, or invalid release returns it to its origin without persistence. Reduced-motion mode keeps the lifted card and exact slot but removes meaningful displacement and docking duration. Category dragging retains its existing behavior.
+
+The desktop person-card destination slot uses the same square outer corners as the held roster card through hover and docking; mobile cards retain their established rounding.
 
 ```js
 const peopleCollection = {
