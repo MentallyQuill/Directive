@@ -492,6 +492,7 @@ try {
   await peoplePage.mouse.up();
   assert.equal(await peoplePage.locator('.people-drag-ghost.is-snapping').count(), 1, 'pointer-up must begin a visible docking phase');
   assert.equal(await peoplePage.locator('.people-card-drop-slot.is-drop-committing').count(), 1, 'the landing slot must brighten while the card docks');
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-docking-1024x768.png') });
   await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
   assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10, 8], 'successful docking must request a distinct completion pulse');
   const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
@@ -575,7 +576,8 @@ try {
     clientX: expandedTouchDetailBox.x + expandedTouchDetailBox.width / 2, clientY: expandedTouchDetailBox.y + 10
   });
   await mobilePeoplePage.waitForTimeout(200);
-  assert.equal(Math.round((await mobilePeoplePage.locator('.people-drag-ghost').boundingBox()).height), Math.round(expandedTouchCardBox.height), 'touch-holding an expanded card must lift the complete rendered card');
+  const expandedTouchGhostBox = await mobilePeoplePage.locator('.people-drag-ghost').boundingBox();
+  assert.ok(Math.abs((expandedTouchGhostBox.height / expandedTouchCardBox.height) - 1.015) < 0.005, 'touch-holding an expanded card must lift the complete rendered card at the approved 1.015 scale');
   await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 79, pointerType: 'touch', bubbles: true })));
   await mobilePeoplePage.waitForTimeout(500);
   const scrollingTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="priya-nayar"] .mobile-accordion-toggle');
@@ -602,6 +604,7 @@ try {
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch must not lift before the hold delay');
   await mobilePeoplePage.waitForTimeout(100);
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 1, 'whole-card touch must lift after 175ms');
+  await mobilePeoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-390x844.png') });
   assert.equal(await mobilePeoplePage.evaluate(() => {
     const event = new TouchEvent('touchmove', { bubbles: true, cancelable: true });
     document.dispatchEvent(event);
