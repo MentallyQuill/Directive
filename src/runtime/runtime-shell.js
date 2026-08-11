@@ -436,6 +436,8 @@ export async function showDirectiveRuntimePanel({ opener = null } = {}) {
   applyShellLayout(panel);
   syncShellChrome(panel);
   await refreshDirectiveRuntimePanel();
+  if (panel.hidden === true) return { isOpen: false, activeTab };
+  panel.querySelector?.('[data-shell-action="close"]')?.focus?.({ preventScroll: true });
   return { isOpen: true, activeTab, layout: { ...shellLayout } };
 }
 

@@ -14,7 +14,8 @@ const viewports = [
   { width: 1440, height: 900 },
   { width: 1024, height: 768 },
   { width: 390, height: 844 },
-  { width: 360, height: 800 }
+  { width: 360, height: 800 },
+  { width: 360, height: 500 }
 ];
 const requiredSelectors = {
   campaign: ['.campaign-layout', '.campaign-master', '.campaign-detail', '[data-campaign-availability="coming-later"]'],
@@ -24,6 +25,26 @@ const requiredSelectors = {
   settings: ['.settings-layout', '.settings-navigation', '.settings-content', '.settings-provider-card']
 };
 const expectedOwnerCounts = { campaign: 2, mission: 2, people: 2, ship: 1, settings: 1 };
+const mobilePanelGeometry = {
+  campaign: {
+    layout: '.campaign-layout',
+    master: '.campaign-master',
+    detail: '.campaign-detail',
+    heading: '.campaign-hero h2'
+  },
+  mission: {
+    layout: '.mission-layout',
+    master: '.mission-collection',
+    detail: '.mission-detail',
+    heading: '.mission-hero h2'
+  },
+  people: {
+    layout: '.people-layout',
+    master: '.people-roster',
+    detail: '.people-detail',
+    heading: '.people-detail-identity h2'
+  }
+};
 
 async function waitForServer() {
   let lastError;
@@ -109,6 +130,37 @@ try {
       assert.ok(metrics.shell.left >= 0 && metrics.shell.top >= 0);
       assert.ok(metrics.shell.right <= viewport.width + .5 && metrics.shell.bottom <= viewport.height + .5);
       assert.match(metrics.routeFont, /Roboto Condensed|Arial Narrow/);
+
+      if (viewport.width === 360 && [500, 800].includes(viewport.height) && mobilePanelGeometry[route]) {
+        const geometry = await page.evaluate((selectors) => {
+          const layout = document.querySelector(selectors.layout);
+          const master = document.querySelector(selectors.master);
+          const detail = document.querySelector(selectors.detail);
+          const heading = document.querySelector(selectors.heading);
+          const layoutStyle = getComputedStyle(layout);
+          const masterBox = master.getBoundingClientRect();
+          const detailBox = detail.getBoundingClientRect();
+          const headingBox = heading.getBoundingClientRect();
+          return {
+            routeGap: Number.parseFloat(layoutStyle.rowGap),
+            panelGap: detailBox.top - masterBox.bottom,
+            masterHeight: masterBox.height,
+            detailHeight: detailBox.height,
+            headingHeight: headingBox.height,
+            headingVisible: headingBox.top >= 0 && headingBox.bottom <= window.innerHeight,
+            headingContained: headingBox.top >= detailBox.top - .5 && headingBox.bottom <= detailBox.bottom + .5
+          };
+        }, mobilePanelGeometry[route]);
+        assert.ok(Number.isFinite(geometry.routeGap), `${route} ${viewport.width}x${viewport.height} mobile route gap must resolve to a length`);
+        assert.ok(geometry.masterHeight >= 48, `${route} ${viewport.width}x${viewport.height} mobile master must remain usable`);
+        assert.ok(geometry.detailHeight >= 80, `${route} ${viewport.width}x${viewport.height} mobile detail must remain usable`);
+        assert.ok(geometry.headingHeight > 0 && geometry.headingVisible, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must be visible`);
+        assert.equal(geometry.headingContained, true, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must stay inside the clipped detail panel`);
+        assert.ok(
+          Math.abs(geometry.panelGap - geometry.routeGap) <= .5,
+          `${route} ${viewport.width}x${viewport.height} mobile master/detail dead gap: expected ${geometry.routeGap}px route gap, received ${geometry.panelGap}px`
+        );
+      }
 
       if (route === 'campaign') {
         const futureRow = page.locator('button[data-campaign-availability="coming-later"]').first();
