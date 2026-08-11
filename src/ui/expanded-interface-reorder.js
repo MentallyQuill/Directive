@@ -39,6 +39,13 @@ export function bindPresentationReorderHandle(handle, {
   onCommit,
   previewSelector = '',
   previewClass = '',
+  ghostOpacity = '',
+  placeholderClass = '',
+  lockAxis = '',
+  reflowRootSelector = '',
+  reflowDurationMs = 0,
+  reflowEasing = 'cubic-bezier(.2,.8,.2,1)',
+  dropDurationMs = 0,
   dropListSelector = '',
   dropZoneSelector = '',
   onDrop = null,
@@ -47,7 +54,12 @@ export function bindPresentationReorderHandle(handle, {
   dropBeforeClass = 'is-drop-before',
   dropTargetClass = 'is-drop-target',
   keyboard = true,
-  longPressMs = 175
+  longPressMs = 175,
+  touchTarget = null,
+  liftVibrationMs = 0,
+  dropVibrationMs = 0,
+  autoScrollEdgePx = 44,
+  autoScrollMaxStep = 14
 } = {}) {
   const commitKeyboard = (offset) => {
     const item = handle.closest(itemSelector);
@@ -67,21 +79,60 @@ export function bindPresentationReorderHandle(handle, {
   }
 
   let state = null;
+  let suppressTouchClickUntil = 0;
+  const requestVibration = (duration) => {
+    if (!duration) return;
+    try { state?.blurTarget?.navigator?.vibrate?.(duration); } catch { /* Haptics are a progressive enhancement. */ }
+  };
+  const reducedMotion = () => state?.blurTarget?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  const relocatePlaceholder = (parent, before = null) => {
+    if (!state?.placeholder || !parent) return;
+    if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
+    const root = reflowRootSelector ? state.list.closest(reflowRootSelector) : state.ownerDocument;
+    const elements = [state.placeholder, ...(root?.querySelectorAll?.(itemSelector) || [])]
+      .filter((element) => element?.getClientRects?.().length > 0);
+    const beforeRects = new Map(elements.map((element) => [element, element.getBoundingClientRect()]));
+    state.reflowAnimations?.forEach((animation) => animation.cancel());
+    state.reflowAnimations?.clear();
+    parent.insertBefore(state.placeholder, before);
+    const duration = reducedMotion() ? 0 : reflowDurationMs;
+    if (!duration) return;
+    for (const element of elements) {
+      if (!element.isConnected || typeof element.animate !== 'function') continue;
+      const previous = beforeRects.get(element);
+      const next = element.getBoundingClientRect();
+      const deltaY = previous.top - next.top;
+      if (Math.abs(deltaY) < 0.5) continue;
+      const animation = element.animate([
+        { transform: `translateY(${deltaY}px)` },
+        { transform: 'translateY(0)' }
+      ], { duration, easing: reflowEasing });
+      state.reflowAnimations.add(animation);
+      animation.finished.catch(() => {}).finally(() => state?.reflowAnimations?.delete(animation));
+    }
+  };
   const clearDropMarkers = () => {
     if (!state || !deferredDrop) return;
     const root = dropRootSelector ? state.list.closest(dropRootSelector) : state.ownerDocument;
     root?.querySelectorAll?.(`.${dropBeforeClass},.${dropTargetClass}`)
       .forEach((item) => item.classList.remove(dropBeforeClass, dropTargetClass));
   };
-  const end = (commit = true) => {
+  const detachActiveListeners = () => {
     if (!state) return;
     clearTimeout(state.timer);
+    if (state.autoScrollFrame) state.blurTarget?.cancelAnimationFrame?.(state.autoScrollFrame);
     state.blurTarget?.removeEventListener?.('blur', state.onWindowBlur);
     state.ownerDocument?.removeEventListener?.('pointermove', state.onPointerMove, true);
     state.ownerDocument?.removeEventListener?.('pointerup', state.onPointerUp, true);
     state.ownerDocument?.removeEventListener?.('pointercancel', state.onPointerCancel, true);
+    state.ownerDocument?.removeEventListener?.('keydown', state.onKeyDown, true);
+    state.ownerDocument?.removeEventListener?.('touchmove', state.onTouchMove, true);
+  };
+  const finalize = (commit = true) => {
+    if (!state) return;
     if (state.active) {
       const list = state.list;
+      try { state.captureTarget?.releasePointerCapture?.(state.pointerId); } catch { /* The pointer may already be released. */ }
       if (deferredDrop) {
         clearDropMarkers();
         if (commit && state.dropList) {
@@ -104,6 +155,7 @@ export function bindPresentationReorderHandle(handle, {
         const next = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)]
           .map((item) => item.getAttribute(idAttribute))
           .filter(Boolean);
+        requestVibration(dropVibrationMs);
         if (onDrop) {
           onDrop({
             id: state.id,
@@ -119,23 +171,72 @@ export function bindPresentationReorderHandle(handle, {
         state.placeholder.replaceWith(state.item);
       }
       state.item.classList.remove('is-dragging');
+      state.reflowAnimations?.forEach((animation) => animation.cancel());
       state.ghost.remove();
       state.ghostHost?.remove();
+      if (!commit && state.restoreFocusOnCancel) state.handle.focus?.({ preventScroll: true });
     }
     state = null;
   };
+  const end = (commit = true, { instant = false } = {}) => {
+    if (!state || state.finishing) return;
+    if (state.active && ['touch', 'pen'].includes(state.pointerType) && touchTarget) suppressTouchClickUntil = Date.now() + 600;
+    detachActiveListeners();
+    const shouldDock = state.active && !deferredDrop && dropDurationMs > 0 && state.placeholder?.isConnected && state.ghost?.isConnected;
+    if (!shouldDock) {
+      finalize(commit);
+      return;
+    }
+    state.finishing = true;
+    const validCommit = commit && Boolean(state.dropList);
+    if (!validCommit) relocatePlaceholder(state.originList, state.originNextSibling?.parentElement === state.originList ? state.originNextSibling : null);
+    if (instant) {
+      finalize(false);
+      return;
+    }
+    const ghostRect = state.ghost.getBoundingClientRect();
+    const slotRect = state.placeholder.getBoundingClientRect();
+    state.ghost.classList.add('is-snapping');
+    state.placeholder.classList.add('is-drop-committing');
+    const duration = reducedMotion() ? 0 : dropDurationMs;
+    const complete = () => {
+      if (!state) return;
+      finalize(validCommit);
+    };
+    if (!duration || typeof state.ghost.animate !== 'function') {
+      queueMicrotask(complete);
+      return;
+    }
+    const animation = state.ghost.animate([
+      {
+        left: `${ghostRect.left}px`,
+        top: `${ghostRect.top}px`,
+        transform: 'scale(1.015)',
+        boxShadow: '0 10px 24px rgba(0, 0, 0, .48)'
+      },
+      {
+        left: `${slotRect.left}px`,
+        top: `${slotRect.top}px`,
+        transform: 'scale(1)',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, .18)'
+      }
+    ], { duration, easing: reflowEasing, fill: 'forwards' });
+    state.dropAnimation = animation;
+    animation.finished.catch(() => {}).finally(complete);
+  };
   const activate = () => {
     if (!state || state.active) return;
+    if (['touch', 'pen'].includes(state.pointerType) && touchTarget) suppressTouchClickUntil = Date.now() + 600;
     const itemRect = state.item.getBoundingClientRect();
+    const originNextSibling = state.item.nextSibling;
     const preview = previewSelector ? state.item.querySelector(previewSelector) : state.item;
     const previewSource = preview || state.item;
     const rect = previewSource.getBoundingClientRect();
-    const handleRect = handle.getBoundingClientRect();
     let placeholder = null;
     if (!deferredDrop) {
       const itemStyle = getComputedStyle(state.item);
       placeholder = document.createElement('div');
-      placeholder.className = 'mobile-drag-placeholder';
+      placeholder.className = `mobile-drag-placeholder${placeholderClass ? ` ${placeholderClass}` : ''}`;
       Object.assign(placeholder.style, {
         boxSizing: 'border-box',
         height: `${itemRect.height}px`,
@@ -146,11 +247,16 @@ export function bindPresentationReorderHandle(handle, {
     }
     const ghost = previewSource.cloneNode(true);
     copyRenderedStyles(previewSource, ghost);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.inert = true;
+    ghost.querySelectorAll('a,button,input,select,textarea,[tabindex]').forEach((element) => element.setAttribute('tabindex', '-1'));
     ghost.classList.remove('is-dragging');
     ghost.classList.add('mobile-drag-ghost');
     if (previewClass) ghost.classList.add(previewClass);
-    const handleCenterX = handleRect.left + (handleRect.width / 2) - rect.left;
-    const handleCenterY = handleRect.top + (handleRect.height / 2) - rect.top;
+    const pointerOffsetX = state.originX - rect.left;
+    const pointerOffsetY = state.originY - rect.top;
     Object.assign(ghost.style, {
       position: 'fixed',
       zIndex: '9999',
@@ -162,11 +268,11 @@ export function bindPresentationReorderHandle(handle, {
       minHeight: '0',
       maxHeight: 'none',
       margin: '0',
-      left: `${state.x - handleCenterX}px`,
-      top: `${state.y - handleCenterY}px`,
+      left: `${lockAxis === 'y' ? rect.left : state.x - pointerOffsetX}px`,
+      top: `${state.y - pointerOffsetY}px`,
       pointerEvents: 'none',
       boxShadow: '0 10px 24px rgba(0, 0, 0, .48)',
-      opacity: deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9')
+      opacity: ghostOpacity || (deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9'))
     });
     if (placeholder) state.item.replaceWith(placeholder);
     state.item.classList.add('is-dragging');
@@ -174,44 +280,42 @@ export function bindPresentationReorderHandle(handle, {
     ghostHost.className = 'directive-expanded-shell directive-drag-layer';
     document.body.appendChild(ghostHost);
     ghostHost.appendChild(ghost);
-    const ghostHandle = [...ghost.querySelectorAll('button')]
-      .find((candidate) => candidate.getAttribute('aria-label') === handle.getAttribute('aria-label'));
-    if (ghostHandle) {
-      const ghostHandleRect = ghostHandle.getBoundingClientRect();
-      const deltaX = state.x - (ghostHandleRect.left + ghostHandleRect.width / 2);
-      const deltaY = state.y - (ghostHandleRect.top + ghostHandleRect.height / 2);
-      ghost.style.left = `${Number.parseFloat(ghost.style.left) + deltaX}px`;
-      ghost.style.top = `${Number.parseFloat(ghost.style.top) + deltaY}px`;
-    }
     const positionedRect = ghost.getBoundingClientRect();
-    const positionedHandleCenterX = state.x - positionedRect.left;
-    const positionedHandleCenterY = state.y - positionedRect.top;
+    const positionedPointerOffsetX = state.x - positionedRect.left;
+    const positionedPointerOffsetY = state.y - positionedRect.top;
+    const captureTarget = placeholder || state.item;
+    try { captureTarget?.setPointerCapture?.(state.pointerId); } catch { /* Synthetic and legacy touch events may not expose an active pointer. */ }
     Object.assign(state, {
       active: true,
       placeholder,
       ghost,
       ghostHost,
-      handleCenterX: positionedHandleCenterX,
-      handleCenterY: positionedHandleCenterY,
-      scroll: scrollContainerFor(state.list)
+      handleCenterX: positionedPointerOffsetX,
+      handleCenterY: positionedPointerOffsetY,
+      captureTarget,
+      scroll: scrollContainerFor(state.list),
+      reflowAnimations: new Set(),
+      autoScrollFrame: 0,
+      originList: state.list,
+      originNextSibling,
+      hitTestX: itemRect.left + (itemRect.width / 2)
     });
+    requestVibration(liftVibrationMs);
   };
-  const movePointer = (event) => {
-    if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
-    const movedBeforeLift = Math.abs(event.clientX - state.originX) > 8 || Math.abs(event.clientY - state.originY) > 8;
-    state.x = event.clientX; state.y = event.clientY;
-    if (!state.active) {
-      if (movedBeforeLift) end(false);
-      return;
-    }
-    if (!deferredDrop) state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
-    state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
+  const updateDropTarget = (clientX, clientY) => {
+    if (!state?.active) return;
     state.ghost.hidden = true;
-    const hovered = state.ownerDocument.elementFromPoint(event.clientX, event.clientY);
+    const hovered = state.ownerDocument.elementFromPoint(lockAxis === 'y' ? state.hitTestX : clientX, clientY);
     state.ghost.hidden = false;
     let dropList = dropListSelector ? hovered?.closest(dropListSelector) : state.list;
     if (!dropList && dropZoneSelector) dropList = hovered?.closest(dropZoneSelector)?.querySelector(dropListSelector);
+    if (dropList && dropList.getClientRects().length === 0) dropList = null;
     const target = hovered?.closest(itemSelector);
+    if (state.placeholder && (hovered === state.placeholder || state.placeholder.contains(hovered))) {
+      state.dropList = state.placeholder.parentElement;
+      state.beforeItem = state.placeholder.nextElementSibling?.matches?.(itemSelector) ? state.placeholder.nextElementSibling : null;
+      return;
+    }
     if (deferredDrop) {
       clearDropMarkers();
       state.dropList = null;
@@ -220,7 +324,7 @@ export function bindPresentationReorderHandle(handle, {
         const candidates = [...dropList.querySelectorAll(`:scope > ${itemSelector}`)].filter((item) => item !== state.item);
         const targetIndex = candidates.indexOf(target);
         const rect = target.getBoundingClientRect();
-        const beforeItem = event.clientY < rect.top + rect.height / 2 ? target : candidates[targetIndex + 1] || null;
+        const beforeItem = clientY < rect.top + rect.height / 2 ? target : candidates[targetIndex + 1] || null;
         state.dropList = dropList;
         state.beforeItem = beforeItem;
         if (beforeItem) beforeItem.classList.add(dropBeforeClass);
@@ -231,47 +335,97 @@ export function bindPresentationReorderHandle(handle, {
       }
     } else if (dropList && target && target !== state.item && target.parentElement === dropList) {
       const rect = target.getBoundingClientRect();
-      target.parentElement.insertBefore(state.placeholder, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
+      relocatePlaceholder(target.parentElement, clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
       state.dropList = dropList;
     } else if (dropList) {
-      dropList.appendChild(state.placeholder);
+      relocatePlaceholder(dropList);
       state.dropList = dropList;
+    } else {
+      state.dropList = null;
     }
-    const scroll = state.scroll;
-    if (scroll) {
-      const rect = scroll === state.ownerDocument.scrollingElement ? { top: 0, bottom: state.blurTarget.innerHeight } : scroll.getBoundingClientRect();
-      if (event.clientY < rect.top + 44) scroll.scrollTop -= 14;
-      else if (event.clientY > rect.bottom - 44) scroll.scrollTop += 14;
+  };
+  const scrollAtActiveEdge = () => {
+    const scroll = state?.scroll;
+    if (!scroll || !state?.active) return false;
+    const rect = scroll === state.ownerDocument.scrollingElement ? { top: 0, bottom: state.blurTarget.innerHeight } : scroll.getBoundingClientRect();
+    let delta = 0;
+    if (state.y < rect.top + autoScrollEdgePx) {
+      const intensity = Math.min(1, Math.max(0, (rect.top + autoScrollEdgePx - state.y) / autoScrollEdgePx));
+      delta = -Math.max(1, Math.round(autoScrollMaxStep * intensity));
+    } else if (state.y > rect.bottom - autoScrollEdgePx) {
+      const intensity = Math.min(1, Math.max(0, (state.y - (rect.bottom - autoScrollEdgePx)) / autoScrollEdgePx));
+      delta = Math.max(1, Math.round(autoScrollMaxStep * intensity));
     }
+    if (!delta) return false;
+    const before = scroll.scrollTop;
+    scroll.scrollTop += delta;
+    return scroll.scrollTop !== before;
+  };
+  const continueAutoScroll = () => {
+    if (!state) return;
+    state.autoScrollFrame = 0;
+    if (!scrollAtActiveEdge()) return;
+    updateDropTarget(state.x, state.y);
+    state.autoScrollFrame = state.blurTarget?.requestAnimationFrame?.(continueAutoScroll) || 0;
+  };
+  const movePointer = (event) => {
+    if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    const movedBeforeLift = Math.abs(event.clientX - state.originX) > 8 || Math.abs(event.clientY - state.originY) > 8;
+    state.x = event.clientX; state.y = event.clientY;
+    if (!state.active) {
+      if (movedBeforeLift) end(false);
+      return;
+    }
+    event.preventDefault?.();
+    if (!deferredDrop && lockAxis !== 'y') state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
+    state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
+    updateDropTarget(event.clientX, event.clientY);
+    const scrolled = scrollAtActiveEdge();
+    if (scrolled) updateDropTarget(state.x, state.y);
+    if (scrolled && !state.autoScrollFrame) state.autoScrollFrame = state.blurTarget?.requestAnimationFrame?.(continueAutoScroll) || 0;
   };
   const finishPointer = (event) => {
     if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
+    if (state.active && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) movePointer(event);
     end(true);
   };
   const cancelPointer = (event) => {
     if (!state || (state.pointerId !== undefined && event.pointerId !== state.pointerId)) return;
     end(false);
   };
-  handle.addEventListener('pointerdown', (event) => {
+  const beginPointer = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
+    const pointerType = event.pointerType || 'mouse';
+    const coarse = ['touch', 'pen'].includes(pointerType);
+    if (event.currentTarget !== handle && (!coarse || handle.contains(event.target))) return;
     const item = handle.closest(itemSelector);
     const list = handle.closest(listSelector);
     const id = item?.getAttribute(idAttribute);
     if (!item || !list || !id) return;
-    event.preventDefault();
+    if (!coarse) event.preventDefault();
     end(false);
-    try { handle.setPointerCapture?.(event.pointerId); } catch { /* Synthetic and legacy touch events may not expose an active pointer. */ }
     const ownerDocument = handle.ownerDocument || document;
     const blurTarget = handle.ownerDocument?.defaultView || globalThis;
-    const onWindowBlur = () => end(false);
+    const onWindowBlur = () => end(false, { instant: true });
+    const onTouchMove = (touchEvent) => {
+      if (state?.active) touchEvent.preventDefault();
+    };
+    const onKeyDown = (keyEvent) => {
+      if (keyEvent.key !== 'Escape') return;
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
+      end(false);
+    };
     state = {
-      item, list, id,
+      item, list, id, handle,
       x: event.clientX, y: event.clientY,
       originX: event.clientX, originY: event.clientY,
       pointerId: event.pointerId,
-      pointerType: event.pointerType || 'mouse',
+      pointerType,
       active: false, timer: 0,
-      ownerDocument, blurTarget, onWindowBlur,
+      restoreFocusOnCancel: !coarse && event.currentTarget === handle,
+      ownerDocument, blurTarget, onWindowBlur, onKeyDown, onTouchMove,
+      captureTarget: event.currentTarget || handle,
       onPointerMove: movePointer,
       onPointerUp: finishPointer,
       onPointerCancel: cancelPointer
@@ -280,8 +434,19 @@ export function bindPresentationReorderHandle(handle, {
     ownerDocument.addEventListener('pointermove', movePointer, true);
     ownerDocument.addEventListener('pointerup', finishPointer, true);
     ownerDocument.addEventListener('pointercancel', cancelPointer, true);
-    if (['touch', 'pen'].includes(state.pointerType)) state.timer = setTimeout(activate, longPressMs);
+    ownerDocument.addEventListener('keydown', onKeyDown, true);
+    if (coarse) ownerDocument.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+    if (coarse) state.timer = setTimeout(activate, longPressMs);
     else activate();
-  });
+  };
+  handle.addEventListener('pointerdown', beginPointer);
+  if (touchTarget && touchTarget !== handle) {
+    touchTarget.addEventListener('pointerdown', beginPointer);
+    touchTarget.addEventListener('click', (event) => {
+      if (Date.now() >= suppressTouchClickUntil) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+  }
   return handle;
 }

@@ -112,7 +112,17 @@ function personReorderHandle(person, category, controller, rerender, options = {
     },
     dropListSelector: '.collection-person-list',
     dropZoneSelector: '.collection-category',
-    deferredDrop: true,
+    deferredDrop: false,
+    placeholderClass: 'people-card-drop-slot',
+    ghostOpacity: '.96',
+    lockAxis: 'y',
+    reflowRootSelector: '.people-journal-host',
+    reflowDurationMs: 170,
+    dropDurationMs: 160,
+    liftVibrationMs: 10,
+    dropVibrationMs: 8,
+    autoScrollEdgePx: 52,
+    autoScrollMaxStep: 16,
     dropRootSelector: '.people-journal-host',
     dropBeforeClass: 'is-drop-before',
     dropTargetClass: 'is-drop-target',
@@ -428,8 +438,8 @@ function createMobileRecord(model, person, category, controller, rerender, discl
   chevron.textContent = '›';
   toggle.append(createRecordCopy(person), chevron);
   head.append(toggle, personReorderHandle(person, category, controller, rerender, {
-    previewSelector: '.mobile-accordion-head',
-    previewClass: 'people-drag-ghost'
+    previewClass: 'people-drag-ghost',
+    touchTarget: item
   }));
   item.appendChild(head);
   let mobileDetail = null;
