@@ -221,7 +221,7 @@ function createRecordCopy(person) {
   return copy;
 }
 
-function createDesktopRecord(model, person, category, controller, rerender) {
+function createDesktopRecord(model, person, category, controller, rerender, selectionState) {
   const row = createElement('article', `collection-person-row${controller.snapshot().selectedPersonId === person.id ? ' active' : ''}`);
   row.dataset.personId = person.id;
   const select = createElement('button', 'people-row');
@@ -234,10 +234,11 @@ function createDesktopRecord(model, person, category, controller, rerender) {
     previewClass: 'people-drag-ghost'
   });
   row.append(select, handle);
+  selectionState?.records.set(person.id, { row, select });
   return row;
 }
 
-function createCategory(model, category, controller, rerender, mobile = false) {
+function createCategory(model, category, controller, rerender, mobile = false, renderState = {}) {
   const section = createElement('section', `collection-category${mobile ? ' mobile-people-category' : ''}`);
   section.dataset.categoryId = category.id;
   const head = createElement('header', 'collection-category-head');
@@ -264,8 +265,8 @@ function createCategory(model, category, controller, rerender, mobile = false) {
     const person = recordById(model, personId);
     if (!person) continue;
     list.appendChild(mobile
-      ? createMobileRecord(model, person, category, controller, rerender)
-      : createDesktopRecord(model, person, category, controller, rerender));
+      ? createMobileRecord(model, person, category, controller, rerender, renderState.mobile)
+      : createDesktopRecord(model, person, category, controller, rerender, renderState.desktop));
   }
   section.appendChild(list);
   return section;
@@ -326,7 +327,7 @@ export function createPeopleDetail(model, record, { mobile = false } = {}) {
   return detail;
 }
 
-function createMobileRecord(model, person, category, controller, rerender) {
+function createMobileRecord(model, person, category, controller, rerender, disclosureState) {
   const openId = openMobilePersonByScope.has(model.scopeKey)
     ? openMobilePersonByScope.get(model.scopeKey)
     : controller.snapshot().selectedPersonId;
@@ -342,20 +343,39 @@ function createMobileRecord(model, person, category, controller, rerender) {
   const chevron = createElement('span', 'mobile-accordion-chevron');
   chevron.textContent = '›';
   toggle.append(createRecordCopy(person), chevron);
-  toggle.addEventListener('click', () => {
-    openMobilePersonByScope.set(model.scopeKey, open ? '' : person.id);
-    controller.select(person.id);
-    rerender();
-  });
   head.append(toggle, personReorderHandle(person, category, controller, rerender, {
     previewSelector: '.mobile-accordion-head',
     previewClass: 'people-drag-ghost'
   }));
   item.appendChild(head);
+  let mobileDetail = null;
+  const setExpanded = (expanded) => {
+    item.classList.toggle('is-open', expanded);
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (expanded && !mobileDetail) {
+      mobileDetail = createElement('div', 'mobile-accordion-detail');
+      mobileDetail.appendChild(createPeopleDetail(model, person, { mobile: true }));
+      item.appendChild(mobileDetail);
+    } else if (!expanded && mobileDetail) {
+      mobileDetail.remove();
+      mobileDetail = null;
+    }
+  };
+  const disclosure = { item, setExpanded };
+  toggle.addEventListener('click', () => {
+    const expanding = !item.classList.contains('is-open');
+    if (expanding && disclosureState?.openRecord && disclosureState.openRecord !== disclosure) {
+      disclosureState.openRecord.setExpanded(false);
+    }
+    setExpanded(expanding);
+    if (disclosureState) disclosureState.openRecord = expanding ? disclosure : null;
+    openMobilePersonByScope.set(model.scopeKey, expanding ? person.id : '');
+    controller.select(person.id);
+    disclosureState?.select(person);
+  });
   if (open) {
-    const mobileDetail = createElement('div', 'mobile-accordion-detail');
-    mobileDetail.appendChild(createPeopleDetail(model, person, { mobile: true }));
-    item.appendChild(mobileDetail);
+    setExpanded(true);
+    if (disclosureState) disclosureState.openRecord = disclosure;
   }
   return item;
 }
@@ -399,13 +419,33 @@ export function createPeopleJournal(model, rerender, { storage = globalThis.loca
   roster.appendChild(createToolbar(controller, rerender));
   const categories = createElement('div', 'people-category-list');
   categories.dataset.directiveScrollOwner = 'true';
-  for (const category of snapshot.categories) categories.appendChild(createCategory(model, category, controller, rerender));
+  const desktopSelection = { records: new Map(), detail: null };
+  for (const category of snapshot.categories) {
+    categories.appendChild(createCategory(model, category, controller, rerender, false, { desktop: desktopSelection }));
+  }
   roster.appendChild(categories);
-  desktop.append(roster, createPeopleDetail(model, selected));
+  desktopSelection.detail = createPeopleDetail(model, selected);
+  desktop.append(roster, desktopSelection.detail);
+
+  const mobileDisclosure = {
+    openRecord: null,
+    select(person) {
+      for (const [personId, record] of desktopSelection.records) {
+        const active = personId === person.id;
+        record.row.classList.toggle('active', active);
+        record.select.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+      const nextDetail = createPeopleDetail(model, person);
+      desktopSelection.detail.parentNode?.replaceChild(nextDetail, desktopSelection.detail);
+      desktopSelection.detail = nextDetail;
+    }
+  };
 
   const mobile = createElement('div', 'mobile-crew-accordion');
   mobile.appendChild(createToolbar(controller, rerender));
-  for (const category of snapshot.categories) mobile.appendChild(createCategory(model, category, controller, rerender, true));
+  for (const category of snapshot.categories) {
+    mobile.appendChild(createCategory(model, category, controller, rerender, true, { mobile: mobileDisclosure }));
+  }
   host.append(desktop, mobile);
   return host;
 }
