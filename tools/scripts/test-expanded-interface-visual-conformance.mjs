@@ -435,6 +435,37 @@ try {
     && document.querySelector('.people-drag-ghost')
     && !document.querySelector('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]')
   ));
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-1024x768.png') });
+  const heldCardPresentation = await peoplePage.locator('.people-drag-ghost').evaluate((ghost) => {
+    const style = getComputedStyle(ghost);
+    const layerZ = Number.parseInt(getComputedStyle(ghost.parentElement).zIndex, 10);
+    const shellZ = Number.parseInt(getComputedStyle(document.querySelector('.directive-runtime-panel.directive-expanded-shell')).zIndex, 10);
+    return {
+      aboveShell: layerZ > shellZ,
+      borderStyles: [style.borderTopStyle, style.borderRightStyle, style.borderBottomStyle, style.borderLeftStyle],
+      background: style.backgroundColor,
+      transform: style.transform,
+      willChange: style.willChange,
+      active: ghost.classList.contains('active'),
+      inlineDeclarations: [ghost, ...ghost.querySelectorAll('*')]
+        .reduce((total, element) => total + element.style.length, 0)
+    };
+  });
+  assert.deepEqual({
+    aboveShell: heldCardPresentation.aboveShell,
+    borderStyles: heldCardPresentation.borderStyles,
+    background: heldCardPresentation.background,
+    willChange: heldCardPresentation.willChange,
+    active: heldCardPresentation.active
+  }, {
+    aboveShell: true,
+    borderStyles: ['solid', 'solid', 'solid', 'solid'],
+    background: 'rgb(20, 18, 28)',
+    willChange: 'transform',
+    active: false
+  }, 'the held card must render as one complete elevated dossier above the Directive shell');
+  assert.notEqual(heldCardPresentation.transform, 'none', 'the held card must use a compositor transform');
+  assert.ok(heldCardPresentation.inlineDeclarations < 100, 'lifting a card must not snapshot thousands of computed declarations');
   assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10], 'lifting a person card must request one short haptic pulse');
   const ghostInitialBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
   assert.equal(Math.round(ghostInitialBox.x), Math.round(maraCardBox.x), 'lifting from an off-center point must not make the card jump');
