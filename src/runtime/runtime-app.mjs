@@ -8,6 +8,7 @@ import {
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
+import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import {
   deleteV1PlayerPortrait,
@@ -81,6 +82,50 @@ function isUserMessage(message = {}) {
   return message.isUser === true || message.is_user === true || message.role === 'user';
 }
 
+function activeSourceRow(message = {}) {
+  const inferred = normalizeV1HostMessageVisibility(message.raw || message);
+  const visibility = object(message.visibility)
+    ? { ...inferred, ...message.visibility }
+    : inferred;
+  return visibility.sourceRowExists !== false
+    && visibility.hiddenByHost !== true
+    && visibility.sourceMutation !== true;
+}
+
+export function createActiveAcceptedPairLineage({
+  campaignState,
+  recentMessages = [],
+  chatId = null
+} = {}) {
+  const activeMessages = (Array.isArray(recentMessages) ? recentMessages : [])
+    .filter(activeSourceRow);
+  const lineage = [];
+  const seenPlayerMessageIds = new Set();
+  for (const message of activeMessages) {
+    if (!isUserMessage(message)) continue;
+    const prepared = prepareV1AcceptedPairSnapshot({
+      campaignState,
+      currentPlayerMessage: message,
+      recentMessages: activeMessages,
+      chatId
+    });
+    if (!prepared.ok) continue;
+    const currentPlayerHostMessageId = compact(
+      prepared.snapshot?.source?.currentPlayer?.hostMessageId
+    );
+    if (!currentPlayerHostMessageId || seenPlayerMessageIds.has(currentPlayerHostMessageId)) continue;
+    seenPlayerMessageIds.add(currentPlayerHostMessageId);
+    lineage.push({
+      previousAssistantHostMessageId: compact(
+        prepared.snapshot?.source?.previousAssistant?.hostMessageId
+      ) || null,
+      currentPlayerHostMessageId,
+      sourceRangeHash: compact(prepared.snapshot?.source?.sourceRangeHash) || null
+    });
+  }
+  return lineage;
+}
+
 function timeHeader(state) {
   const stardate = Number(state?.timeLedger?.stardate ?? state?.campaign?.currentStardate);
   const minute = Number(state?.timeLedger?.shipClock?.minuteOfDay);
@@ -129,7 +174,47 @@ function playerPortraitImportSupported(host) {
     && typeof host?.storage?.deleteFile === 'function';
 }
 
-function promptPacket({ state, projection, runtimeAssets }) {
+function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [] }) {
+  const campaign = runtimeAssets?.packageData?.campaign;
+  const openingContext = campaign?.openingContext;
+  if (!openingContext) {
+    throw new Error('Directive V1 runtime assets require campaign.openingContext.');
+  }
+  const acceptedPairCount = acceptedPairLineage.length;
+  const unanswered = acceptedPairCount === 0;
+  if (unanswered) {
+    return {
+      phase: 'unanswered',
+      canonicalOpeningMessage: campaign.openingMessage,
+      continuitySummary: openingContext.continuitySummary,
+      firstPlayableScene: openingContext.firstPlayableScene,
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+    };
+  }
+  const openingMissionId = runtimeAssets.packageData.manifest.openingMissionId;
+  const inOpeningMission = state.mission?.activeMissionId === openingMissionId;
+  const handoverTerminal = state.mission?.v1?.objectives?.['objective.prelude.command-handover']?.state === 'terminal';
+  if (inOpeningMission && !handoverTerminal) {
+    return {
+      phase: 'firstMeeting',
+      stage: acceptedPairCount === 1 ? 'introductionPending' : 'conversationAnswered',
+      continuitySummary: openingContext.continuitySummary,
+      firstPlayableScene: openingContext.firstPlayableScene,
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+    };
+  }
+  return {
+    phase: 'continuity',
+    continuitySummary: openingContext.continuitySummary
+  };
+}
+
+export function createV1RuntimePromptPacket({
+  state,
+  projection,
+  runtimeAssets,
+  acceptedPairLineage = []
+}) {
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
     storyProjection: projection.story,
@@ -173,6 +258,7 @@ function promptPacket({ state, projection, runtimeAssets }) {
       })),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
+    opening: openingPromptProjection({ state, runtimeAssets, acceptedPairLineage }),
     acceptedStory: story
   };
   const text = [
@@ -182,6 +268,15 @@ function promptPacket({ state, projection, runtimeAssets }) {
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
+    payload.opening.phase === 'unanswered'
+      ? 'OPENING REGENERATION: Preserve every established opening beat in opening.canonicalOpeningMessage and opening.continuitySummary. Wording may vary, but end at opening.firstPlayableScene. Do not take the player through the ready-room door, decide their action, or advance into the meeting.'
+      : 'Treat opening.continuitySummary as established past experience. Do not replay or recap it unless the player naturally calls for it.',
+    payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'introductionPending'
+      ? 'FIRST MEETING: This response is only the greeting, ordinary courtesy, and one genuine conversational opening. Follow opening.firstSceneGuidance in order. Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet. End after Whitaker gives the player a natural opening to answer and establish their own social posture.'
+      : '',
+    payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'conversationAnswered'
+      ? 'FIRST MEETING CONTINUATION: The player has answered Whitaker’s conversational opening, so the first-reply-only restrictions in opening.firstSceneGuidance are satisfied and no longer apply. Preserve the established warmth and transition naturally into the command handover without turning it into an interrogation, wartime emergency, or abrupt mission briefing.'
+      : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
       : '',
@@ -336,10 +431,29 @@ export function createDirectiveRuntimeApp({
       error.code = 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE';
       throw error;
     }
+    const recentMessages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+    if (!state || !currentChatIsBound()) {
+      await restoreNarrationPreset();
+      await host.prompt.clear?.({ reason: 'chat-changed-during-history-read' });
+      return { ok: true, active: false };
+    }
+    const normalizedMessages = recentMessages
+      .map((message) => normalizeMessage(host, message))
+      .filter(Boolean);
+    const acceptedPairLineage = createActiveAcceptedPairLineage({
+      campaignState: state,
+      recentMessages: normalizedMessages,
+      chatId: host.chat.getCurrentChatId?.()
+    });
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),
-      packet: promptPacket({ state, projection: result.projection, runtimeAssets })
+      packet: createV1RuntimePromptPacket({
+        state,
+        projection: result.projection,
+        runtimeAssets,
+        acceptedPairLineage
+      })
     });
   }
 
@@ -529,6 +643,9 @@ export function createDirectiveRuntimeApp({
       await host.chat.updateBindingMetadata?.(exactBinding);
       return exactBinding;
     } catch (error) {
+      if (!binding && error?.createdBinding?.createdByDirective === true) {
+        binding = clone(error.createdBinding);
+      }
       try {
         const restored = await controller.persistActiveCampaign({
           campaignState: previousState,

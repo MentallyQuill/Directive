@@ -9,6 +9,13 @@ const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
 const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
 const DIRECTIVE_CHARACTER_CREATOR_NOTES = 'Created automatically by Directive so a campaign can start in its own SillyTavern character card and chat.';
 const SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR = 'regenerate';
+const FRESH_CHAT_AUTHOR_NOTE_DEFAULTS = Object.freeze({
+  note_prompt: '',
+  note_interval: 1,
+  note_position: 1,
+  note_depth: 4,
+  note_role: 0
+});
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -346,7 +353,9 @@ async function saveChat(context) {
     || globalThis.SillyTavern?.getContext?.()?.saveChat;
   if (typeof save === 'function') {
     await save.call(context);
+    return true;
   }
+  return false;
 }
 
 async function saveMetadata(context) {
@@ -747,29 +756,51 @@ async function createAndSelectDirectiveCharacter(context, {
 
 async function clearFreshDirectiveChatOpeningMessages(context) {
   const chat = getChatArray(context);
-  if (!chat.length) {
-    return { removedMessageCount: 0, status: 'empty' };
-  }
+  const metadata = chatMetadataObject(context);
+  const hadInheritedAuthorNote = Boolean(nonEmptyString(metadata?.note_prompt));
+  Object.assign(metadata, FRESH_CHAT_AUTHOR_NOTE_DEFAULTS);
   const canClear = chat.every((message) => (
     message?.is_user !== true
     && message?.role !== 'user'
     && !directiveMetadata(message)
   ));
+  let result;
   if (!canClear) {
-    return {
+    result = {
       removedMessageCount: 0,
       preservedMessageCount: chat.length,
       status: 'preserved',
       reason: 'unexpected-fresh-chat-history'
     };
+  } else {
+    const removedMessageCount = chat.length;
+    chat.splice(0, chat.length);
+    result = {
+      removedMessageCount,
+      status: removedMessageCount > 0 ? 'cleared' : 'empty',
+      reason: removedMessageCount > 0 ? 'host-opening-greeting' : 'fresh-chat-empty'
+    };
   }
-  const removedMessageCount = chat.length;
-  chat.splice(0, chat.length);
-  await saveChat(context);
+  let persisted = false;
+  try {
+    persisted = await saveChat(context);
+  } catch (cause) {
+    const error = new Error("Directive could not persist fresh campaign chat Author's Note isolation.");
+    error.code = 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED';
+    error.retryable = true;
+    error.cause = cause;
+    throw error;
+  }
+  if (!persisted && hadInheritedAuthorNote) {
+    const error = new Error("Directive could not persist fresh campaign chat Author's Note isolation because the host persistence API is unavailable.");
+    error.code = 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED';
+    error.retryable = true;
+    throw error;
+  }
   return {
-    removedMessageCount,
-    status: 'cleared',
-    reason: 'host-opening-greeting'
+    ...result,
+    hadInheritedAuthorNote,
+    sanitizedAuthorNote: persisted || !hadInheritedAuthorNote
   };
 }
 
@@ -1150,7 +1181,26 @@ export function createSillyTavernChatAdapter({
           // Chat creation remains valid when the host refuses an automatic rename.
         }
       }
-      freshChatCleanup = await clearFreshDirectiveChatOpeningMessages(ctx);
+      try {
+        freshChatCleanup = await clearFreshDirectiveChatOpeningMessages(ctx);
+      } catch (error) {
+        const failedChatId = nonEmptyString(result.chatId) || contextChatId(ctx);
+        if (result.created === true && failedChatId) {
+          error.createdBinding = {
+            hostId: 'sillytavern',
+            chatId: failedChatId,
+            campaignId: nonEmptyString(campaignId),
+            saveId: nonEmptyString(saveId),
+            entityType: directiveEntity?.entityType || null,
+            entityId: directiveEntity?.entityId || null,
+            entityName: directiveEntity?.entityName || null,
+            chatName: nonEmptyString(result.name) || nonEmptyString(name),
+            createdByDirective: true,
+            creationMethod: result.method || null
+          };
+        }
+        throw error;
+      }
     }
 
     const chatId = nonEmptyString(result.chatId) || contextChatId(ctx);
