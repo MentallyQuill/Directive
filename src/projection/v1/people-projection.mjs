@@ -64,6 +64,12 @@ export function createPeoplePlayerProjection({
             id: officer.id,
             name: officer.name,
             billet: officer.billet,
+            categoryId: compact(officer.categoryId) || 'unknown-unsorted',
+            portrait: {
+                kind: 'crew.portrait.formal',
+                subjectId: officer.id,
+            },
+            service: structuredClone(officer.service || null),
             profileSummary: compact(officer.profileSummary),
             relationshipPosture: visibleRelationshipPosture(storySettlement, officer.id),
             moments: personMoments,

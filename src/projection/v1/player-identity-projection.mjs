@@ -41,6 +41,13 @@ export function createPlayerIdentityProjection({ campaignState = {} } = {}) {
     rank: player.rank,
     billet: player.billet,
     role: player.role,
+    categoryId: 'ships-company',
+    service: {
+      organization: 'starfleet',
+      department: 'command',
+      rankCode: 'commander',
+      rankLabel: 'Commander'
+    },
     species: copy(player.species),
     appearance: player.appearance,
     firstImpression: player.firstImpression,

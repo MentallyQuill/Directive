@@ -42,7 +42,19 @@ assert.equal(
     true,
     'the People page does not duplicate the active mission',
 );
-assert.match(baseline.people.find((person) => person.id === 'mara-whitaker').profileSummary, /first and current commanding officer/i);
+const baselineWhitaker = baseline.people.find((person) => person.id === 'mara-whitaker');
+assert.match(baselineWhitaker.profileSummary, /first and current commanding officer/i);
+assert.deepEqual(baselineWhitaker.portrait, {
+    kind: 'crew.portrait.formal',
+    subjectId: 'mara-whitaker',
+});
+assert.deepEqual(baselineWhitaker.service, {
+    organization: 'starfleet',
+    department: 'command',
+    rankCode: 'captain',
+    rankLabel: 'Captain',
+});
+assert.equal(baselineWhitaker.categoryId, 'ships-company');
 for (const forbidden of [
     'professionalConfidence',
     'integrityTrust',

@@ -12,6 +12,8 @@
       "id": "mara-whitaker",
       "name": "Mara Whitaker",
       "billet": "Commanding Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "command", "rankCode": "captain", "rankLabel": "Captain" },
       "profileSummary": "Captain Mara Whitaker is the Breckenridge's first and current commanding officer, known for deliberative command, principled process, and politically sensitive assignments.",
       "narrationGuide": {
         "voice": "Measured, attentive, and concise. Under stress she becomes quieter, more precise, and more formal; her dry humor targets circumstances rather than people.",
@@ -25,6 +27,8 @@
       "id": "kieran-vale",
       "name": "Kieran Vale",
       "billet": "Flight Control Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "flight", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Kieran Vale is an exceptional flight-control officer known for high-stress navigation, visible ambition, and a wartime rescue maneuver that earned both commendation and reprimand.",
       "narrationGuide": {
         "voice": "Concrete about time, vectors, margins, and options; confident and socially quick, with humor that lowers tension and tests how much freedom he has.",
@@ -38,6 +42,8 @@
       "id": "priya-nayar",
       "name": "Priya Nayar",
       "billet": "Operations Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "operations", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Priya Nayar is an operations officer with an enlisted-to-officer path, wartime logistics experience, and a gift for seeing dependencies among people, permissions, systems, and timing.",
       "narrationGuide": {
         "voice": "Calm and exact about dependencies, access, sequence, people, and obligations. Under stress she grows more courteous, indirect, and likely to solve around people.",
@@ -51,6 +57,8 @@
       "id": "hadrik-bronn",
       "name": "Hadrik Bronn",
       "billet": "Chief Tactical and Security Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "tactical", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran tactical and security chief, an original senior officer, and the temporary acting XO during the post-refit transit.",
       "narrationGuide": {
         "voice": "Direct, adversarial, specific, and more socially engaged than his manner first suggests. He criticizes plans, assumptions, and conduct rather than inherent worth.",
@@ -64,6 +72,8 @@
       "id": "rowan-saye",
       "name": "Rowan Saye",
       "billet": "Chief Science Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "science", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Rowan Saye is a brilliant, exacting science officer whose Helios Wake disclosure left them vindicated, censured, and alert to institutional pressure on evidence.",
       "narrationGuide": {
         "voice": "Precise, dry, and qualified when regulated. Under stress, fact, inference, and suspicion begin to collapse and their language becomes more absolute.",
@@ -77,6 +87,8 @@
       "id": "miriam-sato",
       "name": "Miriam Sato",
       "billet": "Chief Medical Officer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "medical", "rankCode": "commander", "rankLabel": "Commander" },
       "profileSummary": "Commander Miriam Sato is the chief medical officer, a trauma and bioethics specialist who names the human and medical cost of command decisions without demanding that command become risk-free.",
       "narrationGuide": {
         "voice": "Names people, injuries, durations, probabilities, consent, and duty fitness. In ethical conflict she slows down and insists on specific language.",
@@ -90,6 +102,8 @@
       "id": "imani-cross",
       "name": "Imani Cross",
       "billet": "Chief Engineer",
+      "categoryId": "ships-company",
+      "service": { "organization": "starfleet", "department": "engineering", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Imani Cross is the Breckenridge's chief engineer, a systems-integration expert with deep knowledge of the refit and legally recognized continuity after a 2374 transporter duplication.",
       "narrationGuide": {
         "voice": "Describes risk through dependencies, failure modes, reversibility, debt, and time. She corrects imprecise technical and identity language.",
