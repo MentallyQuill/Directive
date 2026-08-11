@@ -543,6 +543,10 @@ try {
   assert.equal(await mobilePeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"].active').count(), 1, 'mobile disclosure must synchronize desktop selection');
   const expandedTouchCard = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="hadrik-bronn"]');
   const expandedTouchDetail = expandedTouchCard.locator('.mobile-accordion-detail');
+  const mobileServiceRecord = expandedTouchDetail.locator('.people-service-record');
+  assert.equal(await mobileServiceRecord.count(), 1, 'expanded mobile crew detail must render one public service record');
+  assert.match(await mobileServiceRecord.textContent(), /Late fifties by human comparison/);
+  assert.equal(await mobileServiceRecord.evaluate((record) => record.scrollWidth <= record.clientWidth), true, 'mobile public service record must not overflow its detail column');
   const expandedTouchCardBox = await expandedTouchCard.boundingBox();
   const expandedTouchDetailBox = await expandedTouchDetail.boundingBox();
   await expandedTouchDetail.dispatchEvent('pointerdown', {
