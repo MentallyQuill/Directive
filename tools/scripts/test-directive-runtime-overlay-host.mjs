@@ -120,6 +120,7 @@ class FakeElement {
     if (selector === '[data-directive-runtime-body="true"]') return this.dataset.directiveRuntimeBody === 'true';
     if (selector === '[data-route-id]') return Boolean(this.dataset.routeId);
     if (selector === '[data-shell-action="fullscreen"]') return this.dataset.shellAction === 'fullscreen';
+    if (selector === '[data-shell-action="close"]') return this.dataset.shellAction === 'close';
     return false;
   }
 
@@ -202,6 +203,9 @@ assert.equal(overlay.parentNode, fakeDocument.body, 'runtime overlay should moun
 assert.equal(panel.parentNode, overlay.querySelector('.directive-runtime-panel-host'));
 assert.equal(overlay.hidden, false);
 assert.equal(panel.hidden, false);
+const closeControl = panel.querySelector('[data-shell-action="close"]');
+assert(closeControl, 'runtime panel should render its close control');
+assert.equal(fakeDocument.activeElement, closeControl, 'show should move focus into the rendered close control');
 const assistCancellations = [];
 registerActiveCreatorAssistSession({
   cancel(reason) {
