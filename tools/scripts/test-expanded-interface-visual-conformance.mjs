@@ -198,6 +198,8 @@ try {
         await page.waitForSelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
         const campaign = await page.evaluate(() => {
           const detail = document.querySelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
+          const body = document.querySelector('.campaign-library-detail-body');
+          const description = body?.querySelector('[data-campaign-description]');
           const art = detail.querySelector('.campaign-hero-media');
           const copy = detail.querySelector('.campaign-hero-copy');
           const action = document.querySelector('.campaign-detail .campaign-command-primary');
@@ -210,7 +212,8 @@ try {
           return {
             status: detail.querySelector('.campaign-status')?.textContent || '',
             title: detail.querySelector('h2')?.textContent || '',
-            description: detail.querySelector('[data-campaign-description]')?.textContent || '',
+            description: description?.textContent || '',
+            descriptionOutsideHero: Boolean(description && !detail.contains(description)),
             artOpacity: Number(getComputedStyle(art).opacity),
             artFilter: getComputedStyle(art).filter,
             copyWithinHero: copyBox.top >= detailBox.top - .5 && copyBox.bottom <= detailBox.bottom + .5,
@@ -222,6 +225,7 @@ try {
         assert.match(campaign.status, /Coming later/i);
         assert.match(campaign.title, /Drowned Constellation/);
         assert.match(campaign.description, /Nerine Reef/);
+        assert.equal(campaign.descriptionOutsideHero, true, `${viewport.width}px future Campaign description must sit below the hero`);
         assert.ok(campaign.artOpacity <= .5);
         assert.match(campaign.artFilter, /grayscale\(1\)/);
         assert.equal(campaign.copyWithinHero, true, `${viewport.width}px future Campaign copy must not clip`);
