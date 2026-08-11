@@ -45,16 +45,24 @@ try {
       const row = document.querySelector('.campaign-row');
       const art = row.querySelector('.directive-media-frame');
       const rowStyle = getComputedStyle(row);
+      const artStyle = getComputedStyle(art);
+      const rowTitleStyle = getComputedStyle(row.querySelector('strong'));
+      const rowDescriptionStyle = getComputedStyle(row.querySelector('.campaign-row-description'));
       const heroArt = document.querySelector('.campaign-hero-media');
       const heroArtStyle = getComputedStyle(heroArt);
+      const heroCopyStyle = getComputedStyle(document.querySelector('.campaign-hero-copy'));
       const action = document.querySelector('.campaign-command-primary');
       const artBox = art.getBoundingClientRect();
       return {
         columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
         rowOpacity: Number(rowStyle.opacity),
         rowFilter: rowStyle.filter,
+        artFilter: artStyle.filter,
+        rowTitleOpacity: Number(rowTitleStyle.opacity),
+        rowDescriptionOpacity: Number(rowDescriptionStyle.opacity),
         heroArtOpacity: Number(heroArtStyle.opacity),
         heroArtFilter: heroArtStyle.filter,
+        heroCopyOpacity: Number(heroCopyStyle.opacity),
         actionDisabled: action.disabled,
         artWidth: artBox.width,
         artHeight: artBox.height,
@@ -63,9 +71,13 @@ try {
     });
     assert.equal(metrics.columns, viewport.width <= 640 ? 1 : 2, `${viewport.width}px Campaign master/detail columns`);
     assert.equal(metrics.rowOpacity, 1, `${viewport.width}px Campaign library row must remain full strength`);
-    assert.equal(metrics.rowFilter, 'none', `${viewport.width}px Campaign library row must remain full color`);
+    assert.equal(metrics.rowFilter, 'none', `${viewport.width}px Campaign library row container must remain unfiltered`);
+    assert.match(metrics.artFilter, /grayscale\(1\)/, `${viewport.width}px future Campaign row art must be grayscale`);
+    assert.ok(metrics.rowTitleOpacity < 1, `${viewport.width}px future Campaign row title must be dimmed`);
+    assert.ok(metrics.rowDescriptionOpacity < 1, `${viewport.width}px future Campaign row description must be dimmed`);
     assert.ok(metrics.heroArtOpacity <= .5, `${viewport.width}px future Campaign detail art must be greyed`);
     assert.match(metrics.heroArtFilter, /grayscale\(1\)/, `${viewport.width}px future Campaign detail art must be grayscale`);
+    assert.equal(metrics.heroCopyOpacity, 1, `${viewport.width}px future Campaign detail copy must remain full strength`);
     assert.equal(metrics.actionDisabled, true, `${viewport.width}px New campaign must remain disabled`);
     assert.ok(Math.abs(metrics.artWidth - metrics.artHeight) < .1, `${viewport.width}px Campaign row art must remain square`);
     assert.equal(metrics.overflowX, false, `${viewport.width}px Campaign route must not overflow horizontally`);
