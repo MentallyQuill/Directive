@@ -557,19 +557,20 @@ try {
   await thresholdPage.mouse.down();
   await thresholdPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
   await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdPeerBox.y + thresholdPeerBox.height / 2 + 1);
-  await thresholdPage.waitForTimeout(160);
-  const thresholdState = await thresholdPage.evaluate(() => {
+  const thresholdState = await (await thresholdPage.waitForFunction(() => {
     const slot = document.querySelector('.people-card-drop-slot');
     const peer = document.querySelector('.collection-person-row[data-person-id="mara-whitaker"]');
+    if (!slot || !peer) return false;
     const slotRect = slot.getBoundingClientRect();
     const peerRect = peer.getBoundingClientRect();
-    return {
+    const state = {
       slotAnimations: slot.getAnimations().length,
       peerAnimating: peer.getAnimations().some(({ playState }) => playState === 'running'),
       adjacent: slot.previousElementSibling === peer,
       overlap: Math.min(slotRect.bottom, peerRect.bottom) - Math.max(slotRect.top, peerRect.top)
     };
-  });
+    return state.slotAnimations === 0 && state.peerAnimating && state.adjacent && state.overlap <= 0.5 ? state : false;
+  })).jsonValue();
   assert.equal(thresholdState.slotAnimations, 0, 'crossing a card midpoint must settle the destination slot immediately');
   assert.equal(thresholdState.peerAnimating, true, 'crossing a card midpoint must retain sibling glide');
   assert.equal(thresholdState.adjacent, true, 'the sampled sibling must border the destination slot');
