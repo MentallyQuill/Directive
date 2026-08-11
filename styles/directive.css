@@ -3670,9 +3670,11 @@ textarea.directive-field-control {
 .directive-expanded-shell .people-pips-detail { flex: 0 0 auto; }
 .directive-expanded-shell .mobile-crew-accordion { display: none; }
 .directive-expanded-shell .mobile-drag-placeholder { box-sizing: border-box; min-height: 48px; border: 1px dashed rgba(119, 167, 239, .72); border-radius: 5px; background: rgba(119, 167, 239, .09); }
+.directive-expanded-shell .people-card-drop-slot { border-style: solid; border-color: rgba(119, 167, 239, .92); background: rgba(119, 167, 239, .1); box-shadow: inset 0 0 0 1px rgba(119, 167, 239, .16); }
 .directive-expanded-shell.directive-drag-layer { position: fixed; inset: 0; z-index: 9998; pointer-events: none; }
 .directive-expanded-shell .people-drag-ghost,
 .directive-expanded-shell .people-category-drag-ghost { border: 1px solid var(--directive-expanded-blue); background: var(--directive-expanded-high); }
+.directive-expanded-shell .people-drag-ghost { transform: scale(1.015); transform-origin: center; }
 
 @media (min-width: 641px) and (max-width: 899.98px) {
   .directive-expanded-shell .people-journal { grid-template-columns: 210px minmax(0, 1fr); }

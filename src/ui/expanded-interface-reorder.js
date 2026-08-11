@@ -39,6 +39,12 @@ export function bindPresentationReorderHandle(handle, {
   onCommit,
   previewSelector = '',
   previewClass = '',
+  ghostOpacity = '',
+  placeholderClass = '',
+  lockAxis = '',
+  reflowRootSelector = '',
+  reflowDurationMs = 0,
+  reflowEasing = 'cubic-bezier(.2,.8,.2,1)',
   dropListSelector = '',
   dropZoneSelector = '',
   onDrop = null,
@@ -67,6 +73,33 @@ export function bindPresentationReorderHandle(handle, {
   }
 
   let state = null;
+  const reducedMotion = () => state?.blurTarget?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  const relocatePlaceholder = (parent, before = null) => {
+    if (!state?.placeholder || !parent) return;
+    if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
+    const root = reflowRootSelector ? state.list.closest(reflowRootSelector) : state.ownerDocument;
+    const elements = [state.placeholder, ...(root?.querySelectorAll?.(itemSelector) || [])]
+      .filter((element) => element?.getClientRects?.().length > 0);
+    const beforeRects = new Map(elements.map((element) => [element, element.getBoundingClientRect()]));
+    state.reflowAnimations?.forEach((animation) => animation.cancel());
+    state.reflowAnimations?.clear();
+    parent.insertBefore(state.placeholder, before);
+    const duration = reducedMotion() ? 0 : reflowDurationMs;
+    if (!duration) return;
+    for (const element of elements) {
+      if (!element.isConnected || typeof element.animate !== 'function') continue;
+      const previous = beforeRects.get(element);
+      const next = element.getBoundingClientRect();
+      const deltaY = previous.top - next.top;
+      if (Math.abs(deltaY) < 0.5) continue;
+      const animation = element.animate([
+        { transform: `translateY(${deltaY}px)` },
+        { transform: 'translateY(0)' }
+      ], { duration, easing: reflowEasing });
+      state.reflowAnimations.add(animation);
+      animation.finished.catch(() => {}).finally(() => state?.reflowAnimations?.delete(animation));
+    }
+  };
   const clearDropMarkers = () => {
     if (!state || !deferredDrop) return;
     const root = dropRootSelector ? state.list.closest(dropRootSelector) : state.ownerDocument;
@@ -135,7 +168,7 @@ export function bindPresentationReorderHandle(handle, {
     if (!deferredDrop) {
       const itemStyle = getComputedStyle(state.item);
       placeholder = document.createElement('div');
-      placeholder.className = 'mobile-drag-placeholder';
+      placeholder.className = `mobile-drag-placeholder${placeholderClass ? ` ${placeholderClass}` : ''}`;
       Object.assign(placeholder.style, {
         boxSizing: 'border-box',
         height: `${itemRect.height}px`,
@@ -166,7 +199,7 @@ export function bindPresentationReorderHandle(handle, {
       top: `${state.y - handleCenterY}px`,
       pointerEvents: 'none',
       boxShadow: '0 10px 24px rgba(0, 0, 0, .48)',
-      opacity: deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9')
+      opacity: ghostOpacity || (deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9'))
     });
     if (placeholder) state.item.replaceWith(placeholder);
     state.item.classList.add('is-dragging');
@@ -193,7 +226,8 @@ export function bindPresentationReorderHandle(handle, {
       ghostHost,
       handleCenterX: positionedHandleCenterX,
       handleCenterY: positionedHandleCenterY,
-      scroll: scrollContainerFor(state.list)
+      scroll: scrollContainerFor(state.list),
+      reflowAnimations: new Set()
     });
   };
   const movePointer = (event) => {
@@ -204,7 +238,7 @@ export function bindPresentationReorderHandle(handle, {
       if (movedBeforeLift) end(false);
       return;
     }
-    if (!deferredDrop) state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
+    if (!deferredDrop && lockAxis !== 'y') state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
     state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
     state.ghost.hidden = true;
     const hovered = state.ownerDocument.elementFromPoint(event.clientX, event.clientY);
@@ -231,10 +265,10 @@ export function bindPresentationReorderHandle(handle, {
       }
     } else if (dropList && target && target !== state.item && target.parentElement === dropList) {
       const rect = target.getBoundingClientRect();
-      target.parentElement.insertBefore(state.placeholder, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
+      relocatePlaceholder(target.parentElement, event.clientY < rect.top + rect.height / 2 ? target : target.nextSibling);
       state.dropList = dropList;
     } else if (dropList) {
-      dropList.appendChild(state.placeholder);
+      relocatePlaceholder(dropList);
       state.dropList = dropList;
     }
     const scroll = state.scroll;

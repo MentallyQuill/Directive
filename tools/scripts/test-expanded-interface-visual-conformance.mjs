@@ -311,25 +311,20 @@ try {
 
   const maraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
   const maraBox = await maraHandle.boundingBox();
+  const maraCardBox = await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').boundingBox();
   const bridgeDropBox = await bridgeCategory.locator('.collection-category-head').boundingBox();
-  const sourceGeometry = await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.map((row) => ({
-    id: row.dataset.personId,
-    top: row.getBoundingClientRect().top
-  })));
   await peoplePage.mouse.move(maraBox.x + maraBox.width / 2, maraBox.y + maraBox.height / 2);
   await peoplePage.mouse.down();
   const ghostInitialBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
   await peoplePage.mouse.move(bridgeDropBox.x + bridgeDropBox.width / 2, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
   const ghostDropBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
-  assert.equal(await peoplePage.locator('.mobile-drag-placeholder').count(), 0, 'certified People dragging must not reflow through a placeholder');
-  assert.equal(await peoplePage.locator('.collection-person-row[data-person-id="mara-whitaker"].is-dragging').count(), 1, 'the source person must remain connected and fade in place');
-  assert.equal(await peoplePage.locator('.collection-person-row.is-drop-before, .collection-category.is-drop-target').count(), 1, 'the active destination must use a certified drop marker');
-  assert.equal(await peoplePage.locator('.mobile-drag-ghost').evaluate((ghost) => getComputedStyle(ghost).opacity), '0.92', 'the drag ghost must retain the certified visual weight');
+  assert.equal(await peoplePage.locator('.people-card-drop-slot').count(), 1, 'People dragging must expose one exact landing slot');
+  assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').count(), 0, 'the lifted person must be detached from the active roster flow');
+  assert.equal(await peoplePage.locator('.people-card-drop-slot').evaluate((slot) => getComputedStyle(slot).borderStyle), 'solid', 'the active destination must use a full-card outline');
+  assert.equal(await peoplePage.locator('.mobile-drag-ghost').evaluate((ghost) => getComputedStyle(ghost).opacity), '0.96', 'the lifted card must remain nearly solid');
   assert.equal(Math.round(ghostDropBox.x), Math.round(ghostInitialBox.x), 'the certified drag ghost must remain horizontally aligned with the roster');
-  assert.deepEqual(await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.map((row) => ({
-    id: row.dataset.personId,
-    top: row.getBoundingClientRect().top
-  }))), sourceGeometry, 'person rows must retain their geometry until pointer-up');
+  assert.equal(Math.round((await peoplePage.locator('.people-card-drop-slot').boundingBox()).height), Math.round(maraCardBox.height), 'the landing slot must preserve the exact card height');
+  assert.equal(await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.some((row) => row.getAnimations().some((animation) => animation.playState === 'running'))), true, 'cards displaced by the landing slot must animate');
   await peoplePage.mouse.up();
   const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
   assert.equal(pointerMoved, 1, 'pointer drag must cross categories');
