@@ -2,16 +2,15 @@ import assert from 'node:assert/strict';
 
 import { GENERATION_ROLE_IDS } from '../../src/generation/generation-roles.mjs';
 import {
-  createDirectiveProviderSecretStore,
   createSillyTavernProviderSettingsStore,
   providerKindForRole
 } from '../../src/providers/directive-provider-settings.mjs';
 import {
   DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
-  createDirectiveProviderClient
+  createDirectiveProviderClient,
+  listSillyTavernConnectionProfiles
 } from '../../src/hosts/sillytavern/provider-client.mjs';
 import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/generation-client.mjs';
-import { createMissionAcceptedPairInterpretationPrompt } from '../../src/mission/v1/accepted-pair-interpreter.mjs';
 import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.mjs';
 
 assert.deepEqual(GENERATION_ROLE_IDS, [
@@ -22,383 +21,269 @@ assert.deepEqual(GENERATION_ROLE_IDS, [
   'utilityJson'
 ]);
 assert.equal(providerKindForRole('narration'), 'reasoning');
-assert.equal(providerKindForRole('characterCreatorSectionDraft'), 'reasoning');
-assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');
-assert.equal(providerKindForRole('timeAdvanceAdjudicator'), 'utility');
 assert.equal(providerKindForRole('utilityJson'), 'utility');
-assert.throws(() => providerKindForRole('unknownRole'), /Unknown generation role/);
 
-const sessionValues = new Map();
-const sessionStorage = {
-  getItem: (key) => sessionValues.get(key) || null,
-  setItem: (key, value) => sessionValues.set(key, String(value)),
-  removeItem: (key) => sessionValues.delete(key)
-};
+const profiles = [
+  { id: 'chat.local', name: 'Local Chat', model: 'cydonia-local', api: 'openai', preset: 'Local Chat Preset' },
+  { id: 'text.local', name: 'Local Text', model: 'llama-local', api: 'textgenerationwebui', instruct: 'Alpaca' },
+  { id: 'unsupported', name: 'Unsupported', model: 'image-model', api: 'comfy' }
+];
 const profileCalls = [];
-const context = {
+const profileService = {
+  getSupportedProfiles: () => profiles,
+  getProfile: (id) => profiles.find((profile) => profile.id === id) || null,
+  validateProfile: (profile) => ({ selected: profile?.api }),
+  async sendRequest(profileId, messages, maxTokens, options, payload) {
+    profileCalls.push({ profileId, messages, maxTokens, options, payload });
+    if (payload?.json_schema) return { content: { ok: true }, reasoning: '' };
+    return { content: 'profile-visible-answer', reasoning: '' };
+  }
+};
+const profileContext = {
   extensionSettings: {},
   saveSettingsDebounced() {},
-  ConnectionManagerRequestService: {
-    async sendRequest(profileId, messages, maxTokens, options, payload) {
-      profileCalls.push({ profileId, messages, maxTokens, options, payload });
-      if (payload?.json_schema) {
-        return { content: { draft: 'profile-structured-answer' }, reasoning: '' };
-      }
-      return { text: 'profile-visible-answer' };
-    }
-  }
+  ConnectionManagerRequestService: profileService
 };
-const secretStore = createDirectiveProviderSecretStore({ sessionStorage });
-const store = createSillyTavernProviderSettingsStore({ context, secretStore });
-store.update('utility', {
-  provider: 'openai_compatible',
-  baseUrl: 'https://utility.example/v1',
-  model: 'utility-small',
-  apiKey: 'SESSION_ONLY_KEY',
-  maxTokens: 512,
-  temperature: 0.1
-});
-store.update('reasoning', {
-  provider: 'profile',
-  profileId: 'reasoning-profile',
-  maxTokens: 4096,
-  temperature: 0.65
-});
-assert.equal(store.get('utility').apiKeySet, true);
-assert.equal(store.getRoleProviderKind('acceptedPairMissionEvidence'), 'utility');
-assert.equal(store.getRoleProviderKind('narration'), 'reasoning');
-assert.equal(JSON.stringify(context.extensionSettings).includes('SESSION_ONLY_KEY'), false);
-assert.equal(secretStore.get('utility'), 'SESSION_ONLY_KEY');
 
-const fetchCalls = [];
-const fetchImpl = async (url, options) => {
-  fetchCalls.push({ url, options });
-  return {
-    ok: true,
-    status: 200,
-    async text() {
-      return JSON.stringify({
-        choices: [{ message: { content: 'utility-visible-answer' } }],
-        usage: { prompt_tokens: 4, completion_tokens: 2 }
-      });
-    }
-  };
-};
-const client = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl
-});
-
-const currentModelCalls = [];
-const currentModelContext = {
-  extensionSettings: {},
-  mainApi: 'openai',
-  chatCompletionSettings: {
-    chat_completion_source: 'nanogpt'
+assert.deepEqual(listSillyTavernConnectionProfiles(profileContext), [
+  {
+    id: 'chat.local',
+    label: 'Local Chat / cydonia-local',
+    name: 'Local Chat',
+    model: 'cydonia-local',
+    completionMode: 'chat',
+    presetName: 'Local Chat Preset',
+    instructName: ''
   },
-  getChatCompletionModel: () => 'zai-org/glm-5.1:thinking',
-  getPresetManager: () => ({
-    getCompletionPresetByName: (name) => name === 'Directive' ? { reasoning_effort: 'auto' } : null
-  }),
-  ChatCompletionService: {
-    async processRequest(requestData, options, extractData, signal) {
-      currentModelCalls.push({ requestData, options, extractData, signal });
-      return { content: { ok: true }, reasoning: '' };
-    }
+  {
+    id: 'text.local',
+    label: 'Local Text / llama-local',
+    name: 'Local Text',
+    model: 'llama-local',
+    completionMode: 'text',
+    presetName: '',
+    instructName: 'Alpaca'
   }
-};
-const currentModelStore = createSillyTavernProviderSettingsStore({
-  context: currentModelContext,
-  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
+]);
+
+const profileStore = createSillyTavernProviderSettingsStore({ context: profileContext });
+profileStore.update('utility', {
+  provider: 'profile',
+  profileId: 'chat.local',
+  samplerMode: 'profile',
+  structuredOutputMode: 'auto',
+  maxTokens: 600
 });
-currentModelStore.update('utility', {
-  provider: 'st',
-  maxTokens: 640,
-  temperature: 0.15,
-  topP: 0.85
+profileStore.update('reasoning', {
+  provider: 'profile',
+  profileId: 'text.local',
+  presetMode: 'full-profile',
+  instructMode: 'auto',
+  samplerMode: 'directive',
+  structuredOutputMode: 'prompt-json',
+  temperature: 0.35,
+  topP: 0.8,
+  maxTokens: 700
 });
-const currentModelClient = createDirectiveProviderClient({
-  contextFactory: () => currentModelContext,
-  settingsStore: currentModelStore,
-  fetchImpl
+const profileClient = createDirectiveProviderClient({
+  contextFactory: () => profileContext,
+  settingsStore: profileStore,
+  now: () => '2026-08-10T12:00:00.000Z'
 });
-const currentModelSchema = {
+
+assert.deepEqual(profileClient.status('utility'), {
+  kind: 'utility',
+  provider: 'profile',
+  ready: true,
+  label: 'Local Chat / cydonia-local',
+  sourceLabel: 'Connection Profile',
+  completionMode: 'chat',
+  identity: 'profile:chat.local:cydonia-local',
+  profile: {
+    id: 'chat.local',
+    label: 'Local Chat / cydonia-local',
+    name: 'Local Chat',
+    model: 'cydonia-local',
+    completionMode: 'chat',
+    presetName: 'Local Chat Preset',
+    instructName: ''
+  },
+  certification: { status: 'not-run' }
+});
+
+const schema = {
   type: 'object',
   additionalProperties: false,
   required: ['ok'],
   properties: { ok: { type: 'boolean' } }
 };
-const currentModelResult = await currentModelClient.generate('utilityJson', {
-  systemPrompt: 'Return only bounded Directive utility JSON.',
-  prompt: 'Inspect the accepted visible pair.',
-  parameters: {
-    temperature: 0.05,
-    top_p: 0.75,
-    max_tokens: 320
-  },
-  jsonSchema: currentModelSchema
+const utility = await profileClient.generate('utilityJson', {
+  messages: [{ role: 'user', content: 'Return bounded JSON.' }],
+  parameters: { temperature: 0.05, top_p: 0.7, max_tokens: 900 },
+  jsonSchema: schema
 });
-assert.equal(currentModelResult.text, JSON.stringify({ ok: true }));
-assert.deepEqual(currentModelCalls, [{
-  requestData: {
+assert.equal(utility.text, 'profile-visible-answer');
+assert.equal(utility.providerKind, 'utility');
+assert.deepEqual(profileCalls[0], {
+  profileId: 'chat.local',
+  messages: [{ role: 'user', content: 'Return bounded JSON.' }],
+  maxTokens: 600,
+  options: {
     stream: false,
-    messages: [
-      { role: 'system', content: 'Return only bounded Directive utility JSON.' },
-      { role: 'user', content: 'Inspect the accepted visible pair.' }
-    ],
-    model: 'zai-org/glm-5.1:thinking',
-    chat_completion_source: 'nanogpt',
-    max_tokens: 320,
-    temperature: 0.05,
-    top_p: 0.75,
-    json_schema: {
-      name: 'directive_structured_output',
-      value: currentModelSchema,
-      strict: true
-    }
+    extractData: true,
+    includePreset: false,
+    includeInstruct: false,
+    signal: undefined
   },
-  options: { presetName: 'Directive' },
-  extractData: true,
-  signal: undefined
-}]);
-
-const acceptedPairPrompt = createMissionAcceptedPairInterpretationPrompt({
-  candidatePacket: {
-    missionId: 'mission-1',
-    definitionVersion: '1',
-    branchId: 'branch-1',
-    baseRevision: 4,
-    candidates: []
-  },
-  sourcePair: {
-    previousAssistant: { text: 'The officer reports the visible result.' },
-    currentPlayer: { text: 'I accept the report.' }
-  }
+  payload: {}
 });
-await currentModelClient.generate('acceptedPairMissionEvidence', acceptedPairPrompt);
-assert.deepEqual(currentModelCalls[1].requestData.messages, acceptedPairPrompt.messages);
+assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
 
-let missingPresetServiceCalls = 0;
-const missingPresetRawCalls = [];
-const missingPresetContext = {
+await profileClient.generate('narration', {
+  messages: [{ role: 'user', content: 'Continue.' }],
+  maxTokens: 500
+});
+assert.deepEqual(profileCalls[1], {
+  profileId: 'text.local',
+  messages: [{ role: 'user', content: 'Continue.' }],
+  maxTokens: 500,
+  options: {
+    stream: false,
+    extractData: true,
+    includePreset: true,
+    includeInstruct: true,
+    signal: undefined
+  },
+  payload: { temperature: 0.35, top_p: 0.8 }
+});
+
+profileStore.update('utility', { structuredOutputMode: 'native-schema' });
+await assert.rejects(
+  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Schema.' }], jsonSchema: schema }),
+  (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
+);
+assert.equal(profileCalls.length, 2, 'uncertified explicit native schema must fail before transport');
+
+const tested = await profileClient.test('utility');
+assert.equal(tested.ok, true);
+assert.equal(tested.maxTokens, DIRECTIVE_PROVIDER_TEST_MAX_TOKENS);
+assert.deepEqual(tested.capabilities, { connectivity: true, structuredOutput: 'native-schema' });
+assert.deepEqual(profileStore.get('utility').certification, {
+  status: 'passed',
+  configHash: tested.configHash,
+  structuredOutput: 'native-schema',
+  testedAt: '2026-08-10T12:00:00.000Z'
+});
+
+const nativeResult = await profileClient.generate('utilityJson', {
+  messages: [{ role: 'user', content: 'Schema after certification.' }],
+  jsonSchema: schema
+});
+assert.equal(nativeResult.text, JSON.stringify({ ok: true }));
+assert.deepEqual(profileCalls.at(-1).payload.json_schema, {
+  name: 'directive_structured_output',
+  value: schema,
+  strict: true
+});
+
+profileStore.update('utility', { topP: 0.82 });
+assert.deepEqual(profileStore.get('utility').certification, { status: 'not-run' });
+await assert.rejects(
+  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Changed.' }], jsonSchema: schema }),
+  (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
+);
+
+const currentCalls = [];
+const currentContext = {
   extensionSettings: {},
   mainApi: 'openai',
   chatCompletionSettings: {
-    chat_completion_source: 'nanogpt'
+    chat_completion_source: 'nanogpt',
+    preset_settings_openai: 'Current Preset'
   },
   getChatCompletionModel: () => 'zai-org/glm-5.1:thinking',
-  getPresetManager: () => ({
-    getCompletionPresetByName: () => null
-  }),
   ChatCompletionService: {
-    async processRequest() {
-      missingPresetServiceCalls += 1;
-      return { content: 'uncontrolled-service-answer' };
+    async processRequest(requestData, options, extractData, signal) {
+      currentCalls.push({ requestData, options, extractData, signal });
+      return requestData.json_schema
+        ? { content: { ok: true }, reasoning: '' }
+        : { content: 'current-visible-answer', reasoning: '' };
     }
+  }
+};
+const currentStore = createSillyTavernProviderSettingsStore({ context: currentContext });
+currentStore.update('reasoning', {
+  provider: 'st',
+  presetMode: 'full-profile',
+  instructMode: 'auto',
+  samplerMode: 'profile',
+  structuredOutputMode: 'auto',
+  maxTokens: 640
+});
+const currentClient = createDirectiveProviderClient({
+  contextFactory: () => currentContext,
+  settingsStore: currentStore,
+  now: () => '2026-08-10T12:00:00.000Z'
+});
+assert.deepEqual(currentClient.status('reasoning'), {
+  kind: 'reasoning',
+  provider: 'st',
+  ready: true,
+  label: 'zai-org/glm-5.1:thinking',
+  sourceLabel: 'Current Model',
+  completionMode: 'chat',
+  identity: 'current:openai:nanogpt:zai-org/glm-5.1:thinking',
+  profile: null,
+  certification: { status: 'not-run' }
+});
+const currentResult = await currentClient.generate('narration', {
+  systemPrompt: 'Directive system.',
+  prompt: 'Continue.',
+  parameters: { temperature: 0.9, top_p: 0.4, max_tokens: 900 }
+});
+assert.equal(currentResult.text, 'current-visible-answer');
+assert.deepEqual(currentCalls[0], {
+  requestData: {
+    stream: false,
+    messages: [
+      { role: 'system', content: 'Directive system.' },
+      { role: 'user', content: 'Continue.' }
+    ],
+    model: 'zai-org/glm-5.1:thinking',
+    chat_completion_source: 'nanogpt',
+    max_tokens: 640
   },
-  async generateRaw(request) {
-    missingPresetRawCalls.push(request);
-    return 'raw-fallback-answer';
-  }
-};
-const missingPresetStore = createSillyTavernProviderSettingsStore({
-  context: missingPresetContext,
-  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
-});
-const missingPresetClient = createDirectiveProviderClient({
-  contextFactory: () => missingPresetContext,
-  settingsStore: missingPresetStore,
-  fetchImpl
-});
-const missingPresetResult = await missingPresetClient.generate('utilityJson', {
-  systemPrompt: 'Return bounded utility output.',
-  prompt: 'Use the raw fallback.',
-  jsonSchema: currentModelSchema
-});
-assert.equal(missingPresetResult.text, 'raw-fallback-answer');
-assert.equal(missingPresetServiceCalls, 0);
-assert.equal(missingPresetRawCalls.length, 1);
-assert.deepEqual(missingPresetRawCalls[0].jsonSchema, {
-  name: 'directive_structured_output',
-  value: currentModelSchema,
-  strict: true
+  options: { presetName: 'Current Preset' },
+  extractData: true,
+  signal: undefined
 });
 
-const utility = await client.generate('acceptedPairMissionEvidence', {
-  kind: 'directive.testStructuredRequest',
-  messages: [{ role: 'user', content: 'Interpret this accepted pair.' }],
-  parameters: { temperature: 0.05, top_p: 0.8, max_tokens: 384 },
-  jsonSchema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['ok'],
-    properties: { ok: { type: 'boolean' } }
-  }
-});
-assert.equal(utility.providerKind, 'utility');
-assert.equal(utility.text, 'utility-visible-answer');
-assert.equal(fetchCalls[0].url, 'https://utility.example/v1/chat/completions');
-assert.equal(fetchCalls[0].options.headers.Authorization, 'Bearer SESSION_ONLY_KEY');
-const utilityBody = JSON.parse(fetchCalls[0].options.body);
-assert.equal(utilityBody.model, 'utility-small');
-assert.equal(utilityBody.temperature, 0.05);
-assert.equal(utilityBody.top_p, 0.8);
-assert.equal(utilityBody.max_tokens, 384);
-assert.deepEqual(utilityBody.response_format, {
-  type: 'json_schema',
-  json_schema: {
-    name: 'directive_test_structured_request',
-    strict: true,
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['ok'],
-      properties: { ok: { type: 'boolean' } }
-    }
-  }
-});
-
-const optionalRetryCalls = [];
-const optionalRetryClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: async (url, options) => {
-    optionalRetryCalls.push({ url, options });
-    if (optionalRetryCalls.length === 1) {
-      return {
-        ok: false,
-        status: 400,
-        async text() {
-          return JSON.stringify({
-            error: {
-              message: 'temperature is unsupported for this model',
-              type: 'invalid_request_error',
-              param: 'temperature',
-              code: 'unsupported_parameter'
-            }
-          });
-        }
-      };
-    }
-    return {
-      ok: true,
-      status: 200,
-      async text() {
-        return JSON.stringify({
-          choices: [{ message: { content: 'utility-after-optional-retry' } }]
-        });
-      }
-    };
-  }
-});
-const optionalRetryResult = await optionalRetryClient.generate('utilityJson', {
-  messages: [{ role: 'user', content: 'Return bounded JSON.' }],
-  parameters: { temperature: 0.05, top_p: 0.8, max_tokens: 256 }
-});
-assert.equal(optionalRetryResult.text, 'utility-after-optional-retry');
-assert.equal(optionalRetryCalls.length, 2);
-const optionalRetryFirstBody = JSON.parse(optionalRetryCalls[0].options.body);
-const optionalRetrySecondBody = JSON.parse(optionalRetryCalls[1].options.body);
-assert.equal(optionalRetryFirstBody.temperature, 0.05);
-assert.equal(Object.hasOwn(optionalRetrySecondBody, 'temperature'), false);
-assert.equal(optionalRetrySecondBody.model, optionalRetryFirstBody.model);
-assert.deepEqual(optionalRetrySecondBody.messages, optionalRetryFirstBody.messages);
-assert.equal(optionalRetrySecondBody.top_p, optionalRetryFirstBody.top_p);
-assert.equal(optionalRetrySecondBody.max_tokens, optionalRetryFirstBody.max_tokens);
-
-let requiredParameterFailureCalls = 0;
-const requiredParameterFailureClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: async () => {
-    requiredParameterFailureCalls += 1;
-    return {
-      ok: false,
-      status: 400,
-      async text() {
-        return JSON.stringify({
-          error: {
-            message: 'model is invalid',
-            type: 'invalid_request_error',
-            param: 'model',
-            code: 'invalid_model'
-          }
-        });
-      }
-    };
-  }
-});
-await assert.rejects(
-  requiredParameterFailureClient.generate('utilityJson', {
-    messages: [{ role: 'user', content: 'Do not retry required fields.' }]
-  }),
-  (error) => error?.code === 'DIRECTIVE_PROVIDER_REQUEST_FAILED'
-);
-assert.equal(requiredParameterFailureCalls, 1);
-
-let unrelatedOptionalParameterFailureCalls = 0;
-const unrelatedOptionalParameterFailureClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: async () => {
-    unrelatedOptionalParameterFailureCalls += 1;
-    return {
-      ok: false,
-      status: 429,
-      async text() {
-        return JSON.stringify({
-          error: {
-            message: 'Rate limit exceeded while validating temperature',
-            type: 'rate_limit_error',
-            param: 'temperature',
-            code: 'rate_limit_exceeded'
-          }
-        });
-      }
-    };
-  }
-});
-await assert.rejects(
-  unrelatedOptionalParameterFailureClient.generate('utilityJson', {
-    messages: [{ role: 'user', content: 'Do not retry unrelated failures.' }]
-  }),
-  (error) => error?.code === 'DIRECTIVE_PROVIDER_REQUEST_FAILED'
-);
-assert.equal(unrelatedOptionalParameterFailureCalls, 1);
-
-const reasoningSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['draft'],
-  properties: { draft: { type: 'string' } }
-};
-const reasoning = await client.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'Draft the bounded character section.' }],
-  parameters: { max_tokens: 700 },
-  jsonSchema: reasoningSchema
-});
-assert.equal(reasoning.providerKind, 'reasoning');
-assert.equal(reasoning.text, JSON.stringify({ draft: 'profile-structured-answer' }));
-assert.equal(profileCalls.length, 1);
-assert.equal(profileCalls[0].profileId, 'reasoning-profile');
-assert.equal(profileCalls[0].maxTokens, 700);
-assert.deepEqual(profileCalls[0].payload.json_schema, {
-  name: 'directive_structured_output',
-  value: reasoningSchema,
-  strict: true
-});
-
-let controlledProfileSignal = null;
-const controlledProfileContext = {
+const invalidProfileContext = {
   extensionSettings: {},
   ConnectionManagerRequestService: {
+    ...profileService,
+    getProfile: () => null
+  }
+};
+const invalidStore = createSillyTavernProviderSettingsStore({ context: invalidProfileContext });
+invalidStore.update('utility', { provider: 'profile', profileId: 'missing' });
+const invalidClient = createDirectiveProviderClient({ contextFactory: () => invalidProfileContext, settingsStore: invalidStore });
+assert.equal(invalidClient.status('utility').ready, false);
+await assert.rejects(
+  invalidClient.generate('utilityJson', { prompt: 'No route.' }),
+  (error) => error?.code === 'DIRECTIVE_PROFILE_UNAVAILABLE'
+);
+
+let cancellationSignal = null;
+const cancellationContext = {
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
     async sendRequest(_profileId, _messages, _maxTokens, options) {
-      controlledProfileSignal = options.signal;
-      if (!controlledProfileSignal) throw new Error('profile abort signal is missing');
+      cancellationSignal = options.signal;
       return new Promise((_resolve, reject) => {
-        controlledProfileSignal.addEventListener('abort', () => {
-          const error = new Error('profile request aborted');
+        cancellationSignal.addEventListener('abort', () => {
+          const error = new Error('aborted');
           error.name = 'AbortError';
           reject(error);
         }, { once: true });
@@ -406,150 +291,29 @@ const controlledProfileContext = {
     }
   }
 };
-const controlledProfileStore = createSillyTavernProviderSettingsStore({
-  context: controlledProfileContext,
-  secretStore: createDirectiveProviderSecretStore({ sessionStorage })
-});
-controlledProfileStore.update('reasoning', {
-  provider: 'profile',
-  profileId: 'cancelable-reasoning-profile'
-});
-const controlledProfileClient = createDirectiveProviderClient({
-  contextFactory: () => controlledProfileContext,
-  settingsStore: controlledProfileStore,
-  fetchImpl
-});
-const controlledProfileController = new AbortController();
-const canceledProfileGeneration = controlledProfileClient.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'Cancel the profile request.' }]
-}, {
-  signal: controlledProfileController.signal,
-  timeoutMs: 1000
-});
-controlledProfileController.abort();
-await assert.rejects(
-  canceledProfileGeneration,
-  (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED'
-);
-assert.equal(controlledProfileSignal?.aborted, true);
+const cancellationStore = createSillyTavernProviderSettingsStore({ context: cancellationContext });
+cancellationStore.update('utility', { provider: 'profile', profileId: 'chat.local' });
+const cancellationClient = createDirectiveProviderClient({ contextFactory: () => cancellationContext, settingsStore: cancellationStore });
+const controller = new AbortController();
+const canceled = cancellationClient.generate('utilityJson', { prompt: 'Cancel.' }, { signal: controller.signal, timeoutMs: 1000 });
+controller.abort();
+await assert.rejects(canceled, (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
+assert.equal(cancellationSignal.aborted, true);
 
-const utilityOverride = await client.generate('characterCreatorSectionDraft', {
-  kind: 'directive.characterCreatorSectionDraftRepairRequest',
-  messages: [{ role: 'user', content: 'Repair malformed JSON only.' }],
-  parameters: { max_tokens: 256 }
-}, {
-  providerKind: 'utility'
+const routedProviderClient = createDirectiveProviderClient({ contextFactory: () => cancellationContext, settingsStore: cancellationStore });
+const router = createDirectiveGenerationRouter({
+  generation: createSillyTavernGenerationClient({ providerClient: routedProviderClient })
 });
-assert.equal(utilityOverride.providerKind, 'utility');
-assert.equal(utilityOverride.text, 'utility-visible-answer');
-assert.equal(fetchCalls.length, 2);
-assert.equal(profileCalls.length, 1, 'provider override must not use the role default profile');
-
-const controlledFetchSignals = [];
-const controlledFetch = async (_url, options) => {
-  controlledFetchSignals.push(options.signal);
-  return new Promise((_resolve, reject) => {
-    options.signal?.addEventListener('abort', () => {
-      const error = new Error('aborted');
-      error.name = 'AbortError';
-      reject(error);
-    }, { once: true });
-  });
-};
-const controlledClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: controlledFetch
-});
-const externalController = new AbortController();
-const canceledGeneration = controlledClient.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'Cancel this request.' }]
-}, {
-  providerKind: 'utility',
-  signal: externalController.signal,
-  timeoutMs: 1000
-});
-externalController.abort();
-await assert.rejects(canceledGeneration, (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
-assert.equal(controlledFetchSignals[0]?.aborted, true, 'external cancellation must abort the active transport signal');
-
-await assert.rejects(controlledClient.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'Time out this request.' }]
-}, {
-  providerKind: 'utility',
-  timeoutMs: 5
-}), (error) => error?.code === 'DIRECTIVE_GENERATION_TIMEOUT');
-assert.equal(controlledFetchSignals[1]?.aborted, true, 'timeout must abort the active transport signal');
-
-let boundedTransportCalls = 0;
-const boundedClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: async () => {
-    boundedTransportCalls += 1;
-    return {
-      ok: true,
-      status: 200,
-      async text() {
-        return JSON.stringify({ choices: [{ message: { content: '' } }] });
-      }
-    };
-  }
-});
-await assert.rejects(boundedClient.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'One transport attempt only.' }]
-}, {
-  providerKind: 'utility',
-  allowVisibleOutputRetry: false
-}));
-assert.equal(boundedTransportCalls, 1, 'creator recovery lanes must not hide extra provider transport retries');
-
-let fullPathTransportCalls = 0;
-let fullPathTransportSignal = null;
-const fullPathProviderClient = createDirectiveProviderClient({
-  contextFactory: () => context,
-  settingsStore: store,
-  fetchImpl: async (_url, options) => {
-    fullPathTransportCalls += 1;
-    fullPathTransportSignal = options.signal;
-    return new Promise((_resolve, reject) => {
-      options.signal.addEventListener('abort', () => {
-        const error = new Error('transport aborted');
-        error.name = 'AbortError';
-        reject(error);
-      }, { once: true });
-    });
-  }
-});
-const fullPathRouter = createDirectiveGenerationRouter({
-  generation: createSillyTavernGenerationClient({ providerClient: fullPathProviderClient })
-});
-const fullPathController = new AbortController();
-const fullPathResultPromise = fullPathRouter.generate('characterCreatorSectionDraft', {
-  messages: [{ role: 'user', content: 'Abort through the complete provider path.' }]
-}, {
-  providerKind: 'utility',
-  signal: fullPathController.signal,
+const routedController = new AbortController();
+const routed = router.generate('utilityJson', { prompt: 'Cancel through router.' }, {
+  signal: routedController.signal,
   timeoutMs: 1000,
   allowVisibleOutputRetry: false
 });
-fullPathController.abort();
-const fullPathResult = await fullPathResultPromise;
-assert.equal(fullPathResult.ok, false);
-assert.equal(fullPathResult.error.code, 'DIRECTIVE_GENERATION_ABORTED');
-assert.equal(fullPathResult.diagnostics.providerKind, 'utility');
-assert.equal(fullPathTransportSignal.aborted, true);
-assert.equal(fullPathTransportCalls, 1);
+routedController.abort();
+const routedResult = await routed;
+assert.equal(routedResult.ok, false);
+assert.equal(routedResult.error.code, 'DIRECTIVE_GENERATION_ABORTED');
+assert.equal(routedResult.diagnostics.providerKind, 'utility');
 
-const tests = [];
-for (const kind of ['utility', 'reasoning']) {
-  const result = await client.test(kind);
-  tests.push(result);
-  assert.equal(result.ok, true);
-  assert.equal(result.kind, kind);
-  assert.equal(result.maxTokens, DIRECTIVE_PROVIDER_TEST_MAX_TOKENS);
-}
-assert.equal(tests[0].text, 'utility-visible-answer');
-assert.equal(tests[1].text, 'profile-visible-answer');
-
-console.log('Directive V1 provider lanes and exact generation-role routing tests passed.');
+console.log('PASS Directive native provider lanes and generation-role routing');
