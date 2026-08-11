@@ -196,6 +196,8 @@ assert.equal(overlay.hidden, true, 'background refresh should keep the runtime o
 assert.equal(panel.hidden, true, 'background refresh should keep the runtime panel hidden');
 assert.equal(panel.getAttribute('aria-hidden'), 'true');
 
+opener.focus();
+assert.equal(fakeDocument.activeElement, opener, 'opener should hold focus before showing the runtime panel');
 const shown = await showDirectiveRuntimePanel({ opener });
 assert.equal(shown.isOpen, true);
 assert(overlay, 'runtime overlay should exist');
