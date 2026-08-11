@@ -104,19 +104,11 @@ export function bindPresentationReorderHandle(handle, {
     state.ghostMoveFrame = state.blurTarget?.requestAnimationFrame?.(flushGhostPosition) || 0;
     if (!state.ghostMoveFrame) flushGhostPosition();
   };
-  const settlePlaceholderPosition = () => {
-    if (!state?.placeholder || !state.reflowAnimations) return;
-    for (const animation of [...state.reflowAnimations]) {
-      if (animation.effect?.target !== state.placeholder) continue;
-      animation.cancel();
-      state.reflowAnimations.delete(animation);
-    }
-  };
   const relocatePlaceholder = (parent, before = null) => {
     if (!state?.placeholder || !parent) return;
     if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
     const root = reflowRootSelector ? state.list.closest(reflowRootSelector) : state.ownerDocument;
-    const elements = [state.placeholder, ...(root?.querySelectorAll?.(itemSelector) || [])]
+    const elements = [...(root?.querySelectorAll?.(itemSelector) || [])]
       .filter((element) => element?.getClientRects?.().length > 0);
     const beforeRects = new Map(elements.map((element) => [element, element.getBoundingClientRect()]));
     state.reflowAnimations?.forEach((animation) => animation.cancel());
@@ -223,7 +215,6 @@ export function bindPresentationReorderHandle(handle, {
       finalize(false);
       return;
     }
-    settlePlaceholderPosition();
     const ghostRect = state.ghost.getBoundingClientRect();
     const slotRect = state.placeholder.getBoundingClientRect();
     state.ghost.classList.add('is-snapping');

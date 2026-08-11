@@ -547,6 +547,36 @@ try {
   observedVarianceIds.add('people-restored-collections');
   await peoplePage.close();
 
+  const thresholdPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await thresholdPage.goto(`${baseUrl}/production?route=people`);
+  await thresholdPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const thresholdHandle = thresholdPage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
+  const thresholdHandleBox = await thresholdHandle.boundingBox();
+  const thresholdPeerBox = await thresholdPage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]').boundingBox();
+  const thresholdTargetBox = await thresholdPage.locator('.people-desktop-journal .collection-person-row[data-person-id="kieran-vale"]').boundingBox();
+  await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdHandleBox.y + thresholdHandleBox.height / 2);
+  await thresholdPage.mouse.down();
+  await thresholdPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
+  await thresholdPage.mouse.move(thresholdHandleBox.x + thresholdHandleBox.width / 2, thresholdTargetBox.y + thresholdTargetBox.height / 2 + 1);
+  const thresholdState = await thresholdPage.evaluate(() => {
+    const slot = document.querySelector('.people-card-drop-slot');
+    const peer = document.querySelector('.collection-person-row[data-person-id="mara-whitaker"]');
+    const slotRect = slot.getBoundingClientRect();
+    const peerRect = peer.getBoundingClientRect();
+    return {
+      slotAnimations: slot.getAnimations().length,
+      peerAnimating: peer.getAnimations().some(({ playState }) => playState === 'running'),
+      overlap: Math.min(slotRect.bottom, peerRect.bottom) - Math.max(slotRect.top, peerRect.top)
+    };
+  });
+  assert.equal(thresholdState.slotAnimations, 0, 'crossing a card midpoint must settle the destination slot immediately');
+  assert.equal(thresholdState.peerAnimating, true, 'crossing a card midpoint must retain sibling glide');
+  assert.ok(thresholdState.overlap <= 0.5, 'the settled destination slot must not intersect its displaced sibling');
+  await thresholdPage.keyboard.press('Escape');
+  await thresholdPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await thresholdPage.mouse.up();
+  await thresholdPage.close();
+
   const immediateDropPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await immediateDropPage.goto(`${baseUrl}/production?route=people`);
   await immediateDropPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
