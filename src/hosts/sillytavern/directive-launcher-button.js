@@ -48,7 +48,7 @@ function placeLauncher(button, chatInput) {
 }
 
 export function installDirectiveLauncherButton({
-  openDirective = () => runRuntimeAction('runtime.toggle'),
+  openDirective = ({ opener = null } = {}) => runRuntimeAction('runtime.toggle', { opener }),
 } = {}) {
   if (!canUseDocument()) return false;
   if (document.getElementById(DIRECTIVE_LAUNCHER_BUTTON_ID)) return true;
@@ -72,7 +72,7 @@ export function installDirectiveLauncherButton({
   button.addEventListener('click', async (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    await openDirective();
+    await openDirective({ opener: event?.currentTarget || null });
   });
   placeLauncher(button, chatInput);
   return true;

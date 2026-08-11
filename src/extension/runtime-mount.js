@@ -37,13 +37,13 @@ export function configureRuntimeActions() {
       id: 'runtime.toggle',
       category: 'runtime',
       label: 'Toggle Directive',
-      handler: async () => {
+      handler: async ({ opener = null } = {}) => {
         const panel = typeof document !== 'undefined'
           ? document.getElementById('directive-runtime-panel')
           : null;
         return panel && panel.hidden !== true
           ? hideDirectiveRuntimePanel()
-          : showDirectiveRuntimePanel();
+          : showDirectiveRuntimePanel({ opener });
       },
     },
     {

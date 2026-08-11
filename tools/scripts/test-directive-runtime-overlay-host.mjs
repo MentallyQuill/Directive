@@ -181,6 +181,12 @@ const {
   setDirectiveRuntimeApp,
   showDirectiveRuntimePanel
 } = await import('../../src/runtime/runtime-shell.js');
+const { configureRuntimeActions } = await import('../../src/extension/runtime-mount.js');
+const {
+  DIRECTIVE_LAUNCHER_BUTTON_ID,
+  installDirectiveLauncherButton
+} = await import('../../src/hosts/sillytavern/directive-launcher-button.js');
+const { runRuntimeAction } = await import('../../src/runtime/runtime-actions.js');
 const { registerActiveCreatorAssistSession } = await import('../../src/ui/character-creator-assist-dialog.js');
 
 setDirectiveRuntimeApp(null);
@@ -223,6 +229,50 @@ assert.deepEqual(assistCancellations, [{
 assert.equal(overlay.hidden, true);
 assert.equal(panel.hidden, true);
 assert.equal(opener, fakeDocument.activeElement, 'hide should restore focus to the opener');
+
+const chatInput = fakeDocument.createElement('textarea');
+chatInput.id = 'send_textarea';
+fakeDocument.body.appendChild(chatInput);
+configureRuntimeActions();
+assert.equal(installDirectiveLauncherButton(), true);
+const launcher = fakeDocument.getElementById(DIRECTIVE_LAUNCHER_BUTTON_ID);
+assert(launcher, 'production launcher should install beside the chat input');
+launcher.focus();
+await launcher.eventListeners.get('click')?.({
+  currentTarget: launcher,
+  preventDefault() {},
+  stopPropagation() {}
+});
+assert.equal(panel.hidden, false, 'production launcher should open the runtime panel through runtime.toggle');
+assert.equal(fakeDocument.activeElement, closeControl, 'production launcher open should focus the rendered close control');
+closeControl.eventListeners.get('click')?.({
+  currentTarget: closeControl,
+  stopPropagation() {}
+});
+assert.equal(fakeDocument.activeElement, launcher, 'production launcher close should restore focus to the launcher');
+const programmaticShow = await runRuntimeAction('runtime.toggle');
+assert.equal(programmaticShow.isOpen, true, 'programmatic runtime.toggle should still open without an opener');
+const programmaticHide = await runRuntimeAction('runtime.toggle');
+assert.equal(programmaticHide.isOpen, false, 'programmatic runtime.toggle should still close without an opener');
+
+let resolveDeferredView;
+const deferredView = new Promise((resolve) => {
+  resolveDeferredView = resolve;
+});
+setDirectiveRuntimeApp({ getCurrentView: () => deferredView });
+const raceOpener = fakeDocument.createElement('button');
+fakeDocument.body.appendChild(raceOpener);
+raceOpener.focus();
+const pendingShow = showDirectiveRuntimePanel({ opener: raceOpener });
+const hiddenDuringRefresh = hideDirectiveRuntimePanel();
+assert.equal(hiddenDuringRefresh.isOpen, false);
+assert.equal(fakeDocument.activeElement, raceOpener, 'close during refresh should immediately restore opener focus');
+resolveDeferredView({});
+const interruptedShow = await pendingShow;
+assert.equal(interruptedShow.isOpen, false, 'an open interrupted by close should report the current closed state');
+assert.equal(panel.hidden, true);
+assert.equal(fakeDocument.activeElement, raceOpener, 'settled refresh should not move focus into the hidden panel');
+setDirectiveRuntimeApp(null);
 
 await showDirectiveRuntimePanel({ opener });
 const refreshCancellations = [];

@@ -147,13 +147,15 @@ try {
             masterHeight: masterBox.height,
             detailHeight: detailBox.height,
             headingHeight: headingBox.height,
-            headingVisible: headingBox.top >= 0 && headingBox.bottom <= window.innerHeight
+            headingVisible: headingBox.top >= 0 && headingBox.bottom <= window.innerHeight,
+            headingContained: headingBox.top >= detailBox.top - .5 && headingBox.bottom <= detailBox.bottom + .5
           };
         }, mobilePanelGeometry[route]);
         assert.ok(Number.isFinite(geometry.routeGap), `${route} ${viewport.width}x${viewport.height} mobile route gap must resolve to a length`);
         assert.ok(geometry.masterHeight >= 48, `${route} ${viewport.width}x${viewport.height} mobile master must remain usable`);
         assert.ok(geometry.detailHeight >= 80, `${route} ${viewport.width}x${viewport.height} mobile detail must remain usable`);
         assert.ok(geometry.headingHeight > 0 && geometry.headingVisible, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must be visible`);
+        assert.equal(geometry.headingContained, true, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must stay inside the clipped detail panel`);
         assert.ok(
           Math.abs(geometry.panelGap - geometry.routeGap) <= .5,
           `${route} ${viewport.width}x${viewport.height} mobile master/detail dead gap: expected ${geometry.routeGap}px route gap, received ${geometry.panelGap}px`
