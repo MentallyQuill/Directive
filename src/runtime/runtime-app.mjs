@@ -1269,9 +1269,18 @@ export function createDirectiveRuntimeApp({
       const result = host.providers?.updateSettings
         ? host.providers.updateSettings(kind, patch)
         : host.providers?.settings?.update?.(kind, patch);
-      return clone(result);
+      return {
+        settings: clone(result),
+        status: clone(host.providers?.status?.(kind) || null)
+      };
     },
-    testProvider: ({ kind } = {}) => host.providers?.test?.(kind),
+    async testProvider({ kind } = {}) {
+      const result = await host.providers?.test?.(kind);
+      return {
+        ...clone(result || {}),
+        status: clone(host.providers?.status?.(kind) || null)
+      };
+    },
 
     refreshDirectivePresetStatus: async () => presetConfiguration(host),
     updateDirectivePresetAutoCheck: async ({ enabled } = {}) => host.presets?.setAutoCheckPreference?.({ enabled }),

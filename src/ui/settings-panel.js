@@ -128,12 +128,25 @@ function createProfilePicker(kind, value, profiles) {
   return { input, wrapper };
 }
 
-function bindAutoSave({ control, kind, key, actions, feedback, transform = (value) => value, beforeSave = null }) {
+function updateProviderState(element, status = {}) {
+  const ready = status.ready === true;
+  element.classList.toggle?.('is-ready', ready);
+  if (typeof element.classList.toggle !== 'function') {
+    if (ready) element.classList.add('is-ready');
+    else element.classList.remove('is-ready');
+  }
+  element.textContent = ready
+    ? `Ready${status.label ? ` / ${status.label}` : ''}`
+    : (status.label || 'Needs configuration');
+}
+
+function bindAutoSave({ control, kind, key, actions, feedback, state, transform = (value) => value, beforeSave = null }) {
   control.addEventListener('change', async () => {
     beforeSave?.();
     feedback.textContent = 'Saving...';
     try {
-      await actions.updateProviderSettings?.({ kind, patch: { [key]: transform(control.value) } });
+      const result = await actions.updateProviderSettings?.({ kind, patch: { [key]: transform(control.value) } });
+      if (result?.status) updateProviderState(state, result.status);
       feedback.textContent = 'Saved / test again after changes';
     } catch (error) {
       feedback.textContent = error?.message || 'Could not save';
@@ -155,9 +168,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   title.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
   copy.append(kicker, title);
   const state = createElement('span', `settings-provider-state${status.ready ? ' is-ready' : ''}`);
-  state.textContent = status.ready
-    ? `Ready${status.label ? ` / ${status.label}` : ''}`
-    : (status.label || 'Needs configuration');
+  updateProviderState(state, status);
   header.append(copy, state);
   card.appendChild(header);
 
@@ -215,15 +226,15 @@ function appendProviderCard(container, kind, configuration, actions) {
   syncConditionalFields();
   card.appendChild(grid);
 
-  bindAutoSave({ control: provider, kind, key: 'provider', actions, feedback, beforeSave: syncConditionalFields });
-  bindAutoSave({ control: profilePicker.input, kind, key: 'profileId', actions, feedback });
-  bindAutoSave({ control: presetMode, kind, key: 'presetMode', actions, feedback });
-  bindAutoSave({ control: instructMode, kind, key: 'instructMode', actions, feedback });
-  bindAutoSave({ control: samplerMode, kind, key: 'samplerMode', actions, feedback, beforeSave: syncConditionalFields });
-  bindAutoSave({ control: structuredOutputMode, kind, key: 'structuredOutputMode', actions, feedback });
-  bindAutoSave({ control: temperature, kind, key: 'temperature', actions, feedback, transform: Number });
-  bindAutoSave({ control: topP, kind, key: 'topP', actions, feedback, transform: Number });
-  bindAutoSave({ control: maxTokens, kind, key: 'maxTokens', actions, feedback, transform: Number });
+  bindAutoSave({ control: provider, kind, key: 'provider', actions, feedback, state, beforeSave: syncConditionalFields });
+  bindAutoSave({ control: profilePicker.input, kind, key: 'profileId', actions, feedback, state });
+  bindAutoSave({ control: presetMode, kind, key: 'presetMode', actions, feedback, state });
+  bindAutoSave({ control: instructMode, kind, key: 'instructMode', actions, feedback, state });
+  bindAutoSave({ control: samplerMode, kind, key: 'samplerMode', actions, feedback, state, beforeSave: syncConditionalFields });
+  bindAutoSave({ control: structuredOutputMode, kind, key: 'structuredOutputMode', actions, feedback, state });
+  bindAutoSave({ control: temperature, kind, key: 'temperature', actions, feedback, state, transform: Number });
+  bindAutoSave({ control: topP, kind, key: 'topP', actions, feedback, state, transform: Number });
+  bindAutoSave({ control: maxTokens, kind, key: 'maxTokens', actions, feedback, state, transform: Number });
 
   const commands = createElement('div', 'settings-actions');
   commands.append(
@@ -235,6 +246,7 @@ function appendProviderCard(container, kind, configuration, actions) {
       onClick: async () => {
         feedback.textContent = 'Testing connectivity and capabilities...';
         const result = await actions.testProvider({ kind });
+        if (result?.status) updateProviderState(state, result.status);
         feedback.textContent = result?.ok === false
           ? (result.error?.message || 'Test failed')
           : `Ready / ${result?.capabilities?.structuredOutput === 'native-schema' ? 'Native schema certified' : 'Prompt JSON'}`;

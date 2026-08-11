@@ -87,7 +87,15 @@ const updates = [];
 const body = new Element('div');
 resetSettingsPanelState();
 renderSettingsPanel(body, view, {
-  async updateProviderSettings(input) { updates.push(input); return input.patch; },
+  async updateProviderSettings(input) {
+    updates.push(input);
+    return {
+      settings: input.patch,
+      status: input.patch.provider === 'profile'
+        ? { ready: false, label: 'Select a profile' }
+        : { ready: true, label: 'Current local-model' }
+    };
+  },
   async testProvider() { return { ok: true, capabilities: { structuredOutput: 'native-schema' } }; },
   installDirectivePreset() {}, refreshDirectivePresetStatus() {},
   updateDirectivePresetAutoCheck() {}, verifyActiveSave() {}, exportSupportDiagnostics() {}
@@ -124,12 +132,15 @@ assert.deepEqual(providerControls.map((control) => control.children.map((option)
 assert.ok(nodes.filter((node) => node.dataset.directiveTooltip).length >= 8);
 
 const utilityProfileField = byClass('settings-profile-field')[0];
+const utilityState = byClass('settings-provider-state')[0];
 assert.equal(utilityProfileField.hidden, true);
 const utilityProvider = byControl('utility-provider');
 utilityProvider.value = 'profile';
 await utilityProvider.listeners.get('change')?.({});
 assert.equal(utilityProfileField.hidden, false);
 assert.deepEqual(updates.at(-1), { kind: 'utility', patch: { provider: 'profile' } });
+assert.equal(utilityState.classList.contains('is-ready'), false);
+assert.equal(utilityState.textContent, 'Select a profile');
 
 const utilitySamplerFields = byClass('settings-sampler-overrides')[0];
 assert.equal(utilitySamplerFields.hidden, true);

@@ -8,12 +8,19 @@ function enumOr(value, allowed, fallback) {
   return allowed.has(normalized) ? normalized : fallback;
 }
 
-function canonicalConfig({ kind, provider = {}, identity = '', completionMode = 'unknown' } = {}) {
+function canonicalConfig({
+  kind,
+  provider = {},
+  identity = '',
+  completionMode = 'unknown',
+  sourceConfigurationDigest = ''
+} = {}) {
   return {
     kind: String(kind || ''),
     provider: String(provider.provider || 'st'),
     profileId: String(provider.profileId || ''),
     identity: String(identity || ''),
+    sourceConfigurationDigest: String(sourceConfigurationDigest || ''),
     completionMode: String(completionMode || 'unknown'),
     presetMode: enumOr(provider.presetMode, PRESET_MODES, 'isolated'),
     instructMode: enumOr(provider.instructMode, INSTRUCT_MODES, 'auto'),
@@ -23,6 +30,14 @@ function canonicalConfig({ kind, provider = {}, identity = '', completionMode = 
     topP: Number(provider.topP),
     maxTokens: Number(provider.maxTokens)
   };
+}
+
+function canonicalJsonValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalJsonValue(value[key])]));
+  }
+  return value;
 }
 
 function fnv1a(text) {
@@ -36,6 +51,10 @@ function fnv1a(text) {
 
 export function directiveProviderConfigFingerprint(input = {}) {
   return `directive-provider-v1:${fnv1a(JSON.stringify(canonicalConfig(input)))}`;
+}
+
+export function directiveSourceConfigurationDigest(value = {}) {
+  return `directive-source-v1:${fnv1a(JSON.stringify(canonicalJsonValue(value)))}`;
 }
 
 export function resolveDirectiveGenerationPolicy({

@@ -183,6 +183,14 @@ assert.deepEqual(profileStore.get('utility').certification, {
   structuredOutput: 'native-schema',
   testedAt: '2026-08-10T12:00:00.000Z'
 });
+profiles[0].preset = 'Changed Local Chat Preset';
+assert.deepEqual(profileClient.status('utility').certification, { status: 'not-run' });
+await assert.rejects(
+  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Changed source.' }], jsonSchema: schema }),
+  (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
+);
+profiles[0].preset = 'Local Chat Preset';
+assert.equal(profileClient.status('utility').certification.status, 'passed');
 
 const promptOnlyCalls = [];
 const promptOnlyContext = {
@@ -294,6 +302,58 @@ assert.deepEqual(currentCalls[0], {
   signal: undefined
 });
 
+const currentTextCalls = [];
+const currentTextContext = {
+  extensionSettings: {},
+  mainApi: 'textgenerationwebui',
+  model: 'llama-local',
+  textCompletionSettings: { type: 'llamacpp', preset_settings: 'Text Preset' },
+  power_user: { instruct: { preset: 'Alpaca' } },
+  getPresetManager: (type) => ({
+    getCompletionPresetByName: (name) => ({ type, name, temperature: 0.55 })
+  }),
+  TextCompletionService: {
+    TYPE: 'textgenerationwebui',
+    async processRequest(requestData, options, extractData, signal) {
+      currentTextCalls.push({ requestData, options, extractData, signal });
+      return { content: 'current-text-visible-answer', reasoning: '' };
+    },
+    async presetToGeneratePayload(_preset, _overrides, basePayload) {
+      return { ...basePayload, temperature: 0.55, top_p: 0.92 };
+    }
+  }
+};
+const currentTextStore = createSillyTavernProviderSettingsStore({ context: currentTextContext });
+currentTextStore.update('utility', {
+  provider: 'st',
+  presetMode: 'full-profile',
+  instructMode: 'auto',
+  samplerMode: 'profile',
+  structuredOutputMode: 'prompt-json',
+  maxTokens: 550
+});
+const currentTextClient = createDirectiveProviderClient({
+  contextFactory: () => currentTextContext,
+  settingsStore: currentTextStore
+});
+const currentTextResult = await currentTextClient.generate('utilityJson', {
+  messages: [{ role: 'user', content: 'Use native text completion.' }],
+  maxTokens: 500
+});
+assert.equal(currentTextResult.text, 'current-text-visible-answer');
+assert.deepEqual(currentTextCalls[0], {
+  requestData: {
+    stream: false,
+    prompt: [{ role: 'user', content: 'Use native text completion.' }],
+    model: 'llama-local',
+    max_tokens: 500,
+    api_type: 'llamacpp'
+  },
+  options: { presetName: 'Text Preset', instructName: 'Alpaca' },
+  extractData: true,
+  signal: undefined
+});
+
 const policyIncompleteContext = {
   extensionSettings: {},
   mainApi: 'openai',
@@ -327,6 +387,39 @@ await assert.rejects(
   invalidClient.generate('utilityJson', { prompt: 'No route.' }),
   (error) => error?.code === 'DIRECTIVE_PROFILE_UNAVAILABLE'
 );
+
+const leakyContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    async sendRequest() {
+      const error = new Error('401 Bearer LEAKED_TOKEN full provider response body');
+      error.status = 401;
+      error.details = { apiKey: 'LEAKED_TOKEN', responseBody: 'FULL_SECRET_BODY' };
+      throw error;
+    }
+  }
+};
+const leakyStore = createSillyTavernProviderSettingsStore({ context: leakyContext });
+leakyStore.update('utility', { provider: 'profile', profileId: 'chat.local' });
+const leakyClient = createDirectiveProviderClient({ contextFactory: () => leakyContext, settingsStore: leakyStore });
+await assert.rejects(
+  leakyClient.generate('utilityJson', { prompt: 'Do not expose backend errors.' }),
+  (error) => {
+    assert.equal(error.code, 'DIRECTIVE_PROVIDER_REQUEST_FAILED');
+    assert.equal(error.message, 'Provider utility request failed.');
+    assert.equal(JSON.stringify(error).includes('LEAKED_TOKEN'), false);
+    assert.equal(JSON.stringify(error).includes('FULL_SECRET_BODY'), false);
+    return true;
+  }
+);
+const leakyTest = await leakyClient.test('utility');
+assert.equal(leakyTest.ok, false);
+assert.equal(leakyTest.error.code, 'DIRECTIVE_PROVIDER_REQUEST_FAILED');
+assert.equal(leakyTest.error.message, 'Provider utility request failed.');
+assert.equal(JSON.stringify(leakyTest).includes('LEAKED_TOKEN'), false);
+assert.equal(JSON.stringify(leakyTest).includes('FULL_SECRET_BODY'), false);
 
 let cancellationSignal = null;
 const cancellationContext = {

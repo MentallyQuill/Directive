@@ -1,6 +1,7 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
 import {
   directiveProviderConfigFingerprint,
+  directiveSourceConfigurationDigest,
   resolveDirectiveGenerationPolicy
 } from '../../providers/generation-policy.mjs';
 import {
@@ -11,6 +12,8 @@ import { projectSillyTavernSamplerPayload } from './profile-samplers.mjs';
 
 export const DIRECTIVE_PROVIDER_TEST_MAX_TOKENS = 512;
 const FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE = 'Return the final visible answer now. Do not return private reasoning, analysis tags, or planning notes.';
+const SAFE_PROVIDER_ERROR = Symbol('directiveSafeProviderError');
+const SAFE_RESPONSE_ERROR_CODES = new Set(Object.values(PROVIDER_RESPONSE_ERROR_CODES));
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -25,6 +28,7 @@ function providerError(code, message, details = {}) {
   const error = new Error(message);
   error.code = code;
   error.details = cloneJson(details);
+  Object.defineProperty(error, SAFE_PROVIDER_ERROR, { value: true });
   return error;
 }
 
@@ -135,6 +139,88 @@ function currentInstructName(context = {}) {
   );
 }
 
+function fingerprintKeyIsSensitive(key) {
+  const normalized = String(key || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  return [
+    'apikey', 'key', 'token', 'accesstoken', 'authtoken', 'bearertoken',
+    'secret', 'clientsecret', 'password', 'proxypassword', 'credential',
+    'credentials', 'authorization', 'cookie', 'cookies', 'header', 'headers'
+  ].includes(normalized) || normalized.endsWith('apikey') || normalized.endsWith('password');
+}
+
+function sanitizedFingerprintUrl(value) {
+  try {
+    const url = new URL(String(value));
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString().slice(0, 600);
+  } catch {
+    return String(value || '').split(/[?#]/, 1)[0].slice(0, 600);
+  }
+}
+
+function sanitizeFingerprintValue(value, key = '', depth = 0, seen = new Set()) {
+  if (fingerprintKeyIsSensitive(key) || depth > 6) return undefined;
+  if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return /(url|endpoint|server|proxy)/i.test(key)
+      ? sanitizedFingerprintUrl(value)
+      : value.slice(0, 600);
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 64)
+      .map((entry) => sanitizeFingerprintValue(entry, key, depth + 1, seen))
+      .filter((entry) => entry !== undefined);
+  }
+  if (!value || typeof value !== 'object' || seen.has(value)) return undefined;
+  seen.add(value);
+  const sanitized = Object.fromEntries(Object.keys(value).sort().flatMap((childKey) => {
+    const child = sanitizeFingerprintValue(value[childKey], childKey, depth + 1, seen);
+    return child === undefined ? [] : [[childKey, child]];
+  }));
+  seen.delete(value);
+  return sanitized;
+}
+
+function presetSnapshot(context, type, name) {
+  if (!name || typeof context?.getPresetManager !== 'function') return null;
+  try {
+    return context.getPresetManager(type)?.getCompletionPresetByName?.(name) || null;
+  } catch {
+    return null;
+  }
+}
+
+function sourceConfigurationDigest(context, {
+  completionMode,
+  profile = null,
+  apiMap = null
+} = {}) {
+  const presetName = profile
+    ? textValue(profile.preset)
+    : currentPresetName(context, completionMode);
+  const instructName = profile
+    ? textValue(profile.instruct)
+    : currentInstructName(context);
+  const presetType = completionMode === 'chat' ? 'openai' : 'textgenerationwebui';
+  return directiveSourceConfigurationDigest(sanitizeFingerprintValue({
+    completionMode,
+    profile,
+    apiMap,
+    currentSettings: profile ? null : (
+      completionMode === 'chat'
+        ? context?.chatCompletionSettings
+        : context?.textCompletionSettings || context?.textGenerationSettings
+    ),
+    presetName,
+    preset: presetSnapshot(context, presetType, presetName),
+    instructName,
+    instruct: presetSnapshot(context, 'instruct', instructName)
+  }));
+}
+
 function resolveProfile(context, profileId) {
   const service = requireConnectionManagerService(context || {});
   const profile = service.getProfile(profileId);
@@ -237,9 +323,21 @@ function isTransportError(error) {
 }
 
 function normalizeThrownError(error, providerKind) {
-  if (isAbortLikeError(error) || error?.code === 'DIRECTIVE_GENERATION_TIMEOUT') {
-    if (error && typeof error === 'object') error.providerKind = providerKind;
+  if (error?.[SAFE_PROVIDER_ERROR] === true) {
+    error.providerKind = providerKind;
     return error;
+  }
+  if (isAbortLikeError(error) || error?.code === 'DIRECTIVE_GENERATION_TIMEOUT') {
+    const code = error?.code === 'DIRECTIVE_GENERATION_TIMEOUT'
+      ? 'DIRECTIVE_GENERATION_TIMEOUT'
+      : 'DIRECTIVE_GENERATION_ABORTED';
+    const wrapped = providerError(
+      code,
+      code === 'DIRECTIVE_GENERATION_TIMEOUT' ? 'Generation timed out.' : 'Generation canceled.'
+    );
+    wrapped.providerKind = providerKind;
+    wrapped.retryable = code === 'DIRECTIVE_GENERATION_TIMEOUT';
+    return wrapped;
   }
   if (isTransportError(error)) {
     const code = transportErrorCode(error) || 'TRANSPORT';
@@ -252,11 +350,23 @@ function normalizeThrownError(error, providerKind) {
     wrapped.retryable = true;
     return wrapped;
   }
-  if (error && typeof error === 'object') {
-    error.providerKind = providerKind;
-    return error;
+  if (SAFE_RESPONSE_ERROR_CODES.has(String(error?.code || ''))) {
+    const wrapped = providerError(error.code, String(error.message || 'Provider response was not usable.'), {
+      providerKind,
+      finishReason: textValue(error?.details?.finishReason) || null,
+      maxTokens: positiveInteger(error?.details?.maxTokens),
+      visibleContentLength: positiveInteger(error?.details?.visibleContentLength) || 0,
+      reasoningLength: positiveInteger(error?.details?.reasoningLength) || 0
+    });
+    wrapped.providerKind = providerKind;
+    return wrapped;
   }
-  const wrapped = providerError('DIRECTIVE_PROVIDER_REQUEST_FAILED', 'Provider request failed.');
+  const status = Number(error?.status || error?.statusCode || error?.response?.status);
+  const wrapped = providerError(
+    'DIRECTIVE_PROVIDER_REQUEST_FAILED',
+    `Provider ${providerKind} request failed.`,
+    { providerKind, ...(Number.isInteger(status) ? { status } : {}) }
+  );
   wrapped.providerKind = providerKind;
   return wrapped;
 }
@@ -317,17 +427,24 @@ function shouldRetryVisibleOutput(error) {
 
 function providerIdentity(context, config) {
   if (config.provider === 'profile') {
-    const { metadata } = resolveProfile(context, config.profileId);
+    const { metadata, profile, apiMap } = resolveProfile(context, config.profileId);
     return {
       identity: `profile:${metadata.id}:${metadata.model || 'unknown'}`,
       completionMode: metadata.completionMode,
-      profile: metadata
+      profile: metadata,
+      sourceConfigurationDigest: sourceConfigurationDigest(context, {
+        completionMode: metadata.completionMode,
+        profile,
+        apiMap
+      })
     };
   }
+  const completionMode = currentCompletionMode(context);
   return {
     identity: currentIdentity(context),
-    completionMode: currentCompletionMode(context),
-    profile: null
+    completionMode,
+    profile: null,
+    sourceConfigurationDigest: sourceConfigurationDigest(context, { completionMode })
   };
 }
 
@@ -441,7 +558,8 @@ async function sendViaCurrentModel(context, config, request, resolved) {
       stream: false,
       prompt: messages,
       ...(model ? { model } : {}),
-      max_new_tokens: maxTokens,
+      max_tokens: maxTokens,
+      api_type: textValue(context?.textCompletionSettings?.type || context?.textGenType),
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
     }, {
@@ -617,6 +735,7 @@ export function createDirectiveProviderClient({
         capabilities: { connectivity: true, structuredOutput }
       };
     } catch (error) {
+      const safeError = normalizeThrownError(error, id);
       settingsStore.update(id, {
         certification: { status: 'failed', testedAt: now() }
       });
@@ -625,9 +744,9 @@ export function createDirectiveProviderClient({
         kind: id,
         maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
         error: {
-          code: error?.code || 'DIRECTIVE_PROVIDER_TEST_FAILED',
-          message: error?.message || 'Provider test failed.',
-          details: cloneJson(error?.details || null)
+          code: safeError?.code || 'DIRECTIVE_PROVIDER_TEST_FAILED',
+          message: safeError?.message || 'Provider test failed.',
+          details: cloneJson(safeError?.details || null)
         }
       };
     }
