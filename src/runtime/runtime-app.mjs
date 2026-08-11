@@ -8,6 +8,7 @@ import {
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
+import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import {
   deleteV1PlayerPortrait,
@@ -79,6 +80,50 @@ function messageId(payload, normalized = null) {
 
 function isUserMessage(message = {}) {
   return message.isUser === true || message.is_user === true || message.role === 'user';
+}
+
+function activeSourceRow(message = {}) {
+  const inferred = normalizeV1HostMessageVisibility(message.raw || message);
+  const visibility = object(message.visibility)
+    ? { ...inferred, ...message.visibility }
+    : inferred;
+  return visibility.sourceRowExists !== false
+    && visibility.hiddenByHost !== true
+    && visibility.sourceMutation !== true;
+}
+
+export function createActiveAcceptedPairLineage({
+  campaignState,
+  recentMessages = [],
+  chatId = null
+} = {}) {
+  const activeMessages = (Array.isArray(recentMessages) ? recentMessages : [])
+    .filter(activeSourceRow);
+  const lineage = [];
+  const seenPlayerMessageIds = new Set();
+  for (const message of activeMessages) {
+    if (!isUserMessage(message)) continue;
+    const prepared = prepareV1AcceptedPairSnapshot({
+      campaignState,
+      currentPlayerMessage: message,
+      recentMessages: activeMessages,
+      chatId
+    });
+    if (!prepared.ok) continue;
+    const currentPlayerHostMessageId = compact(
+      prepared.snapshot?.source?.currentPlayer?.hostMessageId
+    );
+    if (!currentPlayerHostMessageId || seenPlayerMessageIds.has(currentPlayerHostMessageId)) continue;
+    seenPlayerMessageIds.add(currentPlayerHostMessageId);
+    lineage.push({
+      previousAssistantHostMessageId: compact(
+        prepared.snapshot?.source?.previousAssistant?.hostMessageId
+      ) || null,
+      currentPlayerHostMessageId,
+      sourceRangeHash: compact(prepared.snapshot?.source?.sourceRangeHash) || null
+    });
+  }
+  return lineage;
 }
 
 function timeHeader(state) {
@@ -387,15 +432,19 @@ export function createDirectiveRuntimeApp({
       throw error;
     }
     const recentMessages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
-    const acceptedPairLineage = [];
-    const seenPlayerMessageIds = new Set();
-    for (const message of recentMessages) {
-      if (!isUserMessage(message)) continue;
-      const id = messageId(message, normalizeMessage(host, message));
-      if (!id || seenPlayerMessageIds.has(id)) continue;
-      seenPlayerMessageIds.add(id);
-      acceptedPairLineage.push({ currentPlayerHostMessageId: id });
+    if (!state || !currentChatIsBound()) {
+      await restoreNarrationPreset();
+      await host.prompt.clear?.({ reason: 'chat-changed-during-history-read' });
+      return { ok: true, active: false };
     }
+    const normalizedMessages = recentMessages
+      .map((message) => normalizeMessage(host, message))
+      .filter(Boolean);
+    const acceptedPairLineage = createActiveAcceptedPairLineage({
+      campaignState: state,
+      recentMessages: normalizedMessages,
+      chatId: host.chat.getCurrentChatId?.()
+    });
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),

@@ -332,6 +332,30 @@ host.presets.activateNarrationPreset = immediatePresetActivation;
 await app.openCampaignChat({ saveId: missionView.activeSaveId });
 assert.equal(chat.getCurrentChatId(), boundCampaignChatId);
 
+const immediateRecentMessages = host.chat.getRecentMessages;
+let releasePendingMessageRead;
+let reportPendingMessageRead;
+const pendingMessageReadStarted = new Promise((resolve) => { reportPendingMessageRead = resolve; });
+const pendingMessageRead = new Promise((resolve) => { releasePendingMessageRead = resolve; });
+host.chat.getRecentMessages = async (...args) => {
+  reportPendingMessageRead();
+  await pendingMessageRead;
+  return immediateRecentMessages.apply(host.chat, args);
+};
+const pendingHistoryRefresh = app.handleHostChatChanged();
+await pendingMessageReadStarted;
+chat.setCurrentChatId('unbound-during-history-read');
+releasePendingMessageRead();
+await pendingHistoryRefresh;
+assert.equal(
+  host.prompt.inspect().blocks.length,
+  0,
+  'a chat switch during the asynchronous history read must not install campaign context into the unbound chat'
+);
+host.chat.getRecentMessages = immediateRecentMessages;
+await app.openCampaignChat({ saveId: missionView.activeSaveId });
+assert.equal(chat.getCurrentChatId(), boundCampaignChatId);
+
 chat.setCurrentChatId('unbound-open-failure');
 const messagesBeforeOpenFailure = chat.messages().length;
 const openBoundCampaignChat = host.chat.openCampaignChat;

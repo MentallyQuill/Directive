@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { createV1RuntimePromptPacket } from '../../src/runtime/runtime-app.mjs';
+import {
+  createActiveAcceptedPairLineage,
+  createV1RuntimePromptPacket
+} from '../../src/runtime/runtime-app.mjs';
 
 function json(relative) {
   return JSON.parse(fs.readFileSync(new URL(`../../${relative}`, import.meta.url), 'utf8'));
@@ -51,6 +54,56 @@ const projection = {
   commandBearing: {},
   story: { branchId: 'save-opening', revision: 0, focus: null, entries: [] }
 };
+
+const openingAssistant = {
+  hostMessageId: 'opening-assistant',
+  role: 'assistant',
+  text: packageData.campaign.openingMessage
+};
+const hiddenOriginalEntry = {
+  hostMessageId: 'player-entry-1-hidden',
+  role: 'user',
+  text: 'I enter the ready room.',
+  visibility: { sourceRowExists: true, hiddenByHost: true, sourceMutation: false }
+};
+const replayedEntry = {
+  hostMessageId: 'player-entry-1-replayed',
+  role: 'user',
+  text: 'I press the chime and enter.'
+};
+const introduction = {
+  hostMessageId: 'whitaker-introduction',
+  role: 'assistant',
+  text: 'Whitaker welcomes the commander, offers coffee, and asks about the shuttle trip.'
+};
+const answeredEntry = {
+  hostMessageId: 'player-entry-2',
+  role: 'user',
+  text: 'The trip was smooth. The ship made a good first impression.'
+};
+const replayLineage = createActiveAcceptedPairLineage({
+  campaignState: state,
+  chatId: 'opening-chat',
+  recentMessages: [openingAssistant, hiddenOriginalEntry, replayedEntry]
+});
+assert.deepEqual(replayLineage.map((entry) => entry.currentPlayerHostMessageId), ['player-entry-1-replayed']);
+const answeredLineage = createActiveAcceptedPairLineage({
+  campaignState: state,
+  chatId: 'opening-chat',
+  recentMessages: [openingAssistant, hiddenOriginalEntry, replayedEntry, introduction, answeredEntry]
+});
+assert.deepEqual(answeredLineage.map((entry) => entry.currentPlayerHostMessageId), [
+  'player-entry-1-replayed',
+  'player-entry-2'
+]);
+const unpairedPlayerLineage = createActiveAcceptedPairLineage({
+  campaignState: state,
+  chatId: 'opening-chat',
+  recentMessages: [openingAssistant, replayedEntry, answeredEntry]
+});
+assert.deepEqual(unpairedPlayerLineage.map((entry) => entry.currentPlayerHostMessageId), [
+  'player-entry-1-replayed'
+]);
 
 const packet = createV1RuntimePromptPacket({
   state,
