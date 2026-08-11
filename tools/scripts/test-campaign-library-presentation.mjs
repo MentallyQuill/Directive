@@ -32,9 +32,18 @@ try {
             <section class="campaign-detail" data-directive-scroll-owner="true">
               <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
                 <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
-                <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2><p class="campaign-summary">Current approved campaign description.</p></div>
+                <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2></div>
               </section>
-              <button type="button" class="campaign-command campaign-command-primary" disabled><span>New campaign</span></button>
+              <div class="campaign-library-detail-body">
+                <p class="campaign-summary campaign-library-description">Current approved campaign description.</p>
+                <div class="campaign-facts campaign-library-facts">
+                  <div class="campaign-fact"><span>Era</span><strong>2373, Dominion War</strong></div>
+                  <div class="campaign-fact"><span>Theater</span><strong>Nerine Reef</strong></div>
+                  <div class="campaign-fact"><span>Assignment</span><strong>U.S.S. Glass Harbor, Steamrunner-class</strong></div>
+                  <div class="campaign-fact"><span>Your Role</span><strong>Commander, Executive Officer</strong></div>
+                </div>
+                <button type="button" class="campaign-command campaign-command-primary" disabled><span>New campaign</span></button>
+              </div>
             </section>
           </div>
         </main>
@@ -53,6 +62,8 @@ try {
       const heroCopyStyle = getComputedStyle(document.querySelector('.campaign-hero-copy'));
       const action = document.querySelector('.campaign-command-primary');
       const artBox = art.getBoundingClientRect();
+      const facts = document.querySelector('.campaign-library-facts');
+      const hero = document.querySelector('.campaign-library-hero');
       return {
         columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
         rowOpacity: Number(rowStyle.opacity),
@@ -63,6 +74,11 @@ try {
         heroArtOpacity: Number(heroArtStyle.opacity),
         heroArtFilter: heroArtStyle.filter,
         heroCopyOpacity: Number(heroCopyStyle.opacity),
+        descriptionInsideHero: Boolean(document.querySelector('.campaign-hero .campaign-library-description')),
+        factColumns: getComputedStyle(facts).gridTemplateColumns.split(' ').filter(Boolean).length,
+        factValueWhiteSpace: getComputedStyle(facts.querySelector('strong')).whiteSpace,
+        heroHeight: hero.getBoundingClientRect().height,
+        actionAfterFacts: Boolean(document.querySelector('.campaign-library-facts + .campaign-command-primary')),
         actionDisabled: action.disabled,
         artWidth: artBox.width,
         artHeight: artBox.height,
@@ -78,6 +94,11 @@ try {
     assert.ok(metrics.heroArtOpacity <= .5, `${viewport.width}px future Campaign detail art must be greyed`);
     assert.match(metrics.heroArtFilter, /grayscale\(1\)/, `${viewport.width}px future Campaign detail art must be grayscale`);
     assert.equal(metrics.heroCopyOpacity, 1, `${viewport.width}px future Campaign detail copy must remain full strength`);
+    assert.equal(metrics.descriptionInsideHero, false, `${viewport.width}px description must remain below the Campaign hero`);
+    assert.equal(metrics.factColumns, viewport.width <= 640 ? 2 : 4, `${viewport.width}px Campaign fact columns`);
+    assert.equal(metrics.factValueWhiteSpace, 'normal', `${viewport.width}px Campaign fact values must wrap`);
+    assert.equal(metrics.heroHeight, viewport.width <= 640 ? 170 : 230, `${viewport.width}px Campaign hero height`);
+    assert.equal(metrics.actionAfterFacts, true, `${viewport.width}px Campaign action must follow facts`);
     assert.equal(metrics.actionDisabled, true, `${viewport.width}px New campaign must remain disabled`);
     assert.ok(Math.abs(metrics.artWidth - metrics.artHeight) < .1, `${viewport.width}px Campaign row art must remain square`);
     assert.equal(metrics.overflowX, false, `${viewport.width}px Campaign route must not overflow horizontally`);
