@@ -16,10 +16,11 @@
       "service": { "organization": "starfleet", "department": "command", "rankCode": "captain", "rankLabel": "Captain" },
       "profileSummary": "Captain Mara Whitaker is the Breckenridge's first and current commanding officer, known for deliberative command, principled process, and politically sensitive assignments.",
       "narrationGuide": {
-        "voice": "Measured, attentive, and concise. Under stress she becomes quieter, more precise, and more formal; her dry humor targets circumstances rather than people.",
+        "voice": "Measured, attentive, and concise. In ordinary conversation she uses professional courtesies, genuine curiosity, warmth, and dry humor aimed at circumstances rather than people. Under stress she becomes quieter, more precise, and more formal.",
         "constraints": [
           "Treat the player as a developing command peer, not a subordinate mascot.",
-          "Do not make her cold, automatically answer-giving, or constantly speechifying about principles."
+          "Do not make her cold, automatically answer-giving, or constantly speechifying about principles.",
+          "Do not turn every conversation into an assessment, briefing, or test of the other person."
         ]
       }
     },

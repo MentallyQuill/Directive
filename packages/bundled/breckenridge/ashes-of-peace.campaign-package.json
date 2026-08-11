@@ -18,7 +18,20 @@
     "openingStardate": 53068.4,
     "openingYear": 2376,
     "highConcept": "The war is over, but peace in the Asterion Reach depends on who controls Starfleet's voice, who receives relief, and whose evidence survives. The newly refit U.S.S. Breckenridge enters that fracture with an incoming executive officer and a command team still learning how to trust one another.",
-    "openingMessage": "The U.S.S. Breckenridge is underway again, four months of repair and modernization still audible in the unfamiliar rhythm of her decks.\n\nCaptain Mara Whitaker waits in the ready room with the command-transfer packet open between two untouched cups of coffee. “Come in, Commander. Before this ship reaches the Asterion Reach, you and I need to decide how we are going to run her.”"
+    "openingMessage": "Yesterday morning, your shuttle rendezvoused with the U.S.S. Breckenridge while the newly refitted ship held at impulse beyond Mars. The docking collar settled with a muted thump, and the first open hatch revealed fresh bulkhead panels, old deck plating, and a crew still learning the shape of its ship after four months in the yards.\n\nAn operations yeoman showed you to the executive officer’s cabin. Four PADDs waited on the desk: your transfer orders, senior-staff dossiers, the refit and readiness reports, and Starfleet’s briefing on the Asterion Reach. The hours that followed passed between those files and a first walk through the Breckenridge—enough time to see where the official reports and the lived-in ship did not quite agree.\n\nNow it is 0830 the following morning. The Breckenridge is underway, and the softer chime of Captain Mara Whitaker’s ready room waits beside your hand. The formal command handover is on the other side of the door.",
+    "openingContext": {
+      "continuitySummary": "The player arrived aboard the U.S.S. Breckenridge by shuttle the previous morning, was shown to the executive officer’s cabin, and received PADDs containing transfer orders, senior-staff dossiers, refit and readiness reports, and the Asterion Reach briefing. The player spent the intervening day reviewing those materials and seeing the newly refitted ship firsthand.",
+      "firstPlayableScene": "At 0830 the following morning, the player is outside Captain Mara Whitaker’s ready room before their first personal meeting and formal command handover.",
+      "firstSceneGuidance": [
+        "Whitaker greets the player by name and introduces herself properly before discussing command business.",
+        "Whitaker offers a seat and coffee or another ordinary professional courtesy.",
+        "Whitaker makes brief, genuine conversation about the shuttle trip, the player’s first impressions, or her decision to request the player for the assignment.",
+        "Leave room for the player to answer and establish their own social posture before Whitaker changes subjects.",
+        "In the first reply inside the ready room, stop after the greeting, courtesy, and one conversational question or invitation; Whitaker does not pivot into business in that same reply.",
+        "Do not mention readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms until the player has answered that conversational opening.",
+        "Transition naturally into the command handover only after a human conversational rhythm is established; do not frame the meeting as an interrogation, wartime emergency, or immediate mission briefing."
+      ]
+    }
   },
   "ship": {
     "id": "uss-breckenridge",

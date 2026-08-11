@@ -67,6 +67,31 @@ export function getCampaignPackageSpineErrors(packageData) {
     [packageData.world.id, 'packageData.world.id'],
     [packageData.world.openingLocationId, 'packageData.world.openingLocationId']
   ]) requireText(value, label, errors);
+  const openingContext = packageData.campaign.openingContext;
+  requireObject(openingContext, 'packageData.campaign.openingContext', errors);
+  if (object(openingContext)) {
+    requireText(
+      openingContext.continuitySummary,
+      'packageData.campaign.openingContext.continuitySummary',
+      errors
+    );
+    requireText(
+      openingContext.firstPlayableScene,
+      'packageData.campaign.openingContext.firstPlayableScene',
+      errors
+    );
+    if (!Array.isArray(openingContext.firstSceneGuidance) || openingContext.firstSceneGuidance.length === 0) {
+      errors.push('packageData.campaign.openingContext.firstSceneGuidance must be a non-empty array');
+    } else {
+      openingContext.firstSceneGuidance.forEach((entry, index) => {
+        requireText(
+          entry,
+          `packageData.campaign.openingContext.firstSceneGuidance[${index}]`,
+          errors
+        );
+      });
+    }
+  }
   if (!Number.isFinite(Number(packageData.manifest.openingMinuteOfDay))) {
     errors.push('packageData.manifest.openingMinuteOfDay must be numeric');
   }
