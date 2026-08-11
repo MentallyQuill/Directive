@@ -18,17 +18,21 @@ function moveArray(order, id, offset) {
   return result;
 }
 
-function copyRenderedStyles(source, target) {
-  const sourceElements = [source, ...source.querySelectorAll('*')];
-  const targetElements = [target, ...target.querySelectorAll('*')];
-  sourceElements.forEach((sourceElement, index) => {
-    const targetElement = targetElements[index];
-    if (!targetElement?.style) return;
-    const sourceStyle = getComputedStyle(sourceElement);
-    for (const property of sourceStyle) {
-      targetElement.style.setProperty(property, sourceStyle.getPropertyValue(property), sourceStyle.getPropertyPriority(property));
-    }
-  });
+const DRAG_THEME_PROPERTIES = [
+  '--directive-expanded-bg', '--directive-expanded-raised', '--directive-expanded-surface',
+  '--directive-expanded-high', '--directive-expanded-text', '--directive-expanded-muted',
+  '--directive-expanded-amber', '--directive-expanded-gold', '--directive-expanded-salmon',
+  '--directive-expanded-lilac', '--directive-expanded-blue', '--directive-expanded-violet',
+  '--bg', '--raised', '--surface', '--high', '--text', '--muted', '--amber', '--gold',
+  '--salmon', '--lilac', '--blue', '--violet', '--directive-focus'
+];
+
+function copyInheritedCustomProperties(source, target) {
+  const sourceStyle = getComputedStyle(source);
+  for (const property of DRAG_THEME_PROPERTIES) target.style.setProperty(property, sourceStyle.getPropertyValue(property));
+  for (const property of ['color', 'font-family', 'font-size', 'line-height']) {
+    target.style.setProperty(property, sourceStyle.getPropertyValue(property));
+  }
 }
 
 export function bindPresentationReorderHandle(handle, {
@@ -85,6 +89,29 @@ export function bindPresentationReorderHandle(handle, {
     try { state?.blurTarget?.navigator?.vibrate?.(duration); } catch { /* Haptics are a progressive enhancement. */ }
   };
   const reducedMotion = () => state?.blurTarget?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  const ghostTransform = (x, y, scale = 1) => `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+  const flushGhostPosition = () => {
+    if (!state?.active || !state.ghost) return;
+    if (state.ghostMoveFrame) state.blurTarget?.cancelAnimationFrame?.(state.ghostMoveFrame);
+    state.ghostMoveFrame = 0;
+    state.ghost.style.transform = ghostTransform(state.ghostX, state.ghostY, state.ghostScale);
+  };
+  const scheduleGhostPosition = (x, y) => {
+    if (!state?.active) return;
+    state.ghostX = x;
+    state.ghostY = y;
+    if (state.ghostMoveFrame) return;
+    state.ghostMoveFrame = state.blurTarget?.requestAnimationFrame?.(flushGhostPosition) || 0;
+    if (!state.ghostMoveFrame) flushGhostPosition();
+  };
+  const settlePlaceholderPosition = () => {
+    if (!state?.placeholder || !state.reflowAnimations) return;
+    for (const animation of [...state.reflowAnimations]) {
+      if (animation.effect?.target !== state.placeholder) continue;
+      animation.cancel();
+      state.reflowAnimations.delete(animation);
+    }
+  };
   const relocatePlaceholder = (parent, before = null) => {
     if (!state?.placeholder || !parent) return;
     if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
@@ -121,6 +148,7 @@ export function bindPresentationReorderHandle(handle, {
     if (!state) return;
     clearTimeout(state.timer);
     if (state.autoScrollFrame) state.blurTarget?.cancelAnimationFrame?.(state.autoScrollFrame);
+    if (state.ghostMoveFrame) state.blurTarget?.cancelAnimationFrame?.(state.ghostMoveFrame);
     state.blurTarget?.removeEventListener?.('blur', state.onWindowBlur);
     state.ownerDocument?.removeEventListener?.('pointermove', state.onPointerMove, true);
     state.ownerDocument?.removeEventListener?.('pointerup', state.onPointerUp, true);
@@ -181,6 +209,7 @@ export function bindPresentationReorderHandle(handle, {
   const end = (commit = true, { instant = false } = {}) => {
     if (!state || state.finishing) return;
     if (state.active && ['touch', 'pen'].includes(state.pointerType) && touchTarget) suppressTouchClickUntil = Date.now() + 600;
+    flushGhostPosition();
     detachActiveListeners();
     const shouldDock = state.active && !deferredDrop && dropDurationMs > 0 && state.placeholder?.isConnected && state.ghost?.isConnected;
     if (!shouldDock) {
@@ -194,6 +223,7 @@ export function bindPresentationReorderHandle(handle, {
       finalize(false);
       return;
     }
+    settlePlaceholderPosition();
     const ghostRect = state.ghost.getBoundingClientRect();
     const slotRect = state.placeholder.getBoundingClientRect();
     state.ghost.classList.add('is-snapping');
@@ -209,15 +239,11 @@ export function bindPresentationReorderHandle(handle, {
     }
     const animation = state.ghost.animate([
       {
-        left: `${ghostRect.left}px`,
-        top: `${ghostRect.top}px`,
-        transform: 'scale(1.015)',
+        transform: ghostTransform(ghostRect.left, ghostRect.top, state.ghostScale),
         boxShadow: '0 10px 24px rgba(0, 0, 0, .48)'
       },
       {
-        left: `${slotRect.left}px`,
-        top: `${slotRect.top}px`,
-        transform: 'scale(1)',
+        transform: ghostTransform(slotRect.left, slotRect.top, 1),
         boxShadow: '0 1px 3px rgba(0, 0, 0, .18)'
       }
     ], { duration, easing: reflowEasing, fill: 'forwards' });
@@ -246,17 +272,19 @@ export function bindPresentationReorderHandle(handle, {
       });
     }
     const ghost = previewSource.cloneNode(true);
-    copyRenderedStyles(previewSource, ghost);
     ghost.removeAttribute('id');
     ghost.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
     ghost.setAttribute('aria-hidden', 'true');
     ghost.inert = true;
     ghost.querySelectorAll('a,button,input,select,textarea,[tabindex]').forEach((element) => element.setAttribute('tabindex', '-1'));
-    ghost.classList.remove('is-dragging');
+    ghost.classList.remove('active', 'is-dragging', 'is-drop-before', 'is-drop-target');
     ghost.classList.add('mobile-drag-ghost');
     if (previewClass) ghost.classList.add(previewClass);
     const pointerOffsetX = state.originX - rect.left;
     const pointerOffsetY = state.originY - rect.top;
+    const ghostScale = previewClass === 'people-drag-ghost' ? 1.015 : 1;
+    const ghostX = lockAxis === 'y' ? rect.left : state.x - pointerOffsetX;
+    const ghostY = state.y - pointerOffsetY;
     Object.assign(ghost.style, {
       position: 'fixed',
       zIndex: '9999',
@@ -268,16 +296,19 @@ export function bindPresentationReorderHandle(handle, {
       minHeight: '0',
       maxHeight: 'none',
       margin: '0',
-      left: `${lockAxis === 'y' ? rect.left : state.x - pointerOffsetX}px`,
-      top: `${state.y - pointerOffsetY}px`,
+      left: '0',
+      top: '0',
+      transform: ghostTransform(ghostX, ghostY, ghostScale),
+      willChange: 'transform',
       pointerEvents: 'none',
       boxShadow: '0 10px 24px rgba(0, 0, 0, .48)',
       opacity: ghostOpacity || (deferredDrop ? '.92' : (previewClass === 'people-drag-ghost' ? '.5' : '.9'))
     });
-    if (placeholder) state.item.replaceWith(placeholder);
-    state.item.classList.add('is-dragging');
     const ghostHost = document.createElement('div');
     ghostHost.className = 'directive-expanded-shell directive-drag-layer';
+    copyInheritedCustomProperties(previewSource, ghostHost);
+    if (placeholder) state.item.replaceWith(placeholder);
+    state.item.classList.add('is-dragging');
     document.body.appendChild(ghostHost);
     ghostHost.appendChild(ghost);
     const positionedRect = ghost.getBoundingClientRect();
@@ -290,6 +321,10 @@ export function bindPresentationReorderHandle(handle, {
       placeholder,
       ghost,
       ghostHost,
+      ghostX,
+      ghostY,
+      ghostScale,
+      ghostMoveFrame: 0,
       handleCenterX: positionedPointerOffsetX,
       handleCenterY: positionedPointerOffsetY,
       captureTarget,
@@ -304,9 +339,7 @@ export function bindPresentationReorderHandle(handle, {
   };
   const updateDropTarget = (clientX, clientY) => {
     if (!state?.active) return;
-    state.ghost.hidden = true;
     const hovered = state.ownerDocument.elementFromPoint(lockAxis === 'y' ? state.hitTestX : clientX, clientY);
-    state.ghost.hidden = false;
     let dropList = dropListSelector ? hovered?.closest(dropListSelector) : state.list;
     if (!dropList && dropZoneSelector) dropList = hovered?.closest(dropZoneSelector)?.querySelector(dropListSelector);
     if (dropList && dropList.getClientRects().length === 0) dropList = null;
@@ -377,8 +410,8 @@ export function bindPresentationReorderHandle(handle, {
       return;
     }
     event.preventDefault?.();
-    if (!deferredDrop && lockAxis !== 'y') state.ghost.style.left = `${event.clientX - state.handleCenterX}px`;
-    state.ghost.style.top = `${event.clientY - state.handleCenterY}px`;
+    const ghostX = !deferredDrop && lockAxis !== 'y' ? event.clientX - state.handleCenterX : state.ghostX;
+    scheduleGhostPosition(ghostX, event.clientY - state.handleCenterY);
     updateDropTarget(event.clientX, event.clientY);
     const scrolled = scrollAtActiveEdge();
     if (scrolled) updateDropTarget(state.x, state.y);

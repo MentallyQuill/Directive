@@ -441,6 +441,37 @@ try {
     && document.querySelector('.people-drag-ghost')
     && !document.querySelector('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]')
   ));
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-1024x768.png') });
+  const heldCardPresentation = await peoplePage.locator('.people-drag-ghost').evaluate((ghost) => {
+    const style = getComputedStyle(ghost);
+    const layerZ = Number.parseInt(getComputedStyle(ghost.parentElement).zIndex, 10);
+    const shellZ = Number.parseInt(getComputedStyle(document.querySelector('.directive-runtime-panel.directive-expanded-shell')).zIndex, 10);
+    return {
+      aboveShell: layerZ > shellZ,
+      borderStyles: [style.borderTopStyle, style.borderRightStyle, style.borderBottomStyle, style.borderLeftStyle],
+      background: style.backgroundColor,
+      transform: style.transform,
+      willChange: style.willChange,
+      active: ghost.classList.contains('active'),
+      inlineDeclarations: [ghost, ...ghost.querySelectorAll('*')]
+        .reduce((total, element) => total + element.style.length, 0)
+    };
+  });
+  assert.deepEqual({
+    aboveShell: heldCardPresentation.aboveShell,
+    borderStyles: heldCardPresentation.borderStyles,
+    background: heldCardPresentation.background,
+    willChange: heldCardPresentation.willChange,
+    active: heldCardPresentation.active
+  }, {
+    aboveShell: true,
+    borderStyles: ['solid', 'solid', 'solid', 'solid'],
+    background: 'rgb(20, 18, 28)',
+    willChange: 'transform',
+    active: false
+  }, 'the held card must render as one complete elevated dossier above the Directive shell');
+  assert.notEqual(heldCardPresentation.transform, 'none', 'the held card must use a compositor transform');
+  assert.ok(heldCardPresentation.inlineDeclarations < 100, 'lifting a card must not snapshot thousands of computed declarations');
   assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10], 'lifting a person card must request one short haptic pulse');
   const ghostInitialBox = await peoplePage.locator('.mobile-drag-ghost').boundingBox();
   assert.equal(Math.round(ghostInitialBox.x), Math.round(maraCardBox.x), 'lifting from an off-center point must not make the card jump');
@@ -467,6 +498,7 @@ try {
   await peoplePage.mouse.up();
   assert.equal(await peoplePage.locator('.people-drag-ghost.is-snapping').count(), 1, 'pointer-up must begin a visible docking phase');
   assert.equal(await peoplePage.locator('.people-card-drop-slot.is-drop-committing').count(), 1, 'the landing slot must brighten while the card docks');
+  await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-docking-1024x768.png') });
   await peoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
   assert.deepEqual(await peoplePage.evaluate(() => globalThis.__directiveDragVibrations), [10, 8], 'successful docking must request a distinct completion pulse');
   const pointerMoved = await bridgeCategory.locator('.collection-person-row[data-person-id="mara-whitaker"]').count();
@@ -515,6 +547,37 @@ try {
   observedVarianceIds.add('people-restored-collections');
   await peoplePage.close();
 
+  const immediateDropPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await immediateDropPage.goto(`${baseUrl}/production?route=people`);
+  await immediateDropPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const immediateHandle = immediateDropPage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const immediateHandleBox = await immediateHandle.boundingBox();
+  const immediateTargetBox = await immediateDropPage.locator('.people-desktop-journal .collection-person-row[data-person-id="rowan-saye"]').boundingBox();
+  await immediateDropPage.mouse.move(immediateHandleBox.x + immediateHandleBox.width / 2, immediateHandleBox.y + immediateHandleBox.height / 2);
+  await immediateDropPage.mouse.down();
+  await immediateDropPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
+  await immediateDropPage.mouse.move(immediateTargetBox.x + immediateTargetBox.width / 2, immediateTargetBox.y + immediateTargetBox.height / 2);
+  await immediateDropPage.mouse.up();
+  const immediateDockAlignment = await immediateDropPage.evaluate(() => {
+    const ghost = document.querySelector('.people-drag-ghost.is-snapping');
+    const slot = document.querySelector('.people-card-drop-slot.is-drop-committing');
+    const docking = ghost?.getAnimations().find((animation) => animation.effect?.getKeyframes?.().length === 2);
+    const finalTransform = docking?.effect?.getKeyframes?.().at(-1)?.transform;
+    const target = finalTransform ? new DOMMatrixReadOnly(finalTransform) : null;
+    const slotRect = slot?.getBoundingClientRect();
+    const slotTransform = slot ? getComputedStyle(slot).transform : 'none';
+    const slotMatrix = slotTransform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(slotTransform);
+    return {
+      target: target ? { x: target.m41, y: target.m42 } : null,
+      settledSlot: slotRect ? { x: slotRect.left - slotMatrix.m41, y: slotRect.top - slotMatrix.m42 } : null
+    };
+  });
+  assert.ok(immediateDockAlignment.target && immediateDockAlignment.settledSlot, 'immediate release must retain a visible docking animation and slot');
+  assert.ok(Math.abs(immediateDockAlignment.target.x - immediateDockAlignment.settledSlot.x) < 1, 'immediate release must dock to the settled slot x-coordinate');
+  assert.ok(Math.abs(immediateDockAlignment.target.y - immediateDockAlignment.settledSlot.y) < 1, 'immediate release must dock to the settled slot y-coordinate');
+  await immediateDropPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await immediateDropPage.close();
+
   const mobilePeoplePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobilePeoplePage.goto(`${baseUrl}/production?route=people`);
   await mobilePeoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
@@ -554,7 +617,8 @@ try {
     clientX: expandedTouchDetailBox.x + expandedTouchDetailBox.width / 2, clientY: expandedTouchDetailBox.y + 10
   });
   await mobilePeoplePage.waitForTimeout(200);
-  assert.equal(Math.round((await mobilePeoplePage.locator('.people-drag-ghost').boundingBox()).height), Math.round(expandedTouchCardBox.height), 'touch-holding an expanded card must lift the complete rendered card');
+  const expandedTouchGhostBox = await mobilePeoplePage.locator('.people-drag-ghost').boundingBox();
+  assert.ok(Math.abs((expandedTouchGhostBox.height / expandedTouchCardBox.height) - 1.015) < 0.005, 'touch-holding an expanded card must lift the complete rendered card at the approved 1.015 scale');
   await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 79, pointerType: 'touch', bubbles: true })));
   await mobilePeoplePage.waitForTimeout(500);
   const scrollingTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="priya-nayar"] .mobile-accordion-toggle');
@@ -581,6 +645,7 @@ try {
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch must not lift before the hold delay');
   await mobilePeoplePage.waitForTimeout(100);
   assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 1, 'whole-card touch must lift after 175ms');
+  await mobilePeoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-390x844.png') });
   assert.equal(await mobilePeoplePage.evaluate(() => {
     const event = new TouchEvent('touchmove', { bubbles: true, cancelable: true });
     document.dispatchEvent(event);
