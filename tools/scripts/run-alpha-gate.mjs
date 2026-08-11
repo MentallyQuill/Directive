@@ -81,6 +81,7 @@ const checks = [
   "test-sillytavern-generation-client.mjs",
   "test-sillytavern-preset-manager.mjs",
   "test-sillytavern-event-wiring.mjs",
+  "test-sillytavern-fresh-chat-hygiene.mjs",
   "test-sillytavern-checkpoint-chat.mjs",
   "test-directive-runtime-overlay-host.mjs",
   "test-character-creator-assist-dialog.mjs",
