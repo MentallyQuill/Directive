@@ -16,7 +16,7 @@ Time-sensitive information appears only when the deadline is known. A mission ca
 
 ## People
 
-Crew profiles are stable service-record information. Current posture and defining moments appear only after accepted story events establish them. Command Bearing is a small earned reserve; its most recent award or use explains why the balance changed.
+Crew profiles are stable service-record information. The player's own record also provides controls to add or replace its image, or remove it after confirmation. Current posture and defining moments appear only after accepted story events establish them. Command Bearing is a small earned reserve; its most recent award or use explains why the balance changed.
 
 Use one point to reserve a bounded favorable edge for the next generated response. You may swipe freely, and the point commits only when you reply to the selected response. Cancel before acceptance to restore it. Editing, deleting, or re-swiping the accepted source later also restores the point.
 

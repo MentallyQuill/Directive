@@ -1144,6 +1144,53 @@ export function createDirectiveRuntimeApp({
       return { portrait: null, deleteResult: portraitCleanup, portraitCleanup, view: await campaignViewEnvelope('campaign') };
     },
 
+    async importCampaignPlayerPortrait({ file, bytes, arrayBuffer, base64, mimeType, fileName } = {}) {
+      await ensureInitialized();
+      if (!state) throw new Error('No active V1 campaign is available.');
+      const upload = await createPlayerPortraitUpload({
+        file, bytes, arrayBuffer, base64, mimeType, fileName,
+        ownerKind: 'campaign', ownerId: state.campaign.id, now
+      });
+      const portrait = await storeV1PlayerPortrait(host.storage, upload, {
+        ownerKind: 'campaign', ownerId: state.campaign.id, now
+      });
+      const previous = clone(state.player.portrait || null);
+      let committed;
+      try {
+        committed = await gateway.applyProposal({
+          id: `v1-player-portrait.import.${state.campaign.id}.${portrait.asset.updatedAt}`,
+          baseRevision: gateway.revision(),
+          domains: ['playerPortrait'],
+          operations: [{ op: 'set', path: ['player', 'portrait'], value: portrait }],
+          source: 'playerPortraitImport'
+        });
+      } catch (error) {
+        await cleanupPlayerPortrait(portrait, 'player-portrait-import-rollback-failed');
+        throw error;
+      }
+      setState(committed.campaignState);
+      const previousCleanup = previous?.asset?.path && previous.asset.path !== portrait.asset.path
+        ? await cleanupPlayerPortrait(previous, 'replaced-player-portrait-cleanup-failed')
+        : { attempted: false, deleted: false, reason: 'no-replaced-player-portrait' };
+      return { portrait: clone(portrait), previousCleanup, view: await campaignViewEnvelope('crew') };
+    },
+
+    async removeCampaignPlayerPortrait() {
+      await ensureInitialized();
+      if (!state) throw new Error('No active V1 campaign is available.');
+      const previous = clone(state.player.portrait || null);
+      const committed = await gateway.applyProposal({
+        id: `v1-player-portrait.remove.${state.campaign.id}.${now()}`,
+        baseRevision: gateway.revision(),
+        domains: ['playerPortrait'],
+        operations: [{ op: 'set', path: ['player', 'portrait'], value: null }],
+        source: 'playerPortraitRemove'
+      });
+      setState(committed.campaignState);
+      const portraitCleanup = await cleanupPlayerPortrait(previous, 'removed-player-portrait-cleanup-failed');
+      return { portrait: null, portraitCleanup, view: await campaignViewEnvelope('crew') };
+    },
+
     async returnCreatorToCampaignLibrary({ patch = null } = {}) {
       if (patch && activeDraftId) await publicApi.saveCreatorDraft({ patch, reason: 'returnToLibrary' });
       activeScreen = 'campaign';

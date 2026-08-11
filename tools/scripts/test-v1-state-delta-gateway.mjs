@@ -136,6 +136,15 @@ await assert.rejects(
 );
 await assert.rejects(
   gateway.applyProposal({
+    id: 'proposal.bad-player-name',
+    baseRevision: 1,
+    domains: ['playerPortrait'],
+    operations: [{ op: 'set', path: ['player', 'name'], value: 'Another Commander' }]
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PATH_FORBIDDEN'
+);
+await assert.rejects(
+  gateway.applyProposal({
     id: 'proposal.stale',
     baseRevision: 0,
     domains: ['mission'],

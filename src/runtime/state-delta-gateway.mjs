@@ -103,8 +103,20 @@ function changedRoots(before, after) {
 }
 
 function ensureAuthorizedChanges(before, after, domains) {
-  const authorized = new Set(domains);
+  const authorized = new Set(domains.map((domain) => domain === 'playerPortrait' ? 'player' : domain));
   const changed = changedRoots(before, after).filter((root) => root !== 'stateCustody');
+  if (changed.includes('player') && domains.includes('playerPortrait')) {
+    const beforeIdentity = cloneJson(before.player);
+    const afterIdentity = cloneJson(after.player);
+    delete beforeIdentity.portrait;
+    delete afterIdentity.portrait;
+    if (stableJson(beforeIdentity) !== stableJson(afterIdentity)) {
+      throw gatewayError(
+        'DIRECTIVE_V1_STATE_PATH_FORBIDDEN',
+        'The playerPortrait domain may mutate only player.portrait.'
+      );
+    }
+  }
   const forbidden = changed.filter((root) => !authorized.has(root));
   if (forbidden.length) {
     throw gatewayError(
@@ -171,7 +183,7 @@ function applyOperations(state, operations, domains) {
       throw gatewayError('DIRECTIVE_V1_STATE_OPERATION_FORBIDDEN', 'Directive V1 state operations support only exact set operations.');
     }
     const path = normalizePath(operation.path);
-    if (!allowed.has(path[0])) {
+    if (!allowed.has(path[0]) && !(allowed.has('playerPortrait') && path[0] === 'player')) {
       throw gatewayError(
         'DIRECTIVE_V1_STATE_DOMAIN_FORBIDDEN',
         `The V1 operation is not authorized to mutate "${path[0]}".`

@@ -376,13 +376,15 @@ try {
   await mobilePeoplePage.goto(`${baseUrl}/production?route=people`);
   await mobilePeoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   const mobileScrollOwner = mobilePeoplePage.locator('.people-journal-host');
-  const mobileScrollBefore = await mobileScrollOwner.evaluate((node) => {
+  await mobileScrollOwner.evaluate((node) => {
     node.scrollTop = Math.min(220, node.scrollHeight - node.clientHeight);
     node.dataset.scrollIdentity = 'mobile-crew-scroll-owner';
-    return node.scrollTop;
   });
+  const mobileHadrikToggle = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="hadrik-bronn"] .mobile-accordion-toggle');
+  await mobileHadrikToggle.scrollIntoViewIfNeeded();
+  const mobileScrollBefore = await mobileScrollOwner.evaluate((node) => node.scrollTop);
   assert.ok(mobileScrollBefore > 0, 'mobile People fixture must have enough roster overflow to exercise scroll retention');
-  await mobilePeoplePage.locator('.mobile-crew-item[data-person-id="hadrik-bronn"] .mobile-accordion-toggle').click();
+  await mobileHadrikToggle.click();
   const mobileScrollAfter = await mobileScrollOwner.evaluate((node) => ({
     connected: node.isConnected,
     identity: node.dataset.scrollIdentity,
@@ -390,7 +392,10 @@ try {
   }));
   assert.equal(mobileScrollAfter.connected, true, 'mobile disclosure must retain the original scroll owner');
   assert.equal(mobileScrollAfter.identity, 'mobile-crew-scroll-owner', 'mobile disclosure must not replace the roster DOM');
-  assert.ok(Math.abs(mobileScrollAfter.scrollTop - mobileScrollBefore) < 1, 'mobile disclosure must preserve the roster scroll offset');
+  assert.ok(
+    Math.abs(mobileScrollAfter.scrollTop - mobileScrollBefore) < 1,
+    `mobile disclosure must preserve the roster scroll offset (${mobileScrollBefore} -> ${mobileScrollAfter.scrollTop})`
+  );
   assert.equal(await mobilePeoplePage.locator('.mobile-crew-item.is-open').getAttribute('data-person-id'), 'hadrik-bronn');
   assert.equal(await mobilePeoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"].active').count(), 1, 'mobile disclosure must synchronize desktop selection');
   await mobilePeoplePage.close();

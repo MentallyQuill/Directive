@@ -73,6 +73,6 @@ export function renderCrewPanel(body, view, actions = {}) {
     body.replaceChildren?.();
     renderCrewPanel(body, view, actions);
   };
-  surface.appendChild(createPeopleJournal(model, rerender));
+  surface.appendChild(createPeopleJournal(model, rerender, { view, actions }));
   body.appendChild(surface);
 }

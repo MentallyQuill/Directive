@@ -38,6 +38,7 @@ export const V1_CAMPAIGN_STATE_ROOTS = Object.freeze([
 
 export const V1_MUTABLE_STATE_DOMAINS = Object.freeze([
   'campaign',
+  'playerPortrait',
   'mission',
   'storySettlement',
   'commandBearing',
