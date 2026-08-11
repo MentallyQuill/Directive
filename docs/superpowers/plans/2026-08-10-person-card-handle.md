@@ -1,10 +1,10 @@
-# Person Card Handle Implementation Plan
+# Person Card Handle and Certified Drag Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace individual People record drag glyphs with the supplied two-line SVG while leaving category drag glyphs and all reorder behavior unchanged.
+**Goal:** Replace individual People record drag glyphs with the supplied two-line SVG and restore the frozen certified no-reflow drag behavior while leaving category drag glyphs unchanged.
 
-**Architecture:** Store the supplied vector as a repo-owned icon, add one person-only class at the People journal construction boundary, and override only that class's pseudo-element with a CSS mask. The existing shared reorder binder and category handle presentation remain untouched.
+**Architecture:** Store the supplied vector as a repo-owned icon, add one person-only class at the People journal construction boundary, and override only that class's pseudo-element with a CSS mask. Extend the shared reorder binder with an opt-in deferred-drop mode used only by People records: the source stays connected, drop markers change during movement, and the controller commits once on pointer-up.
 
 **Tech Stack:** Browser-native JavaScript modules, CSS masks, SVG, Node.js assertion scripts, Playwright visual conformance.
 
@@ -14,6 +14,8 @@
 - Desktop and mobile person-card reorder handles use the supplied two-horizontal-line SVG.
 - Person handles retain the existing 32px interactive width and accessible `Reorder <name>` label.
 - Mouse, touch, keyboard, cross-category movement, persistence, Command Bearing, and story state remain unchanged.
+- Person-card pointer dragging must not relocate a placeholder or reflow the roster before pointer-up.
+- The frozen mockup at `docs/design/mockups/directive-expanded-interface.html:972-1065` is authoritative for People-card pointer behavior.
 
 ---
 
@@ -131,4 +133,113 @@ Expected: all focused checks PASS.
 ```powershell
 git add assets/icons/handle-person.svg src/ui/people-journal.js styles/directive.css tools/scripts/test-certified-people-panel.mjs tools/scripts/test-expanded-interface-visual-conformance.mjs
 git commit -m "feat(people): distinguish person drag handles"
+```
+
+### Task 2: Restore Certified No-Reflow Person Dragging
+
+**Files:**
+- Modify: `src/ui/expanded-interface-reorder.js:39-238`
+- Modify: `src/ui/people-journal.js:101-144`
+- Modify: `styles/directive.css:3597-3624`
+- Test: `tools/scripts/test-expanded-interface-visual-conformance.mjs:258-291`
+
+**Interfaces:**
+- Consumes: `bindPresentationReorderHandle(handle, options)` and its existing `onDrop({ id, input, fromList, toList, toIndex })` callback.
+- Produces: opt-in `deferredDrop: true`, `dropBeforeClass`, and `dropTargetClass` options. Existing callers retain placeholder behavior by default.
+
+- [ ] **Step 1: Write the failing active-drag regression**
+
+Before pointer-up in the existing Mara drag scenario, capture the source row and roster geometry, then assert the certified transient state:
+
+```js
+const sourceGeometry = await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.map((row) => ({
+  id: row.dataset.personId,
+  top: row.getBoundingClientRect().top
+})));
+await peoplePage.mouse.move(maraBox.x + maraBox.width / 2, maraBox.y + maraBox.height / 2);
+await peoplePage.mouse.down();
+await peoplePage.mouse.move(bridgeDropBox.x + bridgeDropBox.width / 2, bridgeDropBox.y + bridgeDropBox.height / 2, { steps: 8 });
+assert.equal(await peoplePage.locator('.mobile-drag-placeholder').count(), 0);
+assert.equal(await peoplePage.locator('.collection-person-row[data-person-id="mara-whitaker"].is-dragging').count(), 1);
+assert.equal(await peoplePage.locator('.collection-person-row.is-drop-before, .collection-category.is-drop-target').count(), 1);
+assert.deepEqual(await peoplePage.locator('.people-desktop-journal .collection-person-row').evaluateAll((rows) => rows.map((row) => ({
+  id: row.dataset.personId,
+  top: row.getBoundingClientRect().top
+}))), sourceGeometry);
+```
+
+- [ ] **Step 2: Run visual conformance and verify RED**
+
+Run: `node tools/scripts/test-expanded-interface-visual-conformance.mjs`
+
+Expected: FAIL because the current binder creates and relocates `.mobile-drag-placeholder` and detaches the source row.
+
+- [ ] **Step 3: Add an opt-in deferred-drop path**
+
+Extend the binder options:
+
+```js
+deferredDrop = false,
+dropBeforeClass = 'is-drop-before',
+dropTargetClass = 'is-drop-target'
+```
+
+When `deferredDrop` is true:
+
+- Keep `state.item` in place and add `is-dragging` during activation.
+- Do not create or move a placeholder.
+- Keep the ghost's original horizontal position and update only its `top`.
+- On each move, clear old marker classes, resolve `dropList` and the hovered item, then mark either the next insertion row or destination category.
+- Store the destination list and insertion row in state.
+- On pointer-up, derive `toIndex` from destination children after filtering out the source ID and call the existing `onDrop` once.
+- On cancel, remove the ghost, source fade, and markers without calling `onDrop`.
+
+- [ ] **Step 4: Enable deferred drop for person records only**
+
+In `personReorderHandle`, pass:
+
+```js
+deferredDrop: true,
+dropBeforeClass: 'is-drop-before',
+dropTargetClass: 'is-drop-target'
+```
+
+Do not change category handle options.
+
+- [ ] **Step 5: Restore certified transient styling**
+
+Add the source fade and marker rules from the frozen mockup, adapted to current selectors:
+
+```css
+.directive-expanded-shell .collection-person-row { position: relative; }
+.directive-expanded-shell .collection-person-row.is-dragging { opacity: .28; }
+.directive-expanded-shell .collection-person-row.is-drop-before::before { content: ""; position: absolute; z-index: 2; inset: -2px 4px auto; height: 3px; background: var(--directive-expanded-blue); border-radius: 3px; }
+.directive-expanded-shell .collection-category.is-drop-target > .collection-category-head { box-shadow: inset 0 0 0 2px rgba(119, 167, 239, .72); }
+```
+
+- [ ] **Step 6: Verify GREEN and all reorder inputs**
+
+Run:
+
+```powershell
+node tools/scripts/test-expanded-interface-visual-conformance.mjs
+node tools/scripts/test-reorderable-collection.mjs
+node tools/scripts/test-certified-people-panel.mjs
+```
+
+Expected: all commands PASS; the active-drag assertions prove no reflow, while existing pointer, touch, keyboard, cross-category, focus, and reload assertions remain green.
+
+- [ ] **Step 7: Inspect the drag in the local browser**
+
+Reload the local People route and drag a desktop person across at least three rows. Confirm the roster remains stationary during movement, the ghost stays horizontally aligned, one drop marker is visible, and the committed order matches the marker.
+
+- [ ] **Step 8: Run the complete gate and commit**
+
+Run: `npm.cmd test`
+
+Expected: all focused checks PASS.
+
+```powershell
+git add docs/superpowers/specs/2026-08-10-person-card-handle-design.md docs/superpowers/plans/2026-08-10-person-card-handle.md src/ui/expanded-interface-reorder.js src/ui/people-journal.js styles/directive.css tools/scripts/test-expanded-interface-visual-conformance.mjs
+git commit -m "fix(people): restore certified drag behavior"
 ```

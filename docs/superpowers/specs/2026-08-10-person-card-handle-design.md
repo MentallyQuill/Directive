@@ -1,8 +1,10 @@
-# Person Card Handle Design
+# Person Card Handle and Certified Drag Design
 
 ## Goal
 
 Differentiate individual People records from People categories by applying the supplied two-horizontal-line handle to person cards while preserving the existing dotted category handle.
+
+Restore the frozen certified People-card drag behavior so grabbing and reordering a record does not cause the roster to reflow beneath the pointer.
 
 ## Visual Contract
 
@@ -22,9 +24,19 @@ Differentiate individual People records from People categories by applying the s
 
 Mouse dragging, touch long-press dragging, keyboard Arrow movement, cross-category movement, focus restoration, and campaign-branch persistence remain unchanged. Command Bearing and all People category controls remain unchanged.
 
+Individual People-card pointer dragging follows the frozen mockup implementation in `docs/design/mockups/directive-expanded-interface.html`:
+
+- The source row stays in its original DOM position and fades to reduced opacity during the drag.
+- A fixed-position ghost follows the pointer vertically while retaining the roster's horizontal alignment.
+- Pointer movement updates only `is-drop-before` and `is-drop-target` markers. It does not insert or relocate a placeholder.
+- The controller receives one final destination on pointer-up; cancel removes all transient state without persisting a move.
+- Category dragging is outside this correction and retains its existing behavior.
+
 ## Verification
 
 - A component test distinguishes category handles from person handles and confirms both desktop and mobile person records receive the new class.
 - Browser visual conformance confirms the person handle resolves the supplied mask while the category handle retains its dotted background.
+- A browser interaction test asserts that an active person drag creates no placeholder, keeps the source row connected, preserves roster geometry, and exposes a certified drop marker before pointer-up.
+- Existing pointer, touch, keyboard, cross-category, focus, and persistence assertions remain green.
 - The complete alpha gate remains green.
 
