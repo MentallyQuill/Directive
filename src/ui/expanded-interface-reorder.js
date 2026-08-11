@@ -27,6 +27,27 @@ const DRAG_THEME_PROPERTIES = [
   '--salmon', '--lilac', '--blue', '--violet', '--directive-focus'
 ];
 
+const activeGrabbingOwners = new WeakMap();
+
+function acquireGrabbingCursor(ownerDocument) {
+  const root = ownerDocument?.documentElement;
+  if (!root) return false;
+  activeGrabbingOwners.set(ownerDocument, (activeGrabbingOwners.get(ownerDocument) || 0) + 1);
+  root.classList.add('directive-reorder-grabbing');
+  return true;
+}
+
+function releaseGrabbingCursor(ownerDocument) {
+  if (!ownerDocument) return;
+  const remaining = (activeGrabbingOwners.get(ownerDocument) || 0) - 1;
+  if (remaining > 0) {
+    activeGrabbingOwners.set(ownerDocument, remaining);
+    return;
+  }
+  activeGrabbingOwners.delete(ownerDocument);
+  ownerDocument.documentElement?.classList.remove('directive-reorder-grabbing');
+}
+
 function copyInheritedCustomProperties(source, target) {
   const sourceStyle = getComputedStyle(source);
   for (const property of DRAG_THEME_PROPERTIES) target.style.setProperty(property, sourceStyle.getPropertyValue(property));
@@ -196,7 +217,7 @@ export function bindPresentationReorderHandle(handle, {
       state.ghostHost?.remove();
       if (!commit && state.restoreFocusOnCancel) state.handle.focus?.({ preventScroll: true });
     }
-    state.ownerDocument?.documentElement?.classList.remove('directive-reorder-grabbing');
+    if (state.ownsGrabbingCursor) releaseGrabbingCursor(state.ownerDocument);
     state = null;
   };
   const end = (commit = true, { instant = false } = {}) => {
@@ -327,7 +348,7 @@ export function bindPresentationReorderHandle(handle, {
       originNextSibling,
       hitTestX: itemRect.left + (itemRect.width / 2)
     });
-    state.ownerDocument.documentElement?.classList.add('directive-reorder-grabbing');
+    state.ownsGrabbingCursor = acquireGrabbingCursor(state.ownerDocument);
     requestVibration(liftVibrationMs);
   };
   const updateDropTarget = (clientX, clientY) => {

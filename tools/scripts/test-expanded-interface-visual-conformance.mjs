@@ -408,6 +408,32 @@ try {
   await peoplePage.mouse.up();
   assert.equal(await peoplePage.locator(`.people-desktop-journal .collection-person-list[data-category-id="${cancelledPriyaCategory}"] .collection-person-row[data-person-id="priya-nayar"]`).count(), 1, 'Escape must restore the person to the original list');
 
+  const overlappingPriyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
+  const overlappingMaraHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const overlappingPriyaBox = await overlappingPriyaHandle.boundingBox();
+  const overlappingMaraBox = await overlappingMaraHandle.boundingBox();
+  await overlappingPriyaHandle.dispatchEvent('pointerdown', {
+    pointerId: 80, pointerType: 'mouse', button: 0,
+    clientX: overlappingPriyaBox.x + overlappingPriyaBox.width / 2,
+    clientY: overlappingPriyaBox.y + overlappingPriyaBox.height / 2
+  });
+  await overlappingMaraHandle.dispatchEvent('pointerdown', {
+    pointerId: 81, pointerType: 'mouse', button: 0,
+    clientX: overlappingMaraBox.x + overlappingMaraBox.width / 2,
+    clientY: overlappingMaraBox.y + overlappingMaraBox.height / 2
+  });
+  assert.equal(await peoplePage.locator('.people-drag-ghost').count(), 2, 'independent reorder controllers can overlap while one card is docking');
+  await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', {
+    pointerId: 80, pointerType: 'mouse', bubbles: true
+  })));
+  await peoplePage.waitForFunction(() => document.querySelectorAll('.people-drag-ghost').length === 1);
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), true, 'finishing one controller must preserve cursor ownership for another active drag');
+  await peoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', {
+    pointerId: 81, pointerType: 'mouse', bubbles: true
+  })));
+  await peoplePage.waitForFunction(() => document.querySelectorAll('.people-drag-ghost').length === 0);
+  assert.equal(await peoplePage.evaluate(() => document.documentElement.classList.contains('directive-reorder-grabbing')), false, 'the final controller must release shared cursor ownership');
+
   const invalidPriyaHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="priya-nayar"] .collection-drag-handle');
   const invalidPriyaBox = await invalidPriyaHandle.boundingBox();
   await invalidPriyaHandle.dispatchEvent('pointerdown', {
