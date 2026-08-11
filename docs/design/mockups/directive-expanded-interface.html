@@ -831,7 +831,7 @@
         selectCrewPreview(personId, false);
         renderPeopleCollections();
       });
-      const mobileHandle = makeCollectionHandle('card', personId, `Move ${person.name}`);
+      const mobileHandle = makeCollectionHandle('card', personId, `Reorder ${person.name}`);
       row.appendChild(mobileHandle);
       row.addEventListener('pointerdown', (event) => {
         if (!['touch','pen'].includes(event.pointerType) || mobileHandle.contains(event.target)) return;
@@ -850,7 +850,7 @@
     button.dataset.crewId = personId;
     button.innerHTML = `<img src="${person.image}" alt=""><span class="crew-row-copy"><span class="crew-list-pips">${renderServicePips(person,true)}</span><strong>${person.name}</strong><span>${person.role.split(' / ')[0]}</span></span>`;
     button.addEventListener('click', (event) => { event.stopPropagation(); selectCrewPreview(personId); });
-    row.append(button, makeCollectionHandle('card', personId, `Move ${person.name}`));
+    row.append(button, makeCollectionHandle('card', personId, `Reorder ${person.name}`));
     return row;
   }
   function renderPeopleCategory(categoryId, mobile) {
@@ -890,7 +890,7 @@
     body.hidden = !category.expanded;
     if (cards.length) cards.forEach((id) => body.appendChild(renderPeopleCard(id,mobile)));
     else { const empty = document.createElement('div'); empty.className = 'collection-empty'; empty.textContent = categoryId === 'known-contacts' ? 'New external contacts will appear here.' : 'Drag people here.'; body.appendChild(empty); }
-    head.append(disclosure,copy,actions,makeCollectionHandle('category',categoryId,`Move ${category.name} category`));
+    head.append(disclosure,copy,actions,makeCollectionHandle('category',categoryId,`Reorder ${category.name} category`));
     section.append(head,body);
     return section;
   }
@@ -990,6 +990,24 @@
   let peopleCollectionTouchClickUntil = 0;
   function peopleCollectionReducedMotion() { return matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true; }
   function preventPeopleCollectionTouchScroll(event) { if (peopleCollectionDrag?.started) event.preventDefault(); }
+  function peopleCollectionScrollStep() {
+    const state = peopleCollectionDrag;
+    if (!state?.started || !state.scroll) return false;
+    const rect = state.scroll.getBoundingClientRect();
+    let delta = 0;
+    if (state.y < rect.top+52) delta = -Math.max(1,Math.round(16*Math.min(1,(rect.top+52-state.y)/52)));
+    else if (state.y > rect.bottom-52) delta = Math.max(1,Math.round(16*Math.min(1,(state.y-(rect.bottom-52))/52)));
+    if (!delta) return false;
+    const before = state.scroll.scrollTop;
+    state.scroll.scrollTop += delta;
+    return state.scroll.scrollTop !== before;
+  }
+  function continuePeopleCollectionScroll() {
+    const state = peopleCollectionDrag;
+    if (!state) return;
+    state.autoScrollFrame = 0;
+    if (peopleCollectionScrollStep()) state.autoScrollFrame = requestAnimationFrame(continuePeopleCollectionScroll);
+  }
   function movePeopleCollectionPlaceholder(parent,before=null) {
     const state = peopleCollectionDrag;
     if (!state?.placeholder || !parent || (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before)) return;
@@ -1015,19 +1033,19 @@
     const kind = handle.dataset.collectionDragKind;
     const item = kind === 'category' ? handle.closest('.collection-category') : handle.closest('.collection-person-row');
     const itemRect = item.getBoundingClientRect();
-    peopleCollectionDrag = {kind,id:handle.dataset.collectionDragId,item,handle,host:handle.closest('.category-card-collection'),pointerId:event.pointerId,pointerType:event.pointerType || 'mouse',originX:event.clientX,originY:event.clientY,x:event.clientX,y:event.clientY,offsetY:event.clientY-itemRect.top,hitX:itemRect.left+itemRect.width/2,started:false,target:null,ghost:null,placeholder:null,hold:null,reflowAnimations:[]};
+    peopleCollectionDrag = {kind,id:handle.dataset.collectionDragId,item,handle,host:handle.closest('.category-card-collection'),scroll:item.closest('.people-category-list'),pointerId:event.pointerId,pointerType:event.pointerType || 'mouse',originX:event.clientX,originY:event.clientY,x:event.clientX,y:event.clientY,offsetY:event.clientY-itemRect.top,hitX:itemRect.left+itemRect.width/2,started:false,target:null,ghost:null,placeholder:null,hold:null,reflowAnimations:[],autoScrollFrame:0,restoreFocus:!coarse};
     peopleCollectionDrag.hold = setTimeout(liftPeopleCollectionDrag,coarse ? 175 : 0);
     document.addEventListener('pointermove',movePeopleCollectionDrag,true);
     document.addEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.addEventListener('pointercancel',cancelPeopleCollectionDrag,true);
     document.addEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
+    window.addEventListener('blur',cancelPeopleCollectionDrag,{once:true});
     if (coarse) document.addEventListener('touchmove',preventPeopleCollectionTouchScroll,{capture:true,passive:false});
   }
   function liftPeopleCollectionDrag() {
     const state = peopleCollectionDrag;
     if (!state || state.started) return;
     state.started = true;
-    state.handle.setPointerCapture?.(state.pointerId);
     const source = state.kind === 'category' ? state.item.querySelector('.collection-category-head') : state.item;
     const rect = source.getBoundingClientRect();
     if (state.kind === 'card') {
@@ -1043,12 +1061,19 @@
       if (['touch','pen'].includes(state.pointerType)) peopleCollectionTouchClickUntil = Date.now()+600;
     }
     state.ghost = source.cloneNode(true);
+    state.ghost.removeAttribute('id');
+    state.ghost.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+    state.ghost.setAttribute('aria-hidden','true');
+    state.ghost.inert = true;
+    state.ghost.querySelectorAll('a,button,input,select,textarea,[tabindex]').forEach((element) => element.setAttribute('tabindex','-1'));
     state.ghost.className = `collection-drag-ghost${state.kind === 'card' ? ' collection-person-drag-ghost' : ''}`;
     state.ghost.style.width = `${rect.width}px`;
     state.ghost.style.height = `${rect.height}px`;
     state.ghost.style.left = `${rect.left}px`;
     state.ghost.style.top = `${state.y-state.offsetY}px`;
     document.body.appendChild(state.ghost);
+    state.captureTarget = state.placeholder || state.item;
+    state.captureTarget.setPointerCapture?.(state.pointerId);
     state.item.classList.add('is-dragging');
     navigator.vibrate?.(10);
   }
@@ -1096,11 +1121,13 @@
       state.target = {targetCategoryId,beforeCardId:''};
       movePeopleCollectionPlaceholder(body,body.querySelector('.collection-empty'));
     }
+    if (peopleCollectionScrollStep() && !state.autoScrollFrame) state.autoScrollFrame = requestAnimationFrame(continuePeopleCollectionScroll);
   }
   function finalizePeopleCollectionDrag(commit) {
     const state = peopleCollectionDrag;
     if (!state) return;
     clearPeopleDropMarkers();
+    try { state.captureTarget?.releasePointerCapture?.(state.pointerId); } catch {}
     if (commit && state.started && state.target) {
       if (state.kind === 'category') movePeopleCategory(state.id,state.target.beforeCategoryId);
       else movePeopleCard(state.id,state.target.targetCategoryId,state.target.beforeCardId);
@@ -1109,7 +1136,7 @@
     state.item?.classList.remove('is-dragging');
     state.ghost?.remove();
     state.reflowAnimations?.forEach((animation) => animation.cancel());
-    try { state.handle.releasePointerCapture?.(state.pointerId); } catch {}
+    if (!commit && state.restoreFocus) state.handle.focus?.({preventScroll:true});
     peopleCollectionDrag = null;
     if (commit && state.started && state.target) { navigator.vibrate?.(8); renderPeopleCollections(); }
   }
@@ -1117,11 +1144,14 @@
     const state = peopleCollectionDrag;
     if (!state) return;
     clearTimeout(state.hold);
+    if (state.autoScrollFrame) cancelAnimationFrame(state.autoScrollFrame);
+    if (state.started && ['touch','pen'].includes(state.pointerType)) peopleCollectionTouchClickUntil = Date.now()+600;
     document.removeEventListener('pointermove',movePeopleCollectionDrag,true);
     document.removeEventListener('pointerup',finishPeopleCollectionDrag,true);
     document.removeEventListener('pointercancel',cancelPeopleCollectionDrag,true);
     document.removeEventListener('keydown',keyboardCancelPeopleCollectionDrag,true);
     document.removeEventListener('touchmove',preventPeopleCollectionTouchScroll,true);
+    window.removeEventListener('blur',cancelPeopleCollectionDrag);
     if (!state.started || state.kind === 'category') return finalizePeopleCollectionDrag(commit);
     const validCommit = commit && !!state.target;
     if (!validCommit) movePeopleCollectionPlaceholder(state.originList,state.originNextSibling?.parentNode === state.originList ? state.originNextSibling : null);
@@ -1133,7 +1163,7 @@
     if (!duration || typeof state.ghost.animate !== 'function') return queueMicrotask(() => finalizePeopleCollectionDrag(validCommit));
     state.ghost.animate([{left:`${ghostRect.left}px`,top:`${ghostRect.top}px`,transform:'scale(1.015)',boxShadow:'0 10px 24px rgba(0,0,0,.55)'},{left:`${slotRect.left}px`,top:`${slotRect.top}px`,transform:'scale(1)',boxShadow:'0 1px 3px rgba(0,0,0,.18)'}],{duration,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'}).finished.catch(() => {}).finally(() => finalizePeopleCollectionDrag(validCommit));
   }
-  function finishPeopleCollectionDrag(event) { if (!peopleCollectionDrag || event.pointerId !== peopleCollectionDrag.pointerId) return; event.preventDefault(); event.stopPropagation(); clearPeopleCollectionDrag(true); }
+  function finishPeopleCollectionDrag(event) { if (!peopleCollectionDrag || event.pointerId !== peopleCollectionDrag.pointerId) return; event.preventDefault(); event.stopPropagation(); if (peopleCollectionDrag.started) movePeopleCollectionDrag(event); clearPeopleCollectionDrag(true); }
   function cancelPeopleCollectionDrag(event) { event?.preventDefault?.(); clearPeopleCollectionDrag(false); }
   function keyboardCancelPeopleCollectionDrag(event) { if (event.key !== 'Escape') return; event.preventDefault(); event.stopPropagation(); clearPeopleCollectionDrag(false); }
   function setMobileItemOpen(item, open) {
