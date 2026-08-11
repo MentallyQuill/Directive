@@ -190,13 +190,21 @@ await elementsByClass(desktopPortraitControls, 'directive-crew-player-portrait-c
 assert.equal(removedPortraits, 1);
 assert.equal(refreshes, 2);
 
-const npcDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
+const whitakerRecord = {
   id: 'captain-whitaker',
   name: 'Captain Whitaker',
   billet: 'Commanding Officer',
   isPlayer: false,
-  portrait: null
-}, {
+  portrait: null,
+  species: 'Human',
+  publicRecord: {
+    age: '47',
+    birthplace: 'Kingston, Ontario, Earth',
+    serviceBackground: 'Science operations, diplomacy, executive command',
+    assignmentHistory: "Commanding officer since the Breckenridge's 2372 commission"
+  }
+};
+const npcDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }, whitakerRecord, {
   view: { media: { playerPortraitImportSupported: true } },
   actions: {
     async importCampaignPlayerPortrait() {},
@@ -204,6 +212,31 @@ const npcDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }
   }
 });
 assert.equal(elementsByClass(npcDetail, 'directive-crew-player-portrait-controls').length, 0);
+const mobileNpcDetail = createPeopleDetail(
+  { packageData: { assets: { images: [] } } },
+  whitakerRecord,
+  { mobile: true }
+);
+for (const detail of [npcDetail, mobileNpcDetail]) {
+  const text = textOf(detail);
+  assert.match(text, /Human/);
+  assert.match(text, /Service record/);
+  assert.match(text, /Age 47/);
+  assert.match(text, /Birthplace Kingston, Ontario, Earth/);
+  assert.match(text, /Service background Science operations, diplomacy, executive command/);
+  assert.match(text, /Assignment history Commanding officer since the Breckenridge's 2372 commission/);
+  assert.equal(elementsByClass(detail, 'people-service-record').length, 1);
+}
+
+const recordWithoutAssignmentHistory = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
+  ...whitakerRecord,
+  publicRecord: {
+    age: '47',
+    birthplace: 'Kingston, Ontario, Earth',
+    serviceBackground: 'Science operations, diplomacy, executive command'
+  }
+});
+assert.doesNotMatch(textOf(recordWithoutAssignmentHistory), /Assignment history/);
 
 const playerWithoutPortrait = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
   id: 'player-commander',

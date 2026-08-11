@@ -347,6 +347,12 @@ try {
   assert.match(await maraThumb.getAttribute('src'), /mara-whitaker\.thumb\.webp$/);
   await peoplePage.locator('.people-desktop-journal .people-row[data-person-id="mara-whitaker"]').click();
   assert.match(await peoplePage.locator('.people-desktop-journal .people-detail-portrait img').getAttribute('src'), /mara-whitaker\.detail\.webp$/);
+  const maraDetail = peoplePage.locator('.people-desktop-journal .people-detail');
+  const maraServiceRecord = maraDetail.locator('.people-service-record');
+  assert.equal(await maraServiceRecord.count(), 1, 'Mara detail must render one public service record');
+  assert.match(await maraDetail.textContent(), /Human/);
+  assert.match(await maraServiceRecord.textContent(), /Age47BirthplaceKingston, Ontario, EarthService backgroundScience operations, diplomacy, executive commandAssignment historyCommanding officer since the Breckenridge's 2372 commission/);
+  assert.equal(await maraServiceRecord.evaluate((record) => record.scrollWidth <= record.clientWidth), true, 'public service record must not overflow its detail column');
 
   await peoplePage.locator('.people-desktop-journal .people-add-category').click();
   const categoryInput = peoplePage.locator('.people-desktop-journal .collection-category-input');

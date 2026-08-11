@@ -3612,6 +3612,10 @@ textarea.directive-field-control {
 .directive-expanded-shell .people-detail-block li { color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.45; }
 .directive-expanded-shell .people-detail-block p { margin: 6px 0 0; }
 .directive-expanded-shell .people-detail-block ul { margin: 7px 0 0; padding-left: 18px; }
+.directive-expanded-shell .people-service-record dl { display: grid; gap: 5px; margin: 7px 0 0; }
+.directive-expanded-shell .people-service-record dl > div { display: grid; grid-template-columns: minmax(95px, .36fr) minmax(0, 1fr); gap: 9px; }
+.directive-expanded-shell .people-service-record dt { color: var(--directive-expanded-text); font: 700 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .people-service-record dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
 
 @media (max-width: 640px) {
   .directive-expanded-shell .directive-expanded-people { gap: 7px; margin: 7px 0; }
@@ -3718,6 +3722,7 @@ textarea.directive-field-control {
   .directive-expanded-shell .people-detail-mobile .people-detail-portrait::after { display: none; }
   .directive-expanded-shell .people-detail-mobile .people-detail-identity { padding: 14px 15px; }
   .directive-expanded-shell .people-detail-mobile .people-detail-block { margin: 13px 14px 0 18px; }
+  .directive-expanded-shell .people-detail-mobile .people-service-record dl > div { grid-template-columns: minmax(88px, .4fr) minmax(0, 1fr); gap: 8px; }
 }
 
 /* Certified Ship hero and operational board. */
