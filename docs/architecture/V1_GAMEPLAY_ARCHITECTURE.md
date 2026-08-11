@@ -58,7 +58,7 @@ Players are judged for informed action, not for failing to discover unknowable i
 
 ## UI
 
-The ship icon beside SillyTavern's composer opens Directive. The UI has five routes: Campaign, Mission, People, Ship, and Settings. Each fact has one primary home. The creator may import or remove a portrait only while the player record is still a draft; campaign acceptance makes the player identity immutable, and People receives it through the exact `directive.playerIdentityProjection.v1` projection. No route exposes hidden objectives, internal confidence, proposal queues, raw evidence, recovery machinery, or player mutation controls.
+The ship icon beside SillyTavern's composer opens Directive. The UI has five routes: Campaign, Mission, People, Ship, and Settings. Each fact has one primary home. Campaign acceptance makes the player identity immutable except for its portrait, and People receives the record through the exact `directive.playerIdentityProjection.v1` projection. The player may add, replace, or confirm removal of that portrait through a path-restricted `playerPortrait` state domain; every other player field remains outside runtime mutation authority. No route exposes hidden objectives, internal confidence, proposal queues, raw evidence, or recovery machinery.
 
 ## V1 content scope
 

@@ -3592,6 +3592,8 @@ textarea.directive-field-control {
 .directive-expanded-shell .people-detail-identity h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 27px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
 .directive-expanded-shell .people-detail-identity strong { margin-top: 5px; color: var(--directive-expanded-blue); font-size: 12px; }
 .directive-expanded-shell .people-detail-species { margin-top: 7px; color: var(--directive-expanded-muted); font-size: 10px; text-transform: uppercase; }
+.directive-expanded-shell .directive-crew-player-portrait-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.directive-expanded-shell .directive-crew-player-portrait-actions .directive-button { min-height: 34px; padding: 7px 10px; }
 .directive-expanded-shell .people-detail-block { margin: 15px 20px 0 26px; }
 .directive-expanded-shell .people-detail-block h3 { margin: 0; color: var(--directive-expanded-blue); font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
 .directive-expanded-shell .people-detail-block p,
@@ -3700,6 +3702,7 @@ textarea.directive-field-control {
   .directive-expanded-shell .people-detail-mobile .people-detail-portrait { width: 100%; height: 200px; min-height: 200px; }
   .directive-expanded-shell .people-detail-mobile .people-detail-portrait::after { display: none; }
   .directive-expanded-shell .people-detail-mobile .people-detail-identity { padding: 14px 15px; }
+  .directive-expanded-shell .people-detail-mobile .directive-crew-player-portrait-actions .directive-button { flex: 1 1 132px; }
   .directive-expanded-shell .people-detail-mobile .people-detail-block { margin: 13px 14px 0 18px; }
 }
 

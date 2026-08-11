@@ -1,4 +1,4 @@
-import { createElement } from './runtime-ui-kit.js';
+import { createButton, createElement } from './runtime-ui-kit.js';
 import { createPackageImage, createPlayerPortraitImage } from './directive-media.js';
 import { bindPresentationReorderHandle } from './expanded-interface-reorder.js';
 import { createPeopleCollectionPreferences } from './people-collection-preferences.js';
@@ -283,7 +283,52 @@ function appendDefinition(detail, label, value) {
   detail.appendChild(block);
 }
 
-export function createPeopleDetail(model, record, { mobile = false } = {}) {
+function createPlayerPortraitActions(record, view, actions) {
+  const supported = view?.media?.playerPortraitImportSupported === true
+    && typeof actions.importCampaignPlayerPortrait === 'function'
+    && typeof actions.removeCampaignPlayerPortrait === 'function';
+  const row = createElement('div', 'directive-crew-player-portrait-actions');
+  const fileInput = createElement('input', 'directive-crew-player-portrait-input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/png,image/jpeg,image/webp';
+  fileInput.hidden = true;
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0] || null;
+    if (!file) return;
+    await actions.importCampaignPlayerPortrait({ file });
+    fileInput.value = '';
+    await actions.refresh?.();
+  });
+  row.appendChild(createButton({
+    label: record.portrait?.asset?.path ? 'Replace image' : 'Add image',
+    icon: 'fa-solid fa-image',
+    className: 'directive-button directive-crew-player-portrait-import',
+    title: supported ? 'Choose a player portrait image' : 'Portrait changes are not available on this host',
+    disabled: !supported,
+    onClick: async () => fileInput.click?.()
+  }));
+  if (record.portrait?.asset?.path) {
+    row.appendChild(createButton({
+      label: 'Remove image',
+      icon: 'fa-solid fa-trash-can',
+      className: 'directive-button directive-crew-player-portrait-remove',
+      title: 'Remove this player portrait from the campaign',
+      disabled: !supported,
+      onClick: async () => {
+        const confirmed = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('Remove your crew image? The image file will be deleted from this campaign.')
+          : true;
+        if (!confirmed) return;
+        await actions.removeCampaignPlayerPortrait();
+        await actions.refresh?.();
+      }
+    }));
+  }
+  row.appendChild(fileInput);
+  return row;
+}
+
+export function createPeopleDetail(model, record, { mobile = false, view = {}, actions = {} } = {}) {
   const detail = createElement('section', `people-detail${mobile ? ' people-detail-mobile' : ''}`);
   if (!mobile) detail.dataset.directiveScrollOwner = 'true';
   if (!record) return detail;
@@ -307,6 +352,7 @@ export function createPeopleDetail(model, record, { mobile = false } = {}) {
     species.textContent = record.species.label;
     identity.appendChild(species);
   }
+  if (record.isPlayer) identity.appendChild(createPlayerPortraitActions(record, view, actions));
   hero.appendChild(identity);
   detail.appendChild(hero);
   appendDefinition(detail, 'Profile', record.profileSummary || record.appearance || record.dossier?.identitySummary || record.dossier?.briefBiography);
@@ -354,7 +400,11 @@ function createMobileRecord(model, person, category, controller, rerender, discl
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     if (expanded && !mobileDetail) {
       mobileDetail = createElement('div', 'mobile-accordion-detail');
-      mobileDetail.appendChild(createPeopleDetail(model, person, { mobile: true }));
+      mobileDetail.appendChild(createPeopleDetail(model, person, {
+        mobile: true,
+        view: disclosureState?.view,
+        actions: disclosureState?.actions
+      }));
       item.appendChild(mobileDetail);
     } else if (!expanded && mobileDetail) {
       mobileDetail.remove();
@@ -397,7 +447,11 @@ function createToolbar(controller, rerender) {
   return toolbar;
 }
 
-export function createPeopleJournal(model, rerender, { storage = globalThis.localStorage } = {}) {
+export function createPeopleJournal(model, rerender, {
+  storage = globalThis.localStorage,
+  view = {},
+  actions = {}
+} = {}) {
   let controller = controllerByScope.get(model.scopeKey);
   if (!controller) {
     controller = createPeopleCollectionPreferences({
@@ -424,18 +478,20 @@ export function createPeopleJournal(model, rerender, { storage = globalThis.loca
     categories.appendChild(createCategory(model, category, controller, rerender, false, { desktop: desktopSelection }));
   }
   roster.appendChild(categories);
-  desktopSelection.detail = createPeopleDetail(model, selected);
+  desktopSelection.detail = createPeopleDetail(model, selected, { view, actions });
   desktop.append(roster, desktopSelection.detail);
 
   const mobileDisclosure = {
     openRecord: null,
+    view,
+    actions,
     select(person) {
       for (const [personId, record] of desktopSelection.records) {
         const active = personId === person.id;
         record.row.classList.toggle('active', active);
         record.select.setAttribute('aria-pressed', active ? 'true' : 'false');
       }
-      const nextDetail = createPeopleDetail(model, person);
+      const nextDetail = createPeopleDetail(model, person, { view, actions });
       desktopSelection.detail.parentNode?.replaceChild(nextDetail, desktopSelection.detail);
       desktopSelection.detail = nextDetail;
     }

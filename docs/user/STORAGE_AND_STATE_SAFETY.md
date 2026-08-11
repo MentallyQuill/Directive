@@ -10,7 +10,7 @@ v1/saves/{saveId}.v1.json
 
 SillyTavern maps these keys to user-scoped files whose names begin with `directive-v1-`. Player portraits use a separate V1 portrait path.
 
-An accepted portrait remains part of the campaign. Replacing or removing a draft portrait, or discarding its draft, removes the superseded user file after the draft change commits. If a draft save fails after a new upload, Directive compensates by removing that unreferenced upload; cleanup failures are reported without rolling back an already-valid draft change.
+An accepted portrait remains part of the campaign and can be replaced or removed from the player's Crew record. Directive removes a superseded user file only after the draft or campaign change commits. If persistence fails after a new upload, Directive compensates by removing that unreferenced upload; cleanup failures are reported without rolling back an already-valid state change.
 
 Campaign acceptance validates the complete first save before changing the draft. If first-save persistence fails, Directive removes the partial save and restores the resumable draft. If host chat binding fails after the first save exists, the campaign remains as an unbound, recoverable V1 save; Directive restores the prior host chat and removes the failed campaign chat before the player retries Continue.
 
