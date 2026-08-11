@@ -107,7 +107,7 @@ renderCrewPanel(body, {
 }, {});
 
 const playerCards = elementsByClass(body, 'people-detail');
-assert.equal(playerCards.length, 1);
+assert.equal(playerCards.length, 2, 'desktop and phone compositions render from the same commander record');
 assert.match(textOf(playerCards[0]), /Ren Okada/);
 assert.match(textOf(playerCards[0]), /Commander \/ Executive Officer/);
 assert.match(textOf(playerCards[0]), /Human/);

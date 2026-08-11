@@ -160,6 +160,10 @@ export function createPeopleCollectionPreferences({
 
   return {
     snapshot: () => copyState(state),
+    reconcile(nextRecords = []) {
+      state = reconcile(state, nextRecords);
+      return persist({ kind: 'reconcile' });
+    },
     select(id) {
       const located = recordLocation(id);
       if (!located || state.selectedPersonId === located.recordId) return copyState(state);
