@@ -541,6 +541,37 @@ try {
   observedVarianceIds.add('people-restored-collections');
   await peoplePage.close();
 
+  const immediateDropPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await immediateDropPage.goto(`${baseUrl}/production?route=people`);
+  await immediateDropPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const immediateHandle = immediateDropPage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"] .collection-drag-handle');
+  const immediateHandleBox = await immediateHandle.boundingBox();
+  const immediateTargetBox = await immediateDropPage.locator('.people-desktop-journal .collection-person-row[data-person-id="rowan-saye"]').boundingBox();
+  await immediateDropPage.mouse.move(immediateHandleBox.x + immediateHandleBox.width / 2, immediateHandleBox.y + immediateHandleBox.height / 2);
+  await immediateDropPage.mouse.down();
+  await immediateDropPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
+  await immediateDropPage.mouse.move(immediateTargetBox.x + immediateTargetBox.width / 2, immediateTargetBox.y + immediateTargetBox.height / 2);
+  await immediateDropPage.mouse.up();
+  const immediateDockAlignment = await immediateDropPage.evaluate(() => {
+    const ghost = document.querySelector('.people-drag-ghost.is-snapping');
+    const slot = document.querySelector('.people-card-drop-slot.is-drop-committing');
+    const docking = ghost?.getAnimations().find((animation) => animation.effect?.getKeyframes?.().length === 2);
+    const finalTransform = docking?.effect?.getKeyframes?.().at(-1)?.transform;
+    const target = finalTransform ? new DOMMatrixReadOnly(finalTransform) : null;
+    const slotRect = slot?.getBoundingClientRect();
+    const slotTransform = slot ? getComputedStyle(slot).transform : 'none';
+    const slotMatrix = slotTransform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(slotTransform);
+    return {
+      target: target ? { x: target.m41, y: target.m42 } : null,
+      settledSlot: slotRect ? { x: slotRect.left - slotMatrix.m41, y: slotRect.top - slotMatrix.m42 } : null
+    };
+  });
+  assert.ok(immediateDockAlignment.target && immediateDockAlignment.settledSlot, 'immediate release must retain a visible docking animation and slot');
+  assert.ok(Math.abs(immediateDockAlignment.target.x - immediateDockAlignment.settledSlot.x) < 1, 'immediate release must dock to the settled slot x-coordinate');
+  assert.ok(Math.abs(immediateDockAlignment.target.y - immediateDockAlignment.settledSlot.y) < 1, 'immediate release must dock to the settled slot y-coordinate');
+  await immediateDropPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await immediateDropPage.close();
+
   const mobilePeoplePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobilePeoplePage.goto(`${baseUrl}/production?route=people`);
   await mobilePeoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
