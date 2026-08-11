@@ -3318,6 +3318,15 @@ textarea.directive-field-control {
 .directive-expanded-shell button.campaign-row:focus-visible { background: rgba(255, 159, 74, .08); outline: 0; }
 .directive-expanded-shell .campaign-row.active { background: linear-gradient(90deg, rgba(255, 159, 74, .22), rgba(13, 16, 24, .96)); box-shadow: inset 5px 0 0 var(--directive-expanded-amber); }
 
+.directive-expanded-shell .campaign-row[data-campaign-availability="coming-later"] .directive-media-frame {
+  filter: grayscale(1);
+}
+
+.directive-expanded-shell .campaign-row[data-campaign-availability="coming-later"] .campaign-row-copy strong,
+.directive-expanded-shell .campaign-row[data-campaign-availability="coming-later"] .campaign-row-copy span {
+  opacity: .55;
+}
+
 .directive-expanded-shell .campaign-library-hero.is-coming-later .campaign-hero-media {
   filter: grayscale(1);
   opacity: .48;
