@@ -18,8 +18,9 @@ assert.deepEqual(variances.map(({ id }) => id), [
   'campaign-coming-later',
   'campaign-current-descriptions',
   'creator-wand-modal',
-  'bounded-scroll-ownership'
+  'bounded-scroll-ownership',
+  'people-restored-collections'
 ]);
-assert.equal(new Set(variances.map(({ selector }) => selector)).size, 4);
+assert.equal(new Set(variances.map(({ selector }) => selector)).size, 5);
 
 console.log('PASS certified UI authority');

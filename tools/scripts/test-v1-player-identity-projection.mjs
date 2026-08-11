@@ -56,6 +56,13 @@ assert.deepEqual(projection, {
   rank: 'Commander',
   billet: 'Executive Officer',
   role: 'Second-in-command of the U.S.S. Breckenridge',
+  categoryId: 'ships-company',
+  service: {
+    organization: 'starfleet',
+    department: 'command',
+    rankCode: 'commander',
+    rankLabel: 'Commander'
+  },
   species: {
     id: 'human',
     label: 'Human',

@@ -14,6 +14,7 @@ const checks = [
   "test-certified-people-panel.mjs",
   "test-responsive-record-list.mjs",
   "test-reorderable-collection.mjs",
+  "test-people-collection-preferences.mjs",
   "test-certified-ship-panel.mjs",
   "test-certified-settings-panel.mjs",
   "test-certified-negative-legacy-ui.mjs",

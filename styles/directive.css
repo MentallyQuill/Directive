@@ -3569,6 +3569,90 @@ textarea.directive-field-control {
   .directive-expanded-shell .people-detail-block { margin-right: 12px; margin-left: 18px; }
 }
 
+/* Restored People journal collections and portraits. */
+.directive-expanded-shell .people-journal-host { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+.directive-expanded-shell .people-desktop-journal { width: 100%; }
+.directive-expanded-shell .people-roster { display: flex; flex-direction: column; overflow: hidden; }
+.directive-expanded-shell .people-collection-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 8px 10px 8px 12px; border-bottom: 1px solid rgba(119, 167, 239, .28); }
+.directive-expanded-shell .people-collection-toolbar strong { color: var(--directive-expanded-blue); font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-add-category { min-height: 30px; padding: 5px 8px; color: var(--directive-expanded-blue); background: transparent; border: 1px solid rgba(119, 167, 239, .42); border-radius: 4px; font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .people-category-list { min-height: 0; overflow: auto; }
+.directive-expanded-shell .collection-category { min-width: 0; background: var(--directive-expanded-surface); border-bottom: 1px solid rgba(248, 239, 224, .08); }
+.directive-expanded-shell .collection-category-head { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto 32px; align-items: center; min-height: 43px; color: var(--directive-expanded-text); background: rgba(119, 167, 239, .055); }
+.directive-expanded-shell .collection-disclosure,
+.directive-expanded-shell .collection-drag-handle,
+.directive-expanded-shell .collection-icon-button { appearance: none; display: grid; place-items: center; min-width: 0; min-height: 30px; margin: 0; padding: 0; color: var(--directive-expanded-blue); background: transparent; border: 0; border-radius: 3px; }
+.directive-expanded-shell .collection-disclosure { font-size: 20px; transform: rotate(90deg); transition: transform 140ms ease; }
+.directive-expanded-shell .collection-disclosure[aria-expanded="false"] { transform: rotate(0deg); }
+.directive-expanded-shell .collection-category-copy { display: grid; gap: 1px; min-width: 0; }
+.directive-expanded-shell .collection-category-copy strong { overflow: hidden; font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.directive-expanded-shell .collection-category-copy small { color: var(--directive-expanded-muted); font-size: 9px; }
+.directive-expanded-shell .collection-category-input { min-width: 0; width: 100%; height: 28px; padding: 4px 6px; color: var(--directive-expanded-text); background: var(--directive-expanded-bg); border: 1px solid var(--directive-expanded-blue); border-radius: 3px; }
+.directive-expanded-shell .collection-category-actions { display: flex; align-items: center; }
+.directive-expanded-shell .collection-icon-button { width: 27px; color: var(--directive-expanded-muted); font-size: 13px; }
+.directive-expanded-shell .collection-icon-button.danger { color: var(--directive-expanded-coral); }
+.directive-expanded-shell .collection-drag-handle { width: 32px; touch-action: none; cursor: grab; }
+.directive-expanded-shell .collection-drag-handle::before { content: ""; width: 18px; height: 24px; background: radial-gradient(circle, currentColor 1.25px, transparent 1.7px) 0 0 / 6px 6px; opacity: .72; }
+.directive-expanded-shell .collection-drag-handle:active { cursor: grabbing; }
+.directive-expanded-shell .collection-person-list { min-width: 0; min-height: 14px; }
+.directive-expanded-shell .collection-person-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; min-width: 0; border-bottom: 1px solid rgba(248, 239, 224, .07); }
+.directive-expanded-shell .collection-person-row.active { background: linear-gradient(90deg, rgba(119, 167, 239, .18), transparent); box-shadow: inset 4px 0 0 var(--directive-expanded-blue); }
+.directive-expanded-shell .people-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 9px; width: 100%; min-height: 62px; padding: 7px 5px 7px 8px; }
+.directive-expanded-shell .people-row-image { width: 48px; height: 48px; margin: 0; overflow: hidden; border-radius: 4px; }
+.directive-expanded-shell .people-row-image > * { width: 100%; height: 100%; }
+.directive-expanded-shell .people-row-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 24%; }
+.directive-expanded-shell .people-row-copy { display: grid; gap: 2px; min-width: 0; }
+.directive-expanded-shell .people-row-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directive-expanded-shell .people-pips { display: flex; align-items: center; gap: 3px; min-height: 8px; color: var(--directive-expanded-blue); }
+.directive-expanded-shell .people-pips-command { color: var(--directive-expanded-gold); }
+.directive-expanded-shell .people-pips-operations { color: var(--directive-expanded-coral); }
+.directive-expanded-shell .people-pips-science { color: var(--directive-expanded-blue); }
+.directive-expanded-shell .people-pip { display: block; width: 5px; height: 5px; border: 1px solid currentColor; border-radius: 50%; }
+.directive-expanded-shell .people-pip-solid { background: currentColor; }
+.directive-expanded-shell .people-pip-hollow { background: transparent; }
+.directive-expanded-shell .people-detail { overflow-y: auto; }
+.directive-expanded-shell .people-detail-mobile { overflow: visible; }
+.directive-expanded-shell .people-detail-hero { grid-template-columns: clamp(250px, 42%, 350px) minmax(0, 1fr); }
+.directive-expanded-shell .people-detail-portrait { position: relative; align-self: start; height: calc(70% - 20px); min-height: 280px; }
+.directive-expanded-shell .people-detail-portrait::after { content: ""; position: absolute; inset: auto 0 0; height: 34%; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--directive-expanded-high) 38%, transparent) 42%, var(--directive-expanded-high)); pointer-events: none; }
+.directive-expanded-shell .people-detail-name-line { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.directive-expanded-shell .people-detail-name-line h2 { min-width: 0; }
+.directive-expanded-shell .people-pips-detail { flex: 0 0 auto; }
+.directive-expanded-shell .mobile-crew-accordion { display: none; }
+.directive-expanded-shell .mobile-drag-placeholder { box-sizing: border-box; min-height: 48px; border: 1px dashed rgba(119, 167, 239, .72); border-radius: 5px; background: rgba(119, 167, 239, .09); }
+.directive-expanded-shell.directive-drag-layer { position: fixed; inset: 0; z-index: 9998; pointer-events: none; }
+.directive-expanded-shell .people-drag-ghost,
+.directive-expanded-shell .people-category-drag-ghost { border: 1px solid var(--directive-expanded-blue); background: var(--directive-expanded-high); }
+
+@media (min-width: 641px) and (max-width: 899.98px) {
+  .directive-expanded-shell .people-journal { grid-template-columns: 210px minmax(0, 1fr); }
+  .directive-expanded-shell .people-detail-hero { grid-template-columns: clamp(190px, 40%, 240px) minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .directive-expanded-shell .people-journal-host { display: block; overflow: auto; }
+  .directive-expanded-shell .people-desktop-journal { display: none; }
+  .directive-expanded-shell .mobile-crew-accordion { display: block; min-width: 0; padding-bottom: 8px; }
+  .directive-expanded-shell .mobile-crew-accordion > .people-collection-toolbar { position: sticky; top: 0; z-index: 3; background: var(--directive-expanded-bg); }
+  .directive-expanded-shell .mobile-people-category { margin-top: 6px; overflow: hidden; border-left: 4px solid rgba(119, 167, 239, .48); border-radius: 5px; }
+  .directive-expanded-shell .mobile-people-list { display: grid; }
+  .directive-expanded-shell .mobile-crew-item { display: block; overflow: hidden; background: var(--directive-expanded-surface); }
+  .directive-expanded-shell .mobile-crew-item .mobile-accordion-head { display: grid; grid-template-columns: 50px minmax(0, 1fr) 38px; min-height: 58px; }
+  .directive-expanded-shell .mobile-crew-avatar { width: 50px; height: 58px; margin: 0; overflow: hidden; border-radius: 0; }
+  .directive-expanded-shell .mobile-crew-avatar > *,
+  .directive-expanded-shell .mobile-crew-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 24%; }
+  .directive-expanded-shell .mobile-accordion-toggle { appearance: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 7px 9px; color: var(--directive-expanded-text); background: transparent; border: 0; text-align: left; }
+  .directive-expanded-shell .mobile-accordion-chevron { color: var(--directive-expanded-blue); font-size: 20px; transform: rotate(0deg); transition: transform 140ms ease; }
+  .directive-expanded-shell .mobile-accordion-toggle[aria-expanded="true"] .mobile-accordion-chevron { transform: rotate(90deg); }
+  .directive-expanded-shell .mobile-accordion-detail { padding: 0; border-top: 1px solid rgba(119, 167, 239, .28); }
+  .directive-expanded-shell .people-detail-mobile { overflow: visible; border-radius: 0; box-shadow: none; }
+  .directive-expanded-shell .people-detail-mobile .people-detail-hero { grid-template-columns: minmax(0, 1fr); }
+  .directive-expanded-shell .people-detail-mobile .people-detail-portrait { width: 100%; height: 200px; min-height: 200px; }
+  .directive-expanded-shell .people-detail-mobile .people-detail-portrait::after { display: none; }
+  .directive-expanded-shell .people-detail-mobile .people-detail-identity { padding: 14px 15px; }
+  .directive-expanded-shell .people-detail-mobile .people-detail-block { margin: 13px 14px 0 18px; }
+}
+
 /* Certified Ship hero and operational board. */
 .directive-expanded-shell .directive-expanded-ship {
   display: grid;

@@ -2,12 +2,10 @@ import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
 import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedPeopleView } from './view-models/certified-people-view.mjs';
-import { createPeopleDetail, createPeopleRoster } from './people-journal.js';
-
-let selectedPersonId = null;
+import { createPeopleJournal, resetPeopleJournalState } from './people-journal.js';
 
 export function resetCrewPanelState() {
-  selectedPersonId = null;
+  resetPeopleJournalState();
 }
 
 function createCommandBearingStrip(commandBearing, actions) {
@@ -67,27 +65,14 @@ export function renderCrewPanel(body, view, actions = {}) {
     appendEmpty(body, currentChatEmptyMessage(view));
     return;
   }
-  const model = buildCertifiedPeopleView(projection);
-  const records = [
-    { ...model.player, isPlayer: true },
-    ...model.people.map((person) => ({ ...person, isPlayer: false }))
-  ];
-  if (!selectedPersonId || !records.some((record) => record.id === selectedPersonId)) {
-    selectedPersonId = records[0]?.id || null;
-  }
+  const model = buildCertifiedPeopleView(projection, view);
 
   const surface = createElement('div', 'directive-expanded-people people-route');
   surface.appendChild(createCommandBearingStrip(model.commandBearing, actions));
-  const layout = createElement('div', 'people-layout people-journal');
-  const select = (id) => {
-    selectedPersonId = id;
+  const rerender = () => {
     body.replaceChildren?.();
     renderCrewPanel(body, view, actions);
   };
-  layout.append(
-    createPeopleRoster(records, selectedPersonId, select),
-    createPeopleDetail(records.find((record) => record.id === selectedPersonId))
-  );
-  surface.appendChild(layout);
+  surface.appendChild(createPeopleJournal(model, rerender));
   body.appendChild(surface);
 }

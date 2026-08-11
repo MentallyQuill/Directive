@@ -400,7 +400,12 @@ assert.equal(crewDataset.manifest.kind, 'directive.crewDataset.v1');
 assert.equal(crewDataset.manifest.packageId, packageData.manifest.id);
 assert.equal(crewDataset.officers.length, 7);
 for (const officer of crewDataset.officers) {
-  assert.deepEqual(Object.keys(officer).sort(), ['billet', 'id', 'name', 'narrationGuide', 'profileSummary']);
+  assert.deepEqual(Object.keys(officer).sort(), ['billet', 'categoryId', 'id', 'name', 'narrationGuide', 'profileSummary', 'service']);
+  assert.equal(officer.categoryId, 'ships-company');
+  assert.equal(officer.service.organization, 'starfleet');
+  assert.equal(Boolean(officer.service.department), true);
+  assert.equal(Boolean(officer.service.rankCode), true);
+  assert.equal(Boolean(officer.service.rankLabel), true);
   assert.equal(Boolean(officer.profileSummary.trim()), true);
   assert.equal(Boolean(officer.narrationGuide.voice.trim()), true);
   assert.equal(officer.narrationGuide.constraints.length > 0, true);
