@@ -119,6 +119,7 @@ function personReorderHandle(person, category, controller, rerender, options = {
       focusPersonHandle(id);
     }
   });
+  handle.classList.add('collection-person-drag-handle');
   handle.addEventListener('keydown', (event) => {
     if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
     const snapshot = controller.snapshot();

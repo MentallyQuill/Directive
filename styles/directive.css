@@ -3593,6 +3593,7 @@ textarea.directive-field-control {
 .directive-expanded-shell .collection-icon-button.danger { color: var(--directive-expanded-coral); }
 .directive-expanded-shell .collection-drag-handle { width: 32px; touch-action: none; cursor: grab; }
 .directive-expanded-shell .collection-drag-handle::before { content: ""; width: 18px; height: 24px; background: radial-gradient(circle, currentColor 1.25px, transparent 1.7px) 0 0 / 6px 6px; opacity: .72; }
+.directive-expanded-shell .collection-person-drag-handle::before { width: 20px; height: 20px; background: currentColor; -webkit-mask: url("../assets/icons/handle-person.svg") center / 20px 20px no-repeat; mask: url("../assets/icons/handle-person.svg") center / 20px 20px no-repeat; }
 .directive-expanded-shell .collection-drag-handle:active { cursor: grabbing; }
 .directive-expanded-shell .collection-person-list { min-width: 0; min-height: 14px; }
 .directive-expanded-shell .collection-person-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; min-width: 0; border-bottom: 1px solid rgba(248, 239, 224, .07); }

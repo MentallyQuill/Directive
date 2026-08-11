@@ -211,6 +211,20 @@ try {
       if (route === 'people') {
         const portraits = await page.locator('.people-row-image img, .mobile-crew-avatar img').count();
         assert.ok(portraits >= 4, `${viewport.width}px People must resolve package portraits`);
+        const handleStyles = await page.evaluate(() => {
+          const person = document.querySelector('.collection-person-row .collection-drag-handle');
+          const category = document.querySelector('.collection-category > .collection-category-head > .collection-drag-handle');
+          const personStyle = getComputedStyle(person, '::before');
+          const categoryStyle = getComputedStyle(category, '::before');
+          return {
+            personMask: personStyle.maskImage || personStyle.webkitMaskImage,
+            categoryBackground: categoryStyle.backgroundImage,
+            categoryMask: categoryStyle.maskImage || categoryStyle.webkitMaskImage
+          };
+        });
+        assert.match(handleStyles.personMask, /handle-person\.svg/, `${viewport.width}px person handles must use the supplied two-line mask`);
+        assert.match(handleStyles.categoryBackground, /radial-gradient/, `${viewport.width}px category handles must retain the dotted glyph`);
+        assert.doesNotMatch(handleStyles.categoryMask, /handle-person\.svg/, `${viewport.width}px category handles must not use the person mask`);
         if (viewport.width <= 640) {
           assert.equal(await page.locator('.mobile-crew-accordion').evaluate((node) => getComputedStyle(node).display !== 'none'), true);
           assert.equal(await page.locator('.mobile-crew-item.is-open .people-detail-portrait').count(), 1);

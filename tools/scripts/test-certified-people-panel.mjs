@@ -75,6 +75,12 @@ assert.equal(byClass('people-detail').length, 2, 'desktop detail and the open ph
 assert.equal(byClass('people-collection-toolbar').length, 2);
 assert.equal(byClass('collection-category').length, 2);
 assert.equal(byClass('collection-drag-handle').length >= 6, true);
+assert.equal(byClass('collection-person-drag-handle').length, 4, 'desktop and mobile person records use the person-only handle');
+const categoryHandles = byClass('collection-category-head')
+  .flatMap((head) => head.children)
+  .filter((node) => node.className.split(/\s+/).includes('collection-drag-handle'));
+assert.equal(categoryHandles.length > 0, true);
+assert.equal(categoryHandles.some((node) => node.className.split(/\s+/).includes('collection-person-drag-handle')), false, 'category handles retain their existing presentation');
 assert.equal(byClass('people-row-image').length, 2);
 assert.equal(byClass('mobile-crew-avatar').length, 2);
 assert.equal(byClass('directive-command-bearing-strip').length, 1);
