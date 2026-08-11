@@ -10,6 +10,8 @@ const checks = [
   "test-certified-settings-view.mjs",
   "test-certified-scroll-ownership.mjs",
   "test-certified-campaign-panel.mjs",
+  "test-campaign-delete-dialog.mjs",
+  "test-campaign-delete-layout.mjs",
   "test-certified-mission-panel.mjs",
   "test-certified-people-panel.mjs",
   "test-responsive-record-list.mjs",

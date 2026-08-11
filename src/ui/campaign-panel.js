@@ -1,4 +1,5 @@
 import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
+import { createCampaignDeleteDialog } from './campaign-delete-dialog.js';
 import { createPackageImage } from './directive-media.js';
 import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
@@ -117,6 +118,26 @@ function appendCampaignDetail(detail, campaign, pack, actions) {
       onClick: () => runAndRefresh(actions.openCampaignChat, { saveId: campaign.activeTimeline?.saveId }, actions)
     }));
   }
+  commands.appendChild(createButton({
+    label: 'Delete',
+    icon: 'fa-solid fa-trash',
+    className: 'campaign-command campaign-command-danger',
+    disabled: !campaign.characterName,
+    onClick: (event) => {
+      createCampaignDeleteDialog({
+        campaign,
+        opener: event?.currentTarget || null,
+        onDelete: async () => {
+          await actions.deleteCampaign?.({
+            campaignId: campaign.id,
+            saveId: campaign.activeTimeline?.saveId || null
+          });
+          selectedRecordKey = `package:${ASHES_V1_PACKAGE_ID}`;
+          await actions.refresh?.();
+        }
+      });
+    }
+  }));
   if (campaign.canSaveGame) {
     commands.appendChild(createButton({
       label: 'Save checkpoint',
