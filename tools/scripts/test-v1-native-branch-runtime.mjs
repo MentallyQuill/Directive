@@ -174,7 +174,13 @@ const appChat = createFakeChatAdapter({
   ]
 });
 await appChat.updateBindingMetadata(appState.campaignChatBinding);
-const host = createFakeDirectiveHost({ chatNative: true, chat: appChat, storage: appStorage });
+let postForkWarning = null;
+const host = createFakeDirectiveHost({
+  chatNative: true,
+  chat: appChat,
+  storage: appStorage,
+  logger: { warn: (...args) => { postForkWarning = args; } }
+});
 let appId = 0;
 const app = createDirectiveRuntimeApp({
   host,
@@ -190,7 +196,15 @@ const nativeBranchIntent = {
   endpointHostMessageId: 'opening',
   capturedAt: Date.now()
 };
+const originalGetRecentMessages = appChat.getRecentMessages.bind(appChat);
+let recentMessageReadCount = 0;
+appChat.getRecentMessages = async (...args) => {
+  recentMessageReadCount += 1;
+  if (recentMessageReadCount > 1) throw new Error('injected:post-fork-replay');
+  return originalGetRecentMessages(...args);
+};
 const changed = await app.handleHostChatChanged({ nativeBranchIntent });
+appChat.getRecentMessages = originalGetRecentMessages;
 const receivedBranchIntent = appChat.calls().findLast((call) => call.type === 'inspectNativeBranchCandidate').branchIntent;
 assert.deepEqual(
   Object.fromEntries(Object.entries(receivedBranchIntent).filter(([key]) => key !== 'verifiedByDirective')),
@@ -201,6 +215,8 @@ assert.equal(receivedBranchIntent.verifiedByDirective, true, 'the verified actio
 assert.equal(changed.active, true);
 assert.equal(changed.timelineFork.status, 'activated');
 assert.match(changed.timelineFork.suggestedName, /Stardate/);
+assert.equal(changed.acceptedPairReplay.reasonCode, 'post-fork-replay-failed');
+assert.match(postForkWarning?.[0] || '', /Post-fork accepted-pair replay failed/);
 assert.notEqual((await getV1StorageIndex(appStorage)).activeSaveId, 'save.app-parent');
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.campaignChatBinding.chatId, 'renamed-app-child');
 assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate chat event is idempotent');

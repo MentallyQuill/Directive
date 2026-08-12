@@ -1093,7 +1093,18 @@ export function createDirectiveRuntimeApp({
       }
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
-        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+        try {
+          acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+        } catch (error) {
+          if (!timelineFork) throw error;
+          host.logger?.warn?.('[Directive] Post-fork accepted-pair replay failed after the new timeline was committed.', error);
+          acceptedPairReplay = {
+            replayed: 0,
+            blocked: true,
+            reasonCode: 'post-fork-replay-failed',
+            message: error?.message || String(error)
+          };
+        }
       }
       else await syncPrompt();
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
