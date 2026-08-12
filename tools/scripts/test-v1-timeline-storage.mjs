@@ -109,6 +109,91 @@ assert.equal(grouped.campaigns[0].activeTimeline.saveId, 'save.child');
 assert.deepEqual(grouped.campaigns[0].savedGames.map((save) => save.id), [preserved.id]);
 assert.equal(JSON.stringify({ ...await loadV1CampaignSave(controllerAdapter, preserved.id), name: preserved.name, updatedAt: preserved.updatedAt }), preservedBytes);
 
+const tornBaseAdapter = createFakeJsonStorage();
+await storeV1CampaignSave(tornBaseAdapter, parent);
+let failNextIndexWrite = false;
+const tornAdapter = {
+  readJson: (...args) => tornBaseAdapter.readJson(...args),
+  deleteJsonFile: (...args) => tornBaseAdapter.deleteJsonFile(...args),
+  listJsonFiles: (...args) => tornBaseAdapter.listJsonFiles(...args),
+  verifyJsonFiles: (...args) => tornBaseAdapter.verifyJsonFiles(...args),
+  snapshot: () => tornBaseAdapter.snapshot(),
+  async writeJson(filePath, value) {
+    if (failNextIndexWrite && filePath === V1_STORAGE_PATHS.index) {
+      failNextIndexWrite = false;
+      throw new Error('injected checkpoint index write failure');
+    }
+    return tornBaseAdapter.writeJson(filePath, value);
+  }
+};
+const tornController = createCampaignStartController({
+  adapter: tornAdapter,
+  packages: [assets.packageData],
+  missionDefinitions: assets.missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.torn`,
+  now: () => now
+});
+await tornController.initialize();
+failNextIndexWrite = true;
+await assert.rejects(
+  tornController.prepareTimelineCheckpoint({
+    checkpointId: 'checkpoint.torn',
+    name: 'Torn checkpoint',
+    campaignState: parentState
+  }),
+  /injected checkpoint index write failure/
+);
+assert.equal((await loadV1CampaignSave(tornAdapter, 'checkpoint.torn')).id, 'checkpoint.torn');
+assert.equal((await getV1StorageIndex(tornAdapter)).saves['checkpoint.torn'], undefined);
+const repairedCheckpoint = await tornController.prepareTimelineCheckpoint({
+  checkpointId: 'checkpoint.torn',
+  name: 'Torn checkpoint',
+  campaignState: parentState
+});
+assert.equal(repairedCheckpoint.id, 'checkpoint.torn');
+assert.equal(
+  (await getV1StorageIndex(tornAdapter)).saves['checkpoint.torn']?.id,
+  'checkpoint.torn',
+  'an idempotent retry must repair a checkpoint file that was written before its index summary failed'
+);
+
+const manualTornBase = createFakeJsonStorage();
+await storeV1CampaignSave(manualTornBase, parent);
+let failManualIndexWrite = false;
+const manualTornAdapter = {
+  readJson: (...args) => manualTornBase.readJson(...args),
+  deleteJsonFile: (...args) => manualTornBase.deleteJsonFile(...args),
+  listJsonFiles: (...args) => manualTornBase.listJsonFiles(...args),
+  verifyJsonFiles: (...args) => manualTornBase.verifyJsonFiles(...args),
+  async writeJson(filePath, value) {
+    if (failManualIndexWrite && filePath === V1_STORAGE_PATHS.index) {
+      failManualIndexWrite = false;
+      throw new Error('injected manual checkpoint index write failure');
+    }
+    return manualTornBase.writeJson(filePath, value);
+  }
+};
+const manualTornController = createCampaignStartController({
+  adapter: manualTornAdapter,
+  packages: [assets.packageData],
+  missionDefinitions: assets.missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.manual-torn`,
+  now: () => now
+});
+await manualTornController.initialize();
+failManualIndexWrite = true;
+await assert.rejects(
+  manualTornController.createCheckpoint({ name: 'Manual torn checkpoint', campaignState: parentState }),
+  /injected manual checkpoint index write failure/
+);
+await assert.rejects(
+  loadV1CampaignSave(manualTornAdapter, 'checkpoint.manual-torn'),
+  /not found/i,
+  'a non-journaled Save Game failure must remove its unpublished checkpoint file'
+);
+
 await controller.retireSupersededTimeline({ saveId: 'save.parent' });
 await assert.rejects(loadV1CampaignSave(controllerAdapter, 'save.parent'), /not found/i);
 assert.equal(await loadTimelineOperation(adapter, 'campaign.timeline'), null);

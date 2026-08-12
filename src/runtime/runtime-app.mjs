@@ -1327,7 +1327,9 @@ export function createDirectiveRuntimeApp({
 
     async saveGame({ name } = {}) {
       await ensureInitialized();
-      const sourceChatId = compact(state?.campaignChatBinding?.chatId);
+      const checkpointName = required(name, 'name');
+      const sourceState = clone(state);
+      const sourceChatId = compact(sourceState?.campaignChatBinding?.chatId);
       if (!sourceChatId) {
         const error = new Error('Directive cannot create a checkpoint without an exact bound campaign chat.');
         error.code = 'DIRECTIVE_CHECKPOINT_CHAT_REQUIRED';
@@ -1338,20 +1340,29 @@ export function createDirectiveRuntimeApp({
         error.code = 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE';
         throw error;
       }
-      let checkpoint = await controller.createCheckpoint({ name });
       let checkpointBinding = null;
+      let checkpoint = null;
       try {
         checkpointBinding = await host.chat.cloneCampaignChat({
           sourceChatId,
-          targetName: `${state.campaign.title} - ${name}`,
+          targetName: `${sourceState.campaign.title} - ${checkpointName}`,
           open: false,
-          campaignId: state.campaign.id,
-          saveId: checkpoint.parentSaveId,
-          sourceBinding: state.campaignChatBinding
+          campaignId: sourceState.campaign.id,
+          saveId: sourceState.campaignChatBinding.saveId,
+          sourceBinding: sourceState.campaignChatBinding
         });
-        checkpoint = await controller.bindCheckpointChat({
-          checkpointId: checkpoint.id,
-          binding: checkpointBinding
+        const checkpointState = clone(sourceState);
+        checkpointState.campaignChatBinding = {
+          ...clone(checkpointBinding),
+          kind: 'directive.campaignChatBinding.v1',
+          version: 1,
+          campaignId: sourceState.campaign.id,
+          saveId: sourceState.campaignChatBinding.saveId,
+          status: 'bound'
+        };
+        checkpoint = await controller.createCheckpoint({
+          name: checkpointName,
+          campaignState: checkpointState
         });
       } catch (error) {
         if (checkpointBinding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
@@ -1360,11 +1371,6 @@ export function createDirectiveRuntimeApp({
           } catch (cleanupError) {
             host.logger?.warn?.('[Directive] Could not remove a failed checkpoint chat.', cleanupError);
           }
-        }
-        try {
-          await controller.deleteSave({ checkpointId: checkpoint.id });
-        } catch (cleanupError) {
-          host.logger?.warn?.('[Directive] Could not remove a failed checkpoint save.', cleanupError);
         }
         throw error;
       }

@@ -340,14 +340,24 @@ export function createCampaignStartController({
 
     async createCheckpoint({ name, campaignState = activeState } = {}) {
       if (!activeSave) throw new Error('No active V1 campaign is available.');
-      return createCampaignCheckpoint({
-        adapter,
-        checkpointId: nextId('checkpoint'),
-        activeSaveId: activeSave.id,
-        campaignState: assertV1CampaignState(campaignState),
-        name: required(name, 'name'),
-        now: currentTime()
-      });
+      const checkpointId = nextId('checkpoint');
+      try {
+        return await createCampaignCheckpoint({
+          adapter,
+          checkpointId,
+          activeSaveId: activeSave.id,
+          campaignState: assertV1CampaignState(campaignState),
+          name: required(name, 'name'),
+          now: currentTime()
+        });
+      } catch (error) {
+        try {
+          await deleteV1CampaignSave(adapter, checkpointId, { now: currentTime() });
+        } catch (cleanupError) {
+          error.cleanupError = cleanupError;
+        }
+        throw error;
+      }
     },
 
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
@@ -361,6 +371,7 @@ export function createCampaignStartController({
             || JSON.stringify(existing.state) !== JSON.stringify(campaignState)) {
             throw new Error('The existing timeline checkpoint does not match this operation.');
           }
+          await storeV1CampaignSave(adapter, existing, { makeActive: false });
           return clone(existing);
         } catch (error) {
           if (!/was not found/i.test(String(error?.message || ''))) throw error;

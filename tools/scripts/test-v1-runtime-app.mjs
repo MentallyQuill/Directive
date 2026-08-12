@@ -677,6 +677,29 @@ assert.deepEqual(cleanupFailureDeletion.chatCleanup, {
   message: 'fake checkpoint chat deletion failure'
 });
 
+const delayedCloneCampaignChat = host.chat.cloneCampaignChat;
+let releaseDelayedClone;
+let reportDelayedCloneStarted;
+const delayedCloneStarted = new Promise((resolve) => { reportDelayedCloneStarted = resolve; });
+const delayedCloneRelease = new Promise((resolve) => { releaseDelayedClone = resolve; });
+host.chat.cloneCampaignChat = async (options) => {
+  reportDelayedCloneStarted();
+  await delayedCloneRelease;
+  return delayedCloneCampaignChat(options);
+};
+const delayedSave = app.saveGame({ name: 'Clone before publication' });
+await delayedCloneStarted;
+assert.equal(
+  (await app.getCurrentView({ tabId: 'campaign' })).campaignIndex.campaigns[0].checkpoints.length,
+  0,
+  'Save Game must not publish a checkpoint while its immutable chat clone is unfinished'
+);
+releaseDelayedClone();
+const delayedCheckpoint = await delayedSave;
+host.chat.cloneCampaignChat = delayedCloneCampaignChat;
+assert.ok(delayedCheckpoint.checkpoint.state.campaignChatBinding.transcriptAttestation);
+await app.deleteSave({ checkpointId: delayedCheckpoint.checkpoint.id });
+
 const cloneCampaignChat = host.chat.cloneCampaignChat;
 host.chat.cloneCampaignChat = async () => {
   const error = new Error('fake checkpoint clone failure');
