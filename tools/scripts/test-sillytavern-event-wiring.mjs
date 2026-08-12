@@ -76,8 +76,10 @@ assert.equal(restoreCount, 1, 'extension disable must restore the preset selecte
 clearSillyTavernDirectiveRuntimeBridge();
 
 let renamed = null;
+const branchUiSequence = [];
 const previousPrompt = globalThis.prompt;
 globalThis.prompt = (label, value) => {
+  branchUiSequence.push('prompt');
   assert.match(label, /Name Previous Timeline/);
   assert.equal(value, 'Prelude — Stardate 53068.4');
   return 'Before Whitaker';
@@ -96,8 +98,12 @@ setSillyTavernDirectiveRuntimeBridge({
     async renameSavedGame(options) { renamed = options; }
   }
 });
-registerRuntimeAction('runtime.refresh', () => ({ refreshed: true }));
+registerRuntimeAction('runtime.refresh', () => {
+  branchUiSequence.push('refresh');
+  return { refreshed: true };
+});
 await __directiveEventTestHooks.handleChatChanged();
+assert.deepEqual(branchUiSequence, ['refresh', 'prompt', 'refresh'], 'refresh must finish before the naming dialog opens');
 assert.deepEqual(renamed, { savedGameId: 'checkpoint.1', name: 'Before Whitaker' });
 globalThis.prompt = previousPrompt;
 clearSillyTavernDirectiveRuntimeBridge();

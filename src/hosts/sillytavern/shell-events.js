@@ -141,6 +141,13 @@ export async function handleChatChanged(payload = {}) {
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
   const changed = await app()?.handleHostChatChanged?.(payloadWithNativeBranchIntent(payload));
   const fork = changed?.timelineFork;
+  let refreshResult;
+  try {
+    refreshResult = await runRuntimeAction('runtime.refresh');
+  } catch (error) {
+    report('Runtime refresh after chat change failed', error);
+    refreshResult = { refreshed: false, error: error?.message || String(error) };
+  }
   if (fork && new Set(['activated', 'recovered']).has(fork.status) && fork.savedGameId && fork.suggestedName) {
     createPreviousTimelineNameDialog({
       savedGameId: fork.savedGameId,
@@ -155,12 +162,7 @@ export async function handleChatChanged(payload = {}) {
       }
     });
   }
-  try {
-    return { ...(await runRuntimeAction('runtime.refresh')), timelineFork: fork || null };
-  } catch (error) {
-    report('Runtime refresh after chat change failed', error);
-    return { refreshed: false, error: error?.message || String(error) };
-  }
+  return { ...refreshResult, timelineFork: fork || null };
 }
 
 export function disposeSillyTavernDirectiveEventLifecycle() {
