@@ -46,15 +46,15 @@ Native-branch transcript normalization must include role, stable host-message ID
 
 ### Immutable Transcript Attestation
 
-Every newly cloned saved-game chat binding must carry a versioned transcript attestation containing the normalized message count and deterministic lineage hash. Load Game must verify that attestation against the exact preserved chat before it clones, checkpoints, or switches anything.
+Every newly preserved saved-game chat binding must carry a versioned transcript attestation containing the normalized message count and deterministic lineage hash. This includes cloned chats and the retired parent chat preserved by native branching. Load Game must verify that attestation against the exact preserved chat before it clones, checkpoints, or switches anything. The transaction must verify both its preserved parent and its cloned child again immediately before the active-pointer commit.
 
 Existing saved games without an attestation remain loadable for compatibility. Once present, an attestation is mandatory authority and a missing verifier or mismatch fails closed.
 
 ### One Semantic Mutation Queue
 
-Accepted-pair settlement, native-branch adoption/recovery, Save Game, Load Game, saved-game rename, and saved-game deletion must use the same runtime mutation queue. A timeline operation sees all earlier settlement writes and prevents later settlement writes until its state transition completes.
+Accepted-pair settlement, native-branch adoption/recovery, Save Game, Load Game, saved-game rename, saved-game deletion, and campaign deletion must use the same runtime mutation queue. A timeline operation sees all earlier settlement writes and prevents later settlement writes until its state transition completes.
 
-The timeline transaction service must additionally use a cooperative per-campaign lease. Browser environments use the Web Locks API when available so tabs coordinate; tests and single-realm environments use a module-level FIFO fallback. Recovery must not recursively reacquire its own lease.
+The timeline transaction service must additionally use a cooperative per-campaign lease shared by accepted-pair settlement and every saved-game mutation. Browser environments use the Web Locks API when available so tabs coordinate; tests and single-realm environments use a module-level FIFO fallback. Recovery must not recursively reacquire its own lease. A durable incomplete operation journal blocks unrelated Save, rename, or delete work until recovery completes.
 
 ### Journal Recovery
 
@@ -65,6 +65,8 @@ Every Load Game stage must be failure-injected in tests. Before `active-pointer-
 ### Early Validation and Retry Semantics
 
 Load Game must reject a selected record whose campaign or package authority differs from the active campaign before prompt clearing or any host/storage write.
+
+Every new checkpoint or timeline transaction must re-read `index.activeSaveId` before creating artifacts. A runtime whose in-memory active save is stale fails closed instead of publishing from superseded state.
 
 If accepted-pair replay after a committed fork fails, the runtime must retain `acceptedPairReplayNeeded = true`. The next eligible event or generation interception retries the replay before campaign generation.
 
