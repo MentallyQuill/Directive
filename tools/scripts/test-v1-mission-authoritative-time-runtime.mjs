@@ -64,7 +64,7 @@ function snapshot(suffix = 'main') {
 function timeBoundaryFor(sceneSnapshot, {
     id = 'time.boundary.accepted-scene',
     kind = 'directive.timeBoundary.v1',
-    elapsedMinutes = 90,
+    elapsedSeconds = 5400,
     currentPlayerHostMessageId = sceneSnapshot.source.currentPlayer.hostMessageId,
     rangeHash = sceneSnapshot.source.sourceRangeHash,
 } = {}) {
@@ -73,7 +73,8 @@ function timeBoundaryFor(sceneSnapshot, {
         kind,
         type: 'time-advance',
         reason: 'explicit-duration',
-        elapsedMinutes,
+        elapsedSeconds,
+        elapsedMinutes: elapsedSeconds / 60,
         source: 'acceptedPairMissionEvidence',
         sourceAnchorRange: {
             kind: 'acceptedPair',
@@ -167,7 +168,7 @@ const abstained = JSON.stringify({
     abstained: true,
     time: {
         decision: 'advance',
-        elapsedMinutes: 90,
+        elapsedSeconds: 5400,
         reason: 'explicit-duration',
         confidence: 0.96,
     },
@@ -179,7 +180,7 @@ const unchanged = JSON.stringify({
     abstained: true,
     time: {
         decision: 'unchanged',
-        elapsedMinutes: 0,
+        elapsedSeconds: 0,
         reason: 'same-minute',
         confidence: 0.9,
     },

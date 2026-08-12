@@ -43,7 +43,8 @@ const state = {
   worldState: { currentLocationId: 'breckenridge-underway' },
   timeLedger: {
     stardate: 53068.4,
-    shipClock: { minuteOfDay: 510, display: '0830 hours' }
+    elapsedSeconds: 47,
+    shipClock: { secondOfDay: 30647, minuteOfDay: 510, display: '08:30:47 hours' }
   },
   stateCustody: { revision: 0 }
 };
@@ -117,8 +118,8 @@ assert.match(packet.text, /Yesterday morning, your shuttle rendezvoused/);
 assert.match(packet.text, /Preserve every established opening beat/);
 assert.match(packet.text, /Do not take the player through the ready-room door/);
 assert.match(packet.text, /End the assistant response with exactly one final nonblank line/);
-assert.match(packet.text, /\*Stardate 53068\.4 \| 0830 hours\*/);
-assert.match(packet.text, /Continuous dialogue or immediate action may remain within the same displayed minute/);
+assert.match(packet.text, /\*Stardate 53068\.4 \| 08:30:47 hours\*/);
+assert.match(packet.text, /dialogue.*seconds/i);
 assert.match(packet.text, /Deadlines, schedules, past events, hypothetical durations.*do not themselves advance/i);
 assert.doesNotMatch(packet.text, /Begin the assistant response with exactly/);
 assert.match(packet.text, /"currentTime": \{/);

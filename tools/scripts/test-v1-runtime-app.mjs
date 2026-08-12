@@ -113,7 +113,7 @@ const generation = createFakeGenerationClient({
           abstained: true,
           time: {
             decision: 'advance',
-            elapsedMinutes: 1,
+            elapsedSeconds: 47,
             reason: 'brief-exchange',
             confidence: 0.9
           }
@@ -632,10 +632,14 @@ assert.ok(
 assert.equal(intercepted.acceptedPairReplay.replayed, 1);
 assert.equal(intercepted.acceptedPairReplay.retryPending, false);
 assert.equal(missionInterpretationCalls, 2);
+const acceptedPairRequest = generation.calls().find((call) => call.role === 'acceptedPairMissionEvidence')?.request;
+assert.match(acceptedPairRequest.messages[1].content, /"secondOfDay": 30600/);
+assert.match(acceptedPairRequest.messages[1].content, /"elapsedSeconds": 0/);
+assert.match(acceptedPairRequest.messages[1].content, /I take the chair opposite Whitaker/);
 assert.ok((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision > 0);
 assert.equal(
-  (await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedMinutes,
-  1,
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedSeconds,
+  47,
   'The shared accepted-pair interpretation must commit time before mission settlement.'
 );
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'armed');
@@ -660,7 +664,7 @@ const finalRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignS
 assert.ok(finalRevision > afterSwipeRevision);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'committed');
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
-assert.equal(opening.text.endsWith('*Stardate 53068.4 | 0830 hours*'), true);
+assert.equal(opening.text.endsWith('*Stardate 53068.4 | 08:30:00 hours*'), true);
 assert.equal(opening.text.startsWith('*Stardate'), false);
 
 await app.handleHostMessageSelectedSwipeChanged({ message: provisional });

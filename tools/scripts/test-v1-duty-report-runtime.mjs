@@ -56,7 +56,7 @@ function acceptedInterpretation(assistantAcceptance = 'accepted') {
         assistantAcceptance,
         claims: [],
         abstained: true,
-        time: { decision: 'unchanged', elapsedMinutes: 0, reason: 'same-minute', confidence: 0.9 },
+        time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
 }
 

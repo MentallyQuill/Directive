@@ -132,14 +132,20 @@ export function createActiveAcceptedPairLineage({
 
 function currentTime(state) {
   const stardate = Number(state?.timeLedger?.stardate ?? state?.campaign?.currentStardate);
-  const minute = Number(state?.timeLedger?.shipClock?.minuteOfDay);
-  if (!Number.isFinite(stardate) || !Number.isFinite(minute)) return null;
-  const normalized = ((Math.round(minute) % 1440) + 1440) % 1440;
+  const clock = state?.timeLedger?.shipClock || {};
+  const second = Number(clock.secondOfDay ?? (Number(clock.minuteOfDay) * 60));
+  if (!Number.isFinite(stardate) || !Number.isFinite(second)) return null;
+  const normalized = ((Math.round(second) % 86400) + 86400) % 86400;
+  const hour = Math.floor(normalized / 3600);
+  const minute = Math.floor((normalized % 3600) / 60);
+  const remainder = normalized % 60;
   return {
     stardate,
-    minuteOfDay: normalized,
-    shipTime: `${String(Math.floor(normalized / 60)).padStart(2, '0')}${String(normalized % 60).padStart(2, '0')} hours`,
-    footer: formatShipTimeFooter({ stardate, minuteOfDay: normalized })
+    secondOfDay: normalized,
+    minuteOfDay: Math.floor(normalized / 60),
+    elapsedSeconds: Number(state?.timeLedger?.elapsedSeconds ?? (Number(state?.timeLedger?.elapsedMinutes || 0) * 60)),
+    shipTime: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(remainder).padStart(2, '0')} hours`,
+    footer: formatShipTimeFooter({ stardate, secondOfDay: normalized })
   };
 }
 
@@ -293,9 +299,9 @@ export function createV1RuntimePromptPacket({
     payload.campaign.currentTime
       ? [
         'SHIP TIME: campaign.currentTime is the authoritative time at the start of this response. Prior chat timestamps are display artifacts, not accepted clock state.',
-        'Infer only the fictional time actually supported by the scene you narrate. Continuous dialogue or immediate action may remain within the same displayed minute; never add a minimum duration per reply.',
+        'Infer only the fictional time actually supported by the scene you narrate. Spoken dialogue, pauses, and immediate physical actions normally consume plausible whole seconds even when the displayed minute does not change; do not round sub-minute activity down to zero merely because it remains within one minute.',
         'Travel, waiting, completed work, meals, sleep, research, and explicit scene cuts should reflect their supported duration. Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
-        'For an ordinary in-character response: End the assistant response with exactly one final nonblank line shaped `*Stardate 53068.4 | 0830 hours*`, using your proposed scene-end Stardate and 24-hour ship time. Use 0000 through 2359, never 2400. Do not add a second timestamp or a time tracker. An explicitly OOC-only reply may omit the footer.'
+        'For an ordinary in-character response: End the assistant response with exactly one final nonblank line shaped `*Stardate 53068.4 | 08:30:47 hours*`, using your proposed scene-end Stardate and 24-hour ship time. Use 00:00:00 through 23:59:59, never 24:00:00. Do not add a second timestamp or a time tracker. An explicitly OOC-only reply may omit the footer.'
       ].join('\n')
       : '',
     JSON.stringify(payload, null, 2)

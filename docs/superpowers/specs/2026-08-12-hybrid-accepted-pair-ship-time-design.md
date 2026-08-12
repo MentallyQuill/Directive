@@ -1,8 +1,10 @@
 # Hybrid Accepted-Pair Ship Time
 
-**Status:** Approved
+**Status:** Superseded by `2026-08-12-accepted-pair-seconds-time-design.md`
 
 **Date:** 2026-08-12
+
+This document records the initially approved minute-resolution design. The seconds-resolution design supersedes its footer shape, model output unit, persistence precision, and zero-decision diagnostics while retaining its accepted-pair authority and preset-agnostic boundaries.
 
 ## Purpose
 

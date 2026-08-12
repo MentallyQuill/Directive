@@ -260,11 +260,17 @@ function sourcePairFromSnapshot(snapshot = {}) {
 
 function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAssets = {}) {
     const ledger = campaignState?.timeLedger || {};
+    const secondOfDay = ledger.shipClock?.secondOfDay
+        ?? (Number(ledger.shipClock?.minuteOfDay || 0) * 60);
+    const elapsedSeconds = ledger.elapsedSeconds
+        ?? (Number(ledger.elapsedMinutes || campaignState?.worldState?.elapsedMinutes || 0) * 60);
     return {
         current: {
             stardate: ledger.stardate ?? campaignState?.worldState?.currentStardate ?? campaignState?.campaign?.currentStardate ?? null,
-            minuteOfDay: ledger.shipClock?.minuteOfDay ?? null,
-            elapsedMinutes: ledger.elapsedMinutes ?? campaignState?.worldState?.elapsedMinutes ?? 0,
+            secondOfDay,
+            minuteOfDay: Math.floor(secondOfDay / 60),
+            elapsedSeconds,
+            elapsedMinutes: Math.floor(elapsedSeconds / 60),
         },
         footer: snapshot?.source?.previousAssistant?.timeFooter || null,
         stardatePerDay: runtimeAssets?.packageData?.world?.layout?.stardatePerDay ?? 1,
@@ -276,6 +282,13 @@ function timeBoundaryAnchorRange(boundary = {}) {
         || boundary.adjudication?.sourceAnchorRange
         || boundary.metadata?.sourceAnchorRange
         || null;
+}
+
+function timeBoundaryElapsedSeconds(boundary = {}) {
+    const seconds = Number(boundary?.elapsedSeconds);
+    if (Number.isInteger(seconds) && seconds >= 0) return seconds;
+    const minutes = Number(boundary?.elapsedMinutes);
+    return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes * 60) : 0;
 }
 
 function acceptedSceneTimeBoundary(campaignState = {}, snapshot = {}) {
@@ -297,7 +310,7 @@ function acceptedSceneTimeBoundary(campaignState = {}, snapshot = {}) {
     ].filter(Boolean);
     return candidates.find((boundary) => {
         if (boundary?.kind !== 'directive.timeBoundary.v1') return false;
-        if (Number(boundary?.elapsedMinutes || 0) <= 0) return false;
+        if (timeBoundaryElapsedSeconds(boundary) <= 0) return false;
         const anchor = timeBoundaryAnchorRange(boundary);
         if (!anchor) return false;
         return compact(anchor.previousAssistantHostMessageId) === compact(expectedAnchor.previousAssistantHostMessageId)
@@ -336,7 +349,7 @@ function timeBoundarySourceMessageId(boundary = {}, role = 'runtime') {
     const boundaryToken = stableHash([
         compact(boundary.id),
         compact(anchor?.rangeHash),
-        compact(boundary.elapsedMinutes),
+        timeBoundaryElapsedSeconds(boundary),
     ].join('|'));
     return `time-boundary:${hostToken}:${boundaryToken}:${role}`;
 }
@@ -474,8 +487,9 @@ function materializeAuthoritativeTimeEvidence({
     branchId = '',
 } = {}) {
     const boundary = acceptedSceneTimeBoundary(campaignState, snapshot);
-    const elapsedMinutes = Number(boundary?.elapsedMinutes);
-    if (!boundary || !Number.isFinite(elapsedMinutes) || elapsedMinutes <= 0) {
+    const elapsedSeconds = timeBoundaryElapsedSeconds(boundary);
+    const elapsedMinutes = elapsedSeconds / 60;
+    if (!boundary || elapsedSeconds <= 0) {
         return { boundary: null, claims: [], sources: [], contributions: [], observations: [] };
     }
     const acceptedAdvanceSources = timeBoundaryAdvanceSources(boundary);
@@ -501,14 +515,14 @@ function materializeAuthoritativeTimeEvidence({
     const boundaryAnchor = timeBoundaryAnchorRange(boundary);
     for (const role of new Set(eligible.map((item) => item.role))) {
         const messageId = timeBoundarySourceMessageId(boundary, role);
-        const text = `Authoritative story time advanced by ${elapsedMinutes} minutes at ${compact(boundary.id) || 'the accepted scene boundary'}.`;
+        const text = `Authoritative story time advanced by ${elapsedSeconds} seconds at ${compact(boundary.id) || 'the accepted scene boundary'}.`;
         const sourceInput = {
             messageId,
             selectedSwipeId: null,
             textHash: stableHash([
                 compact(boundary.id),
                 compact(boundaryAnchor?.rangeHash),
-                elapsedMinutes,
+                elapsedSeconds,
                 role,
             ].join('|')),
             text,

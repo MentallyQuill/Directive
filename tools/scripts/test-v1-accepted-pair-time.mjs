@@ -4,6 +4,8 @@ import {
   commitV1AcceptedPairTimeAdvance,
   invalidateV1AcceptedPairTimeByHostMessages
 } from '../../src/runtime/v1-accepted-pair-time.mjs';
+import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
 const snapshot = {
   envelope: {
@@ -255,5 +257,41 @@ assert.equal(rebuiltState.timeLedger.elapsedMinutes, 0);
 assert.equal(rebuiltState.timeLedger.shipClock.display, '08:30:35 hours');
 assert.equal(rebuiltState.timeLedger.entries.length, 1);
 assert.equal(rebuiltState.timeLedger.decisions.length, 1);
+
+let legacyState = createAshesInitialState({
+  campaignId: 'campaign.legacy',
+  saveId: 'save.legacy',
+  chatId: 'chat.legacy'
+});
+delete legacyState.worldState.elapsedSeconds;
+delete legacyState.timeLedger.elapsedSeconds;
+delete legacyState.timeLedger.shipClock.secondOfDay;
+delete legacyState.timeLedger.decisions;
+const legacyGateway = createStateDeltaGateway({
+  getState: () => legacyState,
+  setState: (next) => { legacyState = next; },
+  persist: async () => {},
+  now: () => '2026-08-09T12:03:00.000Z'
+});
+const upgradedLegacy = await commitV1AcceptedPairTimeAdvance({
+  campaignState: legacyState,
+  snapshot: {
+    ...snapshot,
+    source: {
+      ...snapshot.source,
+      sourceRangeHash: 'range.legacy-upgrade',
+      previousAssistant: { ...snapshot.source.previousAssistant, hostMessageId: 'message.legacy.assistant' },
+      currentPlayer: { ...snapshot.source.currentPlayer, hostMessageId: 'message.legacy.player' }
+    }
+  },
+  packageData,
+  stateDeltaGateway: legacyGateway,
+  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'legacy-same-second', confidence: 0.9 },
+  now: '2026-08-09T12:03:00.000Z'
+});
+assert.equal(upgradedLegacy.status, 'recorded');
+assert.equal(legacyState.timeLedger.elapsedSeconds, 0);
+assert.equal(legacyState.timeLedger.shipClock.secondOfDay, 30600);
+assert.equal(legacyState.timeLedger.decisions.length, 1);
 
 console.log('V1 accepted-pair time custody tests passed.');
