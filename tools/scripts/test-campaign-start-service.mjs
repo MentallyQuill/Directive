@@ -124,13 +124,20 @@ assert.equal(started.campaignState.mission.v1Journey.kind, 'directive.missionJou
 assert.deepEqual(started.campaignState.mission.v1History, []);
 assert.equal(started.campaignState.storySettlement.kind, 'directive.storySettlement.v1');
 assert.equal(started.campaignState.storySettlement.branchId, 'save.service');
+assert.equal(started.campaignState.worldState.elapsedSeconds, 0);
+assert.equal(started.campaignState.timeLedger.elapsedSeconds, 0);
+assert.equal(started.campaignState.timeLedger.shipClock.secondOfDay, 30600);
+assert.equal(started.campaignState.timeLedger.shipClock.display, '08:30:00 hours');
+assert.deepEqual(started.campaignState.timeLedger.decisions, []);
 assert.equal(Object.hasOwn(started.campaignState, 'runtimeTracking'), false);
 
 const advanced = structuredClone(started.campaignState);
 advanced.campaign.currentStardate = 53051.2;
 advanced.worldState.currentStardate = 53051.2;
 advanced.worldState.elapsedMinutes = 2880;
+advanced.worldState.elapsedSeconds = 172800;
 advanced.timeLedger.elapsedMinutes = 2880;
+advanced.timeLedger.elapsedSeconds = 172800;
 advanced.timeLedger.stardate = 53051.2;
 await persistActiveCampaign({
   adapter,

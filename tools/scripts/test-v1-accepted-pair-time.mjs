@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { commitV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
+import {
+  commitV1AcceptedPairTimeAdvance,
+  invalidateV1AcceptedPairTimeByHostMessages
+} from '../../src/runtime/v1-accepted-pair-time.mjs';
 
 const snapshot = {
   envelope: {
@@ -70,7 +73,7 @@ const settled = await commitV1AcceptedPairTimeAdvance({
   stateDeltaGateway,
   timeDecision: {
     decision: 'advance',
-    elapsedMinutes: 12,
+    elapsedSeconds: 47,
     reason: 'accepted-scene-time',
     confidence: 0.92
   },
@@ -81,11 +84,17 @@ assert.equal(settled.ok, true);
 assert.equal(settled.status, 'committed');
 assert.equal(commits, 1);
 assert.deepEqual(commitMetadata.domains, ['campaign', 'worldState', 'timeLedger']);
-assert.equal(settled.campaignState.worldState.elapsedMinutes, 12);
+assert.equal(settled.campaignState.worldState.elapsedSeconds, 47);
+assert.equal(settled.campaignState.worldState.elapsedMinutes, 0);
 assert.equal(settled.campaignState.timeLedger.entries.at(-1).kind, 'directive.timeBoundary.v1');
-assert.equal(settled.campaignState.timeLedger.entries.at(-1).elapsedMinutes, 12);
+assert.equal(settled.campaignState.timeLedger.entries.at(-1).elapsedSeconds, 47);
+assert.equal(settled.campaignState.timeLedger.entries.at(-1).elapsedMinutes, 47 / 60);
 assert.equal(settled.campaignState.timeLedger.entries.at(-1).sourceAnchorRange.rangeHash, 'range.accepted-pair.11');
 assert.equal(settled.boundary.id, settled.campaignState.timeLedger.entries.at(-1).id);
+assert.equal(settled.campaignState.timeLedger.elapsedSeconds, 47);
+assert.equal(settled.campaignState.timeLedger.shipClock.secondOfDay, 30647);
+assert.equal(settled.campaignState.timeLedger.shipClock.display, '08:30:47 hours');
+assert.equal(settled.campaignState.timeLedger.decisions.length, 1);
 
 for (const root of [
   'mission',
@@ -101,7 +110,7 @@ const replay = await commitV1AcceptedPairTimeAdvance({
   stateDeltaGateway,
   timeDecision: {
     decision: 'advance',
-    elapsedMinutes: 999,
+    elapsedSeconds: 999,
     reason: 'deduplicated-replay',
     confidence: 1
   }
@@ -112,6 +121,7 @@ assert.equal(commits, 1);
 assert.equal(replay.boundary.id, settled.boundary.id);
 
 let zeroCommits = 0;
+let zeroState = null;
 const zero = await commitV1AcceptedPairTimeAdvance({
   campaignState: state,
   snapshot: {
@@ -120,24 +130,44 @@ const zero = await commitV1AcceptedPairTimeAdvance({
   },
   packageData,
   stateDeltaGateway: {
-    async commit() { zeroCommits += 1; }
+    async commit(next) { zeroCommits += 1; zeroState = structuredClone(next); return structuredClone(next); }
   },
   timeDecision: {
     decision: 'unchanged',
-    elapsedMinutes: 0,
+    elapsedSeconds: 0,
     reason: 'same-minute',
     confidence: 0.9
   }
 });
 assert.equal(zero.ok, true);
-assert.equal(zero.status, 'no-change');
-assert.equal(zeroCommits, 0);
+assert.equal(zero.status, 'recorded');
+assert.equal(zeroCommits, 1);
+assert.equal(zeroState.timeLedger.decisions.at(-1).decision, 'unchanged');
+assert.equal(zeroState.timeLedger.decisions.at(-1).elapsedSeconds, 0);
+assert.equal(zeroState.timeLedger.entries.length, 0);
+
+let indeterminateState = null;
+const indeterminate = await commitV1AcceptedPairTimeAdvance({
+  campaignState: state,
+  snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.indeterminate' } },
+  packageData,
+  stateDeltaGateway: {
+    async commit(next) { indeterminateState = structuredClone(next); return structuredClone(next); }
+  },
+  timeDecision: {
+    decision: 'indeterminate',
+    elapsedSeconds: 0,
+    reason: 'conflicting-visible-duration',
+    confidence: 0.2
+  }
+});
+assert.equal(indeterminate.status, 'recorded');
+assert.equal(indeterminateState.timeLedger.decisions.at(-1).decision, 'indeterminate');
 
 for (const [label, timeDecision] of [
-  ['indeterminate', { decision: 'indeterminate', elapsedMinutes: 0, reason: 'unclear', confidence: 0.2 }],
-  ['malformed fractional minutes', { decision: 'advance', elapsedMinutes: 1.5, reason: 'invalid', confidence: 0.8 }],
-  ['excessive advance', { decision: 'advance', elapsedMinutes: 44641, reason: 'invalid', confidence: 0.8 }],
-  ['missing decision', { elapsedMinutes: 12, reason: 'invalid', confidence: 0.8 }],
+  ['malformed fractional seconds', { decision: 'advance', elapsedSeconds: 1.5, reason: 'invalid', confidence: 0.8 }],
+  ['excessive advance', { decision: 'advance', elapsedSeconds: 2678401, reason: 'invalid', confidence: 0.8 }],
+  ['missing decision', { elapsedSeconds: 12, reason: 'invalid', confidence: 0.8 }],
   ['missing time output', null]
 ]) {
   let invalidCommits = 0;
@@ -162,28 +192,68 @@ rolloverState.campaign.openingMinuteOfDay = 1438;
 rolloverState.worldState.currentStardate = 53068.4;
 rolloverState.timeLedger.openingMinuteOfDay = 1438;
 rolloverState.timeLedger.stardate = 53068.4;
-rolloverState.timeLedger.shipClock = { minuteOfDay: 1438, display: '2358 hours' };
+rolloverState.timeLedger.shipClock = { minuteOfDay: 1438, display: '23:58:00 hours' };
 const rollover = await commitV1AcceptedPairTimeAdvance({
   campaignState: rolloverState,
   snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.rollover' } },
   packageData,
   stateDeltaGateway: { async commit(next) { return structuredClone(next); } },
-  timeDecision: { decision: 'advance', elapsedMinutes: 5, reason: 'continuous-action', confidence: 0.9 },
+  timeDecision: { decision: 'advance', elapsedSeconds: 125, reason: 'continuous-action', confidence: 0.9 },
   now: '2026-08-09T12:00:00.000Z'
 });
-assert.equal(rollover.campaignState.timeLedger.shipClock.minuteOfDay, 3);
-assert.equal(rollover.campaignState.timeLedger.shipClock.display, '0003 hours');
-assert.equal(rollover.campaignState.campaign.currentStardate, 53068.403);
+assert.equal(rollover.campaignState.timeLedger.shipClock.minuteOfDay, 0);
+assert.equal(rollover.campaignState.timeLedger.shipClock.secondOfDay, 5);
+assert.equal(rollover.campaignState.timeLedger.shipClock.display, '00:00:05 hours');
+assert.equal(rollover.campaignState.campaign.currentStardate, 53068.401447);
 
 const longSkip = await commitV1AcceptedPairTimeAdvance({
   campaignState: rolloverState,
   snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.long-skip' } },
   packageData,
   stateDeltaGateway: { async commit(next) { return structuredClone(next); } },
-  timeDecision: { decision: 'advance', elapsedMinutes: 4320, reason: 'three-day-scene-cut', confidence: 0.95 },
+  timeDecision: { decision: 'advance', elapsedSeconds: 259200, reason: 'three-day-scene-cut', confidence: 0.95 },
   now: '2026-08-09T12:00:00.000Z'
 });
 assert.equal(longSkip.campaignState.timeLedger.shipClock.minuteOfDay, 1438);
 assert.equal(longSkip.campaignState.campaign.currentStardate, 53071.4);
+
+let cumulativeState = structuredClone(settled.campaignState);
+const cumulative = await commitV1AcceptedPairTimeAdvance({
+  campaignState: cumulativeState,
+  snapshot: {
+    ...snapshot,
+    source: {
+      ...snapshot.source,
+      sourceRangeHash: 'range.second-sub-minute',
+      previousAssistant: { ...snapshot.source.previousAssistant, hostMessageId: 'message.assistant.12' },
+      currentPlayer: { ...snapshot.source.currentPlayer, hostMessageId: 'message.player.13' }
+    }
+  },
+  packageData,
+  stateDeltaGateway: { async commit(next) { cumulativeState = structuredClone(next); return structuredClone(next); } },
+  timeDecision: { decision: 'advance', elapsedSeconds: 35, reason: 'continued-dialogue', confidence: 0.86 },
+  now: '2026-08-09T12:01:00.000Z'
+});
+assert.equal(cumulative.campaignState.timeLedger.elapsedSeconds, 82);
+assert.equal(cumulative.campaignState.timeLedger.elapsedMinutes, 1);
+assert.equal(cumulative.campaignState.timeLedger.shipClock.secondOfDay, 30682);
+assert.equal(cumulative.campaignState.timeLedger.shipClock.display, '08:31:22 hours');
+
+let rebuiltState = null;
+const rebuilt = await invalidateV1AcceptedPairTimeByHostMessages({
+  campaignState: cumulative.campaignState,
+  hostMessageIds: ['message.player.11'],
+  packageData,
+  stateDeltaGateway: { async commit(next) { rebuiltState = structuredClone(next); return structuredClone(next); } },
+  now: '2026-08-09T12:02:00.000Z'
+});
+assert.equal(rebuilt.status, 'invalidated');
+assert.equal(rebuilt.invalidatedBoundaryCount, 1);
+assert.equal(rebuilt.invalidatedDecisionCount, 1);
+assert.equal(rebuiltState.timeLedger.elapsedSeconds, 35);
+assert.equal(rebuiltState.timeLedger.elapsedMinutes, 0);
+assert.equal(rebuiltState.timeLedger.shipClock.display, '08:30:35 hours');
+assert.equal(rebuiltState.timeLedger.entries.length, 1);
+assert.equal(rebuiltState.timeLedger.decisions.length, 1);
 
 console.log('V1 accepted-pair time custody tests passed.');

@@ -22,6 +22,13 @@ const gateway = createStateDeltaGateway({
 assert.equal(assertV1CampaignState(current), current);
 assert.equal(gateway.revision(), 0);
 
+const legacyMinuteState = state();
+delete legacyMinuteState.worldState.elapsedSeconds;
+delete legacyMinuteState.timeLedger.elapsedSeconds;
+delete legacyMinuteState.timeLedger.shipClock.secondOfDay;
+delete legacyMinuteState.timeLedger.decisions;
+assert.equal(assertV1CampaignState(legacyMinuteState), legacyMinuteState, 'Minute-only V1 saves remain valid.');
+
 const invalidCampaign = state();
 invalidCampaign.campaign.title = '';
 assert.throws(
@@ -103,6 +110,12 @@ assert.throws(
 );
 const inconsistentTime = state();
 inconsistentTime.timeLedger.elapsedMinutes = 5;
+inconsistentTime.timeLedger.elapsedSeconds = 300;
+inconsistentTime.timeLedger.shipClock = {
+  secondOfDay: 30900,
+  minuteOfDay: 515,
+  display: '08:35:00 hours'
+};
 assert.throws(
   () => assertV1CampaignState(inconsistentTime),
   (error) => error?.code === 'DIRECTIVE_V1_STATE_TIME_MISMATCH'

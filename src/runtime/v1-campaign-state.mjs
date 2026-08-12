@@ -148,7 +148,7 @@ function validateV1Ship(ship) {
 
 const WORLD_KEYS = new Set([
   'kind', 'version', 'regionId', 'currentLocationId', 'currentStardate',
-  'openingMinuteOfDay', 'elapsedMinutes', 'visitedLocationIds'
+  'openingMinuteOfDay', 'elapsedSeconds', 'elapsedMinutes', 'visitedLocationIds'
 ]);
 
 function nullableText(value) {
@@ -167,21 +167,56 @@ function validateV1WorldState(world) {
     && world.openingMinuteOfDay < 1440
     && Number.isInteger(world.elapsedMinutes)
     && world.elapsedMinutes >= 0
+    && (!Object.hasOwn(world, 'elapsedSeconds')
+      || (Number.isInteger(world.elapsedSeconds)
+        && world.elapsedSeconds >= 0
+        && Math.floor(world.elapsedSeconds / 60) === world.elapsedMinutes))
     && Array.isArray(world.visitedLocationIds)
     && world.visitedLocationIds.every(requiredText);
 }
 
 const TIME_LEDGER_KEYS = new Set([
-  'kind', 'version', 'openingMinuteOfDay', 'elapsedMinutes', 'stardate',
-  'shipClock', 'entries', 'lastBoundary', 'updatedAt'
+  'kind', 'version', 'openingMinuteOfDay', 'elapsedSeconds', 'elapsedMinutes', 'stardate',
+  'shipClock', 'entries', 'decisions', 'lastBoundary', 'updatedAt'
+]);
+
+const TIME_DECISION_KEYS = new Set([
+  'id', 'kind', 'decision', 'elapsedSeconds', 'reason', 'confidence', 'source',
+  'boundaryId', 'sourceAnchorRange', 'evidenceMessageIds', 'committedAt'
 ]);
 
 function validTimeBoundary(boundary) {
+  const legacyMinutes = !Object.hasOwn(boundary || {}, 'elapsedSeconds')
+    && Number.isInteger(boundary?.elapsedMinutes)
+    && boundary.elapsedMinutes >= 0;
+  const secondsBoundary = Number.isInteger(boundary?.elapsedSeconds)
+    && boundary.elapsedSeconds >= 0
+    && Number.isFinite(boundary.elapsedMinutes)
+    && boundary.elapsedMinutes >= 0
+    && Math.abs(boundary.elapsedMinutes - (boundary.elapsedSeconds / 60)) < Number.EPSILON;
   return isObject(boundary)
     && boundary.kind === 'directive.timeBoundary.v1'
     && requiredText(boundary.id)
-    && Number.isInteger(boundary.elapsedMinutes)
-    && boundary.elapsedMinutes >= 0;
+    && (legacyMinutes || secondsBoundary);
+}
+
+function validTimeDecision(decision) {
+  return isObject(decision)
+    && onlyKeys(decision, TIME_DECISION_KEYS)
+    && decision.kind === 'directive.timeDecision.v1'
+    && requiredText(decision.id)
+    && ['advance', 'unchanged', 'indeterminate'].includes(decision.decision)
+    && Number.isInteger(decision.elapsedSeconds)
+    && decision.elapsedSeconds >= 0
+    && (decision.decision === 'advance' ? decision.elapsedSeconds > 0 : decision.elapsedSeconds === 0)
+    && requiredText(decision.reason)
+    && (decision.confidence === null
+      || (Number.isFinite(decision.confidence) && decision.confidence >= 0 && decision.confidence <= 1))
+    && requiredText(decision.source)
+    && (decision.boundaryId === null || requiredText(decision.boundaryId))
+    && isObject(decision.sourceAnchorRange)
+    && Array.isArray(decision.evidenceMessageIds)
+    && requiredText(decision.committedAt);
 }
 
 function validateV1TimeLedger(ledger) {
@@ -193,14 +228,25 @@ function validateV1TimeLedger(ledger) {
     && ledger.openingMinuteOfDay < 1440
     && Number.isInteger(ledger.elapsedMinutes)
     && ledger.elapsedMinutes >= 0
+    && (!Object.hasOwn(ledger, 'elapsedSeconds')
+      || (Number.isInteger(ledger.elapsedSeconds)
+        && ledger.elapsedSeconds >= 0
+        && Math.floor(ledger.elapsedSeconds / 60) === ledger.elapsedMinutes))
     && Number.isFinite(ledger.stardate)
     && isObject(ledger.shipClock)
     && Number.isInteger(ledger.shipClock.minuteOfDay)
     && ledger.shipClock.minuteOfDay >= 0
     && ledger.shipClock.minuteOfDay < 1440
+    && (!Object.hasOwn(ledger.shipClock, 'secondOfDay')
+      || (Number.isInteger(ledger.shipClock.secondOfDay)
+        && ledger.shipClock.secondOfDay >= 0
+        && ledger.shipClock.secondOfDay < 86400
+        && Math.floor(ledger.shipClock.secondOfDay / 60) === ledger.shipClock.minuteOfDay))
     && requiredText(ledger.shipClock.display)
     && Array.isArray(ledger.entries)
     && ledger.entries.every(validTimeBoundary)
+    && (!Object.hasOwn(ledger, 'decisions')
+      || (Array.isArray(ledger.decisions) && ledger.decisions.every(validTimeDecision)))
     && (!Object.hasOwn(ledger, 'lastBoundary')
       || ledger.lastBoundary === null
       || validTimeBoundary(ledger.lastBoundary))
@@ -327,15 +373,24 @@ export function assertV1CampaignState(state) {
       'Directive V1 campaign state requires exact accepted-time custody.'
     );
   }
-  const expectedShipMinute = (state.timeLedger.openingMinuteOfDay + state.timeLedger.elapsedMinutes) % 1440;
+  const hasWorldSeconds = Object.hasOwn(state.worldState, 'elapsedSeconds');
+  const hasLedgerSeconds = Object.hasOwn(state.timeLedger, 'elapsedSeconds');
+  const elapsedSeconds = hasLedgerSeconds
+    ? state.timeLedger.elapsedSeconds
+    : state.timeLedger.elapsedMinutes * 60;
+  const expectedShipSecond = ((state.timeLedger.openingMinuteOfDay * 60) + elapsedSeconds) % 86400;
+  const expectedShipMinute = Math.floor(expectedShipSecond / 60);
   const timeMismatch = !Number.isFinite(state.campaign?.currentStardate)
     || !Number.isInteger(state.campaign?.openingMinuteOfDay)
     || state.campaign.openingMinuteOfDay !== state.worldState.openingMinuteOfDay
     || state.campaign.openingMinuteOfDay !== state.timeLedger.openingMinuteOfDay
     || state.worldState.elapsedMinutes !== state.timeLedger.elapsedMinutes
+    || hasWorldSeconds !== hasLedgerSeconds
+    || (hasWorldSeconds && state.worldState.elapsedSeconds !== state.timeLedger.elapsedSeconds)
     || state.campaign.currentStardate !== state.worldState.currentStardate
     || state.campaign.currentStardate !== state.timeLedger.stardate
-    || state.timeLedger.shipClock.minuteOfDay !== expectedShipMinute;
+    || state.timeLedger.shipClock.minuteOfDay !== expectedShipMinute
+    || (hasLedgerSeconds && state.timeLedger.shipClock.secondOfDay !== expectedShipSecond);
   if (timeMismatch) {
     throw stateError(
       'DIRECTIVE_V1_STATE_TIME_MISMATCH',

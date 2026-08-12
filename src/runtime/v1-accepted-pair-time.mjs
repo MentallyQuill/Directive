@@ -1,8 +1,8 @@
 import { formatShipTimeFooter } from '../time/ship-time.mjs';
 
-const DAY_MINUTES = 1440;
+const DAY_SECONDS = 86400;
 const LEDGER_LIMIT = 128;
-const MAX_TIME_ADVANCE_MINUTES = 31 * DAY_MINUTES;
+const MAX_TIME_ADVANCE_SECONDS = 31 * DAY_SECONDS;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -42,6 +42,10 @@ function existingBoundary(state, anchor) {
   return (state?.timeLedger?.entries || []).find((entry) => sameAnchor(entry.sourceAnchorRange, anchor)) || null;
 }
 
+function existingDecision(state, anchor) {
+  return (state?.timeLedger?.decisions || []).find((entry) => sameAnchor(entry.sourceAnchorRange, anchor)) || null;
+}
+
 function boundaryAnchor(boundary = {}) {
   return boundary?.sourceAnchorRange
     || boundary?.adjudication?.sourceAnchorRange
@@ -54,7 +58,21 @@ function timeBoundaries(campaignState = {}) {
   return [
     ...(Array.isArray(ledger.entries) ? ledger.entries : []),
     ledger.lastBoundary
-  ].filter((boundary) => boundary && Number(boundary.elapsedMinutes || 0) > 0);
+  ].filter((boundary) => boundary && boundaryElapsedSeconds(boundary) > 0);
+}
+
+function boundaryElapsedSeconds(boundary = {}) {
+  const seconds = Number(boundary?.elapsedSeconds);
+  if (Number.isInteger(seconds) && seconds >= 0) return seconds;
+  const minutes = Number(boundary?.elapsedMinutes);
+  return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes * 60) : 0;
+}
+
+function ledgerElapsedSeconds(ledger = {}) {
+  const seconds = Number(ledger?.elapsedSeconds);
+  if (Number.isInteger(seconds) && seconds >= 0) return seconds;
+  const minutes = Number(ledger?.elapsedMinutes);
+  return Number.isInteger(minutes) && minutes >= 0 ? minutes * 60 : 0;
 }
 
 export function findTimeBoundaryForSourceAnchorRange(campaignState = {}, sourceAnchorRange = null) {
@@ -81,14 +99,17 @@ export function findTimeBoundaryForPlayerMessage(campaignState = {}, hostMessage
 function safeProposal(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
   const decision = compact(value.decision);
-  const elapsedMinutes = Number(value.elapsedMinutes);
+  const elapsedSeconds = Number(value.elapsedSeconds);
   const validAdvance = decision === 'advance'
-    && Number.isInteger(elapsedMinutes)
-    && elapsedMinutes > 0
-    && elapsedMinutes <= MAX_TIME_ADVANCE_MINUTES;
+    && Number.isInteger(elapsedSeconds)
+    && elapsedSeconds > 0
+    && elapsedSeconds <= MAX_TIME_ADVANCE_SECONDS;
+  const validZero = new Set(['unchanged', 'indeterminate']).has(decision)
+    && elapsedSeconds === 0;
   return {
+    valid: validAdvance || validZero,
     decision: validAdvance ? 'advance' : (decision === 'unchanged' ? 'unchanged' : 'indeterminate'),
-    elapsedMinutes: validAdvance ? elapsedMinutes : 0,
+    elapsedSeconds: validAdvance ? elapsedSeconds : 0,
     reason: compact(value.reason).slice(0, 180) || 'accepted-scene-time',
     confidence: Number.isFinite(Number(value.confidence))
       ? Math.max(0, Math.min(1, Number(value.confidence)))
@@ -97,9 +118,12 @@ function safeProposal(value = {}) {
   };
 }
 
-function formatShipTime(minuteOfDay) {
-  const minute = ((Math.round(minuteOfDay) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
-  return `${String(Math.floor(minute / 60)).padStart(2, '0')}${String(minute % 60).padStart(2, '0')} hours`;
+function formatShipTime(secondOfDay) {
+  const second = ((Math.round(secondOfDay) % DAY_SECONDS) + DAY_SECONDS) % DAY_SECONDS;
+  const hour = Math.floor(second / 3600);
+  const minute = Math.floor((second % 3600) / 60);
+  const remainder = second % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(remainder).padStart(2, '0')} hours`;
 }
 
 function unavailable(campaignState, reasonCode) {
@@ -127,47 +151,75 @@ export async function commitV1AcceptedPairTimeAdvance({
   if (!anchor.previousAssistantHostMessageId || !anchor.currentPlayerHostMessageId || !anchor.rangeHash) {
     return unavailable(campaignState, 'source-anchor-incomplete');
   }
+  const committedDecision = existingDecision(campaignState, anchor);
   const committedBoundary = existingBoundary(campaignState, anchor);
-  if (committedBoundary) {
+  if (committedDecision || committedBoundary) {
     return {
       ok: true,
       status: 'already-committed',
       reasonCode: null,
       campaignState,
-      proposal: null,
+      proposal: committedDecision ? {
+        decision: committedDecision.decision,
+        elapsedSeconds: committedDecision.elapsedSeconds,
+        reason: committedDecision.reason,
+        confidence: committedDecision.confidence,
+        source: committedDecision.source
+      } : null,
       boundary: clone(committedBoundary)
     };
   }
 
   const proposal = safeProposal(timeDecision);
-  if (proposal.elapsedMinutes <= 0) {
+  if (!proposal.valid) {
     return { ok: true, status: 'no-change', reasonCode: null, campaignState, proposal, boundary: null };
   }
 
-  const previousElapsed = Number(campaignState.timeLedger.elapsedMinutes || 0);
-  const nextElapsed = previousElapsed + proposal.elapsedMinutes;
+  const previousElapsedSeconds = ledgerElapsedSeconds(campaignState.timeLedger);
+  const nextElapsedSeconds = previousElapsedSeconds + proposal.elapsedSeconds;
+  const nextElapsedMinutes = Math.floor(nextElapsedSeconds / 60);
   const openingMinute = Number(campaignState.timeLedger.openingMinuteOfDay || 0);
-  const previousMinute = ((openingMinute + previousElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
-  const nextMinute = ((openingMinute + nextElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+  const openingSecond = openingMinute * 60;
+  const previousSecond = ((openingSecond + previousElapsedSeconds) % DAY_SECONDS + DAY_SECONDS) % DAY_SECONDS;
+  const nextSecond = ((openingSecond + nextElapsedSeconds) % DAY_SECONDS + DAY_SECONDS) % DAY_SECONDS;
+  const previousMinute = Math.floor(previousSecond / 60);
+  const nextMinute = Math.floor(nextSecond / 60);
   const previousStardate = Number(campaignState.worldState.currentStardate);
   const openingStardate = Number(campaignState.campaign.openingStardate);
   const stardatePerDay = Number(packageData.world?.layout?.stardatePerDay ?? 1);
-  const nextStardate = Number((openingStardate + (nextElapsed / DAY_MINUTES) * stardatePerDay).toFixed(3));
+  const nextStardate = Number((openingStardate + (nextElapsedSeconds / DAY_SECONDS) * stardatePerDay).toFixed(6));
   const boundaryId = `v1-time.${stableHash(`${anchor.previousAssistantHostMessageId}|${anchor.currentPlayerHostMessageId}|${anchor.rangeHash}`)}`;
+  const decisionId = `v1-time-decision.${stableHash(`${anchor.previousAssistantHostMessageId}|${anchor.currentPlayerHostMessageId}|${anchor.rangeHash}`)}`;
   const timestamp = typeof now === 'function' ? now() : (now || new Date().toISOString());
-  const boundary = {
+  const boundary = proposal.elapsedSeconds > 0 ? {
     id: boundaryId,
     kind: 'directive.timeBoundary.v1',
-    elapsedMinutes: proposal.elapsedMinutes,
+    elapsedSeconds: proposal.elapsedSeconds,
+    elapsedMinutes: proposal.elapsedSeconds / 60,
     reason: proposal.reason,
     confidence: proposal.confidence,
     source: proposal.source,
     previousStardate,
     currentStardate: nextStardate,
+    previousShipSecond: previousSecond,
+    currentShipSecond: nextSecond,
     previousShipMinute: previousMinute,
     currentShipMinute: nextMinute,
-    previousHeader: formatShipTimeFooter({ stardate: previousStardate, minuteOfDay: previousMinute }),
-    currentHeader: formatShipTimeFooter({ stardate: nextStardate, minuteOfDay: nextMinute }),
+    previousHeader: formatShipTimeFooter({ stardate: previousStardate, secondOfDay: previousSecond }),
+    currentHeader: formatShipTimeFooter({ stardate: nextStardate, secondOfDay: nextSecond }),
+    sourceAnchorRange: anchor,
+    evidenceMessageIds: [anchor.previousAssistantHostMessageId, anchor.currentPlayerHostMessageId],
+    committedAt: timestamp
+  } : null;
+  const decision = {
+    id: decisionId,
+    kind: 'directive.timeDecision.v1',
+    decision: proposal.decision,
+    elapsedSeconds: proposal.elapsedSeconds,
+    reason: proposal.reason,
+    confidence: proposal.confidence,
+    source: proposal.source,
+    boundaryId: boundary?.id || null,
     sourceAnchorRange: anchor,
     evidenceMessageIds: [anchor.previousAssistantHostMessageId, anchor.currentPlayerHostMessageId],
     committedAt: timestamp
@@ -177,20 +229,25 @@ export async function commitV1AcceptedPairTimeAdvance({
   next.worldState = {
     ...next.worldState,
     currentStardate: nextStardate,
-    elapsedMinutes: nextElapsed
+    elapsedSeconds: nextElapsedSeconds,
+    elapsedMinutes: nextElapsedMinutes
   };
   next.timeLedger = {
-    kind: 'directive.timeLedger.v1',
-    version: 1,
+    ...next.timeLedger,
     openingMinuteOfDay: openingMinute,
-    elapsedMinutes: nextElapsed,
+    elapsedSeconds: nextElapsedSeconds,
+    elapsedMinutes: nextElapsedMinutes,
     stardate: nextStardate,
-    shipClock: { minuteOfDay: nextMinute, display: formatShipTime(nextMinute) },
-    entries: [...(next.timeLedger.entries || []), boundary].slice(-LEDGER_LIMIT),
+    shipClock: { secondOfDay: nextSecond, minuteOfDay: nextMinute, display: formatShipTime(nextSecond) },
+    entries: boundary
+      ? [...(next.timeLedger.entries || []), boundary].slice(-LEDGER_LIMIT)
+      : [...(next.timeLedger.entries || [])],
+    decisions: [...(next.timeLedger.decisions || []), decision].slice(-LEDGER_LIMIT),
+    lastBoundary: boundary || next.timeLedger.lastBoundary || null,
     updatedAt: timestamp
   };
   const committed = await stateDeltaGateway.commit(next, {
-    id: `${boundaryId}:commit`,
+    id: `${decisionId}:commit`,
     source: 'v1AcceptedPairTimeCustody',
     domains: ['campaign', 'worldState', 'timeLedger'],
     ingressId,
@@ -198,11 +255,12 @@ export async function commitV1AcceptedPairTimeAdvance({
   });
   return {
     ok: true,
-    status: 'committed',
+    status: boundary ? 'committed' : 'recorded',
     reasonCode: null,
     campaignState: committed,
     proposal,
-    boundary: clone(boundary)
+    boundary: clone(boundary),
+    decision: clone(decision)
   };
 }
 
@@ -239,26 +297,33 @@ export async function invalidateV1AcceptedPairTimeByHostMessages({
     return { ok: false, status: 'unavailable', reasonCode: 'time-invalidation-unavailable' };
   }
   const entries = campaignState.timeLedger.entries || [];
+  const decisions = campaignState.timeLedger.decisions || [];
   const retained = entries.filter((entry) => !(entry.evidenceMessageIds || []).some((id) => ids.has(compact(id))));
-  if (retained.length === entries.length) {
+  const retainedDecisions = decisions.filter((entry) => !(entry.evidenceMessageIds || []).some((id) => ids.has(compact(id))));
+  if (retained.length === entries.length && retainedDecisions.length === decisions.length) {
     return { ok: true, status: 'no-change', invalidatedBoundaryCount: 0, campaignState };
   }
-  const elapsedMinutes = retained.reduce((total, entry) => total + Math.max(0, Number(entry.elapsedMinutes) || 0), 0);
+  const elapsedSeconds = retained.reduce((total, entry) => total + boundaryElapsedSeconds(entry), 0);
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   const openingMinute = Number(campaignState.timeLedger.openingMinuteOfDay || 0);
-  const minuteOfDay = ((openingMinute + elapsedMinutes) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+  const secondOfDay = (((openingMinute * 60) + elapsedSeconds) % DAY_SECONDS + DAY_SECONDS) % DAY_SECONDS;
+  const minuteOfDay = Math.floor(secondOfDay / 60);
   const openingStardate = Number(campaignState.campaign.openingStardate);
   const stardatePerDay = Number(packageData?.world?.layout?.stardatePerDay ?? 1);
-  const stardate = Number((openingStardate + (elapsedMinutes / DAY_MINUTES) * stardatePerDay).toFixed(3));
+  const stardate = Number((openingStardate + (elapsedSeconds / DAY_SECONDS) * stardatePerDay).toFixed(6));
   const timestamp = typeof now === 'function' ? now() : (now || new Date().toISOString());
   const next = clone(campaignState);
   next.campaign.currentStardate = stardate;
-  next.worldState = { ...next.worldState, currentStardate: stardate, elapsedMinutes };
+  next.worldState = { ...next.worldState, currentStardate: stardate, elapsedSeconds, elapsedMinutes };
   next.timeLedger = {
     ...next.timeLedger,
+    elapsedSeconds,
     elapsedMinutes,
     stardate,
-    shipClock: { minuteOfDay, display: formatShipTime(minuteOfDay) },
+    shipClock: { secondOfDay, minuteOfDay, display: formatShipTime(secondOfDay) },
     entries: retained,
+    decisions: retainedDecisions,
+    lastBoundary: retained.at(-1) || null,
     updatedAt: timestamp
   };
   const committed = await stateDeltaGateway.commit(next, {
@@ -270,6 +335,7 @@ export async function invalidateV1AcceptedPairTimeByHostMessages({
     ok: true,
     status: 'invalidated',
     invalidatedBoundaryCount: entries.length - retained.length,
+    invalidatedDecisionCount: decisions.length - retainedDecisions.length,
     campaignState: committed
   };
 }

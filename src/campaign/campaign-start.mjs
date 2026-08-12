@@ -339,6 +339,7 @@ export function createInitialCampaignStateFromCreatorReview({
       currentLocationId: packageData.world?.openingLocationId || null,
       currentStardate: openingStardate,
       openingMinuteOfDay,
+      elapsedSeconds: 0,
       elapsedMinutes: 0,
       visitedLocationIds: [packageData.world?.openingLocationId].filter(Boolean)
     },
@@ -346,13 +347,16 @@ export function createInitialCampaignStateFromCreatorReview({
       kind: 'directive.timeLedger.v1',
       version: 1,
       openingMinuteOfDay,
+      elapsedSeconds: 0,
       elapsedMinutes: 0,
       stardate: openingStardate,
       shipClock: {
+        secondOfDay: openingMinuteOfDay * 60,
         minuteOfDay: openingMinuteOfDay,
-        display: `${String(Math.floor(openingMinuteOfDay / 60)).padStart(2, '0')}${String(openingMinuteOfDay % 60).padStart(2, '0')} hours`
+        display: `${String(Math.floor(openingMinuteOfDay / 60)).padStart(2, '0')}:${String(openingMinuteOfDay % 60).padStart(2, '0')}:00 hours`
       },
       entries: [],
+      decisions: [],
       updatedAt: timestamp
     },
     stateCustody: createV1StateCustody()
