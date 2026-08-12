@@ -113,6 +113,9 @@ export function createTimelineTransactionService({
           boundAt: createdAt
         },
         lineageHash: lineage.lineageHash,
+        verifiedBranchIntent: lineage.verifiedBranchIntent
+          ? { ...clone(lineage.verifiedBranchIntent), verifiedByDirective: true }
+          : null,
         createdAt,
         updatedAt: createdAt,
         diagnostics: {}
@@ -169,7 +172,10 @@ export function createTimelineTransactionService({
     }
 
     if (!stageAtLeast(operation, 'active-pointer-switched')) {
-      const rechecked = await chat.inspectNativeBranchCandidate({ parentBinding: operation.parentBinding });
+      const rechecked = await chat.inspectNativeBranchCandidate({
+        parentBinding: operation.parentBinding,
+        branchIntent: operation.verifiedBranchIntent || null
+      });
       if (!rechecked.ok || rechecked.lineageHash !== operation.lineageHash || compact(chat.getCurrentChatId?.()) !== operation.childBinding.chatId) {
         throw transactionError('DIRECTIVE_TIMELINE_LINEAGE_CHANGED', 'The native branch changed while Directive was preparing it.', { rechecked });
       }
@@ -392,7 +398,10 @@ export function createTimelineTransactionService({
         };
       }
       if (operation.operationType === 'load-game') return this.loadGame({ savedGameId: operation.selectedSavedGameId });
-      const lineage = await chat.inspectNativeBranchCandidate({ parentBinding: operation.parentBinding });
+      const lineage = await chat.inspectNativeBranchCandidate({
+        parentBinding: operation.parentBinding,
+        branchIntent: operation.verifiedBranchIntent || null
+      });
       if (!lineage.ok || lineage.lineageHash !== operation.lineageHash) {
         throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_UNPROVEN', 'The incomplete timeline operation cannot be recovered from the current chat.', { operation, lineage });
       }

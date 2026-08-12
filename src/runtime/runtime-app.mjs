@@ -1045,7 +1045,7 @@ export function createDirectiveRuntimeApp({
       return explicit ? invalidateSource(payload, 'message-visibility-changed') : { handled: false, reason: 'not-a-visibility-change' };
     },
 
-    async handleHostChatChanged() {
+    async handleHostChatChanged(payload = {}) {
       await ensureInitialized();
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();
@@ -1069,7 +1069,10 @@ export function createDirectiveRuntimeApp({
       }
       if (!timelineFork && !currentChatIsBound() && state?.campaignChatBinding?.chatId
         && typeof host.chat.inspectNativeBranchCandidate === 'function') {
-        const lineage = await host.chat.inspectNativeBranchCandidate({ parentBinding: state.campaignChatBinding });
+        const lineage = await host.chat.inspectNativeBranchCandidate({
+          parentBinding: state.campaignChatBinding,
+          branchIntent: payload?.nativeBranchIntent || null
+        });
         if (lineage?.ok) {
           try {
             timelineFork = await timelineTransactions.adoptNativeBranch(lineage);

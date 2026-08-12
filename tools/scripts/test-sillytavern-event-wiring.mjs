@@ -34,6 +34,32 @@ __directiveEventTestHooks.captureDeleteIntent({
 });
 assert.equal(__directiveEventTestHooks.payloadWithDeleteIntent({}).hostMessageId, '42');
 
+let branchPayload = null;
+let currentBranchChatId = 'chat.parent';
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async handleHostChatChanged(payload) {
+      branchPayload = payload;
+      return {};
+    }
+  },
+  directiveHost: { chat: { getCurrentChatId: () => currentBranchChatId } }
+});
+const branchRow = { getAttribute: () => '17' };
+const branchButton = { closest: (selector) => selector === '.mes[mesid]' ? branchRow : null };
+__directiveEventTestHooks.captureNativeBranchIntent({
+  target: { closest: (selector) => selector === '.mes_create_branch' ? branchButton : null }
+});
+currentBranchChatId = 'chat.child';
+registerRuntimeAction('runtime.refresh', () => ({ refreshed: true }));
+await __directiveEventTestHooks.handleChatChanged({ chatId: 'chat.child' });
+assert.equal(branchPayload.nativeBranchIntent.kind, 'directive.nativeBranchIntent.v1');
+assert.equal(branchPayload.nativeBranchIntent.parentChatId, 'chat.parent');
+assert.equal(branchPayload.nativeBranchIntent.endpointHostMessageId, '17');
+assert.equal(typeof branchPayload.nativeBranchIntent.capturedAt, 'number');
+clearSillyTavernDirectiveRuntimeBridge();
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
+
 let restoreCount = 0;
 setSillyTavernDirectiveRuntimeBridge({
   app: { async clearDirectivePrompt() {} },

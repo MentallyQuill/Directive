@@ -61,6 +61,27 @@ assert.equal(playerEndpoint.ok, true);
 assert.equal(playerEndpoint.endpointHostMessageId, 'user.2');
 assert.equal(playerEndpoint.endpointRole, 'user');
 
+const hostIntentEndpoint = lineage({
+  childMessages: structuredClone(parentMessages.slice(0, 3)),
+  parentBranchNames: [],
+  branchIntent: {
+    kind: 'directive.nativeBranchIntent.v1',
+    parentChatId: parentBinding.chatId,
+    endpointHostMessageId: 'user.2'
+  }
+});
+assert.equal(hostIntentEndpoint.ok, true, 'a captured SillyTavern branch action replaces the unavailable reciprocal parent marker');
+assert.equal(hostIntentEndpoint.lineageProof, 'host-branch-intent');
+assert.equal(lineage({
+  childMessages: structuredClone(parentMessages.slice(0, 3)),
+  parentBranchNames: [],
+  branchIntent: {
+    kind: 'directive.nativeBranchIntent.v1',
+    parentChatId: parentBinding.chatId,
+    endpointHostMessageId: 'assistant.1'
+  }
+}).reasonCode, 'native-branch-intent-endpoint-mismatch');
+
 const bookmarkOnlyParent = structuredClone(parentMessages);
 bookmarkOnlyParent.at(-1).extra = { bookmark_link: 'bookmark-copy' };
 assert.deepEqual(

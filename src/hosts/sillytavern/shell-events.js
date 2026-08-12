@@ -18,6 +18,7 @@ import {
 
 let lifecycle = null;
 let deleteIntent = null;
+let nativeBranchIntent = null;
 let deleteCapture = null;
 
 function enabled() {
@@ -47,18 +48,34 @@ function captureDeleteIntent(event) {
   if (hostMessageId) deleteIntent = { hostMessageId, capturedAt: Date.now() };
 }
 
+function captureNativeBranchIntent(event) {
+  const row = event?.target?.closest?.('.mes_create_branch')?.closest?.('.mes[mesid]');
+  const endpointHostMessageId = String(row?.getAttribute?.('mesid') ?? '').trim();
+  const parentChatId = String(getSillyTavernDirectiveRuntimeBridge().host?.chat?.getCurrentChatId?.() ?? '').trim();
+  if (!endpointHostMessageId || !parentChatId) return;
+  nativeBranchIntent = {
+    kind: 'directive.nativeBranchIntent.v1',
+    parentChatId,
+    endpointHostMessageId,
+    capturedAt: Date.now()
+  };
+}
+
 function installDeleteCapture(root = globalThis.document) {
   disposeDeleteCapture();
   if (!root?.addEventListener) return false;
   root.addEventListener('pointerdown', captureDeleteIntent, true);
+  root.addEventListener('click', captureNativeBranchIntent, true);
   deleteCapture = root;
   return true;
 }
 
 function disposeDeleteCapture() {
   deleteCapture?.removeEventListener?.('pointerdown', captureDeleteIntent, true);
+  deleteCapture?.removeEventListener?.('click', captureNativeBranchIntent, true);
   deleteCapture = null;
   deleteIntent = null;
+  nativeBranchIntent = null;
 }
 
 function payloadWithDeleteIntent(payload) {
@@ -66,6 +83,21 @@ function payloadWithDeleteIntent(payload) {
   deleteIntent = null;
   if (!intent || Date.now() - intent.capturedAt > 10000) return payload;
   return { hostMessageId: intent.hostMessageId, sillyTavernPayload: payload };
+}
+
+function payloadWithNativeBranchIntent(payload) {
+  const intent = nativeBranchIntent;
+  if (!intent || Date.now() - intent.capturedAt > 10000) {
+    nativeBranchIntent = null;
+    return payload;
+  }
+  const currentChatId = String(getSillyTavernDirectiveRuntimeBridge().host?.chat?.getCurrentChatId?.() ?? '').trim();
+  if (!currentChatId || currentChatId === intent.parentChatId) return payload;
+  nativeBranchIntent = null;
+  const base = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? payload
+    : { sillyTavernPayload: payload };
+  return { ...base, nativeBranchIntent: intent };
 }
 
 export function handlePlayerMessage(payload = {}) {
@@ -105,7 +137,7 @@ export async function handleGenerationStopped(payload = {}) {
 
 export async function handleChatChanged(payload = {}) {
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
-  const changed = await app()?.handleHostChatChanged?.(payload);
+  const changed = await app()?.handleHostChatChanged?.(payloadWithNativeBranchIntent(payload));
   const fork = changed?.timelineFork;
   if (fork && new Set(['activated', 'recovered']).has(fork.status) && fork.savedGameId && fork.suggestedName) {
     createPreviousTimelineNameDialog({
@@ -197,5 +229,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleExtensionDisabled,
   disposeSillyTavernDirectiveEventLifecycle,
   captureDeleteIntent,
-  payloadWithDeleteIntent
+  payloadWithDeleteIntent,
+  captureNativeBranchIntent,
+  payloadWithNativeBranchIntent
 });

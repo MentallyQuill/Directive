@@ -480,7 +480,7 @@ export function createFakeChatAdapter({
       calls.push({ type: 'createNativeBranch', parentChatId, endpointIndex: retainedIndex, childChatId: resolvedChildChatId });
       return { parentChatId, childChatId: resolvedChildChatId, endpointIndex: retainedIndex };
     },
-    async inspectNativeBranchCandidate({ parentBinding } = {}) {
+    async inspectNativeBranchCandidate({ parentBinding, branchIntent = null } = {}) {
       const childMetadata = metadataByChatId.get(String(currentChatId)) || {};
       const mainChat = nativeMainChatByChatId.get(String(currentChatId)) || childMetadata.main_chat || childMetadata.mainChat || null;
       const parentMessages = mainChat ? chatsById.get(String(mainChat)) : null;
@@ -489,7 +489,7 @@ export function createFakeChatAdapter({
       const parentBranchNames = endpointIndex >= 0 && Array.isArray(parentMessages?.[endpointIndex]?.extra?.branches)
         ? parentMessages[endpointIndex].extra.branches
         : [];
-      calls.push({ type: 'inspectNativeBranchCandidate', parentBinding: cloneJson(parentBinding), childChatId: currentChatId });
+      calls.push({ type: 'inspectNativeBranchCandidate', parentBinding: cloneJson(parentBinding), branchIntent: cloneJson(branchIntent), childChatId: currentChatId });
       return createNativeBranchLineage({
         parentBinding,
         childBinding: {
@@ -504,7 +504,8 @@ export function createFakeChatAdapter({
         },
         parentMessages,
         childMessages,
-        parentBranchNames
+        parentBranchNames,
+        branchIntent
       });
     },
     async updateBindingMetadata(nextBinding) {

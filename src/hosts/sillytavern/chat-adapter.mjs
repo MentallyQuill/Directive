@@ -1360,7 +1360,7 @@ export function createSillyTavernChatAdapter({
     };
   }
 
-  async function inspectNativeBranchCandidate({ parentBinding } = {}) {
+  async function inspectNativeBranchCandidate({ parentBinding, branchIntent = null } = {}) {
     const ctx = context();
     const childChatId = contextChatId(ctx);
     const metadata = readChatMetadataObject(ctx) || {};
@@ -1387,6 +1387,15 @@ export function createSillyTavernChatAdapter({
     const parentBranchNames = endpointIndex >= 0 && Array.isArray(parentSnapshot.messages?.[endpointIndex]?.extra?.branches)
       ? parentSnapshot.messages[endpointIndex].extra.branches
       : [];
+    const intentAge = Date.now() - Number(branchIntent?.capturedAt);
+    const recentBranchIntent = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
+      && (branchIntent.verifiedByDirective === true || (
+        Number.isFinite(intentAge)
+        && intentAge >= -1000
+        && intentAge <= 10000
+      ))
+      ? cloneJson(branchIntent)
+      : null;
     const entity = currentEntity(ctx);
     return createNativeBranchLineage({
       parentBinding,
@@ -1400,7 +1409,8 @@ export function createSillyTavernChatAdapter({
       },
       parentMessages: parentSnapshot.messages,
       childMessages,
-      parentBranchNames
+      parentBranchNames,
+      branchIntent: recentBranchIntent
     });
   }
 

@@ -184,7 +184,20 @@ const app = createDirectiveRuntimeApp({
 });
 await app.initialize();
 appChat.createNativeBranch({ endpointIndex: 0, childChatId: 'renamed-app-child' });
-const changed = await app.handleHostChatChanged();
+const nativeBranchIntent = {
+  kind: 'directive.nativeBranchIntent.v1',
+  parentChatId: 'chat.app-parent',
+  endpointHostMessageId: 'opening',
+  capturedAt: Date.now()
+};
+const changed = await app.handleHostChatChanged({ nativeBranchIntent });
+const receivedBranchIntent = appChat.calls().findLast((call) => call.type === 'inspectNativeBranchCandidate').branchIntent;
+assert.deepEqual(
+  Object.fromEntries(Object.entries(receivedBranchIntent).filter(([key]) => key !== 'verifiedByDirective')),
+  nativeBranchIntent,
+  'the host branch action proof reaches the lineage adapter'
+);
+assert.equal(receivedBranchIntent.verifiedByDirective, true, 'the verified action proof remains recoverable through the transaction journal');
 assert.equal(changed.active, true);
 assert.equal(changed.timelineFork.status, 'activated');
 assert.match(changed.timelineFork.suggestedName, /Stardate/);

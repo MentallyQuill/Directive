@@ -76,7 +76,11 @@ export function createNativeBranchLineage(input = {}) {
   const parentBranchNames = Array.isArray(input.parentBranchNames)
     ? input.parentBranchNames.map(nonEmptyString).filter(Boolean)
     : [];
-  if (!parentBranchNames.includes(childChatId)) return failed('native-branch-parent-link-missing');
+  const branchIntent = input.branchIntent;
+  const parentLinkProvesLineage = parentBranchNames.includes(childChatId);
+  const hostIntentProvesLineage = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
+    && nonEmptyString(branchIntent.parentChatId) === parentChatId;
+  if (!parentLinkProvesLineage && !hostIntentProvesLineage) return failed('native-branch-parent-link-missing');
 
   const parentMessages = Array.isArray(input.parentMessages) ? input.parentMessages : null;
   const childMessages = Array.isArray(input.childMessages) ? input.childMessages : null;
@@ -94,6 +98,10 @@ export function createNativeBranchLineage(input = {}) {
 
   const endpoint = normalizedChildMessages.at(-1);
   if (!endpoint?.hostMessageId) return failed('native-branch-endpoint-id-missing');
+  if (!parentLinkProvesLineage
+    && nonEmptyString(branchIntent.endpointHostMessageId) !== endpoint.hostMessageId) {
+    return failed('native-branch-intent-endpoint-mismatch');
+  }
   return {
     ok: true,
     reasonCode: null,
@@ -105,6 +113,8 @@ export function createNativeBranchLineage(input = {}) {
     normalizedChildMessages,
     endpointHostMessageId: endpoint.hostMessageId,
     endpointRole: endpoint.role,
+    lineageProof: parentLinkProvesLineage ? 'parent-reciprocal-link' : 'host-branch-intent',
+    verifiedBranchIntent: hostIntentProvesLineage ? structuredClone(branchIntent) : null,
     lineageHash: hashStableJson(normalizedChildMessages)
   };
 }
