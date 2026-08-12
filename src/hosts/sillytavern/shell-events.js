@@ -65,6 +65,7 @@ function installDeleteCapture(root = globalThis.document) {
   disposeDeleteCapture();
   if (!root?.addEventListener) return false;
   root.addEventListener('pointerdown', captureDeleteIntent, true);
+  root.addEventListener('pointerdown', captureNativeBranchIntent, true);
   root.addEventListener('click', captureNativeBranchIntent, true);
   deleteCapture = root;
   return true;
@@ -72,6 +73,7 @@ function installDeleteCapture(root = globalThis.document) {
 
 function disposeDeleteCapture() {
   deleteCapture?.removeEventListener?.('pointerdown', captureDeleteIntent, true);
+  deleteCapture?.removeEventListener?.('pointerdown', captureNativeBranchIntent, true);
   deleteCapture?.removeEventListener?.('click', captureNativeBranchIntent, true);
   deleteCapture = null;
   deleteIntent = null;
