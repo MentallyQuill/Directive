@@ -158,4 +158,18 @@ assert.notEqual((await getV1StorageIndex(appStorage)).activeSaveId, 'save.app-pa
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.campaignChatBinding.chatId, 'renamed-app-child');
 assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate chat event is idempotent');
 
+const selectedSavedGameBefore = await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId);
+const firstLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
+const secondLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
+assert.notEqual(firstLoad.timeline.id, secondLoad.timeline.id, 'repeated loads create independent active timelines');
+assert.notEqual(firstLoad.timeline.state.campaignChatBinding.chatId, secondLoad.timeline.state.campaignChatBinding.chatId);
+assert.deepEqual(
+  await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId),
+  selectedSavedGameBefore,
+  'the selected saved game stays immutable across repeated loads'
+);
+assert.ok(firstLoad.transaction.savedGameId);
+assert.ok(secondLoad.transaction.savedGameId);
+assert.notEqual(firstLoad.transaction.savedGameId, secondLoad.transaction.savedGameId);
+
 console.log('V1 native branch runtime tests passed');

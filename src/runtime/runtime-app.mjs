@@ -1363,75 +1363,15 @@ export function createDirectiveRuntimeApp({
       return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
     },
 
-    async loadCheckpoint({ checkpointId } = {}) {
+    async loadGame({ savedGameId = null, checkpointId = null } = {}) {
       await ensureInitialized();
-      const previousSave = activeSave();
-      const previousState = clone(state);
-      const loaded = await controller.loadCheckpoint({ checkpointId });
-      const timeline = loaded.timeline;
-      setState(timeline.state);
-      configureStateRuntime();
-      let continuationBinding = null;
-      try {
-        const sourceChatId = compact(loaded.checkpoint.state?.campaignChatBinding?.chatId);
-        if (!sourceChatId) {
-          const error = new Error('Directive rejects a checkpoint without its exact cloned chat binding.');
-          error.code = 'DIRECTIVE_CHECKPOINT_CHAT_REQUIRED';
-          throw error;
-        }
-        if (typeof host.chat.cloneCampaignChat !== 'function') {
-          const error = new Error('The host cannot clone the checkpoint chat into a playable continuation.');
-          error.code = 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE';
-          throw error;
-        }
-        continuationBinding = await host.chat.cloneCampaignChat({
-          sourceChatId,
-          targetName: `${state.campaign.title} - ${loaded.checkpoint.name} continuation`,
-          open: false,
-          campaignId: state.campaign.id,
-          saveId: timeline.id,
-          sourceBinding: loaded.checkpoint.state.campaignChatBinding
-        });
-        const exactBinding = await commitBinding(continuationBinding, { updateHostMetadata: false });
-        const opened = typeof host.chat.openCampaignChat === 'function'
-          ? await host.chat.openCampaignChat(exactBinding)
-          : false;
-        if (opened === false || compact(host.chat.getCurrentChatId?.()) !== exactBinding.chatId) {
-          const error = new Error('Directive could not open the checkpoint continuation chat.');
-          error.code = 'DIRECTIVE_CHECKPOINT_CONTINUATION_OPEN_FAILED';
-          throw error;
-        }
-        await host.chat.updateBindingMetadata?.(exactBinding);
-      } catch (error) {
-        if (previousSave && previousState) {
-          try {
-            const restored = await controller.persistActiveCampaign({
-              campaignState: previousState,
-              saveId: previousSave.id,
-              name: previousSave.name
-            });
-            setState(restored.state);
-            configureStateRuntime();
-            if (previousState.campaignChatBinding?.chatId) {
-              await host.chat.openCampaignChat?.(previousState.campaignChatBinding);
-            }
-            await syncPrompt({ rebuild: true });
-          } catch (rollbackError) {
-            host.logger?.warn?.('[Directive] Could not restore the active timeline after checkpoint load failed.', rollbackError);
-          }
-        }
-        if (continuationBinding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
-          try {
-            await host.chat.deleteCampaignChat(continuationBinding);
-          } catch (cleanupError) {
-            host.logger?.warn?.('[Directive] Could not remove a failed checkpoint continuation chat.', cleanupError);
-          }
-        }
-        throw error;
-      }
-      await syncPrompt({ rebuild: true });
-      await postOpeningIfEmpty();
-      return { timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+      const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
+      const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
+      return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+    },
+
+    async loadCheckpoint({ checkpointId } = {}) {
+      return publicApi.loadGame({ savedGameId: checkpointId });
     },
 
     async deleteSave(options = {}) {

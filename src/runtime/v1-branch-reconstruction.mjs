@@ -100,6 +100,32 @@ function eligibleObjectiveIds(campaignState, runtimeAssets) {
   });
 }
 
+export function rebindV1CampaignStateCustody({
+  campaignState,
+  targetSaveId,
+  targetChatBinding,
+  runtimeAssets = {}
+} = {}) {
+  assertV1CampaignState(campaignState);
+  const saveId = compact(targetSaveId);
+  if (!saveId || targetChatBinding?.saveId !== saveId) {
+    throw reconstructionError('DIRECTIVE_BRANCH_TARGET_INVALID', 'State rebinding requires one exact target save binding.');
+  }
+  const parentBinding = campaignState.campaignChatBinding || {};
+  let next = rebindExactCustody(clone(campaignState), new Map([
+    [parentBinding.saveId, saveId],
+    [parentBinding.chatId, targetChatBinding.chatId]
+  ]));
+  next.campaignChatBinding = clone(targetChatBinding);
+  next = rebindMissionRunLineage(next, saveId, runtimeAssets);
+  assertV1CampaignState(next);
+  const projection = buildV1RuntimePlayerProjection({ campaignState: next, runtimeAssets });
+  if (!projection.ok) {
+    throw reconstructionError('DIRECTIVE_BRANCH_PROJECTION_INVALID', 'The rebound timeline projection is invalid.', projection);
+  }
+  return { campaignState: clone(next), projection };
+}
+
 export async function reconstructV1BranchState({
   parentState,
   parentMessages = [],
@@ -158,18 +184,9 @@ export async function reconstructV1BranchState({
     completedObjectiveIds: eligibleObjectiveIds(campaignState, runtimeAssets),
     now
   });
-  const parentBinding = parentState.campaignChatBinding || {};
-  campaignState = rebindExactCustody(campaignState, new Map([
-    [parentBinding.saveId, saveId],
-    [parentBinding.chatId, targetChatBinding.chatId]
-  ]));
-  campaignState.campaignChatBinding = clone(targetChatBinding);
-  campaignState = rebindMissionRunLineage(campaignState, saveId, runtimeAssets);
-  assertV1CampaignState(campaignState);
-  const projection = buildV1RuntimePlayerProjection({ campaignState, runtimeAssets });
-  if (!projection.ok) {
-    throw reconstructionError('DIRECTIVE_BRANCH_PROJECTION_INVALID', 'The reconstructed branch projection is invalid.', projection);
-  }
+  const rebound = rebindV1CampaignStateCustody({ campaignState, targetSaveId: saveId, targetChatBinding, runtimeAssets });
+  campaignState = rebound.campaignState;
+  const projection = rebound.projection;
   return {
     campaignState: clone(campaignState),
     discardedHostMessageIds,

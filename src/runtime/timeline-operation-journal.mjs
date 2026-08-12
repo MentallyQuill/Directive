@@ -4,6 +4,7 @@ export const V1_TIMELINE_OPERATION_KIND = 'directive.timelineOperation.v1';
 export const V1_TIMELINE_OPERATION_STAGES = Object.freeze([
   'detected',
   'parent-preserved',
+  'child-chat-cloned',
   'child-derived',
   'child-persisted',
   'child-binding-written',

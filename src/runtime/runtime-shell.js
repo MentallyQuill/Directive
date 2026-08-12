@@ -237,6 +237,7 @@ function createRuntimeActions() {
     saveGame: (options) => callApp('saveGame', options),
     renameSavedGame: (options) => callApp('renameSavedGame', options),
     loadCheckpoint: (options) => callApp('loadCheckpoint', options),
+    loadGame: (options) => callApp('loadGame', options),
     deleteSave: (options) => callApp('deleteSave', options),
     verifyActiveSave: () => callApp('verifyActiveSave'),
     exportSupportDiagnostics: (options) => callApp('exportSupportDiagnostics', options),
