@@ -15,13 +15,17 @@ function failed(reasonCode) {
   return { ok: false, reasonCode };
 }
 
-function selectedText(message = {}) {
+function displayedText(message = {}) {
+  return String(message.mes ?? message.text ?? message.content ?? '');
+}
+
+function selectedSwipeText(message = {}) {
   const swipes = Array.isArray(message.swipes) ? message.swipes : null;
   const selected = Number.isInteger(message.swipe_id) ? message.swipe_id : null;
   if (swipes && selected !== null && selected >= 0 && selected < swipes.length) {
     return String(swipes[selected] ?? '');
   }
-  return String(message.mes ?? message.text ?? message.content ?? '');
+  return displayedText(message);
 }
 
 function messageRole(message = {}) {
@@ -39,7 +43,8 @@ export function normalizeNativeBranchMessage(message = {}, index = null) {
     ?? message.uuid
     ?? message.extra?.messageId
   ) || (Number.isInteger(index) ? String(index) : null);
-  const text = selectedText(message);
+  const text = displayedText(message);
+  const selectedText = selectedSwipeText(message);
   const selectedSwipeId = Array.isArray(message.swipes)
     ? String(Number.isInteger(message.swipe_id) ? message.swipe_id : 0)
     : null;
@@ -48,7 +53,8 @@ export function normalizeNativeBranchMessage(message = {}, index = null) {
     role: messageRole(message),
     selectedSwipeId,
     text,
-    textHash: hashStableJson({ text }),
+    selectedSwipeText: selectedText,
+    textHash: hashStableJson({ displayedText: text, selectedSwipeText: selectedText }),
     visibility: normalizeV1HostMessageVisibility(message)
   };
 }

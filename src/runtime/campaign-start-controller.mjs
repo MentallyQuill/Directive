@@ -22,6 +22,7 @@ import {
   verifyV1Storage
 } from '../storage/v1-storage-repository.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import { stableJsonStringify } from './v1-host-message-contracts.mjs';
 import {
   deleteTimelineOperation,
   loadTimelineOperation,
@@ -243,6 +244,18 @@ export function createCampaignStartController({
       };
       throw error;
     }
+    const persisted = await loadV1CampaignSave(adapter, activeSave.id);
+    if (stableJsonStringify(persisted) !== stableJsonStringify(activeSave)) {
+      const error = new Error('The active campaign timeline changed in another Directive runtime.');
+      error.code = 'DIRECTIVE_TIMELINE_PARENT_STALE';
+      error.details = {
+        expectedSaveId: activeSave.id,
+        actualSaveId: persisted.id,
+        expectedUpdatedAt: activeSave.updatedAt || null,
+        actualUpdatedAt: persisted.updatedAt || null
+      };
+      throw error;
+    }
     return index;
   }
 
@@ -259,6 +272,7 @@ export function createCampaignStartController({
 
     getActiveCampaignState: () => clone(activeState),
     getActiveSave: () => clone(activeSave),
+    assertActiveTimelineCurrent: () => requireCurrentActiveTimeline(),
     getActivePackage: () => clone(packageData),
     getActivePackageContext: () => createRuntimePackageContext(packageData),
 

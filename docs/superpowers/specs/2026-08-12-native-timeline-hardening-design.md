@@ -27,7 +27,7 @@ The current implementation can be made to exhibit these failures:
 
 ### Save Game Atomicity
 
-Save Game must clone and persist the immutable SillyTavern chat before it publishes the checkpoint in Directive storage. The checkpoint state written to storage must already contain the cloned chat binding. If checkpoint publication fails, Directive must remove only the exact clone it created; the active timeline remains unchanged.
+Save Game must durably journal the exact unused SillyTavern clone binding and a source-transcript attestation before it writes the chat, then persist that immutable clone before it publishes the checkpoint in Directive storage. Recovery rejects source drift rather than pairing later prose with earlier semantic state. The checkpoint state written to storage must already contain the cloned chat binding. If a storage write fails after cloning, recovery reopens the journal, verifies or reuses that exact owned clone, and completes publication; correctness never depends on best-effort deletion of an otherwise untracked chat. The active timeline remains unchanged throughout.
 
 An idempotent checkpoint retry must rewrite/reconcile the index summary even when the checkpoint file already exists. A previously completed save-file write must never remain permanently invisible because the later index write failed.
 
@@ -46,7 +46,7 @@ Native-branch transcript normalization must include role, stable host-message ID
 
 ### Immutable Transcript Attestation
 
-Every newly preserved saved-game chat binding must carry a versioned transcript attestation containing the normalized message count and deterministic lineage hash. This includes cloned chats and the retired parent chat preserved by native branching. Load Game must verify that attestation against the exact preserved chat before it clones, checkpoints, or switches anything. The transaction must verify both its preserved parent and its cloned child again immediately before the active-pointer commit.
+Every newly preserved saved-game chat binding must carry a versioned transcript attestation containing the normalized message count and deterministic lineage hash. The fingerprint includes both rendered `mes` text and selected-swipe identity/content so either visible edits or swipe drift fail closed. This includes cloned chats and the retired parent chat preserved by native branching. Load Game must verify that attestation against the exact preserved chat before it clones, checkpoints, or switches anything, and the continuation clone must equal that original selected-save attestation even if the source changes inside the verification-to-clone window. The transaction must verify both its preserved parent and its cloned child again immediately before the active-pointer commit.
 
 Existing saved games without an attestation remain loadable for compatibility. Once present, an attestation is mandatory authority and a missing verifier or mismatch fails closed.
 
@@ -54,13 +54,13 @@ Existing saved games without an attestation remain loadable for compatibility. O
 
 Accepted-pair settlement, native-branch adoption/recovery, Save Game, Load Game, saved-game rename, saved-game deletion, and campaign deletion must use the same runtime mutation queue. A timeline operation sees all earlier settlement writes and prevents later settlement writes until its state transition completes.
 
-The timeline transaction service must additionally use a cooperative per-campaign lease shared by accepted-pair settlement and every saved-game mutation. Browser environments use the Web Locks API when available so tabs coordinate; tests and single-realm environments use a module-level FIFO fallback. Recovery must not recursively reacquire its own lease. A durable incomplete operation journal blocks unrelated Save, rename, or delete work until recovery completes.
+The timeline transaction service must additionally use a cooperative per-campaign lease shared by accepted-pair settlement and every saved-game mutation. Browser environments use the Web Locks API when available so tabs coordinate; tests and single-realm environments use a module-level FIFO fallback. Every leased mutation re-reads both the active pointer and the complete persisted active-save record; a stale runtime fails before producing an artifact or semantic write. Recovery must not recursively reacquire its own lease. Host chat opens initiated inside a transaction suppress only their synchronous reentrant `CHAT_CHANGED` callback so the outer lease cannot deadlock. A durable incomplete operation journal blocks unrelated Save, rename, or delete work until recovery completes.
 
 ### Journal Recovery
 
 Before proving a pending native branch, recovery must reopen the exact child binding recorded by the journal. It must then repeat the normal lineage proof and stage validation. Failure to open or prove that exact child leaves the journal pending and generation disabled.
 
-Every Load Game stage must be failure-injected in tests. Before `active-pointer-switched`, recovery retains the parent as authority. At or after that commit point, recovery completes forward with the exact child. Retries must not create duplicate checkpoints, child saves, or chat clones.
+Every Load Game stage and every external-clone/journal boundary must be failure-injected in tests. Before any host clone, Directive journals its exact collision-free binding. Before `active-pointer-switched`, recovery retains the parent as authority. At or after that commit point, recovery completes forward with the exact child. Retries must not create duplicate checkpoints, child saves, or chat clones, including when cleanup is unavailable.
 
 ### Early Validation and Retry Semantics
 
@@ -72,7 +72,7 @@ If accepted-pair replay after a committed fork fails, the runtime must retain `a
 
 ### Collision-Safe Chat Naming
 
-The SillyTavern clone filename algorithm must reserve space for every collision suffix before applying the 180-character limit. The returned filename must be absent from the existing-name set, including when the unsuffixed base already occupies all 180 characters.
+The SillyTavern clone filename algorithm must reserve space for every collision suffix before applying the 180-character limit. The returned filename must be absent from the existing-name set, including when the unsuffixed base already occupies all 180 characters. If the host cannot enumerate names successfully, cloning aborts rather than treating the namespace as empty.
 
 ## Authority and Failure Invariants
 
@@ -91,8 +91,8 @@ The SillyTavern clone filename algorithm must reserve space for every collision 
 
 - `native-branch-lineage.mjs` owns complete normalized transcript fingerprints and versioned transcript attestations.
 - SillyTavern and fake chat adapters attach and verify attestations and enforce collision-safe names.
-- `runtime-app.mjs` owns the single semantic mutation queue, exact current-binding comparison, clone-before-publish Save Game, and replay retry state.
-- `timeline-transaction-service.mjs` owns early selected-save validation, cooperative campaign leasing, exact-child recovery, and attestation checks.
+- `runtime-app.mjs` owns the single semantic mutation queue, exact current-binding comparison, internal-open reentrancy suppression, and replay retry state.
+- `timeline-transaction-service.mjs` owns journaled Save Game publication, early selected-save validation, cooperative campaign leasing, exact-child recovery, planned-clone ownership, and attestation checks.
 - `campaign-start-controller.mjs` repairs checkpoint index visibility during idempotent retry.
 
 No new semantic chronology or per-message full-state save is introduced.

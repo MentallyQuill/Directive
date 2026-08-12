@@ -416,11 +416,26 @@ export function createFakeChatAdapter({
     },
     async cloneCampaignChat(options = {}) {
       const sourceChatId = options.sourceChatId || currentChatId;
-      const branchChatId = uniqueBranchChatId({
+      const branchChatId = options.targetBinding?.chatId || uniqueBranchChatId({
         saveId: options.saveId,
         name: options.targetName
       });
       const sourceMessages = messagesForChat(sourceChatId);
+      if (options.targetBinding?.chatId && chatsById.has(String(branchChatId))) {
+        const storedBinding = metadataByChatId.get(String(branchChatId));
+        const exactFields = ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'];
+        const matches = storedBinding
+          && exactFields.every((field) => String(storedBinding?.[field] || '') === String(options.targetBinding?.[field] || ''))
+          && String(storedBinding.clonedFromChatId || '') === String(sourceChatId);
+        const verified = matches ? await this.verifyCampaignChatSnapshot(storedBinding) : { ok: false };
+        if (!matches || verified.ok !== true) {
+          const error = new Error(`Fake planned chat ${branchChatId} is occupied.`);
+          error.code = 'DIRECTIVE_CHAT_CLONE_PLAN_COLLISION';
+          throw error;
+        }
+        calls.push({ type: 'cloneCampaignChat', sourceChatId, branchChatId, messageCount: messagesForChat(branchChatId).length, reused: true });
+        return { ...cloneJson(storedBinding), sourceChatId, messageCount: messagesForChat(branchChatId).length, reused: true };
+      }
       const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatId));
       chatsById.set(String(branchChatId), branchMessages);
       const sourceBinding = options.sourceBinding && typeof options.sourceBinding === 'object'
@@ -428,6 +443,7 @@ export function createFakeChatAdapter({
         : (metadataByChatId.get(String(sourceChatId)) || binding || {});
       const nextBinding = {
         ...cloneJson(sourceBinding),
+        ...cloneJson(options.targetBinding || {}),
         hostId: 'fake',
         chatId: branchChatId,
         campaignId: options.campaignId || sourceBinding.campaignId || null,
@@ -443,6 +459,17 @@ export function createFakeChatAdapter({
         clonedAt: '2026-06-22T00:00:00.000Z',
         transcriptAttestation: createNativeBranchTranscriptAttestation(branchMessages)
       };
+      const plannedSourceAttestation = options.targetBinding?.sourceTranscriptAttestation;
+      if (plannedSourceAttestation) {
+        const verifiedSource = verifyNativeBranchTranscriptAttestation(sourceMessages, plannedSourceAttestation);
+        if (verifiedSource.ok !== true
+          || nextBinding.transcriptAttestation.messageCount !== plannedSourceAttestation.messageCount
+          || nextBinding.transcriptAttestation.lineageHash !== plannedSourceAttestation.lineageHash) {
+          const error = new Error('The fake source chat changed after clone planning.');
+          error.code = 'DIRECTIVE_CHAT_CLONE_SOURCE_CHANGED';
+          throw error;
+        }
+      }
       metadataByChatId.set(String(branchChatId), cloneJson(nextBinding));
       if (options.open === true) {
         currentChatId = branchChatId;
@@ -459,6 +486,32 @@ export function createFakeChatAdapter({
         ...cloneJson(nextBinding),
         sourceChatId,
         messageCount: branchMessages.length
+      };
+    },
+    async prepareCampaignChatClone(options = {}) {
+      const sourceChatId = options.sourceChatId || currentChatId;
+      const sourceBinding = options.sourceBinding && typeof options.sourceBinding === 'object'
+        ? options.sourceBinding
+        : (metadataByChatId.get(String(sourceChatId)) || binding || {});
+      const chatId = uniqueBranchChatId({ saveId: options.saveId, name: options.targetName });
+      return {
+        ...cloneJson(sourceBinding),
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        hostId: 'fake',
+        campaignId: options.campaignId || sourceBinding.campaignId || null,
+        saveId: options.saveId || sourceBinding.saveId || null,
+        chatId,
+        chatName: options.targetName || chatId,
+        entityType: sourceBinding.entityType || 'character',
+        entityId: sourceBinding.entityId || entityId,
+        entityName: sourceBinding.entityName || entityName,
+        status: 'bound',
+        createdByDirective: true,
+        creationMethod: 'clone-campaign-chat',
+        clonedFromChatId: sourceChatId,
+        sourceTranscriptAttestation: createNativeBranchTranscriptAttestation(messagesForChat(sourceChatId)),
+        clonePlanned: true
       };
     },
     async verifyCampaignChatSnapshot(nextBinding = null) {

@@ -114,11 +114,19 @@ const campaignChat = createFakeChatAdapter({
   entityId: 'fake-character-1',
   entityName: 'Directive Campaign'
 });
-await campaignChat.cloneCampaignChat({
+const plannedCampaignChat = await campaignChat.prepareCampaignChatClone({
   sourceChatId: 'campaign-chat',
   targetName: 'Campaign checkpoint',
   campaignId: 'campaign-1',
   saveId: 'save-1'
+});
+assert.equal(plannedCampaignChat.chatId, 'fake-chat-save-1');
+await campaignChat.cloneCampaignChat({
+  sourceChatId: 'campaign-chat',
+  targetName: 'Campaign checkpoint',
+  campaignId: 'campaign-1',
+  saveId: 'save-1',
+  targetBinding: plannedCampaignChat
 });
 assert.equal(Object.keys(campaignChat.chats()).length, 2);
 const fakeCharacterDeletion = await campaignChat.deleteCampaignCharacter({

@@ -53,14 +53,14 @@
 - Modify: `tools/scripts/test-v1-timeline-storage.mjs`
 
 **Interfaces:**
-- Save Game clones first and passes an already-clone-bound state to `controller.createCheckpoint`.
+- Save Game journals its exact planned clone before the host write, then passes an already-clone-bound state to deterministic checkpoint publication.
 - `prepareTimelineCheckpoint` rewrites the stored record/index summary when its deterministic checkpoint already exists.
 
 - [x] **Step 1: Add a failing delayed-clone test proving no checkpoint is listable before clone completion and a failing torn-index retry test proving the index remains missing.**
 
 - [x] **Step 2: Run `node tools/scripts/test-v1-runtime-app.mjs` and `node tools/scripts/test-v1-timeline-storage.mjs`; confirm both failures match the reproduced ordering defects.**
 
-- [x] **Step 3: Clone the chat before checkpoint publication, validate the clone-bound checkpoint state, and compensate only the exact clone on publication failure.**
+- [x] **Step 3: Journal the exact collision-free clone binding before the host write, validate the clone-bound checkpoint state, and recover publication forward without relying on destructive compensation.**
 
 - [x] **Step 4: Re-store an existing deterministic checkpoint during retry so its index summary is reconciled.**
 
@@ -121,10 +121,20 @@
 
 - [x] **Step 2: Review the complete diff against this plan and the hardening design; scan for placeholders, stale claims, unguarded writes, and compatibility regressions.**
 
-- [ ] **Step 3: Dispatch an independent code reviewer against the base and feature SHAs; fix every Critical or Important finding test-first and repeat the full gate.**
+- [x] **Step 3: Dispatch an independent code reviewer against the base and feature SHAs; fix every Critical or Important finding test-first and repeat the full gate.**
 
 - [ ] **Step 4: Merge `codex/native-timeline-hardening` into `main`, run `npm.cmd test` on merged `main`, and push `main` to `origin`.**
 
 - [ ] **Step 5: Copy merged source to the `default-user` Directive extension while excluding `.git`, `.worktrees`, `node_modules`, artifacts, and user data; verify its commit marker and run the installed-extension gate.**
 
 - [ ] **Step 6: Run isolated live proof for Save Game ordering, attestation rejection, exact binding, and recovery without altering existing Sam Vickers artifacts. Confirm GitHub reports the final `main` SHA.**
+
+### Independent-review hardening completed before integration
+
+- [x] Suppress synchronous reentrant `CHAT_CHANGED` only for Directive-initiated opens, preventing queue/lease deadlock.
+- [x] Re-read the complete persisted active save inside every campaign lease and reject stale runtimes before mutation.
+- [x] Resolve clone, verification, and deletion through the exact supplied character binding; never ambient identity.
+- [x] Move accepted-pair preparation and invalidation authority checks inside the mutation queue and validate the snapshot envelope before time commit.
+- [x] Fingerprint rendered text plus selected swipe content, abort on chat-name enumeration failure, and compare the continuation attestation to the originally selected save.
+- [x] Pre-journal parent, child, and manual-save clone identities; inject torn external-write boundaries and prove retry reuses owned chat names without cleanup.
+- [x] Bind every clone plan to its source transcript, defer unrelated reentrant chat changes for normal reconciliation, and serialize player-portrait state proposals with timeline mutations.

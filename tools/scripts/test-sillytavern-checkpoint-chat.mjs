@@ -39,7 +39,7 @@ const context = {
       return {
         ok: true,
         async json() {
-          return Object.fromEntries([...saved.keys()].map((name) => [name, { file_name: `${name}.jsonl` }]));
+          return [...saved.keys()].map((name) => ({ file_name: `${name}.jsonl`, file_id: name }));
         }
       };
     }
@@ -150,6 +150,53 @@ assert.notEqual(maximumNameSecond.chatId, maximumNameFirst.chatId);
 assert.equal(maximumNameSecond.chatId.length, 180);
 assert.match(maximumNameSecond.chatId, / 2$/);
 
+const successfulFetch = context.fetch;
+const savedCountBeforeEnumerationFailure = saved.size;
+context.fetch = async (url, options) => {
+  if (url === '/api/characters/chats') return { ok: false, status: 503 };
+  return successfulFetch.call(context, url, options);
+};
+await assert.rejects(
+  adapter.cloneCampaignChat({
+    sourceChatId: 'Checkpoint One - Continue',
+    sourceBinding: playableBinding,
+    campaignId: 'campaign-1',
+    saveId: 'save-enumeration-failure',
+    targetName: 'Must Not Overwrite',
+    open: false
+  }),
+  (error) => error?.code === 'DIRECTIVE_CHAT_NAME_ENUMERATION_FAILED'
+);
+assert.equal(saved.size, savedCountBeforeEnumerationFailure, 'a failed collision check must not write a chat snapshot');
+context.fetch = successfulFetch;
+
+for (const invalidEnumeration of [
+  { error: true },
+  [{ file_id: 'missing-file-name' }]
+]) {
+  context.fetch = async (url, options) => {
+    if (url === '/api/characters/chats') return { ok: true, async json() { return invalidEnumeration; } };
+    return successfulFetch.call(context, url, options);
+  };
+  await assert.rejects(
+    adapter.prepareCampaignChatClone({
+      sourceChatId: 'Checkpoint One - Continue', sourceBinding: playableBinding,
+      campaignId: 'campaign-1', saveId: 'save-invalid-enumeration', targetName: 'Invalid Enumeration'
+    }),
+    (error) => error?.code === 'DIRECTIVE_CHAT_NAME_ENUMERATION_FAILED'
+  );
+}
+context.fetch = async (url, options) => {
+  if (url === '/api/characters/chats') return { ok: true, async json() { return []; } };
+  return successfulFetch.call(context, url, options);
+};
+const emptyArrayPlan = await adapter.prepareCampaignChatClone({
+  sourceChatId: 'Checkpoint One - Continue', sourceBinding: playableBinding,
+  campaignId: 'campaign-1', saveId: 'save-empty-array', targetName: 'Empty Array Plan'
+});
+assert.equal(emptyArrayPlan.chatId, 'Empty Array Plan', 'the real SillyTavern empty-array response must allow clone planning');
+context.fetch = successfulFetch;
+
 assert.equal(await adapter.openCampaignChat(playableBinding), true);
 assert.equal(currentChatId, 'Checkpoint One - Continue');
 
@@ -199,5 +246,74 @@ await assert.rejects(
   unavailableAdapter.deleteCampaignCharacter(context.chatMetadata.directiveCampaignBinding),
   (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE'
 );
+
+let exactCharacterId = 1;
+let exactCharacterName = 'Other Character';
+let exactChatId = 'shared-chat';
+let exactMessages = [{ id: 'b1', is_user: false, mes: 'Other character transcript.' }];
+const exactCharacters = [
+  { name: 'Bound Character', avatar: 'bound.png', chat: 'shared-chat' },
+  { name: 'Other Character', avatar: 'other.png', chat: 'shared-chat' }
+];
+const exactSaved = new Map();
+const exactDeletes = [];
+const exactContext = {
+  characters: exactCharacters,
+  get characterId() { return exactCharacterId; },
+  get name2() { return exactCharacterName; },
+  get chat() { return exactMessages; },
+  get chatId() { return exactChatId; },
+  getCurrentChatId() { return exactChatId; },
+  getRequestHeaders() { return { 'Content-Type': 'application/json' }; },
+  async selectCharacterById(id) {
+    exactCharacterId = Number(id);
+    exactCharacterName = exactCharacters[exactCharacterId].name;
+    exactMessages = exactCharacterId === 0
+      ? [{ id: 'a1', is_user: false, mes: 'Bound character transcript.' }]
+      : [{ id: 'b1', is_user: false, mes: 'Other character transcript.' }];
+  },
+  async saveChatSnapshot(options) {
+    exactSaved.set(`${exactCharacters[exactCharacterId].avatar}:${options.chatName}`, structuredClone(options));
+  },
+  async fetch(url, options = {}) {
+    const body = JSON.parse(options.body || '{}');
+    if (url === '/api/characters/chats') {
+      return { ok: true, async json() { return {}; } };
+    }
+    if (url === '/api/chats/get') {
+      const message = body.avatar_url === 'bound.png'
+        ? { id: 'a1', is_user: false, mes: 'Bound character transcript.' }
+        : { id: 'b1', is_user: false, mes: 'Other character transcript.' };
+      return { ok: true, async json() { return [{ chat_metadata: {} }, message]; } };
+    }
+    if (url === '/api/chats/delete') {
+      exactDeletes.push(body);
+      return { ok: true, async json() { return {}; } };
+    }
+    throw new Error(`Unexpected exact-custody fetch ${url}`);
+  }
+};
+const exactAdapter = createSillyTavernChatAdapter({ contextFactory: () => exactContext });
+const boundBinding = {
+  hostId: 'sillytavern', campaignId: 'campaign-exact', saveId: 'save-exact', chatId: 'shared-chat',
+  entityType: 'character', entityId: '0', entityName: 'Bound Character'
+};
+const exactClone = await exactAdapter.cloneCampaignChat({
+  sourceChatId: 'shared-chat', sourceBinding: boundBinding,
+  campaignId: 'campaign-exact', saveId: 'save-exact', targetName: 'Exact Clone', open: false
+});
+assert.equal(
+  exactSaved.get('bound.png:Exact Clone').chatData[0].mes,
+  'Bound character transcript.',
+  'clone custody must follow the supplied binding rather than an ambient same-named chat'
+);
+exactCharacterId = 1;
+exactCharacterName = 'Other Character';
+exactMessages = [{ id: 'b1', is_user: false, mes: 'Other character transcript.' }];
+await exactAdapter.deleteCampaignChat(exactClone);
+assert.deepEqual(exactDeletes.at(-1), {
+  chatfile: 'Exact Clone.jsonl',
+  avatar_url: 'bound.png'
+}, 'cleanup must delete under the exact bound character after ambient identity changes');
 
 console.log('SillyTavern checkpoint chat tests passed.');

@@ -14,7 +14,7 @@ export const V1_TIMELINE_OPERATION_STAGES = Object.freeze([
   'completed'
 ]);
 
-const TYPES = new Set(['native-branch', 'load-game']);
+const TYPES = new Set(['native-branch', 'load-game', 'save-game']);
 const STAGES = new Set(V1_TIMELINE_OPERATION_STAGES);
 
 function clone(value) {

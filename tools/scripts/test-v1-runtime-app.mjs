@@ -357,7 +357,13 @@ let releaseExternalCampaignLease;
 let reportExternalCampaignLease;
 const externalCampaignLeaseEntered = new Promise((resolve) => { reportExternalCampaignLease = resolve; });
 const externalCampaignLeaseRelease = new Promise((resolve) => { releaseExternalCampaignLease = resolve; });
+const staleActiveSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
+const saveBeforeExternalMutation = await host.storage.readJson(staleActiveSavePath);
 const externalCampaignLease = withCampaignTimelineLease(missionView.campaignState.campaign.id, async () => {
+  const externallyUpdated = structuredClone(saveBeforeExternalMutation);
+  externallyUpdated.state.settings.simulationMode = 'Exploration';
+  externallyUpdated.updatedAt = '2026-08-10T04:00:00.000Z';
+  await host.storage.writeJson(staleActiveSavePath, externallyUpdated);
   reportExternalCampaignLease();
   await externalCampaignLeaseRelease;
 });
@@ -375,7 +381,11 @@ assert.equal(
 );
 releaseExternalCampaignLease();
 await externalCampaignLease;
-assert.equal((await crossRuntimeMutation).reasonCode, 'reserve-empty');
+await assert.rejects(
+  crossRuntimeMutation,
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+await host.storage.writeJson(staleActiveSavePath, saveBeforeExternalMutation);
 
 const importedCampaignPortrait = await app.importCampaignPlayerPortrait({
   bytes: new Uint8Array([13, 14, 15, 16]),
@@ -721,10 +731,14 @@ let releaseDelayedClone;
 let reportDelayedCloneStarted;
 const delayedCloneStarted = new Promise((resolve) => { reportDelayedCloneStarted = resolve; });
 const delayedCloneRelease = new Promise((resolve) => { releaseDelayedClone = resolve; });
+let reentrantCloneChatChangedCount = 0;
 host.chat.cloneCampaignChat = async (options) => {
   reportDelayedCloneStarted();
   await delayedCloneRelease;
-  return delayedCloneCampaignChat(options);
+  const cloned = await delayedCloneCampaignChat(options);
+  reentrantCloneChatChangedCount += 1;
+  await app.handleHostChatChanged({ source: 'synchronous-clone-character-selection-test' });
+  return cloned;
 };
 const delayedSave = app.saveGame({ name: 'Clone before publication' });
 await delayedCloneStarted;
@@ -746,12 +760,37 @@ assert.equal(
 );
 releaseDelayedClone();
 const delayedCheckpoint = await delayedSave;
+assert.ok(reentrantCloneChatChangedCount > 0, 'Save Game must tolerate an awaited CHAT_CHANGED during clone character selection');
 const concurrentReservationResult = await concurrentReservation;
 host.chat.cloneCampaignChat = delayedCloneCampaignChat;
 assert.equal(concurrentReservationResult.applied, true);
 assert.equal((await app.cancelCommandBearingEdge()).applied, true);
 assert.ok(delayedCheckpoint.checkpoint.state.campaignChatBinding.transcriptAttestation);
 await app.deleteSave({ checkpointId: delayedCheckpoint.checkpoint.id });
+
+const authoritativeBeforeDeferredSwitch = (await app.getCurrentView({ tabId: 'mission' })).campaignState.campaignChatBinding;
+const cloneBeforeDeferredSwitch = host.chat.cloneCampaignChat;
+let deferredUserSwitchAcknowledged = false;
+host.chat.cloneCampaignChat = async (options) => {
+  const cloned = await cloneBeforeDeferredSwitch(options);
+  chat.setCurrentChatId('unrelated-same-character-chat');
+  const acknowledgement = await app.handleHostChatChanged({ source: 'user-switch-during-clone' });
+  deferredUserSwitchAcknowledged = acknowledgement.deferred === true;
+  return cloned;
+};
+const deferredSwitchSave = await app.saveGame({ name: 'Deferred user switch checkpoint' });
+host.chat.cloneCampaignChat = cloneBeforeDeferredSwitch;
+assert.equal(deferredUserSwitchAcknowledged, true, 'a synchronous chat event must release the host without deadlocking');
+await app.handleHostChatChanged({ source: 'await-deferred-reconciliation' });
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState,
+  null,
+  'an unrelated user chat switch during cloning must be reconciled after the Save Game queue releases'
+);
+assert.equal(host.prompt.inspect().blocks.length, 0, 'deferred reconciliation must clear campaign prompt authority from the unrelated chat');
+await host.chat.openCampaignChat(authoritativeBeforeDeferredSwitch);
+await app.handleHostChatChanged({ source: 'restore-after-deferred-switch-test' });
+await app.deleteSave({ checkpointId: deferredSwitchSave.checkpoint.id });
 
 const cloneCampaignChat = host.chat.cloneCampaignChat;
 host.chat.cloneCampaignChat = async () => {
@@ -784,6 +823,44 @@ assert.equal(
 const restoreFailureCheckpoint = await app.saveGame({ name: 'Restore failure checkpoint' });
 const mutationBeforeFailedRestore = await app.reserveCommandBearingEdge();
 assert.equal(mutationBeforeFailedRestore.applied, true);
+const cloneBeforePortraitLoadRace = host.chat.cloneCampaignChat;
+let releasePortraitLoadClone;
+let reportPortraitLoadClone;
+const portraitLoadCloneStarted = new Promise((resolve) => { reportPortraitLoadClone = resolve; });
+const portraitLoadCloneRelease = new Promise((resolve) => { releasePortraitLoadClone = resolve; });
+host.chat.cloneCampaignChat = async (options) => {
+  if (options.sourceChatId === restoreFailureCheckpoint.checkpoint.state.campaignChatBinding.chatId) {
+    reportPortraitLoadClone();
+    await portraitLoadCloneRelease;
+  }
+  return cloneBeforePortraitLoadRace(options);
+};
+const portraitRaceLoad = app.loadCheckpoint({ checkpointId: restoreFailureCheckpoint.checkpoint.id });
+await portraitLoadCloneStarted;
+let portraitRaceResolved = false;
+const portraitRaceImport = app.importCampaignPlayerPortrait({
+  bytes: new Uint8Array([31, 32, 33, 34]),
+  mimeType: 'image/png',
+  fileName: 'load-race.png'
+}).then((result) => {
+  portraitRaceResolved = true;
+  return result;
+});
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(portraitRaceResolved, false, 'portrait authority must wait behind an in-flight Load Game transaction');
+releasePortraitLoadClone();
+const [portraitRaceTimeline, portraitAfterLoad] = await Promise.all([portraitRaceLoad, portraitRaceImport]);
+host.chat.cloneCampaignChat = cloneBeforePortraitLoadRace;
+assert.equal(
+  (await host.storage.readJson(V1_STORAGE_PATHS.save((await host.storage.readJson(V1_STORAGE_PATHS.index)).activeSaveId))).state.player.portrait.asset.path,
+  portraitAfterLoad.portrait.asset.path,
+  'a portrait queued during Load Game must commit to the new active child rather than resurrect the parent'
+);
+assert.equal(
+  (await host.storage.readJson(V1_STORAGE_PATHS.index)).activeSaveId,
+  portraitRaceTimeline.timeline.id,
+  'portrait mutation must not reactivate the timeline retired by Load Game'
+);
 const stateBeforeFailedRestore = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
 const openCampaignChat = host.chat.openCampaignChat;
 host.chat.openCampaignChat = async () => false;

@@ -173,6 +173,25 @@ await assert.rejects(
 );
 assert.equal(unrelatedMutationRan, false, 'Save, rename, and delete mutations must not cross a pending recovery journal');
 
+const staleBranchRuntime = await harness();
+const externallyRevisedBranchSave = await loadV1CampaignSave(staleBranchRuntime.storage, 'save.parent');
+externallyRevisedBranchSave.state.settings.simulationMode = 'Exploration';
+externallyRevisedBranchSave.updatedAt = '2026-08-11T12:00:01.000Z';
+await storeV1CampaignSave(staleBranchRuntime.storage, externallyRevisedBranchSave);
+await assert.rejects(
+  staleBranchRuntime.service.adoptNativeBranch(staleBranchRuntime.lineage),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+await assert.rejects(
+  staleBranchRuntime.service.saveGame({ name: 'Stale runtime save' }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+assert.equal(
+  staleBranchRuntime.chat.calls().filter((call) => call.type === 'cloneCampaignChat').length,
+  0,
+  'a same-save revision change in another runtime must fail before any branch or save artifact is created'
+);
+
 const casJournalFailure = await harness();
 const storeOperation = casJournalFailure.controller.storeTimelineOperation;
 let failedCommitJournalWrite = false;
@@ -206,6 +225,47 @@ const pointerRecovery = createTimelineTransactionService({
 });
 const pointerRecovered = await pointerRecovery.recoverActiveOperation({ campaignId: 'campaign.branch' });
 assert.equal(pointerRecovered.status, 'recovered', 'recovery recognizes a committed child even when the commit-stage journal write failed');
+
+let crossRuntimeCommitInjected = false;
+const crossRuntimeRecovery = await loadHarness({
+  afterStage(stage) {
+    if (!crossRuntimeCommitInjected && stage === 'active-pointer-switched') {
+      crossRuntimeCommitInjected = true;
+      throw new Error('injected:cross-runtime-post-commit');
+    }
+  }
+});
+const staleRecoveryController = createCampaignStartController({
+  adapter: crossRuntimeRecovery.storage,
+  packages: [assets.packageData],
+  missionDefinitions: assets.missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  now: () => fixedNow
+});
+await staleRecoveryController.initialize();
+let staleRecoveryState = structuredClone(crossRuntimeRecovery.parentState);
+const staleRecoveryService = createTimelineTransactionService({
+  controller: staleRecoveryController,
+  chat: crossRuntimeRecovery.chat,
+  prompt: crossRuntimeRecovery.prompt,
+  getState: () => staleRecoveryState,
+  setState: (next) => { staleRecoveryState = structuredClone(next); },
+  configureRuntime() {},
+  rebuildPrompt: () => crossRuntimeRecovery.prompt.rebuild({ binding: staleRecoveryState.campaignChatBinding, packet: { blocks: [] } }),
+  runtimeAssets: assets,
+  now: () => fixedNow
+});
+await assert.rejects(
+  crossRuntimeRecovery.service.loadGame({ savedGameId: crossRuntimeRecovery.selected.id }),
+  /injected:cross-runtime-post-commit/
+);
+const crossRuntimeRecovered = await staleRecoveryService.recoverActiveOperation({ campaignId: 'campaign.load' });
+assert.equal(crossRuntimeRecovered.status, 'recovered');
+assert.equal(
+  staleRecoveryController.getActiveSave().id,
+  crossRuntimeRecovered.childSaveId,
+  'post-commit recovery in a second runtime must refresh its cached active save to the committed child'
+);
 
 const attestedNativeParent = await harness();
 const attestedNativeResult = await attestedNativeParent.service.adoptNativeBranch(attestedNativeParent.lineage);
@@ -345,6 +405,18 @@ assert.deepEqual(crossCampaignLoad.storage.snapshot(), crossCampaignStorageBefor
 assert.equal(crossCampaignLoad.chat.calls().length, crossCampaignChatCallsBefore);
 assert.equal(crossCampaignLoad.prompt.calls().length, crossCampaignPromptCallsBefore);
 
+const staleLoadRuntime = await loadHarness();
+const externallyRevisedLoadSave = await loadV1CampaignSave(staleLoadRuntime.storage, 'save.load-parent');
+externallyRevisedLoadSave.state.settings.simulationMode = 'Exploration';
+externallyRevisedLoadSave.updatedAt = '2026-08-11T12:00:01.000Z';
+await storeV1CampaignSave(staleLoadRuntime.storage, externallyRevisedLoadSave);
+const staleLoadCallsBefore = staleLoadRuntime.chat.calls().length;
+await assert.rejects(
+  staleLoadRuntime.service.loadGame({ savedGameId: staleLoadRuntime.selected.id }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+assert.equal(staleLoadRuntime.chat.calls().length, staleLoadCallsBefore, 'stale Load Game must fail before cloning either timeline');
+
 const changedSavedChat = await loadHarness();
 const changedMessages = changedSavedChat.chat.messagesForChat(changedSavedChat.selectedBinding.chatId);
 changedMessages[0].text = 'Transcript changed after the save was created.';
@@ -357,6 +429,118 @@ await assert.rejects(
 );
 assert.deepEqual(changedSavedChat.storage.snapshot(), changedStorageBefore);
 assert.equal(changedSavedChat.chat.calls().length, changedChatCallsBefore);
+
+const changedDuringLoad = await loadHarness({
+  afterStage(stage, operation) {
+    if (stage !== 'parent-preserved') return;
+    const changed = changedDuringLoad.chat.messagesForChat(changedDuringLoad.selectedBinding.chatId);
+    changed[0].text = 'Transcript changed after verification but before the continuation clone.';
+    changedDuringLoad.chat.setMessagesForChat(changedDuringLoad.selectedBinding.chatId, changed);
+  }
+});
+await assert.rejects(
+  changedDuringLoad.service.loadGame({ savedGameId: changedDuringLoad.selected.id }),
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CHAT_ATTESTATION_MISMATCH'
+);
+assert.equal(
+  (await getV1StorageIndex(changedDuringLoad.storage)).activeSaveId,
+  'save.load-parent',
+  'a transcript changed inside the verification-to-clone window must never switch the active pointer'
+);
+
+for (const tornBoundary of ['parent-clone-journal', 'child-clone-journal']) {
+  const test = await loadHarness();
+  const originalStore = test.controller.storeTimelineOperation;
+  let injected = false;
+  let cleanupAttempted = false;
+  test.chat.deleteCampaignChat = async () => {
+    cleanupAttempted = true;
+    return { deleted: false, reason: 'injected-cleanup-refusal' };
+  };
+  test.controller.storeTimelineOperation = async (operation) => {
+    const parentCloneWrite = tornBoundary === 'parent-clone-journal'
+      && operation.stage === 'detected'
+      && Boolean(operation.parentCheckpointBinding?.transcriptAttestation);
+    const childCloneWrite = tornBoundary === 'child-clone-journal'
+      && operation.stage === 'child-chat-cloned';
+    if (!injected && (parentCloneWrite || childCloneWrite)) {
+      injected = true;
+      throw new Error(`injected:${tornBoundary}`);
+    }
+    return originalStore(operation);
+  };
+  await assert.rejects(
+    test.service.loadGame({ savedGameId: test.selected.id }),
+    new RegExp(`injected:${tornBoundary}`)
+  );
+  test.controller.storeTimelineOperation = originalStore;
+  await test.service.recoverActiveOperation({ campaignId: 'campaign.load' });
+  const cloneCalls = test.chat.calls().filter((call) => call.type === 'cloneCampaignChat');
+  assert.equal(
+    new Set(cloneCalls.map((call) => call.branchChatId)).size,
+    3,
+    `${tornBoundary} recovery must reuse its journaled clone name rather than create an orphan duplicate`
+  );
+  assert.equal(cleanupAttempted, false, 'planned clone recovery must not depend on unreliable destructive compensation');
+}
+
+const tornSave = await harness();
+const originalSaveStore = tornSave.controller.storeTimelineOperation;
+let saveCloneJournalFailure = false;
+tornSave.controller.storeTimelineOperation = async (operation) => {
+  if (!saveCloneJournalFailure && operation.operationType === 'save-game' && operation.stage === 'parent-preserved') {
+    saveCloneJournalFailure = true;
+    throw new Error('injected:save-clone-journal');
+  }
+  return originalSaveStore(operation);
+};
+await assert.rejects(tornSave.service.saveGame({ name: 'Journaled manual save' }), /injected:save-clone-journal/);
+tornSave.controller.storeTimelineOperation = originalSaveStore;
+const recoveredManualSave = await tornSave.service.recoverActiveOperation({ campaignId: 'campaign.branch' });
+assert.equal(recoveredManualSave.status, 'saved');
+assert.equal((await loadV1CampaignSave(tornSave.storage, recoveredManualSave.savedGameId)).slotType, 'checkpoint');
+const manualSaveCloneCalls = tornSave.chat.calls().filter((call) => call.type === 'cloneCampaignChat');
+assert.equal(new Set(manualSaveCloneCalls.map((call) => call.branchChatId)).size, 1);
+
+for (const sourceMutationCase of ['save-game', 'load-parent']) {
+  const test = sourceMutationCase === 'save-game' ? await harness() : await loadHarness();
+  const originalStore = test.controller.storeTimelineOperation;
+  let plannedFailureInjected = false;
+  test.controller.storeTimelineOperation = async (operation) => {
+    const plannedWithoutClone = operation.stage === 'detected'
+      && (sourceMutationCase === 'save-game'
+        ? Boolean(operation.childBinding?.sourceTranscriptAttestation)
+        : Boolean(operation.parentCheckpointBinding?.sourceTranscriptAttestation));
+    if (!plannedFailureInjected && plannedWithoutClone) {
+      plannedFailureInjected = true;
+      await originalStore(operation);
+      throw new Error(`injected:${sourceMutationCase}-after-plan`);
+    }
+    return originalStore(operation);
+  };
+  await assert.rejects(
+    sourceMutationCase === 'save-game'
+      ? test.service.saveGame({ name: 'Source attestation window' })
+      : test.service.loadGame({ savedGameId: test.selected.id }),
+    new RegExp(`injected:${sourceMutationCase}-after-plan`)
+  );
+  test.controller.storeTimelineOperation = originalStore;
+  const sourceChatId = sourceMutationCase === 'save-game'
+    ? test.parentState.campaignChatBinding.chatId
+    : test.parentState.campaignChatBinding.chatId;
+  const changedSource = test.chat.messagesForChat(sourceChatId);
+  changedSource.push({ id: `changed.${sourceMutationCase}`, role: 'user', text: 'Changed after clone planning.' });
+  test.chat.setMessagesForChat(sourceChatId, changedSource);
+  await assert.rejects(
+    test.service.recoverActiveOperation({ campaignId: test.parentState.campaign.id }),
+    (error) => error?.code === 'DIRECTIVE_CHAT_CLONE_SOURCE_CHANGED'
+  );
+  assert.equal(
+    (await getV1StorageIndex(test.storage)).activeSaveId,
+    test.parentState.campaignChatBinding.saveId,
+    `${sourceMutationCase} source drift after planning must leave the original parent authoritative`
+  );
+}
 
 const loadStages = [
   'detected', 'parent-preserved', 'child-chat-cloned', 'child-derived',
@@ -490,7 +674,44 @@ assert.deepEqual(generationAfterReplayFailure.acceptedPairReplay, {
 assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate chat event is idempotent');
 
 const selectedSavedGameBefore = await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId);
-const firstLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
+const originalReentrantOpen = appChat.openCampaignChat.bind(appChat);
+let reentrantChatChangedCount = 0;
+appChat.openCampaignChat = async (binding) => {
+  const opened = await originalReentrantOpen(binding);
+  reentrantChatChangedCount += 1;
+  await app.handleHostChatChanged({ source: 'synchronous-internal-open-test' });
+  return opened;
+};
+const staleParentMessage = {
+  id: 'stale-parent-player', hostMessageId: 'stale-parent-player', chatId: 'renamed-app-child',
+  text: 'Proceed from the parent timeline.', isUser: true, isDirectiveOwned: false
+};
+appChat.setMessagesForChat('renamed-app-child', [
+  ...appChat.messagesForChat('renamed-app-child'),
+  staleParentMessage
+]);
+const firstLoadPromise = Promise.race([
+  app.loadGame({ savedGameId: changed.timelineFork.savedGameId }),
+  new Promise((_, reject) => setTimeout(() => reject(new Error('reentrant CHAT_CHANGED deadlock')), 1000))
+]);
+const staleParentObservation = app.observeHostPlayerMessage({
+  message: staleParentMessage,
+  chatId: 'renamed-app-child',
+  ingressId: 'stale-parent-after-load-started'
+});
+const [firstLoad, staleObservationResult] = await Promise.all([firstLoadPromise, staleParentObservation]);
+appChat.openCampaignChat = originalReentrantOpen;
+assert.ok(reentrantChatChangedCount > 0, 'the load test must exercise a synchronous reentrant CHAT_CHANGED event');
+assert.deepEqual(
+  { handled: staleObservationResult.handled, reason: staleObservationResult.reason },
+  { handled: false, reason: 'source-chat-changed' },
+  'a parent message queued behind Load Game must not mutate the activated child timeline'
+);
+assert.deepEqual(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState,
+  firstLoad.timeline.state,
+  'a stale parent accepted-pair event must cause zero child state or clock mutation'
+);
 const preservedBranch = await loadV1CampaignSave(appStorage, firstLoad.transaction.savedGameId);
 assert.notEqual(
   preservedBranch.state.campaignChatBinding.chatId,
@@ -498,7 +719,7 @@ assert.notEqual(
   'Load Game preserves the current timeline in its own immutable chat clone'
 );
 assert.equal(preservedBranch.state.campaignChatBinding.saveId, preservedBranch.parentSaveId);
-assert.equal(appChat.messagesForChat(preservedBranch.state.campaignChatBinding.chatId).length, 1);
+assert.equal(appChat.messagesForChat(preservedBranch.state.campaignChatBinding.chatId).length, 2);
 const secondLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
 assert.notEqual(firstLoad.timeline.id, secondLoad.timeline.id, 'repeated loads create independent active timelines');
 assert.notEqual(firstLoad.timeline.state.campaignChatBinding.chatId, secondLoad.timeline.state.campaignChatBinding.chatId);

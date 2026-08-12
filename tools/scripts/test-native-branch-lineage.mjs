@@ -153,6 +153,14 @@ mutatedSwipe.at(-1).swipe_id = 0;
 mutatedSwipe.at(-1).mes = mutatedSwipe.at(-1).swipes[0];
 assert.equal(lineage({ childMessages: mutatedSwipe }).reasonCode, 'native-branch-transcript-mismatch');
 
+const mutatedRenderedSwipeText = structuredClone(parentMessages);
+mutatedRenderedSwipeText.at(-1).mes = 'The visibly rendered response was edited independently.';
+assert.equal(
+  lineage({ childMessages: mutatedRenderedSwipeText }).reasonCode,
+  'native-branch-transcript-mismatch',
+  'rendered SillyTavern prose remains part of lineage even when a selected swipe exists'
+);
+
 const hiddenMutation = structuredClone(parentMessages);
 hiddenMutation[1].is_hidden = true;
 assert.equal(lineage({ childMessages: hiddenMutation }).reasonCode, 'native-branch-transcript-mismatch');
@@ -174,6 +182,10 @@ assert.deepEqual(verifyNativeBranchTranscriptAttestation(parentMessages, attesta
 });
 assert.equal(
   verifyNativeBranchTranscriptAttestation(hiddenMutation, attestation).reasonCode,
+  'native-branch-transcript-attestation-mismatch'
+);
+assert.equal(
+  verifyNativeBranchTranscriptAttestation(mutatedRenderedSwipeText, attestation).reasonCode,
   'native-branch-transcript-attestation-mismatch'
 );
 assert.equal(
