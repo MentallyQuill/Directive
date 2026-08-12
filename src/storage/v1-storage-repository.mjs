@@ -7,7 +7,8 @@ export const V1_CREATOR_DRAFT_KIND = 'directive.characterCreatorDraft.v1';
 export const V1_STORAGE_PATHS = Object.freeze({
   index: 'v1/index.v1.json',
   draft: (draftId) => `v1/drafts/${safeId(draftId, 'draftId')}.v1.json`,
-  save: (saveId) => `v1/saves/${safeId(saveId, 'saveId')}.v1.json`
+  save: (saveId) => `v1/saves/${safeId(saveId, 'saveId')}.v1.json`,
+  timelineOperation: (campaignId) => `v1/operations/${safeId(campaignId, 'campaignId')}.timeline.v1.json`
 });
 
 const SAFE_ID = /^[a-zA-Z0-9_.-]+$/;
@@ -296,6 +297,34 @@ export async function loadActiveV1CampaignSave(adapter) {
   const index = await loadIndex(adapter, { create: false });
   if (!index?.activeSaveId) return null;
   return loadV1CampaignSave(adapter, index.activeSaveId);
+}
+
+export async function compareAndSwapActiveV1CampaignSave(adapter, {
+  expectedSaveId,
+  nextSaveId,
+  now = new Date().toISOString()
+} = {}) {
+  const expectedId = safeId(expectedSaveId, 'expectedSaveId');
+  const nextId = safeId(nextSaveId, 'nextSaveId');
+  const index = await loadIndex(requireAdapter(adapter), { create: true, now });
+  if (index.activeSaveId !== expectedId) {
+    const error = new Error(`The active V1 save changed from "${expectedId}" before the timeline could be activated.`);
+    error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_MISMATCH';
+    error.details = { expectedSaveId: expectedId, actualSaveId: index.activeSaveId, nextSaveId: nextId };
+    throw error;
+  }
+  const [expected, next] = await Promise.all([
+    loadV1CampaignSave(adapter, expectedId),
+    loadV1CampaignSave(adapter, nextId)
+  ]);
+  if (expected.slotType !== 'active' || next.slotType !== 'active' || expected.campaignId !== next.campaignId) {
+    const error = new Error('The timeline activation records are not compatible active saves from one campaign.');
+    error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_TARGET_INVALID';
+    throw error;
+  }
+  index.activeSaveId = nextId;
+  await writeIndex(adapter, index, now);
+  return { swapped: true, expectedSaveId: expectedId, activeSaveId: nextId };
 }
 
 export async function deleteV1CampaignSave(adapter, saveId, { now = new Date().toISOString() } = {}) {

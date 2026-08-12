@@ -11,6 +11,7 @@ import { createCharacterCreationContext, createCampaignPackageSummary } from '..
 import { ASHES_V1_PACKAGE_ID } from '../packages/bundled-package-registry.mjs';
 import {
   createV1CampaignSave,
+  compareAndSwapActiveV1CampaignSave,
   deleteV1CampaignSave,
   initializeV1Storage,
   listV1CampaignSaves,
@@ -21,6 +22,11 @@ import {
   verifyV1Storage
 } from '../storage/v1-storage-repository.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import {
+  deleteTimelineOperation,
+  loadTimelineOperation,
+  storeTimelineOperation
+} from './timeline-operation-journal.mjs';
 
 const CREATOR_STEPS = Object.freeze(['identity', 'service', 'personality', 'review']);
 
@@ -129,6 +135,14 @@ export function createCharacterCreatorViewModel({ packageData, draft }) {
 }
 
 function campaignSummaryFromSave(save, activeSaveId, checkpoints) {
+  const savedGames = checkpoints.map((checkpoint) => ({
+    id: checkpoint.id,
+    name: checkpoint.name,
+    chapter: checkpoint.chapter,
+    stardate: checkpoint.stardate,
+    createdAt: checkpoint.createdAt,
+    loadable: true
+  }));
   return {
     id: save.campaignId,
     packageId: save.packageId,
@@ -145,14 +159,8 @@ function campaignSummaryFromSave(save, activeSaveId, checkpoints) {
     canSaveGame: save.id === activeSaveId,
     characterName: save.state?.campaignChatBinding?.entityName || null,
     activeTimeline: { saveId: save.id, chatId: save.chatId || save.state?.campaignChatBinding?.chatId || null },
-    checkpoints: checkpoints.map((checkpoint) => ({
-      id: checkpoint.id,
-      name: checkpoint.name,
-      chapter: checkpoint.chapter,
-      stardate: checkpoint.stardate,
-      createdAt: checkpoint.createdAt,
-      loadable: true
-    }))
+    savedGames,
+    checkpoints: clone(savedGames)
   };
 }
 
@@ -167,13 +175,16 @@ export function createCampaignViewModel({ campaignLibrary, drafts, saves, active
         }
       : { startNewCampaign: false, resumeDraft: null }
   }));
-  const activeTimelines = saves.filter((save) => save.slotType === 'active' && save.packageId === ASHES_V1_PACKAGE_ID);
+  const activeTimelines = saves.filter((save) => (
+    save.slotType === 'active'
+    && save.id === activeSaveId
+    && save.packageId === ASHES_V1_PACKAGE_ID
+  ));
   const campaigns = activeTimelines.map((save) => campaignSummaryFromSave(
     save,
     activeSaveId,
     saves.filter((checkpoint) => checkpoint.slotType === 'checkpoint'
-      && checkpoint.campaignId === save.campaignId
-      && checkpoint.parentSaveId === save.id)
+      && checkpoint.campaignId === save.campaignId)
   ));
   return {
     kind: 'directive.campaignView.v1',
@@ -339,6 +350,71 @@ export function createCampaignStartController({
       });
     },
 
+    async prepareTimelineCheckpoint({ name, campaignState = activeState } = {}) {
+      if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
+      return createCampaignCheckpoint({
+        adapter,
+        checkpointId: nextId('checkpoint'),
+        activeSaveId: activeSave.id,
+        campaignState: assertV1CampaignState(campaignState),
+        name: required(name, 'name'),
+        now: currentTime()
+      });
+    },
+
+    async persistInactiveTimeline({ save } = {}) {
+      const record = createV1CampaignSave({
+        id: required(save?.id, 'save.id'),
+        name: save?.name,
+        slotType: 'active',
+        state: assertV1CampaignState(save?.state),
+        createdAt: save?.createdAt || currentTime(),
+        updatedAt: save?.updatedAt || currentTime()
+      });
+      if (activeSave && record.campaignId !== activeSave.campaignId) {
+        throw new Error('An inactive timeline must belong to the active campaign.');
+      }
+      await storeV1CampaignSave(adapter, record, { makeActive: false });
+      return clone(record);
+    },
+
+    async activatePersistedTimeline({ expectedSaveId, nextSaveId } = {}) {
+      await compareAndSwapActiveV1CampaignSave(adapter, {
+        expectedSaveId: required(expectedSaveId, 'expectedSaveId'),
+        nextSaveId: required(nextSaveId, 'nextSaveId'),
+        now: currentTime()
+      });
+      await refreshActive();
+      return { activeSave: clone(activeSave), campaignState: clone(activeState) };
+    },
+
+    async renameSavedGame({ savedGameId, name } = {}) {
+      const current = await loadV1CampaignSave(adapter, required(savedGameId, 'savedGameId'));
+      if (current.slotType !== 'checkpoint') throw new Error('Only an immutable saved game can be renamed.');
+      const renamed = createV1CampaignSave({
+        id: current.id,
+        name: required(name, 'name'),
+        slotType: 'checkpoint',
+        parentSaveId: current.parentSaveId,
+        state: current.state,
+        createdAt: current.createdAt,
+        updatedAt: currentTime()
+      });
+      await storeV1CampaignSave(adapter, renamed, { makeActive: false });
+      return clone(renamed);
+    },
+
+    async retireSupersededTimeline({ saveId } = {}) {
+      const id = required(saveId, 'saveId');
+      const index = await initializeV1Storage(adapter, { now: currentTime() });
+      if (index.activeSaveId === id) throw new Error('The active V1 timeline cannot be retired.');
+      return deleteV1CampaignSave(adapter, id, { now: currentTime() });
+    },
+
+    storeTimelineOperation: (operation) => storeTimelineOperation(adapter, operation),
+    loadTimelineOperation: ({ campaignId }) => loadTimelineOperation(adapter, required(campaignId, 'campaignId')),
+    deleteTimelineOperation: ({ campaignId }) => deleteTimelineOperation(adapter, required(campaignId, 'campaignId')),
+
     async bindCheckpointChat({ checkpointId, binding } = {}) {
       const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
@@ -406,9 +482,13 @@ export function createCampaignStartController({
     async prepareCampaignDeletion({ campaignId, saveId = null } = {}) {
       const expectedCampaignId = required(campaignId, 'campaignId');
       const expectedSaveId = saveId ? required(saveId, 'saveId') : null;
-      const saves = await listV1CampaignSaves(adapter);
+      const [saves, index] = await Promise.all([
+        listV1CampaignSaves(adapter),
+        initializeV1Storage(adapter, { now: currentTime() })
+      ]);
       const summary = saves.find((candidate) => (
         candidate.slotType === 'active'
+        && candidate.id === index.activeSaveId
         && candidate.campaignId === expectedCampaignId
         && (!expectedSaveId || candidate.id === expectedSaveId)
       ));
@@ -443,8 +523,10 @@ export function createCampaignStartController({
           .filter((candidate) => (
             candidate.slotType === 'checkpoint'
             && candidate.campaignId === save.campaignId
-            && candidate.parentSaveId === save.id
           ))
+          .map((candidate) => candidate.id),
+        saveIds: saves
+          .filter((candidate) => candidate.campaignId === save.campaignId)
           .map((candidate) => candidate.id),
         campaignChatBinding: binding
       };
@@ -452,8 +534,8 @@ export function createCampaignStartController({
 
     async deleteCampaign({ campaignId, saveId } = {}) {
       const target = await this.prepareCampaignDeletion({ campaignId, saveId });
-      for (const checkpointId of target.checkpointIds) {
-        await deleteV1CampaignSave(adapter, checkpointId, { now: currentTime() });
+      for (const recordId of target.saveIds.filter((id) => id !== target.saveId)) {
+        await deleteV1CampaignSave(adapter, recordId, { now: currentTime() });
       }
       const activeDeletion = await deleteV1CampaignSave(adapter, target.saveId, { now: currentTime() });
       if (activeSave?.id === target.saveId) {
