@@ -31,6 +31,7 @@ const checks = [
   "test-campaign-start-service.mjs",
   "test-runtime-campaign-start-controller.mjs",
   "test-v1-storage-repository.mjs",
+  "test-native-branch-lineage.mjs",
   "test-v1-state-delta-gateway.mjs",
   "test-v1-runtime-app.mjs",
   "test-v1-runtime-opening-prompt.mjs",

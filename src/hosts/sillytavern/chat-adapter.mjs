@@ -3,6 +3,7 @@ import {
   normalizeV1HostMessageVisibility,
   stableJsonByteLength
 } from '../../runtime/v1-host-message-contracts.mjs';
+import { createNativeBranchLineage } from '../../runtime/native-branch-lineage.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -1359,6 +1360,50 @@ export function createSillyTavernChatAdapter({
     };
   }
 
+  async function inspectNativeBranchCandidate({ parentBinding } = {}) {
+    const ctx = context();
+    const childChatId = contextChatId(ctx);
+    const metadata = readChatMetadataObject(ctx) || {};
+    const mainChat = nonEmptyString(metadata.main_chat);
+    if (!mainChat) return { ok: false, reasonCode: 'native-branch-main-chat-missing' };
+    if (!parentBinding || mainChat !== nonEmptyString(parentBinding.chatId)) {
+      return { ok: false, reasonCode: 'native-branch-main-chat-mismatch' };
+    }
+    let parentSnapshot;
+    try {
+      parentSnapshot = await loadCharacterChatSnapshot(ctx, {
+        chatId: parentBinding.chatId,
+        entity: parentBinding
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        reasonCode: 'native-branch-parent-load-failed',
+        diagnostics: { code: error?.code || null, message: error?.message || String(error) }
+      };
+    }
+    const childMessages = cloneJson(getChatArray(ctx));
+    const endpointIndex = childMessages.length - 1;
+    const parentBranchNames = endpointIndex >= 0 && Array.isArray(parentSnapshot.messages?.[endpointIndex]?.extra?.branches)
+      ? parentSnapshot.messages[endpointIndex].extra.branches
+      : [];
+    const entity = currentEntity(ctx);
+    return createNativeBranchLineage({
+      parentBinding,
+      childBinding: {
+        hostId: 'sillytavern',
+        campaignId: parentBinding.campaignId,
+        saveId: null,
+        chatId: childChatId,
+        mainChat,
+        ...entity
+      },
+      parentMessages: parentSnapshot.messages,
+      childMessages,
+      parentBranchNames
+    });
+  }
+
   function isCurrentChat(chatId) {
     const expected = nonEmptyString(chatId);
     return Boolean(expected && expected === contextChatId(context()));
@@ -2038,6 +2083,7 @@ export function createSillyTavernChatAdapter({
     getCurrentBinding,
     createOrBindCampaignChat,
     cloneCampaignChat,
+    inspectNativeBranchCandidate,
     openCampaignChat: open,
     deleteCampaignChat,
     deleteCampaignCharacter,
