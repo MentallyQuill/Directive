@@ -158,6 +158,43 @@ assert.equal(
   'an idempotent retry must repair a checkpoint file that was written before its index summary failed'
 );
 
+const staleControllerAdapter = createFakeJsonStorage();
+await storeV1CampaignSave(staleControllerAdapter, parent);
+const staleController = createCampaignStartController({
+  adapter: staleControllerAdapter,
+  packages: [assets.packageData],
+  missionDefinitions: assets.missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.stale`,
+  now: () => now
+});
+await staleController.initialize();
+const competingState = structuredClone(parentState);
+competingState.campaignChatBinding.saveId = 'save.competing';
+competingState.campaignChatBinding.chatId = 'chat.competing';
+competingState.mission.v1.branchId = 'save.competing';
+competingState.mission.v1Journey.branchId = 'save.competing';
+competingState.storySettlement.branchId = 'save.competing';
+await storeV1CampaignSave(staleControllerAdapter, createV1CampaignSave({
+  id: 'save.competing',
+  name: 'Competing active timeline',
+  state: competingState,
+  createdAt: now
+}));
+await assert.rejects(
+  staleController.createCheckpoint({ name: 'Stale manual save', campaignState: parentState }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+await assert.rejects(
+  staleController.prepareTimelineCheckpoint({
+    checkpointId: 'checkpoint.stale',
+    name: 'Stale automatic save',
+    campaignState: parentState
+  }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_STALE'
+);
+await assert.rejects(loadV1CampaignSave(staleControllerAdapter, 'checkpoint.stale'), /not found/i);
+
 const manualTornBase = createFakeJsonStorage();
 await storeV1CampaignSave(manualTornBase, parent);
 let failManualIndexWrite = false;

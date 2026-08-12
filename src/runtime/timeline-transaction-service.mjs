@@ -1,5 +1,6 @@
 import { createV1CampaignSave } from '../storage/v1-storage-repository.mjs';
 import { hashStableJson } from './v1-host-message-contracts.mjs';
+import { createNativeBranchTranscriptAttestation } from './native-branch-lineage.mjs';
 import { reconstructV1BranchState, rebindV1CampaignStateCustody } from './v1-branch-reconstruction.mjs';
 import { V1_TIMELINE_OPERATION_STAGES } from './timeline-operation-journal.mjs';
 
@@ -112,11 +113,34 @@ export function createTimelineTransactionService({
     return next;
   }
 
+  async function verifyPreservedParent(operation) {
+    const checkpoint = await controller.loadSaveRecord({ saveId: operation.checkpointId });
+    const binding = checkpoint.state?.campaignChatBinding;
+    if (!binding?.transcriptAttestation) return { ok: true, legacy: true };
+    const verification = await chat.verifyCampaignChatSnapshot?.(binding);
+    if (verification?.ok !== true) {
+      throw transactionError(
+        'DIRECTIVE_TIMELINE_PARENT_ATTESTATION_MISMATCH',
+        'The preserved parent timeline chat changed before the child could be activated.',
+        { verification: verification || null }
+      );
+    }
+    return verification;
+  }
+
   async function executeNativeBranch(lineage) {
     const parentSave = controller.getActiveSave();
     const parentState = clone(getState());
     if (!parentSave || !parentState || parentSave.id !== parentState.campaignChatBinding?.saveId) {
       throw transactionError('DIRECTIVE_TIMELINE_PARENT_UNAVAILABLE', 'The active campaign timeline is not exact.');
+    }
+    const startingIndex = await controller.getStorageIndex();
+    if (startingIndex.activeSaveId !== parentSave.id) {
+      throw transactionError(
+        'DIRECTIVE_TIMELINE_PARENT_STALE',
+        'The active campaign timeline changed in another Directive runtime.',
+        { expectedSaveId: parentSave.id, actualSaveId: startingIndex.activeSaveId || null }
+      );
     }
     const createdAt = now();
     const operationId = `timeline.${hashStableJson({
@@ -174,10 +198,15 @@ export function createTimelineTransactionService({
 
     const suggestedName = suggestPreviousTimelineName(parentState, runtimeAssets);
     if (!stageAtLeast(operation, 'parent-preserved')) {
+      const parentCheckpointState = clone(parentState);
+      parentCheckpointState.campaignChatBinding = {
+        ...clone(parentCheckpointState.campaignChatBinding),
+        transcriptAttestation: createNativeBranchTranscriptAttestation(lineage.parentMessages)
+      };
       const saved = await controller.prepareTimelineCheckpoint({
         checkpointId: operation.checkpointId,
         name: suggestedName,
-        campaignState: parentState
+        campaignState: parentCheckpointState
       });
       operation = await checkpointStage(operation, 'parent-preserved', { suggestedName: saved.name });
     }
@@ -224,6 +253,7 @@ export function createTimelineTransactionService({
       if (!rechecked.ok || rechecked.lineageHash !== operation.lineageHash || compact(chat.getCurrentChatId?.()) !== operation.childBinding.chatId) {
         throw transactionError('DIRECTIVE_TIMELINE_LINEAGE_CHANGED', 'The native branch changed while Directive was preparing it.', { rechecked });
       }
+      await verifyPreservedParent(operation);
       const index = await controller.getStorageIndex();
       if (index.activeSaveId === operation.childSaveId) {
         await controller.activatePersistedTimeline({ expectedSaveId: operation.childSaveId, nextSaveId: operation.childSaveId });
@@ -278,6 +308,14 @@ export function createTimelineTransactionService({
     if (!sourceChatId) throw transactionError('DIRECTIVE_LOAD_GAME_CHAT_REQUIRED', 'The selected saved game has no exact preserved chat.');
     if (!parentSave || !parentState || parentSave.id !== parentState.campaignChatBinding?.saveId) {
       throw transactionError('DIRECTIVE_TIMELINE_PARENT_UNAVAILABLE', 'The current timeline is not exact enough to preserve.');
+    }
+    const startingIndex = await controller.getStorageIndex();
+    if (startingIndex.activeSaveId !== parentSave.id) {
+      throw transactionError(
+        'DIRECTIVE_TIMELINE_PARENT_STALE',
+        'The active campaign timeline changed in another Directive runtime.',
+        { expectedSaveId: parentSave.id, actualSaveId: startingIndex.activeSaveId || null }
+      );
     }
     if (selected.campaignId !== parentSave.campaignId) {
       throw transactionError(
@@ -460,6 +498,7 @@ export function createTimelineTransactionService({
           );
         }
       }
+      await verifyPreservedParent(operation);
       const index = await controller.getStorageIndex();
       await controller.activatePersistedTimeline({
         expectedSaveId: index.activeSaveId === operation.childSaveId ? operation.childSaveId : operation.parentSaveId,
@@ -552,6 +591,20 @@ export function createTimelineTransactionService({
     recoverActiveOperation({ campaignId } = {}) {
       const id = compact(campaignId);
       return schedule(id, () => recoverOperation(id));
+    },
+    runExclusive({ campaignId = null, task } = {}) {
+      const id = compact(campaignId || controller.getActiveSave()?.campaignId || getState()?.campaign?.id);
+      return schedule(id, async () => {
+        const operation = await controller.loadTimelineOperation({ campaignId: id });
+        if (operation && operation.stage !== 'completed') {
+          throw transactionError(
+            'DIRECTIVE_TIMELINE_OPERATION_CONFLICT',
+            'A pending timeline operation must recover before another saved-game mutation can run.',
+            { operationId: operation.operationId, stage: operation.stage }
+          );
+        }
+        return task();
+      });
     }
   };
 }

@@ -232,6 +232,20 @@ export function createCampaignStartController({
     return activeSave;
   }
 
+  async function requireCurrentActiveTimeline() {
+    const index = await initializeV1Storage(adapter, { now: currentTime() });
+    if (!activeSave || index.activeSaveId !== activeSave.id) {
+      const error = new Error('The active campaign timeline changed in another Directive runtime.');
+      error.code = 'DIRECTIVE_TIMELINE_PARENT_STALE';
+      error.details = {
+        expectedSaveId: activeSave?.id || null,
+        actualSaveId: index.activeSaveId || null
+      };
+      throw error;
+    }
+    return index;
+  }
+
   return {
     async initialize() {
       await initializeV1Storage(adapter, { now: currentTime() });
@@ -340,6 +354,7 @@ export function createCampaignStartController({
 
     async createCheckpoint({ name, campaignState = activeState } = {}) {
       if (!activeSave) throw new Error('No active V1 campaign is available.');
+      await requireCurrentActiveTimeline();
       const checkpointId = nextId('checkpoint');
       try {
         return await createCampaignCheckpoint({
@@ -362,6 +377,7 @@ export function createCampaignStartController({
 
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
+      await requireCurrentActiveTimeline();
       const requestedName = required(name, 'name');
       if (checkpointId) {
         try {

@@ -12,6 +12,7 @@ import {
   createDirectiveGenerationRouter,
   createDirectiveRuntimeApp
 } from '../../src/runtime/runtime-app.mjs';
+import { withCampaignTimelineLease } from '../../src/runtime/timeline-transaction-service.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
 import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
 
@@ -351,6 +352,30 @@ assert.equal(
 );
 host.chat.getCurrentBinding = exactCurrentBinding;
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState?.campaign?.status, 'active');
+
+let releaseExternalCampaignLease;
+let reportExternalCampaignLease;
+const externalCampaignLeaseEntered = new Promise((resolve) => { reportExternalCampaignLease = resolve; });
+const externalCampaignLeaseRelease = new Promise((resolve) => { releaseExternalCampaignLease = resolve; });
+const externalCampaignLease = withCampaignTimelineLease(missionView.campaignState.campaign.id, async () => {
+  reportExternalCampaignLease();
+  await externalCampaignLeaseRelease;
+});
+await externalCampaignLeaseEntered;
+let crossRuntimeMutationResolved = false;
+const crossRuntimeMutation = app.reserveCommandBearingEdge().then((result) => {
+  crossRuntimeMutationResolved = true;
+  return result;
+});
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(
+  crossRuntimeMutationResolved,
+  false,
+  'accepted-state mutations must share the campaign lease with a second Directive runtime instance'
+);
+releaseExternalCampaignLease();
+await externalCampaignLease;
+assert.equal((await crossRuntimeMutation).reasonCode, 'reserve-empty');
 
 const importedCampaignPortrait = await app.importCampaignPlayerPortrait({
   bytes: new Uint8Array([13, 14, 15, 16]),

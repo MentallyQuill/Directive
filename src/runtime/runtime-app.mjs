@@ -766,10 +766,21 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  function enqueueSettlement(task) {
-    const next = settlementQueue.then(task, task);
+  function enqueueStateMutation(task, { campaignLease = true } = {}) {
+    const execute = () => {
+      const campaignId = compact(state?.campaign?.id);
+      if (campaignLease && timelineTransactions && campaignId) {
+        return timelineTransactions.runExclusive({ campaignId, task });
+      }
+      return task();
+    };
+    const next = settlementQueue.then(execute, execute);
     settlementQueue = next.catch(() => null);
     return next;
+  }
+
+  function enqueueSettlement(task) {
+    return enqueueStateMutation(task);
   }
 
   async function settleSnapshot(snapshot, ingressId = null, { syncPromptAfter = true } = {}) {
@@ -1058,7 +1069,7 @@ export function createDirectiveRuntimeApp({
 
     async handleHostChatChanged(payload = {}) {
       await ensureInitialized();
-      return enqueueSettlement(async () => {
+      return enqueueStateMutation(async () => {
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();
       let timelineFork = null;
@@ -1106,7 +1117,10 @@ export function createDirectiveRuntimeApp({
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
         try {
-          acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          acceptedPairReplay = await timelineTransactions.runExclusive({
+            campaignId: state.campaign.id,
+            task: rebuildAcceptedStateFromChat
+          });
         } catch (error) {
           if (!timelineFork) throw error;
           acceptedPairReplayNeeded = true;
@@ -1121,7 +1135,7 @@ export function createDirectiveRuntimeApp({
       }
       else await syncPrompt();
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
-      });
+      }, { campaignLease: false });
     },
 
     async handleHostGenerationStopped() {
@@ -1314,6 +1328,7 @@ export function createDirectiveRuntimeApp({
 
     async deleteCampaign({ campaignId, saveId = null } = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const target = await controller.prepareCampaignDeletion({ campaignId, saveId });
       if (typeof host.chat.deleteCampaignCharacter !== 'function') {
         const error = new Error('SillyTavern character deletion is unavailable.');
@@ -1337,6 +1352,7 @@ export function createDirectiveRuntimeApp({
         hostDeletion: clone(hostDeletion),
         view: await campaignViewEnvelope('campaign')
       };
+      });
     },
 
     async saveGame({ name } = {}) {
@@ -1344,6 +1360,13 @@ export function createDirectiveRuntimeApp({
       return enqueueSettlement(async () => {
       const checkpointName = required(name, 'name');
       const sourceState = clone(state);
+      const sourceSave = activeSave();
+      const startingIndex = await controller.getStorageIndex();
+      if (!sourceSave || startingIndex.activeSaveId !== sourceSave.id) {
+        const error = new Error('The active campaign timeline changed in another Directive runtime.');
+        error.code = 'DIRECTIVE_TIMELINE_PARENT_STALE';
+        throw error;
+      }
       const sourceChatId = compact(sourceState?.campaignChatBinding?.chatId);
       if (!sourceChatId) {
         const error = new Error('Directive cannot create a checkpoint without an exact bound campaign chat.');
@@ -1403,11 +1426,11 @@ export function createDirectiveRuntimeApp({
 
     async loadGame({ savedGameId = null, checkpointId = null } = {}) {
       await ensureInitialized();
-      return enqueueSettlement(async () => {
+      return enqueueStateMutation(async () => {
         const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
         const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
         return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
-      });
+      }, { campaignLease: false });
     },
 
     async loadCheckpoint({ checkpointId } = {}) {

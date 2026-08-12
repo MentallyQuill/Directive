@@ -153,6 +153,26 @@ for (const failedStage of stages) {
   assert.equal(summaries.filter((save) => save.slotType === 'checkpoint').length, 1);
 }
 
+let pendingOperationInjected = false;
+const pendingOperation = await harness({
+  afterStage(stage) {
+    if (!pendingOperationInjected && stage === 'detected') {
+      pendingOperationInjected = true;
+      throw new Error('injected:pending-operation');
+    }
+  }
+});
+await assert.rejects(pendingOperation.service.adoptNativeBranch(pendingOperation.lineage), /injected:pending-operation/);
+let unrelatedMutationRan = false;
+await assert.rejects(
+  pendingOperation.service.runExclusive({
+    campaignId: 'campaign.branch',
+    task: async () => { unrelatedMutationRan = true; }
+  }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_OPERATION_CONFLICT'
+);
+assert.equal(unrelatedMutationRan, false, 'Save, rename, and delete mutations must not cross a pending recovery journal');
+
 const casJournalFailure = await harness();
 const storeOperation = casJournalFailure.controller.storeTimelineOperation;
 let failedCommitJournalWrite = false;
@@ -186,6 +206,44 @@ const pointerRecovery = createTimelineTransactionService({
 });
 const pointerRecovered = await pointerRecovery.recoverActiveOperation({ campaignId: 'campaign.branch' });
 assert.equal(pointerRecovered.status, 'recovered', 'recovery recognizes a committed child even when the commit-stage journal write failed');
+
+const attestedNativeParent = await harness();
+const attestedNativeResult = await attestedNativeParent.service.adoptNativeBranch(attestedNativeParent.lineage);
+const nativeParentSavedGame = await loadV1CampaignSave(attestedNativeParent.storage, attestedNativeResult.savedGameId);
+assert.equal(
+  nativeParentSavedGame.state.campaignChatBinding.transcriptAttestation?.kind,
+  'directive.nativeBranchTranscriptAttestation.v1',
+  'a native branch must attest the preserved parent chat even though it does not clone that retired chat'
+);
+const editedNativeParentMessages = attestedNativeParent.chat.messagesForChat('chat.parent');
+editedNativeParentMessages[0].text = 'The retired parent chat was edited after branching.';
+attestedNativeParent.chat.setMessagesForChat('chat.parent', editedNativeParentMessages);
+await assert.rejects(
+  attestedNativeParent.service.loadGame({ savedGameId: attestedNativeResult.savedGameId }),
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CHAT_ATTESTATION_MISMATCH'
+);
+
+let parentMutationInjected = false;
+const parentMutationBranch = await harness({
+  afterStage(stage) {
+    if (!parentMutationInjected && stage === 'child-binding-written') {
+      parentMutationInjected = true;
+      throw new Error('injected-native:parent-mutation-window');
+    }
+  }
+});
+await assert.rejects(
+  parentMutationBranch.service.adoptNativeBranch(parentMutationBranch.lineage),
+  /injected-native:parent-mutation-window/
+);
+const mutatedPreservedParent = parentMutationBranch.chat.messagesForChat('chat.parent');
+mutatedPreservedParent[1].text = 'The parent suffix changed before the child commit.';
+parentMutationBranch.chat.setMessagesForChat('chat.parent', mutatedPreservedParent);
+await assert.rejects(
+  parentMutationBranch.service.recoverActiveOperation({ campaignId: 'campaign.branch' }),
+  (error) => error?.code === 'DIRECTIVE_TIMELINE_PARENT_ATTESTATION_MISMATCH'
+);
+assert.equal((await getV1StorageIndex(parentMutationBranch.storage)).activeSaveId, 'save.parent');
 
 async function loadHarness({ selectedCampaignId = 'campaign.load', afterStage = null } = {}) {
   const storage = createFakeJsonStorage();
