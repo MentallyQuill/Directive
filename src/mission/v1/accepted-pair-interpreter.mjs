@@ -13,9 +13,9 @@ const TIME_DECISION_VALUES = new Set(['advance', 'unchanged', 'indeterminate']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
 const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'abstained', 'time']);
 const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value']);
-const TIME_FIELDS = new Set(['decision', 'elapsedMinutes', 'reason', 'confidence']);
+const TIME_FIELDS = new Set(['decision', 'elapsedSeconds', 'reason', 'confidence']);
 const MAX_CLAIMS = 16;
-const MAX_TIME_ADVANCE_MINUTES = 31 * 24 * 60;
+const MAX_TIME_ADVANCE_SECONDS = 31 * 24 * 60 * 60;
 
 function cloneJson(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -53,16 +53,16 @@ function timeDecisionErrors(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ['time must be an object'];
     for (const field of unknownFields(value, TIME_FIELDS)) errors.push(`time contains unknown field: ${field}`);
     if (!TIME_DECISION_VALUES.has(value.decision)) errors.push('time.decision is unknown');
-    if (!Number.isInteger(value.elapsedMinutes) || value.elapsedMinutes < 0) {
-        errors.push('time.elapsedMinutes must be a nonnegative integer');
-    } else if (value.elapsedMinutes > MAX_TIME_ADVANCE_MINUTES) {
-        errors.push(`time.elapsedMinutes must not exceed ${MAX_TIME_ADVANCE_MINUTES}`);
+    if (!Number.isInteger(value.elapsedSeconds) || value.elapsedSeconds < 0) {
+        errors.push('time.elapsedSeconds must be a nonnegative integer');
+    } else if (value.elapsedSeconds > MAX_TIME_ADVANCE_SECONDS) {
+        errors.push(`time.elapsedSeconds must not exceed ${MAX_TIME_ADVANCE_SECONDS}`);
     }
-    if (value.decision === 'advance' && !(value.elapsedMinutes > 0)) {
-        errors.push('time advance requires positive elapsedMinutes');
+    if (value.decision === 'advance' && !(value.elapsedSeconds > 0)) {
+        errors.push('time advance requires positive elapsedSeconds');
     }
-    if (new Set(['unchanged', 'indeterminate']).has(value.decision) && value.elapsedMinutes !== 0) {
-        errors.push(`time ${value.decision} requires zero elapsedMinutes`);
+    if (new Set(['unchanged', 'indeterminate']).has(value.decision) && value.elapsedSeconds !== 0) {
+        errors.push(`time ${value.decision} requires zero elapsedSeconds`);
     }
     if (typeof value.reason !== 'string' || !value.reason.trim() || value.reason.length > 180) {
         errors.push('time.reason must be a nonempty string no longer than 180 characters');
@@ -143,14 +143,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, { candidateP
     const claims = parsed.value.assistantAcceptance === 'accepted'
         ? parsed.value.claims
         : parsed.value.claims.filter((claim) => claim.sourceSlot !== 'previousAssistant');
-    const time = parsed.value.assistantAcceptance === 'accepted'
-        ? cloneJson(parsed.value.time)
-        : {
-            decision: 'indeterminate',
-            elapsedMinutes: 0,
-            reason: 'assistant-not-accepted',
-            confidence: 0,
-        };
+    const time = cloneJson(parsed.value.time);
     return {
         ok: true,
         value: {
@@ -174,13 +167,14 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
         'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
-        'Independently estimate elapsed story time for the accepted previous-assistant scene. The supplied footer is a proposal, not authority.',
-        'Continuous dialogue or immediate action may remain in the same minute. Do not add a minimum duration per reply.',
+        'Independently estimate elapsed story time across the complete accepted pair. The supplied footer is a proposal, not authority.',
+        'Account for both the previous-assistant response and the current player response. Mission-claim rejection or correction does not erase time consumed by visible speech or action.',
+        'Spoken dialogue, pauses, and immediate physical actions normally consume whole seconds even when the clock remains within the same minute. Use zero only when the complete pair supports no fictional time passage.',
         'Advance time only when visible prose supports waiting, travel, work, rest, a scene cut, or another completed duration.',
         'Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
-        'Use advance with a positive whole number of minutes, unchanged with zero when the same minute is supported, or indeterminate with zero when evidence conflicts or is insufficient.',
+        'Use advance with a positive whole number of seconds, unchanged with zero when no fictional time passes, or indeterminate with zero when evidence conflicts or is insufficient.',
         'Return exactly one JSON object with no markdown or prose:',
-        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedMinutes":0,"reason":"concise-visible-evidence","confidence":0.0}}',
+        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
     ].join('\n');
     const userPayload = {
         envelope: {
