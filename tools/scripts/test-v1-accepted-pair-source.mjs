@@ -121,7 +121,7 @@ const footerAnchored = prepareV1AcceptedPairSnapshot({
   previousAssistantMessage: {
     id: 'assistant.footer',
     role: 'assistant',
-    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 0830 hours*'
+    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 08:30:47 hours*'
   },
   chatId: 'chat.ashes'
 });
@@ -129,8 +129,9 @@ assert.equal(footerAnchored.ok, true);
 assert.equal(footerAnchored.snapshot.source.previousAssistant.text, 'The turbolift doors close.');
 assert.deepEqual(footerAnchored.snapshot.source.previousAssistant.timeFooter, {
   kind: 'directive.shipTimeFooter.v1',
-  text: '*Stardate 53068.4 | 0830 hours*',
+  text: '*Stardate 53068.4 | 08:30:47 hours*',
   stardate: 53068.4,
+  secondOfDay: 30647,
   minuteOfDay: 510
 });
 const footerEdited = prepareV1AcceptedPairSnapshot({
@@ -139,7 +140,7 @@ const footerEdited = prepareV1AcceptedPairSnapshot({
   previousAssistantMessage: {
     id: 'assistant.footer',
     role: 'assistant',
-    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 0831 hours*'
+    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 08:30:48 hours*'
   },
   chatId: 'chat.ashes'
 });
