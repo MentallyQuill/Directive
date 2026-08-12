@@ -86,6 +86,15 @@ const controller = createCampaignStartController({
 await controller.initialize();
 const preserved = await controller.prepareTimelineCheckpoint({ name: 'Automatic Previous Timeline' });
 const preservedBytes = JSON.stringify(preserved);
+assert.deepEqual(
+  await controller.prepareTimelineCheckpoint({
+    checkpointId: preserved.id,
+    name: 'Automatic Previous Timeline',
+    campaignState: parentState
+  }),
+  preserved,
+  'retrying the same journal-owned checkpoint is idempotent'
+);
 await controller.renameSavedGame({ savedGameId: preserved.id, name: 'Before the Branch' });
 assert.equal((await loadV1CampaignSave(controllerAdapter, preserved.id)).name, 'Before the Branch');
 assert.deepEqual((await loadV1CampaignSave(controllerAdapter, preserved.id)).state, preserved.state);

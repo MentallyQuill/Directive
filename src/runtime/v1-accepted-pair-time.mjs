@@ -194,14 +194,32 @@ export async function invalidateV1AcceptedPairTimeByHostMessage({
   now = null,
   eventType = 'source-invalidated'
 } = {}) {
-  const id = compact(hostMessageId);
-  if (!id
+  return invalidateV1AcceptedPairTimeByHostMessages({
+    campaignState,
+    hostMessageIds: [hostMessageId],
+    packageData,
+    stateDeltaGateway,
+    now,
+    eventType
+  });
+}
+
+export async function invalidateV1AcceptedPairTimeByHostMessages({
+  campaignState,
+  hostMessageIds = [],
+  packageData,
+  stateDeltaGateway,
+  now = null,
+  eventType = 'source-invalidated'
+} = {}) {
+  const ids = new Set((Array.isArray(hostMessageIds) ? hostMessageIds : []).map(compact).filter(Boolean));
+  if (ids.size === 0
     || campaignState?.timeLedger?.kind !== 'directive.timeLedger.v1'
     || typeof stateDeltaGateway?.commit !== 'function') {
     return { ok: false, status: 'unavailable', reasonCode: 'time-invalidation-unavailable' };
   }
   const entries = campaignState.timeLedger.entries || [];
-  const retained = entries.filter((entry) => !(entry.evidenceMessageIds || []).map(String).includes(id));
+  const retained = entries.filter((entry) => !(entry.evidenceMessageIds || []).some((id) => ids.has(compact(id))));
   if (retained.length === entries.length) {
     return { ok: true, status: 'no-change', invalidatedBoundaryCount: 0, campaignState };
   }
@@ -224,7 +242,7 @@ export async function invalidateV1AcceptedPairTimeByHostMessage({
     updatedAt: timestamp
   };
   const committed = await stateDeltaGateway.commit(next, {
-    id: `v1-time-invalidate.${stableHash(`${id}|${eventType}|${entries.length}`)}`,
+    id: `v1-time-invalidate.${stableHash(`${[...ids].sort().join('|')}|${eventType}|${entries.length}`)}`,
     source: 'v1AcceptedPairTimeCustody',
     domains: ['campaign', 'worldState', 'timeLedger']
   });

@@ -281,7 +281,16 @@ export function createTimelineTransactionService({
           chatId: compact(cloned.chatId), status: 'bound', boundAt: now()
         }
       };
-      operation = await checkpointStage(operation, 'child-chat-cloned');
+      try {
+        operation = await checkpointStage(operation, 'child-chat-cloned');
+      } catch (error) {
+        try {
+          await chat.deleteCampaignChat?.(operation.childBinding);
+        } catch {
+          // The operation remains uncommitted and fail-closed if host compensation is uncertain.
+        }
+        throw error;
+      }
     }
     let childSave;
     if (!stageAtLeast(operation, 'child-persisted')) {
@@ -352,11 +361,17 @@ export function createTimelineTransactionService({
       const operation = await controller.loadTimelineOperation({ campaignId });
       if (!operation || operation.stage === 'completed') return null;
       await prompt?.clear?.({ reason: 'recovering-timeline-operation' });
-      if (stageAtLeast(operation, 'active-pointer-switched')) {
+      const index = await controller.getStorageIndex();
+      const pointerCommitted = index.activeSaveId === operation.childSaveId;
+      if (!pointerCommitted && index.activeSaveId !== operation.parentSaveId) {
+        throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_POINTER_CONFLICT', 'The active save pointer belongs to neither side of the incomplete operation.', { operation, activeSaveId: index.activeSaveId });
+      }
+      if (stageAtLeast(operation, 'active-pointer-switched') || pointerCommitted) {
         const childSave = await controller.loadSaveRecord({ saveId: operation.childSaveId });
         setState(childSave.state);
         configureRuntime?.();
         let recovered = operation;
+        if (!stageAtLeast(recovered, 'active-pointer-switched')) recovered = await checkpointStage(recovered, 'active-pointer-switched');
         if (!stageAtLeast(recovered, 'prompt-ready')) {
           if (recovered.operationType === 'load-game') await openExactChild(recovered);
           await rebuildPrompt?.();

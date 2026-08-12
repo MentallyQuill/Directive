@@ -105,4 +105,21 @@ assert.equal(inspected.ok, true);
 assert.equal(inspected.endpointHostMessageId, 'user.2');
 assert.deepEqual(fake.calls().slice(-2).map((call) => call.type), ['createNativeBranch', 'inspectNativeBranchCandidate']);
 
+const longParent = Array.from({ length: 5000 }, (_, index) => message(
+  `long.${index}`,
+  index % 2 === 0 ? 'assistant' : 'user',
+  `Campaign message ${index}`
+));
+const longLineage = createNativeBranchLineage({
+  parentBinding,
+  childBinding: { ...parentBinding, saveId: null, chatId: 'long-child', mainChat: parentBinding.chatId },
+  parentMessages: longParent,
+  childMessages: structuredClone(longParent.slice(0, 3750)),
+  parentBranchNames: ['long-child']
+});
+assert.equal(longLineage.ok, true);
+assert.equal(longLineage.normalizedParentMessages.length, 5000);
+assert.equal(longLineage.normalizedChildMessages.length, 3750);
+assert.equal(longLineage.endpointHostMessageId, 'long.3749');
+
 console.log('native branch lineage tests passed');

@@ -353,6 +353,19 @@ export function createCampaignStartController({
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
       const requestedName = required(name, 'name');
+      if (checkpointId) {
+        try {
+          const existing = await loadV1CampaignSave(adapter, checkpointId);
+          if (existing.slotType !== 'checkpoint'
+            || existing.parentSaveId !== activeSave.id
+            || JSON.stringify(existing.state) !== JSON.stringify(campaignState)) {
+            throw new Error('The existing timeline checkpoint does not match this operation.');
+          }
+          return clone(existing);
+        } catch (error) {
+          if (!/was not found/i.test(String(error?.message || ''))) throw error;
+        }
+      }
       const saves = await listV1CampaignSaves(adapter);
       const usedNames = new Set(saves
         .filter((save) => save.campaignId === activeSave.campaignId && save.slotType === 'checkpoint')

@@ -123,6 +123,40 @@ for (const failedStage of stages) {
   assert.equal(summaries.filter((save) => save.slotType === 'checkpoint').length, 1);
 }
 
+const casJournalFailure = await harness();
+const storeOperation = casJournalFailure.controller.storeTimelineOperation;
+let failedCommitJournalWrite = false;
+casJournalFailure.controller.storeTimelineOperation = async (operation) => {
+  if (!failedCommitJournalWrite && operation.stage === 'active-pointer-switched') {
+    failedCommitJournalWrite = true;
+    throw new Error('injected:commit-journal-write');
+  }
+  return storeOperation(operation);
+};
+await assert.rejects(
+  casJournalFailure.service.adoptNativeBranch(casJournalFailure.lineage),
+  /injected:commit-journal-write/
+);
+assert.notEqual((await getV1StorageIndex(casJournalFailure.storage)).activeSaveId, 'save.parent');
+casJournalFailure.controller.storeTimelineOperation = storeOperation;
+const pointerRecovery = createTimelineTransactionService({
+  controller: casJournalFailure.controller,
+  chat: casJournalFailure.chat,
+  prompt: casJournalFailure.prompt,
+  getState: casJournalFailure.getState,
+  setState: (next) => {
+    const current = casJournalFailure.getState();
+    Object.keys(current).forEach((key) => delete current[key]);
+    Object.assign(current, structuredClone(next));
+  },
+  configureRuntime() {},
+  rebuildPrompt: () => casJournalFailure.prompt.rebuild({ binding: casJournalFailure.getState().campaignChatBinding, packet: { blocks: [] } }),
+  runtimeAssets: assets,
+  now: () => fixedNow
+});
+const pointerRecovered = await pointerRecovery.recoverActiveOperation({ campaignId: 'campaign.branch' });
+assert.equal(pointerRecovered.status, 'recovered', 'recovery recognizes a committed child even when the commit-stage journal write failed');
+
 const appStorage = createFakeJsonStorage();
 const appState = createAshesInitialState({ campaignId: 'campaign.app-branch', saveId: 'save.app-parent', chatId: 'chat.app-parent' });
 appState.campaignChatBinding = {

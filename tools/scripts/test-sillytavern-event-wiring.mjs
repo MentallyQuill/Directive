@@ -9,6 +9,7 @@ import {
   clearSillyTavernDirectiveRuntimeBridge,
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
+import { __directiveRuntimeActionTestHooks, registerRuntimeAction } from '../../src/runtime/runtime-actions.js';
 
 const eventSource = createFakeEventAdapter();
 const eventTypes = {
@@ -69,9 +70,11 @@ setSillyTavernDirectiveRuntimeBridge({
     async renameSavedGame(options) { renamed = options; }
   }
 });
+registerRuntimeAction('runtime.refresh', () => ({ refreshed: true }));
 await __directiveEventTestHooks.handleChatChanged();
 assert.deepEqual(renamed, { savedGameId: 'checkpoint.1', name: 'Before Whitaker' });
 globalThis.prompt = previousPrompt;
 clearSillyTavernDirectiveRuntimeBridge();
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
 
 console.log('PASS V1 SillyTavern event wiring');
