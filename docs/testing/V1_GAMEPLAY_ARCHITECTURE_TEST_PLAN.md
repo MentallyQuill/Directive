@@ -8,7 +8,7 @@
 - rejection of unknown roots, malformed campaign/player/ship/world/time/chat records, cross-root custody mismatches, incomplete episodes, mismatched package bindings, unsafe paths, and non-V1 records;
 - accepted-pair selection, swipe identity, content hashes, and chat/branch binding;
 - strict native-branch proof, renamed branches, player and assistant endpoints, bookmark/copy rejection, selected-swipe retention, linear large-transcript scans, and zero reconstruction model calls;
-- journal interruption at every timeline stage, pre/post active-pointer authority, duplicate event idempotency, immutable parent/selected saves, repeated Load Game forks, and campaign-ID save grouping;
+- journal interruption at every timeline stage and external clone boundary, reentrant chat-change opens, stale cross-runtime revisions, pre/post active-pointer authority, duplicate event idempotency, immutable parent/selected saves, repeated Load Game forks, and campaign-ID save grouping;
 - time adjudication, invalidation, and replay;
 - closed mission candidate construction, evidence validation, reducer idempotency, objective order variation, clocks, terminal dispositions, and transitions;
 - Story Settlement significance, working capsule bounds, hard/soft boundaries, source repair, supersession, and concise projections;

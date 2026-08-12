@@ -1,4 +1,9 @@
-import { hashStableJson } from './v1-host-message-contracts.mjs';
+import {
+  hashStableJson,
+  normalizeV1HostMessageVisibility
+} from './v1-host-message-contracts.mjs';
+
+const NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND = 'directive.nativeBranchTranscriptAttestation.v1';
 
 function nonEmptyString(value) {
   if (typeof value === 'string' && value.trim()) return value.trim();
@@ -10,13 +15,17 @@ function failed(reasonCode) {
   return { ok: false, reasonCode };
 }
 
-function selectedText(message = {}) {
+function displayedText(message = {}) {
+  return String(message.mes ?? message.text ?? message.content ?? '');
+}
+
+function selectedSwipeText(message = {}) {
   const swipes = Array.isArray(message.swipes) ? message.swipes : null;
   const selected = Number.isInteger(message.swipe_id) ? message.swipe_id : null;
   if (swipes && selected !== null && selected >= 0 && selected < swipes.length) {
     return String(swipes[selected] ?? '');
   }
-  return String(message.mes ?? message.text ?? message.content ?? '');
+  return displayedText(message);
 }
 
 function messageRole(message = {}) {
@@ -34,7 +43,8 @@ export function normalizeNativeBranchMessage(message = {}, index = null) {
     ?? message.uuid
     ?? message.extra?.messageId
   ) || (Number.isInteger(index) ? String(index) : null);
-  const text = selectedText(message);
+  const text = displayedText(message);
+  const selectedText = selectedSwipeText(message);
   const selectedSwipeId = Array.isArray(message.swipes)
     ? String(Number.isInteger(message.swipe_id) ? message.swipe_id : 0)
     : null;
@@ -43,21 +53,58 @@ export function normalizeNativeBranchMessage(message = {}, index = null) {
     role: messageRole(message),
     selectedSwipeId,
     text,
-    textHash: hashStableJson({ text })
+    selectedSwipeText: selectedText,
+    textHash: hashStableJson({ displayedText: text, selectedSwipeText: selectedText }),
+    visibility: normalizeV1HostMessageVisibility(message)
   };
 }
 
-function sameEntity(parentBinding, childBinding) {
-  return ['entityType', 'entityId'].every((key) => (
-    nonEmptyString(parentBinding?.[key]) === nonEmptyString(childBinding?.[key])
-  ));
+function normalizeNativeBranchTranscript(messages = []) {
+  return messages.map(normalizeNativeBranchMessage);
+}
+
+export function createNativeBranchTranscriptAttestation(messages = []) {
+  if (!Array.isArray(messages)) throw new TypeError('Native branch transcript messages must be an array.');
+  const normalizedMessages = normalizeNativeBranchTranscript(messages);
+  return {
+    kind: NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND,
+    version: 1,
+    messageCount: normalizedMessages.length,
+    lineageHash: hashStableJson(normalizedMessages)
+  };
+}
+
+export function verifyNativeBranchTranscriptAttestation(messages = [], attestation = null) {
+  if (!Array.isArray(messages)
+    || !attestation
+    || attestation.kind !== NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND
+    || attestation.version !== 1
+    || !Number.isInteger(attestation.messageCount)
+    || attestation.messageCount < 0
+    || !/^[0-9a-f]{16}$/.test(String(attestation.lineageHash || ''))) {
+    return failed('native-branch-transcript-attestation-invalid');
+  }
+  const actual = createNativeBranchTranscriptAttestation(messages);
+  if (actual.messageCount !== attestation.messageCount || actual.lineageHash !== attestation.lineageHash) {
+    return failed('native-branch-transcript-attestation-mismatch');
+  }
+  return { ok: true, reasonCode: null };
+}
+
+function sameBindingAuthority(parentBinding, childBinding) {
+  return ['hostId', 'campaignId', 'entityType', 'entityId', 'entityName'].every((key) => {
+    const parentValue = nonEmptyString(parentBinding?.[key]);
+    const childValue = nonEmptyString(childBinding?.[key]);
+    return Boolean(parentValue && childValue && parentValue === childValue);
+  });
 }
 
 function sameMessage(left, right) {
   return left.hostMessageId === right.hostMessageId
     && left.role === right.role
     && left.selectedSwipeId === right.selectedSwipeId
-    && left.textHash === right.textHash;
+    && left.textHash === right.textHash
+    && hashStableJson(left.visibility) === hashStableJson(right.visibility);
 }
 
 export function createNativeBranchLineage(input = {}) {
@@ -71,16 +118,16 @@ export function createNativeBranchLineage(input = {}) {
   if (!parentChatId) return failed('native-branch-parent-chat-missing');
   if (!childChatId) return failed('native-branch-child-chat-missing');
   if (nonEmptyString(childBinding.mainChat) !== parentChatId) return failed('native-branch-main-chat-mismatch');
-  if (!sameEntity(parentBinding, childBinding)) return failed('native-branch-entity-mismatch');
+  if (!sameBindingAuthority(parentBinding, childBinding)) return failed('native-branch-entity-mismatch');
 
   const parentBranchNames = Array.isArray(input.parentBranchNames)
     ? input.parentBranchNames.map(nonEmptyString).filter(Boolean)
     : [];
   const branchIntent = input.branchIntent;
   const parentLinkProvesLineage = parentBranchNames.includes(childChatId);
-  const hostIntentProvesLineage = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
+  const hostIntentParentMatches = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
     && nonEmptyString(branchIntent.parentChatId) === parentChatId;
-  if (!parentLinkProvesLineage && !hostIntentProvesLineage) return failed('native-branch-parent-link-missing');
+  if (!parentLinkProvesLineage && !hostIntentParentMatches) return failed('native-branch-parent-link-missing');
 
   const parentMessages = Array.isArray(input.parentMessages) ? input.parentMessages : null;
   const childMessages = Array.isArray(input.childMessages) ? input.childMessages : null;
@@ -88,8 +135,8 @@ export function createNativeBranchLineage(input = {}) {
   if (!childMessages || childMessages.length === 0) return failed('native-branch-child-transcript-missing');
   if (childMessages.length > parentMessages.length) return failed('native-branch-child-longer-than-parent');
 
-  const normalizedParentMessages = parentMessages.map(normalizeNativeBranchMessage);
-  const normalizedChildMessages = childMessages.map(normalizeNativeBranchMessage);
+  const normalizedParentMessages = normalizeNativeBranchTranscript(parentMessages);
+  const normalizedChildMessages = normalizeNativeBranchTranscript(childMessages);
   for (let index = 0; index < normalizedChildMessages.length; index += 1) {
     if (!sameMessage(normalizedParentMessages[index], normalizedChildMessages[index])) {
       return failed('native-branch-transcript-mismatch');
@@ -98,8 +145,9 @@ export function createNativeBranchLineage(input = {}) {
 
   const endpoint = normalizedChildMessages.at(-1);
   if (!endpoint?.hostMessageId) return failed('native-branch-endpoint-id-missing');
-  if (!parentLinkProvesLineage
-    && nonEmptyString(branchIntent.endpointHostMessageId) !== endpoint.hostMessageId) {
+  const hostIntentProvesLineage = hostIntentParentMatches
+    && nonEmptyString(branchIntent.endpointHostMessageId) === endpoint.hostMessageId;
+  if (!parentLinkProvesLineage && !hostIntentProvesLineage) {
     return failed('native-branch-intent-endpoint-mismatch');
   }
   return {

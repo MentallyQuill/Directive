@@ -22,6 +22,7 @@ import {
   verifyV1Storage
 } from '../storage/v1-storage-repository.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import { stableJsonStringify } from './v1-host-message-contracts.mjs';
 import {
   deleteTimelineOperation,
   loadTimelineOperation,
@@ -232,6 +233,32 @@ export function createCampaignStartController({
     return activeSave;
   }
 
+  async function requireCurrentActiveTimeline() {
+    const index = await initializeV1Storage(adapter, { now: currentTime() });
+    if (!activeSave || index.activeSaveId !== activeSave.id) {
+      const error = new Error('The active campaign timeline changed in another Directive runtime.');
+      error.code = 'DIRECTIVE_TIMELINE_PARENT_STALE';
+      error.details = {
+        expectedSaveId: activeSave?.id || null,
+        actualSaveId: index.activeSaveId || null
+      };
+      throw error;
+    }
+    const persisted = await loadV1CampaignSave(adapter, activeSave.id);
+    if (stableJsonStringify(persisted) !== stableJsonStringify(activeSave)) {
+      const error = new Error('The active campaign timeline changed in another Directive runtime.');
+      error.code = 'DIRECTIVE_TIMELINE_PARENT_STALE';
+      error.details = {
+        expectedSaveId: activeSave.id,
+        actualSaveId: persisted.id,
+        expectedUpdatedAt: activeSave.updatedAt || null,
+        actualUpdatedAt: persisted.updatedAt || null
+      };
+      throw error;
+    }
+    return index;
+  }
+
   return {
     async initialize() {
       await initializeV1Storage(adapter, { now: currentTime() });
@@ -245,6 +272,7 @@ export function createCampaignStartController({
 
     getActiveCampaignState: () => clone(activeState),
     getActiveSave: () => clone(activeSave),
+    assertActiveTimelineCurrent: () => requireCurrentActiveTimeline(),
     getActivePackage: () => clone(packageData),
     getActivePackageContext: () => createRuntimePackageContext(packageData),
 
@@ -340,18 +368,30 @@ export function createCampaignStartController({
 
     async createCheckpoint({ name, campaignState = activeState } = {}) {
       if (!activeSave) throw new Error('No active V1 campaign is available.');
-      return createCampaignCheckpoint({
-        adapter,
-        checkpointId: nextId('checkpoint'),
-        activeSaveId: activeSave.id,
-        campaignState: assertV1CampaignState(campaignState),
-        name: required(name, 'name'),
-        now: currentTime()
-      });
+      await requireCurrentActiveTimeline();
+      const checkpointId = nextId('checkpoint');
+      try {
+        return await createCampaignCheckpoint({
+          adapter,
+          checkpointId,
+          activeSaveId: activeSave.id,
+          campaignState: assertV1CampaignState(campaignState),
+          name: required(name, 'name'),
+          now: currentTime()
+        });
+      } catch (error) {
+        try {
+          await deleteV1CampaignSave(adapter, checkpointId, { now: currentTime() });
+        } catch (cleanupError) {
+          error.cleanupError = cleanupError;
+        }
+        throw error;
+      }
     },
 
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
+      await requireCurrentActiveTimeline();
       const requestedName = required(name, 'name');
       if (checkpointId) {
         try {
@@ -361,6 +401,7 @@ export function createCampaignStartController({
             || JSON.stringify(existing.state) !== JSON.stringify(campaignState)) {
             throw new Error('The existing timeline checkpoint does not match this operation.');
           }
+          await storeV1CampaignSave(adapter, existing, { makeActive: false });
           return clone(existing);
         } catch (error) {
           if (!/was not found/i.test(String(error?.message || ''))) throw error;

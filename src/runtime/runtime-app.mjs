@@ -412,6 +412,36 @@ export function createDirectiveRuntimeApp({
   let storageDiagnostics = null;
   let settlementQueue = Promise.resolve();
   let acceptedPairReplayNeeded = false;
+  let internalChatOpenDepth = 0;
+  let deferredInternalChatChange = null;
+  let deferredInternalChatChangeScheduled = false;
+
+  function scheduleDeferredInternalChatChange() {
+    if (deferredInternalChatChangeScheduled || internalChatOpenDepth > 0 || !deferredInternalChatChange) return;
+    deferredInternalChatChangeScheduled = true;
+    Promise.resolve().then(async () => {
+      deferredInternalChatChangeScheduled = false;
+      if (internalChatOpenDepth > 0 || !deferredInternalChatChange) return;
+      const payload = deferredInternalChatChange;
+      deferredInternalChatChange = null;
+      try {
+        await publicApi.handleHostChatChanged({ ...payload, deferredDirectiveHostChange: true });
+      } catch (error) {
+        host.logger?.warn?.('[Directive] Deferred host chat reconciliation failed.', error);
+      }
+      scheduleDeferredInternalChatChange();
+    });
+  }
+
+  async function withInternalChatOpen(task) {
+    internalChatOpenDepth += 1;
+    try {
+      return await task();
+    } finally {
+      internalChatOpenDepth -= 1;
+      scheduleDeferredInternalChatChange();
+    }
+  }
 
   function activeSave() {
     return controller?.getActiveSave?.() || null;
@@ -459,8 +489,14 @@ export function createDirectiveRuntimeApp({
   }
 
   function currentChatIsBound() {
-    const chatId = compact(host.chat.getCurrentChatId?.());
-    return Boolean(chatId && state?.campaignChatBinding?.chatId === chatId);
+    const expected = state?.campaignChatBinding;
+    const current = host.chat.getCurrentBinding?.();
+    if (!expected || !current) return false;
+    return ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'].every((field) => {
+      const expectedValue = compact(expected[field]);
+      const currentValue = compact(current[field]);
+      return Boolean(expectedValue && currentValue && expectedValue === currentValue);
+    });
   }
 
   async function activateNarrationPreset() {
@@ -683,9 +719,14 @@ export function createDirectiveRuntimeApp({
   async function openExactCampaignChat(binding) {
     const chatId = required(binding?.chatId, 'binding.chatId');
     const opened = typeof host.chat.openCampaignChat === 'function'
-      ? await host.chat.openCampaignChat(binding)
+      ? await withInternalChatOpen(() => host.chat.openCampaignChat(binding))
       : false;
-    if (opened === false || compact(host.chat.getCurrentChatId?.()) !== chatId) {
+    const currentBinding = host.chat.getCurrentBinding?.();
+    const exact = currentBinding && ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'].every((field) => (
+      compact(binding?.[field])
+      && compact(binding?.[field]) === compact(currentBinding?.[field])
+    ));
+    if (opened === false || exact !== true) {
       const error = new Error(`Directive could not open campaign chat "${chatId}".`);
       error.code = 'DIRECTIVE_CAMPAIGN_CHAT_OPEN_FAILED';
       throw error;
@@ -777,13 +818,40 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  function enqueueSettlement(task) {
-    const next = settlementQueue.then(task, task);
+  function enqueueStateMutation(task, { campaignLease = true } = {}) {
+    const execute = () => {
+      const campaignId = compact(state?.campaign?.id);
+      if (campaignLease && timelineTransactions && campaignId) {
+        return timelineTransactions.runExclusive({ campaignId, task });
+      }
+      return task();
+    };
+    const next = settlementQueue.then(execute, execute);
     settlementQueue = next.catch(() => null);
     return next;
   }
 
+  function enqueueSettlement(task) {
+    return enqueueStateMutation(task);
+  }
+
   async function settleSnapshot(snapshot, ingressId = null, { syncPromptAfter = true } = {}) {
+    const envelope = snapshot?.envelope || {};
+    const currentEnvelope = {
+      campaignId: state?.campaign?.id || null,
+      saveId: state?.campaignChatBinding?.saveId || null,
+      chatId: state?.campaignChatBinding?.chatId || null,
+      packageId: state?.activeCampaignPackage?.packageId || null,
+      packageVersion: state?.activeCampaignPackage?.packageVersion || null
+    };
+    if (Object.entries(currentEnvelope).some(([field, value]) => (
+      compact(value) && compact(envelope[field]) !== compact(value)
+    ))) {
+      const error = new Error('The accepted-pair source belongs to a different campaign timeline.');
+      error.code = 'DIRECTIVE_ACCEPTED_PAIR_ENVELOPE_STALE';
+      error.details = { expected: currentEnvelope, actual: clone(envelope) };
+      throw error;
+    }
     const mission = await missionRuntime.settleAcceptedPair({
       runtimeAssets,
       snapshot
@@ -839,11 +907,18 @@ export function createDirectiveRuntimeApp({
   }
 
   async function invalidateSource(payload, eventType) {
-    if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
-    const normalized = normalizeMessage(host, payload);
-    const id = messageId(payload, normalized);
-    if (!id) return { handled: false, reason: 'message-id-unavailable' };
+    const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
     return enqueueSettlement(async () => {
+      if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+      if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
+        return { handled: false, reason: 'source-chat-changed' };
+      }
+      const normalized = normalizeMessage(host, payload);
+      if (compact(normalized?.chatId) && compact(normalized.chatId) !== compact(state.campaignChatBinding?.chatId)) {
+        return { handled: false, reason: 'source-chat-changed' };
+      }
+      const id = messageId(payload, normalized);
+      if (!id) return { handled: false, reason: 'message-id-unavailable' };
       const mission = await missionRuntime.invalidateSourceMutation({
         runtimeAssets,
         hostMessageId: id,
@@ -951,6 +1026,8 @@ export function createDirectiveRuntimeApp({
         setState,
         configureRuntime: configureStateRuntime,
         rebuildPrompt: () => syncPrompt({ rebuild: true }),
+        openCampaignChat: (binding) => withInternalChatOpen(() => host.chat.openCampaignChat(binding)),
+        cloneCampaignChat: (options) => withInternalChatOpen(() => host.chat.cloneCampaignChat(options)),
         runtimeAssets,
         idFactory,
         now
@@ -1018,34 +1095,47 @@ export function createDirectiveRuntimeApp({
 
     async observeHostPlayerMessage(payload = {}) {
       await ensureInitialized();
-      if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
-      if (acceptedPairReplayNeeded) {
-        const acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+      const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
+      return enqueueSettlement(async () => {
+        if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+        if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
+          return { handled: false, reason: 'source-chat-changed' };
+        }
+        if (acceptedPairReplayNeeded) {
+          const acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          return {
+            handled: acceptedPairReplay.blocked !== true,
+            reason: acceptedPairReplay.blocked ? 'accepted-pair-replay-pending' : null,
+            responseStrategy: 'injectAndContinue',
+            abortDefaultGeneration: false,
+            acceptedPairReplay,
+            campaignState: clone(state)
+          };
+        }
+        const current = normalizeMessage(host, payload) || await host.chat.getLatestPlayerMessage?.();
+        if (compact(current?.chatId) && compact(current.chatId) !== compact(state.campaignChatBinding?.chatId)) {
+          return { handled: false, reason: 'source-chat-changed' };
+        }
+        if (!current || !isUserMessage(current) || !compact(current.text || current.mes || current.content)) {
+          return { handled: false, reason: 'no-player-message' };
+        }
+        const recent = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+        if (!currentChatIsBound() || sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
+          return { handled: false, reason: 'source-chat-changed' };
+        }
+        const ingressId = payload.ingressId || messageId(payload, current);
+        const prepared = await acceptedSnapshotForMessage(current, recent, ingressId);
+        if (!prepared.ok) {
+          await syncPrompt();
+          return { handled: false, reason: prepared.reason };
+        }
         return {
-          handled: acceptedPairReplay.blocked !== true,
-          reason: acceptedPairReplay.blocked ? 'accepted-pair-replay-pending' : null,
-          responseStrategy: 'injectAndContinue',
-          abortDefaultGeneration: false,
-          acceptedPairReplay,
-          campaignState: clone(state)
-        };
-      }
-      const current = normalizeMessage(host, payload) || await host.chat.getLatestPlayerMessage?.();
-      if (!current || !isUserMessage(current) || !compact(current.text || current.mes || current.content)) {
-        return { handled: false, reason: 'no-player-message' };
-      }
-      const recent = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
-      const prepared = await acceptedSnapshotForMessage(current, recent, payload.ingressId || messageId(payload, current));
-      if (!prepared.ok) {
-        await syncPrompt();
-        return { handled: false, reason: prepared.reason };
-      }
-      return enqueueSettlement(async () => ({
         handled: true,
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
-        ...(await settleSnapshot(prepared.snapshot, payload.ingressId || messageId(payload, current)))
-      }));
+          ...(await settleSnapshot(prepared.snapshot, ingressId))
+        };
+      });
     },
 
     handleHostMessageEdited: (payload = {}) => invalidateSource(payload, 'message-edited'),
@@ -1060,6 +1150,18 @@ export function createDirectiveRuntimeApp({
 
     async handleHostChatChanged(payload = {}) {
       await ensureInitialized();
+      if (internalChatOpenDepth > 0) {
+        deferredInternalChatChange = clone(payload || {});
+        return {
+          active: currentChatIsBound(),
+          chatId: compact(host.chat.getCurrentChatId?.()),
+          acceptedPairReplay: null,
+          timelineFork: null,
+          internalDirectiveOpen: true,
+          deferred: true
+        };
+      }
+      return enqueueStateMutation(async () => {
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();
       let timelineFork = null;
@@ -1107,9 +1209,13 @@ export function createDirectiveRuntimeApp({
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
         try {
-          acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+          acceptedPairReplay = await timelineTransactions.runExclusive({
+            campaignId: state.campaign.id,
+            task: rebuildAcceptedStateFromChat
+          });
         } catch (error) {
           if (!timelineFork) throw error;
+          acceptedPairReplayNeeded = true;
           host.logger?.warn?.('[Directive] Post-fork accepted-pair replay failed after the new timeline was committed.', error);
           acceptedPairReplay = {
             replayed: 0,
@@ -1121,6 +1227,7 @@ export function createDirectiveRuntimeApp({
       }
       else await syncPrompt();
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
+      }, { campaignLease: false });
     },
 
     async handleHostGenerationStopped() {
@@ -1226,21 +1333,25 @@ export function createDirectiveRuntimeApp({
       const portrait = await storeV1PlayerPortrait(host.storage, upload, {
         ownerKind: 'campaign', ownerId: state.campaign.id, now
       });
-      const previous = clone(state.player.portrait || null);
-      let committed;
+      let mutation;
       try {
-        committed = await gateway.applyProposal({
-          id: `v1-player-portrait.import.${state.campaign.id}.${portrait.asset.updatedAt}`,
-          baseRevision: gateway.revision(),
-          domains: ['playerPortrait'],
-          operations: [{ op: 'set', path: ['player', 'portrait'], value: portrait }],
-          source: 'playerPortraitImport'
+        mutation = await enqueueSettlement(async () => {
+          const previous = clone(state.player.portrait || null);
+          const committed = await gateway.applyProposal({
+            id: `v1-player-portrait.import.${state.campaign.id}.${portrait.asset.updatedAt}`,
+            baseRevision: gateway.revision(),
+            domains: ['playerPortrait'],
+            operations: [{ op: 'set', path: ['player', 'portrait'], value: portrait }],
+            source: 'playerPortraitImport'
+          });
+          setState(committed.campaignState);
+          return { previous };
         });
       } catch (error) {
         await cleanupPlayerPortrait(portrait, 'player-portrait-import-rollback-failed');
         throw error;
       }
-      setState(committed.campaignState);
+      const previous = mutation.previous;
       const previousCleanup = previous?.asset?.path && previous.asset.path !== portrait.asset.path
         ? await cleanupPlayerPortrait(previous, 'replaced-player-portrait-cleanup-failed')
         : { attempted: false, deleted: false, reason: 'no-replaced-player-portrait' };
@@ -1250,15 +1361,18 @@ export function createDirectiveRuntimeApp({
     async removeCampaignPlayerPortrait() {
       await ensureInitialized();
       if (!state) throw new Error('No active V1 campaign is available.');
-      const previous = clone(state.player.portrait || null);
-      const committed = await gateway.applyProposal({
-        id: `v1-player-portrait.remove.${state.campaign.id}.${now()}`,
-        baseRevision: gateway.revision(),
-        domains: ['playerPortrait'],
-        operations: [{ op: 'set', path: ['player', 'portrait'], value: null }],
-        source: 'playerPortraitRemove'
+      const { previous } = await enqueueSettlement(async () => {
+        const prior = clone(state.player.portrait || null);
+        const committed = await gateway.applyProposal({
+          id: `v1-player-portrait.remove.${state.campaign.id}.${now()}`,
+          baseRevision: gateway.revision(),
+          domains: ['playerPortrait'],
+          operations: [{ op: 'set', path: ['player', 'portrait'], value: null }],
+          source: 'playerPortraitRemove'
+        });
+        setState(committed.campaignState);
+        return { previous: prior };
       });
-      setState(committed.campaignState);
       const portraitCleanup = await cleanupPlayerPortrait(previous, 'removed-player-portrait-cleanup-failed');
       return { portrait: null, portraitCleanup, view: await campaignViewEnvelope('crew') };
     },
@@ -1313,6 +1427,7 @@ export function createDirectiveRuntimeApp({
 
     async deleteCampaign({ campaignId, saveId = null } = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const target = await controller.prepareCampaignDeletion({ campaignId, saveId });
       if (typeof host.chat.deleteCampaignCharacter !== 'function') {
         const error = new Error('SillyTavern character deletion is unavailable.');
@@ -1336,65 +1451,36 @@ export function createDirectiveRuntimeApp({
         hostDeletion: clone(hostDeletion),
         view: await campaignViewEnvelope('campaign')
       };
+      });
     },
 
     async saveGame({ name } = {}) {
       await ensureInitialized();
-      const sourceChatId = compact(state?.campaignChatBinding?.chatId);
-      if (!sourceChatId) {
-        const error = new Error('Directive cannot create a checkpoint without an exact bound campaign chat.');
-        error.code = 'DIRECTIVE_CHECKPOINT_CHAT_REQUIRED';
-        throw error;
-      }
-      if (typeof host.chat.cloneCampaignChat !== 'function') {
-        const error = new Error('The host cannot clone the active campaign chat for a Directive checkpoint.');
-        error.code = 'DIRECTIVE_CHECKPOINT_CLONE_UNAVAILABLE';
-        throw error;
-      }
-      let checkpoint = await controller.createCheckpoint({ name });
-      let checkpointBinding = null;
-      try {
-        checkpointBinding = await host.chat.cloneCampaignChat({
-          sourceChatId,
-          targetName: `${state.campaign.title} - ${name}`,
-          open: false,
-          campaignId: state.campaign.id,
-          saveId: checkpoint.parentSaveId,
-          sourceBinding: state.campaignChatBinding
-        });
-        checkpoint = await controller.bindCheckpointChat({
-          checkpointId: checkpoint.id,
-          binding: checkpointBinding
-        });
-      } catch (error) {
-        if (checkpointBinding?.chatId && typeof host.chat.deleteCampaignChat === 'function') {
-          try {
-            await host.chat.deleteCampaignChat(checkpointBinding);
-          } catch (cleanupError) {
-            host.logger?.warn?.('[Directive] Could not remove a failed checkpoint chat.', cleanupError);
-          }
-        }
-        try {
-          await controller.deleteSave({ checkpointId: checkpoint.id });
-        } catch (cleanupError) {
-          host.logger?.warn?.('[Directive] Could not remove a failed checkpoint save.', cleanupError);
-        }
-        throw error;
-      }
-      return { checkpoint: clone(checkpoint), view: await campaignViewEnvelope('campaign') };
+      return enqueueStateMutation(async () => {
+        const transaction = await timelineTransactions.saveGame({ name: required(name, 'name') });
+        return {
+          checkpoint: clone(transaction.checkpoint),
+          transaction: clone(transaction),
+          view: await campaignViewEnvelope('campaign')
+        };
+      }, { campaignLease: false });
     },
 
     async renameSavedGame({ savedGameId, name } = {}) {
       await ensureInitialized();
-      const savedGame = await controller.renameSavedGame({ savedGameId, name });
-      return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
+      return enqueueSettlement(async () => {
+        const savedGame = await controller.renameSavedGame({ savedGameId, name });
+        return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
+      });
     },
 
     async loadGame({ savedGameId = null, checkpointId = null } = {}) {
       await ensureInitialized();
-      const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
-      const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
-      return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+      return enqueueStateMutation(async () => {
+        const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
+        const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
+        return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+      }, { campaignLease: false });
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
@@ -1403,6 +1489,7 @@ export function createDirectiveRuntimeApp({
 
     async deleteSave(options = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const result = await controller.deleteSave(options);
       const binding = result.checkpointChatIsDistinct === true ? result.campaignChatBinding : null;
       let chatCleanup = { attempted: false, deleted: false, reason: 'no-checkpoint-chat' };
@@ -1449,6 +1536,7 @@ export function createDirectiveRuntimeApp({
         }
       }
       return { result, chatCleanup, view: await campaignViewEnvelope('campaign') };
+      });
     },
 
     verifyActiveSave: () => controller.verifyStorage(),

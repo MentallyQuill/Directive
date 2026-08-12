@@ -144,6 +144,7 @@ export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
     'getCurrentChatId',
     'getCurrentBinding',
     'createOrBindCampaignChat',
+    'prepareCampaignChatClone',
     'cloneCampaignChat',
     'inspectNativeBranchCandidate',
     'openCampaignChat',

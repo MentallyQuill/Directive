@@ -3,7 +3,11 @@ import {
   normalizeV1HostMessageVisibility,
   stableJsonByteLength
 } from '../../runtime/v1-host-message-contracts.mjs';
-import { createNativeBranchLineage } from '../../runtime/native-branch-lineage.mjs';
+import {
+  createNativeBranchLineage,
+  createNativeBranchTranscriptAttestation,
+  verifyNativeBranchTranscriptAttestation
+} from '../../runtime/native-branch-lineage.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -400,11 +404,12 @@ function uniqueChatFileName(baseName, existingNames = []) {
   const base = sanitizeChatFileName(baseName);
   const used = new Set((Array.isArray(existingNames) ? existingNames : []).map((entry) => String(entry || '').toLowerCase()));
   if (!used.has(base.toLowerCase())) return base;
-  for (let index = 2; index < 10000; index += 1) {
-    const candidate = sanitizeChatFileName(`${base} ${index}`);
+  for (let index = 2; index <= used.size + 2; index += 1) {
+    const suffix = ` ${index}`;
+    const candidate = `${base.slice(0, 180 - suffix.length).trimEnd()}${suffix}`;
     if (!used.has(candidate.toLowerCase())) return candidate;
   }
-  return sanitizeChatFileName(`${base} ${Date.now()}`);
+  throw new Error('Directive could not allocate a unique SillyTavern chat filename.');
 }
 
 function characterForEntity(context, entity) {
@@ -417,21 +422,69 @@ function characterForEntity(context, entity) {
   return { index, character };
 }
 
+function exactCharacterEntity(context, binding) {
+  const entityId = nonEmptyString(binding?.entityId);
+  const entityName = nonEmptyString(binding?.entityName);
+  if (binding?.entityType !== 'character' || !entityId || !entityName) return null;
+  const target = characterForEntity(context, { entityId });
+  if (!target?.character
+    || String(target.index) !== entityId
+    || characterEntryName(target.character) !== entityName) return null;
+  return {
+    entityType: 'character',
+    entityId,
+    entityName,
+    target
+  };
+}
+
+function currentEntityMatches(context, entity) {
+  const current = currentEntity(context);
+  return current?.entityType === entity?.entityType
+    && nonEmptyString(current?.entityId) === nonEmptyString(entity?.entityId)
+    && nonEmptyString(current?.entityName) === nonEmptyString(entity?.entityName);
+}
+
 async function existingCharacterChatNames(context, entity) {
   const target = characterForEntity(context, entity);
   const fetchFn = context?.fetch || globalThis.fetch;
-  if (!target?.character || typeof fetchFn !== 'function') return [];
+  if (!target?.character || typeof fetchFn !== 'function') {
+    const error = new Error('SillyTavern chat-name enumeration is unavailable; Directive cannot prove a clone name is unused.');
+    error.code = 'DIRECTIVE_CHAT_NAME_ENUMERATION_UNAVAILABLE';
+    throw error;
+  }
   const getHeaders = context?.getRequestHeaders || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
   const headers = typeof getHeaders === 'function' ? getHeaders.call(context) : {};
-  const response = await fetchFn('/api/characters/chats', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ avatar_url: target.character.avatar, simple: true })
-  }).catch(() => null);
-  if (!response?.ok) return [];
-  const data = await response.json().catch(() => null);
-  if (!data || typeof data !== 'object') return [];
-  return Object.values(data)
+  let response;
+  let data;
+  try {
+    response = await fetchFn('/api/characters/chats', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ avatar_url: target.character.avatar, simple: true })
+    });
+    if (!response?.ok) throw new Error(`HTTP ${response?.status || 'failure'}`);
+    data = await response.json();
+    const validArray = Array.isArray(data) && data.every((entry) => (
+      typeof entry === 'string'
+      || (entry && typeof entry === 'object' && nonEmptyString(entry.file_name))
+    ));
+    const validLegacyObject = data
+      && typeof data === 'object'
+      && !Array.isArray(data)
+      && data.error !== true
+      && Object.values(data).every((entry) => (
+        typeof entry === 'string'
+        || (entry && typeof entry === 'object' && nonEmptyString(entry.file_name))
+      ));
+    if (!validArray && !validLegacyObject) throw new Error('Invalid chat-name response.');
+  } catch (cause) {
+    const error = new Error('Directive could not enumerate SillyTavern chats, so it will not risk overwriting one.');
+    error.code = 'DIRECTIVE_CHAT_NAME_ENUMERATION_FAILED';
+    error.cause = cause;
+    throw error;
+  }
+  return (Array.isArray(data) ? data : Object.values(data))
     .map((entry) => nonEmptyString(entry?.file_name || entry))
     .filter(Boolean)
     .map((entry) => entry.replace(/\.jsonl$/i, ''));
@@ -1264,7 +1317,8 @@ export function createSillyTavernChatAdapter({
     name = null,
     campaignId = null,
     saveId = null,
-    sourceBinding = null
+    sourceBinding = null,
+    targetBinding = null
   } = {}) {
     let ctx = context();
     if (!ctx) throw new Error('SillyTavern context is unavailable for checkpoint chat cloning.');
@@ -1277,24 +1331,37 @@ export function createSillyTavernChatAdapter({
     const source = sourceBinding && typeof sourceBinding === 'object'
       ? sourceBinding
       : (currentDirectiveBinding(ctx) || getCurrentBinding() || {});
-    const entity = bestEntityForBinding(ctx, sourceChatId, source);
-    if (entity?.entityType !== 'character' || !entity.entityId) {
+    const inferredEntity = sourceBinding
+      ? exactCharacterEntity(ctx, sourceBinding)
+      : exactCharacterEntity(ctx, bestEntityForBinding(ctx, sourceChatId, source));
+    const entity = inferredEntity && {
+      entityType: inferredEntity.entityType,
+      entityId: inferredEntity.entityId,
+      entityName: inferredEntity.entityName
+    };
+    if (!entity) {
       const error = new Error('Directive checkpoints require a character-bound SillyTavern chat.');
-      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_UNSUPPORTED';
-      error.details = { entity };
+      error.code = sourceBinding
+        ? 'DIRECTIVE_CHAT_CLONE_ENTITY_MISMATCH'
+        : 'DIRECTIVE_CHAT_CLONE_ENTITY_UNSUPPORTED';
+      error.details = { sourceBinding: cloneJson(sourceBinding || null) };
       throw error;
     }
 
-    const selected = currentEntity(ctx);
-    if (String(selected?.entityId || '') !== String(entity.entityId || '')) {
+    if (!currentEntityMatches(ctx, entity)) {
       const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
       if (typeof selectCharacter === 'function') {
         await selectCharacter.call(ctx, Number(entity.entityId), { switchMenu: false });
         ctx = context();
       }
     }
+    if (!currentEntityMatches(ctx, entity)) {
+      const error = new Error(`Directive could not select the exact bound character "${entity.entityName}" for cloning.`);
+      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_MISMATCH';
+      throw error;
+    }
 
-    const sourceIsCurrent = sourceChatId === contextChatId(ctx);
+    const sourceIsCurrent = sourceChatId === contextChatId(ctx) && currentEntityMatches(ctx, entity);
     const sourceSnapshot = sourceIsCurrent
       ? {
           metadata: cloneJson(chatMetadataObject(ctx) || {}),
@@ -1311,9 +1378,40 @@ export function createSillyTavernChatAdapter({
       || nonEmptyString(source.chatName)
       || nonEmptyString(sourceChatId)
       || 'Directive Checkpoint';
-    const branchChatName = uniqueChatFileName(requestedName, existingNames);
+    const plannedChatName = nonEmptyString(targetBinding?.chatId);
+    if (plannedChatName && sanitizeChatFileName(plannedChatName) !== plannedChatName) {
+      const error = new Error('The planned SillyTavern checkpoint filename is invalid.');
+      error.code = 'DIRECTIVE_CHAT_CLONE_PLAN_INVALID';
+      throw error;
+    }
+    const branchChatName = plannedChatName || uniqueChatFileName(requestedName, existingNames);
+    if (plannedChatName && existingNames.some((entry) => String(entry).toLowerCase() === plannedChatName.toLowerCase())) {
+      const existingSnapshot = await loadCharacterChatSnapshot(ctx, { chatId: plannedChatName, entity });
+      const storedBinding = existingSnapshot.metadata?.[DIRECTIVE_CHAT_METADATA_KEY];
+      const exactFields = ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'];
+      const matchesPlan = storedBinding
+        && exactFields.every((field) => nonEmptyString(storedBinding[field]) === nonEmptyString(targetBinding[field]))
+        && nonEmptyString(storedBinding.clonedFromChatId) === sourceChatId
+        && storedBinding.transcriptAttestation;
+      const attestation = matchesPlan
+        ? verifyNativeBranchTranscriptAttestation(existingSnapshot.messages, storedBinding.transcriptAttestation)
+        : { ok: false };
+      if (!matchesPlan || attestation.ok !== true) {
+        const error = new Error(`The planned checkpoint chat "${plannedChatName}" is already occupied.`);
+        error.code = 'DIRECTIVE_CHAT_CLONE_PLAN_COLLISION';
+        throw error;
+      }
+      return {
+        ...cloneJson(storedBinding),
+        sourceChatId,
+        messageCount: existingSnapshot.messages.length,
+        reused: true
+      };
+    }
+    const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatName));
     const branchBinding = {
       ...cloneJson(source || {}),
+      ...cloneJson(targetBinding || {}),
       hostId: 'sillytavern',
       chatId: branchChatName,
       chatName: branchChatName,
@@ -1326,9 +1424,25 @@ export function createSillyTavernChatAdapter({
       createdByDirective: true,
       creationMethod: 'clone-campaign-chat',
       clonedFromChatId: sourceChatId,
-      clonedAt: now()
+      clonedAt: now(),
+      transcriptAttestation: createNativeBranchTranscriptAttestation(branchMessages)
     };
-    const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatName));
+    const plannedSourceAttestation = targetBinding?.sourceTranscriptAttestation;
+    if (plannedSourceAttestation) {
+      const sourceVerification = verifyNativeBranchTranscriptAttestation(sourceMessages, plannedSourceAttestation);
+      if (sourceVerification.ok !== true
+        || branchBinding.transcriptAttestation.messageCount !== plannedSourceAttestation.messageCount
+        || branchBinding.transcriptAttestation.lineageHash !== plannedSourceAttestation.lineageHash) {
+        const error = new Error('The source campaign chat changed after Directive planned its clone.');
+        error.code = 'DIRECTIVE_CHAT_CLONE_SOURCE_CHANGED';
+        throw error;
+      }
+    }
+    if (!currentEntityMatches(context(), entity)) {
+      const error = new Error('The active SillyTavern character changed while Directive was preparing the checkpoint clone.');
+      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_DRIFT';
+      throw error;
+    }
     await saveChatSnapshot(ctx, {
       chatName: branchChatName,
       withMetadata: {
@@ -1358,6 +1472,104 @@ export function createSillyTavernChatAdapter({
       sourceChatId,
       messageCount: branchMessages.length
     };
+  }
+
+  async function prepareCampaignChatClone({
+    sourceChatId: requestedSourceChatId = null,
+    targetName = null,
+    name = null,
+    campaignId = null,
+    saveId = null,
+    sourceBinding = null
+  } = {}) {
+    const ctx = context();
+    const sourceChatId = nonEmptyString(requestedSourceChatId);
+    const source = sourceBinding && typeof sourceBinding === 'object'
+      ? sourceBinding
+      : (currentDirectiveBinding(ctx) || getCurrentBinding() || {});
+    const exactEntity = exactCharacterEntity(ctx, source);
+    if (!ctx || !sourceChatId || !exactEntity) {
+      const error = new Error('Directive requires an exact source binding before planning a checkpoint clone.');
+      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_MISMATCH';
+      throw error;
+    }
+    const entity = {
+      entityType: exactEntity.entityType,
+      entityId: exactEntity.entityId,
+      entityName: exactEntity.entityName
+    };
+    const existingNames = await existingCharacterChatNames(ctx, entity);
+    const sourceSnapshot = await loadCharacterChatSnapshot(ctx, {
+      chatId: sourceChatId,
+      entity
+    });
+    const requestedName = nonEmptyString(targetName)
+      || nonEmptyString(name)
+      || nonEmptyString(source.chatName)
+      || sourceChatId;
+    const chatId = uniqueChatFileName(requestedName, existingNames);
+    return {
+      ...cloneJson(source),
+      kind: 'directive.campaignChatBinding.v1',
+      version: 1,
+      hostId: 'sillytavern',
+      campaignId: nonEmptyString(campaignId) || nonEmptyString(source.campaignId) || null,
+      saveId: nonEmptyString(saveId) || nonEmptyString(source.saveId) || null,
+      chatId,
+      chatName: chatId,
+      entityType: entity.entityType,
+      entityId: entity.entityId,
+      entityName: entity.entityName,
+      status: 'bound',
+      createdByDirective: true,
+      creationMethod: 'clone-campaign-chat',
+      clonedFromChatId: sourceChatId,
+      sourceTranscriptAttestation: createNativeBranchTranscriptAttestation(sourceSnapshot.messages),
+      clonePlanned: true
+    };
+  }
+
+  async function verifyCampaignChatSnapshot(binding = null) {
+    const attestation = binding?.transcriptAttestation;
+    if (!attestation) {
+      return { ok: true, reasonCode: null, legacy: true };
+    }
+    const ctx = context();
+    const chatId = nonEmptyString(binding?.chatId);
+    const expectedFields = ['hostId', 'campaignId', 'chatId', 'entityType', 'entityId', 'entityName'];
+    if (!ctx
+      || binding?.hostId !== 'sillytavern'
+      || binding?.entityType !== 'character'
+      || expectedFields.some((field) => !nonEmptyString(binding?.[field]))) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-invalid' };
+    }
+    const exactEntity = exactCharacterEntity(ctx, binding);
+    const target = exactEntity?.target;
+    if (!target?.character) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-mismatch' };
+    }
+    let snapshot;
+    try {
+      snapshot = chatId === contextChatId(ctx) && currentEntityMatches(ctx, exactEntity)
+        ? {
+            metadata: cloneJson(chatMetadataObject(ctx) || {}),
+            messages: cloneJson(getChatArray(ctx))
+          }
+        : await loadCharacterChatSnapshot(ctx, { chatId, entity: binding });
+    } catch (error) {
+      return {
+        ok: false,
+        reasonCode: 'campaign-chat-snapshot-load-failed',
+        diagnostics: { code: error?.code || null, message: error?.message || String(error) }
+      };
+    }
+    const storedBinding = snapshot.metadata?.[DIRECTIVE_CHAT_METADATA_KEY];
+    if (!storedBinding || expectedFields.some((field) => (
+      nonEmptyString(storedBinding?.[field]) !== nonEmptyString(binding?.[field])
+    ))) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-mismatch' };
+    }
+    return verifyNativeBranchTranscriptAttestation(snapshot.messages, attestation);
   }
 
   async function inspectNativeBranchCandidate({ parentBinding, branchIntent = null } = {}) {
@@ -2024,13 +2236,18 @@ export function createSillyTavernChatAdapter({
     if (!ctx || !chatId) {
       return { deleted: false, reason: 'missing-chat-binding' };
     }
-    if (isCurrentChat(chatId)) {
+    const entity = exactCharacterEntity(ctx, binding);
+    if (!entity) {
+      const error = new Error('Directive requires an exact character binding to delete a checkpoint chat.');
+      error.code = 'DIRECTIVE_CHECKPOINT_CHAT_DELETE_TARGET_MISMATCH';
+      throw error;
+    }
+    if (isCurrentChat(chatId) && currentEntityMatches(ctx, entity)) {
       const error = new Error('Directive will not delete the currently active campaign chat through checkpoint deletion.');
       error.code = 'DIRECTIVE_CHECKPOINT_CHAT_DELETE_ACTIVE';
       throw error;
     }
-    const entity = bestEntityForBinding(ctx, chatId, binding);
-    const target = characterForEntity(ctx, entity);
+    const target = entity.target;
     const fetchFn = ctx?.fetch || globalThis.fetch;
     if (!target?.character || typeof fetchFn !== 'function') {
       return { deleted: false, reason: 'chat-delete-unavailable' };
@@ -2093,6 +2310,8 @@ export function createSillyTavernChatAdapter({
     getCurrentBinding,
     createOrBindCampaignChat,
     cloneCampaignChat,
+    prepareCampaignChatClone,
+    verifyCampaignChatSnapshot,
     inspectNativeBranchCandidate,
     openCampaignChat: open,
     deleteCampaignChat,
