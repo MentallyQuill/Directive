@@ -12,6 +12,7 @@ import { normalizeDirectiveProviderSettings } from '../providers/directive-provi
 import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
 import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
+import { formatShipTimeFooter } from '../time/ship-time.mjs';
 import {
   deleteV1PlayerPortrait,
   storeV1PlayerPortrait
@@ -129,13 +130,17 @@ export function createActiveAcceptedPairLineage({
   return lineage;
 }
 
-function timeHeader(state) {
+function currentTime(state) {
   const stardate = Number(state?.timeLedger?.stardate ?? state?.campaign?.currentStardate);
   const minute = Number(state?.timeLedger?.shipClock?.minuteOfDay);
-  if (!Number.isFinite(stardate) || !Number.isFinite(minute)) return '';
+  if (!Number.isFinite(stardate) || !Number.isFinite(minute)) return null;
   const normalized = ((Math.round(minute) % 1440) + 1440) % 1440;
-  const clock = `${String(Math.floor(normalized / 60)).padStart(2, '0')}${String(normalized % 60).padStart(2, '0')} hours`;
-  return `*Stardate ${stardate.toFixed(1).padStart(7, '0')} | ${clock}*`;
+  return {
+    stardate,
+    minuteOfDay: normalized,
+    shipTime: `${String(Math.floor(normalized / 60)).padStart(2, '0')}${String(normalized % 60).padStart(2, '0')} hours`,
+    footer: formatShipTimeFooter({ stardate, minuteOfDay: normalized })
+  };
 }
 
 export function createDirectiveGenerationRouter(host) {
@@ -240,7 +245,7 @@ export function createV1RuntimePromptPacket({
       title: state.campaign?.title,
       missionId: state.mission?.activeMissionId,
       locationId: state.worldState?.currentLocationId,
-      timeHeader: timeHeader(state),
+      currentTime: currentTime(state),
       simulationMode: simulationPolicy.simulationMode,
       consequencePolicy: simulationPolicy.settingsSummary
     },
@@ -285,8 +290,13 @@ export function createV1RuntimePromptPacket({
       : '',
     simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
-    payload.campaign.timeHeader
-      ? `Begin the assistant response with exactly: ${payload.campaign.timeHeader}`
+    payload.campaign.currentTime
+      ? [
+        'SHIP TIME: campaign.currentTime is the authoritative time at the start of this response. Prior chat timestamps are display artifacts, not accepted clock state.',
+        'Infer only the fictional time actually supported by the scene you narrate. Continuous dialogue or immediate action may remain within the same displayed minute; never add a minimum duration per reply.',
+        'Travel, waiting, completed work, meals, sleep, research, and explicit scene cuts should reflect their supported duration. Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
+        'For an ordinary in-character response: End the assistant response with exactly one final nonblank line shaped `*Stardate 53068.4 | 0830 hours*`, using your proposed scene-end Stardate and 24-hour ship time. Use 0000 through 2359, never 2400. Do not add a second timestamp or a time tracker. An explicitly OOC-only reply may omit the footer.'
+      ].join('\n')
       : '',
     JSON.stringify(payload, null, 2)
   ].filter(Boolean).join('\n\n');
@@ -428,6 +438,17 @@ export function createDirectiveRuntimeApp({
       getState: () => state,
       stateDeltaGateway: gateway,
       generationRouter,
+      commitAcceptedPairTime: ({ campaignState, snapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
+        commitV1AcceptedPairTimeAdvance({
+          campaignState,
+          snapshot,
+          packageData: acceptedAssets?.packageData || records.packageData,
+          timeDecision,
+          stateDeltaGateway: gateway,
+          ingressId: snapshot?.envelope?.ingressId || null,
+          now
+        })
+      ),
       now
     });
   }
@@ -744,7 +765,8 @@ export function createDirectiveRuntimeApp({
     const messages = await host.chat.getRecentMessages?.({ limit: 4 }) || [];
     if (messages.some((message) => !message.isSystem && message.role !== 'system')) return { posted: false, reason: 'chat-not-empty' };
     let opening = compact(records.packageData.campaign.openingMessage);
-    if (timeHeader(state) && !opening.startsWith(timeHeader(state))) opening = `${timeHeader(state)}\n\n${opening}`;
+    const openingFooter = currentTime(state)?.footer || '';
+    if (openingFooter && !opening.endsWith(openingFooter)) opening = `${opening}\n\n${openingFooter}`;
     return host.chat.postAssistantMessage({
       text: opening,
       campaignId: state.campaign.id,
@@ -762,20 +784,11 @@ export function createDirectiveRuntimeApp({
   }
 
   async function settleSnapshot(snapshot, ingressId = null, { syncPromptAfter = true } = {}) {
-    const time = await commitV1AcceptedPairTimeAdvance({
-      campaignState: state,
-      snapshot,
-      packageData: records.packageData,
-      generationRouter,
-      stateDeltaGateway: gateway,
-      ingressId,
-      now
-    });
-    if (time.campaignState) setState(time.campaignState);
     const mission = await missionRuntime.settleAcceptedPair({
       runtimeAssets,
       snapshot
     });
+    const time = mission?.time || null;
     if (mission?.ok === false) acceptedPairReplayNeeded = true;
     if (missionRuntime.pendingEpisodeReview()) {
       await missionRuntime.reviewPendingEpisode({ runtimeAssets });

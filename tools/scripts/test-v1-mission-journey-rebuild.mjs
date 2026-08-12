@@ -125,6 +125,7 @@ function output(candidateId, value = undefined) {
             ...(value === undefined ? {} : { value }),
         }],
         abstained: false,
+        time: { decision: 'unchanged', elapsedMinutes: 0, reason: 'same-minute', confidence: 0.9 },
     });
 }
 

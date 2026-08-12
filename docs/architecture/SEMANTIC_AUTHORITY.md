@@ -11,7 +11,7 @@ Only validated V1 reducers may commit semantic campaign state. Models propose; c
 | Objective progress and closure | Mission reducer | Select closed evidence candidates |
 | Known facts | Validated disclosure evidence | Identify explicit disclosure candidates |
 | Story chronology | Story Settlement | Propose bounded episode summaries or soft seals |
-| Story time | Time adjudicator plus deterministic validation | Propose elapsed time when prose requires judgment |
+| Story time | Accepted-pair time custody plus deterministic arithmetic | The shared mission-evidence role proposes bounded elapsed minutes |
 | Character moments | Sealed, source-backed episode effects | Propose concise summaries from accepted sources |
 | Ship condition | Exact ship aggregate state | Narrate existing condition; never create mention-level issues |
 | Command Bearing | Explicit eligibility, award, and spend effects | No direct mutation |

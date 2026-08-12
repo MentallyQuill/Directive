@@ -40,7 +40,7 @@ import {
 import {
     findTimeBoundaryForPlayerMessage,
     findTimeBoundaryForSourceAnchorRange,
-} from '../time/time-advance-adjudicator.mjs';
+} from './v1-accepted-pair-time.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -255,6 +255,19 @@ function sourcePairFromSnapshot(snapshot = {}) {
             textHash: compact(player.textHash),
             text: String(player.text || ''),
         },
+    };
+}
+
+function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAssets = {}) {
+    const ledger = campaignState?.timeLedger || {};
+    return {
+        current: {
+            stardate: ledger.stardate ?? campaignState?.worldState?.currentStardate ?? campaignState?.campaign?.currentStardate ?? null,
+            minuteOfDay: ledger.shipClock?.minuteOfDay ?? null,
+            elapsedMinutes: ledger.elapsedMinutes ?? campaignState?.worldState?.elapsedMinutes ?? 0,
+        },
+        footer: snapshot?.source?.previousAssistant?.timeFooter || null,
+        stardatePerDay: runtimeAssets?.packageData?.world?.layout?.stardatePerDay ?? 1,
     };
 }
 
@@ -717,6 +730,7 @@ export function createV1MissionRuntime({
     stateDeltaGateway,
     generationRouter = null,
     interpretAcceptedPair = null,
+    commitAcceptedPairTime = null,
     now = () => new Date().toISOString(),
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
     evaluateEpisode = null,
@@ -1012,7 +1026,7 @@ export function createV1MissionRuntime({
     }
 
     async function settleAcceptedPair({ runtimeAssets = {}, snapshot = {}, hardBoundary = null } = {}) {
-        const campaignState = getState();
+        let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
         const { definition } = resolved;
@@ -1096,11 +1110,15 @@ export function createV1MissionRuntime({
             };
         }
 
-        const gatewayBaseRevision = stateDeltaGateway.revision();
+        const interpretationBaseRevision = stateDeltaGateway.revision();
         const candidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
         let interpreted;
         try {
-            interpreted = await interpreter({ candidatePacket, sourcePair });
+            interpreted = await interpreter({
+                candidatePacket,
+                sourcePair,
+                timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
+            });
         } catch {
             return unavailable('interpretation-threw', {}, { attempted: true });
         }
@@ -1112,6 +1130,32 @@ export function createV1MissionRuntime({
                 latencyMs: interpreted?.diagnostics?.latencyMs ?? null,
             }, { attempted: true });
         }
+        if (stateDeltaGateway.revision() !== interpretationBaseRevision) {
+            return unavailable('state-revision-conflict', {}, { attempted: true });
+        }
+
+        let time = null;
+        if (typeof commitAcceptedPairTime === 'function') {
+            try {
+                time = await commitAcceptedPairTime({
+                    campaignState,
+                    snapshot,
+                    timeDecision: interpreted.interpretation?.time,
+                    runtimeAssets,
+                });
+            } catch {
+                time = {
+                    ok: false,
+                    status: 'unavailable',
+                    reasonCode: 'time-custody-threw',
+                    campaignState,
+                    proposal: null,
+                    boundary: null,
+                };
+            }
+            campaignState = getState();
+        }
+        const gatewayBaseRevision = stateDeltaGateway.revision();
 
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
         assistantSource.accepted = assistantAccepted;
@@ -1267,6 +1311,7 @@ export function createV1MissionRuntime({
                     model: interpreted.diagnostics?.model || null,
                     latencyMs: interpreted.diagnostics?.latencyMs ?? null,
                 },
+                time,
             };
         } catch (error) {
             return unavailable(errorReasonCode(error), {}, { attempted: true });
@@ -1467,6 +1512,7 @@ export async function settleV1MissionAcceptedPair({
     stateDeltaGateway,
     generationRouter,
     interpretAcceptedPair,
+    commitAcceptedPairTime,
     now,
     timeoutMs,
     checkpointEveryContributions,
@@ -1479,6 +1525,7 @@ export async function settleV1MissionAcceptedPair({
         stateDeltaGateway,
         generationRouter,
         interpretAcceptedPair,
+        commitAcceptedPairTime,
         now,
         timeoutMs,
         checkpointEveryContributions,

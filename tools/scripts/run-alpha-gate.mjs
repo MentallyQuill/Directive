@@ -45,7 +45,6 @@ const checks = [
   "test-v1-accepted-pair-source.mjs",
   "test-v1-accepted-pair-time.mjs",
   "test-v1-accepted-pair-interpreter.mjs",
-  "test-time-advance-adjudicator.mjs",
   "test-v1-command-bearing.mjs",
   "test-v1-story-settlement-contracts.mjs",
   "test-v1-story-settlement.mjs",

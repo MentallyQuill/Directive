@@ -1,7 +1,8 @@
-import { adjudicateTimeAdvance } from '../time/time-advance-adjudicator.mjs';
+import { formatShipTimeFooter } from '../time/ship-time.mjs';
 
 const DAY_MINUTES = 1440;
 const LEDGER_LIMIT = 128;
+const MAX_TIME_ADVANCE_MINUTES = 31 * DAY_MINUTES;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -41,29 +42,64 @@ function existingBoundary(state, anchor) {
   return (state?.timeLedger?.entries || []).find((entry) => sameAnchor(entry.sourceAnchorRange, anchor)) || null;
 }
 
+function boundaryAnchor(boundary = {}) {
+  return boundary?.sourceAnchorRange
+    || boundary?.adjudication?.sourceAnchorRange
+    || boundary?.metadata?.sourceAnchorRange
+    || null;
+}
+
+function timeBoundaries(campaignState = {}) {
+  const ledger = campaignState?.timeLedger || {};
+  return [
+    ...(Array.isArray(ledger.entries) ? ledger.entries : []),
+    ledger.lastBoundary
+  ].filter((boundary) => boundary && Number(boundary.elapsedMinutes || 0) > 0);
+}
+
+export function findTimeBoundaryForSourceAnchorRange(campaignState = {}, sourceAnchorRange = null) {
+  if (!sourceAnchorRange) return null;
+  return timeBoundaries(campaignState).find((boundary) => {
+    const anchor = boundaryAnchor(boundary);
+    return Boolean(
+      anchor
+      && compact(anchor.previousAssistantHostMessageId) === compact(sourceAnchorRange.previousAssistantHostMessageId)
+      && compact(anchor.currentPlayerHostMessageId) === compact(sourceAnchorRange.currentPlayerHostMessageId)
+      && compact(anchor.rangeHash) === compact(sourceAnchorRange.rangeHash)
+    );
+  }) || null;
+}
+
+export function findTimeBoundaryForPlayerMessage(campaignState = {}, hostMessageId = null) {
+  const id = compact(hostMessageId);
+  if (!id) return null;
+  return timeBoundaries(campaignState).find((boundary) => (
+    compact(boundaryAnchor(boundary)?.currentPlayerHostMessageId) === id
+  )) || null;
+}
+
 function safeProposal(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
+  const decision = compact(value.decision);
   const elapsedMinutes = Number(value.elapsedMinutes);
+  const validAdvance = decision === 'advance'
+    && Number.isInteger(elapsedMinutes)
+    && elapsedMinutes > 0
+    && elapsedMinutes <= MAX_TIME_ADVANCE_MINUTES;
   return {
-    elapsedMinutes: Number.isFinite(elapsedMinutes) ? Math.max(0, Math.round(elapsedMinutes)) : 0,
+    decision: validAdvance ? 'advance' : (decision === 'unchanged' ? 'unchanged' : 'indeterminate'),
+    elapsedMinutes: validAdvance ? elapsedMinutes : 0,
     reason: compact(value.reason).slice(0, 180) || 'accepted-scene-time',
     confidence: Number.isFinite(Number(value.confidence))
       ? Math.max(0, Math.min(1, Number(value.confidence)))
       : null,
-    source: compact(value.source).slice(0, 120) || 'timeAdvanceAdjudicator'
+    source: 'acceptedPairMissionEvidence'
   };
 }
 
 function formatShipTime(minuteOfDay) {
   const minute = ((Math.round(minuteOfDay) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   return `${String(Math.floor(minute / 60)).padStart(2, '0')}${String(minute % 60).padStart(2, '0')} hours`;
-}
-
-function formatStardate(value) {
-  return Number(value).toFixed(1).padStart(7, '0');
-}
-
-function header(stardate, minuteOfDay) {
-  return `*Stardate ${formatStardate(stardate)} | ${formatShipTime(minuteOfDay)}*`;
 }
 
 function unavailable(campaignState, reasonCode) {
@@ -74,9 +110,8 @@ export async function commitV1AcceptedPairTimeAdvance({
   campaignState = null,
   snapshot = null,
   packageData = null,
-  generationRouter = null,
+  timeDecision = null,
   stateDeltaGateway = null,
-  adjudicate = adjudicateTimeAdvance,
   ingressId = null,
   now = null
 } = {}) {
@@ -104,23 +139,7 @@ export async function commitV1AcceptedPairTimeAdvance({
     };
   }
 
-  let proposed;
-  try {
-    proposed = await adjudicate({
-      campaignState,
-      packageData,
-      generationRouter,
-      acceptedPreviousResponse: true,
-      previousAssistantText: String(snapshot.source.previousAssistant.text || ''),
-      currentPlayerText: String(snapshot.source.currentPlayer.text || ''),
-      previousAssistantHostMessageId: anchor.previousAssistantHostMessageId,
-      currentPlayerHostMessageId: anchor.currentPlayerHostMessageId,
-      sourceAnchorRange: anchor
-    });
-  } catch {
-    return unavailable(campaignState, 'time-adjudication-failed');
-  }
-  const proposal = safeProposal(proposed);
+  const proposal = safeProposal(timeDecision);
   if (proposal.elapsedMinutes <= 0) {
     return { ok: true, status: 'no-change', reasonCode: null, campaignState, proposal, boundary: null };
   }
@@ -131,8 +150,9 @@ export async function commitV1AcceptedPairTimeAdvance({
   const previousMinute = ((openingMinute + previousElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
   const nextMinute = ((openingMinute + nextElapsed) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
   const previousStardate = Number(campaignState.worldState.currentStardate);
+  const openingStardate = Number(campaignState.campaign.openingStardate);
   const stardatePerDay = Number(packageData.world?.layout?.stardatePerDay ?? 1);
-  const nextStardate = Number((previousStardate + (proposal.elapsedMinutes / DAY_MINUTES) * stardatePerDay).toFixed(3));
+  const nextStardate = Number((openingStardate + (nextElapsed / DAY_MINUTES) * stardatePerDay).toFixed(3));
   const boundaryId = `v1-time.${stableHash(`${anchor.previousAssistantHostMessageId}|${anchor.currentPlayerHostMessageId}|${anchor.rangeHash}`)}`;
   const timestamp = typeof now === 'function' ? now() : (now || new Date().toISOString());
   const boundary = {
@@ -146,8 +166,8 @@ export async function commitV1AcceptedPairTimeAdvance({
     currentStardate: nextStardate,
     previousShipMinute: previousMinute,
     currentShipMinute: nextMinute,
-    previousHeader: header(previousStardate, previousMinute),
-    currentHeader: header(nextStardate, nextMinute),
+    previousHeader: formatShipTimeFooter({ stardate: previousStardate, minuteOfDay: previousMinute }),
+    currentHeader: formatShipTimeFooter({ stardate: nextStardate, minuteOfDay: nextMinute }),
     sourceAnchorRange: anchor,
     evidenceMessageIds: [anchor.previousAssistantHostMessageId, anchor.currentPlayerHostMessageId],
     committedAt: timestamp

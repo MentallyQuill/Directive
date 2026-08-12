@@ -76,8 +76,7 @@ const view = {
   },
   generationRouting: [
     { id: 'narration', label: 'Story narration', providerKind: 'reasoning' },
-    { id: 'acceptedPairMissionEvidence', label: 'Mission evidence', providerKind: 'utility' },
-    { id: 'timeAdvanceAdjudicator', label: 'Story time', providerKind: 'utility' },
+    { id: 'acceptedPairMissionEvidence', label: 'Mission evidence and story time', providerKind: 'utility' },
     { id: 'characterCreatorSectionDraft', label: 'Character draft', providerKind: 'reasoning' },
     { id: 'utilityJson', label: 'Story distillation', providerKind: 'utility' }
   ],
@@ -110,7 +109,7 @@ assert.equal(byClass('settings-layout').length, 1);
 assert.equal(byClass('settings-navigation').length, 0);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
 assert.equal(byClass('settings-provider-card').length, 2);
-assert.equal(byClass('settings-routing-row').length, 5);
+assert.equal(byClass('settings-routing-row').length, 4);
 assert.equal(byClass('settings-diagnostics').length, 1);
 assert.match(text, /Interface/);
 assert.match(text, /Tooltips/);

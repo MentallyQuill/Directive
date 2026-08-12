@@ -16,7 +16,6 @@ import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.m
 assert.deepEqual(GENERATION_ROLE_IDS, [
   'narration',
   'acceptedPairMissionEvidence',
-  'timeAdvanceAdjudicator',
   'characterCreatorSectionDraft',
   'utilityJson'
 ]);

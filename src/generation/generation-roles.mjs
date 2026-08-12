@@ -1,7 +1,6 @@
 export const GENERATION_ROLE_IDS = Object.freeze([
   'narration',
   'acceptedPairMissionEvidence',
-  'timeAdvanceAdjudicator',
   'characterCreatorSectionDraft',
   'utilityJson'
 ]);
@@ -24,7 +23,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   }),
   acceptedPairMissionEvidence: Object.freeze({
     id: 'acceptedPairMissionEvidence',
-    label: 'Mission evidence',
+    label: 'Mission evidence and story time',
     providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
@@ -34,19 +33,6 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
     fallback: 'fail-closed'
-  }),
-  timeAdvanceAdjudicator: Object.freeze({
-    id: 'timeAdvanceAdjudicator',
-    label: 'Story time',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 15000,
-    structuredOutput: true,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: true,
-    fallback: 'deterministic'
   }),
   characterCreatorSectionDraft: Object.freeze({
     id: 'characterCreatorSectionDraft',

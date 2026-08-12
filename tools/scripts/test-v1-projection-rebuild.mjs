@@ -157,6 +157,7 @@ function interpretation(candidateId) {
         assistantAcceptance: 'accepted',
         claims: [{ candidateId, sourceSlot: 'previousAssistant' }],
         abstained: false,
+        time: { decision: 'unchanged', elapsedMinutes: 0, reason: 'same-minute', confidence: 0.9 },
     });
 }
 

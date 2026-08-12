@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { commitV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -73,7 +74,7 @@ function timeBoundaryFor(sceneSnapshot, {
         type: 'time-advance',
         reason: 'explicit-duration',
         elapsedMinutes,
-        source: 'timeAdvanceAdjudicator',
+        source: 'acceptedPairMissionEvidence',
         sourceAnchorRange: {
             kind: 'acceptedPair',
             previousAssistantHostMessageId: sceneSnapshot.source.previousAssistant.hostMessageId,
@@ -137,6 +138,16 @@ function createHarness({ definition, sceneSnapshot, state, outputs = [] }) {
                 return { ok: true, response: { text } };
             },
         },
+        commitAcceptedPairTime: ({ snapshot: acceptedSnapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
+            commitV1AcceptedPairTimeAdvance({
+                campaignState,
+                snapshot: acceptedSnapshot,
+                packageData: acceptedAssets.packageData,
+                timeDecision,
+                stateDeltaGateway: gateway,
+                now: () => '2026-08-10T04:00:00.000Z',
+            })
+        ),
         now: () => '2026-08-10T04:00:00.000Z',
     });
     return {
@@ -154,6 +165,24 @@ const abstained = JSON.stringify({
     assistantAcceptance: 'accepted',
     claims: [],
     abstained: true,
+    time: {
+        decision: 'advance',
+        elapsedMinutes: 90,
+        reason: 'explicit-duration',
+        confidence: 0.96,
+    },
+});
+const unchanged = JSON.stringify({
+    kind: 'directive.missionEvidenceInterpretation.v1',
+    assistantAcceptance: 'accepted',
+    claims: [],
+    abstained: true,
+    time: {
+        decision: 'unchanged',
+        elapsedMinutes: 0,
+        reason: 'same-minute',
+        confidence: 0.9,
+    },
 });
 
 const definition = clockReadyDefinition();
@@ -161,7 +190,7 @@ const mainSnapshot = snapshot('main');
 const mainHarness = createHarness({
     definition,
     sceneSnapshot: mainSnapshot,
-    state: initialCampaignState(definition, mainSnapshot),
+    state: initialCampaignState(definition, mainSnapshot, { boundary: null }),
     outputs: [abstained, abstained],
 });
 
@@ -175,6 +204,8 @@ assert.equal(advanced.ok, true, JSON.stringify({
     diagnostics: advanced.diagnostics,
 }));
 assert.equal(advanced.status, 'settled');
+assert.equal(advanced.time.status, 'committed');
+assert.equal(mainHarness.campaignState.timeLedger.entries.length, 1);
 assert.equal(advanced.diagnostics.acceptedClaimCount, 1);
 assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].state, 'running');
 assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 28.5);
@@ -233,7 +264,7 @@ for (const [label, testDefinition, boundaryOptions] of [
         definition: testDefinition,
         sceneSnapshot,
         state: initialCampaignState(testDefinition, sceneSnapshot, { suffix, boundary }),
-        outputs: [abstained],
+        outputs: [unchanged],
     });
     const result = await harness.runtime.settleAcceptedPair({
         runtimeAssets: harness.runtimeAssets,

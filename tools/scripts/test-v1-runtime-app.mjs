@@ -109,7 +109,13 @@ const generation = createFakeGenerationClient({
           kind: 'directive.missionEvidenceInterpretation.v1',
           assistantAcceptance: 'accepted',
           claims: [],
-          abstained: true
+          abstained: true,
+          time: {
+            decision: 'advance',
+            elapsedMinutes: 1,
+            reason: 'brief-exchange',
+            confidence: 0.9
+          }
         }),
         providerId: 'fake-utility'
       };
@@ -152,7 +158,6 @@ assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
   { id: 'narration', providerKind: 'reasoning' },
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
-  { id: 'timeAdvanceAdjudicator', providerKind: 'utility' },
   { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' },
   { id: 'utilityJson', providerKind: 'utility' }
 ]);
@@ -173,7 +178,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 5);
+assert.equal(metadataOnlySupport.routing.length, 4);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',
@@ -562,6 +567,11 @@ const settled = await app.observeHostPlayerMessage({ message: player });
 assert.equal(settled.handled, true);
 assert.equal(settled.mission.ok, false);
 assert.equal(settled.mission.reasonCode, 'provider-empty');
+assert.equal(
+  generation.calls().some((call) => call.role === 'timeAdvanceAdjudicator'),
+  false,
+  'Accepted-pair settlement must not issue a separate story-time model call.'
+);
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision, 0);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'reserved');
 const activationsBeforeGeneration = narrationPresetLifecycle.filter((entry) => entry === 'activate').length;
@@ -574,6 +584,11 @@ assert.equal(intercepted.acceptedPairReplay.replayed, 1);
 assert.equal(intercepted.acceptedPairReplay.retryPending, false);
 assert.equal(missionInterpretationCalls, 2);
 assert.ok((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision > 0);
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedMinutes,
+  1,
+  'The shared accepted-pair interpretation must commit time before mission settlement.'
+);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'armed');
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
 const acceptedRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
@@ -596,7 +611,8 @@ const finalRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignS
 assert.ok(finalRevision > afterSwipeRevision);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'committed');
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
-assert.equal(opening.text.startsWith('*Stardate'), true);
+assert.equal(opening.text.endsWith('*Stardate 53068.4 | 0830 hours*'), true);
+assert.equal(opening.text.startsWith('*Stardate'), false);
 
 await app.handleHostMessageSelectedSwipeChanged({ message: provisional });
 const afterInvalidation = await app.getCurrentView({ tabId: 'people' });

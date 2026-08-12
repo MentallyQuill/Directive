@@ -112,6 +112,7 @@ function interpretationOutput({ assistantAcceptance = 'accepted', claims = [], a
         assistantAcceptance,
         claims,
         abstained,
+        time: { decision: 'unchanged', elapsedMinutes: 0, reason: 'same-minute', confidence: 0.9 },
     });
 }
 

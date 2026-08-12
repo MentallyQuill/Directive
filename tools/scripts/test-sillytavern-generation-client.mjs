@@ -84,8 +84,8 @@ assert.equal(roleResult.text, 'raw:Role provider request.');
 
 const batch = await rawClient.batch([
   {
-    roleId: 'timeAdvanceAdjudicator',
-    prompt: 'Adjudicate elapsed time.'
+    roleId: 'acceptedPairMissionEvidence',
+    prompt: 'Interpret mission evidence and elapsed time.'
   },
   {
     roleId: 'characterCreatorSectionDraft',
@@ -94,8 +94,8 @@ const batch = await rawClient.batch([
 ], {
   concurrent: true
 });
-assert.equal(batch[0].roleId, 'timeAdvanceAdjudicator');
-assert.equal(batch[0].text, 'raw:Adjudicate elapsed time.');
+assert.equal(batch[0].roleId, 'acceptedPairMissionEvidence');
+assert.equal(batch[0].text, 'raw:Interpret mission evidence and elapsed time.');
 assert.equal(batch[1].roleId, 'characterCreatorSectionDraft');
 assert.equal(batch[1].text, 'raw:Draft the character section.');
 
