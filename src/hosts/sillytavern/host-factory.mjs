@@ -63,6 +63,10 @@ function hasChatCompletionPresetManager(context) {
   }
 }
 
+export function resolveSillyTavernHostContext({ bootstrapContext = null, currentContext = null } = {}) {
+  return currentContext || bootstrapContext || null;
+}
+
 export function createSillyTavernDirectiveHost({
   context,
   contextFactory = null,
@@ -72,7 +76,10 @@ export function createSillyTavernDirectiveHost({
 } = {}) {
   const getContext = typeof contextFactory === 'function'
     ? contextFactory
-    : () => context || globalThis.SillyTavern?.getContext?.() || null;
+    : () => resolveSillyTavernHostContext({
+      bootstrapContext: context,
+      currentContext: globalThis.SillyTavern?.getContext?.() || null
+    });
   const resolvedContext = getContext();
   requireObject(resolvedContext, 'SillyTavern context');
 
