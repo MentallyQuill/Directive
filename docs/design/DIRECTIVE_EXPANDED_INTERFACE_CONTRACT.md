@@ -324,29 +324,28 @@ Selected checkpoint: Before the Distress Call
 
 ### Save Runtime Contract
 
-The current runtime behavior must change. Existing `Save Game` overwrites the active save, while `Save Game As...` creates and activates a mutable chat branch. The redesign replaces both visible commands with one checkpoint-producing `Save Game`.
+The shipped V1 runtime exposes one checkpoint-producing **Save Game** command and one immutable **Load Game** path. It does not expose overwrite-style `Save Game`, `Save Game As...`, or `Load Campaign` behavior.
 
 Pre-alpha cutover decision: no legacy save or mutable-branch compatibility is supported. Existing legacy records are not migrated, relabeled, imported, or exposed through a compatibility utility. Production code, tests, and UI move forward using only the immutable checkpoint contract below.
 
-Proposed checkpoint record:
+Checkpoint record shape:
 
 ```js
 const manualCheckpoint = {
-  kind: 'directive.manualCheckpoint.v1',
+  kind: 'directive.campaignSave.v1',
+  version: 1,
   id: checkpointId,
+  slotType: 'checkpoint',
   campaignId,
   name,
+  parentSaveId: sourceSaveId,
   createdAt,
-  chapterId,
-  sourceSaveId,
-  sourceChatId,
-  preservedChatBinding,
-  coreManifestRef,
-  immutable: true,
+  updatedAt: createdAt,
+  state: exactV1CampaignStateWithPreservedChatBinding,
 };
 ```
 
-Proposed shared runtime actions:
+Shared runtime behavior:
 
 ```js
 async function saveGame({ name }) {
@@ -368,25 +367,17 @@ async function saveGame({ name }) {
 }
 
 async function loadGame({ checkpointId }) {
-  const checkpoint = await checkpoints.require(checkpointId);
-  const activeSaveId = ids.next('save');
-  const playableChat = await host.chat.cloneCampaignChat({
-    sourceChatId: checkpoint.preservedChatBinding.chatId,
-    open: true,
-  });
-
-  const state = await core.forkCheckpoint({
-    checkpoint,
-    targetSaveId: activeSaveId,
-    targetChatId: playableChat.chatId,
-  });
-
-  await prompts.rebuild({ state, binding: playableChat.binding });
-  return { state, playableChat, loadedFromCheckpointId: checkpointId };
+  return timelineTransactions.loadGame({ savedGameId: checkpointId });
 }
 ```
 
-The real operation crosses host chat and Directive storage boundaries. Implement it with an idempotent journal so interrupted clone, checkpoint, binding, CORE fork, prompt rebuild, and open-chat steps can resume safely.
+The operation crosses host chat and Directive storage boundaries and therefore uses an idempotent per-campaign journal. `index.activeSaveId` compare-and-swap is the commit point; recovery retains the parent before it and moves forward to the child after it.
+
+### Native Chat Branches
+
+When the player uses SillyTavern's native branch command inside the exact active Directive campaign chat, Directive preserves the previous timeline automatically, reconstructs the retained branch state without model work, assigns a fresh active save identity, and rebuilds the prompt in the branch. A non-blocking **Name Previous Timeline** dialog appears only after the automatic save is durable. Cancel, close, or empty input keeps the automatic mission-and-stardate name.
+
+Detection requires exact parent metadata, character identity, the parent endpoint branch backlink, message IDs, roles, selected swipe, and text hashes. A bookmark, copied chat, different character, unrelated chat, or changed transcript never activates. Directly opening a saved-game chat is read-only; **Load Game** is the only path that creates a mutable continuation.
 
 Completed campaign checkpoints use the same load path. Completed state may suppress active gameplay prompts according to campaign rules, but the UI does not invent a separate completed-campaign workflow.
 

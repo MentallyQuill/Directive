@@ -8,6 +8,7 @@ import {
   providerKindForRole,
   validateDirectiveProviderSettings
 } from '../../providers/directive-provider-settings.mjs';
+import { createNativeBranchLineage } from '../../runtime/native-branch-lineage.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -132,6 +133,7 @@ export function createFakeChatAdapter({
   let currentChatId = chatId;
   let binding = null;
   const metadataByChatId = new Map();
+  const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
   const calls = [];
   function messagesForChat(id = currentChatId) {
@@ -454,6 +456,57 @@ export function createFakeChatAdapter({
         messageCount: branchMessages.length
       };
     },
+    createNativeBranch({ parentChatId = currentChatId, endpointIndex = null, childChatId = null } = {}) {
+      const parentMessages = messagesForChat(parentChatId);
+      const retainedIndex = Number.isInteger(endpointIndex) ? endpointIndex : parentMessages.length - 1;
+      if (retainedIndex < 0 || retainedIndex >= parentMessages.length) {
+        throw new Error('Fake native branch endpoint must identify an existing message.');
+      }
+      const resolvedChildChatId = childChatId || `${parentChatId} - Branch #1`;
+      const childMessages = cloneJson(parentMessages.slice(0, retainedIndex + 1));
+      chatsById.set(String(resolvedChildChatId), childMessages);
+      const endpoint = parentMessages[retainedIndex];
+      endpoint.extra = endpoint.extra && typeof endpoint.extra === 'object' ? endpoint.extra : {};
+      endpoint.extra.branches = Array.isArray(endpoint.extra.branches) ? endpoint.extra.branches : [];
+      if (!endpoint.extra.branches.includes(resolvedChildChatId)) endpoint.extra.branches.push(resolvedChildChatId);
+      metadataByChatId.set(String(resolvedChildChatId), {
+        main_chat: parentChatId,
+        entityType: 'character',
+        entityId,
+        entityName
+      });
+      nativeMainChatByChatId.set(String(resolvedChildChatId), String(parentChatId));
+      currentChatId = resolvedChildChatId;
+      calls.push({ type: 'createNativeBranch', parentChatId, endpointIndex: retainedIndex, childChatId: resolvedChildChatId });
+      return { parentChatId, childChatId: resolvedChildChatId, endpointIndex: retainedIndex };
+    },
+    async inspectNativeBranchCandidate({ parentBinding } = {}) {
+      const childMetadata = metadataByChatId.get(String(currentChatId)) || {};
+      const mainChat = nativeMainChatByChatId.get(String(currentChatId)) || childMetadata.main_chat || childMetadata.mainChat || null;
+      const parentMessages = mainChat ? chatsById.get(String(mainChat)) : null;
+      const childMessages = chatsById.get(String(currentChatId));
+      const endpointIndex = Array.isArray(childMessages) ? childMessages.length - 1 : -1;
+      const parentBranchNames = endpointIndex >= 0 && Array.isArray(parentMessages?.[endpointIndex]?.extra?.branches)
+        ? parentMessages[endpointIndex].extra.branches
+        : [];
+      calls.push({ type: 'inspectNativeBranchCandidate', parentBinding: cloneJson(parentBinding), childChatId: currentChatId });
+      return createNativeBranchLineage({
+        parentBinding,
+        childBinding: {
+          hostId: 'fake',
+          campaignId: parentBinding?.campaignId || null,
+          saveId: null,
+          chatId: currentChatId,
+          mainChat,
+          entityType: childMetadata.entityType || 'character',
+          entityId: childMetadata.entityId || entityId,
+          entityName: childMetadata.entityName || entityName
+        },
+        parentMessages,
+        childMessages,
+        parentBranchNames
+      });
+    },
     async updateBindingMetadata(nextBinding) {
       storeBinding({
         ...cloneJson(nextBinding),
@@ -499,6 +552,7 @@ export function createFakeChatAdapter({
       const deletedChatIds = [...chatsById.keys()];
       chatsById.clear();
       metadataByChatId.clear();
+      nativeMainChatByChatId.clear();
       binding = null;
       currentChatId = '';
       calls.push({

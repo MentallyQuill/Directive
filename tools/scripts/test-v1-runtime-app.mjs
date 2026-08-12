@@ -619,8 +619,16 @@ assert.equal(
   'checkpoint chat metadata must retain the active V1 branch id'
 );
 const continuedCheckpoint = await app.loadCheckpoint({ checkpointId: disposableCheckpoint.checkpoint.id });
-assert.equal(continuedCheckpoint.timeline.state.campaignChatBinding.saveId, disposableCheckpoint.checkpoint.parentSaveId);
+assert.notEqual(continuedCheckpoint.timeline.id, disposableCheckpoint.checkpoint.parentSaveId);
+assert.equal(continuedCheckpoint.timeline.state.campaignChatBinding.saveId, continuedCheckpoint.timeline.id);
 assert.notEqual(continuedCheckpoint.timeline.state.campaignChatBinding.chatId, checkpointChatId);
+assert.deepEqual(
+  await host.storage.readJson(V1_STORAGE_PATHS.save(disposableCheckpoint.checkpoint.id)),
+  disposableCheckpoint.checkpoint,
+  'loading must not mutate the selected immutable saved game'
+);
+assert.ok(continuedCheckpoint.transaction.savedGameId, 'loading preserves the timeline being left');
+await app.deleteSave({ checkpointId: continuedCheckpoint.transaction.savedGameId });
 const checkpointDeletion = await app.deleteSave({ checkpointId: disposableCheckpoint.checkpoint.id });
 assert.equal(checkpointDeletion.result.deleted, true);
 assert.deepEqual(checkpointDeletion.chatCleanup, {
@@ -705,25 +713,23 @@ const openCampaignChat = host.chat.openCampaignChat;
 host.chat.openCampaignChat = async () => false;
 await assert.rejects(
   app.loadCheckpoint({ checkpointId: restoreFailureCheckpoint.checkpoint.id }),
-  (error) => error?.code === 'DIRECTIVE_CHECKPOINT_CONTINUATION_OPEN_FAILED'
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CHILD_OPEN_FAILED'
 );
 host.chat.openCampaignChat = openCampaignChat;
-assert.deepEqual(
+assert.notDeepEqual(
   (await app.getCurrentView({ tabId: 'mission' })).campaignState,
   stateBeforeFailedRestore,
-  'a failed continuation activation must restore the pre-load active timeline'
+  'after the active-pointer commit, recovery must move forward rather than overwrite the prior timeline'
 );
 const failedContinuationClone = [...chat.calls()].reverse().find((call) => (
   call.type === 'cloneCampaignChat'
   && call.sourceChatId === restoreFailureCheckpoint.checkpoint.state.campaignChatBinding.chatId
 ));
 assert.equal(failedContinuationClone.options.open, false);
-assert.equal(
-  chat.calls().some((call) => call.type === 'deleteCampaignChat' && call.chatId === failedContinuationClone.branchChatId),
-  true,
-  'a continuation that cannot be opened must be removed after rollback'
-);
-await app.cancelCommandBearingEdge();
+const recoveredLoad = await app.handleHostChatChanged();
+assert.equal(recoveredLoad.timelineFork.status, 'recovered');
+assert.equal(chat.getCurrentChatId(), failedContinuationClone.branchChatId);
+await app.deleteSave({ checkpointId: recoveredLoad.timelineFork.savedGameId });
 await app.deleteSave({ checkpointId: restoreFailureCheckpoint.checkpoint.id });
 
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });

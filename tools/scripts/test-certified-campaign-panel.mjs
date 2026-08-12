@@ -116,7 +116,10 @@ const view = {
       characterName: 'Ren Okada - Ashes of Peace',
       playerName: 'Sam Vickers', playerRole: 'Executive Officer', chapter: 'Prelude: A Ship Underway',
       canOpenChat: true, canSaveGame: true, activeTimeline: { saveId: 'save.current' },
-      checkpoints: [{ id: 'save.current', name: 'Current save', loadable: true }]
+      savedGames: [{
+        id: 'saved.before-whitaker', name: 'Before Whitaker', loadable: true,
+        chapter: 'Prelude: A Ship Underway', stardate: 53068.4, createdAt: '2026-08-11T12:00:00.000Z'
+      }]
     }]
   }
 };
@@ -147,17 +150,19 @@ for (const preview of previews) {
   assert.doesNotMatch(textOf(preview), /Coming later/i);
 }
 assert.match(textOf(previews[0]), /Current approved campaign description\./);
-assert.match(textOf(body), /Current save/);
-assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Import package/i);
+assert.match(textOf(body), /Before Whitaker/);
+assert.match(textOf(body), /Prelude: A Ship Underway.*53068\.4.*2026/);
+assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Save checkpoint|Import package/i);
 const campaignActions = byClass(body, 'campaign-detail-actions')[0];
 assert.ok(campaignActions);
 assert.deepEqual(campaignActions.children.map((node) => textOf(node).trim()), [
   'Continue',
-  'Delete',
-  'Save checkpoint'
+  'Save Game',
+  'Load Game',
+  'Delete Campaign'
 ]);
-assert.equal(campaignActions.children[1].classList.contains('campaign-command-danger'), true);
-assert.equal(campaignActions.children[1].listeners.has('click'), true);
+assert.equal(campaignActions.children[3].classList.contains('campaign-command-danger'), true);
+assert.equal(campaignActions.children[3].listeners.has('click'), true);
 
 const availablePreview = byData(body, 'campaignAvailability', 'available').find((node) => node.tagName === 'BUTTON');
 assert.ok(availablePreview);

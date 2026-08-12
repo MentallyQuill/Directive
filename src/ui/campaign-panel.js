@@ -3,6 +3,7 @@ import { createCampaignDeleteDialog } from './campaign-delete-dialog.js';
 import { createPackageImage } from './directive-media.js';
 import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
+import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
 
 let selectedRecordKey = null;
 
@@ -56,7 +57,7 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
   return row;
 }
 
-function createCheckpointRow(campaign, checkpoint, actions) {
+function createSavedGameRow(campaign, checkpoint, actions) {
   const row = createElement('li', 'campaign-save-row');
   const copy = createElement('div', 'campaign-save-copy');
   const title = createElement('strong');
@@ -67,20 +68,11 @@ function createCheckpointRow(campaign, checkpoint, actions) {
   const commands = createElement('div', 'campaign-save-actions');
   commands.append(
     createButton({
-      label: 'Load',
-      className: 'campaign-command',
-      disabled: checkpoint.loadable !== true,
-      onClick: () => runAndRefresh(actions.loadCheckpoint, {
-        campaignId: campaign.id,
-        checkpointId: checkpoint.id
-      }, actions)
-    }),
-    createButton({
       label: 'Delete',
       className: 'campaign-command campaign-command-danger',
       onClick: async () => {
         const confirmed = typeof globalThis.confirm !== 'function'
-          || globalThis.confirm(`Delete checkpoint "${checkpoint.name}"?`);
+          || globalThis.confirm(`Delete saved game "${checkpoint.name}"?`);
         if (!confirmed) return;
         await runAndRefresh(actions.deleteSave, {
           campaignId: campaign.id,
@@ -118,10 +110,38 @@ function appendCampaignDetail(detail, campaign, pack, actions) {
       onClick: () => runAndRefresh(actions.openCampaignChat, { saveId: campaign.activeTimeline?.saveId }, actions)
     }));
   }
+  if (campaign.canSaveGame) {
+    commands.appendChild(createButton({
+      label: 'Save Game',
+      icon: 'fa-solid fa-bookmark',
+      className: 'campaign-command',
+      onClick: (event) => {
+        createSaveGameDialog({
+          campaign,
+          opener: event?.currentTarget || null,
+          onSave: (payload) => runAndRefresh(actions.saveGame, payload, actions)
+        });
+      }
+    }));
+  }
+  const savedGames = campaign.savedGames || campaign.checkpoints || [];
   commands.appendChild(createButton({
-    label: 'Delete',
+    label: 'Load Game',
+    icon: 'fa-solid fa-clock-rotate-left',
+    className: 'campaign-command',
+    disabled: savedGames.length === 0,
+    onClick: (event) => {
+      createLoadGameDialog({
+        campaign: { ...campaign, savedGames },
+        opener: event?.currentTarget || null,
+        onLoad: (payload) => runAndRefresh(actions.loadGame || actions.loadCheckpoint, payload, actions)
+      });
+    }
+  }));
+  commands.appendChild(createButton({
+    label: 'Delete Campaign',
     icon: 'fa-solid fa-trash',
-    className: 'campaign-command campaign-command-danger',
+    className: 'campaign-command campaign-command-danger campaign-delete-command',
     disabled: !campaign.characterName,
     onClick: (event) => {
       createCampaignDeleteDialog({
@@ -138,29 +158,14 @@ function appendCampaignDetail(detail, campaign, pack, actions) {
       });
     }
   }));
-  if (campaign.canSaveGame) {
-    commands.appendChild(createButton({
-      label: 'Save checkpoint',
-      icon: 'fa-solid fa-bookmark',
-      className: 'campaign-command',
-      onClick: async () => {
-        const suggested = campaign.chapter ? `Before ${campaign.chapter}` : 'Checkpoint';
-        const name = typeof globalThis.prompt === 'function'
-          ? globalThis.prompt('Checkpoint name', suggested)
-          : suggested;
-        if (!String(name || '').trim()) return;
-        await runAndRefresh(actions.saveGame, { name: String(name).trim() }, actions);
-      }
-    }));
-  }
   detail.appendChild(commands);
 
   const saves = createElement('section', 'campaign-saves');
   const heading = createElement('h3');
-  heading.textContent = 'Campaign saves';
+  heading.textContent = 'Saved games';
   const list = createElement('ul', 'campaign-save-list');
-  (campaign.checkpoints || []).forEach((checkpoint) => list.appendChild(createCheckpointRow(campaign, checkpoint, actions)));
-  if (!campaign.checkpoints?.length) appendEmpty(list, 'No checkpoints saved yet.');
+  savedGames.forEach((checkpoint) => list.appendChild(createSavedGameRow(campaign, checkpoint, actions)));
+  if (!savedGames.length) appendEmpty(list, 'No saved games yet.');
   saves.append(heading, list);
   detail.appendChild(saves);
 }

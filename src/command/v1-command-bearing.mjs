@@ -297,3 +297,79 @@ export function pendingV1CommandBearingEdge(commandBearing) {
   const bearing = requireValid(commandBearing);
   return cloneJson(pendingRecord(bearing));
 }
+
+function lineageMessageMap(messages = []) {
+  return new Map((Array.isArray(messages) ? messages : []).map((message) => {
+    const id = compact(message?.hostMessageId ?? message?.id, 180);
+    const text = String(message?.text ?? message?.mes ?? message?.content ?? '');
+    const textHash = compact(message?.textHash, 80) || (() => {
+      let high = 0x811c9dc5;
+      let low = 0x01000193;
+      const stable = JSON.stringify({ text });
+      const bytes = typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(stable) : Buffer.from(stable, 'utf8');
+      for (const byte of bytes) {
+        high = Math.imul(high ^ byte, 0x01000193);
+        low = Math.imul(low ^ byte, 0x85ebca6b);
+      }
+      return `${(high >>> 0).toString(16).padStart(8, '0')}${(low >>> 0).toString(16).padStart(8, '0')}`;
+    })();
+    return [id, { id, textHash }];
+  }).filter(([id]) => id));
+}
+
+export function rebuildV1CommandBearingForLineage(commandBearing, {
+  retainedMessages = [],
+  completedObjectiveIds = [],
+  now = null
+} = {}) {
+  const source = requireValid(commandBearing);
+  const retained = lineageMessageMap(retainedMessages);
+  const completed = new Set((Array.isArray(completedObjectiveIds) ? completedObjectiveIds : []).map((id) => compact(id, 160)));
+  const rebuilt = createV1CommandBearing({ capacity: source.capacity });
+  rebuilt.awards = Object.fromEntries(Object.entries(source.awards).filter(([, award]) => completed.has(award.sourceId)));
+  rebuilt.spends = cloneJson(source.spends);
+  const rebuiltAt = timestamp(now);
+
+  for (const spend of Object.values(rebuilt.spends)) {
+    let survives = spend.status === 'refunded';
+    if (spend.status === 'armed') {
+      survives = retained.has(compact(spend.armedByPlayerMessageId, 180));
+    } else if (spend.status === 'committed') {
+      const assistant = retained.get(compact(spend.assistantMessageId, 180));
+      survives = retained.has(compact(spend.armedByPlayerMessageId, 180))
+        && retained.has(compact(spend.acceptedByPlayerMessageId, 180))
+        && Boolean(assistant)
+        && assistant.textHash === compact(spend.assistantTextHash, 80);
+    }
+    if (spend.status === 'reserved' || !survives) {
+      spend.status = 'refunded';
+      spend.refundReason = 'The Command Bearing source is not part of the retained timeline.';
+      spend.refundedAt = rebuiltAt;
+    }
+  }
+
+  const events = [];
+  for (const award of Object.values(rebuilt.awards)) {
+    events.push({ at: award.recordedAt, order: 1, type: 'award', record: award });
+  }
+  for (const spend of Object.values(rebuilt.spends)) {
+    events.push({ at: spend.reservedAt, order: 2, type: 'reserve', record: spend });
+    if (spend.status === 'refunded') {
+      events.push({ at: spend.refundedAt, order: 3, type: 'refund', record: spend });
+    }
+  }
+  events.sort((left, right) => String(left.at).localeCompare(String(right.at)) || left.order - right.order || left.record.id.localeCompare(right.record.id));
+  let balance = 0;
+  for (const event of events) {
+    if (event.type === 'award') {
+      event.record.credited = balance < rebuilt.capacity;
+      if (event.record.credited) balance += 1;
+    } else if (event.type === 'reserve') {
+      balance = Math.max(0, balance - 1);
+    } else {
+      balance = Math.min(rebuilt.capacity, balance + 1);
+    }
+  }
+  rebuilt.balance = balance;
+  return requireValid(rebuilt);
+}
