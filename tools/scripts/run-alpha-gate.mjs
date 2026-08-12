@@ -11,6 +11,7 @@ const checks = [
   "test-certified-scroll-ownership.mjs",
   "test-certified-campaign-panel.mjs",
   "test-campaign-delete-dialog.mjs",
+  "test-timeline-dialogs.mjs",
   "test-certified-mission-panel.mjs",
   "test-certified-people-panel.mjs",
   "test-responsive-record-list.mjs",

@@ -1,6 +1,7 @@
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
+import { createPreviousTimelineNameDialog } from '../../ui/timeline-dialogs.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
 import {
@@ -107,17 +108,18 @@ export async function handleChatChanged(payload = {}) {
   const changed = await app()?.handleHostChatChanged?.(payload);
   const fork = changed?.timelineFork;
   if (fork && new Set(['activated', 'recovered']).has(fork.status) && fork.savedGameId && fork.suggestedName) {
-    const entered = typeof globalThis.prompt === 'function'
-      ? globalThis.prompt('Name Previous Timeline\n\nYour previous timeline was saved so you can return to it.', fork.suggestedName)
-      : null;
-    const name = String(entered ?? '').trim();
-    if (name && name !== fork.suggestedName) {
-      try {
-        await app()?.renameSavedGame?.({ savedGameId: fork.savedGameId, name });
-      } catch (error) {
-        report('Previous timeline rename failed', error);
+    createPreviousTimelineNameDialog({
+      savedGameId: fork.savedGameId,
+      suggestedName: fork.suggestedName,
+      onRename: async (options) => {
+        try {
+          await app()?.renameSavedGame?.(options);
+          await runRuntimeAction('runtime.refresh');
+        } catch (error) {
+          report('Previous timeline rename failed', error);
+        }
       }
-    }
+    });
   }
   try {
     return { ...(await runRuntimeAction('runtime.refresh')), timelineFork: fork || null };
