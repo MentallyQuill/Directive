@@ -115,6 +115,8 @@ The preset may retain a general instruction to treat `DIRECTIVE V1 CAMPAIGN CONT
 - Stardate arithmetic; or
 - dependency on a preset regex to make time correct.
 
+Do not replace the already compact footer with a shorter machine tag that only a preset regex can expand. The few saved output tokens do not justify a second stored-versus-rendered representation, preset dependence, or ambiguity in swipe and accepted-pair source hashes. If Directive later gives the footer richer visual treatment, that enhancement must be an optional Directive-owned presentation transform over the same canonical plain-text footer; parsing and custody must remain correct without it.
+
 The preset version will advance because the bundled prompt asset materially changes. Its notes and user documentation will continue to describe the preset as a narration layer; campaign and timeline facts remain runtime/package-owned.
 
 This is accommodation, not dependency. Automatic activation of the Directive preset may continue to provide the intended narration style, but ship time must behave the same when activation fails, the preset is missing, or the player uses an unrelated preset. A hostile external preset can still reduce model compliance, but it cannot become a source of accepted time or alter deterministic commitment rules.
@@ -150,6 +152,7 @@ Focused automated coverage will prove:
 - runtime injection contains the complete temporal contract and exact final-line footer schema;
 - opening timestamps are runtime-generated at the end of the opening message;
 - the bundled preset contains no independent timestamp format or advancement rule;
+- the bundled preset contains no time-specific rendering regex;
 - runtime time instructions are identical with the bundled preset, no preset, and an unrelated preset;
 - valid, missing, malformed, unchanged-minute, midnight-rollover, and explicit long-skip cases;
 - dialogue, action, deadlines, historical references, and hypothetical durations do not trigger unsupported acceleration;
