@@ -41,6 +41,7 @@ const checks = [
   "test-v1-runtime-opening-prompt.mjs",
   "test-v1-player-portrait.mjs",
   "test-v1-prompt-adapter.mjs",
+  "test-ship-time.mjs",
   "test-v1-accepted-pair-source.mjs",
   "test-v1-accepted-pair-time.mjs",
   "test-v1-accepted-pair-interpreter.mjs",

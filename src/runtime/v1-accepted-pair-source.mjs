@@ -1,9 +1,10 @@
 import { parseDutyReportManifestEnvelope } from '../mission/v1/duty-report-delivery.mjs';
+import { extractShipTimeFooter } from '../time/ship-time.mjs';
 
-const CAMPAIGN_REPLY_HEADER = /^\s*\*?Stardate\s+\d{4,6}(?:\.\d+)?\s*\|\s*\d{4}\s+hours\*?(?:\s*(?:\r?\n)+|\s*$)/i;
+const LEGACY_CAMPAIGN_REPLY_HEADER = /^\s*\*?Stardate\s+\d{4,6}(?:\.\d+)?\s*\|\s*\d{4}\s+hours\*?(?:\s*(?:\r?\n)+|\s*$)/i;
 
-function stripCampaignReplyHeader(text = '') {
-  return String(text ?? '').replace(CAMPAIGN_REPLY_HEADER, '').trimStart();
+function stripLegacyCampaignReplyHeader(text = '') {
+  return String(text ?? '').replace(LEGACY_CAMPAIGN_REPLY_HEADER, '').trimStart();
 }
 
 const MAX_ASSISTANT_CHARS = 7000;
@@ -15,9 +16,19 @@ function compact(value, maximum = 300) {
 }
 
 function sourceText(message = {}, maximum = MAX_ASSISTANT_CHARS) {
-  return stripCampaignReplyHeader(message?.text || message?.mes || message?.content || '')
+  return stripLegacyCampaignReplyHeader(message?.text || message?.mes || message?.content || '')
     .trim()
     .slice(0, maximum);
+}
+
+function assistantSource(message = {}) {
+  const fullText = sourceText(message);
+  const extracted = extractShipTimeFooter(fullText);
+  return {
+    fullText,
+    text: extracted.narrativeText.slice(0, MAX_ASSISTANT_CHARS),
+    timeFooter: extracted.footer
+  };
 }
 
 function stableHash(value = '') {
@@ -77,12 +88,16 @@ function selectedAssistantVariant(message = {}) {
   if (swipes.length > 0 && (!Number.isInteger(index) || index >= swipes.length)) {
     return { ok: false, reason: 'previous-assistant-selected-swipe-invalid' };
   }
-  const visibleText = sourceText(message);
-  const selectedText = sourceText({ text: swipes.length > 0 ? swipes[index] : visibleText });
+  const visible = assistantSource(message);
+  const selected = assistantSource({ text: swipes.length > 0 ? swipes[index] : visible.fullText });
+  const visibleText = visible.text;
+  const selectedText = selected.text;
   if (!selectedText) return { ok: false, reason: 'previous-assistant-empty' };
   const selectedTextHash = stableHash(selectedText);
   const visibleTextHash = stableHash(visibleText);
-  if (visibleText && selectedTextHash !== visibleTextHash) {
+  const selectedResponseHash = stableHash(selected.fullText);
+  const visibleResponseHash = stableHash(visible.fullText);
+  if (visible.fullText && selectedResponseHash !== visibleResponseHash) {
     return { ok: false, reason: 'previous-assistant-selected-swipe-mismatch' };
   }
   const metadata = directiveMetadata(message);
@@ -106,6 +121,8 @@ function selectedAssistantVariant(message = {}) {
       swipeCount: swipes.length,
       selectedTextHash,
       visibleTextHash,
+      selectedResponseHash,
+      visibleResponseHash,
       sourceIntegrity: 'clean',
       directiveOwned,
       responseId: compact(metadata?.responseId || metadata?.sourceResponseId || metadata?.idempotencyKey, 180) || null,
@@ -113,6 +130,7 @@ function selectedAssistantVariant(message = {}) {
       responseKind: compact(metadata?.responseKind, 80) || null,
       dutyReportManifest: report.ok ? report.value : null,
       dutyReportCustodyOwned: report.ok === true,
+      timeFooter: selected.timeFooter,
       text: selectedText
     }
   };
@@ -199,8 +217,9 @@ export function prepareV1AcceptedPairSnapshot({
   const previousId = messageId(resolved.message);
   const playerId = messageId(currentPlayerMessage);
   const previousTextHash = stableHash(previousText);
+  const previousResponseHash = compact(selected.value.selectedResponseHash) || previousTextHash;
   const playerTextHash = stableHash(playerText);
-  const sourceRangeHash = stableHash(`${previousId || ''}:${previousTextHash}:${playerId || ''}:${playerTextHash}`);
+  const sourceRangeHash = stableHash(`${previousId || ''}:${previousResponseHash}:${playerId || ''}:${playerTextHash}`);
   const promptingPlayerHostMessageId = promptingPlayerBeforeAssistant(recentMessages, resolved.message);
   return {
     ok: true,
@@ -225,6 +244,7 @@ export function prepareV1AcceptedPairSnapshot({
           sourceIntegrity: 'clean',
           textHash: previousTextHash,
           text: previousText,
+          timeFooter: selected.value.timeFooter ? { ...selected.value.timeFooter } : null,
           selectedVariant: selected.value
         },
         currentPlayer: {

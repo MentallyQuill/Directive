@@ -115,4 +115,38 @@ const generationAnchored = prepareV1AcceptedPairSnapshot({
 assert.equal(generationAnchored.ok, true);
 assert.equal(generationAnchored.snapshot.source.previousAssistant.promptingPlayerHostMessageId, 'player.1');
 
+const footerAnchored = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.footer' },
+  previousAssistantMessage: {
+    id: 'assistant.footer',
+    role: 'assistant',
+    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 0830 hours*'
+  },
+  chatId: 'chat.ashes'
+});
+assert.equal(footerAnchored.ok, true);
+assert.equal(footerAnchored.snapshot.source.previousAssistant.text, 'The turbolift doors close.');
+assert.deepEqual(footerAnchored.snapshot.source.previousAssistant.timeFooter, {
+  kind: 'directive.shipTimeFooter.v1',
+  text: '*Stardate 53068.4 | 0830 hours*',
+  stardate: 53068.4,
+  minuteOfDay: 510
+});
+const footerEdited = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.footer' },
+  previousAssistantMessage: {
+    id: 'assistant.footer',
+    role: 'assistant',
+    text: 'The turbolift doors close.\n\n*Stardate 53068.4 | 0831 hours*'
+  },
+  chatId: 'chat.ashes'
+});
+assert.notEqual(
+  footerAnchored.snapshot.source.sourceRangeHash,
+  footerEdited.snapshot.source.sourceRangeHash,
+  'A footer-only edit must invalidate accepted-pair identity.'
+);
+
 console.log('V1 accepted-pair source tests passed.');
