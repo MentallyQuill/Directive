@@ -9,10 +9,13 @@ export const MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS = createGenerationRoleRegis
 const MISSION_EVIDENCE_MAX_TOKENS = 2500;
 
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
+const TIME_DECISION_VALUES = new Set(['advance', 'unchanged', 'indeterminate']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
-const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'abstained']);
+const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'abstained', 'time']);
 const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value']);
+const TIME_FIELDS = new Set(['decision', 'elapsedMinutes', 'reason', 'confidence']);
 const MAX_CLAIMS = 16;
+const MAX_TIME_ADVANCE_MINUTES = 31 * 24 * 60;
 
 function cloneJson(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -45,6 +48,31 @@ function valuesEqual(left, right) {
     return Object.is(left, right) || JSON.stringify(left) === JSON.stringify(right);
 }
 
+function timeDecisionErrors(value) {
+    const errors = [];
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return ['time must be an object'];
+    for (const field of unknownFields(value, TIME_FIELDS)) errors.push(`time contains unknown field: ${field}`);
+    if (!TIME_DECISION_VALUES.has(value.decision)) errors.push('time.decision is unknown');
+    if (!Number.isInteger(value.elapsedMinutes) || value.elapsedMinutes < 0) {
+        errors.push('time.elapsedMinutes must be a nonnegative integer');
+    } else if (value.elapsedMinutes > MAX_TIME_ADVANCE_MINUTES) {
+        errors.push(`time.elapsedMinutes must not exceed ${MAX_TIME_ADVANCE_MINUTES}`);
+    }
+    if (value.decision === 'advance' && !(value.elapsedMinutes > 0)) {
+        errors.push('time advance requires positive elapsedMinutes');
+    }
+    if (new Set(['unchanged', 'indeterminate']).has(value.decision) && value.elapsedMinutes !== 0) {
+        errors.push(`time ${value.decision} requires zero elapsedMinutes`);
+    }
+    if (typeof value.reason !== 'string' || !value.reason.trim() || value.reason.length > 180) {
+        errors.push('time.reason must be a nonempty string no longer than 180 characters');
+    }
+    if (!Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1) {
+        errors.push('time.confidence must be between 0 and 1');
+    }
+    return errors;
+}
+
 function interpretationErrors(value, candidatePacket) {
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -58,6 +86,7 @@ function interpretationErrors(value, candidatePacket) {
         errors.push('assistantAcceptance is unknown');
     }
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
+    errors.push(...timeDecisionErrors(value.time));
     if (!Array.isArray(value.claims)) {
         errors.push('claims must be an array');
         return errors;
@@ -114,6 +143,14 @@ export function parseMissionAcceptedPairInterpretationOutput(value, { candidateP
     const claims = parsed.value.assistantAcceptance === 'accepted'
         ? parsed.value.claims
         : parsed.value.claims.filter((claim) => claim.sourceSlot !== 'previousAssistant');
+    const time = parsed.value.assistantAcceptance === 'accepted'
+        ? cloneJson(parsed.value.time)
+        : {
+            decision: 'indeterminate',
+            elapsedMinutes: 0,
+            reason: 'assistant-not-accepted',
+            confidence: 0,
+        };
     return {
         ok: true,
         value: {
@@ -121,12 +158,13 @@ export function parseMissionAcceptedPairInterpretationOutput(value, { candidateP
             assistantAcceptance: parsed.value.assistantAcceptance,
             claims: cloneJson(claims),
             abstained: parsed.value.abstained,
+            time,
         },
         discardedAssistantClaimCount,
     };
 }
 
-export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket = {}, sourcePair = {} } = {}) {
+export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket = {}, sourcePair = {}, timeContext = {} } = {}) {
     const systemPrompt = [
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
         'Select only candidate IDs supplied in this request. Do not create or invent policies, targets, values, state, summaries, trackers, objectives, consequences, rewards, or narration.',
@@ -136,8 +174,13 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
         'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
+        'Independently estimate elapsed story time for the accepted previous-assistant scene. The supplied footer is a proposal, not authority.',
+        'Continuous dialogue or immediate action may remain in the same minute. Do not add a minimum duration per reply.',
+        'Advance time only when visible prose supports waiting, travel, work, rest, a scene cut, or another completed duration.',
+        'Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
+        'Use advance with a positive whole number of minutes, unchanged with zero when the same minute is supported, or indeterminate with zero when evidence conflicts or is insufficient.',
         'Return exactly one JSON object with no markdown or prose:',
-        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"abstained":false}',
+        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedMinutes":0,"reason":"concise-visible-evidence","confidence":0.0}}',
     ].join('\n');
     const userPayload = {
         envelope: {
@@ -150,6 +193,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
             previousAssistant: { text: String(sourcePair.previousAssistant?.text || '') },
             currentPlayer: { text: String(sourcePair.currentPlayer?.text || '') },
         },
+        time: cloneJson(timeContext),
         candidates: cloneJson(candidatePacket.candidates || []),
     };
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;
@@ -175,6 +219,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
             candidateCount: Array.isArray(candidatePacket.candidates) ? candidatePacket.candidates.length : 0,
             previousAssistantTextHash: sourcePair.previousAssistant?.textHash || null,
             currentPlayerTextHash: sourcePair.currentPlayer?.textHash || null,
+            proposedTimeFooter: timeContext.footer?.text || null,
         },
     };
 }
@@ -257,26 +302,11 @@ export function createMissionAcceptedPairInterpreter({
     generationRouter = null,
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
 } = {}) {
-    return async function interpretMissionAcceptedPair({ candidatePacket = {}, sourcePair = {} } = {}) {
-        if (!Array.isArray(candidatePacket.candidates) || candidatePacket.candidates.length === 0) {
-            const interpretation = {
-                kind: MISSION_EVIDENCE_INTERPRETATION_KIND,
-                assistantAcceptance: 'ambiguous',
-                claims: [],
-                abstained: true,
-            };
-            return {
-                ok: true,
-                status: 'no-candidates',
-                interpretation,
-                proposal: materializeMissionEvidenceProposal({ interpretation, candidatePacket, sourcePair }),
-                diagnostics: { candidateCount: 0, selectedClaimCount: 0 },
-            };
-        }
+    return async function interpretMissionAcceptedPair({ candidatePacket = {}, sourcePair = {}, timeContext = {} } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
-        const request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair });
+        const request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext });
         let generation = null;
         try {
             const result = await runWithTimeout(
@@ -319,7 +349,7 @@ export function createMissionAcceptedPairInterpreter({
         }
         return {
             ok: true,
-            status: parsed.value.claims.length > 0 ? 'interpreted' : 'no-change',
+            status: parsed.value.claims.length > 0 || parsed.value.time.decision === 'advance' ? 'interpreted' : 'no-change',
             interpretation: parsed.value,
             proposal: materializeMissionEvidenceProposal({
                 interpretation: parsed.value,

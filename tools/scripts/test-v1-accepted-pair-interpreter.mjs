@@ -32,8 +32,18 @@ const sourcePair = {
         text: 'Use the safer plan for the remaining transfer.',
     },
 };
+const timeContext = {
+    current: { stardate: 53068.4, minuteOfDay: 510, elapsedMinutes: 0 },
+    footer: {
+        kind: 'directive.shipTimeFooter.v1',
+        text: '*Stardate 53068.4 | 0842 hours*',
+        stardate: 53068.4,
+        minuteOfDay: 522,
+    },
+    stardatePerDay: 1,
+};
 
-const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair });
+const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext });
 assert.equal(prompt.metadata.roleId, 'acceptedPairMissionEvidence');
 assert.equal(prompt.metadata.missionId, definition.id);
 assert.match(prompt.systemPrompt, /plans, attempts, guesses, questions/i);
@@ -41,6 +51,11 @@ assert.match(prompt.systemPrompt, /do not create/i);
 assert.match(prompt.systemPrompt, /joint accepted-pair condition/i);
 assert.match(prompt.messages[1].content, /last patient aboard/);
 assert.match(prompt.messages[1].content, /safer plan/);
+assert.match(prompt.systemPrompt, /deadlines.*do not themselves advance/i);
+assert.match(prompt.systemPrompt, /continuous dialogue.*same minute/i);
+assert.match(prompt.systemPrompt, /"time":\{"decision":"advance\|unchanged\|indeterminate"/);
+assert.match(prompt.messages[1].content, /53068\.4/);
+assert.match(prompt.messages[1].content, /0842 hours/);
 assert.equal(prompt.messages[1].content.includes('mustNotReveal'), false);
 assert.equal(prompt.maxTokens, 2500);
 assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 2500 });
@@ -61,6 +76,12 @@ const validOutput = {
         },
     ],
     abstained: false,
+    time: {
+        decision: 'advance',
+        elapsedMinutes: 12,
+        reason: 'briefing-and-handover',
+        confidence: 0.92,
+    },
 };
 const parsed = parseMissionAcceptedPairInterpretationOutput(
     `Result follows:\n\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\``,
@@ -68,6 +89,7 @@ const parsed = parseMissionAcceptedPairInterpretationOutput(
 );
 assert.equal(parsed.ok, true, parsed.errors?.join('\n'));
 assert.equal(parsed.value.claims.length, 2);
+assert.deepEqual(parsed.value.time, validOutput.time);
 
 const proposal = materializeMissionEvidenceProposal({
     interpretation: parsed.value,
@@ -102,12 +124,24 @@ const corrected = parseMissionAcceptedPairInterpretationOutput({
 assert.equal(corrected.ok, true);
 assert.deepEqual(corrected.value.claims, [validOutput.claims[1]]);
 assert.equal(corrected.discardedAssistantClaimCount, 1);
+assert.deepEqual(corrected.value.time, {
+    decision: 'indeterminate',
+    elapsedMinutes: 0,
+    reason: 'assistant-not-accepted',
+    confidence: 0,
+});
 
 const abstained = parseMissionAcceptedPairInterpretationOutput({
     kind: 'directive.missionEvidenceInterpretation.v1',
     assistantAcceptance: 'ambiguous',
     claims: [],
     abstained: true,
+    time: {
+        decision: 'indeterminate',
+        elapsedMinutes: 0,
+        reason: 'insufficient-evidence',
+        confidence: 0.2,
+    },
 }, { candidatePacket });
 assert.equal(abstained.ok, true);
 assert.deepEqual(abstained.value.claims, []);
@@ -153,6 +187,16 @@ for (const [label, output, pattern] of [
         claims: [validOutput.claims[0], validOutput.claims[0]],
     }, /duplicate claim selection/],
     ['abstained with claims', { ...validOutput, abstained: true }, /abstained output cannot contain claims/],
+    ['unknown time field', { ...validOutput, time: { ...validOutput.time, absoluteClock: '0842' } }, /time contains unknown field/],
+    ['negative elapsed time', { ...validOutput, time: { ...validOutput.time, elapsedMinutes: -1 } }, /nonnegative integer/],
+    ['unchanged with elapsed time', {
+        ...validOutput,
+        time: { ...validOutput.time, decision: 'unchanged', elapsedMinutes: 1 },
+    }, /unchanged requires zero/],
+    ['excessive elapsed time', {
+        ...validOutput,
+        time: { ...validOutput.time, elapsedMinutes: 44641 },
+    }, /must not exceed/],
 ]) {
     const invalid = parseMissionAcceptedPairInterpretationOutput(output, { candidatePacket });
     assert.equal(invalid.ok, false, label);
@@ -184,6 +228,41 @@ assert.equal(interpreted.proposal.claims.length, 2);
 assert.equal(generatedRequests[0].roleId, 'acceptedPairMissionEvidence');
 assert.equal(interpreted.diagnostics.providerId, 'fake-utility');
 assert.equal(Object.hasOwn(interpreted.diagnostics, 'rawResponse'), false);
+
+let noCandidateCalls = 0;
+const timeOnly = await createMissionAcceptedPairInterpreter({
+    generationRouter: {
+        async generate() {
+            noCandidateCalls += 1;
+            return {
+                ok: true,
+                response: {
+                    text: JSON.stringify({
+                        kind: 'directive.missionEvidenceInterpretation.v1',
+                        assistantAcceptance: 'accepted',
+                        claims: [],
+                        abstained: true,
+                        time: {
+                            decision: 'advance',
+                            elapsedMinutes: 7,
+                            reason: 'turbolift-transit',
+                            confidence: 0.84,
+                        },
+                    }),
+                },
+            };
+        },
+    },
+    timeoutMs: 100,
+})({
+    candidatePacket: { ...candidatePacket, candidates: [] },
+    sourcePair,
+    timeContext,
+});
+assert.equal(noCandidateCalls, 1, 'Time interpretation must not be skipped when mission candidates are empty.');
+assert.equal(timeOnly.ok, true);
+assert.equal(timeOnly.interpretation.time.elapsedMinutes, 7);
+assert.deepEqual(timeOnly.proposal.claims, []);
 
 const thrown = await createMissionAcceptedPairInterpreter({
     generationRouter: { generate: async () => { throw new Error('secret provider failure'); } },
