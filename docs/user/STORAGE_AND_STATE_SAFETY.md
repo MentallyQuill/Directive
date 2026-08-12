@@ -6,6 +6,7 @@ Directive V1 uses an isolated logical namespace:
 v1/index.v1.json
 v1/drafts/{draftId}.v1.json
 v1/saves/{saveId}.v1.json
+v1/operations/{campaignId}.timeline.v1.json
 ```
 
 SillyTavern maps these keys to user-scoped files whose names begin with `directive-v1-`. Player portraits use a separate V1 portrait path.
@@ -18,10 +19,16 @@ Every save must be `directive.campaignSave.v1`, bind to the exact Ashes package 
 
 State commits use a revisioned gateway. The gateway rejects stale proposals and forbidden domains. Persistence writes the save before publishing a successful result. If persistence fails, in-memory rollback occurs only when no concurrent state change has intervened; otherwise Directive reports an indeterminate conflict requiring operator review.
 
-Checkpoints are complete V1 snapshots with `slotType: checkpoint` and a parent active-save reference. The checkpoint storage ID does not replace the parent active-save ID used by branch-bound mission, story, and chat authority. Loading a checkpoint restores that exact state into its parent active timeline and creates a playable continuation from the checkpoint chat. Deleting a checkpoint removes its explicit save record and index entry and asks the host to remove the cloned checkpoint chat.
+Saved games are complete immutable V1 snapshots with `slotType: checkpoint` and a source active-save reference. Their storage IDs do not replace the branch ID inside the saved state. **Save Game** clones the current chat without changing the active timeline. **Load Game** never overwrites or consumes the selected save: it preserves the timeline being left, clones the selected saved chat, assigns a new active save and chat identity, and opens that new continuation.
 
 If the checkpoint chat is currently selected when it is deleted, Directive first reopens the authoritative active campaign chat, restores its prompt, and only then removes the checkpoint clone. It never asks the host to delete the currently active chat.
 
-Checkpoint creation fails closed: if the host cannot create the exact chat clone, Directive removes the incomplete checkpoint record. Checkpoint loading is compensating: if the continuation cannot be bound and opened, Directive restores the pre-load active timeline and removes any incomplete continuation chat it can identify.
+Creating a native SillyTavern branch from the exact active Directive campaign chat also creates a saved game automatically. Directive proves the parent backlink, character identity, exact retained message IDs, selected swipe, and text hashes before accepting the branch. Bookmarks, copied chats, unrelated chats, changed transcripts, and branches from non-campaign chats remain unbound. The optional naming dialog changes only the saved-game label.
+
+Branching and Load Game use a per-campaign operation journal. The old timeline stays authoritative until a compare-and-swap changes `index.activeSaveId`. Before that commit point, failures leave the parent active and generation unbound in the incomplete child. After it, recovery moves forward to the child; it never overwrites the selected save or guesses a rollback across host and Directive storage.
+
+Directive does not write a complete snapshot for every message. Native branch reconstruction scans the retained transcript once, invalidates discarded accepted sources in isolated memory, rebuilds derived state without model calls, assigns new custody identities, and validates the full V1 projection before persistence. Complete snapshots are written only for explicit Save Game, native branching, and Load Game operations.
+
+Opening an immutable saved-game chat directly in SillyTavern does not activate it or install the campaign prompt. Use **Load Game** to create a playable continuation.
 
 For recovery, preserve the affected files, use Settings to verify storage, and export support diagnostics. Do not rename or hand-edit state files, and do not copy saves between package versions.

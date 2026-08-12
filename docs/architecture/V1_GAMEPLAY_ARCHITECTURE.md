@@ -27,6 +27,14 @@ An assistant response is not accepted merely because it was generated. It become
 
 Every save is `directive.campaignSave.v1` and contains an exact, architecture-stamped campaign state. The allowed roots are fixed in `src/runtime/v1-campaign-state.mjs`; unknown and missing roots are rejected. Campaign and package identity, the immutable player and ship records, world and accepted-time custody, mission and story authority, Command Bearing, settings, chat binding, and state custody are structurally validated before load or commit. Cross-root player/ship, package, branch, and time bindings must agree. State changes pass through a compare-and-swap gateway with exact domain allowlisting and persistence conflict handling.
 
+## Timeline and saved-game authority
+
+`index.activeSaveId` is the sole selector for the mutable active timeline. Saved games are immutable `checkpoint` records grouped by campaign ID, so saves from earlier forks remain visible after their source active records are retired.
+
+A native SillyTavern branch becomes playable only when the host adapter proves that it came from the exact active campaign chat: the direct `main_chat`, character entity, parent endpoint `extra.branches` backlink, retained message roles and IDs, selected swipe, and selected-text hashes must all match. Filenames are presentation only. The child state is reconstructed by invalidating discarded accepted sources through an isolated state gateway, rebuilding accepted time and Command Bearing, rebinding save/chat/branch custody, rebuilding derived mission-run identities, and validating the complete player projection. No interpreter, narrator, or episode-evaluator call occurs during this reconstruction.
+
+Native branching and Load Game are serialized, journaled transactions. They preserve the timeline being left before persisting a child inactive, write exact chat binding, and compare-and-swap the active pointer as the semantic commit point. Recovery stays with the parent before that point and moves forward to the child afterward. Load Game clones an immutable saved chat into a fresh playable chat and never mutates the selected save.
+
 The semantic authorities are:
 
 - mission definitions: authored rules and hidden truth;
