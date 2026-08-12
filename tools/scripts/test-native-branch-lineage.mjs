@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { createNativeBranchLineage } from '../../src/runtime/native-branch-lineage.mjs';
+import {
+  createNativeBranchLineage,
+  createNativeBranchTranscriptAttestation,
+  verifyNativeBranchTranscriptAttestation
+} from '../../src/runtime/native-branch-lineage.mjs';
 import { createFakeChatAdapter } from '../../src/hosts/fake/fake-host.mjs';
 
 function message(id, role, text, extra = {}) {
@@ -93,6 +97,38 @@ assert.equal(lineage({
   childBinding: { ...parentBinding, saveId: null, chatId: 'renamed-child', mainChat: parentBinding.chatId, entityId: '8' }
 }).reasonCode, 'native-branch-entity-mismatch');
 
+for (const [field, value] of [
+  ['hostId', 'another-host'],
+  ['campaignId', 'campaign.other'],
+  ['entityType', 'group'],
+  ['entityName', 'Another Character']
+]) {
+  assert.equal(lineage({
+    childBinding: {
+      ...parentBinding,
+      saveId: null,
+      chatId: 'renamed-child',
+      mainChat: parentBinding.chatId,
+      [field]: value
+    }
+  }).reasonCode, 'native-branch-entity-mismatch', `${field} must be exact branch authority`);
+}
+
+for (const field of ['hostId', 'campaignId', 'entityType', 'entityId', 'entityName']) {
+  const incompleteParent = { ...parentBinding };
+  delete incompleteParent[field];
+  const incompleteChild = {
+    ...incompleteParent,
+    saveId: null,
+    chatId: 'renamed-child',
+    mainChat: parentBinding.chatId
+  };
+  assert.equal(lineage({
+    parentBinding: incompleteParent,
+    childBinding: incompleteChild
+  }).reasonCode, 'native-branch-entity-mismatch', `missing ${field} must fail closed`);
+}
+
 assert.equal(lineage({
   childBinding: { ...parentBinding, saveId: null, chatId: 'copied-chat', mainChat: parentBinding.chatId },
   parentBranchNames: ['renamed-child']
@@ -107,6 +143,38 @@ mutatedSwipe.at(-1).swipe_id = 0;
 mutatedSwipe.at(-1).mes = mutatedSwipe.at(-1).swipes[0];
 assert.equal(lineage({ childMessages: mutatedSwipe }).reasonCode, 'native-branch-transcript-mismatch');
 
+const hiddenMutation = structuredClone(parentMessages);
+hiddenMutation[1].is_hidden = true;
+assert.equal(lineage({ childMessages: hiddenMutation }).reasonCode, 'native-branch-transcript-mismatch');
+
+const deletedMutation = structuredClone(parentMessages);
+deletedMutation[1].extra = { ...(deletedMutation[1].extra || {}), directive: { deleted: true } };
+assert.equal(lineage({ childMessages: deletedMutation }).reasonCode, 'native-branch-transcript-mismatch');
+
+const attestation = createNativeBranchTranscriptAttestation(parentMessages);
+assert.deepEqual(attestation, {
+  kind: 'directive.nativeBranchTranscriptAttestation.v1',
+  version: 1,
+  messageCount: 4,
+  lineageHash: assistantEndpoint.lineageHash
+});
+assert.deepEqual(verifyNativeBranchTranscriptAttestation(parentMessages, attestation), {
+  ok: true,
+  reasonCode: null
+});
+assert.equal(
+  verifyNativeBranchTranscriptAttestation(hiddenMutation, attestation).reasonCode,
+  'native-branch-transcript-attestation-mismatch'
+);
+assert.equal(
+  verifyNativeBranchTranscriptAttestation(parentMessages.slice(0, 3), attestation).reasonCode,
+  'native-branch-transcript-attestation-mismatch'
+);
+assert.equal(
+  verifyNativeBranchTranscriptAttestation(parentMessages, { ...attestation, version: 2 }).reasonCode,
+  'native-branch-transcript-attestation-invalid'
+);
+
 assert.equal(lineage({ parentBinding: null }).reasonCode, 'native-branch-parent-binding-missing');
 assert.equal(lineage({
   childBinding: { ...parentBinding, saveId: null, chatId: 'renamed-child', mainChat: 'some-other-chat' }
@@ -119,12 +187,31 @@ const fake = createFakeChatAdapter({
   entityName: parentBinding.entityName,
   messages: parentMessages
 });
-await fake.updateBindingMetadata(parentBinding);
+const fakeParentBinding = { ...parentBinding, hostId: 'fake' };
+await fake.updateBindingMetadata(fakeParentBinding);
 fake.createNativeBranch({ endpointIndex: 2, childChatId: 'renamed-child' });
-const inspected = await fake.inspectNativeBranchCandidate({ parentBinding });
+const inspected = await fake.inspectNativeBranchCandidate({ parentBinding: fakeParentBinding });
 assert.equal(inspected.ok, true);
 assert.equal(inspected.endpointHostMessageId, 'user.2');
 assert.deepEqual(fake.calls().slice(-2).map((call) => call.type), ['createNativeBranch', 'inspectNativeBranchCandidate']);
+
+const fakeClone = await fake.cloneCampaignChat({
+  sourceChatId: fakeParentBinding.chatId,
+  sourceBinding: fakeParentBinding,
+  campaignId: fakeParentBinding.campaignId,
+  saveId: fakeParentBinding.saveId,
+  targetName: 'Immutable fake save',
+  open: false
+});
+assert.equal(fakeClone.transcriptAttestation.messageCount, parentMessages.length);
+assert.deepEqual(await fake.verifyCampaignChatSnapshot(fakeClone), { ok: true, reasonCode: null });
+const changedFakeClone = fake.messagesForChat(fakeClone.chatId);
+changedFakeClone[0].mes = 'Changed after saving.';
+fake.setMessagesForChat(fakeClone.chatId, changedFakeClone);
+assert.equal(
+  (await fake.verifyCampaignChatSnapshot(fakeClone)).reasonCode,
+  'native-branch-transcript-attestation-mismatch'
+);
 
 const longParent = Array.from({ length: 5000 }, (_, index) => message(
   `long.${index}`,

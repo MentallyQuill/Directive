@@ -1,4 +1,9 @@
-import { hashStableJson } from './v1-host-message-contracts.mjs';
+import {
+  hashStableJson,
+  normalizeV1HostMessageVisibility
+} from './v1-host-message-contracts.mjs';
+
+const NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND = 'directive.nativeBranchTranscriptAttestation.v1';
 
 function nonEmptyString(value) {
   if (typeof value === 'string' && value.trim()) return value.trim();
@@ -43,21 +48,57 @@ export function normalizeNativeBranchMessage(message = {}, index = null) {
     role: messageRole(message),
     selectedSwipeId,
     text,
-    textHash: hashStableJson({ text })
+    textHash: hashStableJson({ text }),
+    visibility: normalizeV1HostMessageVisibility(message)
   };
 }
 
-function sameEntity(parentBinding, childBinding) {
-  return ['entityType', 'entityId'].every((key) => (
-    nonEmptyString(parentBinding?.[key]) === nonEmptyString(childBinding?.[key])
-  ));
+function normalizeNativeBranchTranscript(messages = []) {
+  return messages.map(normalizeNativeBranchMessage);
+}
+
+export function createNativeBranchTranscriptAttestation(messages = []) {
+  if (!Array.isArray(messages)) throw new TypeError('Native branch transcript messages must be an array.');
+  const normalizedMessages = normalizeNativeBranchTranscript(messages);
+  return {
+    kind: NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND,
+    version: 1,
+    messageCount: normalizedMessages.length,
+    lineageHash: hashStableJson(normalizedMessages)
+  };
+}
+
+export function verifyNativeBranchTranscriptAttestation(messages = [], attestation = null) {
+  if (!Array.isArray(messages)
+    || !attestation
+    || attestation.kind !== NATIVE_BRANCH_TRANSCRIPT_ATTESTATION_KIND
+    || attestation.version !== 1
+    || !Number.isInteger(attestation.messageCount)
+    || attestation.messageCount < 0
+    || !/^[0-9a-f]{16}$/.test(String(attestation.lineageHash || ''))) {
+    return failed('native-branch-transcript-attestation-invalid');
+  }
+  const actual = createNativeBranchTranscriptAttestation(messages);
+  if (actual.messageCount !== attestation.messageCount || actual.lineageHash !== attestation.lineageHash) {
+    return failed('native-branch-transcript-attestation-mismatch');
+  }
+  return { ok: true, reasonCode: null };
+}
+
+function sameBindingAuthority(parentBinding, childBinding) {
+  return ['hostId', 'campaignId', 'entityType', 'entityId', 'entityName'].every((key) => {
+    const parentValue = nonEmptyString(parentBinding?.[key]);
+    const childValue = nonEmptyString(childBinding?.[key]);
+    return Boolean(parentValue && childValue && parentValue === childValue);
+  });
 }
 
 function sameMessage(left, right) {
   return left.hostMessageId === right.hostMessageId
     && left.role === right.role
     && left.selectedSwipeId === right.selectedSwipeId
-    && left.textHash === right.textHash;
+    && left.textHash === right.textHash
+    && hashStableJson(left.visibility) === hashStableJson(right.visibility);
 }
 
 export function createNativeBranchLineage(input = {}) {
@@ -71,7 +112,7 @@ export function createNativeBranchLineage(input = {}) {
   if (!parentChatId) return failed('native-branch-parent-chat-missing');
   if (!childChatId) return failed('native-branch-child-chat-missing');
   if (nonEmptyString(childBinding.mainChat) !== parentChatId) return failed('native-branch-main-chat-mismatch');
-  if (!sameEntity(parentBinding, childBinding)) return failed('native-branch-entity-mismatch');
+  if (!sameBindingAuthority(parentBinding, childBinding)) return failed('native-branch-entity-mismatch');
 
   const parentBranchNames = Array.isArray(input.parentBranchNames)
     ? input.parentBranchNames.map(nonEmptyString).filter(Boolean)
@@ -88,8 +129,8 @@ export function createNativeBranchLineage(input = {}) {
   if (!childMessages || childMessages.length === 0) return failed('native-branch-child-transcript-missing');
   if (childMessages.length > parentMessages.length) return failed('native-branch-child-longer-than-parent');
 
-  const normalizedParentMessages = parentMessages.map(normalizeNativeBranchMessage);
-  const normalizedChildMessages = childMessages.map(normalizeNativeBranchMessage);
+  const normalizedParentMessages = normalizeNativeBranchTranscript(parentMessages);
+  const normalizedChildMessages = normalizeNativeBranchTranscript(childMessages);
   for (let index = 0; index < normalizedChildMessages.length; index += 1) {
     if (!sameMessage(normalizedParentMessages[index], normalizedChildMessages[index])) {
       return failed('native-branch-transcript-mismatch');

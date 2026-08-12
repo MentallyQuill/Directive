@@ -8,7 +8,11 @@ import {
   providerKindForRole,
   validateDirectiveProviderSettings
 } from '../../providers/directive-provider-settings.mjs';
-import { createNativeBranchLineage } from '../../runtime/native-branch-lineage.mjs';
+import {
+  createNativeBranchLineage,
+  createNativeBranchTranscriptAttestation,
+  verifyNativeBranchTranscriptAttestation
+} from '../../runtime/native-branch-lineage.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -436,7 +440,8 @@ export function createFakeChatAdapter({
         createdByDirective: true,
         creationMethod: 'clone-campaign-chat',
         clonedFromChatId: sourceChatId,
-        clonedAt: '2026-06-22T00:00:00.000Z'
+        clonedAt: '2026-06-22T00:00:00.000Z',
+        transcriptAttestation: createNativeBranchTranscriptAttestation(branchMessages)
       };
       metadataByChatId.set(String(branchChatId), cloneJson(nextBinding));
       if (options.open === true) {
@@ -455,6 +460,24 @@ export function createFakeChatAdapter({
         sourceChatId,
         messageCount: branchMessages.length
       };
+    },
+    async verifyCampaignChatSnapshot(nextBinding = null) {
+      if (!nextBinding?.transcriptAttestation) {
+        return { ok: true, reasonCode: null, legacy: true };
+      }
+      const exactFields = ['hostId', 'campaignId', 'chatId', 'entityType', 'entityId', 'entityName'];
+      if (nextBinding.hostId !== 'fake' || exactFields.some((field) => !String(nextBinding?.[field] || '').trim())) {
+        return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-invalid' };
+      }
+      const chatKey = String(nextBinding.chatId);
+      const storedBinding = metadataByChatId.get(chatKey);
+      const storedMessages = chatsById.get(chatKey);
+      if (!storedBinding || !storedMessages || exactFields.some((field) => (
+        String(storedBinding?.[field] || '') !== String(nextBinding?.[field] || '')
+      ))) {
+        return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-mismatch' };
+      }
+      return verifyNativeBranchTranscriptAttestation(storedMessages, nextBinding.transcriptAttestation);
     },
     createNativeBranch({ parentChatId = currentChatId, endpointIndex = null, childChatId = null } = {}) {
       const parentMessages = messagesForChat(parentChatId);

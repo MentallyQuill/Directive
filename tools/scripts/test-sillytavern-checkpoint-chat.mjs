@@ -44,23 +44,16 @@ const context = {
       };
     }
     if (url === '/api/chats/get') {
-      assert.equal(body.file_name, 'Checkpoint One');
+      const snapshot = saved.get(body.file_name);
+      assert.ok(snapshot, `expected saved chat snapshot ${body.file_name}`);
       return {
         ok: true,
         async json() {
           return [
             {
-              chat_metadata: {
-                directiveCampaignBinding: {
-                  chatId: 'Checkpoint One',
-                  campaignId: 'campaign-1',
-                  saveId: 'save-active',
-                  entityType: 'character',
-                  entityId: '0'
-                }
-              }
+              chat_metadata: structuredClone(snapshot.withMetadata || {})
             },
-            { id: 'checkpoint-message', is_user: false, mes: 'Checkpoint prose.' }
+            ...structuredClone(snapshot.chatData || [])
           ];
         }
       };
@@ -95,6 +88,18 @@ const checkpointBinding = await adapter.cloneCampaignChat({
 assert.equal(checkpointBinding.chatId, 'Checkpoint One');
 assert.equal(currentChatId, 'active-chat', 'saving a checkpoint must not navigate away from the active chat');
 assert.equal(saved.get('Checkpoint One').chatData[0].id, 'm1');
+assert.equal(checkpointBinding.transcriptAttestation.kind, 'directive.nativeBranchTranscriptAttestation.v1');
+assert.equal(checkpointBinding.transcriptAttestation.version, 1);
+assert.equal(checkpointBinding.transcriptAttestation.messageCount, 1);
+assert.match(checkpointBinding.transcriptAttestation.lineageHash, /^[0-9a-f]{16}$/);
+assert.deepEqual(
+  saved.get('Checkpoint One').withMetadata.directiveCampaignBinding.transcriptAttestation,
+  checkpointBinding.transcriptAttestation
+);
+assert.deepEqual(await adapter.verifyCampaignChatSnapshot(checkpointBinding), {
+  ok: true,
+  reasonCode: null
+});
 
 const playableBinding = await adapter.cloneCampaignChat({
   sourceChatId: 'Checkpoint One',
@@ -106,7 +111,44 @@ const playableBinding = await adapter.cloneCampaignChat({
 });
 assert.equal(playableBinding.chatId, 'Checkpoint One - Continue');
 assert.equal(currentChatId, 'active-chat', 'cloning a playable continuation must remain non-navigating until binding and prompt work finish');
-assert.equal(saved.get('Checkpoint One - Continue').chatData[0].id, 'checkpoint-message');
+assert.equal(saved.get('Checkpoint One - Continue').chatData[0].id, 'm1');
+
+const mutatedCheckpoint = structuredClone(saved.get('Checkpoint One'));
+mutatedCheckpoint.chatData[0].mes = 'Mutated checkpoint prose.';
+saved.set('Checkpoint One', mutatedCheckpoint);
+assert.equal(
+  (await adapter.verifyCampaignChatSnapshot(checkpointBinding)).reasonCode,
+  'native-branch-transcript-attestation-mismatch'
+);
+const legacyBinding = { ...checkpointBinding };
+delete legacyBinding.transcriptAttestation;
+assert.deepEqual(await adapter.verifyCampaignChatSnapshot(legacyBinding), {
+  ok: true,
+  reasonCode: null,
+  legacy: true
+});
+
+const maximumName = 'A'.repeat(180);
+const maximumNameFirst = await adapter.cloneCampaignChat({
+  sourceChatId: 'active-chat',
+  sourceBinding: context.chatMetadata.directiveCampaignBinding,
+  campaignId: 'campaign-1',
+  saveId: 'save-long-1',
+  targetName: maximumName,
+  open: false
+});
+const maximumNameSecond = await adapter.cloneCampaignChat({
+  sourceChatId: 'active-chat',
+  sourceBinding: context.chatMetadata.directiveCampaignBinding,
+  campaignId: 'campaign-1',
+  saveId: 'save-long-2',
+  targetName: maximumName,
+  open: false
+});
+assert.equal(maximumNameFirst.chatId.length, 180);
+assert.notEqual(maximumNameSecond.chatId, maximumNameFirst.chatId);
+assert.equal(maximumNameSecond.chatId.length, 180);
+assert.match(maximumNameSecond.chatId, / 2$/);
 
 assert.equal(await adapter.openCampaignChat(playableBinding), true);
 assert.equal(currentChatId, 'Checkpoint One - Continue');

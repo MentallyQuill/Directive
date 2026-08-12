@@ -3,7 +3,11 @@ import {
   normalizeV1HostMessageVisibility,
   stableJsonByteLength
 } from '../../runtime/v1-host-message-contracts.mjs';
-import { createNativeBranchLineage } from '../../runtime/native-branch-lineage.mjs';
+import {
+  createNativeBranchLineage,
+  createNativeBranchTranscriptAttestation,
+  verifyNativeBranchTranscriptAttestation
+} from '../../runtime/native-branch-lineage.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -400,11 +404,12 @@ function uniqueChatFileName(baseName, existingNames = []) {
   const base = sanitizeChatFileName(baseName);
   const used = new Set((Array.isArray(existingNames) ? existingNames : []).map((entry) => String(entry || '').toLowerCase()));
   if (!used.has(base.toLowerCase())) return base;
-  for (let index = 2; index < 10000; index += 1) {
-    const candidate = sanitizeChatFileName(`${base} ${index}`);
+  for (let index = 2; index <= used.size + 2; index += 1) {
+    const suffix = ` ${index}`;
+    const candidate = `${base.slice(0, 180 - suffix.length).trimEnd()}${suffix}`;
     if (!used.has(candidate.toLowerCase())) return candidate;
   }
-  return sanitizeChatFileName(`${base} ${Date.now()}`);
+  throw new Error('Directive could not allocate a unique SillyTavern chat filename.');
 }
 
 function characterForEntity(context, entity) {
@@ -1312,6 +1317,7 @@ export function createSillyTavernChatAdapter({
       || nonEmptyString(sourceChatId)
       || 'Directive Checkpoint';
     const branchChatName = uniqueChatFileName(requestedName, existingNames);
+    const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatName));
     const branchBinding = {
       ...cloneJson(source || {}),
       hostId: 'sillytavern',
@@ -1326,9 +1332,9 @@ export function createSillyTavernChatAdapter({
       createdByDirective: true,
       creationMethod: 'clone-campaign-chat',
       clonedFromChatId: sourceChatId,
-      clonedAt: now()
+      clonedAt: now(),
+      transcriptAttestation: createNativeBranchTranscriptAttestation(branchMessages)
     };
-    const branchMessages = sourceMessages.map((message) => retargetChatIds(message, sourceChatId, branchChatName));
     await saveChatSnapshot(ctx, {
       chatName: branchChatName,
       withMetadata: {
@@ -1358,6 +1364,48 @@ export function createSillyTavernChatAdapter({
       sourceChatId,
       messageCount: branchMessages.length
     };
+  }
+
+  async function verifyCampaignChatSnapshot(binding = null) {
+    const attestation = binding?.transcriptAttestation;
+    if (!attestation) {
+      return { ok: true, reasonCode: null, legacy: true };
+    }
+    const ctx = context();
+    const chatId = nonEmptyString(binding?.chatId);
+    const expectedFields = ['hostId', 'campaignId', 'chatId', 'entityType', 'entityId', 'entityName'];
+    if (!ctx
+      || binding?.hostId !== 'sillytavern'
+      || binding?.entityType !== 'character'
+      || expectedFields.some((field) => !nonEmptyString(binding?.[field]))) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-invalid' };
+    }
+    const target = characterForEntity(ctx, binding);
+    if (!target?.character || characterEntryName(target.character) !== nonEmptyString(binding.entityName)) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-mismatch' };
+    }
+    let snapshot;
+    try {
+      snapshot = chatId === contextChatId(ctx)
+        ? {
+            metadata: cloneJson(chatMetadataObject(ctx) || {}),
+            messages: cloneJson(getChatArray(ctx))
+          }
+        : await loadCharacterChatSnapshot(ctx, { chatId, entity: binding });
+    } catch (error) {
+      return {
+        ok: false,
+        reasonCode: 'campaign-chat-snapshot-load-failed',
+        diagnostics: { code: error?.code || null, message: error?.message || String(error) }
+      };
+    }
+    const storedBinding = snapshot.metadata?.[DIRECTIVE_CHAT_METADATA_KEY];
+    if (!storedBinding || expectedFields.some((field) => (
+      nonEmptyString(storedBinding?.[field]) !== nonEmptyString(binding?.[field])
+    ))) {
+      return { ok: false, reasonCode: 'campaign-chat-snapshot-binding-mismatch' };
+    }
+    return verifyNativeBranchTranscriptAttestation(snapshot.messages, attestation);
   }
 
   async function inspectNativeBranchCandidate({ parentBinding, branchIntent = null } = {}) {
@@ -2093,6 +2141,7 @@ export function createSillyTavernChatAdapter({
     getCurrentBinding,
     createOrBindCampaignChat,
     cloneCampaignChat,
+    verifyCampaignChatSnapshot,
     inspectNativeBranchCandidate,
     openCampaignChat: open,
     deleteCampaignChat,
