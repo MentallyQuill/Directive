@@ -207,6 +207,14 @@ assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate 
 
 const selectedSavedGameBefore = await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId);
 const firstLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
+const preservedBranch = await loadV1CampaignSave(appStorage, firstLoad.transaction.savedGameId);
+assert.notEqual(
+  preservedBranch.state.campaignChatBinding.chatId,
+  'renamed-app-child',
+  'Load Game preserves the current timeline in its own immutable chat clone'
+);
+assert.equal(preservedBranch.state.campaignChatBinding.saveId, preservedBranch.parentSaveId);
+assert.equal(appChat.messagesForChat(preservedBranch.state.campaignChatBinding.chatId).length, 1);
 const secondLoad = await app.loadGame({ savedGameId: changed.timelineFork.savedGameId });
 assert.notEqual(firstLoad.timeline.id, secondLoad.timeline.id, 'repeated loads create independent active timelines');
 assert.notEqual(firstLoad.timeline.state.campaignChatBinding.chatId, secondLoad.timeline.state.campaignChatBinding.chatId);

@@ -260,9 +260,49 @@ export function createTimelineTransactionService({
     }
 
     const suggestedName = suggestPreviousTimelineName(parentState, runtimeAssets);
+    if (!operation.parentCheckpointBinding) {
+      if (typeof chat.cloneCampaignChat !== 'function') {
+        throw transactionError('DIRECTIVE_LOAD_GAME_PARENT_CLONE_UNAVAILABLE', 'The host cannot preserve the current timeline chat before loading another save.');
+      }
+      const clonedParent = await chat.cloneCampaignChat({
+        sourceChatId: parentState.campaignChatBinding.chatId,
+        targetName: `${parentState.campaign.title} - ${suggestedName} save`,
+        open: false,
+        campaignId: parentSave.campaignId,
+        saveId: parentSave.id,
+        sourceBinding: parentState.campaignChatBinding
+      });
+      const nextOperation = {
+        ...operation,
+        parentCheckpointBinding: {
+          ...clone(clonedParent),
+          kind: 'directive.campaignChatBinding.v1', version: 1,
+          campaignId: parentSave.campaignId, saveId: parentSave.id,
+          chatId: compact(clonedParent.chatId), status: 'bound', boundAt: now()
+        },
+        updatedAt: now()
+      };
+      try {
+        await controller.storeTimelineOperation(nextOperation);
+        operation = nextOperation;
+      } catch (error) {
+        try {
+          await chat.deleteCampaignChat?.(nextOperation.parentCheckpointBinding);
+        } catch {
+          // The active pointer has not moved; fail closed if host compensation is uncertain.
+        }
+        throw error;
+      }
+    }
     if (!stageAtLeast(operation, 'parent-preserved')) {
+      const checkpointState = rebindV1CampaignStateCustody({
+        campaignState: parentState,
+        targetSaveId: parentSave.id,
+        targetChatBinding: operation.parentCheckpointBinding,
+        runtimeAssets
+      }).campaignState;
       const saved = await controller.prepareTimelineCheckpoint({
-        checkpointId: operation.checkpointId, name: suggestedName, campaignState: parentState
+        checkpointId: operation.checkpointId, name: suggestedName, campaignState: checkpointState
       });
       operation = await checkpointStage(operation, 'parent-preserved', { suggestedName: saved.name });
     }
