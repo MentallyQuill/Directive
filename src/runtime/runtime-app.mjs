@@ -438,8 +438,14 @@ export function createDirectiveRuntimeApp({
   }
 
   function currentChatIsBound() {
-    const chatId = compact(host.chat.getCurrentChatId?.());
-    return Boolean(chatId && state?.campaignChatBinding?.chatId === chatId);
+    const expected = state?.campaignChatBinding;
+    const current = host.chat.getCurrentBinding?.();
+    if (!expected || !current) return false;
+    return ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'].every((field) => {
+      const expectedValue = compact(expected[field]);
+      const currentValue = compact(current[field]);
+      return Boolean(expectedValue && currentValue && expectedValue === currentValue);
+    });
   }
 
   async function activateNarrationPreset() {
@@ -664,7 +670,12 @@ export function createDirectiveRuntimeApp({
     const opened = typeof host.chat.openCampaignChat === 'function'
       ? await host.chat.openCampaignChat(binding)
       : false;
-    if (opened === false || compact(host.chat.getCurrentChatId?.()) !== chatId) {
+    const currentBinding = host.chat.getCurrentBinding?.();
+    const exact = currentBinding && ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'].every((field) => (
+      compact(binding?.[field])
+      && compact(binding?.[field]) === compact(currentBinding?.[field])
+    ));
+    if (opened === false || exact !== true) {
       const error = new Error(`Directive could not open campaign chat "${chatId}".`);
       error.code = 'DIRECTIVE_CAMPAIGN_CHAT_OPEN_FAILED';
       throw error;
@@ -1047,6 +1058,7 @@ export function createDirectiveRuntimeApp({
 
     async handleHostChatChanged(payload = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();
       let timelineFork = null;
@@ -1094,9 +1106,10 @@ export function createDirectiveRuntimeApp({
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
         try {
-          acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+          acceptedPairReplay = await rebuildAcceptedStateFromChat();
         } catch (error) {
           if (!timelineFork) throw error;
+          acceptedPairReplayNeeded = true;
           host.logger?.warn?.('[Directive] Post-fork accepted-pair replay failed after the new timeline was committed.', error);
           acceptedPairReplay = {
             replayed: 0,
@@ -1108,6 +1121,7 @@ export function createDirectiveRuntimeApp({
       }
       else await syncPrompt();
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
+      });
     },
 
     async handleHostGenerationStopped() {
@@ -1327,6 +1341,7 @@ export function createDirectiveRuntimeApp({
 
     async saveGame({ name } = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const checkpointName = required(name, 'name');
       const sourceState = clone(state);
       const sourceChatId = compact(sourceState?.campaignChatBinding?.chatId);
@@ -1375,19 +1390,24 @@ export function createDirectiveRuntimeApp({
         throw error;
       }
       return { checkpoint: clone(checkpoint), view: await campaignViewEnvelope('campaign') };
+      });
     },
 
     async renameSavedGame({ savedGameId, name } = {}) {
       await ensureInitialized();
-      const savedGame = await controller.renameSavedGame({ savedGameId, name });
-      return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
+      return enqueueSettlement(async () => {
+        const savedGame = await controller.renameSavedGame({ savedGameId, name });
+        return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
+      });
     },
 
     async loadGame({ savedGameId = null, checkpointId = null } = {}) {
       await ensureInitialized();
-      const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
-      const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
-      return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+      return enqueueSettlement(async () => {
+        const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
+        const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
+        return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+      });
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
@@ -1396,6 +1416,7 @@ export function createDirectiveRuntimeApp({
 
     async deleteSave(options = {}) {
       await ensureInitialized();
+      return enqueueSettlement(async () => {
       const result = await controller.deleteSave(options);
       const binding = result.checkpointChatIsDistinct === true ? result.campaignChatBinding : null;
       let chatCleanup = { attempted: false, deleted: false, reason: 'no-checkpoint-chat' };
@@ -1442,6 +1463,7 @@ export function createDirectiveRuntimeApp({
         }
       }
       return { result, chatCleanup, view: await campaignViewEnvelope('campaign') };
+      });
     },
 
     verifyActiveSave: () => controller.verifyStorage(),

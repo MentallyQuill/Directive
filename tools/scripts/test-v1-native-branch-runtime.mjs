@@ -9,7 +9,10 @@ import {
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
 import { createCampaignStartController } from '../../src/runtime/campaign-start-controller.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
-import { createTimelineTransactionService } from '../../src/runtime/timeline-transaction-service.mjs';
+import {
+  createTimelineTransactionService,
+  withCampaignTimelineLease
+} from '../../src/runtime/timeline-transaction-service.mjs';
 import {
   createV1CampaignSave,
   getV1StorageIndex,
@@ -22,6 +25,29 @@ import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtu
 const assets = loadAshesRuntimeAssets();
 const records = { ...assets, campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS };
 const fixedNow = '2026-08-11T12:00:00.000Z';
+
+const leaseOrder = [];
+let releaseFirstLease;
+let reportFirstLeaseEntered;
+const firstLeaseEntered = new Promise((resolve) => { reportFirstLeaseEntered = resolve; });
+const firstLeaseRelease = new Promise((resolve) => { releaseFirstLease = resolve; });
+const firstLease = withCampaignTimelineLease('campaign.shared-lease', async () => {
+  leaseOrder.push('first-enter');
+  reportFirstLeaseEntered();
+  await firstLeaseRelease;
+  leaseOrder.push('first-exit');
+});
+await firstLeaseEntered;
+let secondLeaseEntered = false;
+const secondLease = withCampaignTimelineLease('campaign.shared-lease', async () => {
+  secondLeaseEntered = true;
+  leaseOrder.push('second-enter');
+});
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(secondLeaseEntered, false, 'separate runtime instances must serialize the same campaign');
+releaseFirstLease();
+await Promise.all([firstLease, secondLease]);
+assert.deepEqual(leaseOrder, ['first-enter', 'first-exit', 'second-enter']);
 
 async function harness({ afterStage = null } = {}) {
   const storage = createFakeJsonStorage();
@@ -103,6 +129,10 @@ for (const failedStage of stages) {
   const beforeRecovery = await getV1StorageIndex(test.storage);
   const committed = stages.indexOf(failedStage) >= stages.indexOf('active-pointer-switched');
   assert.equal(beforeRecovery.activeSaveId === 'save.parent', !committed, `${failedStage} commit boundary`);
+  if (failedStage === 'detected') {
+    test.chat.setCurrentChatId(test.parentState.campaignChatBinding.chatId);
+    assert.equal(test.chat.getCurrentChatId(), 'chat.parent');
+  }
 
   const recovery = createTimelineTransactionService({
     controller: test.controller,
@@ -156,6 +186,179 @@ const pointerRecovery = createTimelineTransactionService({
 });
 const pointerRecovered = await pointerRecovery.recoverActiveOperation({ campaignId: 'campaign.branch' });
 assert.equal(pointerRecovered.status, 'recovered', 'recovery recognizes a committed child even when the commit-stage journal write failed');
+
+async function loadHarness({ selectedCampaignId = 'campaign.load', afterStage = null } = {}) {
+  const storage = createFakeJsonStorage();
+  const parentState = createAshesInitialState({
+    campaignId: 'campaign.load',
+    saveId: 'save.load-parent',
+    chatId: 'chat.load-parent'
+  });
+  parentState.campaignChatBinding = {
+    ...parentState.campaignChatBinding,
+    hostId: 'fake',
+    entityType: 'character',
+    entityId: '7',
+    entityName: 'Ashes of Peace - Sam Vickers'
+  };
+  await storeV1CampaignSave(storage, createV1CampaignSave({
+    id: 'save.load-parent',
+    name: 'Load Parent',
+    state: parentState,
+    createdAt: fixedNow
+  }));
+  const chat = createFakeChatAdapter({
+    chatId: 'chat.load-parent',
+    entityId: '7',
+    entityName: 'Ashes of Peace - Sam Vickers',
+    messages: [{ id: 'load.1', role: 'assistant', text: 'Saved transcript.' }]
+  });
+  await chat.updateBindingMetadata(parentState.campaignChatBinding);
+  const selectedSourceSaveId = selectedCampaignId === 'campaign.load'
+    ? 'save.selected-source'
+    : 'save.other-source';
+  const selectedBinding = await chat.cloneCampaignChat({
+    sourceChatId: 'chat.load-parent',
+    sourceBinding: parentState.campaignChatBinding,
+    campaignId: selectedCampaignId,
+    saveId: selectedSourceSaveId,
+    targetName: `Selected ${selectedCampaignId}`,
+    open: false
+  });
+  const selectedState = createAshesInitialState({
+    campaignId: selectedCampaignId,
+    saveId: selectedSourceSaveId,
+    chatId: selectedBinding.chatId
+  });
+  selectedState.campaignChatBinding = {
+    ...selectedState.campaignChatBinding,
+    ...selectedBinding,
+    kind: 'directive.campaignChatBinding.v1',
+    version: 1,
+    campaignId: selectedCampaignId,
+    saveId: selectedSourceSaveId,
+    status: 'bound'
+  };
+  const selected = createV1CampaignSave({
+    id: selectedCampaignId === 'campaign.load' ? 'checkpoint.selected' : 'checkpoint.other',
+    name: 'Selected Save',
+    slotType: 'checkpoint',
+    parentSaveId: selectedSourceSaveId,
+    state: selectedState,
+    createdAt: fixedNow
+  });
+  await storeV1CampaignSave(storage, selected, { makeActive: false });
+  const controller = createCampaignStartController({
+    adapter: storage,
+    packages: [assets.packageData],
+    missionDefinitions: assets.missionDefinitions,
+    campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+    idFactory: (() => { let id = 0; return (prefix) => `${prefix}.load.${++id}`; })(),
+    now: () => fixedNow
+  });
+  await controller.initialize();
+  let state = structuredClone(parentState);
+  const prompt = createFakePromptAdapter();
+  const service = createTimelineTransactionService({
+    controller,
+    chat,
+    prompt,
+    getState: () => state,
+    setState: (next) => { state = structuredClone(next); },
+    configureRuntime() {},
+    rebuildPrompt: () => prompt.rebuild({ binding: state.campaignChatBinding, packet: { blocks: [] } }),
+    runtimeAssets: assets,
+    idFactory: (() => { let id = 0; return (prefix) => `${prefix}.load.${++id}`; })(),
+    now: () => fixedNow,
+    afterStage
+  });
+  return { storage, parentState, selected, selectedBinding, chat, controller, prompt, service, getState: () => state };
+}
+
+const crossCampaignLoad = await loadHarness({ selectedCampaignId: 'campaign.other' });
+const crossCampaignStorageBefore = crossCampaignLoad.storage.snapshot();
+const crossCampaignChatCallsBefore = crossCampaignLoad.chat.calls().length;
+const crossCampaignPromptCallsBefore = crossCampaignLoad.prompt.calls().length;
+await assert.rejects(
+  crossCampaignLoad.service.loadGame({ savedGameId: crossCampaignLoad.selected.id }),
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CAMPAIGN_MISMATCH'
+);
+assert.deepEqual(crossCampaignLoad.storage.snapshot(), crossCampaignStorageBefore);
+assert.equal(crossCampaignLoad.chat.calls().length, crossCampaignChatCallsBefore);
+assert.equal(crossCampaignLoad.prompt.calls().length, crossCampaignPromptCallsBefore);
+
+const changedSavedChat = await loadHarness();
+const changedMessages = changedSavedChat.chat.messagesForChat(changedSavedChat.selectedBinding.chatId);
+changedMessages[0].text = 'Transcript changed after the save was created.';
+changedSavedChat.chat.setMessagesForChat(changedSavedChat.selectedBinding.chatId, changedMessages);
+const changedStorageBefore = changedSavedChat.storage.snapshot();
+const changedChatCallsBefore = changedSavedChat.chat.calls().length;
+await assert.rejects(
+  changedSavedChat.service.loadGame({ savedGameId: changedSavedChat.selected.id }),
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CHAT_ATTESTATION_MISMATCH'
+);
+assert.deepEqual(changedSavedChat.storage.snapshot(), changedStorageBefore);
+assert.equal(changedSavedChat.chat.calls().length, changedChatCallsBefore);
+
+const loadStages = [
+  'detected', 'parent-preserved', 'child-chat-cloned', 'child-derived',
+  'child-persisted', 'child-binding-written', 'active-pointer-switched',
+  'prompt-ready', 'parent-record-retired', 'completed'
+];
+for (const failedStage of loadStages) {
+  let injected = false;
+  const test = await loadHarness({
+    afterStage(stage) {
+      if (!injected && stage === failedStage) {
+        injected = true;
+        throw new Error(`injected-load:${stage}`);
+      }
+    }
+  });
+  const selectedBefore = await loadV1CampaignSave(test.storage, test.selected.id);
+  await assert.rejects(
+    test.service.loadGame({ savedGameId: test.selected.id }),
+    new RegExp(`injected-load:${failedStage}`)
+  );
+  const beforeRecovery = await getV1StorageIndex(test.storage);
+  const committed = loadStages.indexOf(failedStage) >= loadStages.indexOf('active-pointer-switched');
+  assert.equal(beforeRecovery.activeSaveId === 'save.load-parent', !committed, `${failedStage} load commit boundary`);
+  await test.service.recoverActiveOperation({ campaignId: 'campaign.load' });
+  const finalIndex = await getV1StorageIndex(test.storage);
+  assert.notEqual(finalIndex.activeSaveId, 'save.load-parent', `${failedStage} load recovery activates the child`);
+  await assert.rejects(loadV1CampaignSave(test.storage, 'save.load-parent'), /not found/i);
+  assert.deepEqual(await loadV1CampaignSave(test.storage, test.selected.id), selectedBefore);
+  const summaries = await listV1CampaignSaves(test.storage);
+  assert.equal(summaries.filter((save) => save.slotType === 'checkpoint').length, 2);
+  assert.equal(
+    test.chat.calls().filter((call) => call.type === 'cloneCampaignChat').length,
+    3,
+    `${failedStage} recovery must reuse the selected save clone plus exactly one parent and one child clone`
+  );
+}
+
+let childMutationInjected = false;
+const childMutationLoad = await loadHarness({
+  afterStage(stage) {
+    if (!childMutationInjected && stage === 'child-binding-written') {
+      childMutationInjected = true;
+      throw new Error('injected-load:child-mutation-window');
+    }
+  }
+});
+await assert.rejects(
+  childMutationLoad.service.loadGame({ savedGameId: childMutationLoad.selected.id }),
+  /injected-load:child-mutation-window/
+);
+const childMutationOperation = await childMutationLoad.controller.loadTimelineOperation({ campaignId: 'campaign.load' });
+const mutatedChildMessages = childMutationLoad.chat.messagesForChat(childMutationOperation.childBinding.chatId);
+mutatedChildMessages[0].text = 'Unbound prose changed before activation.';
+childMutationLoad.chat.setMessagesForChat(childMutationOperation.childBinding.chatId, mutatedChildMessages);
+await assert.rejects(
+  childMutationLoad.service.recoverActiveOperation({ campaignId: 'campaign.load' }),
+  (error) => error?.code === 'DIRECTIVE_LOAD_GAME_CHILD_ATTESTATION_MISMATCH'
+);
+assert.equal((await getV1StorageIndex(childMutationLoad.storage)).activeSaveId, 'save.load-parent');
 
 const appStorage = createFakeJsonStorage();
 const appState = createAshesInitialState({ campaignId: 'campaign.app-branch', saveId: 'save.app-parent', chatId: 'chat.app-parent' });
@@ -219,6 +422,13 @@ assert.equal(changed.acceptedPairReplay.reasonCode, 'post-fork-replay-failed');
 assert.match(postForkWarning?.[0] || '', /Post-fork accepted-pair replay failed/);
 assert.notEqual((await getV1StorageIndex(appStorage)).activeSaveId, 'save.app-parent');
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.campaignChatBinding.chatId, 'renamed-app-child');
+const generationAfterReplayFailure = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.deepEqual(generationAfterReplayFailure.acceptedPairReplay, {
+  replayed: 0,
+  blocked: false,
+  blockedAtMessageId: null,
+  retryPending: false
+}, 'generation must retry a post-fork accepted-pair replay failure before continuing');
 assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate chat event is idempotent');
 
 const selectedSavedGameBefore = await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId);

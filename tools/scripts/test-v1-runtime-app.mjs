@@ -339,6 +339,19 @@ assert.equal(missionView.v1PlayerProjection.kind, 'directive.playerProjection.v1
 assert.equal(chat.messages().filter((message) => !message.isUser).length, 1);
 const boundCampaignChatId = missionView.campaignState.campaignChatBinding.chatId;
 
+const exactCurrentBinding = host.chat.getCurrentBinding;
+host.chat.getCurrentBinding = () => ({
+  ...exactCurrentBinding.call(host.chat),
+  entityId: 'different-character'
+});
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState,
+  null,
+  'a matching chat filename under a different character must not receive campaign authority'
+);
+host.chat.getCurrentBinding = exactCurrentBinding;
+assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState?.campaign?.status, 'active');
+
 const importedCampaignPortrait = await app.importCampaignPlayerPortrait({
   bytes: new Uint8Array([13, 14, 15, 16]),
   mimeType: 'image/png',
@@ -515,6 +528,7 @@ const activeSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
 const explorationFiles = jsonStorage.snapshot();
 explorationFiles[activeSavePath].state.settings.simulationMode = 'Exploration';
 const explorationChat = createFakeChatAdapter({ chatId: boundCampaignChatId });
+await explorationChat.updateBindingMetadata(explorationFiles[activeSavePath].state.campaignChatBinding);
 const explorationHost = createFakeDirectiveHost({
   chatNative: true,
   chat: explorationChat,
@@ -694,9 +708,23 @@ assert.equal(
   0,
   'Save Game must not publish a checkpoint while its immutable chat clone is unfinished'
 );
+let concurrentReservationResolved = false;
+const concurrentReservation = app.reserveCommandBearingEdge().then((result) => {
+  concurrentReservationResolved = true;
+  return result;
+});
+await new Promise((resolve) => setImmediate(resolve));
+assert.equal(
+  concurrentReservationResolved,
+  false,
+  'accepted-state mutations must wait behind an in-flight Save Game operation'
+);
 releaseDelayedClone();
 const delayedCheckpoint = await delayedSave;
+const concurrentReservationResult = await concurrentReservation;
 host.chat.cloneCampaignChat = delayedCloneCampaignChat;
+assert.equal(concurrentReservationResult.applied, true);
+assert.equal((await app.cancelCommandBearingEdge()).applied, true);
 assert.ok(delayedCheckpoint.checkpoint.state.campaignChatBinding.transcriptAttestation);
 await app.deleteSave({ checkpointId: delayedCheckpoint.checkpoint.id });
 

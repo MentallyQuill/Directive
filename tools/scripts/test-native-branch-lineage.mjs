@@ -85,6 +85,16 @@ assert.equal(lineage({
     endpointHostMessageId: 'assistant.1'
   }
 }).reasonCode, 'native-branch-intent-endpoint-mismatch');
+const reciprocalWithStaleIntent = lineage({
+  childMessages: structuredClone(parentMessages.slice(0, 3)),
+  branchIntent: {
+    kind: 'directive.nativeBranchIntent.v1',
+    parentChatId: parentBinding.chatId,
+    endpointHostMessageId: 'assistant.1'
+  }
+});
+assert.equal(reciprocalWithStaleIntent.ok, true, 'the reciprocal parent link remains sufficient proof');
+assert.equal(reciprocalWithStaleIntent.verifiedBranchIntent, null, 'a stale endpoint intent must not be journaled as verified');
 
 const bookmarkOnlyParent = structuredClone(parentMessages);
 bookmarkOnlyParent.at(-1).extra = { bookmark_link: 'bookmark-copy' };

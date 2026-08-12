@@ -4,6 +4,7 @@ import { reconstructV1BranchState, rebindV1CampaignStateCustody } from './v1-bra
 import { V1_TIMELINE_OPERATION_STAGES } from './timeline-operation-journal.mjs';
 
 const STAGE_INDEX = new Map(V1_TIMELINE_OPERATION_STAGES.map((stage, index) => [stage, index]));
+const CAMPAIGN_TIMELINE_LEASES = new Map();
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -22,6 +23,43 @@ function transactionError(code, message, details = {}) {
   error.code = code;
   error.details = clone(details);
   return error;
+}
+
+function exactChatBindingMatches(expected, actual, { requireCampaignBinding = true } = {}) {
+  if (!expected || !actual) return false;
+  const fields = requireCampaignBinding
+    ? ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName']
+    : ['hostId', 'chatId', 'entityType', 'entityId', 'entityName'];
+  return fields.every((field) => {
+    const expectedValue = compact(expected[field]);
+    const actualValue = compact(actual[field]);
+    return Boolean(expectedValue && actualValue && expectedValue === actualValue);
+  });
+}
+
+export async function withCampaignTimelineLease(campaignId, task, {
+  lockManager = globalThis.navigator?.locks || null
+} = {}) {
+  const id = compact(campaignId);
+  if (!id || typeof task !== 'function') {
+    throw new TypeError('A campaign timeline lease requires a campaign id and task.');
+  }
+  const leaseName = `directive.timeline.${id}`;
+  if (typeof lockManager?.request === 'function') {
+    return lockManager.request(leaseName, { mode: 'exclusive' }, task);
+  }
+  const previous = CAMPAIGN_TIMELINE_LEASES.get(leaseName) || Promise.resolve();
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  const queued = previous.then(() => held, () => held);
+  CAMPAIGN_TIMELINE_LEASES.set(leaseName, queued);
+  await previous.catch(() => null);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (CAMPAIGN_TIMELINE_LEASES.get(leaseName) === queued) CAMPAIGN_TIMELINE_LEASES.delete(leaseName);
+  }
 }
 
 export function suggestPreviousTimelineName(campaignState = {}, runtimeAssets = {}) {
@@ -63,7 +101,14 @@ export function createTimelineTransactionService({
       diagnostics: diagnostics ? { ...(operation.diagnostics || {}), ...clone(diagnostics) } : clone(operation.diagnostics || {})
     };
     await controller.storeTimelineOperation(next);
-    if (typeof afterStage === 'function') await afterStage(stage, clone(next));
+    if (typeof afterStage === 'function') {
+      try {
+        await afterStage(stage, clone(next));
+      } catch (error) {
+        error.directiveTimelineStagePersisted = true;
+        throw error;
+      }
+    }
     return next;
   }
 
@@ -210,10 +255,15 @@ export function createTimelineTransactionService({
     };
   }
 
-  async function openExactChild(operation) {
+  async function openExactChild(operation, { requireCampaignBinding = true } = {}) {
     const opened = await chat.openCampaignChat?.(operation.childBinding);
-    if (opened === false || compact(chat.getCurrentChatId?.()) !== operation.childBinding.chatId) {
-      throw transactionError('DIRECTIVE_LOAD_GAME_CHILD_OPEN_FAILED', 'Directive could not open the new playable timeline chat.');
+    const currentBinding = chat.getCurrentBinding?.();
+    if (opened === false || !exactChatBindingMatches(operation.childBinding, currentBinding, { requireCampaignBinding })) {
+      throw transactionError(
+        'DIRECTIVE_LOAD_GAME_CHILD_OPEN_FAILED',
+        'Directive could not open the new playable timeline chat.',
+        { expectedBinding: operation.childBinding, currentBinding }
+      );
     }
   }
 
@@ -228,6 +278,41 @@ export function createTimelineTransactionService({
     if (!sourceChatId) throw transactionError('DIRECTIVE_LOAD_GAME_CHAT_REQUIRED', 'The selected saved game has no exact preserved chat.');
     if (!parentSave || !parentState || parentSave.id !== parentState.campaignChatBinding?.saveId) {
       throw transactionError('DIRECTIVE_TIMELINE_PARENT_UNAVAILABLE', 'The current timeline is not exact enough to preserve.');
+    }
+    if (selected.campaignId !== parentSave.campaignId) {
+      throw transactionError(
+        'DIRECTIVE_LOAD_GAME_CAMPAIGN_MISMATCH',
+        'The selected saved game belongs to a different campaign.',
+        { activeCampaignId: parentSave.campaignId, selectedCampaignId: selected.campaignId }
+      );
+    }
+    if (selected.packageId !== parentSave.packageId || selected.packageVersion !== parentSave.packageVersion) {
+      throw transactionError(
+        'DIRECTIVE_LOAD_GAME_PACKAGE_MISMATCH',
+        'The selected saved game does not match the active campaign package.',
+        {
+          activePackageId: parentSave.packageId,
+          activePackageVersion: parentSave.packageVersion,
+          selectedPackageId: selected.packageId,
+          selectedPackageVersion: selected.packageVersion
+        }
+      );
+    }
+    if (selected.state.campaignChatBinding?.transcriptAttestation) {
+      if (typeof chat.verifyCampaignChatSnapshot !== 'function') {
+        throw transactionError(
+          'DIRECTIVE_LOAD_GAME_CHAT_ATTESTATION_UNAVAILABLE',
+          'The host cannot verify this saved game transcript before loading it.'
+        );
+      }
+      const verifiedSnapshot = await chat.verifyCampaignChatSnapshot(selected.state.campaignChatBinding);
+      if (verifiedSnapshot?.ok !== true) {
+        throw transactionError(
+          'DIRECTIVE_LOAD_GAME_CHAT_ATTESTATION_MISMATCH',
+          'The saved game transcript changed after the game state was saved.',
+          { verification: verifiedSnapshot || null }
+        );
+      }
     }
     const createdAt = now();
     const operationId = `timeline.${hashStableJson({
@@ -330,10 +415,12 @@ export function createTimelineTransactionService({
       try {
         operation = await checkpointStage(operation, 'child-chat-cloned');
       } catch (error) {
-        try {
-          await chat.deleteCampaignChat?.(operation.childBinding);
-        } catch {
-          // The operation remains uncommitted and fail-closed if host compensation is uncertain.
+        if (error?.directiveTimelineStagePersisted !== true) {
+          try {
+            await chat.deleteCampaignChat?.(operation.childBinding);
+          } catch {
+            // The operation remains uncommitted and fail-closed if host compensation is uncertain.
+          }
         }
         throw error;
       }
@@ -363,6 +450,16 @@ export function createTimelineTransactionService({
       operation = await checkpointStage(operation, 'child-binding-written');
     }
     if (!stageAtLeast(operation, 'active-pointer-switched')) {
+      if (operation.childBinding?.transcriptAttestation) {
+        const verifiedChild = await chat.verifyCampaignChatSnapshot?.(operation.childBinding);
+        if (verifiedChild?.ok !== true) {
+          throw transactionError(
+            'DIRECTIVE_LOAD_GAME_CHILD_ATTESTATION_MISMATCH',
+            'The new playable timeline chat changed before activation.',
+            { verification: verifiedChild || null }
+          );
+        }
+      }
       const index = await controller.getStorageIndex();
       await controller.activatePersistedTimeline({
         expectedSaveId: index.activeSaveId === operation.childSaveId ? operation.childSaveId : operation.parentSaveId,
@@ -390,62 +487,71 @@ export function createTimelineTransactionService({
     };
   }
 
+  function schedule(campaignId, task) {
+    const run = () => withCampaignTimelineLease(campaignId, task);
+    const running = queue.then(run, run);
+    queue = running.catch(() => null);
+    return running;
+  }
+
+  async function recoverOperation(campaignId) {
+    const operation = await controller.loadTimelineOperation({ campaignId });
+    if (!operation || operation.stage === 'completed') return null;
+    await prompt?.clear?.({ reason: 'recovering-timeline-operation' });
+    const index = await controller.getStorageIndex();
+    const pointerCommitted = index.activeSaveId === operation.childSaveId;
+    if (!pointerCommitted && index.activeSaveId !== operation.parentSaveId) {
+      throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_POINTER_CONFLICT', 'The active save pointer belongs to neither side of the incomplete operation.', { operation, activeSaveId: index.activeSaveId });
+    }
+    if (stageAtLeast(operation, 'active-pointer-switched') || pointerCommitted) {
+      const childSave = await controller.loadSaveRecord({ saveId: operation.childSaveId });
+      setState(childSave.state);
+      configureRuntime?.();
+      let recovered = operation;
+      if (!stageAtLeast(recovered, 'active-pointer-switched')) recovered = await checkpointStage(recovered, 'active-pointer-switched');
+      if (!stageAtLeast(recovered, 'prompt-ready')) {
+        await openExactChild(recovered);
+        await rebuildPrompt?.();
+        recovered = await checkpointStage(recovered, 'prompt-ready');
+      }
+      if (!stageAtLeast(recovered, 'parent-record-retired')) {
+        await controller.retireSupersededTimeline({ saveId: recovered.parentSaveId });
+        recovered = await checkpointStage(recovered, 'parent-record-retired');
+      }
+      if (!stageAtLeast(recovered, 'completed')) recovered = await checkpointStage(recovered, 'completed');
+      return {
+        status: 'recovered',
+        operationId: recovered.operationId,
+        savedGameId: recovered.checkpointId,
+        childSaveId: recovered.childSaveId,
+        suggestedName: recovered.diagnostics?.suggestedName || null,
+        stage: recovered.stage
+      };
+    }
+    if (operation.operationType === 'load-game') return executeLoadGame(operation.selectedSavedGameId);
+    await openExactChild(operation, { requireCampaignBinding: false });
+    const lineage = await chat.inspectNativeBranchCandidate({
+      parentBinding: operation.parentBinding,
+      branchIntent: operation.verifiedBranchIntent || null
+    });
+    if (!lineage.ok || lineage.lineageHash !== operation.lineageHash) {
+      throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_UNPROVEN', 'The incomplete timeline operation cannot be recovered from the exact journaled child chat.', { operation, lineage });
+    }
+    return executeNativeBranch(lineage);
+  }
+
   return {
     adoptNativeBranch(lineage) {
-      const task = () => executeNativeBranch(lineage);
-      const running = queue.then(task, task);
-      queue = running.catch(() => null);
-      return running;
+      const campaignId = compact(lineage?.parentBinding?.campaignId || controller.getActiveSave()?.campaignId);
+      return schedule(campaignId, () => executeNativeBranch(lineage));
     },
     loadGame({ savedGameId } = {}) {
-      const task = () => executeLoadGame(compact(savedGameId));
-      const running = queue.then(task, task);
-      queue = running.catch(() => null);
-      return running;
+      const campaignId = compact(controller.getActiveSave()?.campaignId || getState()?.campaign?.id);
+      return schedule(campaignId, () => executeLoadGame(compact(savedGameId)));
     },
-    async recoverActiveOperation({ campaignId } = {}) {
-      const operation = await controller.loadTimelineOperation({ campaignId });
-      if (!operation || operation.stage === 'completed') return null;
-      await prompt?.clear?.({ reason: 'recovering-timeline-operation' });
-      const index = await controller.getStorageIndex();
-      const pointerCommitted = index.activeSaveId === operation.childSaveId;
-      if (!pointerCommitted && index.activeSaveId !== operation.parentSaveId) {
-        throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_POINTER_CONFLICT', 'The active save pointer belongs to neither side of the incomplete operation.', { operation, activeSaveId: index.activeSaveId });
-      }
-      if (stageAtLeast(operation, 'active-pointer-switched') || pointerCommitted) {
-        const childSave = await controller.loadSaveRecord({ saveId: operation.childSaveId });
-        setState(childSave.state);
-        configureRuntime?.();
-        let recovered = operation;
-        if (!stageAtLeast(recovered, 'active-pointer-switched')) recovered = await checkpointStage(recovered, 'active-pointer-switched');
-        if (!stageAtLeast(recovered, 'prompt-ready')) {
-          if (recovered.operationType === 'load-game') await openExactChild(recovered);
-          await rebuildPrompt?.();
-          recovered = await checkpointStage(recovered, 'prompt-ready');
-        }
-        if (!stageAtLeast(recovered, 'parent-record-retired')) {
-          await controller.retireSupersededTimeline({ saveId: recovered.parentSaveId });
-          recovered = await checkpointStage(recovered, 'parent-record-retired');
-        }
-        if (!stageAtLeast(recovered, 'completed')) recovered = await checkpointStage(recovered, 'completed');
-        return {
-          status: 'recovered',
-          operationId: recovered.operationId,
-          savedGameId: recovered.checkpointId,
-          childSaveId: recovered.childSaveId,
-          suggestedName: recovered.diagnostics?.suggestedName || null,
-          stage: recovered.stage
-        };
-      }
-      if (operation.operationType === 'load-game') return this.loadGame({ savedGameId: operation.selectedSavedGameId });
-      const lineage = await chat.inspectNativeBranchCandidate({
-        parentBinding: operation.parentBinding,
-        branchIntent: operation.verifiedBranchIntent || null
-      });
-      if (!lineage.ok || lineage.lineageHash !== operation.lineageHash) {
-        throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_UNPROVEN', 'The incomplete timeline operation cannot be recovered from the current chat.', { operation, lineage });
-      }
-      return this.adoptNativeBranch(lineage);
+    recoverActiveOperation({ campaignId } = {}) {
+      const id = compact(campaignId);
+      return schedule(id, () => recoverOperation(id));
     }
   };
 }

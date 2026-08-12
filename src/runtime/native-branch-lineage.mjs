@@ -119,9 +119,9 @@ export function createNativeBranchLineage(input = {}) {
     : [];
   const branchIntent = input.branchIntent;
   const parentLinkProvesLineage = parentBranchNames.includes(childChatId);
-  const hostIntentProvesLineage = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
+  const hostIntentParentMatches = branchIntent?.kind === 'directive.nativeBranchIntent.v1'
     && nonEmptyString(branchIntent.parentChatId) === parentChatId;
-  if (!parentLinkProvesLineage && !hostIntentProvesLineage) return failed('native-branch-parent-link-missing');
+  if (!parentLinkProvesLineage && !hostIntentParentMatches) return failed('native-branch-parent-link-missing');
 
   const parentMessages = Array.isArray(input.parentMessages) ? input.parentMessages : null;
   const childMessages = Array.isArray(input.childMessages) ? input.childMessages : null;
@@ -139,8 +139,9 @@ export function createNativeBranchLineage(input = {}) {
 
   const endpoint = normalizedChildMessages.at(-1);
   if (!endpoint?.hostMessageId) return failed('native-branch-endpoint-id-missing');
-  if (!parentLinkProvesLineage
-    && nonEmptyString(branchIntent.endpointHostMessageId) !== endpoint.hostMessageId) {
+  const hostIntentProvesLineage = hostIntentParentMatches
+    && nonEmptyString(branchIntent.endpointHostMessageId) === endpoint.hostMessageId;
+  if (!parentLinkProvesLineage && !hostIntentProvesLineage) {
     return failed('native-branch-intent-endpoint-mismatch');
   }
   return {
