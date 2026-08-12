@@ -133,6 +133,7 @@ export function createFakeChatAdapter({
   let currentChatId = chatId;
   let binding = null;
   const metadataByChatId = new Map();
+  const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
   const calls = [];
   function messagesForChat(id = currentChatId) {
@@ -474,13 +475,14 @@ export function createFakeChatAdapter({
         entityId,
         entityName
       });
+      nativeMainChatByChatId.set(String(resolvedChildChatId), String(parentChatId));
       currentChatId = resolvedChildChatId;
       calls.push({ type: 'createNativeBranch', parentChatId, endpointIndex: retainedIndex, childChatId: resolvedChildChatId });
       return { parentChatId, childChatId: resolvedChildChatId, endpointIndex: retainedIndex };
     },
     async inspectNativeBranchCandidate({ parentBinding } = {}) {
       const childMetadata = metadataByChatId.get(String(currentChatId)) || {};
-      const mainChat = childMetadata.main_chat || childMetadata.mainChat || null;
+      const mainChat = nativeMainChatByChatId.get(String(currentChatId)) || childMetadata.main_chat || childMetadata.mainChat || null;
       const parentMessages = mainChat ? chatsById.get(String(mainChat)) : null;
       const childMessages = chatsById.get(String(currentChatId));
       const endpointIndex = Array.isArray(childMessages) ? childMessages.length - 1 : -1;
@@ -550,6 +552,7 @@ export function createFakeChatAdapter({
       const deletedChatIds = [...chatsById.keys()];
       chatsById.clear();
       metadataByChatId.clear();
+      nativeMainChatByChatId.clear();
       binding = null;
       currentChatId = '';
       calls.push({

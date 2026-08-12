@@ -33,6 +33,7 @@ import {
   createV1MissionRuntime
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import { createTimelineTransactionService } from './timeline-transaction-service.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -394,6 +395,7 @@ export function createDirectiveRuntimeApp({
   let state = null;
   let gateway = null;
   let missionRuntime = null;
+  let timelineTransactions = null;
   let creatorView = null;
   let activeDraftId = null;
   let activeScreen = 'campaign';
@@ -928,6 +930,18 @@ export function createDirectiveRuntimeApp({
       const recovered = await controller.initialize();
       setState(recovered.campaignState);
       configureStateRuntime();
+      timelineTransactions = createTimelineTransactionService({
+        controller,
+        chat: host.chat,
+        prompt: host.prompt,
+        getState: () => state,
+        setState,
+        configureRuntime: configureStateRuntime,
+        rebuildPrompt: () => syncPrompt({ rebuild: true }),
+        runtimeAssets,
+        idFactory,
+        now
+      });
       initialized = true;
       await host.ui?.mount?.();
       if (state) await publicApi.handleHostChatChanged();
@@ -1035,20 +1049,51 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();
-      if (metadata?.kind === 'directive.campaignChatBinding.v1'
-        && metadata.version === 1
-        && metadata.chatId === chatId
-        && metadata.saveId
-        && metadata.saveId !== activeSave()?.id) {
-        setState(await controller.loadGame({ saveId: metadata.saveId }));
-        configureStateRuntime();
+      let timelineFork = null;
+      if (state?.campaign?.id) {
+        try {
+          timelineFork = await timelineTransactions?.recoverActiveOperation({ campaignId: state.campaign.id });
+        } catch (error) {
+          await host.prompt.clear?.({ reason: 'timeline-recovery-incomplete' });
+          return {
+            active: false,
+            chatId,
+            acceptedPairReplay: null,
+            timelineFork: {
+              status: 'timeline-preparation-incomplete',
+              reasonCode: error?.code || 'timeline-recovery-failed',
+              message: error?.message || String(error)
+            }
+          };
+        }
+      }
+      if (!timelineFork && !currentChatIsBound() && state?.campaignChatBinding?.chatId
+        && typeof host.chat.inspectNativeBranchCandidate === 'function') {
+        const lineage = await host.chat.inspectNativeBranchCandidate({ parentBinding: state.campaignChatBinding });
+        if (lineage?.ok) {
+          try {
+            timelineFork = await timelineTransactions.adoptNativeBranch(lineage);
+          } catch (error) {
+            await host.prompt.clear?.({ reason: 'timeline-preparation-incomplete' });
+            return {
+              active: false,
+              chatId,
+              acceptedPairReplay: null,
+              timelineFork: {
+                status: 'timeline-preparation-incomplete',
+                reasonCode: error?.code || 'timeline-activation-failed',
+                message: error?.message || String(error)
+              }
+            };
+          }
+        }
       }
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
         acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
       }
       else await syncPrompt();
-      return { active: currentChatIsBound(), chatId, acceptedPairReplay };
+      return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
     },
 
     async handleHostGenerationStopped() {
@@ -1310,6 +1355,12 @@ export function createDirectiveRuntimeApp({
         throw error;
       }
       return { checkpoint: clone(checkpoint), view: await campaignViewEnvelope('campaign') };
+    },
+
+    async renameSavedGame({ savedGameId, name } = {}) {
+      await ensureInitialized();
+      const savedGame = await controller.renameSavedGame({ savedGameId, name });
+      return { savedGame: clone(savedGame), view: await campaignViewEnvelope('campaign') };
     },
 
     async loadCheckpoint({ checkpointId } = {}) {

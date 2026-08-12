@@ -104,9 +104,23 @@ export async function handleGenerationStopped(payload = {}) {
 
 export async function handleChatChanged(payload = {}) {
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
-  await app()?.handleHostChatChanged?.(payload);
+  const changed = await app()?.handleHostChatChanged?.(payload);
+  const fork = changed?.timelineFork;
+  if (fork && new Set(['activated', 'recovered']).has(fork.status) && fork.savedGameId && fork.suggestedName) {
+    const entered = typeof globalThis.prompt === 'function'
+      ? globalThis.prompt('Name Previous Timeline\n\nYour previous timeline was saved so you can return to it.', fork.suggestedName)
+      : null;
+    const name = String(entered ?? '').trim();
+    if (name && name !== fork.suggestedName) {
+      try {
+        await app()?.renameSavedGame?.({ savedGameId: fork.savedGameId, name });
+      } catch (error) {
+        report('Previous timeline rename failed', error);
+      }
+    }
+  }
   try {
-    return await runRuntimeAction('runtime.refresh');
+    return { ...(await runRuntimeAction('runtime.refresh')), timelineFork: fork || null };
   } catch (error) {
     report('Runtime refresh after chat change failed', error);
     return { refreshed: false, error: error?.message || String(error) };

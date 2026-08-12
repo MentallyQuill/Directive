@@ -350,14 +350,21 @@ export function createCampaignStartController({
       });
     },
 
-    async prepareTimelineCheckpoint({ name, campaignState = activeState } = {}) {
+    async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
+      const requestedName = required(name, 'name');
+      const saves = await listV1CampaignSaves(adapter);
+      const usedNames = new Set(saves
+        .filter((save) => save.campaignId === activeSave.campaignId && save.slotType === 'checkpoint')
+        .map((save) => String(save.name || '').trim().toLowerCase()));
+      let uniqueName = requestedName;
+      for (let suffix = 2; usedNames.has(uniqueName.toLowerCase()); suffix += 1) uniqueName = `${requestedName} (${suffix})`;
       return createCampaignCheckpoint({
         adapter,
-        checkpointId: nextId('checkpoint'),
+        checkpointId: checkpointId || nextId('checkpoint'),
         activeSaveId: activeSave.id,
         campaignState: assertV1CampaignState(campaignState),
-        name: required(name, 'name'),
+        name: uniqueName,
         now: currentTime()
       });
     },
@@ -414,6 +421,8 @@ export function createCampaignStartController({
     storeTimelineOperation: (operation) => storeTimelineOperation(adapter, operation),
     loadTimelineOperation: ({ campaignId }) => loadTimelineOperation(adapter, required(campaignId, 'campaignId')),
     deleteTimelineOperation: ({ campaignId }) => deleteTimelineOperation(adapter, required(campaignId, 'campaignId')),
+    loadSaveRecord: ({ saveId }) => loadV1CampaignSave(adapter, required(saveId, 'saveId')),
+    getStorageIndex: () => initializeV1Storage(adapter, { now: currentTime() }),
 
     async bindCheckpointChat({ checkpointId, binding } = {}) {
       const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));

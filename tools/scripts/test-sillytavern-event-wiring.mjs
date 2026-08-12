@@ -48,4 +48,30 @@ await __directiveEventTestHooks.handleExtensionDisabled();
 assert.equal(restoreCount, 1, 'extension disable must restore the preset selected before campaign play');
 clearSillyTavernDirectiveRuntimeBridge();
 
+let renamed = null;
+const previousPrompt = globalThis.prompt;
+globalThis.prompt = (label, value) => {
+  assert.match(label, /Name Previous Timeline/);
+  assert.equal(value, 'Prelude — Stardate 53068.4');
+  return 'Before Whitaker';
+};
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async handleHostChatChanged() {
+      return {
+        timelineFork: {
+          status: 'activated',
+          savedGameId: 'checkpoint.1',
+          suggestedName: 'Prelude — Stardate 53068.4'
+        }
+      };
+    },
+    async renameSavedGame(options) { renamed = options; }
+  }
+});
+await __directiveEventTestHooks.handleChatChanged();
+assert.deepEqual(renamed, { savedGameId: 'checkpoint.1', name: 'Before Whitaker' });
+globalThis.prompt = previousPrompt;
+clearSillyTavernDirectiveRuntimeBridge();
+
 console.log('PASS V1 SillyTavern event wiring');
