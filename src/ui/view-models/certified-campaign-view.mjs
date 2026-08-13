@@ -9,6 +9,15 @@ const clone = (value) => value === undefined
 
 export function buildCertifiedCampaignView(view = {}) {
   const model = createV1CampaignPanelModel(view);
+  const campaigns = clone(model.campaigns);
+  const requestedCampaignId = view?.campaignIndex?.selectedCampaignId || null;
+  const explicitCampaignId = campaigns.some((campaign) => campaign.id === requestedCampaignId)
+    ? requestedCampaignId
+    : null;
+  const activeCampaignId = campaigns.find((campaign) => campaign.active)?.id || null;
+  const lastPlayedCampaignId = campaigns
+    .filter((campaign) => !Number.isNaN(new Date(campaign.lastPlayedAt).getTime()))
+    .sort((left, right) => new Date(right.lastPlayedAt).getTime() - new Date(left.lastPlayedAt).getTime())[0]?.id || null;
   const packages = model.packages.map((pack) => {
     const packageId = pack.packageId || pack.id || pack.manifest?.id || '';
     const available = packageId === ASHES_V1_PACKAGE_ID;
@@ -31,8 +40,9 @@ export function buildCertifiedCampaignView(view = {}) {
     };
   });
   return {
-    selectedCampaignId: view?.campaignIndex?.selectedCampaignId || model.campaigns.find((campaign) => campaign.active)?.id || null,
+    selectedCampaignId: explicitCampaignId || activeCampaignId,
+    mobileCampaignId: explicitCampaignId || lastPlayedCampaignId || activeCampaignId,
     packages,
-    campaigns: clone(model.campaigns)
+    campaigns
   };
 }

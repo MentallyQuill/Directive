@@ -4,6 +4,7 @@ import { createPackageImage } from './directive-media.js';
 import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
 import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
+import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 
 let selectedRecordKey = null;
 
@@ -53,7 +54,7 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
     status.textContent = state;
     row.appendChild(status);
   }
-  row.addEventListener('click', onSelect);
+  if (typeof onSelect === 'function') row.addEventListener('click', onSelect);
   return row;
 }
 
@@ -222,6 +223,25 @@ function appendPackageDetail(detail, pack, actions) {
   detail.appendChild(body);
 }
 
+function appendRecordDetail(detail, key, model, actions) {
+  const value = String(key || '');
+  if (value.startsWith('campaign:')) {
+    const campaign = model.campaigns.find((candidate) => candidate.id === value.slice('campaign:'.length));
+    if (campaign) {
+      const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
+      appendCampaignDetail(detail, campaign, pack, actions);
+    }
+  } else if (value.startsWith('package:')) {
+    const pack = model.packages.find((candidate) => candidate.packageId === value.slice('package:'.length));
+    if (pack) appendPackageDetail(detail, pack, actions);
+  }
+  if (!detail.children.length) appendEmpty(detail, 'Choose a playable campaign or saved story.');
+}
+
+function mobileDetailId(key) {
+  return `directive-campaign-mobile-${String(key).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`;
+}
+
 export function renderCampaignPanel(body, view, actions = {}) {
   const model = buildCertifiedCampaignView(view);
   const defaultKey = model.selectedCampaignId
@@ -230,7 +250,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
   if (!selectedRecordKey) selectedRecordKey = defaultKey;
 
   const surface = createElement('div', 'directive-expanded-campaign campaign-layout campaign-journal');
-  const master = createElement('aside', 'campaign-master campaign-index-panel');
+  const master = createElement('aside', 'campaign-master campaign-index-panel campaign-desktop-master');
   master.dataset.directiveScrollOwner = 'true';
   const head = createElement('header', 'campaign-index-head');
   const kicker = createElement('span', 'campaign-kicker');
@@ -241,6 +261,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
   master.appendChild(head);
 
   const list = createElement('div', 'campaign-index-list');
+  const desktopRows = new Map();
   const refreshSelection = (key) => {
     selectedRecordKey = key;
     body.replaceChildren?.();
@@ -250,7 +271,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
   model.campaigns.forEach((campaign) => {
     const key = `campaign:${campaign.id}`;
     const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
-    list.appendChild(createSelectableRow({
+    const row = createSelectableRow({
       key,
       title: campaign.title,
       meta: [campaign.playerName, campaign.chapter].filter(Boolean).join(' / '),
@@ -258,7 +279,9 @@ export function renderCampaignPanel(body, view, actions = {}) {
       imageSource: pack,
       active: key === selectedRecordKey,
       onSelect: () => refreshSelection(key)
-    }));
+    });
+    desktopRows.set(key, row);
+    list.appendChild(row);
   });
 
   const libraryHeading = createElement('h3', 'campaign-library-heading');
@@ -266,7 +289,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
   list.appendChild(libraryHeading);
   model.packages.forEach((pack) => {
     const key = `package:${pack.packageId}`;
-    list.appendChild(createSelectableRow({
+    const row = createSelectableRow({
       key,
       title: pack.title,
       meta: pack.description,
@@ -275,25 +298,90 @@ export function renderCampaignPanel(body, view, actions = {}) {
       imageSource: pack,
       active: key === selectedRecordKey,
       onSelect: () => refreshSelection(key)
-    }));
+    });
+    desktopRows.set(key, row);
+    list.appendChild(row);
   });
   master.appendChild(list);
 
-  const detail = createElement('section', 'campaign-detail');
+  const detail = createElement('section', 'campaign-detail campaign-desktop-detail');
   detail.dataset.directiveScrollOwner = 'true';
-  const [kind, id] = String(selectedRecordKey).split(':', 2);
-  if (kind === 'campaign') {
-    const campaign = model.campaigns.find((candidate) => candidate.id === id) || model.campaigns[0];
-    if (campaign) {
-      const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
-      appendCampaignDetail(detail, campaign, pack, actions);
-    }
-  } else {
-    const pack = model.packages.find((candidate) => candidate.packageId === selectedRecordKey.slice('package:'.length));
-    if (pack) appendPackageDetail(detail, pack, actions);
-  }
-  if (!detail.children.length) appendEmpty(detail, 'Choose a playable campaign or saved story.');
+  appendRecordDetail(detail, selectedRecordKey, model, actions);
 
-  surface.append(master, detail);
+  const mobile = createElement('section', 'campaign-mobile-accordion');
+  mobile.dataset.directiveScrollOwner = 'true';
+  const mobileRecords = [];
+  const appendMobileRecord = ({ key, title, meta, state, availability = '', imageSource }) => {
+    const record = createElement('article', 'campaign-mobile-record');
+    record.dataset.mobileRecordContainerKey = key;
+    const trigger = createSelectableRow({
+      key,
+      title,
+      meta,
+      state,
+      availability,
+      imageSource,
+      active: false,
+      onSelect: null
+    });
+    delete trigger.dataset.campaignRecordKey;
+    trigger.classList.add('campaign-mobile-trigger');
+    trigger.dataset.mobileRecordKey = key;
+    trigger.removeAttribute('aria-pressed');
+    const recordDetail = createElement('div', 'campaign-mobile-detail');
+    recordDetail.id = mobileDetailId(key);
+    appendRecordDetail(recordDetail, key, model, actions);
+    record.append(trigger, recordDetail);
+    mobile.appendChild(record);
+    mobileRecords.push({ key, trigger, panel: recordDetail });
+  };
+
+  if (model.campaigns.length) {
+    const storiesHeading = createElement('h3', 'campaign-mobile-section-heading');
+    storiesHeading.textContent = 'Your stories';
+    mobile.appendChild(storiesHeading);
+  }
+  model.campaigns.forEach((campaign) => {
+    const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
+    appendMobileRecord({
+      key: `campaign:${campaign.id}`,
+      title: campaign.title,
+      meta: [campaign.playerName, campaign.chapter].filter(Boolean).join(' / '),
+      state: campaign.active ? 'Current' : 'Saved',
+      imageSource: pack
+    });
+  });
+  const mobileLibraryHeading = createElement('h3', 'campaign-mobile-section-heading campaign-mobile-library-heading');
+  mobileLibraryHeading.textContent = 'Campaign library';
+  mobile.appendChild(mobileLibraryHeading);
+  model.packages.forEach((pack) => appendMobileRecord({
+    key: `package:${pack.packageId}`,
+    title: pack.title,
+    meta: pack.description,
+    state: pack.disabled ? '' : 'Playable',
+    availability: pack.availability,
+    imageSource: pack
+  }));
+
+  const mobileDefaultKey = model.mobileCampaignId
+    ? `campaign:${model.mobileCampaignId}`
+    : `package:${model.packages.find((pack) => !pack.disabled)?.packageId || ''}`;
+  bindSingleOpenDisclosure({
+    records: mobileRecords,
+    initialOpenKey: mobileDefaultKey,
+    onOpen: (key) => {
+      selectedRecordKey = key;
+      for (const [recordKey, row] of desktopRows) {
+        const active = recordKey === key;
+        if (active) row.classList.add('active');
+        else row.classList.remove('active');
+        row.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+      detail.replaceChildren();
+      appendRecordDetail(detail, key, model, actions);
+    }
+  });
+
+  surface.append(master, detail, mobile);
   body.appendChild(surface);
 }

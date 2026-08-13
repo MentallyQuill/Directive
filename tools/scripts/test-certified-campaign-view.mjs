@@ -59,4 +59,26 @@ view.campaign.packages[0].campaign.eraLabel = 'Mutated era';
 assert.equal(campaign.packages[0].title, 'Ashes of Peace');
 assert.equal(campaign.packages[0].facts[0].value, '2376, Post-Dominion War');
 
+const mobilePriority = buildCertifiedCampaignView({
+  ...view,
+  campaignIndex: {
+    campaigns: [
+      { id: 'campaign.active', packageId: ashesId, active: true, lastPlayedAt: '2026-08-10T12:00:00.000Z' },
+      { id: 'campaign.recent', packageId: ashesId, active: false, lastPlayedAt: '2026-08-12T12:00:00.000Z' },
+      { id: 'campaign.invalid', packageId: ashesId, active: false, lastPlayedAt: 'not-a-date' }
+    ]
+  }
+});
+assert.equal(mobilePriority.selectedCampaignId, 'campaign.active', 'desktop selection must retain its active fallback');
+assert.equal(mobilePriority.mobileCampaignId, 'campaign.recent', 'phone selection must prefer the last-played campaign');
+
+const explicitMobilePriority = buildCertifiedCampaignView({
+  ...view,
+  campaignIndex: {
+    selectedCampaignId: 'campaign.active',
+    campaigns: mobilePriority.campaigns
+  }
+});
+assert.equal(explicitMobilePriority.mobileCampaignId, 'campaign.active', 'an explicit rendered selection must win on phone');
+
 console.log('PASS certified Campaign view');

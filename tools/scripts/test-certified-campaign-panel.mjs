@@ -12,6 +12,9 @@ class Element {
     this.textContent = '';
     this.tabIndex = 0;
     this.disabled = false;
+    this.hidden = false;
+    this.id = '';
+    this.replaceCount = 0;
     this.classList = {
       add: (...names) => {
         const classes = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -29,6 +32,7 @@ class Element {
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
   replaceChildren(...children) {
+    this.replaceCount += 1;
     this.children = [];
     children.forEach((child) => this.appendChild(child));
   }
@@ -36,12 +40,14 @@ class Element {
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
+  focus() { globalThis.document.activeElement = this; }
   click() {
     if (!this.disabled) this.listeners.get('click')?.({ currentTarget: this });
   }
 }
 
 globalThis.document = {
+  activeElement: null,
   createElement: (tagName) => new Element(tagName),
   createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text })
 };
@@ -138,9 +144,40 @@ renderCampaignPanel(body, view, {
 assert.equal(byClass(body, 'campaign-layout').length, 1);
 assert.equal(byClass(body, 'campaign-master').length, 1);
 assert.equal(byClass(body, 'campaign-detail').length, 1);
-assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 2);
+assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 3);
 
-const previews = byData(body, 'campaignAvailability', 'coming-later');
+const mobileAccordion = byClass(body, 'campaign-mobile-accordion')[0];
+assert.ok(mobileAccordion);
+const mobileTriggers = byClass(body, 'campaign-mobile-trigger');
+const mobileDetails = byClass(body, 'campaign-mobile-detail');
+assert.equal(mobileTriggers.length, 7);
+assert.equal(mobileDetails.length, 7);
+const currentMobileTrigger = byData(body, 'mobileRecordKey', 'campaign:campaign.ashes')[0];
+assert.equal(currentMobileTrigger.getAttribute('aria-expanded'), 'true');
+const currentMobileDetail = mobileDetails.find((node) => node.id === currentMobileTrigger.getAttribute('aria-controls'));
+assert.ok(currentMobileDetail);
+assert.equal(currentMobileDetail.hidden, false);
+
+const futureMobileTrigger = byData(body, 'mobileRecordKey', 'package:directive:campaign-package:glass-harbor-drowned-constellation')[0];
+const futureMobileDetail = mobileDetails.find((node) => node.id === futureMobileTrigger.getAttribute('aria-controls'));
+const replacementCount = body.replaceCount;
+futureMobileTrigger.focus();
+await futureMobileTrigger.click();
+assert.equal(body.replaceCount, replacementCount, 'phone disclosure must not replace the route body');
+assert.equal(byClass(body, 'campaign-mobile-accordion')[0], mobileAccordion, 'phone disclosure must retain list identity');
+assert.equal(globalThis.document.activeElement, futureMobileTrigger, 'phone disclosure must retain focus');
+assert.equal(currentMobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(currentMobileDetail.hidden, true);
+assert.equal(futureMobileTrigger.getAttribute('aria-expanded'), 'true');
+assert.equal(futureMobileDetail.hidden, false);
+assert.equal(byData(body, 'campaignRecordKey', 'package:directive:campaign-package:glass-harbor-drowned-constellation')[0].getAttribute('aria-pressed'), 'true');
+assert.match(textOf(byClass(body, 'campaign-detail')[0]), /Drowned Constellation/);
+await futureMobileTrigger.click();
+assert.equal(futureMobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(mobileDetails.every((node) => node.hidden), true, 'tapping the open Campaign must collapse all records');
+
+const previews = byData(body, 'campaignAvailability', 'coming-later')
+  .filter((node) => node.tagName === 'BUTTON' && node.dataset.campaignRecordKey);
 assert.equal(previews.length, 5);
 for (const preview of previews) {
   assert.equal(preview.tagName, 'BUTTON');
