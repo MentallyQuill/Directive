@@ -1117,6 +1117,7 @@ export function createV1MissionRuntime({
         snapshot = {},
         hardBoundary = null,
         acceptedCommandBearingEdge = null,
+        signal = null,
     } = {}) {
         let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1224,6 +1225,7 @@ export function createV1MissionRuntime({
                     candidatePacket,
                     sourcePair,
                     timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
+                    signal,
                 });
             } catch {
                 return unavailable('interpretation-threw', {}, { attempted: true });
@@ -1534,7 +1536,7 @@ export function createV1MissionRuntime({
         }
     }
 
-    async function reviewPendingEpisode({ runtimeAssets = {} } = {}) {
+    async function reviewPendingEpisode({ runtimeAssets = {}, signal = null } = {}) {
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return { ...resolved, reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement) };
@@ -1573,7 +1575,7 @@ export function createV1MissionRuntime({
         const gatewayBaseRevision = stateDeltaGateway.revision();
         let evaluated;
         try {
-            evaluated = await episodeEvaluator({ request });
+            evaluated = await episodeEvaluator({ request, signal });
         } catch {
             evaluated = { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };
         }

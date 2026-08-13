@@ -1,5 +1,3 @@
-import { createSillyTavernNarrationProvider } from './narration-provider.mjs';
-
 const OWNED_GENERATION_DEPTH_KEY = '__directiveOwnedGenerationDepth';
 
 function providerUnavailable(message) {
@@ -120,17 +118,11 @@ function retryRequest(request = {}) {
 
 export function createSillyTavernGenerationClient({
   contextFactory = defaultContextFactory,
-  narrationProvider = null,
   providerClient = null
 } = {}) {
-  const narrator = narrationProvider || createSillyTavernNarrationProvider({ contextFactory });
-
   async function perform(roleId, request, options = {}) {
     if (providerClient?.generate) {
       return providerClient.generate(roleId, request, options);
-    }
-    if (roleId === 'narration' && narrationProvider) {
-      return narrator.generateNarration(request);
     }
     const context = contextFactory();
     if (!context) throw providerUnavailable('SillyTavern context is not available for generation.');

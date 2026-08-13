@@ -514,6 +514,7 @@ export function createDirectiveRuntimeApp({
   let settlementQueue = Promise.resolve();
   let acceptedPairReplayNeeded = false;
   let pendingAcceptedPairSettlement = null;
+  let activeAnalysisController = null;
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
   let deferredInternalChatChangeScheduled = false;
@@ -957,18 +958,32 @@ export function createDirectiveRuntimeApp({
       error.details = { expected: currentEnvelope, actual: clone(envelope) };
       throw error;
     }
+    const analysisController = typeof AbortController === 'function' ? new AbortController() : null;
+    activeAnalysisController = analysisController;
     let mission = null;
     let persistenceAttempts = 0;
-    do {
-      persistenceAttempts += 1;
-      mission = await missionRuntime.settleAcceptedPair({
-        runtimeAssets,
-        snapshot,
-        acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot)
-      });
-    } while (mission?.ok === false
-      && mission.reasonCode === 'persistence-failed'
-      && persistenceAttempts < 3);
+    try {
+      do {
+        persistenceAttempts += 1;
+        mission = await missionRuntime.settleAcceptedPair({
+          runtimeAssets,
+          snapshot,
+          acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
+          signal: analysisController?.signal || null
+        });
+      } while (mission?.ok === false
+        && mission.reasonCode === 'persistence-failed'
+        && persistenceAttempts < 3
+        && analysisController?.signal?.aborted !== true);
+      if (mission?.ok === true && missionRuntime.pendingEpisodeReview()) {
+        await missionRuntime.reviewPendingEpisode({
+          runtimeAssets,
+          signal: analysisController?.signal || null
+        });
+      }
+    } finally {
+      if (activeAnalysisController === analysisController) activeAnalysisController = null;
+    }
     const time = mission?.time || null;
     const settlementBlocked = mission?.ok === false && mission.reasonCode === 'persistence-failed';
     if (settlementBlocked) {
@@ -983,9 +998,6 @@ export function createDirectiveRuntimeApp({
       acceptedPairReplayNeeded = true;
     } else {
       pendingAcceptedPairSettlement = null;
-    }
-    if (mission?.ok === true && missionRuntime.pendingEpisodeReview()) {
-      await missionRuntime.reviewPendingEpisode({ runtimeAssets });
     }
     const commandBearing = mission?.acceptedCommandBearingEdge || {
       applied: false,
@@ -1521,7 +1533,11 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
-      return { ok: true, canceled: false, reason: 'host-controls-generation' };
+      if (!activeAnalysisController || activeAnalysisController.signal.aborted) {
+        return { ok: true, canceled: false, reason: 'no-directive-analysis-active' };
+      }
+      activeAnalysisController.abort(new Error('host-generation-stopped'));
+      return { ok: true, canceled: true, reason: 'directive-analysis-aborted' };
     },
 
     clearDirectivePrompt: (options = {}) => host.prompt.clear?.(options),

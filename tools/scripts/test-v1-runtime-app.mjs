@@ -100,11 +100,23 @@ const storage = {
   }
 };
 let missionInterpretationCalls = 0;
+let holdMissionInterpretation = false;
+let reportHeldInterpretationStarted = null;
 const generation = createFakeGenerationClient({
   responses: {
     narration: { text: 'Captain Whitaker waits in the ready room. “Come in, Commander.”', providerId: 'fake-narrator' },
-    acceptedPairMissionEvidence: () => {
+    acceptedPairMissionEvidence: async ({ rawOptions }) => {
       missionInterpretationCalls += 1;
+      if (holdMissionInterpretation) {
+        reportHeldInterpretationStarted?.();
+        await new Promise((_resolve, reject) => {
+          rawOptions.signal?.addEventListener('abort', () => {
+            const error = new Error('held Directive analysis aborted');
+            error.code = 'DIRECTIVE_GENERATION_ABORTED';
+            reject(error);
+          }, { once: true });
+        });
+      }
       if (missionInterpretationCalls === 1) throw new Error('transient fake provider failure');
       return {
         text: JSON.stringify({
@@ -158,10 +170,9 @@ assert.equal(initial.campaignState, null);
 assert.deepEqual(initial.media, { playerPortraitImportSupported: true });
 assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
-  { id: 'narration', providerKind: 'reasoning' },
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
-  { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' },
-  { id: 'utilityJson', providerKind: 'utility' }
+  { id: 'episodeEvaluator', providerKind: 'reasoning' },
+  { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' }
 ]);
 assert.deepEqual(initial.diagnostics, { transcriptAvailable: true });
 assert.equal(JSON.stringify(initial.providerConfiguration).includes('baseUrl'), false);
@@ -180,7 +191,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 4);
+assert.equal(metadataOnlySupport.routing.length, 3);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',
@@ -1044,6 +1055,40 @@ assert.equal(
   elapsedBeforeMissingSource - 47,
   'complete-chat reconciliation must remove an accepted pair outside the last 500 rows'
 );
+
+chat.pushAssistantMessage({
+  text: 'The bridge pauses while the next command is considered.',
+  hostMessageId: 'assistant.analysis-cancel'
+});
+const cancellationPlayer = chat.pushPlayerMessage({
+  text: 'Hold that thought.',
+  hostMessageId: 'player.analysis-cancel'
+});
+let releaseHeldInterpretationStarted = null;
+const heldInterpretationStarted = new Promise((resolve) => { releaseHeldInterpretationStarted = resolve; });
+reportHeldInterpretationStarted = releaseHeldInterpretationStarted;
+holdMissionInterpretation = true;
+const canceledSettlementPending = app.observeHostPlayerMessage({ message: cancellationPlayer });
+await heldInterpretationStarted;
+const stoppedAnalysis = await app.handleHostGenerationStopped();
+assert.deepEqual(stoppedAnalysis, {
+  ok: true,
+  canceled: true,
+  reason: 'directive-analysis-aborted'
+});
+const canceledRuntimeSettlement = await canceledSettlementPending;
+assert.equal(canceledRuntimeSettlement.mission.ok, false);
+assert.equal(canceledRuntimeSettlement.mission.reasonCode, 'provider-aborted');
+holdMissionInterpretation = false;
+reportHeldInterpretationStarted = null;
+const noActiveAnalysis = await app.handleHostGenerationStopped();
+assert.deepEqual(noActiveAnalysis, {
+  ok: true,
+  canceled: false,
+  reason: 'no-directive-analysis-active'
+});
+const replayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.equal(replayAfterCancellation.acceptedPairReplay.blocked, false);
 
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
 const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;

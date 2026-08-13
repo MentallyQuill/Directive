@@ -48,6 +48,60 @@ function valuesEqual(left, right) {
     return Object.is(left, right) || JSON.stringify(left) === JSON.stringify(right);
 }
 
+function constSchema(value) {
+    if (value === null) return { type: 'null' };
+    if (typeof value === 'string') return { type: 'string', const: value };
+    if (typeof value === 'number') return { type: 'number', const: value };
+    if (typeof value === 'boolean') return { type: 'boolean', const: value };
+    return { const: cloneJson(value) };
+}
+
+export function createMissionAcceptedPairInterpretationSchema({ candidatePacket = {} } = {}) {
+    const candidateSelections = (candidatePacket.candidates || []).flatMap((candidate) => {
+        const sourceSlots = candidate.sourceSlots || [];
+        const values = Array.isArray(candidate.values) ? candidate.values.map((entry) => entry.value) : null;
+        return sourceSlots.flatMap((sourceSlot) => (values || [undefined]).map((value) => {
+            const hasValue = value !== undefined;
+            return {
+                type: 'object',
+                additionalProperties: false,
+                required: hasValue ? ['candidateId', 'sourceSlot', 'value'] : ['candidateId', 'sourceSlot'],
+                properties: {
+                    candidateId: { type: 'string', const: candidate.id },
+                    sourceSlot: { type: 'string', const: sourceSlot },
+                    ...(hasValue ? { value: constSchema(value) } : {}),
+                },
+            };
+        }));
+    });
+    return {
+        type: 'object',
+        additionalProperties: false,
+        required: ['kind', 'assistantAcceptance', 'claims', 'abstained', 'time'],
+        properties: {
+            kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
+            assistantAcceptance: { type: 'string', enum: [...ASSISTANT_ACCEPTANCE_VALUES] },
+            claims: {
+                type: 'array',
+                maxItems: Math.min(MAX_CLAIMS, candidateSelections.length),
+                items: candidateSelections.length > 0 ? { oneOf: candidateSelections } : { type: 'object' },
+            },
+            abstained: { type: 'boolean' },
+            time: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['decision', 'elapsedSeconds', 'reason', 'confidence'],
+                properties: {
+                    decision: { type: 'string', enum: [...TIME_DECISION_VALUES] },
+                    elapsedSeconds: { type: 'integer', minimum: 0, maximum: MAX_TIME_ADVANCE_SECONDS },
+                    reason: { type: 'string', minLength: 1, maxLength: 180 },
+                    confidence: { type: 'number', minimum: 0, maximum: 1 },
+                },
+            },
+        },
+    };
+}
+
 function timeDecisionErrors(value) {
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ['time must be an object'];
@@ -192,6 +246,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
     };
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;
     return {
+        kind: 'directive.missionEvidenceInterpretationRequest.v1',
         prompt: `${systemPrompt}\n\n${user}`,
         systemPrompt,
         maxTokens: MISSION_EVIDENCE_MAX_TOKENS,
@@ -204,6 +259,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
             { role: 'system', content: systemPrompt },
             { role: 'user', content: user },
         ],
+        jsonSchema: createMissionAcceptedPairInterpretationSchema({ candidatePacket }),
         metadata: {
             roleId: MISSION_EVIDENCE_INTERPRETER_ROLE_ID,
             missionId: candidatePacket.missionId || null,
@@ -275,20 +331,51 @@ function timeoutResult(timeoutMs) {
     };
 }
 
-async function runWithTimeout(promise, timeoutMs) {
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+function abortedResult() {
+    return {
+        ok: false,
+        status: 'unavailable',
+        reasonCode: 'provider-aborted',
+        diagnostics: {},
+    };
+}
+
+async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
+    if (externalSignal?.aborted) return abortedResult();
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const providerSignal = controller?.signal || externalSignal || null;
     let timeoutId = null;
-    const pending = Promise.resolve(promise);
+    let removeExternalAbort = null;
+    let resolveExternalAbort = null;
+    const externalAbort = new Promise((resolve) => { resolveExternalAbort = resolve; });
+    if (externalSignal?.addEventListener) {
+        const onAbort = () => {
+            controller?.abort(externalSignal.reason);
+            resolveExternalAbort(abortedResult());
+        };
+        externalSignal.addEventListener('abort', onAbort, { once: true });
+        removeExternalAbort = () => externalSignal.removeEventListener('abort', onAbort);
+    }
+    let pending = null;
     try {
+        pending = Promise.resolve(factory(providerSignal));
+        if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+            return await Promise.race([pending, externalAbort]);
+        }
         return await Promise.race([
             pending,
             new Promise((resolve) => {
-                timeoutId = setTimeout(() => resolve(timeoutResult(timeoutMs)), timeoutMs);
+                timeoutId = setTimeout(() => {
+                    controller?.abort(new Error('provider-timeout'));
+                    resolve(timeoutResult(timeoutMs));
+                }, timeoutMs);
             }),
+            externalAbort,
         ]);
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
-        pending.catch?.(() => null);
+        removeExternalAbort?.();
+        pending?.catch?.(() => null);
     }
 }
 
@@ -296,7 +383,9 @@ export function createMissionAcceptedPairInterpreter({
     generationRouter = null,
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
 } = {}) {
-    return async function interpretMissionAcceptedPair({ candidatePacket = {}, sourcePair = {}, timeContext = {} } = {}) {
+    return async function interpretMissionAcceptedPair({
+        candidatePacket = {}, sourcePair = {}, timeContext = {}, signal = null,
+    } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -304,14 +393,17 @@ export function createMissionAcceptedPairInterpreter({
         let generation = null;
         try {
             const result = await runWithTimeout(
-                Promise.resolve().then(() => generationRouter.generate(
+                (providerSignal) => generationRouter.generate(
                     MISSION_EVIDENCE_INTERPRETER_ROLE_ID,
                     request,
-                    { timeoutMs },
-                )),
+                    { timeoutMs, signal: providerSignal, allowVisibleOutputRetry: false },
+                ),
                 timeoutMs,
+                signal,
             );
-            if (result?.ok === false && result?.reasonCode === 'provider-timeout') return result;
+            if (result?.ok === false && new Set(['provider-timeout', 'provider-aborted']).has(result?.reasonCode)) {
+                return result;
+            }
             generation = result;
         } catch {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };

@@ -14,13 +14,12 @@ import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/g
 import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.mjs';
 
 assert.deepEqual(GENERATION_ROLE_IDS, [
-  'narration',
   'acceptedPairMissionEvidence',
-  'characterCreatorSectionDraft',
-  'utilityJson'
+  'episodeEvaluator',
+  'characterCreatorSectionDraft'
 ]);
-assert.equal(providerKindForRole('narration'), 'reasoning');
-assert.equal(providerKindForRole('utilityJson'), 'utility');
+assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');
 
 const profiles = [
   { id: 'chat.local', name: 'Local Chat', model: 'cydonia-local', api: 'openai', preset: 'Local Chat Preset' },
@@ -125,7 +124,7 @@ const schema = {
   required: ['ok'],
   properties: { ok: { type: 'boolean' } }
 };
-const utility = await profileClient.generate('utilityJson', {
+const utility = await profileClient.generate('acceptedPairMissionEvidence', {
   messages: [{ role: 'user', content: 'Return bounded JSON.' }],
   parameters: { temperature: 0.05, top_p: 0.7, max_tokens: 900 },
   jsonSchema: schema
@@ -147,7 +146,7 @@ assert.deepEqual(profileCalls[0], {
 });
 assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
 
-await profileClient.generate('narration', {
+await profileClient.generate('episodeEvaluator', {
   messages: [{ role: 'user', content: 'Continue.' }],
   maxTokens: 500
 });
@@ -167,7 +166,7 @@ assert.deepEqual(profileCalls[1], {
 
 profileStore.update('utility', { structuredOutputMode: 'native-schema' });
 await assert.rejects(
-  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Schema.' }], jsonSchema: schema }),
+  profileClient.generate('acceptedPairMissionEvidence', { messages: [{ role: 'user', content: 'Schema.' }], jsonSchema: schema }),
   (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
 );
 assert.equal(profileCalls.length, 2, 'uncertified explicit native schema must fail before transport');
@@ -185,7 +184,7 @@ assert.deepEqual(profileStore.get('utility').certification, {
 profiles[0].preset = 'Changed Local Chat Preset';
 assert.deepEqual(profileClient.status('utility').certification, { status: 'not-run' });
 await assert.rejects(
-  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Changed source.' }], jsonSchema: schema }),
+  profileClient.generate('acceptedPairMissionEvidence', { messages: [{ role: 'user', content: 'Changed source.' }], jsonSchema: schema }),
   (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
 );
 profiles[0].preset = 'Local Chat Preset';
@@ -218,7 +217,7 @@ assert.deepEqual(promptOnlyTest.capabilities, { connectivity: true, structuredOu
 assert.equal(promptOnlyCalls.length, 2);
 assert.equal(promptOnlyStore.get('utility').certification.structuredOutput, 'prompt-json');
 
-const nativeResult = await profileClient.generate('utilityJson', {
+const nativeResult = await profileClient.generate('acceptedPairMissionEvidence', {
   messages: [{ role: 'user', content: 'Schema after certification.' }],
   jsonSchema: schema
 });
@@ -232,7 +231,7 @@ assert.deepEqual(profileCalls.at(-1).payload.json_schema, {
 profileStore.update('utility', { topP: 0.82 });
 assert.deepEqual(profileStore.get('utility').certification, { status: 'not-run' });
 await assert.rejects(
-  profileClient.generate('utilityJson', { messages: [{ role: 'user', content: 'Changed.' }], jsonSchema: schema }),
+  profileClient.generate('acceptedPairMissionEvidence', { messages: [{ role: 'user', content: 'Changed.' }], jsonSchema: schema }),
   (error) => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED'
 );
 
@@ -279,7 +278,7 @@ assert.deepEqual(currentClient.status('reasoning'), {
   profile: null,
   certification: { status: 'not-run' }
 });
-const currentResult = await currentClient.generate('narration', {
+const currentResult = await currentClient.generate('episodeEvaluator', {
   systemPrompt: 'Directive system.',
   prompt: 'Continue.',
   parameters: { temperature: 0.9, top_p: 0.4, max_tokens: 900 }
@@ -335,7 +334,7 @@ const currentTextClient = createDirectiveProviderClient({
   contextFactory: () => currentTextContext,
   settingsStore: currentTextStore
 });
-const currentTextResult = await currentTextClient.generate('utilityJson', {
+const currentTextResult = await currentTextClient.generate('acceptedPairMissionEvidence', {
   messages: [{ role: 'user', content: 'Use native text completion.' }],
   maxTokens: 500
 });
@@ -367,7 +366,7 @@ const policyIncompleteClient = createDirectiveProviderClient({
 });
 assert.equal(policyIncompleteClient.status('utility').ready, false);
 await assert.rejects(
-  policyIncompleteClient.generate('utilityJson', { prompt: 'Do not use an incomplete transport.' }),
+  policyIncompleteClient.generate('acceptedPairMissionEvidence', { prompt: 'Do not use an incomplete transport.' }),
   (error) => error?.code === 'DIRECTIVE_PROVIDER_UNAVAILABLE'
 );
 
@@ -383,7 +382,7 @@ invalidStore.update('utility', { provider: 'profile', profileId: 'missing' });
 const invalidClient = createDirectiveProviderClient({ contextFactory: () => invalidProfileContext, settingsStore: invalidStore });
 assert.equal(invalidClient.status('utility').ready, false);
 await assert.rejects(
-  invalidClient.generate('utilityJson', { prompt: 'No route.' }),
+  invalidClient.generate('acceptedPairMissionEvidence', { prompt: 'No route.' }),
   (error) => error?.code === 'DIRECTIVE_PROFILE_UNAVAILABLE'
 );
 
@@ -404,7 +403,7 @@ const leakyStore = createSillyTavernProviderSettingsStore({ context: leakyContex
 leakyStore.update('utility', { provider: 'profile', profileId: 'chat.local' });
 const leakyClient = createDirectiveProviderClient({ contextFactory: () => leakyContext, settingsStore: leakyStore });
 await assert.rejects(
-  leakyClient.generate('utilityJson', { prompt: 'Do not expose backend errors.' }),
+  leakyClient.generate('acceptedPairMissionEvidence', { prompt: 'Do not expose backend errors.' }),
   (error) => {
     assert.equal(error.code, 'DIRECTIVE_PROVIDER_REQUEST_FAILED');
     assert.equal(error.message, 'Provider utility request failed.');
@@ -441,7 +440,7 @@ const cancellationStore = createSillyTavernProviderSettingsStore({ context: canc
 cancellationStore.update('utility', { provider: 'profile', profileId: 'chat.local' });
 const cancellationClient = createDirectiveProviderClient({ contextFactory: () => cancellationContext, settingsStore: cancellationStore });
 const controller = new AbortController();
-const canceled = cancellationClient.generate('utilityJson', { prompt: 'Cancel.' }, { signal: controller.signal, timeoutMs: 1000 });
+const canceled = cancellationClient.generate('acceptedPairMissionEvidence', { prompt: 'Cancel.' }, { signal: controller.signal, timeoutMs: 1000 });
 controller.abort();
 await assert.rejects(canceled, (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
 assert.equal(cancellationSignal.aborted, true);
@@ -451,7 +450,7 @@ const router = createDirectiveGenerationRouter({
   generation: createSillyTavernGenerationClient({ providerClient: routedProviderClient })
 });
 const routedController = new AbortController();
-const routed = router.generate('utilityJson', { prompt: 'Cancel through router.' }, {
+const routed = router.generate('acceptedPairMissionEvidence', { prompt: 'Cancel through router.' }, {
   signal: routedController.signal,
   timeoutMs: 1000,
   allowVisibleOutputRetry: false

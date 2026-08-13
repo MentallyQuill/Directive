@@ -16,7 +16,7 @@ assert.equal(initial.missionId, definition.id);
 assert.equal(initial.definitionVersion, definition.version);
 assert.equal(initial.branchId, 'save.alpha');
 assert.equal(initial.baseRevision, 0);
-assert.ok(initial.candidates.length > 0);
+assert.equal(initial.candidates.length, 4, 'only currently eligible policies enter the opening model envelope');
 assert.deepEqual(
     initial.candidates.map((candidate) => candidate.id),
     [...initial.candidates.map((candidate) => candidate.id)].sort(),
@@ -25,9 +25,10 @@ assert.equal(initial.candidates.some((candidate) => candidate.claimType === 'wor
 assert.equal(initial.candidates.some((candidate) => candidate.claimType === 'timeAdvanced'), false);
 assert.equal(initial.candidates.some((candidate) => candidate.sourceSlots.includes('runtime')), false);
 assert.equal(initial.candidates.some((candidate) => candidate.sourceSlots.includes('adjudicator')), false);
-assert.deepEqual(
-    initial.candidates.find((candidate) => candidate.id === 'policy.hesperus.rescue-risk-decision')?.sourceSlots,
-    ['currentPlayer'],
+assert.equal(
+    initial.candidates.some((candidate) => candidate.id === 'policy.hesperus.rescue-risk-decision'),
+    false,
+    'predicate-ineligible evidence must not be sent to the model',
 );
 assert.deepEqual(
     initial.candidates.find((candidate) => candidate.id === 'policy.prelude.command-handover-completed')?.sourceSlots,
@@ -56,12 +57,14 @@ assert.deepEqual(reordered, initial);
 
 const progressedState = structuredClone(initialState);
 progressedState.knownFacts.push('fact.hesperus.distress-established');
+progressedState.knownFacts.push('fact.hesperus.passenger-risk');
 progressedState.events.push('event.prelude.command-handover-completed');
 progressedState.outcomes['outcome.hesperus.rescue-risk-decision'] = 'saferPlan';
 const progressed = createMissionInterpretationCandidatePacket({ definition, state: progressedState });
 assert.equal(progressed.candidates.some((candidate) => candidate.id === 'policy.hesperus.distress-disclosed'), false);
 assert.equal(progressed.candidates.some((candidate) => candidate.id === 'policy.prelude.command-handover-completed'), false);
 const rescueDecision = progressed.candidates.find((candidate) => candidate.id === 'policy.hesperus.rescue-risk-decision');
+assert.deepEqual(rescueDecision?.sourceSlots, ['currentPlayer']);
 assert.equal(rescueDecision.currentValue, 'saferPlan');
 assert.equal(rescueDecision.values.some((entry) => entry.value === 'saferPlan'), false);
 

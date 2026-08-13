@@ -62,6 +62,21 @@ assert.match(prompt.messages[1].content, /08:42:17 hours/);
 assert.equal(prompt.messages[1].content.includes('mustNotReveal'), false);
 assert.equal(prompt.maxTokens, 2500);
 assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 2500 });
+assert.equal(prompt.kind, 'directive.missionEvidenceInterpretationRequest.v1');
+assert.equal(prompt.jsonSchema.additionalProperties, false);
+assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.missionEvidenceInterpretation.v1');
+const claimVariants = prompt.jsonSchema.properties.claims.items.oneOf;
+assert.ok(claimVariants.length >= candidatePacket.candidates.length);
+assert.equal(prompt.jsonSchema.properties.claims.maxItems, Math.min(16, claimVariants.length));
+assert.equal(claimVariants.every((variant) => variant.additionalProperties === false), true);
+assert.equal(
+    claimVariants.some((variant) => variant.properties.candidateId.const === 'policy.hesperus.rescue-result'),
+    true,
+);
+assert.equal(
+    claimVariants.some((variant) => variant.properties.candidateId.const === 'policy.not-authorized'),
+    false,
+);
 
 const validOutput = {
     kind: 'directive.missionEvidenceInterpretation.v1',
@@ -208,8 +223,8 @@ assert.match(malformed.errors.join('\n'), /valid JSON/);
 const generatedRequests = [];
 const interpreter = createMissionAcceptedPairInterpreter({
     generationRouter: {
-        async generate(roleId, request) {
-            generatedRequests.push({ roleId, request });
+        async generate(roleId, request, options) {
+            generatedRequests.push({ roleId, request, options });
             return {
                 ok: true,
                 response: { text: JSON.stringify(validOutput), providerId: 'fake-utility', model: 'fake' },
@@ -224,6 +239,9 @@ assert.equal(interpreted.ok, true);
 assert.equal(interpreted.status, 'interpreted');
 assert.equal(interpreted.proposal.claims.length, 2);
 assert.equal(generatedRequests[0].roleId, 'acceptedPairMissionEvidence');
+assert.equal(generatedRequests[0].options.allowVisibleOutputRetry, false);
+assert.equal(generatedRequests[0].options.timeoutMs, 100);
+assert.ok(generatedRequests[0].options.signal instanceof AbortSignal);
 assert.equal(interpreted.diagnostics.providerId, 'fake-utility');
 assert.equal(Object.hasOwn(interpreted.diagnostics, 'rawResponse'), false);
 
@@ -271,11 +289,38 @@ assert.equal(thrown.status, 'unavailable');
 assert.equal(thrown.reasonCode, 'provider-threw');
 assert.equal(JSON.stringify(thrown).includes('secret provider failure'), false);
 
+let timeoutSignal = null;
 const timedOut = await createMissionAcceptedPairInterpreter({
-    generationRouter: { generate: async () => new Promise(() => {}) },
+    generationRouter: {
+        generate(_roleId, _request, options) {
+            timeoutSignal = options.signal;
+            return new Promise(() => {});
+        },
+    },
     timeoutMs: 5,
 })({ candidatePacket, sourcePair });
 assert.equal(timedOut.ok, false);
 assert.equal(timedOut.reasonCode, 'provider-timeout');
+assert.equal(timeoutSignal?.aborted, true);
+
+let externalSignal = null;
+const externalController = new AbortController();
+const externalPending = createMissionAcceptedPairInterpreter({
+    generationRouter: {
+        generate(_roleId, _request, options) {
+            externalSignal = options.signal;
+            return new Promise(() => {});
+        },
+    },
+    timeoutMs: 500,
+})({ candidatePacket, sourcePair, signal: externalController.signal });
+externalController.abort();
+assert.deepEqual(await externalPending, {
+    ok: false,
+    status: 'unavailable',
+    reasonCode: 'provider-aborted',
+    diagnostics: {},
+});
+assert.equal(externalSignal?.aborted, true);
 
 console.log('V1 accepted-pair interpreter tests passed.');
