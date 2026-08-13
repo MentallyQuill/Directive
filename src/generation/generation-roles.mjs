@@ -1,26 +1,12 @@
 export const GENERATION_ROLE_IDS = Object.freeze([
-  'narration',
   'acceptedPairMissionEvidence',
-  'characterCreatorSectionDraft',
-  'utilityJson'
+  'episodeEvaluator',
+  'characterCreatorSectionDraft'
 ]);
 
 export const GENERATION_PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
 
 const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
-  narration: Object.freeze({
-    id: 'narration',
-    label: 'Story narration',
-    providerKind: 'reasoning',
-    blocking: true,
-    output: 'prose',
-    timeoutMs: 120000,
-    structuredOutput: false,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'fail-retryable'
-  }),
   acceptedPairMissionEvidence: Object.freeze({
     id: 'acceptedPairMissionEvidence',
     label: 'Mission evidence and story time',
@@ -32,6 +18,19 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayProposeState: false,
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: true,
+    fallback: 'fail-closed'
+  }),
+  episodeEvaluator: Object.freeze({
+    id: 'episodeEvaluator',
+    label: 'Bounded story analysis',
+    providerKind: 'reasoning',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 10000,
+    structuredOutput: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
     fallback: 'fail-closed'
   }),
   characterCreatorSectionDraft: Object.freeze({
@@ -46,19 +45,6 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayInjectPrompt: false,
     mayRunDuringMainGeneration: false,
     fallback: 'local-fallback'
-  }),
-  utilityJson: Object.freeze({
-    id: 'utilityJson',
-    label: 'Story distillation',
-    providerKind: 'utility',
-    blocking: true,
-    output: 'structured-json',
-    timeoutMs: 30000,
-    structuredOutput: true,
-    mayProposeState: false,
-    mayInjectPrompt: false,
-    mayRunDuringMainGeneration: false,
-    fallback: 'fail-retryable'
   })
 });
 

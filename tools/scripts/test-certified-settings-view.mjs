@@ -13,8 +13,7 @@ const view = {
     status: { utility: { ready: true }, reasoning: { ready: true } }
   },
   generationRouting: [
-    { id: 'narration', label: 'Story narration', providerKind: 'reasoning' },
-    { id: 'utilityJson', label: 'Story distillation', providerKind: 'utility' }
+    { id: 'episodeEvaluator', label: 'Bounded story analysis', providerKind: 'reasoning' }
   ],
   diagnostics: { transcriptAvailable: false },
   legacy: { tutorial: true, help: true, directEndpoint: true }

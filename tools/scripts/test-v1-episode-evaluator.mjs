@@ -278,7 +278,13 @@ assert.match(prompt.systemPrompt, /retain only new narrative understanding/i);
 assert.match(prompt.systemPrompt, /lasting significance/i);
 assert.match(prompt.systemPrompt, /no memory/i);
 assert.match(prompt.systemPrompt, /never use topic, keyword, speaker, sentiment, token count, or elapsed time/i);
-assert.equal(prompt.metadata.roleId, 'utilityJson');
+assert.equal(prompt.metadata.roleId, 'episodeEvaluator');
+assert.equal(prompt.kind, 'directive.episodeEvaluationRequest.v1');
+assert.equal(prompt.jsonSchema.additionalProperties, false);
+assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.episodeEvaluationProposal.v1');
+assert.equal(prompt.jsonSchema.properties.branchId.const, request.envelope.branchId);
+assert.equal(prompt.jsonSchema.properties.episodeId.const, request.envelope.episodeId);
+assert.deepEqual(prompt.jsonSchema.properties.decision.enum, ['continue', 'seal', 'abstain']);
 for (const forbidden of ['HIDDEN-ACTIVE-CANARY', 'rawTranscript', 'providerDiagnostic']) {
     assert.equal(JSON.stringify(prompt).includes(forbidden), false, forbidden);
 }
@@ -321,8 +327,10 @@ const evaluator = createEpisodeEvaluator({
 const evaluated = await evaluator({ request });
 assert.equal(evaluated.ok, true);
 assert.equal(evaluated.proposal.decision, 'continue');
-assert.equal(invocation.roleId, 'utilityJson');
+assert.equal(invocation.roleId, 'episodeEvaluator');
 assert.equal(invocation.options.timeoutMs, 50);
+assert.equal(invocation.options.allowVisibleOutputRetry, false);
+assert.ok(invocation.options.signal instanceof AbortSignal);
 assert.deepEqual(settlement, beforeRequest, 'evaluation never mutates settlement state');
 
 let cappedTimeout = null;
@@ -338,8 +346,14 @@ const cappedEvaluator = createEpisodeEvaluator({
 assert.equal((await cappedEvaluator({ request })).ok, true);
 assert.equal(cappedTimeout, 10000);
 
+let timeoutSignal = null;
 const timeoutEvaluator = createEpisodeEvaluator({
-    generationRouter: { generate: () => new Promise(() => {}) },
+    generationRouter: {
+        generate(_roleId, _request, options) {
+            timeoutSignal = options.signal;
+            return new Promise(() => {});
+        },
+    },
     timeoutMs: 5,
 });
 const timedOut = await timeoutEvaluator({ request });
@@ -349,6 +363,28 @@ assert.deepEqual(timedOut, {
     reasonCode: 'provider-timeout',
     diagnostics: { timeoutMs: 5 },
 });
+assert.equal(timeoutSignal?.aborted, true);
+
+let externalSignal = null;
+const externallyCanceledEvaluator = createEpisodeEvaluator({
+    generationRouter: {
+        generate(_roleId, _request, options) {
+            externalSignal = options.signal;
+            return new Promise(() => {});
+        },
+    },
+    timeoutMs: 500,
+});
+const externalController = new AbortController();
+const externalPending = externallyCanceledEvaluator({ request, signal: externalController.signal });
+externalController.abort();
+assert.deepEqual(await externalPending, {
+    ok: false,
+    status: 'unavailable',
+    reasonCode: 'provider-aborted',
+    diagnostics: {},
+});
+assert.equal(externalSignal?.aborted, true);
 
 const thrownEvaluator = createEpisodeEvaluator({
     generationRouter: { generate: async () => { throw new Error('SECRET-PROVIDER-FAILURE'); } },

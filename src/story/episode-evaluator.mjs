@@ -7,7 +7,7 @@ import {
 
 export const EPISODE_EVALUATION_REQUEST_KIND = 'directive.episodeEvaluationRequest.v1';
 export const EPISODE_EVALUATION_PROPOSAL_KIND = 'directive.episodeEvaluationProposal.v1';
-export const EPISODE_EVALUATOR_ROLE_ID = 'utilityJson';
+export const EPISODE_EVALUATOR_ROLE_ID = 'episodeEvaluator';
 export const EPISODE_EVALUATOR_MAX_TIMEOUT_MS = 10000;
 
 export const SOFT_BOUNDARY_REASONS = EPISODE_SOFT_BOUNDARY_REASONS;
@@ -504,7 +504,7 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
     const validation = validateEpisodeEvaluationRequest(request);
     if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
     const systemPrompt = [
-        'You are Directive V1 Episode Evaluator, a bounded Utility analysis role.',
+        'You are Directive V1 Episode Evaluator, a bounded Reasoning analysis role.',
         'Compare recent accepted evidence with the current working capsule. Retain only new narrative understanding; replace the capsule summary instead of appending or repeating prior memory.',
         'Recommend sealing only for lasting significance at an actual semantic boundary. A passing detail, routine acknowledgement, atmosphere, transient emotion, or one light flicker is not lasting significance.',
         'Treat one continuous encounter as one episode. No memory is a valid result when nothing durable changed.',
@@ -519,6 +519,7 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
     ].join('\n');
     const user = `Evaluate this bounded active episode snapshot:\n${JSON.stringify(request, null, 2)}`;
     return {
+        kind: 'directive.episodeEvaluationRequest.v1',
         prompt: `${systemPrompt}\n\n${user}`,
         systemPrompt,
         messages: [
@@ -526,6 +527,41 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
             { role: 'user', content: user },
         ],
         structuredOutput: true,
+        jsonSchema: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+                'kind', 'branchId', 'episodeId', 'baseRevision', 'checkpointSequence', 'decision',
+                'boundaryReason', 'significanceCriteria', 'summary', 'foregroundQuestion',
+                'sourceContributionIds', 'effectIds',
+            ],
+            properties: {
+                kind: { type: 'string', const: EPISODE_EVALUATION_PROPOSAL_KIND },
+                branchId: { type: 'string', const: request.envelope.branchId },
+                episodeId: { type: 'string', const: request.envelope.episodeId },
+                baseRevision: { type: 'integer', const: request.envelope.baseRevision },
+                checkpointSequence: { type: 'integer', const: request.envelope.checkpointSequence },
+                decision: { type: 'string', enum: ['continue', 'seal', 'abstain'] },
+                boundaryReason: {
+                    anyOf: [{ type: 'string', enum: [...SOFT_BOUNDARY_REASONS] }, { type: 'null' }],
+                },
+                significanceCriteria: {
+                    type: 'array',
+                    uniqueItems: true,
+                    items: { type: 'string', enum: [...LASTING_SIGNIFICANCE_CRITERIA] },
+                },
+                summary: { anyOf: [{ type: 'string', maxLength: MAX_SEALED_SUMMARY_CHARS }, { type: 'null' }] },
+                foregroundQuestion: {
+                    anyOf: [{ type: 'string', maxLength: MAX_QUESTION_CHARS }, { type: 'null' }],
+                },
+                sourceContributionIds: {
+                    type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: 128,
+                },
+                effectIds: {
+                    type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: MAX_VISIBLE_EFFECTS,
+                },
+            },
+        },
         metadata: {
             roleId: EPISODE_EVALUATOR_ROLE_ID,
             branchId: request.envelope.branchId,
@@ -574,25 +610,54 @@ function timeoutResult(timeoutMs) {
     };
 }
 
-async function runWithTimeout(promise, timeoutMs) {
+function abortedResult() {
+    return {
+        ok: false,
+        status: 'unavailable',
+        reasonCode: 'provider-aborted',
+        diagnostics: {},
+    };
+}
+
+async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
+    if (externalSignal?.aborted) return abortedResult();
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const providerSignal = controller?.signal || externalSignal || null;
     let timeoutId = null;
-    const pending = Promise.resolve(promise);
+    let removeExternalAbort = null;
+    let resolveExternalAbort = null;
+    const externalAbort = new Promise((resolve) => { resolveExternalAbort = resolve; });
+    if (externalSignal?.addEventListener) {
+        const onAbort = () => {
+            controller?.abort(externalSignal.reason);
+            resolveExternalAbort(abortedResult());
+        };
+        externalSignal.addEventListener('abort', onAbort, { once: true });
+        removeExternalAbort = () => externalSignal.removeEventListener('abort', onAbort);
+    }
+    let pending = null;
     try {
+        pending = Promise.resolve(factory(providerSignal));
         return await Promise.race([
             pending,
             new Promise((resolve) => {
-                timeoutId = setTimeout(() => resolve(timeoutResult(timeoutMs)), timeoutMs);
+                timeoutId = setTimeout(() => {
+                    controller?.abort(new Error('provider-timeout'));
+                    resolve(timeoutResult(timeoutMs));
+                }, timeoutMs);
             }),
+            externalAbort,
         ]);
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
-        pending.catch?.(() => null);
+        removeExternalAbort?.();
+        pending?.catch?.(() => null);
     }
 }
 
 export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000 } = {}) {
     const effectiveTimeoutMs = boundedTimeout(timeoutMs);
-    return async function evaluateEpisode({ request = {} } = {}) {
+    return async function evaluateEpisode({ request = {}, signal = null } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -608,14 +673,19 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
         let generation = null;
         try {
             const result = await runWithTimeout(
-                Promise.resolve().then(() => generationRouter.generate(
+                (providerSignal) => generationRouter.generate(
                     EPISODE_EVALUATOR_ROLE_ID,
                     createEpisodeEvaluationPrompt({ request }),
-                    { timeoutMs: effectiveTimeoutMs },
-                )),
+                    {
+                        timeoutMs: effectiveTimeoutMs,
+                        signal: providerSignal,
+                        allowVisibleOutputRetry: false,
+                    },
+                ),
                 effectiveTimeoutMs,
+                signal,
             );
-            if (result?.reasonCode === 'provider-timeout') return result;
+            if (new Set(['provider-timeout', 'provider-aborted']).has(result?.reasonCode)) return result;
             generation = result;
         } catch {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };

@@ -84,11 +84,17 @@ export function createFakeEventAdapter() {
 
 export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake generation response.' } = {}) {
   const calls = [];
-  async function generate(role, request = {}) {
+  async function generate(role, request = {}, options = {}) {
     calls.push({ role, request: cloneJson(request) });
     const configured = responses[role] ?? { text: defaultText, providerId: `fake-${role}` };
     const response = typeof configured === 'function'
-      ? await configured({ role, request: cloneJson(request), rawRequest: request, calls: cloneJson(calls) })
+      ? await configured({
+        role,
+        request: cloneJson(request),
+        rawRequest: request,
+        rawOptions: options,
+        calls: cloneJson(calls)
+      })
       : configured;
     return cloneJson(response);
   }

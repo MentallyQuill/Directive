@@ -831,4 +831,30 @@ assert.equal(optionalInvalidHarness.campaignState.mission.v1.evidenceLog[0].deli
 assert.equal(optionalInvalid.diagnostics.acceptedDutyReportCount, 0);
 assert.equal(optionalInvalid.diagnostics.rejectedDutyReportReasonCode, 'manifest-invalid');
 
+let cancellationSignal = null;
+let reportCancellationStarted = null;
+const cancellationStarted = new Promise((resolve) => { reportCancellationStarted = resolve; });
+const cancellationHarness = createHarness({
+    generation: {
+        generate(_roleId, _request, options) {
+            cancellationSignal = options.signal;
+            reportCancellationStarted();
+            return new Promise(() => {});
+        },
+    },
+});
+const cancellationController = new AbortController();
+const cancellationPending = cancellationHarness.runtime.settleAcceptedPair({
+    runtimeAssets: cancellationHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.cancel', pairNumber: 91 }),
+    signal: cancellationController.signal,
+});
+await cancellationStarted;
+cancellationController.abort();
+const canceledSettlement = await cancellationPending;
+assert.equal(canceledSettlement.ok, false);
+assert.equal(canceledSettlement.reasonCode, 'provider-aborted');
+assert.equal(cancellationSignal?.aborted, true);
+assert.equal(cancellationHarness.persistCount, 0);
+
 console.log('V1 mission runtime tests passed.');

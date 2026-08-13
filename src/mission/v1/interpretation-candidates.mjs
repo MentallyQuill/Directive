@@ -1,4 +1,6 @@
 import { indexMissionDefinition } from './mission-contracts.mjs';
+import { missionStateContext } from './mission-state.mjs';
+import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
 
 export const MISSION_INTERPRETATION_CANDIDATE_PACKET_KIND = 'directive.missionInterpretationCandidates.v1';
 
@@ -18,7 +20,9 @@ function currentValueFor(policy, state) {
     return state.outcomes?.[policy.targetId];
 }
 
-function candidateFor(policy, state) {
+function candidateFor(policy, state, context) {
+    const eligibility = evaluateMissionPredicate(policy.when, context);
+    if (!eligibility.ok || eligibility.value !== true) return null;
     const sourceSlots = [...new Set(
         (policy.sourceRoles || []).map((role) => SOURCE_SLOT_BY_ROLE[role]).filter(Boolean),
     )].sort();
@@ -45,8 +49,9 @@ function candidateFor(policy, state) {
 
 export function createMissionInterpretationCandidatePacket({ definition = {}, state = {} } = {}) {
     const index = indexMissionDefinition(definition);
+    const context = missionStateContext(definition, state);
     const candidates = [...index.evidencePolicies.values()]
-        .map((policy) => candidateFor(policy, state))
+        .map((policy) => candidateFor(policy, state, context))
         .filter(Boolean)
         .sort((left, right) => left.id.localeCompare(right.id));
     return {

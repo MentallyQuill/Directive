@@ -169,7 +169,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   const header = createElement('header');
   const copy = createElement('div');
   const kicker = createElement('span');
-  kicker.textContent = kind === 'utility' ? 'Fast structured analysis' : 'Story reasoning and narration';
+  kicker.textContent = kind === 'utility' ? 'Fast structured analysis' : 'Deep Directive analysis and creation';
   const title = createElement('h3');
   title.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
   copy.append(kicker, title);
