@@ -8,11 +8,13 @@ import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 
 let selectedRecordKey = null;
 let campaignPanelMode = null;
+let lastActiveCampaignId = null;
 const DELETE_CAMPAIGN_ICON = 'assets/icons/delete-campaign.svg';
 
 export function resetCampaignPanelState() {
   selectedRecordKey = null;
   campaignPanelMode = null;
+  lastActiveCampaignId = null;
 }
 
 async function runAndRefresh(action, payload, actions) {
@@ -113,10 +115,12 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
         campaign: { ...campaign, savedGames },
         opener: event?.currentTarget || null,
         onLoad: (payload) => runAndRefresh(actions.loadGame || actions.loadCheckpoint, payload, actions),
-        onDelete: ({ savedGameId }) => actions.deleteSave?.({
-          campaignId: campaign.id,
-          checkpointId: savedGameId
-        })
+        onDelete: typeof actions.deleteSave === 'function'
+          ? ({ savedGameId }) => actions.deleteSave({
+            campaignId: campaign.id,
+            checkpointId: savedGameId
+          })
+          : null
       });
     }
   });
@@ -132,19 +136,19 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
   deleteCampaign.addEventListener('click', (event) => {
     event?.preventDefault?.();
     if (deleteCampaign.disabled) return;
-      createCampaignDeleteDialog({
-        campaign,
-        opener: event?.currentTarget || null,
-        onDelete: async () => {
-          await actions.deleteCampaign?.({
-            campaignId: campaign.id,
-            saveId: campaign.activeTimeline?.saveId || null
-          });
-          selectedRecordKey = `package:${ASHES_V1_PACKAGE_ID}`;
-          campaignPanelMode = 'browser';
-          await actions.refresh?.();
-        }
-      });
+    createCampaignDeleteDialog({
+      campaign,
+      opener: event?.currentTarget || null,
+      onDelete: async () => {
+        await actions.deleteCampaign?.({
+          campaignId: campaign.id,
+          saveId: campaign.activeTimeline?.saveId || null
+        });
+        selectedRecordKey = `package:${ASHES_V1_PACKAGE_ID}`;
+        campaignPanelMode = 'browser';
+        await actions.refresh?.();
+      }
+    });
   });
   commands.appendChild(deleteCampaign);
   detail.appendChild(commands);
@@ -227,6 +231,9 @@ function mobileDetailId(key) {
 export function renderCampaignPanel(body, view, actions = {}) {
   const model = buildCertifiedCampaignView(view);
   const activeCampaign = model.campaigns.find((campaign) => campaign.active) || null;
+  const activeCampaignId = activeCampaign?.id || null;
+  if (activeCampaignId && activeCampaignId !== lastActiveCampaignId) campaignPanelMode = 'dashboard';
+  lastActiveCampaignId = activeCampaignId;
   if (activeCampaign && campaignPanelMode !== 'browser') {
     campaignPanelMode = 'dashboard';
     const dashboard = createElement('section', 'directive-expanded-campaign campaign-layout campaign-dashboard');

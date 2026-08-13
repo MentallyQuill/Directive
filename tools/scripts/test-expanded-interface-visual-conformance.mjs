@@ -267,6 +267,7 @@ try {
             equalSecondaryWidth: Math.abs(saveBox.width - loadBox.width) < .5,
             deleteLabel: controls[3].getAttribute('aria-label'),
             deleteTooltip: controls[3].dataset.directiveTooltip,
+            campaignsHeight: document.querySelector('[data-campaign-action="campaigns"]').getBoundingClientRect().height,
             savedListCount: document.querySelectorAll('.campaign-save-list').length,
             browserCount: document.querySelectorAll('.campaign-browser').length,
             overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -282,6 +283,7 @@ try {
         if (viewport.width <= 640) {
           assert.equal(dashboard.rowCount, 2, `${viewport.width}px intentional dashboard action rows`);
           assert.ok(dashboard.minHeight >= 44, `${viewport.width}px dashboard touch target`);
+          assert.ok(dashboard.campaignsHeight >= 44, `${viewport.width}px Campaigns touch target`);
           assert.equal(dashboard.continueWithDelete, true, `${viewport.width}px Continue/delete row`);
           assert.equal(dashboard.saveWithLoad, true, `${viewport.width}px Save/Load row`);
           assert.equal(dashboard.secondRowAfterFirst, true, `${viewport.width}px secondary row ordering`);
@@ -338,6 +340,12 @@ try {
         await page.evaluate(() => { globalThis.__directiveFixtureActions.length = 0; });
         await page.locator('[data-campaign-action="campaigns"]').click();
         await page.waitForSelector('.campaign-browser');
+        if (viewport.width <= 640) {
+          assert.ok(
+            await page.locator('[data-campaign-action="back-to-current"]').evaluate((node) => node.getBoundingClientRect().height) >= 44,
+            `${viewport.width}px Back to Current Campaign touch target`
+          );
+        }
         const futureRow = viewport.width <= 640
           ? page.locator('.campaign-mobile-trigger[data-campaign-availability="coming-later"]').first()
           : page.locator('.campaign-desktop-master button[data-campaign-availability="coming-later"]').first();

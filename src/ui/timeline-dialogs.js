@@ -149,41 +149,44 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
       rows.forEach((candidate) => candidate.setAttribute('aria-pressed', candidate === row ? 'true' : 'false'));
       controls.primary.disabled = false;
     });
-    const remove = createElement('button', 'timeline-saved-game-delete');
-    remove.type = 'button';
-    remove.setAttribute('aria-label', `Delete saved game ${savedGame.name || 'Saved Game'}`);
-    remove.textContent = 'Delete';
-    remove.addEventListener('click', async (event) => {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      const confirmed = typeof globalThis.confirm !== 'function'
-        || globalThis.confirm(`Delete saved game "${savedGame.name || 'Saved Game'}"?`);
-      if (!confirmed) return;
-      remove.disabled = true;
-      error.hidden = true;
-      error.textContent = '';
-      try {
-        await onDelete?.({ savedGameId: savedGame.id });
-        const index = entries.indexOf(entry);
-        if (index >= 0) {
-          entries.splice(index, 1);
-          rows.splice(index, 1);
-          deleteButtons.splice(index, 1);
+    entry.appendChild(row);
+    if (typeof onDelete === 'function') {
+      const remove = createElement('button', 'timeline-saved-game-delete');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Delete saved game ${savedGame.name || 'Saved Game'}`);
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', async (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        const confirmed = typeof globalThis.confirm !== 'function'
+          || globalThis.confirm(`Delete saved game "${savedGame.name || 'Saved Game'}"?`);
+        if (!confirmed) return;
+        remove.disabled = true;
+        error.hidden = true;
+        error.textContent = '';
+        try {
+          await onDelete({ savedGameId: savedGame.id });
+          const index = entries.indexOf(entry);
+          if (index >= 0) {
+            entries.splice(index, 1);
+            rows.splice(index, 1);
+            deleteButtons.splice(index, 1);
+          }
+          entry.remove?.();
+          if (selectedId === savedGame.id) selectedId = null;
+          controls.primary.disabled = !selectedId;
+          if (!entries.length) appendEmpty(list, 'No saved games are available to load.');
+        } catch (cause) {
+          error.textContent = cause?.message || String(cause || 'Saved game deletion failed.');
+          error.hidden = false;
+          remove.disabled = false;
         }
-        entry.remove?.();
-        if (selectedId === savedGame.id) selectedId = null;
-        controls.primary.disabled = true;
-        if (!entries.length) appendEmpty(list, 'No saved games are available to load.');
-      } catch (cause) {
-        error.textContent = cause?.message || String(cause || 'Saved game deletion failed.');
-        error.hidden = false;
-        remove.disabled = false;
-      }
-    });
-    entry.append(row, remove);
+      });
+      deleteButtons.push(remove);
+      entry.appendChild(remove);
+    }
     entries.push(entry);
     rows.push(row);
-    deleteButtons.push(remove);
     list.appendChild(entry);
   }
   if (!savedGames.length) appendEmpty(list, 'No saved games are available to load.');

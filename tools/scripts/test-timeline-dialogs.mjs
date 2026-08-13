@@ -64,6 +64,7 @@ assert.equal(loadDialog.dialog.getAttribute('role'), 'dialog');
 assert.match(textOf(loadDialog.dialog), /Loading this save creates a new timeline\. Your current timeline will be preserved automatically\./);
 assert.match(textOf(loadDialog.rows[0]), /Before Whitaker.*Prelude: A Ship Underway.*Stardate 53068\.4.*2026/);
 assert.equal(loadDialog.primary.disabled, true);
+assert.equal(loadDialog.deleteButtons.length, 0, 'saved-game deletion must be absent without an authoritative handler');
 loadDialog.rows[0].listeners.get('click')();
 assert.equal(loadDialog.rows[0].getAttribute('aria-pressed'), 'true');
 assert.equal(loadDialog.primary.disabled, false);
@@ -74,13 +75,16 @@ const deleteDialog = createLoadGameDialog({
   campaign,
   onDelete: (payload) => { deleted = payload; }
 });
+deleteDialog.rows[1].listeners.get('click')();
 globalThis.confirm = () => true;
 assert.equal(deleteDialog.deleteButtons[0].getAttribute('aria-label'), 'Delete saved game Before Whitaker');
 await deleteDialog.deleteButtons[0].listeners.get('click')({ preventDefault() {}, stopPropagation() {} });
 assert.deepEqual(deleted, { savedGameId: 'saved.1' });
 assert.equal(deleteDialog.entries.length, 1);
 assert.equal(deleteDialog.rows.length, 1);
-assert.equal(deleteDialog.primary.disabled, true);
+assert.equal(deleteDialog.selectedSavedGameId(), 'saved.2', 'deleting another save must preserve the selected load target');
+assert.equal(deleteDialog.rows[0].getAttribute('aria-pressed'), 'true');
+assert.equal(deleteDialog.primary.disabled, false);
 
 let saved = null;
 const saveDialog = createSaveGameDialog({ campaign, onSave: (payload) => { saved = payload; } });

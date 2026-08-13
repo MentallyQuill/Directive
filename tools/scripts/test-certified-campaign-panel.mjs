@@ -295,4 +295,8 @@ assert.equal(byClass(emptyBody, 'campaign-dashboard').length, 0, 'no active camp
 assert.equal(byClass(emptyBody, 'campaign-browser').length, 1, 'no active campaign must default to the Campaign browser');
 assert.equal(byData(emptyBody, 'campaignAction', 'back-to-current').length, 0, 'browser without an active campaign must omit the back control');
 
+const activatedBody = new Element('div');
+renderCampaignPanel(activatedBody, view);
+assert.equal(byClass(activatedBody, 'campaign-dashboard').length, 1, 'a newly active campaign must replace stale browser mode with its dashboard');
+
 console.log('PASS certified Campaign panel');

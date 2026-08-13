@@ -3551,6 +3551,8 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-browser-heading { padding: 10px 12px 10px 16px; }
   .directive-expanded-shell .campaign-dashboard-heading h2,
   .directive-expanded-shell .campaign-browser-heading h2 { font-size: 17px; }
+  .directive-expanded-shell .campaign-dashboard-heading .campaign-command,
+  .directive-expanded-shell .campaign-browser-heading .campaign-command { min-height: 44px; }
   .directive-expanded-shell .campaign-dashboard-actions {
     position: relative;
     grid-template-columns: repeat(2, minmax(0, 1fr));
