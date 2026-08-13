@@ -1,21 +1,18 @@
-import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
+import { addTooltip, appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
 import { createCampaignDeleteDialog } from './campaign-delete-dialog.js';
-import { createPackageImage } from './directive-media.js';
+import { createDirectiveMaskIcon, createPackageImage } from './directive-media.js';
 import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
 import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 
 let selectedRecordKey = null;
+let campaignPanelMode = null;
+const DELETE_CAMPAIGN_ICON = 'assets/icons/delete-campaign.svg';
 
 export function resetCampaignPanelState() {
   selectedRecordKey = null;
-}
-
-function formatDate(value) {
-  const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return 'Not yet played';
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  campaignPanelMode = null;
 }
 
 async function runAndRefresh(action, payload, actions) {
@@ -55,34 +52,6 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
     row.appendChild(status);
   }
   if (typeof onSelect === 'function') row.addEventListener('click', onSelect);
-  return row;
-}
-
-function createSavedGameRow(campaign, checkpoint, actions) {
-  const row = createElement('li', 'campaign-save-row');
-  const copy = createElement('div', 'campaign-save-copy');
-  const title = createElement('strong');
-  title.textContent = checkpoint.name || 'Checkpoint';
-  const meta = createElement('span');
-  meta.textContent = [checkpoint.chapter, checkpoint.stardate, formatDate(checkpoint.createdAt)].filter(Boolean).join(' / ');
-  copy.append(title, meta);
-  const commands = createElement('div', 'campaign-save-actions');
-  commands.append(
-    createButton({
-      label: 'Delete',
-      className: 'campaign-command campaign-command-danger',
-      onClick: async () => {
-        const confirmed = typeof globalThis.confirm !== 'function'
-          || globalThis.confirm(`Delete saved game "${checkpoint.name}"?`);
-        if (!confirmed) return;
-        await runAndRefresh(actions.deleteSave, {
-          campaignId: campaign.id,
-          checkpointId: checkpoint.id
-        }, actions);
-      }
-    })
-  );
-  row.append(copy, commands);
   return row;
 }
 
@@ -143,12 +112,16 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
       });
     }
   }));
-  commands.appendChild(createButton({
-    label: 'Delete Campaign',
-    icon: 'fa-solid fa-trash',
-    className: 'campaign-command campaign-command-danger campaign-delete-command',
-    disabled: !campaign.characterName,
-    onClick: (event) => {
+  const deleteCampaign = createElement('button', 'campaign-command campaign-command-danger campaign-delete-command campaign-delete-icon-command');
+  deleteCampaign.type = 'button';
+  deleteCampaign.disabled = !campaign.characterName;
+  deleteCampaign.dataset.campaignAction = 'delete';
+  deleteCampaign.setAttribute('aria-label', 'Delete campaign');
+  addTooltip(deleteCampaign, 'Delete campaign');
+  deleteCampaign.appendChild(createDirectiveMaskIcon(DELETE_CAMPAIGN_ICON, 'campaign-delete-icon'));
+  deleteCampaign.addEventListener('click', (event) => {
+    event?.preventDefault?.();
+    if (deleteCampaign.disabled) return;
       createCampaignDeleteDialog({
         campaign,
         opener: event?.currentTarget || null,
@@ -158,21 +131,13 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
             saveId: campaign.activeTimeline?.saveId || null
           });
           selectedRecordKey = `package:${ASHES_V1_PACKAGE_ID}`;
+          campaignPanelMode = 'browser';
           await actions.refresh?.();
         }
       });
-    }
-  }));
+  });
+  commands.appendChild(deleteCampaign);
   detail.appendChild(commands);
-
-  const saves = createElement('section', 'campaign-saves');
-  const heading = createElement('h3');
-  heading.textContent = 'Saved games';
-  const list = createElement('ul', 'campaign-save-list');
-  savedGames.forEach((checkpoint) => list.appendChild(createSavedGameRow(campaign, checkpoint, actions)));
-  if (!savedGames.length) appendEmpty(list, 'No saved games yet.');
-  saves.append(heading, list);
-  detail.appendChild(saves);
 }
 
 function createCampaignFact({ label, value }) {
@@ -251,11 +216,57 @@ function mobileDetailId(key) {
 
 export function renderCampaignPanel(body, view, actions = {}) {
   const model = buildCertifiedCampaignView(view);
+  const activeCampaign = model.campaigns.find((campaign) => campaign.active) || null;
+  if (activeCampaign && campaignPanelMode !== 'browser') {
+    campaignPanelMode = 'dashboard';
+    const dashboard = createElement('section', 'directive-expanded-campaign campaign-layout campaign-dashboard');
+    dashboard.dataset.campaignView = 'dashboard';
+    dashboard.dataset.directiveScrollOwner = 'true';
+    const heading = createElement('header', 'campaign-dashboard-heading');
+    const title = createElement('h2');
+    title.textContent = 'Current Campaign';
+    const campaigns = createButton({
+      label: 'Campaigns',
+      className: 'campaign-command campaign-browser-command',
+      onClick: () => {
+        campaignPanelMode = 'browser';
+        body.replaceChildren?.();
+        renderCampaignPanel(body, view, actions);
+      }
+    });
+    campaigns.dataset.campaignAction = 'campaigns';
+    heading.append(title, campaigns);
+    dashboard.appendChild(heading);
+    const pack = model.packages.find((candidate) => candidate.packageId === activeCampaign.packageId);
+    appendCampaignDetail(dashboard, activeCampaign, pack, actions);
+    body.appendChild(dashboard);
+    return;
+  }
+  campaignPanelMode = 'browser';
   const defaultKey = model.selectedCampaignId
     ? `campaign:${model.selectedCampaignId}`
     : `package:${model.packages.find((pack) => !pack.disabled)?.packageId || ''}`;
   if (!selectedRecordKey) selectedRecordKey = defaultKey;
 
+  const browser = createElement('section', 'campaign-browser');
+  browser.dataset.campaignView = 'browser';
+  if (activeCampaign) {
+    const browserHead = createElement('header', 'campaign-browser-heading');
+    const browserTitle = createElement('h2');
+    browserTitle.textContent = 'Campaigns';
+    const back = createButton({
+      label: 'Back to Current Campaign',
+      className: 'campaign-command campaign-browser-back-command',
+      onClick: () => {
+        campaignPanelMode = 'dashboard';
+        body.replaceChildren?.();
+        renderCampaignPanel(body, view, actions);
+      }
+    });
+    back.dataset.campaignAction = 'back-to-current';
+    browserHead.append(browserTitle, back);
+    browser.appendChild(browserHead);
+  }
   const surface = createElement('div', 'directive-expanded-campaign campaign-layout campaign-journal');
   const master = createElement('aside', 'campaign-master campaign-index-panel campaign-desktop-master');
   master.dataset.directiveScrollOwner = 'true';
@@ -391,5 +402,6 @@ export function renderCampaignPanel(body, view, actions = {}) {
   });
 
   surface.append(master, detail, mobile);
-  body.appendChild(surface);
+  browser.appendChild(surface);
+  body.appendChild(browser);
 }

@@ -141,10 +141,25 @@ renderCampaignPanel(body, view, {
   startCreatorDraft: () => { startCampaignCalls += 1; }
 });
 
+assert.equal(byClass(body, 'campaign-dashboard').length, 1, 'active campaign must default to its focused dashboard');
+assert.equal(byClass(body, 'campaign-master').length, 0, 'active dashboard must not render the persistent Campaign browser');
+assert.equal(byClass(body, 'campaign-saves').length, 0, 'active dashboard must keep saved games inside Load Game');
+const dashboardDelete = byData(body, 'campaignAction', 'delete')[0];
+assert.ok(dashboardDelete, 'active dashboard must expose the approved icon-only campaign delete control');
+assert.equal(dashboardDelete.getAttribute('aria-label'), 'Delete campaign');
+assert.equal(dashboardDelete.dataset.directiveTooltip, 'Delete campaign');
+assert.equal(byClass(dashboardDelete, 'campaign-delete-icon').length, 1);
+assert.equal(textOf(dashboardDelete).trim(), '');
+const campaignsControl = byData(body, 'campaignAction', 'campaigns')[0];
+assert.ok(campaignsControl, 'active dashboard must expose the Campaign browser on demand');
+await campaignsControl.click();
+assert.equal(byClass(body, 'campaign-dashboard').length, 0, 'Campaigns must leave dashboard mode');
 assert.equal(byClass(body, 'campaign-layout').length, 1);
 assert.equal(byClass(body, 'campaign-master').length, 1);
 assert.equal(byClass(body, 'campaign-detail').length, 1);
 assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 3);
+const backToCurrent = byData(body, 'campaignAction', 'back-to-current')[0];
+assert.ok(backToCurrent, 'Campaign browser must return to the current campaign without a runtime action');
 
 const mobileAccordion = byClass(body, 'campaign-mobile-accordion')[0];
 assert.ok(mobileAccordion);
@@ -191,8 +206,6 @@ for (const preview of previews) {
   assert.doesNotMatch(textOf(preview), /Coming later/i);
 }
 assert.match(textOf(previews[0]), /Current approved campaign description\./);
-assert.match(textOf(body), /Before Whitaker/);
-assert.match(textOf(body), /Prelude: A Ship Underway.*53068\.4.*2026/);
 assert.doesNotMatch(textOf(body), /Load Campaign|Save As|Save checkpoint|Import package/i);
 const campaignActions = byClass(body, 'campaign-detail-actions')[0];
 assert.ok(campaignActions);
@@ -200,7 +213,7 @@ assert.deepEqual(campaignActions.children.map((node) => textOf(node).trim()), [
   'Continue',
   'Save Game',
   'Load Game',
-  'Delete Campaign'
+  ''
 ]);
 assert.equal(campaignActions.children[3].classList.contains('campaign-command-danger'), true);
 assert.equal(campaignActions.children[3].listeners.has('click'), true);
@@ -265,5 +278,21 @@ for (const pack of view.campaign.packages) {
   assert.doesNotMatch(textOf(packageBody), sizeDisclosure, `${pack.title} must not reveal campaign size`);
   assert.doesNotMatch(textOf(heroCopy), /Playable in V1/i);
 }
+
+const currentBackControl = byData(body, 'campaignAction', 'back-to-current')[0];
+const runtimeCallsBeforeBack = startCampaignCalls;
+await currentBackControl.click();
+assert.equal(byClass(body, 'campaign-dashboard').length, 1, 'Back to Current Campaign must restore the focused dashboard');
+assert.equal(startCampaignCalls, runtimeCallsBeforeBack, 'browser navigation must not invoke a campaign runtime action');
+
+const emptyBody = new Element('div');
+resetCampaignPanelState();
+renderCampaignPanel(emptyBody, {
+  campaign: { packages: view.campaign.packages },
+  campaignIndex: { selectedCampaignId: null, campaigns: [] }
+});
+assert.equal(byClass(emptyBody, 'campaign-dashboard').length, 0, 'no active campaign cannot render a dashboard');
+assert.equal(byClass(emptyBody, 'campaign-browser').length, 1, 'no active campaign must default to the Campaign browser');
+assert.equal(byData(emptyBody, 'campaignAction', 'back-to-current').length, 0, 'browser without an active campaign must omit the back control');
 
 console.log('PASS certified Campaign panel');
