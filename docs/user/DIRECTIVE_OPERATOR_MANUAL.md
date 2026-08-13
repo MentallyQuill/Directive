@@ -16,7 +16,11 @@ Time-sensitive information appears only when the deadline is known. A mission ca
 
 ## People
 
-Crew profiles are stable service-record information. The player's portrait has two small controls in its upper-right corner: the upload arrow adds or replaces the image, and the remove icon opens an inline red-check or grey-X confirmation before leaving the portrait blank. Current posture and defining moments appear only after accepted story events establish them. Command Bearing is a small earned reserve; its most recent award or use explains why the balance changed.
+Crew profiles are stable public service-record information. When you directly meet an otherwise incidental NPC and they give you a usable name, Directive adds a People card immediately. It may fill the initial card with ordinary public identity and service details, but never secrets, private motives, romance, or future plot. Later accepted facts update that same stable record; a merely mentioned name creates no card.
+
+The detail panel shows Profile, the available public/service record, and Connection to You: when you met, the current qualitative posture, and one unresolved open matter when applicable. Every durable relationship turning point remains under Defining moments. Entries start collapsed and expand individually when tapped; there is no three-entry history limit. Missing information is omitted instead of invented.
+
+The player's portrait has two small controls in its upper-right corner: the upload arrow adds or replaces the image, and the remove icon opens an inline red-check or grey-X confirmation before leaving the portrait blank. Command Bearing is a small earned reserve; its most recent award or use explains why the balance changed.
 
 Use one point to reserve a bounded favorable edge for the next generated response. You may swipe freely, and the point commits only when you reply to the selected response. Cancel before acceptance to restore it. Editing, deleting, or re-swiping the accepted source later also restores the point.
 

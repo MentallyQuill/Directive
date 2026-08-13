@@ -345,6 +345,94 @@ assert.equal(new Set(materializedPeopleEvents.slice(0, 2).map(({ personId }) => 
 assert.equal(materializedPeopleEvents[2].personId, materializedPeopleEvents[0].personId);
 assert.equal(materializedPeopleEvents[0].publicFacts.role, 'Damage-control technician');
 
+const knownCrewRelationshipHarness = createHarness({
+    outputs: [interpretationOutput({
+        peopleEvents: [{
+            type: 'relationshipEvidence',
+            personRef: 'mara-whitaker',
+            summary: 'Whitaker accepted the XO\'s candid correction.',
+            sourceSlot: 'previousAssistant',
+        }],
+    })],
+});
+const knownCrewRelationship = await knownCrewRelationshipHarness.runtime.settleAcceptedPair({
+    runtimeAssets: knownCrewRelationshipHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.people-known-crew', pairNumber: 33 }),
+});
+assert.equal(knownCrewRelationship.ok, true, JSON.stringify(knownCrewRelationship));
+assert.deepEqual(
+    knownCrewRelationshipHarness.campaignState.storySettlement.episodes[0].references.participantIds,
+    ['mara-whitaker'],
+    'relationship evidence can add an already-known authored person to a new episode',
+);
+
+let peopleRetryState = campaignStateFor();
+let peopleRetryPersistCount = 0;
+let peopleRetryUtilityCalls = 0;
+let peopleRetryDossierCalls = 0;
+const peopleRetryGateway = createStateDeltaGateway({
+    getState: () => peopleRetryState,
+    setState: (next) => { peopleRetryState = next; },
+    persist: async () => { peopleRetryPersistCount += 1; },
+});
+const peopleRetryRuntime = createV1MissionRuntime({
+    getState: () => peopleRetryState,
+    stateDeltaGateway: peopleRetryGateway,
+    generationRouter: {
+        async generate(roleId) {
+            assert.equal(roleId, 'acceptedPairMissionEvidence');
+            peopleRetryUtilityCalls += 1;
+            return { ok: true, response: { text: peopleInterpretation, providerId: 'utility-test' } };
+        },
+    },
+    authorPeopleDossiers: async ({ introductions }) => {
+        peopleRetryDossierCalls += 1;
+        await peopleRetryGateway.applyProposal({
+            patch: {
+                worldState: {
+                    visitedLocationIds: [
+                        ...peopleRetryState.worldState.visitedLocationIds,
+                        'location.concurrent-dossier-test',
+                    ],
+                },
+            },
+            domains: ['worldState'],
+            baseRevision: peopleRetryGateway.revision(),
+            source: 'test.people-dossier-concurrent-state',
+            reason: 'Simulate an unrelated state commit while the dossier batch is running.',
+        });
+        return {
+            ok: true,
+            dossiers: introductions.map((introduction) => ({
+                personId: introduction.personId,
+                displayName: introduction.name,
+                role: null,
+                affiliation: null,
+                species: null,
+                age: null,
+                birthplace: null,
+                serviceBackground: null,
+                assignmentHistory: null,
+                profileSummary: null,
+            })),
+        };
+    },
+});
+const peopleRetrySnapshot = snapshotFor({ sourceRangeHash: 'range.people-retry', pairNumber: 32 });
+const peopleRevisionConflict = await peopleRetryRuntime.settleAcceptedPair({
+    runtimeAssets: runtimeAssetsFor(),
+    snapshot: peopleRetrySnapshot,
+});
+assert.equal(peopleRevisionConflict.reasonCode, 'state-revision-conflict');
+const peopleRetrySettled = await peopleRetryRuntime.settleAcceptedPair({
+    runtimeAssets: runtimeAssetsFor(),
+    snapshot: peopleRetrySnapshot,
+});
+assert.equal(peopleRetrySettled.ok, true, JSON.stringify(peopleRetrySettled));
+assert.equal(peopleRetryUtilityCalls, 1, 'a state-conflict retry reuses the completed Utility interpretation');
+assert.equal(peopleRetryDossierCalls, 1, 'a state-conflict retry reuses the completed dossier batch');
+assert.equal(peopleRetryPersistCount, 2, 'the simulated concurrent commit and final settlement persist once each');
+
 const shipMechanicsAssets = runtimeAssetsFor();
 shipMechanicsAssets.shipDataset = {
     ...structuredClone(shipMechanicsAssets.shipDataset),

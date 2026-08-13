@@ -73,7 +73,7 @@ settlement = openStoryEpisode(settlement, {
     references: {
         missionIds: ['mission.prelude'],
         questIds: [],
-        participantIds: ['mara-whitaker'],
+        participantIds: ['mara-whitaker', 'hadrik-bronn'],
         locationIds: ['briefing-room'],
     },
 });
@@ -171,7 +171,7 @@ assert.deepEqual(request.recentSealedSummaries.map((item) => item.episodeId), ['
 assert.deepEqual(request.references, {
     missionIds: ['mission.prelude'],
     questIds: [],
-    participantIds: ['mara-whitaker'],
+    participantIds: ['mara-whitaker', 'hadrik-bronn'],
     locationIds: ['briefing-room'],
 });
 for (const forbidden of [
@@ -270,6 +270,10 @@ for (const [label, value, pattern] of [
     ['uncited relationship update', proposalFor({ relationshipUpdates: [{
         personId: 'mara-whitaker', posture: 'Trusting.', openMatter: null, sourceContributionIds: [],
     }] }), /relationship.*source/i],
+    ['relationship evidence for another person', proposalFor({ relationshipUpdates: [{
+        personId: 'hadrik-bronn', posture: 'Trusting.', openMatter: null,
+        sourceContributionIds: ['contribution.active-5'],
+    }] }), /relationshipEvidence for the same person/i],
     ['moment on continue', proposalFor({ characterMoments: [{
         personId: 'mara-whitaker', title: 'Too soon', summary: 'This is not sealed.',
         sourceContributionIds: ['contribution.active-5'],

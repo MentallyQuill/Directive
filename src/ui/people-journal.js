@@ -293,7 +293,8 @@ function appendDefinition(detail, label, value) {
   detail.appendChild(block);
 }
 
-function appendServiceRecord(detail, publicRecord = {}) {
+function appendPublicRecord(detail, record = {}) {
+  const publicRecord = record.publicRecord || {};
   const rows = [
     ['Affiliation', publicRecord.affiliation],
     ['Age', publicRecord.age],
@@ -304,7 +305,7 @@ function appendServiceRecord(detail, publicRecord = {}) {
   if (!rows.length) return;
   const block = createElement('section', 'people-detail-block people-service-record');
   const heading = createElement('h3');
-  heading.textContent = 'Service record';
+  heading.textContent = record.service?.organization === 'starfleet' ? 'Service record' : 'Public record';
   const list = createElement('dl');
   for (const [label, value] of rows) {
     const row = createElement('div');
@@ -484,7 +485,7 @@ export function createPeopleDetail(model, record, { mobile = false, view = {}, a
   hero.appendChild(identity);
   detail.appendChild(hero);
   appendDefinition(detail, 'Profile', record.profileSummary || record.appearance || record.dossier?.identitySummary || record.dossier?.briefBiography);
-  appendServiceRecord(detail, record.publicRecord);
+  appendPublicRecord(detail, record);
   appendConnectionRecord(detail, record);
   appendDefiningMoments(detail, record.moments);
   return detail;

@@ -172,6 +172,7 @@ assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
   { id: 'episodeEvaluator', providerKind: 'reasoning' },
+  { id: 'peopleDossierAuthor', providerKind: 'reasoning' },
   { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' }
 ]);
 assert.deepEqual(initial.diagnostics, { transcriptAvailable: true });
@@ -191,7 +192,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 3);
+assert.equal(metadataOnlySupport.routing.length, 4);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',

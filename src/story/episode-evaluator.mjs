@@ -465,7 +465,12 @@ function validateUniqueIds(value, {
     return value;
 }
 
-function validateRelationshipUpdates(value, { allowedPeopleIds, allowedSourceIds, errors }) {
+function validateRelationshipUpdates(value, {
+    allowedPeopleIds,
+    allowedSourceIds,
+    relationshipSourceIdsByPerson,
+    errors,
+}) {
     if (!Array.isArray(value)) {
         errors.push('relationshipUpdates must be an array');
         return [];
@@ -499,11 +504,20 @@ function validateRelationshipUpdates(value, { allowedPeopleIds, allowedSourceIds
             errors,
         });
         if (sources.length === 0) errors.push(`${label} relationship sourceContributionIds must be non-empty`);
+        const personSources = relationshipSourceIdsByPerson.get(update.personId) || new Set();
+        if (sources.length > 0 && !sources.some((sourceId) => personSources.has(sourceId))) {
+            errors.push(`${label} must cite relationshipEvidence for the same person`);
+        }
     }
     return value;
 }
 
-function validateCharacterMoments(value, { allowedPeopleIds, allowedSourceIds, errors }) {
+function validateCharacterMoments(value, {
+    allowedPeopleIds,
+    allowedSourceIds,
+    relationshipSourceIdsByPerson,
+    errors,
+}) {
     if (!Array.isArray(value)) {
         errors.push('characterMoments must be an array');
         return [];
@@ -536,6 +550,10 @@ function validateCharacterMoments(value, { allowedPeopleIds, allowedSourceIds, e
             errors,
         });
         if (sources.length === 0) errors.push(`${label} sourceContributionIds must be non-empty`);
+        const personSources = relationshipSourceIdsByPerson.get(moment.personId) || new Set();
+        if (sources.length > 0 && !sources.some((sourceId) => personSources.has(sourceId))) {
+            errors.push(`${label} must cite relationshipEvidence for the same person`);
+        }
     }
     return value;
 }
@@ -581,14 +599,23 @@ function proposalErrors(value, request) {
         ...(request?.peopleEvents || []).map((item) => item.personId),
         ...(request?.currentRelationships || []).map((item) => item.personId),
     ]);
+    const relationshipSourceIdsByPerson = new Map();
+    for (const event of request?.peopleEvents || []) {
+        if (event.type !== 'relationshipEvidence') continue;
+        const sources = relationshipSourceIdsByPerson.get(event.personId) || new Set();
+        for (const sourceId of event.sourceContributionIds || []) sources.add(sourceId);
+        relationshipSourceIdsByPerson.set(event.personId, sources);
+    }
     const relationshipUpdates = validateRelationshipUpdates(value.relationshipUpdates, {
         allowedPeopleIds,
         allowedSourceIds,
+        relationshipSourceIdsByPerson,
         errors,
     });
     const characterMoments = validateCharacterMoments(value.characterMoments, {
         allowedPeopleIds,
         allowedSourceIds,
+        relationshipSourceIdsByPerson,
         errors,
     });
     if (!Array.isArray(value.significanceCriteria)) {

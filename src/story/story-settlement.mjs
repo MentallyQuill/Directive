@@ -108,7 +108,7 @@ export function appendStoryEffects(settlement, effects = []) {
     return assertValid(next);
 }
 
-export function appendStoryPeopleEvents(settlement, events = []) {
+export function appendStoryPeopleEvents(settlement, events = [], { knownPersonIds: suppliedKnownPersonIds = [] } = {}) {
     assertValid(settlement);
     const episode = activeEpisode(settlement);
     if (!episode) throw new TypeError('an active episode is required');
@@ -116,6 +116,7 @@ export function appendStoryPeopleEvents(settlement, events = []) {
     const existingIds = new Set((episode.peopleEvents || []).map((event) => event.id));
     const additions = events.filter((event) => !existingIds.has(event?.id));
     const knownPersonIds = new Set([
+        ...(Array.isArray(suppliedKnownPersonIds) ? suppliedKnownPersonIds : []),
         ...(episode.references?.participantIds || []),
         ...additions.filter((event) => event?.type === 'personIntroduced').map((event) => event.personId),
     ]);

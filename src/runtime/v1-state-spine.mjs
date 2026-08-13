@@ -551,6 +551,7 @@ export function createV1StateSpine({
         shipDataset = null,
         shipProposal = null,
         peopleEvents = [],
+        knownPersonIds = [],
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
@@ -663,7 +664,7 @@ export function createV1StateSpine({
                 );
             }
             if (peopleEvents.length > 0) {
-                storySettlement = appendStoryPeopleEvents(storySettlement, peopleEvents);
+                storySettlement = appendStoryPeopleEvents(storySettlement, peopleEvents, { knownPersonIds });
             }
         } else if (!duplicateReplay) {
             storySettlement = settleInsignificantScene(storySettlement, {

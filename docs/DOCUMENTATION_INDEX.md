@@ -7,6 +7,7 @@ This repository documents one runtime: Directive V1. Historical runtime designs,
 - [V1 Gameplay Architecture](architecture/V1_GAMEPLAY_ARCHITECTURE.md) — the whole system and its invariants.
 - [Semantic Authority](architecture/SEMANTIC_AUTHORITY.md) — which components may interpret, validate, commit, and project truth.
 - [Story Settlement](architecture/STORY_SETTLEMENT.md) — aggregate-first story memory and source mutation.
+- [People and Relationships](architecture/PEOPLE_AND_RELATIONSHIPS.md) — named-contact creation, source-backed updates, qualitative relationships, and bounded recall.
 - [Mission State](architecture/MISSION_STATE.md) — objectives, evidence, clocks, outcomes, and transitions.
 - [Fair Discovery](architecture/FAIR_DISCOVERY.md) — spoiler-safe knowledge, Duty Reports, and crew initiative.
 - [UI Runtime Surface](architecture/UI_RUNTIME_SURFACE.md) — five deliberate player pages and the composer launcher.

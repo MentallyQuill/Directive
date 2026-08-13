@@ -1506,6 +1506,7 @@ export function createV1MissionRuntime({
                 shipDataset: runtimeAssets?.shipDataset || null,
                 shipProposal,
                 peopleEvents,
+                knownPersonIds: peopleContext.knownPeople.map((person) => person.id),
             });
             const committedRoots = settled.noChange
                 ? []

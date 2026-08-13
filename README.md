@@ -24,7 +24,7 @@ Assistant replies are provisional. You may swipe freely; a selected reply become
 |---|---|
 | Campaign | Start/resume Ashes, manage exact V1 saves and checkpoints, view locked previews. |
 | Mission | See visible primary/optional objectives, known facts, known clocks, support, outcomes, and mission completion. |
-| People | Use Command Bearing and see its reserve, public crew profiles, visible posture, and a few defining moments. |
+| People | Use Command Bearing and see public records, current relationships, and the complete defining-moment history for named contacts. |
 | Ship | See identity, capability, one operational aggregate, and material limitations. |
 | Settings | Configure providers/preset and verify or export support state. |
 
