@@ -24,6 +24,7 @@
 
 - Modify: `packages/bundled/breckenridge/ashes-of-peace.campaign-package.json`
 - Modify: `tools/scripts/test-campaign-package-context.mjs`
+- Modify: `tools/scripts/test-certified-ui-authority.mjs`
 - Modify: `tools/scripts/test-certified-ship-view.mjs`
 - Modify: `tools/scripts/test-certified-ship-panel.mjs`
 - Modify: `tools/scripts/test-ship-panel-state-records.mjs`
@@ -41,7 +42,7 @@
 - Consumes: `ship.registry` from the bundled campaign package.
 - Produces: the canonical string `NCC-74656` through existing package, projection, panel, and view interfaces.
 
-- [ ] **Step 1: Establish the failing baseline**
+- [x] **Step 1: Establish the failing baseline**
 
 Run:
 
@@ -51,16 +52,17 @@ rg -n --hidden --glob '!.git/**' --glob '!node_modules/**' --glob '!artifacts/**
 
 Expected: matches in exactly the listed campaign, UI, fixture, test, and documentation files, proving the old registry is still present.
 
-- [ ] **Step 2: Apply the minimal canonical replacement**
+- [x] **Step 2: Apply the minimal canonical replacement**
 
 In each listed file, replace every exact `NCC-74638` token with `NCC-74656`. Make no other content changes.
 
-- [ ] **Step 3: Verify JSON and focused behavior**
+- [x] **Step 3: Verify JSON and focused behavior**
 
 Run:
 
 ```powershell
 node -e "JSON.parse(require('fs').readFileSync('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json','utf8')); console.log('campaign JSON valid')"
+node tools/scripts/test-certified-ui-authority.mjs
 node tools/scripts/test-campaign-package-context.mjs
 node tools/scripts/test-certified-ship-view.mjs
 node tools/scripts/test-certified-ship-panel.mjs
@@ -70,9 +72,9 @@ node tools/scripts/test-v1-player-facing-panel-model.mjs
 node tools/scripts/test-v1-ship-projection.mjs
 ```
 
-Expected: JSON validation exits zero and every focused script reports success.
+Expected: JSON validation exits zero, the certified mockup hash accepts the registry-only UI change, and every focused script reports success.
 
-- [ ] **Step 4: Prove the legacy registry is absent**
+- [x] **Step 4: Prove the legacy registry is absent**
 
 Run:
 
@@ -83,7 +85,7 @@ git grep -n 'NCC-74656'
 
 Expected: the first command returns no matches; the second returns the updated campaign, UI, fixture, test, and source-document references.
 
-- [ ] **Step 5: Run the full repository gate**
+- [x] **Step 5: Run the full repository gate**
 
 Run:
 
@@ -93,7 +95,7 @@ npm.cmd test
 
 Expected: exit code 0 with all alpha-gate checks passing.
 
-- [ ] **Step 6: Review and commit only in-scope changes**
+- [x] **Step 6: Review and commit only in-scope changes**
 
 Run:
 

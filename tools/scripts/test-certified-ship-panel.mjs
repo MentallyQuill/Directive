@@ -53,7 +53,7 @@ const projection = {
   commandBearing: { kind: 'directive.commandBearingPlayerProjection.v1' },
   ship: {
     kind: 'directive.shipPlayerProjection.v1',
-    shipId: 'uss-breckenridge', name: 'U.S.S. Breckenridge', class: 'Intrepid-class', registry: 'NCC-74638',
+    shipId: 'uss-breckenridge', name: 'U.S.S. Breckenridge', class: 'Intrepid-class', registry: 'NCC-74656',
     capabilitySummary: 'A long-range explorer returned to service after modernization.',
     operationalStatus: {
       status: 'serviceable', summary: 'Certified for service while integrated validation continues.', readiness: null,

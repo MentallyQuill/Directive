@@ -6,7 +6,7 @@
 **Status:** Pre-production campaign baseline  
 **Version:** 0.2  
 **Campaign opening:** Stardate 53068.4
-**Primary setting:** The U.S.S. Breckenridge (NCC-74638) and the Asterion Reach
+**Primary setting:** The U.S.S. Breckenridge (NCC-74656) and the Asterion Reach
 **Player role:** Commander, Executive Officer, and principal mission commander  
 **Companion document:** *Directive Game Design Document*  
 
@@ -41,7 +41,7 @@ The campaign assumes the established senior crew:
 
 The Dominion War is over, but peace has not restored the political order that existed before it.
 
-The Intrepid-class **U.S.S. Breckenridge** (NCC-74638) has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
+The Intrepid-class **U.S.S. Breckenridge** (NCC-74656) has completed a four-month repair and modernization period at Utopia Planitia following wartime damage. Most of its original crew was dispersed while the ship remained unavailable, and Starfleet reconstituted the complement from returning veterans, two major transfer cohorts, and individual specialists.
 
 Thirty-two days after leaving Mars, the Breckenridge conducts a rendezvous with a long-range personnel shuttle carrying its newly assigned executive officer: the player character. The ship is approximately three days from the **Asterion Reach**, where it will begin a ninety-day stabilization, survey, and relief deployment near the former Cardassian frontier.
 

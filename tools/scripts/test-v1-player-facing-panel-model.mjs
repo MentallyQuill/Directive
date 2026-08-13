@@ -80,7 +80,7 @@ const projection = {
     shipId: 'uss-breckenridge',
     name: 'U.S.S. Breckenridge',
     class: 'Intrepid-class',
-    registry: 'NCC-74638',
+    registry: 'NCC-74656',
     capabilitySummary: 'A long-range explorer returned to service after modernization.',
     operationalStatus: {
       status: 'serviceable',

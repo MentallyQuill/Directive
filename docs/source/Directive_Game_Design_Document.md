@@ -23,7 +23,7 @@ Names and details labeled **working** or **proposed** remain open to revision. A
 
 **Directive** is a persistent, freeform Star Trek command RPG for SillyTavern.
 
-The player creates a Starfleet Commander serving as Executive Officer and principal mission commander aboard the Intrepid-class **U.S.S. Breckenridge** (NCC-74638). The campaign takes place primarily inside Federation space during the same broad period as *Star Trek: Voyager*. Canon events shape the political and strategic background, but the Breckenridge and its original crew remain the center of the experience.
+The player creates a Starfleet Commander serving as Executive Officer and principal mission commander aboard the Intrepid-class **U.S.S. Breckenridge** (NCC-74656). The campaign takes place primarily inside Federation space during the same broad period as *Star Trek: Voyager*. Canon events shape the political and strategic background, but the Breckenridge and its original crew remain the center of the experience.
 
 The player writes ordinary natural-language roleplay rather than selecting from dialogue trees or action menus. They may propose any plausible course of action, issue orders, question officers, negotiate, investigate, improvise, or refuse an assignment. The game preserves that freedom while enforcing established facts, Starfleet authority, character competence, technological limits, and persistent consequences.
 
@@ -69,7 +69,7 @@ The game should make the player feel consequential without making them universal
 | Genre | Persistent freeform Star Trek command RPG |
 | Platform | SillyTavern extension |
 | Player role | Starfleet Commander; Executive Officer and principal mission commander |
-| Ship | **U.S.S. Breckenridge**, Intrepid-class, NCC-74638 |
+| Ship | **U.S.S. Breckenridge**, Intrepid-class, NCC-74656 |
 | Ship namesake | An honored Starfleet captain lost at the Battle of Wolf 359 |
 | Era | Contemporary with *Star Trek: Voyager*, approximately 2371-2378 |
 | Primary theater | Federation space and nearby operational regions |
@@ -214,7 +214,7 @@ The world should be serious without being relentlessly grim. Humor should arise 
 
 ### 7.1 Ship identity
 
-The **U.S.S. Breckenridge** is an Intrepid-class starship, registry NCC-74638, assigned to a mixed mission profile inside Federation space. Its speed, scientific capability, medical facilities, and relatively compact crew make it suitable for assignments that begin as one type of problem and rapidly become another.
+The **U.S.S. Breckenridge** is an Intrepid-class starship, registry NCC-74656, assigned to a mixed mission profile inside Federation space. Its speed, scientific capability, medical facilities, and relatively compact crew make it suitable for assignments that begin as one type of problem and rapidly become another.
 
 Typical mission responsibilities include:
 
@@ -1617,7 +1617,7 @@ The following questions remain deliberately unresolved:
 
 ## 31. Working Summary
 
-Directive is a freeform Starfleet command RPG centered on the player's decisions as Commander and Executive Officer of the Intrepid-class U.S.S. Breckenridge, NCC-74638.
+Directive is a freeform Starfleet command RPG centered on the player's decisions as Commander and Executive Officer of the Intrepid-class U.S.S. Breckenridge, NCC-74656.
 
 The player is not asked to select the correct authored option. They are asked to understand a situation, hear professional disagreement, construct an executable plan, and accept the consequences. Missions provide authored truth, thematic pressure, faction agendas, and credible end states; the route through them remains open.
 

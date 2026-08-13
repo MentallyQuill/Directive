@@ -49,7 +49,7 @@ const campaignState = {
         id: 'uss-breckenridge',
         name: 'U.S.S. Breckenridge',
         class: 'Intrepid-class',
-        registry: 'NCC-74638',
+        registry: 'NCC-74656',
         operationalOverview: {
             kind: 'directive.shipOperationalOverview.v1',
             status: 'serviceable',
