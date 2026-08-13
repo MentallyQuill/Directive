@@ -52,6 +52,7 @@ const checks = [
   "test-v1-command-bearing.mjs",
   "test-v1-story-settlement-contracts.mjs",
   "test-v1-story-settlement.mjs",
+  "test-v1-people-events.mjs",
   "test-v1-working-capsule.mjs",
   "test-v1-episode-boundary.mjs",
   "test-v1-episode-evaluator.mjs",

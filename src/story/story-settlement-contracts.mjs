@@ -10,6 +10,8 @@ export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
     'invalidated',
 ]));
 
+import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
+
 const TERMINAL_EPISODE_STATUSES = new Set(['sealed', 'invalidated']);
 const SOURCE_CONTRIBUTION_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
 const SETTLEMENT_RECEIPT_DISPOSITIONS = new Set(['sealed', 'insignificant', 'invalidated']);
@@ -20,7 +22,7 @@ const EPISODE_FIELDS = new Set([
     'kind', 'id', 'branchId', 'sceneId', 'status', 'openedAtRevision', 'sealedAtRevision',
     'boundaryReason', 'summary', 'contributions', 'effects', 'unresolvedConsequences',
     'boundaryState', 'hardBoundary', 'softBoundary', 'references', 'characterMoments',
-    'workingCapsule', 'supersedesEpisodeId', 'supersedesEpisodeIds', 'invalidationReason',
+    'peopleEvents', 'workingCapsule', 'supersedesEpisodeId', 'supersedesEpisodeIds', 'invalidationReason',
     'diagnostics',
 ]);
 
@@ -155,6 +157,9 @@ export function validateStorySettlement(value = {}) {
             if (!Array.isArray(episode?.characterMoments)) {
                 errors.push(`${episodeId} characterMoments must be an array`);
             }
+            if (episode?.peopleEvents !== undefined && !Array.isArray(episode.peopleEvents)) {
+                errors.push(`${episodeId} peopleEvents must be an array`);
+            }
             if (!Object.hasOwn(episode || {}, 'hardBoundary')) {
                 errors.push(`${episodeId} hardBoundary is required`);
             }
@@ -257,6 +262,16 @@ export function validateStorySettlement(value = {}) {
                 if (!new Set(['active', 'invalidated']).has(effect?.status)) {
                     errors.push(`${effectId} status is unknown`);
                 }
+            }
+            const peopleEventIds = new Set();
+            for (const event of Array.isArray(episode?.peopleEvents) ? episode.peopleEvents : []) {
+                if (peopleEventIds.has(event?.id)) errors.push(`duplicate people event id: ${event?.id}`);
+                peopleEventIds.add(event?.id);
+                const result = validatePeopleEvent(event, {
+                    knownContributionIds: [...contributionIds],
+                    knownPersonIds: episode.references?.participantIds || [],
+                });
+                errors.push(...result.errors.map((error) => `${episodeId} ${error}`));
             }
             if (episode?.characterMoments !== undefined) {
                 if (!Array.isArray(episode.characterMoments)) {

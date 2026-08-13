@@ -14,6 +14,7 @@ import {
     repairStoryWorkingCapsule,
     replaceStoryWorkingSemantics,
 } from './working-capsule.mjs';
+import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
 
 function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
@@ -60,6 +61,7 @@ export function openStoryEpisode(settlement, { episodeId, sceneId, references = 
         hardBoundary: null,
         references: normalizedEpisodeReferences(references),
         characterMoments: [],
+        peopleEvents: [],
         workingCapsule: createEmptyStoryWorkingCapsule({ updatedAtRevision: next.revision }),
     });
     return assertValid(next);
@@ -103,6 +105,36 @@ export function appendStoryEffects(settlement, effects = []) {
     next.revision += 1;
     const nextEpisode = activeEpisode(next);
     nextEpisode.effects.push(...structuredClone(additions));
+    return assertValid(next);
+}
+
+export function appendStoryPeopleEvents(settlement, events = []) {
+    assertValid(settlement);
+    const episode = activeEpisode(settlement);
+    if (!episode) throw new TypeError('an active episode is required');
+    const contributionIds = episode.contributions.map((item) => item.id);
+    const existingIds = new Set((episode.peopleEvents || []).map((event) => event.id));
+    const additions = events.filter((event) => !existingIds.has(event?.id));
+    const knownPersonIds = new Set([
+        ...(episode.references?.participantIds || []),
+        ...additions.filter((event) => event?.type === 'personIntroduced').map((event) => event.personId),
+    ]);
+    for (const event of additions) {
+        const result = validatePeopleEvent(event, {
+            knownContributionIds: contributionIds,
+            knownPersonIds: [...knownPersonIds],
+        });
+        if (!result.ok) throw new TypeError(result.errors.join('\n'));
+    }
+    if (additions.length === 0) return structuredClone(settlement);
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    const nextEpisode = activeEpisode(next);
+    if (!Array.isArray(nextEpisode.peopleEvents)) nextEpisode.peopleEvents = [];
+    nextEpisode.peopleEvents.push(...structuredClone(additions));
+    const participantIds = new Set(nextEpisode.references.participantIds || []);
+    for (const event of additions) participantIds.add(event.personId);
+    nextEpisode.references.participantIds = [...participantIds];
     return assertValid(next);
 }
 
@@ -362,8 +394,14 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
         effect.status === 'active'
         && !(effect.sourceContributionIds || []).some((id) => invalidated.has(id))
     ));
-    if (survivorEffects.length === 0) return null;
-    const referenced = new Set(survivorEffects.flatMap((effect) => effect.sourceContributionIds || []));
+    const survivorPeopleEvents = (episode.peopleEvents || []).filter((event) => (
+        !(event.sourceContributionIds || []).some((id) => invalidated.has(id))
+    ));
+    if (survivorEffects.length === 0 && survivorPeopleEvents.length === 0) return null;
+    const referenced = new Set([
+        ...survivorEffects.flatMap((effect) => effect.sourceContributionIds || []),
+        ...survivorPeopleEvents.flatMap((event) => event.sourceContributionIds || []),
+    ]);
     const survivorContributions = episode.contributions.filter((item) => referenced.has(item.id));
     const survivorContributionIds = new Set(survivorContributions.map((item) => item.id));
     const survivorMoments = (episode.characterMoments || []).filter((moment) => (
@@ -402,6 +440,7 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
         effects: structuredClone(survivorEffects),
         unresolvedConsequences: [],
         characterMoments: structuredClone(survivorMoments),
+        peopleEvents: structuredClone(survivorPeopleEvents),
         boundaryState: {
             ...createInitialEpisodeBoundaryState({ openedAtRevision: episode.openedAtRevision }),
             checkpointSequence: (episode.boundaryState?.checkpointSequence || 0) + 1,
@@ -417,8 +456,12 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
 }
 
 function replacementForPrunedEffects(next, episode, survivorEffects, summarizeEffects) {
-    if (survivorEffects.length === 0) return null;
-    const referenced = new Set(survivorEffects.flatMap((effect) => effect.sourceContributionIds || []));
+    const survivorPeopleEvents = structuredClone(episode.peopleEvents || []);
+    if (survivorEffects.length === 0 && survivorPeopleEvents.length === 0) return null;
+    const referenced = new Set([
+        ...survivorEffects.flatMap((effect) => effect.sourceContributionIds || []),
+        ...survivorPeopleEvents.flatMap((event) => event.sourceContributionIds || []),
+    ]);
     const survivorContributions = episode.contributions.filter((item) => referenced.has(item.id));
     const survivorContributionIds = new Set(survivorContributions.map((item) => item.id));
     const survivorMoments = (episode.characterMoments || []).filter((moment) => (
@@ -457,6 +500,7 @@ function replacementForPrunedEffects(next, episode, survivorEffects, summarizeEf
         effects: structuredClone(survivorEffects),
         unresolvedConsequences: [],
         characterMoments: structuredClone(survivorMoments),
+        peopleEvents: survivorPeopleEvents,
         boundaryState: {
             ...createInitialEpisodeBoundaryState({ openedAtRevision: episode.openedAtRevision }),
             checkpointSequence: (episode.boundaryState?.checkpointSequence || 0) + 1,
@@ -582,6 +626,9 @@ export function invalidateStorySources(settlement, {
             episode.effects = episode.effects.filter(
                 (effect) => !(effect.sourceContributionIds || []).some((id) => invalidated.has(id)),
             );
+            episode.peopleEvents = (episode.peopleEvents || []).filter(
+                (event) => !(event.sourceContributionIds || []).some((id) => invalidated.has(id)),
+            );
             episode.contributions = episode.contributions.filter((item) => !invalidated.has(item.id));
             episode.unresolvedConsequences = [];
             if (episode.boundaryState) {
@@ -598,7 +645,9 @@ export function invalidateStorySources(settlement, {
                     (id) => survivingContributionIds.has(id),
                 );
             }
-            if (episode.contributions.length === 0 && episode.effects.length === 0) {
+            if (episode.contributions.length === 0
+                && episode.effects.length === 0
+                && episode.peopleEvents.length === 0) {
                 activeEpisodeIdsToRemove.add(episode.id);
                 next.activeEpisode = null;
             } else {
@@ -768,6 +817,7 @@ export function invalidateStorySourcesAndDescendants(settlement, {
         episode.effects = [];
         episode.unresolvedConsequences = [];
         episode.characterMoments = [];
+        episode.peopleEvents = [];
         delete episode.workingCapsule;
         if (episode.boundaryState) {
             episode.boundaryState.sourceContributionIds = [];
