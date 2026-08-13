@@ -1,7 +1,5 @@
 import { createElement } from './runtime-ui-kit.js';
 
-const boundDocuments = new WeakSet();
-
 function setExpanded(hero, expanded) {
   hero.classList.toggle('is-expanded', expanded);
   const control = hero.querySelector('.directive-responsive-hero-toggle');
@@ -10,16 +8,6 @@ function setExpanded(hero, expanded) {
     'aria-label',
     `${expanded ? 'Collapse' : 'Expand'} ${hero.dataset.responsiveHeroLabel} image`
   );
-}
-
-function installOutsideTap(documentRoot) {
-  if (!documentRoot?.addEventListener || !documentRoot?.querySelectorAll || boundDocuments.has(documentRoot)) return;
-  documentRoot.addEventListener('pointerdown', (event) => {
-    for (const hero of documentRoot.querySelectorAll('.directive-responsive-hero.is-expanded')) {
-      if (!hero.contains(event.target)) setExpanded(hero, false);
-    }
-  });
-  boundDocuments.add(documentRoot);
 }
 
 export function bindResponsiveHero(hero, { label, secondary = [] }) {
@@ -36,6 +24,5 @@ export function bindResponsiveHero(hero, { label, secondary = [] }) {
   });
   hero.appendChild(control);
 
-  installOutsideTap(hero.ownerDocument || globalThis.document);
   return hero;
 }

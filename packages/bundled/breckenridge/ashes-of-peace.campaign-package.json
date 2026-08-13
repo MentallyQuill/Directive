@@ -333,6 +333,11 @@
           "card": "assets/packages/breckenridge/images/ship/uss-breckenridge.card.webp",
           "thumb": "assets/packages/breckenridge/images/ship/uss-breckenridge.thumb.webp"
         },
+        "layers": {
+          "background": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-background.webp",
+          "stars": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars.webp",
+          "foreground": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-ship.webp"
+        },
         "alt": "U.S.S. Breckenridge in flight above a nebula"
       },
       {

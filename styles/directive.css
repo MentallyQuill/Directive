@@ -3998,6 +3998,82 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-hero-identity h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 29px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
 .directive-expanded-shell .ship-hero-identity p { margin: 6px 0 0; max-width: 780px; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
 
+/* Package-authored layered Campaign and Ship hero scenes. */
+.directive-expanded-shell .directive-hero-scene {
+  --directive-hero-ship-x-start: -.28%;
+  --directive-hero-ship-y-start: -.18%;
+  --directive-hero-ship-x-end: .28%;
+  --directive-hero-ship-y-end: .18%;
+  --directive-hero-stars-x-start: -.12%;
+  --directive-hero-stars-y-start: .08%;
+  --directive-hero-stars-x-end: .12%;
+  --directive-hero-stars-y-end: -.08%;
+  isolation: isolate;
+  background: #05070a;
+}
+.directive-expanded-shell .campaign-hero > .directive-hero-scene {
+  position: absolute;
+  inset: 0;
+}
+.directive-expanded-shell .directive-hero-scene-layer {
+  position: absolute;
+  inset: -1%;
+  display: block;
+  width: 102%;
+  height: 102%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center 50%;
+  pointer-events: none;
+  will-change: transform, opacity, filter;
+}
+.directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
+  z-index: 0;
+}
+.directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars"] {
+  z-index: 1;
+  opacity: .58;
+  mix-blend-mode: screen;
+  animation: directive-hero-stars-drift 58s ease-in-out infinite alternate;
+}
+.directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-glow"] {
+  z-index: 2;
+  opacity: .11;
+  mix-blend-mode: screen;
+  animation: directive-hero-stars-shimmer 17s ease-in-out infinite;
+}
+.directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
+  z-index: 3;
+  transform-origin: 55% 48%;
+  animation: directive-hero-ship-drift 42s ease-in-out infinite alternate;
+}
+@supports (mix-blend-mode: plus-lighter) {
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars"],
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-glow"] {
+    mix-blend-mode: plus-lighter;
+  }
+}
+.directive-expanded-shell .campaign-hero::after,
+.directive-expanded-shell .ship-hero::after { z-index: 4; }
+.directive-expanded-shell .campaign-hero-copy,
+.directive-expanded-shell .ship-hero-identity { z-index: 5; }
+
+@keyframes directive-hero-ship-drift {
+  from { transform: translate3d(var(--directive-hero-ship-x-start), var(--directive-hero-ship-y-start), 0) scale(1.012) rotate(-.08deg); }
+  to { transform: translate3d(var(--directive-hero-ship-x-end), var(--directive-hero-ship-y-end), 0) scale(1.017) rotate(.08deg); }
+}
+@keyframes directive-hero-stars-drift {
+  from { transform: translate3d(var(--directive-hero-stars-x-start), var(--directive-hero-stars-y-start), 0) scale(1.004); }
+  to { transform: translate3d(var(--directive-hero-stars-x-end), var(--directive-hero-stars-y-end), 0) scale(1.008); }
+}
+@keyframes directive-hero-stars-shimmer {
+  0%, 100% { opacity: .08; filter: brightness(.92) contrast(1.02); transform: scale(1.003); }
+  17% { opacity: .14; filter: brightness(1.12) contrast(1.08); transform: scale(1.006); }
+  39% { opacity: .1; filter: brightness(.98) contrast(1.04); transform: scale(1.004); }
+  62% { opacity: .16; filter: brightness(1.16) contrast(1.1); transform: scale(1.008); }
+  81% { opacity: .09; filter: brightness(1) contrast(1.05); transform: scale(1.005); }
+}
+
 .directive-expanded-shell .ship-board { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; padding-bottom: 2px; }
 .directive-expanded-shell .ship-operational-status,
 .directive-expanded-shell .ship-board-section { padding: 15px 18px; background: var(--directive-expanded-surface); border-left: 6px solid var(--directive-expanded-violet); border-radius: 6px; }
@@ -4061,9 +4137,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .directive-responsive-hero-toggle {
   appearance: none;
   position: absolute;
-  z-index: 2;
+  z-index: 6;
   inset: 0;
-  display: none;
+  display: block;
   width: 100%;
   height: 100%;
   margin: 0;
@@ -4098,31 +4174,28 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   opacity: 1;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .directive-expanded-shell .directive-responsive-hero:hover {
-    height: var(--directive-responsive-hero-expanded-height);
-  }
-  .directive-expanded-shell .directive-responsive-hero:hover .directive-responsive-hero-secondary {
-    max-height: 6em;
-    margin-top: 5px !important;
-    opacity: 1;
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .directive-expanded-shell .directive-responsive-hero-toggle { display: block; }
-}
-
 @media (max-width: 640px) {
   .directive-expanded-shell {
     --directive-responsive-hero-collapsed-height: 112px;
     --directive-responsive-hero-expanded-height: 220px;
+  }
+  .directive-expanded-shell .directive-hero-scene {
+    --directive-hero-ship-x-start: -.14%;
+    --directive-hero-ship-y-start: -.09%;
+    --directive-hero-ship-x-end: .14%;
+    --directive-hero-ship-y-end: .09%;
+    --directive-hero-stars-x-start: -.06%;
+    --directive-hero-stars-y-start: .04%;
+    --directive-hero-stars-x-end: .06%;
+    --directive-hero-stars-y-end: -.04%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
+  .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(1.014); }
 }
 
 /* Certified full-width Settings composition. */

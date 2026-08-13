@@ -1,5 +1,5 @@
 import { createElement } from './runtime-ui-kit.js';
-import { createPackageImage } from './directive-media.js';
+import { createPackageHeroVisual } from './package-hero-scene.js';
 import { bindResponsiveHero } from './responsive-hero.js';
 
 function statusText(value) {
@@ -7,7 +7,7 @@ function statusText(value) {
 }
 
 export function createShipHero(ship, activePackage) {
-  const hero = createPackageImage(activePackage || {}, {
+  const hero = createPackageHeroVisual(activePackage || {}, {
     kind: 'ship.hero',
     subjectId: ship.id,
     variant: 'hero'

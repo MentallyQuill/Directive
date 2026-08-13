@@ -501,7 +501,7 @@ try {
     }
   }
 
-  async function measureDesktopHero(route, selector) {
+  async function measureDesktopHero(route, selector, outsideSelector, stableSelector = outsideSelector) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`${baseUrl}/production?route=${route}`);
     await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
@@ -509,31 +509,69 @@ try {
     await hero.waitFor();
     const finePointer = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
     const collapsedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const outsideTopBeforeHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
     await hero.hover();
     await page.waitForTimeout(220);
-    const expandedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const hoverHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const outsideTopAfterHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
     await hero.click();
-    await page.mouse.move(0, 0);
     await page.waitForTimeout(220);
-    const afterClickAndExitHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    const pinned = await hero.evaluate((node) => node.classList.contains('is-expanded'));
+    const expandedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    await page.locator(outsideSelector).click();
+    await page.waitForTimeout(220);
+    const afterOutsideClickHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const expandedAfterOutsideClick = await hero.evaluate((node) => node.classList.contains('is-expanded'));
+    const scene = await hero.evaluate((node) => {
+      const layers = [...node.querySelectorAll('.directive-hero-scene-layer')];
+      return {
+        order: layers.map((layer) => layer.dataset.heroSceneLayer),
+        animations: layers.map((layer) => getComputedStyle(layer).animationName),
+        starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode
+      };
+    });
+    await hero.click();
+    await page.waitForTimeout(220);
+    const finalHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const expandedFinally = await hero.evaluate((node) => node.classList.contains('is-expanded'));
     await page.close();
-    return { finePointer, collapsedHeight, expandedHeight, afterClickAndExitHeight, pinned };
+    return {
+      finePointer,
+      collapsedHeight,
+      hoverHeight,
+      outsideTopBeforeHover,
+      outsideTopAfterHover,
+      expandedHeight,
+      afterOutsideClickHeight,
+      expandedAfterOutsideClick,
+      finalHeight,
+      expandedFinally,
+      scene
+    };
   }
 
   const desktopCampaignHero = await measureDesktopHero(
     'campaign',
-    '.campaign-dashboard .directive-responsive-hero'
+    '.campaign-dashboard .directive-responsive-hero',
+    '.campaign-dashboard-heading',
+    '.campaign-dashboard-actions'
   );
-  const desktopShipHero = await measureDesktopHero('ship', '.ship-hero.directive-responsive-hero');
-  assert.deepEqual(desktopCampaignHero, {
-    finePointer: true,
-    collapsedHeight: 140,
-    expandedHeight: 280,
-    afterClickAndExitHeight: 140,
-    pinned: false
-  }, 'desktop Campaign hero must expand only while hovered');
-  assert.deepEqual(desktopShipHero, desktopCampaignHero, 'desktop Campaign and Ship hero geometry must match');
+  const desktopShipHero = await measureDesktopHero('ship', '.ship-hero.directive-responsive-hero', '.ship-board');
+  for (const [label, result] of [['Campaign', desktopCampaignHero], ['Ship', desktopShipHero]]) {
+    assert.equal(result.finePointer, true);
+    assert.equal(result.collapsedHeight, 140, `${label} must start compact`);
+    assert.equal(result.hoverHeight, 140, `${label} hover must not change geometry`);
+    assert.equal(result.outsideTopAfterHover, result.outsideTopBeforeHover, `${label} hover must not move content below the banner`);
+    assert.equal(result.expandedHeight, 280, `${label} click must expand the banner`);
+    assert.equal(result.afterOutsideClickHeight, 280, `${label} outside click must leave the banner expanded`);
+    assert.equal(result.expandedAfterOutsideClick, true);
+    assert.equal(result.finalHeight, 140, `${label} second banner click must collapse it`);
+    assert.equal(result.expandedFinally, false);
+    assert.deepEqual(result.scene.order, ['background', 'stars', 'stars-glow', 'foreground']);
+    assert.deepEqual(result.scene.animations, [
+      'none', 'directive-hero-stars-drift', 'directive-hero-stars-shimmer', 'directive-hero-ship-drift'
+    ], `${label} scene must animate while compact`);
+    assert.match(result.scene.starBlend, /^(?:plus-lighter|screen)$/);
+  }
 
   const touchContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -557,7 +595,10 @@ try {
   await touchPage.waitForTimeout(220);
   await touchPage.locator('.campaign-dashboard-heading').tap();
   await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'outside tap must collapse Campaign hero');
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220, 'outside tap must leave Campaign hero expanded');
+  await mobileCampaignToggle.tap();
+  await touchPage.waitForTimeout(220);
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
 
   await touchPage.locator('[data-route-id="ship"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="ship"]');
@@ -582,10 +623,12 @@ try {
   const reducedPage = await reducedContext.newPage();
   await reducedPage.goto(`${baseUrl}/production?route=ship`);
   await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const reducedTransition = await reducedPage.locator('.ship-hero.directive-responsive-hero').evaluate(
-    (node) => getComputedStyle(node).transitionDuration
-  );
-  assert.equal(reducedTransition, '0s', 'reduced motion must remove the hero height transition');
+  const reducedMotion = await reducedPage.locator('.ship-hero.directive-responsive-hero').evaluate((node) => ({
+    transition: getComputedStyle(node).transitionDuration,
+    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName)
+  }));
+  assert.equal(reducedMotion.transition, '0s', 'reduced motion must remove the hero height transition');
+  assert.deepEqual(reducedMotion.animations, ['none', 'none', 'none', 'none'], 'reduced motion must freeze every scene layer');
   await reducedContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });

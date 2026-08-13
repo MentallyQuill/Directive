@@ -38,7 +38,7 @@ export const ASHES_V1_BUNDLED_REF = Object.freeze({
 
 export const BUNDLED_CAMPAIGN_PACKAGE_REFS = Object.freeze([ASHES_V1_BUNDLED_REF]);
 
-function teaser({ id, title, era, theater, shipId, shipName, shipClass, rank, billet, summary, imageRoot }) {
+function teaser({ id, title, era, theater, shipId, shipName, shipClass, rank, billet, summary, imageRoot, layers = null }) {
   return Object.freeze({
     packageId: id,
     id,
@@ -56,6 +56,7 @@ function teaser({ id, title, era, theater, shipId, shipName, shipClass, rank, bi
           card: `${imageRoot}/${shipId}.card.webp`,
           thumb: `${imageRoot}/${shipId}.thumb.webp`
         },
+        ...(layers ? { layers: { ...layers } } : {}),
         alt: `${shipName} campaign artwork`
       }]
     },
@@ -75,7 +76,12 @@ export const V1_CAMPAIGN_LIBRARY_TEASERS = Object.freeze([
     rank: 'Commander',
     billet: 'Executive Officer',
     summary: 'The Dominion War is over, but the choices made to survive it still shape Federation worlds. You join the USS Breckenridge as its new executive officer while a mostly reconstituted crew returns to service. Three days later, a stabilization assignment begins with missing relief crews and counterfeit Starfleet orders. Command the mission, shape the crew, and decide what Starfleet principles require when restoring the old order may not be enough.',
-    imageRoot: 'assets/packages/breckenridge/images/ship'
+    imageRoot: 'assets/packages/breckenridge/images/ship',
+    layers: {
+      background: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-background.webp',
+      stars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars.webp',
+      foreground: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-ship.webp'
+    }
   }),
   teaser({
     id: 'directive:campaign-package:glass-harbor-drowned-constellation',

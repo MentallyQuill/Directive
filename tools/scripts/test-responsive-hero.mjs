@@ -141,18 +141,22 @@ assert.equal(ship.control.getAttribute('aria-expanded'), 'false');
 
 ship.control.click();
 testDocument.dispatch('pointerdown', { target: testDocument.body });
-assert.equal(ship.hero.classList.contains('is-expanded'), false);
-assert.equal(ship.control.getAttribute('aria-label'), 'Expand Ship image');
+assert.equal(ship.hero.classList.contains('is-expanded'), true, 'outside taps must leave the banner unchanged');
+assert.equal(ship.control.getAttribute('aria-label'), 'Collapse Ship image');
 
 const campaign = createHero('Campaign');
 assert.equal(campaign.hero.classList.contains('is-expanded'), false, 'a newly rendered hero must start compact');
-assert.equal(testDocument.listenerCount('pointerdown'), 1, 'outside-tap delegation must be installed once per document');
+assert.equal(testDocument.listenerCount('pointerdown'), 0, 'responsive heroes must not install outside-tap delegation');
 
-ship.control.click();
 campaign.control.click();
 testDocument.dispatch('pointerdown', { target: ship.hero });
 assert.equal(ship.hero.classList.contains('is-expanded'), true, 'inside taps must preserve their hero');
-assert.equal(campaign.hero.classList.contains('is-expanded'), false, 'a tap outside another hero must collapse it');
+assert.equal(campaign.hero.classList.contains('is-expanded'), true, 'a tap outside another hero must leave it unchanged');
+
+ship.control.click();
+campaign.control.click();
+assert.equal(ship.hero.classList.contains('is-expanded'), false);
+assert.equal(campaign.hero.classList.contains('is-expanded'), false);
 
 assert.equal(documentListeners.has('keydown'), false, 'responsive heroes must not consume Escape or other keys');
 

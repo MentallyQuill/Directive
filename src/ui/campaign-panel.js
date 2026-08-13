@@ -6,6 +6,7 @@ import { buildCertifiedCampaignView } from './view-models/certified-campaign-vie
 import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 import { bindResponsiveHero } from './responsive-hero.js';
+import { createPackageHeroVisual } from './package-hero-scene.js';
 
 let selectedRecordKey = null;
 let campaignPanelMode = null;
@@ -28,7 +29,8 @@ function focusCampaignAction(body, action) {
 }
 
 function packageImage(pack, variant = 'card', wrapperClass = 'campaign-row-art') {
-  return createPackageImage(pack, {
+  const createVisual = variant === 'hero' ? createPackageHeroVisual : createPackageImage;
+  return createVisual(pack, {
     kind: pack.image?.kind || 'ship.hero',
     subjectId: pack.image?.subjectId || pack.ship?.id || pack.packageId,
     variant

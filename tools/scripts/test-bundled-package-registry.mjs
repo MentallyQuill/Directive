@@ -65,6 +65,16 @@ for (const file of [
 const pack = JSON.parse(fs.readFileSync(ASHES_V1_BUNDLED_REF.packagePath, 'utf8'));
 assert.equal(pack.manifest.kind, 'directive.campaignPackage.v1');
 assert.equal(pack.manifest.id, ASHES_V1_PACKAGE_ID);
+const expectedHeroLayers = {
+  background: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-background.webp',
+  stars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars.webp',
+  foreground: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-ship.webp'
+};
+assert.deepEqual(V1_CAMPAIGN_LIBRARY_TEASERS[0].assets.images[0].layers, expectedHeroLayers);
+assert.deepEqual(pack.assets.images.find((image) => image.id === 'breckenridge.ship.primary')?.layers, expectedHeroLayers);
+for (const path of Object.values(expectedHeroLayers)) {
+  assert.equal(fs.existsSync(path), true, `${path} must exist`);
+}
 for (const ref of ASHES_V1_BUNDLED_REF.missionDefinitionRefs) {
   const definition = JSON.parse(fs.readFileSync(ref.path, 'utf8'));
   assert.equal(definition.kind, 'directive.missionDefinition.v1');
