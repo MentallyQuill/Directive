@@ -8,9 +8,14 @@ import {
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
 import { normalizeDirectiveProviderSettings } from '../providers/directive-provider-settings.mjs';
-import { createV1PromptProjection } from '../projection/v1/prompt-projection.mjs';
+import {
+  createV1PromptProjection,
+  createV1WorkingStoryPromptProjection
+} from '../projection/v1/prompt-projection.mjs';
 import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
+import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
+import { createDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 import { formatShipTimeFooter } from '../time/ship-time.mjs';
 import {
   deleteV1PlayerPortrait,
@@ -267,11 +272,48 @@ function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [
   };
 }
 
+function transitionPromptProjection(state, runtimeAssets) {
+  if (state?.mission?.v1?.status !== 'terminal' && state?.storySettlement?.activeEpisode !== null) {
+    return null;
+  }
+  try {
+    return createMissionTransitionNarrationPacket({
+      campaignState: state,
+      definitions: runtimeAssets?.missionDefinitions || []
+    });
+  } catch {
+    return null;
+  }
+}
+
+function availableDirectorActors(runtimeAssets = {}) {
+  const aliases = {
+    command: ['captain', 'diplomacy'],
+    operations: ['communications', 'intelligence'],
+    science: ['sensors'],
+    tactical: ['security'],
+    medical: ['counseling']
+  };
+  return (runtimeAssets?.crewDataset?.officers || []).map((officer) => {
+    const department = compact(officer?.service?.department).toLowerCase();
+    return {
+      id: officer.id,
+      available: true,
+      capabilityRoles: [...new Set([
+        department,
+        ...(aliases[department] || []),
+        ...(officer.capabilityRoles || [])
+      ].filter(Boolean))]
+    };
+  });
+}
+
 export function createV1RuntimePromptPacket({
   state,
   projection,
   runtimeAssets,
-  acceptedPairLineage = []
+  acceptedPairLineage = [],
+  director = null
 }) {
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
@@ -317,7 +359,10 @@ export function createV1RuntimePromptPacket({
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
     opening: openingPromptProjection({ state, runtimeAssets, acceptedPairLineage }),
-    acceptedStory: story
+    acceptedStory: story,
+    workingStory: createV1WorkingStoryPromptProjection({ settlement: state.storySettlement }),
+    pendingTransition: transitionPromptProjection(state, runtimeAssets),
+    pendingDutyReport: director?.dutyReport || null
   };
   const text = [
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
@@ -337,6 +382,12 @@ export function createV1RuntimePromptPacket({
       : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
+      : '',
+    payload.pendingTransition
+      ? 'MISSION TRANSITION: Realize pendingTransition in this response. Include every mustNarrate beat, honor next.playerSafeSetup and knownOutcomes, and reveal nothing prohibited by mustNotReveal. Do not invent an additional transition or alter its disposition.'
+      : '',
+    payload.pendingDutyReport
+      ? 'DUTY REPORT: Deliver pendingDutyReport.segment.canonicalText verbatim exactly once in this response, naturally spoken or presented by the named reporter. Do not paraphrase the canonical segment, expose internal identifiers, or add facts beyond the player-safe segment.'
       : '',
     simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
@@ -605,6 +656,17 @@ export function createDirectiveRuntimeApp({
       recentMessages: normalizedMessages,
       chatId: host.chat.getCurrentChatId?.()
     });
+    const preparedDutyReport = missionRuntime.preparePendingDutyReport({
+      runtimeAssets,
+      availableActors: availableDirectorActors(runtimeAssets),
+      responseId: 'pending-host-response',
+      sourceTransactionId: `pending-host-generation.${state.stateCustody.revision}`
+    });
+    const director = {
+      dutyReport: preparedDutyReport?.ok && preparedDutyReport.status === 'ready'
+        ? { packet: preparedDutyReport.packet, segment: preparedDutyReport.segment }
+        : null
+    };
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
     return host.prompt[method]({
       binding: clone(state.campaignChatBinding),
@@ -612,7 +674,8 @@ export function createDirectiveRuntimeApp({
         state,
         projection: result.projection,
         runtimeAssets,
-        acceptedPairLineage
+        acceptedPairLineage,
+        director
       })
     });
   }
@@ -1270,6 +1333,71 @@ export function createDirectiveRuntimeApp({
           ...(await settleSnapshot(prepared.snapshot, ingressId))
         };
       });
+    },
+
+    async handleHostGenerationEnded(payload = {}) {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound() || typeof host.chat.attachAssistantRuntimeMetadata !== 'function') {
+        return { handled: false, reason: 'inactive-unbound-or-unsupported' };
+      }
+      let message = normalizeMessage(host, payload);
+      const directId = messageId(payload, message);
+      if (directId && (!object(message) || !compact(message.text || message.mes || message.content))) {
+        message = await host.chat.getMessage?.(directId);
+      }
+      if (!object(message) || isUserMessage(message) || message.isSystem === true || message.is_system === true) {
+        const recent = await host.chat.getRecentMessages?.({ limit: 20, playerSafeOnly: false }) || [];
+        message = [...recent].reverse().find((item) => (
+          object(item)
+          && !isUserMessage(item)
+          && item.isSystem !== true
+          && item.is_system !== true
+          && activeSourceRow(item)
+          && compact(item.text || item.mes || item.content)
+        )) || null;
+      }
+      const hostMessageId = messageId(message, message);
+      const responseText = compact(message?.text || message?.mes || message?.content);
+      if (!hostMessageId || !responseText) return { handled: false, reason: 'assistant-message-unavailable' };
+      const responseId = `host-response.${hostMessageId}`;
+      const sourceTransactionId = `host-generation.${compact(state.campaignChatBinding?.chatId)}.${hostMessageId}`;
+      const prepared = missionRuntime.preparePendingDutyReport({
+        runtimeAssets,
+        availableActors: availableDirectorActors(runtimeAssets),
+        responseId,
+        sourceTransactionId
+      });
+      if (!prepared?.ok || prepared.status !== 'ready') {
+        return { handled: false, reason: prepared?.reasonCode || prepared?.status || 'no-pending-report' };
+      }
+      const definition = (runtimeAssets?.missionDefinitions || [])
+        .map((entry) => entry?.definition || entry)
+        .find((entry) => entry?.id === prepared.definitionId);
+      if (!definition) return { handled: false, reason: 'definition-unavailable' };
+      let manifest;
+      try {
+        manifest = createDutyReportManifest({
+          definition,
+          packet: prepared.packet,
+          branchId: prepared.manifestInput.branchId,
+          responseId,
+          sourceTransactionId,
+          responseText,
+          segment: prepared.segment
+        });
+      } catch {
+        return { handled: false, reason: 'canonical-segment-not-delivered' };
+      }
+      await host.chat.attachAssistantRuntimeMetadata({
+        hostMessageId,
+        runtimeMetadata: { responseId, dutyReportManifest: manifest }
+      });
+      return {
+        handled: true,
+        status: 'duty-report-custody-attached',
+        hostMessageId,
+        reportId: manifest.reportId
+      };
     },
 
     async retryPendingAcceptedPairSettlement() {

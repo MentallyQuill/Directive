@@ -310,7 +310,7 @@ const partialA = await stillClosesHarness.runtime.settleAcceptedPair({
     snapshot: snapshot(missionA, 11),
 });
 assert.equal(partialA.transitionActivated, false, JSON.stringify(partialA));
-assert.equal(partialA.diagnostics.acceptedClaimCount, 1, JSON.stringify(partialA));
+assert.equal(partialA.diagnostics.acceptedClaimCount, 2, JSON.stringify(partialA));
 const closedA = await stillClosesHarness.runtime.settleAcceptedPair({
     runtimeAssets,
     snapshot: snapshot(missionA, 12),
@@ -360,6 +360,6 @@ const storyOnlyMutation = await storyOnlyHarness.runtime.invalidateSourceMutatio
 assert.equal(storyOnlyMutation.status, 'invalidated');
 assert.deepEqual(storyOnlyHarness.campaignState.mission, journeyBeforeStoryOnly);
 assert.equal(selectCurrentStoryEpisodes(storyOnlyHarness.campaignState.storySettlement).length, 1);
-assert.equal(selectCurrentStoryEpisodes(storyOnlyHarness.campaignState.storySettlement)[0].contributions.length, 1);
+assert.equal(selectCurrentStoryEpisodes(storyOnlyHarness.campaignState.storySettlement)[0].contributions.length, 2);
 
 console.log('V1 mission journey source-rebuild tests passed.');

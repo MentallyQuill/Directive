@@ -1779,6 +1779,59 @@ export function createSillyTavernChatAdapter({
     };
   }
 
+  async function attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata = {} } = {}) {
+    const ctx = context();
+    if (!ctx) throw new Error('SillyTavern context is unavailable for assistant metadata custody.');
+    const chat = getChatArray(ctx);
+    const id = nonEmptyString(hostMessageId);
+    let index = numericMessageIndex(id);
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      index = chat.findIndex((message, cursor) => normalizeMessageId(message, cursor) === id);
+    }
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      throw new Error(`SillyTavern message ${id || '(missing)'} could not be found for runtime metadata custody.`);
+    }
+    const message = chat[index];
+    const assistant = message?.is_user !== true
+      && message?.role !== 'user'
+      && message?.is_system !== true
+      && message?.role !== 'system';
+    if (!assistant) throw new Error('Runtime metadata custody requires an assistant message.');
+    const patch = runtimeMetadata && typeof runtimeMetadata === 'object' && !Array.isArray(runtimeMetadata)
+      ? cloneJson(runtimeMetadata)
+      : {};
+    message.extra = message.extra && typeof message.extra === 'object' && !Array.isArray(message.extra)
+      ? message.extra
+      : {};
+    message.extra.runtimeMetadata = {
+      ...(message.extra.runtimeMetadata && typeof message.extra.runtimeMetadata === 'object'
+        ? message.extra.runtimeMetadata
+        : {}),
+      ...patch
+    };
+    const swipes = ensureMessageSwipes(message);
+    const swipeIndex = Number.isInteger(message.swipe_id) && message.swipe_id < swipes.length
+      ? message.swipe_id
+      : 0;
+    const swipeInfo = ensureMessageSwipeInfo(message);
+    swipeInfo[swipeIndex] = swipeInfo[swipeIndex] || createSwipeInfo(message);
+    swipeInfo[swipeIndex].extra = {
+      ...(swipeInfo[swipeIndex].extra || {}),
+      runtimeMetadata: {
+        ...(swipeInfo[swipeIndex].extra?.runtimeMetadata || {}),
+        ...patch
+      }
+    };
+    await saveChat(ctx);
+    return {
+      ok: true,
+      hostMessageId: normalizeMessageId(message, index),
+      index,
+      swipeIndex,
+      runtimeMetadata: cloneJson(message.extra.runtimeMetadata)
+    };
+  }
+
   async function appendAssistantMessageSwipe({
     hostMessageId,
     text,
@@ -2323,6 +2376,7 @@ export function createSillyTavernChatAdapter({
     getMessage,
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
+    attachAssistantRuntimeMetadata,
     appendAssistantMessageSwipe,
     continueHostGeneration,
     updateBindingMetadata,

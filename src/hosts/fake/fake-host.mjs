@@ -414,6 +414,32 @@ export function createFakeChatAdapter({
         message: cloneJson(message)
       };
     },
+    async attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata = {} } = {}) {
+      const chatMessages = messagesForChat();
+      const id = String(hostMessageId || '').trim();
+      const index = chatMessages.findIndex((message, cursor) => (
+        String(message.hostMessageId || message.id || cursor) === id
+      ));
+      if (index < 0) throw new Error(`Fake chat message ${id || '(missing)'} could not be found for runtime metadata custody.`);
+      const message = chatMessages[index];
+      if (message.isUser === true || message.is_user === true || message.isSystem === true || message.is_system === true) {
+        throw new Error('Runtime metadata custody requires an assistant message.');
+      }
+      message.extra = { ...(message.extra || {}) };
+      message.extra.runtimeMetadata = {
+        ...(message.extra.runtimeMetadata || {}),
+        ...cloneJson(runtimeMetadata)
+      };
+      const swipeIndex = Number.isInteger(message.swipe_id) ? message.swipe_id : 0;
+      message.swipe_info = Array.isArray(message.swipe_info) ? message.swipe_info : [];
+      message.swipe_info[swipeIndex] = message.swipe_info[swipeIndex] || { extra: {} };
+      message.swipe_info[swipeIndex].extra = {
+        ...(message.swipe_info[swipeIndex].extra || {}),
+        runtimeMetadata: cloneJson(message.extra.runtimeMetadata)
+      };
+      calls.push({ type: 'attachAssistantRuntimeMetadata', hostMessageId: id, runtimeMetadata: cloneJson(runtimeMetadata) });
+      return { ok: true, hostMessageId: id, index, swipeIndex, runtimeMetadata: cloneJson(message.extra.runtimeMetadata) };
+    },
     async cloneCampaignChat(options = {}) {
       const sourceChatId = options.sourceChatId || currentChatId;
       const branchChatId = options.targetBinding?.chatId || uniqueBranchChatId({

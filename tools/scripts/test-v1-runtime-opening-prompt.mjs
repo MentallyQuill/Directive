@@ -37,7 +37,23 @@ const state = {
       }
     }
   },
-  storySettlement: { receipts: [] },
+  storySettlement: {
+    receipts: [],
+    activeEpisode: 'episode.current-conversation',
+    episodes: [{
+      id: 'episode.current-conversation',
+      status: 'open',
+      workingCapsule: {
+        summary: 'Whitaker and the commander are establishing their working tone.',
+        foregroundQuestion: 'How candid will the commander be?',
+        recentEvidence: [
+          { role: 'assistant', excerpt: 'Whitaker leaves the question open.' },
+          { role: 'runtime', excerpt: 'SECRET RUNTIME AUTHORITY' },
+          { role: 'user', excerpt: 'I answer her plainly.' }
+        ]
+      }
+    }]
+  },
   commandBearing: {},
   settings: { simulationMode: 'Exploration' },
   worldState: { currentLocationId: 'breckenridge-underway' },
@@ -120,8 +136,22 @@ const packet = createV1RuntimePromptPacket({
   state,
   projection,
   runtimeAssets,
-  acceptedPairLineage: []
+  acceptedPairLineage: [],
+  director: {
+    dutyReport: {
+      packet: { reporterId: 'priya-nayar' },
+      segment: {
+        canonicalText: 'Duty Report â€” A distress signal has been confirmed. Confidence: Confirmed.'
+      }
+    }
+  }
 });
+assert.match(packet.text, /"workingStory"/);
+assert.match(packet.text, /Whitaker and the commander are establishing their working tone/);
+assert.match(packet.text, /I answer her plainly/);
+assert.doesNotMatch(packet.text, /SECRET RUNTIME AUTHORITY/);
+assert.match(packet.text, /DUTY REPORT: Deliver pendingDutyReport\.segment\.canonicalText verbatim exactly once/);
+assert.match(packet.text, /Duty Report â€” A distress signal has been confirmed/);
 assert.match(packet.text, /"phase": "unanswered"/);
 assert.match(packet.text, /"canonicalOpeningMessage":/);
 assert.match(packet.text, /Yesterday morning, your shuttle rendezvoused/);

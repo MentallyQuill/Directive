@@ -571,20 +571,45 @@ const insignificantProposal = {
     baseRevision: 0,
     claims: [],
 };
+const storyOnlyContribution = {
+    id: 'contribution.small-talk',
+    messageId: 'message.small-talk',
+    swipeId: 'swipe.small-talk',
+    role: 'assistant',
+    textHash: 'a'.repeat(64),
+    acceptedAtRevision: 0,
+};
 await insignificantSpine.settleAcceptedPair({
     definition: accumulationDefinition,
     proposal: insignificantProposal,
-    sourceContributions: [],
+    sourceContributions: [storyOnlyContribution],
+    sourceObservations: [{
+        contributionId: storyOnlyContribution.id,
+        role: storyOnlyContribution.role,
+        textHash: storyOnlyContribution.textHash,
+        text: 'The crew shares a quiet joke while the bridge settles into the watch.',
+    }],
     gatewayBaseRevision: 0,
     scene: { episodeId: 'episode.small-talk', sceneId: 'scene.small-talk' },
 });
 assert.equal(insignificantPersistCount, 1);
-assert.equal(insignificantState.storySettlement.episodes.length, 0);
-assert.equal(insignificantState.storySettlement.receipts[0].disposition, 'insignificant');
+assert.equal(insignificantState.storySettlement.episodes.length, 1);
+assert.equal(insignificantState.storySettlement.episodes[0].status, 'open');
+assert.deepEqual(
+    insignificantState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.contributionId),
+    ['contribution.small-talk'],
+);
+assert.equal(insignificantState.storySettlement.receipts.length, 0);
 const replayInsignificant = await insignificantSpine.settleAcceptedPair({
     definition: accumulationDefinition,
     proposal: insignificantProposal,
-    sourceContributions: [],
+    sourceContributions: [storyOnlyContribution],
+    sourceObservations: [{
+        contributionId: storyOnlyContribution.id,
+        role: storyOnlyContribution.role,
+        textHash: storyOnlyContribution.textHash,
+        text: 'The crew shares a quiet joke while the bridge settles into the watch.',
+    }],
     gatewayBaseRevision: 1,
     scene: { episodeId: 'episode.small-talk', sceneId: 'scene.small-talk' },
 });

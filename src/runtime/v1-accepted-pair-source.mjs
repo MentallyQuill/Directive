@@ -102,9 +102,8 @@ function selectedAssistantVariant(message = {}) {
     return { ok: false, reason: 'previous-assistant-selected-swipe-mismatch' };
   }
   const metadata = directiveMetadata(message);
-  const report = parseDutyReportManifestEnvelope(
-    selectedSwipeRuntimeMetadata(message, index, swipes.length)?.dutyReportManifest
-  );
+  const runtimeMetadata = selectedSwipeRuntimeMetadata(message, index, swipes.length);
+  const report = parseDutyReportManifestEnvelope(runtimeMetadata?.dutyReportManifest);
   const directiveOwned = Boolean(
     message?.isDirectiveOwned === true
     || message?.directiveOwned === true
@@ -126,7 +125,13 @@ function selectedAssistantVariant(message = {}) {
       visibleResponseHash,
       sourceIntegrity: 'clean',
       directiveOwned,
-      responseId: compact(metadata?.responseId || metadata?.sourceResponseId || metadata?.idempotencyKey, 180) || null,
+      responseId: compact(
+        metadata?.responseId
+        || metadata?.sourceResponseId
+        || metadata?.idempotencyKey
+        || runtimeMetadata?.responseId,
+        180,
+      ) || null,
       outcomeId: compact(metadata?.outcomeId, 180) || null,
       responseKind: compact(metadata?.responseKind, 80) || null,
       dutyReportManifest: report.ok ? report.value : null,

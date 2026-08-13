@@ -1,4 +1,5 @@
 export const PROMPT_STORY_PROJECTION_KIND = 'directive.promptStoryProjection.v1';
+export const WORKING_STORY_PROMPT_PROJECTION_KIND = 'directive.workingStoryPromptProjection.v1';
 
 function intersects(left = [], right = []) {
     const rightSet = new Set(right);
@@ -26,6 +27,52 @@ function promptEntry(entry) {
 
 function lengthOf(value) {
     return JSON.stringify(value).length;
+}
+
+function compactText(value, maximum) {
+    return [...String(value ?? '').replace(/\s+/g, ' ').trim()].slice(0, maximum).join('');
+}
+
+export function createV1WorkingStoryPromptProjection({
+    settlement = {},
+    maxCharacters = 1800,
+} = {}) {
+    if (!Number.isInteger(maxCharacters) || maxCharacters < 240) {
+        throw new TypeError('maxCharacters must be an integer of at least 240');
+    }
+    const episode = (settlement.episodes || []).find((item) => (
+        item?.id === settlement.activeEpisode && item?.status === 'open'
+    ));
+    if (!episode?.workingCapsule) return null;
+    const capsule = episode.workingCapsule;
+    const projection = {
+        kind: WORKING_STORY_PROMPT_PROJECTION_KIND,
+        episodeId: episode.id,
+        summary: compactText(capsule.summary, 768),
+        foregroundQuestion: compactText(capsule.foregroundQuestion, 240) || null,
+        recentEvidence: (capsule.recentEvidence || [])
+            .filter((item) => new Set(['user', 'assistant']).has(item?.role))
+            .slice(-6)
+            .map((item) => ({
+                role: item.role,
+                excerpt: compactText(item.excerpt, 240),
+            }))
+            .filter((item) => item.excerpt),
+        truncated: false,
+    };
+    while (projection.recentEvidence.length > 0 && lengthOf(projection) > maxCharacters) {
+        projection.recentEvidence.shift();
+        projection.truncated = true;
+    }
+    while (projection.summary.length > 0 && lengthOf(projection) > maxCharacters) {
+        projection.summary = projection.summary.slice(0, -1);
+        projection.truncated = true;
+    }
+    while (projection.foregroundQuestion && lengthOf(projection) > maxCharacters) {
+        projection.foregroundQuestion = projection.foregroundQuestion.slice(0, -1) || null;
+        projection.truncated = true;
+    }
+    return projection;
 }
 
 export function createV1PromptProjection({

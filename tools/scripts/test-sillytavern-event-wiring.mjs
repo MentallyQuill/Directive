@@ -22,6 +22,7 @@ const eventTypes = {
   MESSAGE_SWIPED: 'swiped',
   MESSAGE_DELETED: 'deleted',
   GENERATION_STOPPED: 'stopped',
+  GENERATION_ENDED: 'ended',
   EXTENSION_DISABLED: 'disabled'
 };
 assert.equal(wireEvents({ eventSource, eventTypes }), true);
@@ -111,6 +112,19 @@ assert.deepEqual(renamed, { savedGameId: 'checkpoint.1', name: 'Before Whitaker'
 globalThis.prompt = previousPrompt;
 clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
+
+let endedPayload = null;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async handleHostGenerationEnded(payload) {
+      endedPayload = payload;
+      return { handled: true };
+    }
+  }
+});
+await __directiveEventTestHooks.handleGenerationEnded({ messageId: 'assistant.42' });
+assert.deepEqual(endedPayload, { messageId: 'assistant.42' });
+clearSillyTavernDirectiveRuntimeBridge();
 
 installFakeDom();
 let abortImmediately = null;

@@ -527,7 +527,8 @@ export function createV1StateSpine({
             && evidence.acceptedClaims.length === 0
             && evidence.rejectedClaims.length === proposal.claims.length
             && evidence.rejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
-        if (missionResult.effects.length > 0 && storySettlement.activeEpisode === null) {
+        if ((missionResult.effects.length > 0 || contributions.supplied.length > 0)
+            && storySettlement.activeEpisode === null) {
             storySettlement = openStoryEpisode(storySettlement, {
                 episodeId: scene.episodeId,
                 sceneId: scene.sceneId,

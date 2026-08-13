@@ -15,6 +15,7 @@ import {
 import { withCampaignTimelineLease } from '../../src/runtime/timeline-transaction-service.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
 import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
+import { createDutyReportVisibleSegment } from '../../src/mission/v1/duty-report-delivery.mjs';
 
 function json(relative) {
   return JSON.parse(fs.readFileSync(new URL(`../../${relative}`, import.meta.url), 'utf8'));
@@ -654,15 +655,36 @@ assert.equal(
 );
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'armed');
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
+assert.match(host.prompt.inspect().blocks[0]?.text || '', /DUTY REPORT: Deliver pendingDutyReport/);
+const dutyReportText = createDutyReportVisibleSegment({
+  kind: 'directive.dutyReportPacket.v1',
+  reportId: 'report.hesperus.distress',
+  reporterId: 'priya-nayar',
+  urgency: 'urgent',
+  confidence: 'confirmed',
+  deliveryRequirement: 'required',
+  playerText: { summary: 'Operations has received a civilian distress call requiring command attention.' }
+}).canonicalText;
 const acceptedRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(acceptedRevision > 1);
 
 const provisional = chat.pushAssistantMessage({
-  text: 'Whitaker closes the packet.',
+  text: `Nayar steps forward. ${dutyReportText}`,
   hostMessageId: 'assistant.provisional',
-  swipes: ['Whitaker closes the packet.', 'Whitaker leaves it open.'],
+  swipes: ['Whitaker closes the packet.', `Nayar steps forward. ${dutyReportText}`],
   swipeId: 1
 });
+const attachedDutyReport = await app.handleHostGenerationEnded({ message: provisional });
+assert.deepEqual(attachedDutyReport, {
+  handled: true,
+  status: 'duty-report-custody-attached',
+  hostMessageId: 'assistant.provisional',
+  reportId: 'report.hesperus.distress'
+});
+const hostedReportMessage = chat.messages().find((message) => message.hostMessageId === 'assistant.provisional');
+assert.equal(hostedReportMessage.isDirectiveOwned, false, 'Duty Report custody must not take ownership of host narration');
+assert.equal(hostedReportMessage.extra.runtimeMetadata.responseId, 'host-response.assistant.provisional');
+assert.equal(hostedReportMessage.extra.runtimeMetadata.dutyReportManifest.reportId, 'report.hesperus.distress');
 await app.handleHostMessageSelectedSwipeChanged({ message: provisional });
 const afterSwipeRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(afterSwipeRevision >= acceptedRevision);
@@ -673,7 +695,13 @@ await app.observeHostPlayerMessage({ message: nextPlayer });
 const finalRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(finalRevision > afterSwipeRevision);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'committed');
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState.mission.v1.knownFacts.includes('fact.hesperus.distress-established'),
+  true,
+  'accepted host narration with attached custody settles the Duty Report route'
+);
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
+assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /"reportId": "report\.hesperus\.distress"/);
 assert.equal(opening.text.endsWith('*Stardate 53068.4 | 08:30:00 hours*'), true);
 assert.equal(opening.text.startsWith('*Stardate'), false);
 

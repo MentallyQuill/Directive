@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 
-import { createV1PromptProjection } from '../../src/projection/v1/prompt-projection.mjs';
+import {
+    createV1PromptProjection,
+    createV1WorkingStoryPromptProjection,
+} from '../../src/projection/v1/prompt-projection.mjs';
 
 const entries = [
     {
@@ -95,5 +98,37 @@ const tiny = createV1PromptProjection({
 });
 assert.equal(JSON.stringify(tiny).length <= 280, true);
 assert.equal(tiny.entries.length >= 1, true);
+
+const working = createV1WorkingStoryPromptProjection({
+    settlement: {
+        activeEpisode: 'episode.current',
+        episodes: [{
+            id: 'episode.current',
+            status: 'open',
+            workingCapsule: {
+                summary: 'Whitaker and the commander are testing the tone of their new working relationship.',
+                foregroundQuestion: 'Will the commander answer with candor or formality?',
+                recentEvidence: [{ role: 'assistant', excerpt: 'Whitaker leaves the question open.' }, {
+                    role: 'runtime', excerpt: 'SECRET RUNTIME AUTHORITY',
+                }, {
+                    role: 'user', excerpt: 'I answer her plainly.'
+                }],
+            },
+        }],
+    },
+});
+assert.deepEqual(working, {
+    kind: 'directive.workingStoryPromptProjection.v1',
+    episodeId: 'episode.current',
+    summary: 'Whitaker and the commander are testing the tone of their new working relationship.',
+    foregroundQuestion: 'Will the commander answer with candor or formality?',
+    recentEvidence: [
+        { role: 'assistant', excerpt: 'Whitaker leaves the question open.' },
+        { role: 'user', excerpt: 'I answer her plainly.' },
+    ],
+    truncated: false,
+});
+assert.equal(JSON.stringify(working).includes('SECRET RUNTIME AUTHORITY'), false);
+assert.equal(createV1WorkingStoryPromptProjection({ settlement: {} }), null);
 
 console.log('V1 prompt-ready story projection tests passed.');

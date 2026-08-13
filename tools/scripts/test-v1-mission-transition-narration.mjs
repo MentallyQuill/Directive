@@ -14,6 +14,7 @@ import { createInitialMissionJourney } from '../../src/mission/v1/mission-journe
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createV1RuntimePromptPacket } from '../../src/runtime/runtime-app.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const fixture = JSON.parse(fs.readFileSync(
@@ -141,6 +142,38 @@ assert.equal(
     prepared.packet.sourceDisposition,
     stateBeforePreparation.mission.v1History[0].state.terminalDisposition,
 );
+const canonicalPrompt = createV1RuntimePromptPacket({
+    state: campaignState,
+    projection: {
+        mission: { missionId: campaignState.mission.activeMissionId },
+        people: { people: [] },
+        ship: {},
+        commandBearing: {},
+        story: { branchId: 'save.narration', revision: 0, focus: null, entries: [] },
+    },
+    runtimeAssets,
+});
+assert.match(canonicalPrompt.text, /MISSION TRANSITION: Realize pendingTransition/);
+assert.match(canonicalPrompt.text, new RegExp(prepared.packet.transitionKey));
+assert.match(canonicalPrompt.text, /Captain Whitaker calls the senior staff into the command review/);
+const consumedTransitionPrompt = createV1RuntimePromptPacket({
+    state: {
+        ...campaignState,
+        storySettlement: {
+            ...campaignState.storySettlement,
+            activeEpisode: 'episode.new-mission-response',
+        },
+    },
+    projection: {
+        mission: { missionId: campaignState.mission.activeMissionId },
+        people: { people: [] },
+        ship: {},
+        commandBearing: {},
+        story: { branchId: 'save.narration', revision: 0, focus: null, entries: [] },
+    },
+    runtimeAssets,
+});
+assert.doesNotMatch(consumedTransitionPrompt.text, /MISSION TRANSITION: Realize pendingTransition/);
 assert.equal(prepared.packet.next.kind, 'mission');
 assert.equal(prepared.packet.next.id, targetDefinition.packageBinding.sourceId);
 assert.equal(prepared.packet.next.playerSafeSetup, sourceDefinition.transitions[0].target.playerSafeSetup);

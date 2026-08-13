@@ -137,6 +137,11 @@ export async function handleGenerationStopped(payload = {}) {
   };
 }
 
+export async function handleGenerationEnded(payload = {}) {
+  if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  return app()?.handleHostGenerationEnded?.(payload);
+}
+
 export async function handleChatChanged(payload = {}) {
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
   const changed = await app()?.handleHostChatChanged?.(payloadWithNativeBranchIntent(payload));
@@ -211,6 +216,7 @@ export function wireEvents(context) {
   register(adapter, [events.MESSAGE_SWIPED || 'MESSAGE_SWIPED'], handleMessageSelectedSwipeChanged, disposers);
   register(adapter, [events.MESSAGE_DELETED, events.MESSAGE_REMOVED, 'MESSAGE_DELETED'], handleMessageDeleted, disposers);
   register(adapter, [events.GENERATION_STOPPED || 'GENERATION_STOPPED'], handleGenerationStopped, disposers);
+  register(adapter, [events.GENERATION_ENDED || 'GENERATION_ENDED'], handleGenerationEnded, disposers);
   register(adapter, [events.EXTENSION_DISABLED, events.EXTENSION_DISABLE, 'EXTENSION_DISABLED'], handleExtensionDisabled, disposers);
   lifecycle = {
     dispose() {
@@ -230,6 +236,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleMessageDeleted,
   handleMessageSelectedSwipeChanged,
   handleGenerationStopped,
+  handleGenerationEnded,
   handleChatChanged,
   handleExtensionDisabled,
   disposeSillyTavernDirectiveEventLifecycle,

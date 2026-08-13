@@ -8,6 +8,8 @@ import { normalizeNativeBranchMessage } from './native-branch-lineage.mjs';
 import { invalidateV1AcceptedPairTimeByHostMessages } from './v1-accepted-pair-time.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { buildV1RuntimePlayerProjection, resolveActiveV1MissionDefinition } from './v1-mission-runtime.mjs';
+import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
+import { validateStorySettlement } from '../story/story-settlement-contracts.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -47,6 +49,28 @@ function replaceExactValues(value, replacements) {
   if (Array.isArray(value)) return value.map((entry) => replaceExactValues(entry, replacements));
   if (!value || typeof value !== 'object') return replacements.has(value) ? replacements.get(value) : value;
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, replaceExactValues(entry, replacements)]));
+}
+
+function rebindMissionEvidenceKeys(campaignState, sourceBranchId, targetBranchId) {
+  const runs = [
+    ...(campaignState.mission?.v1History || []).map((archive) => archive.state),
+    campaignState.mission?.v1
+  ].filter(Boolean);
+  for (const state of runs) {
+    const replacements = new Map();
+    for (const entry of state.evidenceLog || []) {
+      const priorEvidenceKey = entry.evidenceKey;
+      const parts = String(entry.evidenceKey || '').split('|');
+      if (parts[0] === sourceBranchId) {
+        parts[0] = targetBranchId;
+        entry.evidenceKey = parts.join('|');
+        replacements.set(priorEvidenceKey, entry.evidenceKey);
+      }
+    }
+    state.clocks = replaceExactValues(state.clocks, replacements);
+    state.acceptedEvidenceKeys = (state.evidenceLog || []).map((entry) => entry.evidenceKey);
+  }
+  return campaignState;
 }
 
 function definitionMap(runtimeAssets = {}) {
@@ -161,12 +185,18 @@ export function rebindV1CampaignStateCustody({
     [parentBinding.saveId, saveId],
     [parentBinding.chatId, targetChatBinding.chatId]
   ]));
+  next = rebindMissionEvidenceKeys(next, parentBinding.saveId, saveId);
   next.campaignChatBinding = clone(targetChatBinding);
   next = rebindMissionRunLineage(next, saveId, runtimeAssets);
   assertV1CampaignState(next);
   const projection = buildV1RuntimePlayerProjection({ campaignState: next, runtimeAssets });
   if (!projection.ok) {
-    throw reconstructionError('DIRECTIVE_BRANCH_PROJECTION_INVALID', 'The rebound timeline projection is invalid.', projection);
+    const activeDefinition = definitionMap(runtimeAssets).get(next.mission.v1.definitionId) || {};
+    throw reconstructionError('DIRECTIVE_BRANCH_PROJECTION_INVALID', 'The rebound timeline projection is invalid.', {
+      projection,
+      missionValidation: validateMissionStateAuthority({ definition: activeDefinition, state: next.mission.v1 }),
+      storyValidation: validateStorySettlement(next.storySettlement)
+    });
   }
   return { campaignState: clone(next), projection };
 }

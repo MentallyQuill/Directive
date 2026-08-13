@@ -77,6 +77,27 @@ const adapter = createSillyTavernChatAdapter({
   }
 });
 
+currentChat.push({
+  id: 'assistant-hosted',
+  is_user: false,
+  is_system: false,
+  mes: 'A host-generated report.',
+  swipes: ['A host-generated report.'],
+  swipe_id: 0,
+  swipe_info: [{ extra: { preservedByAnotherExtension: true } }],
+  extra: { preservedRoot: true }
+});
+await adapter.attachAssistantRuntimeMetadata({
+  hostMessageId: 'assistant-hosted',
+  runtimeMetadata: { responseId: 'host-response.assistant-hosted', dutyReportManifest: { kind: 'test-manifest' } }
+});
+const hosted = adapter.getMessage('assistant-hosted');
+assert.equal(hosted.isDirectiveOwned, false, 'runtime custody must not take ownership of host narration');
+assert.equal(hosted.raw.extra.preservedRoot, true);
+assert.equal(hosted.raw.extra.runtimeMetadata.responseId, 'host-response.assistant-hosted');
+assert.equal(hosted.raw.swipe_info[0].extra.preservedByAnotherExtension, true);
+assert.equal(hosted.raw.swipe_info[0].extra.runtimeMetadata.dutyReportManifest.kind, 'test-manifest');
+
 const checkpointBinding = await adapter.cloneCampaignChat({
   sourceChatId: 'active-chat',
   sourceBinding: context.chatMetadata.directiveCampaignBinding,
@@ -90,7 +111,7 @@ assert.equal(currentChatId, 'active-chat', 'saving a checkpoint must not navigat
 assert.equal(saved.get('Checkpoint One').chatData[0].id, 'm1');
 assert.equal(checkpointBinding.transcriptAttestation.kind, 'directive.nativeBranchTranscriptAttestation.v1');
 assert.equal(checkpointBinding.transcriptAttestation.version, 1);
-assert.equal(checkpointBinding.transcriptAttestation.messageCount, 1);
+assert.equal(checkpointBinding.transcriptAttestation.messageCount, 2);
 assert.match(checkpointBinding.transcriptAttestation.lineageHash, /^[0-9a-f]{16}$/);
 assert.deepEqual(
   saved.get('Checkpoint One').withMetadata.directiveCampaignBinding.transcriptAttestation,
