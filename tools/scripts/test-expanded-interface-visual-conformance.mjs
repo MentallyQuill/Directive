@@ -794,6 +794,34 @@ try {
   assert.ok(Math.abs(compactPlayerFallback.iconCenterY - compactPlayerFallback.frameCenterY) <= 1, 'the compact PC fallback emblem must be vertically centered');
   assert.equal(compactPlayerFallback.labelDisplay, 'none', 'the compact PC fallback must reserve the thumbnail for the emblem');
   await peoplePage.screenshot({ path: path.join(artifactRoot, 'people-compact-player-fallback-1024x768.png') });
+  const maraRosterRow = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="mara-whitaker"]');
+  const maraRosterSelect = maraRosterRow.locator('.people-row');
+  const maraRosterHandle = maraRosterRow.locator('.collection-person-drag-handle');
+  const sampleMaraRosterSurface = () => maraRosterRow.evaluate((row) => {
+    const select = row.querySelector('.people-row');
+    const handle = row.querySelector('.collection-person-drag-handle');
+    const rowStyle = getComputedStyle(row);
+    const selectStyle = getComputedStyle(select);
+    const handleStyle = getComputedStyle(handle);
+    return {
+      rowBackground: rowStyle.backgroundColor,
+      rowBorderBottom: `${rowStyle.borderBottomWidth} ${rowStyle.borderBottomStyle} ${rowStyle.borderBottomColor}`,
+      selectBackground: selectStyle.backgroundColor,
+      selectBorderBottom: `${selectStyle.borderBottomWidth} ${selectStyle.borderBottomStyle}`,
+      handleBackground: handleStyle.backgroundColor
+    };
+  });
+  await maraRosterSelect.hover();
+  const bodyHoverSurface = await sampleMaraRosterSurface();
+  assert.notEqual(bodyHoverSurface.rowBackground, 'rgba(0, 0, 0, 0)', 'hovering the character body must highlight the shared outer card surface');
+  assert.equal(bodyHoverSurface.selectBackground, 'rgba(0, 0, 0, 0)', 'the character body must not paint a separate hover box');
+  assert.equal(bodyHoverSurface.handleBackground, 'rgba(0, 0, 0, 0)', 'the reorder handle must remain an icon on the shared card surface');
+  assert.equal(bodyHoverSurface.selectBorderBottom, '0px none', 'the character body must not own a partial-width divider');
+  assert.match(bodyHoverSurface.rowBorderBottom, /^1px solid /, 'the shared outer card must own one full-width divider');
+  await maraRosterHandle.hover();
+  const handleHoverSurface = await sampleMaraRosterSurface();
+  assert.equal(handleHoverSurface.rowBackground, bodyHoverSurface.rowBackground, 'hovering the reorder handle must retain the same full-card highlight');
+  assert.equal(handleHoverSurface.selectBackground, 'rgba(0, 0, 0, 0)', 'handle hover must not split the character body into a separate surface');
   const fallbackPlayerHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
   const fallbackPlayerHandleBox = await fallbackPlayerHandle.boundingBox();
   await peoplePage.mouse.move(fallbackPlayerHandleBox.x + 2, fallbackPlayerHandleBox.y + fallbackPlayerHandleBox.height / 2);

@@ -3914,8 +3914,11 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .collection-person-row.is-dragging { opacity: .28; }
 .directive-expanded-shell .collection-person-row.is-drop-before::before { content: ""; position: absolute; z-index: 2; inset: -2px 4px auto; height: 3px; background: var(--directive-expanded-blue); border-radius: 3px; }
 .directive-expanded-shell .collection-category.is-drop-target > .collection-category-head { box-shadow: inset 0 0 0 2px rgba(119, 167, 239, .72); }
+.directive-expanded-shell .people-desktop-journal .collection-person-row:hover,
+.directive-expanded-shell .people-desktop-journal .collection-person-row:focus-within { background: rgba(119, 167, 239, .08); }
 .directive-expanded-shell .collection-person-row.active { background: linear-gradient(90deg, rgba(119, 167, 239, .18), transparent); box-shadow: inset 4px 0 0 var(--directive-expanded-blue); }
 .directive-expanded-shell .people-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 9px; width: 100%; min-height: 62px; padding: 7px 5px 7px 8px; }
+.directive-expanded-shell .people-desktop-journal .collection-person-row > .people-row { background: transparent; border-bottom: 0; }
 .directive-expanded-shell .people-row-image { width: 48px; height: 48px; margin: 0; overflow: hidden; border-radius: 4px; }
 .directive-expanded-shell .people-row-image > * { width: 100%; height: 100%; }
 .directive-expanded-shell .people-row-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 24%; }
