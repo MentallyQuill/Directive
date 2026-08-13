@@ -4012,8 +4012,12 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --directive-hero-stars-y-start: .5%;
   --directive-hero-stars-x-end: 1.2%;
   --directive-hero-stars-y-end: -.5%;
-  --directive-hero-ship-scale-start: .81;
-  --directive-hero-ship-scale-end: .83;
+  --directive-hero-glow-stars-x-start: 1.8%;
+  --directive-hero-glow-stars-y-start: -.75%;
+  --directive-hero-glow-stars-x-end: -1.8%;
+  --directive-hero-glow-stars-y-end: .75%;
+  --directive-hero-ship-scale-start: .99;
+  --directive-hero-ship-scale-end: 1.01;
   --directive-hero-ship-rotate-start: -.15deg;
   --directive-hero-ship-rotate-end: .15deg;
   isolation: isolate;
@@ -4039,20 +4043,27 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars"] {
   z-index: 1;
-  opacity: .58;
+  opacity: .7;
   mix-blend-mode: screen;
   animation: directive-hero-stars-drift 38s linear -9.5s infinite alternate;
   will-change: transform;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-glow"] {
   z-index: 2;
-  opacity: .11;
+  object-position: 48% 52%;
+  opacity: .2;
   mix-blend-mode: screen;
-  animation: directive-hero-stars-shimmer 13s ease-in-out -2.2s infinite;
+  animation:
+    directive-hero-stars-parallax 26s linear -6.5s infinite alternate,
+    directive-hero-stars-shimmer 9s ease-in-out -1.5s infinite;
   will-change: transform, opacity, filter;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
+  inset: 4% auto auto 4%;
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
   transform-origin: 55% 48%;
   animation: directive-hero-ship-drift 30s linear -7.5s infinite alternate;
   will-change: transform;
@@ -4076,12 +4087,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   from { transform: translate3d(var(--directive-hero-stars-x-start), var(--directive-hero-stars-y-start), 0) scale(1.005); }
   to { transform: translate3d(var(--directive-hero-stars-x-end), var(--directive-hero-stars-y-end), 0) scale(1.012); }
 }
+@keyframes directive-hero-stars-parallax {
+  from { transform: translate3d(var(--directive-hero-glow-stars-x-start), var(--directive-hero-glow-stars-y-start), 0) scale(1.018); }
+  to { transform: translate3d(var(--directive-hero-glow-stars-x-end), var(--directive-hero-glow-stars-y-end), 0) scale(1.018); }
+}
 @keyframes directive-hero-stars-shimmer {
-  0%, 100% { opacity: .12; filter: brightness(.92) contrast(1.02); transform: scale(1.003); }
-  17% { opacity: .31; filter: brightness(1.2) contrast(1.11); transform: scale(1.009); }
-  39% { opacity: .16; filter: brightness(.98) contrast(1.04); transform: scale(1.005); }
-  62% { opacity: .36; filter: brightness(1.25) contrast(1.14); transform: scale(1.011); }
-  81% { opacity: .14; filter: brightness(1) contrast(1.05); transform: scale(1.006); }
+  0%, 100% { opacity: .16; filter: brightness(.9) contrast(1.04); }
+  17% { opacity: .48; filter: brightness(1.35) contrast(1.16); }
+  39% { opacity: .22; filter: brightness(.98) contrast(1.06); }
+  62% { opacity: .58; filter: brightness(1.45) contrast(1.2); }
+  81% { opacity: .2; filter: brightness(1) contrast(1.08); }
 }
 
 .directive-expanded-shell .ship-board { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; padding-bottom: 2px; }
@@ -4208,8 +4223,12 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-hero-stars-y-start: .25%;
     --directive-hero-stars-x-end: .6%;
     --directive-hero-stars-y-end: -.25%;
-    --directive-hero-ship-scale-start: .815;
-    --directive-hero-ship-scale-end: .825;
+    --directive-hero-glow-stars-x-start: .9%;
+    --directive-hero-glow-stars-y-start: -.375%;
+    --directive-hero-glow-stars-x-end: -.9%;
+    --directive-hero-glow-stars-y-end: .375%;
+    --directive-hero-ship-scale-start: .995;
+    --directive-hero-ship-scale-end: 1.005;
     --directive-hero-ship-rotate-start: -.075deg;
     --directive-hero-ship-rotate-end: .075deg;
   }
@@ -4219,7 +4238,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; }
-  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(.82); }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(1); }
 }
 
 /* Certified full-width Settings composition. */

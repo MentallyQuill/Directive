@@ -501,12 +501,43 @@ try {
     }
   }
 
+  const measureForegroundContainmentAtEndpoints = (hero) => hero.evaluate(async (node) => {
+    const foreground = node.querySelector('[data-hero-scene-layer="foreground"]');
+    const animation = foreground.getAnimations().find((candidate) => candidate.animationName === 'directive-hero-ship-drift');
+    const duration = Number(animation.effect.getTiming().duration);
+    const sample = async (currentTime) => {
+      animation.pause();
+      animation.currentTime = currentTime;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const heroBox = node.getBoundingClientRect();
+      const foregroundBox = foreground.getBoundingClientRect();
+      return {
+        left: foregroundBox.left - heroBox.left,
+        top: foregroundBox.top - heroBox.top,
+        right: heroBox.right - foregroundBox.right,
+        bottom: heroBox.bottom - foregroundBox.bottom
+      };
+    };
+    const endpoints = [await sample(0), await sample(duration)];
+    animation.play();
+    return endpoints;
+  });
+  const assertForegroundContained = (endpoints, label) => {
+    for (const [endpointIndex, endpoint] of endpoints.entries()) {
+      assert.ok(
+        Math.min(endpoint.left, endpoint.top, endpoint.right, endpoint.bottom) >= 0,
+        `${label} foreground endpoint ${endpointIndex} must remain fully inside the hero frame`
+      );
+    }
+  };
+
   async function measureDesktopHero(route, selector, outsideSelector, stableSelector = outsideSelector) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`${baseUrl}/production?route=${route}`);
     await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
     const hero = page.locator(selector);
     await hero.waitFor();
+    const compactForegroundEndpoints = await measureForegroundContainmentAtEndpoints(hero);
     const finePointer = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
     const collapsedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
     const glyphBorderBeforeHover = await hero.locator('.directive-responsive-hero-toggle').evaluate(
@@ -523,6 +554,7 @@ try {
     await hero.click();
     await page.waitForTimeout(220);
     const expandedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const expandedForegroundEndpoints = await measureForegroundContainmentAtEndpoints(hero);
     await page.locator(outsideSelector).click();
     await page.waitForTimeout(220);
     const afterOutsideClickHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
@@ -533,9 +565,16 @@ try {
       const sceneStyle = getComputedStyle(sceneNode);
       return {
         order: layers.map((layer) => layer.dataset.heroSceneLayer),
+        objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
+        naturalSizes: layers.map((layer) => `${layer.naturalWidth}x${layer.naturalHeight}`),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
         timingFunctions: layers.map((layer) => getComputedStyle(layer).animationTimingFunction),
-        starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode,
+        starBlends: layers
+          .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
+          .map((layer) => getComputedStyle(layer).mixBlendMode),
+        starPositions: layers
+          .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
+          .map((layer) => getComputedStyle(layer).objectPosition),
         willChange: layers.map((layer) => getComputedStyle(layer).willChange),
         motionBounds: {
           scaleStart: sceneStyle.getPropertyValue('--directive-hero-ship-scale-start').trim(),
@@ -559,6 +598,8 @@ try {
       outsideTopBeforeHover,
       outsideTopAfterHover,
       expandedHeight,
+      compactForegroundEndpoints,
+      expandedForegroundEndpoints,
       afterOutsideClickHeight,
       expandedAfterOutsideClick,
       finalHeight,
@@ -581,22 +622,28 @@ try {
     assert.notEqual(result.glyphBorderAfterHover, result.glyphBorderBeforeHover, `${label} hover must highlight only the toggle glyph`);
     assert.equal(result.outsideTopAfterHover, result.outsideTopBeforeHover, `${label} hover must not move content below the banner`);
     assert.equal(result.expandedHeight, 280, `${label} click must expand the banner`);
+    for (const [state, endpoints] of [['compact', result.compactForegroundEndpoints], ['expanded', result.expandedForegroundEndpoints]]) {
+      assertForegroundContained(endpoints, `${label} ${state}`);
+    }
     assert.equal(result.afterOutsideClickHeight, 280, `${label} outside click must leave the banner expanded`);
     assert.equal(result.expandedAfterOutsideClick, true);
     assert.equal(result.finalHeight, 140, `${label} second banner click must collapse it`);
     assert.equal(result.expandedFinally, false);
     assert.deepEqual(result.scene.order, ['background', 'stars', 'stars-glow', 'foreground']);
+    assert.deepEqual(result.scene.objectFits, ['cover', 'cover', 'cover', 'contain'], `${label} must preserve the complete foreground ship canvas without changing the fill layers`);
+    assert.deepEqual(result.scene.naturalSizes, ['1672x941', '1672x941', '1672x941', '1672x941'], `${label} layered scene assets must retain their original authored dimensions`);
     assert.deepEqual(result.scene.animations, [
-      'none', 'directive-hero-stars-drift', 'directive-hero-stars-shimmer', 'directive-hero-ship-drift'
+      'none', 'directive-hero-stars-drift', 'directive-hero-stars-parallax, directive-hero-stars-shimmer', 'directive-hero-ship-drift'
     ], `${label} scene must animate while compact`);
     assert.deepEqual(result.scene.timingFunctions, [
-      'ease', 'linear', 'ease-in-out', 'linear'
+      'ease', 'linear', 'linear, ease-in-out', 'linear'
     ], `${label} drift must not become visually stationary near its endpoints`);
     assert.deepEqual(result.scene.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
-    assert.match(result.scene.starBlend, /^(?:plus-lighter|screen)$/);
+    assert.deepEqual(result.scene.starBlends, ['plus-lighter', 'plus-lighter'], `${label} star planes must use additive blending`);
+    assert.deepEqual(result.scene.starPositions, ['50% 50%', '48% 52%'], `${label} star planes must start from visibly offset positions`);
     assert.deepEqual(result.scene.motionBounds, {
-      scaleStart: '.81', scaleEnd: '.83', rotateStart: '-.15deg', rotateEnd: '.15deg'
-    }, `${label} ship must render about twenty percent smaller while retaining restrained rotation`);
+      scaleStart: '.99', scaleEnd: '1.01', rotateStart: '-.15deg', rotateEnd: '.15deg'
+    }, `${label} ship must drift around its complete contained canvas without destructive cropping`);
   }
 
   const motionPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -609,6 +656,7 @@ try {
     const glow = node.querySelector('[data-hero-scene-layer="stars-glow"]');
     const matrix = new DOMMatrixReadOnly(getComputedStyle(layer).transform);
     const starMatrix = new DOMMatrixReadOnly(getComputedStyle(stars).transform);
+    const glowMatrix = new DOMMatrixReadOnly(getComputedStyle(glow).transform);
     const rect = node.getBoundingClientRect();
     return {
       a: matrix.a,
@@ -617,17 +665,23 @@ try {
       f: matrix.f,
       starE: starMatrix.e,
       starF: starMatrix.f,
+      glowE: glowMatrix.e,
+      glowF: glowMatrix.f,
       glowOpacity: Number(getComputedStyle(glow).opacity),
       width: rect.width,
       height: rect.height
     };
   });
   const translationDistance = (before, after, x = 'e', y = 'f') => Math.hypot(after[x] - before[x], after[y] - before[y]);
-  const compactMotionStart = await sampleShipMotion();
-  await motionPage.waitForTimeout(4000);
-  const compactMotionEnd = await sampleShipMotion();
+  const compactMotionSamples = [await sampleShipMotion()];
+  for (let sampleIndex = 0; sampleIndex < 4; sampleIndex += 1) {
+    await motionPage.waitForTimeout(1000);
+    compactMotionSamples.push(await sampleShipMotion());
+  }
+  const compactMotionStart = compactMotionSamples[0];
+  const compactMotionEnd = compactMotionSamples.at(-1);
   assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd) >= 7,
+    translationDistance(compactMotionStart, compactMotionEnd) >= 6,
     'compact hero ship motion must be apparent during a four-second glance'
   );
   assert.ok(
@@ -635,8 +689,13 @@ try {
     'compact stable-star drift must be apparent during a four-second glance'
   );
   assert.ok(
-    Math.abs(compactMotionEnd.glowOpacity - compactMotionStart.glowOpacity) >= .05,
-    'compact hero stars must produce a perceptible four-second shimmer delta'
+    translationDistance(compactMotionStart, compactMotionEnd, 'glowE', 'glowF') >= 4,
+    'compact glow-star plane must produce independent four-second parallax'
+  );
+  const compactGlowOpacities = compactMotionSamples.map((sample) => sample.glowOpacity);
+  assert.ok(
+    Math.max(...compactGlowOpacities) - Math.min(...compactGlowOpacities) >= .12,
+    'compact glow-star plane must visibly pulse during a four-second glance'
   );
   await motionHero.click();
   await motionPage.waitForTimeout(220);
@@ -644,7 +703,7 @@ try {
   await motionPage.waitForTimeout(4000);
   const expandedMotionEnd = await sampleShipMotion();
   assert.ok(
-    translationDistance(expandedMotionStart, expandedMotionEnd) >= 7,
+    translationDistance(expandedMotionStart, expandedMotionEnd) >= 6,
     'expanded hero ship motion must be apparent during a four-second glance'
   );
   await motionPage.close();
@@ -660,9 +719,11 @@ try {
   const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  assertForegroundContained(await measureForegroundContainmentAtEndpoints(mobileCampaignHero), 'mobile Campaign compact');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assertForegroundContained(await measureForegroundContainmentAtEndpoints(mobileCampaignHero), 'mobile Campaign expanded');
   assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
@@ -681,9 +742,11 @@ try {
   const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
   const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  assertForegroundContained(await measureForegroundContainmentAtEndpoints(mobileShipHero), 'mobile Ship compact');
   await mobileShipToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assertForegroundContained(await measureForegroundContainmentAtEndpoints(mobileShipHero), 'mobile Ship expanded');
   assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
 
   await touchPage.locator('[data-route-id="campaign"]').tap();
@@ -703,6 +766,7 @@ try {
     coarse: matchMedia('(pointer: coarse)').matches,
     shipX: getComputedStyle(node).getPropertyValue('--directive-hero-ship-x-end').trim(),
     starsX: getComputedStyle(node).getPropertyValue('--directive-hero-stars-x-end').trim(),
+    glowStarsX: getComputedStyle(node).getPropertyValue('--directive-hero-glow-stars-x-end').trim(),
     scaleStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-start').trim(),
     scaleEnd: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-end').trim(),
     rotateStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-rotate-start').trim(),
@@ -712,8 +776,9 @@ try {
     coarse: true,
     shipX: '1.5%',
     starsX: '.6%',
-    scaleStart: '.815',
-    scaleEnd: '.825',
+    glowStarsX: '-.9%',
+    scaleStart: '.995',
+    scaleEnd: '1.005',
     rotateStart: '-.075deg',
     rotateEnd: '.075deg'
   }, 'wide coarse-pointer screens must use half-strength motion');
@@ -733,7 +798,7 @@ try {
   }));
   assert.equal(reducedMotion.transition, '0s', 'reduced motion must remove the hero height transition');
   assert.deepEqual(reducedMotion.animations, ['none', 'none', 'none', 'none'], 'reduced motion must freeze every scene layer');
-  assert.ok(Math.abs(reducedMotion.foregroundScale - .82) < .001, 'reduced motion must retain the twenty-percent-smaller ship framing');
+  assert.ok(Math.abs(reducedMotion.foregroundScale - 1) < .001, 'reduced motion must retain the complete contained ship framing');
   await reducedContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
