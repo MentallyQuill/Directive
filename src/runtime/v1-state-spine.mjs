@@ -1,4 +1,7 @@
-import { awardV1CommandBearing } from '../command/v1-command-bearing.mjs';
+import {
+    awardV1CommandBearing,
+    commitV1CommandBearingEdge,
+} from '../command/v1-command-bearing.mjs';
 import {
     revalidateMissionEvidenceReplay,
     validateMissionEvidenceProposal,
@@ -454,6 +457,9 @@ export function createV1StateSpine({
         scene = {},
         hardBoundary = null,
         missionDefinitions = [],
+        authorityPatch = {},
+        authorityDomains = [],
+        acceptedCommandBearingEdge = null,
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
@@ -492,6 +498,21 @@ export function createV1StateSpine({
             });
             commandBearing = result.commandBearing;
             if (result.applied) commandBearingAwardCount += 1;
+        }
+        let acceptedCommandBearingEdgeResult = {
+            applied: false,
+            reasonCode: 'no-accepted-edge',
+            commandBearing,
+        };
+        if (acceptedCommandBearingEdge) {
+            acceptedCommandBearingEdgeResult = commitV1CommandBearingEdge(commandBearing, {
+                spendId: acceptedCommandBearingEdge.spendId,
+                assistantMessageId: acceptedCommandBearingEdge.assistantMessageId,
+                assistantTextHash: acceptedCommandBearingEdge.assistantTextHash,
+                acceptedByPlayerMessageId: acceptedCommandBearingEdge.acceptedByPlayerMessageId,
+                now,
+            });
+            commandBearing = acceptedCommandBearingEdgeResult.commandBearing;
         }
         const commandBearingChanged = !jsonEqual(campaignState.commandBearing, commandBearing);
 
@@ -573,9 +594,18 @@ export function createV1StateSpine({
 
         const currentMissionRoot = campaignState?.mission || {};
         const nextMissionRoot = { ...structuredClone(currentMissionRoot), ...structuredClone(missionPatch) };
+        const additionalPatch = authorityPatch && typeof authorityPatch === 'object' && !Array.isArray(authorityPatch)
+            ? structuredClone(authorityPatch)
+            : {};
+        const additionalDomains = [...new Set((Array.isArray(authorityDomains) ? authorityDomains : [])
+            .filter((domain) => Object.hasOwn(additionalPatch, domain)))];
+        const authorityChanged = additionalDomains.some(
+            (domain) => !jsonEqual(campaignState?.[domain], additionalPatch[domain]),
+        );
         if (jsonEqual(currentMissionRoot, nextMissionRoot)
             && jsonEqual(currentStorySettlement, storySettlement)
-            && !commandBearingChanged) {
+            && !commandBearingChanged
+            && !authorityChanged) {
             return {
                 evidence,
                 missionResult,
@@ -585,6 +615,8 @@ export function createV1StateSpine({
                 reviewToken,
                 transitionActivation,
                 commandBearingAwardCount,
+                commandBearingChanged,
+                acceptedCommandBearingEdge: acceptedCommandBearingEdgeResult,
             };
         }
 
@@ -598,6 +630,11 @@ export function createV1StateSpine({
                 ...(commandBearingChanged
                     ? [{ op: 'set', path: 'commandBearing', value: commandBearing }]
                     : []),
+                ...additionalDomains.map((domain) => ({
+                    op: 'set',
+                    path: domain,
+                    value: additionalPatch[domain],
+                })),
             ]
             : null;
         const committed = await stateDeltaGateway.applyProposal({
@@ -607,11 +644,13 @@ export function createV1StateSpine({
                     storySettlement,
                     mission: missionPatch,
                     ...(commandBearingChanged ? { commandBearing } : {}),
+                    ...additionalPatch,
                 } }),
             domains: [
                 'storySettlement',
                 'mission',
                 ...(commandBearingChanged ? ['commandBearing'] : []),
+                ...additionalDomains,
             ],
             baseRevision: capturedGatewayRevision,
             source: 'v1StateSpine',
@@ -635,6 +674,8 @@ export function createV1StateSpine({
             reviewToken,
             transitionActivation,
             commandBearingAwardCount,
+            commandBearingChanged,
+            acceptedCommandBearingEdge: acceptedCommandBearingEdgeResult,
         };
     }
 

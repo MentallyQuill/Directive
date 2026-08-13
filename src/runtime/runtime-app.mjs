@@ -1,7 +1,6 @@
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
 import {
   armV1CommandBearingEdge,
-  commitV1CommandBearingEdge,
   pendingV1CommandBearingEdge,
   refundV1CommandBearingSpend,
   reserveV1CommandBearingEdge
@@ -26,7 +25,7 @@ import {
 import { createStateDeltaGateway } from './state-delta-gateway.mjs';
 import { prepareV1AcceptedPairSnapshot } from './v1-accepted-pair-source.mjs';
 import {
-  commitV1AcceptedPairTimeAdvance,
+  prepareV1AcceptedPairTimeAdvance,
   invalidateV1AcceptedPairTimeByHostMessage
 } from './v1-accepted-pair-time.mjs';
 import {
@@ -474,14 +473,12 @@ export function createDirectiveRuntimeApp({
       getState: () => state,
       stateDeltaGateway: gateway,
       generationRouter,
-      commitAcceptedPairTime: ({ campaignState, snapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
-        commitV1AcceptedPairTimeAdvance({
+      prepareAcceptedPairTime: ({ campaignState, snapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
+        prepareV1AcceptedPairTimeAdvance({
           campaignState,
           snapshot,
           packageData: acceptedAssets?.packageData || records.packageData,
           timeDecision,
-          stateDeltaGateway: gateway,
-          ingressId: snapshot?.envelope?.ingressId || null,
           now
         })
       ),
@@ -607,30 +604,25 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  async function commitAcceptedCommandBearingEdge(snapshot) {
+  function acceptedCommandBearingEdgeForSnapshot(snapshot) {
     const pending = state ? pendingV1CommandBearingEdge(state.commandBearing) : null;
     if (!pending || pending.status !== 'armed') {
-      return { applied: false, reasonCode: 'no-armed-edge' };
+      return null;
     }
     const previousAssistant = snapshot?.source?.previousAssistant;
     const currentPlayer = snapshot?.source?.currentPlayer;
     if (!previousAssistant?.hostMessageId || !previousAssistant?.textHash || !currentPlayer?.hostMessageId) {
-      return { applied: false, reasonCode: 'accepted-source-incomplete' };
+      return null;
     }
     if (previousAssistant.promptingPlayerHostMessageId !== pending.armedByPlayerMessageId) {
-      return { applied: false, reasonCode: 'edge-generation-anchor-mismatch' };
+      return null;
     }
-    const result = commitV1CommandBearingEdge(state.commandBearing, {
+    return {
       spendId: pending.id,
       assistantMessageId: previousAssistant.hostMessageId,
       assistantTextHash: previousAssistant.textHash,
       acceptedByPlayerMessageId: currentPlayer.hostMessageId,
-      now
-    });
-    return commitCommandBearingChange(result, {
-      proposalId: `v1-command-bearing.commit.${pending.id}.${previousAssistant.hostMessageId}.${currentPlayer.hostMessageId}`,
-      source: 'commandBearingAcceptedPair'
-    });
+    };
   }
 
   async function refundCommandBearingForInvalidatedMessage(hostMessageId, eventType) {
@@ -860,14 +852,18 @@ export function createDirectiveRuntimeApp({
     }
     const mission = await missionRuntime.settleAcceptedPair({
       runtimeAssets,
-      snapshot
+      snapshot,
+      acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot)
     });
     const time = mission?.time || null;
     if (mission?.ok === false) acceptedPairReplayNeeded = true;
     if (missionRuntime.pendingEpisodeReview()) {
       await missionRuntime.reviewPendingEpisode({ runtimeAssets });
     }
-    const commandBearing = await commitAcceptedCommandBearingEdge(snapshot);
+    const commandBearing = mission?.acceptedCommandBearingEdge || {
+      applied: false,
+      reasonCode: 'no-accepted-edge'
+    };
     if (syncPromptAfter) await syncPrompt();
     return { time, mission, commandBearing, campaignState: clone(state) };
   }

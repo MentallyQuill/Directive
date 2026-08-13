@@ -744,7 +744,7 @@ export function createV1MissionRuntime({
     stateDeltaGateway,
     generationRouter = null,
     interpretAcceptedPair = null,
-    commitAcceptedPairTime = null,
+    prepareAcceptedPairTime = null,
     now = () => new Date().toISOString(),
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
     evaluateEpisode = null,
@@ -1039,7 +1039,12 @@ export function createV1MissionRuntime({
         };
     }
 
-    async function settleAcceptedPair({ runtimeAssets = {}, snapshot = {}, hardBoundary = null } = {}) {
+    async function settleAcceptedPair({
+        runtimeAssets = {},
+        snapshot = {},
+        hardBoundary = null,
+        acceptedCommandBearingEdge = null,
+    } = {}) {
         let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
@@ -1149,27 +1154,25 @@ export function createV1MissionRuntime({
         }
 
         let time = null;
-        if (typeof commitAcceptedPairTime === 'function') {
+        if (typeof prepareAcceptedPairTime === 'function') {
             try {
-                time = await commitAcceptedPairTime({
+                time = await prepareAcceptedPairTime({
                     campaignState,
                     snapshot,
                     timeDecision: interpreted.interpretation?.time,
                     runtimeAssets,
                 });
             } catch {
-                time = {
-                    ok: false,
-                    status: 'unavailable',
-                    reasonCode: 'time-custody-threw',
-                    campaignState,
-                    proposal: null,
-                    boundary: null,
-                };
+                return unavailable('time-custody-threw', {}, { attempted: true });
             }
-            campaignState = getState();
+            if (!time?.ok) {
+                return unavailable(time?.reasonCode || 'time-custody-unavailable', {}, { attempted: true });
+            }
         }
         const gatewayBaseRevision = stateDeltaGateway.revision();
+        const plannedCampaignState = time?.patch
+            ? { ...campaignState, ...structuredClone(time.patch) }
+            : campaignState;
 
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
         assistantSource.accepted = assistantAccepted;
@@ -1200,7 +1203,7 @@ export function createV1MissionRuntime({
         const authoritativeTime = materializeAuthoritativeTimeEvidence({
             definition,
             missionState,
-            campaignState,
+            campaignState: plannedCampaignState,
             snapshot,
             branchId,
         });
@@ -1272,13 +1275,17 @@ export function createV1MissionRuntime({
                 },
                 hardBoundary,
                 missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
+                authorityPatch: time?.patch || {},
+                authorityDomains: time?.domains || [],
+                acceptedCommandBearingEdge,
             });
             const committedRoots = settled.noChange
                 ? []
                 : [
                     'mission',
                     'storySettlement',
-                    ...(settled.commandBearingAwardCount > 0 ? ['commandBearing'] : []),
+                    ...(settled.commandBearingChanged ? ['commandBearing'] : []),
+                    ...(time?.patch ? time.domains : []),
                 ];
             const acceptedClaimCount = settled.evidence?.acceptedClaims?.length || 0;
             const rejectedClaimCount = settled.evidence?.rejectedClaims?.length || 0;
@@ -1308,6 +1315,7 @@ export function createV1MissionRuntime({
                 transitionActivated: settled.transitionActivation?.status === 'activated',
                 transitionActivation: settled.transitionActivation || null,
                 reviewToken: settled.reviewToken || null,
+                acceptedCommandBearingEdge: settled.acceptedCommandBearingEdge || null,
                 diagnostics: {
                     candidateCount: candidatePacket.candidates.length,
                     selectedClaimCount: interpreted.diagnostics?.selectedClaimCount ?? interpreted.proposal?.claims?.length ?? 0,
@@ -1325,7 +1333,12 @@ export function createV1MissionRuntime({
                     model: interpreted.diagnostics?.model || null,
                     latencyMs: interpreted.diagnostics?.latencyMs ?? null,
                 },
-                time,
+                time: time?.patch ? {
+                    ...time,
+                    status: time.boundary ? 'committed' : 'recorded',
+                    campaignState: settled.campaignState,
+                    patch: null,
+                } : time,
             };
         } catch (error) {
             return unavailable(errorReasonCode(error), {}, { attempted: true });
@@ -1526,7 +1539,7 @@ export async function settleV1MissionAcceptedPair({
     stateDeltaGateway,
     generationRouter,
     interpretAcceptedPair,
-    commitAcceptedPairTime,
+    prepareAcceptedPairTime,
     now,
     timeoutMs,
     checkpointEveryContributions,
@@ -1539,7 +1552,7 @@ export async function settleV1MissionAcceptedPair({
         stateDeltaGateway,
         generationRouter,
         interpretAcceptedPair,
-        commitAcceptedPairTime,
+        prepareAcceptedPairTime,
         now,
         timeoutMs,
         checkpointEveryContributions,

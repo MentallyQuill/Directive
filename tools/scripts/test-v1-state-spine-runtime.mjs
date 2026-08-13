@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import {
+    armV1CommandBearingEdge,
+    awardV1CommandBearing,
+    reserveV1CommandBearingEdge,
+} from '../../src/command/v1-command-bearing.mjs';
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
@@ -45,6 +50,19 @@ campaignState.mission = {
     v1Journey: initialJourney.journey,
     v1History: initialJourney.history,
 };
+campaignState.commandBearing = awardV1CommandBearing(campaignState.commandBearing, {
+    awardId: 'award.test.edge-credit',
+    sourceId: 'objective.test.edge-credit',
+    reason: 'Test credit for an accepted edge.',
+}).commandBearing;
+const reservedEdge = reserveV1CommandBearingEdge(campaignState.commandBearing, {
+    spendId: 'spend.test.accepted-edge',
+    reason: 'Test one atomic accepted-pair edge.',
+}).commandBearing;
+campaignState.commandBearing = armV1CommandBearingEdge(reservedEdge, {
+    spendId: 'spend.test.accepted-edge',
+    playerMessageId: 'message.player-before-rescue',
+}).commandBearing;
 let persistCount = 0;
 const gateway = createStateDeltaGateway({
     getState: () => campaignState,
@@ -106,6 +124,12 @@ const settled = await spine.settleAcceptedPair({
         text: 'The Hesperus survivors reached safety.',
     }],
     gatewayBaseRevision: 0,
+    acceptedCommandBearingEdge: {
+        spendId: 'spend.test.accepted-edge',
+        assistantMessageId: source.messageId,
+        assistantTextHash: source.textHash,
+        acceptedByPlayerMessageId: 'message.player-accepts-rescue',
+    },
     scene: {
         episodeId: 'episode.hesperus-rescue',
         sceneId: 'scene.hesperus-rescue',
@@ -123,6 +147,8 @@ assert.equal(campaignState.storySettlement.episodes[0].status, 'sealed');
 assert.equal(campaignState.mission.v1.status, 'terminal');
 assert.equal(campaignState.mission.v1.terminalDisposition, 'primarySuccess');
 assert.equal(settled.commandBearingAwardCount, 1);
+assert.equal(settled.acceptedCommandBearingEdge.applied, true);
+assert.equal(campaignState.commandBearing.spends['spend.test.accepted-edge'].status, 'committed');
 assert.equal(campaignState.commandBearing.balance, 1);
 assert.equal(campaignState.commandBearing.awards['award.hesperus-accountability'].sourceId, 'objective.hesperus-accountability');
 

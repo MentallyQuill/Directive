@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
-import { commitV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
+import { prepareV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -119,14 +119,17 @@ function runtimeAssets(definition) {
     };
 }
 
-function createHarness({ definition, sceneSnapshot, state, outputs = [] }) {
+function createHarness({ definition, sceneSnapshot, state, outputs = [], failPersistenceCount = 0 }) {
     let campaignState = structuredClone(state);
     let generationCount = 0;
     let persistCount = 0;
     const gateway = createStateDeltaGateway({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
-        persist: async () => { persistCount += 1; },
+        persist: async () => {
+            persistCount += 1;
+            if (persistCount <= failPersistenceCount) throw new Error(`planned persistence failure ${persistCount}`);
+        },
         now: () => '2026-08-10T04:00:00.000Z',
     });
     const runtime = createV1MissionRuntime({
@@ -139,13 +142,12 @@ function createHarness({ definition, sceneSnapshot, state, outputs = [] }) {
                 return { ok: true, response: { text } };
             },
         },
-        commitAcceptedPairTime: ({ snapshot: acceptedSnapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
-            commitV1AcceptedPairTimeAdvance({
-                campaignState,
+        prepareAcceptedPairTime: ({ campaignState: acceptedState, snapshot: acceptedSnapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
+            prepareV1AcceptedPairTimeAdvance({
+                campaignState: acceptedState,
                 snapshot: acceptedSnapshot,
                 packageData: acceptedAssets.packageData,
                 timeDecision,
-                stateDeltaGateway: gateway,
                 now: () => '2026-08-10T04:00:00.000Z',
             })
         ),
@@ -206,6 +208,7 @@ assert.equal(advanced.ok, true, JSON.stringify({
 }));
 assert.equal(advanced.status, 'settled');
 assert.equal(advanced.time.status, 'committed');
+assert.equal(mainHarness.persistCount, 1, 'accepted-pair authority must use one persistence commit');
 assert.equal(mainHarness.campaignState.timeLedger.entries.length, 1);
 assert.equal(advanced.diagnostics.acceptedClaimCount, 1);
 assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].state, 'running');
@@ -252,6 +255,29 @@ assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-su
 assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.find(
     (entry) => entry.claimType === 'timeAdvanced',
 ).sourceContributionId.endsWith('.r1'), true);
+
+const failureSnapshot = snapshot('failure-atomic');
+const failureInitialState = initialCampaignState(definition, failureSnapshot, {
+    suffix: 'failure-atomic',
+    boundary: null,
+});
+const failureHarness = createHarness({
+    definition,
+    sceneSnapshot: failureSnapshot,
+    state: failureInitialState,
+    outputs: [abstained],
+    failPersistenceCount: 1,
+});
+const failed = await failureHarness.runtime.settleAcceptedPair({
+    runtimeAssets: failureHarness.runtimeAssets,
+    snapshot: failureSnapshot,
+});
+assert.equal(failed.ok, false);
+assert.equal(failed.reasonCode, 'persistence-failed');
+assert.equal(failureHarness.persistCount, 1, 'one failed atomic commit must not fall through to another root write');
+assert.equal(failureHarness.campaignState.timeLedger.entries.length, 0);
+assert.equal(failureHarness.campaignState.mission.v1.revision, failureInitialState.mission.v1.revision);
+assert.deepEqual(failureHarness.campaignState.storySettlement, failureInitialState.storySettlement);
 
 for (const [label, testDefinition, boundaryOptions] of [
     ['mismatched boundary', clockReadyDefinition(), { currentPlayerHostMessageId: 'message.other.player', rangeHash: 'range.other' }],
