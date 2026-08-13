@@ -2,6 +2,7 @@ import { appendEmpty, createElement, createIcon } from './runtime-ui-kit.js';
 import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedMissionView } from './view-models/certified-mission-view.mjs';
+import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 
 function objectiveStatus(objective) {
   if (objective.status === 'terminal') return objective.disposition || 'complete';
@@ -93,43 +94,7 @@ function appendTerminal(container, terminal) {
   container.appendChild(card);
 }
 
-export function renderMissionPanel(body, view) {
-  const projection = requireV1PlayerProjection(view);
-  if (!projection) {
-    appendEmpty(body, currentChatEmptyMessage(view));
-    return;
-  }
-  const model = buildCertifiedMissionView(projection);
-  const mission = model.missions.find((record) => record.id === model.selectedMissionId) || model.missions[0];
-  if (!mission) {
-    appendEmpty(body, 'No current V1 mission is available.');
-    return;
-  }
-
-  const surface = createElement('div', 'directive-expanded-mission mission-layout mission-journal');
-  surface.dataset.directiveTour = 'mission.objectives';
-
-  const collection = createElement('aside', 'mission-collection mission-index-panel');
-  collection.dataset.directiveScrollOwner = 'true';
-  const collectionHead = createElement('header', 'mission-index-head');
-  const kicker = createElement('span');
-  kicker.textContent = 'Active record';
-  const collectionTitle = createElement('h2');
-  collectionTitle.textContent = 'Mission';
-  collectionHead.append(kicker, collectionTitle);
-  const row = createElement('article', 'mission-row active');
-  row.dataset.missionId = mission.id;
-  const rowState = createElement('span', 'mission-row-state');
-  rowState.textContent = mission.status;
-  const rowTitle = createElement('strong');
-  rowTitle.textContent = mission.title;
-  const rowSummary = createElement('p');
-  rowSummary.textContent = mission.summary;
-  row.append(rowState, rowTitle, rowSummary);
-  collection.append(collectionHead, row);
-
-  const detail = createElement('section', 'mission-detail');
-  detail.dataset.directiveScrollOwner = 'true';
+function appendMissionDetail(detail, mission) {
   const hero = createElement('header', 'mission-hero');
   const state = createElement('span', 'mission-status');
   state.textContent = mission.status === 'terminal' ? 'Completed mission' : 'Current mission';
@@ -148,7 +113,75 @@ export function renderMissionPanel(body, view) {
   appendSimpleList(detail, 'Available support', mission.capabilities, (capability) => (
     capability.summary ? `${capability.label || 'Support'}: ${capability.summary}` : capability.label
   ));
+}
 
-  surface.append(collection, detail);
+function mobileMissionDetailId(missionId) {
+  return `directive-mission-mobile-${String(missionId).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`;
+}
+
+export function renderMissionPanel(body, view) {
+  const projection = requireV1PlayerProjection(view);
+  if (!projection) {
+    appendEmpty(body, currentChatEmptyMessage(view));
+    return;
+  }
+  const model = buildCertifiedMissionView(projection);
+  const mission = model.missions.find((record) => record.id === model.selectedMissionId) || model.missions[0];
+  if (!mission) {
+    appendEmpty(body, 'No current V1 mission is available.');
+    return;
+  }
+
+  const surface = createElement('div', 'directive-expanded-mission mission-layout mission-journal');
+  surface.dataset.directiveTour = 'mission.objectives';
+
+  const collection = createElement('aside', 'mission-collection mission-index-panel mission-desktop-collection');
+  collection.dataset.directiveScrollOwner = 'true';
+  const collectionHead = createElement('header', 'mission-index-head');
+  const kicker = createElement('span');
+  kicker.textContent = 'Active record';
+  const collectionTitle = createElement('h2');
+  collectionTitle.textContent = 'Mission';
+  collectionHead.append(kicker, collectionTitle);
+  const row = createElement('article', 'mission-row active');
+  row.dataset.missionId = mission.id;
+  const rowState = createElement('span', 'mission-row-state');
+  rowState.textContent = mission.status;
+  const rowTitle = createElement('strong');
+  rowTitle.textContent = mission.title;
+  const rowSummary = createElement('p');
+  rowSummary.textContent = mission.summary;
+  row.append(rowState, rowTitle, rowSummary);
+  collection.append(collectionHead, row);
+
+  const detail = createElement('section', 'mission-detail mission-desktop-detail');
+  detail.dataset.directiveScrollOwner = 'true';
+  appendMissionDetail(detail, mission);
+
+  const mobile = createElement('section', 'mission-mobile-accordion');
+  mobile.dataset.directiveScrollOwner = 'true';
+  const mobileRecords = model.missions.map((record) => {
+    const wrapper = createElement('article', 'mission-mobile-record');
+    wrapper.dataset.mobileRecordContainerKey = record.id;
+    const trigger = createElement('button', 'mission-row mission-mobile-trigger');
+    trigger.type = 'button';
+    trigger.dataset.mobileRecordKey = record.id;
+    const triggerState = createElement('span', 'mission-row-state');
+    triggerState.textContent = record.status;
+    const triggerTitle = createElement('strong');
+    triggerTitle.textContent = record.title;
+    const triggerSummary = createElement('p');
+    triggerSummary.textContent = record.summary;
+    trigger.append(triggerState, triggerTitle, triggerSummary);
+    const recordDetail = createElement('div', 'mission-mobile-detail');
+    recordDetail.id = mobileMissionDetailId(record.id);
+    appendMissionDetail(recordDetail, record);
+    wrapper.append(trigger, recordDetail);
+    mobile.appendChild(wrapper);
+    return { key: record.id, trigger, panel: recordDetail };
+  });
+  bindSingleOpenDisclosure({ records: mobileRecords, initialOpenKey: model.selectedMissionId });
+
+  surface.append(collection, detail, mobile);
   body.appendChild(surface);
 }

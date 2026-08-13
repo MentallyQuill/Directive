@@ -7,17 +7,26 @@ class Element {
     this.children = [];
     this.dataset = {};
     this.attributes = new Map();
+    this.listeners = new Map();
     this.className = '';
     this.textContent = '';
+    this.hidden = false;
+    this.id = '';
+    this.replaceCount = 0;
     this.classList = { add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); } };
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+  replaceChildren(...children) { this.replaceCount += 1; this.children = []; this.append(...children); }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
-  addEventListener() {}
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  addEventListener(type, handler) { this.listeners.set(type, handler); }
+  focus() { globalThis.document.activeElement = this; }
+  click() { return this.listeners.get('click')?.({ currentTarget: this }); }
 }
 
 globalThis.document = {
+  activeElement: null,
   createElement: (tagName) => new Element(tagName),
   createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text })
 };
@@ -57,11 +66,29 @@ const text = all(body).map((node) => node.textContent || '').join(' ');
 assert.equal(byClass('mission-layout').length, 1);
 assert.equal(byClass('mission-collection').length, 1);
 assert.equal(byClass('mission-detail').length, 1);
-assert.equal(all(body).filter((node) => node.dataset.directiveScrollOwner === 'true').length, 2);
+assert.equal(all(body).filter((node) => node.dataset.directiveScrollOwner === 'true').length, 3);
+const mobileAccordion = byClass('mission-mobile-accordion')[0];
+const mobileTrigger = byClass('mission-mobile-trigger')[0];
+const mobileDetail = byClass('mission-mobile-detail')[0];
+assert.ok(mobileAccordion);
+assert.ok(mobileTrigger);
+assert.ok(mobileDetail);
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'true');
+assert.equal(mobileTrigger.getAttribute('aria-controls'), mobileDetail.id);
+assert.equal(mobileDetail.hidden, false);
+assert.match(all(mobileDetail).map((node) => node.textContent || '').join(' '), /Primary objectives/);
+const replacementCount = body.replaceCount;
+mobileTrigger.focus();
+await mobileTrigger.click();
+assert.equal(mobileTrigger.getAttribute('aria-expanded'), 'false');
+assert.equal(mobileDetail.hidden, true);
+assert.equal(body.replaceCount, replacementCount, 'Mission disclosure must not replace the route body');
+assert.equal(byClass('mission-mobile-accordion')[0], mobileAccordion, 'Mission disclosure must retain list identity');
+assert.equal(globalThis.document.activeElement, mobileTrigger, 'Mission disclosure must retain focus');
 assert.match(text, /Prelude: A Ship Underway/);
 assert.match(text, /Primary objectives/);
 assert.match(text, /Optional objectives/);
-assert.equal(byClass('is-resolved').length, 1);
+assert.equal(byClass('is-resolved').length, 2, 'desktop and phone details must each render the resolved objective');
 assert.doesNotMatch(text, /fraud/i);
 assert.doesNotMatch(text, /percent|reconciliation|open world|recovery/i);
 
