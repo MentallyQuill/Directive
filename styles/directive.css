@@ -3982,6 +3982,26 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-board { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; padding-bottom: 2px; }
 .directive-expanded-shell .ship-operational-status,
 .directive-expanded-shell .ship-board-section { padding: 15px 18px; background: var(--directive-expanded-surface); border-left: 6px solid var(--directive-expanded-violet); border-radius: 6px; }
+.directive-expanded-shell .ship-systems-section { display: grid; gap: 8px; }
+.directive-expanded-shell .ship-systems-section > h3 { margin: 0; color: var(--directive-expanded-violet); font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-system-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.directive-expanded-shell .ship-system-card { display: grid; gap: 11px; padding: 15px 16px; background: var(--directive-expanded-surface); border: 1px solid rgba(155, 130, 207, .34); border-top: 4px solid var(--directive-expanded-violet); border-radius: 6px; }
+.directive-expanded-shell .ship-system-card > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.directive-expanded-shell .ship-system-card h4 { margin: 0; color: var(--directive-expanded-text); font: 800 17px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .ship-system-card header p { margin: 4px 0 0; color: var(--directive-expanded-muted); font-size: 10px; line-height: 1.4; }
+.directive-expanded-shell .ship-system-state { flex: 0 0 auto; padding: 4px 7px; color: var(--directive-expanded-bg); background: var(--directive-expanded-violet); border-radius: 3px; font: 800 10px/1 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-state-ladder { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
+.directive-expanded-shell .ship-state-ladder span { overflow: hidden; padding: 5px 4px; color: var(--directive-expanded-muted); background: var(--directive-expanded-high); border-bottom: 2px solid rgba(155, 130, 207, .25); font: 700 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-align: center; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.directive-expanded-shell .ship-state-ladder span.is-current { color: var(--directive-expanded-text); border-color: var(--directive-expanded-violet); }
+.directive-expanded-shell .ship-system-detail strong, .directive-expanded-shell .ship-work-orders > strong { color: var(--directive-expanded-violet); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-system-detail p { margin: 3px 0 0; color: var(--directive-expanded-text); font-size: 11px; line-height: 1.4; }
+.directive-expanded-shell .ship-work-order-list { display: grid; gap: 5px; margin-top: 5px; }
+.directive-expanded-shell .ship-work-order { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 3px 7px; padding: 7px 8px; background: var(--directive-expanded-high); border-left: 3px solid rgba(155, 130, 207, .5); border-radius: 3px; }
+.directive-expanded-shell .ship-work-order span { color: var(--directive-expanded-muted); font: 800 8px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.directive-expanded-shell .ship-work-order b { color: var(--directive-expanded-text); font-size: 11px; }
+.directive-expanded-shell .ship-work-order p { grid-column: 1 / -1; margin: 0; color: var(--directive-expanded-muted); font-size: 9px; line-height: 1.35; }
+.directive-expanded-shell .ship-work-order.is-satisfied { border-left-color: #7ecf9a; }
+.directive-expanded-shell .ship-work-order.is-unknown { opacity: .58; }
 .directive-expanded-shell .ship-operational-status > span { color: var(--directive-expanded-violet); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
 .directive-expanded-shell .ship-operational-status h3 { margin: 3px 0 0; color: var(--directive-expanded-text); font: 800 22px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: capitalize; }
 .directive-expanded-shell .ship-operational-status p { margin: 7px 0 0; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.45; }
@@ -3999,6 +4019,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .ship-operational-status,
   .directive-expanded-shell .ship-board-section { padding: 12px 13px; }
   .directive-expanded-shell .ship-record-list { grid-template-columns: minmax(0, 1fr); }
+  .directive-expanded-shell .ship-system-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Certified full-width Settings composition. */

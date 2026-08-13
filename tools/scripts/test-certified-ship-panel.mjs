@@ -36,7 +36,14 @@ const projection = {
       status: 'serviceable', summary: 'Certified for service while integrated validation continues.', readiness: null,
       materialLimitations: [{ id: 'limit.warp', summary: 'Maximum warp is temporarily restricted.' }], readinessObjectiveLink: null
     },
-    capabilities: [{ id: 'cap.sensors', summary: 'Long-range sensors are available.' }]
+    capabilities: [{ id: 'cap.sensors', label: 'Long-range sensors', summary: 'Long-range sensors are available.' }],
+    constraints: [{ id: 'constraint.corroboration', label: 'Corroboration required', summary: 'Fine claims need a second source.' }],
+    systems: [{
+      id: 'system.sensors', label: 'Sensor Calibration', summary: 'Calibration remains provisional.',
+      currentState: { id: 'state.provisional', label: 'Provisional', why: 'No clean baseline is accepted.', mechanicalEffect: 'Fine claims require corroboration.' },
+      stateLadder: [{ id: 'state.provisional', rank: 0, label: 'Provisional', why: 'No clean baseline is accepted.', mechanicalEffect: 'Fine claims require corroboration.' }],
+      workOrders: [{ id: 'milestone.baseline', status: 'known', label: 'Establish a clean baseline', summary: 'Compare against an independent reference.' }]
+    }]
   },
   issues: [{ title: 'technical debt', owner: 'Engineering' }]
 };
@@ -57,6 +64,11 @@ assert.match(text, /U\.S\.S\. Breckenridge/);
 assert.match(text, /Operational status/);
 assert.match(text, /Material limitations/);
 assert.match(text, /Long-range sensors are available/);
+assert.match(text, /Sensor Calibration/);
+assert.match(text, /Provisional/);
+assert.match(text, /Why this state/);
+assert.match(text, /Fine claims require corroboration/);
+assert.match(text, /Establish a clean baseline/);
 assert.doesNotMatch(text, /technical debt|issue count|readiness percentage/i);
 
 console.log('PASS certified Ship panel');

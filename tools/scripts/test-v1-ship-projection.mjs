@@ -72,7 +72,41 @@ const missionProjection = {
     }],
 };
 const runtimeAssets = {
-    shipDataset,
+    shipDataset: {
+        ...shipDataset,
+        mechanics: {
+            kind: 'directive.shipMechanics.v1', schemaVersion: 1,
+            capabilities: [],
+            constraints: [{
+                id: 'ship-constraint.sensor-corroboration',
+                playerText: { label: 'Corroboration required', summary: 'Fine sensor claims need an independent source.' },
+                narratorGuidance: 'Require corroboration for fine sensor claims.',
+            }],
+            systems: [{
+                id: 'ship-system.sensors',
+                playerText: { label: 'Sensor Calibration', summary: 'Post-refit calibration remains provisional.' },
+                openingStateId: 'ship-state.sensors.provisional',
+                states: [{
+                    id: 'ship-state.sensors.provisional', rank: 0, capabilityIds: [],
+                    constraintIds: ['ship-constraint.sensor-corroboration'],
+                    playerText: {
+                        label: 'Provisional', why: 'No independent baseline is accepted.',
+                        mechanicalEffect: 'Fine sensor claims require corroboration.',
+                    },
+                }],
+                milestones: [{
+                    id: 'ship-milestone.sensor-baseline',
+                    playerText: { label: 'Establish a clean baseline', summary: 'Compare against an independent reference.' },
+                    sourceRoles: ['assistant'],
+                    interpretation: {
+                        evidenceStandard: 'clearOutcome', guidance: 'Select after the completed comparison.',
+                        exclusions: ['Beginning the comparison is not completion.'],
+                    },
+                }],
+                transitions: [],
+            }],
+        },
+    },
 };
 const beforeState = structuredClone(campaignState);
 const beforeAssets = structuredClone(runtimeAssets);
@@ -113,6 +147,32 @@ assert.equal(JSON.stringify(ship).includes(missionProjection.objectives[0].summa
 assert.deepEqual(ship.operationalStatus.materialLimitations, [{
     id: 'limitation.port-sensor-array',
     summary: 'The port sensor array is operating at reduced sensitivity.',
+}]);
+assert.deepEqual(ship.systems, [{
+    id: 'ship-system.sensors',
+    label: 'Sensor Calibration',
+    summary: 'Post-refit calibration remains provisional.',
+    currentState: {
+        id: 'ship-state.sensors.provisional',
+        label: 'Provisional',
+        why: 'No independent baseline is accepted.',
+        mechanicalEffect: 'Fine sensor claims require corroboration.',
+    },
+    stateLadder: [{
+        id: 'ship-state.sensors.provisional', rank: 0, label: 'Provisional',
+        why: 'No independent baseline is accepted.',
+        mechanicalEffect: 'Fine sensor claims require corroboration.',
+    }],
+    workOrders: [{
+        id: 'ship-milestone.sensor-baseline', status: 'known',
+        label: 'Establish a clean baseline', summary: 'Compare against an independent reference.',
+    }],
+}]);
+assert.deepEqual(ship.capabilities, []);
+assert.deepEqual(ship.constraints, [{
+    id: 'ship-constraint.sensor-corroboration',
+    label: 'Corroboration required',
+    summary: 'Fine sensor claims need an independent source.',
 }]);
 assert.equal(Object.hasOwn(ship.operationalStatus, 'issues'), false);
 assert.equal(Object.hasOwn(ship.operationalStatus, 'damage'), false);

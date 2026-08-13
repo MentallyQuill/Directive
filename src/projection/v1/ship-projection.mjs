@@ -1,5 +1,7 @@
 export const SHIP_PLAYER_PROJECTION_KIND = 'directive.shipPlayerProjection.v1';
 
+import { deriveShipMechanicsState } from '../../ship/v1/ship-mechanics-state.mjs';
+
 function compact(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -61,6 +63,10 @@ export function createShipPlayerProjection({
     const readiness = readinessProjection(definition, missionProjection);
     const readinessObjective = readinessObjectiveLink(definition, missionProjection);
     const missionIds = [readinessObjective?.id, readiness?.id].filter(Boolean);
+    const mechanics = deriveShipMechanicsState({
+        shipDataset: runtimeAssets.shipDataset || {},
+        storySettlement: campaignState.storySettlement || {},
+    });
     return {
         kind: SHIP_PLAYER_PROJECTION_KIND,
         shipId: compact(current.id),
@@ -75,11 +81,34 @@ export function createShipPlayerProjection({
             materialLimitations: materialLimitations(overview.materialLimitations),
             readinessObjectiveLink: readinessObjective,
         },
+        systems: mechanics.systems.map((system) => ({
+            id: system.id,
+            label: system.label,
+            summary: system.summary,
+            currentState: {
+                id: system.currentState.id,
+                label: system.currentState.playerText.label,
+                why: system.currentState.playerText.why,
+                mechanicalEffect: system.currentState.playerText.mechanicalEffect,
+            },
+            stateLadder: structuredClone(system.stateLadder),
+            workOrders: structuredClone(system.workOrders),
+        })),
+        capabilities: [...mechanics.capabilities.values()].map((capability) => ({
+            id: capability.id,
+            label: capability.playerText.label,
+            summary: capability.playerText.summary,
+        })).sort((left, right) => left.id.localeCompare(right.id)),
+        constraints: [...mechanics.constraints.values()].map((constraint) => ({
+            id: constraint.id,
+            label: constraint.playerText.label,
+            summary: constraint.playerText.summary,
+        })).sort((left, right) => left.id.localeCompare(right.id)),
         sourceRefs: {
             packageIds: [
                 runtimeAssets?.shipDataset?.manifest?.id,
             ].filter(Boolean),
-            statePaths: ['ship.operationalOverview'],
+            statePaths: ['ship.operationalOverview', 'storySettlement'],
             missionIds,
         },
     };
