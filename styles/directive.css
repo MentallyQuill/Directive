@@ -4016,8 +4016,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --directive-hero-glow-stars-y-start: -.75%;
   --directive-hero-glow-stars-x-end: -1.8%;
   --directive-hero-glow-stars-y-end: .75%;
-  --directive-hero-ship-scale-start: .99;
-  --directive-hero-ship-scale-end: 1.01;
+  --directive-hero-ship-scale-start: .79;
+  --directive-hero-ship-scale-end: .81;
   --directive-hero-ship-rotate-start: -.15deg;
   --directive-hero-ship-rotate-end: .15deg;
   isolation: isolate;
@@ -4060,10 +4060,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
-  inset: 4% auto auto 4%;
-  width: 92%;
-  height: 92%;
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: auto;
   object-fit: contain;
+  translate: -50% -50%;
   transform-origin: 55% 48%;
   animation: directive-hero-ship-drift 30s linear -7.5s infinite alternate;
   will-change: transform;
@@ -4227,8 +4230,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-hero-glow-stars-y-start: -.375%;
     --directive-hero-glow-stars-x-end: -.9%;
     --directive-hero-glow-stars-y-end: .375%;
-    --directive-hero-ship-scale-start: .995;
-    --directive-hero-ship-scale-end: 1.005;
+    --directive-hero-ship-scale-start: .795;
+    --directive-hero-ship-scale-end: .805;
     --directive-hero-ship-rotate-start: -.075deg;
     --directive-hero-ship-rotate-end: .075deg;
   }
@@ -4238,7 +4241,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; }
-  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(1); }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(.8); }
 }
 
 /* Certified full-width Settings composition. */
