@@ -465,8 +465,7 @@ function createMobileRecord(model, person, category, controller, rerender, discl
   chevron.textContent = '›';
   toggle.append(createRecordCopy(person), chevron);
   head.append(toggle, personReorderHandle(person, category, controller, rerender, {
-    previewClass: 'people-drag-ghost',
-    touchTarget: item
+    previewClass: 'people-drag-ghost'
   }));
   item.appendChild(head);
   let mobileDetail = null;

@@ -11,7 +11,7 @@ Make crew-card organization feel like lifting a physical dossier from a vertical
 ## Activation
 
 - A primary mouse or trackpad press starts only from the dedicated person-card handle and lifts immediately.
-- Touch and pen may start anywhere on a mobile person card after a `175ms` hold.
+- Touch and pen start only from the dedicated mobile person-card handle after a `175ms` hold. Whole-card mobile pickup was superseded by `2026-08-12-mobile-crew-touch-stability-design.md` after real touch arbitration proved incompatible with native card scrolling.
 - Motion beyond `8px` before the hold completes cancels drag arming and preserves ordinary vertical scrolling.
 - A quick mobile tap remains the existing expand/select gesture.
 - Drag activation captures the pointer, suppresses selection and clicks only for the active drag, and requests a guarded `10ms` vibration when supported.
@@ -50,7 +50,7 @@ Make crew-card organization feel like lifting a physical dossier from a vertical
 ## Component Boundary
 
 - `src/ui/expanded-interface-reorder.js` owns reusable pointer lifecycle, vertical locking, live-slot movement, FLIP displacement, docking, cancellation, and cleanup behind opt-in options.
-- `src/ui/people-journal.js` opts only person records into the new behavior and supplies the whole mobile record as the touch/pen activation surface.
+- `src/ui/people-journal.js` opts only person records into the new behavior and retains the dedicated handle as the mobile touch/pen activation surface.
 - `styles/directive.css` owns People-specific slot, lifted-card, docking, and reduced-motion presentation.
 - `docs/design/mockups/directive-expanded-interface.html` and `docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md` are updated so the certified reference no longer describes the superseded no-reflow behavior.
 
@@ -58,7 +58,7 @@ Make crew-card organization feel like lifting a physical dossier from a vertical
 
 - The real desktop fixture must show one exact-height People drop slot, a detached ghost whose `x` coordinate remains fixed, and displaced rows before pointer-up.
 - Pointer-up must expose a docking phase and then persist the correct cross-category order once.
-- A real mobile fixture must arm from the card body, remain unlifted before `175ms`, lift after the delay, and keep quick tap/scroll cancellation intact.
+- A real mobile fixture must leave the card body to native tap/scroll behavior, arm only from the handle, remain unlifted before `175ms`, lift after the delay, and survive rapid vertical reversals without browser cancellation.
 - Pointer cancellation and Escape must restore the original order and remove every transient drag artifact.
 - Reduced-motion emulation must retain a visible slot while removing meaningful animation duration.
 - The focused People interaction test, certified authority checks, visual conformance suite, and complete 95-check alpha gate must pass.

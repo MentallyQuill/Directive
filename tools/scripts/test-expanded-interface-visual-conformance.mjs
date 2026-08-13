@@ -758,14 +758,15 @@ try {
   assert.match(await mobileServiceRecord.textContent(), /Late fifties by human comparison/);
   assert.equal(await mobileServiceRecord.evaluate((record) => record.scrollWidth <= record.clientWidth), true, 'mobile public service record must not overflow its detail column');
   const expandedTouchCardBox = await expandedTouchCard.boundingBox();
-  const expandedTouchDetailBox = await expandedTouchDetail.boundingBox();
-  await expandedTouchDetail.dispatchEvent('pointerdown', {
+  const expandedTouchHandle = expandedTouchCard.locator('.collection-drag-handle');
+  const expandedTouchHandleBox = await expandedTouchHandle.boundingBox();
+  await expandedTouchHandle.dispatchEvent('pointerdown', {
     pointerId: 79, pointerType: 'touch', button: 0,
-    clientX: expandedTouchDetailBox.x + expandedTouchDetailBox.width / 2, clientY: expandedTouchDetailBox.y + 10
+    clientX: expandedTouchHandleBox.x + expandedTouchHandleBox.width / 2, clientY: expandedTouchHandleBox.y + expandedTouchHandleBox.height / 2
   });
   await mobilePeoplePage.waitForTimeout(200);
   const expandedTouchGhostBox = await mobilePeoplePage.locator('.people-drag-ghost').boundingBox();
-  assert.ok(Math.abs((expandedTouchGhostBox.height / expandedTouchCardBox.height) - 1.015) < 0.005, 'touch-holding an expanded card must lift the complete rendered card at the approved 1.015 scale');
+  assert.ok(Math.abs((expandedTouchGhostBox.height / expandedTouchCardBox.height) - 1.015) < 0.005, 'touch-holding an expanded card handle must lift the complete rendered card at the approved 1.015 scale');
   assert.equal(await mobilePeoplePage.locator('.people-card-drop-slot').evaluate((slot) => getComputedStyle(slot).borderRadius), '5px', 'desktop slot geometry must not remove mobile card rounding');
   await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 79, pointerType: 'touch', bubbles: true })));
   await mobilePeoplePage.waitForTimeout(500);
@@ -783,28 +784,85 @@ try {
   await mobilePeoplePage.evaluate(({ x, y }) => document.dispatchEvent(new PointerEvent('pointerup', {
     pointerId: 80, pointerType: 'touch', bubbles: true, clientX: x, clientY: y + 12
   })), { x: scrollingTouchBox.x + scrollingTouchBox.width / 2, y: scrollingTouchBox.y + scrollingTouchBox.height / 2 });
-  const mobileTouchSurface = mobilePeoplePage.locator('.mobile-crew-item[data-person-id="mara-whitaker"] .mobile-accordion-toggle');
-  const mobileTouchBox = await mobileTouchSurface.boundingBox();
-  await mobileTouchSurface.dispatchEvent('pointerdown', {
-    pointerId: 81, pointerType: 'touch', button: 0,
-    clientX: mobileTouchBox.x + mobileTouchBox.width / 2, clientY: mobileTouchBox.y + mobileTouchBox.height / 2
-  });
-  await mobilePeoplePage.waitForTimeout(100);
-  assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 0, 'whole-card touch must not lift before the hold delay');
-  await mobilePeoplePage.waitForTimeout(100);
-  assert.equal(await mobilePeoplePage.locator('.people-drag-ghost').count(), 1, 'whole-card touch must lift after 175ms');
-  await mobilePeoplePage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-390x844.png') });
-  assert.equal(await mobilePeoplePage.evaluate(() => {
-    const event = new TouchEvent('touchmove', { bubbles: true, cancelable: true });
-    document.dispatchEvent(event);
-    return event.defaultPrevented;
-  }), true, 'an active whole-card drag must take custody of touch scrolling');
-  await mobilePeoplePage.waitForTimeout(650);
-  await mobilePeoplePage.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 81, pointerType: 'touch', bubbles: true })));
-  await mobilePeoplePage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
-  await mobileTouchSurface.dispatchEvent('click');
-  assert.equal(await mobilePeoplePage.locator('.mobile-crew-item[data-person-id="mara-whitaker"].is-open').count(), 0, 'a completed whole-card hold must suppress its trailing click');
   await mobilePeoplePage.close();
+
+  const realTouchContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 3
+  });
+  const realTouchPage = await realTouchContext.newPage();
+  await realTouchPage.goto(`${baseUrl}/production?route=people`);
+  await realTouchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await realTouchPage.locator('.mobile-crew-item[data-person-id="player.sam-vickers"] .mobile-accordion-toggle').click();
+  const realTouchBody = realTouchPage.locator('.mobile-crew-item[data-person-id="mara-whitaker"] .mobile-accordion-toggle');
+  await realTouchBody.scrollIntoViewIfNeeded();
+  const realTouchBodyBox = await realTouchBody.boundingBox();
+  const realTouchBodyPoint = {
+    x: realTouchBodyBox.x + realTouchBodyBox.width / 2,
+    y: realTouchBodyBox.y + realTouchBodyBox.height / 2
+  };
+  const realTouchCdp = await realTouchContext.newCDPSession(realTouchPage);
+  await realTouchCdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ ...realTouchBodyPoint, radiusX: 6, radiusY: 6, force: 1, id: 1 }]
+  });
+  await realTouchPage.waitForTimeout(200);
+  assert.equal(await realTouchPage.locator('.people-drag-ghost').count(), 0, 'holding a mobile card body must preserve scrolling instead of lifting');
+  await realTouchCdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: realTouchBodyPoint.x, y: realTouchBodyPoint.y - 24, radiusX: 6, radiusY: 6, force: 1, id: 1 }]
+  });
+  await realTouchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await realTouchBody.click();
+  assert.equal(await realTouchPage.locator('.mobile-crew-item[data-person-id="mara-whitaker"].is-open').count(), 1, 'card-body touch must retain the accordion action');
+  await realTouchBody.click();
+  assert.equal(await realTouchPage.locator('.mobile-crew-item[data-person-id="mara-whitaker"].is-open').count(), 0, 'card-body touch must retain accordion collapse');
+
+  const realTouchHandle = realTouchPage.locator('.mobile-crew-item[data-person-id="mara-whitaker"] .collection-drag-handle');
+  await realTouchHandle.scrollIntoViewIfNeeded();
+  const realTouchHandleBox = await realTouchHandle.boundingBox();
+  const realTouchHandlePoint = {
+    x: realTouchHandleBox.x + realTouchHandleBox.width / 2,
+    y: realTouchHandleBox.y + realTouchHandleBox.height / 2
+  };
+  await realTouchPage.evaluate(() => {
+    globalThis.__directiveRealTouchTrace = { moves: 0, cancels: 0 };
+    document.addEventListener('pointermove', () => { globalThis.__directiveRealTouchTrace.moves += 1; }, true);
+    document.addEventListener('pointercancel', () => { globalThis.__directiveRealTouchTrace.cancels += 1; }, true);
+  });
+  await realTouchCdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ ...realTouchHandlePoint, radiusX: 6, radiusY: 6, force: 1, id: 2 }]
+  });
+  await realTouchPage.waitForTimeout(200);
+  assert.equal(await realTouchPage.locator('.people-drag-ghost').count(), 1, 'holding the mobile reorder handle must lift after 175ms');
+  const realTouchYPath = [
+    realTouchHandlePoint.y - 50,
+    realTouchHandlePoint.y - 110,
+    realTouchHandlePoint.y - 30,
+    realTouchHandlePoint.y - 140,
+    realTouchHandlePoint.y - 20
+  ];
+  for (const y of realTouchYPath) {
+    await realTouchCdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: realTouchHandlePoint.x, y, radiusX: 6, radiusY: 6, force: 1, id: 2 }]
+    });
+    await realTouchPage.waitForTimeout(12);
+  }
+  const realTouchTrace = await realTouchPage.evaluate(() => globalThis.__directiveRealTouchTrace);
+  assert.ok(realTouchTrace.moves >= 4, `rapid handle reversals must retain pointer movement (${realTouchTrace.moves} observed)`);
+  assert.equal(realTouchTrace.cancels, 0, 'native scrolling must not cancel an active handle drag');
+  assert.equal(await realTouchPage.locator('.people-drag-ghost').count(), 1, 'rapid handle reversals must keep the lifted card active');
+  assert.equal(await realTouchPage.locator('.people-card-drop-slot').count(), 1, 'rapid handle reversals must retain one exact destination slot');
+  await realTouchPage.screenshot({ path: path.join(artifactRoot, 'people-card-active-drag-390x844.png') });
+  await realTouchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await realTouchPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  assert.equal(await realTouchPage.locator('.mobile-crew-item').count(), 6, 'real-touch reordering must preserve every mobile crew card');
+  await realTouchPage.close();
+  await realTouchContext.close();
 
   const reducedPeoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await reducedPeoplePage.emulateMedia({ reducedMotion: 'reduce' });
