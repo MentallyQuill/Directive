@@ -28,6 +28,7 @@ import {
     acceptStoryContributions,
     applyStoryWorkingCapsuleReview,
     appendStoryEffects,
+    appendStoryPeopleEvents,
     checkpointStoryEpisode,
     invalidateStorySources,
     invalidateStorySourcesAndDescendants,
@@ -487,6 +488,7 @@ export function createV1StateSpine({
         acceptedCommandBearingEdge = null,
         shipDataset = null,
         shipProposal = null,
+        peopleEvents = [],
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
@@ -577,7 +579,7 @@ export function createV1StateSpine({
             && allRejectedClaims.length === allProposedClaims.length
             && allRejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
         const storyEffects = [...missionResult.effects, ...shipEvidence.effects];
-        if ((storyEffects.length > 0 || contributions.supplied.length > 0)
+        if ((storyEffects.length > 0 || peopleEvents.length > 0 || contributions.supplied.length > 0)
             && storySettlement.activeEpisode === null) {
             storySettlement = openStoryEpisode(storySettlement, {
                 episodeId: scene.episodeId,
@@ -597,6 +599,9 @@ export function createV1StateSpine({
                     storySettlement,
                     instantiateStoryEffects(storyEffects, contributions.referenced),
                 );
+            }
+            if (peopleEvents.length > 0) {
+                storySettlement = appendStoryPeopleEvents(storySettlement, peopleEvents);
             }
         } else if (!duplicateReplay) {
             storySettlement = settleInsignificantScene(storySettlement, {

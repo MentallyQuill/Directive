@@ -11,10 +11,18 @@ const MISSION_EVIDENCE_MAX_TOKENS = 2500;
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const TIME_DECISION_VALUES = new Set(['advance', 'unchanged', 'indeterminate']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
-const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'abstained', 'time']);
+const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time']);
 const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value']);
+const PEOPLE_INTRODUCTION_FIELDS = new Set(['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot']);
+const PEOPLE_FACT_FIELDS = new Set(['type', 'personRef', 'field', 'value', 'sourceSlot']);
+const PEOPLE_RELATIONSHIP_FIELDS = new Set(['type', 'personRef', 'summary', 'sourceSlot']);
+const PEOPLE_FACT_NAMES = new Set([
+    'displayName', 'role', 'affiliation', 'species', 'age', 'birthplace',
+    'serviceBackground', 'assignmentHistory', 'profileSummary',
+]);
 const TIME_FIELDS = new Set(['decision', 'elapsedSeconds', 'reason', 'confidence']);
 const MAX_CLAIMS = 16;
+const MAX_PEOPLE_EVENTS = 24;
 const MAX_TIME_ADVANCE_SECONDS = 31 * 24 * 60 * 60;
 
 function cloneJson(value) {
@@ -56,6 +64,52 @@ function constSchema(value) {
     return { const: cloneJson(value) };
 }
 
+function peopleEventSchema() {
+    const sourceSlot = { type: 'string', enum: [...SOURCE_SLOTS] };
+    const personRef = { type: 'string', minLength: 1, maxLength: 120 };
+    return {
+        oneOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot'],
+            properties: {
+                type: { type: 'string', const: 'personIntroduced' },
+                localRef: { type: 'string', pattern: '^[a-z0-9][a-z0-9._:-]*$', maxLength: 80 },
+                name: { type: 'string', minLength: 1, maxLength: 120 },
+                introductionSummary: { type: 'string', minLength: 1, maxLength: 512 },
+                sourceSlot: { type: 'string', const: 'previousAssistant' },
+            },
+        }, {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'personRef', 'field', 'value', 'sourceSlot'],
+            properties: {
+                type: { type: 'string', const: 'publicFactLearned' },
+                personRef,
+                field: {
+                    type: 'string',
+                    enum: [
+                        'displayName', 'role', 'affiliation', 'species', 'age', 'birthplace',
+                        'serviceBackground', 'assignmentHistory', 'profileSummary',
+                    ],
+                },
+                value: { type: 'string', minLength: 1, maxLength: 512 },
+                sourceSlot,
+            },
+        }, {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'personRef', 'summary', 'sourceSlot'],
+            properties: {
+                type: { type: 'string', const: 'relationshipEvidence' },
+                personRef,
+                summary: { type: 'string', minLength: 1, maxLength: 512 },
+                sourceSlot,
+            },
+        }],
+    };
+}
+
 export function createMissionAcceptedPairInterpretationSchema({ candidatePacket = {} } = {}) {
     const candidateSelections = (candidatePacket.candidates || []).flatMap((candidate) => {
         const sourceSlots = candidate.sourceSlots || [];
@@ -77,7 +131,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
     return {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'assistantAcceptance', 'claims', 'abstained', 'time'],
+        required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time'],
         properties: {
             kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
             assistantAcceptance: { type: 'string', enum: [...ASSISTANT_ACCEPTANCE_VALUES] },
@@ -87,6 +141,11 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
                 items: candidateSelections.length > 0 ? { oneOf: candidateSelections } : { type: 'object' },
             },
             abstained: { type: 'boolean' },
+            peopleEvents: {
+                type: 'array',
+                maxItems: MAX_PEOPLE_EVENTS,
+                items: peopleEventSchema(),
+            },
             time: {
                 type: 'object',
                 additionalProperties: false,
@@ -127,7 +186,67 @@ function timeDecisionErrors(value) {
     return errors;
 }
 
-function interpretationErrors(value, candidatePacket) {
+function peopleEventErrors(value, peopleContext = {}) {
+    const errors = [];
+    if (!Array.isArray(value)) return ['peopleEvents must be an array'];
+    if (value.length > MAX_PEOPLE_EVENTS) errors.push(`peopleEvents must contain no more than ${MAX_PEOPLE_EVENTS} observations`);
+    const knownPersonIds = new Set((peopleContext.knownPeople || []).map((person) => person?.id).filter(Boolean));
+    const localRefs = new Set();
+    for (const [index, event] of value.entries()) {
+        const path = `peopleEvents[${index}]`;
+        if (!event || typeof event !== 'object' || Array.isArray(event)) {
+            errors.push(`${path} must be an object`);
+            continue;
+        }
+        if (!SOURCE_SLOTS.has(event.sourceSlot)) errors.push(`${path} sourceSlot is unknown`);
+        if (event.type === 'personIntroduced') {
+            for (const field of unknownFields(event, PEOPLE_INTRODUCTION_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
+            if (event.sourceSlot !== 'previousAssistant') errors.push(`${path} introduction must come from previousAssistant`);
+            if (typeof event.localRef !== 'string' || !/^[a-z0-9][a-z0-9._:-]*$/.test(event.localRef) || event.localRef.length > 80) {
+                errors.push(`${path} localRef must be stable and at most 80 characters`);
+            } else if (localRefs.has(event.localRef)) {
+                errors.push(`${path} localRef is duplicated`);
+            }
+            localRefs.add(event.localRef);
+            if (typeof event.name !== 'string' || !event.name.trim() || event.name.length > 120) {
+                errors.push(`${path} name is invalid`);
+            }
+            if (typeof event.introductionSummary !== 'string'
+                || !event.introductionSummary.trim()
+                || event.introductionSummary.length > 512) {
+                errors.push(`${path} introductionSummary is invalid`);
+            }
+        } else if (event.type === 'publicFactLearned') {
+            for (const field of unknownFields(event, PEOPLE_FACT_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
+            if (!PEOPLE_FACT_NAMES.has(event.field)) errors.push(`${path} public fact field is unsupported`);
+            if (typeof event.value !== 'string'
+                || !event.value.trim()
+                || event.value.length > (event.field === 'profileSummary' ? 512 : 240)) {
+                errors.push(`${path} public fact value is invalid`);
+            }
+        } else if (event.type === 'relationshipEvidence') {
+            for (const field of unknownFields(event, PEOPLE_RELATIONSHIP_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
+            if (typeof event.summary !== 'string' || !event.summary.trim() || event.summary.length > 512) {
+                errors.push(`${path} relationship summary is invalid`);
+            }
+        } else {
+            errors.push(`${path} type is unsupported`);
+        }
+    }
+    for (const [index, event] of value.entries()) {
+        if (!new Set(['publicFactLearned', 'relationshipEvidence']).has(event?.type)) continue;
+        if (typeof event.personRef !== 'string' || !event.personRef.trim() || event.personRef.length > 120) {
+            errors.push(`peopleEvents[${index}] personRef is invalid`);
+        } else if ((peopleContext.knownPeople || []).length > 0
+            && !knownPersonIds.has(event.personRef)
+            && !localRefs.has(event.personRef)) {
+            errors.push(`peopleEvents[${index}] references unknown person: ${event.personRef}`);
+        }
+    }
+    return errors;
+}
+
+function interpretationErrors(value, candidatePacket, peopleContext) {
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return ['interpretation output must be a JSON object'];
@@ -141,6 +260,7 @@ function interpretationErrors(value, candidatePacket) {
     }
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
     errors.push(...timeDecisionErrors(value.time));
+    errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext));
     if (!Array.isArray(value.claims)) {
         errors.push('claims must be an array');
         return errors;
@@ -182,14 +302,14 @@ function interpretationErrors(value, candidatePacket) {
     return errors;
 }
 
-export function parseMissionAcceptedPairInterpretationOutput(value, { candidatePacket } = {}) {
+export function parseMissionAcceptedPairInterpretationOutput(value, { candidatePacket, peopleContext = {} } = {}) {
     const parsed = typeof value === 'string'
         ? parseStructuredJsonText(value)
         : { ok: Boolean(value && typeof value === 'object' && !Array.isArray(value)), value };
     if (!parsed.ok) {
         return { ok: false, errors: ['interpretation output must contain valid JSON'] };
     }
-    const errors = interpretationErrors(parsed.value, candidatePacket);
+    const errors = interpretationErrors(parsed.value, candidatePacket, peopleContext);
     if (errors.length > 0) return { ok: false, errors };
     const discardedAssistantClaimCount = parsed.value.assistantAcceptance === 'accepted'
         ? 0
@@ -197,6 +317,19 @@ export function parseMissionAcceptedPairInterpretationOutput(value, { candidateP
     const claims = parsed.value.assistantAcceptance === 'accepted'
         ? parsed.value.claims
         : parsed.value.claims.filter((claim) => claim.sourceSlot !== 'previousAssistant');
+    const acceptedPeopleEvents = parsed.value.assistantAcceptance === 'accepted'
+        ? (parsed.value.peopleEvents || [])
+        : (parsed.value.peopleEvents || []).filter((event) => event.sourceSlot !== 'previousAssistant');
+    const survivingLocalRefs = new Set(acceptedPeopleEvents
+        .filter((event) => event.type === 'personIntroduced')
+        .map((event) => event.localRef));
+    const knownPersonIds = new Set((peopleContext.knownPeople || []).map((person) => person?.id).filter(Boolean));
+    const peopleEvents = acceptedPeopleEvents.filter((event) => (
+        event.type === 'personIntroduced'
+        || knownPersonIds.has(event.personRef)
+        || survivingLocalRefs.has(event.personRef)
+        || (peopleContext.knownPeople || []).length === 0
+    ));
     const time = cloneJson(parsed.value.time);
     return {
         ok: true,
@@ -204,14 +337,18 @@ export function parseMissionAcceptedPairInterpretationOutput(value, { candidateP
             kind: MISSION_EVIDENCE_INTERPRETATION_KIND,
             assistantAcceptance: parsed.value.assistantAcceptance,
             claims: cloneJson(claims),
+            peopleEvents: cloneJson(peopleEvents),
             abstained: parsed.value.abstained,
             time,
         },
         discardedAssistantClaimCount,
+        discardedAssistantPeopleEventCount: (parsed.value.peopleEvents || []).length - peopleEvents.length,
     };
 }
 
-export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket = {}, sourcePair = {}, timeContext = {} } = {}) {
+export function createMissionAcceptedPairInterpretationPrompt({
+    candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {},
+} = {}) {
     const systemPrompt = [
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
         'Select only candidate IDs supplied in this request. Do not create or invent policies, targets, values, state, summaries, trackers, objectives, consequences, rewards, or narration.',
@@ -221,6 +358,9 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
         'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
+        'Observe People changes in the same response. A direct NPC encounter may create personIntroduced only when that NPC gives the player a usable name. A name merely mentioned by someone else does not create a person and must be omitted.',
+        'Use a supplied known person ID whenever the subject matches the knownPeople directory. Never merge identities, invent a durable person ID, infer private information, or turn routine dialogue into relationship evidence.',
+        'publicFactLearned is limited to public identity or professional facts explicitly established in the accepted source. relationshipEvidence must describe an observable interaction outcome, commitment, trust change, disagreement, obligation, or repair rather than sentiment speculation.',
         'Independently estimate elapsed story time across the complete accepted pair. The supplied footer is a proposal, not authority.',
         'Account for both the previous-assistant response and the current player response. Mission-claim rejection or correction does not erase time consumed by visible speech or action.',
         'Spoken dialogue, pauses, and immediate physical actions normally consume whole seconds even when the clock remains within the same minute. Use zero only when the complete pair supports no fictional time passage.',
@@ -228,7 +368,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
         'Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
         'Use advance with a positive whole number of seconds, unchanged with zero when no fictional time passes, or indeterminate with zero when evidence conflicts or is insufficient.',
         'Return exactly one JSON object with no markdown or prose:',
-        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
+        '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
     ].join('\n');
     const userPayload = {
         envelope: {
@@ -242,6 +382,7 @@ export function createMissionAcceptedPairInterpretationPrompt({ candidatePacket 
             currentPlayer: { text: String(sourcePair.currentPlayer?.text || '') },
         },
         time: cloneJson(timeContext),
+        people: cloneJson(peopleContext),
         candidates: cloneJson(candidatePacket.candidates || []),
     };
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;
@@ -385,12 +526,14 @@ export function createMissionAcceptedPairInterpreter({
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
 } = {}) {
     return async function interpretMissionAcceptedPair({
-        candidatePacket = {}, sourcePair = {}, timeContext = {}, signal = null,
+        candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
     } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
-        const request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext });
+        const request = createMissionAcceptedPairInterpretationPrompt({
+            candidatePacket, sourcePair, timeContext, peopleContext,
+        });
         let generation = null;
         try {
             const result = await runWithTimeout(
@@ -421,7 +564,7 @@ export function createMissionAcceptedPairInterpreter({
                 },
             };
         }
-        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket });
+        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, peopleContext });
         if (!parsed.ok) {
             return {
                 ok: false,
@@ -436,7 +579,11 @@ export function createMissionAcceptedPairInterpreter({
         }
         return {
             ok: true,
-            status: parsed.value.claims.length > 0 || parsed.value.time.decision === 'advance' ? 'interpreted' : 'no-change',
+            status: parsed.value.claims.length > 0
+                || parsed.value.peopleEvents.length > 0
+                || parsed.value.time.decision === 'advance'
+                ? 'interpreted'
+                : 'no-change',
             interpretation: parsed.value,
             proposal: materializeMissionEvidenceProposal({
                 interpretation: parsed.value,
@@ -447,6 +594,8 @@ export function createMissionAcceptedPairInterpreter({
                 candidateCount: candidatePacket.candidates.length,
                 selectedClaimCount: parsed.value.claims.length,
                 discardedAssistantClaimCount: parsed.discardedAssistantClaimCount,
+                peopleEventCount: parsed.value.peopleEvents.length,
+                discardedAssistantPeopleEventCount: parsed.discardedAssistantPeopleEventCount,
                 providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
                 model: generation?.response?.model || null,
                 latencyMs: generation?.diagnostics?.latencyMs ?? null,

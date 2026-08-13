@@ -106,11 +106,12 @@ function snapshotFor({
     };
 }
 
-function interpretationOutput({ assistantAcceptance = 'accepted', claims = [], abstained = false } = {}) {
+function interpretationOutput({ assistantAcceptance = 'accepted', claims = [], peopleEvents = [], abstained = false } = {}) {
     return JSON.stringify({
         kind: 'directive.missionEvidenceInterpretation.v1',
         assistantAcceptance,
         claims,
+        peopleEvents,
         abstained,
         time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
@@ -277,6 +278,39 @@ for (const root of ['ship', 'commandBearing']) {
 for (const forbiddenRoot of ['unexpectedTracker']) {
     assert.equal(Object.hasOwn(settlementHarness.campaignState, forbiddenRoot), false, forbiddenRoot);
 }
+
+const peopleSettlementHarness = createHarness({
+    outputs: [interpretationOutput({
+        peopleEvents: [{
+            type: 'personIntroduced',
+            localRef: 'new-1',
+            name: 'Ari Sol',
+            introductionSummary: 'Ari gave her name during a direct engineering-deck conversation.',
+            sourceSlot: 'previousAssistant',
+        }, {
+            type: 'personIntroduced',
+            localRef: 'new-2',
+            name: 'Tovan Rel',
+            introductionSummary: 'Tovan introduced himself beside the damaged relay.',
+            sourceSlot: 'previousAssistant',
+        }, {
+            type: 'relationshipEvidence',
+            personRef: 'new-1',
+            summary: 'The commander protected Ari\'s team from an unsafe restart order.',
+            sourceSlot: 'currentPlayer',
+        }],
+    })],
+});
+const peopleSettlement = await peopleSettlementHarness.runtime.settleAcceptedPair({
+    runtimeAssets: peopleSettlementHarness.assets,
+    snapshot: snapshotFor({ sourceRangeHash: 'range.people', pairNumber: 31 }),
+});
+assert.equal(peopleSettlement.ok, true, JSON.stringify(peopleSettlement));
+assert.equal(peopleSettlementHarness.generationCount, 1, 'all People observations share the accepted-pair Utility call');
+const materializedPeopleEvents = peopleSettlementHarness.campaignState.storySettlement.episodes[0].peopleEvents;
+assert.equal(materializedPeopleEvents.length, 3);
+assert.equal(new Set(materializedPeopleEvents.slice(0, 2).map(({ personId }) => personId)).size, 2);
+assert.equal(materializedPeopleEvents[2].personId, materializedPeopleEvents[0].personId);
 
 const shipMechanicsAssets = runtimeAssetsFor();
 shipMechanicsAssets.shipDataset = {

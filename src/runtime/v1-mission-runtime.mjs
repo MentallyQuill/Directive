@@ -47,6 +47,10 @@ import {
     findTimeBoundaryForPlayerMessage,
     findTimeBoundaryForSourceAnchorRange,
 } from './v1-accepted-pair-time.mjs';
+import {
+    createPeopleInterpretationContext,
+    materializeAcceptedPairPeopleEvents,
+} from '../people/accepted-pair-people.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -1229,6 +1233,10 @@ export function createV1MissionRuntime({
                 }),
             ].sort((left, right) => left.id.localeCompare(right.id)),
         };
+        const peopleContext = createPeopleInterpretationContext({
+            crewDataset: runtimeAssets?.crewDataset || {},
+            storySettlement: campaignState?.storySettlement || {},
+        });
         let interpreted;
         const interpretationReused = cachedInterpretation?.key === interpretationKey;
         if (interpretationReused) {
@@ -1239,6 +1247,7 @@ export function createV1MissionRuntime({
                     candidatePacket,
                     sourcePair,
                     timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
+                    peopleContext,
                     signal,
                 });
             } catch {
@@ -1284,6 +1293,21 @@ export function createV1MissionRuntime({
 
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
         assistantSource.accepted = assistantAccepted;
+        let peopleEvents = [];
+        try {
+            peopleEvents = materializeAcceptedPairPeopleEvents({
+                observations: interpreted.interpretation?.peopleEvents || [],
+                peopleContext,
+                sourcePair,
+                sourceContributionIds: {
+                    previousAssistant: assistantContributionId,
+                    currentPlayer: playerContributionId,
+                },
+                branchId,
+            });
+        } catch {
+            return unavailable('people-events-invalid', {}, { attempted: true });
+        }
         let dutyReportResult = null;
         if (sourcePair.previousAssistant.dutyReportManifest) {
             dutyReportResult = assistantAccepted
@@ -1411,6 +1435,7 @@ export function createV1MissionRuntime({
                 acceptedCommandBearingEdge,
                 shipDataset: runtimeAssets?.shipDataset || null,
                 shipProposal,
+                peopleEvents,
             });
             const committedRoots = settled.noChange
                 ? []
@@ -1460,6 +1485,7 @@ export function createV1MissionRuntime({
                     acceptedShipClaimCount,
                     rejectedShipClaimCount,
                     discardedAssistantClaimCount: interpreted.diagnostics?.discardedAssistantClaimCount ?? 0,
+                    peopleEventCount: peopleEvents.length,
                     acceptedDutyReportCount,
                     acceptedTimeAdvanceCount: (settled.evidence?.acceptedClaims || [])
                         .filter((claim) => claim?.claimType === 'timeAdvanced').length,

@@ -43,8 +43,11 @@ const timeContext = {
     },
     stardatePerDay: 1,
 };
+const peopleContext = {
+    knownPeople: [{ id: 'mara-whitaker', name: 'Mara Whitaker', role: 'Commanding Officer' }],
+};
 
-const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext });
+const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext });
 assert.equal(prompt.metadata.roleId, 'acceptedPairMissionEvidence');
 assert.equal(prompt.metadata.missionId, definition.id);
 assert.match(prompt.systemPrompt, /plans, attempts, guesses, questions/i);
@@ -65,6 +68,9 @@ assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 2500
 assert.equal(prompt.kind, 'directive.missionEvidenceInterpretationRequest.v1');
 assert.equal(prompt.jsonSchema.additionalProperties, false);
 assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.missionEvidenceInterpretation.v1');
+assert.equal(prompt.jsonSchema.properties.peopleEvents.type, 'array');
+assert.match(prompt.systemPrompt, /merely mentioned.*(?:does not|do not) create/i);
+assert.match(prompt.messages[1].content, /mara-whitaker/);
 const claimVariants = prompt.jsonSchema.properties.claims.items.oneOf;
 assert.ok(claimVariants.length >= candidatePacket.candidates.length);
 assert.equal(prompt.jsonSchema.properties.claims.maxItems, Math.min(16, claimVariants.length));
@@ -93,6 +99,13 @@ const validOutput = {
             value: 'saferPlan',
         },
     ],
+    peopleEvents: [{
+        type: 'personIntroduced',
+        localRef: 'new-1',
+        name: 'Ari Sol',
+        introductionSummary: 'Ari gave her name during a direct engineering-deck conversation.',
+        sourceSlot: 'previousAssistant',
+    }],
     abstained: false,
     time: {
         decision: 'advance',
@@ -107,6 +120,7 @@ const parsed = parseMissionAcceptedPairInterpretationOutput(
 );
 assert.equal(parsed.ok, true, parsed.errors?.join('\n'));
 assert.equal(parsed.value.claims.length, 2);
+assert.deepEqual(parsed.value.peopleEvents, validOutput.peopleEvents);
 assert.deepEqual(parsed.value.time, validOutput.time);
 
 const proposal = materializeMissionEvidenceProposal({
@@ -181,7 +195,9 @@ const corrected = parseMissionAcceptedPairInterpretationOutput({
 }, { candidatePacket });
 assert.equal(corrected.ok, true);
 assert.deepEqual(corrected.value.claims, [validOutput.claims[1]]);
+assert.deepEqual(corrected.value.peopleEvents, []);
 assert.equal(corrected.discardedAssistantClaimCount, 1);
+assert.equal(corrected.discardedAssistantPeopleEventCount, 1);
 assert.deepEqual(corrected.value.time, validOutput.time, 'Mission-claim correction must not erase elapsed pair time.');
 
 const abstained = parseMissionAcceptedPairInterpretationOutput({
