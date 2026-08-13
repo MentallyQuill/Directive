@@ -1540,6 +1540,7 @@ export function createV1MissionRuntime({
                 reason,
                 authorityPatch,
                 authorityDomains,
+                shipDataset: runtimeAssets?.shipDataset || null,
             });
             return {
                 ok: true,

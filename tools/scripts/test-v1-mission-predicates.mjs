@@ -7,6 +7,7 @@ import {
 } from '../../src/mission/v1/predicate-evaluator.mjs';
 
 const index = {
+    entryCapabilities: new Map([['capability.entry-only', { id: 'capability.entry-only' }]]),
     facts: new Map([['fact.manifest-reconciled', { id: 'fact.manifest-reconciled' }]]),
     events: new Map([['event.survivors-transferred', { id: 'event.survivors-transferred' }]]),
     outcomes: new Map([['outcome.evidence-preserved', {
@@ -33,6 +34,8 @@ const predicate = {
 };
 const context = {
     index,
+    entryCapabilities: new Set(['capability.entry-only']),
+    shipCapabilities: new Set(['ship-capability.segmented-isolation']),
     knownFacts: new Set(['fact.manifest-reconciled']),
     worldFacts: new Set(['fact.manifest-reconciled']),
     events: new Set(['event.survivors-transferred']),
@@ -70,6 +73,8 @@ for (const [label, candidate, expected] of [
     ['objective disposition', { objectiveDisposition: { id: 'objective.account-crew', equals: 'handedOff' } }, true],
     ['clock state', { clockState: { id: 'clock.life-support', equals: 'running' } }, true],
     ['mission status', { missionStatus: { in: ['terminal', 'active'] } }, true],
+    ['entry capability', { capabilityAvailable: 'capability.entry-only' }, true],
+    ['ship capability', { shipCapabilityAvailable: 'ship-capability.segmented-isolation' }, true],
     ['false conjunction', { all: [true, false] }, false],
 ]) {
     const result = evaluateMissionPredicate(candidate, context);
@@ -89,6 +94,7 @@ for (const [label, candidate, pattern] of [
     ['unknown clock', { clockState: { id: 'clock.unknown', equals: 'running' } }, /unknown clock/],
     ['invalid state', { objectiveState: { id: 'objective.account-crew', equals: 'done' } }, /unknown value/],
     ['mission status extra field', { missionStatus: { id: 'model-owned', equals: 'active' } }, /unknown match field/],
+    ['invalid ship capability id', { shipCapabilityAvailable: 'spaces are invalid' }, /stable id/],
 ]) {
     const result = validateMissionPredicate(candidate, index);
     assert.equal(result.ok, false, label);
@@ -110,6 +116,19 @@ assert.deepEqual([...refs.events], ['event.survivors-transferred']);
 assert.deepEqual([...refs.objectives], ['objective.account-crew']);
 assert.deepEqual([...refs.outcomes], []);
 assert.deepEqual([...refs.clocks], []);
+const shipRefs = collectMissionPredicateRefs({
+    all: [{ capabilityAvailable: 'capability.entry-only' }, { shipCapabilityAvailable: 'ship-capability.segmented-isolation' }],
+});
+assert.deepEqual([...shipRefs.entryCapabilities], ['capability.entry-only']);
+assert.deepEqual([...shipRefs.shipCapabilities], ['ship-capability.segmented-isolation']);
+assert.equal(evaluateMissionPredicate(
+    { shipCapabilityAvailable: 'capability.entry-only' },
+    context,
+).value, false, 'Mission-entry capability receipts do not satisfy dynamic Ship predicates.');
+assert.equal(evaluateMissionPredicate(
+    { capabilityAvailable: 'ship-capability.segmented-isolation' },
+    context,
+).ok, false, 'Dynamic Ship capability receipts do not satisfy mission-entry predicates.');
 
 const contextBefore = {
     knownFacts: [...context.knownFacts],

@@ -3,6 +3,7 @@ const PREDICATE_OPERATORS = new Set([
     'any',
     'not',
     'capabilityAvailable',
+    'shipCapabilityAvailable',
     'factKnown',
     'worldFact',
     'eventOccurred',
@@ -32,6 +33,8 @@ function createRefs() {
         outcomes: new Set(),
         objectives: new Set(),
         clocks: new Set(),
+        entryCapabilities: new Set(),
+        shipCapabilities: new Set(),
     };
 }
 
@@ -92,10 +95,18 @@ function validateNode(predicate, index, path, errors, refs) {
         return;
     }
     if (operator === 'capabilityAvailable') {
+        refs.entryCapabilities.add(value);
         if (typeof value !== 'string' || value.length === 0) {
             errors.push(`${path} capabilityAvailable requires an id`);
         } else if (!index?.entryCapabilities?.has(value)) {
             errors.push(`${path} references unknown capability: ${value}`);
+        }
+        return;
+    }
+    if (operator === 'shipCapabilityAvailable') {
+        refs.shipCapabilities.add(value);
+        if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)) {
+            errors.push(`${path} shipCapabilityAvailable requires a stable id`);
         }
         return;
     }
@@ -155,6 +166,8 @@ function collectRefsNode(predicate, refs) {
     if (Object.hasOwn(predicate, 'objectiveState')) refs.objectives.add(predicate.objectiveState?.id);
     if (Object.hasOwn(predicate, 'objectiveDisposition')) refs.objectives.add(predicate.objectiveDisposition?.id);
     if (Object.hasOwn(predicate, 'clockState')) refs.clocks.add(predicate.clockState?.id);
+    if (Object.hasOwn(predicate, 'capabilityAvailable')) refs.entryCapabilities.add(predicate.capabilityAvailable);
+    if (Object.hasOwn(predicate, 'shipCapabilityAvailable')) refs.shipCapabilities.add(predicate.shipCapabilityAvailable);
 }
 
 export function collectMissionPredicateRefs(predicate) {
@@ -204,6 +217,14 @@ function evaluateNode(predicate, context, reasons) {
             'capabilityAvailable',
             predicate.capabilityAvailable,
             hasValue(context.entryCapabilities, predicate.capabilityAvailable),
+        );
+    }
+    if (Object.hasOwn(predicate, 'shipCapabilityAvailable')) {
+        return recordReason(
+            reasons,
+            'shipCapabilityAvailable',
+            predicate.shipCapabilityAvailable,
+            hasValue(context.shipCapabilities, predicate.shipCapabilityAvailable),
         );
     }
     if (Object.hasOwn(predicate, 'worldFact')) {

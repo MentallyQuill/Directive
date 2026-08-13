@@ -13,6 +13,7 @@ import {
     appendShipWorkEvidenceToMissionState,
     validateShipWorkEvidenceProposal,
 } from '../ship/v1/ship-work-evidence.mjs';
+import { deriveShipMechanicsState } from '../ship/v1/ship-mechanics-state.mjs';
 import {
     createInitialMissionJourney,
     createSuccessorMissionJourney,
@@ -429,24 +430,44 @@ export function createV1StateSpine({
         return currentRevision;
     }
 
-    function reduceMissionProposal({ definition, proposal, sourceContribution } = {}) {
+    function shipCapabilityContext(shipDataset, storySettlement, excludedEffectIds = new Set()) {
+        if (!shipDataset?.mechanics) {
+            return { capabilityEvidenceById: new Map(), activeEffectIds: new Set() };
+        }
+        const settlement = structuredClone(storySettlement || {});
+        for (const episode of settlement.episodes || []) {
+            for (const effect of episode.effects || []) {
+                if (excludedEffectIds.has(effect.id)) effect.status = 'invalidated';
+            }
+        }
+        const derived = deriveShipMechanicsState({ shipDataset, storySettlement: settlement });
+        return {
+            capabilityEvidenceById: derived.capabilityEvidenceById,
+            activeEffectIds: derived.activeEffectIds,
+        };
+    }
+
+    function reduceMissionProposal({ definition, proposal, sourceContribution, shipDataset } = {}) {
         const campaignState = getState();
         const missionState = resolveV1MissionState({
             campaignState,
             definition,
             branchId: proposal.branchId,
         });
+        const shipContext = shipCapabilityContext(shipDataset, campaignState?.storySettlement);
         const evidence = validateMissionEvidenceProposal({
             definition,
             state: missionState,
             proposal,
             resolveSourceRef,
+            shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
         });
         const missionResult = reduceMissionEvidence({
             definition,
             state: missionState,
             acceptedClaims: evidence.acceptedClaims,
             sourceContribution,
+            shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
         });
         return { evidence, missionResult };
     }
@@ -473,7 +494,7 @@ export function createV1StateSpine({
             const boundaryResult = validateEpisodeHardBoundary(hardBoundary, { branchId: proposal?.branchId });
             if (!boundaryResult.ok) throw invalidHardBoundary(boundaryResult.errors);
         }
-        const reduced = reduceMissionProposal({ definition, proposal, sourceContribution });
+        const reduced = reduceMissionProposal({ definition, proposal, sourceContribution, shipDataset });
         const { evidence } = reduced;
         let missionResult = reduced.missionResult;
         if (evidence.proposalRejected) {
@@ -772,6 +793,7 @@ export function createV1StateSpine({
         reason = 'source-invalidated',
         authorityPatch = {},
         authorityDomains = [],
+        shipDataset = null,
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
@@ -857,6 +879,16 @@ export function createV1StateSpine({
             };
         }
         const invalidated = new Set(newContributionIds);
+        const invalidatedShipEffectIds = new Set(currentStorySettlement.episodes.flatMap((episode) => (
+            (episode.effects || [])
+                .filter((effect) => (effect.sourceContributionIds || []).some((id) => invalidated.has(id)))
+                .map((effect) => effect.id)
+        )));
+        const shipContext = shipCapabilityContext(
+            shipDataset,
+            currentStorySettlement,
+            invalidatedShipEffectIds,
+        );
         const matchingRuns = runs.filter((run) => (run.state?.evidenceLog || []).some(
             (entry) => invalidated.has(entry.sourceContributionId),
         ));
@@ -937,10 +969,17 @@ export function createV1StateSpine({
         });
         const dependencyPrunedEvidence = [];
         for (const batch of orderedEvidenceBatches(survivingEvidence)) {
+            const shipClaims = batch.claims.filter((claim) => claim.domain === 'shipWork');
+            const missionClaims = batch.claims.filter((claim) => claim.domain !== 'shipWork');
+            if (shipClaims.length > 0) {
+                rebuiltMission = appendShipWorkEvidenceToMissionState(rebuiltMission, shipClaims);
+            }
             const replayable = revalidateMissionEvidenceReplay({
                 definition: matchedDefinition,
                 state: rebuiltMission,
-                claims: batch.claims,
+                claims: missionClaims,
+                shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
+                activeDependencyEffectIds: shipContext.activeEffectIds,
             });
             dependencyPrunedEvidence.push(...replayable.rejectedClaims);
             if (replayable.acceptedClaims.length === 0) continue;
@@ -949,6 +988,7 @@ export function createV1StateSpine({
                 state: rebuiltMission,
                 acceptedClaims: replayable.acceptedClaims,
                 sourceContribution: null,
+                shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
             }).state;
         }
         rebuiltMission.revision = matchedRun.state.revision + 1;

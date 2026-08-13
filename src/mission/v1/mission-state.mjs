@@ -184,10 +184,15 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
     return { ok: errors.length === 0, errors };
 }
 
-export function missionStateContext(definition, state) {
+export function missionStateContext(definition, state, { shipCapabilityEvidenceById = new Map() } = {}) {
+    const capabilityEvidence = shipCapabilityEvidenceById instanceof Map
+        ? shipCapabilityEvidenceById
+        : new Map(Object.entries(shipCapabilityEvidenceById || {}));
     return {
         index: indexMissionDefinition(definition),
         entryCapabilities: new Set((state.entryContext?.capabilities || []).map((capability) => capability.id)),
+        shipCapabilities: new Set(capabilityEvidence.keys()),
+        shipCapabilityEvidenceById: capabilityEvidence,
         knownFacts: new Set(state.knownFacts || []),
         worldFacts: new Set(state.worldFacts || []),
         events: new Set(state.events || []),

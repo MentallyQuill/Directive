@@ -4,7 +4,7 @@ import {
     MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE,
 } from './mission-contracts.mjs';
 import { missionStateContext } from './mission-state.mjs';
-import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
+import { collectMissionPredicateRefs, evaluateMissionPredicate } from './predicate-evaluator.mjs';
 import { validateDutyReportDeliveryReceipt } from './duty-report-delivery.mjs';
 
 export { MISSION_EVIDENCE_CLAIM_TYPES } from './mission-contracts.mjs';
@@ -85,6 +85,8 @@ export function revalidateMissionEvidenceReplay({
     definition = {},
     state = {},
     claims = [],
+    shipCapabilityEvidenceById = new Map(),
+    activeDependencyEffectIds = new Set(),
 } = {}) {
     const index = indexMissionDefinition(definition);
     const stagedState = structuredClone(state);
@@ -109,7 +111,13 @@ export function revalidateMissionEvidenceReplay({
             rejectedRecords.push({ claim, originalIndex, reasonCode: 'policy-mismatch' });
             continue;
         }
-        const policyResult = evaluateMissionPredicate(policy.when, missionStateContext(definition, stagedState));
+        if ((claim.dependencyEffectIds || []).some((effectId) => !activeDependencyEffectIds.has(effectId))) {
+            rejectedRecords.push({ claim, originalIndex, reasonCode: 'dependency-not-met' });
+            continue;
+        }
+        const policyResult = evaluateMissionPredicate(policy.when, missionStateContext(definition, stagedState, {
+            shipCapabilityEvidenceById,
+        }));
         const disclosureHasTruth = claim.claimType !== 'factDisclosed'
             || stagedState.worldFacts.includes(claim.targetId);
         if (!policyResult.ok || !policyResult.value || !disclosureHasTruth) {
@@ -133,6 +141,7 @@ export function validateMissionEvidenceProposal({
     state = {},
     proposal = {},
     resolveSourceRef,
+    shipCapabilityEvidenceById = new Map(),
 } = {}) {
     const claims = Array.isArray(proposal?.claims) ? proposal.claims : [];
     if (proposal.kind !== MISSION_EVIDENCE_PROPOSAL_KIND) return rejectAll(claims, 'effect-not-allowed');
@@ -276,7 +285,7 @@ export function validateMissionEvidenceProposal({
         }
         const policyResult = evaluateMissionPredicate(
             candidate.policy.when,
-            missionStateContext(definition, stagedState),
+            missionStateContext(definition, stagedState, { shipCapabilityEvidenceById }),
         );
         const disclosureHasTruth = candidate.claim.claimType !== 'factDisclosed'
             || stagedState.worldFacts.includes(candidate.claim.targetId);
@@ -284,9 +293,14 @@ export function validateMissionEvidenceProposal({
             rejectAt(candidate.claim, 'precondition-not-met', candidate.originalIndex);
             continue;
         }
+        const shipCapabilityRefs = collectMissionPredicateRefs(candidate.policy.when).shipCapabilities;
+        const dependencyEffectIds = [...new Set([...shipCapabilityRefs].flatMap((capabilityId) => (
+            shipCapabilityEvidenceById.get(capabilityId) || []
+        )))].sort();
         const accepted = {
             ...candidate.claim,
             evidenceKey: candidate.evidenceKey,
+            ...(dependencyEffectIds.length > 0 ? { dependencyEffectIds } : {}),
             ...(typeof candidate.source?.contributionId === 'string' && candidate.source.contributionId.length > 0
                 ? { sourceContributionId: candidate.source.contributionId }
                 : {}),

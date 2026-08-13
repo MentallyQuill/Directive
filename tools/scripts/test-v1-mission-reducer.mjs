@@ -234,6 +234,46 @@ assert.deepEqual(
     multiSource.effects.map((effect) => effect.sourceContributionIds[0]),
     ['contribution.assistant-outcome', 'contribution.player-decision'],
 );
+const dependentReduction = reduceMissionEvidence({
+    definition,
+    state,
+    acceptedClaims: [{
+        ...rescueClaims[0],
+        claimId: 'claim.dependent-rescue',
+        evidenceKey: 'evidence.dependent-rescue',
+        dependencyEffectIds: ['effect.ship.isolation-test'],
+    }],
+    sourceContribution,
+});
+assert.deepEqual(dependentReduction.state.evidenceLog[0].dependencyEffectIds, ['effect.ship.isolation-test']);
+assert.deepEqual(dependentReduction.effects[0].dependencyEffectIds, ['effect.ship.isolation-test']);
+const shipObjectiveDefinition = structuredClone(definition);
+const shipObjective = shipObjectiveDefinition.objectives.find((objective) => objective.id === 'objective.hesperus-accountability');
+shipObjective.class = 'optional';
+shipObjective.activatedAs = null;
+shipObjective.activationWhen = { shipCapabilityAvailable: 'ship-capability.segmented-isolation' };
+shipObjective.availableWhen = { shipCapabilityAvailable: 'ship-capability.segmented-isolation' };
+shipObjective.visibleWhen = { shipCapabilityAvailable: 'ship-capability.segmented-isolation' };
+shipObjective.progressWhen = false;
+shipObjective.terminalWhen = [];
+const shipObjectiveResult = reduceMissionEvidence({
+    definition: shipObjectiveDefinition,
+    state: createMissionState({ definition: shipObjectiveDefinition, branchId: 'save.ship-objective' }),
+    acceptedClaims: [{
+        claimId: 'claim.ship-objective-trigger',
+        claimType: 'timeAdvanced',
+        targetId: 'clock.hesperus-life-support',
+        value: 1,
+        evidenceKey: 'evidence.ship-objective-trigger',
+    }],
+    sourceContribution,
+    shipCapabilityEvidenceById: new Map([[
+        'ship-capability.segmented-isolation',
+        ['effect.ship.isolation-test'],
+    ]]),
+});
+assert.equal(shipObjectiveResult.state.objectives['objective.hesperus-accountability'].state, 'available');
+assert.equal(shipObjectiveResult.state.objectives['objective.hesperus-accountability'].visibility, 'visible');
 const clockExpired = reduceMissionEvidence({
     definition,
     state: clockAdvanced.state,

@@ -1,6 +1,8 @@
 import { reduceMissionEvidence } from './mission-reducer.mjs';
 import { createMissionState, validateMissionState } from './mission-state.mjs';
 import { validateDutyReportDeliveryReceipt } from './duty-report-delivery.mjs';
+import { collectMissionPredicateRefs } from './predicate-evaluator.mjs';
+import { appendShipWorkEvidenceToMissionState } from '../../ship/v1/ship-work-evidence.mjs';
 
 const CLAIM_TARGET_COLLECTION = Object.freeze({
     worldFactEstablished: 'facts',
@@ -40,6 +42,7 @@ function validateEvidenceLog(definition, state, errors) {
     ));
     const evidenceKeys = new Set();
     for (const entry of state.evidenceLog || []) {
+        const isShipWork = entry?.domain === 'shipWork' && entry?.claimType === 'shipMilestoneCompleted';
         const targetCollection = collections[entry?.claimType];
         if (!entry?.evidenceKey || typeof entry.evidenceKey !== 'string') {
             errors.push('evidenceLog entry evidenceKey must be a non-empty string');
@@ -47,7 +50,7 @@ function validateEvidenceLog(definition, state, errors) {
             errors.push(`evidenceLog contains duplicate evidenceKey: ${entry.evidenceKey}`);
         }
         evidenceKeys.add(entry?.evidenceKey);
-        if (!targetCollection?.has(entry?.targetId)) {
+        if (!isShipWork && !targetCollection?.has(entry?.targetId)) {
             errors.push(`evidenceLog target is not authored for ${entry?.claimType || 'unknown claim type'}`);
             continue;
         }
@@ -100,6 +103,19 @@ function validateEvidenceLog(definition, state, errors) {
     }
 }
 
+function addShipCapabilityDependencies(definition, claims, capabilityEvidenceById) {
+    const policies = new Map((definition.evidencePolicies || []).map((policy) => [policy.id, policy]));
+    for (const claim of claims) {
+        const dependencies = Array.isArray(claim.dependencyEffectIds) ? claim.dependencyEffectIds : [];
+        if (dependencies.length === 0) continue;
+        const refs = collectMissionPredicateRefs(policies.get(claim.policyId)?.when).shipCapabilities;
+        for (const capabilityId of refs) {
+            const known = capabilityEvidenceById.get(capabilityId) || [];
+            capabilityEvidenceById.set(capabilityId, [...new Set([...known, ...dependencies])].sort());
+        }
+    }
+}
+
 function comparableTransitionReceipt(receipt) {
     if (!receipt) return null;
     const copy = structuredClone(receipt);
@@ -120,14 +136,24 @@ export function validateMissionStateAuthority({ definition = {}, state = {} } = 
         branchId: state.branchId,
         ...(state.entryContext === undefined ? {} : { entryContext: state.entryContext }),
     });
+    const shipCapabilityEvidenceById = new Map();
     try {
         for (const batch of batches) {
-            rebuilt = reduceMissionEvidence({
-                definition,
-                state: rebuilt,
-                acceptedClaims: batch.claims,
-                sourceContribution: null,
-            }).state;
+            const shipClaims = batch.claims.filter((claim) => claim.domain === 'shipWork');
+            const missionClaims = batch.claims.filter((claim) => claim.domain !== 'shipWork');
+            if (shipClaims.length > 0) {
+                rebuilt = appendShipWorkEvidenceToMissionState(rebuilt, shipClaims);
+            }
+            if (missionClaims.length > 0) {
+                addShipCapabilityDependencies(definition, missionClaims, shipCapabilityEvidenceById);
+                rebuilt = reduceMissionEvidence({
+                    definition,
+                    state: rebuilt,
+                    acceptedClaims: missionClaims,
+                    sourceContribution: null,
+                    shipCapabilityEvidenceById,
+                }).state;
+            }
         }
     } catch {
         return { ok: false, errors: [...errors, 'evidenceLog cannot reconstruct mission authority'] };

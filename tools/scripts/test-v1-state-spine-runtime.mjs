@@ -620,7 +620,12 @@ const shipDataset = {
     mechanics: {
         kind: 'directive.shipMechanics.v1',
         schemaVersion: 1,
-        capabilities: [],
+        capabilities: [{
+            id: 'ship-capability.test-isolation',
+            playerText: { label: 'Test isolation', summary: 'Run the test system in an isolated segment.' },
+            narratorGuidance: 'Allow the authored isolated test route when the player invokes it.',
+            limits: ['It does not guarantee that the test succeeds.'],
+        }],
         constraints: [],
         systems: [{
             id: 'ship-system.test',
@@ -629,6 +634,9 @@ const shipDataset = {
             states: [{
                 id: 'ship-state.test.opening', rank: 0, capabilityIds: [], constraintIds: [],
                 playerText: { label: 'Opening', why: 'No test is accepted.', mechanicalEffect: 'No test capability is available.' },
+            }, {
+                id: 'ship-state.test.isolated', rank: 1, capabilityIds: ['ship-capability.test-isolation'], constraintIds: [],
+                playerText: { label: 'Isolated', why: 'The controlled test is accepted.', mechanicalEffect: 'An isolated test route is available.' },
             }],
             milestones: [{
                 id: 'ship-milestone.test-complete',
@@ -639,17 +647,35 @@ const shipDataset = {
                     exclusions: ['Beginning the test is not completion.'],
                 },
             }],
-            transitions: [],
+            transitions: [{
+                id: 'ship-transition.test-isolated',
+                fromStateId: 'ship-state.test.opening',
+                toStateId: 'ship-state.test.isolated',
+                requiredMilestoneIds: ['ship-milestone.test-complete'],
+            }],
         }],
     },
 };
+const shipWorkDefinition = structuredClone(accumulationDefinition);
+shipWorkDefinition.events.push({
+    id: 'event.ship-capability-used',
+    playerVisibility: 'visible',
+    playerText: { summary: 'The isolated test route changed the encounter.' },
+});
+shipWorkDefinition.evidencePolicies.push({
+    id: 'policy.ship-capability-used',
+    claimType: 'eventOccurred',
+    targetId: 'event.ship-capability-used',
+    sourceRoles: ['assistant'],
+    when: { shipCapabilityAvailable: 'ship-capability.test-isolation' },
+});
 let shipWorkState = createAshesInitialState({
     campaignId: 'campaign.ship-work', saveId: 'save.ship-work', chatId: 'chat.ship-work',
 });
-const shipWorkJourney = createInitialMissionJourney({ definition: accumulationDefinition, branchId: 'save.ship-work' });
+const shipWorkJourney = createInitialMissionJourney({ definition: shipWorkDefinition, branchId: 'save.ship-work' });
 shipWorkState.mission = {
-    activeMissionId: accumulationDefinition.packageBinding.sourceId,
-    v1: createMissionState({ definition: accumulationDefinition, branchId: 'save.ship-work' }),
+    activeMissionId: shipWorkDefinition.packageBinding.sourceId,
+    v1: createMissionState({ definition: shipWorkDefinition, branchId: 'save.ship-work' }),
     v1Journey: shipWorkJourney.journey,
     v1History: shipWorkJourney.history,
 };
@@ -663,10 +689,11 @@ const shipWorkSource = {
     contributionId: 'contribution.ship-work', messageId: 'message.ship-work',
     selectedSwipeId: 'swipe.ship-work', textHash: 'c'.repeat(64), acceptedAtRevision: 0,
 };
+const shipWorkSources = new Map([[shipWorkSource.messageId, shipWorkSource]]);
 const shipWorkSpine = createV1StateSpine({
     getState: () => shipWorkState,
     stateDeltaGateway: shipWorkGateway,
-    resolveSourceRef: () => shipWorkSource,
+    resolveSourceRef: (ref) => shipWorkSources.get(ref.messageId) || null,
 });
 const shipWorkContribution = {
     id: shipWorkSource.contributionId, messageId: shipWorkSource.messageId,
@@ -674,10 +701,10 @@ const shipWorkContribution = {
     textHash: shipWorkSource.textHash, acceptedAtRevision: 0,
 };
 const shipWorkResult = await shipWorkSpine.settleAcceptedPair({
-    definition: accumulationDefinition,
+    definition: shipWorkDefinition,
     proposal: {
         kind: 'directive.missionEvidenceProposal.v1', branchId: 'save.ship-work',
-        missionId: accumulationDefinition.id, baseRevision: 0, claims: [],
+        missionId: shipWorkDefinition.id, baseRevision: 0, claims: [],
     },
     shipDataset,
     shipProposal: {
@@ -700,5 +727,59 @@ assert.equal(shipWorkState.mission.v1.evidenceLog.some(({ domain }) => domain ==
 assert.equal(shipWorkState.storySettlement.episodes[0].effects.some((effect) => (
     effect.type === 'ship.milestoneCompleted' && effect.targetId === 'ship-milestone.test-complete'
 )), true);
+
+const capabilitySource = {
+    branchId: 'save.ship-work', role: 'assistant', accepted: true,
+    contributionId: 'contribution.ship-capability', messageId: 'message.ship-capability',
+    selectedSwipeId: 'swipe.ship-capability', textHash: 'd'.repeat(64), acceptedAtRevision: 1,
+};
+shipWorkSources.set(capabilitySource.messageId, capabilitySource);
+const capabilityContribution = {
+    id: capabilitySource.contributionId, messageId: capabilitySource.messageId,
+    swipeId: capabilitySource.selectedSwipeId, role: capabilitySource.role,
+    textHash: capabilitySource.textHash, acceptedAtRevision: 1,
+};
+await shipWorkSpine.settleAcceptedPair({
+    definition: shipWorkDefinition,
+    proposal: {
+        kind: 'directive.missionEvidenceProposal.v1', branchId: 'save.ship-work',
+        missionId: shipWorkDefinition.id, baseRevision: 1, claims: [{
+            claimId: 'claim.ship-capability-used', policyId: 'policy.ship-capability-used',
+            claimType: 'eventOccurred', targetId: 'event.ship-capability-used',
+            sourceRef: {
+                messageId: capabilitySource.messageId,
+                swipeId: capabilitySource.selectedSwipeId,
+                textHash: capabilitySource.textHash,
+            },
+        }],
+    },
+    shipDataset,
+    sourceContributions: [capabilityContribution],
+    sourceObservations: [{
+        contributionId: capabilityContribution.id, role: capabilityContribution.role,
+        textHash: capabilityContribution.textHash, text: 'The crew uses the isolated route to resolve the encounter.',
+    }],
+    gatewayBaseRevision: 1,
+    scene: { episodeId: 'episode.ship-work', sceneId: 'scene.ship-work' },
+});
+const dependentEvidence = shipWorkState.mission.v1.evidenceLog.find(
+    ({ claimId }) => claimId === 'claim.ship-capability-used',
+);
+assert.equal(dependentEvidence.dependencyEffectIds.length, 1);
+assert.equal(shipWorkState.mission.v1.events.includes('event.ship-capability-used'), true);
+
+await shipWorkSpine.invalidateSources({
+    definition: shipWorkDefinition,
+    missionDefinitions: [shipWorkDefinition],
+    branchId: 'save.ship-work',
+    contributionIds: [shipWorkContribution.id],
+    gatewayBaseRevision: 2,
+    reason: 'selected-swipe-changed',
+    shipDataset,
+});
+assert.equal(shipWorkState.mission.v1.events.includes('event.ship-capability-used'), false);
+assert.equal(shipWorkState.storySettlement.episodes.flatMap(({ effects }) => effects).some((effect) => (
+    effect.targetId === 'event.ship-capability-used' && effect.status === 'active'
+)), false);
 
 console.log('V1 state spine runtime tests passed.');

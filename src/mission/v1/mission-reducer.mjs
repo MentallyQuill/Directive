@@ -20,8 +20,8 @@ function compareClaims(a, b) {
     return String(a?.claimId || '').localeCompare(String(b?.claimId || ''));
 }
 
-function evaluate(predicate, definition, state) {
-    const result = evaluateMissionPredicate(predicate, missionStateContext(definition, state));
+function evaluate(predicate, definition, state, predicateContext) {
+    const result = evaluateMissionPredicate(predicate, missionStateContext(definition, state, predicateContext));
     if (!result.ok) throw new TypeError(result.errors.join('\n'));
     return result.value;
 }
@@ -68,19 +68,19 @@ function applyClaim(definition, state, claim) {
     }
 }
 
-function reduceClocks(definition, state, effects, sourceContribution) {
+function reduceClocks(definition, state, effects, sourceContribution, predicateContext) {
     const index = indexMissionDefinition(definition);
     for (const clockDefinition of definition.clocks || []) {
         const clock = state.clocks[clockDefinition.id];
-        clock.visibility = evaluate(clockDefinition.visibleWhen, definition, state) ? 'visible' : 'hidden';
-        if (clock.state === 'notStarted' && evaluate(clockDefinition.startWhen, definition, state)) clock.state = 'running';
-        if (clock.state === 'running' && clockDefinition.pauseWhen && evaluate(clockDefinition.pauseWhen, definition, state)) {
+        clock.visibility = evaluate(clockDefinition.visibleWhen, definition, state, predicateContext) ? 'visible' : 'hidden';
+        if (clock.state === 'notStarted' && evaluate(clockDefinition.startWhen, definition, state, predicateContext)) clock.state = 'running';
+        if (clock.state === 'running' && clockDefinition.pauseWhen && evaluate(clockDefinition.pauseWhen, definition, state, predicateContext)) {
             clock.state = 'paused';
-        } else if (clock.state === 'paused' && clockDefinition.resumeWhen && evaluate(clockDefinition.resumeWhen, definition, state)) {
+        } else if (clock.state === 'paused' && clockDefinition.resumeWhen && evaluate(clockDefinition.resumeWhen, definition, state, predicateContext)) {
             clock.state = 'running';
         }
-        if (clockDefinition.resolveWhen && evaluate(clockDefinition.resolveWhen, definition, state)) clock.state = 'resolved';
-        if (clock.state === 'expired' && !clock.expiryApplied && evaluate(clockDefinition.expireWhen, definition, state)) {
+        if (clockDefinition.resolveWhen && evaluate(clockDefinition.resolveWhen, definition, state, predicateContext)) clock.state = 'resolved';
+        if (clock.state === 'expired' && !clock.expiryApplied && evaluate(clockDefinition.expireWhen, definition, state, predicateContext)) {
             const consequence = clockDefinition.consequence;
             if (consequence.effectType === 'eventOccurred' && index.events.has(consequence.targetId)) {
                 addUnique(state.events, consequence.targetId);
@@ -99,20 +99,20 @@ function reduceClocks(definition, state, effects, sourceContribution) {
     }
 }
 
-function reduceObjectives(definition, state) {
+function reduceObjectives(definition, state, predicateContext) {
     for (let pass = 0; pass <= (definition.objectives || []).length; pass += 1) {
         let changed = false;
         for (const objective of definition.objectives || []) {
             const current = state.objectives[objective.id];
             if (current.state === 'terminal') continue;
-            const active = evaluate(objective.activationWhen, definition, state);
-            const visible = active && evaluate(objective.visibleWhen, definition, state);
-            const available = active && evaluate(objective.availableWhen, definition, state);
+            const active = evaluate(objective.activationWhen, definition, state, predicateContext);
+            const visible = active && evaluate(objective.visibleWhen, definition, state, predicateContext);
+            const available = active && evaluate(objective.availableWhen, definition, state, predicateContext);
             let nextState = available ? 'available' : 'inactive';
-            if (available && evaluate(objective.progressWhen, definition, state)) nextState = 'inProgress';
+            if (available && evaluate(objective.progressWhen, definition, state, predicateContext)) nextState = 'inProgress';
             let disposition = null;
             for (const terminal of objective.terminalWhen || []) {
-                if (active && evaluate(terminal.when, definition, state)) {
+                if (active && evaluate(terminal.when, definition, state, predicateContext)) {
                     nextState = 'terminal';
                     disposition = terminal.disposition;
                     break;
@@ -132,19 +132,19 @@ function reduceObjectives(definition, state) {
     }
 }
 
-function reduceOutcomeDimensions(definition, state) {
+function reduceOutcomeDimensions(definition, state, predicateContext) {
     for (const dimension of definition.outcomeDimensions || []) {
         const derivations = [...(dimension.derive || [])].sort((a, b) => b.priority - a.priority);
-        const matched = derivations.find((derivation) => evaluate(derivation.when, definition, state));
+        const matched = derivations.find((derivation) => evaluate(derivation.when, definition, state, predicateContext));
         if (matched) state.outcomeDimensions[dimension.id] = matched.value;
         else delete state.outcomeDimensions[dimension.id];
     }
 }
 
-function selectByPriority(records, definition, state) {
+function selectByPriority(records, definition, state, predicateContext) {
     return [...records]
         .sort((a, b) => b.priority - a.priority)
-        .find((record) => evaluate(record.when, definition, state)) || null;
+        .find((record) => evaluate(record.when, definition, state, predicateContext)) || null;
 }
 
 function objectiveTerminalText(objective, disposition) {
@@ -195,6 +195,7 @@ export function reduceMissionEvidence({
     state: inputState = {},
     acceptedClaims = [],
     sourceContribution = null,
+    shipCapabilityEvidenceById = new Map(),
 } = {}) {
     const state = structuredClone(inputState);
     if (state.transitionReceipt && acceptedClaims.every((claim) => state.acceptedEvidenceKeys.includes(claim.evidenceKey))) {
@@ -221,6 +222,9 @@ export function reduceMissionEvidence({
             targetId: claim.targetId,
             value: claim.value ?? null,
             sourceContributionId: contributionId,
+            ...(Array.isArray(claim.dependencyEffectIds) && claim.dependencyEffectIds.length > 0
+                ? { dependencyEffectIds: [...claim.dependencyEffectIds] }
+                : {}),
             acceptedAtMissionRevision,
             ...(claim.delivery ? { delivery: structuredClone(claim.delivery) } : {}),
         });
@@ -231,6 +235,9 @@ export function reduceMissionEvidence({
             targetId: claim.targetId,
             value: claim.value ?? null,
             sourceContributionIds: contributionId ? [contributionId] : [],
+            ...(Array.isArray(claim.dependencyEffectIds) && claim.dependencyEffectIds.length > 0
+                ? { dependencyEffectIds: [...claim.dependencyEffectIds] }
+                : {}),
             playerVisibility: effectVisibility(index, state, claim),
             status: 'active',
         });
@@ -243,11 +250,12 @@ export function reduceMissionEvidence({
         commandBearingAwards: eligibleMissionCommandBearingAwards(definition, state),
     };
 
-    reduceClocks(definition, state, effects, sourceContribution);
-    reduceObjectives(definition, state);
-    reduceOutcomeDimensions(definition, state);
-    if (state.status !== 'terminal' && evaluate(definition.closeWhen, definition, state)) {
-        const terminal = selectByPriority(definition.terminalDispositions || [], definition, state);
+    const predicateContext = { shipCapabilityEvidenceById };
+    reduceClocks(definition, state, effects, sourceContribution, predicateContext);
+    reduceObjectives(definition, state, predicateContext);
+    reduceOutcomeDimensions(definition, state, predicateContext);
+    if (state.status !== 'terminal' && evaluate(definition.closeWhen, definition, state, predicateContext)) {
+        const terminal = selectByPriority(definition.terminalDispositions || [], definition, state, predicateContext);
         if (!terminal) throw new TypeError('closeWhen is true without an eligible terminal disposition');
         state.status = 'terminal';
         state.terminalDisposition = terminal.id;
@@ -256,7 +264,7 @@ export function reduceMissionEvidence({
 
     let transitionPacket = null;
     if (state.status === 'terminal' && !state.transitionReceipt) {
-        const transition = selectByPriority(definition.transitions || [], definition, state);
+        const transition = selectByPriority(definition.transitions || [], definition, state, predicateContext);
         if (!transition) throw new TypeError('terminal mission has no eligible transition');
         transitionPacket = createTransitionPacket(definition, state, transition, effects);
         state.transitionReceipt = {

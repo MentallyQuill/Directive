@@ -246,7 +246,8 @@ export async function reconstructV1BranchState({
         branchId: campaignState.campaignChatBinding.saveId,
         contributionIds,
         gatewayBaseRevision: gateway.revision(),
-        reason: 'native-branch-discarded'
+        reason: 'native-branch-discarded',
+        shipDataset: runtimeAssets.shipDataset || null
       });
     } catch (error) {
       throw reconstructionError('DIRECTIVE_BRANCH_MISSION_REBUILD_FAILED', 'Mission authority could not be reconstructed.', { message: error?.message, code: error?.code });

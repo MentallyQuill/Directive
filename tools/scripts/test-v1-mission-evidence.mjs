@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+    revalidateMissionEvidenceReplay,
     validateMissionEvidenceProposal,
 } from '../../src/mission/v1/evidence-contracts.mjs';
 
@@ -361,6 +362,67 @@ const lowConfidence = validate({
     proposalOverrides: { providerConfidence: 0.01 },
 });
 assert.equal(lowConfidence.acceptedClaims.length, 1);
+
+const shipCapabilityDefinition = structuredClone(definition);
+shipCapabilityDefinition.events.push({ id: 'event.segmented-isolation-used' });
+shipCapabilityDefinition.evidencePolicies.push({
+    id: 'policy.segmented-isolation-used',
+    claimType: 'eventOccurred',
+    targetId: 'event.segmented-isolation-used',
+    sourceRoles: ['assistant'],
+    when: { shipCapabilityAvailable: 'ship-capability.segmented-isolation' },
+});
+const shipCapabilityClaim = {
+    claimId: 'claim.segmented-isolation-used',
+    policyId: 'policy.segmented-isolation-used',
+    claimType: 'eventOccurred',
+    targetId: 'event.segmented-isolation-used',
+    sourceRef: sourceRef(assistantSource),
+};
+const withoutShipCapability = validateMissionEvidenceProposal({
+    definition: shipCapabilityDefinition,
+    state: { ...state, events: [] },
+    proposal: { ...proposal, claims: [shipCapabilityClaim] },
+    resolveSourceRef: () => assistantSource,
+    shipCapabilityEvidenceById: new Map(),
+});
+assert.equal(withoutShipCapability.acceptedClaims.length, 0);
+assert.equal(withoutShipCapability.rejectedClaims[0].reasonCode, 'precondition-not-met');
+
+const withShipCapability = validateMissionEvidenceProposal({
+    definition: shipCapabilityDefinition,
+    state: { ...state, events: [] },
+    proposal: { ...proposal, claims: [shipCapabilityClaim] },
+    resolveSourceRef: () => assistantSource,
+    shipCapabilityEvidenceById: new Map([[
+        'ship-capability.segmented-isolation',
+        ['effect.ship.isolation-test'],
+    ]]),
+});
+assert.equal(withShipCapability.acceptedClaims.length, 1);
+assert.deepEqual(withShipCapability.acceptedClaims[0].dependencyEffectIds, ['effect.ship.isolation-test']);
+
+const replayWithDependency = revalidateMissionEvidenceReplay({
+    definition: shipCapabilityDefinition,
+    state: { ...state, events: [] },
+    claims: withShipCapability.acceptedClaims,
+    shipCapabilityEvidenceById: new Map([[
+        'ship-capability.segmented-isolation',
+        ['effect.ship.isolation-test'],
+    ]]),
+    activeDependencyEffectIds: new Set(['effect.ship.isolation-test']),
+});
+assert.equal(replayWithDependency.acceptedClaims.length, 1);
+
+const replayWithoutDependency = revalidateMissionEvidenceReplay({
+    definition: shipCapabilityDefinition,
+    state: { ...state, events: [] },
+    claims: withShipCapability.acceptedClaims,
+    shipCapabilityEvidenceById: new Map(),
+    activeDependencyEffectIds: new Set(),
+});
+assert.equal(replayWithoutDependency.acceptedClaims.length, 0);
+assert.equal(replayWithoutDependency.rejectedClaims[0].reasonCode, 'dependency-not-met');
 
 const reportDefinition = {
     ...definition,
