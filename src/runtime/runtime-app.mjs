@@ -1162,7 +1162,10 @@ export function createDirectiveRuntimeApp({
     async interceptGeneration() {
       await ensureInitialized();
       await settlementQueue;
-      if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+      if (!state || !currentChatIsBound()) {
+        await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
+        return { handled: false, reason: 'inactive-or-unbound' };
+      }
       if (pendingAcceptedPairSettlement) {
         return {
           handled: true,

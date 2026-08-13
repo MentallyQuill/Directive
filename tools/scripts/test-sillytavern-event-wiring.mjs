@@ -171,4 +171,31 @@ assert.deepEqual(continuedGeneration, {
 });
 clearSillyTavernDirectiveRuntimeBridge();
 
+let passThroughAbortCalls = 0;
+let downstreamExtensionRuns = 0;
+const hostNarration = [{ role: 'user', content: 'HOST_CHAT_CANARY' }];
+setSillyTavernDirectiveRuntimeBridge({
+  turnOrchestrator: {
+    async interceptGeneration({ chat }) {
+      assert.equal(chat, hostNarration);
+      return {
+        handled: true,
+        abortDefaultGeneration: false,
+        responseStrategy: 'injectAndContinue'
+      };
+    }
+  }
+});
+const passThrough = await directiveGenerationInterceptor(
+  hostNarration,
+  8192,
+  () => { passThroughAbortCalls += 1; },
+  'normal'
+);
+if (passThrough.abortDefaultGeneration === false) downstreamExtensionRuns += 1;
+assert.equal(passThroughAbortCalls, 0, 'successful Directive interception must not abort host narration');
+assert.equal(downstreamExtensionRuns, 1, 'normal downstream extension participation remains available');
+assert.deepEqual(hostNarration, [{ role: 'user', content: 'HOST_CHAT_CANARY' }], 'Directive must not rewrite host chat');
+clearSillyTavernDirectiveRuntimeBridge();
+
 console.log('PASS V1 SillyTavern event wiring');

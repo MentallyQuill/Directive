@@ -497,6 +497,16 @@ assert.equal(persistedPortraitAtCampaignRemovalCleanup, null);
 assert.equal((await app.getCurrentView({ tabId: 'crew' })).campaignState.player.portrait, null);
 
 chat.setCurrentChatId('unbound-preset-lifecycle');
+const clearsBeforeUnboundInterception = host.prompt.calls().filter((call) => call.type === 'clear').length;
+const unboundInterception = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.deepEqual(unboundInterception, { handled: false, reason: 'inactive-or-unbound' });
+assert.equal(host.prompt.inspect().blocks.length, 0, 'an unbound generation boundary must clear stale Directive context');
+await app.getChatTurnOrchestrator().interceptGeneration();
+assert.equal(
+  host.prompt.calls().filter((call) => call.type === 'clear').length,
+  clearsBeforeUnboundInterception + 2,
+  'every unbound generation boundary must clear the namespaced Directive prompt'
+);
 await app.handleHostChatChanged();
 assert.equal(narrationPresetLifecycle.at(-1), 'restore', 'leaving a bound campaign chat must restore the prior preset');
 await app.openCampaignChat({ saveId: missionView.activeSaveId });
