@@ -1,108 +1,116 @@
-# Mobile Campaign Actions and Saved Games Design
+# Focused Campaign Dashboard and Browser Design
 
 **Status:** Approved design
 
 ## Goal
 
-Make the active Campaign page feel deliberate on phones by separating the three jobs currently competing in one wrapped button row:
+Make the Campaign tab focus on the campaign the player is actively playing. Saved games and the Campaign browser remain available on demand instead of permanently competing with the active campaign for space.
 
-1. continue the current story;
-2. create or load a saved game; and
-3. permanently delete the campaign.
+The change must preserve Directive's existing timeline semantics, campaign-library presentation, failure-closed deletion, responsive behavior, and accessible keyboard and screen-reader operation.
 
-The change must preserve Directive's existing timeline semantics, failure-closed campaign deletion, desktop usability, and accessible keyboard and screen-reader behavior.
+## Approved Information Architecture
 
-## Approved Direction
+The Campaign tab has two presentation modes:
 
-Remove the standalone `Save Game`, `Load Game`, and spelled-out `Delete Campaign` buttons from the active-campaign action row.
+1. **Active Campaign Dashboard** - the default whenever an active campaign exists.
+2. **Campaign Browser** - opened explicitly through a `Campaigns` control, or shown automatically when no active campaign exists.
 
-The active-campaign detail instead presents:
+The dashboard does not render the persistent `Your Stories`, `Campaign Library`, or saved-game lists. This removes low-value choices from the player's ordinary play surface while retaining every workflow behind an intentional control.
 
-- a dominant `Continue` button;
-- a compact campaign-delete icon button using the supplied trash-can-with-X artwork;
-- a `Saved Games` heading with a compact `Save` action; and
-- individual saved-game rows that are the entry points for loading and deleting those saves.
+`Campaigns`, rather than `New Campaign`, is the browser label because the destination supports both existing stories and new Campaign Library packages.
 
-The controls must not be compressed merely to keep four long labels on one line. Their grouping communicates priority.
+## Active Campaign Dashboard
 
-## Active Campaign Actions
+The dashboard presents the selected active campaign's existing identity, hero artwork, player-facing summary, and current status. A compact dashboard heading identifies it as the current campaign and places the `Campaigns` browser control at the trailing edge.
 
-`Continue` and the campaign-delete icon share one row. `Continue` expands to fill the available width. The delete control is a square icon button with a minimum 44 by 44 CSS-pixel target on phone layouts.
+The action hierarchy is:
 
-The supplied `delete.svg` contributes its `24 24` view box and path. The imported asset drops its fixed 800-pixel dimensions, black fill, generator comment, and other source-only metadata. Directive renders it with the existing icon-mask or `currentColor` treatment so the control can use the established salmon danger color.
+- `Continue` as the dominant primary action;
+- `Save Game` and `Load Game` as equal secondary actions; and
+- an icon-only campaign-delete control using the supplied trash-can-with-X artwork.
 
-The icon button has:
+Desktop has enough width to keep Continue, Save Game, Load Game, and the square delete control in one aligned action row. Phone layouts use two deliberate rows: Continue plus the delete icon on the first row, then equal-width Save Game and Load Game controls on the second. The layout must use a responsive grid rather than incidental flex wrapping.
 
-- accessible name `Delete campaign`;
-- a visible tooltip reading `Delete campaign` on pointer hover and keyboard focus;
-- no dependency on hover for activation or comprehension on touch devices; and
-- no direct destructive behavior.
+`Load Game` is disabled when the campaign has no saved games. No saved-game rows appear on the dashboard.
 
-Activating the icon opens the existing campaign-deletion dialog. The dialog remains the destructive authority: it names the exact SillyTavern character, explains that its chats will be removed, requires the user to type `delete`, and keeps its final Delete action disabled until that confirmation is valid. It remains viewport-bounded and internally scrollable on phones. No campaign data is removed merely by activating the icon.
+## Load and Save Dialogs
 
-## Saved Games
+`Load Game` opens Directive's existing AAA-style load dialog on desktop and mobile. The dialog:
 
-The `Saved Games` heading owns save management. A compact `Save` action appears at the trailing edge of that heading and opens the existing named-save dialog. This removes `Save Game` from the primary campaign action row without hiding the feature.
+- explains that loading creates a new timeline while preserving the current timeline automatically;
+- lists every saved game for the exact selected campaign;
+- displays each save's human-readable name plus chapter, stardate, and creation date;
+- requires the player to select a save before enabling its final `Load Game` action; and
+- calls the existing load action with the exact selected saved-game ID only after confirmation.
 
-The saved-game list replaces the generic top-level `Load Game` button. Each row presents one concrete save with a human-readable name and secondary chapter, stardate, and creation-date metadata. The row body is the load affordance. Its accessible name makes the action explicit, for example `Load saved game Before Prelude`.
+The list is local to the dialog and may scroll independently. It must remain bounded by the dynamic viewport on phones. Closing it restores focus to the dashboard's Load Game control.
 
-Choosing a row must not switch timelines immediately. It opens a focused load-confirmation dialog for that exact saved game. The confirmation identifies the selected save and retains the existing explanation that loading creates a new timeline while preserving the current timeline automatically. The user must activate the dialog's `Load Game` action to proceed. The dialog does not repeat the complete saved-game picker because selection has already happened in the page.
+`Save Game` continues to open the existing named-save dialog. Successful save refreshes the dashboard so Load Game becomes enabled when the first save is created. Saved-game deletion remains available within the load-management surface rather than returning a persistent save list to the dashboard. Its confirmation and exact checkpoint targeting remain intact.
 
-Each row also exposes a compact saved-game delete control. Activating that control must stop the row's load behavior and retain the existing saved-game deletion confirmation. Its accessible name includes the save name. Saved-game deletion and campaign deletion remain visually and behaviorally distinct.
+## Campaign Delete Control
 
-When no saves exist, the section shows the existing empty-state message and the heading-level `Save` action remains available.
+The supplied `delete.svg` contributes its `24 24` view box and path. The imported asset drops fixed 800-pixel dimensions, black fill, generator comment, and source-only metadata. Directive renders it through the established icon-mask or `currentColor` treatment with the salmon danger color.
 
-## Responsive Presentation
+The dashboard control is a square icon button with a minimum 44 by 44 CSS-pixel target on phones. It has accessible name `Delete campaign` and a visible `Delete campaign` tooltip on pointer hover and keyboard focus. Touch comprehension does not depend on the tooltip because activating the icon only opens the fully labeled confirmation dialog.
 
-The same action semantics apply on desktop and mobile so moving between viewports does not change what a control does.
+The existing campaign-deletion dialog remains the destructive authority. It names the exact SillyTavern character, explains that its chats will be removed, requires typed `delete`, and keeps the final Delete action disabled until valid. Host deletion remains first and failure-closed; Directive storage is retained if host deletion fails.
 
-On phones:
+## Campaign Browser
 
-- `Continue` and campaign delete remain on one row without wrapping;
-- the `Saved Games` heading and `Save` action remain on one row;
-- saved-game metadata wraps within the row rather than forcing horizontal overflow;
-- every interactive target is at least 44 CSS pixels in both dimensions; and
-- the section includes enough bottom padding that the final row is not crowded by Directive's bottom navigation or the device safe area.
+Activating `Campaigns` replaces the dashboard with the existing Campaign browser inside the Campaign tab. It is a tab subview, not a modal:
 
-On desktop, the compact delete control supplies its tooltip on both hover and keyboard focus. Saved-game rows remain fully operable by keyboard and expose visible focus treatment.
+- desktop retains the existing master/detail browser the user approved;
+- mobile retains the existing single-open disclosure browser;
+- `Your Stories`, Campaign Library packages, availability states, artwork, descriptions, and player-safe campaign facts remain unchanged; and
+- future campaigns remain selectable previews whose activation is disabled.
 
-## Interaction and Error Handling
+When an active campaign exists, the browser includes a `Back to Current Campaign` control. Returning restores the same dashboard campaign without mutating campaign or timeline state. Browsing records changes only browser selection; it does not silently activate, load, or switch a campaign.
 
-All existing runtime actions and authority boundaries remain in place. This is a presentation and interaction-composition change, not a timeline or storage rewrite.
+When no active campaign exists, the Campaign tab opens directly in browser mode and omits the back control. Starting or resuming campaign setup continues through the existing creator flow. Once a campaign becomes active, returning to the Campaign tab defaults to its dashboard.
 
-- `Continue` calls the existing active-chat action.
-- `Save` calls the existing save-game dialog and save action.
-- A saved-game row passes its exact saved-game ID into the targeted load confirmation, which calls the existing load action only after confirmation.
-- A saved-game delete control passes its exact checkpoint ID into the existing delete-save action.
-- Campaign delete continues to use the exact campaign, active save, character, and chat binding already enforced by the deletion flow.
-- Loading, saving, or deleting shows the existing busy/error behavior. A failed campaign host deletion must leave Directive campaign storage intact.
-- Dialog dismissal restores focus to the control that opened it without changing the surrounding Campaign page selection or scroll position.
+## State and Authority Boundaries
 
-## Accessibility
+Dashboard-versus-browser mode is presentation state owned by the Campaign panel. It must not become campaign persistence, timeline state, or a second active-campaign authority. Each render derives the active campaign from the certified campaign view.
 
-Icon-only controls require programmatic labels and must never rely on color or hover text alone. Tooltips appear on focus as well as hover and do not replace `aria-label` values.
+Existing actions remain authoritative:
 
-Saved-game rows use native buttons or equivalent keyboard-operable controls. Nested delete controls must not create invalid nested-button markup; the row layout uses separate sibling controls within a grid. Enter or Space on the load control opens the load confirmation. Enter or Space on the delete control opens only the saved-game deletion confirmation.
+- Continue opens the exact active campaign chat.
+- Save Game creates a saved game through the existing save action.
+- Load Game passes the selected saved-game ID through the existing load action.
+- Campaign deletion uses the exact campaign, active save, character, and chat binding already enforced by the deletion controller.
+- Browser package actions continue to start or resume the existing creator draft.
 
-All modal focus, inert-background, Escape, error announcement, and focus-restoration behavior already provided by Directive is preserved.
+Dialog dismissal and browser navigation preserve the Campaign tab's surrounding scroll and focus context where applicable. Runtime refresh after save, load, creation, or deletion re-derives the correct mode from current certified state rather than trusting stale UI state.
+
+## Accessibility and Responsive Requirements
+
+- All phone interaction targets are at least 44 CSS pixels in both dimensions.
+- Icon-only controls have programmatic labels and never rely on color or hover text alone.
+- Tooltips appear on keyboard focus as well as pointer hover.
+- Dashboard grids do not wrap accidentally or overflow at certified desktop and phone widths.
+- Load-dialog rows are native buttons or equivalent keyboard-operable controls with `aria-pressed` selection state.
+- Existing modal focus containment, inert background, Escape handling, error announcements, and opener-focus restoration remain intact.
+- Campaign browser controls expose the current subview and return action clearly to assistive technology.
 
 ## Verification
 
 Focused DOM and browser coverage must prove:
 
-1. the active action row contains `Continue` and one campaign-delete icon control, with no standalone Save or Load button;
-2. the icon has the correct accessible name, tooltip behavior, danger styling, and mobile target size;
-3. the `Saved Games` heading contains the Save action;
-4. every saved-game row exposes separate load and delete controls with exact IDs;
-5. selecting a row opens a confirmation for that exact save and does not call the load action before confirmation;
-6. confirming load calls the existing load action once and explains current-timeline preservation;
-7. saved-game deletion cannot trigger loading;
-8. campaign deletion still requires typed `delete`, remains failure-closed, and fits a phone viewport;
-9. the layout does not wrap or overflow at the certified phone widths, including a narrow viewport; and
-10. keyboard focus order, Escape dismissal, focus restoration, and screen-reader labels remain correct.
+1. an active campaign defaults to the dashboard on desktop and mobile;
+2. the dashboard omits persistent story, Campaign Library, and saved-game lists;
+3. desktop renders one aligned action row and mobile renders the intentional two-row grid without overflow;
+4. Continue, Save Game, Load Game, and delete preserve their exact action targets;
+5. Load Game opens the complete saved-game picker, stays disabled until selection, and does not load before confirmation;
+6. the load dialog fits and scrolls within desktop, phone, and narrow-phone viewports;
+7. Campaigns opens the existing desktop master/detail browser and mobile disclosure browser;
+8. Back to Current Campaign restores the dashboard without a runtime mutation;
+9. no active campaign defaults directly to browser mode without a back control;
+10. the delete icon has the approved asset, accessible name, tooltip, danger styling, and phone target size;
+11. campaign deletion still requires typed `delete` and remains failure-closed; and
+12. focus order, Escape dismissal, focus restoration, labels, and browser subview state are correct.
 
-The full `npm.cmd test` gate must pass after the focused campaign, timeline-dialog, deletion-dialog, and responsive visual tests.
+The full `npm.cmd test` gate must pass after focused campaign-panel, timeline-dialog, deletion-dialog, accessibility, and responsive visual tests.
 
 ## Non-Goals
 
-This design does not change save serialization, timeline branching, campaign deletion ordering, campaign data, authored copy outside save presentation, or the Campaign Library's package-selection behavior. Broader hero, navigation-rail, and campaign-metadata refinements can be considered separately after this action hierarchy is shipped and evaluated on a real phone.
+This design does not change save serialization, timeline branching, campaign activation authority, campaign deletion ordering, campaign content, creator behavior, or the approved Campaign Library detail presentation. It does not add a modal Campaign Library or a second persisted campaign-selection model.
