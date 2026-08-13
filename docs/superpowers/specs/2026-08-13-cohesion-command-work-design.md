@@ -1,6 +1,6 @@
 # Cohesion and Commander Mini-Quests
 
-**Status:** Living design; core Cohesion, task-level, queue, Ship-page, and forty-template roster decisions are locked. The exact template contracts and Command Bearing targeting rule remain to be designed.
+**Status:** Living design; core Cohesion, task-level, queue, Ship-page, and forty-template roster decisions are locked. Complete generator-ready template contracts are drafted for review. The exact Command Bearing targeting rule and remaining system-wide constants remain to be designed.
 
 **Date:** 2026-08-13
 
@@ -158,7 +158,7 @@ The forty templates will span:
 
 Examples include rookie drills, performance support, team confidence, Science–Operations handoffs, Engineering coordination, maintenance scheduling, duty conflicts, community needs, family or home communication, shared-space problems, and a lost pet.
 
-The approved roster, content balance, and first-pass behavior of all forty templates live in [Cohesion Mini-Quest Template Catalog](./2026-08-13-cohesion-mini-quest-template-catalog.md). The next design phase expands each approved entry into the exact template contract described below.
+The approved roster, content balance, and generator-ready behavior of all forty templates live in [Cohesion Mini-Quest Template Catalog](./2026-08-13-cohesion-mini-quest-template-catalog.md) and its linked level-specific contract files.
 
 ### Commander Test
 
@@ -583,11 +583,10 @@ Future implementation must prove:
 Before implementation planning, continue this document with:
 
 1. the exact Command Bearing targeting and narration rule;
-2. the schema-level contracts for the approved forty mini-quest templates;
-3. the exact first-release Cohesion-band effects;
-4. final opportunity-window and low-Cohesion scheduling constants;
-5. the allowed background-crew instantiation grammar;
-6. the exact schema for issue records, template bindings, phases, rewards, and backlog priority; and
-7. the migration or replacement relationship between existing Breckenridge Ship milestones and the new Cohesion mini-quests.
+2. the exact first-release Cohesion-band effects;
+3. final opportunity-window and low-Cohesion scheduling constants;
+4. the allowed background-crew instantiation grammar;
+5. the exact schema for issue records, template bindings, phases, rewards, and backlog priority; and
+6. the migration or replacement relationship between existing Breckenridge Ship milestones and the new Cohesion mini-quests.
 
 No implementation should begin until those sections are resolved, the completed specification is self-reviewed, and the user approves the written design.

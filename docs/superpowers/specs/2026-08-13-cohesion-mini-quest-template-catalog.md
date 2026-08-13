@@ -1,6 +1,6 @@
 # Cohesion Mini-Quest Template Catalog
 
-**Status:** Approved forty-template roster. Exact schema fields, eligibility predicates, variations, milestones, and narrator guidance remain to be expanded.
+**Status:** Approved forty-template roster with complete generator-ready design contracts drafted for review. Runtime schema implementation remains future work.
 
 **Date:** 2026-08-13
 
@@ -38,6 +38,52 @@ If a level cannot fit the remaining unowned Cohesion, violates an active-level s
 | **Total** | **40** |
 
 A template may have secondary families, but one primary family controls selection diversity and cooldown behavior.
+
+## Contract Library
+
+The roster summaries below remain the human-readable index. The complete generation contracts are split by level so that a content pass can change one tier without making this catalog unmanageable:
+
+- [Level 1 contracts](./2026-08-13-cohesion-mini-quest-level-1-contracts.md): twenty short command interventions;
+- [Level 2 contracts](./2026-08-13-cohesion-mini-quest-level-2-contracts.md): twelve investigated and verified interventions;
+- [Level 3 contracts](./2026-08-13-cohesion-mini-quest-level-3-contracts.md): six multi-department command efforts; and
+- [Level 4 contracts](./2026-08-13-cohesion-mini-quest-level-4-contracts.md): two rare shipwide initiatives.
+
+Each contract has one stable template ID and version. An instantiated issue receives a separate stable instance ID and resolves its authored bindings at creation. Template versions are immutable after release; a substantive contract change creates a new version rather than changing the meaning of replayed history.
+
+### Shared Contract Semantics
+
+The level-specific files use the following fields:
+
+- **Bindings:** Closed roles that the generator may fill from campaign-authored departments, locations, established characters, or bounded background-crew records.
+- **Eligible when:** Positive predicates that must all be true before selection.
+- **Excluded when:** Template-specific vetoes evaluated in addition to global queue, level, cooldown, privacy, and Cohesion safeguards.
+- **Player-facing situation:** The safe premise shown when the issue becomes visible.
+- **Command objective:** The leadership outcome, never a mandatory specialist procedure.
+- **Why it matters:** The concrete player-facing benefit of acting, including the relevant ship or crew limitation that will end.
+- **Operational condition:** The exact limitation carried while the issue remains unresolved.
+- **Phases:** Named, ordered milestones. A phase becomes complete only from accepted, source-bound story evidence. Known next phases may be shown; undiscovered details remain hidden.
+- **Valid approaches:** Credible categories of action, not a forced dialogue choice list.
+- **Does not complete:** Attractive but insufficient actions that the interpreter must reject as completion evidence.
+- **Completion evidence:** The minimum accepted story facts required to resolve the issue.
+- **Computer help:** Player-safe guidance the ship's computer may provide through the existing Directive prompt entry.
+- **Variations:** Closed premise variations that add replay value without inventing campaign facts.
+- **Anchor:** Approximate artwork region for the leader line; it is presentational rather than a deck-map claim.
+- **Narrator limits:** Facts, diagnoses, culpability, outcomes, or private details that generation must not invent.
+- **Invalidation:** What happens if a required binding or premise becomes impossible before completion.
+- **Reuse:** Template cooldown and binding-diversity policy.
+
+Unless an entry explicitly overrides them, these rules apply:
+
+- Level 1 restores 5 Cohesion, Level 2 restores 10, Level 3 restores 15, and Level 4 restores 20.
+- Resolution removes only the issue's authored operational condition and restores only its owned segments.
+- No routine template grants a permanent capability. An optional lasting reward exists only when a campaign explicitly binds one at issue creation.
+- The commander may resolve work through conversation, judgment, delegation, supervision, direct participation, or a reasonable combination.
+- Technical assistance may be useful, but personally performing specialist labor is never mandatory.
+- Asking the ship's computer for help is never quest progress by itself.
+- Merely issuing an order is insufficient when the contract requires consent, observation, testing, verification, or follow-up.
+- If invalidation occurs before the issue becomes visible, retire it and restore its debt. If it occurs after visibility, explain the retirement in player-safe terms before restoring debt.
+- The generator may not bind an established named character to a private, medical, disciplinary, romantic, family, or psychological premise unless authored campaign data explicitly permits that exact situation.
+- A bounded background crewmember may receive only the minimum role and situation facts needed for the issue. The quest may develop that crewmember through accepted play, but the generator may not pre-author hidden history or personality.
 
 ## Level 1 Templates
 
@@ -437,26 +483,8 @@ The Shipwide Readiness Cycle prepares the crew through integrated review and exe
 - Technical tasks must preserve the player's commander role and accept delegation, coordination, supervision, or direct assistance as appropriate approaches.
 - Ordinary templates restore Cohesion and remove their condition. They do not automatically award permanent capabilities.
 
-## Next Design Pass
+## Contract Coverage
 
-Each approved roster entry must be expanded into the main design's exact template contract:
+Every approved roster entry now has a generator-ready design contract covering identity, bindings, predicates, player-safe setup, command purpose, operational effect, phases, valid approaches, insufficient actions, completion evidence, assistance, variations, anchor placement, narrator limits, invalidation, and reuse.
 
-- stable ID and version;
-- level and Cohesion ownership;
-- primary and secondary families;
-- eligibility and exclusion predicates;
-- cooldown and reuse policy;
-- allowed crew and department bindings;
-- player-safe setup;
-- command-attention rationale;
-- operational condition;
-- credible approaches;
-- named phases and visibility rules;
-- accepted completion standard;
-- Cohesion restoration and optional lasting reward;
-- ship-computer guidance;
-- approximate anchor region;
-- facts the narrator must not invent; and
-- invalidation, retirement, and supersession behavior.
-
-The next pass should expand one level at a time, beginning with the twenty Level 1 templates, so repeated contract decisions can be reviewed before they propagate into larger quests.
+The contracts define content behavior, not runtime storage. Exact issue-record types, deterministic binding algorithms, accepted-evidence vocabulary, and migration code belong in the later implementation plan after the remaining system-wide decisions in the main design are locked.
