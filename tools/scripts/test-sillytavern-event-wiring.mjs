@@ -7,8 +7,10 @@ import {
 } from '../../src/hosts/sillytavern/shell-events.js';
 import {
   clearSillyTavernDirectiveRuntimeBridge,
+  directiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
+import { installFakeDom } from './helpers/fake-dom.mjs';
 import { __directiveRuntimeActionTestHooks, registerRuntimeAction } from '../../src/runtime/runtime-actions.js';
 
 const eventSource = createFakeEventAdapter();
@@ -108,5 +110,50 @@ assert.deepEqual(renamed, { savedGameId: 'checkpoint.1', name: 'Before Whitaker'
 globalThis.prompt = previousPrompt;
 clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
+
+installFakeDom();
+let abortImmediately = null;
+let settlementRetryCalls = 0;
+let continuedGeneration = null;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async retryPendingAcceptedPairSettlement() {
+      settlementRetryCalls += 1;
+      return { ok: true };
+    }
+  },
+  turnOrchestrator: {
+    async interceptGeneration() {
+      return {
+        handled: true,
+        abortDefaultGeneration: true,
+        responseStrategy: 'blockAndRetry',
+        settlementError: { reasonCode: 'persistence-failed', persistenceAttempts: 3 }
+      };
+    }
+  },
+  directiveHost: {
+    chat: {
+      async continueHostGeneration(options) {
+        continuedGeneration = options;
+        return { ok: true };
+      }
+    }
+  }
+});
+const blocked = await directiveGenerationInterceptor([], 8192, (immediately) => { abortImmediately = immediately; }, 'normal');
+assert.equal(blocked.abortDefaultGeneration, true);
+assert.equal(abortImmediately, false, 'Directive must let later extension interceptors run before SillyTavern aborts narration');
+const retryButton = globalThis.document.querySelector('[data-settlement-retry-action="retry"]');
+assert(retryButton, 'blocked settlement must expose manual Retry');
+await retryButton.listeners.get('click')[0]({ preventDefault() {} });
+assert.equal(settlementRetryCalls, 1);
+assert.deepEqual(continuedGeneration, {
+  reason: 'directive-settlement-retry',
+  type: 'normal',
+  automaticTrigger: true,
+  waitForCompletion: false
+});
+clearSillyTavernDirectiveRuntimeBridge();
 
 console.log('PASS V1 SillyTavern event wiring');

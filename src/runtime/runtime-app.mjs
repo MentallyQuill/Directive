@@ -1010,6 +1010,18 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       await settlementQueue;
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+      if (pendingAcceptedPairSettlement) {
+        return {
+          handled: true,
+          abortDefaultGeneration: true,
+          responseStrategy: 'blockAndRetry',
+          settlementError: {
+            code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
+            reasonCode: pendingAcceptedPairSettlement.reasonCode,
+            persistenceAttempts: pendingAcceptedPairSettlement.persistenceAttempts
+          }
+        };
+      }
       const latestPlayerMessage = await host.chat.getLatestPlayerMessage?.();
       let acceptedPairReplay = null;
       if (acceptedPairReplayNeeded) {
@@ -1022,6 +1034,20 @@ export function createDirectiveRuntimeApp({
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
+      if (pendingAcceptedPairSettlement || acceptedPairReplay?.blocked === true) {
+        const pending = pendingAcceptedPairSettlement;
+        return {
+          handled: true,
+          abortDefaultGeneration: true,
+          responseStrategy: 'blockAndRetry',
+          settlementError: {
+            code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
+            reasonCode: pending?.reasonCode || 'accepted-pair-replay-pending',
+            persistenceAttempts: pending?.persistenceAttempts || 0
+          },
+          acceptedPairReplay
+        };
+      }
       await syncPrompt();
       return {
         handled: true,

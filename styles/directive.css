@@ -4551,3 +4551,27 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .campaign-delete-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }
   .campaign-delete-dialog-body { padding: 15px; }
 }
+.directive-settlement-retry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(4 10 18 / 74%);
+}
+
+.directive-settlement-retry-dialog {
+  width: min(480px, 100%);
+  padding: 22px;
+  border: 1px solid var(--directive-border, #58718b);
+  border-radius: 12px;
+  background: var(--directive-panel, #111c28);
+  color: var(--directive-text, #edf4fb);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+.directive-settlement-retry-title { margin: 0 0 12px; }
+.directive-settlement-retry-message,
+.directive-settlement-retry-detail,
+.directive-settlement-retry-status { margin: 8px 0 14px; }

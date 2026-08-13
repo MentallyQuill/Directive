@@ -91,6 +91,7 @@ const checks = [
   "test-sillytavern-generation-client.mjs",
   "test-sillytavern-preset-manager.mjs",
   "test-sillytavern-event-wiring.mjs",
+  "test-settlement-retry-dialog.mjs",
   "test-sillytavern-host-context.mjs",
   "test-sillytavern-fresh-chat-hygiene.mjs",
   "test-sillytavern-checkpoint-chat.mjs",

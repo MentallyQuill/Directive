@@ -1,4 +1,5 @@
 import { resolveDirectiveHostGenerationHandoff } from './turn-activity-indicator.js';
+import { showSettlementRetryDialog } from '../../ui/settlement-retry-dialog.js';
 
 let runtimeApp = null;
 let orchestrator = null;
@@ -40,6 +41,27 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
   }
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    if (result?.handled === true && result?.abortDefaultGeneration === true) {
+      abort?.(false);
+      showSettlementRetryDialog({
+        reasonCode: result.settlementError?.reasonCode,
+        attempts: result.settlementError?.persistenceAttempts,
+        onRetry: async () => {
+          const settled = await runtimeApp?.retryPendingAcceptedPairSettlement?.();
+          if (settled?.ok === true) {
+            const continued = await host?.chat?.continueHostGeneration?.({
+              reason: 'directive-settlement-retry',
+              type: type || 'normal',
+              automaticTrigger: true,
+              waitForCompletion: false
+            });
+            return continued?.ok === false ? { ok: false } : { ok: true };
+          }
+          return settled;
+        }
+      });
+      return result;
+    }
     if (
       result?.handled === true
       && result?.abortDefaultGeneration === false
