@@ -3847,10 +3847,23 @@ textarea.directive-field-control {
 .directive-expanded-shell .people-detail-block li { color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.45; }
 .directive-expanded-shell .people-detail-block p { margin: 6px 0 0; }
 .directive-expanded-shell .people-detail-block ul { margin: 7px 0 0; padding-left: 18px; }
-.directive-expanded-shell .people-service-record dl { display: grid; gap: 5px; margin: 7px 0 0; }
-.directive-expanded-shell .people-service-record dl > div { display: grid; grid-template-columns: minmax(95px, .36fr) minmax(0, 1fr); gap: 9px; }
-.directive-expanded-shell .people-service-record dt { color: var(--directive-expanded-text); font: 700 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif; }
-.directive-expanded-shell .people-service-record dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
+.directive-expanded-shell .people-service-record dl,
+.directive-expanded-shell .people-connection-record dl { display: grid; gap: 5px; margin: 7px 0 0; }
+.directive-expanded-shell .people-service-record dl > div,
+.directive-expanded-shell .people-connection-record dl > div { display: grid; grid-template-columns: minmax(95px, .36fr) minmax(0, 1fr); gap: 9px; }
+.directive-expanded-shell .people-service-record dt,
+.directive-expanded-shell .people-connection-record dt { color: var(--directive-expanded-text); font: 700 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .people-service-record dd,
+.directive-expanded-shell .people-connection-record dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
+.directive-expanded-shell .people-moment-list { display: grid; gap: 6px; margin-top: 7px; }
+.directive-expanded-shell .people-moment-disclosure { border: 1px solid color-mix(in srgb, var(--directive-expanded-muted) 22%, transparent); border-radius: 4px; background: color-mix(in srgb, var(--directive-expanded-high) 58%, transparent); }
+.directive-expanded-shell .people-moment-summary { display: flex; align-items: center; min-height: 38px; padding: 7px 28px 7px 10px; position: relative; cursor: pointer; color: var(--directive-expanded-text); font: 700 12px/1.35 "Roboto Condensed", "Arial Narrow", sans-serif; overflow-wrap: anywhere; }
+.directive-expanded-shell .people-moment-summary::-webkit-details-marker { display: none; }
+.directive-expanded-shell .people-moment-summary::marker { content: ""; }
+.directive-expanded-shell .people-moment-summary::after { content: "+"; position: absolute; right: 10px; color: var(--directive-expanded-blue); font-size: 16px; line-height: 1; }
+.directive-expanded-shell .people-moment-disclosure[open] > .people-moment-summary::after { content: "\2212"; }
+.directive-expanded-shell .people-moment-summary:focus-visible { outline: 2px solid var(--directive-expanded-blue); outline-offset: 2px; }
+.directive-expanded-shell .people-moment-copy { padding: 0 10px 9px; overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .directive-expanded-shell .directive-expanded-people { gap: 7px; margin: 7px 0; }
@@ -3964,7 +3977,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .people-detail-mobile .people-detail-portrait::after { display: none; }
   .directive-expanded-shell .people-detail-mobile .people-detail-identity { padding: 14px 15px; }
   .directive-expanded-shell .people-detail-mobile .people-detail-block { margin: 13px 14px 0 18px; }
-  .directive-expanded-shell .people-detail-mobile .people-service-record dl > div { grid-template-columns: minmax(88px, .4fr) minmax(0, 1fr); gap: 8px; }
+  .directive-expanded-shell .people-detail-mobile .people-service-record dl > div,
+  .directive-expanded-shell .people-detail-mobile .people-connection-record dl > div { grid-template-columns: minmax(88px, .4fr) minmax(0, 1fr); gap: 8px; }
 }
 
 /* Certified Ship hero and operational board. */

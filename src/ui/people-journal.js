@@ -295,6 +295,7 @@ function appendDefinition(detail, label, value) {
 
 function appendServiceRecord(detail, publicRecord = {}) {
   const rows = [
+    ['Affiliation', publicRecord.affiliation],
     ['Age', publicRecord.age],
     ['Birthplace', publicRecord.birthplace],
     ['Service background', publicRecord.serviceBackground],
@@ -315,6 +316,59 @@ function appendServiceRecord(detail, publicRecord = {}) {
     list.appendChild(row);
   }
   block.append(heading, list);
+  detail.appendChild(block);
+}
+
+function appendConnectionRecord(detail, record) {
+  const rows = [
+    ['Known since', record.knownSince],
+    ['Current posture', record.relationshipPosture],
+    ['Open matter', record.relationshipOpenMatter]
+  ].filter(([, value]) => String(value || '').trim());
+  if (!rows.length) return;
+  const block = createElement('section', 'people-detail-block people-connection-record');
+  const heading = createElement('h3');
+  heading.textContent = 'Connection to You';
+  const list = createElement('dl');
+  for (const [label, value] of rows) {
+    const row = createElement('div');
+    const term = createElement('dt');
+    term.textContent = label;
+    const description = createElement('dd');
+    description.textContent = value;
+    row.append(term, description);
+    list.appendChild(row);
+  }
+  block.append(heading, list);
+  detail.appendChild(block);
+}
+
+function relationshipMomentTitle(moment = {}) {
+  const explicit = String(moment.title || '').replace(/\s+/g, ' ').trim();
+  if (explicit) return explicit;
+  const summary = String(moment.summary || '').replace(/\s+/g, ' ').trim();
+  const firstSentence = summary.split(/(?<=[.!?])\s/)[0] || '';
+  return firstSentence.length > 96 ? `${firstSentence.slice(0, 93).trimEnd()}...` : firstSentence;
+}
+
+function appendDefiningMoments(detail, moments = []) {
+  if (!moments.length) return;
+  const block = createElement('section', 'people-detail-block people-defining-moments');
+  const heading = createElement('h3');
+  heading.textContent = 'Defining moments';
+  const entries = createElement('div', 'people-moment-list');
+  for (const moment of moments) {
+    if (!String(moment?.summary || '').trim()) continue;
+    const disclosure = createElement('details', 'people-moment-disclosure');
+    const summary = createElement('summary', 'people-moment-summary');
+    summary.textContent = relationshipMomentTitle(moment) || 'Relationship development';
+    const copy = createElement('p', 'people-moment-copy');
+    copy.textContent = moment.summary;
+    disclosure.append(summary, copy);
+    entries.appendChild(disclosure);
+  }
+  if (!entries.children.length) return;
+  block.append(heading, entries);
   detail.appendChild(block);
 }
 
@@ -431,20 +485,8 @@ export function createPeopleDetail(model, record, { mobile = false, view = {}, a
   detail.appendChild(hero);
   appendDefinition(detail, 'Profile', record.profileSummary || record.appearance || record.dossier?.identitySummary || record.dossier?.briefBiography);
   appendServiceRecord(detail, record.publicRecord);
-  appendDefinition(detail, 'Current posture', record.relationshipPosture);
-  if (record.moments?.length) {
-    const block = createElement('section', 'people-detail-block');
-    const heading = createElement('h3');
-    heading.textContent = 'Defining moments';
-    const list = createElement('ul');
-    record.moments.forEach((moment) => {
-      const item = createElement('li');
-      item.textContent = moment.summary;
-      list.appendChild(item);
-    });
-    block.append(heading, list);
-    detail.appendChild(block);
-  }
+  appendConnectionRecord(detail, record);
+  appendDefiningMoments(detail, record.moments);
   return detail;
 }
 

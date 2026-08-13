@@ -73,7 +73,21 @@ const projection = {
       id: 'person.whitaker', name: 'Mara Whitaker', billet: 'Commanding Officer', categoryId: 'ships-company',
       portrait: { kind: 'crew.portrait.formal', subjectId: 'person.whitaker' },
       service: { organization: 'starfleet', department: 'command', rankCode: 'captain', rankLabel: 'Captain' },
-      profileSummary: 'Visible profile.', relationshipPosture: 'Watchful', moments: []
+      profileSummary: 'Visible profile.',
+      publicRecord: {
+        affiliation: 'Starfleet', age: '47', birthplace: 'Kingston, Ontario, Earth',
+        serviceBackground: 'Science operations and command', assignmentHistory: 'U.S.S. Breckenridge'
+      },
+      knownSince: 'Whitaker welcomed the new XO aboard during the command handover.',
+      relationshipPosture: 'Watchful professional trust.',
+      relationshipOpenMatter: 'Whether the XO will complete the readiness commitment.',
+      moments: [{
+        id: 'moment.handover', title: 'The handover watch',
+        summary: 'Whitaker entrusted the XO with the watch after establishing clear boundaries.'
+      }, {
+        id: 'moment.correction', title: 'A candid correction',
+        summary: 'Whitaker accepted a candid correction and offered a measured path forward.'
+      }]
     }]
   },
   ship: { kind: 'directive.shipPlayerProjection.v1', shipId: 'ship.breckenridge' },
@@ -154,5 +168,23 @@ const rerendered = all(body);
 const detailPortrait = rerendered.find((node) => node.className.split(/\s+/).includes('people-detail-portrait'));
 const detailImage = all(detailPortrait).find((node) => node.tagName === 'IMG');
 assert.match(detailImage.src, /whitaker-detail\.webp$/);
+const expandedNodes = all(body);
+assert.equal(expandedNodes.filter((node) => node.className.split(/\s+/).includes('people-connection-record')).length, 2);
+assert.equal(expandedNodes.filter((node) => node.className.split(/\s+/).includes('people-moment-disclosure')).length, 4);
+assert.equal(expandedNodes.filter((node) => node.className.split(/\s+/).includes('people-moment-summary')).length, 4);
+assert.equal(
+  expandedNodes
+    .filter((node) => node.className.split(/\s+/).includes('people-moment-disclosure'))
+    .every((node) => !node.attributes.has('open')),
+  true,
+  'defining relationship developments begin accordion-collapsed'
+);
+const expandedText = expandedNodes.map((node) => node.textContent || '').join(' ');
+assert.match(expandedText, /Connection to you/i);
+assert.match(expandedText, /Known since/);
+assert.match(expandedText, /Open matter/);
+assert.match(expandedText, /The handover watch/);
+assert.match(expandedText, /Whitaker entrusted the XO with the watch/);
+assert.match(expandedText, /Affiliation/);
 
 console.log('PASS certified People panel');
