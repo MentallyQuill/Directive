@@ -20,7 +20,7 @@ try {
       <section class="directive-runtime-panel directive-expanded-shell" style="position:relative!important;inset:auto!important;width:100%!important;height:760px!important;margin:0!important">
         <main class="directive-route-body">
           <div class="directive-expanded-campaign campaign-layout campaign-journal">
-            <aside class="campaign-master campaign-index-panel" data-directive-scroll-owner="true">
+            <aside class="campaign-master campaign-index-panel campaign-desktop-master" data-directive-scroll-owner="true">
               <header class="campaign-index-head"><span class="campaign-kicker">Story library</span><h2>Campaigns</h2></header>
               <div class="campaign-index-list">
                 <button type="button" class="campaign-row campaign-library-row" data-campaign-availability="coming-later" aria-pressed="true">
@@ -29,7 +29,7 @@ try {
                 </button>
               </div>
             </aside>
-            <section class="campaign-detail" data-directive-scroll-owner="true">
+            <section class="campaign-detail campaign-desktop-detail" data-directive-scroll-owner="true">
               <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
                 <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
                 <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2></div>
@@ -45,31 +45,59 @@ try {
                 <button type="button" class="campaign-command campaign-command-primary" disabled><span>New campaign</span></button>
               </div>
             </section>
+            <section class="campaign-mobile-accordion" data-directive-scroll-owner="true">
+              <article class="campaign-mobile-record">
+                <button type="button" class="campaign-row campaign-mobile-trigger" data-campaign-availability="coming-later" aria-expanded="true" aria-controls="campaign-mobile-fixture-detail">
+                  <figure class="directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'/%3E"></figure>
+                  <div class="campaign-row-copy"><strong>Drowned Constellation</strong><span class="campaign-row-description">Current approved campaign description.</span></div>
+                </button>
+                <div id="campaign-mobile-fixture-detail" class="campaign-mobile-detail">
+                  <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
+                    <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
+                    <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2></div>
+                  </section>
+                  <div class="campaign-library-detail-body">
+                    <p class="campaign-summary campaign-library-description">Current approved campaign description.</p>
+                    <div class="campaign-facts campaign-library-facts">
+                      <div class="campaign-fact"><span>Era</span><strong>2373, Dominion War</strong></div>
+                      <div class="campaign-fact"><span>Theater</span><strong>Nerine Reef</strong></div>
+                      <div class="campaign-fact"><span>Assignment</span><strong>U.S.S. Glass Harbor, Steamrunner-class</strong></div>
+                      <div class="campaign-fact"><span>Your Role</span><strong>Commander, Executive Officer</strong></div>
+                    </div>
+                    <button type="button" class="campaign-command campaign-command-primary" disabled><span>New campaign</span></button>
+                  </div>
+                </div>
+              </article>
+            </section>
           </div>
         </main>
       </section>
     `);
     const metrics = await page.evaluate(() => {
+      const mobile = window.innerWidth <= 640;
       const journal = document.querySelector('.campaign-journal');
-      const row = document.querySelector('.campaign-row');
+      const row = document.querySelector(mobile ? '.campaign-mobile-trigger' : '.campaign-desktop-master .campaign-row');
+      const detail = document.querySelector(mobile ? '.campaign-mobile-detail' : '.campaign-desktop-detail');
+      const scrollOwner = document.querySelector(mobile ? '.campaign-mobile-accordion' : '.campaign-desktop-detail');
       const art = row.querySelector('.directive-media-frame');
       const rowStyle = getComputedStyle(row);
       const artStyle = getComputedStyle(art);
       const rowTitleStyle = getComputedStyle(row.querySelector('strong'));
       const rowDescriptionStyle = getComputedStyle(row.querySelector('.campaign-row-description'));
-      const heroArt = document.querySelector('.campaign-hero-media');
+      const heroArt = detail.querySelector('.campaign-hero-media');
       const heroArtStyle = getComputedStyle(heroArt);
-      const heroCopyStyle = getComputedStyle(document.querySelector('.campaign-hero-copy'));
-      const action = document.querySelector('.campaign-command-primary');
+      const heroCopyStyle = getComputedStyle(detail.querySelector('.campaign-hero-copy'));
+      const action = detail.querySelector('.campaign-command-primary');
       const artBox = art.getBoundingClientRect();
-      const facts = document.querySelector('.campaign-library-facts');
-      const hero = document.querySelector('.campaign-library-hero');
-      const detail = document.querySelector('.campaign-detail');
-      detail.scrollTop = detail.scrollHeight;
-      const detailBox = detail.getBoundingClientRect();
+      const facts = detail.querySelector('.campaign-library-facts');
+      const hero = detail.querySelector('.campaign-library-hero');
+      scrollOwner.scrollTop = scrollOwner.scrollHeight;
+      const detailBox = scrollOwner.getBoundingClientRect();
       const actionBox = action.getBoundingClientRect();
       return {
-        columns: getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
+        columns: mobile ? 1 : getComputedStyle(journal).gridTemplateColumns.split(' ').filter(Boolean).length,
+        desktopVisible: document.querySelector('.campaign-desktop-master').getClientRects().length > 0,
+        mobileVisible: document.querySelector('.campaign-mobile-accordion').getClientRects().length > 0,
         rowOpacity: Number(rowStyle.opacity),
         rowFilter: rowStyle.filter,
         artFilter: artStyle.filter,
@@ -78,12 +106,12 @@ try {
         heroArtOpacity: Number(heroArtStyle.opacity),
         heroArtFilter: heroArtStyle.filter,
         heroCopyOpacity: Number(heroCopyStyle.opacity),
-        descriptionInsideHero: Boolean(document.querySelector('.campaign-hero .campaign-library-description')),
+        descriptionInsideHero: Boolean(detail.querySelector('.campaign-hero .campaign-library-description')),
         factColumns: getComputedStyle(facts).gridTemplateColumns.split(' ').filter(Boolean).length,
         factValueWhiteSpace: getComputedStyle(facts.querySelector('strong')).whiteSpace,
         heroHeight: hero.getBoundingClientRect().height,
-        actionAfterFacts: Boolean(document.querySelector('.campaign-library-facts + .campaign-command-primary')),
-        detailOverflowY: getComputedStyle(detail).overflowY,
+        actionAfterFacts: Boolean(detail.querySelector('.campaign-library-facts + .campaign-command-primary')),
+        detailOverflowY: getComputedStyle(scrollOwner).overflowY,
         actionReachableAfterScroll: actionBox.top >= detailBox.top - .5 && actionBox.bottom <= detailBox.bottom + .5,
         actionDisabled: action.disabled,
         artWidth: artBox.width,
@@ -92,6 +120,8 @@ try {
       };
     });
     assert.equal(metrics.columns, viewport.width <= 640 ? 1 : 2, `${viewport.width}px Campaign master/detail columns`);
+    assert.equal(metrics.desktopVisible, viewport.width > 640, `${viewport.width}px desktop Campaign composition visibility`);
+    assert.equal(metrics.mobileVisible, viewport.width <= 640, `${viewport.width}px mobile Campaign composition visibility`);
     assert.equal(metrics.rowOpacity, 1, `${viewport.width}px Campaign library row must remain full strength`);
     assert.equal(metrics.rowFilter, 'none', `${viewport.width}px Campaign library row container must remain unfiltered`);
     assert.match(metrics.artFilter, /grayscale\(1\)/, `${viewport.width}px future Campaign row art must be grayscale`);
@@ -158,7 +188,10 @@ const visit = (node) => {
 };
 visit(body);
 
-const comingLater = nodes.filter((node) => node.dataset.campaignAvailability === 'coming-later');
+const comingLater = nodes.filter((node) => (
+  node.dataset.campaignAvailability === 'coming-later'
+  && node.dataset.campaignRecordKey
+));
 assert.equal(comingLater.length, V1_CAMPAIGN_LIBRARY_TEASERS.length - 1);
 const subtreeText = (root) => {
   const values = [];
