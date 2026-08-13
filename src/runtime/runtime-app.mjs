@@ -17,6 +17,7 @@ import { createSimulationModePolicy } from '../simulation/simulation-mode-policy
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
 import { createDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
 import { formatShipTimeFooter } from '../time/ship-time.mjs';
+import { createShipOperationalPacket } from '../ship/v1/ship-operational-packet.mjs';
 import {
   deleteV1PlayerPortrait,
   storeV1PlayerPortrait
@@ -308,6 +309,14 @@ function availableDirectorActors(runtimeAssets = {}) {
   });
 }
 
+function activeMissionDefinition(state, runtimeAssets) {
+  const definitionId = state?.mission?.v1?.definitionId;
+  if (!definitionId) return null;
+  return (runtimeAssets?.missionDefinitions || [])
+    .map((entry) => entry?.definition || entry)
+    .find((definition) => definition?.id === definitionId) || null;
+}
+
 export function createV1RuntimePromptPacket({
   state,
   projection,
@@ -325,6 +334,11 @@ export function createV1RuntimePromptPacket({
   const armedEdge = projection.commandBearing?.pendingEdge?.status === 'armed'
     ? projection.commandBearing.pendingEdge
     : null;
+  const shipMechanics = createShipOperationalPacket({
+    shipDataset: runtimeAssets?.shipDataset,
+    storySettlement: state.storySettlement,
+    missionDefinition: activeMissionDefinition(state, runtimeAssets) || {},
+  });
   const payload = {
     player: {
       name: state.player?.name,
@@ -344,6 +358,7 @@ export function createV1RuntimePromptPacket({
     mission: projection.mission,
     people: projection.people,
     ship: projection.ship,
+    shipMechanics,
     commandBearing: projection.commandBearing,
     narrativeEdge: armedEdge ? {
       spendId: armedEdge.id,
@@ -388,6 +403,9 @@ export function createV1RuntimePromptPacket({
       : '',
     payload.pendingDutyReport
       ? 'DUTY REPORT: Deliver pendingDutyReport.segment.canonicalText verbatim exactly once in this response, naturally spoken or presented by the named reporter. Do not paraphrase the canonical segment, expose internal identifiers, or add facts beyond the player-safe segment.'
+      : '',
+    payload.shipMechanics
+      ? 'SHIP OPERATIONAL MECHANICS: Apply shipMechanics only when the player or scene invokes the named system. Active capabilities permit the listed authored routes but never guarantee success. Active constraints block unsupported shortcuts. Use interactions as exact mission-specific affordances and honor every listed limit.'
       : '',
     simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
