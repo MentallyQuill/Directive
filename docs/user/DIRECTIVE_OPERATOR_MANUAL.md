@@ -22,7 +22,11 @@ Use one point to reserve a bounded favorable edge for the next generated respons
 
 ## Ship
 
-The Ship page gives one operational assessment and any material active limitations. Small atmospheric details from prose do not become individual ship issues.
+The Ship page gives one operational assessment, any material active limitations, and the campaign's small set of meaningful ship systems. A system card shows the whole improvement ladder, the current state, why the accepted story supports it, what that state changes in play, and the ship work currently known to the crew. Small atmospheric details from prose do not become individual ship issues.
+
+Ship work is played in chat. There is no project button: investigate, obtain cooperation, arrange time, run a test, or attempt a repair naturally in the story. A work item changes only after an accepted assistant response clearly depicts its authored completion; ordering or beginning work is not completion. Completing work can unlock a named approach in later scenes, but it never guarantees success or replaces the need for credible circumstances.
+
+Ashes begins with Systems Integration unvalidated and Sensor Calibration provisional. The visible ladders make their possible improvement clear from the start, while later work orders are revealed as their prerequisites are completed.
 
 ## Settings
 

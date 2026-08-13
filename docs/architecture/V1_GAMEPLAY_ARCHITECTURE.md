@@ -52,7 +52,11 @@ Command Bearing spending follows the same acceptance rule as story state. A poin
 
 Immediate mission mechanics may change on an accepted pair when validated authored evidence warrants it. Player-facing story memory changes at semantic episode boundaries, not every turn. A routine exchange may produce no story entry. A substantial scene normally becomes one episode even if it contains several decisions, facts, character moments, and ship consequences.
 
-Ship output is one operational aggregate plus material limitations. People output begins with the accepted commander identity and portrait, followed by stable public crew profiles, a current visible posture when established, and at most three defining accepted moments. Mission output contains only visible objectives, known clocks, visible outcomes, and the current terminal or transition state.
+Ship output is one operational aggregate plus material limitations and, when authored by the campaign, a small set of derived system state ladders. Each system shows its current state, why that state is supported, its gameplay effect, and known or completed narrative work. People output begins with the accepted commander identity and portrait, followed by stable public crew profiles, a current visible posture when established, and at most three defining accepted moments. Mission output contains only visible objectives, known clocks, visible outcomes, and the current terminal or transition state.
+
+Ship work shares the accepted-pair interpretation and Story Settlement transaction already used by mission evidence. The model may propose only currently revealed authored milestones; deterministic validation binds each accepted claim to the selected assistant source. Settlement records a typed Ship milestone effect and the mission evidence receipt atomically. There is no Ship state root, project queue, repair percentage, or extra model call.
+
+Derived Ship capabilities are causal affordances, not bonuses or automatic success. The existing Director prompt receives a compact packet of active capabilities, active constraints, and mission-specific interactions. Mission predicates can consume `shipCapabilityAvailable`; accepted mission evidence records the exact Ship effect receipts it depended on. If a swipe, deletion, branch, or other source invalidation removes the granting repair evidence, deterministic replay removes the dependent mission result as well.
 
 ## Missions
 
@@ -74,4 +78,4 @@ Ashes of Peace is the only playable campaign. Other campaign identities and imag
 
 ## Non-negotiable exclusions
 
-V1 contains no save migration, compatibility hydration, shadow writers, alternate trackers, quest ledger, command log, thread ledger, reconciliation workflow, manual semantic editing, sidecar scheduler, inspiration/resolve split, ranks, marks, anti-cheat enforcement, or per-mention ship issue creation.
+V1 contains no save migration, compatibility hydration, shadow writers, alternate trackers, quest ledger, command log, thread ledger, reconciliation workflow, manual semantic editing, sidecar scheduler, inspiration/resolve split, ranks, marks, anti-cheat enforcement, per-mention ship issue creation, or clickable Ship project system. Cooperative players can narratively pursue authored Ship work whenever the fiction and dependencies support it; Directive does not attempt to prevent save or chat editing.
