@@ -197,6 +197,12 @@ const whitakerRecord = {
   isPlayer: false,
   portrait: null,
   species: 'Human',
+  service: {
+    organization: 'starfleet',
+    department: 'command',
+    rankCode: 'captain',
+    rankLabel: 'Captain'
+  },
   publicRecord: {
     age: '47',
     birthplace: 'Kingston, Ontario, Earth',
@@ -227,6 +233,22 @@ for (const detail of [npcDetail, mobileNpcDetail]) {
   assert.match(text, /Assignment history Commanding officer since the Breckenridge's 2372 commission/);
   assert.equal(elementsByClass(detail, 'people-service-record').length, 1);
 }
+
+const publicContactDetail = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
+  id: 'person.emergent.ari',
+  name: 'Ari Sol',
+  billet: 'Damage-control specialist',
+  isPlayer: false,
+  portrait: null,
+  species: 'Human',
+  service: null,
+  publicRecord: {
+    affiliation: 'U.S.S. Breckenridge engineering division',
+    birthplace: 'Nairobi, Earth'
+  }
+});
+assert.match(textOf(publicContactDetail), /Public record/);
+assert.match(textOf(publicContactDetail), /Affiliation U\.S\.S\. Breckenridge engineering division/);
 
 const recordWithoutAssignmentHistory = createPeopleDetail({ packageData: { assets: { images: [] } } }, {
   ...whitakerRecord,
