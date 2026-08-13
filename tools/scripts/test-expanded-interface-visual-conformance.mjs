@@ -828,7 +828,14 @@ try {
   assert.equal(
     await selectedRosterRow.evaluate((row) => getComputedStyle(row).backgroundImage),
     selectedBackgroundBeforeHover,
-    'hovering or focusing the selected card must preserve its authoritative selection gradient'
+    'hovering the selected card must preserve its authoritative selection gradient'
+  );
+  await peoplePage.mouse.move(0, 0);
+  await selectedRosterRow.locator('.collection-person-drag-handle').focus();
+  assert.equal(
+    await selectedRosterRow.evaluate((row) => getComputedStyle(row).backgroundImage),
+    selectedBackgroundBeforeHover,
+    'focusing the selected card handle must preserve its authoritative selection gradient'
   );
   const fallbackPlayerHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
   const fallbackPlayerHandleBox = await fallbackPlayerHandle.boundingBox();
