@@ -12,6 +12,7 @@ import {
   createV1PromptProjection,
   createV1WorkingStoryPromptProjection
 } from '../projection/v1/prompt-projection.mjs';
+import { createPeoplePromptProjection } from '../projection/v1/people-projection.mjs';
 import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
@@ -356,7 +357,7 @@ export function createV1RuntimePromptPacket({
       consequencePolicy: simulationPolicy.settingsSummary
     },
     mission: projection.mission,
-    people: projection.people,
+    people: createPeoplePromptProjection({ peopleProjection: projection.people }),
     ship: projection.ship,
     shipMechanics,
     commandBearing: projection.commandBearing,
