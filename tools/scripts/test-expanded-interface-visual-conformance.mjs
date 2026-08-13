@@ -501,6 +501,12 @@ try {
     }
   }
 
+  const measureForegroundVerticalOffset = (hero) => hero.evaluate((node) => {
+    const sceneNode = node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene');
+    const foreground = sceneNode.querySelector('[data-hero-scene-layer="foreground"]');
+    return foreground.offsetTop - (sceneNode.clientHeight / 2);
+  });
+
   async function measureDesktopHero(route, selector, outsideSelector, stableSelector = outsideSelector) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`${baseUrl}/production?route=${route}`);
@@ -551,6 +557,7 @@ try {
           aspectRatio: foreground.offsetWidth / foreground.offsetHeight,
           centerXRatio: foreground.offsetLeft / sceneNode.clientWidth,
           centerYRatio: foreground.offsetTop / sceneNode.clientHeight,
+          verticalOffset: foreground.offsetTop - (sceneNode.clientHeight / 2),
           translate: foregroundStyle.translate
         },
         motionBounds: {
@@ -616,7 +623,7 @@ try {
     assert.ok(Math.abs(result.scene.sourceCanvas.widthRatio - 1) < .002, `${label} ship source canvas must use the original full-width baseline before scaling`);
     assert.ok(Math.abs(result.scene.sourceCanvas.aspectRatio - (1672 / 941)) < .002, `${label} ship source canvas must preserve its intrinsic aspect ratio`);
     assert.ok(Math.abs(result.scene.sourceCanvas.centerXRatio - .5) < .002, `${label} ship source canvas must stay horizontally centered`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.centerYRatio - .5) < .002, `${label} ship source canvas must stay vertically centered`);
+    assert.ok(Math.abs(result.scene.sourceCanvas.verticalOffset - 40) < 1, `${label} ship source canvas must sit 40px below the banner center`);
     assert.equal(result.scene.sourceCanvas.translate, '-50% -50%', `${label} ship source canvas must center before the banner clips its scaled composition`);
     assert.deepEqual(result.scene.motionBounds, {
       scaleStart: '.79', scaleEnd: '.81', rotateStart: '-.15deg', rotateEnd: '.15deg'
@@ -696,9 +703,11 @@ try {
   const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) - 40) < 1, 'mobile compact Campaign ship must sit 40px below center');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) - 40) < 1, 'mobile expanded Campaign ship must sit 40px below center');
   assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
@@ -717,9 +726,11 @@ try {
   const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
   const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) - 40) < 1, 'mobile compact Ship image must sit 40px below center');
   await mobileShipToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) - 40) < 1, 'mobile expanded Ship image must sit 40px below center');
   assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
 
   await touchPage.locator('[data-route-id="campaign"]').tap();

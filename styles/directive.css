@@ -4061,7 +4061,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
   inset: auto;
-  top: 50%;
+  top: calc(50% + 40px);
   left: 50%;
   width: 100%;
   height: auto;
