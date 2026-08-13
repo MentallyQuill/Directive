@@ -28,15 +28,17 @@ const expectedOwnerCounts = { campaign: 2, mission: 2, people: 2, ship: 1, setti
 const mobilePanelGeometry = {
   campaign: {
     layout: '.campaign-layout',
-    master: '.campaign-master',
-    detail: '.campaign-detail',
-    heading: '.campaign-hero h2'
+    accordion: '.campaign-mobile-accordion',
+    desktopMaster: '.campaign-desktop-master',
+    desktopDetail: '.campaign-desktop-detail',
+    trigger: '.campaign-mobile-trigger[aria-expanded="true"]'
   },
   mission: {
     layout: '.mission-layout',
-    master: '.mission-collection',
-    detail: '.mission-detail',
-    heading: '.mission-hero h2'
+    accordion: '.mission-mobile-accordion',
+    desktopMaster: '.mission-desktop-collection',
+    desktopDetail: '.mission-desktop-detail',
+    trigger: '.mission-mobile-trigger[aria-expanded="true"]'
   },
 };
 
@@ -117,7 +119,12 @@ try {
           documentOverflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight,
           routeFont: getComputedStyle(shell.querySelector('.directive-route-name')).fontFamily
         };
-      }, { route, ownerCount: route === 'people' && viewport.width <= 640 ? 1 : expectedOwnerCounts[route] });
+      }, {
+        route,
+        ownerCount: viewport.width <= 640 && ['campaign', 'mission', 'people'].includes(route)
+          ? 1
+          : expectedOwnerCounts[route]
+      });
 
       assert.equal(metrics.shell.overflow, 'hidden');
       assert.equal(metrics.workspaceOverflow, 'hidden');
@@ -156,36 +163,37 @@ try {
       if (viewport.width === 360 && [500, 800].includes(viewport.height) && mobilePanelGeometry[route]) {
         const geometry = await page.evaluate((selectors) => {
           const layout = document.querySelector(selectors.layout);
-          const master = document.querySelector(selectors.master);
-          const detail = document.querySelector(selectors.detail);
-          const heading = document.querySelector(selectors.heading);
-          const layoutStyle = getComputedStyle(layout);
-          const masterBox = master.getBoundingClientRect();
-          const detailBox = detail.getBoundingClientRect();
-          const headingBox = heading.getBoundingClientRect();
+          const accordion = document.querySelector(selectors.accordion);
+          const desktopMaster = document.querySelector(selectors.desktopMaster);
+          const desktopDetail = document.querySelector(selectors.desktopDetail);
+          const trigger = document.querySelector(selectors.trigger);
+          const detail = trigger ? document.getElementById(trigger.getAttribute('aria-controls')) : null;
+          const layoutBox = layout.getBoundingClientRect();
+          const accordionBox = accordion.getBoundingClientRect();
+          const detailBox = detail?.getBoundingClientRect();
           return {
-            routeGap: Number.parseFloat(layoutStyle.rowGap),
-            panelGap: detailBox.top - masterBox.bottom,
-            masterHeight: masterBox.height,
-            detailHeight: detailBox.height,
-            headingHeight: headingBox.height,
-            headingVisible: headingBox.top >= 0 && headingBox.bottom <= window.innerHeight,
-            headingContained: headingBox.top >= detailBox.top - .5 && headingBox.bottom <= detailBox.bottom + .5
+            desktopMasterVisible: desktopMaster.getClientRects().length > 0,
+            desktopDetailVisible: desktopDetail.getClientRects().length > 0,
+            accordionHeight: accordionBox.height,
+            accordionWidthRatio: accordionBox.width / layoutBox.width,
+            detailWidthRatio: detailBox ? detailBox.width / accordionBox.width : 0,
+            expandedCount: accordion.querySelectorAll('[aria-expanded="true"]').length,
+            detailVisible: Boolean(detailBox?.height)
           };
         }, mobilePanelGeometry[route]);
-        assert.ok(Number.isFinite(geometry.routeGap), `${route} ${viewport.width}x${viewport.height} mobile route gap must resolve to a length`);
-        assert.ok(geometry.masterHeight >= 48, `${route} ${viewport.width}x${viewport.height} mobile master must remain usable`);
-        assert.ok(geometry.detailHeight >= 80, `${route} ${viewport.width}x${viewport.height} mobile detail must remain usable`);
-        assert.ok(geometry.headingHeight > 0 && geometry.headingVisible, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must be visible`);
-        assert.equal(geometry.headingContained, true, `${route} ${viewport.width}x${viewport.height} mobile first detail heading must stay inside the clipped detail panel`);
-        assert.ok(
-          Math.abs(geometry.panelGap - geometry.routeGap) <= .5,
-          `${route} ${viewport.width}x${viewport.height} mobile master/detail dead gap: expected ${geometry.routeGap}px route gap, received ${geometry.panelGap}px`
-        );
+        assert.equal(geometry.desktopMasterVisible, false, `${route} ${viewport.width}x${viewport.height} desktop master must be hidden`);
+        assert.equal(geometry.desktopDetailVisible, false, `${route} ${viewport.width}x${viewport.height} desktop detail must be hidden`);
+        assert.ok(geometry.accordionHeight >= 120, `${route} ${viewport.width}x${viewport.height} phone list must remain usable`);
+        assert.ok(geometry.accordionWidthRatio >= .98, `${route} ${viewport.width}x${viewport.height} phone list must use route width`);
+        assert.ok(geometry.detailWidthRatio >= .98, `${route} ${viewport.width}x${viewport.height} expanded detail must use list width`);
+        assert.equal(geometry.expandedCount, 1, `${route} ${viewport.width}x${viewport.height} default-open record`);
+        assert.equal(geometry.detailVisible, true, `${route} ${viewport.width}x${viewport.height} expanded detail must be visible`);
       }
 
       if (route === 'campaign') {
-        const futureRow = page.locator('button[data-campaign-availability="coming-later"]').first();
+        const futureRow = viewport.width <= 640
+          ? page.locator('.campaign-mobile-trigger[data-campaign-availability="coming-later"]').first()
+          : page.locator('.campaign-desktop-master button[data-campaign-availability="coming-later"]').first();
         const row = await futureRow.evaluate((later) => ({
           ariaDisabled: later.getAttribute('aria-disabled'),
           tagName: later.tagName,
@@ -198,20 +206,26 @@ try {
         assert.match(row.description, /Nerine Reef/);
 
         await futureRow.click();
-        await page.waitForSelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
-        const campaign = await page.evaluate(() => {
-          const detail = document.querySelector('.campaign-library-hero[data-campaign-availability="coming-later"]');
-          const body = document.querySelector('.campaign-library-detail-body');
+        const campaign = await page.evaluate((mobile) => {
+          const visible = (node) => Boolean(node?.getClientRects().length) && getComputedStyle(node).display !== 'none';
+          const detail = [...document.querySelectorAll('.campaign-library-hero[data-campaign-availability="coming-later"]')].find(visible);
+          const detailContainer = detail?.closest('.campaign-mobile-detail, .campaign-detail');
+          const body = detailContainer?.querySelector('.campaign-library-detail-body');
           const description = body?.querySelector('[data-campaign-description]');
           const art = detail.querySelector('.campaign-hero-media');
           const copy = detail.querySelector('.campaign-hero-copy');
-          const action = document.querySelector('.campaign-detail .campaign-command-primary');
-          const master = document.querySelector('.campaign-master');
-          const selectedRow = document.querySelector('button[data-campaign-availability="coming-later"][aria-pressed="true"]');
+          const action = detailContainer?.querySelector('.campaign-command-primary');
+          const master = mobile
+            ? document.querySelector('.campaign-mobile-accordion')
+            : document.querySelector('.campaign-desktop-master');
+          const selectedRow = mobile
+            ? document.querySelector('.campaign-mobile-trigger[data-campaign-availability="coming-later"][aria-expanded="true"]')
+            : document.querySelector('.campaign-desktop-master button[data-campaign-availability="coming-later"][aria-pressed="true"]');
           const detailBox = detail.getBoundingClientRect();
           const copyBox = copy.getBoundingClientRect();
           const masterBox = master.getBoundingClientRect();
           const selectedRowBox = selectedRow.getBoundingClientRect();
+          const topbarBox = document.querySelector('.directive-topbar').getBoundingClientRect();
           return {
             status: detail.querySelector('.campaign-status')?.textContent || '',
             title: detail.querySelector('h2')?.textContent || '',
@@ -220,11 +234,14 @@ try {
             artOpacity: Number(getComputedStyle(art).opacity),
             artFilter: getComputedStyle(art).filter,
             copyWithinHero: copyBox.top >= detailBox.top - .5 && copyBox.bottom <= detailBox.bottom + .5,
-            selectedRowVisible: selectedRowBox.top >= masterBox.top - .5 && selectedRowBox.bottom <= masterBox.bottom + .5,
+            selectedRowVisible: mobile
+              ? selectedRowBox.bottom > masterBox.top && selectedRowBox.top < masterBox.bottom
+              : selectedRowBox.top >= masterBox.top - .5 && selectedRowBox.bottom <= masterBox.bottom + .5,
+            topbarVisible: topbarBox.top >= 0 && topbarBox.bottom <= window.innerHeight,
             actionDisabled: action?.disabled,
             actionText: action?.textContent || ''
           };
-        });
+        }, viewport.width <= 640);
         assert.match(campaign.status, /Coming later/i);
         assert.match(campaign.title, /Drowned Constellation/);
         assert.match(campaign.description, /Nerine Reef/);
@@ -233,6 +250,7 @@ try {
         assert.match(campaign.artFilter, /grayscale\(1\)/);
         assert.equal(campaign.copyWithinHero, true, `${viewport.width}px future Campaign copy must not clip`);
         assert.equal(campaign.selectedRowVisible, true, `${viewport.width}px selected future Campaign row must stay visible`);
+        assert.equal(campaign.topbarVisible, true, `${viewport.width}px Campaign disclosure must not scroll the shell header`);
         assert.equal(campaign.actionDisabled, true);
         assert.match(campaign.actionText, /New campaign/i);
         observedVarianceIds.add('campaign-coming-later');

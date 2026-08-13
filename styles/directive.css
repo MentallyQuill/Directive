@@ -3234,6 +3234,11 @@ textarea.directive-field-control {
   overscroll-behavior: contain;
 }
 
+.directive-expanded-shell .campaign-mobile-accordion,
+.directive-expanded-shell .mission-mobile-accordion {
+  display: none;
+}
+
 /* Certified Campaign master/detail library. */
 .directive-expanded-shell .directive-expanded-campaign {
   display: flex;
@@ -3431,6 +3436,24 @@ textarea.directive-field-control {
 .directive-expanded-shell .campaign-save-actions { display: flex; gap: 5px; }
 
 @media (max-width: 640px) {
+  .directive-expanded-shell .directive-route-heading { display: none; }
+
+  .directive-expanded-shell .directive-route-control:hover,
+  .directive-expanded-shell .directive-route-control:focus-visible,
+  .directive-expanded-shell .directive-route-control.active,
+  .directive-expanded-shell .directive-route-control.active:hover,
+  .directive-expanded-shell .directive-route-control.active:focus-visible {
+    color: var(--directive-expanded-bg);
+    background: var(--directive-route-color);
+    border-bottom-color: transparent;
+    box-shadow: none;
+    outline: 0;
+  }
+
+  .directive-expanded-shell .directive-route-control.active {
+    border-radius: 6px 0 6px 6px;
+  }
+
   .directive-expanded-shell .campaign-journal { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(112px, 36%) minmax(0, 1fr); gap: 8px; margin: 7px 0; }
   .directive-expanded-shell .campaign-detail { min-height: 0; }
   .directive-expanded-shell .campaign-row { grid-template-columns: 46px minmax(0, 1fr) auto; min-height: 60px; }
@@ -3443,6 +3466,61 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-library-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .directive-expanded-shell .campaign-detail-actions,
   .directive-expanded-shell .campaign-saves { margin-right: 12px; margin-left: 16px; }
+
+  .directive-expanded-shell .campaign-journal {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .directive-expanded-shell .campaign-desktop-master,
+  .directive-expanded-shell .campaign-desktop-detail {
+    display: none;
+  }
+
+  .directive-expanded-shell .campaign-mobile-accordion {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--directive-expanded-surface);
+    border-radius: 6px;
+  }
+
+  .directive-expanded-shell .campaign-mobile-section-heading {
+    margin: 0;
+    padding: 11px 12px 7px;
+    color: var(--directive-expanded-amber);
+    border-bottom: 1px solid rgba(255, 159, 74, .2);
+    font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+    text-transform: uppercase;
+  }
+
+  .directive-expanded-shell .campaign-mobile-library-heading {
+    color: var(--directive-expanded-gold);
+  }
+
+  .directive-expanded-shell .campaign-mobile-record {
+    min-width: 0;
+  }
+
+  .directive-expanded-shell .campaign-mobile-trigger {
+    width: 100%;
+  }
+
+  .directive-expanded-shell .campaign-mobile-trigger[aria-expanded="true"] {
+    background: linear-gradient(90deg, rgba(255, 159, 74, .22), rgba(13, 16, 24, .96));
+    box-shadow: inset 5px 0 0 var(--directive-expanded-amber);
+  }
+
+  .directive-expanded-shell .campaign-mobile-detail {
+    min-width: 0;
+    background: var(--directive-expanded-surface);
+    box-shadow: inset 6px 0 0 var(--directive-expanded-amber);
+  }
+
+  .directive-expanded-shell .campaign-mobile-detail[hidden] { display: none; }
 }
 
 /* Certified Mission collection/detail journal. */
@@ -3526,6 +3604,54 @@ textarea.directive-field-control {
   .directive-expanded-shell .mission-objective-row { grid-template-columns: 16px minmax(0, 1fr); }
   .directive-expanded-shell .mission-objective-status { grid-column: 2; }
   .directive-expanded-shell .mission-clock-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .directive-expanded-shell .directive-expanded-mission {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .directive-expanded-shell .mission-desktop-collection,
+  .directive-expanded-shell .mission-desktop-detail {
+    display: none;
+  }
+
+  .directive-expanded-shell .mission-mobile-accordion {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--directive-expanded-surface);
+    border-radius: 6px;
+  }
+
+  .directive-expanded-shell .mission-mobile-record { min-width: 0; }
+
+  .directive-expanded-shell .mission-mobile-trigger {
+    appearance: none;
+    width: 100%;
+    margin: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    text-align: left;
+  }
+
+  .directive-expanded-shell .mission-mobile-trigger[aria-expanded="true"] {
+    background: linear-gradient(90deg, rgba(183, 138, 215, .2), rgba(13, 16, 24, .95));
+    box-shadow: inset 5px 0 0 var(--directive-expanded-lilac);
+  }
+
+  .directive-expanded-shell .mission-mobile-detail {
+    min-width: 0;
+    padding-bottom: 18px;
+    background: var(--directive-expanded-surface);
+    box-shadow: inset 6px 0 0 var(--directive-expanded-lilac);
+  }
+
+  .directive-expanded-shell .mission-mobile-detail[hidden] { display: none; }
 }
 
 /* Certified People journal with fixed Command Bearing utility. */

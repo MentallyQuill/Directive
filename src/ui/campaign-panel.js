@@ -379,6 +379,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
       }
       detail.replaceChildren();
       appendRecordDetail(detail, key, model, actions);
+      mobileRecords.find((record) => record.key === key)?.trigger.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
   });
 
