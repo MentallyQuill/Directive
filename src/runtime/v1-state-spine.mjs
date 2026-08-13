@@ -10,6 +10,10 @@ import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
 import { deriveMissionEntryContext } from '../mission/v1/mission-entry-capabilities.mjs';
 import {
+    appendShipWorkEvidenceToMissionState,
+    validateShipWorkEvidenceProposal,
+} from '../ship/v1/ship-work-evidence.mjs';
+import {
     createInitialMissionJourney,
     createSuccessorMissionJourney,
     resolveMissionTransitionTarget,
@@ -460,6 +464,8 @@ export function createV1StateSpine({
         authorityPatch = {},
         authorityDomains = [],
         acceptedCommandBearingEdge = null,
+        shipDataset = null,
+        shipProposal = null,
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
@@ -467,7 +473,9 @@ export function createV1StateSpine({
             const boundaryResult = validateEpisodeHardBoundary(hardBoundary, { branchId: proposal?.branchId });
             if (!boundaryResult.ok) throw invalidHardBoundary(boundaryResult.errors);
         }
-        const { evidence, missionResult } = reduceMissionProposal({ definition, proposal, sourceContribution });
+        const reduced = reduceMissionProposal({ definition, proposal, sourceContribution });
+        const { evidence } = reduced;
+        let missionResult = reduced.missionResult;
         if (evidence.proposalRejected) {
             const error = new Error(`Mission evidence proposal rejected: ${evidence.rejectionReasonCode}.`);
             error.code = evidence.rejectionReasonCode === 'stale-revision'
@@ -475,6 +483,24 @@ export function createV1StateSpine({
                 : 'DIRECTIVE_MISSION_EVIDENCE_REJECTED';
             error.details = { reasonCode: evidence.rejectionReasonCode };
             throw error;
+        }
+        const currentStorySettlement = initialStorySettlement(campaignState, proposal.branchId);
+        const shipEvidence = shipProposal && shipDataset
+            ? validateShipWorkEvidenceProposal({
+                shipDataset,
+                storySettlement: currentStorySettlement,
+                proposal: shipProposal,
+                resolveSourceRef,
+            })
+            : { acceptedClaims: [], rejectedClaims: [], effects: [] };
+        if (shipEvidence.acceptedClaims.length > 0) {
+            missionResult = {
+                ...missionResult,
+                state: appendShipWorkEvidenceToMissionState(
+                    missionResult.state,
+                    shipEvidence.acceptedClaims,
+                ),
+            };
         }
         const missionState = missionResult.state;
         const transitionPlan = prepareMissionTransitionActivation({
@@ -516,18 +542,21 @@ export function createV1StateSpine({
         }
         const commandBearingChanged = !jsonEqual(campaignState.commandBearing, commandBearing);
 
-        const currentStorySettlement = initialStorySettlement(campaignState, proposal.branchId);
         let storySettlement = currentStorySettlement;
         const contributions = normalizedSourceContributions({
-            acceptedClaims: evidence.acceptedClaims,
+            acceptedClaims: [...evidence.acceptedClaims, ...shipEvidence.acceptedClaims],
             sourceContribution,
             sourceContributions,
         });
-        const duplicateReplay = (proposal.claims || []).length > 0
+        const allProposedClaims = [...(proposal.claims || []), ...(shipProposal?.claims || [])];
+        const allRejectedClaims = [...evidence.rejectedClaims, ...shipEvidence.rejectedClaims];
+        const duplicateReplay = allProposedClaims.length > 0
             && evidence.acceptedClaims.length === 0
-            && evidence.rejectedClaims.length === proposal.claims.length
-            && evidence.rejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
-        if ((missionResult.effects.length > 0 || contributions.supplied.length > 0)
+            && shipEvidence.acceptedClaims.length === 0
+            && allRejectedClaims.length === allProposedClaims.length
+            && allRejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
+        const storyEffects = [...missionResult.effects, ...shipEvidence.effects];
+        if ((storyEffects.length > 0 || contributions.supplied.length > 0)
             && storySettlement.activeEpisode === null) {
             storySettlement = openStoryEpisode(storySettlement, {
                 episodeId: scene.episodeId,
@@ -542,10 +571,10 @@ export function createV1StateSpine({
                 branchId: proposal.branchId,
                 observations,
             });
-            if (missionResult.effects.length > 0) {
+            if (storyEffects.length > 0) {
                 storySettlement = appendStoryEffects(
                     storySettlement,
-                    instantiateStoryEffects(missionResult.effects, contributions.referenced),
+                    instantiateStoryEffects(storyEffects, contributions.referenced),
                 );
             }
         } else if (!duplicateReplay) {
@@ -609,6 +638,7 @@ export function createV1StateSpine({
             && !authorityChanged) {
             return {
                 evidence,
+                shipEvidence,
                 missionResult,
                 storySettlement,
                 campaignState: structuredClone(campaignState),
@@ -661,6 +691,8 @@ export function createV1StateSpine({
                 missionRevision: missionState.revision,
                 acceptedClaimCount: evidence.acceptedClaims.length,
                 rejectedClaimCount: evidence.rejectedClaims.length,
+                acceptedShipClaimCount: shipEvidence.acceptedClaims.length,
+                rejectedShipClaimCount: shipEvidence.rejectedClaims.length,
                 transitionActivationStatus: transitionActivation.status,
                 transitionTargetDefinitionId: transitionActivation.targetDefinitionId,
                 commandBearingAwardCount,
@@ -668,6 +700,7 @@ export function createV1StateSpine({
         });
         return {
             evidence,
+            shipEvidence,
             missionResult,
             storySettlement,
             campaignState: committed.campaignState,

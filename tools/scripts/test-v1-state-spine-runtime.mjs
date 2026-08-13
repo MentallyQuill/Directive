@@ -616,4 +616,89 @@ const replayInsignificant = await insignificantSpine.settleAcceptedPair({
 assert.equal(replayInsignificant.noChange, true);
 assert.equal(insignificantPersistCount, 1);
 
+const shipDataset = {
+    mechanics: {
+        kind: 'directive.shipMechanics.v1',
+        schemaVersion: 1,
+        capabilities: [],
+        constraints: [],
+        systems: [{
+            id: 'ship-system.test',
+            playerText: { label: 'Test System', summary: 'A bounded test system.' },
+            openingStateId: 'ship-state.test.opening',
+            states: [{
+                id: 'ship-state.test.opening', rank: 0, capabilityIds: [], constraintIds: [],
+                playerText: { label: 'Opening', why: 'No test is accepted.', mechanicalEffect: 'No test capability is available.' },
+            }],
+            milestones: [{
+                id: 'ship-milestone.test-complete',
+                playerText: { label: 'Complete the test', summary: 'Finish the controlled test.' },
+                sourceRoles: ['assistant'],
+                interpretation: {
+                    evidenceStandard: 'clearOutcome', guidance: 'Select after the test is complete.',
+                    exclusions: ['Beginning the test is not completion.'],
+                },
+            }],
+            transitions: [],
+        }],
+    },
+};
+let shipWorkState = createAshesInitialState({
+    campaignId: 'campaign.ship-work', saveId: 'save.ship-work', chatId: 'chat.ship-work',
+});
+const shipWorkJourney = createInitialMissionJourney({ definition: accumulationDefinition, branchId: 'save.ship-work' });
+shipWorkState.mission = {
+    activeMissionId: accumulationDefinition.packageBinding.sourceId,
+    v1: createMissionState({ definition: accumulationDefinition, branchId: 'save.ship-work' }),
+    v1Journey: shipWorkJourney.journey,
+    v1History: shipWorkJourney.history,
+};
+const shipWorkGateway = createStateDeltaGateway({
+    getState: () => shipWorkState,
+    setState: (next) => { shipWorkState = next; },
+    persist: async () => {},
+});
+const shipWorkSource = {
+    branchId: 'save.ship-work', role: 'assistant', accepted: true,
+    contributionId: 'contribution.ship-work', messageId: 'message.ship-work',
+    selectedSwipeId: 'swipe.ship-work', textHash: 'c'.repeat(64), acceptedAtRevision: 0,
+};
+const shipWorkSpine = createV1StateSpine({
+    getState: () => shipWorkState,
+    stateDeltaGateway: shipWorkGateway,
+    resolveSourceRef: () => shipWorkSource,
+});
+const shipWorkContribution = {
+    id: shipWorkSource.contributionId, messageId: shipWorkSource.messageId,
+    swipeId: shipWorkSource.selectedSwipeId, role: shipWorkSource.role,
+    textHash: shipWorkSource.textHash, acceptedAtRevision: 0,
+};
+const shipWorkResult = await shipWorkSpine.settleAcceptedPair({
+    definition: accumulationDefinition,
+    proposal: {
+        kind: 'directive.missionEvidenceProposal.v1', branchId: 'save.ship-work',
+        missionId: accumulationDefinition.id, baseRevision: 0, claims: [],
+    },
+    shipDataset,
+    shipProposal: {
+        kind: 'directive.shipWorkEvidenceProposal.v1', branchId: 'save.ship-work', claims: [{
+            domain: 'shipWork', claimId: 'claim.ship-work', policyId: 'ship-milestone.test-complete',
+            claimType: 'shipMilestoneCompleted', targetId: 'ship-milestone.test-complete',
+            sourceRef: { messageId: shipWorkSource.messageId, swipeId: shipWorkSource.selectedSwipeId, textHash: shipWorkSource.textHash },
+        }],
+    },
+    sourceContributions: [shipWorkContribution],
+    sourceObservations: [{
+        contributionId: shipWorkContribution.id, role: shipWorkContribution.role,
+        textHash: shipWorkContribution.textHash, text: 'The controlled test completes successfully.',
+    }],
+    gatewayBaseRevision: 0,
+    scene: { episodeId: 'episode.ship-work', sceneId: 'scene.ship-work' },
+});
+assert.equal(shipWorkResult.shipEvidence.acceptedClaims.length, 1);
+assert.equal(shipWorkState.mission.v1.evidenceLog.some(({ domain }) => domain === 'shipWork'), true);
+assert.equal(shipWorkState.storySettlement.episodes[0].effects.some((effect) => (
+    effect.type === 'ship.milestoneCompleted' && effect.targetId === 'ship-milestone.test-complete'
+)), true);
+
 console.log('V1 state spine runtime tests passed.');

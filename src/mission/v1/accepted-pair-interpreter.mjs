@@ -301,6 +301,7 @@ export function materializeMissionEvidenceProposal({
                 JSON.stringify(selection.value),
             ].join('|');
             return {
+                domain: candidate.domain || 'mission',
                 claimId: `claim.${stableHash(identity)}`,
                 policyId: candidate.id,
                 claimType: candidate.claimType,

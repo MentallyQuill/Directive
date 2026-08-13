@@ -135,6 +135,46 @@ assert.equal(proposal.claims[0].targetId, 'outcome.hesperus.rescue-result');
 assert.equal(proposal.claims[1].claimType, 'decisionRecorded');
 assert.match(proposal.claims[0].claimId, /^claim\.[a-f0-9]{8}$/);
 
+const mixedCandidatePacket = {
+    ...candidatePacket,
+    candidates: [
+        ...candidatePacket.candidates,
+        {
+            id: 'ship-milestone.sensor-baseline',
+            domain: 'shipWork',
+            claimType: 'shipMilestoneCompleted',
+            targetId: 'ship-milestone.sensor-baseline',
+            sourceSlots: ['previousAssistant'],
+            evidenceStandard: 'clearOutcome',
+            guidance: 'Select after the controlled independent comparison is complete.',
+            exclusions: ['Ordering the comparison is not completion.'],
+        },
+    ],
+};
+const mixedOutput = {
+    ...validOutput,
+    claims: [validOutput.claims[0], {
+        candidateId: 'ship-milestone.sensor-baseline',
+        sourceSlot: 'previousAssistant',
+    }],
+};
+const mixedParsed = parseMissionAcceptedPairInterpretationOutput(mixedOutput, {
+    candidatePacket: mixedCandidatePacket,
+});
+assert.equal(mixedParsed.ok, true, mixedParsed.errors?.join('\n'));
+const mixedProposal = materializeMissionEvidenceProposal({
+    interpretation: mixedParsed.value,
+    candidatePacket: mixedCandidatePacket,
+    sourcePair,
+});
+assert.deepEqual(mixedProposal.claims.map(({ domain, claimType }) => ({ domain, claimType })), [{
+    domain: 'mission',
+    claimType: 'outcomeObserved',
+}, {
+    domain: 'shipWork',
+    claimType: 'shipMilestoneCompleted',
+}]);
+
 const corrected = parseMissionAcceptedPairInterpretationOutput({
     ...validOutput,
     assistantAcceptance: 'corrected',

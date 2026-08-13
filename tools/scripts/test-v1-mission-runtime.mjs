@@ -277,6 +277,57 @@ for (const root of ['ship', 'commandBearing']) {
 for (const forbiddenRoot of ['unexpectedTracker']) {
     assert.equal(Object.hasOwn(settlementHarness.campaignState, forbiddenRoot), false, forbiddenRoot);
 }
+
+const shipMechanicsAssets = runtimeAssetsFor();
+shipMechanicsAssets.shipDataset = {
+    ...structuredClone(shipMechanicsAssets.shipDataset),
+    mechanics: {
+        kind: 'directive.shipMechanics.v1',
+        schemaVersion: 1,
+        capabilities: [],
+        constraints: [],
+        systems: [{
+            id: 'ship-system.runtime-test',
+            playerText: { label: 'Runtime Test', summary: 'A bounded runtime test.' },
+            openingStateId: 'ship-state.runtime-test.opening',
+            states: [{
+                id: 'ship-state.runtime-test.opening', rank: 0, capabilityIds: [], constraintIds: [],
+                playerText: { label: 'Opening', why: 'The test is incomplete.', mechanicalEffect: 'No capability is available.' },
+            }],
+            milestones: [{
+                id: 'ship-milestone.runtime-test-complete',
+                playerText: { label: 'Complete runtime test', summary: 'Finish the controlled runtime test.' },
+                sourceRoles: ['assistant'],
+                interpretation: {
+                    evidenceStandard: 'clearOutcome', guidance: 'Select after the runtime test is complete.',
+                    exclusions: ['Beginning the test is not completion.'],
+                },
+            }],
+            transitions: [],
+        }],
+    },
+};
+const shipMechanicsHarness = createHarness({
+    assets: shipMechanicsAssets,
+    outputs: [interpretationOutput({
+        claims: [{
+            candidateId: 'ship-milestone.runtime-test-complete',
+            sourceSlot: 'previousAssistant',
+        }],
+    })],
+});
+const shipMechanicsSettlement = await shipMechanicsHarness.runtime.settleAcceptedPair({
+    runtimeAssets: shipMechanicsHarness.assets,
+    snapshot: snapshotFor({ pairNumber: 80 }),
+});
+assert.equal(shipMechanicsSettlement.ok, true, JSON.stringify(shipMechanicsSettlement));
+assert.equal(shipMechanicsHarness.generationCount, 1);
+assert.equal(shipMechanicsSettlement.diagnostics.acceptedShipClaimCount, 1);
+assert.equal(shipMechanicsHarness.campaignState.mission.v1.evidenceLog.some(({ domain }) => domain === 'shipWork'), true);
+assert.equal(shipMechanicsHarness.campaignState.storySettlement.episodes[0].effects.some((effect) => (
+    effect.type === 'ship.milestoneCompleted'
+    && effect.targetId === 'ship-milestone.runtime-test-complete'
+)), true);
 assert.equal(
     settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence[0].excerpt,
     'Captain Whitaker completes the command handover and places the watch in your hands.',

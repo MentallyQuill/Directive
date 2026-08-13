@@ -5,6 +5,10 @@ import {
 import { createMissionInterpretationCandidatePacket } from '../mission/v1/interpretation-candidates.mjs';
 import { validateMissionDefinition } from '../mission/v1/mission-contracts.mjs';
 import {
+    createShipWorkInterpretationCandidates,
+    SHIP_WORK_EVIDENCE_PROPOSAL_KIND,
+} from '../ship/v1/ship-work-evidence.mjs';
+import {
     createPendingEpisodeReviewToken,
     createV1StateSpine,
     resolveV1MissionState,
@@ -1214,7 +1218,17 @@ export function createV1MissionRuntime({
         }
 
         const interpretationBaseRevision = stateDeltaGateway.revision();
-        const candidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
+        const missionCandidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
+        const candidatePacket = {
+            ...missionCandidatePacket,
+            candidates: [
+                ...missionCandidatePacket.candidates,
+                ...createShipWorkInterpretationCandidates({
+                    shipDataset: runtimeAssets?.shipDataset || {},
+                    storySettlement: campaignState?.storySettlement || {},
+                }),
+            ].sort((left, right) => left.id.localeCompare(right.id)),
+        };
         let interpreted;
         const interpretationReused = cachedInterpretation?.key === interpretationKey;
         if (interpretationReused) {
@@ -1289,9 +1303,18 @@ export function createV1MissionRuntime({
                     errors: [],
                 };
         }
+        const interpretedMissionProposal = {
+            ...interpreted.proposal,
+            claims: (interpreted.proposal?.claims || []).filter((claim) => claim.domain !== 'shipWork'),
+        };
+        const shipProposal = {
+            kind: SHIP_WORK_EVIDENCE_PROPOSAL_KIND,
+            branchId,
+            claims: (interpreted.proposal?.claims || []).filter((claim) => claim.domain === 'shipWork'),
+        };
         const dutyProposal = proposalWithDutyReportCustody({
             definition,
-            proposal: interpreted.proposal,
+            proposal: interpretedMissionProposal,
             dutyReportResult,
         });
         const authoritativeTime = materializeAuthoritativeTimeEvidence({
@@ -1386,6 +1409,8 @@ export function createV1MissionRuntime({
                 authorityPatch: time?.patch || {},
                 authorityDomains: time?.domains || [],
                 acceptedCommandBearingEdge,
+                shipDataset: runtimeAssets?.shipDataset || null,
+                shipProposal,
             });
             const committedRoots = settled.noChange
                 ? []
@@ -1397,6 +1422,8 @@ export function createV1MissionRuntime({
                 ];
             const acceptedClaimCount = settled.evidence?.acceptedClaims?.length || 0;
             const rejectedClaimCount = settled.evidence?.rejectedClaims?.length || 0;
+            const acceptedShipClaimCount = settled.shipEvidence?.acceptedClaims?.length || 0;
+            const rejectedShipClaimCount = settled.shipEvidence?.rejectedClaims?.length || 0;
             const acceptedDutyReportCount = (settled.evidence?.acceptedClaims || [])
                 .filter((claim) => claim?.delivery?.kind === 'directive.dutyReportDelivery.v1').length;
             const rejectedMaterializedReport = (settled.evidence?.rejectedClaims || [])
@@ -1414,7 +1441,7 @@ export function createV1MissionRuntime({
             return {
                 ok: true,
                 attempted: true,
-                status: acceptedClaimCount > 0 ? 'settled' : 'settled-no-effect',
+                status: acceptedClaimCount > 0 || acceptedShipClaimCount > 0 ? 'settled' : 'settled-no-effect',
                 reasonCode: null,
                 definitionId: definition.id,
                 definitionVersion: definition.version,
@@ -1430,6 +1457,8 @@ export function createV1MissionRuntime({
                     selectedClaimCount: interpreted.diagnostics?.selectedClaimCount ?? interpreted.proposal?.claims?.length ?? 0,
                     acceptedClaimCount,
                     rejectedClaimCount,
+                    acceptedShipClaimCount,
+                    rejectedShipClaimCount,
                     discardedAssistantClaimCount: interpreted.diagnostics?.discardedAssistantClaimCount ?? 0,
                     acceptedDutyReportCount,
                     acceptedTimeAdvanceCount: (settled.evidence?.acceptedClaims || [])
