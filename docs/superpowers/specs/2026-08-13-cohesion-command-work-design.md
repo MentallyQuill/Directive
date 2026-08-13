@@ -1,6 +1,6 @@
 # Cohesion and Commander Mini-Quests
 
-**Status:** Living design; core Cohesion, task-level, queue, and Ship-page decisions are locked. The initial twenty templates and the exact Command Bearing targeting rule remain to be designed.
+**Status:** Living design; core Cohesion, task-level, queue, Ship-page, and forty-template roster decisions are locked. The exact template contracts and Command Bearing targeting rule remain to be designed.
 
 **Date:** 2026-08-13
 
@@ -132,11 +132,11 @@ Completion restores 20 Cohesion, removes a major active limitation, and may gran
 
 ## Quest Content
 
-The initial library will contain twenty structured templates:
+The initial library will contain forty structured templates:
 
-- 8 Level 1 templates;
-- 6 Level 2 templates;
-- 4 Level 3 templates; and
+- 20 Level 1 templates;
+- 12 Level 2 templates;
+- 6 Level 3 templates; and
 - 2 Level 4 templates.
 
 The intended starting rarity is approximately:
@@ -148,7 +148,7 @@ The intended starting rarity is approximately:
 
 Template count and selection weight remain separate, so Level 4 can stay rare despite having reusable variation.
 
-The twenty templates will span:
+The forty templates will span:
 
 - training and preparedness;
 - mentorship and personnel support;
@@ -158,7 +158,7 @@ The twenty templates will span:
 
 Examples include rookie drills, performance support, team confidence, Science–Operations handoffs, Engineering coordination, maintenance scheduling, duty conflicts, community needs, family or home communication, shared-space problems, and a lost pet.
 
-The exact twenty templates will be designed after this living specification is captured.
+The approved roster, content balance, and first-pass behavior of all forty templates live in [Cohesion Mini-Quest Template Catalog](./2026-08-13-cohesion-mini-quest-template-catalog.md). The next design phase expands each approved entry into the exact template contract described below.
 
 ### Commander Test
 
@@ -559,7 +559,7 @@ Future implementation must prove:
 - Cohesion is entirely issue-derived; there is no unexplained ambient decay.
 - Level N owns N segments and restores 5N Cohesion.
 - Levels 1–4 represent increasing scope, with Level 4 rare.
-- The first template library contains 8/6/4/2 templates across Levels 1/2/3/4.
+- The first template library contains 20/12/6/2 templates across Levels 1/2/3/4, preserving the 50/30/15/5 rarity curve exactly.
 - Opportunity timing uses accepted in-world time and meaningful story boundaries, not message counts.
 - Random-looking selection is deterministic and replay-safe.
 - The visible Ship queue contains at most five tasks.
@@ -583,7 +583,7 @@ Future implementation must prove:
 Before implementation planning, continue this document with:
 
 1. the exact Command Bearing targeting and narration rule;
-2. the initial twenty mini-quest templates;
+2. the schema-level contracts for the approved forty mini-quest templates;
 3. the exact first-release Cohesion-band effects;
 4. final opportunity-window and low-Cohesion scheduling constants;
 5. the allowed background-crew instantiation grammar;
