@@ -680,7 +680,7 @@ const shipView = {
   identity: {
     name: 'U.S.S. Breckenridge',
     className: 'Intrepid-class',
-    registry: 'NCC-74638',
+    registry: 'NCC-74656',
     imageRef: 'ship.hero',
     condition: 'Post-refit shakedown',
   },

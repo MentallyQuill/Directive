@@ -7,7 +7,7 @@ const projection = {
     shipId: 'ship.breckenridge',
     name: 'U.S.S. Breckenridge',
     class: 'Intrepid-class',
-    registry: 'NCC-74638',
+    registry: 'NCC-74656',
     capabilitySummary: 'Long-range explorer returned to service.',
     operationalStatus: {
       status: 'serviceable',
@@ -32,7 +32,7 @@ assert.deepEqual(buildCertifiedShipView(projection), {
   id: 'ship.breckenridge',
   name: 'U.S.S. Breckenridge',
   className: 'Intrepid-class',
-  registry: 'NCC-74638',
+  registry: 'NCC-74656',
   summary: 'Long-range explorer returned to service.',
   operationalStatus: {
     status: 'serviceable',

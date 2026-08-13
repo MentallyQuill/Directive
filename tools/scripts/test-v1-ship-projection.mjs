@@ -24,7 +24,7 @@ const campaignState = {
         id: 'uss-breckenridge',
         name: 'U.S.S. Breckenridge',
         class: 'Intrepid-class',
-        registry: 'NCC-74638',
+        registry: 'NCC-74656',
         operationalOverview: {
             kind: 'directive.shipOperationalOverview.v1',
             status: 'serviceable-with-limitations',
@@ -130,7 +130,7 @@ assert.equal(ship.kind, 'directive.shipPlayerProjection.v1');
 assert.equal(ship.shipId, 'uss-breckenridge');
 assert.equal(ship.name, 'U.S.S. Breckenridge');
 assert.equal(ship.class, 'Intrepid-class');
-assert.equal(ship.registry, 'NCC-74638');
+assert.equal(ship.registry, 'NCC-74656');
 assert.match(ship.capabilitySummary, /compact, advanced, fast/i);
 assert.equal(ship.operationalStatus.status, 'serviceable-with-limitations');
 assert.equal(ship.operationalStatus.summary, campaignState.ship.operationalOverview.summary);

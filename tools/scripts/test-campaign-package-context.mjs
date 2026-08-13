@@ -38,7 +38,7 @@ assert.doesNotMatch(
   ].join('\n'),
   /Hesperus|redline|Rhee|Daro/i
 );
-assert.equal(summary.ship.registry, 'NCC-74638');
+assert.equal(summary.ship.registry, 'NCC-74656');
 assert.deepEqual(summary.simulationModes, ['Exploration', 'Command']);
 assert.equal(summary.defaultSimulationMode, 'Command');
 assert.equal(summary.seniorCrewPreview.length, 8);
