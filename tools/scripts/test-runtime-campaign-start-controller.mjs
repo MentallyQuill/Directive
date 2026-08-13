@@ -28,10 +28,11 @@ const packageData = JSON.parse(fs.readFileSync(
 const { missionDefinitions } = loadAshesRuntimeAssets();
 let id = 0;
 let minute = 0;
-const controller = createCampaignStartController({
-  adapter: memoryAdapter({
+const adapter = memoryAdapter({
     'indexes/saves.v1.json': { kind: 'directive.saveIndex', saves: { old: {} } }
-  }),
+  });
+const controller = createCampaignStartController({
+  adapter,
   packages: [packageData],
   missionDefinitions,
   campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
@@ -83,6 +84,22 @@ assert.equal(campaign.firstSave.kind, 'directive.campaignSave.v1');
 assert.equal(controller.getActiveCampaignState().player.name, 'Ren Okada');
 assert.equal(controller.getActiveCampaignState().mission.v1.kind, 'directive.missionState.v1');
 assert.equal(controller.getActiveCampaignState().storySettlement.kind, 'directive.storySettlement.v1');
+const staleSavePath = `v1/saves/${campaign.firstSave.id}.v1.json`;
+const staleSave = await adapter.readJson(staleSavePath);
+staleSave.state.ship.registry = 'NCC-74638';
+await adapter.writeJson(staleSavePath, staleSave);
+const recoveredController = createCampaignStartController({
+  adapter,
+  packages: [packageData],
+  missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.${++id}`,
+  now: () => `2026-08-10T03:${String(minute++).padStart(2, '0')}:00.000Z`
+});
+const recoveredCampaign = await recoveredController.initialize();
+assert.equal(recoveredCampaign.campaignState.ship.registry, 'NCC-74656');
+assert.equal((await adapter.readJson(staleSavePath)).state.ship.registry, 'NCC-74656');
+await controller.initialize();
 const campaignView = await controller.getCampaignView();
 assert.equal(campaignView.campaigns.length, 1);
 assert.equal(campaignView.campaigns[0].checkpoints.length, 0);

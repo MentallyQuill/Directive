@@ -230,6 +230,19 @@ export function createCampaignStartController({
   async function refreshActive() {
     activeSave = await loadActiveV1CampaignSave(adapter);
     activeState = activeSave ? assertV1CampaignState(clone(activeSave.state)) : null;
+    const canonicalRegistry = String(packageData?.ship?.registry || '').trim();
+    if (activeSave
+      && activeSave.packageId === packageId(packageData)
+      && canonicalRegistry
+      && activeState.ship.registry !== canonicalRegistry) {
+      activeState.ship.registry = canonicalRegistry;
+      activeSave = await storeV1CampaignSave(adapter, {
+        ...activeSave,
+        updatedAt: currentTime(),
+        state: activeState
+      }, { makeActive: true });
+      activeState = clone(activeSave.state);
+    }
     return activeSave;
   }
 
