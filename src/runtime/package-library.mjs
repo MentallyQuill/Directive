@@ -3,6 +3,7 @@ import {
   ASHES_V1_PACKAGE_ID,
   V1_CAMPAIGN_LIBRARY_TEASERS
 } from '../packages/bundled-package-registry.mjs';
+import { validateShipMechanicsPackage } from '../ship/v1/ship-mechanics-contracts.mjs';
 
 function object(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -40,6 +41,10 @@ export async function loadBundledCampaignPackageRecords({
       || definition.packageBinding?.packageVersion !== packageData.manifest?.version) {
       throw new Error(`Directive V1 rejects mission definition "${definition.id || 'unknown'}".`);
     }
+  }
+  const shipMechanics = validateShipMechanicsPackage({ shipDataset, missionDefinitions });
+  if (!shipMechanics.ok) {
+    throw new Error(`Directive V1 rejects Ship mechanics: ${shipMechanics.errors.join('; ')}`);
   }
   return {
     packageData,

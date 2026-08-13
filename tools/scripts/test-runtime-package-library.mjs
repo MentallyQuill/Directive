@@ -44,4 +44,21 @@ await assert.rejects(
   /asset failed to load/
 );
 
+await assert.rejects(
+  loadBundledCampaignPackageRecords({
+    fetchImpl: async (url) => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        const value = JSON.parse(fs.readFileSync(fileURLToPath(url), 'utf8'));
+        if (value?.manifest?.kind === 'directive.shipDataset.v1') {
+          value.mechanics = { kind: 'directive.shipMechanics.v1', schemaVersion: 1, systems: [] };
+        }
+        return value;
+      }
+    })
+  }),
+  /rejects Ship mechanics.*capabilities.*constraints/i
+);
+
 console.log('PASS V1 runtime package library');
