@@ -534,6 +534,7 @@ try {
       return {
         order: layers.map((layer) => layer.dataset.heroSceneLayer),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
+        timingFunctions: layers.map((layer) => getComputedStyle(layer).animationTimingFunction),
         starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode,
         willChange: layers.map((layer) => getComputedStyle(layer).willChange),
         motionBounds: {
@@ -588,11 +589,14 @@ try {
     assert.deepEqual(result.scene.animations, [
       'none', 'directive-hero-stars-drift', 'directive-hero-stars-shimmer', 'directive-hero-ship-drift'
     ], `${label} scene must animate while compact`);
+    assert.deepEqual(result.scene.timingFunctions, [
+      'ease', 'linear', 'ease-in-out', 'linear'
+    ], `${label} drift must not become visually stationary near its endpoints`);
     assert.deepEqual(result.scene.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
     assert.match(result.scene.starBlend, /^(?:plus-lighter|screen)$/);
     assert.deepEqual(result.scene.motionBounds, {
-      scaleStart: '1.018', scaleEnd: '1.023', rotateStart: '-.1deg', rotateEnd: '.1deg'
-    }, `${label} ship motion must remain within the approved scale and rotation bounds`);
+      scaleStart: '.81', scaleEnd: '.83', rotateStart: '-.15deg', rotateEnd: '.15deg'
+    }, `${label} ship must render about twenty percent smaller while retaining restrained rotation`);
   }
 
   const motionPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -623,12 +627,12 @@ try {
   await motionPage.waitForTimeout(4000);
   const compactMotionEnd = await sampleShipMotion();
   assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd) >= 1.5,
-    'compact hero ship motion must produce a perceptible four-second visual delta'
+    translationDistance(compactMotionStart, compactMotionEnd) >= 7,
+    'compact hero ship motion must be apparent during a four-second glance'
   );
   assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd, 'starE', 'starF') >= .3,
-    'compact stable-star layer must produce a perceptible four-second drift delta'
+    translationDistance(compactMotionStart, compactMotionEnd, 'starE', 'starF') >= 2,
+    'compact stable-star drift must be apparent during a four-second glance'
   );
   assert.ok(
     Math.abs(compactMotionEnd.glowOpacity - compactMotionStart.glowOpacity) >= .05,
@@ -640,8 +644,8 @@ try {
   await motionPage.waitForTimeout(4000);
   const expandedMotionEnd = await sampleShipMotion();
   assert.ok(
-    translationDistance(expandedMotionStart, expandedMotionEnd) >= 1.5,
-    'expanded hero ship motion must produce a perceptible four-second visual delta'
+    translationDistance(expandedMotionStart, expandedMotionEnd) >= 7,
+    'expanded hero ship motion must be apparent during a four-second glance'
   );
   await motionPage.close();
 
@@ -706,12 +710,12 @@ try {
   }));
   assert.deepEqual(wideTouchMotion, {
     coarse: true,
-    shipX: '.375%',
-    starsX: '.16%',
-    scaleStart: '1.01925',
-    scaleEnd: '1.02175',
-    rotateStart: '-.05deg',
-    rotateEnd: '.05deg'
+    shipX: '1.5%',
+    starsX: '.6%',
+    scaleStart: '.815',
+    scaleEnd: '.825',
+    rotateStart: '-.075deg',
+    rotateEnd: '.075deg'
   }, 'wide coarse-pointer screens must use half-strength motion');
   await wideTouchContext.close();
 
@@ -724,10 +728,12 @@ try {
   await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   const reducedMotion = await reducedPage.locator('.ship-hero.directive-responsive-hero').evaluate((node) => ({
     transition: getComputedStyle(node).transitionDuration,
-    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName)
+    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName),
+    foregroundScale: new DOMMatrixReadOnly(getComputedStyle(node.querySelector('[data-hero-scene-layer="foreground"]')).transform).a
   }));
   assert.equal(reducedMotion.transition, '0s', 'reduced motion must remove the hero height transition');
   assert.deepEqual(reducedMotion.animations, ['none', 'none', 'none', 'none'], 'reduced motion must freeze every scene layer');
+  assert.ok(Math.abs(reducedMotion.foregroundScale - .82) < .001, 'reduced motion must retain the twenty-percent-smaller ship framing');
   await reducedContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });

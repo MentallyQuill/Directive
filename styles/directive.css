@@ -4000,18 +4000,18 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 /* Package-authored layered Campaign and Ship hero scenes. */
 .directive-expanded-shell .directive-hero-scene {
-  --directive-hero-ship-x-start: -.75%;
-  --directive-hero-ship-y-start: -.28%;
-  --directive-hero-ship-x-end: .75%;
-  --directive-hero-ship-y-end: .28%;
-  --directive-hero-stars-x-start: -.32%;
-  --directive-hero-stars-y-start: .14%;
-  --directive-hero-stars-x-end: .32%;
-  --directive-hero-stars-y-end: -.14%;
-  --directive-hero-ship-scale-start: 1.018;
-  --directive-hero-ship-scale-end: 1.023;
-  --directive-hero-ship-rotate-start: -.1deg;
-  --directive-hero-ship-rotate-end: .1deg;
+  --directive-hero-ship-x-start: -3%;
+  --directive-hero-ship-y-start: -1.2%;
+  --directive-hero-ship-x-end: 3%;
+  --directive-hero-ship-y-end: 1.2%;
+  --directive-hero-stars-x-start: -1.2%;
+  --directive-hero-stars-y-start: .5%;
+  --directive-hero-stars-x-end: 1.2%;
+  --directive-hero-stars-y-end: -.5%;
+  --directive-hero-ship-scale-start: .81;
+  --directive-hero-ship-scale-end: .83;
+  --directive-hero-ship-rotate-start: -.15deg;
+  --directive-hero-ship-rotate-end: .15deg;
   isolation: isolate;
   background: #05070a;
 }
@@ -4037,20 +4037,20 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   z-index: 1;
   opacity: .58;
   mix-blend-mode: screen;
-  animation: directive-hero-stars-drift 52s ease-in-out -13s infinite alternate;
+  animation: directive-hero-stars-drift 38s linear -9.5s infinite alternate;
   will-change: transform;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-glow"] {
   z-index: 2;
   opacity: .11;
   mix-blend-mode: screen;
-  animation: directive-hero-stars-shimmer 17s ease-in-out -2.9s infinite;
+  animation: directive-hero-stars-shimmer 13s ease-in-out -2.2s infinite;
   will-change: transform, opacity, filter;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
   transform-origin: 55% 48%;
-  animation: directive-hero-ship-drift 42s ease-in-out -10.5s infinite alternate;
+  animation: directive-hero-ship-drift 30s linear -7.5s infinite alternate;
   will-change: transform;
 }
 @supports (mix-blend-mode: plus-lighter) {
@@ -4073,11 +4073,11 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   to { transform: translate3d(var(--directive-hero-stars-x-end), var(--directive-hero-stars-y-end), 0) scale(1.012); }
 }
 @keyframes directive-hero-stars-shimmer {
-  0%, 100% { opacity: .1; filter: brightness(.92) contrast(1.02); transform: scale(1.003); }
-  17% { opacity: .24; filter: brightness(1.18) contrast(1.1); transform: scale(1.008); }
-  39% { opacity: .13; filter: brightness(.98) contrast(1.04); transform: scale(1.005); }
-  62% { opacity: .28; filter: brightness(1.22) contrast(1.12); transform: scale(1.01); }
-  81% { opacity: .11; filter: brightness(1) contrast(1.05); transform: scale(1.006); }
+  0%, 100% { opacity: .12; filter: brightness(.92) contrast(1.02); transform: scale(1.003); }
+  17% { opacity: .31; filter: brightness(1.2) contrast(1.11); transform: scale(1.009); }
+  39% { opacity: .16; filter: brightness(.98) contrast(1.04); transform: scale(1.005); }
+  62% { opacity: .36; filter: brightness(1.25) contrast(1.14); transform: scale(1.011); }
+  81% { opacity: .14; filter: brightness(1) contrast(1.05); transform: scale(1.006); }
 }
 
 .directive-expanded-shell .ship-board { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; padding-bottom: 2px; }
@@ -4196,18 +4196,18 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 @media (max-width: 640px), (pointer: coarse) {
   .directive-expanded-shell .directive-hero-scene {
-    --directive-hero-ship-x-start: -.375%;
-    --directive-hero-ship-y-start: -.14%;
-    --directive-hero-ship-x-end: .375%;
-    --directive-hero-ship-y-end: .14%;
-    --directive-hero-stars-x-start: -.16%;
-    --directive-hero-stars-y-start: .07%;
-    --directive-hero-stars-x-end: .16%;
-    --directive-hero-stars-y-end: -.07%;
-    --directive-hero-ship-scale-start: 1.01925;
-    --directive-hero-ship-scale-end: 1.02175;
-    --directive-hero-ship-rotate-start: -.05deg;
-    --directive-hero-ship-rotate-end: .05deg;
+    --directive-hero-ship-x-start: -1.5%;
+    --directive-hero-ship-y-start: -.6%;
+    --directive-hero-ship-x-end: 1.5%;
+    --directive-hero-ship-y-end: .6%;
+    --directive-hero-stars-x-start: -.6%;
+    --directive-hero-stars-y-start: .25%;
+    --directive-hero-stars-x-end: .6%;
+    --directive-hero-stars-y-end: -.25%;
+    --directive-hero-ship-scale-start: .815;
+    --directive-hero-ship-scale-end: .825;
+    --directive-hero-ship-rotate-start: -.075deg;
+    --directive-hero-ship-rotate-end: .075deg;
   }
 }
 
@@ -4215,7 +4215,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; }
-  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(1.014); }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(.82); }
 }
 
 /* Certified full-width Settings composition. */
