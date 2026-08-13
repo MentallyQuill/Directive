@@ -529,11 +529,19 @@ try {
     const expandedAfterOutsideClick = await hero.evaluate((node) => node.classList.contains('is-expanded'));
     const scene = await hero.evaluate((node) => {
       const layers = [...node.querySelectorAll('.directive-hero-scene-layer')];
+      const sceneNode = node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene');
+      const sceneStyle = getComputedStyle(sceneNode);
       return {
         order: layers.map((layer) => layer.dataset.heroSceneLayer),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
         starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode,
-        willChange: layers.map((layer) => getComputedStyle(layer).willChange)
+        willChange: layers.map((layer) => getComputedStyle(layer).willChange),
+        motionBounds: {
+          scaleStart: sceneStyle.getPropertyValue('--directive-hero-ship-scale-start').trim(),
+          scaleEnd: sceneStyle.getPropertyValue('--directive-hero-ship-scale-end').trim(),
+          rotateStart: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-start').trim(),
+          rotateEnd: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-end').trim()
+        }
       };
     });
     await hero.click();
@@ -582,7 +590,60 @@ try {
     ], `${label} scene must animate while compact`);
     assert.deepEqual(result.scene.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
     assert.match(result.scene.starBlend, /^(?:plus-lighter|screen)$/);
+    assert.deepEqual(result.scene.motionBounds, {
+      scaleStart: '1.018', scaleEnd: '1.023', rotateStart: '-.1deg', rotateEnd: '.1deg'
+    }, `${label} ship motion must remain within the approved scale and rotation bounds`);
   }
+
+  const motionPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await motionPage.goto(`${baseUrl}/production?route=ship`);
+  await motionPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const motionHero = motionPage.locator('.ship-hero.directive-responsive-hero');
+  const sampleShipMotion = () => motionHero.evaluate((node) => {
+    const layer = node.querySelector('[data-hero-scene-layer="foreground"]');
+    const stars = node.querySelector('[data-hero-scene-layer="stars"]');
+    const glow = node.querySelector('[data-hero-scene-layer="stars-glow"]');
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(layer).transform);
+    const starMatrix = new DOMMatrixReadOnly(getComputedStyle(stars).transform);
+    const rect = node.getBoundingClientRect();
+    return {
+      a: matrix.a,
+      b: matrix.b,
+      e: matrix.e,
+      f: matrix.f,
+      starE: starMatrix.e,
+      starF: starMatrix.f,
+      glowOpacity: Number(getComputedStyle(glow).opacity),
+      width: rect.width,
+      height: rect.height
+    };
+  });
+  const translationDistance = (before, after, x = 'e', y = 'f') => Math.hypot(after[x] - before[x], after[y] - before[y]);
+  const compactMotionStart = await sampleShipMotion();
+  await motionPage.waitForTimeout(4000);
+  const compactMotionEnd = await sampleShipMotion();
+  assert.ok(
+    translationDistance(compactMotionStart, compactMotionEnd) >= 1.5,
+    'compact hero ship motion must produce a perceptible four-second visual delta'
+  );
+  assert.ok(
+    translationDistance(compactMotionStart, compactMotionEnd, 'starE', 'starF') >= .3,
+    'compact stable-star layer must produce a perceptible four-second drift delta'
+  );
+  assert.ok(
+    Math.abs(compactMotionEnd.glowOpacity - compactMotionStart.glowOpacity) >= .05,
+    'compact hero stars must produce a perceptible four-second shimmer delta'
+  );
+  await motionHero.click();
+  await motionPage.waitForTimeout(220);
+  const expandedMotionStart = await sampleShipMotion();
+  await motionPage.waitForTimeout(4000);
+  const expandedMotionEnd = await sampleShipMotion();
+  assert.ok(
+    translationDistance(expandedMotionStart, expandedMotionEnd) >= 1.5,
+    'expanded hero ship motion must produce a perceptible four-second visual delta'
+  );
+  await motionPage.close();
 
   const touchContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -637,9 +698,21 @@ try {
   const wideTouchMotion = await wideTouchPage.locator('.ship-hero.directive-hero-scene').evaluate((node) => ({
     coarse: matchMedia('(pointer: coarse)').matches,
     shipX: getComputedStyle(node).getPropertyValue('--directive-hero-ship-x-end').trim(),
-    starsX: getComputedStyle(node).getPropertyValue('--directive-hero-stars-x-end').trim()
+    starsX: getComputedStyle(node).getPropertyValue('--directive-hero-stars-x-end').trim(),
+    scaleStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-start').trim(),
+    scaleEnd: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-end').trim(),
+    rotateStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-rotate-start').trim(),
+    rotateEnd: getComputedStyle(node).getPropertyValue('--directive-hero-ship-rotate-end').trim()
   }));
-  assert.deepEqual(wideTouchMotion, { coarse: true, shipX: '.14%', starsX: '.06%' }, 'wide coarse-pointer screens must use restrained motion');
+  assert.deepEqual(wideTouchMotion, {
+    coarse: true,
+    shipX: '.375%',
+    starsX: '.16%',
+    scaleStart: '1.01925',
+    scaleEnd: '1.02175',
+    rotateStart: '-.05deg',
+    rotateEnd: '.05deg'
+  }, 'wide coarse-pointer screens must use half-strength motion');
   await wideTouchContext.close();
 
   const reducedContext = await browser.newContext({
