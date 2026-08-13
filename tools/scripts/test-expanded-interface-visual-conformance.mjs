@@ -410,6 +410,7 @@ try {
   const visualRemoveControl = desktopPortraitControls.locator('.directive-crew-player-portrait-remove');
   await visualRemoveControl.evaluate((button) => { button.disabled = false; });
   await visualRemoveControl.click();
+  await peoplePage.mouse.move(0, 0);
   const confirmationState = await desktopPortraitControls.evaluate((controls) => {
     const confirm = controls.querySelector('.directive-crew-player-portrait-confirm');
     const cancel = controls.querySelector('.directive-crew-player-portrait-cancel');
