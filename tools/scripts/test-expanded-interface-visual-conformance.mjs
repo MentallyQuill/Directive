@@ -603,8 +603,8 @@ try {
     assert.equal(result.hoverHeight, 140, `${label} hover must not change geometry`);
     assert.notEqual(result.glyphBorderAfterHover, result.glyphBorderBeforeHover, `${label} hover must highlight only the toggle glyph`);
     assert.equal(result.outsideTopAfterHover, result.outsideTopBeforeHover, `${label} hover must not move content below the banner`);
-    assert.equal(result.expandedHeight, 280, `${label} click must expand the banner`);
-    assert.equal(result.afterOutsideClickHeight, 280, `${label} outside click must leave the banner expanded`);
+    assert.equal(result.expandedHeight, 320, `${label} click must expand the desktop banner forty pixels taller`);
+    assert.equal(result.afterOutsideClickHeight, 320, `${label} outside click must leave the taller desktop banner expanded`);
     assert.equal(result.expandedAfterOutsideClick, true);
     assert.equal(result.finalHeight, 140, `${label} second banner click must collapse it`);
     assert.equal(result.expandedFinally, false);
@@ -703,11 +703,19 @@ try {
   const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) - 40) < 1, 'mobile compact Campaign ship must sit 40px below center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero)) < 1, 'mobile compact Campaign ship must return to center');
+  assert.deepEqual(await mobileCampaignHero.evaluate((node) => {
+    const style = getComputedStyle(node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene'));
+    return {
+      scaleStart: style.getPropertyValue('--directive-hero-ship-scale-start').trim(),
+      scaleEnd: style.getPropertyValue('--directive-hero-ship-scale-end').trim(),
+      restScale: style.getPropertyValue('--directive-hero-ship-rest-scale').trim()
+    };
+  }), { scaleStart: '1.035', scaleEnd: '1.045', restScale: '1.04' }, 'mobile Campaign ship must be thirty percent larger than the desktop baseline');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) - 40) < 1, 'mobile expanded Campaign ship must sit 40px below center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero)) < 1, 'mobile expanded Campaign ship must stay centered');
   assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
@@ -726,11 +734,11 @@ try {
   const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
   const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) - 40) < 1, 'mobile compact Ship image must sit 40px below center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero)) < 1, 'mobile compact Ship image must return to center');
   await mobileShipToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) - 40) < 1, 'mobile expanded Ship image must sit 40px below center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero)) < 1, 'mobile expanded Ship image must stay centered');
   assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
 
   await touchPage.locator('[data-route-id="campaign"]').tap();
@@ -784,6 +792,25 @@ try {
   assert.deepEqual(reducedMotion.animations, ['none', 'none', 'none', 'none'], 'reduced motion must freeze every scene layer');
   assert.ok(Math.abs(reducedMotion.foregroundScale - .8) < .001, 'reduced motion must retain the twenty-percent-smaller ship framing');
   await reducedContext.close();
+
+  const mobileReducedContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    reducedMotion: 'reduce'
+  });
+  const mobileReducedPage = await mobileReducedContext.newPage();
+  await mobileReducedPage.goto(`${baseUrl}/production?route=ship`);
+  await mobileReducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const mobileReducedMotion = await mobileReducedPage.locator('.ship-hero.directive-responsive-hero').evaluate((node) => ({
+    foregroundScale: new DOMMatrixReadOnly(getComputedStyle(node.querySelector('[data-hero-scene-layer="foreground"]')).transform).a,
+    verticalOffset: node.querySelector('[data-hero-scene-layer="foreground"]').offsetTop - (node.clientHeight / 2),
+    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName)
+  }));
+  assert.ok(Math.abs(mobileReducedMotion.foregroundScale - 1.04) < .001, 'mobile reduced motion must retain the thirty-percent-larger ship framing');
+  assert.ok(Math.abs(mobileReducedMotion.verticalOffset) < 1, 'mobile reduced motion must keep the ship centered');
+  assert.deepEqual(mobileReducedMotion.animations, ['none', 'none', 'none', 'none']);
+  await mobileReducedContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await peoplePage.goto(`${baseUrl}/production?route=people`);
@@ -945,9 +972,21 @@ try {
   assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'false');
   const bronnHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle');
   await bronnHandle.focus();
-  await bronnHandle.press('ArrowDown');
-  await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
-  await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
+  const bronnLocation = async () => peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"]').evaluate((row) => {
+    const category = row.closest('.collection-category');
+    return `${category?.dataset.categoryId}:${[...row.parentElement.children].indexOf(row)}`;
+  });
+  let previousBronnLocation = await bronnLocation();
+  for (let move = 0; move < 3; move += 1) {
+    await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
+    await peoplePage.waitForFunction(({ personId, previous }) => {
+      const row = document.querySelector(`.people-desktop-journal .collection-person-row[data-person-id="${personId}"]`);
+      const category = row?.closest('.collection-category');
+      const current = `${category?.dataset.categoryId}:${row ? [...row.parentElement.children].indexOf(row) : -1}`;
+      return current !== previous;
+    }, { personId: 'hadrik-bronn', previous: previousBronnLocation });
+    previousBronnLocation = await bronnLocation();
+  }
   assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1, 'keyboard boundary movement must cross categories');
   assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'true', 'keyboard movement must expand a collapsed target category');
   await peoplePage.waitForFunction(() => document.activeElement?.closest('.collection-person-row')?.dataset.personId === 'hadrik-bronn');

@@ -139,7 +139,7 @@ try {
     assert.equal(metrics.factColumns, viewport.width <= 640 ? 2 : 4, `${viewport.width}px Campaign fact columns`);
     assert.equal(metrics.factValueWhiteSpace, 'normal', `${viewport.width}px Campaign fact values must wrap`);
     assert.equal(metrics.heroHeight, viewport.width <= 640 ? 112 : 140, `${viewport.width}px collapsed Campaign hero height`);
-    assert.equal(metrics.expandedHeroHeight, viewport.width <= 640 ? 220 : 280, `${viewport.width}px expanded Campaign hero height`);
+    assert.equal(metrics.expandedHeroHeight, viewport.width <= 640 ? 220 : 320, `${viewport.width}px expanded Campaign hero height`);
     assert.equal(metrics.actionAfterFacts, true, `${viewport.width}px Campaign action must follow facts`);
     assert.match(metrics.detailOverflowY, /auto|scroll/, `${viewport.width}px Campaign detail must own local scrolling`);
     assert.equal(metrics.actionReachableAfterScroll, true, `${viewport.width}px Campaign action must be reachable inside the detail scroller`);
