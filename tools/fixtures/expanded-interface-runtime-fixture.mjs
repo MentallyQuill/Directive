@@ -119,7 +119,18 @@ function fixtureView() {
     },
     activeSaveId: 'save.current',
     providerConfiguration: {
-      profiles: [{ id: 'profile.utility', label: 'Utility profile', model: 'utility-model' }],
+      profiles: [
+        { id: 'profile.utility', label: 'Utility profile', model: 'utility-model' },
+        ...Array.from({ length: 30 }, (_, index) => ({
+          id: index === 29
+            ? 'ea043183-0eee-43bd-aa1a-532c1b2f1ddb-very-long-connection-profile-identifier'
+            : `profile.fixture.${index + 1}`,
+          label: index === 29
+            ? 'DeepSeek reasoner profile with an intentionally long descriptive connection name'
+            : `Fixture profile ${index + 1}`,
+          model: index === 29 ? 'deepseek/deepseek-reasoner-celia-v4.9a' : `fixture-model-${index + 1}`
+        }))
+      ],
       settings: {
         utility: {
           provider: 'profile', profileId: 'profile.utility', presetMode: 'isolated', instructMode: 'auto',

@@ -4,47 +4,11 @@ import {
   areDirectiveTooltipsDisabled,
   setDirectiveTooltipsDisabled
 } from '../../src/ui/runtime-ui-kit.js';
-
-class Element {
-  constructor(tagName) {
-    this.tagName = String(tagName).toUpperCase();
-    this.children = [];
-    this.dataset = {};
-    this.attributes = new Map();
-    this.listeners = new Map();
-    this.className = '';
-    this.textContent = '';
-    this.value = '';
-    this.checked = false;
-    this.disabled = false;
-    this.hidden = false;
-    this.style = {};
-    this.classList = {
-      add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); },
-      remove: (...names) => { this.className = this.className.split(/\s+/).filter((name) => !names.includes(name)).join(' '); },
-      contains: (name) => this.className.split(/\s+/).includes(name)
-    };
-  }
-  append(...children) { children.forEach((child) => this.appendChild(child)); }
-  appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
-  setAttribute(name, value) { this.attributes.set(name, String(value)); if (name === 'id') this.id = String(value); }
-  removeAttribute(name) { this.attributes.delete(name); }
-  addEventListener(type, handler) { this.listeners.set(type, handler); }
-  querySelectorAll(selector) {
-    const nodes = all(this);
-    if (selector === '[data-input-path]') return nodes.filter((node) => node.dataset.inputPath);
-    return [];
-  }
-}
+import { installFakeDom } from './helpers/fake-dom.mjs';
 
 const all = (root) => [root, ...root.children.flatMap(all)];
-const documentElement = new Element('html');
-globalThis.document = {
-  documentElement,
-  createElement: (tagName) => new Element(tagName),
-  createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text }),
-  addEventListener() {}
-};
+const fakeDocument = installFakeDom();
+const documentElement = fakeDocument.documentElement;
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 setDirectiveTooltipsDisabled(false);
 
@@ -67,8 +31,11 @@ const view = {
     autoCheck: { enabled: true }
   },
   providerConfiguration: {
-    profiles: [{ id: 'profile.utility', label: 'Utility / local-model', model: 'local-model', completionMode: 'chat' }],
-    settings: { utility: providerSettings, reasoning: { ...providerSettings, temperature: 0.4 } },
+    profiles: [
+      { id: 'profile.utility', label: 'Utility / local-model', model: 'local-model', completionMode: 'chat' },
+      { id: 'profile.reasoning', label: 'Reasoning profile', model: 'deepseek-reasoner', completionMode: 'chat' }
+    ],
+    settings: { utility: providerSettings, reasoning: { ...providerSettings, profileId: 'missing.profile', temperature: 0.4 } },
     status: {
       utility: { ready: true, label: 'Current local-model', certification: { status: 'not-run' } },
       reasoning: { ready: true, label: 'Current local-model', certification: { status: 'not-run' } }
@@ -83,7 +50,9 @@ const view = {
   diagnostics: { transcriptAvailable: false }
 };
 const updates = [];
-const body = new Element('div');
+const body = fakeDocument.createElement('div');
+body.id = 'directive-runtime-panel';
+fakeDocument.body.appendChild(body);
 resetSettingsPanelState();
 renderSettingsPanel(body, view, {
   async updateProviderSettings(input) {
@@ -135,24 +104,38 @@ const utilityState = byClass('settings-provider-state')[0];
 assert.equal(utilityProfileField.hidden, true);
 const utilityProvider = byControl('utility-provider');
 utilityProvider.value = 'profile';
-await utilityProvider.listeners.get('change')?.({});
+await utilityProvider.dispatch('change');
 assert.equal(utilityProfileField.hidden, false);
 assert.deepEqual(updates.at(-1), { kind: 'utility', patch: { provider: 'profile' } });
 assert.equal(utilityState.classList.contains('is-ready'), false);
 assert.equal(utilityState.textContent, 'Select a profile');
+const utilityProfileButton = byControl('utility-profileId');
+assert.equal(utilityProfileButton.tagName, 'BUTTON');
+assert.equal(utilityProfileButton.getAttribute('aria-haspopup'), 'dialog');
+await utilityProfileButton.click();
+const profileModalRoot = fakeDocument.getElementById('directive-modal-root');
+assert.equal(profileModalRoot.children.length, 1);
+assert.match(all(profileModalRoot.children[0]).map((node) => node.textContent || '').join(' '), /Reasoning profile/);
+const reasoningChoice = all(profileModalRoot.children[0])
+  .find((node) => node.dataset.connectionProfileId === 'profile.reasoning');
+await reasoningChoice.click();
+assert.deepEqual(updates.at(-1), { kind: 'utility', patch: { profileId: 'profile.reasoning' } });
+assert.equal(utilityProfileButton.textContent, 'Reasoning profile');
+assert.equal(profileModalRoot.children.length, 0);
+assert.equal(byControl('reasoning-profileId').textContent, 'missing.profile');
 
 const utilitySamplerFields = byClass('settings-sampler-overrides')[0];
 assert.equal(utilitySamplerFields.hidden, true);
 const utilitySampler = byControl('utility-samplerMode');
 utilitySampler.value = 'directive';
-await utilitySampler.listeners.get('change')?.({});
+await utilitySampler.dispatch('change');
 assert.equal(utilitySamplerFields.hidden, false);
 assert.deepEqual(updates.at(-1), { kind: 'utility', patch: { samplerMode: 'directive' } });
 
 const tooltipsToggle = byControl('tooltips-enabled');
 assert.equal(tooltipsToggle.checked, true);
 tooltipsToggle.checked = false;
-await tooltipsToggle.listeners.get('change')?.({});
+await tooltipsToggle.dispatch('change');
 assert.equal(areDirectiveTooltipsDisabled(), true);
 assert.equal(documentElement.attributes.get('data-directive-tooltips'), 'disabled');
 

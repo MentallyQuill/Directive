@@ -21,6 +21,7 @@ const checks = [
   "test-people-collection-preferences.mjs",
   "test-certified-ship-panel.mjs",
   "test-certified-settings-panel.mjs",
+  "test-connection-profile-picker.mjs",
   "test-certified-negative-legacy-ui.mjs",
   "test-certified-character-creator.mjs",
   "test-expanded-interface-mockup.mjs",

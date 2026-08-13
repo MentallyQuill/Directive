@@ -6,6 +6,7 @@ import {
   setDirectiveTooltipsDisabled
 } from './runtime-ui-kit.js';
 import { buildCertifiedSettingsView } from './view-models/certified-settings-view.mjs';
+import { createConnectionProfilePicker } from './connection-profile-picker.js';
 
 export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
@@ -107,24 +108,29 @@ function createNumber(value, { min, max, step }, controlName) {
   return input;
 }
 
-function createProfilePicker(kind, value, profiles) {
-  const input = createElement('input', 'settings-control settings-profile-picker');
-  const list = createElement('datalist');
-  const listId = `directive-${kind}-connection-profiles`;
-  input.type = 'search';
-  input.value = value || '';
-  input.placeholder = 'Search connection profiles';
-  input.setAttribute('list', listId);
+function createProfilePicker(kind, value, profiles, { onSelect = null } = {}) {
+  const input = createElement('button', 'settings-control settings-profile-picker');
+  let selectedId = String(value || '');
+  const syncLabel = () => {
+    const selected = profiles.find((profile) => profile.id === selectedId) || null;
+    input.textContent = selected?.label || selected?.name || selectedId || 'Choose a profile';
+  };
+  input.type = 'button';
+  input.setAttribute('aria-haspopup', 'dialog');
   input.dataset.settingsControl = `${kind}-profileId`;
-  list.setAttribute('id', listId);
-  for (const profile of profiles) {
-    const option = createElement('option');
-    option.value = profile.id;
-    option.label = profile.label || profile.name || profile.id;
-    list.appendChild(option);
-  }
+  input.addEventListener('click', () => createConnectionProfilePicker({
+    profiles,
+    selectedId,
+    opener: input,
+    onSelect: async (profileId) => {
+      await onSelect?.(profileId);
+      selectedId = String(profileId || '');
+      syncLabel();
+    }
+  }));
+  syncLabel();
   const wrapper = createElement('span', 'settings-profile-picker-wrap');
-  wrapper.append(input, list);
+  wrapper.appendChild(input);
   return { input, wrapper };
 }
 
@@ -178,7 +184,19 @@ function appendProviderCard(container, kind, configuration, actions) {
     { value: 'st', label: 'Current Model' },
     { value: 'profile', label: 'Connection Profile' }
   ], `${kind}-provider`);
-  const profilePicker = createProfilePicker(kind, settings.profileId || '', profiles);
+  const profilePicker = createProfilePicker(kind, settings.profileId || '', profiles, {
+    onSelect: async (profileId) => {
+      feedback.textContent = 'Saving...';
+      try {
+        const result = await actions.updateProviderSettings?.({ kind, patch: { profileId } });
+        if (result?.status) updateProviderState(state, result.status);
+        feedback.textContent = 'Saved / test again after changes';
+      } catch (error) {
+        feedback.textContent = error?.message || 'Could not save';
+        throw error;
+      }
+    }
+  });
   const presetMode = createSelect(settings.presetMode || 'isolated', [
     { value: 'isolated', label: 'Isolated' },
     { value: 'full-profile', label: 'Full source preset' }
@@ -227,7 +245,6 @@ function appendProviderCard(container, kind, configuration, actions) {
   card.appendChild(grid);
 
   bindAutoSave({ control: provider, kind, key: 'provider', actions, feedback, state, beforeSave: syncConditionalFields });
-  bindAutoSave({ control: profilePicker.input, kind, key: 'profileId', actions, feedback, state });
   bindAutoSave({ control: presetMode, kind, key: 'presetMode', actions, feedback, state });
   bindAutoSave({ control: instructMode, kind, key: 'instructMode', actions, feedback, state });
   bindAutoSave({ control: samplerMode, kind, key: 'samplerMode', actions, feedback, state, beforeSave: syncConditionalFields });
