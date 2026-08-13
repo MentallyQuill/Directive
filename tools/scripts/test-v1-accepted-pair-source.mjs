@@ -150,4 +150,49 @@ assert.notEqual(
   'A footer-only edit must invalidate accepted-pair identity.'
 );
 
+const longAssistantPrefix = 'A'.repeat(7100);
+const longAssistantOne = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.long-assistant' },
+  previousAssistantMessage: { id: 'assistant.long', role: 'assistant', text: `${longAssistantPrefix} first ending` },
+  chatId: 'chat.ashes'
+});
+const longAssistantTwo = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.long-assistant' },
+  previousAssistantMessage: { id: 'assistant.long', role: 'assistant', text: `${longAssistantPrefix} second ending` },
+  chatId: 'chat.ashes'
+});
+assert.equal(longAssistantOne.snapshot.source.previousAssistant.text.length, 7000);
+assert.notEqual(longAssistantOne.snapshot.source.sourceRangeHash, longAssistantTwo.snapshot.source.sourceRangeHash);
+
+const longPlayerPrefix = 'P'.repeat(2600);
+const longPlayerOne = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.long', text: `${longPlayerPrefix} first ending` },
+  previousAssistantMessage: assistant,
+  chatId: 'chat.ashes'
+});
+const longPlayerTwo = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.long', text: `${longPlayerPrefix} second ending` },
+  previousAssistantMessage: assistant,
+  chatId: 'chat.ashes'
+});
+assert.equal(longPlayerOne.snapshot.source.currentPlayer.text.length, 2500);
+assert.notEqual(longPlayerOne.snapshot.source.sourceRangeHash, longPlayerTwo.snapshot.source.sourceRangeHash);
+
+const lateFooter = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.late-footer' },
+  previousAssistantMessage: {
+    id: 'assistant.late-footer',
+    role: 'assistant',
+    text: `${'N'.repeat(7100)}\n\n*Stardate 53068.4 | 08:31:22 hours*`
+  },
+  chatId: 'chat.ashes'
+});
+assert.equal(lateFooter.ok, true);
+assert.equal(lateFooter.snapshot.source.previousAssistant.timeFooter.secondOfDay, 30682);
+
 console.log('V1 accepted-pair source tests passed.');

@@ -612,7 +612,17 @@ assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARIN
 
 const opening = chat.messages()[0];
 const player = chat.pushPlayerMessage({ text: 'I take the chair opposite Whitaker and open the handover packet.' });
+const acceptedHistoryReads = [];
+const acceptedHistoryReader = host.chat.getRecentMessages;
+host.chat.getRecentMessages = (options) => {
+  acceptedHistoryReads.push(options);
+  return acceptedHistoryReader(options);
+};
 const settled = await app.observeHostPlayerMessage({ message: player });
+host.chat.getRecentMessages = acceptedHistoryReader;
+assert.equal(acceptedHistoryReads.some((options) => (
+  options?.limit === Number.MAX_SAFE_INTEGER && options?.playerSafeOnly === false
+)), true, 'accepted-pair custody must read complete raw chat source');
 assert.equal(settled.handled, true);
 assert.equal(settled.mission.ok, false);
 assert.equal(settled.mission.reasonCode, 'provider-empty');

@@ -908,7 +908,7 @@ export function createDirectiveRuntimeApp({
 
   async function rebuildAcceptedStateFromChat() {
     if (!state || !currentChatIsBound()) return { replayed: 0, blocked: false };
-    const messages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+    const messages = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
     let replayed = 0;
     let blockedAtMessageId = null;
     acceptedPairReplayNeeded = false;
@@ -1175,7 +1175,7 @@ export function createDirectiveRuntimeApp({
         if (!current || !isUserMessage(current) || !compact(current.text || current.mes || current.content)) {
           return { handled: false, reason: 'no-player-message' };
         }
-        const recent = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+        const recent = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
         if (!currentChatIsBound() || sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
           return { handled: false, reason: 'source-chat-changed' };
         }
@@ -1203,7 +1203,7 @@ export function createDirectiveRuntimeApp({
           return { ok: false, reasonCode: 'inactive-or-unbound', settlementBlocked: true };
         }
         const current = await host.chat.getLatestPlayerMessage?.();
-        const recent = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+        const recent = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
         const prepared = current
           ? await acceptedSnapshotForMessage(current, recent, `retry.${messageId(current, current)}`)
           : null;

@@ -15,10 +15,10 @@ function compact(value, maximum = 300) {
   return text.length <= maximum ? text : text.slice(0, maximum);
 }
 
-function sourceText(message = {}, maximum = MAX_ASSISTANT_CHARS) {
+function sourceText(message = {}) {
   return stripLegacyCampaignReplyHeader(message?.text || message?.mes || message?.content || '')
     .trim()
-    .slice(0, maximum);
+    ;
 }
 
 function assistantSource(message = {}) {
@@ -27,6 +27,7 @@ function assistantSource(message = {}) {
   return {
     fullText,
     text: extracted.narrativeText.slice(0, MAX_ASSISTANT_CHARS),
+    completeNarrativeText: extracted.narrativeText,
     timeFooter: extracted.footer
   };
 }
@@ -93,8 +94,8 @@ function selectedAssistantVariant(message = {}) {
   const visibleText = visible.text;
   const selectedText = selected.text;
   if (!selectedText) return { ok: false, reason: 'previous-assistant-empty' };
-  const selectedTextHash = stableHash(selectedText);
-  const visibleTextHash = stableHash(visibleText);
+  const selectedTextHash = stableHash(selected.completeNarrativeText);
+  const visibleTextHash = stableHash(visible.completeNarrativeText);
   const selectedResponseHash = stableHash(selected.fullText);
   const visibleResponseHash = stableHash(visible.fullText);
   if (visible.fullText && selectedResponseHash !== visibleResponseHash) {
@@ -190,7 +191,7 @@ export function prepareV1AcceptedPairSnapshot({
   chatId = null,
   ingressId = null
 } = {}) {
-  if (!campaignState || !sourceText(currentPlayerMessage, MAX_PLAYER_CHARS)) {
+  if (!campaignState || !sourceText(currentPlayerMessage)) {
     return { ok: false, reason: 'missing-state-or-player-message', snapshot: null };
   }
   const boundChatId = compact(campaignState?.campaignChatBinding?.chatId);
@@ -213,12 +214,13 @@ export function prepareV1AcceptedPairSnapshot({
   if (!selected.ok) return { ok: false, reason: selected.reason, snapshot: null };
 
   const previousText = selected.value.text;
-  const playerText = sourceText(currentPlayerMessage, MAX_PLAYER_CHARS);
+  const completePlayerText = sourceText(currentPlayerMessage);
+  const playerText = completePlayerText.slice(0, MAX_PLAYER_CHARS);
   const previousId = messageId(resolved.message);
   const playerId = messageId(currentPlayerMessage);
-  const previousTextHash = stableHash(previousText);
+  const previousTextHash = selected.value.selectedTextHash;
   const previousResponseHash = compact(selected.value.selectedResponseHash) || previousTextHash;
-  const playerTextHash = stableHash(playerText);
+  const playerTextHash = stableHash(completePlayerText);
   const sourceRangeHash = stableHash(`${previousId || ''}:${previousResponseHash}:${playerId || ''}:${playerTextHash}`);
   const promptingPlayerHostMessageId = promptingPlayerBeforeAssistant(recentMessages, resolved.message);
   return {
