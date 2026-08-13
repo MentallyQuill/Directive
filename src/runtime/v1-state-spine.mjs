@@ -736,11 +736,21 @@ export function createV1StateSpine({
         contributionIds = [],
         gatewayBaseRevision = null,
         reason = 'source-invalidated',
+        authorityPatch = {},
+        authorityDomains = [],
     } = {}) {
         const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
         const currentMission = resolveV1MissionState({ campaignState, definition, branchId });
         const currentStorySettlement = initialStorySettlement(campaignState, branchId);
+        const additionalPatch = authorityPatch && typeof authorityPatch === 'object' && !Array.isArray(authorityPatch)
+            ? structuredClone(authorityPatch)
+            : {};
+        const additionalDomains = [...new Set((Array.isArray(authorityDomains) ? authorityDomains : [])
+            .filter((domain) => Object.hasOwn(additionalPatch, domain)))];
+        const authorityChanged = additionalDomains.some(
+            (domain) => !jsonEqual(campaignState?.[domain], additionalPatch[domain]),
+        );
         const hasJourney = campaignState?.mission?.v1Journey !== undefined
             || campaignState?.mission?.v1History !== undefined;
         const definitions = (Array.isArray(missionDefinitions) ? missionDefinitions : [])
@@ -785,6 +795,24 @@ export function createV1StateSpine({
             (id) => !previouslyInvalidated.has(id) && knownContributionIds.has(id),
         );
         if (newContributionIds.length === 0) {
+            if (authorityChanged) {
+                const committed = await stateDeltaGateway.applyProposal({
+                    patch: additionalPatch,
+                    domains: additionalDomains,
+                    baseRevision: capturedGatewayRevision,
+                    source: 'v1StateSpineSourceRecovery',
+                    reason: 'Rebuilt non-mission authority after accepted-source invalidation.',
+                });
+                return {
+                    missionState: currentMission,
+                    storySettlement: currentStorySettlement,
+                    campaignState: committed.campaignState,
+                    invalidatedContributionIds: [],
+                    noChange: false,
+                    reviewToken: createPendingEpisodeReviewToken(currentStorySettlement),
+                    missionChanged: false,
+                };
+            }
             return {
                 missionState: currentMission,
                 storySettlement: currentStorySettlement,
@@ -825,8 +853,12 @@ export function createV1StateSpine({
                     ...(conclusionCleared
                         ? [{ op: 'set', path: 'mission.v1Conclusion', value: null }]
                         : []),
+                    ...additionalDomains.map((domain) => ({ op: 'set', path: domain, value: additionalPatch[domain] })),
                 ],
-                domains: conclusionCleared ? ['storySettlement', 'mission'] : ['storySettlement'],
+                domains: [
+                    ...(conclusionCleared ? ['storySettlement', 'mission'] : ['storySettlement']),
+                    ...additionalDomains,
+                ],
                 baseRevision: capturedGatewayRevision,
                 source: 'v1StateSpineSourceRecovery',
                 reason: 'Rebuilt Story Settlement after a non-mission source invalidation.',
@@ -995,10 +1027,11 @@ export function createV1StateSpine({
                 { op: 'set', path: 'mission.v1History', value: missionPatch.v1History },
                 { op: 'set', path: 'mission.activeMissionId', value: missionPatch.activeMissionId },
             ] : []),
+            ...additionalDomains.map((domain) => ({ op: 'set', path: domain, value: additionalPatch[domain] })),
         ];
         const committed = await stateDeltaGateway.applyProposal({
             operations: missionOperations,
-            domains: ['storySettlement', 'mission'],
+            domains: ['storySettlement', 'mission', ...additionalDomains],
             baseRevision: capturedGatewayRevision,
             source: 'v1StateSpineSourceRecovery',
             reason: crossedClosure

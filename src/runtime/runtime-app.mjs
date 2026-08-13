@@ -26,7 +26,7 @@ import { createStateDeltaGateway } from './state-delta-gateway.mjs';
 import { prepareV1AcceptedPairSnapshot } from './v1-accepted-pair-source.mjs';
 import {
   prepareV1AcceptedPairTimeAdvance,
-  invalidateV1AcceptedPairTimeByHostMessage
+  prepareV1AcceptedPairTimeInvalidationByHostMessages
 } from './v1-accepted-pair-time.mjs';
 import {
   buildV1RuntimePlayerProjection,
@@ -95,6 +95,49 @@ function activeSourceRow(message = {}) {
     && visibility.sourceRowExists !== false
     && visibility.hiddenByHost !== true
     && visibility.sourceMutation !== true;
+}
+
+function persistedAcceptedSourceMessageIds(campaignState = {}) {
+  const ids = new Set();
+  const invalidatedContributionIds = new Set([
+    ...(campaignState?.storySettlement?.receipts || [])
+      .filter((receipt) => receipt?.disposition === 'invalidated')
+      .flatMap((receipt) => receipt?.sourceContributionIds || []),
+    ...(campaignState?.mission?.v1?.invalidatedSourceContributionIds || []),
+    ...(campaignState?.mission?.v1History || [])
+      .flatMap((entry) => entry?.state?.invalidatedSourceContributionIds || [])
+  ]);
+  const add = (value) => {
+    const id = compact(value);
+    if (id && !id.startsWith('time-boundary:')) ids.add(id);
+  };
+  for (const entry of [
+    ...(campaignState?.timeLedger?.entries || []),
+    ...(campaignState?.timeLedger?.decisions || [])
+  ]) {
+    for (const id of entry?.evidenceMessageIds || []) add(id);
+  }
+  for (const episode of campaignState?.storySettlement?.episodes || []) {
+    for (const contribution of episode?.contributions || []) {
+      if (!invalidatedContributionIds.has(contribution?.id)) add(contribution?.messageId);
+    }
+  }
+  const missionRuns = [
+    campaignState?.mission?.v1,
+    ...(campaignState?.mission?.v1History || []).map((entry) => entry?.state)
+  ];
+  for (const run of missionRuns) {
+    for (const evidence of run?.evidenceLog || []) {
+      if (!invalidatedContributionIds.has(evidence?.sourceContributionId)) add(evidence?.sourceRef?.messageId);
+    }
+  }
+  for (const spend of Object.values(campaignState?.commandBearing?.spends || {})) {
+    if (spend?.status === 'refunded') continue;
+    add(spend?.armedByPlayerMessageId);
+    add(spend?.assistantMessageId);
+    add(spend?.acceptedByPlayerMessageId);
+  }
+  return ids;
 }
 
 export function createActiveAcceptedPairLineage({
@@ -628,7 +671,7 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  async function refundCommandBearingForInvalidatedMessage(hostMessageId, eventType) {
+  function prepareCommandBearingRefundForInvalidatedMessage(hostMessageId, eventType) {
     const matches = Object.values(state?.commandBearing?.spends || {}).filter((spend) => (
       spend.status !== 'refunded'
       && [
@@ -637,7 +680,7 @@ export function createDirectiveRuntimeApp({
         spend.acceptedByPlayerMessageId
       ].includes(hostMessageId)
     ));
-    if (!matches.length) return { applied: false, reasonCode: 'no-matching-edge' };
+    if (!matches.length) return { applied: false, reasonCode: 'no-matching-edge', patch: {}, domains: [] };
     let commandBearing = clone(state.commandBearing);
     let refundedCount = 0;
     for (const spend of matches) {
@@ -649,16 +692,14 @@ export function createDirectiveRuntimeApp({
       commandBearing = result.commandBearing;
       if (result.applied) refundedCount += 1;
     }
-    if (!refundedCount) return { applied: false, reasonCode: 'no-refundable-edge' };
-    const committed = await gateway.applyProposal({
-      id: `v1-command-bearing.refund.${hostMessageId}.${eventType}.${matches.map((item) => item.id).join('.')}`,
-      baseRevision: gateway.revision(),
-      domains: ['commandBearing'],
-      patch: { commandBearing },
-      source: 'commandBearingSourceInvalidation'
-    });
-    setState(committed.campaignState);
-    return { applied: true, refundedCount, commandBearing: clone(state.commandBearing) };
+    if (!refundedCount) return { applied: false, reasonCode: 'no-refundable-edge', patch: {}, domains: [] };
+    return {
+      applied: true,
+      refundedCount,
+      commandBearing: clone(commandBearing),
+      patch: { commandBearing: clone(commandBearing) },
+      domains: ['commandBearing']
+    };
   }
 
   async function ensureInitialized() {
@@ -911,13 +952,31 @@ export function createDirectiveRuntimeApp({
   async function rebuildAcceptedStateFromChat() {
     if (!state || !currentChatIsBound()) return { replayed: 0, blocked: false };
     const messages = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
+    const activeMessages = messages.filter(activeSourceRow);
+    const activeMessageIds = new Set(activeMessages.map((message) => messageId(message, message)).filter(Boolean));
+    let reconciled = 0;
+    for (const persistedId of persistedAcceptedSourceMessageIds(state)) {
+      if (activeMessageIds.has(persistedId)) continue;
+      const invalidated = await invalidateSourceAuthority(persistedId, 'source-missing-from-chat');
+      if (invalidated.mission?.ok === false) {
+        acceptedPairReplayNeeded = true;
+        return {
+          replayed: 0,
+          reconciled,
+          blocked: true,
+          blockedAtMessageId: persistedId,
+          retryPending: true
+        };
+      }
+      if (invalidated.mission?.noChange !== true || invalidated.time?.status === 'invalidated') reconciled += 1;
+    }
     let replayed = 0;
     let blockedAtMessageId = null;
     acceptedPairReplayNeeded = false;
-    for (const message of messages) {
+    for (const message of activeMessages) {
       if (!isUserMessage(message)) continue;
       const hostMessageId = message.hostMessageId || message.id;
-      const prepared = await acceptedSnapshotForMessage(message, messages, `replay.${hostMessageId}`);
+      const prepared = await acceptedSnapshotForMessage(message, activeMessages, `replay.${hostMessageId}`);
       if (!prepared.ok) continue;
       const result = await settleSnapshot(prepared.snapshot, `replay.${hostMessageId}`, {
         syncPromptAfter: false
@@ -932,10 +991,41 @@ export function createDirectiveRuntimeApp({
     await syncPrompt({ rebuild: true });
     return {
       replayed,
+      reconciled,
       blocked: acceptedPairReplayNeeded,
       blockedAtMessageId,
       retryPending: acceptedPairReplayNeeded
     };
+  }
+
+  async function invalidateSourceAuthority(id, eventType) {
+    const timePlan = prepareV1AcceptedPairTimeInvalidationByHostMessages({
+      campaignState: state,
+      hostMessageIds: [id],
+      packageData: records.packageData,
+      now,
+      eventType
+    });
+    const commandBearing = prepareCommandBearingRefundForInvalidatedMessage(id, eventType);
+    const authorityPatch = {
+      ...(timePlan.patch || {}),
+      ...(commandBearing.patch || {})
+    };
+    const authorityDomains = [...new Set([
+      ...(timePlan.domains || []),
+      ...(commandBearing.domains || [])
+    ])];
+    const mission = await missionRuntime.invalidateSourceMutation({
+      runtimeAssets,
+      hostMessageId: id,
+      eventType,
+      authorityPatch,
+      authorityDomains
+    });
+    const time = timePlan.patch
+      ? { ...timePlan, status: mission.ok === true ? 'invalidated' : 'unavailable', campaignState: clone(state), patch: null }
+      : timePlan;
+    return { mission, time, commandBearing };
   }
 
   async function invalidateSource(payload, eventType) {
@@ -951,21 +1041,7 @@ export function createDirectiveRuntimeApp({
       }
       const id = messageId(payload, normalized);
       if (!id) return { handled: false, reason: 'message-id-unavailable' };
-      const mission = await missionRuntime.invalidateSourceMutation({
-        runtimeAssets,
-        hostMessageId: id,
-        eventType
-      });
-      const time = await invalidateV1AcceptedPairTimeByHostMessage({
-        campaignState: state,
-        hostMessageId: id,
-        packageData: records.packageData,
-        stateDeltaGateway: gateway,
-        now,
-        eventType
-      });
-      if (time.campaignState) setState(time.campaignState);
-      const commandBearing = await refundCommandBearingForInvalidatedMessage(id, eventType);
+      const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType);
       const replay = await rebuildAcceptedStateFromChat();
       return { handled: true, mission, time, commandBearing, replay };
     });

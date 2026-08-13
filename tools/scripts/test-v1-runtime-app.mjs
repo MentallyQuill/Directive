@@ -978,6 +978,45 @@ assert.equal(manuallyRetried.ok, true);
 assert.equal(manuallyRetried.settlementBlocked, false);
 assert.equal(missionInterpretationCalls, generationBeforeBlockedPersistence + 1);
 
+const beforeAtomicInvalidationFailure = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
+host.storage.writeJson = async (path, value) => {
+  if (path === retrySavePath) throw new Error('forced atomic invalidation persistence failure');
+  return retryWriteJson.call(host.storage, path, value);
+};
+const failedAtomicInvalidation = await app.handleHostMessageDeleted({ hostMessageId: 'player.persistence-block' });
+host.storage.writeJson = retryWriteJson;
+assert.equal(failedAtomicInvalidation.mission.ok, false);
+assert.equal(failedAtomicInvalidation.mission.reasonCode, 'persistence-failed');
+const afterAtomicInvalidationFailure = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
+assert.deepEqual(afterAtomicInvalidationFailure.timeLedger, beforeAtomicInvalidationFailure.timeLedger);
+assert.deepEqual(afterAtomicInvalidationFailure.mission, beforeAtomicInvalidationFailure.mission);
+assert.deepEqual(afterAtomicInvalidationFailure.storySettlement, beforeAtomicInvalidationFailure.storySettlement);
+
+const elapsedBeforeMissingSource = afterAtomicInvalidationFailure.timeLedger.elapsedSeconds;
+const completeChat = chat.messages().filter((message) => ![
+  'assistant.persistence-block',
+  'player.persistence-block'
+].includes(message.hostMessageId));
+for (let index = 0; index < 510; index += 1) {
+  completeChat.push({
+    id: `system.filler.${index}`,
+    hostMessageId: `system.filler.${index}`,
+    text: 'inactive system filler',
+    isUser: false,
+    isSystem: true,
+    role: 'system'
+  });
+}
+chat.setMessagesForChat(chat.getCurrentChatId(), completeChat);
+const reconciledMissingSource = await app.handleHostChatChanged();
+assert.equal(reconciledMissingSource.acceptedPairReplay.blocked, false);
+assert.ok(reconciledMissingSource.acceptedPairReplay.reconciled >= 1);
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedSeconds,
+  elapsedBeforeMissingSource - 47,
+  'complete-chat reconciliation must remove an accepted pair outside the last 500 rows'
+);
+
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
 const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;
 const deleteCampaignCharacter = host.chat.deleteCampaignCharacter;

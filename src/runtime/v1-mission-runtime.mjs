@@ -1375,6 +1375,8 @@ export function createV1MissionRuntime({
         runtimeAssets = {},
         hostMessageId = null,
         eventType = 'source-invalidated',
+        authorityPatch = {},
+        authorityDomains = [],
     } = {}) {
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1419,6 +1421,8 @@ export function createV1MissionRuntime({
                 contributionIds,
                 gatewayBaseRevision,
                 reason,
+                authorityPatch,
+                authorityDomains,
             });
             return {
                 ok: true,
@@ -1430,7 +1434,10 @@ export function createV1MissionRuntime({
                 invalidatedContributionCount: invalidated.invalidatedContributionIds?.length || 0,
                 committedRoots: invalidated.noChange
                     ? []
-                    : (invalidated.missionChanged === false ? ['storySettlement'] : ['mission', 'storySettlement']),
+                    : [
+                        ...(invalidated.missionChanged === false ? ['storySettlement'] : ['mission', 'storySettlement']),
+                        ...authorityDomains,
+                    ],
                 noChange: invalidated.noChange === true,
                 reviewToken: invalidated.reviewToken || null,
                 journeyRollback: invalidated.journeyRollback || null,
