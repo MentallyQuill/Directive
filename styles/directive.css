@@ -4062,7 +4062,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
   inset: auto;
-  top: calc(50% + 40px);
+  top: calc(50% + 20px);
   left: 50%;
   width: 100%;
   height: auto;
@@ -4244,7 +4244,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-hero-ship-scale-end: 1.045;
     --directive-hero-ship-rest-scale: 1.04;
   }
-  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { top: 50%; }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { top: calc(50% - 20px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

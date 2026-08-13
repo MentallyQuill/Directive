@@ -623,7 +623,7 @@ try {
     assert.ok(Math.abs(result.scene.sourceCanvas.widthRatio - 1) < .002, `${label} ship source canvas must use the original full-width baseline before scaling`);
     assert.ok(Math.abs(result.scene.sourceCanvas.aspectRatio - (1672 / 941)) < .002, `${label} ship source canvas must preserve its intrinsic aspect ratio`);
     assert.ok(Math.abs(result.scene.sourceCanvas.centerXRatio - .5) < .002, `${label} ship source canvas must stay horizontally centered`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.verticalOffset - 40) < 1, `${label} ship source canvas must sit 40px below the banner center`);
+    assert.ok(Math.abs(result.scene.sourceCanvas.verticalOffset - 20) < 1, `${label} ship source canvas must sit 20px below the banner center`);
     assert.equal(result.scene.sourceCanvas.translate, '-50% -50%', `${label} ship source canvas must center before the banner clips its scaled composition`);
     assert.deepEqual(result.scene.motionBounds, {
       scaleStart: '.79', scaleEnd: '.81', rotateStart: '-.15deg', rotateEnd: '.15deg'
@@ -703,7 +703,7 @@ try {
   const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero)) < 1, 'mobile compact Campaign ship must return to center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) + 20) < 1, 'mobile compact Campaign ship must sit 20px above center');
   assert.deepEqual(await mobileCampaignHero.evaluate((node) => {
     const style = getComputedStyle(node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene'));
     return {
@@ -715,7 +715,7 @@ try {
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero)) < 1, 'mobile expanded Campaign ship must stay centered');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) + 20) < 1, 'mobile expanded Campaign ship must stay 20px above center');
   assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
   await mobileCampaignToggle.tap();
   await touchPage.waitForTimeout(220);
@@ -734,11 +734,11 @@ try {
   const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
   const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero)) < 1, 'mobile compact Ship image must return to center');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) + 20) < 1, 'mobile compact Ship image must sit 20px above center');
   await mobileShipToggle.tap();
   await touchPage.waitForTimeout(220);
   assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero)) < 1, 'mobile expanded Ship image must stay centered');
+  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) + 20) < 1, 'mobile expanded Ship image must stay 20px above center');
   assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
 
   await touchPage.locator('[data-route-id="campaign"]').tap();
@@ -808,7 +808,7 @@ try {
     animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName)
   }));
   assert.ok(Math.abs(mobileReducedMotion.foregroundScale - 1.04) < .001, 'mobile reduced motion must retain the thirty-percent-larger ship framing');
-  assert.ok(Math.abs(mobileReducedMotion.verticalOffset) < 1, 'mobile reduced motion must keep the ship centered');
+  assert.ok(Math.abs(mobileReducedMotion.verticalOffset + 20) < 1, 'mobile reduced motion must keep the ship 20px above center');
   assert.deepEqual(mobileReducedMotion.animations, ['none', 'none', 'none', 'none']);
   await mobileReducedContext.close();
 
