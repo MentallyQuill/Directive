@@ -4025,7 +4025,6 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   object-fit: cover;
   object-position: center 50%;
   pointer-events: none;
-  will-change: transform, opacity, filter;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
   z-index: 0;
@@ -4035,17 +4034,20 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   opacity: .58;
   mix-blend-mode: screen;
   animation: directive-hero-stars-drift 58s ease-in-out infinite alternate;
+  will-change: transform;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-glow"] {
   z-index: 2;
   opacity: .11;
   mix-blend-mode: screen;
   animation: directive-hero-stars-shimmer 17s ease-in-out infinite;
+  will-change: transform, opacity, filter;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
   z-index: 3;
   transform-origin: 55% 48%;
   animation: directive-hero-ship-drift 42s ease-in-out infinite alternate;
+  will-change: transform;
 }
 @supports (mix-blend-mode: plus-lighter) {
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars"],
@@ -4163,6 +4165,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   border: 1px solid rgba(248, 239, 224, .48);
   border-radius: 4px;
   font: 800 15px/1 "Segoe UI Symbol", sans-serif;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+.directive-expanded-shell .directive-responsive-hero-toggle:hover::after,
+.directive-expanded-shell .directive-responsive-hero-toggle:focus-visible::after {
+  color: var(--directive-active-route-accent);
+  background: rgba(5, 7, 11, .9);
+  border-color: var(--directive-active-route-accent);
 }
 .directive-expanded-shell .directive-responsive-hero-toggle:focus-visible {
   outline: 2px solid var(--directive-active-route-accent);
@@ -4179,6 +4188,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-responsive-hero-collapsed-height: 112px;
     --directive-responsive-hero-expanded-height: 220px;
   }
+}
+
+@media (max-width: 640px), (pointer: coarse) {
   .directive-expanded-shell .directive-hero-scene {
     --directive-hero-ship-x-start: -.14%;
     --directive-hero-ship-y-start: -.09%;

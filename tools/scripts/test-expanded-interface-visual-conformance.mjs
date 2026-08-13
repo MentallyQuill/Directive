@@ -509,10 +509,16 @@ try {
     await hero.waitFor();
     const finePointer = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
     const collapsedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const glyphBorderBeforeHover = await hero.locator('.directive-responsive-hero-toggle').evaluate(
+      (node) => getComputedStyle(node, '::after').borderColor
+    );
     const outsideTopBeforeHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
     await hero.hover();
     await page.waitForTimeout(220);
     const hoverHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const glyphBorderAfterHover = await hero.locator('.directive-responsive-hero-toggle').evaluate(
+      (node) => getComputedStyle(node, '::after').borderColor
+    );
     const outsideTopAfterHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
     await hero.click();
     await page.waitForTimeout(220);
@@ -526,7 +532,8 @@ try {
       return {
         order: layers.map((layer) => layer.dataset.heroSceneLayer),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
-        starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode
+        starBlend: getComputedStyle(layers.find((layer) => layer.dataset.heroSceneLayer === 'stars')).mixBlendMode,
+        willChange: layers.map((layer) => getComputedStyle(layer).willChange)
       };
     });
     await hero.click();
@@ -538,6 +545,8 @@ try {
       finePointer,
       collapsedHeight,
       hoverHeight,
+      glyphBorderBeforeHover,
+      glyphBorderAfterHover,
       outsideTopBeforeHover,
       outsideTopAfterHover,
       expandedHeight,
@@ -560,6 +569,7 @@ try {
     assert.equal(result.finePointer, true);
     assert.equal(result.collapsedHeight, 140, `${label} must start compact`);
     assert.equal(result.hoverHeight, 140, `${label} hover must not change geometry`);
+    assert.notEqual(result.glyphBorderAfterHover, result.glyphBorderBeforeHover, `${label} hover must highlight only the toggle glyph`);
     assert.equal(result.outsideTopAfterHover, result.outsideTopBeforeHover, `${label} hover must not move content below the banner`);
     assert.equal(result.expandedHeight, 280, `${label} click must expand the banner`);
     assert.equal(result.afterOutsideClickHeight, 280, `${label} outside click must leave the banner expanded`);
@@ -570,6 +580,7 @@ try {
     assert.deepEqual(result.scene.animations, [
       'none', 'directive-hero-stars-drift', 'directive-hero-stars-shimmer', 'directive-hero-ship-drift'
     ], `${label} scene must animate while compact`);
+    assert.deepEqual(result.scene.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
     assert.match(result.scene.starBlend, /^(?:plus-lighter|screen)$/);
   }
 
@@ -615,6 +626,21 @@ try {
   const returnedCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   assert.equal(Math.round(await returnedCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'Campaign must start compact after route re-entry');
   await touchContext.close();
+
+  const wideTouchContext = await browser.newContext({
+    viewport: { width: 1024, height: 768 },
+    hasTouch: true
+  });
+  const wideTouchPage = await wideTouchContext.newPage();
+  await wideTouchPage.goto(`${baseUrl}/production?route=ship`);
+  await wideTouchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const wideTouchMotion = await wideTouchPage.locator('.ship-hero.directive-hero-scene').evaluate((node) => ({
+    coarse: matchMedia('(pointer: coarse)').matches,
+    shipX: getComputedStyle(node).getPropertyValue('--directive-hero-ship-x-end').trim(),
+    starsX: getComputedStyle(node).getPropertyValue('--directive-hero-stars-x-end').trim()
+  }));
+  assert.deepEqual(wideTouchMotion, { coarse: true, shipX: '.14%', starsX: '.06%' }, 'wide coarse-pointer screens must use restrained motion');
+  await wideTouchContext.close();
 
   const reducedContext = await browser.newContext({
     viewport: { width: 1440, height: 900 },
