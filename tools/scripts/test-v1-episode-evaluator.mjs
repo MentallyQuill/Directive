@@ -5,6 +5,7 @@ import { createEmptyStorySettlement } from '../../src/story/story-settlement-con
 import {
     acceptStoryContributions,
     appendStoryEffects,
+    appendStoryPeopleEvents,
     checkpointStoryEpisode,
     observeStoryWorkingEvidence,
     openStoryEpisode,
@@ -100,6 +101,14 @@ settlement = appendStoryEffects(settlement, [{
     playerVisibility: 'visible',
     status: 'active',
 }, {
+    id: 'effect.active-relationship',
+    type: 'character.relationshipPosture',
+    targetId: 'mara-whitaker',
+    value: 'Watchful professional respect.',
+    sourceContributionIds: ['contribution.active-3'],
+    playerVisibility: 'visible',
+    status: 'active',
+}, {
     id: 'effect.active-hidden',
     type: 'mission.worldFactEstablished',
     targetId: 'fact.hidden-fraud',
@@ -107,6 +116,13 @@ settlement = appendStoryEffects(settlement, [{
     sourceContributionIds: ['contribution.active-6'],
     playerVisibility: 'hidden',
     status: 'active',
+}]);
+settlement = appendStoryPeopleEvents(settlement, [{
+    id: 'people.relationship.active-5',
+    type: 'relationshipEvidence',
+    personId: 'mara-whitaker',
+    summary: 'Whitaker accepted the XO\'s candid correction and offered another chance.',
+    sourceContributionIds: ['contribution.active-5'],
 }]);
 settlement = replaceStoryWorkingCapsule(settlement, {
     summary: 'Whitaker and the XO are reviewing readiness.',
@@ -138,7 +154,19 @@ assert.deepEqual(request.pendingSourceContributionIds, activeContributions.map((
 assert.equal(request.recentEvidence.length, 5, 'the 1,200-character aggregate cap may be stricter than the six-row cap');
 assert.ok(request.recentEvidence.length <= 6);
 assert.ok(request.recentEvidence.reduce((total, item) => total + item.excerpt.length, 0) <= 1200);
-assert.deepEqual(request.visibleEffects.map((item) => item.id), ['effect.active-visible']);
+assert.deepEqual(request.visibleEffects.map((item) => item.id), ['effect.active-visible', 'effect.active-relationship']);
+assert.deepEqual(request.peopleEvents, [{
+    id: 'people.relationship.active-5',
+    type: 'relationshipEvidence',
+    personId: 'mara-whitaker',
+    summary: 'Whitaker accepted the XO\'s candid correction and offered another chance.',
+    sourceContributionIds: ['contribution.active-5'],
+}]);
+assert.deepEqual(request.currentRelationships, [{
+    personId: 'mara-whitaker',
+    posture: 'Watchful professional respect.',
+    openMatter: null,
+}]);
 assert.deepEqual(request.recentSealedSummaries.map((item) => item.episodeId), ['episode.two', 'episode.three']);
 assert.deepEqual(request.references, {
     missionIds: ['mission.prelude'],
@@ -170,18 +198,41 @@ const proposalFor = (fields = {}) => ({
     foregroundQuestion: 'Will the readiness concern be resolved before departure?',
     sourceContributionIds: ['contribution.active-5'],
     effectIds: ['effect.active-visible'],
+    relationshipUpdates: [],
+    characterMoments: [],
     ...fields,
 });
 
 const validContinue = parseEpisodeEvaluationProposal(proposalFor(), { request });
 assert.equal(validContinue.ok, true);
 assert.equal(validContinue.value.decision, 'continue');
+const validRelationshipUpdate = parseEpisodeEvaluationProposal(proposalFor({
+    relationshipUpdates: [{
+        personId: 'mara-whitaker',
+        posture: 'Cautious professional trust is growing.',
+        openMatter: 'Whether the XO will follow through before departure.',
+        sourceContributionIds: ['contribution.active-5'],
+    }],
+}), { request });
+assert.equal(validRelationshipUpdate.ok, true);
 const validSeal = parseEpisodeEvaluationProposal(proposalFor({
     decision: 'seal',
     boundaryReason: 'foreground-question-resolved',
     significanceCriteria: ['material-state-change', 'commitment-created-or-resolved'],
     summary: 'The readiness review concluded with a recorded corrective commitment.',
     foregroundQuestion: null,
+    relationshipUpdates: [{
+        personId: 'mara-whitaker',
+        posture: 'Whitaker now extends measured professional trust.',
+        openMatter: null,
+        sourceContributionIds: ['contribution.active-5'],
+    }],
+    characterMoments: [{
+        personId: 'mara-whitaker',
+        title: 'A measured second chance',
+        summary: 'Whitaker accepted the XO\'s candid correction and extended a measured second chance.',
+        sourceContributionIds: ['contribution.active-5'],
+    }],
 }), { request });
 assert.equal(validSeal.ok, true);
 const laterCheckpointRequest = {
@@ -212,6 +263,17 @@ assert.equal(validAbstain.ok, true);
 for (const [label, value, pattern] of [
     ['unknown source', proposalFor({ sourceContributionIds: ['contribution.missing'] }), /unknown source/i],
     ['unknown effect', proposalFor({ effectIds: ['effect.missing'] }), /unknown effect/i],
+    ['unknown relationship person', proposalFor({ relationshipUpdates: [{
+        personId: 'person.missing', posture: 'Trusting.', openMatter: null,
+        sourceContributionIds: ['contribution.active-5'],
+    }] }), /unknown person/i],
+    ['uncited relationship update', proposalFor({ relationshipUpdates: [{
+        personId: 'mara-whitaker', posture: 'Trusting.', openMatter: null, sourceContributionIds: [],
+    }] }), /relationship.*source/i],
+    ['moment on continue', proposalFor({ characterMoments: [{
+        personId: 'mara-whitaker', title: 'Too soon', summary: 'This is not sealed.',
+        sourceContributionIds: ['contribution.active-5'],
+    }] }), /moment.*seal/i],
     ['uncited summary', proposalFor({ sourceContributionIds: [] }), /source/i],
     ['unsupported criterion', proposalFor({
         decision: 'seal',
@@ -277,6 +339,9 @@ const prompt = createEpisodeEvaluationPrompt({ request });
 assert.match(prompt.systemPrompt, /retain only new narrative understanding/i);
 assert.match(prompt.systemPrompt, /lasting significance/i);
 assert.match(prompt.systemPrompt, /no memory/i);
+assert.match(prompt.systemPrompt, /relationship posture/i);
+assert.match(prompt.systemPrompt, /defining moment/i);
+assert.match(prompt.systemPrompt, /one.*person.*sealed episode/i);
 assert.match(prompt.systemPrompt, /never use topic, keyword, speaker, sentiment, token count, or elapsed time/i);
 assert.equal(prompt.metadata.roleId, 'episodeEvaluator');
 assert.equal(prompt.kind, 'directive.episodeEvaluationRequest.v1');

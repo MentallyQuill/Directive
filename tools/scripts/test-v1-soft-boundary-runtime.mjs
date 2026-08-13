@@ -14,6 +14,7 @@ import { createEmptyStorySettlement } from '../../src/story/story-settlement-con
 import {
     acceptStoryContributions,
     appendStoryEffects,
+    appendStoryPeopleEvents,
     checkpointStoryEpisode,
     observeStoryWorkingEvidence,
     openStoryEpisode,
@@ -69,6 +70,13 @@ function createActiveCampaignState() {
         playerVisibility: 'visible',
         status: 'active',
     }]);
+    storySettlement = appendStoryPeopleEvents(storySettlement, [{
+        id: 'people.relationship.soft-2',
+        type: 'relationshipEvidence',
+        personId: 'mara-whitaker',
+        summary: 'Whitaker accepted a candid correction and left the XO a measured path forward.',
+        sourceContributionIds: ['contribution.soft-2'],
+    }]);
     storySettlement = checkpointStoryEpisode(storySettlement, { force: true });
     const state = createAshesInitialState({
         campaignId: 'campaign.ashes',
@@ -98,6 +106,13 @@ function proposalFor(request, decision = 'continue') {
         foregroundQuestion: 'Will the corrective commitment be completed before departure?',
         sourceContributionIds: ['contribution.soft-2', 'contribution.soft-3'],
         effectIds: ['effect.soft-visible'],
+        relationshipUpdates: [{
+            personId: 'mara-whitaker',
+            posture: 'Measured professional trust.',
+            openMatter: 'Whether the XO completes the corrective commitment.',
+            sourceContributionIds: ['contribution.soft-2'],
+        }],
+        characterMoments: [],
     };
     if (decision === 'seal') {
         return {
@@ -106,6 +121,12 @@ function proposalFor(request, decision = 'continue') {
             significanceCriteria: ['material-state-change', 'commitment-created-or-resolved'],
             summary: 'The readiness review concluded with a recorded corrective commitment.',
             foregroundQuestion: null,
+            characterMoments: [{
+                personId: 'mara-whitaker',
+                title: 'A measured path forward',
+                summary: 'Whitaker accepted the candid correction and left the XO a measured path forward.',
+                sourceContributionIds: ['contribution.soft-2'],
+            }],
         };
     }
     if (decision === 'abstain') {
@@ -117,6 +138,8 @@ function proposalFor(request, decision = 'continue') {
             foregroundQuestion: null,
             sourceContributionIds: [],
             effectIds: [],
+            relationshipUpdates: [],
+            characterMoments: [],
         };
     }
     return shared;
@@ -197,6 +220,20 @@ assert.deepEqual(continuedEpisode.workingCapsule.recentEvidence, []);
 assert.equal(continuedEpisode.workingCapsule.observedContributionCount, continuedEpisode.contributions.length);
 assert.equal(continuedEpisode.workingCapsule.lastEvaluatedCheckpointSequence, 1);
 assert.equal(continuedEpisode.workingCapsule.needsReview, false);
+assert.deepEqual(
+    continuedEpisode.effects
+        .filter((effect) => effect.targetId === 'mara-whitaker')
+        .map((effect) => ({ type: effect.type, value: effect.value, sources: effect.sourceContributionIds })),
+    [{
+        type: 'character.relationshipPosture',
+        value: 'Measured professional trust.',
+        sources: ['contribution.soft-2'],
+    }, {
+        type: 'character.relationshipOpenMatter',
+        value: 'Whether the XO completes the corrective commitment.',
+        sources: ['contribution.soft-2'],
+    }],
+);
 assert.deepEqual(continueHarness.campaignState.mission, continueBefore.mission);
 for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(continueHarness.campaignState[root], continueBefore[root], `${root} is outside soft review authority`);
@@ -238,6 +275,21 @@ const sealedEpisode = sealHarness.campaignState.storySettlement.episodes[0];
 assert.equal(sealedEpisode.status, 'sealed');
 assert.equal(sealedEpisode.boundaryReason, 'foreground-question-resolved');
 assert.equal(sealedEpisode.summary, sealProposal.summary);
+assert.equal(sealedEpisode.characterMoments.length, 1);
+assert.deepEqual(
+    {
+        characterId: sealedEpisode.characterMoments[0].characterId,
+        title: sealedEpisode.characterMoments[0].title,
+        summary: sealedEpisode.characterMoments[0].summary,
+        sources: sealedEpisode.characterMoments[0].sourceContributionIds,
+    },
+    {
+        characterId: 'mara-whitaker',
+        title: 'A measured path forward',
+        summary: 'Whitaker accepted the candid correction and left the XO a measured path forward.',
+        sources: ['contribution.soft-2'],
+    },
+);
 assert.equal(Object.hasOwn(sealedEpisode, 'workingCapsule'), false);
 assert.deepEqual(sealedEpisode.softBoundary, {
     kind: 'directive.episodeSoftBoundary.v1',

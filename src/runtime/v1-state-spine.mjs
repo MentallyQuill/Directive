@@ -239,6 +239,66 @@ function reviewTokenForRequest(request = {}) {
     };
 }
 
+function relationshipEffectsForReview(reviewToken, proposal) {
+    return (proposal.relationshipUpdates || []).flatMap((update) => ([
+        {
+            id: `effect.relationship.${stableHash(JSON.stringify({
+                branchId: reviewToken.branchId,
+                episodeId: reviewToken.episodeId,
+                checkpointSequence: reviewToken.checkpointSequence,
+                personId: update.personId,
+                field: 'posture',
+                value: update.posture,
+                sourceContributionIds: update.sourceContributionIds,
+            }))}`,
+            type: 'character.relationshipPosture',
+            targetId: update.personId,
+            value: update.posture,
+            sourceContributionIds: structuredClone(update.sourceContributionIds),
+            playerVisibility: 'visible',
+            status: 'active',
+        },
+        {
+            id: `effect.relationship.${stableHash(JSON.stringify({
+                branchId: reviewToken.branchId,
+                episodeId: reviewToken.episodeId,
+                checkpointSequence: reviewToken.checkpointSequence,
+                personId: update.personId,
+                field: 'openMatter',
+                value: update.openMatter,
+                sourceContributionIds: update.sourceContributionIds,
+            }))}`,
+            type: 'character.relationshipOpenMatter',
+            targetId: update.personId,
+            value: update.openMatter,
+            sourceContributionIds: structuredClone(update.sourceContributionIds),
+            playerVisibility: 'visible',
+            status: 'active',
+        },
+    ]));
+}
+
+function characterMomentsForReview(reviewToken, proposal) {
+    return (proposal.characterMoments || []).map((moment) => ({
+        id: `moment.relationship.${stableHash(JSON.stringify({
+            branchId: reviewToken.branchId,
+            episodeId: reviewToken.episodeId,
+            checkpointSequence: reviewToken.checkpointSequence,
+            ...moment,
+        }))}`,
+        characterId: moment.personId,
+        title: moment.title,
+        summary: moment.summary,
+        playerVisibility: 'visible',
+        sourceContributionIds: structuredClone(moment.sourceContributionIds),
+    }));
+}
+
+function episodeContainsEffects(episode, expectedEffects) {
+    const byId = new Map((episode?.effects || []).map((effect) => [effect.id, effect]));
+    return expectedEffects.every((effect) => jsonEqual(byId.get(effect.id), effect));
+}
+
 function alreadyAppliedReview(settlement, reviewToken, proposal) {
     const episode = (settlement?.episodes || []).find((item) => item.id === reviewToken?.episodeId);
     if (!episode) return false;
@@ -252,7 +312,7 @@ function alreadyAppliedReview(settlement, reviewToken, proposal) {
             && jsonEqual(episode.workingCapsule.effectIds, proposal.effectIds)
             && episode.workingCapsule.recentEvidence.length === 0
             && episode.workingCapsule.observedContributionCount === episode.contributions.length;
-        if (exact) return true;
+        if (exact && episodeContainsEffects(episode, relationshipEffectsForReview(reviewToken, proposal))) return true;
         throw staleEpisodeReview('the checkpoint was already consumed by a different continue decision');
     }
     if (proposal.decision === 'seal'
@@ -267,7 +327,9 @@ function alreadyAppliedReview(settlement, reviewToken, proposal) {
         });
         const exact = episode.boundaryReason === proposal.boundaryReason
             && episode.summary === proposal.summary
-            && jsonEqual(episode.softBoundary, expectedBoundary);
+            && jsonEqual(episode.softBoundary, expectedBoundary)
+            && episodeContainsEffects(episode, relationshipEffectsForReview(reviewToken, proposal))
+            && jsonEqual(episode.characterMoments || [], characterMomentsForReview(reviewToken, proposal));
         if (exact) return true;
         throw staleEpisodeReview('the checkpoint was already consumed by a different seal decision');
     }
@@ -1201,9 +1263,14 @@ export function createV1StateSpine({
             };
         }
 
+        const relationshipEffects = relationshipEffectsForReview(reviewToken, acceptedProposal);
+        let reviewSettlement = currentSettlement;
+        if (relationshipEffects.length > 0) {
+            reviewSettlement = appendStoryEffects(reviewSettlement, relationshipEffects);
+        }
         let storySettlement;
         if (acceptedProposal.decision === 'continue') {
-            storySettlement = applyStoryWorkingCapsuleReview(currentSettlement, {
+            storySettlement = applyStoryWorkingCapsuleReview(reviewSettlement, {
                 checkpointSequence: reviewToken.checkpointSequence,
                 summary: acceptedProposal.summary,
                 foregroundQuestion: acceptedProposal.foregroundQuestion,
@@ -1219,11 +1286,12 @@ export function createV1StateSpine({
                 checkpointSequence: reviewToken.checkpointSequence,
             });
             const criteria = new Set(acceptedProposal.significanceCriteria);
-            storySettlement = sealStoryEpisode(currentSettlement, {
+            storySettlement = sealStoryEpisode(reviewSettlement, {
                 boundaryReason: acceptedProposal.boundaryReason,
                 softBoundary,
                 summary: acceptedProposal.summary,
                 unresolvedConsequences: [],
+                characterMoments: characterMomentsForReview(reviewToken, acceptedProposal),
                 significance: {
                     meaningfulDisclosure: criteria.has('consequential-fact-learned'),
                     lastingChange: [...criteria].some((criterion) => criterion !== 'consequential-fact-learned'),

@@ -285,6 +285,7 @@ export function validateStorySettlement(value = {}) {
                     const allowedFields = new Set([
                         'id',
                         'characterId',
+                        'title',
                         'summary',
                         'playerVisibility',
                         'sourceContributionIds',
@@ -303,6 +304,10 @@ export function validateStorySettlement(value = {}) {
                             errors.push(`${episodeId} allows one character moment per character`);
                         }
                         characterIds.add(moment?.characterId);
+                        if (moment?.title !== undefined
+                            && (!isNonEmptyString(moment.title) || moment.title.length > 120)) {
+                            errors.push(`${momentId} title must be a non-empty string of at most 120 characters when present`);
+                        }
                         if (!isNonEmptyString(moment?.summary) || moment.summary.length > 512) {
                             errors.push(`${momentId} summary must be a non-empty string of at most 512 characters`);
                         }
