@@ -991,7 +991,7 @@ export function createDirectiveRuntimeApp({
     await syncPrompt({ rebuild: true });
     return {
       replayed,
-      reconciled,
+      ...(reconciled > 0 ? { reconciled } : {}),
       blocked: acceptedPairReplayNeeded,
       blockedAtMessageId,
       retryPending: acceptedPairReplayNeeded

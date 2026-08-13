@@ -16,4 +16,6 @@
 
 If the player reserves a Command Bearing edge, step 13 first arms it to the exact player message prompting that generation. Swipes remain provisional. The edge commits in the atomic write at step 8 of the following turn only when that prompting-message anchor matches; replay of an older pair cannot consume it. Cancelling before acceptance refunds it, as does later invalidation of its prompting, beneficiary, or accepting source.
 
-If the player later edits, deletes, hides, or changes a selected source, Directive invalidates that source and replays surviving accepted pairs. The rebuilt state may remove knowledge, reopen dependent progress, supersede story material, or roll back later mission custody when causal evidence no longer exists.
+If the player later edits, deletes, hides, changes a selected source, or reloads a chat whose source rows no longer match persisted authority, Directive reconciles against the complete active raw chat. Mission, Story Settlement, reversible time, and Command Bearing invalidation share one state-gateway commit before surviving accepted pairs replay. `is_system` rows never qualify as accepted source, and message-update events use the same invalidation path.
+
+The time ledger retains a 128-entry reversible audit window plus an explicit pruned-history elapsed anchor. Pruning therefore cannot erase aggregate elapsed time. Invalidation recomputes from the historical anchor plus surviving retained boundaries; it never treats the bounded window as the whole timeline.
