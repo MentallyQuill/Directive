@@ -125,30 +125,49 @@ export function bindPresentationReorderHandle(handle, {
     state.ghostMoveFrame = state.blurTarget?.requestAnimationFrame?.(flushGhostPosition) || 0;
     if (!state.ghostMoveFrame) flushGhostPosition();
   };
+  const layoutTop = (element) => {
+    let top = 0;
+    for (let current = element; current; current = current.offsetParent) {
+      top += current.offsetTop || 0;
+    }
+    return top;
+  };
   const relocatePlaceholder = (parent, before = null) => {
     if (!state?.placeholder || !parent) return;
     if (state.placeholder.parentElement === parent && state.placeholder.nextSibling === before) return;
     const root = reflowRootSelector ? state.list.closest(reflowRootSelector) : state.ownerDocument;
     const elements = [...(root?.querySelectorAll?.(itemSelector) || [])]
       .filter((element) => element?.getClientRects?.().length > 0);
-    const beforeRects = new Map(elements.map((element) => [element, element.getBoundingClientRect()]));
-    state.reflowAnimations?.forEach((animation) => animation.cancel());
-    state.reflowAnimations?.clear();
+    const beforeGeometry = new Map(elements.map((element) => [element, {
+      presentationTop: element.getBoundingClientRect().top,
+      layoutTop: layoutTop(element)
+    }]));
     parent.insertBefore(state.placeholder, before);
     const duration = reducedMotion() ? 0 : reflowDurationMs;
-    if (!duration) return;
+    if (!duration) {
+      state.reflowAnimations?.forEach((animation) => animation.cancel());
+      state.reflowAnimations?.clear();
+      return;
+    }
     for (const element of elements) {
       if (!element.isConnected || typeof element.animate !== 'function') continue;
-      const previous = beforeRects.get(element);
+      const previous = beforeGeometry.get(element);
+      const nextLayoutTop = layoutTop(element);
+      if (Math.abs(previous.layoutTop - nextLayoutTop) < 0.5) continue;
+      const currentAnimation = state.reflowAnimations.get(element);
+      currentAnimation?.cancel();
+      state.reflowAnimations.delete(element);
       const next = element.getBoundingClientRect();
-      const deltaY = previous.top - next.top;
+      const deltaY = previous.presentationTop - next.top;
       if (Math.abs(deltaY) < 0.5) continue;
       const animation = element.animate([
         { transform: `translateY(${deltaY}px)` },
         { transform: 'translateY(0)' }
       ], { duration, easing: reflowEasing });
-      state.reflowAnimations.add(animation);
-      animation.finished.catch(() => {}).finally(() => state?.reflowAnimations?.delete(animation));
+      state.reflowAnimations.set(element, animation);
+      animation.finished.catch(() => {}).finally(() => {
+        if (state?.reflowAnimations?.get(element) === animation) state.reflowAnimations.delete(element);
+      });
     }
   };
   const clearDropMarkers = () => {
@@ -342,7 +361,7 @@ export function bindPresentationReorderHandle(handle, {
       handleCenterY: positionedPointerOffsetY,
       captureTarget,
       scroll: scrollContainerFor(state.list),
-      reflowAnimations: new Set(),
+      reflowAnimations: new Map(),
       autoScrollFrame: 0,
       originList: state.list,
       originNextSibling,

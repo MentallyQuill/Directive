@@ -763,6 +763,90 @@ try {
   await thresholdPage.mouse.up();
   await thresholdPage.close();
 
+  const rapidReflowPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+  await rapidReflowPage.emulateMedia({ reducedMotion: 'no-preference' });
+  await rapidReflowPage.goto(`${baseUrl}/production?route=people`);
+  await rapidReflowPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await rapidReflowPage.evaluate(() => {
+    globalThis.__directiveReflowAnimationIds = { next: 1, values: new WeakMap() };
+  });
+  const rapidHandle = rapidReflowPage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
+  const rapidHandleBox = await rapidHandle.boundingBox();
+  const rapidPointerX = rapidHandleBox.x + rapidHandleBox.width / 2;
+  const moveAcrossRapidRow = async (personId, side) => {
+    const box = await rapidReflowPage.locator(`.people-desktop-journal .collection-person-row[data-person-id="${personId}"]`).boundingBox();
+    const y = side === 'after' ? box.y + (box.height / 2) + 2 : box.y + 4;
+    await rapidReflowPage.mouse.move(rapidPointerX, y);
+  };
+  const sampleRapidRows = async () => rapidReflowPage.evaluate(() => {
+    const identity = globalThis.__directiveReflowAnimationIds;
+    const result = {};
+    for (const row of document.querySelectorAll('.people-desktop-journal .collection-person-row')) {
+      if (row.getClientRects().length === 0) continue;
+      const animations = row.getAnimations().filter((animation) => {
+        const timing = animation.effect?.getTiming?.();
+        const keyframes = animation.effect?.getKeyframes?.() || [];
+        return timing?.duration === 170
+          && keyframes.length === 2
+          && String(keyframes[0]?.transform || '').startsWith('translateY(');
+      });
+      const animation = animations.find(({ playState }) => ['running', 'pending', 'paused'].includes(playState)) || null;
+      if (animation && !identity.values.has(animation)) {
+        identity.values.set(animation, identity.next);
+        identity.next += 1;
+      }
+      const transform = getComputedStyle(row).transform;
+      const matrix = transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(transform);
+      const visualTop = row.getBoundingClientRect().top;
+      const firstTransform = animation?.effect?.getKeyframes?.()[0]?.transform || 'none';
+      const firstMatrix = firstTransform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(firstTransform);
+      result[row.dataset.personId] = {
+        animationId: animation ? identity.values.get(animation) : null,
+        runningAnimations: animations.filter(({ playState }) => playState === 'running' || playState === 'pending').length,
+        visualTop,
+        layoutTop: visualTop - matrix.m42,
+        reconstructedTop: visualTop - matrix.m42 + firstMatrix.m42
+      };
+    }
+    return result;
+  });
+  await rapidReflowPage.mouse.move(rapidPointerX, rapidHandleBox.y + rapidHandleBox.height / 2);
+  await rapidReflowPage.mouse.down();
+  await rapidReflowPage.waitForFunction(() => document.querySelector('.people-card-drop-slot'));
+  await moveAcrossRapidRow('mara-whitaker', 'after');
+  const afterRapidMara = await sampleRapidRows();
+  await moveAcrossRapidRow('kieran-vale', 'after');
+  const afterRapidKieran = await sampleRapidRows();
+  await moveAcrossRapidRow('priya-nayar', 'after');
+  const afterRapidPriya = await sampleRapidRows();
+  await rapidReflowPage.evaluate(async () => {
+    const rows = ['kieran-vale', 'priya-nayar'].map((id) => document.querySelector(`.people-desktop-journal .collection-person-row[data-person-id="${id}"]`));
+    const animations = rows.flatMap((row) => row?.getAnimations?.() || []).filter((animation) => animation.effect?.getTiming?.().duration === 170);
+    animations.forEach((animation) => animation.pause());
+    await Promise.all(animations.map((animation) => animation.ready));
+  });
+  const beforeRapidReverse = await sampleRapidRows();
+  const priyaBeforeRapidReverse = beforeRapidReverse['priya-nayar'].visualTop;
+  const kieranBeforeRapidReverse = beforeRapidReverse['kieran-vale'].visualTop;
+  await moveAcrossRapidRow('kieran-vale', 'before');
+  const afterRapidReverse = await sampleRapidRows();
+  assert.ok(afterRapidMara['mara-whitaker'].animationId, 'the first rapid crossing must start Mara reflow');
+  assert.equal(afterRapidKieran['mara-whitaker'].animationId, afterRapidMara['mara-whitaker'].animationId, 'crossing Kieran must not restart Mara when her layout endpoint is unchanged');
+  assert.equal(afterRapidPriya['mara-whitaker'].animationId, afterRapidMara['mara-whitaker'].animationId, 'crossing Priya must not restart Mara when her layout endpoint is unchanged');
+  assert.equal(afterRapidPriya['kieran-vale'].animationId, afterRapidKieran['kieran-vale'].animationId, 'crossing Priya must not restart Kieran when his layout endpoint is unchanged');
+  assert.notEqual(afterRapidReverse['priya-nayar'].animationId, afterRapidPriya['priya-nayar'].animationId, 'a rapid upward reversal must retarget Priya when her layout endpoint changes');
+  assert.notEqual(afterRapidReverse['kieran-vale'].animationId, afterRapidKieran['kieran-vale'].animationId, 'a rapid upward reversal must retarget Kieran when his layout endpoint changes');
+  assert.equal(afterRapidReverse['mara-whitaker'].animationId, afterRapidMara['mara-whitaker'].animationId, 'the rapid upward reversal must retain Mara when her layout endpoint is unchanged');
+  assert.ok(Math.abs(afterRapidReverse['priya-nayar'].reconstructedTop - priyaBeforeRapidReverse) < 1, 'reversed Priya must continue from her exact pre-retarget presentation top');
+  assert.ok(Math.abs(afterRapidReverse['kieran-vale'].reconstructedTop - kieranBeforeRapidReverse) < 1, 'reversed Kieran must continue from his exact pre-retarget presentation top');
+  for (const snapshot of [afterRapidMara, afterRapidKieran, afterRapidPriya, afterRapidReverse]) {
+    assert.ok(Object.values(snapshot).every(({ runningAnimations }) => runningAnimations <= 1), 'one active pointer must own at most one reflow animation per row');
+  }
+  await rapidReflowPage.keyboard.press('Escape');
+  await rapidReflowPage.waitForFunction(() => !document.querySelector('.people-drag-ghost'));
+  await rapidReflowPage.mouse.up();
+  await rapidReflowPage.close();
+
   const immediateDropPage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await immediateDropPage.goto(`${baseUrl}/production?route=people`);
   await immediateDropPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
