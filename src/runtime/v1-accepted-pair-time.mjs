@@ -130,21 +130,18 @@ function unavailable(campaignState, reasonCode) {
   return { ok: false, status: 'unavailable', reasonCode, campaignState, proposal: null, boundary: null };
 }
 
-export async function commitV1AcceptedPairTimeAdvance({
+export function prepareV1AcceptedPairTimeAdvance({
   campaignState = null,
   snapshot = null,
   packageData = null,
   timeDecision = null,
-  stateDeltaGateway = null,
-  ingressId = null,
   now = null
 } = {}) {
   if (!campaignState
     || campaignState.worldState?.kind !== 'directive.worldState.v1'
     || campaignState.timeLedger?.kind !== 'directive.timeLedger.v1'
     || !snapshot
-    || !packageData?.world
-    || typeof stateDeltaGateway?.commit !== 'function') {
+    || !packageData?.world) {
     return unavailable(campaignState, 'time-custody-unavailable');
   }
   const anchor = sourceAnchorRange(snapshot);
@@ -166,13 +163,26 @@ export async function commitV1AcceptedPairTimeAdvance({
         confidence: committedDecision.confidence,
         source: committedDecision.source
       } : null,
-      boundary: clone(committedBoundary)
+      boundary: clone(committedBoundary),
+      decision: clone(committedDecision),
+      patch: null,
+      domains: []
     };
   }
 
   const proposal = safeProposal(timeDecision);
   if (!proposal.valid) {
-    return { ok: true, status: 'no-change', reasonCode: null, campaignState, proposal, boundary: null };
+    return {
+      ok: true,
+      status: 'no-change',
+      reasonCode: null,
+      campaignState,
+      proposal,
+      boundary: null,
+      decision: null,
+      patch: null,
+      domains: []
+    };
   }
 
   const previousElapsedSeconds = ledgerElapsedSeconds(campaignState.timeLedger);
@@ -246,21 +256,62 @@ export async function commitV1AcceptedPairTimeAdvance({
     lastBoundary: boundary || next.timeLedger.lastBoundary || null,
     updatedAt: timestamp
   };
-  const committed = await stateDeltaGateway.commit(next, {
-    id: `${decisionId}:commit`,
-    source: 'v1AcceptedPairTimeCustody',
-    domains: ['campaign', 'worldState', 'timeLedger'],
-    ingressId,
-    sourceAnchorRange: anchor
-  });
   return {
     ok: true,
-    status: boundary ? 'committed' : 'recorded',
+    status: boundary ? 'planned' : 'recorded',
     reasonCode: null,
-    campaignState: committed,
+    campaignState: clone(campaignState),
     proposal,
     boundary: clone(boundary),
-    decision: clone(decision)
+    decision: clone(decision),
+    patch: {
+      campaign: clone(next.campaign),
+      worldState: clone(next.worldState),
+      timeLedger: clone(next.timeLedger)
+    },
+    domains: ['campaign', 'worldState', 'timeLedger'],
+    commitId: `${decisionId}:commit`,
+    sourceAnchorRange: anchor
+  };
+}
+
+export async function commitV1AcceptedPairTimeAdvance({
+  campaignState = null,
+  snapshot = null,
+  packageData = null,
+  timeDecision = null,
+  stateDeltaGateway = null,
+  ingressId = null,
+  now = null
+} = {}) {
+  if (typeof stateDeltaGateway?.commit !== 'function') {
+    return unavailable(campaignState, 'time-custody-unavailable');
+  }
+  const prepared = prepareV1AcceptedPairTimeAdvance({
+    campaignState,
+    snapshot,
+    packageData,
+    timeDecision,
+    now
+  });
+  if (!prepared.ok || !prepared.patch) return prepared;
+  const next = {
+    ...clone(campaignState),
+    ...clone(prepared.patch)
+  };
+  const committed = await stateDeltaGateway.commit(next, {
+    id: prepared.commitId,
+    source: 'v1AcceptedPairTimeCustody',
+    domains: prepared.domains,
+    ingressId,
+    sourceAnchorRange: prepared.sourceAnchorRange
+  });
+  return {
+    ...prepared,
+    status: prepared.boundary ? 'committed' : 'recorded',
+    campaignState: committed,
+    patch: null,
+    domains: prepared.domains
   };
 }
 

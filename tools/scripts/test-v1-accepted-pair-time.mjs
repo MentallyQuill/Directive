@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 
 import {
   commitV1AcceptedPairTimeAdvance,
-  invalidateV1AcceptedPairTimeByHostMessages
+  invalidateV1AcceptedPairTimeByHostMessages,
+  prepareV1AcceptedPairTimeAdvance
 } from '../../src/runtime/v1-accepted-pair-time.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createAshesInitialState } from './v1-test-fixtures.mjs';
@@ -56,6 +57,37 @@ const packageData = {
     layout: { stardatePerDay: 1 }
   }
 };
+
+const planned = prepareV1AcceptedPairTimeAdvance({
+  campaignState: state,
+  snapshot,
+  packageData,
+  timeDecision: {
+    decision: 'advance',
+    elapsedSeconds: 47,
+    reason: 'accepted-scene-time',
+    confidence: 0.92
+  },
+  now: () => '2026-08-09T12:00:00.000Z'
+});
+assert.equal(planned.ok, true);
+assert.equal(planned.status, 'planned');
+assert.deepEqual(planned.domains, ['campaign', 'worldState', 'timeLedger']);
+assert.deepEqual(Object.keys(planned.patch).sort(), ['campaign', 'timeLedger', 'worldState']);
+assert.equal(planned.patch.timeLedger.elapsedSeconds, 47);
+assert.equal(planned.patch.timeLedger.entries.at(-1).id, planned.boundary.id);
+assert.equal(planned.patch.timeLedger.decisions.at(-1).id, planned.decision.id);
+assert.deepEqual(state.timeLedger.entries, [], 'planning must not mutate the input state');
+
+const plannedZero = prepareV1AcceptedPairTimeAdvance({
+  campaignState: state,
+  snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.plan-zero' } },
+  packageData,
+  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.8 }
+});
+assert.equal(plannedZero.status, 'recorded');
+assert.equal(plannedZero.patch.timeLedger.entries.length, 0);
+assert.equal(plannedZero.patch.timeLedger.decisions.at(-1).decision, 'unchanged');
 
 let currentState = structuredClone(state);
 let commits = 0;
