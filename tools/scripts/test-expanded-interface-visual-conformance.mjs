@@ -158,6 +158,49 @@ try {
         assert.ok(settingsGeometry.contentWidthRatio >= .98, `${viewport.width}px Settings content must use the full route width`);
         assert.equal(settingsGeometry.cardsStacked, true, `${viewport.width}px provider cards must remain stacked`);
         assert.equal(settingsGeometry.cardWithinContent, true, `${viewport.width}px provider cards must stay inside Settings content`);
+
+        await page.locator('[data-settings-control="utility-profileId"]').click();
+        await page.waitForSelector('.connection-profile-picker-dialog');
+        const pickerGeometry = await page.evaluate(() => {
+          const dialog = document.querySelector('.connection-profile-picker-dialog');
+          const results = document.querySelector('.connection-profile-picker-results');
+          const options = [...document.querySelectorAll('.connection-profile-picker-option')];
+          const longOption = options.at(-1);
+          const close = document.querySelector('.connection-profile-picker-close');
+          const clear = document.querySelector('.connection-profile-picker-clear');
+          const dialogBox = dialog.getBoundingClientRect();
+          const resultsStyle = getComputedStyle(results);
+          const longBox = longOption.getBoundingClientRect();
+          return {
+            dialog: { left: dialogBox.left, top: dialogBox.top, right: dialogBox.right, bottom: dialogBox.bottom, width: dialogBox.width },
+            scrollOwner: results.dataset.directiveScrollOwner,
+            overflowX: resultsStyle.overflowX,
+            overflowY: resultsStyle.overflowY,
+            verticallyScrollable: results.scrollHeight > results.clientHeight,
+            resultsHaveNoHorizontalOverflow: results.scrollWidth <= results.clientWidth + .5,
+            longOptionHasNoHorizontalOverflow: longOption.scrollWidth <= longOption.clientWidth + .5,
+            optionMinHeight: Math.min(...options.map((option) => option.getBoundingClientRect().height)),
+            longOptionWidth: longBox.width,
+            closeHeight: close.getBoundingClientRect().height,
+            clearHeight: clear.getBoundingClientRect().height
+          };
+        });
+        assert.equal(pickerGeometry.scrollOwner, 'true', `${viewport.width}px profile results must own their scroll`);
+        assert.match(pickerGeometry.overflowY, /auto|scroll/, `${viewport.width}px profile results must scroll vertically`);
+        assert.doesNotMatch(pickerGeometry.overflowX, /auto|scroll/, `${viewport.width}px profile results must not scroll horizontally`);
+        assert.equal(pickerGeometry.verticallyScrollable, true, `${viewport.width}px long profile lists must scroll`);
+        assert.equal(pickerGeometry.resultsHaveNoHorizontalOverflow, true, `${viewport.width}px profile results must not overflow horizontally`);
+        assert.equal(pickerGeometry.longOptionHasNoHorizontalOverflow, true, `${viewport.width}px long profile text must wrap`);
+        assert.ok(pickerGeometry.dialog.left >= 0 && pickerGeometry.dialog.top >= 0, `${viewport.width}px picker starts inside viewport`);
+        assert.ok(pickerGeometry.dialog.right <= viewport.width + .5 && pickerGeometry.dialog.bottom <= viewport.height + .5, `${viewport.width}px picker ends inside viewport`);
+        if (viewport.width <= 640) {
+          assert.ok(pickerGeometry.dialog.width >= viewport.width * .9, `${viewport.width}px mobile picker must use nearly the full viewport`);
+          assert.ok(pickerGeometry.optionMinHeight >= 44, `${viewport.width}px profile rows must be touch sized`);
+          assert.ok(pickerGeometry.closeHeight >= 44, `${viewport.width}px picker close must be touch sized`);
+          assert.ok(pickerGeometry.clearHeight >= 44, `${viewport.width}px picker clear must be touch sized`);
+        } else {
+          assert.ok(pickerGeometry.dialog.width <= 680, `${viewport.width}px desktop picker must remain bounded`);
+        }
       }
 
       if (viewport.width === 360 && [500, 800].includes(viewport.height) && mobilePanelGeometry[route]) {
