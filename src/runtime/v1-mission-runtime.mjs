@@ -24,6 +24,8 @@ import {
     selectPendingDutyReport,
 } from '../mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
+import { missionStateContext } from '../mission/v1/mission-state.mjs';
+import { evaluateMissionPredicate } from '../mission/v1/predicate-evaluator.mjs';
 import {
     createCampaignConclusionReceipt,
     inspectCampaignConclusionTarget,
@@ -578,6 +580,76 @@ function materializeAuthoritativeTimeEvidence({
         sources: [...sourceByRole.values()].map((record) => record.source),
         contributions: [...sourceByRole.values()].map((record) => record.contribution),
         observations: [...sourceByRole.values()].map((record) => record.observation),
+    };
+}
+
+function materializeDeterministicRuntimeEvidence({
+    definition = {},
+    missionState = {},
+    campaignState = {},
+    branchId = '',
+} = {}) {
+    const eligible = (definition.evidencePolicies || [])
+        .filter((policy) => (
+            policy?.claimType === 'worldFactEstablished'
+            && policy?.sourceRoles?.includes('runtime')
+            && !missionState.worldFacts?.includes(policy.targetId)
+        ))
+        .filter((policy) => {
+            const result = evaluateMissionPredicate(policy.when, missionStateContext(definition, missionState));
+            return result.ok && result.value;
+        })
+        .sort((left, right) => left.id.localeCompare(right.id));
+    const records = eligible.map((policy) => {
+        const messageId = `runtime-policy:${definition.id}:${policy.id}`;
+        const text = `Directive runtime policy ${policy.id} established ${policy.targetId}.`;
+        const sourceInput = {
+            messageId,
+            selectedSwipeId: null,
+            textHash: stableHash([branchId, definition.id, policy.id, policy.targetId].join('|')),
+            text,
+        };
+        const contributionId = activeContributionId(campaignState, branchId, sourceInput);
+        const source = sourceResolutionRecord(
+            branchId,
+            'runtime',
+            sourceInput,
+            missionState.revision,
+            contributionId,
+        );
+        return {
+            source,
+            contribution: contributionFor(
+                branchId,
+                'runtime',
+                sourceInput,
+                missionState.revision,
+                contributionId,
+            ),
+            observation: {
+                contributionId,
+                role: 'runtime',
+                textHash: sourceInput.textHash,
+                text: 'Deterministic runtime authority changed behind the scenes.',
+            },
+            claim: {
+                claimId: `claim.runtime-policy.${stableHash([branchId, definition.id, policy.id].join('|'))}`,
+                policyId: policy.id,
+                claimType: policy.claimType,
+                targetId: policy.targetId,
+                sourceRef: {
+                    messageId,
+                    swipeId: null,
+                    textHash: sourceInput.textHash,
+                },
+            },
+        };
+    });
+    return {
+        claims: records.map((record) => record.claim),
+        sources: records.map((record) => record.source),
+        contributions: records.map((record) => record.contribution),
+        observations: records.map((record) => record.observation),
     };
 }
 
@@ -1227,14 +1299,26 @@ export function createV1MissionRuntime({
             snapshot,
             branchId,
         });
+        const deterministicRuntime = materializeDeterministicRuntimeEvidence({
+            definition,
+            missionState,
+            campaignState: plannedCampaignState,
+            branchId,
+        });
         const settlementProposal = {
             ...dutyProposal.proposal,
             claims: [
                 ...(dutyProposal.proposal?.claims || []),
+                ...deterministicRuntime.claims,
                 ...authoritativeTime.claims,
             ],
         };
-        const sources = [assistantSource, playerSource, ...authoritativeTime.sources];
+        const sources = [
+            assistantSource,
+            playerSource,
+            ...deterministicRuntime.sources,
+            ...authoritativeTime.sources,
+        ];
         const contributions = [
             ...(assistantAccepted ? [contributionFor(
                 branchId,
@@ -1250,6 +1334,7 @@ export function createV1MissionRuntime({
                 missionState.revision,
                 playerContributionId,
             ),
+            ...deterministicRuntime.contributions,
             ...authoritativeTime.contributions,
         ];
         const sourceObservations = [
@@ -1265,6 +1350,7 @@ export function createV1MissionRuntime({
                 textHash: sourcePair.currentPlayer.textHash,
                 text: sourcePair.currentPlayer.text,
             },
+            ...deterministicRuntime.observations,
             ...authoritativeTime.observations,
         ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;

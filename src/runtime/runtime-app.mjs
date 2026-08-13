@@ -109,7 +109,7 @@ function persistedAcceptedSourceMessageIds(campaignState = {}) {
   ]);
   const add = (value) => {
     const id = compact(value);
-    if (id && !id.startsWith('time-boundary:')) ids.add(id);
+    if (id && !id.startsWith('time-boundary:') && !id.startsWith('runtime-policy:')) ids.add(id);
   };
   for (const entry of [
     ...(campaignState?.timeLedger?.entries || []),

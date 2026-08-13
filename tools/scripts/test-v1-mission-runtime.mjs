@@ -237,22 +237,38 @@ const settlement = await settlementHarness.runtime.settleAcceptedPair({
     runtimeAssets: settlementHarness.assets,
     snapshot: snapshotFor(),
 });
-assert.equal(settlement.ok, true);
+assert.equal(settlement.ok, true, JSON.stringify(settlement));
 assert.equal(settlement.attempted, true);
 assert.equal(settlement.status, 'settled');
 assert.deepEqual(settlement.committedRoots, ['mission', 'storySettlement']);
 assert.equal(settlementHarness.persistCount, 1);
+assert.equal(
+    settlementHarness.campaignState.mission.v1.worldFacts.includes('fact.hesperus.distress-established'),
+    true,
+    'eligible runtime-only world facts settle deterministically without model authority',
+);
+assert.equal(
+    settlementHarness.campaignState.storySettlement.episodes[0].contributions.some((entry) => (
+        entry.role === 'runtime'
+        && entry.messageId.startsWith('runtime-policy:')
+    )),
+    true,
+);
 assert.equal(settlementHarness.campaignState.mission.v1.events.includes('event.prelude.command-handover-completed'), true);
 assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].messageId, 'message.assistant.10');
 assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].swipeId, 'swipe.10');
 assert.equal(settlementHarness.campaignState.storySettlement.episodes[0].contributions[0].role, 'assistant');
 assert.deepEqual(
     settlementHarness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.role),
-    ['assistant', 'user'],
+    ['assistant', 'user', 'runtime'],
 );
 assert.deepEqual(
     settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.role),
-    ['assistant', 'user'],
+    ['assistant', 'user', 'runtime'],
+);
+assert.equal(
+    settlementHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.at(-1).excerpt,
+    'Deterministic runtime authority changed behind the scenes.',
 );
 assert.equal(settlement.reviewToken, null);
 for (const root of ['ship', 'commandBearing']) {
@@ -327,9 +343,9 @@ assert.equal(continuation.status, 'settled-no-effect');
 assert.equal(continuationHarness.campaignState.mission.v1.revision, missionRevisionBeforeContinuation);
 assert.equal(continuationHarness.campaignState.storySettlement.episodes.length, 1);
 assert.equal(continuationHarness.campaignState.storySettlement.receipts.length, 0);
-assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].contributions.length, 4);
-assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].effects.length, 1);
-assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.length, 4);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].contributions.length, 5);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].effects.length, 2);
+assert.equal(continuationHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.length, 5);
 assert.deepEqual(continuation.reviewToken, {
     kind: 'directive.episodeReviewToken.v1',
     branchId: 'save.alpha',
@@ -386,12 +402,12 @@ assert.equal(correctionHarness.campaignState.mission.v1.events.includes('event.p
 assert.equal(correctionHarness.campaignState.mission.v1.outcomes['outcome.hesperus.rescue-risk-decision'], 'saferPlan');
 assert.deepEqual(
     correctionHarness.campaignState.storySettlement.episodes[0].contributions.map((item) => item.role),
-    ['user'],
+    ['user', 'runtime'],
     'corrected assistant prose cannot become source custody',
 );
 assert.deepEqual(
     correctionHarness.campaignState.storySettlement.episodes[0].workingCapsule.recentEvidence.map((item) => item.role),
-    ['user'],
+    ['user', 'runtime'],
 );
 
 const abstentionHarness = createHarness({
@@ -402,10 +418,10 @@ const abstention = await abstentionHarness.runtime.settleAcceptedPair({
     snapshot: snapshotFor({ sourceRangeHash: 'range.abstain' }),
 });
 assert.equal(abstention.ok, true);
-assert.equal(abstention.status, 'settled-no-effect');
-assert.equal(abstentionHarness.campaignState.storySettlement.episodes.length, 0);
-assert.equal(abstentionHarness.campaignState.storySettlement.receipts.length, 1);
-assert.equal(abstentionHarness.campaignState.mission.v1.revision, 0);
+assert.equal(abstention.status, 'settled');
+assert.equal(abstentionHarness.campaignState.storySettlement.episodes.length, 1);
+assert.equal(abstentionHarness.campaignState.storySettlement.receipts.length, 0);
+assert.equal(abstentionHarness.campaignState.mission.v1.revision, 1);
 
 const staleHarness = createHarness({ outputs: [interpretationOutput({ claims: [] })] });
 const stale = await staleHarness.runtime.settleAcceptedPair({
@@ -718,7 +734,10 @@ assert.equal(validateMissionStateAuthority({
     state: requiredReportHarness.campaignState.mission.v1,
 }).ok, true);
 const restartedReportState = JSON.parse(JSON.stringify(requiredReportHarness.campaignState.mission.v1));
-assert.deepEqual(restartedReportState.evidenceLog[0].delivery, reportEvidence.delivery);
+assert.deepEqual(
+    restartedReportState.evidenceLog.find((entry) => entry.delivery)?.delivery,
+    reportEvidence.delivery,
+);
 assert.equal(validateMissionStateAuthority({
     definition: requiredReportHarness.assets.missionDefinitions[0].definition,
     state: restartedReportState,
@@ -730,7 +749,7 @@ const replayedReport = await requiredReportHarness.runtime.settleAcceptedPair({
 });
 assert.equal(replayedReport.status, 'already-settled');
 assert.equal(requiredReportHarness.campaignState.mission.v1.revision, reportRevision);
-assert.equal(requiredReportHarness.campaignState.mission.v1.evidenceLog.length, 1);
+assert.equal(requiredReportHarness.campaignState.mission.v1.evidenceLog.length, 2);
 
 for (const [label, assistantAcceptance, sourceOptions, expectedReason] of [
     ['rejected response', 'rejected', {}, 'assistant-not-accepted'],
@@ -759,7 +778,8 @@ for (const [label, assistantAcceptance, sourceOptions, expectedReason] of [
     });
     assert.equal(result.ok, true, label);
     assert.equal(harness.campaignState.mission.v1.knownFacts.length, 0, label);
-    assert.equal(harness.campaignState.mission.v1.evidenceLog.length, 0, label);
+    assert.equal(harness.campaignState.mission.v1.evidenceLog.length, 1, label);
+    assert.equal(harness.campaignState.mission.v1.evidenceLog[0].claimType, 'worldFactEstablished', label);
     assert.equal(result.diagnostics.acceptedDutyReportCount, 0, label);
     assert.equal(result.diagnostics.rejectedDutyReportReasonCode, expectedReason, label);
 }
