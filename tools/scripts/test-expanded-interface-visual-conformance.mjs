@@ -501,6 +501,93 @@ try {
     }
   }
 
+  async function measureDesktopHero(route, selector) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(`${baseUrl}/production?route=${route}`);
+    await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+    const hero = page.locator(selector);
+    await hero.waitFor();
+    const finePointer = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
+    const collapsedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    await hero.hover();
+    await page.waitForTimeout(220);
+    const expandedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    await hero.click();
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(220);
+    const afterClickAndExitHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
+    const pinned = await hero.evaluate((node) => node.classList.contains('is-expanded'));
+    await page.close();
+    return { finePointer, collapsedHeight, expandedHeight, afterClickAndExitHeight, pinned };
+  }
+
+  const desktopCampaignHero = await measureDesktopHero(
+    'campaign',
+    '.campaign-dashboard .directive-responsive-hero'
+  );
+  const desktopShipHero = await measureDesktopHero('ship', '.ship-hero.directive-responsive-hero');
+  assert.deepEqual(desktopCampaignHero, {
+    finePointer: true,
+    collapsedHeight: 140,
+    expandedHeight: 280,
+    afterClickAndExitHeight: 140,
+    pinned: false
+  }, 'desktop Campaign hero must expand only while hovered');
+  assert.deepEqual(desktopShipHero, desktopCampaignHero, 'desktop Campaign and Ship hero geometry must match');
+
+  const touchContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true
+  });
+  const touchPage = await touchContext.newPage();
+  await touchPage.goto(`${baseUrl}/production?route=campaign`);
+  await touchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
+  const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  await mobileCampaignToggle.tap();
+  await touchPage.waitForTimeout(220);
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
+  await mobileCampaignToggle.tap();
+  await touchPage.waitForTimeout(220);
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  await mobileCampaignToggle.tap();
+  await touchPage.waitForTimeout(220);
+  await touchPage.locator('.campaign-dashboard-heading').tap();
+  await touchPage.waitForTimeout(220);
+  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'outside tap must collapse Campaign hero');
+
+  await touchPage.locator('[data-route-id="ship"]').tap();
+  await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="ship"]');
+  const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
+  const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
+  assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  await mobileShipToggle.tap();
+  await touchPage.waitForTimeout(220);
+  assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
+  assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
+
+  await touchPage.locator('[data-route-id="campaign"]').tap();
+  await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="campaign"]');
+  const returnedCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
+  assert.equal(Math.round(await returnedCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'Campaign must start compact after route re-entry');
+  await touchContext.close();
+
+  const reducedContext = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    reducedMotion: 'reduce'
+  });
+  const reducedPage = await reducedContext.newPage();
+  await reducedPage.goto(`${baseUrl}/production?route=ship`);
+  await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const reducedTransition = await reducedPage.locator('.ship-hero.directive-responsive-hero').evaluate(
+    (node) => getComputedStyle(node).transitionDuration
+  );
+  assert.equal(reducedTransition, '0s', 'reduced motion must remove the hero height transition');
+  await reducedContext.close();
+
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await peoplePage.goto(`${baseUrl}/production?route=people`);
   await peoplePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);

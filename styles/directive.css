@@ -2818,8 +2818,6 @@ textarea.directive-field-control {
   --directive-expanded-lilac: #b78ad7;
   --directive-expanded-blue: #77a7ef;
   --directive-expanded-violet: #9b82cf;
-  --directive-responsive-hero-collapsed-height: 140px;
-  --directive-responsive-hero-expanded-height: 280px;
   --bg: var(--directive-expanded-bg);
   --raised: var(--directive-expanded-raised);
   --surface: var(--directive-expanded-surface);
@@ -2876,6 +2874,11 @@ textarea.directive-field-control {
 .directive-expanded-shell[data-active-route="ship"] { --directive-active-route-accent: var(--directive-expanded-violet); }
 
 .directive-expanded-shell[data-active-route="settings"] { --directive-active-route-accent: var(--directive-expanded-salmon); }
+
+.directive-expanded-shell {
+  --directive-responsive-hero-collapsed-height: 140px;
+  --directive-responsive-hero-expanded-height: 280px;
+}
 
 .directive-expanded-shell,
 .directive-expanded-shell * {
@@ -4027,8 +4030,12 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 /* Shared Campaign and Ship image expansion. */
 .directive-expanded-shell .directive-expanded-ship { grid-template-rows: auto minmax(0, 1fr); }
 .directive-expanded-shell .directive-responsive-hero {
+  box-sizing: border-box;
   height: var(--directive-responsive-hero-collapsed-height);
   transition: height 180ms ease;
+}
+.directive-expanded-shell .directive-responsive-hero.is-expanded {
+  height: var(--directive-responsive-hero-expanded-height);
 }
 .directive-expanded-shell .directive-responsive-hero-secondary {
   max-height: 0;
@@ -4071,6 +4078,11 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   outline: 2px solid var(--directive-active-route-accent);
   outline-offset: -3px;
 }
+.directive-expanded-shell .directive-responsive-hero.is-expanded .directive-responsive-hero-secondary {
+  max-height: 6em;
+  margin-top: 5px !important;
+  opacity: 1;
+}
 
 @media (hover: hover) and (pointer: fine) {
   .directive-expanded-shell .directive-responsive-hero:hover {
@@ -4085,18 +4097,10 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 @media (hover: none), (pointer: coarse) {
   .directive-expanded-shell .directive-responsive-hero-toggle { display: block; }
-  .directive-expanded-shell .directive-responsive-hero.is-expanded {
-    height: var(--directive-responsive-hero-expanded-height);
-  }
-  .directive-expanded-shell .directive-responsive-hero.is-expanded .directive-responsive-hero-secondary {
-    max-height: 6em;
-    margin-top: 5px !important;
-    opacity: 1;
-  }
 }
 
 @media (max-width: 640px) {
-  .directive-runtime-panel.directive-expanded-shell {
+  .directive-expanded-shell {
     --directive-responsive-hero-collapsed-height: 112px;
     --directive-responsive-hero-expanded-height: 220px;
   }
@@ -4104,7 +4108,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .directive-expanded-shell .directive-responsive-hero,
-  .directive-expanded-shell .directive-responsive-hero-secondary { transition: none; }
+  .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
 }
 
 /* Certified full-width Settings composition. */

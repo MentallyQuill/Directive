@@ -13,7 +13,7 @@ function setExpanded(hero, expanded) {
 }
 
 function installOutsideTap(documentRoot) {
-  if (!documentRoot || boundDocuments.has(documentRoot)) return;
+  if (!documentRoot?.addEventListener || !documentRoot?.querySelectorAll || boundDocuments.has(documentRoot)) return;
   documentRoot.addEventListener('pointerdown', (event) => {
     for (const hero of documentRoot.querySelectorAll('.directive-responsive-hero.is-expanded')) {
       if (!hero.contains(event.target)) setExpanded(hero, false);

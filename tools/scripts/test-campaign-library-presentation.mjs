@@ -30,7 +30,7 @@ try {
               </div>
             </aside>
             <section class="campaign-detail campaign-desktop-detail" data-directive-scroll-owner="true">
-              <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
+              <section class="campaign-hero campaign-library-hero directive-responsive-hero is-coming-later" data-campaign-availability="coming-later">
                 <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
                 <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2></div>
               </section>
@@ -52,7 +52,7 @@ try {
                   <div class="campaign-row-copy"><strong>Drowned Constellation</strong><span class="campaign-row-description">Current approved campaign description.</span></div>
                 </button>
                 <div id="campaign-mobile-fixture-detail" class="campaign-mobile-detail">
-                  <section class="campaign-hero campaign-library-hero is-coming-later" data-campaign-availability="coming-later">
+                  <section class="campaign-hero campaign-library-hero directive-responsive-hero is-coming-later" data-campaign-availability="coming-later">
                     <figure class="campaign-hero-media directive-media-frame"><img class="directive-media-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1280' height='720'/%3E"></figure>
                     <div class="campaign-hero-copy"><span class="campaign-status">Coming later</span><h2>Drowned Constellation</h2></div>
                   </section>
@@ -91,6 +91,10 @@ try {
       const artBox = art.getBoundingClientRect();
       const facts = detail.querySelector('.campaign-library-facts');
       const hero = detail.querySelector('.campaign-library-hero');
+      const heroHeight = hero.getBoundingClientRect().height;
+      hero.style.transition = 'none';
+      hero.classList.add('is-expanded');
+      const expandedHeroHeight = hero.getBoundingClientRect().height;
       scrollOwner.scrollTop = scrollOwner.scrollHeight;
       const detailBox = scrollOwner.getBoundingClientRect();
       const actionBox = action.getBoundingClientRect();
@@ -109,7 +113,8 @@ try {
         descriptionInsideHero: Boolean(detail.querySelector('.campaign-hero .campaign-library-description')),
         factColumns: getComputedStyle(facts).gridTemplateColumns.split(' ').filter(Boolean).length,
         factValueWhiteSpace: getComputedStyle(facts.querySelector('strong')).whiteSpace,
-        heroHeight: hero.getBoundingClientRect().height,
+        heroHeight,
+        expandedHeroHeight,
         actionAfterFacts: Boolean(detail.querySelector('.campaign-library-facts + .campaign-command-primary')),
         detailOverflowY: getComputedStyle(scrollOwner).overflowY,
         actionReachableAfterScroll: actionBox.top >= detailBox.top - .5 && actionBox.bottom <= detailBox.bottom + .5,
@@ -133,7 +138,8 @@ try {
     assert.equal(metrics.descriptionInsideHero, false, `${viewport.width}px description must remain below the Campaign hero`);
     assert.equal(metrics.factColumns, viewport.width <= 640 ? 2 : 4, `${viewport.width}px Campaign fact columns`);
     assert.equal(metrics.factValueWhiteSpace, 'normal', `${viewport.width}px Campaign fact values must wrap`);
-    assert.equal(metrics.heroHeight, viewport.width <= 640 ? 170 : 230, `${viewport.width}px Campaign hero height`);
+    assert.equal(metrics.heroHeight, viewport.width <= 640 ? 112 : 140, `${viewport.width}px collapsed Campaign hero height`);
+    assert.equal(metrics.expandedHeroHeight, viewport.width <= 640 ? 220 : 280, `${viewport.width}px expanded Campaign hero height`);
     assert.equal(metrics.actionAfterFacts, true, `${viewport.width}px Campaign action must follow facts`);
     assert.match(metrics.detailOverflowY, /auto|scroll/, `${viewport.width}px Campaign detail must own local scrolling`);
     assert.equal(metrics.actionReachableAfterScroll, true, `${viewport.width}px Campaign action must be reachable inside the detail scroller`);
