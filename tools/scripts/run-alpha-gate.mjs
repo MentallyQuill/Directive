@@ -14,6 +14,7 @@ const checks = [
   "test-timeline-dialogs.mjs",
   "test-certified-mission-panel.mjs",
   "test-certified-people-panel.mjs",
+  "test-mobile-record-disclosure.mjs",
   "test-responsive-record-list.mjs",
   "test-reorderable-collection.mjs",
   "test-people-collection-preferences.mjs",
