@@ -46,7 +46,8 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
 
   const resultList = createElement('div', 'connection-profile-picker-results');
   resultList.dataset.directiveScrollOwner = 'true';
-  resultList.setAttribute('role', 'list');
+  resultList.setAttribute('role', 'group');
+  resultList.setAttribute('aria-label', 'Connection profiles');
   const error = createElement('p', 'connection-profile-picker-error');
   error.setAttribute('role', 'alert');
   error.hidden = true;
@@ -110,7 +111,6 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
       const option = createElement('button', 'connection-profile-picker-option');
       option.type = 'button';
       option.dataset.connectionProfileId = String(profile?.id || '');
-      option.setAttribute('role', 'listitem');
       if (option.dataset.connectionProfileId === String(selectedId || '')) {
         option.setAttribute('aria-current', 'true');
       }
