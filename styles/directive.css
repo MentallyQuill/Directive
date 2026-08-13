@@ -3417,8 +3417,7 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .campaign-library-detail-body > .campaign-command { justify-self: start; }
 
-.directive-expanded-shell .campaign-detail-actions,
-.directive-expanded-shell .campaign-saves { margin: 14px 20px 0 26px; }
+.directive-expanded-shell .campaign-detail-actions { margin: 14px 20px 0 26px; }
 .directive-expanded-shell .campaign-detail-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .directive-expanded-shell .campaign-command { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 7px 12px; color: var(--directive-expanded-amber); background: var(--directive-expanded-surface); border: 1px solid rgba(255, 159, 74, .42); border-radius: 5px; font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; cursor: pointer; }
 .directive-expanded-shell .campaign-command-primary { color: var(--directive-expanded-bg); background: var(--directive-expanded-amber); border-color: transparent; }
@@ -3426,14 +3425,95 @@ textarea.directive-field-control {
 .directive-expanded-shell .campaign-delete-command { margin-left: auto; }
 .directive-expanded-shell .campaign-command:disabled { cursor: not-allowed; filter: grayscale(.65); opacity: .55; }
 
-.directive-expanded-shell .campaign-saves { padding: 13px 0 18px; border-top: 1px solid rgba(248, 239, 224, .12); }
-.directive-expanded-shell .campaign-saves h3 { margin: 0; color: var(--directive-expanded-gold); font: 800 13px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
-.directive-expanded-shell .campaign-save-list { display: grid; margin: 8px 0 0; padding: 0; list-style: none; border-top: 1px solid rgba(248, 239, 224, .08); }
-.directive-expanded-shell .campaign-save-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 52px; padding: 8px 9px; border-bottom: 1px solid rgba(248, 239, 224, .08); }
-.directive-expanded-shell .campaign-save-copy { display: grid; gap: 2px; }
-.directive-expanded-shell .campaign-save-copy strong { font-size: 12px; }
-.directive-expanded-shell .campaign-save-copy span { color: var(--directive-expanded-muted); font-size: 10px; }
-.directive-expanded-shell .campaign-save-actions { display: flex; gap: 5px; }
+.directive-expanded-shell .campaign-dashboard,
+.directive-expanded-shell .campaign-browser {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.directive-expanded-shell .campaign-dashboard {
+  display: grid;
+  align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 11px 0;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--directive-expanded-surface);
+  border-radius: 6px;
+  box-shadow: inset 8px 0 0 var(--directive-expanded-amber);
+}
+
+.directive-expanded-shell .campaign-browser {
+  display: flex;
+  flex-direction: column;
+}
+
+.directive-expanded-shell .campaign-dashboard-heading,
+.directive-expanded-shell .campaign-browser-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px 12px 26px;
+  border-bottom: 1px solid rgba(255, 159, 74, .28);
+}
+
+.directive-expanded-shell .campaign-dashboard-heading h2,
+.directive-expanded-shell .campaign-browser-heading h2 {
+  margin: 0;
+  color: var(--directive-expanded-text);
+  font: 800 20px/1.05 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .campaign-dashboard-actions {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) repeat(2, minmax(105px, .8fr)) 44px;
+}
+
+.directive-expanded-shell .campaign-dashboard-actions .campaign-command {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.directive-expanded-shell .campaign-delete-icon-command {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: 0;
+  padding: 0;
+}
+
+.directive-expanded-shell .campaign-delete-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+}
+
+.timeline-saved-game-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.timeline-saved-game-delete {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 7px 10px;
+  color: var(--directive-expanded-salmon, #ef7f72);
+  background: var(--directive-expanded-surface, #0d1018);
+  border: 1px solid rgba(239, 127, 114, .42);
+  border-radius: 5px;
+  font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.timeline-dialog-error { margin: 0; color: var(--directive-expanded-salmon, #ef7f72); font-weight: 700; }
+.timeline-dialog-error[hidden] { display: none; }
 
 @media (max-width: 640px) {
   .directive-expanded-shell .directive-route-heading { display: none; }
@@ -3464,8 +3544,29 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-hero-copy h2 { font-size: 23px; }
   .directive-expanded-shell .campaign-library-detail-body { padding: 13px 12px 16px 16px; }
   .directive-expanded-shell .campaign-library-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .directive-expanded-shell .campaign-detail-actions,
-  .directive-expanded-shell .campaign-saves { margin-right: 12px; margin-left: 16px; }
+  .directive-expanded-shell .campaign-detail-actions { margin-right: 12px; margin-left: 16px; }
+
+  .directive-expanded-shell .campaign-dashboard { margin: 7px 0; }
+  .directive-expanded-shell .campaign-dashboard-heading,
+  .directive-expanded-shell .campaign-browser-heading { padding: 10px 12px 10px 16px; }
+  .directive-expanded-shell .campaign-dashboard-heading h2,
+  .directive-expanded-shell .campaign-browser-heading h2 { font-size: 17px; }
+  .directive-expanded-shell .campaign-dashboard-actions {
+    position: relative;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="continue"] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin-right: 51px;
+  }
+  .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="save"] { grid-column: 1; grid-row: 2; }
+  .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="load"] { grid-column: 2; grid-row: 2; }
+  .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="delete"] {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
 
   .directive-expanded-shell .campaign-journal {
     display: flex;

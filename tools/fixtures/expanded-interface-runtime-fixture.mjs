@@ -107,6 +107,7 @@ function fixtureView() {
       selectedCampaignId: 'campaign.ashes',
       campaigns: [{
         id: 'campaign.ashes', packageId: activePackage.packageId, title: 'Ashes of Peace', active: true,
+        characterName: 'Sam Vickers - Ashes of Peace',
         playerName: 'Sam Vickers', playerRole: 'Executive Officer', setting: 'U.S.S. Breckenridge', chapter: 'Prelude: A Ship Underway',
         premise: 'Take command aboard a newly refitted starship entering a politically unstable frontier.',
         status: 'active', lastPlayedAt: '2026-08-10T14:30:00Z', canOpenChat: true, canSaveGame: true,

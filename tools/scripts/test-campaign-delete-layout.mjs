@@ -16,10 +16,11 @@ async function layoutMetrics(viewport) {
             <section class="directive-expanded-campaign campaign-layout campaign-journal" style="width:100%;height:300px">
               <aside class="campaign-master campaign-index-panel"></aside>
               <section class="campaign-detail">
-                <div class="campaign-detail-actions" style="width:calc(100vw - 64px)">
-                  <button class="campaign-command campaign-command-primary">Continue</button>
-                  <button class="campaign-command campaign-command-danger">Delete</button>
-                  <button class="campaign-command">Save checkpoint</button>
+                <div class="campaign-detail-actions campaign-dashboard-actions" style="width:calc(100vw - 64px)">
+                  <button class="campaign-command campaign-command-primary" data-campaign-action="continue">Continue</button>
+                  <button class="campaign-command" data-campaign-action="save">Save Game</button>
+                  <button class="campaign-command" data-campaign-action="load">Load Game</button>
+                  <button class="campaign-command campaign-command-danger campaign-delete-icon-command" data-campaign-action="delete" aria-label="Delete campaign"><span class="campaign-delete-icon"></span></button>
                 </div>
               </section>
             </section>
@@ -74,6 +75,8 @@ async function layoutMetrics(viewport) {
         },
         actionLabels: actionButtons.map((button) => button.textContent.trim()),
         actionTops: actionRects.map((rect) => rect.top),
+        actionHeights: actionRects.map((rect) => rect.height),
+        secondaryWidths: actionRects.slice(1, 3).map((rect) => rect.width),
         actionDisplay: getComputedStyle(detailActions).display,
         actionWidth: detailActions.getBoundingClientRect().width,
         deleteDisabled: document.querySelector('.campaign-delete-confirm').disabled,
@@ -101,11 +104,16 @@ try {
     assert.ok(metrics.dialog.height <= viewport.height - 20);
     assert.equal(metrics.dialog.overflow, 'hidden');
     assert.equal(metrics.dialog.bodyOverflowY, 'auto');
-    assert.deepEqual(metrics.actionLabels, ['Continue', 'Delete', 'Save checkpoint']);
-    assert.ok(
-      Math.abs(metrics.actionTops[0] - metrics.actionTops[1]) < 0.1,
-      `${viewport.width}px ${metrics.actionDisplay}/${metrics.actionWidth}px Continue/Delete tops: ${metrics.actionTops.join(', ')}`
-    );
+    assert.deepEqual(metrics.actionLabels, ['Continue', 'Save Game', 'Load Game', '']);
+    if (viewport.width <= 640) {
+      assert.ok(Math.abs(metrics.actionTops[0] - metrics.actionTops[3]) < 0.1, `${viewport.width}px Continue/delete row`);
+      assert.ok(Math.abs(metrics.actionTops[1] - metrics.actionTops[2]) < 0.1, `${viewport.width}px Save/Load row`);
+      assert.ok(metrics.actionTops[1] > metrics.actionTops[0], `${viewport.width}px intentional second row`);
+      assert.ok(Math.abs(metrics.secondaryWidths[0] - metrics.secondaryWidths[1]) < 0.1, `${viewport.width}px equal Save/Load widths`);
+      assert.ok(Math.min(...metrics.actionHeights) >= 44, `${viewport.width}px touch targets`);
+    } else {
+      assert.equal(new Set(metrics.actionTops.map((top) => Math.round(top))).size, 1, `${viewport.width}px desktop action row`);
+    }
     assert.equal(metrics.deleteDisabled, false);
     assert.equal(metrics.documentOverflowX, false);
   }

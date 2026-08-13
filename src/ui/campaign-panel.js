@@ -55,7 +55,7 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
   return row;
 }
 
-function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity = false } = {}) {
+function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity = false, dashboard = false } = {}) {
   const hero = createElement('section', 'campaign-hero');
   if (compactIdentity) hero.classList.add('campaign-hero-compact-identity');
   if (pack) hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
@@ -75,17 +75,19 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
   hero.appendChild(copy);
   detail.appendChild(hero);
 
-  const commands = createElement('div', 'campaign-detail-actions');
+  const commands = createElement('div', `campaign-detail-actions${dashboard ? ' campaign-dashboard-actions' : ''}`);
   if (campaign.canOpenChat) {
-    commands.appendChild(createButton({
+    const continueCampaign = createButton({
       label: 'Continue',
       icon: 'fa-solid fa-arrow-right',
       className: 'campaign-command campaign-command-primary',
       onClick: () => runAndRefresh(actions.openCampaignChat, { saveId: campaign.activeTimeline?.saveId }, actions)
-    }));
+    });
+    continueCampaign.dataset.campaignAction = 'continue';
+    commands.appendChild(continueCampaign);
   }
   if (campaign.canSaveGame) {
-    commands.appendChild(createButton({
+    const saveGame = createButton({
       label: 'Save Game',
       icon: 'fa-solid fa-bookmark',
       className: 'campaign-command',
@@ -96,10 +98,12 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
           onSave: (payload) => runAndRefresh(actions.saveGame, payload, actions)
         });
       }
-    }));
+    });
+    saveGame.dataset.campaignAction = 'save';
+    commands.appendChild(saveGame);
   }
   const savedGames = campaign.savedGames || campaign.checkpoints || [];
-  commands.appendChild(createButton({
+  const loadGame = createButton({
     label: 'Load Game',
     icon: 'fa-solid fa-clock-rotate-left',
     className: 'campaign-command',
@@ -108,10 +112,16 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
       createLoadGameDialog({
         campaign: { ...campaign, savedGames },
         opener: event?.currentTarget || null,
-        onLoad: (payload) => runAndRefresh(actions.loadGame || actions.loadCheckpoint, payload, actions)
+        onLoad: (payload) => runAndRefresh(actions.loadGame || actions.loadCheckpoint, payload, actions),
+        onDelete: ({ savedGameId }) => actions.deleteSave?.({
+          campaignId: campaign.id,
+          checkpointId: savedGameId
+        })
       });
     }
-  }));
+  });
+  loadGame.dataset.campaignAction = 'load';
+  commands.appendChild(loadGame);
   const deleteCampaign = createElement('button', 'campaign-command campaign-command-danger campaign-delete-command campaign-delete-icon-command');
   deleteCampaign.type = 'button';
   deleteCampaign.disabled = !campaign.characterName;
@@ -238,7 +248,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
     heading.append(title, campaigns);
     dashboard.appendChild(heading);
     const pack = model.packages.find((candidate) => candidate.packageId === activeCampaign.packageId);
-    appendCampaignDetail(dashboard, activeCampaign, pack, actions);
+    appendCampaignDetail(dashboard, activeCampaign, pack, actions, { dashboard: true });
     body.appendChild(dashboard);
     return;
   }

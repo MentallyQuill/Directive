@@ -52,6 +52,10 @@ try {
       await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
       const activeNav = page.locator('.directive-route-control.active');
       await activeNav.focus();
+      if (route === 'campaign') {
+        await page.locator('[data-campaign-action="campaigns"]').click();
+        await page.waitForSelector(selectors.accordion);
+      }
 
       const initial = await page.evaluate((value) => {
         const visible = (node) => Boolean(node?.getClientRects().length) && getComputedStyle(node).display !== 'none';
@@ -137,6 +141,10 @@ try {
     const page = await browser.newPage({ viewport: { width: 1024, height: 768 } });
     await page.goto(`${baseUrl}/production?route=${route}`);
     await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+    if (route === 'campaign') {
+      await page.locator('[data-campaign-action="campaigns"]').click();
+      await page.waitForSelector(selectors.desktopMaster);
+    }
     const desktop = await page.evaluate((value) => {
       const visible = (node) => Boolean(node?.getClientRects().length) && getComputedStyle(node).display !== 'none';
       const owners = [...document.querySelectorAll('[data-directive-scroll-owner="true"]')]

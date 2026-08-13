@@ -18,21 +18,14 @@ const viewports = [
   { width: 360, height: 500 }
 ];
 const requiredSelectors = {
-  campaign: ['.campaign-layout', '.campaign-master', '.campaign-detail', '[data-campaign-availability="coming-later"]'],
+  campaign: ['.campaign-dashboard', '.campaign-dashboard-heading', '.campaign-detail-actions', '[data-campaign-action="campaigns"]'],
   mission: ['.mission-layout', '.mission-collection', '.mission-detail', '.mission-objective-row'],
   people: ['.people-route', '.directive-command-bearing-strip', '.people-layout', '.people-roster', '.people-detail'],
   ship: ['.ship-layout', '.ship-hero', '.ship-board', '.ship-operational-status'],
   settings: ['.settings-layout', '.settings-content', '.settings-provider-grid', '.settings-provider-card', '.settings-diagnostics']
 };
-const expectedOwnerCounts = { campaign: 2, mission: 2, people: 2, ship: 1, settings: 1 };
+const expectedOwnerCounts = { campaign: 1, mission: 2, people: 2, ship: 1, settings: 1 };
 const mobilePanelGeometry = {
-  campaign: {
-    layout: '.campaign-layout',
-    accordion: '.campaign-mobile-accordion',
-    desktopMaster: '.campaign-desktop-master',
-    desktopDetail: '.campaign-desktop-detail',
-    trigger: '.campaign-mobile-trigger[aria-expanded="true"]'
-  },
   mission: {
     layout: '.mission-layout',
     accordion: '.mission-mobile-accordion',
@@ -259,6 +252,92 @@ try {
       }
 
       if (route === 'campaign') {
+        const dashboard = await page.evaluate((mobile) => {
+          const controls = [...document.querySelectorAll('.campaign-detail-actions .campaign-command')];
+          const boxes = controls.map((control) => control.getBoundingClientRect());
+          const rowTops = [...new Set(boxes.map((box) => Math.round(box.top)))];
+          const [continueBox, saveBox, loadBox, deleteBox] = boxes;
+          return {
+            labels: controls.map((control) => control.textContent.trim()),
+            rowCount: rowTops.length,
+            minHeight: Math.min(...boxes.map((box) => box.height)),
+            continueWithDelete: Math.abs(continueBox.top - deleteBox.top) < .5,
+            saveWithLoad: Math.abs(saveBox.top - loadBox.top) < .5,
+            secondRowAfterFirst: saveBox.top > continueBox.top,
+            equalSecondaryWidth: Math.abs(saveBox.width - loadBox.width) < .5,
+            deleteLabel: controls[3].getAttribute('aria-label'),
+            deleteTooltip: controls[3].dataset.directiveTooltip,
+            savedListCount: document.querySelectorAll('.campaign-save-list').length,
+            browserCount: document.querySelectorAll('.campaign-browser').length,
+            overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+            mobile
+          };
+        }, viewport.width <= 640);
+        assert.deepEqual(dashboard.labels, ['Continue', 'Save Game', 'Load Game', '']);
+        assert.equal(dashboard.savedListCount, 0, `${viewport.width}px dashboard saved-game list`);
+        assert.equal(dashboard.browserCount, 0, `${viewport.width}px dashboard browser visibility`);
+        assert.equal(dashboard.deleteLabel, 'Delete campaign');
+        assert.equal(dashboard.deleteTooltip, 'Delete campaign');
+        assert.equal(dashboard.overflowX, false, `${viewport.width}px dashboard overflow-x`);
+        if (viewport.width <= 640) {
+          assert.equal(dashboard.rowCount, 2, `${viewport.width}px intentional dashboard action rows`);
+          assert.ok(dashboard.minHeight >= 44, `${viewport.width}px dashboard touch target`);
+          assert.equal(dashboard.continueWithDelete, true, `${viewport.width}px Continue/delete row`);
+          assert.equal(dashboard.saveWithLoad, true, `${viewport.width}px Save/Load row`);
+          assert.equal(dashboard.secondRowAfterFirst, true, `${viewport.width}px secondary row ordering`);
+          assert.equal(dashboard.equalSecondaryWidth, true, `${viewport.width}px equal Save/Load widths`);
+        } else {
+          assert.equal(dashboard.rowCount, 1, `${viewport.width}px aligned desktop action row`);
+          const deleteCampaign = page.locator('[data-campaign-action="delete"]');
+          await deleteCampaign.focus();
+          await page.waitForFunction(() => {
+            const tooltip = document.querySelector('.directive-floating-tooltip');
+            return tooltip?.textContent === 'Delete campaign' && getComputedStyle(tooltip).display === 'block';
+          });
+        }
+
+        const loadGame = page.getByRole('button', { name: 'Load Game', exact: true });
+        await loadGame.click();
+        await page.waitForSelector('.load-game-dialog-overlay');
+        const loadGeometry = await page.evaluate(() => {
+          const dialog = document.querySelector('.timeline-dialog');
+          const list = document.querySelector('.timeline-saved-game-list');
+          const deletes = [...document.querySelectorAll('.timeline-saved-game-delete')];
+          const box = dialog.getBoundingClientRect();
+          return {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            listOverflowY: getComputedStyle(list).overflowY,
+            minDeleteHeight: Math.min(...deletes.map((button) => button.getBoundingClientRect().height)),
+            documentOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+            documentOverflowY: document.documentElement.scrollHeight > document.documentElement.clientHeight
+          };
+        });
+        assert.ok(loadGeometry.left >= 0 && loadGeometry.top >= 0, `${viewport.width}px load dialog starts inside viewport`);
+        assert.ok(loadGeometry.right <= viewport.width + .5 && loadGeometry.bottom <= viewport.height + .5, `${viewport.width}px load dialog ends inside viewport`);
+        assert.match(loadGeometry.listOverflowY, /auto|scroll/, `${viewport.width}px saved-game list scroll`);
+        assert.equal(loadGeometry.documentOverflowX, false, `${viewport.width}px load dialog document overflow-x`);
+        assert.equal(loadGeometry.documentOverflowY, false, `${viewport.width}px load dialog document overflow-y`);
+        if (viewport.width <= 640) assert.ok(loadGeometry.minDeleteHeight >= 44, `${viewport.width}px saved-game delete target`);
+        assert.equal(await page.locator('.timeline-saved-game-row').count(), 2, `${viewport.width}px saved games live in Load Game`);
+        assert.equal(await page.getByRole('button', { name: 'Load Game', exact: true }).last().isDisabled(), true);
+        await page.evaluate(() => { globalThis.__directiveFixtureActions.length = 0; });
+        page.once('dialog', (dialog) => dialog.accept());
+        await page.locator('.timeline-saved-game-delete').first().click();
+        await page.waitForFunction(() => globalThis.__directiveFixtureActions.some((entry) => entry.action === 'deleteSave'));
+        const deleteSaveCall = await page.evaluate(() => globalThis.__directiveFixtureActions.find((entry) => entry.action === 'deleteSave'));
+        assert.deepEqual(deleteSaveCall.args[0], { campaignId: 'campaign.ashes', checkpointId: 'save.current' });
+        assert.equal(await page.locator('.timeline-saved-game-row').count(), 1, `${viewport.width}px successful save deletion updates picker`);
+        await page.locator('.timeline-saved-game-row').first().click();
+        assert.equal(await page.getByRole('button', { name: 'Load Game', exact: true }).last().isDisabled(), false);
+        await page.keyboard.press('Escape');
+        assert.equal(await loadGame.evaluate((node) => node === document.activeElement), true, `${viewport.width}px Load Game focus restoration`);
+
+        await page.evaluate(() => { globalThis.__directiveFixtureActions.length = 0; });
+        await page.locator('[data-campaign-action="campaigns"]').click();
+        await page.waitForSelector('.campaign-browser');
         const futureRow = viewport.width <= 640
           ? page.locator('.campaign-mobile-trigger[data-campaign-availability="coming-later"]').first()
           : page.locator('.campaign-desktop-master button[data-campaign-availability="coming-later"]').first();
@@ -327,6 +406,10 @@ try {
         assert.match(campaign.actionText, /New campaign/i);
         observedVarianceIds.add('campaign-coming-later');
         observedVarianceIds.add('campaign-current-descriptions');
+        await page.locator('[data-campaign-action="back-to-current"]').click();
+        await page.waitForSelector('.campaign-dashboard');
+        assert.equal(await page.locator('.campaign-browser').count(), 0, `${viewport.width}px browser closes back to dashboard`);
+        assert.equal(await page.evaluate(() => globalThis.__directiveFixtureActions.length), 0, `${viewport.width}px browser navigation is presentation-only`);
       }
       if (route === 'people') {
         const portraits = await page.locator('.people-row-image img, .mobile-crew-avatar img').count();
