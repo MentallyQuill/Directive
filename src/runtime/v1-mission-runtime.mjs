@@ -757,6 +757,7 @@ export function createV1MissionRuntime({
         throw new TypeError('stateDeltaGateway with revision and applyProposal is required');
     }
     const interpreter = interpretAcceptedPair || createMissionAcceptedPairInterpreter({ generationRouter, timeoutMs });
+    let cachedInterpretation = null;
     const episodeEvaluator = evaluateEpisode || createEpisodeEvaluator({
         generationRouter,
         timeoutMs: episodeReviewTimeoutMs,
@@ -1066,6 +1067,15 @@ export function createV1MissionRuntime({
             return unavailable(errorReasonCode(error));
         }
         const sourcePair = sourcePairFromSnapshot(snapshot);
+        const interpretationKey = [
+            branchId,
+            definition.id,
+            definition.version,
+            missionState.revision,
+            compact(snapshot?.source?.sourceRangeHash),
+            compact(sourcePair.previousAssistant?.textHash),
+            compact(sourcePair.currentPlayer?.textHash),
+        ].join('|');
         const assistantContributionId = activeContributionId(
             campaignState,
             branchId,
@@ -1114,6 +1124,7 @@ export function createV1MissionRuntime({
             ? restoredSources.every((source) => alreadySettled.has(source.id))
             : alreadySettled.has(playerSource.contributionId);
         if (pairAlreadySettled) {
+            if (cachedInterpretation?.key === interpretationKey) cachedInterpretation = null;
             return {
                 ok: true,
                 attempted: false,
@@ -1132,14 +1143,19 @@ export function createV1MissionRuntime({
         const interpretationBaseRevision = stateDeltaGateway.revision();
         const candidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
         let interpreted;
-        try {
-            interpreted = await interpreter({
-                candidatePacket,
-                sourcePair,
-                timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
-            });
-        } catch {
-            return unavailable('interpretation-threw', {}, { attempted: true });
+        const interpretationReused = cachedInterpretation?.key === interpretationKey;
+        if (interpretationReused) {
+            interpreted = structuredClone(cachedInterpretation.value);
+        } else {
+            try {
+                interpreted = await interpreter({
+                    candidatePacket,
+                    sourcePair,
+                    timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
+                });
+            } catch {
+                return unavailable('interpretation-threw', {}, { attempted: true });
+            }
         }
         if (!interpreted?.ok) {
             return unavailable(interpreted?.reasonCode || 'interpretation-unavailable', {
@@ -1152,6 +1168,10 @@ export function createV1MissionRuntime({
         if (stateDeltaGateway.revision() !== interpretationBaseRevision) {
             return unavailable('state-revision-conflict', {}, { attempted: true });
         }
+        cachedInterpretation = {
+            key: interpretationKey,
+            value: structuredClone(interpreted),
+        };
 
         let time = null;
         if (typeof prepareAcceptedPairTime === 'function') {
@@ -1302,6 +1322,7 @@ export function createV1MissionRuntime({
             if (!rejectedDutyReportReasonCode && rejectedMaterializedReport) {
                 rejectedDutyReportReasonCode = rejectedMaterializedReport.reasonCode || 'evidence-rejected';
             }
+            if (cachedInterpretation?.key === interpretationKey) cachedInterpretation = null;
             return {
                 ok: true,
                 attempted: true,
@@ -1332,6 +1353,7 @@ export function createV1MissionRuntime({
                     providerId: interpreted.diagnostics?.providerId || null,
                     model: interpreted.diagnostics?.model || null,
                     latencyMs: interpreted.diagnostics?.latencyMs ?? null,
+                    interpretationReused,
                 },
                 time: time?.patch ? {
                     ...time,
@@ -1341,7 +1363,11 @@ export function createV1MissionRuntime({
                 } : time,
             };
         } catch (error) {
-            return unavailable(errorReasonCode(error), {}, { attempted: true });
+            const reasonCode = errorReasonCode(error);
+            if (reasonCode !== 'persistence-failed' && cachedInterpretation?.key === interpretationKey) {
+                cachedInterpretation = null;
+            }
+            return unavailable(reasonCode, { interpretationReused }, { attempted: true });
         }
     }
 

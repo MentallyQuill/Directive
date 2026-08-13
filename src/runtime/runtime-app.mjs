@@ -417,6 +417,7 @@ export function createDirectiveRuntimeApp({
   let storageDiagnostics = null;
   let settlementQueue = Promise.resolve();
   let acceptedPairReplayNeeded = false;
+  let pendingAcceptedPairSettlement = null;
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
   let deferredInternalChatChangeScheduled = false;
@@ -850,22 +851,49 @@ export function createDirectiveRuntimeApp({
       error.details = { expected: currentEnvelope, actual: clone(envelope) };
       throw error;
     }
-    const mission = await missionRuntime.settleAcceptedPair({
-      runtimeAssets,
-      snapshot,
-      acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot)
-    });
+    let mission = null;
+    let persistenceAttempts = 0;
+    do {
+      persistenceAttempts += 1;
+      mission = await missionRuntime.settleAcceptedPair({
+        runtimeAssets,
+        snapshot,
+        acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot)
+      });
+    } while (mission?.ok === false
+      && mission.reasonCode === 'persistence-failed'
+      && persistenceAttempts < 3);
     const time = mission?.time || null;
-    if (mission?.ok === false) acceptedPairReplayNeeded = true;
-    if (missionRuntime.pendingEpisodeReview()) {
+    const settlementBlocked = mission?.ok === false && mission.reasonCode === 'persistence-failed';
+    if (settlementBlocked) {
+      pendingAcceptedPairSettlement = {
+        snapshot: clone(snapshot),
+        ingressId,
+        reasonCode: mission.reasonCode,
+        persistenceAttempts
+      };
+      acceptedPairReplayNeeded = false;
+    } else if (mission?.ok === false) {
+      acceptedPairReplayNeeded = true;
+    } else {
+      pendingAcceptedPairSettlement = null;
+    }
+    if (mission?.ok === true && missionRuntime.pendingEpisodeReview()) {
       await missionRuntime.reviewPendingEpisode({ runtimeAssets });
     }
     const commandBearing = mission?.acceptedCommandBearingEdge || {
       applied: false,
       reasonCode: 'no-accepted-edge'
     };
-    if (syncPromptAfter) await syncPrompt();
-    return { time, mission, commandBearing, campaignState: clone(state) };
+    if (mission?.ok === true && syncPromptAfter) await syncPrompt();
+    return {
+      time,
+      mission,
+      commandBearing,
+      persistenceAttempts,
+      settlementBlocked,
+      campaignState: clone(state)
+    };
   }
 
   async function acceptedSnapshotForMessage(currentPlayerMessage, recentMessages, ingressId = null) {
@@ -1136,6 +1164,34 @@ export function createDirectiveRuntimeApp({
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
           ...(await settleSnapshot(prepared.snapshot, ingressId))
+        };
+      });
+    },
+
+    async retryPendingAcceptedPairSettlement() {
+      await ensureInitialized();
+      return enqueueSettlement(async () => {
+        const pending = pendingAcceptedPairSettlement;
+        if (!pending) return { ok: false, reasonCode: 'no-pending-settlement', settlementBlocked: false };
+        if (!state || !currentChatIsBound()) {
+          return { ok: false, reasonCode: 'inactive-or-unbound', settlementBlocked: true };
+        }
+        const current = await host.chat.getLatestPlayerMessage?.();
+        const recent = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
+        const prepared = current
+          ? await acceptedSnapshotForMessage(current, recent, `retry.${messageId(current, current)}`)
+          : null;
+        if (!prepared?.ok
+          || compact(prepared.snapshot?.source?.sourceRangeHash) !== compact(pending.snapshot?.source?.sourceRangeHash)) {
+          pendingAcceptedPairSettlement = null;
+          acceptedPairReplayNeeded = true;
+          return { ok: false, reasonCode: 'pending-source-stale', settlementBlocked: false };
+        }
+        const settled = await settleSnapshot(pending.snapshot, pending.ingressId);
+        return {
+          ...settled,
+          ok: settled.mission?.ok === true,
+          settlementBlocked: settled.settlementBlocked === true
         };
       });
     },

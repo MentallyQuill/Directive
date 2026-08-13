@@ -905,6 +905,69 @@ assert.equal(chat.getCurrentChatId(), failedContinuationClone.branchChatId);
 await app.deleteSave({ checkpointId: recoveredLoad.timelineFork.savedGameId });
 await app.deleteSave({ checkpointId: restoreFailureCheckpoint.checkpoint.id });
 
+const retryView = await app.getCurrentView({ tabId: 'mission' });
+const retrySavePath = V1_STORAGE_PATHS.save(retryView.activeSaveId);
+const retryWriteJson = host.storage.writeJson;
+let transientPersistenceAttempts = 0;
+host.storage.writeJson = async (path, value) => {
+  if (path === retrySavePath) {
+    transientPersistenceAttempts += 1;
+    if (transientPersistenceAttempts <= 2) throw new Error(`transient settlement persistence ${transientPersistenceAttempts}`);
+  }
+  return retryWriteJson.call(host.storage, path, value);
+};
+chat.pushAssistantMessage({
+  text: 'Whitaker reviews the next item without changing the tactical situation.',
+  hostMessageId: 'assistant.persistence-retry'
+});
+const retryPlayer = chat.pushPlayerMessage({
+  text: 'I acknowledge the item and continue.',
+  hostMessageId: 'player.persistence-retry'
+});
+const generationBeforePersistenceRetry = missionInterpretationCalls;
+const revisionBeforePersistenceRetry = retryView.campaignState.stateCustody.revision;
+const persistenceRetried = await app.observeHostPlayerMessage({ message: retryPlayer });
+host.storage.writeJson = retryWriteJson;
+assert.equal(persistenceRetried.mission.ok, true);
+assert.equal(persistenceRetried.persistenceAttempts, 3);
+assert.equal(transientPersistenceAttempts, 3);
+assert.equal(missionInterpretationCalls, generationBeforePersistenceRetry + 1);
+assert.equal(
+  (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision,
+  revisionBeforePersistenceRetry + 1,
+  'failed persistence attempts must not leave extra custody revisions'
+);
+
+let exhaustedPersistenceAttempts = 0;
+host.storage.writeJson = async (path, value) => {
+  if (path === retrySavePath && exhaustedPersistenceAttempts < 3) {
+    exhaustedPersistenceAttempts += 1;
+    throw new Error(`exhausted settlement persistence ${exhaustedPersistenceAttempts}`);
+  }
+  return retryWriteJson.call(host.storage, path, value);
+};
+chat.pushAssistantMessage({
+  text: 'The bridge waits for the next acknowledged instruction.',
+  hostMessageId: 'assistant.persistence-block'
+});
+const blockedPlayer = chat.pushPlayerMessage({
+  text: 'Proceed with the acknowledged instruction.',
+  hostMessageId: 'player.persistence-block'
+});
+const generationBeforeBlockedPersistence = missionInterpretationCalls;
+const persistenceBlocked = await app.observeHostPlayerMessage({ message: blockedPlayer });
+assert.equal(persistenceBlocked.mission.ok, false);
+assert.equal(persistenceBlocked.mission.reasonCode, 'persistence-failed');
+assert.equal(persistenceBlocked.persistenceAttempts, 3);
+assert.equal(persistenceBlocked.settlementBlocked, true);
+assert.equal(exhaustedPersistenceAttempts, 3);
+assert.equal(missionInterpretationCalls, generationBeforeBlockedPersistence + 1);
+host.storage.writeJson = retryWriteJson;
+const manuallyRetried = await app.retryPendingAcceptedPairSettlement();
+assert.equal(manuallyRetried.ok, true);
+assert.equal(manuallyRetried.settlementBlocked, false);
+assert.equal(missionInterpretationCalls, generationBeforeBlockedPersistence + 1);
+
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
 const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;
 const deleteCampaignCharacter = host.chat.deleteCampaignCharacter;
