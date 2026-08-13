@@ -340,6 +340,11 @@ try {
         await page.evaluate(() => { globalThis.__directiveFixtureActions.length = 0; });
         await page.locator('[data-campaign-action="campaigns"]').click();
         await page.waitForSelector('.campaign-browser');
+        assert.equal(
+          await page.locator('[data-campaign-action="back-to-current"]').evaluate((node) => node === document.activeElement),
+          true,
+          `${viewport.width}px Campaigns must move focus to the browser return control`
+        );
         if (viewport.width <= 640) {
           assert.ok(
             await page.locator('[data-campaign-action="back-to-current"]').evaluate((node) => node.getBoundingClientRect().height) >= 44,
@@ -417,6 +422,11 @@ try {
         await page.locator('[data-campaign-action="back-to-current"]').click();
         await page.waitForSelector('.campaign-dashboard');
         assert.equal(await page.locator('.campaign-browser').count(), 0, `${viewport.width}px browser closes back to dashboard`);
+        assert.equal(
+          await page.locator('[data-campaign-action="campaigns"]').evaluate((node) => node === document.activeElement),
+          true,
+          `${viewport.width}px browser return must restore focus to Campaigns`
+        );
         assert.equal(await page.evaluate(() => globalThis.__directiveFixtureActions.length), 0, `${viewport.width}px browser navigation is presentation-only`);
       }
       if (route === 'people') {

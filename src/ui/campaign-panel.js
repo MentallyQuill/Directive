@@ -22,6 +22,10 @@ async function runAndRefresh(action, payload, actions) {
   await actions.refresh?.();
 }
 
+function focusCampaignAction(body, action) {
+  body.querySelector?.(`[data-campaign-action="${action}"]`)?.focus?.();
+}
+
 function packageImage(pack, variant = 'card', wrapperClass = 'campaign-row-art') {
   return createPackageImage(pack, {
     kind: pack.image?.kind || 'ship.hero',
@@ -249,6 +253,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
         campaignPanelMode = 'browser';
         body.replaceChildren?.();
         renderCampaignPanel(body, view, actions);
+        focusCampaignAction(body, 'back-to-current');
       }
     });
     campaigns.dataset.campaignAction = 'campaigns';
@@ -278,6 +283,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
         campaignPanelMode = 'dashboard';
         body.replaceChildren?.();
         renderCampaignPanel(body, view, actions);
+        focusCampaignAction(body, 'campaigns');
       }
     });
     back.dataset.campaignAction = 'back-to-current';
