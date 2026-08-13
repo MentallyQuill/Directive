@@ -317,6 +317,23 @@
       }
     },
     {
+      "id": "policy.hesperus.integration-cascade-avoided",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus.integration-cascade-avoided",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "eventOccurred": "event.hesperus.rescue-response-begun" },
+          { "shipCapabilityAvailable": "ship-capability.segmented-isolation" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the player deliberately using segmented isolation during the active Hesperus response and the completed maneuver contains a refit integration fault inside one segment instead of allowing a wider cascade.",
+        "exclusions": ["Having the capability, mentioning isolation, beginning the maneuver, or avoiding a cascade for an unrelated reason does not establish this outcome."]
+      }
+    },
+    {
       "id": "policy.hesperus.records-reviewed",
       "claimType": "eventOccurred",
       "targetId": "event.hesperus.records-reviewed",
@@ -928,6 +945,18 @@
       "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
     }
   ],
+  "shipInteractions": [
+    {
+      "id": "ship-interaction.hesperus-segmented-isolation",
+      "capabilityId": "ship-capability.segmented-isolation",
+      "evidencePolicyIds": ["policy.hesperus.integration-cascade-avoided"],
+      "narratorGuidance": "If the player invokes segmented isolation during the Hesperus response, permit a credible route that contains a refit integration fault inside one segment; resolve the attempt from the established scene rather than granting automatic success.",
+      "limits": [
+        "The route matters only during an active Hesperus response with a plausible isolatable fault or load.",
+        "It cannot erase an established cost, complete the rescue by itself, or prove full systems integration."
+      ]
+    }
+  ],
   "reportRoutes": [
     {
       "id": "report.hesperus.distress",
@@ -1115,6 +1144,11 @@
       "id": "event.hesperus.rescue-response-begun",
       "playerVisibility": "visible",
       "playerText": { "summary": "The Breckenridge committed to a Hesperus rescue response." }
+    },
+    {
+      "id": "event.hesperus.integration-cascade-avoided",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Segmented isolation contained a refit integration fault during the Hesperus response." }
     },
     {
       "id": "event.hesperus.records-reviewed",
@@ -1593,6 +1627,17 @@
               { "outcomeIs": { "id": "outcome.hesperus.rescue-cost", "equals": "none" } }
             ]
           }
+        }
+      ]
+    },
+    {
+      "id": "dimension.prelude.integration-protection",
+      "playerText": { "label": "Integration protection" },
+      "derive": [
+        {
+          "value": "cascade-avoided",
+          "priority": 100,
+          "when": { "eventOccurred": "event.hesperus.integration-cascade-avoided" }
         }
       ]
     },

@@ -232,6 +232,37 @@ function validateReportRoutes(definition, index, errors) {
     }
 }
 
+function validateShipInteractions(definition, index, errors) {
+    if (definition.shipInteractions === undefined) return;
+    if (!Array.isArray(definition.shipInteractions)) {
+        errors.push('shipInteractions must be an array');
+        return;
+    }
+    for (const interaction of definition.shipInteractions) {
+        const interactionId = interaction?.id || '<unknown ship interaction>';
+        if (!isStableId(interaction?.capabilityId)) {
+            errors.push(`${interactionId} capabilityId must be a stable id`);
+        }
+        validateStableIdArray(interaction?.evidencePolicyIds, {
+            path: `${interactionId} evidencePolicyIds`,
+            requireNonEmpty: true,
+        }, errors);
+        for (const policyId of Array.isArray(interaction?.evidencePolicyIds) ? interaction.evidencePolicyIds : []) {
+            if (!index.evidencePolicies.has(policyId)) {
+                errors.push(`${interactionId} references unknown evidence policy: ${policyId}`);
+            }
+        }
+        if (!isNonEmptyString(interaction?.narratorGuidance)) {
+            errors.push(`${interactionId} narratorGuidance must be a non-empty string`);
+        }
+        if (!Array.isArray(interaction?.limits)
+            || interaction.limits.length === 0
+            || interaction.limits.some((limit) => !isNonEmptyString(limit))) {
+            errors.push(`${interactionId} limits must contain at least one non-empty string`);
+        }
+    }
+}
+
 function validateDefinitionPredicates(definition, index, errors) {
     const objectiveDependencies = new Map();
     const closeObjectiveRefs = new Set();
@@ -312,6 +343,7 @@ export function indexMissionDefinition(definition = {}) {
         facts: byId(definition.facts),
         evidencePolicies: byId(definition.evidencePolicies),
         reportRoutes: byId(definition.reportRoutes),
+        shipInteractions: byId(definition.shipInteractions),
         events: byId(definition.events),
         outcomes: byId(definition.outcomes),
         outcomeDimensions: byId(definition.outcomeDimensions),
@@ -364,6 +396,7 @@ export function validateMissionDefinition(definition = {}) {
         'facts',
         'evidencePolicies',
         'reportRoutes',
+        'shipInteractions',
         'events',
         'outcomes',
         'outcomeDimensions',
@@ -437,6 +470,7 @@ export function validateMissionDefinition(definition = {}) {
     }
     validateEvidencePolicies(definition, definitionIndex, errors);
     validateReportRoutes(definition, definitionIndex, errors);
+    validateShipInteractions(definition, definitionIndex, errors);
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
         const objectiveId = objective?.id || '<unknown objective>';
         if (!MISSION_OBJECTIVE_CLASSES.has(objective?.class)) {

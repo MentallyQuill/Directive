@@ -212,6 +212,23 @@
       }
     },
     {
+      "id": "policy.chapter2.cross-system-reconstruction-completed",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter2.cross-system-reconstruction-completed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": {
+        "all": [
+          { "factKnown": "fact.chapter2.false-colors-crisis" },
+          { "shipCapabilityAvailable": "ship-capability.cross-system-reconstruction" }
+        ]
+      },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the player deliberately using validated cross-system reconstruction on suitable independent observations and the completed analysis produces a credible bounded attack-profile reconstruction.",
+        "exclusions": ["Having the capability, ordering analysis, using only the Breckenridge's own asserted alibi, or obtaining an unresolved preliminary match does not complete the reconstruction."]
+      }
+    },
+    {
       "id": "policy.chapter2.independent-evidence-picture-disclosed",
       "claimType": "factDisclosed",
       "targetId": "fact.chapter2.independent-evidence-picture",
@@ -219,7 +236,12 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter2.independent-evidence-picture" },
-          { "eventOccurred": "event.chapter2.independent-baseline-preserved" }
+          {
+            "any": [
+              { "eventOccurred": "event.chapter2.independent-baseline-preserved" },
+              { "eventOccurred": "event.chapter2.cross-system-reconstruction-completed" }
+            ]
+          }
         ]
       },
       "interpretation": {
@@ -348,6 +370,18 @@
       }
     }
   ],
+  "shipInteractions": [
+    {
+      "id": "ship-interaction.chapter2-cross-system-reconstruction",
+      "capabilityId": "ship-capability.cross-system-reconstruction",
+      "evidencePolicyIds": ["policy.chapter2.cross-system-reconstruction-completed"],
+      "narratorGuidance": "If the player invokes cross-system reconstruction after obtaining suitable independent observations, permit a credible bounded route to reconstruct the attack profile without granting broad access to command-authentication architecture.",
+      "limits": [
+        "The route requires suitable independent observations in the established scene; the Breckenridge's own telemetry alone is insufficient.",
+        "It can support the bounded independent evidence picture but cannot identify the operator, expose the wider conspiracy, or guarantee political acceptance."
+      ]
+    }
+  ],
   "reportRoutes": [
     {
       "id": "report.chapter2.verification-access-dispute",
@@ -383,7 +417,12 @@
       "when": {
         "all": [
           { "worldFact": "fact.chapter2.independent-evidence-picture" },
-          { "eventOccurred": "event.chapter2.independent-baseline-preserved" },
+          {
+            "any": [
+              { "eventOccurred": "event.chapter2.independent-baseline-preserved" },
+              { "eventOccurred": "event.chapter2.cross-system-reconstruction-completed" }
+            ]
+          },
           { "not": { "factKnown": "fact.chapter2.independent-evidence-picture" } }
         ]
       },
@@ -472,6 +511,13 @@
       "playerVisibility": "visible",
       "playerText": {
         "summary": "A credible independent evidence baseline was preserved for the Aegis Two attack."
+      }
+    },
+    {
+      "id": "event.chapter2.cross-system-reconstruction-completed",
+      "playerVisibility": "visible",
+      "playerText": {
+        "summary": "Validated cross-system reconstruction produced a credible bounded attack-profile reconstruction from independent observations."
       }
     },
     {
@@ -649,6 +695,17 @@
         { "value": "managed-ambiguity", "priority": 90, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "managedAmbiguity" } } },
         { "value": "handed-off", "priority": 80, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "handedOff" } } },
         { "value": "political-rupture", "priority": 70, "when": { "outcomeIs": { "id": "outcome.chapter2.attack-account-result", "equals": "rupturedAfterInformedAction" } } }
+      ]
+    },
+    {
+      "id": "dimension.chapter2.reconstruction-route",
+      "playerText": { "label": "Reconstruction route" },
+      "derive": [
+        {
+          "value": "cross-system-reconstruction",
+          "priority": 100,
+          "when": { "eventOccurred": "event.chapter2.cross-system-reconstruction-completed" }
+        }
       ]
     },
     {

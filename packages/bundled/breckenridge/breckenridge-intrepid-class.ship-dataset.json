@@ -18,5 +18,265 @@
       "Advanced systems create dependencies; transporters, medical automation, tactical systems, replicators, and landing capability do not erase risk or logistics.",
       "Voyager is the class model, not imported campaign history."
     ]
+  },
+  "mechanics": {
+    "kind": "directive.shipMechanics.v1",
+    "schemaVersion": 1,
+    "capabilities": [
+      {
+        "id": "ship-capability.segmented-isolation",
+        "playerText": {
+          "label": "Segmented isolation",
+          "summary": "The crew can isolate one refit segment from the rest of the ship for controlled operations."
+        },
+        "narratorGuidance": "When the player deliberately invokes isolation and an authored interaction permits it, allow a route that contains a problem inside one segment instead of exposing the full integrated ship.",
+        "limits": [
+          "Isolation creates a bounded option; it does not guarantee that the operation succeeds.",
+          "It cannot substitute for full combined-load or failover validation."
+        ]
+      },
+      {
+        "id": "ship-capability.integrated-failover",
+        "playerText": {
+          "label": "Integrated failover",
+          "summary": "Validated cross-system failover can preserve essential functions during a bounded subsystem loss."
+        },
+        "narratorGuidance": "When an authored interaction permits it, allow validated failover to preserve one essential function through a bounded subsystem loss while retaining credible costs and uncertainty.",
+        "limits": [
+          "Failover preserves an authored essential function, not the entire ship.",
+          "It does not erase damage, time pressure, or consequences already established in the scene."
+        ]
+      },
+      {
+        "id": "ship-capability.independent-correlation",
+        "playerText": {
+          "label": "Independent correlation",
+          "summary": "Calibrated sensors can compare shipboard readings against a genuinely independent reference."
+        },
+        "narratorGuidance": "When the player obtains an independent reference and an authored interaction permits it, allow correlation to distinguish supported inconsistencies that shipboard readings alone could not establish.",
+        "limits": [
+          "Correlation requires a genuinely independent source in the scene.",
+          "It does not identify an unknown actor or prove provenance by itself."
+        ]
+      },
+      {
+        "id": "ship-capability.cross-system-reconstruction",
+        "playerText": {
+          "label": "Cross-system reconstruction",
+          "summary": "Validated live-load calibration can reconstruct eligible signatures across independent sensor channels."
+        },
+        "narratorGuidance": "When an authored interaction permits it and suitable observations exist, allow a bounded reconstruction assembled from independent channels rather than a single decisive scan.",
+        "limits": [
+          "Reconstruction needs suitable observations and cannot conjure evidence that was never recorded.",
+          "It narrows an authored uncertainty; it is not universal deception detection."
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "id": "ship-constraint.integration-cascade-risk",
+        "playerText": {
+          "label": "Integration cascade risk",
+          "summary": "Unvalidated combined-load operations can propagate one refit fault across otherwise serviceable systems."
+        },
+        "narratorGuidance": "Do not allow an unsupported full-system shortcut while this constraint is active; combined-load solutions must respect the risk of a cascading refit fault."
+      },
+      {
+        "id": "ship-constraint.sensor-corroboration-required",
+        "playerText": {
+          "label": "Sensor corroboration required",
+          "summary": "Fine identity, provenance, and reconstruction claims need evidence independent of the provisional shipboard baseline."
+        },
+        "narratorGuidance": "Do not let Breckenridge sensor readings alone settle fine identity, provenance, or reconstructed intent while this constraint is active."
+      }
+    ],
+    "systems": [
+      {
+        "id": "ship-system.systems-integration",
+        "playerText": {
+          "label": "Systems Integration",
+          "summary": "The refit restored individual systems faster than it proved they can operate together under sustained load."
+        },
+        "openingStateId": "ship-state.integration.unvalidated",
+        "states": [
+          {
+            "id": "ship-state.integration.unvalidated",
+            "rank": 0,
+            "capabilityIds": [],
+            "constraintIds": ["ship-constraint.integration-cascade-risk"],
+            "playerText": {
+              "label": "Unvalidated",
+              "why": "The refit passed component certification, but no accepted isolation, combined-load, or failover record proves the new integration layer.",
+              "mechanicalEffect": "Full-system shortcuts remain unsafe because one refit fault can cascade across systems."
+            }
+          },
+          {
+            "id": "ship-state.integration.segmented",
+            "rank": 1,
+            "capabilityIds": ["ship-capability.segmented-isolation"],
+            "constraintIds": ["ship-constraint.integration-cascade-risk"],
+            "playerText": {
+              "label": "Segmented",
+              "why": "An accepted controlled test proves that one refit segment can operate independently, but combined-load and failover behavior remain unvalidated.",
+              "mechanicalEffect": "Authored isolation routes can contain a problem inside one segment; unsupported combined-load shortcuts remain unsafe."
+            }
+          },
+          {
+            "id": "ship-state.integration.integrated",
+            "rank": 2,
+            "capabilityIds": ["ship-capability.segmented-isolation", "ship-capability.integrated-failover"],
+            "constraintIds": [],
+            "playerText": {
+              "label": "Integrated",
+              "why": "Accepted combined-load and failover validations prove that the refit layer can sustain linked operations and preserve bounded essential functions.",
+              "mechanicalEffect": "Authored integrated-failover routes are available during bounded subsystem loss."
+            }
+          }
+        ],
+        "milestones": [
+          {
+            "id": "ship-milestone.integration-isolation-test",
+            "playerText": {
+              "label": "Complete a segment isolation test",
+              "summary": "Prove that one refit segment can operate independently without propagating its fault state."
+            },
+            "sourceRoles": ["assistant"],
+            "interpretation": {
+              "evidenceStandard": "clearOutcome",
+              "guidance": "Claim only when accepted prose depicts a completed controlled isolation test and a settled result showing the segment operated independently without propagating the test fault.",
+              "exclusions": ["Ordering, scheduling, configuring, or beginning the isolation test is not a completed result."]
+            }
+          },
+          {
+            "id": "ship-milestone.integration-combined-load-test",
+            "playerText": {
+              "label": "Complete combined-load validation",
+              "summary": "Run the refit systems together under a sustained representative operational load."
+            },
+            "revealWhen": { "milestoneSatisfied": "ship-milestone.integration-isolation-test" },
+            "sourceRoles": ["assistant"],
+            "interpretation": {
+              "evidenceStandard": "clearOutcome",
+              "guidance": "Claim only when accepted prose depicts completion of a sustained representative combined-load run with a settled validation result.",
+              "exclusions": ["A short diagnostic, proposed run, or interrupted test without a settled result is not combined-load validation."]
+            }
+          },
+          {
+            "id": "ship-milestone.integration-failover-validation",
+            "playerText": {
+              "label": "Validate integrated failover",
+              "summary": "Demonstrate that a bounded subsystem loss transfers one essential function without an uncontrolled cascade."
+            },
+            "revealWhen": { "milestoneSatisfied": "ship-milestone.integration-combined-load-test" },
+            "sourceRoles": ["assistant"],
+            "interpretation": {
+              "evidenceStandard": "clearOutcome",
+              "guidance": "Claim only when accepted prose depicts a completed failover exercise in which one essential function transfers successfully after a bounded subsystem loss without an uncontrolled cascade.",
+              "exclusions": ["Failover configuration, a paper review, or an exercise that has not reached a settled result is not validation."]
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "id": "ship-transition.integration.segmented",
+            "fromStateId": "ship-state.integration.unvalidated",
+            "toStateId": "ship-state.integration.segmented",
+            "requiredMilestoneIds": ["ship-milestone.integration-isolation-test"]
+          },
+          {
+            "id": "ship-transition.integration.integrated",
+            "fromStateId": "ship-state.integration.segmented",
+            "toStateId": "ship-state.integration.integrated",
+            "requiredMilestoneIds": ["ship-milestone.integration-combined-load-test", "ship-milestone.integration-failover-validation"]
+          }
+        ]
+      },
+      {
+        "id": "ship-system.sensor-calibration",
+        "playerText": {
+          "label": "Sensor Calibration",
+          "summary": "The new sensor-processing stack is functional, but its fine correlation remains provisional after refit."
+        },
+        "openingStateId": "ship-state.sensors.provisional",
+        "states": [
+          {
+            "id": "ship-state.sensors.provisional",
+            "rank": 0,
+            "capabilityIds": [],
+            "constraintIds": ["ship-constraint.sensor-corroboration-required"],
+            "playerText": {
+              "label": "Provisional",
+              "why": "No accepted controlled comparison ties the refit sensor stack to an independent reference.",
+              "mechanicalEffect": "Fine identity, provenance, and reconstruction claims require independent corroboration."
+            }
+          },
+          {
+            "id": "ship-state.sensors.aligned",
+            "rank": 1,
+            "capabilityIds": ["ship-capability.independent-correlation"],
+            "constraintIds": [],
+            "playerText": {
+              "label": "Aligned",
+              "why": "An accepted controlled baseline comparison proves reliable correlation against an independent reference.",
+              "mechanicalEffect": "Authored independent-correlation routes can expose supported inconsistencies when a genuine external reference is available."
+            }
+          },
+          {
+            "id": "ship-state.sensors.validated",
+            "rank": 2,
+            "capabilityIds": ["ship-capability.independent-correlation", "ship-capability.cross-system-reconstruction"],
+            "constraintIds": [],
+            "playerText": {
+              "label": "Validated",
+              "why": "Accepted live-load validation proves that independent sensor channels remain coherent during sustained operations.",
+              "mechanicalEffect": "Authored cross-system reconstruction routes can assemble eligible signatures from independent observations."
+            }
+          }
+        ],
+        "milestones": [
+          {
+            "id": "ship-milestone.sensor-controlled-baseline",
+            "playerText": {
+              "label": "Establish a controlled sensor baseline",
+              "summary": "Compare the refit sensor stack against a genuinely independent reference under controlled conditions."
+            },
+            "sourceRoles": ["assistant"],
+            "interpretation": {
+              "evidenceStandard": "clearOutcome",
+              "guidance": "Claim only when accepted prose depicts completion of a controlled comparison against a genuinely independent reference and a settled alignment result.",
+              "exclusions": ["Internal self-test, using another Breckenridge subsystem as the only reference, or beginning the comparison is not an independent baseline."]
+            }
+          },
+          {
+            "id": "ship-milestone.sensor-live-load-validation",
+            "playerText": {
+              "label": "Validate sensors under live load",
+              "summary": "Demonstrate coherent independent-channel correlation during sustained real operations."
+            },
+            "revealWhen": { "milestoneSatisfied": "ship-milestone.sensor-controlled-baseline" },
+            "sourceRoles": ["assistant"],
+            "interpretation": {
+              "evidenceStandard": "clearOutcome",
+              "guidance": "Claim only when accepted prose depicts completed live-load validation using independent channels during sustained real operations with a settled result.",
+              "exclusions": ["A laboratory-only baseline, a proposed field trial, or one unexplained matching reading is not live-load validation."]
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "id": "ship-transition.sensors.aligned",
+            "fromStateId": "ship-state.sensors.provisional",
+            "toStateId": "ship-state.sensors.aligned",
+            "requiredMilestoneIds": ["ship-milestone.sensor-controlled-baseline"]
+          },
+          {
+            "id": "ship-transition.sensors.validated",
+            "fromStateId": "ship-state.sensors.aligned",
+            "toStateId": "ship-state.sensors.validated",
+            "requiredMilestoneIds": ["ship-milestone.sensor-live-load-validation"]
+          }
+        ]
+      }
+    ]
   }
 }

@@ -86,6 +86,10 @@ assert.deepEqual(opening.systems[0].workOrders, [{
   status: 'unknown',
 }]);
 assert.deepEqual([...opening.capabilities.keys()], []);
+assert.deepEqual(
+  createShipWorkInterpretationCandidates({ shipDataset, storySettlement: emptySettlement }).map(({ id }) => id),
+  ['ship-milestone.sensor-baseline'],
+);
 
 const settlementWithBaseline = {
   branchId: 'save.1',
@@ -191,6 +195,15 @@ const repeated = validateShipWorkEvidenceProposal({
 });
 assert.equal(repeated.acceptedClaims.length, 0);
 assert.equal(repeated.rejectedClaims[0].reasonCode, 'duplicate-claim');
+
+const hiddenMilestone = validateShipWorkEvidenceProposal({
+  shipDataset,
+  storySettlement: emptySettlement,
+  proposal,
+  resolveSourceRef: () => assistantSource,
+});
+assert.equal(hiddenMilestone.acceptedClaims.length, 0);
+assert.equal(hiddenMilestone.rejectedClaims[0].reasonCode, 'precondition-not-met');
 
 const missionState = {
   revision: 7,

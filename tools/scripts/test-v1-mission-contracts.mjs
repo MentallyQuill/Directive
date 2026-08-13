@@ -812,4 +812,26 @@ for (const [label, definition, pattern] of [
     assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
 }
 
+const interactionMission = {
+    ...referenceMission,
+    shipInteractions: [{
+        id: 'ship-interaction.hesperus-isolation',
+        capabilityId: 'ship-capability.segmented-isolation',
+        evidencePolicyIds: [referenceMission.evidencePolicies[0].id],
+        narratorGuidance: 'Permit the authored isolation route when invoked.',
+        limits: ['The route does not guarantee success.'],
+    }],
+};
+assert.equal(validateMissionDefinition(interactionMission).ok, true);
+for (const [label, shipInteractions, pattern] of [
+    ['interaction array', {}, /shipInteractions must be an array/],
+    ['interaction id', [{ ...interactionMission.shipInteractions[0], id: '' }], /shipInteractions item requires a stable id/],
+    ['interaction capability', [{ ...interactionMission.shipInteractions[0], capabilityId: '' }], /capabilityId must be a stable id/],
+    ['interaction policy', [{ ...interactionMission.shipInteractions[0], evidencePolicyIds: ['policy.missing'] }], /unknown evidence policy/],
+    ['interaction guidance', [{ ...interactionMission.shipInteractions[0], narratorGuidance: '' }], /narratorGuidance/],
+    ['interaction limits', [{ ...interactionMission.shipInteractions[0], limits: [] }], /limits must contain at least one/],
+]) {
+    assert.match(validateMissionDefinition({ ...referenceMission, shipInteractions }).errors.join('\n'), pattern, label);
+}
+
 console.log('V1 mission contract tests passed.');

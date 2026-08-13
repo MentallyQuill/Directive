@@ -9,6 +9,7 @@ import {
 } from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionPlayerProjection } from '../../src/mission/v1/player-projection.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { validateShipMechanicsPackage } from '../../src/ship/v1/ship-mechanics-contracts.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const FIXTURE_DIRECTORY = 'tests/fixtures/mission/v1';
@@ -455,19 +456,78 @@ for (const officer of crewDataset.officers) {
     assert.equal(Object.hasOwn(officer.publicRecord, forbidden), false, `${officer.id}: ${forbidden} is private`);
   }
 }
-assert.deepEqual(Object.keys(shipDataset).sort(), ['manifest', 'profile']);
+assert.deepEqual(Object.keys(shipDataset).sort(), ['manifest', 'mechanics', 'profile']);
 assert.equal(shipDataset.manifest.kind, 'directive.shipDataset.v1');
 assert.equal(shipDataset.manifest.packageId, packageData.manifest.id);
 assert.equal(Boolean(shipDataset.profile.summary.trim()), true);
 assert.equal(Boolean(shipDataset.profile.narrationGuide.trim()), true);
 assert.equal(shipDataset.profile.hardFacts.length > 0, true);
 assert.equal(missionDefinitions.length, EXPECTED_SOURCE_CHAIN.length);
+assert.deepEqual(validateShipMechanicsPackage({ shipDataset, missionDefinitions }), { ok: true, errors: [] });
+assert.deepEqual(shipDataset.mechanics.systems.map(({ id }) => id), [
+  'ship-system.systems-integration',
+  'ship-system.sensor-calibration'
+]);
 
 const byId = new Map(missionDefinitions.map((definition) => [definition.id, definition]));
 const bySourceId = new Map(missionDefinitions.map((definition) => [definition.packageBinding.sourceId, definition]));
 assert.equal(byId.size, missionDefinitions.length, 'mission definition ids must be unique');
 assert.equal(bySourceId.size, missionDefinitions.length, 'mission source ids must be unique');
 assert.equal(packageData.manifest.openingMissionId, EXPECTED_SOURCE_CHAIN[0]);
+
+function assertShipInteractionEvidence({ definition, policyId, targetId, capabilityId, prepareState }) {
+  const state = createMissionState({ definition, branchId: `ship-interaction.${policyId}` });
+  prepareState(state);
+  const source = {
+    branchId: state.branchId, accepted: true, role: 'assistant',
+    messageId: `message.${policyId}`, selectedSwipeId: `swipe.${policyId}`,
+    textHash: 'f'.repeat(64), contributionId: `contribution.${policyId}`,
+  };
+  const proposal = {
+    kind: 'directive.missionEvidenceProposal.v1', branchId: state.branchId,
+    missionId: definition.id, baseRevision: 0, claims: [{
+      claimId: `claim.${policyId}`, policyId, claimType: 'eventOccurred', targetId,
+      sourceRef: {
+        messageId: source.messageId, swipeId: source.selectedSwipeId, textHash: source.textHash,
+      },
+    }],
+  };
+  const withoutCapability = validateMissionEvidenceProposal({
+    definition, state, proposal, resolveSourceRef: () => source,
+  });
+  assert.equal(withoutCapability.acceptedClaims.length, 0);
+  assert.equal(withoutCapability.rejectedClaims[0].reasonCode, 'precondition-not-met');
+  const withCapability = validateMissionEvidenceProposal({
+    definition, state, proposal, resolveSourceRef: () => source,
+    shipCapabilityEvidenceById: new Map([[capabilityId, [`effect.${capabilityId}`]]]),
+  });
+  assert.equal(withCapability.acceptedClaims.length, 1);
+  assert.deepEqual(withCapability.acceptedClaims[0].dependencyEffectIds, [`effect.${capabilityId}`]);
+}
+
+const preludeDefinition = bySourceId.get('prelude-a-ship-underway');
+assert.deepEqual(preludeDefinition.shipInteractions.map(({ capabilityId }) => capabilityId), [
+  'ship-capability.segmented-isolation'
+]);
+assertShipInteractionEvidence({
+  definition: preludeDefinition,
+  policyId: 'policy.hesperus.integration-cascade-avoided',
+  targetId: 'event.hesperus.integration-cascade-avoided',
+  capabilityId: 'ship-capability.segmented-isolation',
+  prepareState: (state) => state.events.push('event.hesperus.rescue-response-begun'),
+});
+
+const chapter2Definition = bySourceId.get('chapter-2-false-colors');
+assert.deepEqual(chapter2Definition.shipInteractions.map(({ capabilityId }) => capabilityId), [
+  'ship-capability.cross-system-reconstruction'
+]);
+assertShipInteractionEvidence({
+  definition: chapter2Definition,
+  policyId: 'policy.chapter2.cross-system-reconstruction-completed',
+  targetId: 'event.chapter2.cross-system-reconstruction-completed',
+  capabilityId: 'ship-capability.cross-system-reconstruction',
+  prepareState: (state) => state.knownFacts.push('fact.chapter2.false-colors-crisis'),
+});
 
 assert.equal(EXPECTED_INITIAL_MISSION_TEXT.size, missionDefinitions.length, 'every mission requires an approved entry projection');
 for (const definition of missionDefinitions) {

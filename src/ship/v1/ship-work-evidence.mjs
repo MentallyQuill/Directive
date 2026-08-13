@@ -41,8 +41,12 @@ export function createShipWorkInterpretationCandidates({ shipDataset = {}, story
   if (!shipDataset?.mechanics) return [];
   const index = indexShipMechanics(shipDataset);
   const completed = new Set(activeShipMilestoneEffects(storySettlement).map((effect) => effect.targetId));
+  const mechanicsState = deriveShipMechanicsState({ shipDataset, storySettlement });
+  const available = new Set(mechanicsState.systems.flatMap((system) => (
+    system.workOrders.filter((order) => order.status === 'known').map((order) => order.id)
+  )));
   return [...index.milestones.values()]
-    .filter((milestone) => !completed.has(milestone.id))
+    .filter((milestone) => !completed.has(milestone.id) && available.has(milestone.id))
     .map((milestone) => ({
       id: milestone.id,
       domain: 'shipWork',
@@ -99,6 +103,7 @@ export function validateShipWorkEvidenceProposal({
     else if (!milestone) reasonCode = 'unknown-target';
     else if (claim?.policyId !== milestone.id) reasonCode = 'policy-mismatch';
     else if (stagedMilestones.has(milestone.id)) reasonCode = 'duplicate-claim';
+    else if (workStatus.get(milestone.id) !== 'known') reasonCode = 'precondition-not-met';
     else if (!source) reasonCode = 'source-missing';
     else if (source.branchId !== proposal.branchId) reasonCode = 'wrong-branch';
     else if (source.accepted !== true) reasonCode = 'source-not-accepted';
