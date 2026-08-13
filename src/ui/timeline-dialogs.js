@@ -103,15 +103,21 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null } 
   return { ...frame, input, ...controls };
 }
 
-export function createLoadGameDialog({ campaign, opener = null, onLoad = null } = {}) {
+export function createLoadGameDialog({ campaign, opener = null, onLoad = null, onDelete = null } = {}) {
   const frame = createDialogFrame({ title: 'Load Game', className: 'load-game-dialog-overlay', opener });
   const explanation = createElement('p', 'timeline-dialog-copy');
   explanation.textContent = 'Loading this save creates a new timeline. Your current timeline will be preserved automatically.';
   const list = createElement('div', 'timeline-saved-game-list');
   const savedGames = campaign?.savedGames || campaign?.checkpoints || [];
   let selectedId = null;
+  const entries = [];
   const rows = [];
-  frame.dialog.append(explanation, list);
+  const deleteButtons = [];
+  const error = createElement('p', 'timeline-dialog-error');
+  error.setAttribute('role', 'alert');
+  error.setAttribute('aria-live', 'assertive');
+  error.hidden = true;
+  frame.dialog.append(explanation, list, error);
   const controls = appendDialogActions(frame.dialog, {
     primaryLabel: 'Load Game',
     primaryDisabled: true,
@@ -128,6 +134,7 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null } 
     }
   });
   for (const savedGame of savedGames) {
+    const entry = createElement('div', 'timeline-saved-game-entry');
     const row = createElement('button', 'timeline-saved-game-row');
     row.type = 'button';
     row.dataset.savedGameId = savedGame.id;
@@ -142,11 +149,45 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null } 
       rows.forEach((candidate) => candidate.setAttribute('aria-pressed', candidate === row ? 'true' : 'false'));
       controls.primary.disabled = false;
     });
+    const remove = createElement('button', 'timeline-saved-game-delete');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', `Delete saved game ${savedGame.name || 'Saved Game'}`);
+    remove.textContent = 'Delete';
+    remove.addEventListener('click', async (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      const confirmed = typeof globalThis.confirm !== 'function'
+        || globalThis.confirm(`Delete saved game "${savedGame.name || 'Saved Game'}"?`);
+      if (!confirmed) return;
+      remove.disabled = true;
+      error.hidden = true;
+      error.textContent = '';
+      try {
+        await onDelete?.({ savedGameId: savedGame.id });
+        const index = entries.indexOf(entry);
+        if (index >= 0) {
+          entries.splice(index, 1);
+          rows.splice(index, 1);
+          deleteButtons.splice(index, 1);
+        }
+        entry.remove?.();
+        if (selectedId === savedGame.id) selectedId = null;
+        controls.primary.disabled = true;
+        if (!entries.length) appendEmpty(list, 'No saved games are available to load.');
+      } catch (cause) {
+        error.textContent = cause?.message || String(cause || 'Saved game deletion failed.');
+        error.hidden = false;
+        remove.disabled = false;
+      }
+    });
+    entry.append(row, remove);
+    entries.push(entry);
     rows.push(row);
-    list.appendChild(row);
+    deleteButtons.push(remove);
+    list.appendChild(entry);
   }
   if (!savedGames.length) appendEmpty(list, 'No saved games are available to load.');
-  return { ...frame, list, rows, ...controls, selectedSavedGameId: () => selectedId };
+  return { ...frame, list, entries, rows, deleteButtons, error, ...controls, selectedSavedGameId: () => selectedId };
 }
 
 export function createPreviousTimelineNameDialog({ savedGameId, suggestedName, opener = null, onRename = null } = {}) {

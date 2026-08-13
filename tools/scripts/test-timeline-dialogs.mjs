@@ -20,7 +20,10 @@ class Element {
   addEventListener(type, handler) { this.listeners.set(type, handler); }
   focus() {}
   select() {}
-  remove() { this.isConnected = false; }
+  remove() {
+    this.isConnected = false;
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+  }
 }
 
 const body = new Element('body');
@@ -45,11 +48,18 @@ const campaign = {
   savedGames: [{
     id: 'saved.1', name: 'Before Whitaker', chapter: 'Prelude: A Ship Underway',
     stardate: 53068.4, createdAt: '2026-08-11T12:00:00.000Z'
+  }, {
+    id: 'saved.2', name: 'Before the signal', chapter: 'Prelude: A Ship Underway',
+    stardate: 53069.1, createdAt: '2026-08-11T13:00:00.000Z'
   }]
 };
 
 let loaded = null;
-const loadDialog = createLoadGameDialog({ campaign, onLoad: (payload) => { loaded = payload; } });
+let deleted = null;
+const loadDialog = createLoadGameDialog({
+  campaign,
+  onLoad: (payload) => { loaded = payload; }
+});
 assert.equal(loadDialog.dialog.getAttribute('role'), 'dialog');
 assert.match(textOf(loadDialog.dialog), /Loading this save creates a new timeline\. Your current timeline will be preserved automatically\./);
 assert.match(textOf(loadDialog.rows[0]), /Before Whitaker.*Prelude: A Ship Underway.*Stardate 53068\.4.*2026/);
@@ -59,6 +69,18 @@ assert.equal(loadDialog.rows[0].getAttribute('aria-pressed'), 'true');
 assert.equal(loadDialog.primary.disabled, false);
 await loadDialog.primary.listeners.get('click')();
 assert.deepEqual(loaded, { savedGameId: 'saved.1' });
+
+const deleteDialog = createLoadGameDialog({
+  campaign,
+  onDelete: (payload) => { deleted = payload; }
+});
+globalThis.confirm = () => true;
+assert.equal(deleteDialog.deleteButtons[0].getAttribute('aria-label'), 'Delete saved game Before Whitaker');
+await deleteDialog.deleteButtons[0].listeners.get('click')({ preventDefault() {}, stopPropagation() {} });
+assert.deepEqual(deleted, { savedGameId: 'saved.1' });
+assert.equal(deleteDialog.entries.length, 1);
+assert.equal(deleteDialog.rows.length, 1);
+assert.equal(deleteDialog.primary.disabled, true);
 
 let saved = null;
 const saveDialog = createSaveGameDialog({ campaign, onSave: (payload) => { saved = payload; } });
