@@ -75,6 +75,17 @@ function ledgerElapsedSeconds(ledger = {}) {
   return Number.isInteger(minutes) && minutes >= 0 ? minutes * 60 : 0;
 }
 
+function retainedBoundarySeconds(ledger = {}) {
+  return (Array.isArray(ledger.entries) ? ledger.entries : [])
+    .reduce((total, entry) => total + boundaryElapsedSeconds(entry), 0);
+}
+
+function prunedElapsedSeconds(ledger = {}) {
+  const explicit = Number(ledger.prunedElapsedSeconds);
+  if (Number.isInteger(explicit) && explicit >= 0) return explicit;
+  return Math.max(0, ledgerElapsedSeconds(ledger) - retainedBoundarySeconds(ledger));
+}
+
 export function findTimeBoundaryForSourceAnchorRange(campaignState = {}, sourceAnchorRange = null) {
   if (!sourceAnchorRange) return null;
   return timeBoundaries(campaignState).find((boundary) => {
@@ -242,6 +253,12 @@ export function prepareV1AcceptedPairTimeAdvance({
     elapsedSeconds: nextElapsedSeconds,
     elapsedMinutes: nextElapsedMinutes
   };
+  const previousEntries = [...(next.timeLedger.entries || [])];
+  const candidateEntries = boundary ? [...previousEntries, boundary] : previousEntries;
+  const retainedEntries = candidateEntries.slice(-LEDGER_LIMIT);
+  const droppedEntries = candidateEntries.slice(0, candidateEntries.length - retainedEntries.length);
+  const nextPrunedElapsedSeconds = prunedElapsedSeconds(next.timeLedger)
+    + droppedEntries.reduce((total, entry) => total + boundaryElapsedSeconds(entry), 0);
   next.timeLedger = {
     ...next.timeLedger,
     openingMinuteOfDay: openingMinute,
@@ -249,10 +266,9 @@ export function prepareV1AcceptedPairTimeAdvance({
     elapsedMinutes: nextElapsedMinutes,
     stardate: nextStardate,
     shipClock: { secondOfDay: nextSecond, minuteOfDay: nextMinute, display: formatShipTime(nextSecond) },
-    entries: boundary
-      ? [...(next.timeLedger.entries || []), boundary].slice(-LEDGER_LIMIT)
-      : [...(next.timeLedger.entries || [])],
+    entries: retainedEntries,
     decisions: [...(next.timeLedger.decisions || []), decision].slice(-LEDGER_LIMIT),
+    prunedElapsedSeconds: nextPrunedElapsedSeconds,
     lastBoundary: boundary || next.timeLedger.lastBoundary || null,
     updatedAt: timestamp
   };
@@ -354,7 +370,8 @@ export async function invalidateV1AcceptedPairTimeByHostMessages({
   if (retained.length === entries.length && retainedDecisions.length === decisions.length) {
     return { ok: true, status: 'no-change', invalidatedBoundaryCount: 0, campaignState };
   }
-  const elapsedSeconds = retained.reduce((total, entry) => total + boundaryElapsedSeconds(entry), 0);
+  const elapsedSeconds = prunedElapsedSeconds(campaignState.timeLedger)
+    + retained.reduce((total, entry) => total + boundaryElapsedSeconds(entry), 0);
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   const openingMinute = Number(campaignState.timeLedger.openingMinuteOfDay || 0);
   const secondOfDay = (((openingMinute * 60) + elapsedSeconds) % DAY_SECONDS + DAY_SECONDS) % DAY_SECONDS;
@@ -374,6 +391,7 @@ export async function invalidateV1AcceptedPairTimeByHostMessages({
     shipClock: { secondOfDay, minuteOfDay, display: formatShipTime(secondOfDay) },
     entries: retained,
     decisions: retainedDecisions,
+    prunedElapsedSeconds: prunedElapsedSeconds(campaignState.timeLedger),
     lastBoundary: retained.at(-1) || null,
     updatedAt: timestamp
   };

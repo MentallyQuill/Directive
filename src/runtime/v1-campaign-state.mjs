@@ -177,7 +177,7 @@ function validateV1WorldState(world) {
 
 const TIME_LEDGER_KEYS = new Set([
   'kind', 'version', 'openingMinuteOfDay', 'elapsedSeconds', 'elapsedMinutes', 'stardate',
-  'shipClock', 'entries', 'decisions', 'lastBoundary', 'updatedAt'
+  'shipClock', 'entries', 'decisions', 'prunedElapsedSeconds', 'lastBoundary', 'updatedAt'
 ]);
 
 const TIME_DECISION_KEYS = new Set([
@@ -232,6 +232,8 @@ function validateV1TimeLedger(ledger) {
       || (Number.isInteger(ledger.elapsedSeconds)
         && ledger.elapsedSeconds >= 0
         && Math.floor(ledger.elapsedSeconds / 60) === ledger.elapsedMinutes))
+    && (!Object.hasOwn(ledger, 'prunedElapsedSeconds')
+      || (Number.isInteger(ledger.prunedElapsedSeconds) && ledger.prunedElapsedSeconds >= 0))
     && Number.isFinite(ledger.stardate)
     && isObject(ledger.shipClock)
     && Number.isInteger(ledger.shipClock.minuteOfDay)

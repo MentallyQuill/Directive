@@ -326,4 +326,66 @@ assert.equal(legacyState.timeLedger.elapsedSeconds, 0);
 assert.equal(legacyState.timeLedger.shipClock.secondOfDay, 30600);
 assert.equal(legacyState.timeLedger.decisions.length, 1);
 
+let boundedState = structuredClone(state);
+for (let index = 0; index < 200; index += 1) {
+  const pairSnapshot = {
+    ...snapshot,
+    source: {
+      ...snapshot.source,
+      sourceRangeHash: `range.bounded.${index}`,
+      previousAssistant: { ...snapshot.source.previousAssistant, hostMessageId: `assistant.bounded.${index}` },
+      currentPlayer: { ...snapshot.source.currentPlayer, hostMessageId: `player.bounded.${index}` }
+    }
+  };
+  await commitV1AcceptedPairTimeAdvance({
+    campaignState: boundedState,
+    snapshot: pairSnapshot,
+    packageData,
+    stateDeltaGateway: {
+      async commit(next) { boundedState = structuredClone(next); return structuredClone(next); }
+    },
+    timeDecision: { decision: 'advance', elapsedSeconds: 60, reason: 'bounded-history-probe', confidence: 1 }
+  });
+}
+assert.equal(boundedState.timeLedger.elapsedSeconds, 12000);
+assert.equal(boundedState.timeLedger.entries.length, 128);
+let boundedInvalidatedState = null;
+await invalidateV1AcceptedPairTimeByHostMessages({
+  campaignState: boundedState,
+  hostMessageIds: ['player.bounded.199'],
+  packageData,
+  stateDeltaGateway: {
+    async commit(next) { boundedInvalidatedState = structuredClone(next); return structuredClone(next); }
+  }
+});
+assert.equal(boundedInvalidatedState.timeLedger.elapsedSeconds, 11940, 'invalidation must preserve pruned elapsed history');
+
+const anchoredState = structuredClone(state);
+anchoredState.campaign.currentStardate = 53049.2 + (7200 / 86400);
+anchoredState.worldState.elapsedSeconds = 7200;
+anchoredState.worldState.elapsedMinutes = 120;
+anchoredState.worldState.currentStardate = anchoredState.campaign.currentStardate;
+anchoredState.timeLedger.elapsedSeconds = 7200;
+anchoredState.timeLedger.elapsedMinutes = 120;
+anchoredState.timeLedger.stardate = anchoredState.campaign.currentStardate;
+anchoredState.timeLedger.shipClock = { secondOfDay: 37800, minuteOfDay: 630, display: '10:30:00 hours' };
+anchoredState.timeLedger.decisions = [];
+let anchoredCommitted = null;
+const anchorSnapshot = { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.anchor-zero' } };
+await commitV1AcceptedPairTimeAdvance({
+  campaignState: anchoredState,
+  snapshot: anchorSnapshot,
+  packageData,
+  stateDeltaGateway: { async commit(next) { anchoredCommitted = structuredClone(next); return structuredClone(next); } },
+  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'anchor-zero', confidence: 1 }
+});
+let anchorInvalidated = null;
+await invalidateV1AcceptedPairTimeByHostMessages({
+  campaignState: anchoredCommitted,
+  hostMessageIds: [snapshot.source.currentPlayer.hostMessageId],
+  packageData,
+  stateDeltaGateway: { async commit(next) { anchorInvalidated = structuredClone(next); return structuredClone(next); } }
+});
+assert.equal(anchorInvalidated.timeLedger.elapsedSeconds, 7200, 'zero decision invalidation must preserve the historical anchor');
+
 console.log('V1 accepted-pair time custody tests passed.');
