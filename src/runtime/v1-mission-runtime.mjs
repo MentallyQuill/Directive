@@ -51,6 +51,7 @@ import {
     createPeopleInterpretationContext,
     materializeAcceptedPairPeopleEvents,
 } from '../people/accepted-pair-people.mjs';
+import { createPeopleDossierAuthor } from '../people/people-dossier-author.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -830,6 +831,8 @@ export function createV1MissionRuntime({
     evaluateEpisode = null,
     episodeReviewTimeoutMs = 8000,
     checkpointEveryContributions = 8,
+    authorPeopleDossiers = null,
+    peopleDossierTimeoutMs = 30000,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.revision !== 'function'
@@ -838,6 +841,11 @@ export function createV1MissionRuntime({
     }
     const interpreter = interpretAcceptedPair || createMissionAcceptedPairInterpreter({ generationRouter, timeoutMs });
     let cachedInterpretation = null;
+    let cachedPreparedPeopleEvents = null;
+    const peopleDossierAuthor = authorPeopleDossiers || createPeopleDossierAuthor({
+        generationRouter,
+        timeoutMs: peopleDossierTimeoutMs,
+    });
     const episodeEvaluator = evaluateEpisode || createEpisodeEvaluator({
         generationRouter,
         timeoutMs: episodeReviewTimeoutMs,
@@ -1206,6 +1214,7 @@ export function createV1MissionRuntime({
             : alreadySettled.has(playerSource.contributionId);
         if (pairAlreadySettled) {
             if (cachedInterpretation?.key === interpretationKey) cachedInterpretation = null;
+            if (cachedPreparedPeopleEvents?.key === interpretationKey) cachedPreparedPeopleEvents = null;
             return {
                 ok: true,
                 attempted: false,
@@ -1294,19 +1303,80 @@ export function createV1MissionRuntime({
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
         assistantSource.accepted = assistantAccepted;
         let peopleEvents = [];
-        try {
-            peopleEvents = materializeAcceptedPairPeopleEvents({
-                observations: interpreted.interpretation?.peopleEvents || [],
-                peopleContext,
-                sourcePair,
-                sourceContributionIds: {
-                    previousAssistant: assistantContributionId,
-                    currentPlayer: playerContributionId,
-                },
-                branchId,
-            });
-        } catch {
-            return unavailable('people-events-invalid', {}, { attempted: true });
+        let peopleDossierAttempted = false;
+        let peopleDossierStatus = 'not-needed';
+        if (cachedPreparedPeopleEvents?.key === interpretationKey) {
+            peopleEvents = structuredClone(cachedPreparedPeopleEvents.events);
+            peopleDossierAttempted = cachedPreparedPeopleEvents.dossierAttempted;
+            peopleDossierStatus = cachedPreparedPeopleEvents.dossierStatus;
+        } else {
+            try {
+                peopleEvents = materializeAcceptedPairPeopleEvents({
+                    observations: interpreted.interpretation?.peopleEvents || [],
+                    peopleContext,
+                    sourcePair,
+                    sourceContributionIds: {
+                        previousAssistant: assistantContributionId,
+                        currentPlayer: playerContributionId,
+                    },
+                    branchId,
+                });
+            } catch {
+                return unavailable('people-events-invalid', {}, { attempted: true });
+            }
+            const introductions = peopleEvents
+                .filter((event) => event.type === 'personIntroduced')
+                .map((event) => ({
+                    personId: event.personId,
+                    name: event.name,
+                    introductionSummary: event.introductionSummary,
+                }));
+            if (introductions.length > 0) {
+                peopleDossierAttempted = true;
+                let authored;
+                try {
+                    authored = await peopleDossierAuthor({
+                        introductions,
+                        campaignContext: {
+                            campaignTitle: campaignState?.campaign?.title
+                                || runtimeAssets?.packageData?.manifest?.title
+                                || '',
+                            shipName: runtimeAssets?.shipDataset?.manifest?.title || '',
+                            shipSummary: runtimeAssets?.shipDataset?.profile?.summary || '',
+                        },
+                        signal,
+                    });
+                } catch {
+                    authored = { ok: false, status: 'unavailable', reasonCode: 'provider-threw' };
+                }
+                peopleDossierStatus = authored?.ok ? 'authored' : (authored?.reasonCode || 'unavailable');
+                if (authored?.ok) {
+                    try {
+                        peopleEvents = materializeAcceptedPairPeopleEvents({
+                            observations: interpreted.interpretation?.peopleEvents || [],
+                            peopleContext,
+                            sourcePair,
+                            sourceContributionIds: {
+                                previousAssistant: assistantContributionId,
+                                currentPlayer: playerContributionId,
+                            },
+                            branchId,
+                            dossiers: authored.dossiers,
+                        });
+                    } catch {
+                        return unavailable('people-dossier-materialization-invalid', {}, { attempted: true });
+                    }
+                }
+            }
+            cachedPreparedPeopleEvents = {
+                key: interpretationKey,
+                events: structuredClone(peopleEvents),
+                dossierAttempted: peopleDossierAttempted,
+                dossierStatus: peopleDossierStatus,
+            };
+        }
+        if (stateDeltaGateway.revision() !== interpretationBaseRevision) {
+            return unavailable('state-revision-conflict', {}, { attempted: true });
         }
         let dutyReportResult = null;
         if (sourcePair.previousAssistant.dutyReportManifest) {
@@ -1463,10 +1533,13 @@ export function createV1MissionRuntime({
                 rejectedDutyReportReasonCode = rejectedMaterializedReport.reasonCode || 'evidence-rejected';
             }
             if (cachedInterpretation?.key === interpretationKey) cachedInterpretation = null;
+            if (cachedPreparedPeopleEvents?.key === interpretationKey) cachedPreparedPeopleEvents = null;
             return {
                 ok: true,
                 attempted: true,
-                status: acceptedClaimCount > 0 || acceptedShipClaimCount > 0 ? 'settled' : 'settled-no-effect',
+                status: acceptedClaimCount > 0 || acceptedShipClaimCount > 0 || peopleEvents.length > 0
+                    ? 'settled'
+                    : 'settled-no-effect',
                 reasonCode: null,
                 definitionId: definition.id,
                 definitionVersion: definition.version,
@@ -1486,6 +1559,8 @@ export function createV1MissionRuntime({
                     rejectedShipClaimCount,
                     discardedAssistantClaimCount: interpreted.diagnostics?.discardedAssistantClaimCount ?? 0,
                     peopleEventCount: peopleEvents.length,
+                    peopleDossierAttempted,
+                    peopleDossierStatus,
                     acceptedDutyReportCount,
                     acceptedTimeAdvanceCount: (settled.evidence?.acceptedClaims || [])
                         .filter((claim) => claim?.claimType === 'timeAdvanced').length,
@@ -1509,6 +1584,9 @@ export function createV1MissionRuntime({
             const reasonCode = errorReasonCode(error);
             if (reasonCode !== 'persistence-failed' && cachedInterpretation?.key === interpretationKey) {
                 cachedInterpretation = null;
+            }
+            if (reasonCode !== 'persistence-failed' && cachedPreparedPeopleEvents?.key === interpretationKey) {
+                cachedPreparedPeopleEvents = null;
             }
             return unavailable(reasonCode, { interpretationReused }, { attempted: true });
         }

@@ -16,9 +16,11 @@ import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.m
 assert.deepEqual(GENERATION_ROLE_IDS, [
   'acceptedPairMissionEvidence',
   'episodeEvaluator',
+  'peopleDossierAuthor',
   'characterCreatorSectionDraft'
 ]);
 assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
+assert.equal(providerKindForRole('peopleDossierAuthor'), 'reasoning');
 assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');
 
 const profiles = [

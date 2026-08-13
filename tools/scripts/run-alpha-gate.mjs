@@ -50,6 +50,7 @@ const checks = [
   "test-v1-accepted-pair-time.mjs",
   "test-v1-accepted-pair-interpreter.mjs",
   "test-v1-accepted-pair-people.mjs",
+  "test-people-dossier-author.mjs",
   "test-v1-command-bearing.mjs",
   "test-v1-story-settlement-contracts.mjs",
   "test-v1-story-settlement.mjs",

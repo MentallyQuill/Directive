@@ -279,9 +279,8 @@ for (const forbiddenRoot of ['unexpectedTracker']) {
     assert.equal(Object.hasOwn(settlementHarness.campaignState, forbiddenRoot), false, forbiddenRoot);
 }
 
-const peopleSettlementHarness = createHarness({
-    outputs: [interpretationOutput({
-        peopleEvents: [{
+const peopleInterpretation = interpretationOutput({
+    peopleEvents: [{
             type: 'personIntroduced',
             localRef: 'new-1',
             name: 'Ari Sol',
@@ -299,18 +298,52 @@ const peopleSettlementHarness = createHarness({
             summary: 'The commander protected Ari\'s team from an unsafe restart order.',
             sourceSlot: 'currentPlayer',
         }],
-    })],
+});
+const peopleGenerationRoles = [];
+const peopleSettlementHarness = createHarness({
+    generation: {
+        async generate(roleId, request) {
+            peopleGenerationRoles.push(roleId);
+            if (roleId === 'acceptedPairMissionEvidence') {
+                return { ok: true, response: { text: peopleInterpretation, providerId: 'utility-test' } };
+            }
+            const variants = request.jsonSchema.properties.dossiers.items.oneOf;
+            return {
+                ok: true,
+                response: {
+                    providerId: 'reasoner-test',
+                    text: JSON.stringify({
+                        kind: 'directive.peopleDossierBatch.v1',
+                        dossiers: variants.map((variant, index) => ({
+                            personId: variant.properties.personId.const,
+                            displayName: variant.properties.displayName.const,
+                            role: index === 0 ? 'Damage-control technician' : 'Systems specialist',
+                            affiliation: 'U.S.S. Breckenridge',
+                            species: index === 0 ? 'Human' : 'Trill',
+                            age: 'Adult',
+                            birthplace: index === 0 ? 'Nairobi, Earth' : 'Trill',
+                            serviceBackground: 'Starship systems repair',
+                            assignmentHistory: 'Assigned to the Breckenridge engineering department',
+                            profileSummary: `${variant.properties.displayName.const} serves in the Breckenridge engineering department.`,
+                        })),
+                    }),
+                },
+            };
+        },
+    },
 });
 const peopleSettlement = await peopleSettlementHarness.runtime.settleAcceptedPair({
     runtimeAssets: peopleSettlementHarness.assets,
     snapshot: snapshotFor({ sourceRangeHash: 'range.people', pairNumber: 31 }),
 });
 assert.equal(peopleSettlement.ok, true, JSON.stringify(peopleSettlement));
-assert.equal(peopleSettlementHarness.generationCount, 1, 'all People observations share the accepted-pair Utility call');
+assert.equal(peopleGenerationRoles.filter((roleId) => roleId === 'acceptedPairMissionEvidence').length, 1, 'all People observations share the accepted-pair Utility call');
+assert.equal(peopleGenerationRoles.filter((roleId) => roleId === 'peopleDossierAuthor').length, 1, 'all introductions share one dossier Reasoner call');
 const materializedPeopleEvents = peopleSettlementHarness.campaignState.storySettlement.episodes[0].peopleEvents;
 assert.equal(materializedPeopleEvents.length, 3);
 assert.equal(new Set(materializedPeopleEvents.slice(0, 2).map(({ personId }) => personId)).size, 2);
 assert.equal(materializedPeopleEvents[2].personId, materializedPeopleEvents[0].personId);
+assert.equal(materializedPeopleEvents[0].publicFacts.role, 'Damage-control technician');
 
 const shipMechanicsAssets = runtimeAssetsFor();
 shipMechanicsAssets.shipDataset = {

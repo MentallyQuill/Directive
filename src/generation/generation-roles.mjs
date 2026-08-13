@@ -1,6 +1,7 @@
 export const GENERATION_ROLE_IDS = Object.freeze([
   'acceptedPairMissionEvidence',
   'episodeEvaluator',
+  'peopleDossierAuthor',
   'characterCreatorSectionDraft'
 ]);
 
@@ -27,6 +28,19 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     blocking: true,
     output: 'structured-json',
     timeoutMs: 10000,
+    structuredOutput: true,
+    mayProposeState: false,
+    mayInjectPrompt: false,
+    mayRunDuringMainGeneration: false,
+    fallback: 'fail-closed'
+  }),
+  peopleDossierAuthor: Object.freeze({
+    id: 'peopleDossierAuthor',
+    label: 'People public dossiers',
+    providerKind: 'reasoning',
+    blocking: true,
+    output: 'structured-json',
+    timeoutMs: 30000,
     structuredOutput: true,
     mayProposeState: false,
     mayInjectPrompt: false,
