@@ -822,6 +822,14 @@ try {
   const handleHoverSurface = await sampleMaraRosterSurface();
   assert.equal(handleHoverSurface.rowBackground, bodyHoverSurface.rowBackground, 'hovering the reorder handle must retain the same full-card highlight');
   assert.equal(handleHoverSurface.selectBackground, 'rgba(0, 0, 0, 0)', 'handle hover must not split the character body into a separate surface');
+  const selectedRosterRow = peoplePage.locator('.people-desktop-journal .collection-person-row.active');
+  const selectedBackgroundBeforeHover = await selectedRosterRow.evaluate((row) => getComputedStyle(row).backgroundImage);
+  await selectedRosterRow.locator('.collection-person-drag-handle').hover();
+  assert.equal(
+    await selectedRosterRow.evaluate((row) => getComputedStyle(row).backgroundImage),
+    selectedBackgroundBeforeHover,
+    'hovering or focusing the selected card must preserve its authoritative selection gradient'
+  );
   const fallbackPlayerHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="player.sam-vickers"] .collection-drag-handle');
   const fallbackPlayerHandleBox = await fallbackPlayerHandle.boundingBox();
   await peoplePage.mouse.move(fallbackPlayerHandleBox.x + 2, fallbackPlayerHandleBox.y + fallbackPlayerHandleBox.height / 2);
