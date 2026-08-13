@@ -90,7 +90,9 @@ function activeSourceRow(message = {}) {
   const visibility = object(message.visibility)
     ? { ...inferred, ...message.visibility }
     : inferred;
-  return visibility.sourceRowExists !== false
+  return message.isSystem !== true
+    && message.is_system !== true
+    && visibility.sourceRowExists !== false
     && visibility.hiddenByHost !== true
     && visibility.sourceMutation !== true;
 }

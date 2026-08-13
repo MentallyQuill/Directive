@@ -31,7 +31,9 @@ export function hashStableJson(value) {
 
 export function normalizeV1HostMessageVisibility(message = {}) {
   const directive = message.extra?.directive || message.metadata?.directive || {};
-  const hiddenByHost = message.is_hidden === true || message.hidden === true;
+  const system = message.is_system === true || message.isSystem === true || message.role === 'system';
+  const hidden = message.is_hidden === true || message.hidden === true;
+  const hiddenByHost = hidden || system;
   const sourceMutation = message.deleted === true
     || message.is_deleted === true
     || directive.deleted === true;
@@ -41,7 +43,10 @@ export function normalizeV1HostMessageVisibility(message = {}) {
     hiddenByHost,
     sourceMutation,
     visibilityMutationOnly: hiddenByHost && !sourceMutation,
-    hiddenReasons: hiddenByHost ? ['host-hidden'] : [],
+    hiddenReasons: [
+      ...(hidden ? ['host-hidden'] : []),
+      ...(system ? ['host-system'] : [])
+    ],
     sourceMutationReasons: sourceMutation ? ['host-delete'] : []
   };
 }

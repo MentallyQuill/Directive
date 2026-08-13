@@ -105,6 +105,16 @@ const unpairedPlayerLineage = createActiveAcceptedPairLineage({
 assert.deepEqual(unpairedPlayerLineage.map((entry) => entry.currentPlayerHostMessageId), [
   'player-entry-1-replayed'
 ]);
+const systemRowLineage = createActiveAcceptedPairLineage({
+  campaignState: state,
+  chatId: 'opening-chat',
+  recentMessages: [
+    openingAssistant,
+    { hostMessageId: 'system-row', role: 'user', text: 'host control', raw: { is_system: true } },
+    replayedEntry
+  ]
+});
+assert.deepEqual(systemRowLineage.map((entry) => entry.currentPlayerHostMessageId), ['player-entry-1-replayed']);
 
 const packet = createV1RuntimePromptPacket({
   state,

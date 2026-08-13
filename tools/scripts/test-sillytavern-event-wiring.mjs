@@ -18,6 +18,7 @@ const eventTypes = {
   CHAT_CHANGED: 'chat',
   MESSAGE_SENT: 'sent',
   MESSAGE_EDITED: 'edited',
+  MESSAGE_UPDATED: 'updated',
   MESSAGE_SWIPED: 'swiped',
   MESSAGE_DELETED: 'deleted',
   GENERATION_STOPPED: 'stopped',
@@ -25,7 +26,7 @@ const eventTypes = {
 };
 assert.equal(wireEvents({ eventSource, eventTypes }), true);
 for (const event of Object.values(eventTypes)) assert.equal(eventSource.listenerCount(event), 1);
-assert.equal(eventSource.listenerCount('MESSAGE_UPDATED'), 0);
+assert.equal(eventSource.listenerCount('updated'), 1);
 disposeSillyTavernDirectiveEventLifecycle();
 for (const event of Object.values(eventTypes)) assert.equal(eventSource.listenerCount(event), 0);
 

@@ -20,6 +20,10 @@ assert.deepEqual(calls[0].slice(0, 2), [DIRECTIVE_V1_PROMPT_KEY, 'Exact V1 promp
 assert.equal(adapter.inspect({ includeText: true }).text, 'Exact V1 prompt');
 await adapter.syncForChat({ chatId: 'other-chat' });
 assert.deepEqual(calls.at(-1).slice(0, 2), [DIRECTIVE_V1_PROMPT_KEY, '']);
+const clearCount = calls.length;
+await adapter.syncForChat({ chatId: 'other-chat' });
+assert.equal(calls.length, clearCount + 1, 'every unbound sync must clear a potentially stale host prompt');
+assert.deepEqual(calls.at(-1).slice(0, 2), [DIRECTIVE_V1_PROMPT_KEY, '']);
 context.chatId = 'other-chat';
 await assert.rejects(
   adapter.install({ binding: { chatId: 'ashes-chat' }, packet: { text: 'wrong chat' } }),

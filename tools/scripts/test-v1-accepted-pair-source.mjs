@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import {
   prepareV1AcceptedPairSnapshot
 } from '../../src/runtime/v1-accepted-pair-source.mjs';
+import { normalizeV1HostMessageVisibility } from '../../src/runtime/v1-host-message-contracts.mjs';
+
+const systemVisibility = normalizeV1HostMessageVisibility({ is_system: true });
+assert.equal(systemVisibility.hiddenByHost, true);
+assert.deepEqual(systemVisibility.hiddenReasons, ['host-system']);
 
 const campaignState = {
   campaign: { id: 'campaign.ashes', runtimeArchitecture: { kind: 'directive.runtimeArchitecture.v1' } },

@@ -207,6 +207,7 @@ export function wireEvents(context) {
     'MESSAGE_SENT'
   ], handlePlayerMessage, disposers);
   register(adapter, [events.MESSAGE_EDITED || 'MESSAGE_EDITED'], handleMessageEdited, disposers);
+  register(adapter, [events.MESSAGE_UPDATED || 'MESSAGE_UPDATED'], handleMessageEdited, disposers);
   register(adapter, [events.MESSAGE_SWIPED || 'MESSAGE_SWIPED'], handleMessageSelectedSwipeChanged, disposers);
   register(adapter, [events.MESSAGE_DELETED, events.MESSAGE_REMOVED, 'MESSAGE_DELETED'], handleMessageDeleted, disposers);
   register(adapter, [events.GENERATION_STOPPED || 'GENERATION_STOPPED'], handleGenerationStopped, disposers);

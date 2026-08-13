@@ -141,7 +141,7 @@ export function createSillyTavernPromptAdapter({ contextFactory } = {}) {
 
   async function syncForChat(identity = {}) {
     if (!activeBinding?.chatId || String(identity?.chatId || '') !== String(activeBinding.chatId)) {
-      if (installed) await clear({ reason: 'unbound-chat', preservePacket: true });
+      await clear({ reason: 'unbound-chat', preservePacket: true });
       return { ok: true, active: false, reason: 'unbound-chat' };
     }
     if (!installed && activePacket) return install({ binding: activeBinding, packet: activePacket });
