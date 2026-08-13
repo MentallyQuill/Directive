@@ -16,7 +16,7 @@ opener.focus();
 const chosen = [];
 const picker = createConnectionProfilePicker({
   profiles: [
-    { id: 'profile.deep', label: 'Deep Reasoning', model: 'deepseek-reasoner' },
+    { id: 'profile.deep', name: 'Deep Reasoning', label: 'Deep Reasoning / deepseek-reasoner', model: 'deepseek-reasoner' },
     { id: 'profile.fast', name: 'Fast Utility', model: 'gpt-5-mini' }
   ],
   selectedId: 'profile.deep',
@@ -35,8 +35,16 @@ assert.equal(picker.resultList.getAttribute('aria-label'), 'Connection profiles'
 assert.equal(picker.resultList.children[0].getAttribute('role'), null);
 assert.equal(picker.resultList.children[0].dataset.connectionProfileId, 'profile.deep');
 assert.equal(picker.resultList.children[0].getAttribute('aria-current'), 'true');
+assert.equal(picker.resultList.children[0].children[0].textContent, 'Deep Reasoning');
 assert.match(textOf(picker.resultList.children[0]), /Deep Reasoning/);
 assert.match(textOf(picker.resultList.children[0]), /deepseek-reasoner/);
+
+picker.clearButton.focus();
+await picker.dialog.dispatch('keydown', { key: 'Tab', shiftKey: false });
+assert.equal(fakeDocument.activeElement, picker.closeButton, 'Tab should wrap from Clear selection to Close');
+picker.closeButton.focus();
+await picker.dialog.dispatch('keydown', { key: 'Tab', shiftKey: true });
+assert.equal(fakeDocument.activeElement, picker.clearButton, 'Shift+Tab should wrap from Close to Clear selection');
 
 picker.searchInput.value = 'deep reasoning';
 await picker.searchInput.dispatch('input');
@@ -123,5 +131,42 @@ assert.equal(errorPicker.error.getAttribute('role'), 'alert');
 assert.equal(errorPicker.error.textContent, 'Could not save profile.');
 assert.equal(fakeDocument.activeElement, errorPicker.searchInput);
 errorPicker.close('test-cleanup');
+
+const popstateHandlers = [];
+let pushedHistoryEntries = 0;
+let backCalls = 0;
+globalThis.window = {
+  innerWidth: 390,
+  matchMedia: () => ({ matches: true }),
+  addEventListener(type, handler, capture = false) {
+    if (type === 'popstate') popstateHandlers.push({ handler, capture });
+  },
+  removeEventListener(type, handler) {
+    if (type !== 'popstate') return;
+    const index = popstateHandlers.findIndex((entry) => entry.handler === handler);
+    if (index >= 0) popstateHandlers.splice(index, 1);
+  },
+  history: {
+    state: { directiveRuntimeOpen: true },
+    pushState(state) { this.state = state; pushedHistoryEntries += 1; },
+    back() {
+      backCalls += 1;
+      let stopped = false;
+      const event = { stopImmediatePropagation() { stopped = true; } };
+      for (const entry of [...popstateHandlers].sort((left, right) => Number(right.capture) - Number(left.capture))) {
+        entry.handler(event);
+        if (stopped) break;
+      }
+    }
+  }
+};
+const backPicker = createConnectionProfilePicker({ profiles: [], opener, onSelect: async () => {} });
+assert.equal(pushedHistoryEntries, 1, 'mobile picker should own a history entry');
+window.history.back();
+assert.equal(backCalls, 1);
+assert.equal(backPicker.isOpen(), false, 'Android Back should close only the picker');
+assert.equal(shell.inert, false);
+assert.equal(popstateHandlers.length, 0, 'closing must remove the picker popstate listener');
+delete globalThis.window;
 
 console.log('Connection profile picker tests passed.');

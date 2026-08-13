@@ -201,6 +201,31 @@ try {
         } else {
           assert.ok(pickerGeometry.dialog.width <= 680, `${viewport.width}px desktop picker must remain bounded`);
         }
+        await page.locator('.connection-profile-picker-clear').focus();
+        await page.keyboard.press('Tab');
+        assert.equal(
+          await page.locator('.connection-profile-picker-close').evaluate((node) => node === document.activeElement),
+          true,
+          `${viewport.width}px Tab must wrap within the profile picker`
+        );
+        await page.locator('.connection-profile-picker-close').focus();
+        await page.keyboard.press('Shift+Tab');
+        assert.equal(
+          await page.locator('.connection-profile-picker-clear').evaluate((node) => node === document.activeElement),
+          true,
+          `${viewport.width}px Shift+Tab must wrap within the profile picker`
+        );
+        if (viewport.width <= 640) {
+          await page.goBack();
+          await page.waitForSelector('.connection-profile-picker-dialog', { state: 'detached' });
+          assert.equal(
+            await page.locator('.directive-expanded-shell').isVisible(),
+            true,
+            `${viewport.width}px browser Back must close only the profile picker`
+          );
+        } else {
+          await page.locator('.connection-profile-picker-close').click();
+        }
       }
 
       if (viewport.width === 360 && [500, 800].includes(viewport.height) && mobilePanelGeometry[route]) {

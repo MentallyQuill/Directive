@@ -2,7 +2,7 @@ import { appendDirectiveModal } from './directive-overlay-root.js';
 import { createElement } from './runtime-ui-kit.js';
 
 function profileLabel(profile) {
-  return String(profile?.label || profile?.name || profile?.id || '').trim();
+  return String(profile?.name || profile?.label || profile?.id || '').trim();
 }
 
 function profileDetails(profile) {
@@ -24,6 +24,10 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
   const shellWasInert = shell?.inert === true;
   if (shell) shell.inert = true;
   let busy = false;
+  let ownsHistoryEntry = false;
+  let closingPromise = null;
+  let resolveClosing = null;
+  let closingReason = 'dismissed';
 
   const overlay = createElement('div', 'connection-profile-picker-overlay');
   const dialog = createElement('section', 'connection-profile-picker-dialog');
@@ -56,12 +60,38 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
   clearButton.type = 'button';
   clearButton.textContent = 'Clear selection';
   actions.appendChild(clearButton);
-  const close = (reason = 'dismissed') => {
-    if (busy || !overlay.isConnected) return { closed: false, reason };
+  const removePopstateListener = () => {
+    if (typeof window !== 'undefined') window.removeEventListener?.('popstate', onPickerPopstate, true);
+  };
+  const finalizeClose = (reason = 'dismissed') => {
+    if (!overlay.isConnected) return { closed: false, reason };
+    ownsHistoryEntry = false;
+    removePopstateListener();
     overlay.remove?.();
     if (shell) shell.inert = shellWasInert;
     opener?.focus?.({ preventScroll: true });
-    return { closed: true, reason };
+    const result = { closed: true, reason };
+    resolveClosing?.(result);
+    resolveClosing = null;
+    closingPromise = null;
+    return result;
+  };
+  function onPickerPopstate(event) {
+    if (!ownsHistoryEntry || !overlay.isConnected) return;
+    event?.stopImmediatePropagation?.();
+    event?.stopPropagation?.();
+    finalizeClose(closingPromise ? closingReason : 'back');
+  }
+  const close = (reason = 'dismissed') => {
+    if (busy || !overlay.isConnected) return { closed: false, reason };
+    if (!ownsHistoryEntry || typeof window === 'undefined' || typeof window.history?.back !== 'function') {
+      return finalizeClose(reason);
+    }
+    if (closingPromise) return closingPromise;
+    closingReason = reason;
+    closingPromise = new Promise((resolve) => { resolveClosing = resolve; });
+    window.history.back();
+    return closingPromise;
   };
   const selectProfile = async (profileId) => {
     if (busy) return;
@@ -71,7 +101,7 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
     try {
       await onSelect?.(String(profileId || ''));
       busy = false;
-      close('selected');
+      await close('selected');
     } catch (cause) {
       busy = false;
       error.textContent = cause?.message || 'Could not save the connection profile.';
@@ -82,10 +112,28 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
   closeButton.addEventListener('click', () => close('close-control'));
   clearButton.addEventListener('click', () => selectProfile(''));
   dialog.addEventListener('keydown', (event) => {
-    if (event?.key !== 'Escape') return;
-    event.preventDefault?.();
-    event.stopPropagation?.();
-    close('escape');
+    if (event?.key === 'Escape') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      close('escape');
+      return;
+    }
+    if (event?.key !== 'Tab') return;
+    const focusable = [
+      closeButton,
+      searchInput,
+      ...[...(resultList.children || [])].filter((node) => node.tagName === 'BUTTON'),
+      clearButton
+    ].filter((node) => node.disabled !== true && node.hidden !== true);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault?.();
+      last?.focus?.({ preventScroll: true });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault?.();
+      first?.focus?.({ preventScroll: true });
+    }
   });
   dialog.addEventListener('cancel', (event) => {
     event?.preventDefault?.();
@@ -129,6 +177,22 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
   dialog.append(header, searchInput, resultList, error, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
+  const mobileViewport = typeof window !== 'undefined'
+    && (typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 640px)').matches
+      : Number(window.innerWidth) <= 640);
+  if (mobileViewport && typeof window.history?.pushState === 'function' && typeof window.history?.back === 'function') {
+    try {
+      window.history.pushState({
+        ...(window.history.state || {}),
+        directiveConnectionProfilePicker: true
+      }, '');
+      ownsHistoryEntry = true;
+      window.addEventListener?.('popstate', onPickerPopstate, true);
+    } catch {
+      ownsHistoryEntry = false;
+    }
+  }
   searchInput.focus?.({ preventScroll: true });
 
   return {
