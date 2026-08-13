@@ -9,17 +9,40 @@ class Element {
     this.attributes = new Map();
     this.className = '';
     this.textContent = '';
-    this.classList = { add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); } };
+    this.classList = {
+      add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); },
+      remove: (...names) => {
+        const removed = new Set(names);
+        this.className = this.className.split(/\s+/).filter((name) => name && !removed.has(name)).join(' ');
+      },
+      contains: (name) => this.className.split(/\s+/).includes(name),
+      toggle: (name, force) => {
+        const enabled = force === undefined ? !this.classList.contains(name) : Boolean(force);
+        if (enabled) this.classList.add(name);
+        else this.classList.remove(name);
+        return enabled;
+      }
+    };
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
-  addEventListener() {}
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  addEventListener(type, handler) { this.listeners ??= new Map(); this.listeners.set(type, handler); }
+  querySelector(selector) {
+    if (!selector.startsWith('.')) return null;
+    const className = selector.slice(1);
+    return this.children.flatMap((child) => [child, ...all(child)]).find((node) => node.classList.contains(className)) || null;
+  }
+  contains(candidate) { return candidate === this || this.children.some((child) => child.contains(candidate)); }
 }
 
+const documentListeners = new Map();
 globalThis.document = {
   createElement: (tagName) => new Element(tagName),
-  createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text })
+  createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text }),
+  addEventListener: (type, handler) => documentListeners.set(type, handler),
+  querySelectorAll: () => []
 };
 
 const projection = {
@@ -58,6 +81,12 @@ const text = nodes.map((node) => node.textContent || '').join(' ');
 
 assert.equal(byClass('ship-layout').length, 1);
 assert.equal(byClass('ship-hero').length, 1);
+const shipHero = byClass('ship-hero')[0];
+assert.equal(shipHero.classList.contains('directive-responsive-hero'), true);
+const shipHeroToggle = byClass('directive-responsive-hero-toggle')[0];
+assert.ok(shipHeroToggle);
+assert.equal(shipHero.classList.contains('is-expanded'), false);
+assert.equal(shipHeroToggle.getAttribute('aria-expanded'), 'false');
 assert.equal(byClass('ship-board').length, 1);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
 assert.match(text, /U\.S\.S\. Breckenridge/);

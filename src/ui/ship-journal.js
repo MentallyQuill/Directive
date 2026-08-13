@@ -1,5 +1,6 @@
 import { createElement } from './runtime-ui-kit.js';
 import { createPackageImage } from './directive-media.js';
+import { bindResponsiveHero } from './responsive-hero.js';
 
 function statusText(value) {
   return String(value || 'unknown').replace(/[-_]+/g, ' ');
@@ -24,7 +25,7 @@ export function createShipHero(ship, activePackage) {
   summary.textContent = ship.summary || '';
   identity.append(kicker, title, summary);
   hero.appendChild(identity);
-  return hero;
+  return bindResponsiveHero(hero, { label: 'Ship', secondary: [summary] });
 }
 
 function appendRecordList(board, label, records) {

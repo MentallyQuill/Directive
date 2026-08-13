@@ -28,7 +28,13 @@ class Element {
         names.forEach((name) => classes.delete(name));
         this.className = [...classes].join(' ');
       },
-      contains: (name) => this.className.split(/\s+/).includes(name)
+      contains: (name) => this.className.split(/\s+/).includes(name),
+      toggle: (name, force) => {
+        const enabled = force === undefined ? !this.classList.contains(name) : Boolean(force);
+        if (enabled) this.classList.add(name);
+        else this.classList.remove(name);
+        return enabled;
+      }
     };
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
@@ -42,6 +48,12 @@ class Element {
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
+  querySelector(selector) {
+    if (!selector.startsWith('.')) return null;
+    const className = selector.slice(1);
+    return this.children.flatMap((child) => [child, ...all(child)]).find((node) => node.classList.contains(className)) || null;
+  }
+  contains(candidate) { return candidate === this || this.children.some((child) => child.contains(candidate)); }
   focus() { globalThis.document.activeElement = this; }
   select() {}
   remove() {
@@ -54,12 +66,15 @@ class Element {
 }
 
 const documentBody = new Element('body');
+const documentListeners = new Map();
 globalThis.document = {
   activeElement: null,
   body: documentBody,
   documentElement: documentBody,
   createElement: (tagName) => new Element(tagName),
   createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text }),
+  addEventListener: (type, handler) => documentListeners.set(type, handler),
+  querySelectorAll: () => [],
   getElementById: (id) => {
     const visit = (node) => node.id === id ? node : node.children.map(visit).find(Boolean);
     return visit(documentBody) || null;
@@ -269,6 +284,11 @@ availablePreview.click();
 
 const ashesHero = byClass(body, 'campaign-library-hero')[0];
 assert.ok(ashesHero);
+assert.equal(ashesHero.classList.contains('directive-responsive-hero'), true);
+const ashesHeroToggle = byClass(ashesHero, 'directive-responsive-hero-toggle')[0];
+assert.ok(ashesHeroToggle);
+assert.equal(ashesHero.classList.contains('is-expanded'), false);
+assert.equal(ashesHeroToggle.getAttribute('aria-expanded'), 'false');
 assert.equal(textOf(byClass(ashesHero, 'campaign-hero-copy')[0]).trim(), 'Ashes of Peace');
 const ashesBody = byClass(body, 'campaign-library-detail-body')[0];
 assert.ok(ashesBody);

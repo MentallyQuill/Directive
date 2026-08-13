@@ -2818,6 +2818,8 @@ textarea.directive-field-control {
   --directive-expanded-lilac: #b78ad7;
   --directive-expanded-blue: #77a7ef;
   --directive-expanded-violet: #9b82cf;
+  --directive-responsive-hero-collapsed-height: 140px;
+  --directive-responsive-hero-expanded-height: 280px;
   --bg: var(--directive-expanded-bg);
   --raised: var(--directive-expanded-raised);
   --surface: var(--directive-expanded-surface);
@@ -4020,6 +4022,89 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .ship-board-section { padding: 12px 13px; }
   .directive-expanded-shell .ship-record-list { grid-template-columns: minmax(0, 1fr); }
   .directive-expanded-shell .ship-system-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Shared Campaign and Ship image expansion. */
+.directive-expanded-shell .directive-expanded-ship { grid-template-rows: auto minmax(0, 1fr); }
+.directive-expanded-shell .directive-responsive-hero {
+  height: var(--directive-responsive-hero-collapsed-height);
+  transition: height 180ms ease;
+}
+.directive-expanded-shell .directive-responsive-hero-secondary {
+  max-height: 0;
+  margin-top: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+}
+.directive-expanded-shell .directive-responsive-hero-toggle {
+  appearance: none;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--directive-expanded-text);
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+.directive-expanded-shell .directive-responsive-hero-toggle::after {
+  content: "↕";
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(5, 7, 11, .72);
+  border: 1px solid rgba(248, 239, 224, .48);
+  border-radius: 4px;
+  font: 800 15px/1 "Segoe UI Symbol", sans-serif;
+}
+.directive-expanded-shell .directive-responsive-hero-toggle:focus-visible {
+  outline: 2px solid var(--directive-active-route-accent);
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .directive-expanded-shell .directive-responsive-hero:hover {
+    height: var(--directive-responsive-hero-expanded-height);
+  }
+  .directive-expanded-shell .directive-responsive-hero:hover .directive-responsive-hero-secondary {
+    max-height: 6em;
+    margin-top: 5px !important;
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .directive-expanded-shell .directive-responsive-hero-toggle { display: block; }
+  .directive-expanded-shell .directive-responsive-hero.is-expanded {
+    height: var(--directive-responsive-hero-expanded-height);
+  }
+  .directive-expanded-shell .directive-responsive-hero.is-expanded .directive-responsive-hero-secondary {
+    max-height: 6em;
+    margin-top: 5px !important;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .directive-runtime-panel.directive-expanded-shell {
+    --directive-responsive-hero-collapsed-height: 112px;
+    --directive-responsive-hero-expanded-height: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directive-expanded-shell .directive-responsive-hero,
+  .directive-expanded-shell .directive-responsive-hero-secondary { transition: none; }
 }
 
 /* Certified full-width Settings composition. */
