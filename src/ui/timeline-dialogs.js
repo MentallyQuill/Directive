@@ -67,7 +67,7 @@ function appendDialogActions(dialog, { primaryLabel, primaryDisabled = false, on
   return { actions, cancel, primary };
 }
 
-export function createSaveGameDialog({ campaign, opener = null, onSave = null } = {}) {
+export function createSaveGameDialog({ campaign, opener = null, onSave = null, onSaved = null } = {}) {
   const frame = createDialogFrame({ title: 'Save Game', className: 'save-game-dialog-overlay', opener });
   const explanation = createElement('p', 'timeline-dialog-copy');
   explanation.textContent = 'Create an immutable saved game without leaving your current timeline.';
@@ -78,7 +78,11 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null } 
   input.type = 'text';
   input.value = campaign?.chapter ? `Before ${campaign.chapter}` : 'Saved Game';
   label.append(labelText, input);
-  frame.dialog.append(explanation, label);
+  const error = createElement('p', 'timeline-dialog-error');
+  error.setAttribute('role', 'alert');
+  error.setAttribute('aria-live', 'assertive');
+  error.hidden = true;
+  frame.dialog.append(explanation, label, error);
   let busy = false;
   const controls = appendDialogActions(frame.dialog, {
     primaryLabel: 'Save Game',
@@ -87,20 +91,33 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null } 
       const name = compact(input.value);
       if (!name || busy) return;
       busy = true;
+      error.hidden = true;
+      error.textContent = '';
+      controls.primary.textContent = 'Saving...';
+      controls.cancel.textContent = 'Close';
       controls.primary.disabled = true;
+      let result;
       try {
-        await onSave?.({ name });
-        frame.close('saved');
-      } finally {
+        result = await onSave?.({ name });
+      } catch (cause) {
+        error.textContent = cause?.message || String(cause || 'Save Game failed.');
+        error.hidden = false;
         busy = false;
+        controls.primary.textContent = 'Save Game';
+        controls.cancel.textContent = 'Cancel';
         controls.primary.disabled = !compact(input.value);
+        return;
       }
+      busy = false;
+      controls.primary.textContent = 'Save Game';
+      frame.close('saved');
+      await onSaved?.(result);
     }
   });
   input.addEventListener('input', () => { controls.primary.disabled = !compact(input.value) || busy; });
   input.focus?.({ preventScroll: true });
   input.select?.();
-  return { ...frame, input, ...controls };
+  return { ...frame, input, error, ...controls };
 }
 
 export function createLoadGameDialog({ campaign, opener = null, onLoad = null, onDelete = null } = {}) {

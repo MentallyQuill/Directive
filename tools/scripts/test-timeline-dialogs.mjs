@@ -87,11 +87,53 @@ assert.equal(deleteDialog.rows[0].getAttribute('aria-pressed'), 'true');
 assert.equal(deleteDialog.primary.disabled, false);
 
 let saved = null;
-const saveDialog = createSaveGameDialog({ campaign, onSave: (payload) => { saved = payload; } });
+let resolvePersistence;
+let resolveRefresh;
+let postSaveStarted = false;
+const persistence = new Promise((resolve) => { resolvePersistence = resolve; });
+const refresh = new Promise((resolve) => { resolveRefresh = resolve; });
+const saveDialog = createSaveGameDialog({
+  campaign,
+  onSave: async (payload) => {
+    saved = payload;
+    return persistence;
+  },
+  onSaved: async (result) => {
+    assert.equal(saveDialog.overlay.isConnected, false, 'durable save success must close the dialog before refresh');
+    assert.deepEqual(result, { savedGameId: 'saved.ready-room' });
+    postSaveStarted = true;
+    await refresh;
+  }
+});
 assert.equal(saveDialog.input.value, 'Before Prelude: A Ship Underway');
 saveDialog.input.value = 'Before the signal';
-await saveDialog.primary.listeners.get('click')();
+const saveClick = saveDialog.primary.listeners.get('click')();
+await Promise.resolve();
 assert.deepEqual(saved, { name: 'Before the signal' });
+assert.equal(saveDialog.primary.textContent, 'Saving...');
+assert.equal(saveDialog.primary.disabled, true);
+assert.equal(saveDialog.cancel.textContent, 'Close', 'an in-flight save can be closed but cannot be cancelled');
+assert.equal(saveDialog.overlay.isConnected, true, 'dialog must remain visible until durable persistence succeeds');
+resolvePersistence({ savedGameId: 'saved.ready-room' });
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(saveDialog.overlay.isConnected, false);
+assert.equal(postSaveStarted, true, 'post-save refresh must begin after the success dialog closes');
+resolveRefresh();
+await saveClick;
+
+const failedSaveDialog = createSaveGameDialog({
+  campaign,
+  onSave: async () => { throw new Error('Storage unavailable'); }
+});
+failedSaveDialog.input.value = 'Retryable save';
+await failedSaveDialog.primary.listeners.get('click')();
+assert.equal(failedSaveDialog.overlay.isConnected, true, 'persistence failure must keep the dialog open');
+assert.equal(failedSaveDialog.error.hidden, false);
+assert.equal(failedSaveDialog.error.textContent, 'Storage unavailable');
+assert.equal(failedSaveDialog.primary.textContent, 'Save Game');
+assert.equal(failedSaveDialog.primary.disabled, false);
+assert.equal(failedSaveDialog.cancel.textContent, 'Cancel');
 
 let renamed = null;
 const nameDialog = createPreviousTimelineNameDialog({

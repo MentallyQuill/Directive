@@ -21,6 +21,7 @@
 
 **Files:**
 - Modify: `tools/scripts/test-timeline-dialogs.mjs`
+- Modify: `tools/scripts/test-certified-campaign-panel.mjs`
 - Modify: `src/ui/timeline-dialogs.js`
 - Modify: `src/ui/campaign-panel.js`
 
@@ -30,7 +31,9 @@
 
 - [ ] **Step 1: Write the failing dialog tests**
 
-Add deferred persistence and refresh promises to `tools/scripts/test-timeline-dialogs.mjs`. Assert literal player-visible behavior: `Saving...` while persistence is pending; the overlay remains connected before persistence resolves; the overlay is disconnected and `onSaved` has begun after persistence resolves even while refresh remains pending. Add a rejection case asserting a visible alert, `Save Game` label restoration, an enabled primary action, and a connected dialog.
+Add deferred persistence and refresh promises to `tools/scripts/test-timeline-dialogs.mjs`. Assert literal player-visible behavior: `Saving...` and `Close` while persistence is pending; the overlay remains connected before persistence resolves; the overlay is disconnected and `onSaved` has begun after persistence resolves even while refresh remains pending. Add a rejection case asserting a visible alert, `Save Game` and `Cancel` label restoration, an enabled primary action, and a connected dialog.
+
+Exercise the real Campaign-panel wiring in `tools/scripts/test-certified-campaign-panel.mjs`. Resolve persistence while holding refresh pending and assert the Save Game overlay is already disconnected before refresh begins.
 
 - [ ] **Step 2: Run the focused test to verify RED**
 
@@ -52,6 +55,7 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null, o
 
   // primary click
   controls.primary.textContent = 'Saving...';
+  controls.cancel.textContent = 'Close';
   let result;
   try {
     result = await onSave?.({ name });
@@ -60,6 +64,7 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null, o
     error.hidden = false;
     busy = false;
     controls.primary.textContent = 'Save Game';
+    controls.cancel.textContent = 'Cancel';
     controls.primary.disabled = !compact(input.value);
     return;
   }

@@ -101,7 +101,8 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
         createSaveGameDialog({
           campaign,
           opener: event?.currentTarget || null,
-          onSave: (payload) => runAndRefresh(actions.saveGame, payload, actions)
+          onSave: (payload) => actions.saveGame?.(payload),
+          onSaved: () => actions.refresh?.()
         });
       }
     });

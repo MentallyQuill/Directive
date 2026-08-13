@@ -14,7 +14,9 @@ class Element {
     this.disabled = false;
     this.hidden = false;
     this.id = '';
+    this.isConnected = true;
     this.replaceCount = 0;
+    this.value = '';
     this.classList = {
       add: (...names) => {
         const classes = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -41,15 +43,27 @@ class Element {
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
   focus() { globalThis.document.activeElement = this; }
+  select() {}
+  remove() {
+    this.isConnected = false;
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+  }
   click() {
-    if (!this.disabled) this.listeners.get('click')?.({ currentTarget: this });
+    if (!this.disabled) return this.listeners.get('click')?.({ currentTarget: this });
   }
 }
 
+const documentBody = new Element('body');
 globalThis.document = {
   activeElement: null,
+  body: documentBody,
+  documentElement: documentBody,
   createElement: (tagName) => new Element(tagName),
-  createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text })
+  createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text }),
+  getElementById: (id) => {
+    const visit = (node) => node.id === id ? node : node.children.map(visit).find(Boolean);
+    return visit(documentBody) || null;
+  }
 };
 
 const ashesId = 'directive:campaign-package:breckenridge-ashes-of-peace';
@@ -137,8 +151,22 @@ const textOf = (root) => all(root).map((node) => node.textContent || '').join(' 
 
 resetCampaignPanelState();
 let startCampaignCalls = 0;
+let savedPayload = null;
+let resolvePanelSave;
+let resolvePanelRefresh;
+let panelRefreshStarted = false;
+const panelSave = new Promise((resolve) => { resolvePanelSave = resolve; });
+const panelRefresh = new Promise((resolve) => { resolvePanelRefresh = resolve; });
 renderCampaignPanel(body, view, {
-  startCreatorDraft: () => { startCampaignCalls += 1; }
+  startCreatorDraft: () => { startCampaignCalls += 1; },
+  saveGame: async (payload) => {
+    savedPayload = payload;
+    return panelSave;
+  },
+  refresh: async () => {
+    panelRefreshStarted = true;
+    await panelRefresh;
+  }
 });
 
 assert.equal(byClass(body, 'campaign-dashboard').length, 1, 'active campaign must default to its focused dashboard');
@@ -217,6 +245,23 @@ assert.deepEqual(campaignActions.children.map((node) => textOf(node).trim()), [
 ]);
 assert.equal(campaignActions.children[3].classList.contains('campaign-command-danger'), true);
 assert.equal(campaignActions.children[3].listeners.has('click'), true);
+
+campaignActions.children[1].click();
+const saveOverlay = byClass(documentBody, 'save-game-dialog-overlay')[0];
+const saveInput = byClass(saveOverlay, 'timeline-dialog-input')[0];
+const savePrimary = byClass(saveOverlay, 'campaign-command-primary')[0];
+saveInput.value = 'Ready Room';
+const saveClick = savePrimary.listeners.get('click')();
+await Promise.resolve();
+assert.deepEqual(savedPayload, { name: 'Ready Room' });
+assert.equal(saveOverlay.isConnected, true);
+resolvePanelSave({ savedGameId: 'saved.ready-room' });
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(saveOverlay.isConnected, false, 'Campaign refresh must not retain a durably completed Save Game dialog');
+assert.equal(panelRefreshStarted, true, 'Campaign refresh must begin after the Save Game dialog closes');
+resolvePanelRefresh();
+await saveClick;
 
 const availablePreview = byData(body, 'campaignAvailability', 'available').find((node) => node.tagName === 'BUTTON');
 assert.ok(availablePreview);

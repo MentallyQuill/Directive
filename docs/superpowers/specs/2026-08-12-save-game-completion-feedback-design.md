@@ -9,12 +9,12 @@ The Save Game dialog currently awaits both durable save creation and a full Camp
 Save Game has three explicit states:
 
 - Ready: the player can edit the name, cancel, or start the save.
-- Saving: the primary action reads `Saving...` and is disabled while durable persistence is pending.
+- Saving: the primary action reads `Saving...` and is disabled while durable persistence is pending; the secondary action reads `Close` because closing the dialog cannot cancel accepted runtime work.
 - Failed: the dialog remains open, displays the save error in an assertive alert, and restores the Save Game action for retry.
 
 Durable persistence is the success boundary. Once `actions.saveGame` resolves, the dialog closes immediately and restores focus to its opener. Campaign-panel refresh happens only after that close and cannot keep a completed save looking pending.
 
-Cancel closes the dialog but does not claim to cancel an operation already accepted by the runtime. The persisted saved-game name remains exactly the trimmed player input.
+Cancel is available before persistence starts. Once the runtime accepts the operation, that action becomes Close and dismisses only the dialog. The persisted saved-game name remains exactly the trimmed player input.
 
 ## Component Boundary
 
