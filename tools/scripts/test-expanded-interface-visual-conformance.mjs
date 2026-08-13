@@ -243,7 +243,11 @@ try {
           };
         }, viewport.width <= 640);
         assert.match(campaign.status, /Coming later/i);
-        assert.match(campaign.title, /Drowned Constellation/);
+        if (viewport.width <= 640) {
+          assert.equal(campaign.title, '', `${viewport.width}px phone Campaign detail must not repeat its accordion title`);
+        } else {
+          assert.match(campaign.title, /Drowned Constellation/);
+        }
         assert.match(campaign.description, /Nerine Reef/);
         assert.equal(campaign.descriptionOutsideHero, true, `${viewport.width}px future Campaign description must sit below the hero`);
         assert.ok(campaign.artOpacity <= .5);

@@ -86,19 +86,23 @@ function createSavedGameRow(campaign, checkpoint, actions) {
   return row;
 }
 
-function appendCampaignDetail(detail, campaign, pack, actions) {
+function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity = false } = {}) {
   const hero = createElement('section', 'campaign-hero');
+  if (compactIdentity) hero.classList.add('campaign-hero-compact-identity');
   if (pack) hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
   const copy = createElement('div', 'campaign-hero-copy');
-  const status = createElement('span', 'campaign-status');
-  status.textContent = campaign.active ? 'Current campaign' : 'Campaign';
-  const title = createElement('h2');
-  title.textContent = campaign.title;
+  if (!compactIdentity) {
+    const status = createElement('span', 'campaign-status');
+    status.textContent = campaign.active ? 'Current campaign' : 'Campaign';
+    const title = createElement('h2');
+    title.textContent = campaign.title;
+    copy.append(status, title);
+  }
   const meta = createElement('p');
   meta.textContent = [campaign.playerName, campaign.playerRole, campaign.setting].filter(Boolean).join(' / ');
   const summary = createElement('p', 'campaign-summary');
   summary.textContent = campaign.premise || campaign.chapter || '';
-  copy.append(status, title, meta, summary);
+  copy.append(meta, summary);
   hero.appendChild(copy);
   detail.appendChild(hero);
 
@@ -181,9 +185,10 @@ function createCampaignFact({ label, value }) {
   return fact;
 }
 
-function appendPackageDetail(detail, pack, actions) {
+function appendPackageDetail(detail, pack, actions, { compactIdentity = false } = {}) {
   const unavailable = pack.disabled === true;
   const hero = createElement('section', `campaign-hero campaign-library-hero${unavailable ? ' is-coming-later' : ''}`);
+  if (compactIdentity) hero.classList.add('campaign-hero-compact-identity');
   hero.dataset.campaignAvailability = pack.availability;
   hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
   const copy = createElement('div', 'campaign-hero-copy');
@@ -192,10 +197,12 @@ function appendPackageDetail(detail, pack, actions) {
     status.textContent = 'Coming later';
     copy.appendChild(status);
   }
-  const title = createElement('h2');
-  title.textContent = pack.title;
-  copy.appendChild(title);
-  hero.appendChild(copy);
+  if (!compactIdentity) {
+    const title = createElement('h2');
+    title.textContent = pack.title;
+    copy.appendChild(title);
+  }
+  if (copy.children.length) hero.appendChild(copy);
   detail.appendChild(hero);
 
   const body = createElement('div', 'campaign-library-detail-body');
@@ -223,17 +230,17 @@ function appendPackageDetail(detail, pack, actions) {
   detail.appendChild(body);
 }
 
-function appendRecordDetail(detail, key, model, actions) {
+function appendRecordDetail(detail, key, model, actions, options = {}) {
   const value = String(key || '');
   if (value.startsWith('campaign:')) {
     const campaign = model.campaigns.find((candidate) => candidate.id === value.slice('campaign:'.length));
     if (campaign) {
       const pack = model.packages.find((candidate) => candidate.packageId === campaign.packageId);
-      appendCampaignDetail(detail, campaign, pack, actions);
+      appendCampaignDetail(detail, campaign, pack, actions, options);
     }
   } else if (value.startsWith('package:')) {
     const pack = model.packages.find((candidate) => candidate.packageId === value.slice('package:'.length));
-    if (pack) appendPackageDetail(detail, pack, actions);
+    if (pack) appendPackageDetail(detail, pack, actions, options);
   }
   if (!detail.children.length) appendEmpty(detail, 'Choose a playable campaign or saved story.');
 }
@@ -330,7 +337,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
     trigger.removeAttribute('aria-pressed');
     const recordDetail = createElement('div', 'campaign-mobile-detail');
     recordDetail.id = mobileDetailId(key);
-    appendRecordDetail(recordDetail, key, model, actions);
+    appendRecordDetail(recordDetail, key, model, actions, { compactIdentity: true });
     record.append(trigger, recordDetail);
     mobile.appendChild(record);
     mobileRecords.push({ key, trigger, panel: recordDetail });

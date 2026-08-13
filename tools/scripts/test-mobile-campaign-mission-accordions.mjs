@@ -58,6 +58,7 @@ try {
         const accordion = document.querySelector(value.accordion);
         const expanded = accordion?.querySelector('[aria-expanded="true"]');
         const panel = expanded ? document.getElementById(expanded.getAttribute('aria-controls')) : null;
+        const triggerTitle = expanded?.querySelector('strong')?.textContent?.trim() || '';
         const accordionBox = accordion?.getBoundingClientRect();
         const panelBox = panel?.getBoundingClientRect();
         const nav = document.querySelector('.directive-route-control.active');
@@ -75,6 +76,9 @@ try {
           accordionOwnsScroll: owners[0] === accordion,
           expandedCount: accordion?.querySelectorAll('[aria-expanded="true"]').length || 0,
           panelVisible: visible(panel),
+          triggerTitle,
+          repeatedDetailTitles: [...(panel?.querySelectorAll('h2') || [])]
+            .filter((heading) => heading.textContent.trim() === triggerTitle).length,
           panelWidthRatio: panelBox && accordionBox ? panelBox.width / accordionBox.width : 0,
           navOutline: navStyle.outlineStyle,
           navOutlineWidth: navStyle.outlineWidth,
@@ -95,6 +99,8 @@ try {
       assert.equal(initial.accordionOwnsScroll, true, `${route} ${viewport.width}px phone list must own scrolling`);
       assert.equal(initial.expandedCount, 1, `${route} ${viewport.width}px default-open record`);
       assert.equal(initial.panelVisible, true, `${route} ${viewport.width}px default detail`);
+      assert.ok(initial.triggerTitle, `${route} ${viewport.width}px accordion trigger title`);
+      assert.equal(initial.repeatedDetailTitles, 0, `${route} ${viewport.width}px expanded detail must not repeat the trigger title`);
       assert.ok(initial.panelWidthRatio >= .98, `${route} ${viewport.width}px detail must use list width`);
       assert.equal(initial.navOutline, 'none', `${route} ${viewport.width}px active nav outline`);
       assert.ok(initial.navOutlineWidth === '0px' || initial.navOutlineWidth === '', `${route} ${viewport.width}px active nav outline width`);
@@ -103,6 +109,7 @@ try {
       assert.match(initial.navBorderBottom, /rgba\([^)]*, 0\)|transparent/, `${route} ${viewport.width}px active nav border ring`);
       assert.equal(initial.documentOverflowX, false, `${route} ${viewport.width}px document overflow-x`);
       assert.equal(initial.documentOverflowY, false, `${route} ${viewport.width}px document overflow-y`);
+      await page.screenshot({ path: path.join(artifactRoot, `${route}-${viewport.width}x${viewport.height}.png`) });
 
       const toggled = await page.evaluate((value) => {
         const accordion = document.querySelector(value.accordion);
@@ -122,7 +129,6 @@ try {
       assert.equal(toggled.expandedCount, 0, `${route} ${viewport.width}px collapse-all`);
       assert.equal(toggled.focusRetained, true, `${route} ${viewport.width}px disclosure focus`);
 
-      await page.screenshot({ path: path.join(artifactRoot, `${route}-${viewport.width}x${viewport.height}.png`) });
       await page.close();
     }
   }

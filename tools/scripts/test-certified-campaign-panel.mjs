@@ -157,6 +157,8 @@ assert.equal(currentMobileTrigger.getAttribute('aria-expanded'), 'true');
 const currentMobileDetail = mobileDetails.find((node) => node.id === currentMobileTrigger.getAttribute('aria-controls'));
 assert.ok(currentMobileDetail);
 assert.equal(currentMobileDetail.hidden, false);
+assert.equal(all(currentMobileDetail).filter((node) => node.tagName === 'H2').length, 0, 'phone Campaign detail must not repeat its trigger title');
+assert.match(textOf(currentMobileDetail), /Sam Vickers/);
 
 const futureMobileTrigger = byData(body, 'mobileRecordKey', 'package:directive:campaign-package:glass-harbor-drowned-constellation')[0];
 const futureMobileDetail = mobileDetails.find((node) => node.id === futureMobileTrigger.getAttribute('aria-controls'));
@@ -170,6 +172,8 @@ assert.equal(currentMobileTrigger.getAttribute('aria-expanded'), 'false');
 assert.equal(currentMobileDetail.hidden, true);
 assert.equal(futureMobileTrigger.getAttribute('aria-expanded'), 'true');
 assert.equal(futureMobileDetail.hidden, false);
+assert.equal(all(futureMobileDetail).filter((node) => node.tagName === 'H2').length, 0, 'phone library detail must not repeat its trigger title');
+assert.match(textOf(futureMobileDetail), /Coming later/);
 assert.equal(byData(body, 'campaignRecordKey', 'package:directive:campaign-package:glass-harbor-drowned-constellation')[0].getAttribute('aria-pressed'), 'true');
 assert.match(textOf(byClass(body, 'campaign-detail')[0]), /Drowned Constellation/);
 await futureMobileTrigger.click();

@@ -28,6 +28,8 @@ Campaign renders one phone list containing saved/current Campaign records follow
 
 Each record row is a button with `aria-expanded` and `aria-controls`. Its existing detail content renders immediately below that row when expanded. The detail preserves the current Campaign hero, commands, saved games, package description, player-safe facts, playable state, and coming-later treatment.
 
+The accordion trigger is the sole phone title for that Campaign or library record. Expanded saved-Campaign content keeps the hero artwork, player/assignment metadata, current chapter or premise, actions, and saves without repeating the Campaign status or title over the artwork. Expanded library content keeps the artwork and a unique `Coming later` label where applicable, but does not repeat the package title. Desktop Campaign heroes retain their existing status and title overlays.
+
 The initially expanded record is the last-played Campaign. Selection priority is:
 
 1. `campaignIndex.selectedCampaignId` when it identifies a rendered Campaign;
@@ -42,6 +44,8 @@ Opening a closed row closes the previously open row. Tapping the open row closes
 Mission renders its mission records as the same controlled phone disclosure pattern, without the redundant `Active Record / Mission` title block. The active/selected mission is expanded initially. Opening a different record closes the previous one, and tapping the open record collapses all. Although V1 currently exposes one mission record, the structure supports multiple records without another responsive redesign.
 
 The expanded content preserves the current mission hero, terminal outcome, objectives, clocks, known information, and available support.
+
+The accordion trigger is the sole phone title and status for the Mission. Expanded content begins with the Mission summary and then its outcome/objective/information sections; it does not repeat `Current mission`, `Completed mission`, or the Mission title. Desktop Mission detail retains its existing status, title, and summary hero.
 
 ### Scroll and focus behavior
 

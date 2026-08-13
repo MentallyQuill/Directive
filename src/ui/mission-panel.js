@@ -94,15 +94,19 @@ function appendTerminal(container, terminal) {
   container.appendChild(card);
 }
 
-function appendMissionDetail(detail, mission) {
+function appendMissionDetail(detail, mission, { compactIdentity = false } = {}) {
   const hero = createElement('header', 'mission-hero');
-  const state = createElement('span', 'mission-status');
-  state.textContent = mission.status === 'terminal' ? 'Completed mission' : 'Current mission';
-  const title = createElement('h2');
-  title.textContent = mission.title;
+  if (compactIdentity) hero.classList.add('mission-hero-compact-identity');
+  if (!compactIdentity) {
+    const state = createElement('span', 'mission-status');
+    state.textContent = mission.status === 'terminal' ? 'Completed mission' : 'Current mission';
+    const title = createElement('h2');
+    title.textContent = mission.title;
+    hero.append(state, title);
+  }
   const summary = createElement('p');
   summary.textContent = mission.summary;
-  hero.append(state, title, summary);
+  hero.appendChild(summary);
   detail.appendChild(hero);
 
   appendTerminal(detail, mission.terminal);
@@ -175,7 +179,7 @@ export function renderMissionPanel(body, view) {
     trigger.append(triggerState, triggerTitle, triggerSummary);
     const recordDetail = createElement('div', 'mission-mobile-detail');
     recordDetail.id = mobileMissionDetailId(record.id);
-    appendMissionDetail(recordDetail, record);
+    appendMissionDetail(recordDetail, record, { compactIdentity: true });
     wrapper.append(trigger, recordDetail);
     mobile.appendChild(wrapper);
     return { key: record.id, trigger, panel: recordDetail };
