@@ -71,6 +71,7 @@ try {
       `${viewport.label} ring uses closed rounded annular sectors`,
     );
     assert.equal(await page.locator('.ship-task-button').count(), 5);
+    assert.equal(await page.locator('.ship-task-mobile-callout').count(), 5);
     assert.equal(await page.locator('.ship-task-mobile-panel').count(), 5);
     assert.equal(await page.locator('.ship-task-mobile-panel:not([hidden])').count(), 0);
     assert.equal(await page.locator('.ship-task-button .ship-task-category-icon').count(), 5);
@@ -202,7 +203,16 @@ try {
         `${viewport.label} ring passes behind and in front of the ship`,
       );
     } else {
-      assert.equal(geometry.leaderDisplay, 'none');
+      assert.notEqual(geometry.leaderDisplay, 'none');
+      assert.equal(await page.locator('.ship-task-leader').count(), 5);
+      assert.equal(
+        await page.locator('.ship-task-mobile-callout').evaluateAll((badges) => badges.every((badge) => {
+          const style = getComputedStyle(badge);
+          return style.display !== 'none' && badge.dataset.slot && badge.dataset.corner;
+        })),
+        true,
+        `${viewport.label} measured mobile badges`,
+      );
       assert.equal(geometry.navPosition, 'static');
       assert.equal(geometry.buttonPosition, 'static');
       assert.equal(geometry.sharedDetailDisplay, 'none');
@@ -217,13 +227,21 @@ try {
 
     const buttons = page.locator('.ship-task-button');
     assert.equal(await buttons.nth(0).getAttribute('aria-pressed'), 'true');
-    await buttons.nth(1).click();
-    assert.equal(await buttons.nth(1).getAttribute('aria-pressed'), 'true');
     const mobile = viewport.width <= 820;
+    if (mobile) await page.locator('.ship-task-mobile-callout').nth(1).click();
+    else await buttons.nth(1).click();
+    assert.equal(await buttons.nth(1).getAttribute('aria-pressed'), 'true');
     const activeDetail = mobile
       ? page.locator('.ship-task-mobile-panel:not([hidden])')
       : page.locator('.ship-task-detail');
     if (mobile) {
+      assert.equal(await page.locator('.ship-task-mobile-callout').nth(1).getAttribute('aria-pressed'), 'true');
+      assert.equal(
+        await page.locator('.ship-task-mobile-callout').nth(1).evaluate((badge) => getComputedStyle(badge).borderColor),
+        'rgb(255, 162, 79)',
+        `${viewport.label} selected badge becomes amber`,
+      );
+      assert.equal(await page.locator('.ship-task-leader.is-active').count(), 1);
       assert.equal(await page.locator('.ship-task-mobile-panel:not([hidden])').count(), 1);
       assert.equal(await buttons.nth(1).getAttribute('aria-expanded'), 'true');
       assert.equal(await activeDetail.locator('h3').count(), 0, `${viewport.label} inline detail does not repeat the title`);

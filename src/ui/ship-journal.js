@@ -167,7 +167,7 @@ function createLeaders(tasks) {
   return svg;
 }
 
-function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders, buttons, tasks, shipId, visualAnchors }) {
+function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders, buttons, mobileCallouts, mobileBadges, tasks, shipId, visualAnchors }) {
   if (typeof orbit?.getBoundingClientRect !== 'function' || typeof globalThis.requestAnimationFrame !== 'function') return;
   const image = shipVisual.querySelector?.('.directive-media-image');
   if (!image || typeof image.getBoundingClientRect !== 'function') {
@@ -182,14 +182,16 @@ function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders
       observer?.disconnect?.();
       return;
     }
-    const orbitRect = orbit.getBoundingClientRect();
+    const mobile = globalThis.matchMedia?.('(max-width: 820px)')?.matches === true;
+    const orbitRect = mobile ? mobileCallouts.getBoundingClientRect() : orbit.getBoundingClientRect();
     const imageRect = image.getBoundingClientRect();
-    const controlSizes = Object.fromEntries(buttons.map((button) => {
-      const rect = button.getBoundingClientRect();
-      return [button.dataset.taskId, { width: rect.width, height: rect.height }];
+    const controls = mobile ? mobileBadges : buttons;
+    const controlSizes = Object.fromEntries(controls.map((control) => {
+      const rect = control.getBoundingClientRect();
+      return [control.dataset.taskId, { width: rect.width, height: rect.height }];
     }));
     const result = createShipCalloutLayout({
-      mode: 'desktop',
+      mode: mobile ? 'mobile' : 'desktop',
       orbitRect,
       imageRect,
       imageNaturalSize: { width: image.naturalWidth, height: image.naturalHeight },
@@ -202,7 +204,7 @@ function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders
     leaderSvg.dataset.crossingCount = String(result.crossingCount);
     leaderSvg.classList.toggle('is-layout-unavailable', !result.valid);
     result.placements.forEach((placement) => {
-      const button = buttons.find(({ dataset }) => dataset.taskId === placement.taskId);
+      const button = controls.find(({ dataset }) => dataset.taskId === placement.taskId);
       const leader = leaders.find(({ dataset }) => dataset.taskId === placement.taskId);
       if (!button || !leader) return;
       button.style.left = `${placement.controlRect.x}px`;
@@ -224,6 +226,7 @@ function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders
     observer = new globalThis.ResizeObserver(schedule);
     observer.observe(orbit);
     observer.observe(image);
+    observer.observe(mobileCallouts);
   } else {
     globalThis.addEventListener?.('resize', schedule, { passive: true });
   }
@@ -382,10 +385,13 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   const leaders = createLeaders(tasks);
   const taskNav = createElement('nav', 'ship-task-nav');
   taskNav.setAttribute('aria-label', 'Available command tasks');
+  const mobileCallouts = createElement('div', 'ship-task-mobile-callouts');
+  mobileCallouts.setAttribute('aria-label', 'Ship task locations');
   const detail = createElement('section', 'ship-task-detail');
   detail.id = 'ship-task-detail';
   detail.setAttribute('aria-live', 'polite');
   const buttons = [];
+  const mobileBadges = [];
   const mobilePanels = [];
   const segments = ring.segments;
   let selectedId = tasks[0]?.id || null;
@@ -404,11 +410,16 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
       button.classList.toggle('is-selected', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+    mobileBadges.forEach((badge) => {
+      const active = badge.dataset.taskId === taskId;
+      badge.classList.toggle('is-selected', active);
+      badge.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
     replaceChildren(detail, createDetail(task, commandBearing, actions));
     preview(taskId);
   };
-  const toggleExpanded = (taskId) => {
-    expandedId = expandedId === taskId ? null : taskId;
+  const toggleExpanded = (taskId, { forceOpen = false } = {}) => {
+    expandedId = forceOpen ? taskId : (expandedId === taskId ? null : taskId);
     buttons.forEach((button, index) => {
       const expanded = button.dataset.taskId === expandedId;
       button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
@@ -442,6 +453,20 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     info.append(next, createReward(task));
     button.append(titleRow, info);
 
+    const mobileBadge = createElement('button', 'ship-task-mobile-callout');
+    mobileBadge.type = 'button';
+    mobileBadge.dataset.taskId = task.id;
+    mobileBadge.setAttribute('aria-label', `${task.title}, level ${task.level}, restores ${task.reward.cohesion} Cohesion`);
+    mobileBadge.setAttribute('aria-controls', panelId);
+    mobileBadge.setAttribute('aria-pressed', 'false');
+    const badgeIcon = createTaskCategoryIcon(task);
+    if (badgeIcon) mobileBadge.appendChild(badgeIcon);
+    const badgeLevel = createElement('span', 'ship-task-mobile-level');
+    badgeLevel.textContent = `L${task.level}`;
+    mobileBadge.appendChild(badgeLevel);
+    mobileBadges.push(mobileBadge);
+    mobileCallouts.appendChild(mobileBadge);
+
     const mobilePanel = createElement('section', 'ship-task-mobile-panel');
     mobilePanel.id = panelId;
     mobilePanel.hidden = true;
@@ -457,12 +482,18 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     button.addEventListener('blur', () => preview(selectedId));
     button.addEventListener('pointerenter', () => preview(task.id));
     button.addEventListener('pointerleave', () => preview(selectedId));
+    mobileBadge.addEventListener('click', () => {
+      select(task.id);
+      toggleExpanded(task.id, { forceOpen: true });
+      const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+      mobilePanel.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
+    });
     buttons.push(button);
     mobilePanels.push(mobilePanel);
     taskNav.append(button, mobilePanel);
   });
   const orbit = createElement('div', 'ship-cohesion-orbit');
-  orbit.append(ring.root, shipVisual, leaders, taskNav);
+  orbit.append(ring.root, shipVisual, leaders, taskNav, mobileCallouts);
   stage.append(orbit, detail);
   workspace.appendChild(stage);
   installCalloutLayout({
@@ -472,6 +503,8 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     leaderSvg: leaders,
     leaders: [...leaders.children],
     buttons,
+    mobileCallouts,
+    mobileBadges,
     tasks,
     shipId: ship.id,
     visualAnchors: resolvedShipVisual.visualAnchors || {},

@@ -30,6 +30,7 @@ class Element {
     return all(this).find((node) => node.classList.contains(className)) || null;
   }
   contains(candidate) { return candidate === this || this.children.some((child) => child.contains(candidate)); }
+  scrollIntoView(options) { this.scrollRequest = options; }
 }
 
 globalThis.document = {
@@ -39,6 +40,7 @@ globalThis.document = {
   addEventListener: () => {},
   querySelectorAll: () => [],
 };
+globalThis.matchMedia = () => ({ matches: false });
 
 const task = (id, title, level, anchor, primaryFamily) => ({
   id, authored: false, title, level, primaryFamily, reward: { cohesion: level * 5, segments: level }, anchor,
@@ -116,16 +118,21 @@ assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').mat
 assert.equal(byClass('ship-task-button').length, 3);
 assert.equal(byClass('ship-task-button').every((button) => !/ship-task-position-/.test(button.className)), true);
 assert.equal(byClass('ship-task-mobile-panel').length, 3);
+assert.equal(byClass('ship-task-mobile-callout').length, 3);
+assert.match(
+  byClass('ship-task-mobile-callout')[2].getAttribute('aria-label'),
+  /Damage Control Drill, level 2, restores 10 Cohesion/i,
+);
 assert.equal(byClass('ship-task-mobile-panel').every(({ hidden }) => hidden === true), true);
 assert.equal(byClass('ship-task-button').every((button) => button.getAttribute('aria-expanded') === 'false'), true);
 assert.equal(byClass('ship-task-leaders').length, 1);
 assert.equal(byClass('ship-task-leader').length, 3);
 assert.equal(byClass('ship-task-leader').every(({ tagName }) => tagName === 'POLYLINE'), true);
 assert.equal(byClass('ship-task-detail').length, 1);
-assert.equal(byClass('ship-task-category-icon').length, 4);
+assert.equal(byClass('ship-task-category-icon').length, 7);
 assert.deepEqual(
   byClass('ship-task-category-icon').map((icon) => icon.dataset.category),
-  ['personnel', 'coordination', 'training', 'personnel'],
+  ['personnel', 'coordination', 'training', 'personnel', 'coordination', 'training', 'personnel'],
 );
 assert.equal(byClass('ship-task-category-icon').every((icon) => icon.getAttribute('aria-hidden') === 'true'), true);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
@@ -161,5 +168,11 @@ assert.equal(byClass('ship-task-mobile-panel')[1].hidden, true);
 byClass('ship-task-button')[0].click();
 assert.equal(byClass('ship-task-button')[0].getAttribute('aria-expanded'), 'false');
 assert.equal(byClass('ship-task-mobile-panel').every(({ hidden }) => hidden === true), true);
+
+byClass('ship-task-mobile-callout')[2].click();
+assert.equal(byClass('ship-task-button')[2].getAttribute('aria-pressed'), 'true');
+assert.equal(byClass('ship-task-button')[2].getAttribute('aria-expanded'), 'true');
+assert.equal(byClass('ship-task-mobile-panel')[2].hidden, false);
+assert.deepEqual(byClass('ship-task-mobile-panel')[2].scrollRequest, { behavior: 'smooth', block: 'nearest' });
 
 console.log('PASS certified Cohesion Ship panel');

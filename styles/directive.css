@@ -4570,6 +4570,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-leader.is-active { stroke: #ffa24f; stroke-width: 1.5; }
 .directive-expanded-shell .ship-task-leaders.is-layout-unavailable { visibility: hidden; }
 .directive-expanded-shell .ship-task-nav { position: absolute; z-index: 5; inset: 0; pointer-events: none; }
+.directive-expanded-shell .ship-task-mobile-callouts { display: none; }
 .directive-expanded-shell .ship-task-button {
   appearance: none;
   position: absolute;
@@ -4664,7 +4665,34 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .ship-cohesion-ring-layer { top: 50%; width: min(calc(var(--ship-cohesion-canvas-height) - 12px), 76vw, 300px); }
   .directive-expanded-shell .ship-cohesion-segment-shape.is-desktop { display: none; }
   .directive-expanded-shell .ship-cohesion-segment-shape.is-mobile { display: block; }
-  .directive-expanded-shell .ship-task-leaders { display: none; }
+  .directive-expanded-shell .ship-task-leaders { inset: 0 0 auto; display: block; height: var(--ship-cohesion-canvas-height); }
+  .directive-expanded-shell .ship-task-mobile-callouts { position: absolute; z-index: 5; inset: 0 0 auto; display: block; height: var(--ship-cohesion-canvas-height); pointer-events: none; }
+  .directive-expanded-shell .ship-task-mobile-callout {
+    appearance: none;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 38px;
+    min-height: 28px;
+    padding: 4px 5px;
+    color: var(--directive-expanded-text);
+    background: rgba(12, 15, 24, .96);
+    border: 1px solid rgba(155, 130, 207, .62);
+    border-radius: 4px;
+    pointer-events: auto;
+  }
+  .directive-expanded-shell .ship-task-mobile-callout .ship-task-category-icon { width: 14px; height: 14px; flex-basis: 14px; }
+  .directive-expanded-shell .ship-task-mobile-level { color: var(--directive-expanded-text); font: 800 9px/1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+  .directive-expanded-shell .ship-task-mobile-callout.is-selected {
+    color: #ffa24f;
+    border-color: #ffa24f;
+    background: rgba(25, 22, 30, .98);
+  }
+  .directive-expanded-shell .ship-task-mobile-callout.is-selected .ship-task-category-icon,
+  .directive-expanded-shell .ship-task-mobile-callout.is-selected .ship-task-mobile-level { color: #ffa24f; }
+  .directive-expanded-shell .ship-task-mobile-callout:focus-visible { outline: 2px solid #b8d3ff; outline-offset: 2px; }
   .directive-expanded-shell .ship-task-nav {
     position: static;
     grid-row: 2;
