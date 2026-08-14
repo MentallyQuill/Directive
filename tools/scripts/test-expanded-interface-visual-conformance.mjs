@@ -501,133 +501,114 @@ try {
     }
   }
 
-  const measureForegroundVerticalOffset = (hero) => hero.evaluate((node) => {
-    const sceneNode = node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene');
-    const foreground = sceneNode.querySelector('[data-hero-scene-layer="foreground"]');
-    return foreground.offsetTop - (sceneNode.clientHeight / 2);
-  });
-
-  async function measureDesktopHero(route, selector, outsideSelector, stableSelector = outsideSelector) {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await page.goto(`${baseUrl}/production?route=${route}`);
-    await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-    const hero = page.locator(selector);
-    await hero.waitFor();
-    const finePointer = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
-    const collapsedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    const glyphBorderBeforeHover = await hero.locator('.directive-responsive-hero-toggle').evaluate(
-      (node) => getComputedStyle(node, '::after').borderColor
-    );
-    const outsideTopBeforeHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
-    await hero.hover();
-    await page.waitForTimeout(220);
-    const hoverHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    const glyphBorderAfterHover = await hero.locator('.directive-responsive-hero-toggle').evaluate(
-      (node) => getComputedStyle(node, '::after').borderColor
-    );
-    const outsideTopAfterHover = Math.round(await page.locator(stableSelector).evaluate((node) => node.getBoundingClientRect().top));
-    await hero.click();
-    await page.waitForTimeout(220);
-    const expandedHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    await page.locator(outsideSelector).click();
-    await page.waitForTimeout(220);
-    const afterOutsideClickHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    const expandedAfterOutsideClick = await hero.evaluate((node) => node.classList.contains('is-expanded'));
-    const scene = await hero.evaluate((node) => {
-      const layers = [...node.querySelectorAll('.directive-hero-scene-layer')];
-      const sceneNode = node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene');
-      const sceneStyle = getComputedStyle(sceneNode);
+  async function measureCampaignDashboard(page) {
+    return page.locator('.campaign-dashboard').evaluate((dashboard) => {
+      const heading = dashboard.querySelector('.campaign-dashboard-heading');
+      const hero = dashboard.querySelector('.campaign-dashboard-hero');
+      const actions = dashboard.querySelector('.campaign-dashboard-actions');
+      const routeBar = dashboard.closest('.directive-workspace').querySelector('.directive-route-bar');
+      const scene = hero.querySelector('.directive-hero-scene');
+      const layers = [...hero.querySelectorAll('.directive-hero-scene-layer')];
       const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
+      const sceneStyle = getComputedStyle(scene);
       const foregroundStyle = getComputedStyle(foreground);
+      const rect = (node) => {
+        const value = node.getBoundingClientRect();
+        return {
+          left: value.left, top: value.top, right: value.right, bottom: value.bottom,
+          width: value.width, height: value.height
+        };
+      };
+      const heroRect = rect(hero);
+      const foregroundRect = rect(foreground);
+      const visibleWidth = Math.max(
+        0,
+        Math.min(heroRect.right, foregroundRect.right) - Math.max(heroRect.left, foregroundRect.left)
+      );
       return {
-        order: layers.map((layer) => layer.dataset.heroSceneLayer),
+        dashboard: rect(dashboard),
+        heading: rect(heading),
+        hero: heroRect,
+        actions: rect(actions),
+        routeBar: rect(routeBar),
+        actionBoxes: [...actions.children].map((node) => ({
+          action: node.dataset.campaignAction,
+          ...rect(node)
+        })),
+        heroToggleCount: hero.querySelectorAll('.directive-responsive-hero-toggle').length,
+        heroTransitionDuration: getComputedStyle(hero).transitionDuration,
+        heroExpanded: hero.classList.contains('is-expanded'),
+        layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
         naturalSizes: layers.map((layer) => `${layer.naturalWidth}x${layer.naturalHeight}`),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
         timingFunctions: layers.map((layer) => getComputedStyle(layer).animationTimingFunction),
+        willChange: layers.map((layer) => getComputedStyle(layer).willChange),
         starBlends: layers
           .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
           .map((layer) => getComputedStyle(layer).mixBlendMode),
         starPositions: layers
           .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
           .map((layer) => getComputedStyle(layer).objectPosition),
-        willChange: layers.map((layer) => getComputedStyle(layer).willChange),
+        foregroundVisibleWidthRatio: visibleWidth / foregroundRect.width,
         sourceCanvas: {
-          widthRatio: foreground.offsetWidth / sceneNode.clientWidth,
+          widthRatio: foreground.offsetWidth / scene.clientWidth,
           aspectRatio: foreground.offsetWidth / foreground.offsetHeight,
-          centerXRatio: foreground.offsetLeft / sceneNode.clientWidth,
-          centerYRatio: foreground.offsetTop / sceneNode.clientHeight,
-          verticalOffset: foreground.offsetTop - (sceneNode.clientHeight / 2),
+          centerXRatio: foreground.offsetLeft / scene.clientWidth,
+          verticalOffset: foreground.offsetTop - (scene.clientHeight / 2),
           translate: foregroundStyle.translate
         },
         motionBounds: {
           scaleStart: sceneStyle.getPropertyValue('--directive-hero-ship-scale-start').trim(),
           scaleEnd: sceneStyle.getPropertyValue('--directive-hero-ship-scale-end').trim(),
+          restScale: sceneStyle.getPropertyValue('--directive-hero-ship-rest-scale').trim(),
           rotateStart: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-start').trim(),
           rotateEnd: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-end').trim()
-        }
+        },
+        horizontalOverflow: dashboard.scrollWidth - dashboard.clientWidth
       };
     });
-    await hero.click();
-    await page.waitForTimeout(220);
-    const finalHeight = Math.round(await hero.evaluate((node) => node.getBoundingClientRect().height));
-    const expandedFinally = await hero.evaluate((node) => node.classList.contains('is-expanded'));
-    await page.close();
-    return {
-      finePointer,
-      collapsedHeight,
-      hoverHeight,
-      glyphBorderBeforeHover,
-      glyphBorderAfterHover,
-      outsideTopBeforeHover,
-      outsideTopAfterHover,
-      expandedHeight,
-      afterOutsideClickHeight,
-      expandedAfterOutsideClick,
-      finalHeight,
-      expandedFinally,
-      scene
-    };
   }
 
-  const desktopCampaignHero = await measureDesktopHero(
-    'campaign',
-    '.campaign-dashboard .directive-responsive-hero',
-    '.campaign-dashboard-heading',
-    '.campaign-dashboard-actions'
-  );
-  for (const [label, result] of [['Campaign', desktopCampaignHero]]) {
-    assert.equal(result.finePointer, true);
-    assert.equal(result.collapsedHeight, 140, `${label} must start compact`);
-    assert.equal(result.hoverHeight, 140, `${label} hover must not change geometry`);
-    assert.notEqual(result.glyphBorderAfterHover, result.glyphBorderBeforeHover, `${label} hover must highlight only the toggle glyph`);
-    assert.equal(result.outsideTopAfterHover, result.outsideTopBeforeHover, `${label} hover must not move content below the banner`);
-    assert.equal(result.expandedHeight, 320, `${label} click must expand the desktop banner forty pixels taller`);
-    assert.equal(result.afterOutsideClickHeight, 320, `${label} outside click must leave the taller desktop banner expanded`);
-    assert.equal(result.expandedAfterOutsideClick, true);
-    assert.equal(result.finalHeight, 140, `${label} second banner click must collapse it`);
-    assert.equal(result.expandedFinally, false);
-    assert.deepEqual(result.scene.order, ['background', 'stars', 'stars-glow', 'foreground']);
-    assert.deepEqual(result.scene.objectFits, ['cover', 'cover', 'cover', 'contain'], `${label} must preserve the complete foreground ship canvas without changing the fill layers`);
-    assert.deepEqual(result.scene.naturalSizes, ['1672x941', '1672x941', '1672x941', '1672x941'], `${label} layered scene assets must retain their original authored dimensions`);
-    assert.deepEqual(result.scene.animations, [
-      'none', 'directive-hero-stars-drift', 'directive-hero-stars-parallax, directive-hero-stars-shimmer', 'directive-hero-ship-drift'
-    ], `${label} scene must animate while compact`);
-    assert.deepEqual(result.scene.timingFunctions, [
-      'ease', 'linear', 'linear, ease-in-out', 'linear'
-    ], `${label} drift must not become visually stationary near its endpoints`);
-    assert.deepEqual(result.scene.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
-    assert.deepEqual(result.scene.starBlends, ['plus-lighter', 'plus-lighter'], `${label} star planes must use additive blending`);
-    assert.deepEqual(result.scene.starPositions, ['50% 50%', '48% 52%'], `${label} star planes must start from visibly offset positions`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.widthRatio - 1) < .002, `${label} ship source canvas must use the original full-width baseline before scaling`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.aspectRatio - (1672 / 941)) < .002, `${label} ship source canvas must preserve its intrinsic aspect ratio`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.centerXRatio - .5) < .002, `${label} ship source canvas must stay horizontally centered`);
-    assert.ok(Math.abs(result.scene.sourceCanvas.verticalOffset - 20) < 1, `${label} ship source canvas must sit 20px below the banner center`);
-    assert.equal(result.scene.sourceCanvas.translate, '-50% -50%', `${label} ship source canvas must center before the banner clips its scaled composition`);
-    assert.deepEqual(result.scene.motionBounds, {
-      scaleStart: '.79', scaleEnd: '.81', rotateStart: '-.15deg', rotateEnd: '.15deg'
-    }, `${label} ship must drift around an eighty-percent source-canvas scale without rewriting the asset`);
-  }
+  const desktopCampaignPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await desktopCampaignPage.goto(`${baseUrl}/production?route=campaign`);
+  await desktopCampaignPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const desktopCampaign = await measureCampaignDashboard(desktopCampaignPage);
+  assert.ok(Math.abs(desktopCampaign.hero.top - desktopCampaign.heading.bottom) < 1, 'desktop hero must start directly below the Campaign header');
+  assert.ok(Math.abs(desktopCampaign.actions.top - desktopCampaign.hero.bottom) < 1, 'desktop dock must start directly below the hero');
+  assert.ok(Math.abs(desktopCampaign.actions.bottom - desktopCampaign.dashboard.bottom) < 1, 'desktop dock must form the dashboard bottom edge');
+  assert.ok(desktopCampaign.routeBar.top - desktopCampaign.dashboard.bottom <= 16, 'desktop dock must sit immediately above route navigation');
+  assert.ok(desktopCampaign.hero.height > 400, 'desktop hero must consume the available panel height');
+  assert.equal(desktopCampaign.heroToggleCount, 0);
+  assert.equal(desktopCampaign.heroTransitionDuration, '0s');
+  assert.equal(desktopCampaign.heroExpanded, false);
+  assert.deepEqual(desktopCampaign.layerOrder, ['background', 'stars', 'stars-glow', 'foreground']);
+  assert.deepEqual(desktopCampaign.objectFits, ['cover', 'cover', 'cover', 'contain'], 'dashboard must keep fill layers covering and the foreground ship contained');
+  assert.deepEqual(desktopCampaign.naturalSizes, ['1672x941', '1672x941', '1672x941', '1672x941']);
+  assert.deepEqual(desktopCampaign.animations, [
+    'none', 'directive-hero-stars-drift', 'directive-hero-stars-parallax, directive-hero-stars-shimmer', 'directive-hero-ship-drift'
+  ], 'dashboard scene must retain every authored animation layer');
+  assert.deepEqual(desktopCampaign.timingFunctions, ['ease', 'linear', 'linear, ease-in-out', 'linear']);
+  assert.deepEqual(desktopCampaign.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
+  assert.deepEqual(desktopCampaign.starBlends, ['plus-lighter', 'plus-lighter']);
+  assert.deepEqual(desktopCampaign.starPositions, ['50% 50%', '48% 52%']);
+  assert.ok(desktopCampaign.foregroundVisibleWidthRatio > .99, 'desktop must keep the complete drifting ship visible');
+  assert.ok(Math.abs(desktopCampaign.sourceCanvas.widthRatio - 1) < .002);
+  assert.ok(Math.abs(desktopCampaign.sourceCanvas.aspectRatio - (1672 / 941)) < .002);
+  assert.ok(Math.abs(desktopCampaign.sourceCanvas.centerXRatio - .5) < .002);
+  assert.ok(Math.abs(desktopCampaign.sourceCanvas.verticalOffset - 20) < 1);
+  assert.equal(desktopCampaign.sourceCanvas.translate, '-50% -50%');
+  assert.deepEqual(desktopCampaign.motionBounds, {
+    scaleStart: '.79', scaleEnd: '.81', restScale: '.8', rotateStart: '-.15deg', rotateEnd: '.15deg'
+  });
+  assert.ok(desktopCampaign.actionBoxes.every((box) => Math.abs(box.top - desktopCampaign.actionBoxes[0].top) < 1), 'desktop campaign actions must share one row');
+  assert.ok(desktopCampaign.horizontalOverflow <= 1);
+  await desktopCampaignPage.locator('.campaign-dashboard-hero').click();
+  await desktopCampaignPage.waitForTimeout(220);
+  const desktopAfterClick = await measureCampaignDashboard(desktopCampaignPage);
+  assert.ok(Math.abs(desktopAfterClick.hero.height - desktopCampaign.hero.height) < 1, 'desktop click must not resize the Campaign hero');
+  assert.equal(desktopAfterClick.heroExpanded, false);
+  await desktopCampaignPage.close();
 
   const touchContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -637,34 +618,30 @@ try {
   const touchPage = await touchContext.newPage();
   await touchPage.goto(`${baseUrl}/production?route=campaign`);
   await touchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const mobileCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
-  const mobileCampaignToggle = mobileCampaignHero.locator('.directive-responsive-hero-toggle');
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) + 20) < 1, 'mobile compact Campaign ship must sit 20px above center');
-  assert.deepEqual(await mobileCampaignHero.evaluate((node) => {
-    const style = getComputedStyle(node.classList.contains('directive-hero-scene') ? node : node.querySelector('.directive-hero-scene'));
-    return {
-      scaleStart: style.getPropertyValue('--directive-hero-ship-scale-start').trim(),
-      scaleEnd: style.getPropertyValue('--directive-hero-ship-scale-end').trim(),
-      restScale: style.getPropertyValue('--directive-hero-ship-rest-scale').trim()
-    };
-  }), { scaleStart: '1.035', scaleEnd: '1.045', restScale: '1.04' }, 'mobile Campaign ship must be thirty percent larger than the desktop baseline');
-  await mobileCampaignToggle.tap();
+  const mobileCampaign = await measureCampaignDashboard(touchPage);
+  assert.ok(Math.abs(mobileCampaign.hero.top - mobileCampaign.heading.bottom) < 1, 'mobile hero must start directly below the Campaign header');
+  assert.ok(Math.abs(mobileCampaign.actions.top - mobileCampaign.hero.bottom) < 1, 'mobile dock must start directly below the hero');
+  assert.ok(Math.abs(mobileCampaign.actions.bottom - mobileCampaign.dashboard.bottom) < 1, 'mobile dock must form the dashboard bottom edge');
+  assert.ok(mobileCampaign.routeBar.top - mobileCampaign.dashboard.bottom <= 16, 'mobile dock must sit immediately above route navigation');
+  assert.ok(mobileCampaign.hero.height > 350, 'mobile hero must consume the available portrait panel height');
+  assert.equal(mobileCampaign.heroToggleCount, 0);
+  assert.equal(mobileCampaign.heroTransitionDuration, '0s');
+  assert.ok(mobileCampaign.foregroundVisibleWidthRatio > .9, 'mobile must retain the broad bow-to-stern ship composition');
+  assert.ok(Math.abs(mobileCampaign.sourceCanvas.aspectRatio - (1672 / 941)) < .002);
+  assert.ok(Math.abs(mobileCampaign.sourceCanvas.verticalOffset + 20) < 1);
+  assert.deepEqual(mobileCampaign.motionBounds, {
+    scaleStart: '1.035', scaleEnd: '1.045', restScale: '1.04', rotateStart: '-.075deg', rotateEnd: '.075deg'
+  });
+  assert.ok(mobileCampaign.actionBoxes.every((box) => box.height >= 44));
+  assert.ok(Math.abs(mobileCampaign.actionBoxes[0].top - mobileCampaign.actionBoxes[3].top) < 1, 'Continue and Delete must share mobile row one');
+  assert.ok(Math.abs(mobileCampaign.actionBoxes[1].top - mobileCampaign.actionBoxes[2].top) < 1, 'Save and Load must share mobile row two');
+  assert.ok(mobileCampaign.actionBoxes[1].top > mobileCampaign.actionBoxes[0].bottom, 'mobile action row two must follow row one');
+  assert.ok(mobileCampaign.horizontalOverflow <= 1);
+  await touchPage.locator('.campaign-dashboard-hero').tap();
   await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileCampaignHero) + 20) < 1, 'mobile expanded Campaign ship must stay 20px above center');
-  assert.equal(await mobileCampaignToggle.getAttribute('aria-expanded'), 'true');
-  await mobileCampaignToggle.tap();
-  await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  await mobileCampaignToggle.tap();
-  await touchPage.waitForTimeout(220);
-  await touchPage.locator('.campaign-dashboard-heading').tap();
-  await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 220, 'outside tap must leave Campaign hero expanded');
-  await mobileCampaignToggle.tap();
-  await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
+  const mobileAfterTap = await measureCampaignDashboard(touchPage);
+  assert.ok(Math.abs(mobileAfterTap.hero.height - mobileCampaign.hero.height) < 1, 'mobile tap must not resize the Campaign hero');
+  assert.equal(mobileAfterTap.heroExpanded, false);
 
   await touchPage.locator('[data-route-id="ship"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="ship"]');
@@ -673,8 +650,9 @@ try {
 
   await touchPage.locator('[data-route-id="campaign"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="campaign"]');
-  const returnedCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
-  assert.equal(Math.round(await returnedCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'Campaign must start compact after route re-entry');
+  const returnedCampaign = await measureCampaignDashboard(touchPage);
+  assert.equal(returnedCampaign.heroToggleCount, 0, 'Campaign must remain non-interactive after route re-entry');
+  assert.ok(returnedCampaign.hero.height > 350, 'Campaign must refill the panel after route re-entry');
   await touchContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });

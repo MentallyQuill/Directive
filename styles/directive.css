@@ -3439,10 +3439,11 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .campaign-dashboard {
   display: grid;
-  align-content: start;
+  align-content: stretch;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   margin: 11px 0;
-  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  padding-bottom: 0;
   overflow-x: hidden;
   overflow-y: auto;
   background: var(--directive-expanded-surface);
@@ -3481,6 +3482,18 @@ textarea.directive-field-control {
 .directive-expanded-shell .campaign-dashboard-actions .campaign-command {
   min-width: 0;
   min-height: 44px;
+}
+
+.directive-expanded-shell .campaign-dashboard > .campaign-dashboard-hero {
+  min-height: 0;
+  height: auto;
+}
+
+.directive-expanded-shell .campaign-dashboard > .campaign-dashboard-actions {
+  margin: 0;
+  padding: 12px 20px max(12px, env(safe-area-inset-bottom)) 26px;
+  background: var(--directive-expanded-surface);
+  border-top: 1px solid rgba(255, 159, 74, .28);
 }
 
 .directive-expanded-shell .campaign-delete-icon-command {
@@ -3571,8 +3584,8 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="load"] { grid-column: 2; grid-row: 2; }
   .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="delete"] {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 12px;
+    right: 12px;
   }
 
   .directive-expanded-shell .campaign-journal {
