@@ -11,13 +11,15 @@ This is presentation-only. It does not change route selection, shell structure, 
 Each segment remains a flat colored LCARS face. Illumination must resemble light passing through a translucent prop panel rather than a glossy digital button:
 
 - preserve the segment's existing amber, lilac, blue, violet, or salmon hue;
-- add no more than approximately 10-15% pale warmth to the illuminated color;
-- keep the illuminated field nearly uniform, with only approximately 2-4% visual falloff at the segment edges;
+- add approximately 20-28% pale warmth to the overlay color, then temper it through overlay opacity so the base hue remains recognizable;
+- keep the illuminated field broad and nearly uniform, with the edges approximately 8 percentage points dimmer than the center;
 - contain every light cue inside the segment boundary;
 - use at most a faint one-pixel inset highlight and a restrained internal light field;
 - do not add an outer shadow, drop shadow, bloom, white hotspot, glossy streak, strong saturation change, or visible bevel.
 
 The segment does not translate, scale, depress, or otherwise change geometry. The impression of activation comes from its discrete change in internal luminance and the console-like timing of that change.
+
+The illuminated state must also clear a perceptibility floor. After overlay opacity is composited against the segment face, the center of every desktop segment must gain at least 14 relative sRGB luminance levels on a 0-255 scale and no more than 30. The phone treatment may be slightly weaker, but must still gain at least 13 levels. This keeps the state readable in peripheral vision without turning it into a white flash.
 
 ## Animation choreography
 
@@ -25,11 +27,11 @@ The five segments share a deterministic 32-second choreography. Most activations
 
 Each activation has three phases:
 
-1. A quick approximately 130ms switch-on.
-2. An illuminated hold lasting approximately 650-800ms.
-3. A softer approximately 350ms release.
+1. A quick approximately 160ms switch-on.
+2. An illuminated hold lasting approximately 1.5-1.7 seconds.
+3. A softer approximately 450-500ms release.
 
-The individual event starts are spaced approximately 6-11 seconds apart, apart from the intentional paired overlap. The long quiet intervals matter more than exact timing: the rail should be easy to ignore and should only occasionally catch the eye.
+The individual event starts are spaced approximately 5-8 seconds apart, apart from the intentional paired overlap. The long quiet intervals matter more than exact timing: the rail should be easy to ignore, but an activation should remain visible long enough to register when it catches the eye.
 
 The sequence is ambient and decorative. It does not follow the active route, clicks, loading state, model activity, mission state, or any other application event. Reconstructing the shell may restart the deterministic sequence without persisting animation state.
 
@@ -51,7 +53,7 @@ No JavaScript timer, runtime randomness, event listener, canvas, image asset, or
 
 ## Responsive behavior
 
-Desktop uses the full restrained illumination strength. At the narrow mobile rail width, the pseudo-element uses a weaker peak opacity so the same light field does not dominate the 24px strip. Segment dimensions, gaps, labels, corner radii, shell insets, safe-area handling, and route controls remain unchanged.
+Desktop uses the full restrained illumination strength. At the narrow mobile rail width, the pseudo-element uses a slightly weaker peak opacity while retaining the perceptibility floor. Segment dimensions, gaps, labels, corner radii, shell insets, safe-area handling, and route controls remain unchanged.
 
 ## Reduced motion and accessibility
 
@@ -72,6 +74,7 @@ Focused source tests will prove:
 - the overlay derives its fill from `--directive-rail-color` and contains no external shadow or filter;
 - all five segments use the shared 32-second relay animation with explicit delays;
 - the shared keyframe has a quick attack, bounded hold, softer release, and a transparent idle state;
+- the composited center luminance clears the desktop and phone perceptibility floors without exceeding the upper bound;
 - mobile lowers the illumination strength without changing rail geometry;
 - reduced-motion mode disables the animation and holds the overlays transparent;
 - no JavaScript or DOM change is needed for the effect.
