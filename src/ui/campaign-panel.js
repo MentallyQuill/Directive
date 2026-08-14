@@ -5,7 +5,6 @@ import { ASHES_V1_PACKAGE_ID } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedCampaignView } from './view-models/certified-campaign-view.mjs';
 import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
-import { bindResponsiveHero } from './responsive-hero.js';
 import { createPackageHeroVisual } from './package-hero-scene.js';
 
 let selectedRecordKey = null;
@@ -85,7 +84,7 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
   if (dashboard) {
     hero.classList.add('campaign-dashboard-hero');
   } else {
-    bindResponsiveHero(hero, { label: 'Campaign', secondary: [meta, summary] });
+    hero.classList.add('campaign-browser-hero');
   }
   detail.appendChild(hero);
 
@@ -179,7 +178,7 @@ function createCampaignFact({ label, value }) {
 
 function appendPackageDetail(detail, pack, actions, { compactIdentity = false } = {}) {
   const unavailable = pack.disabled === true;
-  const hero = createElement('section', `campaign-hero campaign-library-hero${unavailable ? ' is-coming-later' : ''}`);
+  const hero = createElement('section', `campaign-hero campaign-browser-hero campaign-library-hero${unavailable ? ' is-coming-later' : ''}`);
   if (compactIdentity) hero.classList.add('campaign-hero-compact-identity');
   hero.dataset.campaignAvailability = pack.availability;
   hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
@@ -195,7 +194,6 @@ function appendPackageDetail(detail, pack, actions, { compactIdentity = false } 
     copy.appendChild(title);
   }
   if (copy.children.length) hero.appendChild(copy);
-  bindResponsiveHero(hero, { label: 'Campaign' });
   detail.appendChild(hero);
 
   const body = createElement('div', 'campaign-library-detail-body');
