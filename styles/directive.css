@@ -207,7 +207,7 @@
   to { opacity: 0; transform: translateY(-6px); }
 }
 
-@media (max-width: 360px) {
+@media (max-width: 360.5px) {
   .directive-gameplay-notification-view {
     width: 44px;
     min-width: 44px;

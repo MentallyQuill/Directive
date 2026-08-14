@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +8,12 @@ import { chromium } from 'playwright';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const port = 57000 + (process.pid % 7000);
 const baseUrl = `http://127.0.0.1:${port}`;
+const notificationCss = fs.readFileSync(path.join(repoRoot, 'styles', 'directive.css'), 'utf8');
+assert.match(
+  notificationCss,
+  /@media\s*\(max-width:\s*360\.5px\)[\s\S]*?\.directive-gameplay-notification-view-text\s*\{\s*display:\s*none;/,
+  'the compact View label breakpoint must tolerate fractional 360px browser viewports',
+);
 
 async function waitForServer() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
