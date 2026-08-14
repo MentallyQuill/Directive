@@ -4,6 +4,8 @@ const checks = [
   "test-v1-cohesion-contracts.mjs",
   "test-v1-cohesion-state.mjs",
   "test-v1-cohesion-scheduler.mjs",
+  "test-v1-cohesion-evidence.mjs",
+  "test-v1-cohesion-state-spine.mjs",
   "test-browser-runtime-safety.mjs",
   "test-certified-ui-authority.mjs",
   "test-certified-campaign-view.mjs",

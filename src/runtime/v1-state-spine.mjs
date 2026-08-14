@@ -13,6 +13,9 @@ import {
     appendShipWorkEvidenceToMissionState,
     validateShipWorkEvidenceProposal,
 } from '../ship/v1/ship-work-evidence.mjs';
+import { validateCohesionEvidenceProposal } from '../ship/v1/cohesion-evidence.mjs';
+import { deriveCohesionState } from '../ship/v1/cohesion-state.mjs';
+import { planCohesionOpportunity } from '../ship/v1/cohesion-scheduler.mjs';
 import { deriveShipMechanicsState } from '../ship/v1/ship-mechanics-state.mjs';
 import {
     createInitialMissionJourney,
@@ -550,6 +553,8 @@ export function createV1StateSpine({
         acceptedCommandBearingEdge = null,
         shipDataset = null,
         shipProposal = null,
+        cohesionCatalog = null,
+        cohesionProposal = null,
         peopleEvents = [],
         knownPersonIds = [],
     } = {}) {
@@ -576,6 +581,15 @@ export function createV1StateSpine({
                 shipDataset,
                 storySettlement: currentStorySettlement,
                 proposal: shipProposal,
+                resolveSourceRef,
+            })
+            : { acceptedClaims: [], rejectedClaims: [], effects: [] };
+        const cohesionEvidence = cohesionProposal && cohesionCatalog && shipDataset
+            ? validateCohesionEvidenceProposal({
+                catalog: cohesionCatalog,
+                shipDataset,
+                storySettlement: currentStorySettlement,
+                proposal: cohesionProposal,
                 resolveSourceRef,
             })
             : { acceptedClaims: [], rejectedClaims: [], effects: [] };
@@ -630,18 +644,51 @@ export function createV1StateSpine({
 
         let storySettlement = currentStorySettlement;
         const contributions = normalizedSourceContributions({
-            acceptedClaims: [...evidence.acceptedClaims, ...shipEvidence.acceptedClaims],
+            acceptedClaims: [...evidence.acceptedClaims, ...shipEvidence.acceptedClaims, ...cohesionEvidence.acceptedClaims],
             sourceContribution,
             sourceContributions,
         });
-        const allProposedClaims = [...(proposal.claims || []), ...(shipProposal?.claims || [])];
-        const allRejectedClaims = [...evidence.rejectedClaims, ...shipEvidence.rejectedClaims];
+        const allProposedClaims = [...(proposal.claims || []), ...(shipProposal?.claims || []), ...(cohesionProposal?.claims || [])];
+        const allRejectedClaims = [...evidence.rejectedClaims, ...shipEvidence.rejectedClaims, ...cohesionEvidence.rejectedClaims];
         const duplicateReplay = allProposedClaims.length > 0
             && evidence.acceptedClaims.length === 0
             && shipEvidence.acceptedClaims.length === 0
+            && cohesionEvidence.acceptedClaims.length === 0
             && allRejectedClaims.length === allProposedClaims.length
             && allRejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
-        const storyEffects = [...missionResult.effects, ...shipEvidence.effects];
+        const plannedElapsedSeconds = authorityPatch?.timeLedger?.elapsedSeconds
+            ?? campaignState?.timeLedger?.elapsedSeconds
+            ?? ((campaignState?.timeLedger?.elapsedMinutes || 0) * 60);
+        const schedulingBoundary = hardBoundary?.code
+            || (missionResult.transitionPacket ? 'mission-transition' : null);
+        const cohesionOpportunity = cohesionCatalog && shipDataset
+            ? planCohesionOpportunity({
+                catalog: cohesionCatalog,
+                cohesionState: deriveCohesionState({
+                    catalog: cohesionCatalog,
+                    shipDataset,
+                    storySettlement: currentStorySettlement,
+                    branchId: proposal.branchId,
+                }),
+                authoritativeTime: { elapsedSeconds: plannedElapsedSeconds },
+                boundary: schedulingBoundary,
+                campaignIdentity: {
+                    packageId: campaignState?.activeCampaignPackage?.packageId || cohesionCatalog.packageId,
+                    campaignId: campaignState?.campaign?.id || campaignState?.campaignId || '',
+                    branchId: proposal.branchId,
+                    majorArcId: campaignState?.mission?.v1Journey?.currentArcId
+                        || campaignState?.mission?.activeMissionId
+                        || 'campaign',
+                },
+                sourceContributionIds: contributions.supplied.map((item) => item.id),
+            })
+            : { due: false, effects: [] };
+        const storyEffects = [
+            ...missionResult.effects,
+            ...shipEvidence.effects,
+            ...cohesionEvidence.effects,
+            ...cohesionOpportunity.effects,
+        ];
         if ((storyEffects.length > 0 || peopleEvents.length > 0 || contributions.supplied.length > 0)
             && storySettlement.activeEpisode === null) {
             storySettlement = openStoryEpisode(storySettlement, {
@@ -728,6 +775,8 @@ export function createV1StateSpine({
             return {
                 evidence,
                 shipEvidence,
+                cohesionEvidence,
+                cohesionOpportunity,
                 missionResult,
                 storySettlement,
                 campaignState: structuredClone(campaignState),
@@ -782,6 +831,9 @@ export function createV1StateSpine({
                 rejectedClaimCount: evidence.rejectedClaims.length,
                 acceptedShipClaimCount: shipEvidence.acceptedClaims.length,
                 rejectedShipClaimCount: shipEvidence.rejectedClaims.length,
+                acceptedCohesionClaimCount: cohesionEvidence.acceptedClaims.length,
+                rejectedCohesionClaimCount: cohesionEvidence.rejectedClaims.length,
+                cohesionOpportunityOutcome: cohesionOpportunity.opportunityEffect?.outcome || null,
                 transitionActivationStatus: transitionActivation.status,
                 transitionTargetDefinitionId: transitionActivation.targetDefinitionId,
                 commandBearingAwardCount,
@@ -790,6 +842,8 @@ export function createV1StateSpine({
         return {
             evidence,
             shipEvidence,
+            cohesionEvidence,
+            cohesionOpportunity,
             missionResult,
             storySettlement,
             campaignState: committed.campaignState,

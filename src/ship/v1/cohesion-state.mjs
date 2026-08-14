@@ -24,7 +24,7 @@ function requiredSequence(value) {
   return value;
 }
 
-function baseEffect({ id, type, targetId, sequence, sourceContributionIds = [] }) {
+function baseEffect({ id, type, targetId, sequence, sourceContributionIds = [], playerVisibility = 'visible' }) {
   return Object.freeze({
     id: requiredText(id, 'effect id'),
     type,
@@ -32,6 +32,7 @@ function baseEffect({ id, type, targetId, sequence, sourceContributionIds = [] }
     targetId: requiredText(targetId, 'target id'),
     sequence: requiredSequence(sequence),
     sourceContributionIds: Object.freeze([...new Set(sourceContributionIds)].sort()),
+    playerVisibility,
   });
 }
 
@@ -41,7 +42,7 @@ export function createCohesionOpportunityCheckedEffect({
   if (!Number.isInteger(elapsedSeconds) || elapsedSeconds < 0) throw new TypeError('elapsedSeconds must be non-negative');
   if (!['created', 'none', 'paused', 'ineligible'].includes(outcome)) throw new TypeError('opportunity outcome is invalid');
   return Object.freeze({
-    ...baseEffect({ id, type: EFFECT_TYPES.opportunity, targetId: `cohesion-opportunity.${sequence}`, sequence, sourceContributionIds }),
+    ...baseEffect({ id, type: EFFECT_TYPES.opportunity, targetId: `cohesion-opportunity.${sequence}`, sequence, sourceContributionIds, playerVisibility: 'hidden' }),
     elapsedSeconds,
     boundary: boundary == null ? null : String(boundary),
     outcome,
@@ -104,7 +105,7 @@ export function createCohesionGenerationGuardEffect({
 } = {}) {
   if (!Number.isInteger(remainingChecks) || remainingChecks < 1) throw new TypeError('remainingChecks must be positive');
   return Object.freeze({
-    ...baseEffect({ id, type: EFFECT_TYPES.guard, targetId: guardId, sequence, sourceContributionIds }),
+    ...baseEffect({ id, type: EFFECT_TYPES.guard, targetId: guardId, sequence, sourceContributionIds, playerVisibility: 'hidden' }),
     remainingChecks,
   });
 }

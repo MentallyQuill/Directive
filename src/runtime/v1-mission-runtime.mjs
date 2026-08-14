@@ -9,6 +9,10 @@ import {
     SHIP_WORK_EVIDENCE_PROPOSAL_KIND,
 } from '../ship/v1/ship-work-evidence.mjs';
 import {
+    COHESION_EVIDENCE_PROPOSAL_KIND,
+    createCohesionInterpretationCandidates,
+} from '../ship/v1/cohesion-evidence.mjs';
+import {
     createPendingEpisodeReviewToken,
     createV1StateSpine,
     resolveV1MissionState,
@@ -1240,6 +1244,14 @@ export function createV1MissionRuntime({
                     shipDataset: runtimeAssets?.shipDataset || {},
                     storySettlement: campaignState?.storySettlement || {},
                 }),
+                ...(runtimeAssets?.cohesionCatalog
+                    ? createCohesionInterpretationCandidates({
+                        catalog: runtimeAssets.cohesionCatalog,
+                        shipDataset: runtimeAssets?.shipDataset || {},
+                        storySettlement: campaignState?.storySettlement || {},
+                        branchId,
+                    })
+                    : []),
             ].sort((left, right) => left.id.localeCompare(right.id)),
         };
         const peopleContext = createPeopleInterpretationContext({
@@ -1399,12 +1411,17 @@ export function createV1MissionRuntime({
         }
         const interpretedMissionProposal = {
             ...interpreted.proposal,
-            claims: (interpreted.proposal?.claims || []).filter((claim) => claim.domain !== 'shipWork'),
+            claims: (interpreted.proposal?.claims || []).filter((claim) => !new Set(['shipWork', 'cohesion']).has(claim.domain)),
         };
         const shipProposal = {
             kind: SHIP_WORK_EVIDENCE_PROPOSAL_KIND,
             branchId,
             claims: (interpreted.proposal?.claims || []).filter((claim) => claim.domain === 'shipWork'),
+        };
+        const cohesionProposal = {
+            kind: COHESION_EVIDENCE_PROPOSAL_KIND,
+            branchId,
+            claims: (interpreted.proposal?.claims || []).filter((claim) => claim.domain === 'cohesion'),
         };
         const dutyProposal = proposalWithDutyReportCustody({
             definition,
@@ -1505,6 +1522,8 @@ export function createV1MissionRuntime({
                 acceptedCommandBearingEdge,
                 shipDataset: runtimeAssets?.shipDataset || null,
                 shipProposal,
+                cohesionCatalog: runtimeAssets?.cohesionCatalog || null,
+                cohesionProposal,
                 peopleEvents,
                 knownPersonIds: peopleContext.knownPeople.map((person) => person.id),
             });
