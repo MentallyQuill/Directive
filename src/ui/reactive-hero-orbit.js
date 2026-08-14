@@ -5,11 +5,13 @@ const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const amplitude = (size, ratio, floor, ceiling) => clamp((Number(size) || 0) * ratio, floor, ceiling);
+const touchAmplitude = (size, ratio, floor, ceiling) => Math.round(amplitude(size, ratio, floor, ceiling) * 10000) / 10000;
 const scaled = (value, amount) => (value * amount) || 0;
 
-export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0 } = {}) {
+export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0, response = 'precise' } = {}) {
   const normalizedX = clamp(x, -1, 1);
   const normalizedY = clamp(y, -1, 1);
+  const touchResponse = response === 'touch';
   const safeBackgroundY = Math.round(Math.min(
     amplitude(height, .012, 2, 5),
     Math.max(0, Number(height) || 0) * .009
@@ -20,17 +22,29 @@ export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0 } = 
       y: scaled(-normalizedY, safeBackgroundY)
     },
     far: {
-      x: scaled(-normalizedX, amplitude(width, .010, 6, 12)),
-      y: scaled(-normalizedY, amplitude(height, .020, 4, 8))
+      x: scaled(-normalizedX, touchResponse
+        ? touchAmplitude(width, .030, 12, 24)
+        : amplitude(width, .010, 6, 12)),
+      y: scaled(-normalizedY, touchResponse
+        ? touchAmplitude(height, .050, 10, 20)
+        : amplitude(height, .020, 4, 8))
     },
     near: {
-      x: scaled(-normalizedX, amplitude(width, .018, 10, 20)),
-      y: scaled(-normalizedY, amplitude(height, .030, 6, 12))
+      x: scaled(-normalizedX, touchResponse
+        ? touchAmplitude(width, .065, 22, 42)
+        : amplitude(width, .018, 10, 20)),
+      y: scaled(-normalizedY, touchResponse
+        ? touchAmplitude(height, .090, 18, 34)
+        : amplitude(height, .030, 6, 12))
     },
     ship: {
-      x: scaled(normalizedX, amplitude(width, .0065, 3, 8)),
-      y: scaled(normalizedY, amplitude(height, .012, 2, 5)),
-      roll: scaled(normalizedX, .22)
+      x: scaled(normalizedX, touchResponse
+        ? touchAmplitude(width, .025, 8, 16)
+        : amplitude(width, .0065, 3, 8)),
+      y: scaled(normalizedY, touchResponse
+        ? touchAmplitude(height, .035, 7, 14)
+        : amplitude(height, .012, 2, 5)),
+      roll: scaled(normalizedX, touchResponse ? .65 : .22)
     }
   };
 }
@@ -154,14 +168,16 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     });
   };
 
-  const frameFromDrag = (clientX, clientY, state) => {
+  const frameFromDrag = (clientX, clientY, state, response = 'precise') => {
     const rect = hero.getBoundingClientRect?.();
     if (!rect || rect.width <= 0 || rect.height <= 0) return neutralFrame;
+    const touchResponse = response === 'touch';
     return computeHeroOrbitFrame({
-      x: (clientX - state.originX) / (rect.width * .30),
-      y: (clientY - state.originY) / (rect.height * .40),
+      x: (clientX - state.originX) / (rect.width * (touchResponse ? .22 : .30)),
+      y: (clientY - state.originY) / (rect.height * (touchResponse ? .28 : .40)),
       width: rect.width,
-      height: rect.height
+      height: rect.height,
+      response
     });
   };
 
@@ -266,7 +282,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
       return;
     }
     event.preventDefault?.();
-    queueFrame(frameFromDrag(activeTouch.clientX, activeTouch.clientY, touchState));
+    queueFrame(frameFromDrag(activeTouch.clientX, activeTouch.clientY, touchState, 'touch'));
   }
 
   hero.addEventListener('touchend', (event) => {

@@ -125,6 +125,15 @@ assert.deepEqual(computeHeroOrbitFrame({ x: -5, y: -3, width: 390, height: 112 }
   ship: { x: -3, y: -2, roll: -0.22 }
 }, 'input and compact-hero amplitudes must clamp without collapsing the depth ordering');
 
+assert.deepEqual(computeHeroOrbitFrame({
+  x: 1, y: 1, width: 390, height: 220, response: 'touch'
+}), {
+  background: { x: -3, y: -1.98 },
+  far: { x: -12, y: -11 },
+  near: { x: -25.35, y: -19.8 },
+  ship: { x: 9.75, y: 7.7, roll: 0.65 }
+}, 'full touch input must produce a substantially stronger bounded mobile orbit frame');
+
 assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }), {
   background: { x: 0, y: 0 },
   far: { x: 0, y: 0 },
@@ -211,9 +220,9 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   environment.flushAnimationFrame();
   assert.equal(touchMove.defaultPrevented, true, 'engaged movement must claim the camera gesture');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-background-x'), '-7px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-far-x'), '-12px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-20px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '8px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-far-x'), '-24px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-42px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '16px');
 
   hero.dispatch('touchend', { touches: [], changedTouches: [moved] });
   environment.flushAnimationFrame();
@@ -225,6 +234,24 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   assert.equal(hero.dispatch('click', { detail: 1 }).defaultPrevented, false, 'click suppression must be single-use');
   environment.advanceTimers(400);
   assert.equal(hero.dispatch('contextmenu').defaultPrevented, false, 'neutral heroes must retain the normal context menu');
+}
+
+{
+  const environment = createEnvironment();
+  const { hero, scene } = createCruiseHero({
+    rect: { left: 0, top: 0, width: 390, height: 220 }
+  });
+  bindReactiveHeroOrbit(hero, environment);
+  const start = touch(61, 195, 110);
+  hero.dispatch('touchstart', { touches: [start], changedTouches: [start] });
+  environment.advanceTimers(240);
+  const edgeward = touch(61, 280.8, 171.6);
+  hero.dispatch('touchmove', { touches: [edgeward], changedTouches: [edgeward] });
+  environment.flushAnimationFrame();
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-25.35px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-y'), '-19.8px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '9.75px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0.65deg');
 }
 
 {

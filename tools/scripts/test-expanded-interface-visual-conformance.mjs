@@ -1013,6 +1013,10 @@ try {
   const mobileOrbit = await measureCampaignDashboard(touchPage);
   assert.equal(mobileOrbit.heroOrbitEngaged, true);
   assertOrbitDepth(mobileOrbit, 'phone orbit');
+  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-far-x') <= -12, 'phone orbit must move distant stars substantially');
+  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-near-x') <= -22, 'phone orbit must make near-star depth unmistakable');
+  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-x') >= 8, 'phone orbit must visibly carry the ship with the finger');
+  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-roll') >= .6, 'phone orbit must add a clearly perceptible bounded roll');
   assert.deepEqual(mobileOrbit.animations, mobileCampaign.animations, 'phone orbit must preserve idle animation names');
   assert.ok(mobileOrbit.horizontalOverflow <= 1);
   await touchPage.screenshot({
