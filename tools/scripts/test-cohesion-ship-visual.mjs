@@ -36,6 +36,11 @@ const browser = await chromium.launch({ headless: true });
 try {
   await waitForServer();
   await mkdir(artifactRoot, { recursive: true });
+  for (const icon of ['personnel', 'coordination', 'training', 'systems', 'life']) {
+    const response = await fetch(`${baseUrl}/assets/icons/cohesion-task-categories/${icon}.svg`);
+    assert.equal(response.ok, true, `${icon} task icon asset loads`);
+    assert.match(await response.text(), /<svg\b/, `${icon} task icon asset is SVG`);
+  }
   for (const viewport of viewports) {
     const page = await browser.newPage({ viewport });
     const pageErrors = [];
@@ -47,6 +52,18 @@ try {
     assert.equal(await page.locator('.ship-hero, .ship-board, .ship-system-card, .ship-operational-status').count(), 0);
     assert.equal(await page.locator('.ship-cohesion-segment').count(), 20);
     assert.equal(await page.locator('.ship-task-button').count(), 5);
+    assert.equal(await page.locator('.ship-task-button .ship-task-category-icon').count(), 5);
+    assert.equal(await page.locator('.ship-task-detail .ship-task-category-icon').count(), 1);
+    assert.deepEqual(
+      await page.locator('.ship-task-button .ship-task-category-icon').evaluateAll((icons) => icons.map((icon) => icon.dataset.category)),
+      ['systems', 'systems', 'personnel', 'coordination', 'shipboardLife'],
+      `${viewport.label} task cards use primary-family icons`,
+    );
+    assert.equal(
+      await page.locator('.ship-task-category-icon').evaluateAll((icons) => icons.every((icon) => icon.getAttribute('aria-hidden') === 'true')),
+      true,
+      `${viewport.label} decorative task icons stay out of the accessibility tree`,
+    );
     assert.equal(await page.locator('.ship-task-detail').count(), 1);
     assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 more issues queued/);
 
@@ -59,6 +76,16 @@ try {
       const nav = document.querySelector('.ship-task-nav');
       const button = document.querySelector('.ship-task-button');
       const leader = document.querySelector('.ship-task-leaders');
+      const segments = [...document.querySelectorAll('.ship-cohesion-segment')];
+      const firstSegmentBox = segments[0].getBoundingClientRect();
+      const secondSegmentBox = segments[1].getBoundingClientRect();
+      const firstSegmentStyle = getComputedStyle(segments[0]);
+      const segmentWidth = Number.parseFloat(firstSegmentStyle.width);
+      const segmentHeight = Number.parseFloat(firstSegmentStyle.height);
+      const segmentCenterDistance = Math.hypot(
+        (secondSegmentBox.left + secondSegmentBox.width / 2) - (firstSegmentBox.left + firstSegmentBox.width / 2),
+        (secondSegmentBox.top + secondSegmentBox.height / 2) - (firstSegmentBox.top + firstSegmentBox.height / 2),
+      );
       const orbitBox = orbit.getBoundingClientRect();
       const visualBox = visual.getBoundingClientRect();
       const detailBox = detail.getBoundingClientRect();
@@ -73,6 +100,9 @@ try {
         navPosition: getComputedStyle(nav).position,
         buttonPosition: getComputedStyle(button).position,
         buttonHeight: button.getBoundingClientRect().height,
+        segmentWidth,
+        segmentHeight,
+        inferredSegmentGap: segmentCenterDistance - segmentWidth,
       };
     });
     assert.match(geometry.workspaceOverflowY, /auto|scroll/);
@@ -80,6 +110,12 @@ try {
     assert.equal(geometry.documentHorizontalOverflow, false, `${viewport.label} document overflow-x`);
     assert.deepEqual(geometry.imageNatural, [1672, 941]);
     assert.equal(geometry.detailBelowOrbit, true, `${viewport.label} detail panel must remain below the ship`);
+    assert.ok(geometry.segmentWidth >= geometry.segmentHeight * 5, `${viewport.label} ring markers read as wide segments`);
+    assert.ok(geometry.segmentHeight <= 8, `${viewport.label} ring markers remain shallow`);
+    assert.ok(
+      geometry.inferredSegmentGap >= 4 && geometry.inferredSegmentGap <= 8,
+      `${viewport.label} neighboring ring segments keep an approximately six-pixel gap`,
+    );
     if (viewport.width > 820) {
       assert.ok(geometry.visualRatio >= .89, `${viewport.label} ship graphic uses at least 89% of the orbit width`);
       assert.notEqual(geometry.leaderDisplay, 'none');
@@ -107,6 +143,7 @@ try {
     await page.keyboard.press('Enter');
     assert.equal(await buttons.nth(2).getAttribute('aria-pressed'), 'true', `${viewport.label} keyboard task selection`);
     assert.match(await page.locator('.ship-task-detail h3').textContent(), /The Missed Watch/);
+    assert.equal(await page.locator('.ship-task-detail .ship-task-category-icon').getAttribute('data-category'), 'personnel');
     await buttons.nth(0).hover();
     assert.equal(await page.locator('.ship-cohesion-segment.is-preview').count(), 2, `${viewport.label} hover reward preview`);
     await page.mouse.move(1, 1);

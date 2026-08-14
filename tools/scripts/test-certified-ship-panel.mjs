@@ -40,8 +40,8 @@ globalThis.document = {
   querySelectorAll: () => [],
 };
 
-const task = (id, title, level, anchor) => ({
-  id, authored: false, title, level, reward: { cohesion: level * 5, segments: level }, anchor,
+const task = (id, title, level, anchor, primaryFamily) => ({
+  id, authored: false, title, level, primaryFamily, reward: { cohesion: level * 5, segments: level }, anchor,
   segmentIds: Array.from({ length: level }, (_, index) => index + 5),
   playerText: {
     situation: `${title} needs the commander.`, objective: `Resolve ${title}.`,
@@ -57,9 +57,9 @@ const task = (id, title, level, anchor) => ({
 });
 
 const visibleTasks = [
-  task('issue.watch', 'The Missed Watch', 1, 'crew'),
-  task('issue.handoff', 'The Handoff Gap', 1, 'central'),
-  task('issue.drill', 'Damage Control Drill', 2, 'engineering'),
+  task('issue.watch', 'The Missed Watch', 1, 'crew', 'personnel'),
+  task('issue.handoff', 'The Handoff Gap', 1, 'central', 'coordination'),
+  task('issue.drill', 'Damage Control Drill', 2, 'engineering', 'training'),
 ];
 const projection = {
   kind: 'directive.playerProjection.v1',
@@ -103,6 +103,12 @@ assert.equal(byClass('ship-task-button').length, 3);
 assert.equal(byClass('ship-task-leaders').length, 1);
 assert.equal(byClass('ship-task-leader').length, 3);
 assert.equal(byClass('ship-task-detail').length, 1);
+assert.equal(byClass('ship-task-category-icon').length, 4);
+assert.deepEqual(
+  byClass('ship-task-category-icon').map((icon) => icon.dataset.category),
+  ['personnel', 'coordination', 'training', 'personnel'],
+);
+assert.equal(byClass('ship-task-category-icon').every((icon) => icon.getAttribute('aria-hidden') === 'true'), true);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
 assert.match(text, /Cohesion 65/);
 assert.match(text, /Strained/);
@@ -115,5 +121,12 @@ assert.match(text, /Recovered the lost pet/);
 assert.doesNotMatch(text, /Why this state|Gameplay effect|Operational status|Material limitations|Active constraints/i);
 assert.equal(byClass('ship-hero').length, 0);
 assert.equal(byClass('ship-system-card').length, 0);
+
+byClass('ship-task-button')[1].click();
+assert.equal(
+  byClass('ship-task-detail')[0].querySelector('.ship-task-category-icon')?.dataset.category,
+  'coordination',
+  'task selection updates the detail title icon',
+);
 
 console.log('PASS certified Cohesion Ship panel');

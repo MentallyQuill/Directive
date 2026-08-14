@@ -4193,13 +4193,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 7px;
-  height: 29px;
-  margin: -14px -3px;
+  width: calc(var(--cohesion-radius) * .314 - 6px);
+  height: clamp(5px, calc(var(--cohesion-radius) * .03), 7px);
+  margin: 0;
   background: rgba(79, 93, 119, .44);
   border: 1px solid rgba(155, 130, 207, .24);
-  border-radius: 3px;
-  transform: rotate(calc(var(--cohesion-segment-index) * 18deg)) translateY(calc(-1 * var(--cohesion-radius)));
+  border-radius: 999px;
+  transform: translate(-50%, -50%) rotate(calc(var(--cohesion-segment-index) * 18deg)) translateY(calc(-1 * var(--cohesion-radius)));
   transform-origin: center;
   transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -4231,6 +4231,26 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   cursor: pointer;
 }
 .directive-expanded-shell .ship-task-button strong { overflow: hidden; font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.directive-expanded-shell .ship-task-button-title,
+.directive-expanded-shell .ship-task-title-row { display: flex; align-items: center; min-width: 0; gap: 7px; }
+.directive-expanded-shell .ship-task-category-icon {
+  --ship-task-icon: none;
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  color: var(--directive-expanded-violet);
+  background: currentColor;
+  -webkit-mask: var(--ship-task-icon) center / contain no-repeat;
+  mask: var(--ship-task-icon) center / contain no-repeat;
+}
+.directive-expanded-shell .ship-task-category-icon[data-icon="personnel"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/personnel.svg"); }
+.directive-expanded-shell .ship-task-category-icon[data-icon="coordination"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/coordination.svg"); }
+.directive-expanded-shell .ship-task-category-icon[data-icon="training"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/training.svg"); }
+.directive-expanded-shell .ship-task-category-icon[data-icon="systems"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/systems.svg"); }
+.directive-expanded-shell .ship-task-category-icon[data-icon="life"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/life.svg"); }
+.directive-expanded-shell .ship-task-button:hover .ship-task-category-icon,
+.directive-expanded-shell .ship-task-button.is-selected .ship-task-category-icon { color: #ffa24f; }
 .directive-expanded-shell .ship-task-reward { color: #ffa24f; font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; letter-spacing: .035em; text-transform: uppercase; }
 .directive-expanded-shell .ship-task-button:hover,
 .directive-expanded-shell .ship-task-button.is-selected { border-color: #ffa24f; border-left-color: #ffa24f; background: rgba(25, 22, 30, .98); }
@@ -4245,6 +4265,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-detail-content { display: grid; gap: 11px; padding: 16px; }
 .directive-expanded-shell .ship-task-detail-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .directive-expanded-shell .ship-task-detail-header h3 { margin: 3px 0 0; color: var(--directive-expanded-text); font: 800 20px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-expanded-shell .ship-task-title-row { margin-top: 3px; }
+.directive-expanded-shell .ship-task-title-row h3 { margin: 0; }
+.directive-expanded-shell .ship-task-title-row .ship-task-category-icon { width: 22px; height: 22px; flex-basis: 22px; }
 .directive-expanded-shell .ship-task-detail-header > .ship-task-reward { flex: 0 0 auto; padding: 4px 6px; background: rgba(255, 162, 79, .1); border: 1px solid rgba(255, 162, 79, .32); border-radius: 3px; }
 .directive-expanded-shell .ship-task-bound-crew { margin: -4px 0 0; color: #b8d3ff; font-size: 10px; }
 .directive-expanded-shell .ship-task-detail-section { display: grid; gap: 3px; }
@@ -4272,7 +4295,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .ship-cohesion-orbit { display: grid; grid-template-rows: minmax(260px, 46vh) auto; gap: 8px; min-height: 520px; overflow: visible; }
   .directive-expanded-shell .ship-cohesion-visual { inset: 2% 5% auto; height: min(42vh, 300px); }
   .directive-expanded-shell .ship-cohesion-ring { top: min(22vh, 150px); width: min(68vw, 300px); }
-  .directive-expanded-shell .ship-cohesion-segment { --cohesion-radius: min(32vw, 143px); height: 20px; margin-top: -10px; }
+  .directive-expanded-shell .ship-cohesion-segment { --cohesion-radius: min(32vw, 143px); }
   .directive-expanded-shell .ship-task-leaders { display: none; }
   .directive-expanded-shell .ship-task-nav { position: static; grid-row: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 4px; }
   .directive-expanded-shell .ship-task-button { position: static; width: auto; min-height: 44px; transform: none; }

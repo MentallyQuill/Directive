@@ -5,6 +5,24 @@ const LEADER_ENDPOINTS = Object.freeze([
   [19, 23, 40, 39], [81, 23, 60, 39], [14, 69, 39, 58], [86, 69, 61, 58], [50, 88, 50, 66],
 ]);
 
+const TASK_CATEGORY_ICONS = Object.freeze({
+  personnel: 'personnel',
+  coordination: 'coordination',
+  training: 'training',
+  systems: 'systems',
+  shipboardLife: 'life',
+});
+
+function createTaskCategoryIcon(task) {
+  const iconName = TASK_CATEGORY_ICONS[task?.primaryFamily];
+  if (!iconName) return null;
+  const icon = createElement('span', 'ship-task-category-icon');
+  icon.dataset.category = task.primaryFamily;
+  icon.dataset.icon = iconName;
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
 function appendCopy(parent, className, label, text) {
   if (!text) return;
   const section = createElement('section', className);
@@ -44,9 +62,13 @@ function createDetail(task, commandBearing, actions) {
   const identity = createElement('div');
   const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
   eyebrow.textContent = `Level ${task.level} command task`;
+  const titleRow = createElement('div', 'ship-task-title-row');
   const title = createElement('h3');
   title.textContent = task.title;
-  identity.append(eyebrow, title);
+  const titleIcon = createTaskCategoryIcon(task);
+  if (titleIcon) titleRow.appendChild(titleIcon);
+  titleRow.appendChild(title);
+  identity.append(eyebrow, titleRow);
   header.append(identity, createReward(task));
   content.appendChild(header);
 
@@ -243,9 +265,13 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     button.dataset.anchor = task.anchor || '';
     button.setAttribute('aria-controls', 'ship-task-detail');
     button.setAttribute('aria-pressed', 'false');
+    const titleRow = createElement('span', 'ship-task-button-title');
     const label = createElement('strong');
     label.textContent = task.title;
-    button.append(label, createReward(task));
+    const titleIcon = createTaskCategoryIcon(task);
+    if (titleIcon) titleRow.appendChild(titleIcon);
+    titleRow.appendChild(label);
+    button.append(titleRow, createReward(task));
     button.addEventListener('click', () => select(task.id));
     button.addEventListener('focus', () => preview(task.id));
     button.addEventListener('blur', () => preview(selectedId));
