@@ -20,6 +20,7 @@ export function buildCertifiedShipView(projection) {
       readinessObjectiveLink: clone(operational.readinessObjectiveLink ?? null)
     },
     limitations: clone(operational.materialLimitations || []),
+    cohesion: clone(ship.cohesion ?? null),
     capabilities: clone(ship.capabilities || []),
     constraints: clone(ship.constraints || []),
     systems: clone(ship.systems || [])

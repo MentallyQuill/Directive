@@ -41,6 +41,7 @@ assert.deepEqual(buildCertifiedShipView(projection), {
     readinessObjectiveLink: null
   },
   limitations: [{ id: 'limit.warp', summary: 'Maximum warp remains restricted.' }],
+  cohesion: null,
   capabilities: [{ id: 'cap.sensors', label: 'Long-range sensors', summary: 'Long-range sensors are available.' }],
   constraints: [{ id: 'constraint.corroboration', label: 'Corroboration required', summary: 'Fine claims need a second source.' }],
   systems: [{

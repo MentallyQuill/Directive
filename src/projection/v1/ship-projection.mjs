@@ -1,6 +1,7 @@
 export const SHIP_PLAYER_PROJECTION_KIND = 'directive.shipPlayerProjection.v1';
 
 import { deriveShipMechanicsState } from '../../ship/v1/ship-mechanics-state.mjs';
+import { deriveCohesionState } from '../../ship/v1/cohesion-state.mjs';
 
 function compact(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -67,6 +68,15 @@ export function createShipPlayerProjection({
         shipDataset: runtimeAssets.shipDataset || {},
         storySettlement: campaignState.storySettlement || {},
     });
+    const cohesionState = runtimeAssets.cohesionCatalog
+        ? deriveCohesionState({
+            catalog: runtimeAssets.cohesionCatalog,
+            shipDataset: runtimeAssets.shipDataset || {},
+            storySettlement: campaignState.storySettlement || {},
+            branchId: campaignState?.campaignChatBinding?.saveId || '',
+        })
+        : null;
+    const visibleTaskIds = new Set(cohesionState?.visibleTasks?.map(({ id }) => id) || []);
     return {
         kind: SHIP_PLAYER_PROJECTION_KIND,
         shipId: compact(current.id),
@@ -104,9 +114,44 @@ export function createShipPlayerProjection({
             label: constraint.playerText.label,
             summary: constraint.playerText.summary,
         })).sort((left, right) => left.id.localeCompare(right.id)),
+        ...(cohesionState ? {
+            cohesion: {
+                total: cohesionState.total,
+                band: structuredClone(cohesionState.band),
+                segments: cohesionState.segments.map((segment) => ({
+                    index: segment.index,
+                    filled: segment.filled,
+                    visible: segment.visible,
+                    ...(segment.issueId && visibleTaskIds.has(segment.issueId) ? { taskId: segment.issueId } : {}),
+                    ...(!segment.filled && !segment.visible ? { queued: true } : {}),
+                })),
+                visibleTasks: cohesionState.visibleTasks.map((task) => ({
+                    id: task.id,
+                    authored: task.authored,
+                    title: task.playerText.title,
+                    level: task.level,
+                    reward: { cohesion: task.cohesion, segments: task.level },
+                    anchor: task.anchor,
+                    segmentIds: structuredClone(task.segmentIds),
+                    playerText: structuredClone(task.playerText),
+                    currentPhase: structuredClone(task.currentPhase),
+                    phases: structuredClone(task.phases),
+                    approaches: structuredClone(task.approaches),
+                    computerHelp: task.computerHelp,
+                    completion: structuredClone(task.completion),
+                    binding: structuredClone(task.binding),
+                })),
+                backlog: {
+                    count: cohesionState.queuedCount,
+                    cohesion: cohesionState.queuedCohesion,
+                },
+                completedHistory: structuredClone(cohesionState.completedHistory),
+            },
+        } : {}),
         sourceRefs: {
             packageIds: [
                 runtimeAssets?.shipDataset?.manifest?.id,
+                runtimeAssets?.cohesionCatalog?.id,
             ].filter(Boolean),
             statePaths: ['ship.operationalOverview', 'storySettlement'],
             missionIds,

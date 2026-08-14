@@ -337,8 +337,10 @@ export function createV1RuntimePromptPacket({
     : null;
   const shipMechanics = createShipOperationalPacket({
     shipDataset: runtimeAssets?.shipDataset,
+    cohesionCatalog: runtimeAssets?.cohesionCatalog,
     storySettlement: state.storySettlement,
     missionDefinition: activeMissionDefinition(state, runtimeAssets) || {},
+    branchId: state?.campaignChatBinding?.saveId || '',
   });
   const payload = {
     player: {
