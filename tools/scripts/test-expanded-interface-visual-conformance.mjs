@@ -6,6 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const directiveCss = await readFile(path.join(repoRoot, 'styles', 'directive.css'), 'utf8');
+assert.match(
+  directiveCss,
+  /@keyframes directive-hero-stars-far-cruise\s*\{\s*to\s*\{\s*transform:\s*translate3d\(-1344px,\s*-840px,\s*0\);\s*\}\s*\}/,
+  'far-star loop endpoint must equal exactly one displayed far tile'
+);
+assert.match(
+  directiveCss,
+  /@keyframes directive-hero-stars-near-cruise\s*\{\s*to\s*\{\s*transform:\s*translate3d\(-960px,\s*-600px,\s*0\);\s*\}\s*\}/,
+  'near-star loop endpoint must equal exactly one displayed near tile'
+);
 const port = 54000 + (process.pid % 10000);
 const baseUrl = `http://127.0.0.1:${port}`;
 const artifactRoot = path.join(repoRoot, 'artifacts', 'expanded-interface-conformance');
@@ -512,6 +523,11 @@ try {
       const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
       const sceneStyle = getComputedStyle(scene);
       const foregroundStyle = getComputedStyle(foreground);
+      const transformOffset = (node) => {
+        const transform = getComputedStyle(node).transform;
+        const matrix = transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(transform);
+        return { x: matrix.m41, y: matrix.m42 };
+      };
       const rect = (node) => {
         const value = node.getBoundingClientRect();
         return {
@@ -539,17 +555,26 @@ try {
         heroTransitionDuration: getComputedStyle(hero).transitionDuration,
         heroExpanded: hero.classList.contains('is-expanded'),
         layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
+        layerTags: layers.map((layer) => layer.tagName),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
-        naturalSizes: layers.map((layer) => `${layer.naturalWidth}x${layer.naturalHeight}`),
+        naturalSizes: layers.map((layer) => `${layer.naturalWidth || 0}x${layer.naturalHeight || 0}`),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
+        animationDurations: layers.map((layer) => getComputedStyle(layer).animationDuration),
         timingFunctions: layers.map((layer) => getComputedStyle(layer).animationTimingFunction),
         willChange: layers.map((layer) => getComputedStyle(layer).willChange),
+        backgroundRepeats: layers.map((layer) => getComputedStyle(layer).backgroundRepeat),
+        backgroundSizes: layers.map((layer) => getComputedStyle(layer).backgroundSize),
+        opacities: layers.map((layer) => getComputedStyle(layer).opacity),
+        transforms: layers.map((layer) => getComputedStyle(layer).transform),
+        filters: layers.map((layer) => getComputedStyle(layer).filter),
+        cruiseOffsets: Object.fromEntries(
+          layers
+            .filter((layer) => layer.dataset.heroSceneLayer === 'stars-far' || layer.dataset.heroSceneLayer === 'stars-near')
+            .map((layer) => [layer.dataset.heroSceneLayer, transformOffset(layer)])
+        ),
         starBlends: layers
-          .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
+          .filter((layer) => ['stars', 'stars-far', 'stars-near', 'sunlight'].includes(layer.dataset.heroSceneLayer))
           .map((layer) => getComputedStyle(layer).mixBlendMode),
-        starPositions: layers
-          .filter((layer) => layer.dataset.heroSceneLayer === 'stars' || layer.dataset.heroSceneLayer === 'stars-glow')
-          .map((layer) => getComputedStyle(layer).objectPosition),
         foregroundVisibleWidthRatio: visibleWidth / foregroundRect.width,
         sourceCanvas: {
           widthRatio: foreground.offsetWidth / scene.clientWidth,
@@ -563,7 +588,11 @@ try {
           scaleEnd: sceneStyle.getPropertyValue('--directive-hero-ship-scale-end').trim(),
           restScale: sceneStyle.getPropertyValue('--directive-hero-ship-rest-scale').trim(),
           rotateStart: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-start').trim(),
-          rotateEnd: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-end').trim()
+          rotateEnd: sceneStyle.getPropertyValue('--directive-hero-ship-rotate-end').trim(),
+          xStart: sceneStyle.getPropertyValue('--directive-hero-ship-x-start').trim(),
+          yStart: sceneStyle.getPropertyValue('--directive-hero-ship-y-start').trim(),
+          xEnd: sceneStyle.getPropertyValue('--directive-hero-ship-x-end').trim(),
+          yEnd: sceneStyle.getPropertyValue('--directive-hero-ship-y-end').trim()
         },
         horizontalOverflow: dashboard.scrollWidth - dashboard.clientWidth
       };
@@ -586,16 +615,20 @@ try {
   assert.equal(desktopCampaign.heroToggleCount, 0);
   assert.equal(desktopCampaign.heroTransitionDuration, '0s');
   assert.equal(desktopCampaign.heroExpanded, false);
-  assert.deepEqual(desktopCampaign.layerOrder, ['background', 'stars', 'stars-glow', 'foreground']);
-  assert.deepEqual(desktopCampaign.objectFits, ['cover', 'cover', 'cover', 'contain'], 'dashboard must keep fill layers covering and the foreground ship contained');
-  assert.deepEqual(desktopCampaign.naturalSizes, ['1672x941', '1672x941', '1672x941', '1672x941']);
+  assert.deepEqual(desktopCampaign.layerOrder, ['background', 'stars', 'stars-far', 'stars-near', 'foreground', 'sunlight']);
+  assert.deepEqual(desktopCampaign.layerTags, ['IMG', 'IMG', 'SPAN', 'SPAN', 'IMG', 'IMG']);
+  assert.deepEqual(desktopCampaign.objectFits, ['cover', 'cover', 'fill', 'fill', 'contain', 'cover'], 'dashboard must keep authored images aligned, repeating fields bounded, and the foreground ship contained');
+  assert.deepEqual(desktopCampaign.naturalSizes, ['1672x941', '1672x941', '0x0', '0x0', '1672x941', '1672x941']);
   assert.deepEqual(desktopCampaign.animations, [
-    'none', 'directive-hero-stars-drift', 'directive-hero-stars-parallax, directive-hero-stars-shimmer', 'directive-hero-ship-drift'
-  ], 'dashboard scene must retain every authored animation layer');
-  assert.deepEqual(desktopCampaign.timingFunctions, ['ease', 'linear', 'linear, ease-in-out', 'linear']);
-  assert.deepEqual(desktopCampaign.willChange, ['auto', 'transform', 'transform, opacity, filter', 'transform']);
-  assert.deepEqual(desktopCampaign.starBlends, ['plus-lighter', 'plus-lighter']);
-  assert.deepEqual(desktopCampaign.starPositions, ['50% 50%', '48% 52%']);
+    'none', 'none', 'directive-hero-stars-far-cruise', 'directive-hero-stars-near-cruise', 'directive-hero-ship-drift', 'directive-hero-sunlight-pulse'
+  ], 'dashboard scene must use static authored stars plus seamless parallax and aligned sunlight');
+  assert.deepEqual(desktopCampaign.animationDurations, ['0s', '0s', '240s', '90s', '30s', '19s']);
+  assert.deepEqual(desktopCampaign.timingFunctions, ['ease', 'ease', 'linear', 'linear', 'linear', 'ease-in-out']);
+  assert.deepEqual(desktopCampaign.willChange, ['auto', 'auto', 'transform', 'transform', 'transform', 'opacity, filter']);
+  assert.deepEqual(desktopCampaign.backgroundRepeats.slice(2, 4), ['repeat', 'repeat']);
+  assert.deepEqual(desktopCampaign.backgroundSizes.slice(2, 4), ['1344px 840px', '960px 600px']);
+  assert.deepEqual(desktopCampaign.opacities.slice(2, 4), ['0.18', '0.24']);
+  assert.deepEqual(desktopCampaign.starBlends, ['plus-lighter', 'screen', 'screen', 'screen']);
   assert.ok(desktopCampaign.foregroundVisibleWidthRatio > .99, 'desktop must keep the complete drifting ship visible');
   assert.ok(Math.abs(desktopCampaign.sourceCanvas.widthRatio - 1) < .002);
   assert.ok(Math.abs(desktopCampaign.sourceCanvas.aspectRatio - (1672 / 941)) < .002);
@@ -603,10 +636,31 @@ try {
   assert.ok(Math.abs(desktopCampaign.sourceCanvas.verticalOffset - 20) < 1);
   assert.equal(desktopCampaign.sourceCanvas.translate, '-50% -50%');
   assert.deepEqual(desktopCampaign.motionBounds, {
-    scaleStart: '.79', scaleEnd: '.81', restScale: '.8', rotateStart: '-.15deg', rotateEnd: '.15deg'
+    scaleStart: '.79', scaleEnd: '.81', restScale: '.8', rotateStart: '-.15deg', rotateEnd: '.15deg',
+    xStart: '-3%', yStart: '-1.2%', xEnd: '3%', yEnd: '1.2%'
   });
+  const cruiseMotionStart = desktopCampaign.cruiseOffsets;
+  await desktopCampaignPage.waitForTimeout(1200);
+  const cruiseMotionEnd = (await measureCampaignDashboard(desktopCampaignPage)).cruiseOffsets;
+  const travelDistance = (name) => Math.hypot(
+    cruiseMotionEnd[name].x - cruiseMotionStart[name].x,
+    cruiseMotionEnd[name].y - cruiseMotionStart[name].y
+  );
+  const farTravel = travelDistance('stars-far');
+  const nearTravel = travelDistance('stars-near');
+  assert.ok(cruiseMotionEnd['stars-far'].x < cruiseMotionStart['stars-far'].x);
+  assert.ok(cruiseMotionEnd['stars-far'].y < cruiseMotionStart['stars-far'].y);
+  assert.ok(cruiseMotionEnd['stars-near'].x < cruiseMotionStart['stars-near'].x);
+  assert.ok(cruiseMotionEnd['stars-near'].y < cruiseMotionStart['stars-near'].y);
+  assert.ok(nearTravel / farTravel >= 1.8 && nearTravel / farTravel <= 2.4, 'near-star screen velocity must remain 1.8x to 2.4x the far field');
   assert.ok(desktopCampaign.actionBoxes.every((box) => Math.abs(box.top - desktopCampaign.actionBoxes[0].top) < 1), 'desktop campaign actions must share one row');
   assert.ok(desktopCampaign.horizontalOverflow <= 1);
+  await desktopCampaignPage.emulateMedia({ reducedMotion: 'reduce' });
+  const reducedCampaign = await measureCampaignDashboard(desktopCampaignPage);
+  assert.deepEqual(reducedCampaign.animations, ['none', 'none', 'none', 'none', 'none', 'none']);
+  assert.deepEqual(reducedCampaign.transforms.slice(2, 4), ['none', 'none']);
+  assert.equal(reducedCampaign.opacities[5], '0.12');
+  assert.equal(reducedCampaign.filters[5], 'none');
   await desktopCampaignPage.locator('.campaign-dashboard-hero').click();
   await desktopCampaignPage.waitForTimeout(220);
   const desktopAfterClick = await measureCampaignDashboard(desktopCampaignPage);
@@ -638,7 +692,8 @@ try {
   assert.ok(Math.abs(mobileCampaign.sourceCanvas.aspectRatio - (1672 / 941)) < .002);
   assert.ok(Math.abs(mobileCampaign.sourceCanvas.verticalOffset + 20) < 1);
   assert.deepEqual(mobileCampaign.motionBounds, {
-    scaleStart: '1.035', scaleEnd: '1.045', restScale: '1.04', rotateStart: '-.075deg', rotateEnd: '.075deg'
+    scaleStart: '1.03', scaleEnd: '1.05', restScale: '1.04', rotateStart: '-.15deg', rotateEnd: '.15deg',
+    xStart: '-3%', yStart: '-1.2%', xEnd: '3%', yEnd: '1.2%'
   });
   assert.ok(mobileCampaign.actionBoxes.every((box) => box.height >= 44));
   assert.ok(Math.abs(mobileCampaign.actionBoxes[0].top - mobileCampaign.actionBoxes[3].top) < 1, 'Continue and Delete must share mobile row one');
