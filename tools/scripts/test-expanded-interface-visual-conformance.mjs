@@ -762,8 +762,12 @@ try {
       const scene = hero.querySelector('.directive-hero-scene');
       const layers = [...hero.querySelectorAll('.directive-hero-scene-layer')];
       const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
+      const sunlight = layers.find((layer) => layer.dataset.heroSceneLayer === 'sunlight');
       const sceneStyle = getComputedStyle(scene);
       const foregroundStyle = getComputedStyle(foreground);
+      const sunlightStyle = getComputedStyle(sunlight);
+      const heroAfter = getComputedStyle(hero, '::after');
+      const sceneAfter = getComputedStyle(scene, '::after');
       const orbitVariableNames = [
         '--directive-hero-orbit-background-x', '--directive-hero-orbit-background-y',
         '--directive-hero-orbit-far-x', '--directive-hero-orbit-far-y',
@@ -836,6 +840,27 @@ try {
         starBlends: layers
           .filter((layer) => ['stars', 'stars-far', 'stars-near', 'sunlight'].includes(layer.dataset.heroSceneLayer))
           .map((layer) => getComputedStyle(layer).mixBlendMode),
+        heroOverlay: {
+          content: heroAfter.content,
+          backgroundImage: heroAfter.backgroundImage,
+          zIndex: heroAfter.zIndex
+        },
+        sceneScrim: {
+          content: sceneAfter.content,
+          backgroundImage: sceneAfter.backgroundImage,
+          zIndex: sceneAfter.zIndex
+        },
+        foregroundPresentation: {
+          opacity: foregroundStyle.opacity,
+          filter: foregroundStyle.filter,
+          blend: foregroundStyle.mixBlendMode,
+          zIndex: foregroundStyle.zIndex
+        },
+        sunlightPresentation: {
+          blend: sunlightStyle.mixBlendMode,
+          zIndex: sunlightStyle.zIndex
+        },
+        copyTextShadow: getComputedStyle(copy).textShadow,
         foregroundVisibleWidthRatio: visibleWidth / foregroundRect.width,
         sourceCanvas: {
           widthRatio: foreground.offsetWidth / scene.clientWidth,
@@ -941,6 +966,16 @@ try {
   assert.deepEqual(desktopCampaign.backgroundSizes.slice(2, 4), ['1344px 840px', '960px 600px']);
   assert.deepEqual(desktopCampaign.opacities.slice(2, 4), ['0.18', '0.24']);
   assert.deepEqual(desktopCampaign.starBlends, ['plus-lighter', 'screen', 'screen', 'screen']);
+  assert.equal(desktopCampaign.heroOverlay.content, 'none');
+  assert.equal(desktopCampaign.heroOverlay.backgroundImage, 'none');
+  assert.equal(desktopCampaign.sceneScrim.content, '""');
+  assert.ok(desktopCampaign.sceneScrim.backgroundImage.includes('radial-gradient'));
+  assert.equal(desktopCampaign.sceneScrim.zIndex, '3');
+  assert.deepEqual(desktopCampaign.foregroundPresentation, {
+    opacity: '1', filter: 'none', blend: 'normal', zIndex: '4'
+  });
+  assert.deepEqual(desktopCampaign.sunlightPresentation, { blend: 'screen', zIndex: '5' });
+  assert.notEqual(desktopCampaign.copyTextShadow, 'none');
   assert.ok(desktopCampaign.foregroundVisibleWidthRatio > .99, 'desktop must keep the complete drifting ship visible');
   assert.ok(Math.abs(desktopCampaign.sourceCanvas.widthRatio - 1) < .002);
   assert.ok(Math.abs(desktopCampaign.sourceCanvas.aspectRatio - (1672 / 941)) < .002);
@@ -1059,6 +1094,16 @@ try {
     scaleStart: '1.03', scaleEnd: '1.05', restScale: '1.04', rotateStart: '-.15deg', rotateEnd: '.15deg',
     xStart: '-3%', yStart: '-1.2%', xEnd: '3%', yEnd: '1.2%'
   });
+  assert.equal(mobileCampaign.heroOverlay.content, 'none');
+  assert.equal(mobileCampaign.heroOverlay.backgroundImage, 'none');
+  assert.equal(mobileCampaign.sceneScrim.content, '""');
+  assert.ok(mobileCampaign.sceneScrim.backgroundImage.includes('radial-gradient'));
+  assert.equal(mobileCampaign.sceneScrim.zIndex, '3');
+  assert.deepEqual(mobileCampaign.foregroundPresentation, {
+    opacity: '1', filter: 'none', blend: 'normal', zIndex: '4'
+  });
+  assert.deepEqual(mobileCampaign.sunlightPresentation, { blend: 'screen', zIndex: '5' });
+  assert.notEqual(mobileCampaign.copyTextShadow, 'none');
   assert.ok(mobileCampaign.actionBoxes.every((box) => box.height >= 44));
   assert.ok(Math.abs(mobileCampaign.actionBoxes[0].top - mobileCampaign.actionBoxes[3].top) < 1, 'Continue and Delete must share mobile row one');
   assert.ok(Math.abs(mobileCampaign.actionBoxes[1].top - mobileCampaign.actionBoxes[2].top) < 1, 'Save and Load must share mobile row two');
@@ -1115,6 +1160,15 @@ try {
   await touchPage.waitForSelector('.campaign-browser');
   await touchPage.locator('[data-mobile-record-key="package:directive:campaign-package:breckenridge-ashes-of-peace"]').tap();
   await touchPage.waitForSelector('.campaign-library-hero:visible');
+  const staticHeroOverlay = await touchPage
+    .locator('.campaign-library-hero:not(:has(.directive-hero-scene))')
+    .first()
+    .evaluate((hero) => {
+      const after = getComputedStyle(hero, '::after');
+      return { content: after.content, backgroundImage: after.backgroundImage };
+    });
+  assert.equal(staticHeroOverlay.content, '""');
+  assert.ok(staticHeroOverlay.backgroundImage.includes('linear-gradient'));
   const visibleAshesHero = touchPage.locator('.campaign-library-hero:visible').first();
   assert.equal(await visibleAshesHero.getAttribute('data-hero-orbit-bound'), 'true');
   const campaignAccordion = touchPage.locator('.campaign-mobile-accordion');

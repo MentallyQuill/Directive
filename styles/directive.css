@@ -4374,6 +4374,22 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 .directive-expanded-shell .campaign-hero::after,
 .directive-expanded-shell .ship-hero::after { z-index: 6; }
+.directive-expanded-shell .campaign-hero:has(> .directive-hero-scene)::after {
+  content: none;
+  background: none;
+}
+.directive-expanded-shell .campaign-hero > .directive-hero-scene::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: auto 0 0;
+  height: 44%;
+  background: radial-gradient(ellipse 78% 120% at 0% 100%, rgba(5, 7, 11, .88) 0%, rgba(5, 7, 11, .58) 42%, rgba(5, 7, 11, 0) 76%);
+  pointer-events: none;
+}
+.directive-expanded-shell .campaign-hero:has(> .directive-hero-scene) .campaign-hero-copy {
+  text-shadow: 0 2px 12px rgba(5, 7, 11, .92), 0 1px 2px rgba(5, 7, 11, 1);
+}
 .directive-expanded-shell .campaign-hero-copy,
 .directive-expanded-shell .ship-hero-identity { z-index: 7; }
 
