@@ -11,7 +11,12 @@ import { createGenerationRoleRegistry } from '/src/generation/generation-roles.m
 
 const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-peace.campaign-package.json').then((response) => response.json());
 
-const requestedRoute = new URL(globalThis.location.href).searchParams.get('route');
+const fixtureUrl = new URL(globalThis.location.href);
+const requestedRoute = fixtureUrl.searchParams.get('route');
+const requestedTaskCountRaw = fixtureUrl.searchParams.get('taskCount');
+const requestedTaskCount = requestedTaskCountRaw === null
+  ? null
+  : Math.max(1, Math.min(5, Number.parseInt(requestedTaskCountRaw, 10) || 1));
 let activeRouteId = DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === requestedRoute) ? requestedRoute : 'campaign';
 globalThis.__directiveFixtureActions = [];
 
@@ -118,7 +123,7 @@ const projection = {
         if (index < 13) return { index, filled: false, visible: false, queued: true };
         return { index, filled: true, visible: false };
       }),
-      visibleTasks: cohesionTasks,
+      visibleTasks: requestedTaskCount === null ? cohesionTasks : cohesionTasks.slice(0, requestedTaskCount),
       backlog: { count: 3, cohesion: 25 },
       completedHistory: [
         { id: 'cohesion-complete.pet', title: 'Recovered a lost pet', cohesionRestored: 5, method: 'quest' },

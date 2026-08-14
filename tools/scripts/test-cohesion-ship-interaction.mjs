@@ -61,8 +61,12 @@ const byClass = (name) => all(body).filter((node) => node.classList.contains(nam
 const textOf = (root) => all(root).map((node) => node.textContent || '').join(' ');
 const buttons = byClass('ship-task-button');
 const detail = byClass('ship-task-detail')[0];
+const mobilePanels = byClass('ship-task-mobile-panel');
 assert.equal(buttons.every(({ tagName }) => tagName === 'BUTTON'), true);
 assert.equal(buttons[0].getAttribute('aria-pressed'), 'true');
+assert.equal(buttons.every((button) => button.getAttribute('aria-expanded') === 'false'), true);
+assert.equal(mobilePanels.length, buttons.length);
+assert.equal(mobilePanels.every(({ hidden }) => hidden === true), true);
 assert.match(textOf(detail), /First Task situation/);
 
 await buttons[1].trigger('click');
@@ -70,13 +74,29 @@ assert.equal(buttons[0].getAttribute('aria-pressed'), 'false');
 assert.equal(buttons[1].getAttribute('aria-pressed'), 'true');
 assert.match(textOf(detail), /Second Task situation/);
 assert.match(textOf(detail), /\+10 Cohesion/);
+assert.equal(buttons[1].getAttribute('aria-expanded'), 'true');
+assert.equal(mobilePanels[1].hidden, false);
+assert.equal(mobilePanels.filter(({ hidden }) => hidden === false).length, 1);
+assert.equal(byClass('ship-task-mobile-panel')[1].children.some((node) => node.classList.contains('ship-task-detail-header')), false);
+
+await buttons[0].trigger('click');
+assert.equal(buttons[0].getAttribute('aria-expanded'), 'true');
+assert.equal(buttons[1].getAttribute('aria-expanded'), 'false');
+assert.equal(mobilePanels[0].hidden, false);
+assert.equal(mobilePanels[1].hidden, true);
+
+await buttons[0].trigger('click');
+assert.equal(buttons[0].getAttribute('aria-expanded'), 'false');
+assert.equal(mobilePanels.every(({ hidden }) => hidden === true), true);
+
+await buttons[1].trigger('click');
 
 await buttons[1].trigger('pointerenter');
 assert.equal(byClass('ship-cohesion-segment').filter((segment) => segment.classList.contains('is-preview')).length, 2);
 await buttons[1].trigger('pointerleave');
 assert.equal(byClass('ship-cohesion-segment').filter((segment) => segment.classList.contains('is-preview')).length, 2, 'selected task remains previewed');
 
-const reliefButton = byClass('ship-command-relief-button')[0];
+const reliefButton = detail.children.flatMap(all).find((node) => node.classList.contains('ship-command-relief-button'));
 assert.equal(reliefButton.tagName, 'BUTTON');
 await reliefButton.trigger('click');
 assert.equal(reservedIssueId, 'task.two');

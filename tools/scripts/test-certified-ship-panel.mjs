@@ -99,7 +99,15 @@ const text = nodes.map((node) => node.textContent || '').join(' ');
 assert.equal(byClass('ship-cohesion-workspace').length, 1);
 assert.equal(byClass('ship-cohesion-ring').length, 1);
 assert.equal(byClass('ship-cohesion-segment').length, 20);
+assert.equal(byClass('ship-cohesion-ring-layer').length, 2);
+assert.equal(byClass('is-back').filter((node) => node.classList.contains('ship-cohesion-ring-layer')).length, 1);
+assert.equal(byClass('is-front').filter((node) => node.classList.contains('ship-cohesion-ring-layer')).length, 1);
+assert.equal(byClass('ship-cohesion-segment').every(({ tagName }) => tagName === 'PATH'), true);
+assert.equal(byClass('ship-cohesion-segment').every((segment) => /\bA\b/.test(segment.getAttribute('d') || '')), true);
 assert.equal(byClass('ship-task-button').length, 3);
+assert.equal(byClass('ship-task-mobile-panel').length, 3);
+assert.equal(byClass('ship-task-mobile-panel').every(({ hidden }) => hidden === true), true);
+assert.equal(byClass('ship-task-button').every((button) => button.getAttribute('aria-expanded') === 'false'), true);
 assert.equal(byClass('ship-task-leaders').length, 1);
 assert.equal(byClass('ship-task-leader').length, 3);
 assert.equal(byClass('ship-task-detail').length, 1);
@@ -128,5 +136,19 @@ assert.equal(
   'coordination',
   'task selection updates the detail title icon',
 );
+assert.equal(byClass('ship-task-button')[1].getAttribute('aria-expanded'), 'true');
+assert.equal(byClass('ship-task-mobile-panel')[1].hidden, false);
+assert.equal(byClass('ship-task-mobile-panel').filter(({ hidden }) => hidden === false).length, 1);
+assert.equal(byClass('ship-task-mobile-panel')[1].querySelector('.ship-task-detail-header'), null, 'inline details omit the repeated task header');
+
+byClass('ship-task-button')[0].click();
+assert.equal(byClass('ship-task-button')[0].getAttribute('aria-expanded'), 'true');
+assert.equal(byClass('ship-task-button')[1].getAttribute('aria-expanded'), 'false');
+assert.equal(byClass('ship-task-mobile-panel')[0].hidden, false);
+assert.equal(byClass('ship-task-mobile-panel')[1].hidden, true);
+
+byClass('ship-task-button')[0].click();
+assert.equal(byClass('ship-task-button')[0].getAttribute('aria-expanded'), 'false');
+assert.equal(byClass('ship-task-mobile-panel').every(({ hidden }) => hidden === true), true);
 
 console.log('PASS certified Cohesion Ship panel');

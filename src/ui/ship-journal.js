@@ -56,21 +56,23 @@ function createReward(task) {
   return reward;
 }
 
-function createDetail(task, commandBearing, actions) {
+function createDetail(task, commandBearing, actions, { includeHeader = true } = {}) {
   const content = createElement('div', 'ship-task-detail-content');
-  const header = createElement('header', 'ship-task-detail-header');
-  const identity = createElement('div');
-  const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
-  eyebrow.textContent = `Level ${task.level} command task`;
-  const titleRow = createElement('div', 'ship-task-title-row');
-  const title = createElement('h3');
-  title.textContent = task.title;
-  const titleIcon = createTaskCategoryIcon(task);
-  if (titleIcon) titleRow.appendChild(titleIcon);
-  titleRow.appendChild(title);
-  identity.append(eyebrow, titleRow);
-  header.append(identity, createReward(task));
-  content.appendChild(header);
+  if (includeHeader) {
+    const header = createElement('header', 'ship-task-detail-header');
+    const identity = createElement('div');
+    const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
+    eyebrow.textContent = `Level ${task.level} command task`;
+    const titleRow = createElement('div', 'ship-task-title-row');
+    const title = createElement('h3');
+    title.textContent = task.title;
+    const titleIcon = createTaskCategoryIcon(task);
+    if (titleIcon) titleRow.appendChild(titleIcon);
+    titleRow.appendChild(title);
+    identity.append(eyebrow, titleRow);
+    header.append(identity, createReward(task));
+    content.appendChild(header);
+  }
 
   const boundIdentity = taskIdentity(task);
   if (boundIdentity) {
@@ -163,20 +165,53 @@ function createLeaders(tasks) {
   return svg;
 }
 
+function createSvgElement(tagName, className = '') {
+  const element = typeof document.createElementNS === 'function'
+    ? document.createElementNS('http://www.w3.org/2000/svg', tagName)
+    : createElement(tagName);
+  className.split(/\s+/).filter(Boolean).forEach((name) => element.classList.add(name));
+  return element;
+}
+
+function cohesionArcPath(index) {
+  const center = 50;
+  const radius = 44;
+  const startAngle = -90 + (index * 18) + 1.9;
+  const endAngle = -90 + ((index + 1) * 18) - 1.9;
+  const point = (angle) => {
+    const radians = angle * (Math.PI / 180);
+    return [center + (radius * Math.cos(radians)), center + (radius * Math.sin(radians))];
+  };
+  const [startX, startY] = point(startAngle);
+  const [endX, endY] = point(endAngle);
+  return `M ${startX.toFixed(3)} ${startY.toFixed(3)} A ${radius} ${radius} 0 0 1 ${endX.toFixed(3)} ${endY.toFixed(3)}`;
+}
+
 function createRing(cohesion) {
   const ring = createElement('div', 'ship-cohesion-ring');
   ring.setAttribute('role', 'list');
   ring.setAttribute('aria-label', `Cohesion ${cohesion.total} out of 100`);
+  const back = createSvgElement('svg', 'ship-cohesion-ring-layer is-back');
+  const front = createSvgElement('svg', 'ship-cohesion-ring-layer is-front');
+  [back, front].forEach((layer) => {
+    layer.setAttribute('viewBox', '0 0 100 100');
+    layer.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    layer.setAttribute('focusable', 'false');
+  });
+  const segments = [];
   cohesion.segments.forEach((segment) => {
-    const item = createElement('span', `ship-cohesion-segment ${segment.filled ? 'is-filled' : 'is-debt'}${segment.queued ? ' is-queued' : ''}`);
+    const item = createSvgElement('path', `ship-cohesion-segment ${segment.filled ? 'is-filled' : 'is-debt'}${segment.queued ? ' is-queued' : ''}`);
     item.dataset.segmentIndex = String(segment.index);
     if (segment.taskId) item.dataset.taskId = segment.taskId;
-    item.style?.setProperty?.('--cohesion-segment-index', String(segment.index));
+    item.setAttribute('d', cohesionArcPath(segment.index));
+    item.setAttribute('pathLength', '1');
     item.setAttribute('role', 'listitem');
     item.setAttribute('aria-label', segment.filled ? `Cohesion segment ${segment.index + 1}, ready` : `Cohesion segment ${segment.index + 1}, unresolved`);
-    ring.appendChild(item);
+    (segment.index < 10 ? back : front).appendChild(item);
+    segments.push(item);
   });
-  return ring;
+  ring.append(back, front);
+  return { root: ring, segments };
 }
 
 function createHistory(records) {
@@ -238,8 +273,10 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   detail.id = 'ship-task-detail';
   detail.setAttribute('aria-live', 'polite');
   const buttons = [];
-  const segments = [...ring.children];
+  const mobilePanels = [];
+  const segments = ring.segments;
   let selectedId = tasks[0]?.id || null;
+  let expandedId = null;
 
   const preview = (taskId) => {
     segments.forEach((segment) => segment.classList.toggle('is-preview', segment.dataset.taskId === taskId));
@@ -257,31 +294,62 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     replaceChildren(detail, createDetail(task, commandBearing, actions));
     preview(taskId);
   };
+  const toggleExpanded = (taskId) => {
+    expandedId = expandedId === taskId ? null : taskId;
+    buttons.forEach((button, index) => {
+      const expanded = button.dataset.taskId === expandedId;
+      button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      if (mobilePanels[index]) mobilePanels[index].hidden = !expanded;
+    });
+  };
 
   tasks.forEach((task, index) => {
     const button = createElement('button', `ship-task-button ship-task-position-${index}`);
     button.type = 'button';
     button.dataset.taskId = task.id;
     button.dataset.anchor = task.anchor || '';
-    button.setAttribute('aria-controls', 'ship-task-detail');
+    const buttonId = `ship-task-button-${index}`;
+    const panelId = `ship-task-mobile-panel-${index}`;
+    button.id = buttonId;
+    button.setAttribute('aria-controls', `ship-task-detail ${panelId}`);
     button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-expanded', 'false');
     const titleRow = createElement('span', 'ship-task-button-title');
     const label = createElement('strong');
     label.textContent = task.title;
     const titleIcon = createTaskCategoryIcon(task);
     if (titleIcon) titleRow.appendChild(titleIcon);
     titleRow.appendChild(label);
-    button.append(titleRow, createReward(task));
-    button.addEventListener('click', () => select(task.id));
+    const disclosure = createElement('span', 'ship-task-disclosure');
+    disclosure.setAttribute('aria-hidden', 'true');
+    titleRow.appendChild(disclosure);
+    const info = createElement('span', 'ship-task-button-info');
+    const next = createElement('span', 'ship-task-button-next');
+    next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'Ready for closure';
+    info.append(next, createReward(task));
+    button.append(titleRow, info);
+
+    const mobilePanel = createElement('section', 'ship-task-mobile-panel');
+    mobilePanel.id = panelId;
+    mobilePanel.hidden = true;
+    mobilePanel.setAttribute('role', 'region');
+    mobilePanel.setAttribute('aria-labelledby', buttonId);
+    mobilePanel.appendChild(createDetail(task, commandBearing, actions, { includeHeader: false }));
+
+    button.addEventListener('click', () => {
+      select(task.id);
+      toggleExpanded(task.id);
+    });
     button.addEventListener('focus', () => preview(task.id));
     button.addEventListener('blur', () => preview(selectedId));
     button.addEventListener('pointerenter', () => preview(task.id));
     button.addEventListener('pointerleave', () => preview(selectedId));
     buttons.push(button);
-    taskNav.appendChild(button);
+    mobilePanels.push(mobilePanel);
+    taskNav.append(button, mobilePanel);
   });
   const orbit = createElement('div', 'ship-cohesion-orbit');
-  orbit.append(ring, shipVisual, leaders, taskNav);
+  orbit.append(ring.root, shipVisual, leaders, taskNav);
   stage.append(orbit, detail);
   workspace.appendChild(stage);
 
