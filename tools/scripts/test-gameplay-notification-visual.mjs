@@ -131,6 +131,16 @@ try {
   assert.equal(reducedStyle.animationName, 'none');
   assert.equal(reducedStyle.transform, 'none');
   await reducedContext.close();
+
+  const proofPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await proofPage.goto(`${baseUrl}/production?route=mission&notificationProof=stack`);
+  await proofPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  assert.equal(
+    await proofPage.locator('.directive-gameplay-notification').count(),
+    3,
+    'the fixture-only proof URL should expose a read-only notification stack for external browser certification',
+  );
+  await proofPage.close();
   console.log('Directive gameplay notification visual tests passed.');
 } finally {
   await browser.close();

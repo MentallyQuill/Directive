@@ -261,4 +261,40 @@ globalThis.__directiveShowGameplayNotifications = (records) => publishGameplayNo
 globalThis.__directiveResetGameplayNotifications = () => resetGameplayNotifications('fixture-reset');
 
 mount();
+const notificationProofRecords = Object.freeze({
+  objective: {
+    id: 'mission.objectiveComplete.mission.proof.2.objective.signal',
+    route: 'mission', subjectId: 'mission.proof', kind: 'objectiveComplete',
+    title: 'Objective complete', summary: 'The signal source was located.',
+    priority: 70, sourceRevision: 'mission:2;story:1'
+  },
+  people: {
+    id: 'people.newContact.person.t-vel.mission:2;story:2',
+    route: 'people', subjectId: 'person.t-vel', kind: 'newContact',
+    title: "New contact: T'Vel", summary: 'Relationship established: Cautiously cooperative',
+    priority: 60, sourceRevision: 'mission:2;story:2'
+  },
+  shipProgress: {
+    id: 'ship.shipTaskProgress.task.sensor.mission:2;story:3.phase.baseline',
+    route: 'ship', subjectId: 'task.sensor', kind: 'shipTaskProgress',
+    title: 'Ship task progressed: Sensor Baseline', summary: 'Step complete: Run an isolation test',
+    priority: 40, sourceRevision: 'mission:2;story:3'
+  },
+  shipComplete: {
+    id: 'ship.shipTaskComplete.task.sensor.8',
+    route: 'ship', subjectId: 'task.sensor', kind: 'shipTaskComplete',
+    title: 'Ship task complete', summary: 'Sensor Baseline',
+    priority: 90, sourceRevision: 'mission:3;story:4'
+  }
+});
+const notificationProof = new URLSearchParams(globalThis.location?.search || '').get('notificationProof');
+if (notificationProof === 'stack') {
+  globalThis.__directiveShowGameplayNotifications([
+    notificationProofRecords.objective,
+    notificationProofRecords.people,
+    notificationProofRecords.shipProgress
+  ]);
+} else if (notificationProofRecords[notificationProof]) {
+  globalThis.__directiveShowGameplayNotifications([notificationProofRecords[notificationProof]]);
+}
 globalThis.__directiveFixtureReady = true;
