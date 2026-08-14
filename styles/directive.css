@@ -4183,7 +4183,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-cohesion-score span { color: #90d6a7; font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
 .directive-expanded-shell .ship-cohesion-score.is-strained span { color: #f4b45f; }
 .directive-expanded-shell .ship-cohesion-score.is-critical span { color: #ff8178; }
-.directive-expanded-shell .ship-cohesion-stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .72fr); gap: 15px; align-items: stretch; min-height: 500px; }
+.directive-expanded-shell .ship-cohesion-stage { display: grid; flex: 0 0 auto; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: stretch; min-height: 0; }
 .directive-expanded-shell .ship-cohesion-orbit { position: relative; min-width: 0; min-height: 500px; overflow: hidden; background: radial-gradient(circle at 50% 48%, rgba(77, 116, 176, .12), transparent 46%); }
 .directive-expanded-shell .ship-cohesion-visual { position: absolute; z-index: 2; inset: 13% 5% auto; width: 90%; height: 72%; margin: 0; border: 0; background: transparent; }
 .directive-expanded-shell .ship-cohesion-visual > .directive-media-image { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 18px 22px rgba(0, 0, 0, .58)); }
@@ -4241,7 +4241,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-position-2 { top: 60%; left: 0; }
 .directive-expanded-shell .ship-task-position-3 { top: 60%; right: 0; }
 .directive-expanded-shell .ship-task-position-4 { bottom: 2%; left: 50%; transform: translateX(-50%); }
-.directive-expanded-shell .ship-task-detail { min-width: 0; overflow: auto; background: rgba(13, 15, 23, .86); border: 1px solid rgba(155, 130, 207, .36); border-top: 3px solid var(--directive-expanded-violet); border-radius: 5px; }
+.directive-expanded-shell .ship-task-detail { min-width: 0; overflow: visible; background: rgba(13, 15, 23, .86); border: 1px solid rgba(155, 130, 207, .36); border-top: 3px solid var(--directive-expanded-violet); border-radius: 5px; }
 .directive-expanded-shell .ship-task-detail-content { display: grid; gap: 11px; padding: 16px; }
 .directive-expanded-shell .ship-task-detail-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .directive-expanded-shell .ship-task-detail-header h3 { margin: 3px 0 0; color: var(--directive-expanded-text); font: 800 20px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif; }
@@ -4269,12 +4269,12 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 @media (max-width: 820px) {
   .directive-expanded-shell .ship-cohesion-stage { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-  .directive-expanded-shell .ship-cohesion-orbit { display: grid; grid-template-rows: minmax(260px, 46vh) auto; gap: 8px; min-height: 0; overflow: visible; }
+  .directive-expanded-shell .ship-cohesion-orbit { display: grid; grid-template-rows: minmax(260px, 46vh) auto; gap: 8px; min-height: 520px; overflow: visible; }
   .directive-expanded-shell .ship-cohesion-visual { inset: 2% 5% auto; height: min(42vh, 300px); }
   .directive-expanded-shell .ship-cohesion-ring { top: min(22vh, 150px); width: min(68vw, 300px); }
   .directive-expanded-shell .ship-cohesion-segment { --cohesion-radius: min(32vw, 143px); height: 20px; margin-top: -10px; }
   .directive-expanded-shell .ship-task-leaders { display: none; }
-  .directive-expanded-shell .ship-task-nav { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 4px; }
+  .directive-expanded-shell .ship-task-nav { position: static; grid-row: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 4px; }
   .directive-expanded-shell .ship-task-button { position: static; width: auto; min-height: 44px; transform: none; }
   .directive-expanded-shell .ship-task-position-4 { grid-column: 1 / -1; }
   .directive-expanded-shell .ship-task-detail { overflow: visible; }

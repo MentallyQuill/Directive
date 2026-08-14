@@ -200,7 +200,15 @@ function fixtureView() {
 
 const actions = new Proxy({
   setActiveTab(routeId) { activeRouteId = routeId; mount(); },
-  async refresh() { mount(); }
+  async refresh() { mount(); },
+  async reserveCohesionRelief(options) {
+    globalThis.__directiveFixtureActions.push({ action: 'reserveCohesionRelief', args: [options] });
+    return { applied: true };
+  },
+  async cancelCohesionRelief() {
+    globalThis.__directiveFixtureActions.push({ action: 'cancelCohesionRelief', args: [] });
+    return { applied: true };
+  }
 }, {
   get(target, key) {
     if (key in target) return target[key];

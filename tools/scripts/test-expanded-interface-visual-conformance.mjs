@@ -21,7 +21,7 @@ const requiredSelectors = {
   campaign: ['.campaign-dashboard', '.campaign-dashboard-heading', '.campaign-detail-actions', '[data-campaign-action="campaigns"]'],
   mission: ['.mission-layout', '.mission-collection', '.mission-detail', '.mission-objective-row'],
   people: ['.people-route', '.directive-command-bearing-strip', '.people-layout', '.people-roster', '.people-detail'],
-  ship: ['.ship-layout', '.ship-hero', '.ship-board', '.ship-operational-status'],
+  ship: ['.ship-cohesion-workspace', '.ship-cohesion-ring', '.ship-task-nav', '.ship-task-detail'],
   settings: ['.settings-layout', '.settings-content', '.settings-provider-grid', '.settings-provider-card', '.settings-diagnostics']
 };
 const expectedOwnerCounts = { campaign: 1, mission: 2, people: 2, ship: 1, settings: 1 };
@@ -596,8 +596,7 @@ try {
     '.campaign-dashboard-heading',
     '.campaign-dashboard-actions'
   );
-  const desktopShipHero = await measureDesktopHero('ship', '.ship-hero.directive-responsive-hero', '.ship-board');
-  for (const [label, result] of [['Campaign', desktopCampaignHero], ['Ship', desktopShipHero]]) {
+  for (const [label, result] of [['Campaign', desktopCampaignHero]]) {
     assert.equal(result.finePointer, true);
     assert.equal(result.collapsedHeight, 140, `${label} must start compact`);
     assert.equal(result.hoverHeight, 140, `${label} hover must not change geometry`);
@@ -629,68 +628,6 @@ try {
       scaleStart: '.79', scaleEnd: '.81', rotateStart: '-.15deg', rotateEnd: '.15deg'
     }, `${label} ship must drift around an eighty-percent source-canvas scale without rewriting the asset`);
   }
-
-  const motionPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await motionPage.goto(`${baseUrl}/production?route=ship`);
-  await motionPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const motionHero = motionPage.locator('.ship-hero.directive-responsive-hero');
-  const sampleShipMotion = () => motionHero.evaluate((node) => {
-    const layer = node.querySelector('[data-hero-scene-layer="foreground"]');
-    const stars = node.querySelector('[data-hero-scene-layer="stars"]');
-    const glow = node.querySelector('[data-hero-scene-layer="stars-glow"]');
-    const matrix = new DOMMatrixReadOnly(getComputedStyle(layer).transform);
-    const starMatrix = new DOMMatrixReadOnly(getComputedStyle(stars).transform);
-    const glowMatrix = new DOMMatrixReadOnly(getComputedStyle(glow).transform);
-    const rect = node.getBoundingClientRect();
-    return {
-      a: matrix.a,
-      b: matrix.b,
-      e: matrix.e,
-      f: matrix.f,
-      starE: starMatrix.e,
-      starF: starMatrix.f,
-      glowE: glowMatrix.e,
-      glowF: glowMatrix.f,
-      glowOpacity: Number(getComputedStyle(glow).opacity),
-      width: rect.width,
-      height: rect.height
-    };
-  });
-  const translationDistance = (before, after, x = 'e', y = 'f') => Math.hypot(after[x] - before[x], after[y] - before[y]);
-  const compactMotionSamples = [await sampleShipMotion()];
-  for (let sampleIndex = 0; sampleIndex < 4; sampleIndex += 1) {
-    await motionPage.waitForTimeout(1000);
-    compactMotionSamples.push(await sampleShipMotion());
-  }
-  const compactMotionStart = compactMotionSamples[0];
-  const compactMotionEnd = compactMotionSamples.at(-1);
-  assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd) >= 6,
-    'compact hero ship motion must be apparent during a four-second glance'
-  );
-  assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd, 'starE', 'starF') >= 2,
-    'compact stable-star drift must be apparent during a four-second glance'
-  );
-  assert.ok(
-    translationDistance(compactMotionStart, compactMotionEnd, 'glowE', 'glowF') >= 4,
-    'compact glow-star plane must produce independent four-second parallax'
-  );
-  const compactGlowOpacities = compactMotionSamples.map((sample) => sample.glowOpacity);
-  assert.ok(
-    Math.max(...compactGlowOpacities) - Math.min(...compactGlowOpacities) >= .12,
-    'compact glow-star plane must visibly pulse during a four-second glance'
-  );
-  await motionHero.click();
-  await motionPage.waitForTimeout(220);
-  const expandedMotionStart = await sampleShipMotion();
-  await motionPage.waitForTimeout(4000);
-  const expandedMotionEnd = await sampleShipMotion();
-  assert.ok(
-    translationDistance(expandedMotionStart, expandedMotionEnd) >= 6,
-    'expanded hero ship motion must be apparent during a four-second glance'
-  );
-  await motionPage.close();
 
   const touchContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -731,86 +668,14 @@ try {
 
   await touchPage.locator('[data-route-id="ship"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="ship"]');
-  const mobileShipHero = touchPage.locator('.ship-hero.directive-responsive-hero');
-  const mobileShipToggle = mobileShipHero.locator('.directive-responsive-hero-toggle');
-  assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 112);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) + 20) < 1, 'mobile compact Ship image must sit 20px above center');
-  await mobileShipToggle.tap();
-  await touchPage.waitForTimeout(220);
-  assert.equal(Math.round(await mobileShipHero.evaluate((node) => node.getBoundingClientRect().height)), 220);
-  assert.ok(Math.abs(await measureForegroundVerticalOffset(mobileShipHero) + 20) < 1, 'mobile expanded Ship image must stay 20px above center');
-  assert.equal(await mobileShipToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(await touchPage.locator('.ship-cohesion-workspace').count(), 1);
+  assert.equal(await touchPage.locator('.ship-hero').count(), 0, 'Ship must not restore the redundant banner');
 
   await touchPage.locator('[data-route-id="campaign"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="campaign"]');
   const returnedCampaignHero = touchPage.locator('.campaign-dashboard .directive-responsive-hero');
   assert.equal(Math.round(await returnedCampaignHero.evaluate((node) => node.getBoundingClientRect().height)), 112, 'Campaign must start compact after route re-entry');
   await touchContext.close();
-
-  const wideTouchContext = await browser.newContext({
-    viewport: { width: 1024, height: 768 },
-    hasTouch: true
-  });
-  const wideTouchPage = await wideTouchContext.newPage();
-  await wideTouchPage.goto(`${baseUrl}/production?route=ship`);
-  await wideTouchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const wideTouchMotion = await wideTouchPage.locator('.ship-hero.directive-hero-scene').evaluate((node) => ({
-    coarse: matchMedia('(pointer: coarse)').matches,
-    shipX: getComputedStyle(node).getPropertyValue('--directive-hero-ship-x-end').trim(),
-    starsX: getComputedStyle(node).getPropertyValue('--directive-hero-stars-x-end').trim(),
-    glowStarsX: getComputedStyle(node).getPropertyValue('--directive-hero-glow-stars-x-end').trim(),
-    scaleStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-start').trim(),
-    scaleEnd: getComputedStyle(node).getPropertyValue('--directive-hero-ship-scale-end').trim(),
-    rotateStart: getComputedStyle(node).getPropertyValue('--directive-hero-ship-rotate-start').trim(),
-    rotateEnd: getComputedStyle(node).getPropertyValue('--directive-hero-ship-rotate-end').trim()
-  }));
-  assert.deepEqual(wideTouchMotion, {
-    coarse: true,
-    shipX: '1.5%',
-    starsX: '.6%',
-    glowStarsX: '-.9%',
-    scaleStart: '.795',
-    scaleEnd: '.805',
-    rotateStart: '-.075deg',
-    rotateEnd: '.075deg'
-  }, 'wide coarse-pointer screens must use half-strength motion');
-  await wideTouchContext.close();
-
-  const reducedContext = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    reducedMotion: 'reduce'
-  });
-  const reducedPage = await reducedContext.newPage();
-  await reducedPage.goto(`${baseUrl}/production?route=ship`);
-  await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const reducedMotion = await reducedPage.locator('.ship-hero.directive-responsive-hero').evaluate((node) => ({
-    transition: getComputedStyle(node).transitionDuration,
-    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName),
-    foregroundScale: new DOMMatrixReadOnly(getComputedStyle(node.querySelector('[data-hero-scene-layer="foreground"]')).transform).a
-  }));
-  assert.equal(reducedMotion.transition, '0s', 'reduced motion must remove the hero height transition');
-  assert.deepEqual(reducedMotion.animations, ['none', 'none', 'none', 'none'], 'reduced motion must freeze every scene layer');
-  assert.ok(Math.abs(reducedMotion.foregroundScale - .8) < .001, 'reduced motion must retain the twenty-percent-smaller ship framing');
-  await reducedContext.close();
-
-  const mobileReducedContext = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-    reducedMotion: 'reduce'
-  });
-  const mobileReducedPage = await mobileReducedContext.newPage();
-  await mobileReducedPage.goto(`${baseUrl}/production?route=ship`);
-  await mobileReducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const mobileReducedMotion = await mobileReducedPage.locator('.ship-hero.directive-responsive-hero').evaluate((node) => ({
-    foregroundScale: new DOMMatrixReadOnly(getComputedStyle(node.querySelector('[data-hero-scene-layer="foreground"]')).transform).a,
-    verticalOffset: node.querySelector('[data-hero-scene-layer="foreground"]').offsetTop - (node.clientHeight / 2),
-    animations: [...node.querySelectorAll('.directive-hero-scene-layer')].map((layer) => getComputedStyle(layer).animationName)
-  }));
-  assert.ok(Math.abs(mobileReducedMotion.foregroundScale - 1.04) < .001, 'mobile reduced motion must retain the thirty-percent-larger ship framing');
-  assert.ok(Math.abs(mobileReducedMotion.verticalOffset + 20) < 1, 'mobile reduced motion must keep the ship 20px above center');
-  assert.deepEqual(mobileReducedMotion.animations, ['none', 'none', 'none', 'none']);
-  await mobileReducedContext.close();
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await peoplePage.goto(`${baseUrl}/production?route=people`);
