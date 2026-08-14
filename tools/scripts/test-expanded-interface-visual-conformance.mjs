@@ -83,6 +83,99 @@ try {
   await reference.screenshot({ path: path.join(artifactRoot, 'reference-certified.png'), fullPage: true });
   await reference.close();
 
+  const relayPage = await browser.newPage({ viewport: viewports[0] });
+  await relayPage.goto(`${baseUrl}/production?route=campaign`);
+  await relayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+
+  const relayBehavior = await relayPage.evaluate(() => {
+    const segments = [...document.querySelectorAll('.directive-lcars-rail-segment')];
+    const animations = segments.map((segment) => segment.getAnimations({ subtree: true })
+      .find((animation) => animation.animationName === 'directive-lcars-relay-press'));
+    const animationCount = animations.filter(Boolean).length;
+    if (animationCount !== segments.length) {
+      return { segmentCount: segments.length, animationCount };
+    }
+    const firstStyle = getComputedStyle(segments[0], '::after');
+    animations.forEach((animation) => animation.pause());
+    let maxLit = 0;
+    let sawSolo = false;
+    let sawPair = false;
+    for (let time = 0; time <= 32000; time += 100) {
+      animations.forEach((animation) => { animation.currentTime = time; });
+      const lit = segments.filter((segment) => Number.parseFloat(getComputedStyle(segment, '::after').opacity) > .05).length;
+      maxLit = Math.max(maxLit, lit);
+      sawSolo ||= lit === 1;
+      sawPair ||= lit === 2;
+    }
+    animations.forEach((animation) => { animation.currentTime = 3500; });
+    return {
+      segmentCount: segments.length,
+      animationCount,
+      duration: animations[0]?.effect.getTiming().duration,
+      illuminatedOpacity: Number.parseFloat(getComputedStyle(segments[0], '::after').opacity),
+      segment: {
+        isolation: getComputedStyle(segments[0]).isolation,
+        labelZIndices: [
+          getComputedStyle(segments[0].querySelector('b')).zIndex,
+          getComputedStyle(segments[0].querySelector('small')).zIndex
+        ]
+      },
+      overlay: {
+        pointerEvents: firstStyle.pointerEvents,
+        filter: firstStyle.filter,
+        boxShadowLayers: firstStyle.boxShadow.replace(/rgba\([^)]*\)/g, 'rgba()').split(/,\s*/),
+        zIndex: firstStyle.zIndex,
+        inset: [firstStyle.top, firstStyle.right, firstStyle.bottom, firstStyle.left],
+        overflow: getComputedStyle(segments[0]).overflow
+      },
+      maxLit,
+      sawSolo,
+      sawPair
+    };
+  });
+
+  assert.equal(relayBehavior.segmentCount, 5);
+  assert.equal(relayBehavior.animationCount, 5);
+  assert.equal(relayBehavior.duration, 32000);
+  assert.ok(relayBehavior.illuminatedOpacity >= .75 && relayBehavior.illuminatedOpacity <= .8);
+  assert.equal(relayBehavior.segment.isolation, 'isolate');
+  assert.deepEqual(relayBehavior.segment.labelZIndices, ['1', '1']);
+  assert.equal(relayBehavior.overlay.pointerEvents, 'none');
+  assert.equal(relayBehavior.overlay.filter, 'none');
+  assert.equal(relayBehavior.overlay.zIndex, '0');
+  assert.ok(relayBehavior.overlay.boxShadowLayers.every((layer) => layer.includes('inset')));
+  assert.deepEqual(relayBehavior.overlay.inset, ['0px', '0px', '0px', '0px']);
+  assert.equal(relayBehavior.overlay.overflow, 'hidden');
+  assert.equal(relayBehavior.maxLit, 2);
+  assert.equal(relayBehavior.sawSolo, true);
+  assert.equal(relayBehavior.sawPair, true);
+  await relayPage.close();
+
+  const mobileRelayPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobileRelayPage.goto(`${baseUrl}/production?route=campaign`);
+  await mobileRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const mobileRelayOpacity = await mobileRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => {
+    const animation = segment.getAnimations({ subtree: true })
+      .find((candidate) => candidate.animationName === 'directive-lcars-relay-press');
+    animation.pause();
+    animation.currentTime = 3500;
+    return Number.parseFloat(getComputedStyle(segment, '::after').opacity);
+  });
+  assert.ok(mobileRelayOpacity >= .59 && mobileRelayOpacity <= .65);
+  await mobileRelayPage.close();
+
+  const reducedRelayPage = await browser.newPage({ viewport: viewports[0] });
+  await reducedRelayPage.emulateMedia({ reducedMotion: 'reduce' });
+  await reducedRelayPage.goto(`${baseUrl}/production?route=campaign`);
+  await reducedRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  const reducedRelay = await reducedRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => ({
+    animationName: getComputedStyle(segment, '::after').animationName,
+    opacity: getComputedStyle(segment, '::after').opacity
+  }));
+  assert.equal(reducedRelay.animationName, 'none');
+  assert.equal(reducedRelay.opacity, '0');
+  await reducedRelayPage.close();
+
   for (const viewport of viewports) {
     for (const route of routes) {
       const page = await browser.newPage({ viewport });
