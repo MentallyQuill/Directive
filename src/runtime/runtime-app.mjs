@@ -14,6 +14,7 @@ import {
   createV1WorkingStoryPromptProjection
 } from '../projection/v1/prompt-projection.mjs';
 import { createPeoplePromptProjection } from '../projection/v1/people-projection.mjs';
+import { deriveGameplayNotifications } from '../projection/v1/gameplay-notifications.mjs';
 import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
@@ -623,6 +624,19 @@ export function createDirectiveRuntimeApp({
     return buildV1RuntimePlayerProjection({ campaignState: state, runtimeAssets });
   }
 
+  function sendGameplayNotificationMessage(message) {
+    try {
+      const result = host.ui?.send?.(message);
+      Promise.resolve(result).catch((error) => {
+        host.logger?.warn?.('[Directive] Gameplay notification UI message failed.', error);
+      });
+      return true;
+    } catch (error) {
+      host.logger?.warn?.('[Directive] Gameplay notification UI message failed.', error);
+      return false;
+    }
+  }
+
   function currentChatIsBound() {
     const expected = state?.campaignChatBinding;
     const current = host.chat.getCurrentBinding?.();
@@ -978,7 +992,10 @@ export function createDirectiveRuntimeApp({
     return enqueueStateMutation(task);
   }
 
-  async function settleSnapshot(snapshot, ingressId = null, { syncPromptAfter = true } = {}) {
+  async function settleSnapshot(snapshot, ingressId = null, {
+    syncPromptAfter = true,
+    publishNotifications = true
+  } = {}) {
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
       campaignId: state?.campaign?.id || null,
@@ -994,6 +1011,13 @@ export function createDirectiveRuntimeApp({
       error.code = 'DIRECTIVE_ACCEPTED_PAIR_ENVELOPE_STALE';
       error.details = { expected: currentEnvelope, actual: clone(envelope) };
       throw error;
+    }
+    let previousProjection = null;
+    try {
+      const previousProjectionResult = projectionResult();
+      if (previousProjectionResult?.ok === true) previousProjection = clone(previousProjectionResult.projection);
+    } catch (error) {
+      host.logger?.warn?.('[Directive] Could not capture the prior gameplay notification projection.', error);
     }
     const analysisController = typeof AbortController === 'function' ? new AbortController() : null;
     activeAnalysisController = analysisController;
@@ -1040,11 +1064,33 @@ export function createDirectiveRuntimeApp({
       applied: false,
       reasonCode: 'no-accepted-edge'
     };
+    let notifications = [];
+    if (mission?.ok === true && publishNotifications) {
+      try {
+        const nextProjectionResult = projectionResult();
+        notifications = nextProjectionResult?.ok === true
+          ? deriveGameplayNotifications({
+            previousProjection,
+            nextProjection: nextProjectionResult.projection
+          })
+          : [];
+        if (notifications.length > 0) {
+          sendGameplayNotificationMessage({
+            type: 'directive.gameplayNotifications.publish.v1',
+            payload: { records: clone(notifications) }
+          });
+        }
+      } catch (error) {
+        notifications = [];
+        host.logger?.warn?.('[Directive] Could not derive gameplay notifications from committed state.', error);
+      }
+    }
     if (mission?.ok === true && syncPromptAfter) await syncPrompt();
     return {
       time,
       mission,
       commandBearing,
+      notifications: clone(notifications),
       persistenceAttempts,
       settlementBlocked,
       campaignState: clone(state)
@@ -1091,7 +1137,8 @@ export function createDirectiveRuntimeApp({
       const prepared = await acceptedSnapshotForMessage(message, activeMessages, `replay.${hostMessageId}`);
       if (!prepared.ok) continue;
       const result = await settleSnapshot(prepared.snapshot, `replay.${hostMessageId}`, {
-        syncPromptAfter: false
+        syncPromptAfter: false,
+        publishNotifications: false
       });
       if (result.mission?.ok === false) {
         blockedAtMessageId = hostMessageId || null;
@@ -1545,6 +1592,10 @@ export function createDirectiveRuntimeApp({
           deferred: true
         };
       }
+      sendGameplayNotificationMessage({
+        type: 'directive.gameplayNotifications.reset.v1',
+        payload: { reason: 'chat-changed' }
+      });
       return enqueueStateMutation(async () => {
       const chatId = compact(host.chat.getCurrentChatId?.());
       const metadata = await host.chat.getBindingMetadata?.();

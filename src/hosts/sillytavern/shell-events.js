@@ -2,6 +2,7 @@ import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
 import { closeSettlementRetryDialog } from '../../ui/settlement-retry-dialog.js';
+import { resetGameplayNotifications } from '../../ui/gameplay-notification-center.js';
 import { createPreviousTimelineNameDialog } from '../../ui/timeline-dialogs.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
@@ -179,6 +180,7 @@ export function disposeSillyTavernDirectiveEventLifecycle() {
 
 export async function handleExtensionDisabled() {
   setSillyTavernDirectiveRuntimeEnabled(false);
+  resetGameplayNotifications('extension-disabled');
   closeSettlementRetryDialog('extension-disabled');
   try {
     await getSillyTavernDirectiveRuntimeBridge().host?.presets?.restoreNarrationPreset?.();

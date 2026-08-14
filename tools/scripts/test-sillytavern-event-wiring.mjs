@@ -11,6 +11,10 @@ import {
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
 import { __settlementRetryDialogTestHooks } from '../../src/ui/settlement-retry-dialog.js';
+import {
+  __gameplayNotificationCenterTestHooks,
+  publishGameplayNotifications,
+} from '../../src/ui/gameplay-notification-center.js';
 import { installFakeDom } from './helpers/fake-dom.mjs';
 import { __directiveRuntimeActionTestHooks, registerRuntimeAction } from '../../src/runtime/runtime-actions.js';
 
@@ -76,8 +80,24 @@ setSillyTavernDirectiveRuntimeBridge({
     }
   }
 });
+const documentBeforeDisableNotificationTest = globalThis.document;
+installFakeDom();
+publishGameplayNotifications([{
+  id: 'people.newContact.person.disable-test.1',
+  route: 'people',
+  subjectId: 'person.disable-test',
+  kind: 'newContact',
+  title: 'New contact',
+  summary: 'Disable lifecycle test.',
+  priority: 60,
+  sourceRevision: 'mission:0;story:1',
+}], { onView: async () => {} });
+assert.equal(__gameplayNotificationCenterTestHooks.state().visible, 1);
 await __directiveEventTestHooks.handleExtensionDisabled();
 assert.equal(restoreCount, 1, 'extension disable must restore the preset selected before campaign play');
+assert.equal(__gameplayNotificationCenterTestHooks.state().visible, 0, 'extension disable must clear gameplay notifications');
+if (documentBeforeDisableNotificationTest === undefined) delete globalThis.document;
+else globalThis.document = documentBeforeDisableNotificationTest;
 clearSillyTavernDirectiveRuntimeBridge();
 
 let renamed = null;

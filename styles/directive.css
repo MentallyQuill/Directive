@@ -24,6 +24,7 @@
 .directive-vector-glyph[data-glyph="route-ship"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-ship.svg"); }
 
 .directive-vector-glyph[data-glyph="route-settings"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/route-settings.svg"); }
+.directive-vector-glyph[data-glyph="action-view"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-view.svg"); }
 
 .directive-launcher-button {
   display: inline-flex;
@@ -68,12 +69,161 @@
 .directive-overlay-root {
   position: fixed;
   inset: 0;
-  z-index: 100000;
+  z-index: 100180;
   pointer-events: none;
 }
 
 .directive-overlay-root > * {
   pointer-events: auto;
+}
+
+.directive-gameplay-notifications {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 100160;
+  display: grid;
+  width: min(340px, calc(100vw - 24px));
+  min-width: min(280px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.directive-gameplay-notification-list {
+  display: grid;
+  gap: 6px;
+}
+
+.directive-gameplay-notification {
+  --directive-notification-accent: #f2a126;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden;
+  color: #f8efe0;
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--directive-notification-accent) 9%, transparent), transparent 48%),
+    rgba(13, 16, 24, .96);
+  border: 1px solid color-mix(in srgb, var(--directive-notification-accent) 54%, rgba(248, 239, 224, .14));
+  border-left: 4px solid var(--directive-notification-accent);
+  border-radius: 5px;
+  box-shadow: 0 9px 24px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(248, 239, 224, .025);
+  pointer-events: auto;
+  animation: directive-gameplay-notification-enter 180ms ease-out both;
+}
+
+.directive-gameplay-notification.is-people { --directive-notification-accent: #9b82cf; }
+.directive-gameplay-notification.is-ship { --directive-notification-accent: #79aaf2; }
+
+.directive-gameplay-notification-dismiss,
+.directive-gameplay-notification-view {
+  min-width: 0;
+  margin: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.directive-gameplay-notification-dismiss {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 9px;
+  text-align: left;
+}
+
+.directive-gameplay-notification-category {
+  color: var(--directive-notification-accent);
+  font: 800 8px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.directive-gameplay-notification-title {
+  overflow: hidden;
+  color: #f8efe0;
+  font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-gameplay-notification-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #b9b1a5;
+  font: 500 10px/1.25 "Segoe UI", system-ui, sans-serif;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.directive-gameplay-notification-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 60px;
+  min-height: 44px;
+  padding: 5px 8px;
+  color: var(--directive-notification-accent);
+  border-left: 1px solid color-mix(in srgb, var(--directive-notification-accent) 34%, transparent);
+  font: 800 9px/1 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.directive-gameplay-notification-view-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.directive-gameplay-notification-dismiss:hover,
+.directive-gameplay-notification-view:hover {
+  background: color-mix(in srgb, var(--directive-notification-accent) 11%, transparent);
+}
+
+.directive-gameplay-notification-dismiss:focus-visible,
+.directive-gameplay-notification-view:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #ffe58f;
+  outline-offset: -2px;
+}
+
+.directive-gameplay-notification.is-exiting {
+  pointer-events: none;
+  animation: directive-gameplay-notification-exit 180ms ease-in both;
+}
+
+@keyframes directive-gameplay-notification-enter {
+  from { opacity: 0; transform: translateY(-8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes directive-gameplay-notification-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+
+@media (max-width: 360.5px) {
+  .directive-gameplay-notification-view {
+    width: 44px;
+    min-width: 44px;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .directive-gameplay-notification-view-text { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directive-gameplay-notification { animation: none; }
+  .directive-gameplay-notification.is-exiting {
+    opacity: 0;
+    transition: opacity 120ms linear;
+  }
 }
 
 .directive-runtime-overlay {
@@ -4133,6 +4283,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .campaign-hero.is-hero-orbit-engaged .directive-hero-scene-has-cruise .directive-hero-scene-layer {
   transition-duration: 90ms;
   transition-timing-function: ease-out;
+}
+.directive-expanded-shell .campaign-hero.is-hero-orbit-engaged.is-hero-orbit-mouse .directive-hero-scene-has-cruise .directive-hero-scene-layer {
+  transition-duration: 360ms;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
   z-index: 0;
