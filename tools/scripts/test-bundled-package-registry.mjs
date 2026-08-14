@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+
+import {
+  createHeroCruiseAssets,
+  HERO_CRUISE_OUTPUT_ROOT
+} from './generate-hero-cruise-assets.mjs';
 
 import {
   ASHES_V1_BUNDLED_REF,
@@ -88,6 +94,15 @@ for (const path of [
 const farStarsSvg = fs.readFileSync(expectedHeroLayers.cruise.farStars, 'utf8');
 const nearStarsSvg = fs.readFileSync(expectedHeroLayers.cruise.nearStars, 'utf8');
 const sunlightSvg = fs.readFileSync(expectedHeroLayers.cruise.sunlight, 'utf8');
+const generatedCruiseAssets = createHeroCruiseAssets();
+assert.equal(
+  path.normalize(HERO_CRUISE_OUTPUT_ROOT),
+  path.normalize(path.dirname(path.resolve(expectedHeroLayers.cruise.farStars))),
+  'the generator output must be anchored to the repository rather than the caller working directory'
+);
+assert.equal(generatedCruiseAssets['uss-breckenridge.hero-stars-far.svg'], farStarsSvg);
+assert.equal(generatedCruiseAssets['uss-breckenridge.hero-stars-near.svg'], nearStarsSvg);
+assert.equal(generatedCruiseAssets['uss-breckenridge.hero-sunlight.svg'], sunlightSvg);
 assert.match(farStarsSvg, /viewBox="0 0 960 600"/);
 assert.match(nearStarsSvg, /viewBox="0 0 960 600"/);
 assert.match(sunlightSvg, /viewBox="0 0 1672 941"/);

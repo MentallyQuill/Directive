@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Render the Breckenridge Campaign and Ship heroes as a restrained, continuously cruising scene with two seamless star-parallax planes, an aligned sunlight pulse, and full-strength mobile ship drift.
+**Goal:** Render the Breckenridge Campaign hero as a restrained, continuously cruising scene with two seamless star-parallax planes, an aligned sunlight pulse, and full-strength mobile ship drift. Keep the Ship route's existing cohesion workspace free of a redundant hero.
 
 **Architecture:** Extend the exact package-owned layered hero record with an optional all-or-nothing `cruise` asset set. The resolver certifies that set, the renderer adds bounded decorative layers only when it is complete, and CSS runs compositor-friendly one-tile translations whose terminal pixels equal their initial pixels. Checked-in deterministic SVG assets own the seamless star distributions and aligned light pass; no per-frame JavaScript or runtime randomness is introduced.
 

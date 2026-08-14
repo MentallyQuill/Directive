@@ -1,7 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const outputRoot = path.resolve('assets/packages/breckenridge/images/ship');
+const scriptPath = fileURLToPath(import.meta.url);
+const repositoryRoot = path.resolve(path.dirname(scriptPath), '..', '..');
+export const HERO_CRUISE_OUTPUT_ROOT = path.join(
+  repositoryRoot,
+  'assets',
+  'packages',
+  'breckenridge',
+  'images',
+  'ship'
+);
 const TILE_WIDTH = 960;
 const TILE_HEIGHT = 600;
 const STAR_COLORS = Object.freeze(['#fff7e8', '#e9f2ff', '#bfd7ff']);
@@ -86,9 +96,23 @@ function createSunlightPass() {
   ].join('\n');
 }
 
-fs.mkdirSync(outputRoot, { recursive: true });
-fs.writeFileSync(path.join(outputRoot, 'uss-breckenridge.hero-stars-far.svg'), createStarTile(profiles.far));
-fs.writeFileSync(path.join(outputRoot, 'uss-breckenridge.hero-stars-near.svg'), createStarTile(profiles.near));
-fs.writeFileSync(path.join(outputRoot, 'uss-breckenridge.hero-sunlight.svg'), createSunlightPass());
+export function createHeroCruiseAssets() {
+  return Object.freeze({
+    'uss-breckenridge.hero-stars-far.svg': createStarTile(profiles.far),
+    'uss-breckenridge.hero-stars-near.svg': createStarTile(profiles.near),
+    'uss-breckenridge.hero-sunlight.svg': createSunlightPass()
+  });
+}
 
-console.log('Generated deterministic Breckenridge hero cruise assets.');
+export function writeHeroCruiseAssets(outputRoot = HERO_CRUISE_OUTPUT_ROOT) {
+  const assets = createHeroCruiseAssets();
+  fs.mkdirSync(outputRoot, { recursive: true });
+  for (const [filename, contents] of Object.entries(assets)) {
+    fs.writeFileSync(path.join(outputRoot, filename), contents);
+  }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
+  writeHeroCruiseAssets();
+  console.log('Generated deterministic Breckenridge hero cruise assets.');
+}

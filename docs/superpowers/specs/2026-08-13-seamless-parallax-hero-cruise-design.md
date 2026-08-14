@@ -2,13 +2,13 @@
 
 ## Goal
 
-Make the package-authored Campaign and Ship hero scenes read as a starship cruising steadily forward. Preserve the Breckenridge artwork and its restrained tone while replacing reversible star drift with continuous, seamless parallax. Increase mobile ship motion to the desktop magnitude without changing its frequency.
+Make the package-authored Campaign hero scene read as a starship cruising steadily forward. Preserve the Breckenridge artwork and its restrained tone while replacing reversible star drift with continuous, seamless parallax. Increase mobile ship motion to the desktop magnitude without changing its frequency.
 
 This is presentation-only. It does not change campaign, mission, Ship, save, prompt, or package authority.
 
 ## Scope
 
-The enhanced treatment applies wherever a complete package-authored layered `ship.hero` scene is rendered, currently the active Campaign hero and Ship hero. Packages without the complete optional cruise-effect assets retain the existing layered or static fallback.
+The enhanced treatment applies to the active Campaign hero when its package supplies a complete layered `ship.hero` scene. The current Ship route intentionally keeps its dedicated cohesion workspace without a redundant hero banner. Packages without the complete optional cruise-effect assets retain the existing layered or static Campaign fallback.
 
 The enhancement adds no particles, dust, streaks, canvas, video, runtime randomness, or JavaScript animation loop.
 
@@ -23,7 +23,7 @@ The Breckenridge scene renders in this order:
 5. Transparent ship foreground.
 6. Transparent sunlight pass aligned to the painted sun.
 7. Existing readability gradient.
-8. Existing Campaign or Ship identity copy.
+8. Existing Campaign identity copy.
 
 The two moving star layers contain only point-shaped stars. They have no sun, nebula, dust, or streaks. Their opacity and visual scale remain constant during motion. The distant field contains many fine, low-contrast stars and moves slowly. The near field contains fewer, slightly larger and brighter stars and moves approximately twice as fast.
 
@@ -64,7 +64,7 @@ It uses the same `object-fit`, `object-position`, and responsive crop geometry a
 
 The light pass renders above the ship but below the readability gradient and interface copy. `screen` is the declared blend mode; `plus-lighter` may be used where supported only if visual verification shows no clipping or washout. A slow asymmetric keyframe changes only opacity/brightness within a narrow initial range of approximately `.10` to `.14`. It does not scale or move. The pulse should be barely perceptible and must not look rhythmic.
 
-## Ship motion and mobile behavior
+## Foreground ship motion and mobile behavior
 
 The ship keeps its existing `30s` alternating drift frequency and framing. Desktop translation, scale delta, and rotation remain the baseline.
 
@@ -89,7 +89,7 @@ Under `prefers-reduced-motion: reduce`:
 
 The implementation uses CSS transform animations on three bounded visual layers: far stars, near stars, and ship. The sunlight pass animates only restrained opacity/brightness. No per-frame JavaScript runs.
 
-All effect layers are decorative, pointer-inert, clipped by the hero, and hidden from assistive technology. The composed hero retains one accessible description. Campaign controls, Ship scroll ownership, hero sizing, text readability, and route interaction behavior remain unchanged.
+All effect layers are decorative, pointer-inert, clipped by the hero, and hidden from assistive technology. The composed hero retains one accessible description. Campaign controls, hero sizing, text readability, and route interaction behavior remain unchanged. The Ship route retains its existing cohesion workspace and scroll ownership without adding a hero.
 
 ## Verification
 
@@ -106,5 +106,5 @@ Automated and browser coverage will prove:
 - mobile ship translation, rotation, and scale delta are approximately double the prior mobile magnitude while frequency stays unchanged;
 - reduced-motion mode stops star, ship, and sunlight animation at deterministic static states;
 - desktop and phone screenshots show a restrained cruise effect with no exposed tile edge, dark bar, clipping, text washout, horizontal overflow, or obvious screensaver-like density;
-- Campaign controls and Ship content geometry remain unchanged;
+- Campaign controls remain unchanged, and the Ship route retains its existing content geometry without a redundant hero;
 - the full repository gate remains green.
