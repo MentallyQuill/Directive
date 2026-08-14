@@ -22,6 +22,8 @@ let lifecycle = null;
 let deleteIntent = null;
 let nativeBranchIntent = null;
 let deleteCapture = null;
+const editedUpdateMarkers = new Map();
+const EDITED_UPDATE_MARKER_TTL_MS = 10000;
 
 function enabled() {
   return getSillyTavernDirectiveRuntimeBridge().enabled !== false;
@@ -33,6 +35,45 @@ function app() {
 
 function report(label, error) {
   console.warn(`[Directive] ${label}:`, error);
+}
+
+function hostMessageKey(payload) {
+  const id = payload && typeof payload === 'object'
+    ? payload.hostMessageId
+      ?? payload.messageId
+      ?? payload.mesid
+      ?? payload.id
+      ?? payload.message?.hostMessageId
+      ?? payload.message?.messageId
+      ?? payload.message?.id
+    : payload;
+  const normalizedId = String(id ?? '').trim();
+  if (!normalizedId) return '';
+  const chatId = String(getSillyTavernDirectiveRuntimeBridge().host?.chat?.getCurrentChatId?.() ?? '').trim();
+  return `${chatId}\u0000${normalizedId}`;
+}
+
+function markEditedUpdate(payload) {
+  const key = hostMessageKey(payload);
+  if (key) editedUpdateMarkers.set(key, Date.now() + EDITED_UPDATE_MARKER_TTL_MS);
+}
+
+function consumeEditedUpdate(payload) {
+  const now = Date.now();
+  for (const [key, expiresAt] of editedUpdateMarkers) {
+    if (expiresAt <= now) editedUpdateMarkers.delete(key);
+  }
+  const key = hostMessageKey(payload);
+  if (!key || !editedUpdateMarkers.has(key)) return false;
+  editedUpdateMarkers.delete(key);
+  return true;
+}
+
+function scheduleReconciliation(label, task) {
+  Promise.resolve()
+    .then(task)
+    .catch((error) => report(label, error));
+  return { handled: true, scheduled: true, abortDefaultGeneration: false };
 }
 
 function register(adapter, names, handler, disposers) {
@@ -80,6 +121,7 @@ function disposeDeleteCapture() {
   deleteCapture = null;
   deleteIntent = null;
   nativeBranchIntent = null;
+  editedUpdateMarkers.clear();
 }
 
 function payloadWithDeleteIntent(payload) {
@@ -113,9 +155,24 @@ export function handlePlayerMessage(payload = {}) {
   return { handled: true, scheduled: true, abortDefaultGeneration: false };
 }
 
-export async function handleMessageEdited(payload = {}) {
+export function handleMessageEdited(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
-  return app()?.handleHostMessageEdited?.(payload);
+  markEditedUpdate(payload);
+  return scheduleReconciliation(
+    'Edited-message reconciliation failed',
+    () => app()?.handleHostMessageEdited?.(payload)
+  );
+}
+
+export function handleMessageVisibilityChanged(payload = {}) {
+  if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  if (consumeEditedUpdate(payload)) {
+    return { handled: true, scheduled: false, reason: 'paired-edit-update' };
+  }
+  return scheduleReconciliation(
+    'Message-visibility reconciliation failed',
+    () => app()?.handleHostMessageVisibilityChanged?.(payload)
+  );
 }
 
 export async function handleMessageDeleted(payload = {}) {
@@ -216,7 +273,7 @@ export function wireEvents(context) {
     'MESSAGE_SENT'
   ], handlePlayerMessage, disposers);
   register(adapter, [events.MESSAGE_EDITED || 'MESSAGE_EDITED'], handleMessageEdited, disposers);
-  register(adapter, [events.MESSAGE_UPDATED || 'MESSAGE_UPDATED'], handleMessageEdited, disposers);
+  register(adapter, [events.MESSAGE_UPDATED || 'MESSAGE_UPDATED'], handleMessageVisibilityChanged, disposers);
   register(adapter, [events.MESSAGE_SWIPED || 'MESSAGE_SWIPED'], handleMessageSelectedSwipeChanged, disposers);
   register(adapter, [events.MESSAGE_DELETED, events.MESSAGE_REMOVED, 'MESSAGE_DELETED'], handleMessageDeleted, disposers);
   register(adapter, [events.GENERATION_STOPPED || 'GENERATION_STOPPED'], handleGenerationStopped, disposers);
@@ -237,6 +294,7 @@ export const __directiveEventTestHooks = Object.freeze({
   wireEvents,
   handlePlayerMessage,
   handleMessageEdited,
+  handleMessageVisibilityChanged,
   handleMessageDeleted,
   handleMessageSelectedSwipeChanged,
   handleGenerationStopped,

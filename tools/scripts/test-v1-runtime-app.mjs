@@ -1091,6 +1091,38 @@ assert.equal(manuallyRetried.ok, true);
 assert.equal(manuallyRetried.settlementBlocked, false);
 assert.equal(missionInterpretationCalls, generationBeforeBlockedPersistence + 1);
 
+let releaseQueuedEditWrite = null;
+let reportQueuedEditWriteStarted = null;
+const queuedEditWriteStarted = new Promise((resolve) => { reportQueuedEditWriteStarted = resolve; });
+const queuedEditWriteRelease = new Promise((resolve) => { releaseQueuedEditWrite = resolve; });
+let heldQueuedEditWrite = false;
+host.storage.writeJson = async (path, value) => {
+  if (path === retrySavePath && !heldQueuedEditWrite) {
+    heldQueuedEditWrite = true;
+    reportQueuedEditWriteStarted();
+    await queuedEditWriteRelease;
+  }
+  return retryWriteJson.call(host.storage, path, value);
+};
+const queuedEditReconciliation = app.handleHostMessageEdited({ hostMessageId: 'player.persistence-block' });
+await queuedEditWriteStarted;
+const generationBehindQueuedEdit = app.getChatTurnOrchestrator().interceptGeneration();
+const generationQueueTimeout = Symbol('generation-queue-timeout');
+assert.equal(
+  await Promise.race([
+    generationBehindQueuedEdit.then(() => 'generation-finished'),
+    new Promise((resolve) => setTimeout(() => resolve(generationQueueTimeout), 25))
+  ]),
+  generationQueueTimeout,
+  'generation must wait for queued edited-source reconciliation'
+);
+releaseQueuedEditWrite();
+const queuedEditResult = await queuedEditReconciliation;
+assert.equal(queuedEditResult.handled, true);
+const generationAfterQueuedEdit = await generationBehindQueuedEdit;
+assert.equal(generationAfterQueuedEdit.abortDefaultGeneration, false);
+host.storage.writeJson = retryWriteJson;
+
 const beforeAtomicInvalidationFailure = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
 host.storage.writeJson = async (path, value) => {
   if (path === retrySavePath) throw new Error('forced atomic invalidation persistence failure');

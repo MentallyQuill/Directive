@@ -36,6 +36,77 @@ assert.equal(eventSource.listenerCount('updated'), 1);
 disposeSillyTavernDirectiveEventLifecycle();
 for (const event of Object.values(eventTypes)) assert.equal(eventSource.listenerCount(event), 0);
 
+let releaseEditedReconciliation = null;
+const editedReconciliation = new Promise((resolve) => { releaseEditedReconciliation = resolve; });
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async handleHostMessageEdited() {
+      return editedReconciliation;
+    }
+  }
+});
+const editCallbackTimeout = Symbol('edit-callback-timeout');
+const editCallbackResult = await Promise.race([
+  __directiveEventTestHooks.handleMessageEdited(42),
+  new Promise((resolve) => setTimeout(() => resolve(editCallbackTimeout), 25))
+]);
+assert.notEqual(
+  editCallbackResult,
+  editCallbackTimeout,
+  'native edit callback must release before authoritative reconciliation finishes'
+);
+assert.deepEqual(editCallbackResult, {
+  handled: true,
+  scheduled: true,
+  abortDefaultGeneration: false
+});
+releaseEditedReconciliation({ handled: true });
+await editedReconciliation;
+clearSillyTavernDirectiveRuntimeBridge();
+
+const pairedEventSource = createFakeEventAdapter();
+let pairedEditCalls = 0;
+let independentVisibilityCalls = 0;
+let releaseVisibilityReconciliation = null;
+const visibilityReconciliation = new Promise((resolve) => { releaseVisibilityReconciliation = resolve; });
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async handleHostMessageEdited() {
+      pairedEditCalls += 1;
+      return { handled: true };
+    },
+    async handleHostMessageVisibilityChanged() {
+      independentVisibilityCalls += 1;
+      return visibilityReconciliation;
+    }
+  },
+  directiveHost: { chat: { getCurrentChatId: () => 'chat.event-dedup' } }
+});
+wireEvents({ eventSource: pairedEventSource, eventTypes });
+pairedEventSource.emit('edited', 57);
+await Promise.resolve();
+pairedEventSource.emit('updated', 57);
+await Promise.resolve();
+assert.equal(pairedEditCalls, 1, 'the update paired with a native edit must not repeat edit reconciliation');
+assert.equal(independentVisibilityCalls, 0, 'the paired update must be consumed before visibility reconciliation');
+pairedEventSource.emit('updated', 58);
+await Promise.resolve();
+assert.equal(pairedEditCalls, 1);
+assert.equal(independentVisibilityCalls, 1, 'an independent update must still reconcile message visibility');
+const visibilityCallbackResult = __directiveEventTestHooks.handleMessageVisibilityChanged({
+  messageId: 59,
+  visible: false
+});
+assert.deepEqual(visibilityCallbackResult, {
+  handled: true,
+  scheduled: true,
+  abortDefaultGeneration: false
+}, 'visibility reconciliation must not block the native update callback');
+releaseVisibilityReconciliation({ handled: true });
+await visibilityReconciliation;
+disposeSillyTavernDirectiveEventLifecycle();
+clearSillyTavernDirectiveRuntimeBridge();
+
 const row = { getAttribute: () => '42' };
 const deleteButton = { closest: (selector) => selector === '.mes[mesid]' ? row : null };
 __directiveEventTestHooks.captureDeleteIntent({
