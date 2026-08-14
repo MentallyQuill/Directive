@@ -102,6 +102,7 @@ const storage = {
 };
 let missionInterpretationCalls = 0;
 let holdMissionInterpretation = false;
+let rejectMissionInterpretation = false;
 let reportHeldInterpretationStarted = null;
 const generation = createFakeGenerationClient({
   responses: {
@@ -118,6 +119,7 @@ const generation = createFakeGenerationClient({
           }, { once: true });
         });
       }
+      if (rejectMissionInterpretation) throw new Error('forced fake provider failure');
       if (missionInterpretationCalls === 1) throw new Error('transient fake provider failure');
       return {
         text: JSON.stringify({
@@ -1105,6 +1107,16 @@ assert.equal(canceledRuntimeSettlement.mission.ok, false);
 assert.equal(canceledRuntimeSettlement.mission.reasonCode, 'provider-aborted');
 holdMissionInterpretation = false;
 reportHeldInterpretationStarted = null;
+rejectMissionInterpretation = true;
+const blockedReplayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.equal(blockedReplayAfterCancellation.abortDefaultGeneration, true);
+assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'accepted-pair-replay-pending');
+assert.equal(blockedReplayAfterCancellation.settlementError.persistenceAttempts, 0);
+rejectMissionInterpretation = false;
+const retriedReplayAfterCancellation = await app.retryPendingAcceptedPairSettlement();
+assert.equal(retriedReplayAfterCancellation.ok, true, 'manual Retry must resume replay when no persistence object exists');
+assert.equal(retriedReplayAfterCancellation.settlementBlocked, false);
+assert.equal(retriedReplayAfterCancellation.acceptedPairReplay.blocked, false);
 const noActiveAnalysis = await app.handleHostGenerationStopped();
 assert.deepEqual(noActiveAnalysis, {
   ok: true,
@@ -1112,7 +1124,9 @@ assert.deepEqual(noActiveAnalysis, {
   reason: 'no-directive-analysis-active'
 });
 const replayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
-assert.equal(replayAfterCancellation.acceptedPairReplay.blocked, false);
+assert.equal(replayAfterCancellation.abortDefaultGeneration, false);
+assert.equal(replayAfterCancellation.responseStrategy, 'injectAndContinue');
+assert.equal(replayAfterCancellation.acceptedPairReplay, null);
 
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
 const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;

@@ -5199,3 +5199,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-settlement-retry-message,
 .directive-settlement-retry-detail,
 .directive-settlement-retry-status { margin: 8px 0 14px; }
+
+.directive-settlement-retry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

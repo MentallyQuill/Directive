@@ -21,18 +21,18 @@
 **Files:**
 - Modify: `src/runtime/runtime-app.mjs`
 - Modify: `src/ui/settlement-retry-dialog.js`
-- Modify: `src/hosts/sillytavern/runtime-bridge.mjs`
+- Modify: `styles/directive.css`
 - Test: `tools/scripts/test-v1-runtime-app.mjs`
 - Test: `tools/scripts/test-sillytavern-event-wiring.mjs`
 - Test: `tools/scripts/test-settlement-retry-dialog.mjs`
 
 **Interfaces:**
 - Consumes: `acceptedPairReplayNeeded`, `rebuildAcceptedStateFromChat()`, and the existing `retryPendingAcceptedPairSettlement()` bridge contract.
-- Produces: replay-aware `{ ok, reasonCode, settlementBlocked, acceptedPairReplay }` recovery results and a dialog Close action that mutates no runtime authority.
+- Produces: replay-aware `{ ok, reasonCode, settlementBlocked, acceptedPairReplay }` recovery results and Close, Escape, and backdrop dismissal that mutate no runtime authority.
 
 - [ ] **Step 1: Write failing runtime, bridge, and dialog regressions**
 
-Add assertions that a replay-pending runtime without a persistence object resumes complete-chat replay; a zero-attempt bridge Retry continues generation after recovery; replay copy omits `after 0 attempts`; and Close removes the overlay.
+Add assertions that a replay-pending runtime without a persistence object resumes complete-chat replay; replay copy omits `after 0 attempts`; and Close, Escape, and backdrop clicks remove the overlay.
 
 - [ ] **Step 2: Run focused tests and verify RED**
 
@@ -42,7 +42,7 @@ Expected: failures showing replay Retry returns `no-pending-settlement`, replay 
 
 - [ ] **Step 3: Implement minimal runtime and dialog changes**
 
-In `retryPendingAcceptedPairSettlement()`, call `rebuildAcceptedStateFromChat()` only when `acceptedPairReplayNeeded` is true and no persistence object exists. Return `ok: true` only when replay is not blocked. In the dialog, render reason-specific copy and a Close button that calls `closeSettlementRetryDialog('dismissed')` without changing runtime state.
+In `retryPendingAcceptedPairSettlement()`, call `rebuildAcceptedStateFromChat()` only when `acceptedPairReplayNeeded` is true and no persistence object exists. Return `ok: true` only when replay is not blocked. In the dialog, render reason-specific copy and dismiss the presentation layer through Close, Escape, or backdrop click without changing runtime state.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 

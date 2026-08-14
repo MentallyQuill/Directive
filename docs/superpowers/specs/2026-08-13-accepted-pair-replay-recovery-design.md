@@ -19,11 +19,11 @@ The SillyTavern bridge continues host generation only after the recovery entry p
 
 ## Dialog Behavior
 
-The modal distinguishes persistence and replay copy. Replay failures do not claim that persistence was attempted zero times. Retry remains available. A Close button dismisses the modal so the player can adjust provider configuration or reload; closing does not mutate campaign state and the next generation remains guarded by the runtime.
+The modal distinguishes persistence and replay copy. Replay failures do not claim that persistence was attempted zero times. Retry remains available. Close, Escape, or a backdrop click dismisses the modal so the player can adjust provider configuration or reload; dismissal does not mutate campaign state and the next generation remains guarded by the runtime.
 
 ## Testing
 
 - Runtime regression: replay-pending recovery invokes complete-chat replay when no persistence object exists and returns success only after the replay clears.
 - Bridge regression: a zero-attempt replay dialog Retry reaches replay recovery and continues canonical host generation on success.
-- Dialog regression: replay copy omits the misleading attempt count, Close dismisses the overlay, and persistence copy remains unchanged.
+- Dialog regression: replay copy omits the misleading attempt count; Close, Escape, and backdrop clicks dismiss the overlay; and persistence copy remains unchanged.
 - Full V1 alpha gate remains green.

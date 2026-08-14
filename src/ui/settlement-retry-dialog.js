@@ -7,6 +7,7 @@ export function closeSettlementRetryDialog(reason = 'closed') {
   if (!activeDialog) return { closed: false, reason };
   const dialog = activeDialog;
   activeDialog = null;
+  document.removeEventListener?.('keydown', dialog.onKeyDown);
   dialog.overlay.remove?.();
   return { closed: true, reason };
 }
@@ -26,7 +27,9 @@ export function showSettlementRetryDialog({
   title.textContent = 'Narration Paused';
   const message = createElement('p', 'directive-settlement-retry-message');
   message.setAttribute('role', 'alert');
-  message.textContent = `Directive could not safely record this turn after ${attempts} attempts. Narration has not begun.`;
+  message.textContent = reasonCode === 'persistence-failed'
+    ? `Directive could not safely record this turn after ${attempts} attempts. Narration has not begun.`
+    : 'Directive could not reconcile accepted story state. Narration has not begun.';
   const detail = createElement('p', 'directive-settlement-retry-detail');
   detail.textContent = reasonCode === 'persistence-failed'
     ? 'Check that the active save is writable, then retry.'
@@ -53,11 +56,25 @@ export function showSettlementRetryDialog({
     retry.disabled = false;
     retry.focus?.({ preventScroll: true });
   });
-  dialog.append(title, message, detail, status, retry);
+  const close = createButton({ label: 'Close', icon: 'fa-solid fa-xmark' });
+  close.dataset.settlementRetryAction = 'close';
+  close.addEventListener('click', () => closeSettlementRetryDialog('dismissed'));
+  const actions = createElement('div', 'directive-settlement-retry-actions');
+  actions.append(retry, close);
+  const onKeyDown = (event) => {
+    if (event?.key !== 'Escape') return;
+    event.preventDefault?.();
+    closeSettlementRetryDialog('escape');
+  };
+  overlay.addEventListener('click', (event) => {
+    if (event?.target === overlay) closeSettlementRetryDialog('backdrop');
+  });
+  document.addEventListener?.('keydown', onKeyDown);
+  dialog.append(title, message, detail, status, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
   retry.focus?.({ preventScroll: true });
-  activeDialog = { overlay, dialog, retry, status };
+  activeDialog = { overlay, dialog, retry, close, status, onKeyDown };
   return activeDialog;
 }
 
