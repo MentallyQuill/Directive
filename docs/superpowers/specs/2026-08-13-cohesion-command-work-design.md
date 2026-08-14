@@ -600,6 +600,24 @@ Source invalidation rebuilds surviving issue effects, progress, Cohesion, queue 
 - Cohesion reaches Critical: slow or pause issue generation and prioritize recoverable work.
 - More than five issues exist: show five and disclose aggregate queued count and debt.
 
+## Task Category Iconography
+
+Every visible task uses exactly one decorative icon derived from its existing `primaryFamily`. Secondary families do not change the icon, so a task retains one stable visual identity everywhere it appears.
+
+| Primary family | Player label | SVG asset |
+|---|---|---|
+| `personnel` | Personnel | `personnel.svg` |
+| `coordination` | Coordination | `coordination.svg` |
+| `training` | Training | `training.svg` |
+| `systems` | Systems | `systems.svg` |
+| `shipboardLife` | Shipboard Life | `life.svg` |
+
+The icon appears immediately before the visible title on every leader-line task card and in the selected task detail header. Authored Ship tasks continue to use their `systems` primary family rather than receiving a separate authored-work icon.
+
+The supplied source artwork is stored as local UI assets. Presentation uses the SVG silhouettes as CSS masks so color, hover, focus, selected, and Cohesion-band treatments remain theme-controlled without rewriting the artwork. Each decorative icon is excluded from the accessibility tree because the adjacent visible task title already supplies the accessible name. Missing or unknown primary-family values render no icon and never replace or obscure the title.
+
+DOM and Playwright verification must prove that every visible task receives the correct family mapping in both placements, the icon assets load successfully, the task card and detail title remain readable at certified viewports, and keyboard or pointer selection updates the detail icon with the selected task.
+
 ## Verification Requirements
 
 Future implementation must prove:
