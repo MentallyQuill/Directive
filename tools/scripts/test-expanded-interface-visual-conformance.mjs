@@ -91,6 +91,8 @@ try {
     const segments = [...document.querySelectorAll('.directive-lcars-rail-segment')];
     const animations = segments.map((segment) => segment.getAnimations({ subtree: true })
       .find((animation) => animation.animationName === 'directive-lcars-relay-press'));
+    const darkAnimations = segments.map((segment) => segment.getAnimations({ subtree: true })
+      .find((animation) => animation.animationName === 'directive-lcars-relay-power-down'));
     const rgbLuminance = ([red, green, blue]) => (red * .2126) + (green * .7152) + (blue * .0722);
     const parseRgb = (value) => {
       const channels = value.match(/[\d.]+/g)?.slice(-3).map(Number) ?? [];
@@ -102,11 +104,14 @@ try {
       return colors[1] ?? null;
     };
     const animationCount = animations.filter(Boolean).length;
-    if (animationCount !== segments.length) {
-      return { segmentCount: segments.length, animationCount };
+    const darkAnimationCount = darkAnimations.filter(Boolean).length;
+    if (animationCount !== segments.length || darkAnimationCount !== segments.length) {
+      return { segmentCount: segments.length, animationCount, darkAnimationCount };
     }
     const firstStyle = getComputedStyle(segments[0], '::after');
+    const firstDarkStyle = getComputedStyle(segments[0], '::before');
     animations.forEach((animation) => animation.pause());
+    darkAnimations.forEach((animation) => animation.pause());
     let maxLit = 0;
     let sawSolo = false;
     let sawPair = false;
@@ -134,6 +139,26 @@ try {
         activePair = null;
       }
     }
+    const lightDelays = animations.map((animation) => Number(animation.effect.getTiming().delay));
+    const powerDownStates = segments.map((segment, index) => {
+      const lightAnimation = animations[index];
+      const darkAnimation = darkAnimations[index];
+      const lightDelay = lightDelays[index];
+      const darkDelay = Number(darkAnimation.effect.getTiming().delay);
+      const sampleTime = lightDelay - 1000;
+      lightAnimation.currentTime = sampleTime;
+      darkAnimation.currentTime = sampleTime;
+      const darkStyle = getComputedStyle(segment, '::before');
+      const lightStyle = getComputedStyle(segment, '::after');
+      return {
+        color: darkStyle.backgroundColor,
+        darkOpacity: Number.parseFloat(darkStyle.opacity),
+        lightOpacity: Number.parseFloat(lightStyle.opacity),
+        delayLead: lightDelay - darkDelay,
+        duration: darkAnimation.effect.getTiming().duration,
+        keyframeOffsets: darkAnimation.effect.getKeyframes().map((frame) => frame.offset)
+      };
+    });
     animations.forEach((animation) => {
       animation.currentTime = Number(animation.effect.getTiming().delay) + 1000;
     });
@@ -148,10 +173,13 @@ try {
     return {
       segmentCount: segments.length,
       animationCount,
+      darkAnimationCount,
       duration: animations[0]?.effect.getTiming().duration,
       illuminatedOpacity: Number.parseFloat(getComputedStyle(segments[0], '::after').opacity),
       compositeLuminanceLift,
       keyframeOffsets: animations[0].effect.getKeyframes().map((frame) => frame.offset),
+      lightDelays,
+      powerDownStates,
       segment: {
         isolation: getComputedStyle(segments[0]).isolation,
         labelZIndices: [
@@ -167,6 +195,13 @@ try {
         inset: [firstStyle.top, firstStyle.right, firstStyle.bottom, firstStyle.left],
         overflow: getComputedStyle(segments[0]).overflow
       },
+      darkOverlay: {
+        pointerEvents: firstDarkStyle.pointerEvents,
+        filter: firstDarkStyle.filter,
+        boxShadow: firstDarkStyle.boxShadow,
+        zIndex: firstDarkStyle.zIndex,
+        inset: [firstDarkStyle.top, firstDarkStyle.right, firstDarkStyle.bottom, firstDarkStyle.left]
+      },
       maxLit,
       sawSolo,
       sawPair,
@@ -179,6 +214,7 @@ try {
 
   assert.equal(relayBehavior.segmentCount, 5);
   assert.equal(relayBehavior.animationCount, 5);
+  assert.equal(relayBehavior.darkAnimationCount, 5);
   assert.equal(relayBehavior.duration, 32000);
   assert.ok(relayBehavior.compositeLuminanceLift.every((lift) => lift >= 14 && lift <= 30));
   assert.ok(relayBehavior.illuminatedOpacity >= .88 && relayBehavior.illuminatedOpacity <= .92);
@@ -191,6 +227,25 @@ try {
   assert.ok(relayBehavior.overlay.boxShadowLayers.every((layer) => layer.includes('inset')));
   assert.deepEqual(relayBehavior.overlay.inset, ['0px', '0px', '0px', '0px']);
   assert.equal(relayBehavior.overlay.overflow, 'hidden');
+  assert.deepEqual(relayBehavior.lightDelays, [3000, 9000, 16000, 24000, 17550]);
+  assert.deepEqual(relayBehavior.powerDownStates.map(({ color }) => color), [
+    'rgb(93, 68, 46)',
+    'rgb(80, 67, 89)',
+    'rgb(61, 76, 99)',
+    'rgb(80, 67, 89)',
+    'rgb(99, 60, 56)'
+  ]);
+  assert.ok(relayBehavior.powerDownStates.every(({ darkOpacity }) => darkOpacity >= .98));
+  assert.ok(relayBehavior.powerDownStates.every(({ lightOpacity }) => lightOpacity === 0));
+  assert.ok(relayBehavior.powerDownStates.every(({ delayLead }) => delayLead === 2500));
+  assert.ok(relayBehavior.powerDownStates.every(({ duration }) => duration === 32000));
+  assert.ok(relayBehavior.powerDownStates.every(({ keyframeOffsets }) =>
+    JSON.stringify(keyframeOffsets) === JSON.stringify([0, .008, .078125, .083125, 1])));
+  assert.equal(relayBehavior.darkOverlay.pointerEvents, 'none');
+  assert.equal(relayBehavior.darkOverlay.filter, 'none');
+  assert.equal(relayBehavior.darkOverlay.boxShadow, 'none');
+  assert.equal(relayBehavior.darkOverlay.zIndex, '0');
+  assert.deepEqual(relayBehavior.darkOverlay.inset, ['0px', '0px', '0px', '0px']);
   assert.equal(relayBehavior.maxLit, 2);
   assert.equal(relayBehavior.sawSolo, true);
   assert.equal(relayBehavior.sawPair, true);
@@ -231,11 +286,19 @@ try {
   await reducedRelayPage.goto(`${baseUrl}/production?route=campaign`);
   await reducedRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   const reducedRelay = await reducedRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => ({
-    animationName: getComputedStyle(segment, '::after').animationName,
-    opacity: getComputedStyle(segment, '::after').opacity
+    dark: {
+      animationName: getComputedStyle(segment, '::before').animationName,
+      opacity: getComputedStyle(segment, '::before').opacity
+    },
+    light: {
+      animationName: getComputedStyle(segment, '::after').animationName,
+      opacity: getComputedStyle(segment, '::after').opacity
+    }
   }));
-  assert.equal(reducedRelay.animationName, 'none');
-  assert.equal(reducedRelay.opacity, '0');
+  assert.deepEqual(reducedRelay, {
+    dark: { animationName: 'none', opacity: '0' },
+    light: { animationName: 'none', opacity: '0' }
+  });
   await reducedRelayPage.close();
 
   for (const viewport of viewports) {

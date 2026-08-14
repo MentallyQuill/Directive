@@ -3083,6 +3083,8 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .directive-lcars-rail-segment {
   --directive-rail-color: var(--directive-expanded-amber);
+  --directive-relay-off-color: #5d442e;
+  --directive-relay-delay: 3s;
   --directive-relay-light-opacity: .90;
   display: flex;
   flex-direction: column;
@@ -3096,6 +3098,19 @@ textarea.directive-field-control {
   background: var(--directive-rail-color);
   position: relative;
   isolation: isolate;
+}
+
+.directive-expanded-shell .directive-lcars-rail-segment::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--directive-relay-off-color);
+  opacity: 0;
+  pointer-events: none;
+  animation: directive-lcars-relay-power-down 32s linear infinite both;
+  animation-delay: calc(var(--directive-relay-delay) - 2.5s);
 }
 
 .directive-expanded-shell .directive-lcars-rail-segment::after {
@@ -3117,30 +3132,42 @@ textarea.directive-field-control {
   opacity: 0;
   pointer-events: none;
   animation: directive-lcars-relay-press 32s linear infinite both;
+  animation-delay: var(--directive-relay-delay);
 }
 
 .directive-expanded-shell .directive-lcars-rail-segment:nth-child(1) { border-radius: 0 16px 0 0; }
 
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(2) { --directive-rail-color: var(--directive-expanded-lilac); }
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(2) {
+  --directive-rail-color: var(--directive-expanded-lilac);
+  --directive-relay-off-color: #504359;
+  --directive-relay-delay: 9s;
+}
 
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(3) { --directive-rail-color: var(--directive-expanded-blue); }
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(3) {
+  --directive-rail-color: var(--directive-expanded-blue);
+  --directive-relay-off-color: #3d4c63;
+  --directive-relay-delay: 16s;
+}
 
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(4) { --directive-rail-color: var(--directive-expanded-violet); }
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(4) {
+  --directive-rail-color: var(--directive-expanded-violet);
+  --directive-relay-off-color: #504359;
+  --directive-relay-delay: 24s;
+}
 
 .directive-expanded-shell .directive-lcars-rail-segment:nth-child(5) {
   --directive-rail-color: var(--directive-expanded-salmon);
+  --directive-relay-off-color: #633c38;
+  --directive-relay-delay: 17.55s;
   border-radius: 0 0 16px 16px;
 }
 
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(1)::after { animation-delay: 3s; }
-
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(2)::after { animation-delay: 9s; }
-
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(3)::after { animation-delay: 16s; }
-
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(4)::after { animation-delay: 24s; }
-
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(5)::after { animation-delay: 17.55s; }
+@keyframes directive-lcars-relay-power-down {
+  0%, 100% { opacity: 0; }
+  .8% { opacity: 1; }
+  7.8125% { opacity: 1; }
+  8.3125% { opacity: 0; }
+}
 
 @keyframes directive-lcars-relay-press {
   0%, 100% { opacity: 0; }
@@ -3426,6 +3453,7 @@ textarea.directive-field-control {
     animation-iteration-count: 1 !important;
   }
 
+.directive-expanded-shell .directive-lcars-rail-segment::before,
 .directive-expanded-shell .directive-lcars-rail-segment::after {
     animation: none !important;
     opacity: 0 !important;
