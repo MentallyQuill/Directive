@@ -4616,6 +4616,10 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { top: calc(50% - 20px); }
 }
 
+.directive-expanded-shell .campaign-browser-hero .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
+  top: 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }

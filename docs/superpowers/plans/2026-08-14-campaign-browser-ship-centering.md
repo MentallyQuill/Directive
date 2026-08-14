@@ -89,7 +89,7 @@ if (viewport.width === 1440 || viewport.width === 390) {
 }
 ```
 
-Keep the existing future-package checks after this selection and add the same zero-offset assertion to `libraryHeroBefore`. Keep the active-dashboard assertions at the end of the file unchanged:
+Keep the existing future-package checks after this selection. Its flat teaser artwork has no separate foreground layer, so `measureBrowserHero` must return nullable foreground metrics without weakening the strict Ashes assertions. Keep the active-dashboard assertions at the end of the file unchanged:
 
 ```js
 assert.ok(Math.abs(desktopCampaign.sourceCanvas.verticalOffset - 20) < 1);

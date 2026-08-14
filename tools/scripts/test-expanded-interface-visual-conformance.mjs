@@ -455,14 +455,26 @@ try {
             `${viewport.width}px Back to Current Campaign touch target`
           );
         }
-        const measureBrowserHero = async (hero) => hero.evaluate((node) => ({
-          height: node.getBoundingClientRect().height,
-          responsive: node.classList.contains('directive-responsive-hero'),
-          toggleCount: node.querySelectorAll('.directive-responsive-hero-toggle').length,
-          ariaExpanded: node.getAttribute('aria-expanded'),
-          transitionDuration: getComputedStyle(node).transitionDuration,
-          horizontalOverflow: node.scrollWidth - node.clientWidth
-        }));
+        const measureBrowserHero = async (hero) => hero.evaluate((node) => {
+          const scene = node.querySelector('.directive-hero-scene');
+          const layers = [...node.querySelectorAll('.directive-hero-scene-layer')];
+          const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
+          const sceneStyle = scene ? getComputedStyle(scene) : null;
+          return {
+            height: node.getBoundingClientRect().height,
+            responsive: node.classList.contains('directive-responsive-hero'),
+            toggleCount: node.querySelectorAll('.directive-responsive-hero-toggle').length,
+            ariaExpanded: node.getAttribute('aria-expanded'),
+            transitionDuration: getComputedStyle(node).transitionDuration,
+            horizontalOverflow: node.scrollWidth - node.clientWidth,
+            foregroundVerticalOffset: foreground && scene
+              ? foreground.offsetTop - (scene.clientHeight / 2)
+              : null,
+            layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
+            scaleStart: sceneStyle?.getPropertyValue('--directive-hero-ship-scale-start').trim() || null,
+            scaleEnd: sceneStyle?.getPropertyValue('--directive-hero-ship-scale-end').trim() || null
+          };
+        });
         const expectedBrowserHeroHeight = viewport.width <= 640 ? 220 : 320;
         const storyHero = page.locator('.campaign-browser-hero:visible').first();
         const storyHeroBefore = await measureBrowserHero(storyHero);
@@ -475,12 +487,37 @@ try {
         assert.equal(storyHeroBefore.ariaExpanded, null);
         assert.equal(storyHeroBefore.transitionDuration, '0s');
         assert.ok(storyHeroBefore.horizontalOverflow <= 1);
+        assert.ok(
+          Math.abs(storyHeroBefore.foregroundVerticalOffset) < 1,
+          `${viewport.width}px saved-story ship must anchor at the Campaigns-browser vertical center`
+        );
+        assert.deepEqual(storyHeroBefore.layerOrder, ['background', 'stars', 'stars-far', 'stars-near', 'foreground', 'sunlight']);
+        assert.equal(storyHeroBefore.scaleStart, viewport.width <= 640 ? '1.03' : '.79');
+        assert.equal(storyHeroBefore.scaleEnd, viewport.width <= 640 ? '1.05' : '.81');
         await storyHero.click({ position: { x: 20, y: 20 } });
         const storyHeroAfter = await measureBrowserHero(storyHero);
         assert.ok(
           Math.abs(storyHeroAfter.height - storyHeroBefore.height) < 1,
           `${viewport.width}px saved-story cover click must not resize the hero`
         );
+        const availableRow = viewport.width <= 640
+          ? page.locator('.campaign-mobile-trigger[data-campaign-availability="available"]').first()
+          : page.locator('.campaign-desktop-master button[data-campaign-availability="available"]').first();
+        await availableRow.click();
+        const ashesLibraryHero = page.locator('.campaign-library-hero:visible').first();
+        const ashesLibraryComposition = await measureBrowserHero(ashesLibraryHero);
+        assert.ok(
+          Math.abs(ashesLibraryComposition.foregroundVerticalOffset) < 1,
+          `${viewport.width}px Ashes Campaign Library ship must anchor at the vertical center`
+        );
+        assert.deepEqual(ashesLibraryComposition.layerOrder, storyHeroBefore.layerOrder);
+        assert.equal(ashesLibraryComposition.scaleStart, storyHeroBefore.scaleStart);
+        assert.equal(ashesLibraryComposition.scaleEnd, storyHeroBefore.scaleEnd);
+        if (viewport.width === 1440 || viewport.width === 390) {
+          await page.screenshot({
+            path: path.join(artifactRoot, `campaign-browser-ashes-centered-${viewport.width}x${viewport.height}.png`)
+          });
+        }
         const futureRow = viewport.width <= 640
           ? page.locator('.campaign-mobile-trigger[data-campaign-availability="coming-later"]').first()
           : page.locator('.campaign-desktop-master button[data-campaign-availability="coming-later"]').first();
