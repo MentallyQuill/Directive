@@ -53,7 +53,7 @@ A touch or pen must remain within a `10px` movement tolerance for `240ms` before
 
 After activation:
 
-- the hero captures the active pointer;
+- the hero retains custody of the originating single-touch sequence, while pen input uses pointer capture;
 - finger displacement from the activation point drives the bounded orbit response, reaching full horizontal response at 30% of hero width and full vertical response at 40% of hero height;
 - subsequent movement is treated as the camera gesture rather than page scrolling;
 - release or cancellation returns the scene to idle;
@@ -74,7 +74,7 @@ Under `prefers-reduced-motion: reduce`, the controller does not activate and all
 
 Keyboard focus and keyboard activation of the responsive hero control remain unchanged. The interaction adds no focusable element, instruction that must be announced, or semantic content. Decorative layers remain `aria-hidden`, and the composed scene retains its single accessible label.
 
-Packages without a complete cruise scene retain the existing layered or static fallback with no pointer listeners, gesture custody, or reactive styles. Unsupported pointer APIs fail locally to the current idle presentation.
+Packages without a complete cruise scene retain the existing layered or static fallback with no pointer listeners, gesture custody, or reactive styles. Unsupported precise-pointer APIs fail locally to the current idle presentation. Touch input uses a non-passive move listener only after a single touch begins; it calls `preventDefault` only after the hold has engaged, preserving ordinary scroll before engagement without requiring `touch-action: none`.
 
 ## Boundaries
 
@@ -92,7 +92,7 @@ Automated and real-browser coverage will prove:
 - existing star-cruise and ship-drift animation names and phases are not replaced during interaction;
 - leaving or cancelling returns every reactive value to neutral;
 - touch movement before the hold tolerance leaves scrolling/tapping unclaimed;
-- a completed hold captures one pointer, finger drag changes the scene, release resets it, and the following click is suppressed;
+- a completed hold retains one touch sequence, finger drag changes the scene, release resets it, and the following click is suppressed;
 - a short tap still expands or collapses the hero;
 - reduced-motion mode keeps the controller inert;
 - keyboard activation and the scene's accessible name remain intact;
