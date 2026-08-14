@@ -82,7 +82,11 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
   summary.textContent = campaign.premise || campaign.chapter || '';
   copy.append(meta, summary);
   hero.appendChild(copy);
-  bindResponsiveHero(hero, { label: 'Campaign', secondary: [meta, summary] });
+  if (dashboard) {
+    hero.classList.add('campaign-dashboard-hero');
+  } else {
+    bindResponsiveHero(hero, { label: 'Campaign', secondary: [meta, summary] });
+  }
   detail.appendChild(hero);
 
   const commands = createElement('div', `campaign-detail-actions${dashboard ? ' campaign-dashboard-actions' : ''}`);

@@ -187,6 +187,15 @@ renderCampaignPanel(body, view, {
 assert.equal(byClass(body, 'campaign-dashboard').length, 1, 'active campaign must default to its focused dashboard');
 assert.equal(byClass(body, 'campaign-master').length, 0, 'active dashboard must not render the persistent Campaign browser');
 assert.equal(byClass(body, 'campaign-saves').length, 0, 'active dashboard must keep saved games inside Load Game');
+const dashboard = byClass(body, 'campaign-dashboard')[0];
+const dashboardHero = byClass(body, 'campaign-dashboard-hero')[0];
+assert.ok(dashboardHero, 'active dashboard must expose its full-height hero contract');
+assert.equal(dashboardHero.classList.contains('directive-responsive-hero'), false);
+assert.equal(byClass(dashboardHero, 'directive-responsive-hero-toggle').length, 0);
+assert.equal(dashboardHero.getAttribute('aria-expanded'), null);
+const dashboardActions = byClass(body, 'campaign-dashboard-actions')[0];
+assert.equal(dashboardHero.parentNode, dashboard);
+assert.equal(dashboardActions.parentNode, dashboard);
 const dashboardDelete = byData(body, 'campaignAction', 'delete')[0];
 assert.ok(dashboardDelete, 'active dashboard must expose the approved icon-only campaign delete control');
 assert.equal(dashboardDelete.getAttribute('aria-label'), 'Delete campaign');
