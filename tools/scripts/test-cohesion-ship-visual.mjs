@@ -53,10 +53,22 @@ try {
     assert.equal(await page.locator('.ship-cohesion-segment').count(), 20);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-back .ship-cohesion-segment').count(), 10);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-front .ship-cohesion-segment').count(), 10);
+    assert.equal(await page.locator('.ship-cohesion-segment-shape').count(), 40);
     assert.equal(
-      await page.locator('.ship-cohesion-segment').evaluateAll((segments) => segments.every((segment) => segment.tagName === 'path' && /\bA\b/.test(segment.getAttribute('d') || ''))),
+      await page.locator('.ship-cohesion-segment').evaluateAll((segments) => segments.every((segment) => segment.tagName === 'g')),
       true,
-      `${viewport.label} ring uses curved SVG paths`,
+      `${viewport.label} ring retains logical SVG segment groups`,
+    );
+    assert.equal(
+      await page.locator('.ship-cohesion-segment-shape').evaluateAll((shapes) => shapes.every((shape) => {
+        const path = shape.getAttribute('d') || '';
+        return shape.tagName === 'path'
+          && path.trim().endsWith('Z')
+          && (path.match(/\bA\b/g) || []).length === 2
+          && (path.match(/\bQ\b/g) || []).length === 4;
+      })),
+      true,
+      `${viewport.label} ring uses closed rounded annular sectors`,
     );
     assert.equal(await page.locator('.ship-task-button').count(), 5);
     assert.equal(await page.locator('.ship-task-mobile-panel').count(), 5);
@@ -89,16 +101,14 @@ try {
       const backLayer = document.querySelector('.ship-cohesion-ring-layer.is-back');
       const frontLayer = document.querySelector('.ship-cohesion-ring-layer.is-front');
       const segments = [...document.querySelectorAll('.ship-cohesion-segment')];
-      const firstSegmentStyle = getComputedStyle(segments[0]);
+      const shapes = [...document.querySelectorAll('.ship-cohesion-segment-shape')];
+      const visibleShapes = shapes.filter((shape) => getComputedStyle(shape).display !== 'none');
+      const firstShapeStyle = getComputedStyle(visibleShapes[0]);
       const screenPoint = (path, length) => {
         const point = path.getPointAtLength(length);
         const matrix = path.getScreenCTM();
         return { x: (point.x * matrix.a) + (point.y * matrix.c) + matrix.e, y: (point.x * matrix.b) + (point.y * matrix.d) + matrix.f };
       };
-      const firstEnd = screenPoint(segments[0], segments[0].getTotalLength());
-      const secondStart = screenPoint(segments[1], 0);
-      const centerlineGap = Math.hypot(secondStart.x - firstEnd.x, secondStart.y - firstEnd.y);
-      const strokeWidth = Number.parseFloat(firstSegmentStyle.strokeWidth);
       const orbitBox = orbit.getBoundingClientRect();
       const headerBox = header.getBoundingClientRect();
       const visualBox = visual.getBoundingClientRect();
@@ -109,6 +119,14 @@ try {
       const center = (box) => ({ x: box.left + (box.width / 2), y: box.top + (box.height / 2) });
       const ringCenter = center(backBox);
       const visualCenter = center(visualBox);
+      const samplePath = visibleShapes[0];
+      const sampleLength = samplePath.getTotalLength();
+      const queuedShape = visibleShapes.find((shape) => shape.parentElement?.classList.contains('is-queued'));
+      const radii = Array.from({ length: 401 }, (_, index) => {
+        const sample = screenPoint(samplePath, sampleLength * (index / 400));
+        return Math.hypot(sample.x - ringCenter.x, sample.y - ringCenter.y);
+      });
+      const visibleVariants = new Set(visibleShapes.map((shape) => (shape.classList.contains('is-mobile') ? 'mobile' : 'desktop')));
       const zIndex = (node) => Number.parseInt(getComputedStyle(node).zIndex, 10) || 0;
       return {
         workspaceOverflowY: getComputedStyle(workspace).overflowY,
@@ -122,9 +140,13 @@ try {
         navPosition: getComputedStyle(nav).position,
         buttonPosition: getComputedStyle(button).position,
         buttonHeight: button.getBoundingClientRect().height,
-        strokeWidth,
-        ringStrokeLinecap: firstSegmentStyle.strokeLinecap,
-        visualSegmentGap: centerlineGap - strokeWidth,
+        visibleShapeCount: visibleShapes.length,
+        variant: visibleVariants.size === 1 ? [...visibleVariants][0] : 'mixed',
+        pathClosed: visibleShapes.every((shape) => (shape.getAttribute('d') || '').trim().endsWith('Z')),
+        hasRoundLinecap: visibleShapes.some((shape) => getComputedStyle(shape).strokeLinecap === 'round'),
+        shapeFill: firstShapeStyle.fill,
+        queuedStrokeDasharray: queuedShape ? getComputedStyle(queuedShape).strokeDasharray : 'none',
+        bandThickness: Math.max(...radii) - Math.min(...radii),
         ringTopInsideOrbit: backBox.top >= orbitBox.top - .5,
         ringBelowHeader: backBox.top >= headerBox.bottom - .5,
         ringAboveTasks: backBox.bottom <= navBox.top + .5,
@@ -140,17 +162,18 @@ try {
     assert.equal(geometry.workspaceHorizontalOverflow, false, `${viewport.label} workspace overflow-x`);
     assert.equal(geometry.documentHorizontalOverflow, false, `${viewport.label} document overflow-x`);
     assert.deepEqual(geometry.imageNatural, [1672, 941]);
-    assert.equal(geometry.ringStrokeLinecap, 'round', `${viewport.label} ring segment ends are round`);
-    assert.ok(geometry.ringLayerDelta <= .5, `${viewport.label} ring layers remain synchronized`);
+    assert.equal(geometry.visibleShapeCount, 20, `${viewport.label} visible segment shapes`);
+    assert.equal(geometry.variant, viewport.width <= 820 ? 'mobile' : 'desktop', `${viewport.label} responsive segment geometry`);
+    assert.equal(geometry.pathClosed, true, `${viewport.label} uses closed annular sectors`);
+    assert.equal(geometry.hasRoundLinecap, false, `${viewport.label} has no pill caps`);
+    assert.notEqual(geometry.shapeFill, 'none', `${viewport.label} segment shape is filled`);
+    assert.equal(geometry.queuedStrokeDasharray, 'none', `${viewport.label} queued segment edges remain solid`);
     assert.ok(
-      geometry.visualSegmentGap >= 4 && geometry.visualSegmentGap <= 8,
-      `${viewport.label} neighboring ring segments keep an approximately six-pixel gap (actual ${geometry.visualSegmentGap.toFixed(2)}px)`,
+      geometry.bandThickness >= 13 && geometry.bandThickness <= 17,
+      `${viewport.label} ring band stays optically matched (actual ${geometry.bandThickness.toFixed(2)}px)`,
     );
+    assert.ok(geometry.ringLayerDelta <= .5, `${viewport.label} ring layers remain synchronized`);
     if (viewport.width > 820) {
-      assert.ok(
-        geometry.strokeWidth >= 20 && geometry.strokeWidth <= 32,
-        `${viewport.label} ring stroke is four times the original desktop depth (actual ${geometry.strokeWidth.toFixed(2)}px)`,
-      );
       assert.equal(geometry.detailBelowOrbit, true, `${viewport.label} detail panel must remain below the ship`);
       assert.ok(geometry.visualRatio >= .89, `${viewport.label} ship graphic uses at least 89% of the orbit width`);
       assert.notEqual(geometry.leaderDisplay, 'none');
@@ -165,10 +188,6 @@ try {
         `${viewport.label} ring passes behind and in front of the ship`,
       );
     } else {
-      assert.ok(
-        Math.abs(geometry.strokeWidth - 15) <= .1,
-        `${viewport.label} ring stroke is four times the original mobile depth (actual ${geometry.strokeWidth.toFixed(2)}px)`,
-      );
       assert.equal(geometry.leaderDisplay, 'none');
       assert.equal(geometry.navPosition, 'static');
       assert.equal(geometry.buttonPosition, 'static');
