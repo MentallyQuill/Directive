@@ -7,7 +7,10 @@ class Element {
     this.dataset = {};
     this.attributes = new Map();
     this.className = '';
-    this.style = { setProperty() {} };
+    this.styleProperties = new Map();
+    this.style = {
+      setProperty: (name, value) => this.styleProperties.set(String(name), String(value))
+    };
     this.classList = {
       add: (...names) => {
         const classes = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -35,7 +38,12 @@ const layeredPackage = {
     layers: {
       background: 'background.webp',
       stars: 'stars.webp',
-      foreground: 'ship.webp'
+      foreground: 'ship.webp',
+      cruise: {
+        farStars: 'stars-far.svg',
+        nearStars: 'stars-near.svg',
+        sunlight: 'sunlight.svg'
+      }
     },
     alt: 'Breckenridge scene'
   }] }
@@ -46,19 +54,44 @@ const scene = createPackageHeroVisual(layeredPackage, {
 }, { wrapperClass: 'ship-hero', loading: 'eager' });
 
 assert.equal(scene.classList.contains('directive-hero-scene'), true);
+assert.equal(scene.classList.contains('directive-hero-scene-has-cruise'), true);
 assert.equal(scene.classList.contains('ship-hero'), true);
 assert.equal(scene.dataset.mediaKind, 'ship.hero');
 assert.equal(scene.dataset.mediaSubject, 'uss-breckenridge');
 assert.equal(scene.getAttribute('role'), 'img');
 assert.equal(scene.getAttribute('aria-label'), 'Breckenridge scene');
 assert.deepEqual(scene.children.map((node) => node.dataset.heroSceneLayer), [
-  'background', 'stars', 'stars-glow', 'foreground'
+  'background', 'stars', 'stars-far', 'stars-near', 'foreground', 'sunlight'
 ]);
 assert.equal(scene.children[1].src.endsWith('/stars.webp'), true);
-assert.equal(scene.children[2].src, scene.children[1].src);
-assert.equal(scene.children.every((node) => node.alt === ''), true);
+assert.equal(scene.children[2].tagName, 'SPAN');
+assert.equal(scene.children[3].tagName, 'SPAN');
+assert.match(scene.children[2].styleProperties.get('--directive-hero-star-texture'), /stars-far\.svg/);
+assert.match(scene.children[3].styleProperties.get('--directive-hero-star-texture'), /stars-near\.svg/);
+assert.equal(scene.children[4].src.endsWith('/ship.webp'), true);
+assert.equal(scene.children[5].src.endsWith('/sunlight.svg'), true);
+assert.equal(scene.children.filter((node) => node.tagName === 'IMG').every((node) => node.alt === ''), true);
 assert.equal(scene.children.every((node) => node.getAttribute('aria-hidden') === 'true'), true);
-assert.equal(scene.children.every((node) => node.loading === 'eager'), true);
+assert.equal(scene.children.filter((node) => node.tagName === 'IMG').every((node) => node.loading === 'eager'), true);
+
+const legacyScene = createPackageHeroVisual({ assets: { images: [{
+  id: 'legacy.ship.primary',
+  kind: 'ship.hero',
+  subjectId: 'legacy-ship',
+  variants: { hero: 'legacy-fallback.webp' },
+  layers: {
+    background: 'legacy-background.webp',
+    stars: 'legacy-stars.webp',
+    foreground: 'legacy-ship.webp'
+  }
+}] } }, {
+  kind: 'ship.hero', subjectId: 'legacy-ship', variant: 'hero'
+}, { wrapperClass: 'ship-hero', loading: 'eager' });
+assert.equal(legacyScene.classList.contains('directive-hero-scene-has-cruise'), false);
+assert.deepEqual(legacyScene.children.map((node) => node.dataset.heroSceneLayer), [
+  'background', 'stars', 'stars-glow', 'foreground'
+]);
+assert.equal(legacyScene.children[2].src, legacyScene.children[1].src);
 
 const fallback = createPackageHeroVisual({ assets: { images: [{
   kind: 'ship.hero', subjectId: 'uss-breckenridge', variants: { hero: 'fallback.webp' }

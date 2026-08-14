@@ -15,6 +15,14 @@ function createSceneLayer(name, path, loading) {
   return image;
 }
 
+function createStarFieldLayer(name, path) {
+  const layer = createElement('span', 'directive-hero-scene-layer directive-hero-cruise-stars');
+  layer.dataset.heroSceneLayer = name;
+  layer.style.setProperty('--directive-hero-star-texture', `url("${resolveDirectiveAssetUrl(path)}")`);
+  layer.setAttribute('aria-hidden', 'true');
+  return layer;
+}
+
 export function createPackageHeroVisual(packageData, query = {}, options = {}) {
   const scene = resolvePackageHeroScene(packageData, query);
   if (!scene) return createPackageImage(packageData, query, options);
@@ -29,7 +37,14 @@ export function createPackageHeroVisual(packageData, query = {}, options = {}) {
   const loading = options.loading || 'lazy';
   frame.appendChild(createSceneLayer('background', scene.layers.background, loading));
   frame.appendChild(createSceneLayer('stars', scene.layers.stars, loading));
-  frame.appendChild(createSceneLayer('stars-glow', scene.layers.stars, loading));
+  if (scene.cruise) {
+    frame.classList.add('directive-hero-scene-has-cruise');
+    frame.appendChild(createStarFieldLayer('stars-far', scene.cruise.farStars));
+    frame.appendChild(createStarFieldLayer('stars-near', scene.cruise.nearStars));
+  } else {
+    frame.appendChild(createSceneLayer('stars-glow', scene.layers.stars, loading));
+  }
   frame.appendChild(createSceneLayer('foreground', scene.layers.foreground, loading));
+  if (scene.cruise) frame.appendChild(createSceneLayer('sunlight', scene.cruise.sunlight, loading));
   return frame;
 }
