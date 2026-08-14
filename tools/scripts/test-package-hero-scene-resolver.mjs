@@ -22,7 +22,12 @@ const packageData = {
         layers: {
           background: 'breckenridge-background.webp',
           stars: 'breckenridge-stars.webp',
-          foreground: 'breckenridge-ship.webp'
+          foreground: 'breckenridge-ship.webp',
+          cruise: {
+            farStars: 'breckenridge-stars-far.svg',
+            nearStars: 'breckenridge-stars-near.svg',
+            sunlight: 'breckenridge-sunlight.svg'
+          }
         },
         alt: 'The U.S.S. Breckenridge in flight'
       }
@@ -43,8 +48,29 @@ assert.deepEqual(
       background: 'breckenridge-background.webp',
       stars: 'breckenridge-stars.webp',
       foreground: 'breckenridge-ship.webp'
+    },
+    cruise: {
+      farStars: 'breckenridge-stars-far.svg',
+      nearStars: 'breckenridge-stars-near.svg',
+      sunlight: 'breckenridge-sunlight.svg'
     }
   }
+);
+
+const partialCruiseScene = resolvePackageHeroScene({ assets: { images: [{
+  kind: 'ship.hero',
+  subjectId: 'uss-breckenridge',
+  layers: {
+    background: 'background.webp',
+    stars: 'stars.webp',
+    foreground: 'foreground.webp',
+    cruise: { farStars: 'far-stars.svg' }
+  }
+}] } }, { kind: 'ship.hero', subjectId: 'uss-breckenridge' });
+assert.equal(
+  Object.hasOwn(partialCruiseScene, 'cruise'),
+  false,
+  'partial cruise records must preserve the base scene without partial effects'
 );
 
 assert.equal(

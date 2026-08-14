@@ -17,6 +17,12 @@ export function resolvePackageHeroScene(packageData, { kind = '', subjectId = ''
   const stars = String(layers?.stars || '').trim();
   const foreground = String(layers?.foreground || '').trim();
   if (!background || !stars || !foreground) return null;
+  const farStars = String(layers?.cruise?.farStars || '').trim();
+  const nearStars = String(layers?.cruise?.nearStars || '').trim();
+  const sunlight = String(layers?.cruise?.sunlight || '').trim();
+  const cruise = farStars && nearStars && sunlight
+    ? Object.freeze({ farStars, nearStars, sunlight })
+    : null;
 
   return Object.freeze({
     type: 'layered-scene',
@@ -25,6 +31,7 @@ export function resolvePackageHeroScene(packageData, { kind = '', subjectId = ''
     kind: requestedKind,
     subjectId: requestedSubjectId,
     alt: String(image.alt || ''),
-    layers: Object.freeze({ background, stars, foreground })
+    layers: Object.freeze({ background, stars, foreground }),
+    ...(cruise ? { cruise } : {})
   });
 }
