@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1672" height="941" viewBox="0 0 1672 941">
+  <defs>
+    <radialGradient id="sunHalo" gradientUnits="userSpaceOnUse" cx="1540" cy="175" r="900">
+      <stop offset="0" stop-color="#fff4d8" stop-opacity="0.78"/>
+      <stop offset="0.12" stop-color="#ffd7a3" stop-opacity="0.36"/>
+      <stop offset="0.42" stop-color="#f4a979" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#f4a979" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sunWash" gradientUnits="userSpaceOnUse" x1="1672" y1="0" x2="260" y2="941">
+      <stop offset="0" stop-color="#fff0cf" stop-opacity="0.34"/>
+      <stop offset="0.38" stop-color="#ffc995" stop-opacity="0.10"/>
+      <stop offset="0.78" stop-color="#f1a16f" stop-opacity="0.025"/>
+      <stop offset="1" stop-color="#f1a16f" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1672" height="941" fill="url(#sunHalo)"/>
+  <rect width="1672" height="941" fill="url(#sunWash)"/>
+</svg>

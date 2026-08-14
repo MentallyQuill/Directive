@@ -68,13 +68,32 @@ assert.equal(pack.manifest.id, ASHES_V1_PACKAGE_ID);
 const expectedHeroLayers = {
   background: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-background.webp',
   stars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars.webp',
-  foreground: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-ship.webp'
+  foreground: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-ship.webp',
+  cruise: {
+    farStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-far.svg',
+    nearStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-near.svg',
+    sunlight: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-sunlight.svg'
+  }
 };
 assert.deepEqual(V1_CAMPAIGN_LIBRARY_TEASERS[0].assets.images[0].layers, expectedHeroLayers);
 assert.deepEqual(pack.assets.images.find((image) => image.id === 'breckenridge.ship.primary')?.layers, expectedHeroLayers);
-for (const path of Object.values(expectedHeroLayers)) {
+for (const path of [
+  expectedHeroLayers.background,
+  expectedHeroLayers.stars,
+  expectedHeroLayers.foreground,
+  ...Object.values(expectedHeroLayers.cruise)
+]) {
   assert.equal(fs.existsSync(path), true, `${path} must exist`);
 }
+const farStarsSvg = fs.readFileSync(expectedHeroLayers.cruise.farStars, 'utf8');
+const nearStarsSvg = fs.readFileSync(expectedHeroLayers.cruise.nearStars, 'utf8');
+const sunlightSvg = fs.readFileSync(expectedHeroLayers.cruise.sunlight, 'utf8');
+assert.match(farStarsSvg, /viewBox="0 0 960 600"/);
+assert.match(nearStarsSvg, /viewBox="0 0 960 600"/);
+assert.match(sunlightSvg, /viewBox="0 0 1672 941"/);
+assert.doesNotMatch(farStarsSvg, /<rect[^>]+(?:fill="#(?:fff|ffffff)"|opacity="1")/i);
+assert.doesNotMatch(nearStarsSvg, /<rect[^>]+(?:fill="#(?:fff|ffffff)"|opacity="1")/i);
+assert.doesNotMatch(sunlightSvg, /<rect[^>]+fill="#[0-9a-f]{3,8}"/i);
 for (const ref of ASHES_V1_BUNDLED_REF.missionDefinitionRefs) {
   const definition = JSON.parse(fs.readFileSync(ref.path, 'utf8'));
   assert.equal(definition.kind, 'directive.missionDefinition.v1');
