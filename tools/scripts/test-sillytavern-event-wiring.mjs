@@ -10,6 +10,7 @@ import {
   directiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
+import { __settlementRetryDialogTestHooks } from '../../src/ui/settlement-retry-dialog.js';
 import { installFakeDom } from './helpers/fake-dom.mjs';
 import { __directiveRuntimeActionTestHooks, registerRuntimeAction } from '../../src/runtime/runtime-actions.js';
 
@@ -169,6 +170,68 @@ assert.deepEqual(continuedGeneration, {
   automaticTrigger: true,
   waitForCompletion: false
 });
+clearSillyTavernDirectiveRuntimeBridge();
+
+let releaseReplayRetry = null;
+const replayRetryPending = new Promise((resolve) => { releaseReplayRetry = resolve; });
+let replayContinuationCount = 0;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async retryPendingAcceptedPairSettlement() {
+      return replayRetryPending;
+    }
+  },
+  turnOrchestrator: {
+    async interceptGeneration() {
+      return {
+        handled: true,
+        abortDefaultGeneration: true,
+        responseStrategy: 'blockAndRetry',
+        settlementError: { reasonCode: 'accepted-pair-replay-pending', persistenceAttempts: 0 }
+      };
+    }
+  },
+  directiveHost: {
+    chat: {
+      async continueHostGeneration() {
+        replayContinuationCount += 1;
+        return { ok: true };
+      }
+    }
+  }
+});
+await directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+const firstReplayDialog = __settlementRetryDialogTestHooks.active();
+const pendingReplayClick = firstReplayDialog.retry.listeners.get('click')[0]({ preventDefault() {} });
+await firstReplayDialog.close.listeners.get('click')[0]({ preventDefault() {} });
+assert.equal(firstReplayDialog.overlay.isConnected, false);
+await directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+const replacementReplayDialog = __settlementRetryDialogTestHooks.active();
+releaseReplayRetry({ ok: true });
+await pendingReplayClick;
+assert.equal(replayContinuationCount, 0, 'dismissed Retry completion must not start host narration');
+assert.equal(replacementReplayDialog.overlay.isConnected, true, 'a stale Retry completion must not close a newer dialog');
+replacementReplayDialog.close.click();
+clearSillyTavernDirectiveRuntimeBridge();
+
+setSillyTavernDirectiveRuntimeBridge({
+  app: { async clearDirectivePrompt() {} },
+  turnOrchestrator: {
+    async interceptGeneration() {
+      return {
+        handled: true,
+        abortDefaultGeneration: true,
+        responseStrategy: 'blockAndRetry',
+        settlementError: { reasonCode: 'accepted-pair-replay-pending', persistenceAttempts: 0 }
+      };
+    }
+  }
+});
+await directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+const disabledReplayDialog = __settlementRetryDialogTestHooks.active();
+await __directiveEventTestHooks.handleExtensionDisabled();
+assert.equal(disabledReplayDialog.overlay.isConnected, false, 'extension teardown must close narration recovery state');
+assert.equal(__settlementRetryDialogTestHooks.active(), null);
 clearSillyTavernDirectiveRuntimeBridge();
 
 let passThroughAbortCalls = 0;
