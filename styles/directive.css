@@ -3228,7 +3228,17 @@ textarea.directive-field-control {
 .directive-expanded-shell .directive-lcars-rail-segment small { display: none; }
 
 .directive-expanded-shell .directive-lcars-rail-segment {
-    --directive-relay-light-opacity: .82;
+    --directive-relay-light-opacity: .96;
+  }
+
+.directive-expanded-shell .directive-lcars-rail-segment::after {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--directive-rail-color) 77%, #fff4dc 23%) 0%,
+      color-mix(in srgb, var(--directive-rail-color) 68%, #fff4dc 32%) 18%,
+      color-mix(in srgb, var(--directive-rail-color) 68%, #fff4dc 32%) 82%,
+      color-mix(in srgb, var(--directive-rail-color) 77%, #fff4dc 23%) 100%
+    );
   }
 
 .directive-expanded-shell .directive-route-heading { grid-template-columns: 46px minmax(0, 1fr); height: 22px; margin-top: 5px; }
