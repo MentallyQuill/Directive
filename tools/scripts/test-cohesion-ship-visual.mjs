@@ -65,6 +65,38 @@ try {
     assert.equal(previewMotion.every(Boolean), true, `${viewport.label} preview segments pulse`);
     assert.equal(previewMotion.every(({ duration, delay }) => duration === 2000 && delay === 0), true, `${viewport.label} preview pulse is synchronized at 0.5 Hz`);
     const motionProfile = await page.evaluate(() => {
+      const resolveRgb = (value) => {
+        const probe = document.createElement('span');
+        probe.style.color = value;
+        document.body.append(probe);
+        const channels = getComputedStyle(probe).color.match(/[\d.]+/g)?.slice(0, 3).map(Number) || [];
+        probe.remove();
+        return channels;
+      };
+      const relativeLuminance = (channels) => channels
+        .map((channel) => channel / 255)
+        .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+        .reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+      const dropShadowBlurRadii = (filter = '') => [...filter.matchAll(
+        /drop-shadow\((?:rgba?\([^)]+\)|#[\da-f]{3,8}|[a-z]+)\s+-?[\d.]+px\s+-?[\d.]+px(?:\s+(-?[\d.]+)px)?/gi,
+      )].map((match) => Number(match[1] || 0));
+      const summarizeBacklight = (segment, animationName) => {
+        const animation = segment?.getAnimations().find((candidate) => candidate.animationName === animationName);
+        const baseColor = segment ? getComputedStyle(segment).color : '';
+        const frames = animation?.effect.getKeyframes().map((frame) => {
+          const channels = resolveRgb(frame.color || baseColor);
+          return {
+            channels,
+            luminance: relativeLuminance(channels),
+            blurRadii: dropShadowBlurRadii(frame.filter),
+          };
+        }) || [];
+        return {
+          trough: frames.reduce((minimum, frame) => (frame.luminance < minimum.luminance ? frame : minimum)),
+          crest: frames.reduce((maximum, frame) => (frame.luminance > maximum.luminance ? frame : maximum)),
+          maxBlur: Math.max(...frames.flatMap(({ blurRadii }) => blurRadii), 0),
+        };
+      };
       const filled = [...document.querySelectorAll('.ship-cohesion-segment.is-filled')].map((segment) => {
         const animation = segment.getAnimations().find(({ animationName }) => animationName === 'ship-cohesion-blue-wave');
         return {
@@ -80,7 +112,15 @@ try {
       const previewTransforms = document.querySelector('.ship-cohesion-segment.is-preview')
         ?.getAnimations().find(({ animationName }) => animationName === 'ship-cohesion-preview-pulse')
         ?.effect.getKeyframes().map(({ transform }) => transform).filter(Boolean) || [];
-      return { filled, debtAnimations, previewTransforms };
+      const blueBacklight = summarizeBacklight(
+        document.querySelector('.ship-cohesion-segment.is-filled:not(.is-preview)'),
+        'ship-cohesion-blue-wave',
+      );
+      const amberBacklight = summarizeBacklight(
+        document.querySelector('.ship-cohesion-segment.is-preview'),
+        'ship-cohesion-preview-pulse',
+      );
+      return { filled, debtAnimations, previewTransforms, blueBacklight, amberBacklight };
     });
     assert.equal(motionProfile.debtAnimations.length, 0, `${viewport.label} debt remains static`);
     assert.equal(motionProfile.filled.every(({ duration }) => duration === 10000), true, `${viewport.label} wave completes in ten seconds`);
@@ -96,6 +136,25 @@ try {
       true,
       `${viewport.label} segment scale stays at or below 1.02`,
     );
+    assert.equal(
+      motionProfile.blueBacklight.trough.luminance / motionProfile.blueBacklight.crest.luminance <= 0.55,
+      true,
+      `${viewport.label} blue face carries a wide backlight contrast range`,
+    );
+    assert.equal(
+      motionProfile.blueBacklight.crest.channels.every((channel) => channel >= 238),
+      true,
+      `${viewport.label} blue crest reaches icy near-white`,
+    );
+    assert.equal(motionProfile.blueBacklight.maxBlur <= 2, true, `${viewport.label} blue glow stays edge-tight`);
+    assert.equal(
+      motionProfile.amberBacklight.crest.channels[0] >= 248
+        && motionProfile.amberBacklight.crest.channels[1] >= 225
+        && motionProfile.amberBacklight.crest.channels[2] >= 200,
+      true,
+      `${viewport.label} amber crest reaches warm near-white`,
+    );
+    assert.equal(motionProfile.amberBacklight.maxBlur <= 2, true, `${viewport.label} amber glow stays edge-tight`);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-back .ship-cohesion-segment').count(), 10);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-front .ship-cohesion-segment').count(), 10);
     assert.equal(await page.locator('.ship-cohesion-segment-shape').count(), 40);
