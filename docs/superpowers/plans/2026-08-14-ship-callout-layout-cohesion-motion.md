@@ -83,7 +83,7 @@ Extend the Cohesion contract test with:
 const preciseAnchors = new Set([
   'bridge', 'forward-sensors', 'central-saucer', 'crew-habitat',
   'engineering', 'port-nacelle', 'starboard-nacelle',
-  'aft-hull', 'shuttlebay',
+  'aft-hull', 'shuttlebay', 'sickbay',
 ]);
 for (const issue of [...catalog.authoredIssues, ...catalog.templates]) {
   assert.equal(preciseAnchors.has(issue.anchor), true, `${issue.id} precise anchor`);
@@ -130,11 +130,12 @@ Return `visualAnchors: visualAnchors(image)` for image results and `visualAnchor
   "port-nacelle": { "x": 0.09, "y": 0.15 },
   "starboard-nacelle": { "x": 0.48, "y": 0.10 },
   "aft-hull": { "x": 0.24, "y": 0.22 },
-  "shuttlebay": { "x": 0.20, "y": 0.16 }
+  "shuttlebay": { "x": 0.20, "y": 0.16 },
+  "sickbay": { "x": 0.55, "y": 0.45 }
 }
 ```
 
-Replace every catalog/fixture broad anchor through an explicit authoring map: `forward -> forward-sensors`, `engineering -> engineering`, `department -> central-saucer`, `crew -> crew-habitat`, `central -> central-saucer`, `system -> engineering`, `region -> central-saucer`, and `aft -> aft-hull`. Keep the nacelle, bridge, and shuttlebay entries available for future authored tasks without assigning unsupported meaning to current tasks.
+Replace every catalog/fixture broad anchor through an explicit authoring map: `forward -> forward-sensors`, `engineering -> engineering`, `department -> central-saucer`, `crew -> crew-habitat`, `central -> central-saucer`, `system -> engineering`, `region -> central-saucer`, `aft -> aft-hull`, and `medical -> sickbay`. Keep the nacelle, bridge, and shuttlebay entries available for future authored tasks without assigning unsupported meaning to current tasks.
 
 - [ ] **Step 4: Register and run the focused tests to verify GREEN**
 

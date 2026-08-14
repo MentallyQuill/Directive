@@ -7,6 +7,8 @@ export const DIRECTIVE_PACKAGE_IMAGE_VARIANTS = Object.freeze([
 
 export const DIRECTIVE_PACKAGE_IMAGE_PLACEHOLDER_TYPE = 'directive.package-image-placeholder';
 
+const EMPTY_VISUAL_ANCHORS = Object.freeze({});
+
 const VARIANT_FALLBACKS = Object.freeze({
   thumb: Object.freeze(['thumb', 'card', 'detail', 'hero']),
   card: Object.freeze(['card', 'thumb', 'detail', 'hero']),
@@ -21,6 +23,22 @@ function normalizeId(value) {
 function imageRecords(packageData) {
   const images = packageData?.assets?.images;
   return Array.isArray(images) ? images.filter((image) => image && typeof image === 'object') : [];
+}
+
+function visualAnchors(image) {
+  const entries = Object.entries(image?.visualAnchors || {})
+    .filter(([name, point]) => {
+      const x = Number(point?.x);
+      const y = Number(point?.y);
+      return normalizeId(name)
+        && Number.isFinite(x) && Number.isFinite(y)
+        && x >= 0 && x <= 1 && y >= 0 && y <= 1;
+    })
+    .map(([name, point]) => [
+      normalizeId(name),
+      Object.freeze({ x: Number(point.x), y: Number(point.y) }),
+    ]);
+  return Object.freeze(Object.fromEntries(entries));
 }
 
 function sortedImages(images) {
@@ -73,6 +91,7 @@ function createPlaceholder({ kind, subjectId, variant, reason }) {
     kind: normalizeId(kind),
     subjectId: normalizeId(subjectId),
     variant: normalizeId(variant) || 'card',
+    visualAnchors: EMPTY_VISUAL_ANCHORS,
     label: placeholderLabel(subjectId, kind),
     reason: reason || 'missing-image'
   });
@@ -110,6 +129,7 @@ export function resolvePackageImage(packageData, { kind = '', subjectId = '', va
         path,
         alt: image.alt || '',
         focalPoint: image.focalPoint || null,
+        visualAnchors: visualAnchors(image),
         fallbackReason: candidate === requestedVariant ? fallbackReason : fallbackReason || 'variant-fallback'
       });
     }
@@ -130,6 +150,7 @@ export function resolvePackageImage(packageData, { kind = '', subjectId = '', va
       path: directPath,
       alt: image.alt || '',
       focalPoint: image.focalPoint || null,
+      visualAnchors: visualAnchors(image),
       fallbackReason: fallbackReason || 'source-path-fallback'
     });
   }

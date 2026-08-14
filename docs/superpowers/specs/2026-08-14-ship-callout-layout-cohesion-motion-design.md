@@ -37,6 +37,7 @@ The `ship.cohesion` package image record owns a normalized visual-anchor atlas b
 - `starboard-nacelle`
 - `aft-hull`
 - `shuttlebay`
+- `sickbay`
 
 Each entry is an `{ x, y }` point normalized to the intrinsic source image. The image resolver exposes the atlas with the resolved asset. The layout converts each point through the rendered `object-fit: contain` content rectangle, including any letterboxing.
 

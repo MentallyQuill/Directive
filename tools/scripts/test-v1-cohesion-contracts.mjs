@@ -16,6 +16,13 @@ assert.equal(catalog.kind, COHESION_CATALOG_KIND);
 assert.deepEqual(validateCohesionCatalog(catalog), { ok: true, errors: [] });
 
 const index = indexCohesionCatalog(catalog);
+const preciseAnchors = new Set([
+  'bridge', 'forward-sensors', 'central-saucer', 'crew-habitat',
+  'engineering', 'port-nacelle', 'starboard-nacelle', 'aft-hull', 'shuttlebay', 'sickbay',
+]);
+for (const issue of [...index.authoredIssues, ...index.templates.values()]) {
+  assert.equal(preciseAnchors.has(issue.anchor), true, `${issue.id} precise anchor`);
+}
 assert.equal(index.templates.size, 40);
 assert.equal(new Set([...index.templates.values()].map((template) => template.title)).size, 40);
 assert.deepEqual(

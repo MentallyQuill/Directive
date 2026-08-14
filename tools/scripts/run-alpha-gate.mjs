@@ -16,6 +16,7 @@ const checks = [
   "test-certified-ship-view.mjs",
   "test-certified-settings-view.mjs",
   "test-certified-scroll-ownership.mjs",
+  "test-package-image-resolver.mjs",
   "test-package-hero-scene.mjs",
   "test-reactive-hero-orbit.mjs",
   "test-gameplay-notification-center.mjs",
