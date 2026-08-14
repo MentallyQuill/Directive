@@ -974,8 +974,21 @@ try {
   const desktopOrbit = await measureCampaignDashboard(desktopCampaignPage);
   assert.equal(desktopOrbit.heroOrbitEngaged, true);
   assertOrbitDepth(desktopOrbit, 'desktop orbit');
-  const desktopRoll = orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-roll');
-  assert.ok(desktopRoll > 0 && desktopRoll <= .22, 'desktop ship roll must remain positive and bounded');
+  assert.ok(
+    orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-x') > 0
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-x') <= 2,
+    'desktop ship horizontal response must remain a barely perceptible positional breath'
+  );
+  assert.ok(
+    orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-y') > 0
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-y') <= 1,
+    'desktop ship vertical response must remain a barely perceptible positional breath'
+  );
+  assert.equal(
+    orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-roll'),
+    0,
+    'desktop orbit must not rotate the ship independently of the authored scene'
+  );
   assert.deepEqual(desktopOrbit.animations, desktopCampaign.animations, 'hover orbit must not replace idle animation names');
   assert.deepEqual(desktopOrbit.animationDurations, desktopCampaign.animationDurations, 'hover orbit must not retime idle animation');
   assert.deepEqual(desktopOrbit.transitionDurations, ['0.09s', '0.09s', '0.09s', '0.09s', '0.09s', '0.09s']);

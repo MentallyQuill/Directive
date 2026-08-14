@@ -115,14 +115,14 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 1, y: 1, width: 1440, height: 500 })
   background: { x: -7, y: -4.5 },
   far: { x: -12, y: -8 },
   near: { x: -20, y: -12 },
-  ship: { x: 8, y: 5, roll: 0.22 }
-}, 'full lower-right input must move environment inverse to the ship at the certified depth amplitudes');
+  ship: { x: 2, y: 1, roll: 0 }
+}, 'full lower-right precise input must keep the ship anchored while the environment carries the orbit');
 
 assert.deepEqual(computeHeroOrbitFrame({ x: -5, y: -3, width: 390, height: 112 }), {
   background: { x: 3, y: 1.008 },
   far: { x: 6, y: 4 },
   near: { x: 10, y: 6 },
-  ship: { x: -3, y: -2, roll: -0.22 }
+  ship: { x: -1, y: -0.5, roll: 0 }
 }, 'input and compact-hero amplitudes must clamp without collapsing the depth ordering');
 
 assert.deepEqual(computeHeroOrbitFrame({
@@ -155,8 +155,9 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-background-x'), '-7px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-far-x'), '-12px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-20px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '8px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0.22deg');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '2px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-y'), '1px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0deg');
   assert.equal(hero.classList.contains('is-hero-orbit-engaged'), true);
 
   hero.dispatch('pointerleave', { pointerType: 'mouse' });
