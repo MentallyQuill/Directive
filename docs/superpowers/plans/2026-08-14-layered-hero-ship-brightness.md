@@ -75,6 +75,20 @@ assert.deepEqual(campaign.sunlightPresentation, { blend: 'screen', zIndex: '5' }
 assert.notEqual(campaign.copyTextShadow, 'none');
 ```
 
+When the Campaign Library is open, measure the first static fallback hero and retain the existing gradient contract:
+
+```js
+const staticHeroOverlay = await touchPage
+  .locator('.campaign-library-hero:not(:has(.directive-hero-scene))')
+  .first()
+  .evaluate((hero) => {
+    const after = getComputedStyle(hero, '::after');
+    return { content: after.content, backgroundImage: after.backgroundImage };
+  });
+assert.equal(staticHeroOverlay.content, '""');
+assert.ok(staticHeroOverlay.backgroundImage.includes('linear-gradient'));
+```
+
 - [ ] **Step 2: Run the visual test to verify RED**
 
 Run:
