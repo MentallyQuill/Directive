@@ -75,12 +75,20 @@ try {
   const box = await page.locator('.directive-gameplay-notification').first().boundingBox();
   assert.ok(box.width <= 340, 'desktop notification stays compact');
   assert.ok(Math.abs((box.x + (box.width / 2)) - 640) <= 2, 'desktop notification is centered');
-  assert.ok(box.y >= 12 && box.y <= 40, `desktop notification stays near the upper edge: ${JSON.stringify(box)}`);
+  assert.ok(box.y >= 8 && box.y <= 40, `desktop notification stays near the upper edge: ${JSON.stringify(box)}`);
   const cardStyles = await page.locator('.directive-gameplay-notification').evaluateAll((cards) => cards.map((card) => ({
     route: [...card.classList].find((name) => name.startsWith('is-')),
     borderLeftColor: getComputedStyle(card).borderLeftColor,
   })));
   assert.equal(new Set(cardStyles.map(({ borderLeftColor }) => borderLeftColor)).size, 3, 'each route has a distinct Directive accent');
+  const titleGlyphs = await page.locator('.directive-notification-title-icon').evaluateAll((icons) => icons.map((icon) => ({
+    glyph: icon.dataset.glyph,
+    maskImage: getComputedStyle(icon).maskImage,
+    ariaHidden: icon.getAttribute('aria-hidden'),
+  })));
+  assert.deepEqual(titleGlyphs.map(({ glyph }) => glyph), ['route-mission', 'route-crew', 'route-ship']);
+  assert.equal(titleGlyphs.every(({ maskImage }) => /route-(mission|crew|ship)\.svg/.test(maskImage)), true);
+  assert.equal(titleGlyphs.every(({ ariaHidden }) => ariaHidden === 'true'), true);
   const viewGeometry = await page.locator('.directive-gameplay-notification-view').first().evaluate((button) => {
     const rect = button.getBoundingClientRect();
     const icon = button.querySelector('.directive-gameplay-notification-view-icon');
@@ -121,7 +129,7 @@ try {
     };
   });
   assert.ok(Math.abs((mobileGeometry.card.left + (mobileGeometry.card.width / 2)) - 180) <= 2, 'mobile card stays centered');
-  assert.ok(mobileGeometry.card.top >= 12 && mobileGeometry.card.top <= 40, 'mobile card stays below the safe upper edge');
+  assert.ok(mobileGeometry.card.top >= 8 && mobileGeometry.card.top <= 40, 'mobile card stays below the safe upper edge');
   assert.equal(Math.round(mobileGeometry.viewWidth), 44, '360px viewport uses the compact 44px View button');
   assert.equal(mobileGeometry.viewTextDisplay, 'none', '360px viewport hides only the visible View label');
   await mobilePage.close();

@@ -94,22 +94,24 @@
   pointer-events: auto;
 }
 
-.directive-gameplay-notifications {
+.directive-notification-surface {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top, 0px));
+  top: max(8px, env(safe-area-inset-top, 0px));
   left: 50%;
   z-index: 100160;
   display: grid;
   width: min(340px, calc(100vw - 24px));
-  min-width: min(280px, calc(100vw - 24px));
   transform: translateX(-50%);
   pointer-events: none;
 }
 
+.directive-notification-activity-slot,
 .directive-gameplay-notification-list {
   display: grid;
   gap: 6px;
 }
+
+.directive-notification-activity-slot:empty { display: none; }
 
 .directive-gameplay-notification {
   --directive-notification-accent: #f2a126;
@@ -164,6 +166,24 @@
   font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.directive-notification-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.directive-notification-title-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: var(--directive-notification-accent);
+}
+
+.directive-notification-title-row .directive-gameplay-notification-title {
+  min-width: 0;
 }
 
 .directive-gameplay-notification-summary {

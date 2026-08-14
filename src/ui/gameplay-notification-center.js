@@ -1,6 +1,9 @@
 import { runRuntimeAction } from '../runtime/runtime-actions.js';
 import { refreshRuntimeSafely } from '../extension/runtime-mount.js';
-import { appendDirectiveOverlay } from './directive-overlay-root.js';
+import {
+  acquireDirectiveNotificationSurface,
+  releaseDirectiveNotificationSurface,
+} from './directive-notification-surface.js';
 import { createElement } from './runtime-ui-kit.js';
 
 const MAX_VISIBLE = 3;
@@ -32,16 +35,10 @@ function validRecord(record) {
 }
 
 function ensureHost() {
-  if (host?.parentNode) return host;
-  host = createElement('section', 'directive-gameplay-notifications');
-  host.id = 'directive-gameplay-notifications';
-  host.setAttribute('role', 'region');
-  host.setAttribute('aria-label', 'Directive notifications');
-  list = createElement('div', 'directive-gameplay-notification-list');
-  list.setAttribute('aria-live', 'polite');
-  list.setAttribute('aria-relevant', 'additions');
-  host.appendChild(list);
-  appendDirectiveOverlay(host);
+  if (list?.parentNode) return host;
+  const surface = acquireDirectiveNotificationSurface('gameplay');
+  host = surface.host;
+  list = surface.gameplaySlot;
   return host;
 }
 
@@ -51,20 +48,31 @@ function routeLabel(route) {
   return 'Mission';
 }
 
+function routeGlyph(route) {
+  if (route === 'people') return 'route-crew';
+  if (route === 'ship') return 'route-ship';
+  return 'route-mission';
+}
+
 function createCard(entry) {
   const { record } = entry;
-  const card = createElement('article', `directive-gameplay-notification is-${record.route}`);
+  const card = createElement('article', `directive-notification-card directive-gameplay-notification is-${record.route}`);
   card.dataset.notificationId = record.id;
   const dismiss = createElement('button', 'directive-gameplay-notification-dismiss');
   dismiss.type = 'button';
   dismiss.setAttribute('aria-label', `Dismiss ${record.title} notification`);
-  const category = createElement('span', 'directive-gameplay-notification-category');
+  const category = createElement('span', 'directive-notification-category directive-gameplay-notification-category');
   category.textContent = `${routeLabel(record.route)} update`;
   const title = createElement('strong', 'directive-gameplay-notification-title');
   title.textContent = record.title;
+  const titleRow = createElement('span', 'directive-notification-title-row');
+  const titleIcon = createElement('span', 'directive-vector-glyph directive-notification-title-icon');
+  titleIcon.dataset.glyph = routeGlyph(record.route);
+  titleIcon.setAttribute('aria-hidden', 'true');
+  titleRow.append(titleIcon, title);
   const summary = createElement('span', 'directive-gameplay-notification-summary');
   summary.textContent = record.summary || '';
-  dismiss.append(category, title, summary);
+  dismiss.append(category, titleRow, summary);
   const view = createElement('button', 'directive-gameplay-notification-view');
   view.type = 'button';
   view.setAttribute('aria-label', `View ${routeLabel(record.route)}`);
@@ -135,6 +143,11 @@ function dismissEntry(entry, reason) {
     visible.delete(entry.record.id);
     entry.exitTimerId = null;
     admitQueued();
+    if (visible.size === 0 && queued.length === 0) {
+      releaseDirectiveNotificationSurface('gameplay');
+      host = null;
+      list = null;
+    }
   }, EXIT_MS);
   return true;
 }
@@ -175,7 +188,7 @@ export function resetGameplayNotifications(reason = 'reset') {
   visible = new Map();
   queued = [];
   knownIds = new Set();
-  host?.remove?.();
+  releaseDirectiveNotificationSurface('gameplay');
   host = null;
   list = null;
   return { reset: true, reason };

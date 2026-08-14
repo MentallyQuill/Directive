@@ -32,6 +32,8 @@ class FakeElement {
     this.className = '';
     this.classList = new FakeClassList(this);
     this.textContent = '';
+    this.hidden = false;
+    this.style = {};
   }
   get id() { return this.attributes.get('id') || ''; }
   set id(value) { this.setAttribute('id', value); }
@@ -124,6 +126,16 @@ assert.equal(
   document.querySelectorAll('.directive-gameplay-notification').length,
   1,
   'publishing one record should render one compact notification card',
+);
+assert.equal(
+  document.querySelector('#directive-notifications')?.querySelector('.directive-gameplay-notification'),
+  document.querySelector('.directive-gameplay-notification'),
+  'gameplay cards should render inside the shared Directive notification surface',
+);
+assert.equal(
+  document.querySelector('.directive-notification-title-icon')?.dataset.glyph,
+  'route-mission',
+  'Mission notifications should lead their title with the existing Mission route glyph',
 );
 
 await document.querySelector('.directive-gameplay-notification-dismiss').dispatch('click');
