@@ -78,6 +78,7 @@ const checks = [
   "test-v1-ship-mechanics-state.mjs",
   "test-v1-ship-operational-packet.mjs",
   "test-v1-people-projection.mjs",
+  "test-v1-gameplay-notifications.mjs",
   "test-v1-composite-player-projection.mjs",
   "test-v1-projection-rebuild.mjs",
   "test-v1-player-facing-panel-model.mjs",
