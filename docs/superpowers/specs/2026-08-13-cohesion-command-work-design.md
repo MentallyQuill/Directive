@@ -618,6 +618,12 @@ The supplied source artwork is stored as local UI assets. Presentation uses the 
 
 DOM and Playwright verification must prove that every visible task receives the correct family mapping in both placements, the icon assets load successfully, the task card and detail title remain readable at certified viewports, and keyboard or pointer selection updates the detail icon with the selected task.
 
+## Cohesion Ring Geometry
+
+The twenty Cohesion markers read as a continuous segmented circle rather than clock hands. Each marker keeps the same angular center and issue ownership, but its radial depth is reduced to roughly one quarter of the original desktop marker depth. Its tangential width is derived from the rendered ring radius so neighboring markers leave an approximately six-pixel visual gap at desktop and mobile sizes. Markers use a shallow capsule profile; filled, debt, queued, selected-task preview, and reduced-motion treatments remain unchanged.
+
+Playwright geometry checks must verify twenty markers, a shallow width-to-depth ratio, and a four-to-eight-pixel inferred neighboring gap across every certified Ship viewport. Existing hover, focus, and selected-task preview counts remain authoritative.
+
 ## Verification Requirements
 
 Future implementation must prove:
