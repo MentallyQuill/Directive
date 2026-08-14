@@ -241,6 +241,10 @@ try {
         const sample = screenPoint(samplePath, sampleLength * (index / 400));
         return Math.hypot(sample.x - ringCenter.x, sample.y - ringCenter.y);
       });
+      const normalizedRadii = Array.from({ length: 401 }, (_, index) => {
+        const sample = samplePath.getPointAtLength(sampleLength * (index / 400));
+        return Math.hypot(sample.x - 50, sample.y - 50);
+      });
       const visibleVariants = new Set(visibleShapes.map((shape) => (shape.classList.contains('is-mobile') ? 'mobile' : 'desktop')));
       const zIndex = (node) => Number.parseInt(getComputedStyle(node).zIndex, 10) || 0;
       return {
@@ -262,6 +266,7 @@ try {
         shapeFill: firstShapeStyle.fill,
         queuedStrokeDasharray: queuedShape ? getComputedStyle(queuedShape).strokeDasharray : 'none',
         bandThickness: Math.max(...radii) - Math.min(...radii),
+        normalizedBandThickness: Math.max(...normalizedRadii) - Math.min(...normalizedRadii),
         ringTopInsideOrbit: backBox.top >= orbitBox.top - .5,
         ringBelowHeader: backBox.top >= headerBox.bottom - .5,
         ringAboveTasks: backBox.bottom <= navBox.top + .5,
@@ -284,8 +289,13 @@ try {
     assert.notEqual(geometry.shapeFill, 'none', `${viewport.label} segment shape is filled`);
     assert.equal(geometry.queuedStrokeDasharray, 'none', `${viewport.label} queued segment edges remain solid`);
     assert.ok(
-      geometry.bandThickness >= 13 && geometry.bandThickness <= 17,
-      `${viewport.label} ring band stays optically matched (actual ${geometry.bandThickness.toFixed(2)}px)`,
+      geometry.normalizedBandThickness >= 3.1 && geometry.normalizedBandThickness <= 3.3,
+      `${viewport.label} ring band keeps the shared desktop proportion (actual ${geometry.normalizedBandThickness.toFixed(2)} units)`,
+    );
+    const physicalBandRange = viewport.width <= 820 ? [6, 9] : [13, 17];
+    assert.ok(
+      geometry.bandThickness >= physicalBandRange[0] && geometry.bandThickness <= physicalBandRange[1],
+      `${viewport.label} ring band scales with its circle (actual ${geometry.bandThickness.toFixed(2)}px)`,
     );
     assert.ok(geometry.ringLayerDelta <= .5, `${viewport.label} ring layers remain synchronized`);
     if (viewport.width > 820) {

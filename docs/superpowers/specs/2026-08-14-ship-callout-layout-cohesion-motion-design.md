@@ -163,6 +163,10 @@ Amber preview segments use the same contained-lighting language. Their trough pr
 
 Under `prefers-reduced-motion: reduce`, segment animation and animated scrolling are disabled. Filled, debt, preview, selected-line, and selected-badge colors remain fully distinguishable without motion.
 
+### Responsive sector geometry
+
+Desktop and mobile must render the same segmented component at different overall sizes. Both visible variants therefore use the same normalized annular-sector geometry: center radius `44`, band width `3.2`, gap `2` degrees, and corner radius `0.4` in the shared `100`-unit view box. Mobile physical thickness scales down with the ring instead of increasing its radial proportion to chase the desktop pixel thickness. Browser certification measures the path in normalized SVG coordinates so a later responsive override cannot make the mobile ring visually heavier again.
+
 ## Lifecycle and Failure Handling
 
 - Layout waits for the cohesion image to load or reach a terminal error state.
@@ -241,4 +245,4 @@ Capture fresh initial, selected, mobile-badge, and controlled-animation screensh
 - Adding desktop origin markers.
 - Replacing the mobile task accordion.
 - Animating debt segments.
-- Changing the ship artwork or Cohesion segment geometry.
+- Changing the ship artwork, twenty-segment topology, or ring/ship layering.

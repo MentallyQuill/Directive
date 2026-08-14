@@ -18,7 +18,8 @@
 - Amber trough must preserve the original `#ffa24f` channel floors.
 - Animated blue and amber drop-shadow blur radii must never exceed 2 CSS pixels.
 - Keep reduced-motion behavior static and distinguishable.
-- Do not alter Ship geometry, task data, selection behavior, leader lines, or gameplay state.
+- Use the same normalized annular-sector geometry on desktop and mobile: center radius `44`, band width `3.2`, gap `2` degrees, and corner radius `0.4`.
+- Do not alter task data, selection behavior, leader lines, ring size/position, or gameplay state.
 
 ---
 
@@ -82,8 +83,12 @@ git commit -m "fix(ship): sharpen cohesion backlight"
 
 ### Task 3: Repository Verification and Integration
 
+Before the repository gate, replace the absolute 13–17px ring-band assertion with normalized SVG-path measurement. Verify RED against the current `6.3`-unit mobile band, then set the mobile geometry to the desktop `3.2` band width and `0.4` corner radius. Keep desktop geometry, ring CSS size/position, badges, and leaders unchanged, and verify GREEN at all four Ship viewports.
+
 **Files:**
-- Verify only unless an in-scope regression is exposed.
+- Modify: `src/ui/ship-journal.js`
+- Modify: `tools/scripts/test-cohesion-ship-visual.mjs`
+- Verify all other files unless an in-scope regression is exposed.
 
 **Interfaces:**
 - Consumes: the committed backlight contract and stylesheet change.

@@ -247,7 +247,7 @@ function createSvgElement(tagName, className = '') {
 
 const COHESION_SEGMENT_GEOMETRY = Object.freeze({
   desktop: Object.freeze({ centerRadius: 44, bandWidth: 3.2, gapDegrees: 2, cornerRadius: 0.4 }),
-  mobile: Object.freeze({ centerRadius: 44, bandWidth: 6.3, gapDegrees: 2, cornerRadius: 0.9 }),
+  mobile: Object.freeze({ centerRadius: 44, bandWidth: 3.2, gapDegrees: 2, cornerRadius: 0.4 }),
 });
 
 function cohesionSegmentPath(index, {
