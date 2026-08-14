@@ -173,18 +173,55 @@ function createSvgElement(tagName, className = '') {
   return element;
 }
 
-function cohesionArcPath(index) {
+const COHESION_SEGMENT_GEOMETRY = Object.freeze({
+  desktop: Object.freeze({ centerRadius: 44, bandWidth: 3.2, gapDegrees: 2, cornerRadius: 0.4 }),
+  mobile: Object.freeze({ centerRadius: 44, bandWidth: 5, gapDegrees: 2, cornerRadius: 0.67 }),
+});
+
+function cohesionSegmentPath(index, {
+  centerRadius,
+  bandWidth,
+  gapDegrees,
+  cornerRadius,
+}) {
   const center = 50;
-  const radius = 44;
-  const startAngle = -90 + (index * 18) + 4.75;
-  const endAngle = -90 + ((index + 1) * 18) - 4.75;
-  const point = (angle) => {
+  const slotDegrees = 18;
+  const outerRadius = centerRadius + (bandWidth / 2);
+  const innerRadius = centerRadius - (bandWidth / 2);
+  const startAngle = -90 + (index * slotDegrees) + (gapDegrees / 2);
+  const endAngle = -90 + ((index + 1) * slotDegrees) - (gapDegrees / 2);
+  const outerInset = cornerRadius * (180 / Math.PI) / outerRadius;
+  const innerInset = cornerRadius * (180 / Math.PI) / innerRadius;
+  const point = (radius, angle) => {
     const radians = angle * (Math.PI / 180);
     return [center + (radius * Math.cos(radians)), center + (radius * Math.sin(radians))];
   };
-  const [startX, startY] = point(startAngle);
-  const [endX, endY] = point(endAngle);
-  return `M ${startX.toFixed(3)} ${startY.toFixed(3)} A ${radius} ${radius} 0 0 1 ${endX.toFixed(3)} ${endY.toFixed(3)}`;
+  const format = ([x, y]) => `${x.toFixed(3)} ${y.toFixed(3)}`;
+  const outerStartFace = point(outerRadius - cornerRadius, startAngle);
+  const outerStartCorner = point(outerRadius, startAngle);
+  const outerStartArc = point(outerRadius, startAngle + outerInset);
+  const outerEndArc = point(outerRadius, endAngle - outerInset);
+  const outerEndCorner = point(outerRadius, endAngle);
+  const outerEndFace = point(outerRadius - cornerRadius, endAngle);
+  const innerEndFace = point(innerRadius + cornerRadius, endAngle);
+  const innerEndCorner = point(innerRadius, endAngle);
+  const innerEndArc = point(innerRadius, endAngle - innerInset);
+  const innerStartArc = point(innerRadius, startAngle + innerInset);
+  const innerStartCorner = point(innerRadius, startAngle);
+  const innerStartFace = point(innerRadius + cornerRadius, startAngle);
+
+  return [
+    `M ${format(outerStartFace)}`,
+    `Q ${format(outerStartCorner)} ${format(outerStartArc)}`,
+    `A ${outerRadius} ${outerRadius} 0 0 1 ${format(outerEndArc)}`,
+    `Q ${format(outerEndCorner)} ${format(outerEndFace)}`,
+    `L ${format(innerEndFace)}`,
+    `Q ${format(innerEndCorner)} ${format(innerEndArc)}`,
+    `A ${innerRadius} ${innerRadius} 0 0 0 ${format(innerStartArc)}`,
+    `Q ${format(innerStartCorner)} ${format(innerStartFace)}`,
+    `L ${format(outerStartFace)}`,
+    'Z',
+  ].join(' ');
 }
 
 function createRing(cohesion) {
@@ -200,13 +237,17 @@ function createRing(cohesion) {
   });
   const segments = [];
   cohesion.segments.forEach((segment) => {
-    const item = createSvgElement('path', `ship-cohesion-segment ${segment.filled ? 'is-filled' : 'is-debt'}${segment.queued ? ' is-queued' : ''}`);
+    const item = createSvgElement('g', `ship-cohesion-segment ${segment.filled ? 'is-filled' : 'is-debt'}${segment.queued ? ' is-queued' : ''}`);
     item.dataset.segmentIndex = String(segment.index);
     if (segment.taskId) item.dataset.taskId = segment.taskId;
-    item.setAttribute('d', cohesionArcPath(segment.index));
-    item.setAttribute('pathLength', '1');
     item.setAttribute('role', 'listitem');
     item.setAttribute('aria-label', segment.filled ? `Cohesion segment ${segment.index + 1}, ready` : `Cohesion segment ${segment.index + 1}, unresolved`);
+    Object.entries(COHESION_SEGMENT_GEOMETRY).forEach(([variant, geometry]) => {
+      const shape = createSvgElement('path', `ship-cohesion-segment-shape is-${variant}`);
+      shape.setAttribute('d', cohesionSegmentPath(segment.index, geometry));
+      shape.setAttribute('aria-hidden', 'true');
+      item.appendChild(shape);
+    });
     (segment.index < 10 ? back : front).appendChild(item);
     segments.push(item);
   });
