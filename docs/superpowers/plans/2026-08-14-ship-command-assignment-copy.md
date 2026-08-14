@@ -31,6 +31,8 @@
 - Consumes: `createShipCohesionWorkspace(ship, activePackage, actions, commandBearing)` and existing `ship.cohesion.visibleTasks` projection records.
 - Produces: unchanged DOM structure and behavior with the exact approved player-facing vocabulary.
 
+Mobile inline details retain the `Level {n} Command Assignment` eyebrow while continuing to omit the repeated title and reward header.
+
 - [ ] **Step 1: Write focused failing vocabulary assertions**
 
 Replace the old positive copy assertions in `test-certified-ship-panel.mjs` with assertions for the entire approved hierarchy and supporting chrome:

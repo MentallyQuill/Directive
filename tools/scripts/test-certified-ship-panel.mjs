@@ -119,6 +119,11 @@ assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').mat
 assert.equal(byClass('ship-task-button').length, 3);
 assert.equal(byClass('ship-task-button').every((button) => !/ship-task-position-/.test(button.className)), true);
 assert.equal(byClass('ship-task-mobile-panel').length, 3);
+assert.equal(
+  byClass('ship-task-mobile-panel').every((panel) => panel.querySelector('.ship-task-detail-eyebrow')?.textContent?.endsWith('Command Assignment')),
+  true,
+  'inline mobile details retain the assignment-level eyebrow without repeating the title header',
+);
 assert.equal(byClass('ship-task-mobile-callout').length, 3);
 assert.match(
   byClass('ship-task-mobile-callout')[2].getAttribute('aria-label'),

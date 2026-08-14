@@ -58,13 +58,18 @@ function createReward(task) {
   return reward;
 }
 
+function createTaskEyebrow(task) {
+  const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
+  eyebrow.textContent = `Level ${task.level} Command Assignment`;
+  return eyebrow;
+}
+
 function createDetail(task, commandBearing, actions, { includeHeader = true } = {}) {
   const content = createElement('div', 'ship-task-detail-content');
   if (includeHeader) {
     const header = createElement('header', 'ship-task-detail-header');
     const identity = createElement('div');
-    const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
-    eyebrow.textContent = `Level ${task.level} Command Assignment`;
+    const eyebrow = createTaskEyebrow(task);
     const titleRow = createElement('div', 'ship-task-title-row');
     const title = createElement('h3');
     title.textContent = task.title;
@@ -74,6 +79,8 @@ function createDetail(task, commandBearing, actions, { includeHeader = true } = 
     identity.append(eyebrow, titleRow);
     header.append(identity, createReward(task));
     content.appendChild(header);
+  } else {
+    content.appendChild(createTaskEyebrow(task));
   }
 
   const boundIdentity = taskIdentity(task);

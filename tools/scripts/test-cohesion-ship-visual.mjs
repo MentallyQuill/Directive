@@ -509,8 +509,15 @@ try {
       assert.match(await page.locator('.ship-task-detail h3').textContent(), /Systems Integration/);
     }
     const activeDetailText = await activeDetail.textContent();
-    assert.match(activeDetailText, /Command Impact/);
-    assert.match(activeDetailText, /Course of Action/);
+    for (const heading of [
+      /Level \d+ Command Assignment/,
+      /Situation/,
+      /Objective/,
+      /Command Impact/,
+      /Course of Action/,
+      /Operational Risk/,
+      /Resolution Criteria/,
+    ]) assert.match(activeDetailText, heading, `${viewport.label} active detail includes ${heading}`);
     assert.doesNotMatch(activeDetailText, /Why it matters to you|How to pursue it/);
     assert.match(activeDetailText, /always ask the ship's computer for help/i);
 
