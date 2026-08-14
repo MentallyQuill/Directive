@@ -134,6 +134,17 @@ Transforms use SVG fill-box geometry and a centered transform origin so the sect
 
 Debt and queued-debt segments have no idle animation, glow cycle, or scale change.
 
+#### Backlit-panel perceptibility refinement
+
+The wave must read through illumination inside each segment face, matching the flat transmissive character of the LCARS sidebar rather than an exterior lamp halo. Keep the approved ten-second timeline, half-second stagger, two-segment crest, and `1.02` scale ceiling unchanged, but widen the luminance range:
+
+- the trough uses a darker, slightly desaturated steel blue whose relative luminance is no more than 55% of the crest;
+- the crest face reaches an icy near-white with every RGB channel at or above 238;
+- every blue-wave drop shadow uses a blur radius no larger than 2 CSS pixels;
+- the crest may retain a compact edge highlight, but no broad bloom, extra SVG filter, stroke expansion, or opacity flash is introduced.
+
+Color interpolation carries the primary motion signal. Filter brightness and glow remain secondary so the sectors still look like backlit panel inserts when viewed on the phone-sized Ship layout.
+
 ### Amber task preview
 
 Preview segments override every idle blue animation property. All segments owned by the active task pulse in phase:
@@ -144,6 +155,8 @@ Preview segments override every idle blue animation property. All segments owned
 - emphasis: synchronized amber brightness and glow.
 
 The amber pulse continues while a task remains selected, including after pointer hover ends. Hover or keyboard focus temporarily previews another task through the existing selection-return behavior.
+
+Amber preview segments use the same contained-lighting language. Their trough remains recognizably amber, their synchronized crest reaches a warm near-white, and all drop-shadow blur radii remain at or below 2 CSS pixels. The two-second period, shared phase, and `1.02` scale ceiling do not change.
 
 ### Reduced motion
 
@@ -213,6 +226,8 @@ For motion, inspect Web Animations and computed styles at controlled timeline po
 - preview segments share one two-second phase and override blue motion;
 - debt segments never animate;
 - scale never exceeds `1.02`;
+- the blue crest is near-white, the blue trough is at most 55% of crest luminance, and animated shadow blur never exceeds 2 CSS pixels;
+- the amber crest is warm near-white and its animated shadow blur never exceeds 2 CSS pixels;
 - reduced-motion mode reports no segment animations.
 
 Capture fresh initial, selected, mobile-badge, and controlled-animation screenshots. Run focused Ship DOM, interaction, geometry, and Playwright suites, then the full repository gate.
