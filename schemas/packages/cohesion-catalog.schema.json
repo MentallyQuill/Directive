@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://directive.local/schemas/packages/cohesion-catalog.schema.json",
+  "title": "Directive V1 Cohesion Catalog",
+  "type": "object",
+  "required": ["kind", "schemaVersion", "id", "packageId", "policy", "backgroundCrew", "authoredIssues", "templates"],
+  "properties": {
+    "kind": { "const": "directive.cohesionCatalog.v1" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "packageId": { "type": "string", "minLength": 1 },
+    "policy": { "type": "object" },
+    "backgroundCrew": { "type": "object" },
+    "authoredIssues": { "type": "array", "minItems": 1 },
+    "templates": { "type": "array", "minItems": 40, "maxItems": 40 }
+  }
+}

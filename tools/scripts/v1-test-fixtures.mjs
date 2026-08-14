@@ -30,6 +30,7 @@ export function loadAshesRuntimeAssets() {
     packageData,
     crewDataset: readRepoJson('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'),
     shipDataset: readRepoJson('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json'),
+    cohesionCatalog: readRepoJson('packages/bundled/breckenridge/breckenridge.cohesion-catalog.json'),
     missionDefinitions,
     missionDefinitionsById: new Map(missionDefinitions.map((definition) => [definition.id, definition]))
   };

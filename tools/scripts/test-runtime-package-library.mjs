@@ -30,6 +30,7 @@ assert.deepEqual(summarizeRuntimeAssets(assets)[ASHES_V1_PACKAGE_ID], {
   v1Native: true,
   hasCrewDataset: true,
   hasShipDataset: true,
+  hasCohesionCatalog: true,
   missionDefinitionCount: 13
 });
 

@@ -30,6 +30,8 @@ export const ASHES_V1_BUNDLED_REF = Object.freeze({
   crewDatasetUrl: assetUrl('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'),
   shipDatasetPath: 'packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json',
   shipDatasetUrl: assetUrl('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json'),
+  cohesionCatalogPath: 'packages/bundled/breckenridge/breckenridge.cohesion-catalog.json',
+  cohesionCatalogUrl: assetUrl('packages/bundled/breckenridge/breckenridge.cohesion-catalog.json'),
   missionDefinitionRefs: Object.freeze(ASHES_MISSIONS.map((name) => Object.freeze({
     path: `packages/bundled/breckenridge/v1/${name}.mission-v1.json`,
     url: assetUrl(`packages/bundled/breckenridge/v1/${name}.mission-v1.json`)
@@ -167,6 +169,10 @@ export function bundledCrewDatasetPairs() {
 
 export function bundledShipDatasetPairs() {
   return [[ASHES_V1_BUNDLED_REF.packagePath, ASHES_V1_BUNDLED_REF.shipDatasetPath]];
+}
+
+export function bundledCohesionCatalogPairs() {
+  return [[ASHES_V1_BUNDLED_REF.packagePath, ASHES_V1_BUNDLED_REF.cohesionCatalogPath]];
 }
 
 export function bundledMissionDefinitionPairs() {

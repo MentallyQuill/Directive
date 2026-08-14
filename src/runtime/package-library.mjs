@@ -4,6 +4,7 @@ import {
   V1_CAMPAIGN_LIBRARY_TEASERS
 } from '../packages/bundled-package-registry.mjs';
 import { validateShipMechanicsPackage } from '../ship/v1/ship-mechanics-contracts.mjs';
+import { validateCohesionCatalog } from '../ship/v1/cohesion-contracts.mjs';
 
 function object(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -26,10 +27,11 @@ export async function loadBundledCampaignPackageRecords({
   ref = ASHES_V1_BUNDLED_REF
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('Fetch is unavailable for Directive V1 package loading.');
-  const [packageData, crewDataset, shipDataset, ...missionDefinitions] = await Promise.all([
+  const [packageData, crewDataset, shipDataset, cohesionCatalog, ...missionDefinitions] = await Promise.all([
     fetchJson(ref.packageUrl, fetchImpl),
     fetchJson(ref.crewDatasetUrl, fetchImpl),
     fetchJson(ref.shipDatasetUrl, fetchImpl),
+    fetchJson(ref.cohesionCatalogUrl, fetchImpl),
     ...ref.missionDefinitionRefs.map((definitionRef) => fetchJson(definitionRef.url, fetchImpl))
   ]);
   if (packageIdOf(packageData) !== ASHES_V1_PACKAGE_ID) {
@@ -46,10 +48,15 @@ export async function loadBundledCampaignPackageRecords({
   if (!shipMechanics.ok) {
     throw new Error(`Directive V1 rejects Ship mechanics: ${shipMechanics.errors.join('; ')}`);
   }
+  const cohesion = validateCohesionCatalog(cohesionCatalog);
+  if (!cohesion.ok || cohesionCatalog.packageId !== packageData.manifest?.id) {
+    throw new Error(`Directive V1 rejects Cohesion catalog: ${cohesion.errors.join('; ') || 'package identity mismatch'}`);
+  }
   return {
     packageData,
     crewDataset,
     shipDataset,
+    cohesionCatalog,
     missionDefinitions,
     campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS
   };
@@ -64,6 +71,7 @@ export function indexRuntimeAssets(records = {}) {
     packageData: records.packageData,
     crewDataset: records.crewDataset,
     shipDataset: records.shipDataset,
+    cohesionCatalog: records.cohesionCatalog,
     missionDefinitions,
     missionDefinitionsById: new Map(missionDefinitions.map((definition) => [definition.id, definition]))
   }]]);
@@ -78,10 +86,12 @@ export function summarizeRuntimeAssets(runtimeAssetsByPackageId) {
         assets?.packageData
         && assets?.crewDataset
         && assets?.shipDataset
+        && assets?.cohesionCatalog
         && assets?.missionDefinitions?.length
       ),
       hasCrewDataset: object(assets?.crewDataset),
       hasShipDataset: object(assets?.shipDataset),
+      hasCohesionCatalog: object(assets?.cohesionCatalog),
       missionDefinitionCount: assets?.missionDefinitions?.length || 0
     }
   };
