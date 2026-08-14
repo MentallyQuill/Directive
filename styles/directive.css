@@ -3584,6 +3584,10 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="load"] { grid-column: 2; grid-row: 2; }
   .directive-expanded-shell .campaign-dashboard-actions [data-campaign-action="delete"] {
     position: absolute;
+    top: 0;
+    right: 0;
+  }
+  .directive-expanded-shell .campaign-dashboard > .campaign-dashboard-actions [data-campaign-action="delete"] {
     top: 12px;
     right: 12px;
   }
