@@ -1,5 +1,8 @@
 import { resolveDirectiveHostGenerationHandoff } from './turn-activity-indicator.js';
-import { showSettlementRetryDialog } from '../../ui/settlement-retry-dialog.js';
+import {
+  closeSettlementRetryDialog,
+  showSettlementRetryDialog
+} from '../../ui/settlement-retry-dialog.js';
 
 let runtimeApp = null;
 let orchestrator = null;
@@ -29,6 +32,7 @@ export function setSillyTavernDirectiveRuntimeEnabled(value) {
 }
 
 export function clearSillyTavernDirectiveRuntimeBridge() {
+  closeSettlementRetryDialog('bridge-cleared');
   runtimeApp = null;
   orchestrator = null;
   host = null;
@@ -46,9 +50,12 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
       showSettlementRetryDialog({
         reasonCode: result.settlementError?.reasonCode,
         attempts: result.settlementError?.persistenceAttempts,
-        onRetry: async () => {
+        onRetry: async ({ signal = null, isActive = null } = {}) => {
           const settled = await runtimeApp?.retryPendingAcceptedPairSettlement?.();
           if (settled?.ok === true) {
+            if (signal?.aborted === true || isActive?.() === false) {
+              return { ok: false, reasonCode: 'settlement-retry-dismissed' };
+            }
             const continued = await host?.chat?.continueHostGeneration?.({
               reason: 'directive-settlement-retry',
               type: type || 'normal',

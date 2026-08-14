@@ -7,6 +7,12 @@ const {
   showSettlementRetryDialog
 } = await import('../../src/ui/settlement-retry-dialog.js');
 
+const shell = document.createElement('section');
+shell.id = 'directive-runtime-panel';
+const opener = document.createElement('button');
+document.body.append(shell, opener);
+opener.focus();
+
 let releaseRetry;
 const retryPromise = new Promise((resolve) => { releaseRetry = resolve; });
 const opened = showSettlementRetryDialog({
@@ -19,12 +25,15 @@ assert.equal(opened.dialog.getAttribute('aria-modal'), 'true');
 assert.match(opened.dialog.querySelector('.directive-settlement-retry-message').textContent, /after 3 attempts/i);
 assert.match(opened.dialog.querySelector('.directive-settlement-retry-message').textContent, /narration has not begun/i);
 assert.equal(document.activeElement, opened.retry);
+assert.equal(shell.inert, true, 'the underlying Directive shell must be inert while narration recovery is modal');
 const click = opened.retry.listeners.get('click')[0]({ preventDefault() {} });
 assert.equal(opened.retry.disabled, true);
 assert.match(opened.status.textContent, /retrying/i);
 releaseRetry({ ok: true });
 await click;
 assert.equal(opened.overlay.isConnected, false);
+assert.equal(shell.inert, false);
+assert.equal(document.activeElement, opener, 'closing narration recovery must restore focus to its opener');
 assert.equal(closeSettlementRetryDialog().closed, false);
 
 const replay = showSettlementRetryDialog({
@@ -46,10 +55,13 @@ await backdropReplay.overlay.dispatch('click', { target: backdropReplay.overlay 
 assert.equal(backdropReplay.overlay.isConnected, false, 'clicking outside the dialog must release the presentation layer');
 
 const keyboardReplay = showSettlementRetryDialog({ reasonCode: 'accepted-pair-replay-pending', attempts: 0 });
-await Promise.all((document.listeners.get('keydown') || []).map((listener) => listener({
-  key: 'Escape',
-  preventDefault() {}
-})));
+await keyboardReplay.dialog.dispatch('keydown', { key: 'Escape' });
 assert.equal(keyboardReplay.overlay.isConnected, false, 'Escape must release the presentation layer');
+
+const trappedReplay = showSettlementRetryDialog({ reasonCode: 'accepted-pair-replay-pending', attempts: 0 });
+trappedReplay.close.focus();
+await trappedReplay.dialog.dispatch('keydown', { key: 'Tab' });
+assert.equal(document.activeElement, trappedReplay.retry, 'Tab must wrap from the final action to the first action');
+await trappedReplay.dialog.dispatch('keydown', { key: 'Escape' });
 
 console.log('Settlement retry dialog tests passed.');

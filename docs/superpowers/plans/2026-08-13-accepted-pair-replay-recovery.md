@@ -21,6 +21,8 @@
 **Files:**
 - Modify: `src/runtime/runtime-app.mjs`
 - Modify: `src/ui/settlement-retry-dialog.js`
+- Modify: `src/hosts/sillytavern/runtime-bridge.mjs`
+- Modify: `src/hosts/sillytavern/shell-events.js`
 - Modify: `styles/directive.css`
 - Test: `tools/scripts/test-v1-runtime-app.mjs`
 - Test: `tools/scripts/test-sillytavern-event-wiring.mjs`
@@ -28,21 +30,21 @@
 
 **Interfaces:**
 - Consumes: `acceptedPairReplayNeeded`, `rebuildAcceptedStateFromChat()`, and the existing `retryPendingAcceptedPairSettlement()` bridge contract.
-- Produces: replay-aware `{ ok, reasonCode, settlementBlocked, acceptedPairReplay }` recovery results and Close, Escape, and backdrop dismissal that mutate no runtime authority.
+- Produces: replay-aware `{ ok, reasonCode, settlementBlocked, acceptedPairReplay }` recovery results; owned async Retry presentation; and accessible dismissal that mutates no runtime authority.
 
 - [ ] **Step 1: Write failing runtime, bridge, and dialog regressions**
 
-Add assertions that a replay-pending runtime without a persistence object resumes complete-chat replay; replay copy omits `after 0 attempts`; and Close, Escape, and backdrop clicks remove the overlay.
+Add assertions that a replay-pending runtime without a persistence object resumes complete-chat replay; replay copy omits `after 0 attempts`; Close, Escape, and backdrop clicks remove the overlay; focus and inert state are restored; dismissed Retry completion cannot continue narration or close a replacement; and teardown closes recovery state.
 
 - [ ] **Step 2: Run focused tests and verify RED**
 
 Run: `node tools/scripts/test-v1-runtime-app.mjs; node tools/scripts/test-sillytavern-event-wiring.mjs; node tools/scripts/test-settlement-retry-dialog.mjs`
 
-Expected: failures showing replay Retry returns `no-pending-settlement`, replay copy contains `after 0 attempts`, or no Close action exists.
+Expected: failures showing replay Retry returns `no-pending-settlement`, replay copy contains `after 0 attempts`, modal focus/inert ownership is missing, or dismissed Retry completion continues narration.
 
 - [ ] **Step 3: Implement minimal runtime and dialog changes**
 
-In `retryPendingAcceptedPairSettlement()`, call `rebuildAcceptedStateFromChat()` only when `acceptedPairReplayNeeded` is true and no persistence object exists. Return `ok: true` only when replay is not blocked. In the dialog, render reason-specific copy and dismiss the presentation layer through Close, Escape, or backdrop click without changing runtime state.
+In `retryPendingAcceptedPairSettlement()`, call `rebuildAcceptedStateFromChat()` only when `acceptedPairReplayNeeded` is true and no persistence object exists. Return `ok: true` only when replay is not blocked. In the dialog, render reason-specific copy, own each async Retry with an abortable active-instance check, contain and restore focus, and dismiss the presentation layer through Close, Escape, backdrop click, or teardown without changing runtime state. In the bridge, continue host generation only while the initiating Retry remains active.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 

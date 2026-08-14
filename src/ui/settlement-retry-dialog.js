@@ -3,13 +3,18 @@ import { createButton, createElement } from './runtime-ui-kit.js';
 
 let activeDialog = null;
 
-export function closeSettlementRetryDialog(reason = 'closed') {
-  if (!activeDialog) return { closed: false, reason };
-  const dialog = activeDialog;
+function closeDialog(instance, reason = 'closed') {
+  if (!instance || activeDialog !== instance) return { closed: false, reason };
   activeDialog = null;
-  document.removeEventListener?.('keydown', dialog.onKeyDown);
-  dialog.overlay.remove?.();
+  instance.retryController?.abort?.(new Error(`settlement-retry-${reason}`));
+  instance.overlay.remove?.();
+  if (instance.shell) instance.shell.inert = instance.shellWasInert;
+  instance.opener?.focus?.({ preventScroll: true });
   return { closed: true, reason };
+}
+
+export function closeSettlementRetryDialog(reason = 'closed') {
+  return closeDialog(activeDialog, reason);
 }
 
 export function showSettlementRetryDialog({
@@ -18,6 +23,10 @@ export function showSettlementRetryDialog({
   onRetry = null
 } = {}) {
   if (activeDialog) return activeDialog;
+  const opener = document.activeElement || null;
+  const shell = document.getElementById?.('directive-runtime-panel') || null;
+  const shellWasInert = shell?.inert === true;
+  if (shell) shell.inert = true;
   const overlay = createElement('div', 'directive-settlement-retry-overlay');
   const dialog = createElement('section', 'directive-settlement-retry-dialog');
   dialog.setAttribute('role', 'alertdialog');
@@ -39,43 +48,73 @@ export function showSettlementRetryDialog({
   status.setAttribute('aria-live', 'polite');
   const retry = createButton({ label: 'Retry', icon: 'fa-solid fa-rotate-right' });
   retry.dataset.settlementRetryAction = 'retry';
+  const close = createButton({ label: 'Close', icon: 'fa-solid fa-xmark' });
+  close.dataset.settlementRetryAction = 'close';
+  const actions = createElement('div', 'directive-settlement-retry-actions');
+  actions.append(retry, close);
+  const instance = {
+    overlay,
+    dialog,
+    retry,
+    close,
+    status,
+    opener,
+    shell,
+    shellWasInert,
+    retryController: null
+  };
   retry.addEventListener('click', async () => {
     if (retry.disabled) return;
     retry.disabled = true;
     status.textContent = 'Retrying accepted story settlement...';
+    const retryController = typeof AbortController === 'function' ? new AbortController() : null;
+    instance.retryController = retryController;
+    const isActive = () => activeDialog === instance && retryController?.signal?.aborted !== true;
     try {
-      const result = await onRetry?.();
+      const result = await onRetry?.({ signal: retryController?.signal || null, isActive });
+      if (!isActive()) return;
       if (result?.ok === true) {
-        closeSettlementRetryDialog('settled');
+        closeDialog(instance, 'settled');
         return;
       }
       status.textContent = 'Directive still cannot safely record this turn.';
     } catch {
+      if (!isActive()) return;
       status.textContent = 'Directive still cannot safely record this turn.';
     }
+    if (!isActive()) return;
     retry.disabled = false;
     retry.focus?.({ preventScroll: true });
   });
-  const close = createButton({ label: 'Close', icon: 'fa-solid fa-xmark' });
-  close.dataset.settlementRetryAction = 'close';
-  close.addEventListener('click', () => closeSettlementRetryDialog('dismissed'));
-  const actions = createElement('div', 'directive-settlement-retry-actions');
-  actions.append(retry, close);
-  const onKeyDown = (event) => {
-    if (event?.key !== 'Escape') return;
-    event.preventDefault?.();
-    closeSettlementRetryDialog('escape');
-  };
+  close.addEventListener('click', () => closeDialog(instance, 'dismissed'));
   overlay.addEventListener('click', (event) => {
-    if (event?.target === overlay) closeSettlementRetryDialog('backdrop');
+    if (event?.target === overlay) closeDialog(instance, 'backdrop');
   });
-  document.addEventListener?.('keydown', onKeyDown);
+  dialog.addEventListener('keydown', (event) => {
+    if (event?.key === 'Escape') {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      closeDialog(instance, 'escape');
+      return;
+    }
+    if (event?.key !== 'Tab') return;
+    const focusable = [retry, close].filter((control) => control.disabled !== true && control.hidden !== true);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault?.();
+      last?.focus?.();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault?.();
+      first?.focus?.();
+    }
+  });
   dialog.append(title, message, detail, status, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
+  activeDialog = instance;
   retry.focus?.({ preventScroll: true });
-  activeDialog = { overlay, dialog, retry, close, status, onKeyDown };
-  return activeDialog;
+  return instance;
 }
 
 export const __settlementRetryDialogTestHooks = Object.freeze({

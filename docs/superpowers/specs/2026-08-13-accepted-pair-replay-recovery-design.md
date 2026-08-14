@@ -21,9 +21,12 @@ The SillyTavern bridge continues host generation only after the recovery entry p
 
 The modal distinguishes persistence and replay copy. Replay failures do not claim that persistence was attempted zero times. Retry remains available. Close, Escape, or a backdrop click dismisses the modal so the player can adjust provider configuration or reload; dismissal does not mutate campaign state and the next generation remains guarded by the runtime.
 
+Each Retry owns an abortable presentation token. Authority reconciliation may safely finish after dismissal, but the bridge may continue host narration only while that same dialog and Retry remain active. A stale completion cannot close a replacement dialog. While open, the dialog makes the Directive shell inert, contains keyboard focus, restores focus on close, and is explicitly closed during bridge or extension teardown.
+
 ## Testing
 
 - Runtime regression: replay-pending recovery invokes complete-chat replay when no persistence object exists and returns success only after the replay clears.
 - Bridge regression: a zero-attempt replay dialog Retry reaches replay recovery and continues canonical host generation on success.
-- Dialog regression: replay copy omits the misleading attempt count; Close, Escape, and backdrop clicks dismiss the overlay; and persistence copy remains unchanged.
+- Dialog regression: replay copy omits the misleading attempt count; Close, Escape, and backdrop clicks dismiss the overlay; focus and inert state are restored; and persistence copy remains unchanged.
+- Bridge regression: a dismissed in-flight Retry neither starts host narration nor closes a replacement dialog, and extension teardown closes active recovery state.
 - Full V1 alpha gate remains green.
