@@ -109,7 +109,6 @@ try {
       return { segmentCount: segments.length, animationCount, darkAnimationCount };
     }
     const firstStyle = getComputedStyle(segments[0], '::after');
-    const firstDarkStyle = getComputedStyle(segments[0], '::before');
     animations.forEach((animation) => animation.pause());
     darkAnimations.forEach((animation) => animation.pause());
     let maxLit = 0;
@@ -145,22 +144,39 @@ try {
       const darkAnimation = darkAnimations[index];
       const lightDelay = lightDelays[index];
       const darkDelay = Number(darkAnimation.effect.getTiming().delay);
-      const sampleTime = lightDelay - 1000;
-      lightAnimation.currentTime = sampleTime;
-      darkAnimation.currentTime = sampleTime;
-      const darkStyle = getComputedStyle(segment, '::before');
-      const lightStyle = getComputedStyle(segment, '::after');
+      const sampleAt = (time) => {
+        lightAnimation.currentTime = time;
+        darkAnimation.currentTime = time;
+        return {
+          darkOpacity: Number.parseFloat(getComputedStyle(segment, '::before').opacity),
+          lightOpacity: Number.parseFloat(getComputedStyle(segment, '::after').opacity)
+        };
+      };
+      const poweredDown = sampleAt(lightDelay - 1000);
+      const lightStart = sampleAt(lightDelay);
+      const attackMidpoint = sampleAt(lightDelay + 80);
+      const attackComplete = sampleAt(lightDelay + 160);
+      const illuminatedPeak = sampleAt(lightDelay + 1000);
       return {
-        color: darkStyle.backgroundColor,
-        darkOpacity: Number.parseFloat(darkStyle.opacity),
-        lightOpacity: Number.parseFloat(lightStyle.opacity),
+        color: getComputedStyle(segment, '::before').backgroundColor,
+        darkOpacity: poweredDown.darkOpacity,
+        lightOpacity: poweredDown.lightOpacity,
         delayLead: lightDelay - darkDelay,
         duration: darkAnimation.effect.getTiming().duration,
-        keyframeOffsets: darkAnimation.effect.getKeyframes().map((frame) => frame.offset)
+        keyframeOffsets: darkAnimation.effect.getKeyframes().map((frame) => frame.offset),
+        keyframeOpacities: darkAnimation.effect.getKeyframes().map((frame) => Number(frame.opacity)),
+        phases: { lightStart, attackMidpoint, attackComplete, illuminatedPeak }
       };
     });
-    animations.forEach((animation) => {
-      animation.currentTime = Number(animation.effect.getTiming().delay) + 1000;
+    const darkOverlays = segments.map((segment) => {
+      const style = getComputedStyle(segment, '::before');
+      return {
+        pointerEvents: style.pointerEvents,
+        filter: style.filter,
+        boxShadow: style.boxShadow,
+        zIndex: style.zIndex,
+        inset: [style.top, style.right, style.bottom, style.left]
+      };
     });
     const compositeLuminanceLift = segments.map((segment) => {
       const face = parseRgb(getComputedStyle(segment).backgroundColor);
@@ -195,13 +211,7 @@ try {
         inset: [firstStyle.top, firstStyle.right, firstStyle.bottom, firstStyle.left],
         overflow: getComputedStyle(segments[0]).overflow
       },
-      darkOverlay: {
-        pointerEvents: firstDarkStyle.pointerEvents,
-        filter: firstDarkStyle.filter,
-        boxShadow: firstDarkStyle.boxShadow,
-        zIndex: firstDarkStyle.zIndex,
-        inset: [firstDarkStyle.top, firstDarkStyle.right, firstDarkStyle.bottom, firstDarkStyle.left]
-      },
+      darkOverlays,
       maxLit,
       sawSolo,
       sawPair,
@@ -241,11 +251,26 @@ try {
   assert.ok(relayBehavior.powerDownStates.every(({ duration }) => duration === 32000));
   assert.ok(relayBehavior.powerDownStates.every(({ keyframeOffsets }) =>
     JSON.stringify(keyframeOffsets) === JSON.stringify([0, .008, .078125, .083125, 1])));
-  assert.equal(relayBehavior.darkOverlay.pointerEvents, 'none');
-  assert.equal(relayBehavior.darkOverlay.filter, 'none');
-  assert.equal(relayBehavior.darkOverlay.boxShadow, 'none');
-  assert.equal(relayBehavior.darkOverlay.zIndex, '0');
-  assert.deepEqual(relayBehavior.darkOverlay.inset, ['0px', '0px', '0px', '0px']);
+  assert.ok(relayBehavior.powerDownStates.every(({ keyframeOpacities }) =>
+    JSON.stringify(keyframeOpacities) === JSON.stringify([0, 1, 1, 0, 0])));
+  assert.ok(relayBehavior.powerDownStates.every(({ phases }) =>
+    phases.lightStart.darkOpacity >= .98 && phases.lightStart.lightOpacity === 0));
+  assert.ok(relayBehavior.powerDownStates.every(({ phases }) =>
+    phases.attackMidpoint.darkOpacity >= .45 && phases.attackMidpoint.darkOpacity <= .55
+      && phases.attackMidpoint.lightOpacity >= .44 && phases.attackMidpoint.lightOpacity <= .46));
+  assert.ok(relayBehavior.powerDownStates.every(({ phases }) =>
+    phases.attackComplete.darkOpacity <= .02
+      && phases.attackComplete.lightOpacity >= .88 && phases.attackComplete.lightOpacity <= .92));
+  assert.ok(relayBehavior.powerDownStates.every(({ phases }) =>
+    phases.illuminatedPeak.darkOpacity <= .02
+      && phases.illuminatedPeak.lightOpacity >= .88 && phases.illuminatedPeak.lightOpacity <= .92));
+  assert.equal(relayBehavior.darkOverlays.length, 5);
+  assert.ok(relayBehavior.darkOverlays.every(({ pointerEvents }) => pointerEvents === 'none'));
+  assert.ok(relayBehavior.darkOverlays.every(({ filter }) => filter === 'none'));
+  assert.ok(relayBehavior.darkOverlays.every(({ boxShadow }) => boxShadow === 'none'));
+  assert.ok(relayBehavior.darkOverlays.every(({ zIndex }) => zIndex === '0'));
+  assert.ok(relayBehavior.darkOverlays.every(({ inset }) =>
+    JSON.stringify(inset) === JSON.stringify(['0px', '0px', '0px', '0px'])));
   assert.equal(relayBehavior.maxLit, 2);
   assert.equal(relayBehavior.sawSolo, true);
   assert.equal(relayBehavior.sawPair, true);
@@ -285,20 +310,22 @@ try {
   await reducedRelayPage.emulateMedia({ reducedMotion: 'reduce' });
   await reducedRelayPage.goto(`${baseUrl}/production?route=campaign`);
   await reducedRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const reducedRelay = await reducedRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => ({
-    dark: {
-      animationName: getComputedStyle(segment, '::before').animationName,
-      opacity: getComputedStyle(segment, '::before').opacity
-    },
-    light: {
-      animationName: getComputedStyle(segment, '::after').animationName,
-      opacity: getComputedStyle(segment, '::after').opacity
-    }
-  }));
-  assert.deepEqual(reducedRelay, {
+  const reducedRelay = await reducedRelayPage.locator('.directive-lcars-rail-segment').evaluateAll((segments) =>
+    segments.map((segment) => ({
+      dark: {
+        animationName: getComputedStyle(segment, '::before').animationName,
+        opacity: getComputedStyle(segment, '::before').opacity
+      },
+      light: {
+        animationName: getComputedStyle(segment, '::after').animationName,
+        opacity: getComputedStyle(segment, '::after').opacity
+      }
+    })));
+  assert.equal(reducedRelay.length, 5);
+  assert.ok(reducedRelay.every((state) => JSON.stringify(state) === JSON.stringify({
     dark: { animationName: 'none', opacity: '0' },
     light: { animationName: 'none', opacity: '0' }
-  });
+  })));
   await reducedRelayPage.close();
 
   for (const viewport of viewports) {
