@@ -60,6 +60,11 @@ assert.equal(projection.cohesion.visibleTasks[2].currentPhase.label.length > 0, 
 assert.equal(projection.cohesion.visibleTasks[2].playerText.whyItMatters.length > 0, true);
 assert.equal(projection.cohesion.visibleTasks[2].computerHelp.length > 0, true);
 assert.equal(projection.cohesion.visibleTasks[2].binding.crew.name, 'Ari Chen');
+assert.deepEqual(
+  projection.cohesion.visibleTasks.map(({ primaryFamily }) => primaryFamily),
+  ['systems', 'systems', 'personnel', 'personnel', 'personnel'],
+  'visible task projections retain their player-safe primary icon category',
+);
 assert.deepEqual(projection.cohesion.backlog, { count: 5, cohesion: 25 });
 assert.equal(Object.hasOwn(projection.cohesion, 'queuedTasks'), false);
 assert.equal(JSON.stringify(projection).includes('The Maintenance Window'), false, 'queued task premises stay private');

@@ -130,6 +130,7 @@ export function createShipPlayerProjection({
                     authored: task.authored,
                     title: task.playerText.title,
                     level: task.level,
+                    primaryFamily: task.primaryFamily,
                     reward: { cohesion: task.cohesion, segments: task.level },
                     anchor: task.anchor,
                     segmentIds: structuredClone(task.segmentIds),
