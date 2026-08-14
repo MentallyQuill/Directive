@@ -51,6 +51,51 @@ try {
     assert.deepEqual(pageErrors, [], `${viewport.label} page errors`);
     assert.equal(await page.locator('.ship-hero, .ship-board, .ship-system-card, .ship-operational-status').count(), 0);
     assert.equal(await page.locator('.ship-cohesion-segment').count(), 20);
+    assert.equal(
+      await page.locator('.ship-cohesion-segment.is-filled').first().evaluate((segment) => (
+        segment.getAnimations().some(({ animationName }) => animationName === 'ship-cohesion-blue-wave')
+      )),
+      true,
+      `${viewport.label} filled segments carry the blue wave`,
+    );
+    const previewMotion = await page.locator('.ship-cohesion-segment.is-preview').evaluateAll((segments) => segments.map((segment) => {
+      const animation = segment.getAnimations().find(({ animationName }) => animationName === 'ship-cohesion-preview-pulse');
+      return animation ? { duration: animation.effect.getTiming().duration, delay: animation.effect.getTiming().delay } : null;
+    }));
+    assert.equal(previewMotion.every(Boolean), true, `${viewport.label} preview segments pulse`);
+    assert.equal(previewMotion.every(({ duration, delay }) => duration === 2000 && delay === 0), true, `${viewport.label} preview pulse is synchronized at 0.5 Hz`);
+    const motionProfile = await page.evaluate(() => {
+      const filled = [...document.querySelectorAll('.ship-cohesion-segment.is-filled')].map((segment) => {
+        const animation = segment.getAnimations().find(({ animationName }) => animationName === 'ship-cohesion-blue-wave');
+        return {
+          index: Number(segment.dataset.segmentIndex),
+          duration: animation?.effect.getTiming().duration,
+          delay: animation?.effect.getTiming().delay,
+          offsets: animation?.effect.getKeyframes().map(({ offset }) => offset),
+          transforms: animation?.effect.getKeyframes().map(({ transform }) => transform).filter(Boolean),
+        };
+      });
+      const debtAnimations = [...document.querySelectorAll('.ship-cohesion-segment.is-debt:not(.is-preview)')]
+        .flatMap((segment) => segment.getAnimations().map(({ animationName }) => animationName));
+      const previewTransforms = document.querySelector('.ship-cohesion-segment.is-preview')
+        ?.getAnimations().find(({ animationName }) => animationName === 'ship-cohesion-preview-pulse')
+        ?.effect.getKeyframes().map(({ transform }) => transform).filter(Boolean) || [];
+      return { filled, debtAnimations, previewTransforms };
+    });
+    assert.equal(motionProfile.debtAnimations.length, 0, `${viewport.label} debt remains static`);
+    assert.equal(motionProfile.filled.every(({ duration }) => duration === 10000), true, `${viewport.label} wave completes in ten seconds`);
+    assert.equal(
+      motionProfile.filled.slice(1).every(({ delay }, index) => delay - motionProfile.filled[index].delay === -500),
+      true,
+      `${viewport.label} wave advances counterclockwise every half second`,
+    );
+    assert.deepEqual(motionProfile.filled[0].offsets, [0, 0.05, 0.1, 1], `${viewport.label} blue pulse spans two stagger intervals`);
+    assert.equal(
+      [...motionProfile.filled.flatMap(({ transforms }) => transforms), ...motionProfile.previewTransforms]
+        .every((transform) => !/scale\((?!1(?:\.0{1,2})?\)|1\.0[12]\))/.test(transform)),
+      true,
+      `${viewport.label} segment scale stays at or below 1.02`,
+    );
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-back .ship-cohesion-segment').count(), 10);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-front .ship-cohesion-segment').count(), 10);
     assert.equal(await page.locator('.ship-cohesion-segment-shape').count(), 40);

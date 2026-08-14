@@ -311,6 +311,8 @@ function createRing(cohesion) {
   cohesion.segments.forEach((segment) => {
     const item = createSvgElement('g', `ship-cohesion-segment ${segment.filled ? 'is-filled' : 'is-debt'}${segment.queued ? ' is-queued' : ''}`);
     item.dataset.segmentIndex = String(segment.index);
+    item.style.setProperty('--ship-cohesion-index', String(segment.index));
+    item.style.setProperty('--ship-cohesion-wave-delay', `${-((segment.index + 1) * 0.5)}s`);
     if (segment.taskId) item.dataset.taskId = segment.taskId;
     item.setAttribute('role', 'listitem');
     item.setAttribute('aria-label', segment.filled ? `Cohesion segment ${segment.index + 1}, ready` : `Cohesion segment ${segment.index + 1}, unresolved`);

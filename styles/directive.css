@@ -4552,11 +4552,21 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-cohesion-ring-layer.is-front { z-index: 3; }
 .directive-expanded-shell .ship-cohesion-segment {
   color: rgba(79, 93, 119, .58);
+  transform-box: fill-box;
+  transform-origin: center;
   transition: color 120ms ease, filter 120ms ease, opacity 120ms ease;
 }
 .directive-expanded-shell .ship-cohesion-segment-shape { display: block; fill: currentColor; stroke: none; }
 .directive-expanded-shell .ship-cohesion-segment-shape.is-mobile { display: none; }
 .directive-expanded-shell .ship-cohesion-segment.is-filled { color: #8bb5f4; filter: drop-shadow(0 0 4px rgba(103, 162, 243, .58)); }
+.directive-expanded-shell .ship-cohesion-segment.is-filled:not(.is-preview) {
+  animation: ship-cohesion-blue-wave 10s linear infinite;
+  animation-delay: var(--ship-cohesion-wave-delay);
+}
+@keyframes ship-cohesion-blue-wave {
+  0%, 10%, 100% { filter: drop-shadow(0 0 4px rgba(103, 162, 243, .58)) brightness(1); transform: scale(1); }
+  5% { filter: drop-shadow(0 0 7px rgba(126, 184, 255, .82)) brightness(1.14); transform: scale(1.02); }
+}
 .directive-expanded-shell .ship-cohesion-segment.is-debt { color: rgba(118, 62, 76, .78); }
 .directive-expanded-shell .ship-cohesion-segment.is-queued { opacity: .72; }
 .directive-expanded-shell .ship-cohesion-segment.is-queued .ship-cohesion-segment-shape {
@@ -4564,7 +4574,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   stroke-width: .45;
   stroke-linejoin: miter;
 }
-.directive-expanded-shell .ship-cohesion-segment.is-preview { color: #ffa24f; filter: drop-shadow(0 0 6px rgba(255, 162, 79, .86)); }
+.directive-expanded-shell .ship-cohesion-segment.is-preview {
+  color: #ffa24f;
+  filter: drop-shadow(0 0 6px rgba(255, 162, 79, .86));
+  animation: ship-cohesion-preview-pulse 2s ease-in-out infinite;
+  animation-delay: 0s;
+}
+@keyframes ship-cohesion-preview-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 162, 79, .72)) brightness(1); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 9px rgba(255, 180, 98, .96)) brightness(1.14); transform: scale(1.02); }
+}
 .directive-expanded-shell .ship-task-leaders { position: absolute; z-index: 4; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .directive-expanded-shell .ship-task-leader { fill: none; stroke: rgba(155, 130, 207, .48); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .directive-expanded-shell .ship-task-leader.is-active { stroke: #ffa24f; stroke-width: 1.5; }
@@ -4763,7 +4782,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .directive-expanded-shell .ship-cohesion-segment { transition: none; }
+  .directive-expanded-shell .ship-cohesion-segment { animation: none !important; transition: none; }
 }
 
 /* Shared Campaign and Ship image expansion. */
