@@ -1519,7 +1519,7 @@ export function createV1MissionRuntime({
                 missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
                 authorityPatch: time?.patch || {},
                 authorityDomains: time?.domains || [],
-                acceptedCommandBearingEdge,
+                acceptedCommandBearingEdge: assistantAccepted ? acceptedCommandBearingEdge : null,
                 shipDataset: runtimeAssets?.shipDataset || null,
                 shipProposal,
                 cohesionCatalog: runtimeAssets?.cohesionCatalog || null,

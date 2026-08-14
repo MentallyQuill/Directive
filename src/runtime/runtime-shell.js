@@ -248,6 +248,8 @@ function createRuntimeActions() {
     installDirectivePreset: () => callApp('installDirectivePreset'),
     reserveCommandBearingEdge: () => callApp('reserveCommandBearingEdge'),
     cancelCommandBearingEdge: () => callApp('cancelCommandBearingEdge'),
+    reserveCohesionRelief: (options) => callApp('reserveCohesionRelief', options),
+    cancelCohesionRelief: () => callApp('cancelCohesionRelief'),
   };
 }
 

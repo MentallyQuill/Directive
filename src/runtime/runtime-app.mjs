@@ -3,6 +3,7 @@ import {
   armV1CommandBearingEdge,
   pendingV1CommandBearingEdge,
   refundV1CommandBearingSpend,
+  reserveV1CohesionRelief,
   reserveV1CommandBearingEdge
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
@@ -335,6 +336,9 @@ export function createV1RuntimePromptPacket({
   const armedEdge = projection.commandBearing?.pendingEdge?.status === 'armed'
     ? projection.commandBearing.pendingEdge
     : null;
+  const armedCohesionRelief = projection.commandBearing?.pendingCohesionRelief?.status === 'armed'
+    ? projection.commandBearing.pendingCohesionRelief
+    : null;
   const shipMechanics = createShipOperationalPacket({
     shipDataset: runtimeAssets?.shipDataset,
     cohesionCatalog: runtimeAssets?.cohesionCatalog,
@@ -366,6 +370,12 @@ export function createV1RuntimePromptPacket({
     narrativeEdge: armedEdge ? {
       spendId: armedEdge.id,
       instruction: 'Create one credible favorable opening or soften one immediate cost. Do not guarantee success, override established facts, decide the player action, or erase a consequence.'
+    } : null,
+    cohesionRelief: armedCohesionRelief ? {
+      spendId: armedCohesionRelief.id,
+      targetIssueId: armedCohesionRelief.targetIssueId,
+      cohesion: armedCohesionRelief.cohesion,
+      instruction: 'Resolve the named visible Cohesion issue through a credible commander-led result in this response. Do not invent a different issue, bypass unrelated permanent capability evidence, or clear anonymous backlog debt.'
     } : null,
     narrationGuidance: {
       crew: (runtimeAssets?.crewDataset?.officers || []).map((officer) => ({
@@ -400,6 +410,9 @@ export function createV1RuntimePromptPacket({
       : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
+      : '',
+    armedCohesionRelief
+      ? 'COMMAND BEARING COHESION RELIEF IS ARMED. Resolve only cohesionRelief.targetIssueId through a visible causal result in this response.'
       : '',
     payload.pendingTransition
       ? 'MISSION TRANSITION: Realize pendingTransition in this response. Include every mustNarrate beat, honor next.playerSafeSetup and knownOutcomes, and reveal nothing prohibited by mustNotReveal. Do not invent an additional transition or alter its disposition.'
@@ -750,6 +763,9 @@ export function createDirectiveRuntimeApp({
     }
     return {
       spendId: pending.id,
+      effect: pending.effect,
+      targetIssueId: pending.targetIssueId || null,
+      cohesion: pending.cohesion || null,
       assistantMessageId: previousAssistant.hostMessageId,
       assistantTextHash: previousAssistant.textHash,
       acceptedByPlayerMessageId: currentPlayer.hostMessageId,
@@ -1304,6 +1320,36 @@ export function createDirectiveRuntimeApp({
         await syncPrompt();
         return { ...committed, spendId };
       });
+    },
+
+    async reserveCohesionRelief({ issueId } = {}) {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound()) return { applied: false, reasonCode: 'inactive-or-unbound' };
+      return enqueueSettlement(async () => {
+        const task = projectionResult()?.projection?.ship?.cohesion?.visibleTasks?.find(({ id }) => id === issueId);
+        if (!task) return { applied: false, reasonCode: 'cohesion-target-unavailable' };
+        const createdAt = now();
+        const spendId = typeof idFactory === 'function'
+          ? idFactory('command-bearing-cohesion')
+          : `command-bearing-cohesion.${state.stateCustody.revision + 1}.${stableHash(`${activeSave()?.id || ''}.${issueId}.${createdAt}`)}`;
+        const result = reserveV1CohesionRelief(state.commandBearing, {
+          spendId,
+          targetIssueId: task.id,
+          cohesion: Math.min(20, task.reward.cohesion),
+          reason: `Commit command attention to resolving ${task.title}.`,
+          now: createdAt
+        });
+        const committed = await commitCommandBearingChange(result, {
+          proposalId: `v1-command-bearing.reserve-cohesion.${spendId}`,
+          source: 'commandBearingPlayerAction'
+        });
+        await syncPrompt();
+        return { ...committed, spendId, targetIssueId: task.id };
+      });
+    },
+
+    async cancelCohesionRelief() {
+      return publicApi.cancelCommandBearingEdge();
     },
 
     async cancelCommandBearingEdge() {

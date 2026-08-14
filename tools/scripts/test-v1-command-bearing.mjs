@@ -6,7 +6,9 @@ import {
   commitV1CommandBearingEdge,
   createV1CommandBearing,
   projectV1CommandBearing,
+  rebuildV1CommandBearingForLineage,
   refundV1CommandBearingSpend,
+  reserveV1CohesionRelief,
   reserveV1CommandBearingEdge,
   validateV1CommandBearing
 } from '../../src/command/v1-command-bearing.mjs';
@@ -98,6 +100,7 @@ assert.deepEqual(projection, {
   capacity: 3,
   latestAwardReason: 'You acted proportionately after the relevant stakes were disclosed.',
   pendingEdge: null,
+  pendingCohesionRelief: null,
   latestSpend: {
     id: 'spend.turn.42',
     effect: 'narrativeEdge',
@@ -105,6 +108,57 @@ assert.deepEqual(projection, {
     reason: 'Create one credible favorable edge without erasing established costs.'
   }
 });
+
+let reliefBearing = awardV1CommandBearing(refunded.commandBearing, {
+  awardId: 'award.cohesion.relief',
+  sourceId: 'outcome.cohesion.relief',
+  reason: 'Command follow-through earned another point.'
+}).commandBearing;
+const relief = reserveV1CohesionRelief(reliefBearing, {
+  spendId: 'spend.cohesion.1',
+  targetIssueId: 'issue.visible.1',
+  cohesion: 20,
+  reason: 'Commit command attention to resolving this visible issue.'
+});
+assert.equal(relief.applied, true);
+assert.equal(relief.commandBearing.balance, 1);
+assert.deepEqual(projectV1CommandBearing(relief.commandBearing).pendingCohesionRelief, {
+  id: 'spend.cohesion.1',
+  status: 'reserved',
+  reason: 'Commit command attention to resolving this visible issue.',
+  targetIssueId: 'issue.visible.1',
+  cohesion: 20,
+});
+assert.equal(projectV1CommandBearing(relief.commandBearing).pendingEdge, null);
+assert.equal(reserveV1CommandBearingEdge(relief.commandBearing, {
+  spendId: 'spend.blocked.edge', reason: 'Mutual exclusion.'
+}).reasonCode, 'edge-already-pending');
+assert.throws(() => reserveV1CohesionRelief(reliefBearing, {
+  spendId: 'spend.bad.relief', targetIssueId: 'issue.visible.1', cohesion: 21, reason: 'Too much.'
+}), /20/);
+
+const armedRelief = armV1CommandBearingEdge(relief.commandBearing, {
+  spendId: 'spend.cohesion.1', playerMessageId: 'player.cohesion.1'
+});
+assert.equal(armedRelief.applied, true);
+const committedRelief = commitV1CommandBearingEdge(armedRelief.commandBearing, {
+  spendId: 'spend.cohesion.1',
+  assistantMessageId: 'assistant.cohesion.1',
+  assistantTextHash: 'cohesionhash',
+  acceptedByPlayerMessageId: 'player.cohesion.2'
+});
+assert.equal(committedRelief.applied, true);
+assert.equal(committedRelief.commandBearing.spends['spend.cohesion.1'].targetIssueId, 'issue.visible.1');
+const rebuiltRelief = rebuildV1CommandBearingForLineage(committedRelief.commandBearing, {
+  retainedMessages: [],
+  completedObjectiveIds: [
+    'outcome.hesperus.accountability-decision',
+    'outcome.cohesion.relief',
+  ],
+  now: '2026-08-13T12:30:00.000Z',
+});
+assert.equal(rebuiltRelief.spends['spend.cohesion.1'].status, 'refunded');
+assert.equal(rebuiltRelief.balance, 2);
 
 assert.deepEqual(validateV1CommandBearing({
   ...refunded.commandBearing,

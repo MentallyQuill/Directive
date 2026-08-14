@@ -1,7 +1,7 @@
 export const V1_COMMAND_BEARING_KIND = 'directive.commandBearing.v1';
 export const V1_COMMAND_BEARING_PLAYER_PROJECTION_KIND = 'directive.commandBearingPlayerProjection.v1';
 
-const ALLOWED_EFFECTS = new Set(['narrativeEdge']);
+const ALLOWED_EFFECTS = new Set(['narrativeEdge', 'cohesionRelief']);
 const PENDING_STATUSES = new Set(['reserved', 'armed']);
 const SPEND_STATUSES = new Set(['reserved', 'armed', 'committed', 'refunded']);
 const COMMAND_BEARING_FIELDS = new Set(['kind', 'version', 'balance', 'capacity', 'awards', 'spends']);
@@ -10,7 +10,7 @@ const SPEND_FIELDS = new Set([
   'id', 'effect', 'reason', 'status', 'reservedAt',
   'armedByPlayerMessageId', 'armedAt',
   'assistantMessageId', 'assistantTextHash', 'acceptedByPlayerMessageId', 'committedAt',
-  'refundReason', 'refundedAt'
+  'refundReason', 'refundedAt', 'targetIssueId', 'cohesion'
 ]);
 
 function cloneJson(value) {
@@ -95,6 +95,12 @@ export function validateV1CommandBearing(value) {
     if (compact(record?.id) !== id) errors.push(`spend ${id} id mismatch`);
     if (!ALLOWED_EFFECTS.has(record?.effect)) errors.push(`spend ${id} effect is not allowed`);
     if (!compact(record?.reason)) errors.push(`spend ${id} reason is required`);
+    if (record?.effect === 'cohesionRelief') {
+      if (!compact(record?.targetIssueId, 180)) errors.push(`spend ${id} targetIssueId is required`);
+      if (!Number.isInteger(record?.cohesion) || record.cohesion < 1 || record.cohesion > 20) {
+        errors.push(`spend ${id} cohesion must be an integer from 1 through 20`);
+      }
+    }
     if (!SPEND_STATUSES.has(record?.status)) errors.push(`spend ${id} status is invalid`);
     if (!compact(record?.reservedAt)) errors.push(`spend ${id} reservedAt is required`);
     if (new Set(['armed', 'committed']).has(record?.status)) {
@@ -192,6 +198,39 @@ export function reserveV1CommandBearingEdge(commandBearing, {
   return { applied: true, reasonCode: null, commandBearing: next };
 }
 
+export function reserveV1CohesionRelief(commandBearing, {
+  spendId,
+  targetIssueId,
+  cohesion = 20,
+  reason,
+  now = null
+} = {}) {
+  const next = requireValid(commandBearing);
+  const id = compact(spendId, 160);
+  const target = compact(targetIssueId, 180);
+  const explanation = compact(reason);
+  if (!id || !target || !explanation) {
+    throw new TypeError('spendId, targetIssueId, and reason are required');
+  }
+  if (!Number.isInteger(cohesion) || cohesion < 1 || cohesion > 20) {
+    throw new TypeError('cohesion relief must be an integer from 1 through 20');
+  }
+  if (next.spends[id]) return { applied: false, reasonCode: 'already-spent', commandBearing: next };
+  if (pendingRecord(next)) return { applied: false, reasonCode: 'edge-already-pending', commandBearing: next };
+  if (next.balance < 1) return { applied: false, reasonCode: 'reserve-empty', commandBearing: next };
+  next.balance -= 1;
+  next.spends[id] = {
+    id,
+    effect: 'cohesionRelief',
+    targetIssueId: target,
+    cohesion,
+    reason: explanation,
+    status: 'reserved',
+    reservedAt: timestamp(now)
+  };
+  return { applied: true, reasonCode: null, commandBearing: next };
+}
+
 export function armV1CommandBearingEdge(commandBearing, {
   spendId,
   playerMessageId,
@@ -272,7 +311,8 @@ export function projectV1CommandBearing(commandBearing) {
   const awards = Object.values(ownRecordMap(bearing.awards));
   const spends = Object.values(ownRecordMap(bearing.spends));
   const latestAward = [...awards].reverse().find((record) => record.credited === true) || null;
-  const pendingEdge = [...spends].reverse().find((record) => PENDING_STATUSES.has(record.status)) || null;
+  const pendingEdge = [...spends].reverse().find((record) => PENDING_STATUSES.has(record.status) && record.effect === 'narrativeEdge') || null;
+  const pendingCohesionRelief = [...spends].reverse().find((record) => PENDING_STATUSES.has(record.status) && record.effect === 'cohesionRelief') || null;
   const latestSpend = [...spends].reverse().find((record) => new Set(['committed', 'refunded']).has(record.status)) || null;
   return {
     kind: V1_COMMAND_BEARING_PLAYER_PROJECTION_KIND,
@@ -283,6 +323,13 @@ export function projectV1CommandBearing(commandBearing) {
       id: pendingEdge.id,
       status: pendingEdge.status,
       reason: pendingEdge.reason
+    } : null,
+    pendingCohesionRelief: pendingCohesionRelief ? {
+      id: pendingCohesionRelief.id,
+      status: pendingCohesionRelief.status,
+      reason: pendingCohesionRelief.reason,
+      targetIssueId: pendingCohesionRelief.targetIssueId,
+      cohesion: pendingCohesionRelief.cohesion,
     } : null,
     latestSpend: latestSpend ? {
       id: latestSpend.id,

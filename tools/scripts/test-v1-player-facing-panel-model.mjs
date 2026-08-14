@@ -100,6 +100,7 @@ const projection = {
       status: 'reserved',
       reason: 'Create one credible favorable edge without erasing established costs.'
     },
+    pendingCohesionRelief: null,
     latestSpend: null
   }
 };
@@ -142,6 +143,7 @@ assert.deepEqual(crew.commandBearing, {
     status: 'reserved',
     reason: 'Create one credible favorable edge without erasing established costs.'
   },
+  pendingCohesionRelief: null,
   latestSpend: null
 });
 assert.equal(Object.hasOwn(crew.people[0], 'history'), false);

@@ -1,6 +1,7 @@
 import {
     awardV1CommandBearing,
     commitV1CommandBearingEdge,
+    refundV1CommandBearingSpend,
 } from '../command/v1-command-bearing.mjs';
 import {
     revalidateMissionEvidenceReplay,
@@ -14,7 +15,11 @@ import {
     validateShipWorkEvidenceProposal,
 } from '../ship/v1/ship-work-evidence.mjs';
 import { validateCohesionEvidenceProposal } from '../ship/v1/cohesion-evidence.mjs';
-import { deriveCohesionState } from '../ship/v1/cohesion-state.mjs';
+import {
+    activeCohesionEffects,
+    createCohesionIssueResolvedEffect,
+    deriveCohesionState,
+} from '../ship/v1/cohesion-state.mjs';
 import { planCohesionOpportunity } from '../ship/v1/cohesion-scheduler.mjs';
 import { deriveShipMechanicsState } from '../ship/v1/ship-mechanics-state.mjs';
 import {
@@ -630,14 +635,55 @@ export function createV1StateSpine({
             reasonCode: 'no-accepted-edge',
             commandBearing,
         };
+        let acceptedCohesionRelief = null;
         if (acceptedCommandBearingEdge) {
-            acceptedCommandBearingEdgeResult = commitV1CommandBearingEdge(commandBearing, {
-                spendId: acceptedCommandBearingEdge.spendId,
-                assistantMessageId: acceptedCommandBearingEdge.assistantMessageId,
-                assistantTextHash: acceptedCommandBearingEdge.assistantTextHash,
-                acceptedByPlayerMessageId: acceptedCommandBearingEdge.acceptedByPlayerMessageId,
-                now,
-            });
+            const pendingSpend = commandBearing?.spends?.[acceptedCommandBearingEdge.spendId] || null;
+            if (pendingSpend?.effect === 'cohesionRelief') {
+                const activeTarget = cohesionCatalog && shipDataset
+                    ? deriveCohesionState({
+                        catalog: cohesionCatalog,
+                        shipDataset,
+                        storySettlement: currentStorySettlement,
+                        branchId: proposal.branchId,
+                    }).visibleTasks.find(({ id }) => id === pendingSpend.targetIssueId)
+                    : null;
+                if (!activeTarget) {
+                    const refunded = refundV1CommandBearingSpend(commandBearing, {
+                        spendId: pendingSpend.id,
+                        reason: 'The targeted Cohesion issue was no longer visible when the result settled.',
+                        now,
+                    });
+                    acceptedCommandBearingEdgeResult = {
+                        ...refunded,
+                        applied: false,
+                        refunded: refunded.applied,
+                        reasonCode: 'cohesion-target-unavailable',
+                    };
+                } else {
+                    acceptedCommandBearingEdgeResult = commitV1CommandBearingEdge(commandBearing, {
+                        spendId: acceptedCommandBearingEdge.spendId,
+                        assistantMessageId: acceptedCommandBearingEdge.assistantMessageId,
+                        assistantTextHash: acceptedCommandBearingEdge.assistantTextHash,
+                        acceptedByPlayerMessageId: acceptedCommandBearingEdge.acceptedByPlayerMessageId,
+                        now,
+                    });
+                    if (acceptedCommandBearingEdgeResult.applied) {
+                        acceptedCohesionRelief = {
+                            spendId: pendingSpend.id,
+                            issueId: activeTarget.id,
+                            cohesion: activeTarget.cohesion,
+                        };
+                    }
+                }
+            } else {
+                acceptedCommandBearingEdgeResult = commitV1CommandBearingEdge(commandBearing, {
+                    spendId: acceptedCommandBearingEdge.spendId,
+                    assistantMessageId: acceptedCommandBearingEdge.assistantMessageId,
+                    assistantTextHash: acceptedCommandBearingEdge.assistantTextHash,
+                    acceptedByPlayerMessageId: acceptedCommandBearingEdge.acceptedByPlayerMessageId,
+                    now,
+                });
+            }
             commandBearing = acceptedCommandBearingEdgeResult.commandBearing;
         }
         const commandBearingChanged = !jsonEqual(campaignState.commandBearing, commandBearing);
@@ -656,6 +702,14 @@ export function createV1StateSpine({
             && cohesionEvidence.acceptedClaims.length === 0
             && allRejectedClaims.length === allProposedClaims.length
             && allRejectedClaims.every((claim) => claim.reasonCode === 'duplicate-claim');
+        const cohesionReliefEffects = acceptedCohesionRelief ? [createCohesionIssueResolvedEffect({
+            id: `command-bearing.${acceptedCohesionRelief.spendId}`,
+            issueId: acceptedCohesionRelief.issueId,
+            cohesionRestored: acceptedCohesionRelief.cohesion,
+            sequence: Math.max(0, ...activeCohesionEffects(currentStorySettlement).map(({ sequence }) => Number(sequence) || 0)) + 1,
+            sourceContributionIds: contributions.supplied.map((item) => item.id),
+            method: 'command-bearing',
+        })] : [];
         const plannedElapsedSeconds = authorityPatch?.timeLedger?.elapsedSeconds
             ?? campaignState?.timeLedger?.elapsedSeconds
             ?? ((campaignState?.timeLedger?.elapsedMinutes || 0) * 60);
@@ -687,6 +741,7 @@ export function createV1StateSpine({
             ...missionResult.effects,
             ...shipEvidence.effects,
             ...cohesionEvidence.effects,
+            ...cohesionReliefEffects,
             ...cohesionOpportunity.effects,
         ];
         if ((storyEffects.length > 0 || peopleEvents.length > 0 || contributions.supplied.length > 0)

@@ -79,6 +79,7 @@ const records = {
   packageData: json('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json'),
   crewDataset: json('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'),
   shipDataset: json('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json'),
+  cohesionCatalog: json('packages/bundled/breckenridge/breckenridge.cohesion-catalog.json'),
   missionDefinitions: definitionNames.map((name) => json(`packages/bundled/breckenridge/v1/${name}.mission-v1.json`)),
   campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS
 };
@@ -626,6 +627,15 @@ app = createDirectiveRuntimeApp({
   now: () => new Date(Date.parse('2026-08-10T03:00:00.000Z') + (nextMinute++ * 60_000)).toISOString()
 });
 await app.initialize();
+
+assert.equal((await app.reserveCohesionRelief({ issueId: 'issue.not-visible' })).reasonCode, 'cohesion-target-unavailable');
+const reliefTarget = (await app.buildV1PlayerProjection()).projection.ship.cohesion.visibleTasks[0];
+const reservedRelief = await app.reserveCohesionRelief({ issueId: reliefTarget.id });
+assert.equal(reservedRelief.applied, true);
+assert.equal(reservedRelief.commandBearing.spends[reservedRelief.spendId].effect, 'cohesionRelief');
+assert.equal(reservedRelief.commandBearing.spends[reservedRelief.spendId].cohesion, reliefTarget.reward.cohesion);
+assert.equal((await app.buildV1PlayerProjection()).projection.commandBearing.pendingCohesionRelief.targetIssueId, reliefTarget.id);
+assert.equal((await app.cancelCohesionRelief()).applied, true);
 
 const reserved = await app.reserveCommandBearingEdge();
 assert.equal(reserved.applied, true);

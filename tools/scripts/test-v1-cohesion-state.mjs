@@ -53,6 +53,23 @@ assert.equal(sensorProgress.issues[0].completedPhaseCount, 1);
 assert.equal(sensorProgress.issues[0].currentPhase.id, 'ship-milestone.sensor-live-load-validation');
 assert.equal(sensorProgress.total, 75, 'partial progress does not restore a segment');
 
+const authoredRelief = deriveCohesionState({
+  catalog,
+  shipDataset,
+  storySettlement: settlement([createCohesionIssueResolvedEffect({
+    id: 'effect.authored.relief',
+    issueId: 'cohesion-authored.sensor-calibration',
+    cohesionRestored: 10,
+    sequence: 1,
+    method: 'command-bearing',
+    sourceContributionIds: ['contribution.relief'],
+  })]),
+  branchId: 'branch.a',
+});
+assert.equal(authoredRelief.total, 85);
+assert.equal(authoredRelief.issues.some(({ id }) => id === 'cohesion-authored.sensor-calibration'), false);
+assert.equal(authoredRelief.completedHistory[0].method, 'command-bearing');
+
 const createdEffects = Array.from({ length: 7 }, (_, index) => createCohesionIssueCreatedEffect({
   id: `effect.created.${index}`,
   issueId: `issue.generated.${index}`,

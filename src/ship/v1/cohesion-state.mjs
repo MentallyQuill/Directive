@@ -135,23 +135,27 @@ function phaseProjection(phases, completedIds) {
   };
 }
 
-function authoredIssues({ catalogIndex, shipState }) {
+function authoredIssues({ catalogIndex, shipState, effects }) {
   const systems = new Map(shipState.systems.map((system) => [system.id, system]));
   const issues = [];
   const completed = [];
   let nextSegment = 0;
+  const resolvedByIssue = new Map(effects
+    .filter(({ type }) => type === EFFECT_TYPES.resolved)
+    .map((effect) => [effect.targetId, effect]));
   for (const contract of catalogIndex.authoredIssues) {
     const system = systems.get(contract.systemId);
     if (!system) throw new TypeError(`Cohesion authored issue references missing system: ${contract.systemId}`);
     const segmentIds = Array.from({ length: contract.level }, () => nextSegment++);
-    if (system.currentState.id === contract.terminalStateId) {
+    const relief = resolvedByIssue.get(contract.id);
+    if (system.currentState.id === contract.terminalStateId || relief) {
       completed.push({
         id: contract.id,
         title: contract.playerText.title,
         level: contract.level,
-        cohesionRestored: contract.level * 5,
-        method: 'authored-system',
-        sequence: -1,
+        cohesionRestored: relief?.cohesionRestored || contract.level * 5,
+        method: relief?.method || 'authored-system',
+        sequence: relief?.sequence ?? -1,
       });
       continue;
     }
@@ -256,9 +260,9 @@ function issuePriority(left, right) {
 export function deriveCohesionState({ catalog = {}, shipDataset = {}, storySettlement = {}, branchId = '' } = {}) {
   const catalogIndex = indexCohesionCatalog(catalog);
   const shipState = deriveShipMechanicsState({ shipDataset, storySettlement });
-  const authored = authoredIssues({ catalogIndex, shipState });
-  const occupiedSegments = new Set(authored.issues.flatMap(({ segmentIds }) => segmentIds));
   const effects = activeCohesionEffects(storySettlement);
+  const authored = authoredIssues({ catalogIndex, shipState, effects });
+  const occupiedSegments = new Set(authored.issues.flatMap(({ segmentIds }) => segmentIds));
   const generated = createdIssues({ catalogIndex, effects, occupiedSegments });
   const issues = [...authored.issues, ...generated.issues].sort(issuePriority);
   const visibleLimit = catalogIndex.policy.schedule.visibleLimit;

@@ -26,6 +26,7 @@ const projection = {
     capacity: 3,
     latestAwardReason: null,
     pendingEdge: null,
+    pendingCohesionRelief: null,
     latestSpend: null
   },
   private: { plot: 'must not escape' }
