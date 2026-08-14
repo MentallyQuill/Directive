@@ -2933,7 +2933,7 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .directive-lcars-rail-segment {
   --directive-rail-color: var(--directive-expanded-amber);
-  --directive-relay-light-opacity: .78;
+  --directive-relay-light-opacity: .90;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2956,14 +2956,14 @@ textarea.directive-field-control {
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--directive-rail-color) 94%, #fff4dc 6%) 0%,
-    color-mix(in srgb, var(--directive-rail-color) 86%, #fff4dc 14%) 18%,
-    color-mix(in srgb, var(--directive-rail-color) 86%, #fff4dc 14%) 82%,
-    color-mix(in srgb, var(--directive-rail-color) 94%, #fff4dc 6%) 100%
+    color-mix(in srgb, var(--directive-rail-color) 80%, #fff4dc 20%) 0%,
+    color-mix(in srgb, var(--directive-rail-color) 72%, #fff4dc 28%) 18%,
+    color-mix(in srgb, var(--directive-rail-color) 72%, #fff4dc 28%) 82%,
+    color-mix(in srgb, var(--directive-rail-color) 80%, #fff4dc 20%) 100%
   );
   box-shadow:
-    inset 0 0 0 1px rgba(255, 248, 232, .12),
-    inset 0 0 8px rgba(255, 248, 232, .08);
+    inset 0 0 0 1px rgba(255, 248, 232, .22),
+    inset 0 0 10px rgba(255, 248, 232, .14);
   opacity: 0;
   pointer-events: none;
   animation: directive-lcars-relay-press 32s linear infinite both;
@@ -2990,13 +2990,13 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .directive-lcars-rail-segment:nth-child(4)::after { animation-delay: 24s; }
 
-.directive-expanded-shell .directive-lcars-rail-segment:nth-child(5)::after { animation-delay: 16.35s; }
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(5)::after { animation-delay: 17.55s; }
 
 @keyframes directive-lcars-relay-press {
   0%, 100% { opacity: 0; }
-  0.4% { opacity: var(--directive-relay-light-opacity); }
-  2.8% { opacity: var(--directive-relay-light-opacity); }
-  4% { opacity: 0; }
+  .5% { opacity: var(--directive-relay-light-opacity); }
+  5.5% { opacity: var(--directive-relay-light-opacity); }
+  7% { opacity: 0; }
 }
 
 .directive-expanded-shell .directive-lcars-rail-segment b,
@@ -3228,7 +3228,7 @@ textarea.directive-field-control {
 .directive-expanded-shell .directive-lcars-rail-segment small { display: none; }
 
 .directive-expanded-shell .directive-lcars-rail-segment {
-    --directive-relay-light-opacity: .62;
+    --directive-relay-light-opacity: .82;
   }
 
 .directive-expanded-shell .directive-route-heading { grid-template-columns: 46px minmax(0, 1fr); height: 22px; margin-top: 5px; }

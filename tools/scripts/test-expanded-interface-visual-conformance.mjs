@@ -91,6 +91,16 @@ try {
     const segments = [...document.querySelectorAll('.directive-lcars-rail-segment')];
     const animations = segments.map((segment) => segment.getAnimations({ subtree: true })
       .find((animation) => animation.animationName === 'directive-lcars-relay-press'));
+    const rgbLuminance = ([red, green, blue]) => (red * .2126) + (green * .7152) + (blue * .0722);
+    const parseRgb = (value) => {
+      const channels = value.match(/[\d.]+/g)?.slice(-3).map(Number) ?? [];
+      return channels.length === 3 ? channels : null;
+    };
+    const parseCenterOverlay = (value) => {
+      const colors = [...value.matchAll(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/g)]
+        .map((match) => match.slice(1).map((channel) => Number(channel) * 255));
+      return colors[1] ?? null;
+    };
     const animationCount = animations.filter(Boolean).length;
     if (animationCount !== segments.length) {
       return { segmentCount: segments.length, animationCount };
@@ -100,19 +110,48 @@ try {
     let maxLit = 0;
     let sawSolo = false;
     let sawPair = false;
+    let activePair = null;
+    const pairWindows = [];
     for (let time = 0; time <= 32000; time += 100) {
       animations.forEach((animation) => { animation.currentTime = time; });
-      const lit = segments.filter((segment) => Number.parseFloat(getComputedStyle(segment, '::after').opacity) > .05).length;
+      const litSegments = segments
+        .map((segment, index) => ({ index: index + 1, opacity: Number.parseFloat(getComputedStyle(segment, '::after').opacity) }))
+        .filter(({ opacity }) => opacity > .05)
+        .map(({ index }) => index);
+      const lit = litSegments.length;
       maxLit = Math.max(maxLit, lit);
       sawSolo ||= lit === 1;
       sawPair ||= lit === 2;
+      if (lit === 2) {
+        const signature = litSegments.join(',');
+        if (!activePair || activePair.signature !== signature || time > activePair.end + 100) {
+          activePair = { signature, start: time, end: time };
+          pairWindows.push(activePair);
+        } else {
+          activePair.end = time;
+        }
+      } else {
+        activePair = null;
+      }
     }
-    animations.forEach((animation) => { animation.currentTime = 3500; });
+    animations.forEach((animation) => {
+      animation.currentTime = Number(animation.effect.getTiming().delay) + 1000;
+    });
+    const compositeLuminanceLift = segments.map((segment) => {
+      const face = parseRgb(getComputedStyle(segment).backgroundColor);
+      const overlayStyle = getComputedStyle(segment, '::after');
+      const overlay = parseCenterOverlay(overlayStyle.backgroundImage);
+      const opacity = Number.parseFloat(overlayStyle.opacity);
+      const composite = face.map((channel, index) => channel + ((overlay[index] - channel) * opacity));
+      return rgbLuminance(composite) - rgbLuminance(face);
+    });
     return {
       segmentCount: segments.length,
       animationCount,
       duration: animations[0]?.effect.getTiming().duration,
       illuminatedOpacity: Number.parseFloat(getComputedStyle(segments[0], '::after').opacity),
+      compositeLuminanceLift,
+      keyframeOffsets: animations[0].effect.getKeyframes().map((frame) => frame.offset),
       segment: {
         isolation: getComputedStyle(segments[0]).isolation,
         labelZIndices: [
@@ -130,14 +169,20 @@ try {
       },
       maxLit,
       sawSolo,
-      sawPair
+      sawPair,
+      pairWindows: pairWindows.map(({ signature, start, end }) => ({
+        duration: end - start + 100,
+        signature
+      }))
     };
   });
 
   assert.equal(relayBehavior.segmentCount, 5);
   assert.equal(relayBehavior.animationCount, 5);
   assert.equal(relayBehavior.duration, 32000);
-  assert.ok(relayBehavior.illuminatedOpacity >= .75 && relayBehavior.illuminatedOpacity <= .8);
+  assert.ok(relayBehavior.compositeLuminanceLift.every((lift) => lift >= 14 && lift <= 30));
+  assert.ok(relayBehavior.illuminatedOpacity >= .88 && relayBehavior.illuminatedOpacity <= .92);
+  assert.deepEqual(relayBehavior.keyframeOffsets, [0, .005, .055, .07, 1]);
   assert.equal(relayBehavior.segment.isolation, 'isolate');
   assert.deepEqual(relayBehavior.segment.labelZIndices, ['1', '1']);
   assert.equal(relayBehavior.overlay.pointerEvents, 'none');
@@ -149,19 +194,36 @@ try {
   assert.equal(relayBehavior.maxLit, 2);
   assert.equal(relayBehavior.sawSolo, true);
   assert.equal(relayBehavior.sawPair, true);
+  assert.equal(relayBehavior.pairWindows.length, 1);
+  assert.equal(relayBehavior.pairWindows[0].signature, '3,5');
+  assert.ok(relayBehavior.pairWindows[0].duration >= 500 && relayBehavior.pairWindows[0].duration <= 900);
   await relayPage.close();
 
   const mobileRelayPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobileRelayPage.goto(`${baseUrl}/production?route=campaign`);
   await mobileRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  const mobileRelayOpacity = await mobileRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => {
-    const animation = segment.getAnimations({ subtree: true })
-      .find((candidate) => candidate.animationName === 'directive-lcars-relay-press');
-    animation.pause();
-    animation.currentTime = 3500;
-    return Number.parseFloat(getComputedStyle(segment, '::after').opacity);
+  const mobileRelay = await mobileRelayPage.locator('.directive-lcars-rail-segment').evaluateAll((segments) => {
+    const luminance = ([red, green, blue]) => (red * .2126) + (green * .7152) + (blue * .0722);
+    return segments.map((segment) => {
+      const animation = segment.getAnimations({ subtree: true })
+        .find((candidate) => candidate.animationName === 'directive-lcars-relay-press');
+      animation.pause();
+      animation.currentTime = Number(animation.effect.getTiming().delay) + 1000;
+      const face = getComputedStyle(segment).backgroundColor.match(/[\d.]+/g)?.slice(-3).map(Number) ?? [];
+      const overlayStyle = getComputedStyle(segment, '::after');
+      const overlay = [...overlayStyle.backgroundImage.matchAll(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/g)]
+        .map((match) => match.slice(1).map((channel) => Number(channel) * 255))[1];
+      const opacity = Number.parseFloat(overlayStyle.opacity);
+      const composite = face.map((channel, index) => channel + ((overlay[index] - channel) * opacity));
+      return {
+        compositeLuminanceLift: luminance(composite) - luminance(face),
+        opacity
+      };
+    });
   });
-  assert.ok(mobileRelayOpacity >= .59 && mobileRelayOpacity <= .65);
+  assert.equal(mobileRelay.length, 5);
+  assert.ok(mobileRelay.every(({ compositeLuminanceLift }) => compositeLuminanceLift >= 13));
+  assert.ok(mobileRelay.every(({ opacity }) => opacity >= .8 && opacity <= .84));
   await mobileRelayPage.close();
 
   const reducedRelayPage = await browser.newPage({ viewport: viewports[0] });
