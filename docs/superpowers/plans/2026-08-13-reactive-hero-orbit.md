@@ -17,7 +17,7 @@
 - Mouse hover uses absolute position around the hero center. Touch reaches full response at 30% of hero width horizontally and 40% of hero height vertically.
 - Finger input requires a single touch inside `10px` for `240ms`; before engagement, scrolling and tapping remain unclaimed.
 - Active retargeting uses `90ms ease-out`; idle return uses `420ms cubic-bezier(.2, .8, .2, 1)`.
-- A completed hold suppresses its synthetic click. A short tap and keyboard activation retain the current expand/collapse behavior.
+- A completed hold suppresses its synthetic click. A short tap remains unclaimed, and Campaign Browser covers retain their always-open static behavior.
 - `prefers-reduced-motion: reduce` keeps reactive values neutral and prevents gesture engagement.
 - Add no global listeners, persistent state, dependencies, canvas, video, runtime randomness, device orientation, or package/save changes.
 - Preserve unrelated `debug.log`, `.codex-remote-attachments/`, and `docs/technical/STORY_DIRECTOR_TURN_FLOW.md` work.
@@ -165,7 +165,7 @@ assert.equal(ashesHero.dataset.heroOrbitBound, 'true');
 assert.equal(futureDetail.dataset.heroOrbitBound, undefined);
 ```
 
-Retain all existing dashboard, responsive toggle, player-safe fact, and mobile accordion assertions.
+Retain all existing dashboard, static Campaign cover, player-safe fact, and mobile accordion assertions.
 
 - [ ] **Step 2: Write failing CSS composition assertions**
 
@@ -193,7 +193,7 @@ Expected: Campaign binding and orbit CSS assertions fail.
 
 - [ ] **Step 4: Bind both Campaign construction paths**
 
-Import `bindReactiveHeroOrbit` in `campaign-panel.js`. Call it once at the end of `appendCampaignDetail` after optional responsive-hero setup, and once at the end of `appendPackageDetail` after `bindResponsiveHero`. The binding function's scene check keeps static and legacy fallbacks inert.
+Import `bindReactiveHeroOrbit` in `campaign-panel.js`. Call it once at the end of `appendCampaignDetail` and once at the end of `appendPackageDetail`, after each complete hero scene is constructed. The binding function's scene check keeps incomplete and legacy fallbacks inert while preserving the Campaign Browser's static-cover contract.
 
 - [ ] **Step 5: Add neutral variables and layer mappings**
 
@@ -281,7 +281,7 @@ After `page.emulateMedia({ reducedMotion: 'reduce' })`, move across the hero and
 
 In the 390x844 touch context, use the browser input protocol to dispatch a trusted single-touch start at the hero center, wait `260ms`, and move down-right by at least 30% width and 40% height. Verify the same sign/depth ordering as desktop and capture `campaign-orbit-phone-390x844.png`.
 
-Dispatch touch end, wait `450ms`, and assert neutral variables and no overflow. Enter Campaign browser mode and prove with trusted browser input that movement before the hold scrolls normally, movement after the hold prevents scrolling and drives the orbit, and the native compatibility click after a long press does not change `aria-expanded`. Then perform a fresh short tap and assert expansion still toggles. At every certified responsive viewport, move to both vertical extremes in collapsed and expanded Ashes heroes and assert the authored background, stars, and sunlight continue covering every hero edge.
+Dispatch touch end, wait `450ms`, and assert neutral variables and no overflow. Enter Campaign browser mode and prove with trusted browser input that movement before the hold scrolls normally, movement after the hold prevents scrolling and drives the orbit, and the native compatibility click after a long press does not reach the static cover. Then perform a fresh short tap and assert it remains unclaimed while the cover retains its always-open height. At every certified responsive viewport, move to both vertical extremes on the static Ashes cover and assert the authored background, stars, and sunlight continue covering every hero edge.
 
 - [ ] **Step 5: Run the browser conformance proof**
 

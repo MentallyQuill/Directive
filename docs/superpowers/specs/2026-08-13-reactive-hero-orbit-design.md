@@ -43,7 +43,7 @@ A focused UI controller binds to the Campaign hero container and activates only 
 
 ### Mouse and precise pointers
 
-Hovering anywhere over the hero, including its transparent expand/collapse control, activates the response. Pointer position is normalized around the hero center and clamped independently on each axis. Moving toward an edge smoothly approaches the bounded maximum. `pointerleave`, `pointercancel`, route removal, or loss of a usable scene returns the offsets to neutral.
+Hovering anywhere over the hero activates the response. Pointer position is normalized around the hero center and clamped independently on each axis. Moving toward an edge smoothly approaches the bounded maximum. `pointerleave`, `pointercancel`, route removal, or loss of a usable scene returns the offsets to neutral.
 
 The controller coalesces high-frequency pointer movement through `requestAnimationFrame`. No JavaScript loop runs while the hero is idle.
 
@@ -57,10 +57,10 @@ After activation:
 - finger displacement from the activation point drives the bounded orbit response, reaching full horizontal response at 30% of hero width and full vertical response at 40% of hero height;
 - subsequent movement is treated as the camera gesture rather than page scrolling;
 - release or cancellation returns the scene to idle;
-- the resulting synthetic click is suppressed so a long-press orbit does not also expand or collapse the responsive hero;
+- the resulting synthetic click is suppressed so a long-press orbit does not also activate the cover surface or a future nested action;
 - the context menu is suppressed only for an engaged orbit gesture.
 
-A short tap continues to operate the existing hero expand/collapse control. Vertical page scrolling that begins before the hold threshold remains page scrolling. Multi-touch does not activate the effect.
+A short tap remains a normal unclaimed tap; Campaign Browser covers retain their always-open static presentation. Vertical page scrolling that begins before the hold threshold remains page scrolling. Multi-touch does not activate the effect.
 
 ## Easing and state
 
@@ -72,13 +72,13 @@ There is no saved orbit position. Re-rendering the Campaign panel, changing rout
 
 Under `prefers-reduced-motion: reduce`, the controller does not activate and all reactive offsets remain neutral. The existing reduced-motion static composition remains unchanged.
 
-Keyboard focus and keyboard activation of the responsive hero control remain unchanged. The interaction adds no focusable element, instruction that must be announced, or semantic content. Decorative layers remain `aria-hidden`, and the composed scene retains its single accessible label.
+The interaction adds no focusable element, instruction that must be announced, or semantic content. Campaign Browser covers remain non-interactive, decorative layers remain `aria-hidden`, and the composed scene retains its single accessible label.
 
 Packages without a complete cruise scene retain the existing layered or static fallback with no pointer listeners, gesture custody, or reactive styles. Unsupported precise-pointer APIs fail locally to the current idle presentation. Touch input uses a non-passive move listener only after a single touch begins; it calls `preventDefault` only after the hold has engaged, preserving ordinary scroll before engagement without requiring `touch-action: none`.
 
 ## Boundaries
 
-The controller is separate from package resolution and scene rendering. The renderer continues to certify and construct visual layers; the controller only interprets input for an already-rendered cruise scene. The responsive hero control continues to own expansion. Mobile gesture arbitration prevents an engaged orbit from reaching that control but otherwise leaves its click behavior intact.
+The controller is separate from package resolution and scene rendering. The renderer continues to certify and construct visual layers; the controller only interprets input for an already-rendered cruise scene. Campaign Browser covers remain always open and static; mobile gesture arbitration prevents an engaged orbit's compatibility click from reaching the cover while leaving a fresh short tap unclaimed.
 
 No global listeners, runtime randomness, device-orientation access, persistent settings, canvas, video, or new dependency are introduced.
 
@@ -93,8 +93,8 @@ Automated and real-browser coverage will prove:
 - leaving or cancelling returns every reactive value to neutral;
 - touch movement before the hold tolerance leaves scrolling/tapping unclaimed;
 - a completed hold retains one touch sequence, finger drag changes the scene, release resets it, and the following click is suppressed;
-- a short tap still expands or collapses the hero;
+- a short tap remains unclaimed and the always-open Campaign cover retains its fixed height;
 - reduced-motion mode keeps the controller inert;
-- keyboard activation and the scene's accessible name remain intact;
+- the scene's accessible name and non-interactive Campaign cover semantics remain intact;
 - desktop and phone interaction screenshots show restrained depth with no exposed layer edge, image gap, text drift, clipping, overflow, or obvious flat-card sliding;
 - the full repository gate remains green.

@@ -1098,14 +1098,22 @@ try {
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await touchPage.waitForTimeout(450);
 
-  const responsiveToggle = visibleAshesHero.locator('.directive-responsive-hero-toggle');
-  const responsiveExpandedBefore = await responsiveToggle.getAttribute('aria-expanded');
+  const staticCoverBefore = await visibleAshesHero.evaluate((hero) => ({
+    height: hero.getBoundingClientRect().height,
+    toggleCount: hero.querySelectorAll('.directive-responsive-hero-toggle').length,
+    responsive: hero.classList.contains('directive-responsive-hero')
+  }));
+  assert.equal(staticCoverBefore.toggleCount, 0);
+  assert.equal(staticCoverBefore.responsive, false);
   await visibleAshesHero.evaluate((hero) => {
     document.addEventListener('click', (event) => {
       if (!hero.contains(event.target)) return;
       hero.dataset.capturedClickCount = String((Number(hero.dataset.capturedClickCount) || 0) + 1);
       hero.dataset.lastClickTrusted = String(event.isTrusted);
     }, { capture: true });
+    hero.addEventListener('click', () => {
+      hero.dataset.reachedCoverClickCount = String((Number(hero.dataset.reachedCoverClickCount) || 0) + 1);
+    });
   });
   responsiveHeroBox = await visibleAshesHero.boundingBox();
   assert.ok(responsiveHeroBox);
@@ -1123,9 +1131,11 @@ try {
   await touchPage.waitForTimeout(160);
   assert.ok(Number(await visibleAshesHero.getAttribute('data-captured-click-count')) >= 1, 'browser must emit a native compatibility click after the long press');
   assert.equal(await visibleAshesHero.getAttribute('data-last-click-trusted'), 'true', 'compatibility-click proof must use a browser-trusted click');
-  assert.equal(await responsiveToggle.getAttribute('aria-expanded'), responsiveExpandedBefore, 'long-press compatibility click must not expand or collapse the hero');
-  await responsiveToggle.tap();
-  assert.notEqual(await responsiveToggle.getAttribute('aria-expanded'), responsiveExpandedBefore, 'a fresh short tap must still toggle the hero');
+  assert.equal(await visibleAshesHero.getAttribute('data-reached-cover-click-count'), null, 'long-press compatibility click must not reach the Campaign cover');
+  assert.equal((await visibleAshesHero.boundingBox()).height, staticCoverBefore.height, 'long press must not resize the static Campaign cover');
+  await visibleAshesHero.tap();
+  assert.equal(await visibleAshesHero.getAttribute('data-reached-cover-click-count'), '1', 'a fresh short tap must remain unclaimed by orbit custody');
+  assert.equal((await visibleAshesHero.boundingBox()).height, staticCoverBefore.height, 'fresh tap must retain the always-open Campaign cover height');
   await touchPage.locator('[data-campaign-action="back-to-current"]').tap();
   await touchPage.waitForSelector('.campaign-dashboard');
 
@@ -1154,9 +1164,8 @@ try {
     await record.click();
     await page.waitForSelector('.campaign-library-hero:visible');
     const hero = page.locator('.campaign-library-hero:visible').first();
-    const toggle = hero.locator('.directive-responsive-hero-toggle');
 
-    const assertEdges = async (state) => {
+    const assertEdges = async () => {
       for (const edge of [
         { label: 'upper-left', x: .01, y: .01 },
         { label: 'lower-right', x: .99, y: .99 }
@@ -1164,7 +1173,7 @@ try {
         await hero.evaluate((node) => node.scrollIntoView({ block: 'center' }));
         await page.waitForTimeout(80);
         const box = await hero.boundingBox();
-        assert.ok(box, `${viewport.width}x${viewport.height} ${state} hero must be visible`);
+        assert.ok(box, `${viewport.width}x${viewport.height} static Campaign cover must be visible`);
         await page.mouse.move(box.x + (box.width * edge.x), box.y + (box.height * edge.y));
         await page.waitForTimeout(120);
         const coverage = await hero.evaluate((node) => {
@@ -1181,19 +1190,23 @@ try {
           };
         });
         for (const layer of coverage.layers) {
-          assert.ok(layer.left <= coverage.hero.left + .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the left edge`);
-          assert.ok(layer.top <= coverage.hero.top + .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the top edge`);
-          assert.ok(layer.right >= coverage.hero.right - .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the right edge`);
-          assert.ok(layer.bottom >= coverage.hero.bottom - .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the bottom edge`);
+          assert.ok(layer.left <= coverage.hero.left + .05, `${viewport.width}x${viewport.height} static ${edge.label} ${layer.name} must cover the left edge`);
+          assert.ok(layer.top <= coverage.hero.top + .05, `${viewport.width}x${viewport.height} static ${edge.label} ${layer.name} must cover the top edge`);
+          assert.ok(layer.right >= coverage.hero.right - .05, `${viewport.width}x${viewport.height} static ${edge.label} ${layer.name} must cover the right edge`);
+          assert.ok(layer.bottom >= coverage.hero.bottom - .05, `${viewport.width}x${viewport.height} static ${edge.label} ${layer.name} must cover the bottom edge`);
         }
       }
     };
 
-    await assertEdges('collapsed');
-    await toggle.click();
-    await page.waitForTimeout(220);
-    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
-    await assertEdges('expanded');
+    const staticCover = await hero.evaluate((node) => ({
+      height: node.getBoundingClientRect().height,
+      toggleCount: node.querySelectorAll('.directive-responsive-hero-toggle').length,
+      responsive: node.classList.contains('directive-responsive-hero')
+    }));
+    assert.ok(Math.abs(staticCover.height - (viewport.width <= 640 ? 220 : 320)) < 1);
+    assert.equal(staticCover.toggleCount, 0);
+    assert.equal(staticCover.responsive, false);
+    await assertEdges();
     await page.close();
   };
 
