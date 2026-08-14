@@ -65,6 +65,12 @@
   color: currentColor;
 }
 
+@keyframes directive-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes directive-turn-chip-enter {
   from {
     opacity: 0;

@@ -105,6 +105,28 @@ try {
     bridge.clearSillyTavernDirectiveRuntimeBridge();
   });
   await page.close();
+
+  const reducedContext = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 780 } });
+  const reducedPage = await reducedContext.newPage();
+  await reducedPage.goto(`${baseUrl}/production?route=mission`);
+  await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await reducedPage.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    globalThis.__directiveReducedActivityToken = activity.markDirectiveTurnActivity();
+  });
+  const reducedIndicator = reducedPage.locator('#directive-turn-activity-indicator');
+  await reducedIndicator.waitFor({ state: 'visible', timeout: 1200 });
+  const reducedStyles = await reducedIndicator.evaluate((card) => ({
+    cardAnimation: getComputedStyle(card).animationName,
+    glyphAnimation: getComputedStyle(card.querySelector('.directive-notification-title-icon')).animationName,
+  }));
+  assert.equal(reducedStyles.cardAnimation, 'none');
+  assert.equal(reducedStyles.glyphAnimation, 'none');
+  await reducedPage.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    activity.clearDirectiveTurnActivity(globalThis.__directiveReducedActivityToken);
+  });
+  await reducedContext.close();
   console.log('PASS Directive turn activity Playwright reproduction');
 } finally {
   await browser.close();

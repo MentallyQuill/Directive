@@ -50,6 +50,24 @@ const unchangedBesideNativeToast = __directiveNotificationSurfaceTestHooks.compu
 assert.equal(unchangedBesideNativeToast.top, 56);
 assert.equal(unchangedBesideNativeToast.shiftedByNativeToast, false);
 
+const unchangedBesideRightNativeToast = __directiveNotificationSurfaceTestHooks.computePlacement({
+  chatRect: { left: 340, top: 48, right: 940, bottom: 800, width: 600, height: 752 },
+  topBarRect: { left: 340, top: 0, right: 940, bottom: 48, width: 600, height: 48 },
+  surfaceSize: { width: 340, height: 210 },
+  toastRects: [{ left: 956, top: 48, right: 1256, bottom: 110, width: 300, height: 62 }],
+  viewportWidth: 1280,
+});
+assert.equal(unchangedBesideRightNativeToast.shiftedByNativeToast, false);
+
+const unchangedAboveBottomNativeToast = __directiveNotificationSurfaceTestHooks.computePlacement({
+  chatRect: { left: 340, top: 48, right: 940, bottom: 800, width: 600, height: 752 },
+  topBarRect: { left: 340, top: 0, right: 940, bottom: 48, width: 600, height: 48 },
+  surfaceSize: { width: 340, height: 210 },
+  toastRects: [{ left: 490, top: 720, right: 790, bottom: 782, width: 300, height: 62 }],
+  viewportWidth: 1280,
+});
+assert.equal(unchangedAboveBottomNativeToast.shiftedByNativeToast, false);
+
 const document = installFakeDom();
 resetDirectiveNotificationSurface('test-start');
 const activitySurface = acquireDirectiveNotificationSurface('activity');
@@ -88,6 +106,10 @@ assert.equal(refreshed.top, 116);
 assert.equal(measuredSurface.host.style.left, '640px');
 assert.equal(measuredSurface.host.style.top, '116px');
 assert.equal(measuredSurface.host.style.width, '340px');
+chat.getBoundingClientRect = () => ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
+const retainedGeometry = refreshDirectiveNotificationSurface();
+assert.equal(retainedGeometry.left, 640, 'a temporarily collapsed chat host should retain the last valid center');
+assert.equal(retainedGeometry.width, 340, 'a temporarily collapsed chat host should retain the last valid width');
 releaseDirectiveNotificationSurface('activity');
 
 const observerEvents = [];

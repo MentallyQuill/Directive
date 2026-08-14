@@ -9,6 +9,8 @@ let gameplaySlot = null;
 let resizeObserver = null;
 let mutationObserver = null;
 let resizeListening = false;
+let lastChatRect = null;
+let lastTopBarRect = null;
 
 function computePlacement({
   chatRect,
@@ -64,7 +66,9 @@ export function refreshDirectiveNotificationSurface() {
   const chat = document.getElementById?.('sheld');
   const topBar = document.getElementById?.('top-bar');
   const viewportWidth = globalThis.innerWidth || document.documentElement?.clientWidth || 1280;
-  const chatRect = chat?.getBoundingClientRect?.() || {
+  const measuredChatRect = chat?.getBoundingClientRect?.() || null;
+  if (measuredChatRect?.width > 0 && measuredChatRect?.height > 0) lastChatRect = measuredChatRect;
+  const chatRect = lastChatRect || {
     left: 0,
     top: 0,
     right: viewportWidth,
@@ -72,7 +76,9 @@ export function refreshDirectiveNotificationSurface() {
     width: viewportWidth,
     height: globalThis.innerHeight || 800,
   };
-  const topBarRect = topBar?.getBoundingClientRect?.() || null;
+  const measuredTopBarRect = topBar?.getBoundingClientRect?.() || null;
+  if (measuredTopBarRect?.width > 0 && measuredTopBarRect?.height > 0) lastTopBarRect = measuredTopBarRect;
+  const topBarRect = lastTopBarRect;
   const surfaceRect = host.getBoundingClientRect?.() || { width: 0, height: 0 };
   const toastContainer = document.getElementById?.('toast-container');
   const toastRects = [...(toastContainer?.children || [])]
@@ -104,6 +110,8 @@ export function releaseDirectiveNotificationSurface(owner) {
     host = null;
     activitySlot = null;
     gameplaySlot = null;
+    lastChatRect = null;
+    lastTopBarRect = null;
   }
   return { released, owners: owners.size };
 }
@@ -115,8 +123,11 @@ export function resetDirectiveNotificationSurface(reason = 'reset') {
   host = null;
   activitySlot = null;
   gameplaySlot = null;
+  lastChatRect = null;
+  lastTopBarRect = null;
   return { reset: true, reason };
 }
+
 function observeGeometryNodes() {
   if (!resizeObserver) return;
   const nodes = [

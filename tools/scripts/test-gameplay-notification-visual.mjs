@@ -114,6 +114,46 @@ try {
   assert.equal(await page.locator('[data-directive-runtime-body="true"]').getAttribute('data-route-view'), 'people', 'View opens the matching panel');
   await page.close();
 
+  const collisionPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await collisionPage.goto(`${baseUrl}/production?route=mission`);
+  await collisionPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await collisionPage.evaluate(() => {
+    const topBar = document.createElement('div');
+    topBar.id = 'top-bar';
+    Object.assign(topBar.style, { position: 'fixed', left: '340px', top: '0', width: '600px', height: '48px' });
+    const chat = document.createElement('div');
+    chat.id = 'sheld';
+    Object.assign(chat.style, { position: 'fixed', left: '340px', top: '48px', width: '600px', height: '752px' });
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    Object.assign(container.style, { position: 'fixed', left: '490px', top: '48px', width: '300px' });
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-info';
+    Object.assign(toast.style, { width: '300px', height: '62px' });
+    container.appendChild(toast);
+    document.body.append(topBar, chat, container);
+  });
+  await collisionPage.evaluate((record) => globalThis.__directiveShowGameplayNotifications([record]), missionRecord);
+  await collisionPage.waitForTimeout(220);
+  const collisionGeometry = await collisionPage.evaluate(() => {
+    const directive = document.querySelector('#directive-notifications').getBoundingClientRect();
+    const toast = document.querySelector('#toast-container > .toast').getBoundingClientRect();
+    const chat = document.querySelector('#sheld').getBoundingClientRect();
+    return {
+      directiveTop: directive.top,
+      directiveCenter: directive.left + (directive.width / 2),
+      toastBottom: toast.bottom,
+      chatCenter: chat.left + (chat.width / 2),
+    };
+  });
+  assert.ok(collisionGeometry.directiveTop >= collisionGeometry.toastBottom + 6, 'Directive yields below a colliding native toast stack');
+  assert.ok(Math.abs(collisionGeometry.directiveCenter - collisionGeometry.chatCenter) <= 2, 'collision-shifted Directive cards stay centered in the chat panel');
+  await collisionPage.evaluate(() => document.querySelector('#toast-container').remove());
+  await collisionPage.waitForTimeout(100);
+  const returnedTop = await collisionPage.locator('#directive-notifications').evaluate((surface) => surface.getBoundingClientRect().top);
+  assert.ok(Math.abs(returnedTop - 56) <= 1, 'Directive returns below the top bar after native toasts clear');
+  await collisionPage.close();
+
   const mobilePage = await browser.newPage({ viewport: { width: 360, height: 780 } });
   await mobilePage.goto(`${baseUrl}/production?route=ship`);
   await mobilePage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
@@ -133,6 +173,36 @@ try {
   assert.equal(Math.round(mobileGeometry.viewWidth), 44, '360px viewport uses the compact 44px View button');
   assert.equal(mobileGeometry.viewTextDisplay, 'none', '360px viewport hides only the visible View label');
   await mobilePage.close();
+
+  const mobileCollisionPage = await browser.newPage({ viewport: { width: 360, height: 780 } });
+  await mobileCollisionPage.goto(`${baseUrl}/production?route=ship`);
+  await mobileCollisionPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await mobileCollisionPage.evaluate(() => {
+    const topBar = document.createElement('div');
+    topBar.id = 'top-bar';
+    Object.assign(topBar.style, { position: 'fixed', left: '0', top: '0', width: '360px', height: '48px' });
+    const chat = document.createElement('div');
+    chat.id = 'sheld';
+    Object.assign(chat.style, { position: 'fixed', left: '0', top: '48px', width: '360px', height: '732px' });
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    Object.assign(container.style, { position: 'fixed', left: '30px', top: '48px', width: '300px' });
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-info';
+    Object.assign(toast.style, { width: '300px', height: '62px' });
+    container.appendChild(toast);
+    document.body.append(topBar, chat, container);
+  });
+  await mobileCollisionPage.evaluate((record) => globalThis.__directiveShowGameplayNotifications([record]), shipRecord);
+  await mobileCollisionPage.waitForTimeout(220);
+  const mobileCollision = await mobileCollisionPage.evaluate(() => {
+    const directive = document.querySelector('#directive-notifications').getBoundingClientRect();
+    const toast = document.querySelector('#toast-container > .toast').getBoundingClientRect();
+    return { directiveTop: directive.top, toastBottom: toast.bottom, directiveWidth: directive.width };
+  });
+  assert.ok(mobileCollision.directiveTop >= mobileCollision.toastBottom + 6, 'mobile Directive cards yield below colliding native toasts');
+  assert.ok(mobileCollision.directiveWidth <= 336, 'mobile collision avoidance keeps the 12px side gutters');
+  await mobileCollisionPage.close();
 
   const reducedContext = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 780 } });
   const reducedPage = await reducedContext.newPage();
