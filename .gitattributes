@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Deterministic generated hero assets are byte-certified against LF output.
+assets/packages/breckenridge/images/ship/uss-breckenridge.hero-*.svg text eol=lf
