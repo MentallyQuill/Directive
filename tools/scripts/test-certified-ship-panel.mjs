@@ -114,11 +114,13 @@ assert.equal(segmentShapes.every((shape) => (shape.getAttribute('d') || '').trim
 assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').match(/\bA\b/g) || []).length === 2), true);
 assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').match(/\bQ\b/g) || []).length === 4), true);
 assert.equal(byClass('ship-task-button').length, 3);
+assert.equal(byClass('ship-task-button').every((button) => !/ship-task-position-/.test(button.className)), true);
 assert.equal(byClass('ship-task-mobile-panel').length, 3);
 assert.equal(byClass('ship-task-mobile-panel').every(({ hidden }) => hidden === true), true);
 assert.equal(byClass('ship-task-button').every((button) => button.getAttribute('aria-expanded') === 'false'), true);
 assert.equal(byClass('ship-task-leaders').length, 1);
 assert.equal(byClass('ship-task-leader').length, 3);
+assert.equal(byClass('ship-task-leader').every(({ tagName }) => tagName === 'POLYLINE'), true);
 assert.equal(byClass('ship-task-detail').length, 1);
 assert.equal(byClass('ship-task-category-icon').length, 4);
 assert.deepEqual(

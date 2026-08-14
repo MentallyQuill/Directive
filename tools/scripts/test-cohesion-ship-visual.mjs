@@ -178,6 +178,20 @@ try {
       assert.ok(geometry.visualRatio >= .89, `${viewport.label} ship graphic uses at least 89% of the orbit width`);
       assert.notEqual(geometry.leaderDisplay, 'none');
       assert.equal(await page.locator('.ship-task-leader').count(), 5);
+      assert.equal(
+        await page.locator('.ship-task-leader').evaluateAll((leaders) => leaders.every((leader) => {
+          const points = (leader.getAttribute('points') || '').trim().split(/\s+/);
+          return leader.dataset.slot && leader.dataset.corner && points.length === 3
+            && points.every((point) => point.split(',').every((value) => Number.isFinite(Number(value))));
+        })),
+        true,
+        `${viewport.label} measured leader geometry`,
+      );
+      assert.equal(
+        await page.locator('.ship-task-button').evaluateAll((buttons) => buttons.every((button) => button.dataset.slot)),
+        true,
+        `${viewport.label} measured card slots`,
+      );
       assert.equal(geometry.navPosition, 'absolute');
       assert.equal(geometry.buttonPosition, 'absolute');
       assert.ok(

@@ -1,4 +1,6 @@
 import { createPackageImage } from './directive-media.js';
+import { resolvePackageImage } from '../packages/package-image-resolver.mjs';
+import { createShipCalloutLayout } from './ship-callout-layout.js';
 import { createElement } from './runtime-ui-kit.js';
 
 const LEADER_ENDPOINTS = Object.freeze([
@@ -155,14 +157,81 @@ function createLeaders(tasks) {
   tasks.forEach((task, index) => {
     const [x1, y1, x2, y2] = LEADER_ENDPOINTS[index] || LEADER_ENDPOINTS.at(-1);
     const line = typeof document.createElementNS === 'function'
-      ? document.createElementNS('http://www.w3.org/2000/svg', 'line')
-      : createElement('line');
+      ? document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
+      : createElement('polyline');
     line.setAttribute('class', 'ship-task-leader');
-    line.setAttribute('x1', x1); line.setAttribute('y1', y1); line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('points', `${x1},${y1} ${x2},${y2}`);
     line.dataset.taskId = task.id;
     svg.appendChild(line);
   });
   return svg;
+}
+
+function installCalloutLayout({ workspace, orbit, shipVisual, leaderSvg, leaders, buttons, tasks, shipId, visualAnchors }) {
+  if (typeof orbit?.getBoundingClientRect !== 'function' || typeof globalThis.requestAnimationFrame !== 'function') return;
+  const image = shipVisual.querySelector?.('.directive-media-image');
+  if (!image || typeof image.getBoundingClientRect !== 'function') {
+    leaderSvg.classList.add('is-layout-unavailable');
+    return;
+  }
+  let frame = 0;
+  let observer = null;
+  const layout = () => {
+    frame = 0;
+    if (!workspace.isConnected) {
+      observer?.disconnect?.();
+      return;
+    }
+    const orbitRect = orbit.getBoundingClientRect();
+    const imageRect = image.getBoundingClientRect();
+    const controlSizes = Object.fromEntries(buttons.map((button) => {
+      const rect = button.getBoundingClientRect();
+      return [button.dataset.taskId, { width: rect.width, height: rect.height }];
+    }));
+    const result = createShipCalloutLayout({
+      mode: 'desktop',
+      orbitRect,
+      imageRect,
+      imageNaturalSize: { width: image.naturalWidth, height: image.naturalHeight },
+      anchors: visualAnchors,
+      shipId,
+      tasks,
+      controlSizes,
+    });
+    leaderSvg.setAttribute('viewBox', `0 0 ${orbitRect.width} ${orbitRect.height}`);
+    leaderSvg.dataset.crossingCount = String(result.crossingCount);
+    leaderSvg.classList.toggle('is-layout-unavailable', !result.valid);
+    result.placements.forEach((placement) => {
+      const button = buttons.find(({ dataset }) => dataset.taskId === placement.taskId);
+      const leader = leaders.find(({ dataset }) => dataset.taskId === placement.taskId);
+      if (!button || !leader) return;
+      button.style.left = `${placement.controlRect.x}px`;
+      button.style.top = `${placement.controlRect.y}px`;
+      button.dataset.slot = placement.slotId;
+      button.dataset.corner = placement.corner;
+      leader.dataset.slot = placement.slotId;
+      leader.dataset.corner = placement.corner;
+      leader.dataset.anchor = placement.anchor;
+      leader.setAttribute('points', placement.points.map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' '));
+    });
+    workspace.dataset.calloutLayoutReady = result.valid ? 'true' : 'false';
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = globalThis.requestAnimationFrame(layout);
+  };
+  if (typeof globalThis.ResizeObserver === 'function') {
+    observer = new globalThis.ResizeObserver(schedule);
+    observer.observe(orbit);
+    observer.observe(image);
+  } else {
+    globalThis.addEventListener?.('resize', schedule, { passive: true });
+  }
+  if (!image.complete) {
+    image.addEventListener('load', schedule, { once: true });
+    image.addEventListener('error', schedule, { once: true });
+  }
+  schedule();
 }
 
 function createSvgElement(tagName, className = '') {
@@ -306,6 +375,9 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   const shipVisual = createPackageImage(activePackage || {}, {
     kind: 'ship.cohesion', subjectId: ship.id, variant: 'hero',
   }, { wrapperClass: 'ship-cohesion-visual', label: ship.name, loading: 'eager' });
+  const resolvedShipVisual = resolvePackageImage(activePackage || {}, {
+    kind: 'ship.cohesion', subjectId: ship.id, variant: 'hero',
+  });
   const tasks = cohesion.visibleTasks || [];
   const leaders = createLeaders(tasks);
   const taskNav = createElement('nav', 'ship-task-nav');
@@ -345,7 +417,7 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   };
 
   tasks.forEach((task, index) => {
-    const button = createElement('button', `ship-task-button ship-task-position-${index}`);
+    const button = createElement('button', 'ship-task-button');
     button.type = 'button';
     button.dataset.taskId = task.id;
     button.dataset.anchor = task.anchor || '';
@@ -393,6 +465,17 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   orbit.append(ring.root, shipVisual, leaders, taskNav);
   stage.append(orbit, detail);
   workspace.appendChild(stage);
+  installCalloutLayout({
+    workspace,
+    orbit,
+    shipVisual,
+    leaderSvg: leaders,
+    leaders: [...leaders.children],
+    buttons,
+    tasks,
+    shipId: ship.id,
+    visualAnchors: resolvedShipVisual.visualAnchors || {},
+  });
 
   if (cohesion.backlog.count > 0) {
     const backlog = createElement('p', 'ship-cohesion-backlog');
