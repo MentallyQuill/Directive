@@ -50,7 +50,7 @@ The existing campaign-authored Systems Integration and Sensor Calibration work c
 - Every task must give the player a reason to care: a specific operational condition removed, Cohesion restored, a lasting capability unlocked, or a meaningful route opened.
 - The page shows only work that the player can act on now or can advance by pursuing an explicit blocker.
 - Undiscovered details stay hidden. Aggregate Cohesion debt never does.
-- The visual design remains restrained: the ship, its Cohesion ring, at most five callouts, and one shared details panel.
+- The visual design remains restrained: the ship, its Cohesion ring, and at most five task controls. Desktop uses callouts plus one shared details panel; mobile uses compact inline accordion disclosure.
 
 ## Cohesion Scale
 
@@ -434,11 +434,12 @@ The page is exclusively about actionable work. It contains no separate shipwide 
 
 - The Breckenridge is centered with generous negative space.
 - The twenty-segment Cohesion ring surrounds it.
-- Up to five task buttons sit in controlled left and right rails.
-- Fine elbowed leader lines connect buttons to approximate system-associated regions.
+- On desktop, up to five task buttons sit in controlled left and right rails.
+- On desktop, fine elbowed leader lines connect buttons to approximate system-associated regions.
 - Anchors suggest a region; they do not claim to be an exact deck map.
 - Selecting a task highlights its button, leader line, anchor, and owned ring segments.
-- One shared details panel sits immediately below the ship.
+- On desktop, one shared details panel sits immediately below the ship.
+- On mobile, task controls form a compact single-column accordion below the ship and disclose non-redundant details inline.
 - Completed work remains collapsed below the details panel.
 
 Campaign content may provide broad anchor regions such as `forward`, `port`, `starboard`, `central`, `aft`, or `engineering`. The UI assigns a stable fallback when no region is authored.
@@ -620,9 +621,21 @@ DOM and Playwright verification must prove that every visible task receives the 
 
 ## Cohesion Ring Geometry
 
-The twenty Cohesion markers read as a continuous segmented circle rather than clock hands. Each marker keeps the same angular center and issue ownership, but its radial depth is reduced to roughly one quarter of the original desktop marker depth. Its tangential width is derived from the rendered ring radius so neighboring markers leave an approximately six-pixel visual gap at desktop and mobile sizes. Markers use a shallow capsule profile; filled, debt, queued, selected-task preview, and reduced-motion treatments remain unchanged.
+The twenty Cohesion markers are true curved SVG arc paths rather than straight capsules rotated around the ship. Each arc follows the ring radius, has rounded line caps, retains its stable segment index and issue ownership, and leaves an approximately six-pixel visual gap from its neighbors at certified desktop and mobile sizes. Filled, debt, queued, selected-task preview, and reduced-motion treatments remain unchanged.
 
-Playwright geometry checks must verify twenty markers, a shallow width-to-depth ratio, and a four-to-eight-pixel inferred neighboring gap across every certified Ship viewport. Existing hover, focus, and selected-task preview counts remain authoritative.
+The ring is rendered in two synchronized visual layers around one ship image. The ten arcs on the ship's right side render behind the hull; the ten arcs on the left side render in front. The changeover occurs in the gaps at the top and bottom of the circle, so no segment is split or duplicated. This creates the illusion that the ship passes through a single encircling ring without changing Cohesion ownership or interaction behavior.
+
+On viewports at or below 820 pixels, the ship and both ring layers share one bounded, centered canvas below the identity header. The ring may not cross the header divider or overlap the class, registry, ship name, Cohesion score, or status label. The ship image and ring center must remain aligned within two CSS pixels at every certified mobile size.
+
+Playwright geometry checks must verify twenty curved paths, round line caps, ten back-layer and ten front-layer segments, the expected stacking order around the ship, a four-to-eight-pixel neighboring gap, and centered non-overlapping mobile geometry. Existing hover, focus, and selected-task preview counts remain authoritative.
+
+## Responsive Task Accordion
+
+Desktop retains the five-position leader-line task controls and one shared detail panel below the ship stage. At 820 pixels and below, leader lines disappear and the same tasks become a single-column accordion below the bounded ship canvas. Each collapsed task header is a compact two-line touch target: its first line contains the category icon, title, and disclosure indicator; its second line contains the current next step and Cohesion reward. Headers size to content and never stretch to consume unused vertical space.
+
+Mobile task details render immediately beneath their associated header. They contain the job situation, objective, player value, pursuit guidance, unresolved effect, completion guidance, progress, and Command Bearing action, but they omit the repeated task title, category icon, level eyebrow, and reward header already present in the accordion summary. Zero or one mobile task may be expanded. Activating a closed task expands it and contracts any open peer; activating the open task may collapse it. Desktop selection continues to update the shared detail panel and ring preview.
+
+Accordion headers expose `aria-expanded` and reference their associated detail region with `aria-controls`. Collapsed detail regions use the native `hidden` state, keyboard activation follows button behavior, and focus or pointer previews do not expand a task. Playwright must cover zero-open, one-open, replacement, and collapse behavior with two and five visible tasks at 390x844 and 360x500.
 
 ## Verification Requirements
 
@@ -670,9 +683,10 @@ Future implementation must prove:
 - Tasks are commander work spanning systems, people, morale, training, coordination, logistics, and shipboard life.
 - The old banner and dashboard cards are removed.
 - The central transparent ship artwork occupies roughly 90% of usable width.
-- A segmented Cohesion ring surrounds the ship.
-- Leader-line task buttons preview the segments they restore.
-- One shared details panel explains situation, command objective, effect, next step, progress, and reward.
+- A curved segmented Cohesion ring surrounds the ship, with its right half behind the hull and its left half in front.
+- Desktop leader-line task buttons preview the segments they restore.
+- Mobile uses a compact, single-open accordion below the ship; each header shows title, next step, and reward, while its inline details omit redundant header information.
+- Desktop uses one shared details panel explaining situation, command objective, effect, next step, progress, and reward.
 - The page shows actionable tasks and actionable blockers, not work wholly outside the player's present reach.
 - The player can always ask the ship's computer for grounded help.
 - Computer help uses the existing preset-agnostic runtime packet and normal SillyTavern generation.
