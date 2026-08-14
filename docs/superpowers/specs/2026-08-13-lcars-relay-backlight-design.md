@@ -19,7 +19,7 @@ Each segment remains a flat colored LCARS face. Illumination must resemble light
 
 The segment does not translate, scale, depress, or otherwise change geometry. The impression of activation comes from its discrete change in internal luminance and the console-like timing of that change.
 
-The illuminated state must also clear a perceptibility floor. After overlay opacity is composited against the segment face, the center of every desktop segment must gain at least 14 relative sRGB luminance levels on a 0-255 scale and no more than 30. The phone treatment may be slightly weaker, but must still gain at least 13 levels. This keeps the state readable in peripheral vision without turning it into a white flash.
+The illuminated state must also clear a perceptibility floor. After overlay opacity is composited against the segment face, the center of every desktop segment must gain at least 14 relative sRGB luminance levels on a 0-255 scale and no more than 30. Because the narrow phone rail is harder to notice in peripheral vision, every phone segment must gain 18-36 levels. This keeps the state readable without turning it into a white flash.
 
 ## Animation choreography
 
@@ -53,7 +53,7 @@ No JavaScript timer, runtime randomness, event listener, canvas, image asset, or
 
 ## Responsive behavior
 
-Desktop uses the full restrained illumination strength. At the narrow mobile rail width, the pseudo-element uses a slightly weaker peak opacity while retaining the perceptibility floor. Segment dimensions, gaps, labels, corner radii, shell insets, safe-area handling, and route controls remain unchanged.
+Desktop retains its 20-28% warm light field and `.90` peak opacity. At the narrow mobile rail width, the pseudo-element uses a 23-32% warm light field and `.96` peak opacity, increasing effective light contribution by approximately one third without changing the animation timing. Segment dimensions, gaps, labels, corner radii, shell insets, safe-area handling, and route controls remain unchanged.
 
 ## Reduced motion and accessibility
 

@@ -12,8 +12,9 @@
 
 - Preserve the five rail segments, route colors, labels, geometry, gaps, and shell behavior.
 - Keep all illumination clipped inside each segment; use no outer shadow, bloom, filter, hotspot, or geometry animation.
-- Composite a 20-28% warm overlay at `.90` desktop and `.82` phone peak opacity.
-- Require 14-30 relative sRGB luminance levels of center lift on desktop and at least 13 on phone.
+- Composite a 20-28% warm overlay at `.90` desktop peak opacity.
+- On phone, composite a 23-32% warm overlay at `.96` peak opacity for approximately one-third more effective light contribution.
+- Require 14-30 relative sRGB luminance levels of center lift on desktop and 18-36 on phone.
 - Keep the 32-second deterministic cycle, with about 160ms attack, 1.6s hold, and 480ms release.
 - Preserve mostly solo activations, one short nonadjacent pair, and a maximum of two illuminated segments.
 - Preserve the static transparent overlay under `prefers-reduced-motion: reduce`.
@@ -62,8 +63,8 @@ Assert the visible range and intended timing:
 ```js
 assert.ok(relayBehavior.compositeLuminanceLift.every((lift) => lift >= 14 && lift <= 30));
 assert.deepEqual(relayBehavior.keyframeOffsets, [0, .005, .055, .07, 1]);
-assert.ok(mobileRelay.compositeLuminanceLift >= 13);
-assert.ok(mobileRelay.opacity >= .8 && mobileRelay.opacity <= .84);
+assert.ok(mobileRelay.every(({ compositeLuminanceLift }) => compositeLuminanceLift >= 18 && compositeLuminanceLift <= 36));
+assert.ok(mobileRelay.every(({ opacity }) => opacity >= .94 && opacity <= .98));
 ```
 
 - [ ] **Step 2: Run the focused test and verify RED**
@@ -74,7 +75,7 @@ Run:
 node tools/scripts/test-expanded-interface-visual-conformance.mjs
 ```
 
-Expected: FAIL because the current desktop lift is below 14, phone peak opacity is `.62`, and the current offsets are `[0, .004, .028, .04, 1]`.
+Expected: FAIL because the current phone lift is below 18 and its peak opacity is `.82`.
 
 - [ ] **Step 3: Implement the minimal CSS correction**
 
@@ -104,7 +105,7 @@ box-shadow:
 }
 ```
 
-Set `--directive-relay-light-opacity: .82` in the existing phone breakpoint.
+Keep the desktop light field unchanged. In the existing phone breakpoint, set `--directive-relay-light-opacity: .96` and override the overlay gradient with 23% pale warmth at the edges and 32% through the center. Do not change any animation duration, delay, or keyframe offset.
 
 - [ ] **Step 4: Run the focused test and verify GREEN**
 
