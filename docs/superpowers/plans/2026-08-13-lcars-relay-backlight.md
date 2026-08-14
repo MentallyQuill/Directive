@@ -24,40 +24,99 @@
 ### Task 1: Contained LCARS relay illumination
 
 **Files:**
-- Modify: `tools/scripts/test-expanded-interface-shell.mjs`
+- Modify: `tools/scripts/test-expanded-interface-visual-conformance.mjs`
 - Modify: `styles/directive.css`
 
 **Interfaces:**
 - Consumes: existing `.directive-lcars-rail-segment` elements and their `--directive-rail-color` values.
 - Produces: decorative `.directive-lcars-rail-segment::after` light fields animated by `directive-lcars-relay-press`.
 
-- [ ] **Step 1: Write the failing source-contract tests**
+- [ ] **Step 1: Write the failing rendered-behavior test**
 
-Append focused assertions after the existing LCARS rail layout assertions in `tools/scripts/test-expanded-interface-shell.mjs`:
+Add a focused relay page after the reference-page check in `tools/scripts/test-expanded-interface-visual-conformance.mjs`. Exercise the real production shell and its computed pseudo-element styles rather than grepping CSS source:
 
 ```js
-const railSegmentRule = css.match(/\.directive-expanded-shell \.directive-lcars-rail-segment\s*\{([\s\S]*?)\n\}/)?.[1] || '';
-assert.match(railSegmentRule, /position:\s*relative/);
-assert.match(railSegmentRule, /isolation:\s*isolate/);
-assert.match(railSegmentRule, /--directive-relay-light-opacity:\s*\.78/);
+const relayPage = await browser.newPage({ viewport: viewports[0] });
+await relayPage.goto(`${baseUrl}/production?route=campaign`);
+await relayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
 
-const relayOverlayRule = css.match(/\.directive-expanded-shell \.directive-lcars-rail-segment::after\s*\{([\s\S]*?)\n\}/)?.[1] || '';
-assert.match(relayOverlayRule, /position:\s*absolute/);
-assert.match(relayOverlayRule, /inset:\s*0/);
-assert.match(relayOverlayRule, /border-radius:\s*inherit/);
-assert.match(relayOverlayRule, /color-mix\(in srgb,\s*var\(--directive-rail-color\)/);
-assert.match(relayOverlayRule, /box-shadow:\s*inset[\s\S]*?,\s*inset/);
-assert.match(relayOverlayRule, /pointer-events:\s*none/);
-assert.match(relayOverlayRule, /animation:\s*directive-lcars-relay-press\s+32s\s+linear\s+infinite\s+both/);
-assert.doesNotMatch(relayOverlayRule, /filter\s*:|drop-shadow|text-shadow\s*:/);
-assert.match(css, /\.directive-expanded-shell \.directive-lcars-rail-segment:nth-child\(1\)::after\s*\{\s*animation-delay:\s*3s/);
-assert.match(css, /\.directive-expanded-shell \.directive-lcars-rail-segment:nth-child\(2\)::after\s*\{\s*animation-delay:\s*9s/);
-assert.match(css, /\.directive-expanded-shell \.directive-lcars-rail-segment:nth-child\(3\)::after\s*\{\s*animation-delay:\s*16s/);
-assert.match(css, /\.directive-expanded-shell \.directive-lcars-rail-segment:nth-child\(4\)::after\s*\{\s*animation-delay:\s*24s/);
-assert.match(css, /\.directive-expanded-shell \.directive-lcars-rail-segment:nth-child\(5\)::after\s*\{\s*animation-delay:\s*16\.35s/);
-assert.match(css, /@keyframes\s+directive-lcars-relay-press\s*\{[\s\S]*?0%,\s*100%\s*\{\s*opacity:\s*0[\s\S]*?0\.4%\s*\{\s*opacity:\s*var\(--directive-relay-light-opacity\)[\s\S]*?2\.8%\s*\{\s*opacity:\s*var\(--directive-relay-light-opacity\)[\s\S]*?4%\s*\{\s*opacity:\s*0/);
-assert.match(css, /@media\s*\(max-width:\s*640px\)[\s\S]*?\.directive-expanded-shell \.directive-lcars-rail-segment\s*\{[\s\S]*?--directive-relay-light-opacity:\s*\.62/);
-assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.directive-expanded-shell \.directive-lcars-rail-segment::after\s*\{[\s\S]*?animation:\s*none\s*!important;[\s\S]*?opacity:\s*0\s*!important/);
+const relayBehavior = await relayPage.evaluate(() => {
+  const segments = [...document.querySelectorAll('.directive-lcars-rail-segment')];
+  const animations = segments.map((segment) => segment.getAnimations({ subtree: true })
+    .find((animation) => animation.animationName === 'directive-lcars-relay-press'));
+  const animationCount = animations.filter(Boolean).length;
+  if (animationCount !== segments.length) {
+    return { segmentCount: segments.length, animationCount };
+  }
+  const firstStyle = getComputedStyle(segments[0], '::after');
+  animations.forEach((animation) => animation.pause());
+  let maxLit = 0;
+  let sawSolo = false;
+  let sawPair = false;
+  for (let time = 0; time <= 32000; time += 100) {
+    animations.forEach((animation) => { animation.currentTime = time; });
+    const lit = segments.filter((segment) => Number.parseFloat(getComputedStyle(segment, '::after').opacity) > .05).length;
+    maxLit = Math.max(maxLit, lit);
+    sawSolo ||= lit === 1;
+    sawPair ||= lit === 2;
+  }
+  animations.forEach((animation) => { animation.currentTime = 3500; });
+  return {
+    segmentCount: segments.length,
+    animationCount,
+    duration: animations[0]?.effect.getTiming().duration,
+    illuminatedOpacity: Number.parseFloat(getComputedStyle(segments[0], '::after').opacity),
+    overlay: {
+      pointerEvents: firstStyle.pointerEvents,
+      filter: firstStyle.filter,
+      boxShadow: firstStyle.boxShadow,
+      inset: [firstStyle.top, firstStyle.right, firstStyle.bottom, firstStyle.left],
+      overflow: getComputedStyle(segments[0]).overflow
+    },
+    maxLit,
+    sawSolo,
+    sawPair
+  };
+});
+
+assert.equal(relayBehavior.segmentCount, 5);
+assert.equal(relayBehavior.animationCount, 5);
+assert.equal(relayBehavior.duration, 32000);
+assert.ok(relayBehavior.illuminatedOpacity >= .75 && relayBehavior.illuminatedOpacity <= .8);
+assert.equal(relayBehavior.overlay.pointerEvents, 'none');
+assert.equal(relayBehavior.overlay.filter, 'none');
+assert.match(relayBehavior.overlay.boxShadow, /inset/);
+assert.deepEqual(relayBehavior.overlay.inset, ['0px', '0px', '0px', '0px']);
+assert.equal(relayBehavior.overlay.overflow, 'hidden');
+assert.equal(relayBehavior.maxLit, 2);
+assert.equal(relayBehavior.sawSolo, true);
+assert.equal(relayBehavior.sawPair, true);
+await relayPage.close();
+
+const mobileRelayPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await mobileRelayPage.goto(`${baseUrl}/production?route=campaign`);
+await mobileRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+const mobileRelayOpacity = await mobileRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => {
+  const animation = segment.getAnimations({ subtree: true })
+    .find((candidate) => candidate.animationName === 'directive-lcars-relay-press');
+  animation.pause();
+  animation.currentTime = 3500;
+  return Number.parseFloat(getComputedStyle(segment, '::after').opacity);
+});
+assert.ok(mobileRelayOpacity >= .59 && mobileRelayOpacity <= .65);
+await mobileRelayPage.close();
+
+const reducedRelayPage = await browser.newPage({ viewport: viewports[0] });
+await reducedRelayPage.emulateMedia({ reducedMotion: 'reduce' });
+await reducedRelayPage.goto(`${baseUrl}/production?route=campaign`);
+await reducedRelayPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+const reducedRelay = await reducedRelayPage.locator('.directive-lcars-rail-segment').first().evaluate((segment) => ({
+  animationName: getComputedStyle(segment, '::after').animationName,
+  opacity: getComputedStyle(segment, '::after').opacity
+}));
+assert.equal(reducedRelay.animationName, 'none');
+assert.equal(reducedRelay.opacity, '0');
+await reducedRelayPage.close();
 ```
 
 - [ ] **Step 2: Run the focused test and verify RED**
@@ -65,10 +124,10 @@ assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.direct
 Run:
 
 ```powershell
-node tools/scripts/test-expanded-interface-shell.mjs
+node tools/scripts/test-expanded-interface-visual-conformance.mjs
 ```
 
-Expected: FAIL because the rail segment rule does not yet establish the relay stacking boundary or light overlay.
+Expected: FAIL because the rendered rail segments do not yet expose the relay pseudo-element animations.
 
 - [ ] **Step 3: Implement the minimal contained backlight treatment**
 
@@ -147,17 +206,16 @@ Inside the existing `@media (prefers-reduced-motion: reduce)` block near the exp
 Run:
 
 ```powershell
-node tools/scripts/test-expanded-interface-shell.mjs
+node tools/scripts/test-expanded-interface-visual-conformance.mjs
 ```
 
-Expected: PASS with `Expanded interface shell tests passed.`
+Expected: PASS with `Expanded interface visual conformance passed 25 route/viewports and the approved modal state.`
 
 - [ ] **Step 5: Run proportional browser and repository verification**
 
 Run:
 
 ```powershell
-node tools/scripts/test-expanded-interface-visual-conformance.mjs
 npm.cmd test
 ```
 
@@ -166,6 +224,6 @@ Expected: the focused browser conformance check passes and the alpha gate exits 
 - [ ] **Step 6: Commit the implementation**
 
 ```powershell
-git add styles/directive.css tools/scripts/test-expanded-interface-shell.mjs
+git add styles/directive.css tools/scripts/test-expanded-interface-visual-conformance.mjs
 git commit -m "feat(ui): animate LCARS relay backlights"
 ```
