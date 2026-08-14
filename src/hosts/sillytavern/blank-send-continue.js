@@ -27,7 +27,8 @@ export function normalizeBlankSendContinue(event, {
     if (!textarea || String(textarea.value ?? '').trim()) return false;
 
     const fileInput = root?.querySelector?.(FILE_INPUT_SELECTOR);
-    if (Number(fileInput?.files?.length || 0) > 0) return false;
+    if (!fileInput?.files || typeof fileInput.files.length !== 'number') return false;
+    if (fileInput.files.length > 0) return false;
     if (typeof textarea.dispatchEvent !== 'function') return false;
 
     const inputEvent = createInputEvent(root);
