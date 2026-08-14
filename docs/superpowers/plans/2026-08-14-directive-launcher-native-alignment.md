@@ -140,21 +140,21 @@ Run: `npm.cmd test`
 
 Expected: all alpha-gate checks pass with zero failures.
 
-- [ ] **Step 2: Review and commit the exact implementation scope**
+- [x] **Step 2: Review and commit the exact implementation scope**
 
 Run: `git diff --check`, inspect `git diff`, and run `git status --short`.
 
 Commit only the plan, launcher source, launcher CSS, and focused regression test. Leave `debug.log` and `.codex-remote-attachments/` untouched.
 
-- [ ] **Step 3: Reconcile and push `main`**
+- [x] **Step 3: Reconcile and push `main`**
 
 Use GitHub CLI with network permission to verify authentication and the current remote `main`. Pull or merge safely without force if the remote advanced, rerun the full gate after reconciliation, push `main`, and confirm the remote SHA exactly equals local `HEAD`.
 
-- [ ] **Step 4: Update the active installed extension**
+- [x] **Step 4: Update the active installed extension**
 
 Copy only `src/hosts/sillytavern/directive-launcher-button.js` and `styles/directive.css` into the exact active Directive installation. Verify SHA-256 equality between repository and installed copies before reloading SillyTavern.
 
-- [ ] **Step 5: Verify the real 390x844 composer**
+- [x] **Step 5: Verify the real 390x844 composer**
 
 At a 390x844 Chromium viewport, reload SillyTavern and measure `#extensionsMenuButton`, `#directive-launcher-button`, and `.directive-launcher-button-icon`.
 
