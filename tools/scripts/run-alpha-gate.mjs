@@ -17,6 +17,7 @@ const checks = [
   "test-certified-settings-view.mjs",
   "test-certified-scroll-ownership.mjs",
   "test-package-hero-scene.mjs",
+  "test-reactive-hero-orbit.mjs",
   "test-certified-campaign-panel.mjs",
   "test-campaign-delete-dialog.mjs",
   "test-timeline-dialogs.mjs",
