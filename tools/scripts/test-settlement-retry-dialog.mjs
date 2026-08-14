@@ -29,9 +29,20 @@ assert.equal(shell.inert, true, 'the underlying Directive shell must be inert wh
 const click = opened.retry.listeners.get('click')[0]({ preventDefault() {} });
 assert.equal(opened.retry.disabled, true);
 assert.equal(document.activeElement, opened.close, 'pending Retry must hand focus to the enabled Close action');
-await opened.dialog.dispatch('keydown', { key: 'Tab' });
+let pendingTabPrevented = 0;
+await opened.dialog.dispatch('keydown', {
+  key: 'Tab',
+  preventDefault() { pendingTabPrevented += 1; }
+});
+assert.equal(pendingTabPrevented, 1, 'pending Tab must be intercepted by the modal');
 assert.equal(document.activeElement, opened.close, 'pending Tab must stay inside the modal');
-await opened.dialog.dispatch('keydown', { key: 'Tab', shiftKey: true });
+let pendingShiftTabPrevented = 0;
+await opened.dialog.dispatch('keydown', {
+  key: 'Tab',
+  shiftKey: true,
+  preventDefault() { pendingShiftTabPrevented += 1; }
+});
+assert.equal(pendingShiftTabPrevented, 1, 'pending Shift+Tab must be intercepted by the modal');
 assert.equal(document.activeElement, opened.close, 'pending Shift+Tab must stay inside the modal');
 assert.match(opened.status.textContent, /retrying/i);
 releaseRetry({ ok: true });
