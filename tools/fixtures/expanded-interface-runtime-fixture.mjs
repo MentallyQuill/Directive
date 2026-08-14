@@ -8,6 +8,10 @@ import { renderShipPanel } from '/src/ui/ship-panel.js';
 import { renderSettingsPanel, resetSettingsPanelState } from '/src/ui/settings-panel.js';
 import { createCharacterCreatorAssistDialog } from '/src/ui/character-creator-assist-dialog.js';
 import { createGenerationRoleRegistry } from '/src/generation/generation-roles.mjs';
+import {
+  publishGameplayNotifications,
+  resetGameplayNotifications,
+} from '/src/ui/gameplay-notification-center.js';
 
 const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-peace.campaign-package.json').then((response) => response.json());
 
@@ -251,6 +255,10 @@ globalThis.__directiveFixtureOpenAssist = () => createCharacterCreatorAssistDial
   sectionId: 'identity', sectionLabel: 'Identity', mode: 'refine', opener: document.querySelector('.directive-route-control.active')
 });
 globalThis.__directiveFixtureSetRoute = (routeId) => { activeRouteId = routeId; mount(); };
+globalThis.__directiveShowGameplayNotifications = (records) => publishGameplayNotifications(records, {
+  onView: async ({ route }) => globalThis.__directiveFixtureSetRoute(route),
+});
+globalThis.__directiveResetGameplayNotifications = () => resetGameplayNotifications('fixture-reset');
 
 mount();
 globalThis.__directiveFixtureReady = true;
