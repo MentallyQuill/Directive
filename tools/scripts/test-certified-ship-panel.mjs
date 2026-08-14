@@ -9,95 +9,111 @@ class Element {
     this.attributes = new Map();
     this.className = '';
     this.textContent = '';
+    this.listeners = new Map();
+    this.style = { setProperty: () => {} };
     this.classList = {
       add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); },
-      remove: (...names) => {
-        const removed = new Set(names);
-        this.className = this.className.split(/\s+/).filter((name) => name && !removed.has(name)).join(' ');
-      },
+      remove: (...names) => { const removed = new Set(names); this.className = this.className.split(/\s+/).filter((name) => name && !removed.has(name)).join(' '); },
       contains: (name) => this.className.split(/\s+/).includes(name),
-      toggle: (name, force) => {
-        const enabled = force === undefined ? !this.classList.contains(name) : Boolean(force);
-        if (enabled) this.classList.add(name);
-        else this.classList.remove(name);
-        return enabled;
-      }
+      toggle: (name, force) => { const enabled = force === undefined ? !this.classList.contains(name) : Boolean(force); if (enabled) this.classList.add(name); else this.classList.remove(name); return enabled; },
     };
   }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
-  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); if (name === 'class') this.className = String(value); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
-  addEventListener(type, handler) { this.listeners ??= new Map(); this.listeners.set(type, handler); }
+  addEventListener(type, handler) { this.listeners.set(type, handler); }
+  click() { this.listeners.get('click')?.({ currentTarget: this, preventDefault() {} }); }
   querySelector(selector) {
     if (!selector.startsWith('.')) return null;
     const className = selector.slice(1);
-    return this.children.flatMap((child) => [child, ...all(child)]).find((node) => node.classList.contains(className)) || null;
+    return all(this).find((node) => node.classList.contains(className)) || null;
   }
   contains(candidate) { return candidate === this || this.children.some((child) => child.contains(candidate)); }
 }
 
-const documentListeners = new Map();
 globalThis.document = {
   createElement: (tagName) => new Element(tagName),
+  createElementNS: (_namespace, tagName) => new Element(tagName),
   createTextNode: (text) => Object.assign(new Element('#text'), { textContent: text }),
-  addEventListener: (type, handler) => documentListeners.set(type, handler),
-  querySelectorAll: () => []
+  addEventListener: () => {},
+  querySelectorAll: () => [],
 };
 
+const task = (id, title, level, anchor) => ({
+  id, authored: false, title, level, reward: { cohesion: level * 5, segments: level }, anchor,
+  segmentIds: Array.from({ length: level }, (_, index) => index + 5),
+  playerText: {
+    situation: `${title} needs the commander.`, objective: `Resolve ${title}.`,
+    whyItMatters: `${title} gives the player a useful operational option.`,
+    operationalEffect: `${title} currently limits the relevant team.`,
+  },
+  currentPhase: { id: 'phase.1', label: 'Speak with the team' },
+  phases: [{ id: 'phase.1', label: 'Speak with the team', status: 'available' }],
+  approaches: ['meet privately', 'delegate a drill'],
+  computerHelp: `The computer can identify who and where to ask about ${title}.`,
+  completion: { guidance: `Complete after ${title} has a visible result.`, exclusions: ['A vague order is insufficient.'] },
+  binding: { mode: 'backgroundOnly', crew: { id: 'crew.ari', name: 'Ari Chen' } },
+});
+
+const visibleTasks = [
+  task('issue.watch', 'The Missed Watch', 1, 'crew'),
+  task('issue.handoff', 'The Handoff Gap', 1, 'central'),
+  task('issue.drill', 'Damage Control Drill', 2, 'engineering'),
+];
 const projection = {
   kind: 'directive.playerProjection.v1',
   player: { kind: 'directive.playerIdentityProjection.v1' },
   mission: { kind: 'directive.missionPlayerProjection.v1' },
   people: { kind: 'directive.peoplePlayerProjection.v1' },
-  commandBearing: { kind: 'directive.commandBearingPlayerProjection.v1' },
-  ship: {
-    kind: 'directive.shipPlayerProjection.v1',
-    shipId: 'uss-breckenridge', name: 'U.S.S. Breckenridge', class: 'Intrepid-class', registry: 'NCC-74656',
-    capabilitySummary: 'A long-range explorer returned to service after modernization.',
-    operationalStatus: {
-      status: 'serviceable', summary: 'Certified for service while integrated validation continues.', readiness: null,
-      materialLimitations: [{ id: 'limit.warp', summary: 'Maximum warp is temporarily restricted.' }], readinessObjectiveLink: null
-    },
-    capabilities: [{ id: 'cap.sensors', label: 'Long-range sensors', summary: 'Long-range sensors are available.' }],
-    constraints: [{ id: 'constraint.corroboration', label: 'Corroboration required', summary: 'Fine claims need a second source.' }],
-    systems: [{
-      id: 'system.sensors', label: 'Sensor Calibration', summary: 'Calibration remains provisional.',
-      currentState: { id: 'state.provisional', label: 'Provisional', why: 'No clean baseline is accepted.', mechanicalEffect: 'Fine claims require corroboration.' },
-      stateLadder: [{ id: 'state.provisional', rank: 0, label: 'Provisional', why: 'No clean baseline is accepted.', mechanicalEffect: 'Fine claims require corroboration.' }],
-      workOrders: [{ id: 'milestone.baseline', status: 'known', label: 'Establish a clean baseline', summary: 'Compare against an independent reference.' }]
-    }]
+  commandBearing: {
+    kind: 'directive.commandBearingPlayerProjection.v1', balance: 1, capacity: 3,
+    pendingEdge: null, pendingCohesionRelief: null, latestSpend: null,
   },
-  issues: [{ title: 'technical debt', owner: 'Engineering' }]
+  ship: {
+    kind: 'directive.shipPlayerProjection.v1', shipId: 'uss-breckenridge', name: 'U.S.S. Breckenridge',
+    class: 'Intrepid-class', registry: 'NCC-74656', capabilitySummary: 'Explorer.',
+    operationalStatus: { status: 'serviceable', summary: 'Old summary.', readiness: null, materialLimitations: [], readinessObjectiveLink: null },
+    systems: [], constraints: [], capabilities: [],
+    cohesion: {
+      total: 65, band: { id: 'strained', label: 'Strained' },
+      segments: Array.from({ length: 20 }, (_, index) => ({ index, filled: index >= 6, ...(index < 6 ? { taskId: visibleTasks[index % 3].id } : {}) })),
+      visibleTasks,
+      backlog: { count: 4, cohesion: 25 },
+      completedHistory: [{ id: 'done.1', title: 'Recovered the lost pet', cohesionRestored: 5, method: 'quest' }],
+    },
+  },
 };
 
 const body = new Element('div');
-renderShipPanel(body, { campaignState: {}, v1PlayerProjection: projection, activePackage: { assets: {} } });
+renderShipPanel(body, {
+  campaignState: {}, v1PlayerProjection: projection,
+  activePackage: { assets: { images: [{ id: 'ship.cohesion', kind: 'ship.cohesion', subjectId: 'uss-breckenridge', variants: { hero: 'ship.png' }, alt: 'Breckenridge' }] } },
+}, {});
 
-const all = (root) => [root, ...root.children.flatMap(all)];
+function all(root) { return [root, ...root.children.flatMap(all)]; }
 const nodes = all(body);
 const byClass = (className) => nodes.filter((node) => node.className.split(/\s+/).includes(className));
 const text = nodes.map((node) => node.textContent || '').join(' ');
 
-assert.equal(byClass('ship-layout').length, 1);
-assert.equal(byClass('ship-hero').length, 1);
-const shipHero = byClass('ship-hero')[0];
-assert.equal(shipHero.classList.contains('directive-responsive-hero'), true);
-const shipHeroToggle = byClass('directive-responsive-hero-toggle')[0];
-assert.ok(shipHeroToggle);
-assert.equal(shipHero.classList.contains('is-expanded'), false);
-assert.equal(shipHeroToggle.getAttribute('aria-expanded'), 'false');
-assert.equal(byClass('ship-board').length, 1);
+assert.equal(byClass('ship-cohesion-workspace').length, 1);
+assert.equal(byClass('ship-cohesion-ring').length, 1);
+assert.equal(byClass('ship-cohesion-segment').length, 20);
+assert.equal(byClass('ship-task-button').length, 3);
+assert.equal(byClass('ship-task-leaders').length, 1);
+assert.equal(byClass('ship-task-leader').length, 3);
+assert.equal(byClass('ship-task-detail').length, 1);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
-assert.match(text, /U\.S\.S\. Breckenridge/);
-assert.match(text, /Operational status/);
-assert.match(text, /Material limitations/);
-assert.match(text, /Long-range sensors are available/);
-assert.match(text, /Sensor Calibration/);
-assert.match(text, /Provisional/);
-assert.match(text, /Why this state/);
-assert.match(text, /Fine claims require corroboration/);
-assert.match(text, /Establish a clean baseline/);
-assert.doesNotMatch(text, /technical debt|issue count|readiness percentage/i);
+assert.match(text, /Cohesion 65/);
+assert.match(text, /Strained/);
+assert.match(text, /The Missed Watch/);
+assert.match(text, /Why it matters to you/);
+assert.match(text, /How to pursue it/);
+assert.match(text, /always ask the ship's computer for help/i);
+assert.match(text, /4 more issues queued/i);
+assert.match(text, /Recovered the lost pet/);
+assert.doesNotMatch(text, /Why this state|Gameplay effect|Operational status|Material limitations|Active constraints/i);
+assert.equal(byClass('ship-hero').length, 0);
+assert.equal(byClass('ship-system-card').length, 0);
 
-console.log('PASS certified Ship panel');
+console.log('PASS certified Cohesion Ship panel');

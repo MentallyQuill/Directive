@@ -15,6 +15,29 @@ const requestedRoute = new URL(globalThis.location.href).searchParams.get('route
 let activeRouteId = DIRECTIVE_PRIMARY_ROUTES.some((route) => route.id === requestedRoute) ? requestedRoute : 'campaign';
 globalThis.__directiveFixtureActions = [];
 
+function cohesionTask({ id, title, level, anchor, situation, objective, whyItMatters, operationalEffect, next, crew = null }) {
+  return {
+    id, authored: id.startsWith('cohesion-authored.'), title, level,
+    reward: { cohesion: level * 5, segments: level }, anchor,
+    segmentIds: [],
+    playerText: { situation, objective, whyItMatters, operationalEffect },
+    currentPhase: { id: `${id}.next`, label: next },
+    phases: [{ id: `${id}.next`, label: next, status: 'available' }],
+    approaches: ['Meet with the responsible crew', 'Delegate preparation', 'Observe the result'],
+    computerHelp: `The ship's computer can identify current records, responsible roles, and safe next steps for ${title}.`,
+    completion: { guidance: `Complete after ${title} produces a visible, accepted command result.`, exclusions: ['A vague order without follow-through is insufficient.'] },
+    binding: crew ? { mode: 'backgroundOnly', crew, roles: {} } : { mode: 'roleOnly', roles: {} },
+  };
+}
+
+const cohesionTasks = [
+  cohesionTask({ id: 'cohesion-authored.sensor-calibration', title: 'Sensor Calibration', level: 2, anchor: 'forward', situation: 'The refit sensor stack works, but its fine correlation remains provisional.', objective: 'Coordinate Operations and Science through an independent baseline.', whyItMatters: 'Completing this gives you dependable fine-resolution sensor options when the story calls for them.', operationalEffect: 'Fine identity and reconstruction claims still require independent corroboration.', next: 'Establish a controlled sensor baseline' }),
+  cohesionTask({ id: 'cohesion-authored.systems-integration', title: 'Systems Integration', level: 3, anchor: 'engineering', situation: 'The refit restored individual systems faster than it proved they can work together.', objective: 'Authorize controlled isolation, combined-load, and failover work.', whyItMatters: 'Completing this gives you safer full-system options in demanding scenes.', operationalEffect: 'Unsupported full-system shortcuts remain unsafe.', next: 'Complete a segment isolation test' }),
+  cohesionTask({ id: 'cohesion-issue.missed-watch', title: 'The Missed Watch', level: 1, anchor: 'crew', situation: 'A crewmember missed an important watch and forced improvised coverage.', objective: 'Establish the cause and restore reliable coverage.', whyItMatters: 'Reliable coverage protects a future taxed scene from delay or an unavailable specialist.', operationalEffect: 'Operations carries fragile watch coverage.', next: 'Speak privately with the crewmember', crew: { id: 'cohesion-crew.ari', name: 'Ari Chen', rank: 'Petty Officer', department: 'operations' } }),
+  cohesionTask({ id: 'cohesion-issue.handoff', title: 'The Handoff Gap', level: 1, anchor: 'central', situation: 'Two teams use the same readiness term differently.', objective: 'Establish one shared meaning and a reliable check-back.', whyItMatters: 'Later operational information reaches you faster and with less ambiguity.', operationalEffect: 'Routine handoffs require repeated confirmation.', next: 'Compare both handoff formulations' }),
+  cohesionTask({ id: 'cohesion-issue.missing-pet', title: 'The Missing Pet', level: 1, anchor: 'crew', situation: 'An approved pet escaped into a shared shipboard area.', objective: 'Organize a proportionate search and safe recovery.', whyItMatters: 'You get a personal, low-stakes way to show the crew what kind of commander you are.', operationalEffect: 'A localized search diverts crew attention.', next: 'Bound the search area', crew: { id: 'cohesion-crew.bela', name: 'Bela Okafor', rank: 'Ensign', department: 'science' } }),
+];
+
 const projection = {
   kind: 'directive.playerProjection.v1',
   player: {
@@ -82,7 +105,26 @@ const projection = {
     capabilities: [
       { id: 'cap.sensors', label: 'Long-range sensor processing', summary: 'Upgraded analysis for extended-range detection and survey work.' },
       { id: 'cap.power', label: 'Segmented emergency power', summary: 'Revised isolation paths protect critical systems during failures.' }
-    ]
+    ],
+    systems: [],
+    constraints: [],
+    cohesion: {
+      total: 35,
+      band: { id: 'critical', label: 'Critical' },
+      segments: Array.from({ length: 20 }, (_, index) => {
+        if (index < 2) return { index, filled: false, visible: true, taskId: cohesionTasks[0].id };
+        if (index < 5) return { index, filled: false, visible: true, taskId: cohesionTasks[1].id };
+        if (index < 8) return { index, filled: false, visible: true, taskId: cohesionTasks[index - 3].id };
+        if (index < 13) return { index, filled: false, visible: false, queued: true };
+        return { index, filled: true, visible: false };
+      }),
+      visibleTasks: cohesionTasks,
+      backlog: { count: 3, cohesion: 25 },
+      completedHistory: [
+        { id: 'cohesion-complete.pet', title: 'Recovered a lost pet', cohesionRestored: 5, method: 'quest' },
+        { id: 'cohesion-complete.drill', title: 'Completed a shuttle evacuation drill', cohesionRestored: 10, method: 'quest' },
+      ],
+    }
   },
   commandBearing: {
     kind: 'directive.commandBearingPlayerProjection.v1',
@@ -90,6 +132,7 @@ const projection = {
     capacity: 3,
     latestAwardReason: 'Protected the Hesperus passengers.',
     pendingEdge: null,
+    pendingCohesionRelief: null,
     latestSpend: null
   }
 };

@@ -7,6 +7,7 @@ const checks = [
   "test-v1-cohesion-evidence.mjs",
   "test-v1-cohesion-state-spine.mjs",
   "test-v1-cohesion-projection.mjs",
+  "test-cohesion-ship-interaction.mjs",
   "test-browser-runtime-safety.mjs",
   "test-certified-ui-authority.mjs",
   "test-certified-campaign-view.mjs",

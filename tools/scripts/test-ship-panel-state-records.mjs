@@ -106,14 +106,13 @@ renderShipPanel(body, {
 });
 
 const renderedText = textOf(body);
-assert.match(renderedText, /Maximum warp is temporarily restricted pending integrated validation/);
-assert.match(renderedText, /Certified for service while integrated validation continues/);
-assert.match(renderedText, /Operational status/);
-assert.match(renderedText, /Material limitations/);
+assert.match(renderedText, /No actionable command work is available right now/);
+assert.doesNotMatch(renderedText, /Maximum warp|Certified for service|Operational status|Material limitations/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
-assert.equal(elementsByClass(body, 'ship-operational-status').length, 1);
-assert.equal(elementsByClass(body, 'ship-board-section').length, 1);
+assert.equal(elementsByClass(body, 'ship-cohesion-workspace').length, 1);
+assert.equal(elementsByClass(body, 'ship-operational-status').length, 0);
+assert.equal(elementsByClass(body, 'ship-board-section').length, 0);
 
 delete globalThis.document;
 
-console.log('Ship panel tests passed: one player-safe operational aggregate renders without tracking spam');
+console.log('Ship panel empty state passed without legacy tracking clutter');

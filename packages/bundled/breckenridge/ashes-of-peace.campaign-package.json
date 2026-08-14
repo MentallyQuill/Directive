@@ -341,6 +341,15 @@
         "alt": "U.S.S. Breckenridge in flight above a nebula"
       },
       {
+        "id": "breckenridge.ship.cohesion",
+        "kind": "ship.cohesion",
+        "subjectId": "uss-breckenridge",
+        "variants": {
+          "hero": "assets/packages/breckenridge/images/ship/uss-breckenridge.cohesion.png"
+        },
+        "alt": "U.S.S. Breckenridge viewed from above and ahead"
+      },
+      {
         "id": "breckenridge.location.asterion-station.primary",
         "kind": "location.hero",
         "subjectId": "asterion-station",
