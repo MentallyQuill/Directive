@@ -161,6 +161,7 @@ class Element {
     this.listeners = new Map();
     this.className = '';
     this.textContent = '';
+    this.style = { setProperty() {} };
     this.classList = {
       add: (...names) => {
         const values = new Set(this.className.split(/\s+/).filter(Boolean));
