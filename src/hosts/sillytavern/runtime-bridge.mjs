@@ -1,4 +1,8 @@
-import { resolveDirectiveHostGenerationHandoff } from './turn-activity-indicator.js';
+import {
+  finishDirectiveTurnActivity,
+  markDirectiveTurnActivity,
+  resolveDirectiveHostGenerationHandoff
+} from './turn-activity-indicator.js';
 import {
   closeSettlementRetryDialog,
   showSettlementRetryDialog
@@ -43,9 +47,14 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
   if (!enabled || !orchestrator || typeof orchestrator.interceptGeneration !== 'function') {
     return { handled: false, reason: enabled ? 'orchestrator-unavailable' : 'extension-disabled' };
   }
+  const activityToken = markDirectiveTurnActivity({
+    label: 'Directive is reading your post...',
+    phase: 'reading'
+  });
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
     if (result?.handled === true && result?.abortDefaultGeneration === true) {
+      finishDirectiveTurnActivity(activityToken);
       abort?.(false);
       showSettlementRetryDialog({
         reasonCode: result.settlementError?.reasonCode,
@@ -78,9 +87,12 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
         type,
         responseStrategy: result.responseStrategy
       });
+    } else {
+      finishDirectiveTurnActivity(activityToken);
     }
     return result;
   } catch (error) {
+    finishDirectiveTurnActivity(activityToken);
     // Fail open. A host generation must not be blocked merely because Directive could
     // not classify an inactive or malformed turn.
     host?.logger?.error?.('[Directive] generation interceptor failed open:', error);

@@ -10,6 +10,7 @@ import {
   directiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeBridge
 } from '../../src/hosts/sillytavern/runtime-bridge.mjs';
+import { __directiveTurnActivityTestHooks } from '../../src/hosts/sillytavern/turn-activity-indicator.js';
 import { __settlementRetryDialogTestHooks } from '../../src/ui/settlement-retry-dialog.js';
 import {
   __gameplayNotificationCenterTestHooks,
@@ -219,6 +220,39 @@ assert.deepEqual(endedPayload, { messageId: 'assistant.42' });
 clearSillyTavernDirectiveRuntimeBridge();
 
 installFakeDom();
+let releaseBoundarySettlement = null;
+const boundarySettlement = new Promise((resolve) => { releaseBoundarySettlement = resolve; });
+setSillyTavernDirectiveRuntimeBridge({
+  turnOrchestrator: {
+    async interceptGeneration() {
+      await boundarySettlement;
+      return {
+        handled: true,
+        abortDefaultGeneration: false,
+        responseStrategy: 'injectAndContinue'
+      };
+    }
+  }
+});
+const boundaryInterception = directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+await new Promise((resolve) => setTimeout(resolve, 400));
+const boundaryActivity = globalThis.document.getElementById('directive-turn-activity-indicator');
+assert.equal(boundaryActivity?.hidden, false, 'slow generation-boundary settlement must expose reading activity');
+assert.equal(
+  boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
+  'Directive is reading your post...'
+);
+releaseBoundarySettlement();
+await boundaryInterception;
+assert.equal(
+  boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
+  'SillyTavern is writing...',
+  'successful settlement must hand activity off to host narration'
+);
+await new Promise((resolve) => setTimeout(resolve, 175));
+assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 0);
+clearSillyTavernDirectiveRuntimeBridge();
+
 let abortImmediately = null;
 let settlementRetryCalls = 0;
 let continuedGeneration = null;
