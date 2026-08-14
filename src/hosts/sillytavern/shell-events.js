@@ -5,6 +5,7 @@ import { closeSettlementRetryDialog } from '../../ui/settlement-retry-dialog.js'
 import { resetGameplayNotifications } from '../../ui/gameplay-notification-center.js';
 import { createPreviousTimelineNameDialog } from '../../ui/timeline-dialogs.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
+import { disposeBlankSendContinue } from './blank-send-continue.js';
 import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
 import {
   cancelActiveDirectiveTurnActivities,
@@ -252,6 +253,7 @@ export async function handleExtensionDisabled() {
   try { runRuntimeAction('runtime.hide'); } catch {}
   removeDirectiveGenerationInterceptor();
   removeGlobalBridge();
+  disposeBlankSendContinue();
   disposeDirectiveLauncherButton();
   disposeDirectiveTurnActivity();
   disposeSillyTavernDirectiveEventLifecycle();
