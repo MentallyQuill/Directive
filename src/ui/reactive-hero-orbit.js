@@ -40,13 +40,9 @@ export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0, res
         : amplitude(height, .030, 6, 12) * responseScale)
     },
     ship: {
-      x: scaled(normalizedX, touchResponse
-        ? touchAmplitude(width, .025, 8, 16)
-        : amplitude(width, .0015, 1, 2) * responseScale),
-      y: scaled(normalizedY, touchResponse
-        ? touchAmplitude(height, .035, 7, 14)
-        : amplitude(height, .002, .5, 1) * responseScale),
-      roll: scaled(normalizedX, touchResponse ? .65 : 0)
+      x: scaled(normalizedX, amplitude(width, .0015, 1, 2) * .5),
+      y: scaled(normalizedY, amplitude(height, .002, .5, 1) * .5),
+      roll: 0
     }
   };
 }

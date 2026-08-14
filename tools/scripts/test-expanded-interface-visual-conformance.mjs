@@ -1276,8 +1276,17 @@ try {
   assertOrbitDepth(mobileOrbit, 'phone orbit');
   assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-far-x') <= -12, 'phone orbit must move distant stars substantially');
   assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-near-x') <= -22, 'phone orbit must make near-star depth unmistakable');
-  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-x') >= 8, 'phone orbit must visibly carry the ship with the finger');
-  assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-roll') >= .6, 'phone orbit must add a clearly perceptible bounded roll');
+  const mobileShipX = orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-x');
+  const mobileShipY = orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-y');
+  assert.ok(
+    mobileShipX > 0 && mobileShipX <= .5,
+    `phone orbit must keep the ship within the desktop anchoring formula; received ${mobileShipX}px`
+  );
+  assert.ok(
+    mobileShipY > 0 && mobileShipY <= .5,
+    `phone orbit must keep vertical ship travel subordinate to the environment; received ${mobileShipY}px`
+  );
+  assert.equal(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-roll'), 0, 'phone orbit must not reactively rotate the ship');
   assert.deepEqual(mobileOrbit.transitionDurations, ['0.09s', '0.09s', '0.09s', '0.09s', '0.09s', '0.09s']);
   assert.deepEqual(mobileOrbit.animations, mobileCampaign.animations, 'phone orbit must preserve idle animation names');
   assert.ok(mobileOrbit.horizontalOverflow <= 1);

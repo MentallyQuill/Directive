@@ -131,8 +131,8 @@ assert.deepEqual(computeHeroOrbitFrame({
   background: { x: -3, y: -1.98 },
   far: { x: -12, y: -11 },
   near: { x: -25.35, y: -19.8 },
-  ship: { x: 9.75, y: 7.7, roll: 0.65 }
-}, 'full touch input must produce a substantially stronger bounded mobile orbit frame');
+  ship: { x: 0.5, y: 0.25, roll: 0 }
+}, 'full touch input must keep strong environment parallax while sharing the anchored desktop ship response');
 
 assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }), {
   background: { x: 0, y: 0 },
@@ -243,7 +243,9 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-background-x'), '-7px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-far-x'), '-24px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-42px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '16px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '1px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-y'), '0.5px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0deg');
 
   hero.dispatch('touchend', { touches: [], changedTouches: [moved] });
   environment.flushAnimationFrame();
@@ -270,8 +272,9 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   environment.flushAnimationFrame();
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '-25.35px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-y'), '-19.8px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '9.75px');
-  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0.65deg');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '0.5px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-y'), '0.25px');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0deg');
 }
 
 {

@@ -56,7 +56,7 @@ assert.ok(
 );
 assert.ok(
   orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-y') > 0
-    && orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-y') <= .25,
+    && orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-y') <= .5,
   'phone orbit must keep vertical ship travel subordinate to the environment'
 );
 assert.equal(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-roll'), 0, 'phone orbit must not reactively rotate the ship');
