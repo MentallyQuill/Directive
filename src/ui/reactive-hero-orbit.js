@@ -1,5 +1,6 @@
-const HOLD_DELAY_MS = 240;
-const HOLD_TOLERANCE_PX = 10;
+const PEN_HOLD_DELAY_MS = 240;
+const PEN_HOLD_TOLERANCE_PX = 10;
+const TOUCH_DRAG_THRESHOLD_PX = 6;
 const CLICK_SUPPRESSION_MS = 400;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -12,38 +13,39 @@ export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0, res
   const normalizedX = clamp(x, -1, 1);
   const normalizedY = clamp(y, -1, 1);
   const touchResponse = response === 'touch';
+  const responseScale = touchResponse ? 1 : .5;
   const safeBackgroundY = Math.round(Math.min(
     amplitude(height, .012, 2, 5),
     Math.max(0, Number(height) || 0) * .009
-  ) * 10000) / 10000;
+  ) * responseScale * 10000) / 10000;
   return {
     background: {
-      x: scaled(-normalizedX, amplitude(width, .006, 3, 7)),
+      x: scaled(-normalizedX, amplitude(width, .006, 3, 7) * responseScale),
       y: scaled(-normalizedY, safeBackgroundY)
     },
     far: {
       x: scaled(-normalizedX, touchResponse
         ? touchAmplitude(width, .030, 12, 24)
-        : amplitude(width, .010, 6, 12)),
+        : amplitude(width, .010, 6, 12) * responseScale),
       y: scaled(-normalizedY, touchResponse
         ? touchAmplitude(height, .050, 10, 20)
-        : amplitude(height, .020, 4, 8))
+        : amplitude(height, .020, 4, 8) * responseScale)
     },
     near: {
       x: scaled(-normalizedX, touchResponse
         ? touchAmplitude(width, .065, 22, 42)
-        : amplitude(width, .018, 10, 20)),
+        : amplitude(width, .018, 10, 20) * responseScale),
       y: scaled(-normalizedY, touchResponse
         ? touchAmplitude(height, .090, 18, 34)
-        : amplitude(height, .030, 6, 12))
+        : amplitude(height, .030, 6, 12) * responseScale)
     },
     ship: {
       x: scaled(normalizedX, touchResponse
         ? touchAmplitude(width, .025, 8, 16)
-        : amplitude(width, .0015, 1, 2)),
+        : amplitude(width, .0015, 1, 2) * responseScale),
       y: scaled(normalizedY, touchResponse
         ? touchAmplitude(height, .035, 7, 14)
-        : amplitude(height, .002, .5, 1)),
+        : amplitude(height, .002, .5, 1) * responseScale),
       roll: scaled(normalizedX, touchResponse ? .65 : 0)
     }
   };
@@ -115,6 +117,10 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     hero.classList.toggle?.('is-hero-orbit-engaged', engaged);
   };
 
+  const setMouseResponse = (enabled) => {
+    hero.classList.toggle?.('is-hero-orbit-mouse', enabled);
+  };
+
   const clearHold = () => {
     clearTimer(holdTimer);
     holdTimer = null;
@@ -131,6 +137,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
 
   const resetVisual = () => {
     setEngaged(false);
+    setMouseResponse(false);
     queueFrame(neutralFrame);
   };
 
@@ -187,7 +194,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
       penState.currentX = event.clientX;
       penState.currentY = event.clientY;
       if (!penState.engaged) {
-        if (Math.hypot(event.clientX - penState.startX, event.clientY - penState.startY) > HOLD_TOLERANCE_PX) {
+        if (Math.hypot(event.clientX - penState.startX, event.clientY - penState.startY) > PEN_HOLD_TOLERANCE_PX) {
           resetPen();
         }
         return;
@@ -201,6 +208,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
       resetVisual();
       return;
     }
+    setMouseResponse(true);
     setEngaged(true);
     queueFrame(frameFromMouse(event));
   });
@@ -225,9 +233,10 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
       penState.engaged = true;
       penState.originX = penState.currentX;
       penState.originY = penState.currentY;
+      setMouseResponse(false);
       setEngaged(true);
       try { hero.setPointerCapture?.(penState.pointerId); } catch { /* Synthetic pen input may not expose an active pointer. */ }
-    }, HOLD_DELAY_MS);
+    }, PEN_HOLD_DELAY_MS);
   });
 
   hero.addEventListener('pointerup', (event) => {
@@ -259,14 +268,6 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     };
     hero.addEventListener('touchmove', handleTouchMove, { passive: false });
     touchMoveBound = true;
-    holdTimer = setTimer(() => {
-      holdTimer = null;
-      if (!touchState || reducedMotion()) return resetTouch();
-      touchState.engaged = true;
-      touchState.originX = touchState.currentX;
-      touchState.originY = touchState.currentY;
-      setEngaged(true);
-    }, HOLD_DELAY_MS);
   });
 
   function handleTouchMove(event) {
@@ -276,10 +277,10 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     touchState.currentX = activeTouch.clientX;
     touchState.currentY = activeTouch.clientY;
     if (!touchState.engaged) {
-      if (Math.hypot(activeTouch.clientX - touchState.startX, activeTouch.clientY - touchState.startY) > HOLD_TOLERANCE_PX) {
-        resetTouch();
-      }
-      return;
+      if (Math.hypot(activeTouch.clientX - touchState.startX, activeTouch.clientY - touchState.startY) < TOUCH_DRAG_THRESHOLD_PX) return;
+      touchState.engaged = true;
+      setMouseResponse(false);
+      setEngaged(true);
     }
     event.preventDefault?.();
     queueFrame(frameFromDrag(activeTouch.clientX, activeTouch.clientY, touchState, 'touch'));

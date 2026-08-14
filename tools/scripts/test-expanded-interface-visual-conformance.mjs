@@ -805,6 +805,7 @@ try {
         heroExpanded: hero.classList.contains('is-expanded'),
         heroOrbitBound: hero.dataset.heroOrbitBound || '',
         heroOrbitEngaged: hero.classList.contains('is-hero-orbit-engaged'),
+        heroOrbitMouse: hero.classList.contains('is-hero-orbit-mouse'),
         layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
         layerTags: layers.map((layer) => layer.tagName),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
@@ -973,15 +974,19 @@ try {
   await desktopCampaignPage.waitForTimeout(120);
   const desktopOrbit = await measureCampaignDashboard(desktopCampaignPage);
   assert.equal(desktopOrbit.heroOrbitEngaged, true);
+  assert.equal(desktopOrbit.heroOrbitMouse, true);
   assertOrbitDepth(desktopOrbit, 'desktop orbit');
+  assert.ok(Math.abs(orbitNumber(desktopOrbit, '--directive-hero-orbit-background-x')) <= 3.5);
+  assert.ok(Math.abs(orbitNumber(desktopOrbit, '--directive-hero-orbit-far-x')) <= 6);
+  assert.ok(Math.abs(orbitNumber(desktopOrbit, '--directive-hero-orbit-near-x')) <= 10);
   assert.ok(
     orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-x') > 0
-      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-x') <= 2,
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-x') <= 1,
     'desktop ship horizontal response must remain a barely perceptible positional breath'
   );
   assert.ok(
     orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-y') > 0
-      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-y') <= 1,
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-y') <= .5,
     'desktop ship vertical response must remain a barely perceptible positional breath'
   );
   assert.equal(
@@ -991,7 +996,7 @@ try {
   );
   assert.deepEqual(desktopOrbit.animations, desktopCampaign.animations, 'hover orbit must not replace idle animation names');
   assert.deepEqual(desktopOrbit.animationDurations, desktopCampaign.animationDurations, 'hover orbit must not retime idle animation');
-  assert.deepEqual(desktopOrbit.transitionDurations, ['0.09s', '0.09s', '0.09s', '0.09s', '0.09s', '0.09s']);
+  assert.deepEqual(desktopOrbit.transitionDurations, ['0.36s', '0.36s', '0.36s', '0.36s', '0.36s', '0.36s']);
   assert.ok(Math.abs(desktopOrbit.copy.left - desktopCampaign.copy.left) < 1);
   assert.ok(Math.abs(desktopOrbit.copy.top - desktopCampaign.copy.top) < 1);
   assert.ok(desktopOrbit.actionBoxes.every((box, index) => (
@@ -1081,7 +1086,6 @@ try {
     y: mobileHeroBox.y + (mobileHeroBox.height * .9)
   };
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [mobileTouchStart] });
-  await touchPage.waitForTimeout(260);
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [mobileTouchMoved] });
   await touchPage.waitForTimeout(120);
   assert.equal(await mobileHero.getAttribute('data-last-touch-trusted'), 'true', 'phone proof must use browser-trusted touch input');
@@ -1092,6 +1096,7 @@ try {
   assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-near-x') <= -22, 'phone orbit must make near-star depth unmistakable');
   assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-x') >= 8, 'phone orbit must visibly carry the ship with the finger');
   assert.ok(orbitNumber(mobileOrbit, '--directive-hero-orbit-ship-roll') >= .6, 'phone orbit must add a clearly perceptible bounded roll');
+  assert.deepEqual(mobileOrbit.transitionDurations, ['0.09s', '0.09s', '0.09s', '0.09s', '0.09s', '0.09s']);
   assert.deepEqual(mobileOrbit.animations, mobileCampaign.animations, 'phone orbit must preserve idle animation names');
   assert.ok(mobileOrbit.horizontalOverflow <= 1);
   await touchPage.screenshot({
@@ -1120,14 +1125,9 @@ try {
     }, { capture: true });
   });
   await touchPage.waitForTimeout(120);
-  const scrollProbe = await campaignAccordion.evaluate((accordion) => ({
-    top: accordion.scrollTop,
-    roomBelow: accordion.scrollHeight - accordion.clientHeight - accordion.scrollTop
-  }));
   let responsiveHeroBox = await visibleAshesHero.boundingBox();
   assert.ok(responsiveHeroBox);
-  const scrollFingerDelta = scrollProbe.roomBelow > 48 ? -36 : 36;
-  const scrollTouchStart = {
+  const wobbleTouchStart = {
     x: responsiveHeroBox.x + (responsiveHeroBox.width * .5),
     y: responsiveHeroBox.y + (responsiveHeroBox.height * .5),
     id: 81,
@@ -1135,20 +1135,23 @@ try {
     radiusY: 1,
     force: .5
   };
-  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [scrollTouchStart] });
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [wobbleTouchStart] });
   await touchCdp.send('Input.dispatchTouchEvent', {
     type: 'touchMove',
-    touchPoints: [{ ...scrollTouchStart, y: scrollTouchStart.y + scrollFingerDelta }]
+    touchPoints: [{ ...wobbleTouchStart, x: wobbleTouchStart.x + 3, y: wobbleTouchStart.y + 3 }]
   });
+  await touchPage.waitForTimeout(60);
+  assert.equal(
+    await visibleAshesHero.evaluate((hero) => hero.classList.contains('is-hero-orbit-engaged')),
+    false,
+    'subthreshold Library movement must remain an unclaimed tap gesture'
+  );
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await touchPage.waitForTimeout(180);
-  const scrolledTop = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
-  assert.ok(Math.abs(scrolledTop - scrollProbe.top) > 5, 'movement before the hold threshold must retain native Campaign Library scrolling');
-  assert.equal(await visibleAshesHero.getAttribute('data-last-touch-trusted'), 'true', 'Library scroll proof must use browser-trusted touch input');
+  assert.equal(await visibleAshesHero.getAttribute('data-last-touch-trusted'), 'true', 'Library gesture proof must use browser-trusted touch input');
 
   await visibleAshesHero.evaluate((hero) => hero.scrollIntoView({ block: 'center' }));
   await touchPage.waitForTimeout(120);
-  const heldScrollTop = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
+  const dragScrollTop = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
   responsiveHeroBox = await visibleAshesHero.boundingBox();
   assert.ok(responsiveHeroBox);
   const heldTouchStart = {
@@ -1160,7 +1163,6 @@ try {
     force: .5
   };
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [heldTouchStart] });
-  await touchPage.waitForTimeout(260);
   await touchCdp.send('Input.dispatchTouchEvent', {
     type: 'touchMove',
     touchPoints: [{ ...heldTouchStart, x: heldTouchStart.x + 24, y: heldTouchStart.y + 24 }]
@@ -1171,9 +1173,9 @@ try {
     nearX: Number.parseFloat(getComputedStyle(hero.querySelector('.directive-hero-scene')).getPropertyValue('--directive-hero-orbit-near-x')) || 0
   }));
   const heldScrollAfter = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
-  assert.equal(heldGestureState.engaged, true, 'held Library drag must engage orbit mode');
-  assert.ok(heldGestureState.nearX < 0, 'held Library drag must move near stars opposite the finger');
-  assert.ok(Math.abs(heldScrollAfter - heldScrollTop) <= 1, 'held Library drag must prevent native scrolling after orbit engages');
+  assert.equal(heldGestureState.engaged, true, 'qualifying Library drag must immediately engage orbit mode');
+  assert.ok(heldGestureState.nearX < 0, 'qualifying Library drag must move near stars opposite the finger');
+  assert.ok(Math.abs(heldScrollAfter - dragScrollTop) <= 1, 'Library orbit drag must prevent native scrolling after orbit engages');
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await touchPage.waitForTimeout(450);
 
@@ -1196,25 +1198,11 @@ try {
   });
   responsiveHeroBox = await visibleAshesHero.boundingBox();
   assert.ok(responsiveHeroBox);
-  const clickSuppressionTouch = {
-    x: responsiveHeroBox.x + (responsiveHeroBox.width * .5),
-    y: responsiveHeroBox.y + (responsiveHeroBox.height * .5),
-    id: 83,
-    radiusX: 1,
-    radiusY: 1,
-    force: .5
-  };
-  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [clickSuppressionTouch] });
-  await touchPage.waitForTimeout(260);
-  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await touchPage.waitForTimeout(160);
-  assert.ok(Number(await visibleAshesHero.getAttribute('data-captured-click-count')) >= 1, 'browser must emit a native compatibility click after the long press');
-  assert.equal(await visibleAshesHero.getAttribute('data-last-click-trusted'), 'true', 'compatibility-click proof must use a browser-trusted click');
-  assert.equal(await visibleAshesHero.getAttribute('data-reached-cover-click-count'), null, 'long-press compatibility click must not reach the Campaign cover');
-  assert.equal((await visibleAshesHero.boundingBox()).height, staticCoverBefore.height, 'long press must not resize the static Campaign cover');
   await visibleAshesHero.tap();
-  assert.equal(await visibleAshesHero.getAttribute('data-reached-cover-click-count'), '1', 'a fresh short tap must remain unclaimed by orbit custody');
-  assert.equal((await visibleAshesHero.boundingBox()).height, staticCoverBefore.height, 'fresh tap must retain the always-open Campaign cover height');
+  assert.equal(await visibleAshesHero.getAttribute('data-captured-click-count'), '1', 'a short tap must emit one browser click');
+  assert.equal(await visibleAshesHero.getAttribute('data-last-click-trusted'), 'true', 'short-tap proof must use a browser-trusted click');
+  assert.equal(await visibleAshesHero.getAttribute('data-reached-cover-click-count'), '1', 'a short tap must remain unclaimed by orbit custody');
+  assert.equal((await visibleAshesHero.boundingBox()).height, staticCoverBefore.height, 'short tap must retain the always-open Campaign cover height');
   await touchPage.locator('[data-campaign-action="back-to-current"]').tap();
   await touchPage.waitForSelector('.campaign-dashboard');
 

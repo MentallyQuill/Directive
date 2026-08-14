@@ -4284,6 +4284,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   transition-duration: 90ms;
   transition-timing-function: ease-out;
 }
+.directive-expanded-shell .campaign-hero.is-hero-orbit-engaged.is-hero-orbit-mouse .directive-hero-scene-has-cruise .directive-hero-scene-layer {
+  transition-duration: 360ms;
+}
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
   z-index: 0;
 }
