@@ -4681,7 +4681,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   }
   .directive-expanded-shell .ship-cohesion-visual { inset: 0 3% auto; width: 94%; height: var(--ship-cohesion-canvas-height); }
   .directive-expanded-shell .ship-cohesion-ring { inset: 0 0 auto; height: var(--ship-cohesion-canvas-height); }
-  .directive-expanded-shell .ship-cohesion-ring-layer { top: 50%; width: min(calc(var(--ship-cohesion-canvas-height) - 12px), 76vw, 300px); }
+  .directive-expanded-shell .ship-cohesion-ring-layer { top: 50%; width: min(calc(var(--ship-cohesion-canvas-height) - 12px), 58vw, 232px); }
   .directive-expanded-shell .ship-cohesion-segment-shape.is-desktop { display: none; }
   .directive-expanded-shell .ship-cohesion-segment-shape.is-mobile { display: block; }
   .directive-expanded-shell .ship-task-leaders { inset: 0 0 auto; display: block; height: var(--ship-cohesion-canvas-height); }

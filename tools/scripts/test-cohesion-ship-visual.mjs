@@ -268,6 +268,142 @@ try {
       assert.ok(geometry.ringShipCenterDelta <= 2, `${viewport.label} ship and ring stay centered together`);
     }
 
+    const endpointErrors = await page.evaluate(({ mobile }) => {
+      const targetSelector = mobile ? '.ship-task-mobile-callout' : '.ship-task-button';
+      return [...document.querySelectorAll('.ship-task-leader')].map((leader) => {
+        const values = (leader.getAttribute('points') || '').trim().split(/\s+/).at(-1).split(',').map(Number);
+        const matrix = leader.getScreenCTM();
+        const endpoint = {
+          x: (values[0] * matrix.a) + (values[1] * matrix.c) + matrix.e,
+          y: (values[0] * matrix.b) + (values[1] * matrix.d) + matrix.f,
+        };
+        const control = [...document.querySelectorAll(targetSelector)].find(({ dataset }) => dataset.taskId === leader.dataset.taskId);
+        const box = control.getBoundingClientRect();
+        const corners = {
+          'top-left': { x: box.left, y: box.top },
+          'top-right': { x: box.right, y: box.top },
+          'bottom-left': { x: box.left, y: box.bottom },
+          'bottom-right': { x: box.right, y: box.bottom },
+        };
+        return Math.hypot(endpoint.x - corners[leader.dataset.corner].x, endpoint.y - corners[leader.dataset.corner].y);
+      });
+    }, { mobile: viewport.width <= 820 });
+    assert.ok(Math.max(...endpointErrors) <= 1.5, `${viewport.label} leaders touch their declared control corners (max ${Math.max(...endpointErrors).toFixed(2)}px)`);
+    const originErrors = await page.evaluate(() => {
+      const anchors = {
+        'forward-sensors': { x: .82, y: .5 },
+        engineering: { x: .3, y: .24 },
+        'crew-habitat': { x: .49, y: .56 },
+        'central-saucer': { x: .62, y: .48 },
+      };
+      const image = document.querySelector('.ship-cohesion-visual img');
+      const box = image.getBoundingClientRect();
+      const scale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight);
+      const content = {
+        left: box.left + ((box.width - (image.naturalWidth * scale)) / 2),
+        top: box.top + ((box.height - (image.naturalHeight * scale)) / 2),
+        width: image.naturalWidth * scale,
+        height: image.naturalHeight * scale,
+      };
+      return [...document.querySelectorAll('.ship-task-leader')].map((leader) => {
+        const [x, y] = (leader.getAttribute('points') || '').trim().split(/\s+/)[0].split(',').map(Number);
+        const matrix = leader.getScreenCTM();
+        const origin = { x: (x * matrix.a) + (y * matrix.c) + matrix.e, y: (x * matrix.b) + (y * matrix.d) + matrix.f };
+        const anchor = anchors[leader.dataset.anchor];
+        const expected = { x: content.left + (content.width * anchor.x), y: content.top + (content.height * anchor.y) };
+        return Math.hypot(origin.x - expected.x, origin.y - expected.y);
+      });
+    });
+    assert.ok(Math.max(...originErrors) <= 1.5, `${viewport.label} leaders originate at authored ship regions (max ${Math.max(...originErrors).toFixed(2)}px)`);
+    const layoutSafety = await page.evaluate(({ mobile }) => {
+      const controls = [...document.querySelectorAll(mobile ? '.ship-task-mobile-callout' : '.ship-task-button')];
+      const rectangles = controls.map((control) => control.getBoundingClientRect());
+      const overlapCount = rectangles.reduce((count, box, index) => count + rectangles.slice(index + 1).filter((other) => (
+        box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top
+      )).length, 0);
+      const same = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < .5;
+      const intersects = ([a, b], [c, d]) => {
+        if ([a, b].some((point) => [c, d].some((candidate) => same(point, candidate)))) return false;
+        const direction = (p, q, r) => ((r.x - p.x) * (q.y - p.y)) - ((q.x - p.x) * (r.y - p.y));
+        const values = [direction(c, d, a), direction(c, d, b), direction(a, b, c), direction(a, b, d)];
+        return values[0] * values[1] < 0 && values[2] * values[3] < 0;
+      };
+      const routes = [...document.querySelectorAll('.ship-task-leader')].map((leader) => {
+        const matrix = leader.getScreenCTM();
+        const points = (leader.getAttribute('points') || '').trim().split(/\s+/).map((pair) => {
+          const [x, y] = pair.split(',').map(Number);
+          return { x: (x * matrix.a) + (y * matrix.c) + matrix.e, y: (x * matrix.b) + (y * matrix.d) + matrix.f };
+        });
+        return [[points[0], points[1]], [points[1], points[2]]];
+      });
+      const crossingCount = routes.reduce((count, route, index) => count + routes.slice(index + 1).filter((other) => (
+        route.some((segment) => other.some((candidate) => intersects(segment, candidate)))
+      )).length, 0);
+      return { overlapCount, crossingCount };
+    }, { mobile: viewport.width <= 820 });
+    assert.deepEqual(layoutSafety, { overlapCount: 0, crossingCount: 0 }, `${viewport.label} callouts do not overlap or cross`);
+    if (viewport.width <= 820) {
+      const mobileClearance = await page.evaluate(() => {
+        const ringBox = document.querySelector('.ship-cohesion-ring-layer.is-back').getBoundingClientRect();
+        const center = { x: ringBox.left + (ringBox.width / 2), y: ringBox.top + (ringBox.height / 2) };
+        const radius = ringBox.width / 2;
+        const image = document.querySelector('.ship-cohesion-visual img');
+        const imageBox = image.getBoundingClientRect();
+        const scale = Math.min(imageBox.width / image.naturalWidth, imageBox.height / image.naturalHeight);
+        const content = {
+          left: imageBox.left + ((imageBox.width - (image.naturalWidth * scale)) / 2),
+          top: imageBox.top + ((imageBox.height - (image.naturalHeight * scale)) / 2),
+          width: image.naturalWidth * scale,
+          height: image.naturalHeight * scale,
+        };
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(image, 0, 0);
+        return [...document.querySelectorAll('.ship-task-mobile-callout')].map((badge) => {
+          const box = badge.getBoundingClientRect();
+          const closest = {
+            x: Math.max(box.left, Math.min(center.x, box.right)),
+            y: Math.max(box.top, Math.min(center.y, box.bottom)),
+          };
+          let opaqueSamples = 0;
+          for (let x = box.left + 2; x < box.right - 1; x += 3) {
+            for (let y = box.top + 2; y < box.bottom - 1; y += 3) {
+              const sourceX = Math.floor(((x - content.left) / content.width) * image.naturalWidth);
+              const sourceY = Math.floor(((y - content.top) / content.height) * image.naturalHeight);
+              if (sourceX < 0 || sourceY < 0 || sourceX >= image.naturalWidth || sourceY >= image.naturalHeight) continue;
+              if (context.getImageData(sourceX, sourceY, 1, 1).data[3] > 24) opaqueSamples += 1;
+            }
+          }
+          return {
+            ringClearance: Math.hypot(closest.x - center.x, closest.y - center.y) - radius,
+            opaqueSamples,
+          };
+        });
+      });
+      const minimumRingClearance = Math.min(...mobileClearance.map(({ ringClearance }) => ringClearance));
+      assert.ok(minimumRingClearance >= -1, `${viewport.label} badges remain outside the ring (minimum ${minimumRingClearance.toFixed(2)}px)`);
+      assert.equal(
+        mobileClearance.every(({ opaqueSamples }) => opaqueSamples === 0),
+        true,
+        `${viewport.label} badges do not cover ship pixels (${mobileClearance.map(({ opaqueSamples }) => opaqueSamples).join(', ')})`,
+      );
+    }
+
+    if (viewport.label === 'desktop' || viewport.label === 'mobile') {
+      const targetSelector = viewport.width <= 820 ? '.ship-task-mobile-callout' : '.ship-task-button';
+      const initialAssignment = await page.locator(targetSelector).evaluateAll((controls) => controls.map(({ dataset }) => `${dataset.taskId}:${dataset.slot}:${dataset.corner}`));
+      const alternate = viewport.width <= 820 ? { width: 360, height: 700 } : { width: 1180, height: 800 };
+      await page.setViewportSize(alternate);
+      await page.waitForFunction(() => document.querySelector('.ship-cohesion-workspace')?.dataset.calloutLayoutReady === 'true');
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.waitForFunction(() => document.querySelector('.ship-cohesion-workspace')?.dataset.calloutLayoutReady === 'true');
+      await page.waitForTimeout(50);
+      const restoredAssignment = await page.locator(targetSelector).evaluateAll((controls) => controls.map(({ dataset }) => `${dataset.taskId}:${dataset.slot}:${dataset.corner}`));
+      assert.deepEqual(restoredAssignment, initialAssignment, `${viewport.label} deterministic assignment survives responsive reflow`);
+    }
+
     await page.screenshot({ path: path.join(artifactRoot, `${viewport.label}-${viewport.width}x${viewport.height}-initial.png`) });
 
     const buttons = page.locator('.ship-task-button');

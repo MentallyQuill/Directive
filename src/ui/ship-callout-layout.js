@@ -27,14 +27,14 @@ const SLOT_TABLES = Object.freeze({
     ['lower-right-inner', 0.82, 0.82],
   ].map(([id, x, y], index) => Object.freeze({ id, x, y, index }))),
   mobile: Object.freeze([
-    ['top-left', 0.34, 0.06],
-    ['top-right', 0.66, 0.06],
-    ['right-top', 0.93, 0.31],
-    ['right-bottom', 0.93, 0.64],
-    ['bottom-right', 0.66, 0.90],
-    ['bottom-left', 0.34, 0.90],
-    ['left-bottom', 0.07, 0.64],
-    ['left-top', 0.07, 0.31],
+    ['top-left-outer', 0.10, 0.05],
+    ['top-left-inner', 0.36, 0.05],
+    ['top-right-inner', 0.64, 0.05],
+    ['top-right-outer', 0.90, 0.05],
+    ['bottom-right-outer', 0.90, 0.95],
+    ['bottom-right-inner', 0.64, 0.95],
+    ['bottom-left-inner', 0.36, 0.95],
+    ['bottom-left-outer', 0.10, 0.95],
   ].map(([id, x, y], index) => Object.freeze({ id, x, y, index }))),
 });
 
