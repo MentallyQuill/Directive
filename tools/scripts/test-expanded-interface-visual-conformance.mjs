@@ -694,6 +694,7 @@ try {
     return page.locator('.campaign-dashboard').evaluate((dashboard) => {
       const heading = dashboard.querySelector('.campaign-dashboard-heading');
       const hero = dashboard.querySelector('.campaign-dashboard-hero');
+      const copy = hero.querySelector('.campaign-hero-copy');
       const actions = dashboard.querySelector('.campaign-dashboard-actions');
       const routeBar = dashboard.closest('.directive-workspace').querySelector('.directive-route-bar');
       const scene = hero.querySelector('.directive-hero-scene');
@@ -730,6 +731,7 @@ try {
         dashboard: rect(dashboard),
         heading: rect(heading),
         hero: heroRect,
+        copy: rect(copy),
         actions: rect(actions),
         routeBar: rect(routeBar),
         actionBoxes: [...actions.children].map((node) => ({
@@ -740,6 +742,7 @@ try {
         heroTransitionDuration: getComputedStyle(hero).transitionDuration,
         heroExpanded: hero.classList.contains('is-expanded'),
         heroOrbitBound: hero.dataset.heroOrbitBound || '',
+        heroOrbitEngaged: hero.classList.contains('is-hero-orbit-engaged'),
         layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
         layerTags: layers.map((layer) => layer.tagName),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
@@ -793,6 +796,33 @@ try {
       };
     });
   }
+
+  const orbitNumber = (campaign, name) => Number.parseFloat(campaign.orbitVariables[name]) || 0;
+  const orbitAxis = (campaign, axis) => ({
+    background: orbitNumber(campaign, `--directive-hero-orbit-background-${axis}`),
+    far: orbitNumber(campaign, `--directive-hero-orbit-far-${axis}`),
+    near: orbitNumber(campaign, `--directive-hero-orbit-near-${axis}`),
+    ship: orbitNumber(campaign, `--directive-hero-orbit-ship-${axis}`)
+  });
+  const assertOrbitDepth = (campaign, label) => {
+    for (const axis of ['x', 'y']) {
+      const values = orbitAxis(campaign, axis);
+      assert.ok(values.background < 0, `${label} ${axis} background must move opposite input`);
+      assert.ok(values.far < 0, `${label} ${axis} far stars must move opposite input`);
+      assert.ok(values.near < 0, `${label} ${axis} near stars must move opposite input`);
+      assert.ok(values.ship > 0, `${label} ${axis} ship must move with input`);
+      assert.ok(
+        Math.abs(values.near) > Math.abs(values.far) && Math.abs(values.far) > Math.abs(values.background),
+        `${label} ${axis} response must preserve near > far > background depth`
+      );
+    }
+  };
+  const assertNeutralOrbit = (campaign, label) => {
+    for (const [name, value] of Object.entries(campaign.orbitVariables)) {
+      assert.equal(Number.parseFloat(value) || 0, 0, `${label} ${name} must return to neutral`);
+    }
+    assert.equal(campaign.heroOrbitEngaged, false, `${label} must not retain engaged state`);
+  };
 
   const desktopCampaignPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await desktopCampaignPage.goto(`${baseUrl}/production?route=campaign`);
@@ -872,10 +902,44 @@ try {
   assert.ok(cruiseMotionEnd['stars-near'].x < cruiseMotionStart['stars-near'].x);
   assert.ok(cruiseMotionEnd['stars-near'].y < cruiseMotionStart['stars-near'].y);
   assert.ok(nearTravel / farTravel >= 1.8 && nearTravel / farTravel <= 2.4, 'near-star screen velocity must remain 1.8x to 2.4x the far field');
+  const desktopHeroBox = await desktopCampaignPage.locator('.campaign-dashboard-hero').boundingBox();
+  assert.ok(desktopHeroBox, 'desktop Campaign hero must expose a hover target');
+  await desktopCampaignPage.mouse.move(
+    desktopHeroBox.x + (desktopHeroBox.width * .85),
+    desktopHeroBox.y + (desktopHeroBox.height * .80)
+  );
+  await desktopCampaignPage.waitForTimeout(120);
+  const desktopOrbit = await measureCampaignDashboard(desktopCampaignPage);
+  assert.equal(desktopOrbit.heroOrbitEngaged, true);
+  assertOrbitDepth(desktopOrbit, 'desktop orbit');
+  const desktopRoll = orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-roll');
+  assert.ok(desktopRoll > 0 && desktopRoll <= .22, 'desktop ship roll must remain positive and bounded');
+  assert.deepEqual(desktopOrbit.animations, desktopCampaign.animations, 'hover orbit must not replace idle animation names');
+  assert.deepEqual(desktopOrbit.animationDurations, desktopCampaign.animationDurations, 'hover orbit must not retime idle animation');
+  assert.deepEqual(desktopOrbit.transitionDurations, ['0.09s', '0.09s', '0.09s', '0.09s', '0.09s', '0.09s']);
+  assert.ok(Math.abs(desktopOrbit.copy.left - desktopCampaign.copy.left) < 1);
+  assert.ok(Math.abs(desktopOrbit.copy.top - desktopCampaign.copy.top) < 1);
+  assert.ok(desktopOrbit.actionBoxes.every((box, index) => (
+    Math.abs(box.left - desktopCampaign.actionBoxes[index].left) < 1
+      && Math.abs(box.top - desktopCampaign.actionBoxes[index].top) < 1
+  )), 'orbit must not move Campaign copy or controls');
+  assert.ok(desktopOrbit.horizontalOverflow <= 1);
+  await desktopCampaignPage.screenshot({
+    path: path.join(artifactRoot, 'campaign-orbit-desktop-1440x900.png')
+  });
+  await desktopCampaignPage.mouse.move(1, 1);
+  await desktopCampaignPage.waitForTimeout(450);
+  assertNeutralOrbit(await measureCampaignDashboard(desktopCampaignPage), 'desktop release');
   assert.ok(desktopCampaign.actionBoxes.every((box) => Math.abs(box.top - desktopCampaign.actionBoxes[0].top) < 1), 'desktop campaign actions must share one row');
   assert.ok(desktopCampaign.horizontalOverflow <= 1);
   await desktopCampaignPage.emulateMedia({ reducedMotion: 'reduce' });
+  await desktopCampaignPage.mouse.move(
+    desktopHeroBox.x + (desktopHeroBox.width * .85),
+    desktopHeroBox.y + (desktopHeroBox.height * .80)
+  );
+  await desktopCampaignPage.waitForTimeout(120);
   const reducedCampaign = await measureCampaignDashboard(desktopCampaignPage);
+  assertNeutralOrbit(reducedCampaign, 'reduced-motion hover');
   assert.deepEqual(reducedCampaign.animations, ['none', 'none', 'none', 'none', 'none', 'none']);
   assert.deepEqual(reducedCampaign.transforms.slice(2, 4), ['none', 'none']);
   assert.equal(reducedCampaign.opacities[5], '0.12');
@@ -919,11 +983,111 @@ try {
   assert.ok(Math.abs(mobileCampaign.actionBoxes[1].top - mobileCampaign.actionBoxes[2].top) < 1, 'Save and Load must share mobile row two');
   assert.ok(mobileCampaign.actionBoxes[1].top > mobileCampaign.actionBoxes[0].bottom, 'mobile action row two must follow row one');
   assert.ok(mobileCampaign.horizontalOverflow <= 1);
+  const mobileHero = touchPage.locator('.campaign-dashboard-hero');
+  const mobileTouchMoveAccepted = await mobileHero.evaluate(async (hero) => {
+    const rect = hero.getBoundingClientRect();
+    const makeTouch = (x, y) => new Touch({
+      identifier: 71,
+      target: hero,
+      clientX: x,
+      clientY: y,
+      pageX: x,
+      pageY: y,
+      screenX: x,
+      screenY: y,
+      radiusX: 1,
+      radiusY: 1,
+      rotationAngle: 0,
+      force: .5
+    });
+    const start = makeTouch(rect.left + (rect.width * .5), rect.top + (rect.height * .5));
+    hero.dispatchEvent(new TouchEvent('touchstart', {
+      bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start]
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    const moved = makeTouch(rect.left + (rect.width * .8), rect.top + (rect.height * .9));
+    return hero.dispatchEvent(new TouchEvent('touchmove', {
+      bubbles: true, cancelable: true, touches: [moved], targetTouches: [moved], changedTouches: [moved]
+    }));
+  });
+  assert.equal(mobileTouchMoveAccepted, false, 'engaged phone drag must prevent native scrolling');
+  await touchPage.waitForTimeout(120);
+  const mobileOrbit = await measureCampaignDashboard(touchPage);
+  assert.equal(mobileOrbit.heroOrbitEngaged, true);
+  assertOrbitDepth(mobileOrbit, 'phone orbit');
+  assert.deepEqual(mobileOrbit.animations, mobileCampaign.animations, 'phone orbit must preserve idle animation names');
+  assert.ok(mobileOrbit.horizontalOverflow <= 1);
+  await touchPage.screenshot({
+    path: path.join(artifactRoot, 'campaign-orbit-phone-390x844.png')
+  });
+  await mobileHero.evaluate((hero) => {
+    const rect = hero.getBoundingClientRect();
+    const moved = new Touch({
+      identifier: 71,
+      target: hero,
+      clientX: rect.left + (rect.width * .8),
+      clientY: rect.top + (rect.height * .9),
+      pageX: rect.left + (rect.width * .8),
+      pageY: rect.top + (rect.height * .9),
+      screenX: rect.left + (rect.width * .8),
+      screenY: rect.top + (rect.height * .9)
+    });
+    hero.dispatchEvent(new TouchEvent('touchend', {
+      bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moved]
+    }));
+  });
+  await touchPage.waitForTimeout(450);
+  assertNeutralOrbit(await measureCampaignDashboard(touchPage), 'phone release');
   await touchPage.locator('.campaign-dashboard-hero').tap();
   await touchPage.waitForTimeout(220);
   const mobileAfterTap = await measureCampaignDashboard(touchPage);
   assert.ok(Math.abs(mobileAfterTap.hero.height - mobileCampaign.hero.height) < 1, 'mobile tap must not resize the Campaign hero');
   assert.equal(mobileAfterTap.heroExpanded, false);
+
+  await touchPage.locator('[data-campaign-action="campaigns"]').tap();
+  await touchPage.waitForSelector('.campaign-browser');
+  await touchPage.locator('[data-mobile-record-key="package:directive:campaign-package:breckenridge-ashes-of-peace"]').tap();
+  await touchPage.waitForSelector('.campaign-library-hero:visible');
+  const visibleAshesHero = touchPage.locator('.campaign-library-hero:visible').first();
+  assert.equal(await visibleAshesHero.getAttribute('data-hero-orbit-bound'), 'true');
+  const responsiveGesture = await visibleAshesHero.evaluate(async (hero) => {
+    const control = hero.querySelector('.directive-responsive-hero-toggle');
+    const rect = hero.getBoundingClientRect();
+    const createTouch = (x, y) => new Touch({
+      identifier: 81,
+      target: control,
+      clientX: x,
+      clientY: y,
+      pageX: x,
+      pageY: y,
+      screenX: x,
+      screenY: y
+    });
+    const start = createTouch(rect.left + (rect.width * .5), rect.top + (rect.height * .5));
+    control.dispatchEvent(new TouchEvent('touchstart', {
+      bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start]
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    const moved = createTouch(start.clientX + 24, start.clientY + 18);
+    control.dispatchEvent(new TouchEvent('touchmove', {
+      bubbles: true, cancelable: true, touches: [moved], targetTouches: [moved], changedTouches: [moved]
+    }));
+    control.dispatchEvent(new TouchEvent('touchend', {
+      bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moved]
+    }));
+    const before = control.getAttribute('aria-expanded');
+    const clickAccepted = control.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, detail: 1
+    }));
+    return { before, after: control.getAttribute('aria-expanded'), clickAccepted };
+  });
+  assert.equal(responsiveGesture.clickAccepted, false, 'long-press orbit must suppress the responsive hero click');
+  assert.equal(responsiveGesture.after, responsiveGesture.before, 'long-press orbit must not expand or collapse the hero');
+  const responsiveToggle = visibleAshesHero.locator('.directive-responsive-hero-toggle');
+  await responsiveToggle.tap();
+  assert.notEqual(await responsiveToggle.getAttribute('aria-expanded'), responsiveGesture.before, 'a fresh short tap must still toggle the hero');
+  await touchPage.locator('[data-campaign-action="back-to-current"]').tap();
+  await touchPage.waitForSelector('.campaign-dashboard');
 
   await touchPage.locator('[data-route-id="ship"]').tap();
   await touchPage.waitForSelector('.directive-expanded-shell[data-active-route="ship"]');
