@@ -37,6 +37,12 @@ class FakeElement {
     this.listeners.set(type, listeners);
   }
 
+  removeEventListener(type, handler) {
+    this.listeners.set(type, (this.listeners.get(type) || []).filter((listener) => listener.handler !== handler));
+  }
+
+  listenerCount(type) { return (this.listeners.get(type) || []).length; }
+
   dispatch(type, init = {}) {
     const event = {
       target: this,
@@ -106,14 +112,14 @@ function touch(identifier, clientX, clientY) {
 }
 
 assert.deepEqual(computeHeroOrbitFrame({ x: 1, y: 1, width: 1440, height: 500 }), {
-  background: { x: -7, y: -5 },
+  background: { x: -7, y: -4.5 },
   far: { x: -12, y: -8 },
   near: { x: -20, y: -12 },
   ship: { x: 8, y: 5, roll: 0.22 }
 }, 'full lower-right input must move environment inverse to the ship at the certified depth amplitudes');
 
 assert.deepEqual(computeHeroOrbitFrame({ x: -5, y: -3, width: 390, height: 112 }), {
-  background: { x: 3, y: 2 },
+  background: { x: 3, y: 1.008 },
   far: { x: 6, y: 4 },
   near: { x: 10, y: 6 },
   ship: { x: -3, y: -2, roll: -0.22 }
@@ -131,6 +137,7 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   const { hero, scene } = createCruiseHero();
   assert.equal(bindReactiveHeroOrbit(hero, environment), true);
   assert.equal(hero.dataset.heroOrbitBound, 'true');
+  assert.equal(hero.listenerCount('touchmove'), 0, 'idle heroes must not retain a non-passive touchmove listener');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '0px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0deg');
 
@@ -173,6 +180,7 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   bindReactiveHeroOrbit(hero, environment);
   const start = touch(11, 200, 100);
   hero.dispatch('touchstart', { touches: [start], changedTouches: [start] });
+  assert.equal(hero.listenerCount('touchmove'), 1, 'single-touch custody must install one move listener');
   const earlyMove = hero.dispatch('touchmove', {
     touches: [touch(11, 211, 100)],
     changedTouches: [touch(11, 211, 100)]
@@ -180,6 +188,7 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   environment.advanceTimers(240);
   assert.equal(earlyMove.defaultPrevented, false, 'movement before engagement must remain available to scrolling');
   assert.equal(hero.classList.contains('is-hero-orbit-engaged'), false);
+  assert.equal(hero.listenerCount('touchmove'), 0, 'cancelled custody must remove the move listener');
   hero.dispatch('touchend', { touches: [], changedTouches: [touch(11, 211, 100)] });
   const shortTapClick = hero.dispatch('click', { detail: 1 });
   assert.equal(shortTapClick.defaultPrevented, false, 'a short tap must not be suppressed');
@@ -191,6 +200,7 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   bindReactiveHeroOrbit(hero, environment);
   const start = touch(21, 500, 150);
   hero.dispatch('touchstart', { touches: [start], changedTouches: [start] });
+  assert.equal(hero.listenerCount('touchmove'), 1);
   environment.advanceTimers(240);
   assert.equal(hero.classList.contains('is-hero-orbit-engaged'), true);
   const contextMenu = hero.dispatch('contextmenu');
@@ -207,6 +217,7 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
 
   hero.dispatch('touchend', { touches: [], changedTouches: [moved] });
   environment.flushAnimationFrame();
+  assert.equal(hero.listenerCount('touchmove'), 0, 'completed custody must remove the move listener');
   assert.equal(hero.classList.contains('is-hero-orbit-engaged'), false);
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-near-x'), '0px');
   const syntheticClick = hero.dispatch('click', { detail: 1 });

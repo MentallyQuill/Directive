@@ -30,12 +30,12 @@ Reactive offsets compose additively with those animations rather than replacing,
 
 The maximum response is derived from the rendered hero and clamped so compact phone heroes remain responsive while expanded desktop heroes do not become excessive:
 
-- background, authored stars, and sunlight: horizontal amplitude `clamp(width * 0.006, 3px, 7px)` and vertical amplitude `clamp(height * 0.012, 2px, 5px)`;
+- background, authored stars, and sunlight: horizontal amplitude `clamp(width * 0.006, 3px, 7px)` and vertical amplitude `min(clamp(height * 0.012, 2px, 5px), height * 0.009)`;
 - distant repeating stars: horizontal amplitude `clamp(width * 0.010, 6px, 12px)` and vertical amplitude `clamp(height * 0.020, 4px, 8px)`;
 - near repeating stars: horizontal amplitude `clamp(width * 0.018, 10px, 20px)` and vertical amplitude `clamp(height * 0.030, 6px, 12px)`;
 - ship: horizontal amplitude `clamp(width * 0.0065, 3px, 8px)`, vertical amplitude `clamp(height * 0.012, 2px, 5px)`, and horizontal-input roll up to `0.22deg`.
 
-Near-star response remains greater than distant-star response, which remains greater than the authored background response. Ship response stays lower than near-star response and travels in the opposing direction. If browser verification exposes a crop edge, the affected amplitude is reduced only enough to restore continuous coverage while retaining this ordering.
+Near-star response remains greater than distant-star response, which remains greater than the authored background response. Ship response stays lower than near-star response and travels in the opposing direction. The authored background group uses at most 0.9% vertical travel against its 1% layer bleed, preserving a 0.1% coverage guard at compact and expanded hero heights.
 
 ## Interaction ownership
 

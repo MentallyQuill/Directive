@@ -43,7 +43,7 @@ Create a fake scene/hero DOM and assert exact neutral, clamped positive, and cla
 ```js
 const rightDown = computeHeroOrbitFrame({ x: 1, y: 1, width: 1440, height: 500 });
 assert.deepEqual(rightDown, {
-  background: { x: -7, y: -5 },
+  background: { x: -7, y: -4.5 },
   far: { x: -12, y: -8 },
   near: { x: -20, y: -12 },
   ship: { x: 8, y: 5, roll: 0.22 }
@@ -54,7 +54,7 @@ assert.deepEqual(
 );
 ```
 
-Also assert that `x` and `y` clamp to `[-1, 1]`, compact heroes honor amplitude floors, and every environment magnitude maintains `near > far > background`.
+Also assert that `x` and `y` clamp to `[-1, 1]`, compact heroes preserve the authored layer's 1% bleed with a 0.1% vertical coverage guard, and every environment magnitude maintains `near > far > background`.
 
 - [ ] **Step 2: Write failing precise-pointer behavior tests**
 
@@ -104,8 +104,9 @@ const amplitude = (size, ratio, floor, ceiling) => clamp(size * ratio, floor, ce
 export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0 } = {}) {
   const nx = clamp(x, -1, 1);
   const ny = clamp(y, -1, 1);
+  const safeBackgroundY = Math.min(amplitude(height, .012, 2, 5), height * .009);
   return {
-    background: { x: -nx * amplitude(width, .006, 3, 7), y: -ny * amplitude(height, .012, 2, 5) },
+    background: { x: -nx * amplitude(width, .006, 3, 7), y: -ny * safeBackgroundY },
     far: { x: -nx * amplitude(width, .010, 6, 12), y: -ny * amplitude(height, .020, 4, 8) },
     near: { x: -nx * amplitude(width, .018, 10, 20), y: -ny * amplitude(height, .030, 6, 12) },
     ship: { x: nx * amplitude(width, .0065, 3, 8), y: ny * amplitude(height, .012, 2, 5), roll: nx * .22 }
@@ -121,7 +122,7 @@ In `bindReactiveHeroOrbit`, locate the cruise scene, reject duplicates/fallbacks
 
 - [ ] **Step 7: Implement scroll-safe single-touch custody**
 
-Bind `touchstart`, `touchmove`, `touchend`, and `touchcancel` on the hero. Register `touchmove` with `{ passive: false }`, but call `preventDefault()` only after the `240ms` hold engages. Track the originating touch identifier, cancel on early movement or multi-touch, drive engaged response from displacement relative to the activation point, and schedule click-suppression expiry after `400ms` so it cannot block a later tap.
+Bind `touchstart`, `touchend`, and `touchcancel` on the hero. Register `touchmove` with `{ passive: false }` only for the lifetime of a valid single-touch sequence, remove it on every reset path, and call `preventDefault()` only after the `240ms` hold engages. Track the originating touch identifier, cancel on early movement or multi-touch, drive engaged response from displacement relative to the activation point, and schedule click-suppression expiry after `400ms` so it cannot block a later tap.
 
 Bind `click` in capture phase. Suppress only an armed pointer-generated click (`detail !== 0`), then disarm immediately. Bind `contextmenu` only on the hero and prevent it only while engaged.
 
@@ -278,9 +279,9 @@ After `page.emulateMedia({ reducedMotion: 'reduce' })`, move across the hero and
 
 - [ ] **Step 4: Add real mobile hold-drag assertions**
 
-In the 390x844 touch context, dispatch a real single-touch start at the hero center, wait `260ms`, dispatch a cancelable touch move down-right by at least 30% width and 40% height, and assert `dispatchEvent` reports cancellation from `preventDefault`. Verify the same sign/depth ordering as desktop and capture `campaign-orbit-phone-390x844.png`.
+In the 390x844 touch context, use the browser input protocol to dispatch a trusted single-touch start at the hero center, wait `260ms`, and move down-right by at least 30% width and 40% height. Verify the same sign/depth ordering as desktop and capture `campaign-orbit-phone-390x844.png`.
 
-Dispatch touch end, wait `450ms`, and assert neutral variables and no overflow. Enter Campaign browser mode, repeat a shorter hold-drag on the visible responsive Ashes hero, dispatch the synthetic click, and assert its `aria-expanded` state does not change. Then perform a fresh short tap and assert expansion still toggles.
+Dispatch touch end, wait `450ms`, and assert neutral variables and no overflow. Enter Campaign browser mode and prove with trusted browser input that movement before the hold scrolls normally, movement after the hold prevents scrolling and drives the orbit, and the native compatibility click after a long press does not change `aria-expanded`. Then perform a fresh short tap and assert expansion still toggles. At every certified responsive viewport, move to both vertical extremes in collapsed and expanded Ashes heroes and assert the authored background, stars, and sunlight continue covering every hero edge.
 
 - [ ] **Step 5: Run the browser conformance proof**
 

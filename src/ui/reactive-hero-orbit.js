@@ -10,10 +10,14 @@ const scaled = (value, amount) => (value * amount) || 0;
 export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0 } = {}) {
   const normalizedX = clamp(x, -1, 1);
   const normalizedY = clamp(y, -1, 1);
+  const safeBackgroundY = Math.round(Math.min(
+    amplitude(height, .012, 2, 5),
+    Math.max(0, Number(height) || 0) * .009
+  ) * 10000) / 10000;
   return {
     background: {
       x: scaled(-normalizedX, amplitude(width, .006, 3, 7)),
-      y: scaled(-normalizedY, amplitude(height, .012, 2, 5))
+      y: scaled(-normalizedY, safeBackgroundY)
     },
     far: {
       x: scaled(-normalizedX, amplitude(width, .010, 6, 12)),
@@ -81,6 +85,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
   let penState = null;
   let suppressClick = false;
   let suppressionTimer = null;
+  let touchMoveBound = false;
 
   const queueFrame = (frame) => {
     nextFrame = frame;
@@ -115,9 +120,16 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     queueFrame(neutralFrame);
   };
 
+  const removeTouchMove = () => {
+    if (!touchMoveBound) return;
+    hero.removeEventListener?.('touchmove', handleTouchMove);
+    touchMoveBound = false;
+  };
+
   const resetTouch = ({ suppress = false } = {}) => {
     const wasEngaged = touchState?.engaged === true;
     clearHold();
+    removeTouchMove();
     touchState = null;
     resetVisual();
     if (suppress && wasEngaged) armClickSuppression();
@@ -229,6 +241,8 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
       originY: activeTouch.clientY,
       engaged: false
     };
+    hero.addEventListener('touchmove', handleTouchMove, { passive: false });
+    touchMoveBound = true;
     holdTimer = setTimer(() => {
       holdTimer = null;
       if (!touchState || reducedMotion()) return resetTouch();
@@ -239,7 +253,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     }, HOLD_DELAY_MS);
   });
 
-  hero.addEventListener('touchmove', (event) => {
+  function handleTouchMove(event) {
     if (!touchState) return;
     const activeTouch = findTouch(event.touches, touchState.identifier);
     if (!activeTouch) return resetTouch();
@@ -253,7 +267,7 @@ export function bindReactiveHeroOrbit(hero, environment = globalThis) {
     }
     event.preventDefault?.();
     queueFrame(frameFromDrag(activeTouch.clientX, activeTouch.clientY, touchState));
-  }, { passive: false });
+  }
 
   hero.addEventListener('touchend', (event) => {
     if (touchState && findTouch(event.changedTouches, touchState.identifier)) resetTouch({ suppress: true });

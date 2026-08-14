@@ -957,6 +957,7 @@ try {
     isMobile: true
   });
   const touchPage = await touchContext.newPage();
+  const touchCdp = await touchContext.newCDPSession(touchPage);
   await touchPage.goto(`${baseUrl}/production?route=campaign`);
   await touchPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   const mobileCampaign = await measureCampaignDashboard(touchPage);
@@ -984,34 +985,31 @@ try {
   assert.ok(mobileCampaign.actionBoxes[1].top > mobileCampaign.actionBoxes[0].bottom, 'mobile action row two must follow row one');
   assert.ok(mobileCampaign.horizontalOverflow <= 1);
   const mobileHero = touchPage.locator('.campaign-dashboard-hero');
-  const mobileTouchMoveAccepted = await mobileHero.evaluate(async (hero) => {
-    const rect = hero.getBoundingClientRect();
-    const makeTouch = (x, y) => new Touch({
-      identifier: 71,
-      target: hero,
-      clientX: x,
-      clientY: y,
-      pageX: x,
-      pageY: y,
-      screenX: x,
-      screenY: y,
-      radiusX: 1,
-      radiusY: 1,
-      rotationAngle: 0,
-      force: .5
-    });
-    const start = makeTouch(rect.left + (rect.width * .5), rect.top + (rect.height * .5));
-    hero.dispatchEvent(new TouchEvent('touchstart', {
-      bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start]
-    }));
-    await new Promise((resolve) => setTimeout(resolve, 260));
-    const moved = makeTouch(rect.left + (rect.width * .8), rect.top + (rect.height * .9));
-    return hero.dispatchEvent(new TouchEvent('touchmove', {
-      bubbles: true, cancelable: true, touches: [moved], targetTouches: [moved], changedTouches: [moved]
-    }));
+  await mobileHero.evaluate((hero) => {
+    hero.addEventListener('touchstart', (event) => {
+      hero.dataset.lastTouchTrusted = String(event.isTrusted);
+    }, { capture: true, once: true });
   });
-  assert.equal(mobileTouchMoveAccepted, false, 'engaged phone drag must prevent native scrolling');
+  const mobileHeroBox = await mobileHero.boundingBox();
+  assert.ok(mobileHeroBox);
+  const mobileTouchStart = {
+    x: mobileHeroBox.x + (mobileHeroBox.width * .5),
+    y: mobileHeroBox.y + (mobileHeroBox.height * .5),
+    id: 71,
+    radiusX: 1,
+    radiusY: 1,
+    force: .5
+  };
+  const mobileTouchMoved = {
+    ...mobileTouchStart,
+    x: mobileHeroBox.x + (mobileHeroBox.width * .8),
+    y: mobileHeroBox.y + (mobileHeroBox.height * .9)
+  };
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [mobileTouchStart] });
+  await touchPage.waitForTimeout(260);
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [mobileTouchMoved] });
   await touchPage.waitForTimeout(120);
+  assert.equal(await mobileHero.getAttribute('data-last-touch-trusted'), 'true', 'phone proof must use browser-trusted touch input');
   const mobileOrbit = await measureCampaignDashboard(touchPage);
   assert.equal(mobileOrbit.heroOrbitEngaged, true);
   assertOrbitDepth(mobileOrbit, 'phone orbit');
@@ -1020,22 +1018,7 @@ try {
   await touchPage.screenshot({
     path: path.join(artifactRoot, 'campaign-orbit-phone-390x844.png')
   });
-  await mobileHero.evaluate((hero) => {
-    const rect = hero.getBoundingClientRect();
-    const moved = new Touch({
-      identifier: 71,
-      target: hero,
-      clientX: rect.left + (rect.width * .8),
-      clientY: rect.top + (rect.height * .9),
-      pageX: rect.left + (rect.width * .8),
-      pageY: rect.top + (rect.height * .9),
-      screenX: rect.left + (rect.width * .8),
-      screenY: rect.top + (rect.height * .9)
-    });
-    hero.dispatchEvent(new TouchEvent('touchend', {
-      bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moved]
-    }));
-  });
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await touchPage.waitForTimeout(450);
   assertNeutralOrbit(await measureCampaignDashboard(touchPage), 'phone release');
   await touchPage.locator('.campaign-dashboard-hero').tap();
@@ -1050,42 +1033,99 @@ try {
   await touchPage.waitForSelector('.campaign-library-hero:visible');
   const visibleAshesHero = touchPage.locator('.campaign-library-hero:visible').first();
   assert.equal(await visibleAshesHero.getAttribute('data-hero-orbit-bound'), 'true');
-  const responsiveGesture = await visibleAshesHero.evaluate(async (hero) => {
-    const control = hero.querySelector('.directive-responsive-hero-toggle');
-    const rect = hero.getBoundingClientRect();
-    const createTouch = (x, y) => new Touch({
-      identifier: 81,
-      target: control,
-      clientX: x,
-      clientY: y,
-      pageX: x,
-      pageY: y,
-      screenX: x,
-      screenY: y
-    });
-    const start = createTouch(rect.left + (rect.width * .5), rect.top + (rect.height * .5));
-    control.dispatchEvent(new TouchEvent('touchstart', {
-      bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start]
-    }));
-    await new Promise((resolve) => setTimeout(resolve, 260));
-    const moved = createTouch(start.clientX + 24, start.clientY + 18);
-    control.dispatchEvent(new TouchEvent('touchmove', {
-      bubbles: true, cancelable: true, touches: [moved], targetTouches: [moved], changedTouches: [moved]
-    }));
-    control.dispatchEvent(new TouchEvent('touchend', {
-      bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moved]
-    }));
-    const before = control.getAttribute('aria-expanded');
-    const clickAccepted = control.dispatchEvent(new MouseEvent('click', {
-      bubbles: true, cancelable: true, detail: 1
-    }));
-    return { before, after: control.getAttribute('aria-expanded'), clickAccepted };
+  const campaignAccordion = touchPage.locator('.campaign-mobile-accordion');
+  await visibleAshesHero.evaluate((hero) => {
+    hero.scrollIntoView({ block: 'center' });
+    hero.addEventListener('touchstart', (event) => {
+      hero.dataset.lastTouchTrusted = String(event.isTrusted);
+    }, { capture: true });
   });
-  assert.equal(responsiveGesture.clickAccepted, false, 'long-press orbit must suppress the responsive hero click');
-  assert.equal(responsiveGesture.after, responsiveGesture.before, 'long-press orbit must not expand or collapse the hero');
+  await touchPage.waitForTimeout(120);
+  const scrollProbe = await campaignAccordion.evaluate((accordion) => ({
+    top: accordion.scrollTop,
+    roomBelow: accordion.scrollHeight - accordion.clientHeight - accordion.scrollTop
+  }));
+  let responsiveHeroBox = await visibleAshesHero.boundingBox();
+  assert.ok(responsiveHeroBox);
+  const scrollFingerDelta = scrollProbe.roomBelow > 48 ? -36 : 36;
+  const scrollTouchStart = {
+    x: responsiveHeroBox.x + (responsiveHeroBox.width * .5),
+    y: responsiveHeroBox.y + (responsiveHeroBox.height * .5),
+    id: 81,
+    radiusX: 1,
+    radiusY: 1,
+    force: .5
+  };
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [scrollTouchStart] });
+  await touchCdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ ...scrollTouchStart, y: scrollTouchStart.y + scrollFingerDelta }]
+  });
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await touchPage.waitForTimeout(180);
+  const scrolledTop = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
+  assert.ok(Math.abs(scrolledTop - scrollProbe.top) > 5, 'movement before the hold threshold must retain native Campaign Library scrolling');
+  assert.equal(await visibleAshesHero.getAttribute('data-last-touch-trusted'), 'true', 'Library scroll proof must use browser-trusted touch input');
+
+  await visibleAshesHero.evaluate((hero) => hero.scrollIntoView({ block: 'center' }));
+  await touchPage.waitForTimeout(120);
+  const heldScrollTop = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
+  responsiveHeroBox = await visibleAshesHero.boundingBox();
+  assert.ok(responsiveHeroBox);
+  const heldTouchStart = {
+    x: responsiveHeroBox.x + (responsiveHeroBox.width * .5),
+    y: responsiveHeroBox.y + (responsiveHeroBox.height * .5),
+    id: 82,
+    radiusX: 1,
+    radiusY: 1,
+    force: .5
+  };
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [heldTouchStart] });
+  await touchPage.waitForTimeout(260);
+  await touchCdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ ...heldTouchStart, x: heldTouchStart.x + 24, y: heldTouchStart.y + 24 }]
+  });
+  await touchPage.waitForTimeout(120);
+  const heldGestureState = await visibleAshesHero.evaluate((hero) => ({
+    engaged: hero.classList.contains('is-hero-orbit-engaged'),
+    nearX: Number.parseFloat(getComputedStyle(hero.querySelector('.directive-hero-scene')).getPropertyValue('--directive-hero-orbit-near-x')) || 0
+  }));
+  const heldScrollAfter = await campaignAccordion.evaluate((accordion) => accordion.scrollTop);
+  assert.equal(heldGestureState.engaged, true, 'held Library drag must engage orbit mode');
+  assert.ok(heldGestureState.nearX < 0, 'held Library drag must move near stars opposite the finger');
+  assert.ok(Math.abs(heldScrollAfter - heldScrollTop) <= 1, 'held Library drag must prevent native scrolling after orbit engages');
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await touchPage.waitForTimeout(450);
+
   const responsiveToggle = visibleAshesHero.locator('.directive-responsive-hero-toggle');
+  const responsiveExpandedBefore = await responsiveToggle.getAttribute('aria-expanded');
+  await visibleAshesHero.evaluate((hero) => {
+    document.addEventListener('click', (event) => {
+      if (!hero.contains(event.target)) return;
+      hero.dataset.capturedClickCount = String((Number(hero.dataset.capturedClickCount) || 0) + 1);
+      hero.dataset.lastClickTrusted = String(event.isTrusted);
+    }, { capture: true });
+  });
+  responsiveHeroBox = await visibleAshesHero.boundingBox();
+  assert.ok(responsiveHeroBox);
+  const clickSuppressionTouch = {
+    x: responsiveHeroBox.x + (responsiveHeroBox.width * .5),
+    y: responsiveHeroBox.y + (responsiveHeroBox.height * .5),
+    id: 83,
+    radiusX: 1,
+    radiusY: 1,
+    force: .5
+  };
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [clickSuppressionTouch] });
+  await touchPage.waitForTimeout(260);
+  await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await touchPage.waitForTimeout(160);
+  assert.ok(Number(await visibleAshesHero.getAttribute('data-captured-click-count')) >= 1, 'browser must emit a native compatibility click after the long press');
+  assert.equal(await visibleAshesHero.getAttribute('data-last-click-trusted'), 'true', 'compatibility-click proof must use a browser-trusted click');
+  assert.equal(await responsiveToggle.getAttribute('aria-expanded'), responsiveExpandedBefore, 'long-press compatibility click must not expand or collapse the hero');
   await responsiveToggle.tap();
-  assert.notEqual(await responsiveToggle.getAttribute('aria-expanded'), responsiveGesture.before, 'a fresh short tap must still toggle the hero');
+  assert.notEqual(await responsiveToggle.getAttribute('aria-expanded'), responsiveExpandedBefore, 'a fresh short tap must still toggle the hero');
   await touchPage.locator('[data-campaign-action="back-to-current"]').tap();
   await touchPage.waitForSelector('.campaign-dashboard');
 
@@ -1100,6 +1140,64 @@ try {
   assert.equal(returnedCampaign.heroToggleCount, 0, 'Campaign must remain non-interactive after route re-entry');
   assert.ok(returnedCampaign.hero.height > 350, 'Campaign must refill the panel after route re-entry');
   await touchContext.close();
+
+  const assertLayeredHeroCoverage = async (viewport) => {
+    const page = await browser.newPage({ viewport });
+    await page.goto(`${baseUrl}/production?route=campaign`);
+    await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+    await page.locator('[data-campaign-action="campaigns"]').click();
+    await page.waitForSelector('.campaign-browser');
+    const ashesKey = 'package:directive:campaign-package:breckenridge-ashes-of-peace';
+    const record = viewport.width <= 640
+      ? page.locator(`[data-mobile-record-key="${ashesKey}"]`)
+      : page.locator(`[data-campaign-record-key="${ashesKey}"]`);
+    await record.click();
+    await page.waitForSelector('.campaign-library-hero:visible');
+    const hero = page.locator('.campaign-library-hero:visible').first();
+    const toggle = hero.locator('.directive-responsive-hero-toggle');
+
+    const assertEdges = async (state) => {
+      for (const edge of [
+        { label: 'upper-left', x: .01, y: .01 },
+        { label: 'lower-right', x: .99, y: .99 }
+      ]) {
+        await hero.evaluate((node) => node.scrollIntoView({ block: 'center' }));
+        await page.waitForTimeout(80);
+        const box = await hero.boundingBox();
+        assert.ok(box, `${viewport.width}x${viewport.height} ${state} hero must be visible`);
+        await page.mouse.move(box.x + (box.width * edge.x), box.y + (box.height * edge.y));
+        await page.waitForTimeout(120);
+        const coverage = await hero.evaluate((node) => {
+          const rect = (candidate) => {
+            const value = candidate.getBoundingClientRect();
+            return { left: value.left, top: value.top, right: value.right, bottom: value.bottom };
+          };
+          return {
+            hero: rect(node),
+            layers: ['background', 'stars', 'sunlight'].map((name) => ({
+              name,
+              ...rect(node.querySelector(`[data-hero-scene-layer="${name}"]`))
+            }))
+          };
+        });
+        for (const layer of coverage.layers) {
+          assert.ok(layer.left <= coverage.hero.left + .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the left edge`);
+          assert.ok(layer.top <= coverage.hero.top + .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the top edge`);
+          assert.ok(layer.right >= coverage.hero.right - .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the right edge`);
+          assert.ok(layer.bottom >= coverage.hero.bottom - .05, `${viewport.width}x${viewport.height} ${state} ${edge.label} ${layer.name} must cover the bottom edge`);
+        }
+      }
+    };
+
+    await assertEdges('collapsed');
+    await toggle.click();
+    await page.waitForTimeout(220);
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+    await assertEdges('expanded');
+    await page.close();
+  };
+
+  for (const viewport of viewports) await assertLayeredHeroCoverage(viewport);
 
   const peoplePage = await browser.newPage({ viewport: { width: 1024, height: 768 } });
   await peoplePage.goto(`${baseUrl}/production?route=people`);
