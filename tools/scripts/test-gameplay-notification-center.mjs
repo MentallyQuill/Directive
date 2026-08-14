@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 
 import {
   __gameplayNotificationCenterTestHooks,
+  handleGameplayNotificationUiMessage,
   publishGameplayNotifications,
   resetGameplayNotifications,
 } from '../../src/ui/gameplay-notification-center.js';
+import {
+  __directiveRuntimeActionTestHooks,
+  registerRuntimeAction,
+} from '../../src/runtime/runtime-actions.js';
 
 class FakeClassList {
   constructor(element) { this.element = element; }
@@ -212,6 +217,19 @@ clock.advance(3999);
 assert.equal(focusPausedCard.classList.contains('is-exiting'), false);
 clock.advance(1);
 assert.equal(focusPausedCard.classList.contains('is-exiting'), true, 'blur resumes the exact remaining time');
+
+resetGameplayNotifications('message-refresh-test');
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
+let refreshCount = 0;
+registerRuntimeAction('runtime.refresh', async () => { refreshCount += 1; });
+handleGameplayNotificationUiMessage({
+  type: 'directive.gameplayNotifications.publish.v1',
+  payload: { records: [missionRecord] },
+});
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(refreshCount, 1, 'publishing a committed notification must refresh an already-open runtime panel');
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
 
 resetGameplayNotifications('test-end');
 console.log('Directive gameplay notification center tests passed.');

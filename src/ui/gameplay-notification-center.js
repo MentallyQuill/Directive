@@ -1,4 +1,5 @@
 import { runRuntimeAction } from '../runtime/runtime-actions.js';
+import { refreshRuntimeSafely } from '../extension/runtime-mount.js';
 import { appendDirectiveOverlay } from './directive-overlay-root.js';
 import { createElement } from './runtime-ui-kit.js';
 
@@ -185,7 +186,11 @@ export function handleGameplayNotificationUiMessage(message = {}) {
     return resetGameplayNotifications(message.payload?.reason || 'runtime-reset');
   }
   if (message.type === 'directive.gameplayNotifications.publish.v1') {
-    return publishGameplayNotifications(message.payload?.records || []);
+    const published = publishGameplayNotifications(message.payload?.records || []);
+    Promise.resolve(refreshRuntimeSafely()).catch((error) => {
+      console.warn('[Directive] Runtime refresh after gameplay notification failed:', error);
+    });
+    return published;
   }
   return { handled: false };
 }

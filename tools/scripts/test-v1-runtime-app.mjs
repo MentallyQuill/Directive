@@ -125,8 +125,11 @@ const generation = createFakeGenerationClient({
         text: JSON.stringify({
           kind: 'directive.missionEvidenceInterpretation.v1',
           assistantAcceptance: 'accepted',
-          claims: [],
-          abstained: true,
+          claims: missionInterpretationCalls === 3 ? [{
+            candidateId: 'policy.prelude.command-handover-completed',
+            sourceSlot: 'previousAssistant'
+          }] : [],
+          abstained: missionInterpretationCalls !== 3,
           time: {
             decision: 'advance',
             elapsedSeconds: 47,
@@ -158,6 +161,9 @@ const host = createFakeDirectiveHost({
   },
   logger: { warn: (...args) => runtimeWarnings.push(args), info() {}, error() {} }
 });
+const gameplayUiMessages = (type) => host.ui.messages()
+  .filter((entry) => entry.type === 'send' && entry.payload?.type === type)
+  .map((entry) => entry.payload);
 let nextId = 0;
 let nextMinute = 0;
 let app = createDirectiveRuntimeApp({
@@ -170,6 +176,11 @@ let app = createDirectiveRuntimeApp({
 const initial = await app.initialize();
 assert.equal(initial.kind, 'directive.runtimeView.v1');
 assert.equal(initial.campaignState, null);
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.publish.v1').length,
+  0,
+  'initial runtime load must not publish historical gameplay notifications'
+);
 assert.deepEqual(initial.media, { playerPortraitImportSupported: true });
 assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
@@ -511,7 +522,19 @@ assert.equal(
   clearsBeforeUnboundInterception + 2,
   'every unbound generation boundary must clear the namespaced Directive prompt'
 );
+const resetsBeforeUnboundChatChange = gameplayUiMessages('directive.gameplayNotifications.reset.v1').length;
+const publishesBeforeUnboundChatChange = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
 await app.handleHostChatChanged();
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.reset.v1').length,
+  resetsBeforeUnboundChatChange + 1,
+  'a real chat change must clear notification state'
+);
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.publish.v1').length,
+  publishesBeforeUnboundChatChange,
+  'chat changes and accepted-state rebuilds must not publish gameplay notifications'
+);
 assert.equal(narrationPresetLifecycle.at(-1), 'restore', 'leaving a bound campaign chat must restore the prior preset');
 await app.openCampaignChat({ saveId: missionView.activeSaveId });
 assert.equal(narrationPresetLifecycle.at(-1), 'activate', 'reopening a bound campaign chat must reactivate Directive narration');
@@ -728,7 +751,20 @@ assert.ok(afterSwipeRevision >= acceptedRevision);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'armed');
 
 const nextPlayer = chat.pushPlayerMessage({ text: '“Let us start with where you need me most.”' });
+const publishesBeforeObjectiveCompletion = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
 await app.observeHostPlayerMessage({ message: nextPlayer });
+const objectiveCompletionMessages = gameplayUiMessages('directive.gameplayNotifications.publish.v1')
+  .slice(publishesBeforeObjectiveCompletion);
+assert.equal(objectiveCompletionMessages.length, 1, 'one committed accepted pair must publish one grouped notification message');
+assert.equal(objectiveCompletionMessages[0].payload.records[0].kind, 'objectiveComplete');
+const publishesBeforeAlreadySettledPair = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
+const alreadySettledPair = await app.observeHostPlayerMessage({ message: nextPlayer });
+assert.equal(alreadySettledPair.mission.status, 'already-settled');
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.publish.v1').length,
+  publishesBeforeAlreadySettledPair,
+  'an already-settled accepted pair must not republish notifications'
+);
 const finalRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(finalRevision > afterSwipeRevision);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'committed');
@@ -742,7 +778,13 @@ assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /"reportId": "r
 assert.equal(opening.text.endsWith('*Stardate 53068.4 | 08:30:00 hours*'), true);
 assert.equal(opening.text.startsWith('*Stardate'), false);
 
+const publishesBeforeInvalidation = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
 await app.handleHostMessageSelectedSwipeChanged({ message: provisional });
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.publish.v1').length,
+  publishesBeforeInvalidation,
+  'swipe invalidation must not publish gameplay notifications'
+);
 const afterInvalidation = await app.getCurrentView({ tabId: 'people' });
 assert.equal(afterInvalidation.campaignState.commandBearing.balance, 1);
 assert.equal(afterInvalidation.campaignState.commandBearing.spends[reserved.spendId].status, 'refunded');
@@ -1030,6 +1072,7 @@ const blockedPlayer = chat.pushPlayerMessage({
   hostMessageId: 'player.persistence-block'
 });
 const generationBeforeBlockedPersistence = missionInterpretationCalls;
+const publishesBeforeBlockedPersistence = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
 const persistenceBlocked = await app.observeHostPlayerMessage({ message: blockedPlayer });
 assert.equal(persistenceBlocked.mission.ok, false);
 assert.equal(persistenceBlocked.mission.reasonCode, 'persistence-failed');
@@ -1037,6 +1080,11 @@ assert.equal(persistenceBlocked.persistenceAttempts, 3);
 assert.equal(persistenceBlocked.settlementBlocked, true);
 assert.equal(exhaustedPersistenceAttempts, 3);
 assert.equal(missionInterpretationCalls, generationBeforeBlockedPersistence + 1);
+assert.equal(
+  gameplayUiMessages('directive.gameplayNotifications.publish.v1').length,
+  publishesBeforeBlockedPersistence,
+  'a settlement that never persists must not publish gameplay notifications'
+);
 host.storage.writeJson = retryWriteJson;
 const manuallyRetried = await app.retryPendingAcceptedPairSettlement();
 assert.equal(manuallyRetried.ok, true);

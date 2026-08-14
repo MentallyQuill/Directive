@@ -1,6 +1,7 @@
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
 import { configureDirectiveOverlayRoot } from '../../ui/directive-overlay-root.js';
+import { handleGameplayNotificationUiMessage } from '../../ui/gameplay-notification-center.js';
 import { runDirectivePresetStartupReminder } from '../../runtime/runtime-shell.js';
 import { activateSillyTavernDirectiveRuntime } from './runtime-activation.mjs';
 import { createSillyTavernDirectiveHost } from './host-factory.mjs';
@@ -22,7 +23,10 @@ export async function bootstrapDirectiveExtension() {
     return { ok: false, reason: 'missing-context' };
   }
 
-  const host = createSillyTavernDirectiveHost({ context: ctx });
+  const host = createSillyTavernDirectiveHost({
+    context: ctx,
+    ui: { send: handleGameplayNotificationUiMessage }
+  });
   configureDirectiveOverlayRoot({
     document: ctx.document || globalThis.document,
     resolveHost: (documentRef) => documentRef?.getElementById?.('sheld')
