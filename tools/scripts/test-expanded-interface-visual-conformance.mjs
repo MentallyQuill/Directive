@@ -577,7 +577,11 @@ try {
   assert.ok(Math.abs(desktopCampaign.hero.top - desktopCampaign.heading.bottom) < 1, 'desktop hero must start directly below the Campaign header');
   assert.ok(Math.abs(desktopCampaign.actions.top - desktopCampaign.hero.bottom) < 1, 'desktop dock must start directly below the hero');
   assert.ok(Math.abs(desktopCampaign.actions.bottom - desktopCampaign.dashboard.bottom) < 1, 'desktop dock must form the dashboard bottom edge');
-  assert.ok(desktopCampaign.routeBar.top - desktopCampaign.dashboard.bottom <= 16, 'desktop dock must sit immediately above route navigation');
+  assert.ok(
+    desktopCampaign.routeBar.top - desktopCampaign.dashboard.bottom >= 0
+      && desktopCampaign.routeBar.top - desktopCampaign.dashboard.bottom <= 16,
+    'desktop dock must sit immediately above route navigation without overlap'
+  );
   assert.ok(desktopCampaign.hero.height > 400, 'desktop hero must consume the available panel height');
   assert.equal(desktopCampaign.heroToggleCount, 0);
   assert.equal(desktopCampaign.heroTransitionDuration, '0s');
@@ -622,7 +626,11 @@ try {
   assert.ok(Math.abs(mobileCampaign.hero.top - mobileCampaign.heading.bottom) < 1, 'mobile hero must start directly below the Campaign header');
   assert.ok(Math.abs(mobileCampaign.actions.top - mobileCampaign.hero.bottom) < 1, 'mobile dock must start directly below the hero');
   assert.ok(Math.abs(mobileCampaign.actions.bottom - mobileCampaign.dashboard.bottom) < 1, 'mobile dock must form the dashboard bottom edge');
-  assert.ok(mobileCampaign.routeBar.top - mobileCampaign.dashboard.bottom <= 16, 'mobile dock must sit immediately above route navigation');
+  assert.ok(
+    mobileCampaign.routeBar.top - mobileCampaign.dashboard.bottom >= 0
+      && mobileCampaign.routeBar.top - mobileCampaign.dashboard.bottom <= 16,
+    'mobile dock must sit immediately above route navigation without overlap'
+  );
   assert.ok(mobileCampaign.hero.height > 350, 'mobile hero must consume the available portrait panel height');
   assert.equal(mobileCampaign.heroToggleCount, 0);
   assert.equal(mobileCampaign.heroTransitionDuration, '0s');
