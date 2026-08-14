@@ -244,12 +244,13 @@ assert.equal(
 );
 releaseBoundarySettlement();
 await boundaryInterception;
+await new Promise((resolve) => setTimeout(resolve, 75));
 assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
   'SillyTavern is writing...',
   'successful settlement must hand activity off to host narration'
 );
-await new Promise((resolve) => setTimeout(resolve, 175));
+await new Promise((resolve) => setTimeout(resolve, 375));
 assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 0);
 clearSillyTavernDirectiveRuntimeBridge();
 

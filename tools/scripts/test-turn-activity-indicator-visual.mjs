@@ -32,11 +32,9 @@ try {
   await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   await page.evaluate(async () => {
     const bridge = await import('/src/hosts/sillytavern/runtime-bridge.mjs');
-    const pending = new Promise((resolve) => { globalThis.__releaseDirectiveBoundary = resolve; });
     bridge.setSillyTavernDirectiveRuntimeBridge({
       turnOrchestrator: {
         async interceptGeneration() {
-          await pending;
           return {
             handled: true,
             abortDefaultGeneration: false,
@@ -54,14 +52,21 @@ try {
   const readingGeometry = await indicator.boundingBox();
   assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
   assert.ok(readingGeometry.y > 400, 'reading status stays near the lower edge of the viewport');
+  assert.equal(
+    await page.evaluate(async () => (await globalThis.__directiveBoundaryInterception).responseStrategy),
+    'injectAndContinue',
+    'presentation dwell must not delay the generation interceptor result'
+  );
+  await page.waitForTimeout(250);
+  assert.equal(await indicator.isVisible(), true, 'fast interception must keep the reading phase visible long enough to perceive');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Directive is reading your post...');
 
-  await page.evaluate(async () => {
-    globalThis.__releaseDirectiveBoundary();
-    await globalThis.__directiveBoundaryInterception;
-  });
+  await page.waitForFunction(() => (
+    document.querySelector('#directive-turn-activity-indicator')?.dataset.directiveTurnActivityPhase === 'writing'
+  ));
   assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'writing');
   assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'SillyTavern is writing...');
-  await indicator.waitFor({ state: 'hidden', timeout: 1000 });
+  await indicator.waitFor({ state: 'hidden', timeout: 1500 });
 
   await page.evaluate(async () => {
     const bridge = await import('/src/hosts/sillytavern/runtime-bridge.mjs');

@@ -1,14 +1,13 @@
 import { appendDirectiveOverlay } from '../../ui/directive-overlay-root.js';
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
-const REVEAL_DELAY_MS = 350;
-const HANDOFF_CLEAR_DELAY_MS = 150;
+const MIN_READING_VISIBLE_MS = 450;
+const HANDOFF_CLEAR_DELAY_MS = 350;
 const DEFAULT_LABEL = 'Directive is reading your post...';
 
 let nextActivityId = 0;
 const activeActivities = new Map();
 const clearTimers = new Map();
-let revealTimer = null;
 
 function canRender() {
   return typeof document !== 'undefined' && Boolean(document?.body);
@@ -45,27 +44,16 @@ function latestActivity() {
   return [...activeActivities.values()].at(-1) || null;
 }
 
-function render(delayMs = REVEAL_DELAY_MS) {
+function render() {
   if (!canRender()) return;
-  if (revealTimer) {
-    clearTimeout(revealTimer);
-    revealTimer = null;
-  }
-  const show = () => {
-    const indicator = indicatorElement();
-    const activity = latestActivity();
-    if (!indicator) return;
-    indicator.hidden = !activity;
-    if (!activity) return;
-    indicator.dataset.directiveTurnActivityPhase = activity.phase;
-    const label = indicator.querySelector('.directive-turn-activity-label');
-    if (label) label.textContent = activity.label;
-  };
-  if (delayMs > 0 && latestActivity()) {
-    revealTimer = setTimeout(show, delayMs);
-  } else {
-    show();
-  }
+  const indicator = indicatorElement();
+  const activity = latestActivity();
+  if (!indicator) return;
+  indicator.hidden = !activity;
+  if (!activity) return;
+  indicator.dataset.directiveTurnActivityPhase = activity.phase;
+  const label = indicator.querySelector('.directive-turn-activity-label');
+  if (label) label.textContent = activity.label;
 }
 
 function clearTimer(token) {
@@ -79,7 +67,8 @@ export function markDirectiveTurnActivity({ label = DEFAULT_LABEL, phase = 'read
   activeActivities.set(token, {
     token,
     label: String(label || DEFAULT_LABEL),
-    phase: String(phase || 'reading')
+    phase: String(phase || 'reading'),
+    visibleAt: Date.now()
   });
   render();
   return token;
@@ -90,14 +79,14 @@ export function updateDirectiveTurnActivity(token, { label = null, phase = null 
   if (!activity) return { ok: false, reason: 'activity-unavailable' };
   if (label) activity.label = String(label);
   if (phase) activity.phase = String(phase);
-  render(0);
+  render();
   return { ok: true, token };
 }
 
 export function clearDirectiveTurnActivity(token) {
   clearTimer(token);
   const removed = activeActivities.delete(token);
-  render(0);
+  render();
   return { ok: removed, token };
 }
 
@@ -114,20 +103,30 @@ export function cancelActiveDirectiveTurnActivities() {
 export function resolveDirectiveHostGenerationHandoff() {
   const tokens = [...activeActivities.keys()];
   for (const token of tokens) {
-    updateDirectiveTurnActivity(token, {
-      label: 'SillyTavern is writing...',
-      phase: 'writing'
-    });
+    const activity = activeActivities.get(token);
+    if (!activity) continue;
     clearTimer(token);
-    clearTimers.set(token, setTimeout(() => clearDirectiveTurnActivity(token), HANDOFF_CLEAR_DELAY_MS));
+    const beginWriting = () => {
+      if (!activeActivities.has(token)) return;
+      updateDirectiveTurnActivity(token, {
+        label: 'SillyTavern is writing...',
+        phase: 'writing'
+      });
+      clearTimer(token);
+      clearTimers.set(token, setTimeout(() => clearDirectiveTurnActivity(token), HANDOFF_CLEAR_DELAY_MS));
+    };
+    const remainingReadingMs = Math.max(0, MIN_READING_VISIBLE_MS - (Date.now() - activity.visibleAt));
+    if (remainingReadingMs > 0) {
+      clearTimers.set(token, setTimeout(beginWriting, remainingReadingMs));
+    } else {
+      beginWriting();
+    }
   }
   return { ok: true, handedOff: tokens.length };
 }
 
 export function disposeDirectiveTurnActivity() {
   cancelActiveDirectiveTurnActivities();
-  if (revealTimer) clearTimeout(revealTimer);
-  revealTimer = null;
   for (const timer of clearTimers.values()) clearTimeout(timer);
   clearTimers.clear();
   const indicator = canRender() ? document.getElementById(INDICATOR_ID) : null;
