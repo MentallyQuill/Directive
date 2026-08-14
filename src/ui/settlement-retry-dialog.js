@@ -66,6 +66,7 @@ export function showSettlementRetryDialog({
   retry.addEventListener('click', async () => {
     if (retry.disabled) return;
     retry.disabled = true;
+    close.focus?.({ preventScroll: true });
     status.textContent = 'Retrying accepted story settlement...';
     const retryController = typeof AbortController === 'function' ? new AbortController() : null;
     instance.retryController = retryController;
