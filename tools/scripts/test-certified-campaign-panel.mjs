@@ -17,6 +17,10 @@ class Element {
     this.isConnected = true;
     this.replaceCount = 0;
     this.value = '';
+    this.styleProperties = new Map();
+    this.style = {
+      setProperty: (name, value) => this.styleProperties.set(String(name), String(value))
+    };
     this.classList = {
       add: (...names) => {
         const classes = new Set(this.className.split(/\s+/).filter(Boolean));
@@ -94,9 +98,26 @@ const view = {
           eraLabel: '2376, Post-Dominion War',
           theater: 'Asterion Reach'
         },
-        ship: { name: 'U.S.S. Breckenridge', class: 'Intrepid-class' },
+        ship: { id: 'uss-breckenridge', name: 'U.S.S. Breckenridge', class: 'Intrepid-class' },
         playerRole: { rank: 'Commander', billet: 'Executive Officer' },
-        assets: { images: [] }
+        image: { kind: 'ship.hero', subjectId: 'uss-breckenridge' },
+        assets: { images: [{
+          id: 'breckenridge.ship.primary',
+          kind: 'ship.hero',
+          subjectId: 'uss-breckenridge',
+          variants: { hero: 'breckenridge-fallback.webp' },
+          alt: 'U.S.S. Breckenridge cruising through the Asterion Reach',
+          layers: {
+            background: 'breckenridge-background.webp',
+            stars: 'breckenridge-stars.webp',
+            foreground: 'breckenridge-ship.webp',
+            cruise: {
+              farStars: 'breckenridge-stars-far.svg',
+              nearStars: 'breckenridge-stars-near.svg',
+              sunlight: 'breckenridge-sunlight.svg'
+            }
+          }
+        }] }
       },
       {
         packageId: 'directive:campaign-package:glass-harbor-drowned-constellation',
@@ -191,6 +212,7 @@ const dashboard = byClass(body, 'campaign-dashboard')[0];
 const dashboardHero = byClass(body, 'campaign-dashboard-hero')[0];
 assert.ok(dashboardHero, 'active dashboard must expose its full-height hero contract');
 assert.equal(dashboardHero.classList.contains('directive-responsive-hero'), false);
+assert.equal(dashboardHero.dataset.heroOrbitBound, 'true', 'active Campaign dashboard must bind its complete cruise hero');
 assert.equal(byClass(dashboardHero, 'directive-responsive-hero-toggle').length, 0);
 assert.equal(dashboardHero.getAttribute('aria-expanded'), null);
 const dashboardActions = byClass(body, 'campaign-dashboard-actions')[0];
@@ -215,6 +237,7 @@ assert.ok(backToCurrent, 'Campaign browser must return to the current campaign w
 const storyHero = byClass(byClass(body, 'campaign-desktop-detail')[0], 'campaign-browser-hero')[0];
 assert.ok(storyHero, 'saved-story detail must expose the static Campaigns-browser hero contract');
 assert.equal(storyHero.classList.contains('directive-responsive-hero'), false);
+assert.equal(storyHero.dataset.heroOrbitBound, 'true', 'saved-story Campaign cover must bind its complete cruise hero');
 assert.equal(byClass(storyHero, 'directive-responsive-hero-toggle').length, 0);
 assert.equal(storyHero.getAttribute('aria-expanded'), null);
 assert.equal(byClass(storyHero, 'directive-responsive-hero-secondary').length, 0);
@@ -302,6 +325,7 @@ const ashesHero = byClass(body, 'campaign-library-hero')[0];
 assert.ok(ashesHero);
 assert.equal(ashesHero.classList.contains('campaign-browser-hero'), true);
 assert.equal(ashesHero.classList.contains('directive-responsive-hero'), false);
+assert.equal(ashesHero.dataset.heroOrbitBound, 'true', 'Campaign Library must bind the same complete cruise hero');
 assert.equal(byClass(ashesHero, 'directive-responsive-hero-toggle').length, 0);
 assert.equal(ashesHero.getAttribute('aria-expanded'), null);
 assert.equal(textOf(byClass(ashesHero, 'campaign-hero-copy')[0]).trim(), 'Ashes of Peace');
@@ -322,6 +346,7 @@ const futureDetail = byClass(body, 'campaign-library-hero')[0];
 assert.ok(futureDetail);
 assert.equal(futureDetail.dataset.campaignAvailability, 'coming-later');
 assert.equal(futureDetail.classList.contains('is-coming-later'), true);
+assert.equal(futureDetail.dataset.heroOrbitBound, undefined, 'static coming-later heroes must not bind orbit input');
 assert.match(textOf(futureDetail), /Coming later/);
 assert.match(textOf(futureDetail), /Drowned Constellation/);
 assert.doesNotMatch(textOf(futureDetail), /Current approved campaign description\./);

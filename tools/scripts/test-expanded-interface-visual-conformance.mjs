@@ -701,6 +701,13 @@ try {
       const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
       const sceneStyle = getComputedStyle(scene);
       const foregroundStyle = getComputedStyle(foreground);
+      const orbitVariableNames = [
+        '--directive-hero-orbit-background-x', '--directive-hero-orbit-background-y',
+        '--directive-hero-orbit-far-x', '--directive-hero-orbit-far-y',
+        '--directive-hero-orbit-near-x', '--directive-hero-orbit-near-y',
+        '--directive-hero-orbit-ship-x', '--directive-hero-orbit-ship-y',
+        '--directive-hero-orbit-ship-roll'
+      ];
       const transformOffset = (node) => {
         const transform = getComputedStyle(node).transform;
         const matrix = transform === 'none' ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(transform);
@@ -732,6 +739,7 @@ try {
         heroToggleCount: hero.querySelectorAll('.directive-responsive-hero-toggle').length,
         heroTransitionDuration: getComputedStyle(hero).transitionDuration,
         heroExpanded: hero.classList.contains('is-expanded'),
+        heroOrbitBound: hero.dataset.heroOrbitBound || '',
         layerOrder: layers.map((layer) => layer.dataset.heroSceneLayer),
         layerTags: layers.map((layer) => layer.tagName),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
@@ -744,7 +752,16 @@ try {
         backgroundSizes: layers.map((layer) => getComputedStyle(layer).backgroundSize),
         opacities: layers.map((layer) => getComputedStyle(layer).opacity),
         transforms: layers.map((layer) => getComputedStyle(layer).transform),
+        translations: layers.map((layer) => getComputedStyle(layer).translate),
+        rotations: layers.map((layer) => getComputedStyle(layer).rotate),
+        transitionProperties: layers.map((layer) => getComputedStyle(layer).transitionProperty),
+        transitionDurations: layers.map((layer) => getComputedStyle(layer).transitionDuration),
+        transitionTimingFunctions: layers.map((layer) => getComputedStyle(layer).transitionTimingFunction),
         filters: layers.map((layer) => getComputedStyle(layer).filter),
+        orbitVariables: Object.fromEntries(orbitVariableNames.map((name) => [
+          name,
+          sceneStyle.getPropertyValue(name).trim()
+        ])),
         cruiseOffsets: Object.fromEntries(
           layers
             .filter((layer) => layer.dataset.heroSceneLayer === 'stars-far' || layer.dataset.heroSceneLayer === 'stars-near')
@@ -793,6 +810,7 @@ try {
   assert.equal(desktopCampaign.heroToggleCount, 0);
   assert.equal(desktopCampaign.heroTransitionDuration, '0s');
   assert.equal(desktopCampaign.heroExpanded, false);
+  assert.equal(desktopCampaign.heroOrbitBound, 'true');
   assert.deepEqual(desktopCampaign.layerOrder, ['background', 'stars', 'stars-far', 'stars-near', 'foreground', 'sunlight']);
   assert.deepEqual(desktopCampaign.layerTags, ['IMG', 'IMG', 'SPAN', 'SPAN', 'IMG', 'IMG']);
   assert.deepEqual(desktopCampaign.objectFits, ['cover', 'cover', 'fill', 'fill', 'contain', 'cover'], 'dashboard must keep authored images aligned, repeating fields bounded, and the foreground ship contained');
@@ -802,6 +820,29 @@ try {
   ], 'dashboard scene must use static authored stars plus seamless parallax and aligned sunlight');
   assert.deepEqual(desktopCampaign.animationDurations, ['0s', '0s', '240s', '90s', '30s', '19s']);
   assert.deepEqual(desktopCampaign.timingFunctions, ['ease', 'ease', 'linear', 'linear', 'linear', 'ease-in-out']);
+  assert.deepEqual(desktopCampaign.translations, ['0px', '0px', '0px', '0px', '-50% -50%', '0px']);
+  assert.deepEqual(desktopCampaign.rotations, ['none', 'none', 'none', 'none', '0deg', 'none']);
+  assert.deepEqual(desktopCampaign.transitionProperties, ['translate', 'translate', 'translate', 'translate', 'translate, rotate', 'translate']);
+  assert.deepEqual(desktopCampaign.transitionDurations, ['0.42s', '0.42s', '0.42s', '0.42s', '0.42s', '0.42s']);
+  assert.deepEqual(desktopCampaign.transitionTimingFunctions, [
+    'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    'cubic-bezier(0.2, 0.8, 0.2, 1)'
+  ]);
+  assert.deepEqual(desktopCampaign.orbitVariables, {
+    '--directive-hero-orbit-background-x': '0px',
+    '--directive-hero-orbit-background-y': '0px',
+    '--directive-hero-orbit-far-x': '0px',
+    '--directive-hero-orbit-far-y': '0px',
+    '--directive-hero-orbit-near-x': '0px',
+    '--directive-hero-orbit-near-y': '0px',
+    '--directive-hero-orbit-ship-x': '0px',
+    '--directive-hero-orbit-ship-y': '0px',
+    '--directive-hero-orbit-ship-roll': '0deg'
+  });
   assert.deepEqual(desktopCampaign.willChange, ['auto', 'auto', 'transform', 'transform', 'transform', 'opacity, filter']);
   assert.deepEqual(desktopCampaign.backgroundRepeats.slice(2, 4), ['repeat', 'repeat']);
   assert.deepEqual(desktopCampaign.backgroundSizes.slice(2, 4), ['1344px 840px', '960px 600px']);

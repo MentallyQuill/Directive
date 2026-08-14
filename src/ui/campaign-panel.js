@@ -6,6 +6,7 @@ import { buildCertifiedCampaignView } from './view-models/certified-campaign-vie
 import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.js';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 import { createPackageHeroVisual } from './package-hero-scene.js';
+import { bindReactiveHeroOrbit } from './reactive-hero-orbit.js';
 
 let selectedRecordKey = null;
 let campaignPanelMode = null;
@@ -86,6 +87,7 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
   } else {
     hero.classList.add('campaign-browser-hero');
   }
+  bindReactiveHeroOrbit(hero);
   detail.appendChild(hero);
 
   const commands = createElement('div', `campaign-detail-actions${dashboard ? ' campaign-dashboard-actions' : ''}`);
@@ -194,6 +196,7 @@ function appendPackageDetail(detail, pack, actions, { compactIdentity = false } 
     copy.appendChild(title);
   }
   if (copy.children.length) hero.appendChild(copy);
+  bindReactiveHeroOrbit(hero);
   detail.appendChild(hero);
 
   const body = createElement('div', 'campaign-library-detail-body');

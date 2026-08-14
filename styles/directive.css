@@ -4090,6 +4090,15 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --directive-hero-ship-rest-scale: .8;
   --directive-hero-ship-rotate-start: -.15deg;
   --directive-hero-ship-rotate-end: .15deg;
+  --directive-hero-orbit-background-x: 0px;
+  --directive-hero-orbit-background-y: 0px;
+  --directive-hero-orbit-far-x: 0px;
+  --directive-hero-orbit-far-y: 0px;
+  --directive-hero-orbit-near-x: 0px;
+  --directive-hero-orbit-near-y: 0px;
+  --directive-hero-orbit-ship-x: 0px;
+  --directive-hero-orbit-ship-y: 0px;
+  --directive-hero-orbit-ship-roll: 0deg;
   isolation: isolate;
   background: #05070a;
 }
@@ -4108,8 +4117,20 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   object-position: center 50%;
   pointer-events: none;
 }
+.directive-expanded-shell .directive-hero-scene-has-cruise .directive-hero-scene-layer {
+  transition: translate 420ms cubic-bezier(.2, .8, .2, 1);
+}
+.directive-expanded-shell .campaign-hero.is-hero-orbit-engaged .directive-hero-scene-has-cruise .directive-hero-scene-layer {
+  transition-duration: 90ms;
+  transition-timing-function: ease-out;
+}
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
   z-index: 0;
+}
+.directive-expanded-shell .directive-hero-scene-has-cruise .directive-hero-scene-layer[data-hero-scene-layer="background"],
+.directive-expanded-shell .directive-hero-scene-has-cruise .directive-hero-scene-layer[data-hero-scene-layer="stars"],
+.directive-expanded-shell .directive-hero-scene-has-cruise .directive-hero-scene-layer[data-hero-scene-layer="sunlight"] {
+  translate: var(--directive-hero-orbit-background-x) var(--directive-hero-orbit-background-y);
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars"] {
   z-index: 1;
@@ -4149,6 +4170,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   inset: -840px -1344px;
   opacity: .18;
   background-size: 1344px 840px;
+  translate: var(--directive-hero-orbit-far-x) var(--directive-hero-orbit-far-y);
   animation: directive-hero-stars-far-cruise 240s linear -71s infinite;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="stars-near"] {
@@ -4156,6 +4178,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   inset: -600px -960px;
   opacity: .24;
   background-size: 960px 600px;
+  translate: var(--directive-hero-orbit-near-x) var(--directive-hero-orbit-near-y);
   animation: directive-hero-stars-near-cruise 90s linear -23s infinite;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] {
@@ -4166,7 +4189,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   width: 100%;
   height: auto;
   object-fit: contain;
-  translate: -50% -50%;
+  translate: calc(-50% + var(--directive-hero-orbit-ship-x)) calc(-50% + var(--directive-hero-orbit-ship-y));
+  rotate: var(--directive-hero-orbit-ship-roll);
+  transition-property: translate, rotate;
   transform-origin: 55% 48%;
   animation: directive-hero-ship-drift 30s linear -7.5s infinite alternate;
   will-change: transform;
@@ -4623,9 +4648,20 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 @media (prefers-reduced-motion: reduce) {
   .directive-expanded-shell .directive-responsive-hero,
   .directive-expanded-shell .directive-responsive-hero-secondary { transition: none !important; }
-  .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; }
+  .directive-expanded-shell .directive-hero-scene {
+    --directive-hero-orbit-background-x: 0px !important;
+    --directive-hero-orbit-background-y: 0px !important;
+    --directive-hero-orbit-far-x: 0px !important;
+    --directive-hero-orbit-far-y: 0px !important;
+    --directive-hero-orbit-near-x: 0px !important;
+    --directive-hero-orbit-near-y: 0px !important;
+    --directive-hero-orbit-ship-x: 0px !important;
+    --directive-hero-orbit-ship-y: 0px !important;
+    --directive-hero-orbit-ship-roll: 0deg !important;
+  }
+  .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; transition: none !important; }
   .directive-expanded-shell .directive-hero-cruise-stars { transform: none !important; }
-  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { transform: scale(var(--directive-hero-ship-rest-scale)); }
+  .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { rotate: 0deg; transform: scale(var(--directive-hero-ship-rest-scale)); }
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="sunlight"] { opacity: .12; }
 }
 
