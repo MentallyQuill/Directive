@@ -89,7 +89,7 @@ const runtimeShellSource = fs.readFileSync(new URL('../../src/runtime/runtime-sh
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
 assert.match(runtimeShellSource, /createDirectiveExpandedShell/);
 assert.match(css, /directive-route-heading|directive-route-cap|directive-route-name/);
-assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?inset:\s*16px\s*!important;[\s\S]*?width:\s*auto\s*!important;[\s\S]*?max-width:\s*940px\s*!important;[\s\S]*?height:\s*auto\s*!important;[\s\S]*?min-height:\s*0\s*!important;[\s\S]*?max-height:\s*900px\s*!important;[\s\S]*?margin:\s*auto\s*!important;[\s\S]*?transform:\s*none\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
+assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell\s*\{[\s\S]*?position:\s*absolute\s*!important;[\s\S]*?inset:\s*16px\s*!important;[\s\S]*?width:\s*auto\s*!important;[\s\S]*?max-width:\s*940px\s*!important;[\s\S]*?height:\s*auto\s*!important;[\s\S]*?min-height:\s*0\s*!important;[\s\S]*?max-height:\s*900px\s*!important;[\s\S]*?margin:\s*auto\s*!important;[\s\S]*?transform:\s*none\s*!important;[\s\S]*?overflow:\s*hidden\s*!important;/);
 assert.match(css, /\.directive-runtime-overlay\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0[\s\S]*?height:\s*100dvh/);
 assert.match(css, /\.directive-runtime-backdrop\s*\{[\s\S]*?pointer-events:\s*auto/);
 assert.match(css, /\.directive-runtime-panel\.directive-expanded-shell::before,\s*\.directive-runtime-panel\.directive-expanded-shell::after\s*\{[\s\S]*?content:\s*none\s*!important;[\s\S]*?display:\s*none\s*!important;/);

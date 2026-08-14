@@ -328,6 +328,53 @@ try {
   })));
   await reducedRelayPage.close();
 
+  const androidDesktopPage = await browser.newPage({ viewport: { width: 980, height: 720 } });
+  await androidDesktopPage.goto(`${baseUrl}/production?route=campaign`);
+  await androidDesktopPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await androidDesktopPage.addStyleTag({
+    content: `
+      html {
+        height: auto !important;
+        min-height: 0 !important;
+        transform: translateZ(0);
+      }
+      body {
+        position: fixed;
+        height: 100dvh !important;
+        min-height: 0 !important;
+        overflow: hidden;
+      }
+    `
+  });
+  const androidDesktopGeometry = await androidDesktopPage.evaluate(() => {
+    const root = document.documentElement;
+    const shell = document.querySelector('.directive-expanded-shell');
+    const shellBox = shell.getBoundingClientRect();
+    return {
+      bodyPosition: getComputedStyle(document.body).position,
+      rootHeight: root.getBoundingClientRect().height,
+      mobileHost: matchMedia('(max-width: 1000px)').matches,
+      directiveMobile: matchMedia('(max-width: 640px)').matches,
+      shell: {
+        left: shellBox.left,
+        top: shellBox.top,
+        right: shellBox.right,
+        bottom: shellBox.bottom,
+        width: shellBox.width,
+        height: shellBox.height
+      }
+    };
+  });
+  assert.equal(androidDesktopGeometry.bodyPosition, 'fixed');
+  assert.equal(androidDesktopGeometry.rootHeight, 0);
+  assert.equal(androidDesktopGeometry.mobileHost, true);
+  assert.equal(androidDesktopGeometry.directiveMobile, false);
+  assert.ok(androidDesktopGeometry.shell.width >= 939 && androidDesktopGeometry.shell.width <= 941);
+  assert.ok(androidDesktopGeometry.shell.height >= 687 && androidDesktopGeometry.shell.height <= 689);
+  assert.ok(androidDesktopGeometry.shell.left >= 0 && androidDesktopGeometry.shell.top >= 0);
+  assert.ok(androidDesktopGeometry.shell.right <= 980.5 && androidDesktopGeometry.shell.bottom <= 720.5);
+  await androidDesktopPage.close();
+
   for (const viewport of viewports) {
     for (const route of routes) {
       const page = await browser.newPage({ viewport });

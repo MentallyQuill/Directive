@@ -4,7 +4,7 @@
 
 **Goal:** Keep Directive's desktop shell fully visible when Chrome Android requests a desktop site at a 980px viewport inside SillyTavern's mobile host layout.
 
-**Architecture:** Preserve the existing responsive branches and remove the desktop shell's dependence on the host root's auto height. Certify the behavior with a real Chromium geometry test that recreates SillyTavern's transformed root and fixed mobile body.
+**Architecture:** Preserve the existing responsive branches and position the desktop shell against Directive's viewport-sized panel host instead of the transformed SillyTavern root. Certify the behavior with a real Chromium geometry test that recreates SillyTavern's transformed root and fixed mobile body.
 
 **Tech Stack:** CSS, Node.js, Playwright Chromium, Directive's existing visual conformance harness.
 
@@ -35,19 +35,19 @@ Run: `node tools/scripts/test-expanded-interface-visual-conformance.mjs`
 
 Expected: FAIL because the shell height is `0` at 980px under the reproduced host conditions.
 
-### Task 2: Make desktop height independent of the host root
+### Task 2: Anchor the desktop shell to Directive's panel host
 
 **Files:**
 - Modify: `styles/directive.css`
 - Test: `tools/scripts/test-expanded-interface-visual-conformance.mjs`
 
 **Interfaces:**
-- Consumes: the shell's existing `inset: 16px` and `max-height: 900px` geometry.
-- Produces: an explicit desktop shell height of `calc(100dvh - 32px)` before the 900px cap is applied.
+- Consumes: `.directive-runtime-panel-host`, which is positioned and fills at least 100dvh, plus the shell's existing `inset: 16px` and `max-height: 900px` geometry.
+- Produces: desktop shell positioning relative to the Directive-owned panel host while preserving the fixed full-screen mobile override.
 
 - [ ] **Step 1: Implement the minimal CSS change**
 
-Replace the desktop shell's `height: auto !important` with `height: calc(100dvh - 32px) !important`; leave the mobile override and all other geometry unchanged.
+Replace the desktop shell's `position: fixed !important` with `position: absolute !important`; leave the mobile override and all other geometry unchanged.
 
 - [ ] **Step 2: Run the focused visual test to verify green**
 
@@ -59,7 +59,7 @@ Expected: PASS, including the new 980px host regression.
 
 Run: `node tools/scripts/test-expanded-interface-shell.mjs`
 
-Expected: PASS after updating any exact desktop geometry contract to require the viewport-derived height.
+Expected: PASS after updating the exact desktop geometry contract to require absolute positioning inside the panel host.
 
 ### Task 3: Verify and publish
 
@@ -84,4 +84,3 @@ Expected: `[v1-gate] passed 131 focused checks.` or a larger current count, with
 - [ ] **Step 3: Commit and integrate**
 
 Commit the CSS, regression, design, and plan; merge the branch into `main`, rerun the complete gate on the merged tree, push `main`, and verify GitHub reports the same SHA.
-

@@ -2981,7 +2981,7 @@ textarea.directive-field-control {
   --blue: var(--directive-expanded-blue);
   --violet: var(--directive-expanded-violet);
   --directive-active-route-accent: var(--directive-expanded-amber);
-  position: fixed !important;
+  position: absolute !important;
   inset: 16px !important;
   z-index: 100050 !important;
   display: grid !important;
