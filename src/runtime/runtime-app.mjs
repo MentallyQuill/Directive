@@ -1486,9 +1486,21 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       return enqueueSettlement(async () => {
         const pending = pendingAcceptedPairSettlement;
-        if (!pending) return { ok: false, reasonCode: 'no-pending-settlement', settlementBlocked: false };
+        if (!pending && !acceptedPairReplayNeeded) {
+          return { ok: false, reasonCode: 'no-pending-settlement', settlementBlocked: false };
+        }
         if (!state || !currentChatIsBound()) {
           return { ok: false, reasonCode: 'inactive-or-unbound', settlementBlocked: true };
+        }
+        if (!pending) {
+          const acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          const settlementBlocked = acceptedPairReplay.blocked === true;
+          return {
+            ok: !settlementBlocked,
+            reasonCode: settlementBlocked ? 'accepted-pair-replay-pending' : null,
+            settlementBlocked,
+            acceptedPairReplay
+          };
         }
         const current = await host.chat.getLatestPlayerMessage?.();
         const recent = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
