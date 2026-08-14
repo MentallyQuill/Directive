@@ -113,10 +113,18 @@ try {
       animationCount,
       duration: animations[0]?.effect.getTiming().duration,
       illuminatedOpacity: Number.parseFloat(getComputedStyle(segments[0], '::after').opacity),
+      segment: {
+        isolation: getComputedStyle(segments[0]).isolation,
+        labelZIndices: [
+          getComputedStyle(segments[0].querySelector('b')).zIndex,
+          getComputedStyle(segments[0].querySelector('small')).zIndex
+        ]
+      },
       overlay: {
         pointerEvents: firstStyle.pointerEvents,
         filter: firstStyle.filter,
-        boxShadow: firstStyle.boxShadow,
+        boxShadowLayers: firstStyle.boxShadow.replace(/rgba\([^)]*\)/g, 'rgba()').split(/,\s*/),
+        zIndex: firstStyle.zIndex,
         inset: [firstStyle.top, firstStyle.right, firstStyle.bottom, firstStyle.left],
         overflow: getComputedStyle(segments[0]).overflow
       },
@@ -130,9 +138,12 @@ try {
   assert.equal(relayBehavior.animationCount, 5);
   assert.equal(relayBehavior.duration, 32000);
   assert.ok(relayBehavior.illuminatedOpacity >= .75 && relayBehavior.illuminatedOpacity <= .8);
+  assert.equal(relayBehavior.segment.isolation, 'isolate');
+  assert.deepEqual(relayBehavior.segment.labelZIndices, ['1', '1']);
   assert.equal(relayBehavior.overlay.pointerEvents, 'none');
   assert.equal(relayBehavior.overlay.filter, 'none');
-  assert.match(relayBehavior.overlay.boxShadow, /inset/);
+  assert.equal(relayBehavior.overlay.zIndex, '0');
+  assert.ok(relayBehavior.overlay.boxShadowLayers.every((layer) => layer.includes('inset')));
   assert.deepEqual(relayBehavior.overlay.inset, ['0px', '0px', '0px', '0px']);
   assert.equal(relayBehavior.overlay.overflow, 'hidden');
   assert.equal(relayBehavior.maxLit, 2);
