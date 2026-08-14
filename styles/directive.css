@@ -2933,6 +2933,7 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .directive-lcars-rail-segment {
   --directive-rail-color: var(--directive-expanded-amber);
+  --directive-relay-light-opacity: .78;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2943,6 +2944,29 @@ textarea.directive-field-control {
   overflow: hidden;
   color: var(--directive-expanded-bg);
   background: var(--directive-rail-color);
+  position: relative;
+  isolation: isolate;
+}
+
+.directive-expanded-shell .directive-lcars-rail-segment::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--directive-rail-color) 94%, #fff4dc 6%) 0%,
+    color-mix(in srgb, var(--directive-rail-color) 86%, #fff4dc 14%) 18%,
+    color-mix(in srgb, var(--directive-rail-color) 86%, #fff4dc 14%) 82%,
+    color-mix(in srgb, var(--directive-rail-color) 94%, #fff4dc 6%) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 232, .12),
+    inset 0 0 8px rgba(255, 248, 232, .08);
+  opacity: 0;
+  pointer-events: none;
+  animation: directive-lcars-relay-press 32s linear infinite both;
 }
 
 .directive-expanded-shell .directive-lcars-rail-segment:nth-child(1) { border-radius: 0 16px 0 0; }
@@ -2958,11 +2982,30 @@ textarea.directive-field-control {
   border-radius: 0 0 16px 16px;
 }
 
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(1)::after { animation-delay: 3s; }
+
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(2)::after { animation-delay: 9s; }
+
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(3)::after { animation-delay: 16s; }
+
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(4)::after { animation-delay: 24s; }
+
+.directive-expanded-shell .directive-lcars-rail-segment:nth-child(5)::after { animation-delay: 16.35s; }
+
+@keyframes directive-lcars-relay-press {
+  0%, 100% { opacity: 0; }
+  0.4% { opacity: var(--directive-relay-light-opacity); }
+  2.8% { opacity: var(--directive-relay-light-opacity); }
+  4% { opacity: 0; }
+}
+
 .directive-expanded-shell .directive-lcars-rail-segment b,
 .directive-expanded-shell .directive-lcars-rail-segment small {
   font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
   font-weight: 800;
   line-height: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .directive-expanded-shell .directive-lcars-rail-segment b { font-size: 8px; }
@@ -3184,6 +3227,10 @@ textarea.directive-field-control {
 
 .directive-expanded-shell .directive-lcars-rail-segment small { display: none; }
 
+.directive-expanded-shell .directive-lcars-rail-segment {
+    --directive-relay-light-opacity: .62;
+  }
+
 .directive-expanded-shell .directive-route-heading { grid-template-columns: 46px minmax(0, 1fr); height: 22px; margin-top: 5px; }
 
 .directive-expanded-shell .directive-route-body {
@@ -3217,6 +3264,11 @@ textarea.directive-field-control {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+.directive-expanded-shell .directive-lcars-rail-segment::after {
+    animation: none !important;
+    opacity: 0 !important;
   }
 
 .directive-creator-assist-dialog-spinner {
