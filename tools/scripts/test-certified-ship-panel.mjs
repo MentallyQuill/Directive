@@ -63,6 +63,7 @@ const visibleTasks = [
   task('issue.handoff', 'The Handoff Gap', 1, 'central', 'coordination'),
   task('issue.drill', 'Damage Control Drill', 2, 'engineering', 'training'),
 ];
+visibleTasks[2].currentPhase = null;
 const projection = {
   kind: 'directive.playerProjection.v1',
   player: { kind: 'directive.playerIdentityProjection.v1' },
@@ -139,12 +140,26 @@ assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true'
 assert.match(text, /Cohesion 65/);
 assert.match(text, /Strained/);
 assert.match(text, /The Missed Watch/);
-assert.match(text, /Why it matters to you/);
-assert.match(text, /How to pursue it/);
+assert.match(text, /Level 1 Command Assignment/);
+assert.match(text, /Situation/);
+assert.match(text, /Objective/);
+assert.match(text, /Command Impact/);
+assert.match(text, /Course of Action/);
+assert.match(text, /Operational Risk/);
+assert.match(text, /Resolution Criteria/);
+assert.match(text, /Progress · 0 of 1 objectives complete/);
+assert.match(text, /Ready for resolution/);
+assert.match(text, /This assignment is ready for resolution/);
 assert.match(text, /always ask the ship's computer for help/i);
-assert.match(text, /4 more issues queued/i);
+assert.match(text, /4 additional assignments queued/i);
+assert.match(text, /Resolved assignments \(1\)/);
 assert.match(text, /Recovered the lost pet/);
-assert.doesNotMatch(text, /Why this state|Gameplay effect|Operational status|Material limitations|Active constraints/i);
+assert.equal(byClass('ship-task-nav')[0].getAttribute('aria-label'), 'Available command assignments');
+assert.equal(byClass('ship-task-mobile-callouts')[0].getAttribute('aria-label'), 'Command assignment locations');
+assert.doesNotMatch(
+  text,
+  /command task|What needs your attention|Your objective|Why it matters to you|How to pursue it|While it remains unresolved|What completion looks like|steps complete|ready for closure|Completed work|more issues queued|Why this state|Gameplay effect|Operational status|Material limitations|Active constraints/i,
+);
 assert.equal(byClass('ship-hero').length, 0);
 assert.equal(byClass('ship-system-card').length, 0);
 

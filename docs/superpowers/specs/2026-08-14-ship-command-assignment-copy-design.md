@@ -22,7 +22,7 @@ Supporting interface copy follows the same register:
 
 - `Available command tasks` becomes `Available command assignments`.
 - `Ship task locations` becomes `Command assignment locations`.
-- `Ready for closure` becomes `Ready for resolution`.
+- `Ready for closure` becomes `Ready for resolution`, and the matching detail fallback reads `This assignment is ready for resolution.`
 - `{completed} of {total} steps complete` becomes `Progress · {completed} of {total} objectives complete`.
 - `Completed work ({count})` becomes `Resolved assignments ({count})`.
 - The empty state becomes `No command assignments require attention.`

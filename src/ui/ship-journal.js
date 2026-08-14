@@ -64,7 +64,7 @@ function createDetail(task, commandBearing, actions, { includeHeader = true } = 
     const header = createElement('header', 'ship-task-detail-header');
     const identity = createElement('div');
     const eyebrow = createElement('span', 'ship-task-detail-eyebrow');
-    eyebrow.textContent = `Level ${task.level} command task`;
+    eyebrow.textContent = `Level ${task.level} Command Assignment`;
     const titleRow = createElement('div', 'ship-task-title-row');
     const title = createElement('h3');
     title.textContent = task.title;
@@ -82,15 +82,15 @@ function createDetail(task, commandBearing, actions, { includeHeader = true } = 
     crew.textContent = boundIdentity;
     content.appendChild(crew);
   }
-  appendCopy(content, 'ship-task-detail-section', 'What needs your attention', task.playerText.situation);
-  appendCopy(content, 'ship-task-detail-section', 'Your objective', task.playerText.objective);
-  appendCopy(content, 'ship-task-detail-section ship-task-why', 'Why it matters to you', task.playerText.whyItMatters);
+  appendCopy(content, 'ship-task-detail-section', 'Situation', task.playerText.situation);
+  appendCopy(content, 'ship-task-detail-section', 'Objective', task.playerText.objective);
+  appendCopy(content, 'ship-task-detail-section ship-task-why', 'Command Impact', task.playerText.whyItMatters);
 
   const pursue = createElement('section', 'ship-task-detail-section ship-task-pursue');
   const pursueHeading = createElement('h4');
-  pursueHeading.textContent = 'How to pursue it';
+  pursueHeading.textContent = 'Course of Action';
   const next = createElement('p', 'ship-task-next-step');
-  next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'This task is ready for closure.';
+  next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'This assignment is ready for resolution.';
   const approaches = createElement('ul', 'ship-task-approaches');
   (task.approaches || []).forEach((approach) => {
     const item = createElement('li');
@@ -102,12 +102,12 @@ function createDetail(task, commandBearing, actions, { includeHeader = true } = 
   pursue.append(pursueHeading, next, approaches, computer);
   content.appendChild(pursue);
 
-  appendCopy(content, 'ship-task-detail-section ship-task-impact', 'While it remains unresolved', task.playerText.operationalEffect);
-  if (task.completion?.guidance) appendCopy(content, 'ship-task-detail-section ship-task-completion', 'What completion looks like', task.completion.guidance);
+  appendCopy(content, 'ship-task-detail-section ship-task-impact', 'Operational Risk', task.playerText.operationalEffect);
+  if (task.completion?.guidance) appendCopy(content, 'ship-task-detail-section ship-task-completion', 'Resolution Criteria', task.completion.guidance);
 
   const progress = createElement('p', 'ship-task-progress');
   const completed = (task.phases || []).filter(({ status }) => status === 'completed').length;
-  progress.textContent = `${completed} of ${(task.phases || []).length} steps complete`;
+  progress.textContent = `Progress · ${completed} of ${(task.phases || []).length} objectives complete`;
   content.appendChild(progress);
 
   const command = createElement('div', 'ship-command-relief');
@@ -332,7 +332,7 @@ function createRing(cohesion) {
 function createHistory(records) {
   const history = createElement('details', 'ship-completed-history');
   const summary = createElement('summary');
-  summary.textContent = `Completed work (${records.length})`;
+  summary.textContent = `Resolved assignments (${records.length})`;
   history.appendChild(summary);
   if (records.length) {
     const list = createElement('ul');
@@ -362,7 +362,7 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   header.appendChild(identity);
   if (!cohesion) {
     const empty = createElement('p', 'ship-cohesion-empty');
-    empty.textContent = 'No actionable command work is available right now.';
+    empty.textContent = 'No command assignments require attention.';
     workspace.append(header, empty);
     return workspace;
   }
@@ -386,9 +386,9 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
   const tasks = cohesion.visibleTasks || [];
   const leaders = createLeaders(tasks);
   const taskNav = createElement('nav', 'ship-task-nav');
-  taskNav.setAttribute('aria-label', 'Available command tasks');
+  taskNav.setAttribute('aria-label', 'Available command assignments');
   const mobileCallouts = createElement('div', 'ship-task-mobile-callouts');
-  mobileCallouts.setAttribute('aria-label', 'Ship task locations');
+  mobileCallouts.setAttribute('aria-label', 'Command assignment locations');
   const detail = createElement('section', 'ship-task-detail');
   detail.id = 'ship-task-detail';
   detail.setAttribute('aria-live', 'polite');
@@ -451,7 +451,7 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     titleRow.appendChild(disclosure);
     const info = createElement('span', 'ship-task-button-info');
     const next = createElement('span', 'ship-task-button-next');
-    next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'Ready for closure';
+    next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'Ready for resolution';
     info.append(next, createReward(task));
     button.append(titleRow, info);
 
@@ -514,7 +514,7 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
 
   if (cohesion.backlog.count > 0) {
     const backlog = createElement('p', 'ship-cohesion-backlog');
-    backlog.textContent = `${cohesion.backlog.count} more issues queued · ${cohesion.backlog.cohesion} Cohesion to restore`;
+    backlog.textContent = `${cohesion.backlog.count} additional assignments queued · ${cohesion.backlog.cohesion} Cohesion to restore`;
     workspace.appendChild(backlog);
   }
   workspace.appendChild(createHistory(cohesion.completedHistory || []));

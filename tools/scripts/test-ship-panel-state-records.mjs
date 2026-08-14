@@ -106,7 +106,8 @@ renderShipPanel(body, {
 });
 
 const renderedText = textOf(body);
-assert.match(renderedText, /No actionable command work is available right now/);
+assert.match(renderedText, /No command assignments require attention/);
+assert.doesNotMatch(renderedText, /No actionable command work is available right now/);
 assert.doesNotMatch(renderedText, /Maximum warp|Certified for service|Operational status|Material limitations/);
 assert.doesNotMatch(renderedText, /\[object Object\]/);
 assert.equal(elementsByClass(body, 'ship-cohesion-workspace').length, 1);

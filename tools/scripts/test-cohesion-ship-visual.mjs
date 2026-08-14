@@ -201,7 +201,7 @@ try {
       `${viewport.label} decorative task icons stay out of the accessibility tree`,
     );
     assert.equal(await page.locator('.ship-task-detail').count(), 1);
-    assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 more issues queued/);
+    assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 additional assignments queued/);
 
     const geometry = await page.evaluate(() => {
       const workspace = document.querySelector('.ship-cohesion-workspace');
@@ -508,8 +508,11 @@ try {
     } else {
       assert.match(await page.locator('.ship-task-detail h3').textContent(), /Systems Integration/);
     }
-    assert.match(await activeDetail.textContent(), /Why it matters to you/);
-    assert.match(await activeDetail.textContent(), /always ask the ship's computer for help/i);
+    const activeDetailText = await activeDetail.textContent();
+    assert.match(activeDetailText, /Command Impact/);
+    assert.match(activeDetailText, /Course of Action/);
+    assert.doesNotMatch(activeDetailText, /Why it matters to you|How to pursue it/);
+    assert.match(activeDetailText, /always ask the ship's computer for help/i);
 
     await buttons.nth(2).focus();
     await page.keyboard.press('Enter');

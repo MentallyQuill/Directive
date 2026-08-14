@@ -23,6 +23,7 @@
 **Files:**
 - Modify: `tools/scripts/test-certified-ship-panel.mjs`
 - Modify: `tools/scripts/test-cohesion-ship-visual.mjs`
+- Modify: `tools/scripts/test-ship-panel-state-records.mjs`
 - Modify: `src/ui/ship-journal.js`
 - Modify: `docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md`
 
@@ -60,7 +61,10 @@ const activeDetailText = await activeDetail.textContent();
 assert.match(activeDetailText, /Command Impact/);
 assert.match(activeDetailText, /Course of Action/);
 assert.doesNotMatch(activeDetailText, /Why it matters to you|How to pursue it/);
+assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 additional assignments queued/);
 ```
+
+Change the empty-state assertion in `test-ship-panel-state-records.mjs` to require `No command assignments require attention.` and reject `No actionable command work is available right now.`
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -94,6 +98,9 @@ summary.textContent = `Resolved assignments (${records.length})`;
 empty.textContent = 'No command assignments require attention.';
 taskNav.setAttribute('aria-label', 'Available command assignments');
 mobileCallouts.setAttribute('aria-label', 'Command assignment locations');
+// `createDetail()` fallback:
+next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'This assignment is ready for resolution.';
+// Assignment-card fallback:
 next.textContent = task.currentPhase ? `Next: ${task.currentPhase.label}` : 'Ready for resolution';
 backlog.textContent = `${cohesion.backlog.count} additional assignments queued · ${cohesion.backlog.cohesion} Cohesion to restore`;
 ```
@@ -150,8 +157,8 @@ Run:
 ```powershell
 git diff --check
 git status --short
-git diff -- src/ui/ship-journal.js tools/scripts/test-certified-ship-panel.mjs tools/scripts/test-cohesion-ship-visual.mjs docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md docs/superpowers/plans/2026-08-14-ship-command-assignment-copy.md
-git add -- src/ui/ship-journal.js tools/scripts/test-certified-ship-panel.mjs tools/scripts/test-cohesion-ship-visual.mjs docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md docs/superpowers/plans/2026-08-14-ship-command-assignment-copy.md
+git diff -- src/ui/ship-journal.js tools/scripts/test-certified-ship-panel.mjs tools/scripts/test-cohesion-ship-visual.mjs tools/scripts/test-ship-panel-state-records.mjs docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md docs/superpowers/plans/2026-08-14-ship-command-assignment-copy.md
+git add -- src/ui/ship-journal.js tools/scripts/test-certified-ship-panel.mjs tools/scripts/test-cohesion-ship-visual.mjs tools/scripts/test-ship-panel-state-records.mjs docs/design/DIRECTIVE_EXPANDED_INTERFACE_CONTRACT.md docs/superpowers/plans/2026-08-14-ship-command-assignment-copy.md
 git commit -m "refactor(ship): professionalize assignment copy"
 git push origin main
 ```

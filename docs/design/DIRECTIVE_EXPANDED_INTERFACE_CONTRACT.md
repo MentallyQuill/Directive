@@ -592,18 +592,16 @@ This is required behavior, not optional polish.
 
 ## Ship Route
 
-Ship is the player's operational status board. It answers four questions: what ship am I commanding, where is it, what can it do, and what currently constrains my decisions.
+Ship is the player's command-assignment workspace. It identifies the active ship, presents authoritative Cohesion, and turns visible ship or crew problems into playable command work.
 
 ### Information Contract
 
 Show only:
 
 - package-owned ship image, name, class, and registry;
-- player-safe current condition and explicit alert status when one exists;
-- committed position, course, and travel state;
-- active damage, restrictions, and known issues in one prioritized Operational Issues list;
-- issue title, practical effect, type, status, and responsible department or officer;
-- a short package-authored list of capabilities that can materially change player strategy.
+- the authoritative Cohesion total, band, segmented state, visible assignments, backlog, and resolved-assignment history;
+- each assignment's source-owned title, level, Cohesion reward, bound crew identity when present, situation, objective, command impact, approaches, current phase, operational risk, resolution criteria when present, and objective progress;
+- Command Bearing relief controls derived from authoritative command-bearing state.
 
 Do not show:
 
@@ -612,100 +610,30 @@ Do not show:
 - exhaustive technical telemetry;
 - crew details already owned by People;
 - mission objectives already owned by Mission;
-- empty damage, restriction, or issue panels;
-- completed repair history or long service-history prose;
-- ETA unless an authoritative campaign clock or navigation record supplies it.
+- inferred assignment state, approaches, consequences, or completion evidence;
+- operational-board fields that are absent from the certified Cohesion projection.
 
 Unknown optional values are omitted rather than rendered as `Unknown`, `None`, or an empty card.
 
-### Desktop Composition
+### Assignment Presentation Hierarchy
 
-1. A wide package-owned ship image establishes identity. Name, class, registry, and concise condition sit over the lower image gradient.
-2. A compact Current Operation strip shows committed position, course, and flight status.
-3. Operational Issues receives the wider content column and orders records by player consequence: critical damage, active restrictions, significant known issues, then lower-priority concerns.
-4. Operational Capabilities receives the narrower column and contains only a few campaign-relevant capabilities.
-5. The Ship journal scrolls internally when required; the Directive shell and route bar remain viewport-bound.
+Each assignment detail reads in this exact order:
 
-### Phone Composition
+1. `Level {n} Command Assignment`, assignment title, and Cohesion reward;
+2. bound crew identity when present;
+3. `Situation`;
+4. `Objective`;
+5. `Command Impact`;
+6. `Course of Action`, including the current phase, source-owned approaches, and computer assistance;
+7. `Operational Risk`;
+8. `Resolution Criteria` when supplied;
+9. objective progress and Command Bearing relief.
 
-- Use a shorter ship hero with the same identity fields.
-- Arrange Current Operation as two compact columns, allowing the third value to span both columns.
-- Present Operational Issues as the initially expanded disclosure.
-- Present Operational Capabilities as a collapsed disclosure.
-- Keep the route bar available and avoid reproducing the desktop two-column board.
+Desktop uses the ship orbit, assignment callouts, and adjacent detail panel. Phone uses the existing accessible callouts and inline disclosures. Selection, hover and focus previews, disclosure state, scrolling, and Command Bearing controls retain their certified behavior.
 
-### Ship Collection Interaction
+The supporting interface uses `Available command assignments`, `Command assignment locations`, `Ready for resolution`, `Resolved assignments`, and `additional assignments queued`. The no-work state reads `No command assignments require attention.`
 
-Operational Issues and Operational Capabilities use the same shared reorderable-record primitive used by other sortable collections. The visual treatment and interaction contract must not fork by list type.
-
-- Each record has a dedicated handle using the approved category-handle icon.
-- Mouse dragging begins from the handle. Touch and pen require a short `175ms` long press before dragging so ordinary vertical scrolling remains reliable.
-- `ArrowUp` and `ArrowDown` on a focused handle provide equivalent keyboard ordering.
-- A body-level drag preview and exact-height placeholder preserve layout while dragging.
-- The nearest list, not the page, auto-scrolls when the pointer approaches its top or bottom edge.
-- Desktop lists scroll inside their respective board columns. Phone lists scroll inside the open disclosure with a maximum height of `min(42dvh, 360px)`.
-- Reordering is presentation-only. It cannot change issue severity, capability availability, mission priority, model context, or simulation behavior.
-- Player ordering is scoped to campaign and ship. Newly tracked records append in authoritative default order; IDs no longer present in authoritative state are removed from the preference projection.
-
-Operational Issues may expand when the record has useful structured detail. Opening one issue closes its peer. Expansion is also presentation-only and may persist as the most recently viewed issue.
-
-The current expandable detail contract is limited to fields Directive can already source and refresh reliably: operational effect, status, severity, owner, linked assignment title, and last-updated time. Omit absent values. Do not infer workarounds, milestones, quest links, or system relationships from prose merely to fill the panel.
-
-Operational Capabilities remain non-expandable until Directive owns a structured capability-state contract with player-relevant dynamic fields. A static summary plus sortable placement is sufficient today.
-
-```js
-const scopeKey = `${campaignId}:${shipId}`;
-
-uiPreferences.shipCollections[scopeKey] = {
-  issueOrder: ['ship.issue-a', 'ship.issue-b'],
-  capabilityOrder: ['ship.capability-a', 'ship.capability-b'],
-  expandedIssueId: 'ship.issue-a',
-};
-
-function projectOrderedRecords(authoritativeRecords, preferredIds = []) {
-  const byId = new Map(authoritativeRecords.map(record => [record.id, record]));
-  const preferred = preferredIds.flatMap(id => byId.delete(id) ? [id] : []);
-  return [...preferred, ...byId.keys()].map(id =>
-    authoritativeRecords.find(record => record.id === id)
-  );
-}
-```
-
-Production should implement this through the existing shared collection controller rather than retaining the mockup's page-local drag functions.
-
-### Trackable Projection
-
-```js
-const shipView = {
-  identity: {
-    name: 'U.S.S. Breckenridge',
-    className: 'Intrepid-class',
-    registry: 'NCC-74656',
-    imageRef: 'ship.hero',
-    condition: 'Post-refit shakedown',
-  },
-  operation: {
-    position: 'Personnel transfer waypoint',
-    course: 'Asterion Reach',
-    travelState: 'Impulse / Station-keeping',
-  },
-  issues: [{
-    id: 'ship.command-network-certificate-compatibility',
-    type: 'knownIssue',
-    title: 'Command-network certificate mismatch',
-    effect: 'Secure command handoffs require additional verification.',
-    status: 'active',
-    owner: 'Operations',
-  }],
-  capabilities: [{
-    id: 'ship.long-range-sensor-processing',
-    label: 'Long-range sensor processing',
-    summary: 'Upgraded analysis for extended-range detection and survey work.',
-  }],
-};
-```
-
-Identity and capabilities come from the active campaign package and ship dataset. Operation values come only from committed navigation or scene state. Issues come from player-visible structured damage, restriction, and technical-risk records. Resolved issues leave this surface rather than accumulating as history.
+All assignment prose remains package- or projection-owned. The route does not invent state, duplicate Mission objectives or People dossiers, rename persistence fields, or change Cohesion and Command Bearing mechanics.
 
 ## Settings Route
 
