@@ -113,6 +113,7 @@ const checks = [
   "test-logical-storage-paths.mjs",
   "test-sillytavern-generation-client.mjs",
   "test-sillytavern-preset-manager.mjs",
+  "test-sillytavern-blank-send-continue.mjs",
   "test-sillytavern-event-wiring.mjs",
   "test-turn-activity-indicator-visual.mjs",
   "test-settlement-retry-dialog.mjs",

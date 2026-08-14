@@ -365,6 +365,7 @@ assert.equal(
 );
 await app.openCampaignChat({ saveId: recoverableCampaignView.activeSaveId });
 const missionView = await app.getCurrentView({ tabId: 'mission' });
+assert.equal(app.isCurrentChatBound(), true, 'the runtime must expose the exact active chat binding');
 assert.equal(narrationPresetLifecycle.includes('activate'), true, 'opening a bound campaign chat must activate the Directive narration preset');
 assert.equal(missionView.campaignState.campaign.status, 'active');
 assert.equal(missionView.campaignState.campaignChatBinding.kind, 'directive.campaignChatBinding.v1');
@@ -377,12 +378,14 @@ host.chat.getCurrentBinding = () => ({
   ...exactCurrentBinding.call(host.chat),
   entityId: 'different-character'
 });
+assert.equal(app.isCurrentChatBound(), false, 'a partial host binding match must remain unbound');
 assert.equal(
   (await app.getCurrentView({ tabId: 'mission' })).campaignState,
   null,
   'a matching chat filename under a different character must not receive campaign authority'
 );
 host.chat.getCurrentBinding = exactCurrentBinding;
+assert.equal(app.isCurrentChatBound(), true);
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState?.campaign?.status, 'active');
 
 let releaseExternalCampaignLease;

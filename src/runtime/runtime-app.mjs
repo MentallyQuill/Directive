@@ -1299,6 +1299,7 @@ export function createDirectiveRuntimeApp({
   };
 
   const publicApi = {
+    isCurrentChatBound: () => currentChatIsBound(),
     async initialize() {
       if (initialized) return campaignViewEnvelope('campaign');
       records = await packageLoader();
