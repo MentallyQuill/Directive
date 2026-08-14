@@ -1,6 +1,6 @@
 # Cohesion and Commander Mini-Quests
 
-**Status:** Living design; core Cohesion, task-level, queue, Ship-page, and forty-template roster decisions are locked. Complete generator-ready template contracts are drafted for review. The exact Command Bearing targeting rule and remaining system-wide constants remain to be designed.
+**Status:** Approved for implementation. Core Cohesion, task, scheduling, migration, Command Bearing, package-content, authority, and Ship-page decisions are locked.
 
 **Date:** 2026-08-13
 
@@ -338,15 +338,91 @@ This is intended as a scarce, high-impact recovery option when the player has ac
 
 The existing implemented `narrativeEdge` effect does **not** guarantee success. It creates one credible favorable opening or softens one immediate cost and explicitly cannot guarantee success, erase a consequence, or decide the player's action. The new Cohesion proposal must therefore not be documented as existing behavior.
 
-Before implementation, the design must choose one exact integration:
+The implementation uses a separate single-issue `cohesionRelief` spend and preserves `narrativeEdge` unchanged.
 
-1. **Single-issue resolution:** spend one point on a visible issue; one decisive player-authored command intervention succeeds and resolves up to 20 Cohesion owned by that issue.
-2. **Bounded command initiative:** spend one point on a declared command initiative that may resolve up to 20 Cohesion across a compatible group of visible issues.
-3. **Separate Cohesion relief effect:** preserve `narrativeEdge` unchanged and add a distinct Command Bearing spend available from the Ship page.
+The player selects one visible issue and spends one Command Bearing point. The spend reserves against that exact issue and arms on the next player message. The player's message must declare a decisive command action aimed at resolving the selected issue. The narrator receives the visible issue contract and is instructed to let that command intervention succeed credibly without inventing unsupported facts or solving unrelated work.
 
-The 20-point ceiling is fixed. Targeting, eligible issue combinations, required narration, and whether this extends or supplements `narrativeEdge` remain intentionally open for the next design discussion.
+The spend commits only when the selected assistant response is accepted by the next player message and accepted evidence establishes the targeted issue's resolution. It restores the issue's owned Cohesion, up to the fixed 20-point ceiling. It never crosses task boundaries, targets queued work, clears anonymous debt, or completes a permanent capability whose separate evidence contract has not passed.
 
-Any final rule must preserve reserve, arm, provisional-response, acceptance, refund, replay, and invalidation custody. A point cannot silently clear hidden debt without a player-declared command action and an accepted causal result.
+If the response is rejected, corrected away from the result, swiped out, deleted, invalidated, or cannot credibly resolve the selected task, Directive refunds the spend through the existing source-bound Command Bearing custody. A pending Cohesion Relief spend blocks another Command Bearing spend. Save, load, branch reconstruction, and replay retain or refund it under the same lineage rules as `narrativeEdge`.
+
+## Cohesion Bands
+
+The first release uses three exact bands:
+
+- **Ready: 75-100.** Only the specific conditions owned by unresolved issues apply. The crew normally compensates for unrelated routine strain.
+- **Strained: 40-74.** When a scene materially taxes a person, department, workflow, or system named by a visible active condition, narration must express one causal limitation: slower response, reduced confidence or detail, an unavailable shortcut, extra supervision, or an explicit tradeoff. This is not a blanket penalty.
+- **Critical: 0-39.** Demanding ship or crew actions that touch an active condition must expose a meaningful causal cost: degraded information, limited duration or scope, delay, lost optional route, required resource tradeoff, or bounded failure. Unrelated systems do not randomly fail, and Cohesion is never converted to a universal success percentage.
+
+The aggregate band and visible active conditions enter the narration packet. Hidden backlog premises never do. Mission definitions may consume exact bands or visible condition IDs when authored, but generic Cohesion cannot override an authored capability, guarantee success, or invent a failure.
+
+## Scheduling Constants
+
+Opportunity checks use accepted authoritative ship time and accepted story boundaries:
+
+- the first generated-task opportunity occurs after four accepted in-world hours;
+- thereafter, ordinary time opportunities occur every twelve accepted in-world hours;
+- a hard or soft Story Settlement boundary creates an additional opportunity only when at least four accepted in-world hours have passed since the last check;
+- one opportunity creates at most one issue;
+- when fewer than three unresolved issues exist, the next eligible opportunity creates one issue whenever an eligible template and unowned segment exist;
+- with three through seven unresolved issues, deterministic selection creates an issue on 35% of opportunities;
+- with eight or more unresolved issues, deterministic selection creates an issue on 15% of opportunities;
+- ordinary generation is paused at Critical Cohesion and resumes when Cohesion reaches 40;
+- the five-item visual limit does not limit backlog depth; and
+- authored campaign issues may appear at their authored availability boundary without waiting for an ordinary opportunity.
+
+The roll is a stable hash of campaign package, branch, opportunity sequence, accepted time boundary, and eligible-template digest. Retry, reload, save, load, and replay therefore reproduce it. A check records a replayable `ship.cohesionOpportunityChecked` effect even when no issue is created.
+
+Template cooldown is measured in completed opportunity checks: Level 1 uses three, Level 2 six, Level 3 twelve, and Level 4 is limited to once per major campaign arc. A completed Long Watch suppresses fatigue- and workload-derived templates for the next two eligible opportunity checks. Existing active-level and family-diversity safeguards remain in force.
+
+## Background Crew Grammar
+
+Generated background crew records contain only:
+
+- a deterministic stable person ID;
+- a deterministic display name selected from a package-authored name bank;
+- optional package-authored pronouns;
+- Starfleet rank category;
+- department and ordinary billet category;
+- watch assignment when relevant;
+- one relevant public qualification when required; and
+- the immediate, player-safe situation created by the selected quest.
+
+Generation may not pre-author appearance, personality, secret, diagnosis, medical history, romance, family history, trauma, misconduct, ideology, protected characteristic, or hidden motive. Accepted play may later establish additional public facts through the existing People authority.
+
+Each template declares whether a binding must be `backgroundOnly`, may use an `establishedPublic` crewmember, or may use a department role without naming a person. Sensitive personnel templates default to `backgroundOnly`. Established characters require an exact campaign-authored template permission and use only the existing public-record allowlist. Names, departments, ranks, and qualifications come from package data; the runtime never asks a model to invent a binding.
+
+Generated people persist through the issue record and appear in People only after accepted story introduces them through the existing `personIntroduced` path. Retiring an unseen issue does not create a person.
+
+## Issue Authority Schema
+
+Cohesion is derived from active Story Settlement effects. There is no independently editable Cohesion value or mutable quest tracker.
+
+The version-one effect vocabulary is:
+
+- `ship.cohesionOpportunityChecked`, containing opportunity sequence, accepted time, boundary provenance, eligibility digest, deterministic roll, and result;
+- `ship.cohesionIssueCreated`, targeting a stable issue instance and containing template ID/version, level, owned segment IDs, bindings, player-safe variation, anchor, queue priority, creation opportunity, and source provenance;
+- `ship.cohesionPhaseCompleted`, targeting an issue with phase ID and accepted source contribution IDs;
+- `ship.cohesionIssueResolved`, targeting an issue with completion phase, restored segment IDs, removed condition ID, and optional authored reward reference;
+- `ship.cohesionIssueRetired`, targeting an issue with a player-safe reason and restored segment IDs; and
+- `ship.cohesionGenerationGuardActivated`, containing guard kind and remaining eligible checks.
+
+Issue IDs are stable hashes of branch ID, template ID/version, opportunity sequence, and normalized bindings. Segment ownership is assigned deterministically from the lowest available ring indexes after rotating the starting index by the issue hash. No two unresolved issues may own the same segment.
+
+Projection derives Cohesion, band, visible queue, hidden count and debt, exact progress, selected anchors, and completed history from surviving active effects plus authored migration issues. Queue order is campaign-immediate first, campaign-authored second, then creation opportunity and stable ID. Meaningful progress pins a visible issue. Generated issues are otherwise first-in, first-out.
+
+Only the current phase produces an accepted-pair interpretation candidate. The candidate carries the template's completion guidance and exclusions. Accepted evidence creates one idempotent phase effect. Completing the final phase creates the resolution effect at the same settlement boundary. Source invalidation removes dependent phase and resolution effects through existing Story Settlement lineage and deterministically rebuilds Cohesion and queue state.
+
+## Existing Ship Work Migration
+
+Existing Breckenridge mechanics remain authoritative and are projected as two authored Cohesion issues:
+
+- **Systems Integration** is a Level 3 authored issue owning 15 Cohesion. Its visible phases map in order to `ship-milestone.integration-isolation-test`, `ship-milestone.integration-combined-load-test`, and `ship-milestone.integration-failover-validation`. It resolves only when the existing system reaches `ship-state.integration.integrated`.
+- **Sensor Calibration** is a Level 2 authored issue owning 10 Cohesion. Its visible phases map to `ship-milestone.sensor-controlled-baseline` and `ship-milestone.sensor-live-load-validation`. It resolves only when the existing system reaches `ship-state.sensors.validated`.
+
+These authored issues exist as deterministic projections of the mechanics ladder and accepted milestone effects; migration does not duplicate milestone effects or rewrite existing saves. Their segment ownership is deterministic and precedes generated issue ownership. Partial milestone progress maps to completed Cohesion phases but does not partially refill the issue's segments. Existing capabilities, constraints, narration rules, evidence receipts, mission interactions, and source invalidation behavior remain unchanged beneath the new presentation.
+
+New saves begin with these authored debts when their terminal states are not satisfied. Existing saves derive the same issues from their current milestone state on first load. A terminal existing system produces completed history and owns no missing segment. If a legacy system definition is absent, no migration issue is synthesized.
 
 ## Ship-Page Experience
 
@@ -578,15 +654,6 @@ Future implementation must prove:
 - Computer help uses the existing preset-agnostic runtime packet and normal SillyTavern generation.
 - One Command Bearing point has a locked Cohesion-relief ceiling of 20 points.
 
-## Open Design Work
+## Implementation Readiness
 
-Before implementation planning, continue this document with:
-
-1. the exact Command Bearing targeting and narration rule;
-2. the exact first-release Cohesion-band effects;
-3. final opportunity-window and low-Cohesion scheduling constants;
-4. the allowed background-crew instantiation grammar;
-5. the exact schema for issue records, template bindings, phases, rewards, and backlog priority; and
-6. the migration or replacement relationship between existing Breckenridge Ship milestones and the new Cohesion mini-quests.
-
-No implementation should begin until those sections are resolved, the completed specification is self-reviewed, and the user approves the written design.
+The system-wide decisions and forty generator contracts are approved. Implementation may proceed test-first while preserving accepted-pair authority, source-bound replay, SillyTavern narration ownership, package-defined content, and the existing Ship capability and mission-receipt contracts.
