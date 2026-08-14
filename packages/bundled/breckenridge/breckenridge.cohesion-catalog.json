@@ -16,7 +16,23 @@
       "crowdedChancePercent": 15,
       "criticalPauseBelow": 40,
       "visibleLimit": 5
-    }
+    },
+    "generationGuards": [
+      {
+        "id": "long-watch-recovery",
+        "sourceTemplateId": "cohesion.l4.long-watch",
+        "remainingChecks": 2,
+        "suppressTags": ["fatigue", "workload"],
+        "templateTags": {
+          "cohesion.l1.missed-watch": ["fatigue"],
+          "cohesion.l1.no-relief-roster": ["fatigue", "workload"],
+          "cohesion.l1.needed-day-off": ["fatigue", "workload"],
+          "cohesion.l1.quiet-hours": ["fatigue"],
+          "cohesion.l2.falling-behind": ["workload"],
+          "cohesion.l4.long-watch": ["fatigue", "workload"]
+        }
+      }
+    ]
   },
   "backgroundCrew": {
     "names": [

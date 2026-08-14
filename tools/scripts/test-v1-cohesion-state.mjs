@@ -6,6 +6,7 @@ import {
   createCohesionIssueCreatedEffect,
   createCohesionIssueResolvedEffect,
   createCohesionIssueRetiredEffect,
+  createCohesionGenerationGuardEffect,
   createCohesionPhaseCompletedEffect,
   deriveCohesionState,
 } from '../../src/ship/v1/cohesion-state.mjs';
@@ -130,6 +131,26 @@ assert.equal(resolved.total, 45);
 assert.equal(resolved.issues.some(({ id }) => id === generated.id), false);
 assert.equal(resolved.completedHistory[0].id, generated.id);
 assert.equal(resolved.completedHistory[0].cohesionRestored, 10);
+assert.equal(resolved.completedHistory[0].opportunitySequence, createdEffects[0].opportunitySequence);
+assert.equal(resolved.completedHistory[0].majorArcId, createdEffects[0].majorArcId);
+
+const generationGuard = createCohesionGenerationGuardEffect({
+  id: 'effect.guard.long-watch',
+  sequence: 32,
+  guardId: 'long-watch-recovery',
+  activatedAtOpportunitySequence: 7,
+  remainingChecks: 2,
+  suppressedTags: ['fatigue', 'workload'],
+  sourceContributionIds: ['contribution.guard'],
+});
+const guarded = deriveCohesionState({
+  catalog,
+  shipDataset,
+  storySettlement: settlement([...createdEffects, generationGuard]),
+  branchId: 'branch.a',
+});
+assert.deepEqual(guarded.generationGuards[0].suppressedTags, ['fatigue', 'workload']);
+assert.equal(guarded.generationGuards[0].activatedAtOpportunitySequence, 7);
 
 const retired = createCohesionIssueRetiredEffect({
   id: 'effect.retired.1',

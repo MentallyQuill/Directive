@@ -65,6 +65,16 @@ function recentGeneratedIssues(state) {
     .sort((left, right) => (right.opportunitySequence ?? right.sequence ?? 0) - (left.opportunitySequence ?? left.sequence ?? 0));
 }
 
+function templateSuppressedByGuard(template, state, opportunitySequence) {
+  const tags = new Set(template.generationTags || []);
+  if (tags.size === 0) return false;
+  return (state?.generationGuards || []).some((guard) => {
+    const checksSinceActivation = opportunitySequence - Number(guard.activatedAtOpportunitySequence);
+    if (checksSinceActivation < 1 || checksSinceActivation > Number(guard.remainingChecks)) return false;
+    return (guard.suppressedTags || []).some((tag) => tags.has(tag));
+  });
+}
+
 function templateOnCooldown(template, state, opportunitySequence, policy, majorArcId) {
   const allRecords = [...(state?.issues || []), ...(state?.completedHistory || [])];
   if (template.level === 4 && allRecords.some((record) => (
@@ -94,6 +104,7 @@ function chooseTemplate({ catalogIndex, state, desiredLevel, opportunitySequence
   for (const level of levels) {
     let eligible = [...catalogIndex.templates.values()]
       .filter((template) => template.level === level)
+      .filter((template) => !templateSuppressedByGuard(template, state, opportunitySequence))
       .filter((template) => !templateOnCooldown(template, state, opportunitySequence, catalogIndex.policy, majorArcId));
     if (eligible.length === 0) continue;
     const diverse = eligible.filter((template) => !recentFamilies.has(template.primaryFamily));

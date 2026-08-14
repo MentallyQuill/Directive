@@ -36,6 +36,15 @@ assert.deepEqual(catalog.policy.schedule, {
 });
 assert.deepEqual(catalog.policy.cooldownChecks, { '1': 3, '2': 6, '3': 12 });
 
+const longWatch = index.templates.get('cohesion.l4.long-watch');
+assert.deepEqual(longWatch.generationTags, ['fatigue', 'workload']);
+assert.deepEqual(longWatch.completion.generationGuard, {
+  id: 'long-watch-recovery',
+  remainingChecks: 2,
+  suppressTags: ['fatigue', 'workload'],
+});
+assert.deepEqual(index.templates.get('cohesion.l1.needed-day-off').generationTags, ['fatigue', 'workload']);
+
 const familyCounts = Object.fromEntries(
   ['personnel', 'coordination', 'training', 'systems', 'shipboardLife']
     .map((family) => [family, [...index.templates.values()].filter((template) => template.primaryFamily === family).length]),

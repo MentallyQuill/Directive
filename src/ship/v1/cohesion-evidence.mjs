@@ -1,5 +1,6 @@
 import {
   activeCohesionEffects,
+  createCohesionGenerationGuardEffect,
   createCohesionIssueResolvedEffect,
   createCohesionPhaseCompletedEffect,
   deriveCohesionState,
@@ -119,6 +120,22 @@ export function validateCohesionEvidenceProposal({
         sequence: nextSequence++,
         sourceContributionIds: [source.contributionId],
       }));
+      const guard = issue.completion?.generationGuard;
+      if (guard) {
+        const activatedAtOpportunitySequence = Math.max(
+          0,
+          ...state.opportunityChecks.map(({ sequence }) => Number(sequence) || 0),
+        );
+        effects.push(createCohesionGenerationGuardEffect({
+          id: `${claim.claimId}.guard`,
+          guardId: guard.id,
+          activatedAtOpportunitySequence,
+          remainingChecks: guard.remainingChecks,
+          suppressedTags: guard.suppressTags,
+          sequence: nextSequence++,
+          sourceContributionIds: [source.contributionId],
+        }));
+      }
     }
   }
   return { acceptedClaims, rejectedClaims, effects };

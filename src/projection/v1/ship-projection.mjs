@@ -138,7 +138,10 @@ export function createShipPlayerProjection({
                     phases: structuredClone(task.phases),
                     approaches: structuredClone(task.approaches),
                     computerHelp: task.computerHelp,
-                    completion: structuredClone(task.completion),
+                    completion: task.completion ? {
+                        guidance: task.completion.guidance,
+                        exclusions: structuredClone(task.completion.exclusions),
+                    } : null,
                     binding: structuredClone(task.binding),
                 })),
                 backlog: {

@@ -101,12 +101,20 @@ export function createCohesionIssueRetiredEffect({ id, issueId, reason, sequence
 }
 
 export function createCohesionGenerationGuardEffect({
-  id, sequence, guardId, remainingChecks, sourceContributionIds = [],
+  id, sequence, guardId, activatedAtOpportunitySequence, remainingChecks, suppressedTags, sourceContributionIds = [],
 } = {}) {
+  if (!Number.isInteger(activatedAtOpportunitySequence) || activatedAtOpportunitySequence < 0) {
+    throw new TypeError('activatedAtOpportunitySequence must be a non-negative integer');
+  }
   if (!Number.isInteger(remainingChecks) || remainingChecks < 1) throw new TypeError('remainingChecks must be positive');
+  if (!Array.isArray(suppressedTags) || suppressedTags.length < 1 || suppressedTags.some((tag) => !requiredText(tag, 'suppressed tag'))) {
+    throw new TypeError('suppressedTags must be a non-empty string array');
+  }
   return Object.freeze({
     ...baseEffect({ id, type: EFFECT_TYPES.guard, targetId: guardId, sequence, sourceContributionIds, playerVisibility: 'hidden' }),
+    activatedAtOpportunitySequence,
     remainingChecks,
+    suppressedTags: Object.freeze([...new Set(suppressedTags)].sort()),
   });
 }
 
@@ -212,6 +220,9 @@ function createdIssues({ catalogIndex, effects, occupiedSegments }) {
         cohesionRestored: resolved.cohesionRestored,
         method: resolved.method || 'quest',
         sequence: resolved.sequence,
+        opportunitySequence: effect.opportunitySequence,
+        majorArcId: effect.majorArcId,
+        primaryFamily: template.primaryFamily,
       });
       continue;
     }
@@ -231,6 +242,7 @@ function createdIssues({ catalogIndex, effects, occupiedSegments }) {
       cohesion: template.cohesion,
       primaryFamily: template.primaryFamily,
       secondaryFamilies: clone(template.secondaryFamilies),
+      generationTags: clone(template.generationTags || []),
       anchor: template.anchor,
       conditionId: effect.targetId,
       playerText: { title: template.title, ...clone(template.playerText) },

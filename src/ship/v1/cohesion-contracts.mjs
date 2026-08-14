@@ -52,6 +52,27 @@ function validatePolicy(policy, errors) {
     criticalPauseBelow: 40,
     visibleLimit: 5,
   })) exactInteger(schedule[field], expected, `policy.schedule.${field}`, errors);
+  if (!Array.isArray(policy.generationGuards) || policy.generationGuards.length < 1) {
+    errors.push('policy.generationGuards must be a non-empty array');
+  }
+  const guardIds = new Set();
+  for (const [index, guard] of (policy.generationGuards || []).entries()) {
+    const path = `policy.generationGuards[${index}]`;
+    if (!stableId(guard?.id)) errors.push(`${path}.id must be stable`);
+    if (guardIds.has(guard?.id)) errors.push(`${path}.id must be unique`);
+    guardIds.add(guard?.id);
+    if (!stableId(guard?.sourceTemplateId)) errors.push(`${path}.sourceTemplateId must be stable`);
+    if (!Number.isInteger(guard?.remainingChecks) || guard.remainingChecks < 1) errors.push(`${path}.remainingChecks must be positive`);
+    strings(guard?.suppressTags, `${path}.suppressTags`, errors);
+    if (!guard?.templateTags || typeof guard.templateTags !== 'object' || Array.isArray(guard.templateTags)) {
+      errors.push(`${path}.templateTags must be an object`);
+    } else {
+      for (const [templateId, tags] of Object.entries(guard.templateTags)) {
+        if (!stableId(templateId)) errors.push(`${path}.templateTags contains an invalid template id`);
+        strings(tags, `${path}.templateTags.${templateId}`, errors);
+      }
+    }
+  }
 }
 
 function validateTemplate(template, index, errors) {
@@ -134,6 +155,12 @@ export function validateCohesionCatalog(catalog = {}) {
     const actual = (catalog?.templates || []).filter((template) => template?.primaryFamily === family).length;
     if (actual !== expected) errors.push(`${family} must contain ${expected} templates`);
   }
+  for (const guard of catalog?.policy?.generationGuards || []) {
+    if (!ids.has(guard?.sourceTemplateId)) errors.push(`generation guard source template is unknown: ${guard?.sourceTemplateId}`);
+    for (const templateId of Object.keys(guard?.templateTags || {})) {
+      if (!ids.has(templateId)) errors.push(`generation guard tagged template is unknown: ${templateId}`);
+    }
+  }
   const authoredIds = new Set();
   for (const [index, issue] of (catalog?.authoredIssues || []).entries()) {
     validateAuthoredIssue(issue, index, errors);
@@ -146,10 +173,22 @@ export function validateCohesionCatalog(catalog = {}) {
 export function indexCohesionCatalog(catalog = {}) {
   const validation = validateCohesionCatalog(catalog);
   if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
+  const templates = new Map(catalog.templates.map((template) => [template.id, structuredClone(template)]));
+  for (const guard of catalog.policy.generationGuards) {
+    for (const [templateId, tags] of Object.entries(guard.templateTags)) {
+      templates.get(templateId).generationTags = [...tags];
+    }
+    const source = templates.get(guard.sourceTemplateId);
+    source.completion.generationGuard = {
+      id: guard.id,
+      remainingChecks: guard.remainingChecks,
+      suppressTags: [...guard.suppressTags],
+    };
+  }
   return {
     policy: structuredClone(catalog.policy),
     backgroundCrew: structuredClone(catalog.backgroundCrew),
-    templates: new Map(catalog.templates.map((template) => [template.id, structuredClone(template)])),
+    templates,
     authoredIssues: [...catalog.authoredIssues].sort((left, right) => left.id.localeCompare(right.id)).map((issue) => structuredClone(issue)),
   };
 }

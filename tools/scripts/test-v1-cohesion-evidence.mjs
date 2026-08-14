@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 import {
   createCohesionIssueCreatedEffect,
+  createCohesionOpportunityCheckedEffect,
   createCohesionPhaseCompletedEffect,
 } from '../../src/ship/v1/cohesion-state.mjs';
 import {
@@ -159,5 +160,80 @@ const visibleOnly = createCohesionInterpretationCandidates({
 });
 assert.equal(visibleOnly.length, 3, 'two authored task slots leave three visible generated phases');
 assert.equal(visibleOnly.some(({ targetId }) => targetId === 'issue.more.5'), false);
+
+const longWatchCreated = createCohesionIssueCreatedEffect({
+  id: 'effect.long-watch.created',
+  issueId: 'issue.long-watch',
+  templateId: 'cohesion.l4.long-watch',
+  segmentIds: [5, 6, 7, 8],
+  sequence: 21,
+  opportunitySequence: 7,
+  majorArcId: 'arc.long-watch',
+  binding: { mode: 'roleOnly', roles: { sections: 'shipwide' } },
+  sourceContributionIds: ['contribution.long-watch.created'],
+});
+const longWatchOpportunity = createCohesionOpportunityCheckedEffect({
+  id: 'effect.long-watch.opportunity',
+  sequence: 7,
+  elapsedSeconds: 28 * 3600,
+  outcome: 'created',
+  chancePercent: 35,
+  roll: 10,
+});
+const longWatchPriorPhases = [
+  'strain-audit',
+  'operational-triage',
+  'recovery-plan',
+  'first-cycle',
+  'adjust-continue',
+].map((phaseId, index) => createCohesionPhaseCompletedEffect({
+  id: `effect.long-watch.phase.${index}`,
+  issueId: longWatchCreated.targetId,
+  phaseId,
+  sequence: 22 + index,
+  sourceContributionIds: [`contribution.long-watch.${index}`],
+}));
+const longWatchCandidates = createCohesionInterpretationCandidates({
+  catalog,
+  shipDataset,
+  storySettlement: settlement([longWatchOpportunity, longWatchCreated, ...longWatchPriorPhases]),
+  branchId,
+});
+const longWatchCandidate = longWatchCandidates.find(({ targetId }) => targetId === longWatchCreated.targetId);
+assert.equal(longWatchCandidate.phaseId, 'sustainability-review');
+const longWatchFinal = validateCohesionEvidenceProposal({
+  catalog,
+  shipDataset,
+  storySettlement: settlement([longWatchOpportunity, longWatchCreated, ...longWatchPriorPhases]),
+  proposal: {
+    kind: COHESION_EVIDENCE_PROPOSAL_KIND,
+    branchId,
+    claims: [{
+      claimId: 'claim.cohesion.long-watch.final',
+      domain: 'cohesion',
+      claimType: COHESION_PHASE_CLAIM_TYPE,
+      policyId: longWatchCandidate.id,
+      targetId: longWatchCandidate.targetId,
+      sourceRef: { messageId: source.messageId, swipeId: source.selectedSwipeId, textHash: source.textHash },
+    }],
+  },
+  resolveSourceRef: () => source,
+});
+assert.deepEqual(longWatchFinal.effects.map(({ type }) => type), [
+  'ship.cohesionPhaseCompleted',
+  'ship.cohesionIssueResolved',
+  'ship.cohesionGenerationGuardActivated',
+]);
+assert.deepEqual({
+  targetId: longWatchFinal.effects[2].targetId,
+  activatedAtOpportunitySequence: longWatchFinal.effects[2].activatedAtOpportunitySequence,
+  remainingChecks: longWatchFinal.effects[2].remainingChecks,
+  suppressedTags: longWatchFinal.effects[2].suppressedTags,
+}, {
+  targetId: 'long-watch-recovery',
+  activatedAtOpportunitySequence: 7,
+  remainingChecks: 2,
+  suppressedTags: ['fatigue', 'workload'],
+});
 
 console.log('V1 Cohesion evidence passed.');

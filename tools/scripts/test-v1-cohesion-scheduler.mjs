@@ -164,4 +164,37 @@ const levelFourUsed = planCohesionOpportunity({
 });
 assert.notEqual(levelFourUsed.template?.level, 4);
 
+const longWatchGuard = {
+  id: 'effect.guard.long-watch',
+  targetId: 'long-watch-recovery',
+  activatedAtOpportunitySequence: 0,
+  remainingChecks: 2,
+  suppressedTags: ['fatigue', 'workload'],
+};
+for (let index = 0; index < 100; index += 1) {
+  const guarded = planCohesionOpportunity({
+    catalog,
+    cohesionState: state({ guards: [longWatchGuard] }),
+    authoritativeTime: { elapsedSeconds: 4 * HOUR },
+    campaignIdentity: { ...identity, campaignId: `campaign.long-watch-guard.${index}` },
+  });
+  assert.equal(
+    guarded.template?.generationTags?.some((tag) => longWatchGuard.suppressedTags.includes(tag)) || false,
+    false,
+    'Long Watch guard removes fatigue/workload templates during protected checks',
+  );
+}
+
+const expiredGuardResults = Array.from({ length: 100 }, (_, index) => planCohesionOpportunity({
+  catalog,
+  cohesionState: state({ guards: [{ ...longWatchGuard, activatedAtOpportunitySequence: -2 }] }),
+  authoritativeTime: { elapsedSeconds: 4 * HOUR },
+  campaignIdentity: { ...identity, campaignId: `campaign.expired-long-watch-guard.${index}` },
+}));
+assert.equal(
+  expiredGuardResults.some(({ template }) => template?.generationTags?.some((tag) => longWatchGuard.suppressedTags.includes(tag))),
+  true,
+  'expired generation guards no longer change template selection',
+);
+
 console.log('V1 Cohesion scheduler passed.');
