@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process';
 
 const checks = [
   "test-v1-cohesion-contracts.mjs",
+  "test-v1-cohesion-state.mjs",
+  "test-v1-cohesion-scheduler.mjs",
   "test-browser-runtime-safety.mjs",
   "test-certified-ui-authority.mjs",
   "test-certified-campaign-view.mjs",
