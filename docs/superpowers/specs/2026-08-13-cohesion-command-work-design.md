@@ -623,6 +623,8 @@ DOM and Playwright verification must prove that every visible task receives the 
 
 The twenty Cohesion markers are true curved SVG arc paths rather than straight capsules rotated around the ship. Each arc follows the ring radius, has rounded line caps, retains its stable segment index and issue ownership, and leaves an approximately six-pixel visual gap from its neighbors at certified desktop and mobile sizes. Filled, debt, queued, selected-task preview, and reduced-motion treatments remain unchanged.
 
+Ring stroke depth is four times the initial curved-ring treatment: desktop uses `clamp(20px, 2.8vw, 32px)` and viewports at or below 820 pixels use `15px`. Arc sweep is shortened symmetrically to offset the larger round caps, preserving twenty visibly separate segments and a four-to-eight-pixel visual gap instead of allowing the strokes to merge into a continuous band.
+
 The ring is rendered in two synchronized visual layers around one ship image. The ten arcs on the ship's right side render behind the hull; the ten arcs on the left side render in front. The changeover occurs in the gaps at the top and bottom of the circle, so no segment is split or duplicated. This creates the illusion that the ship passes through a single encircling ring without changing Cohesion ownership or interaction behavior.
 
 On viewports at or below 820 pixels, the ship and both ring layers share one bounded, centered canvas below the identity header. The ring may not cross the header divider or overlap the class, registry, ship name, Cohesion score, or status label. The ship image and ring center must remain aligned within two CSS pixels at every certified mobile size.

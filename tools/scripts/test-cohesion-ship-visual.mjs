@@ -122,6 +122,7 @@ try {
         navPosition: getComputedStyle(nav).position,
         buttonPosition: getComputedStyle(button).position,
         buttonHeight: button.getBoundingClientRect().height,
+        strokeWidth,
         ringStrokeLinecap: firstSegmentStyle.strokeLinecap,
         visualSegmentGap: centerlineGap - strokeWidth,
         ringTopInsideOrbit: backBox.top >= orbitBox.top - .5,
@@ -146,6 +147,10 @@ try {
       `${viewport.label} neighboring ring segments keep an approximately six-pixel gap (actual ${geometry.visualSegmentGap.toFixed(2)}px)`,
     );
     if (viewport.width > 820) {
+      assert.ok(
+        geometry.strokeWidth >= 20 && geometry.strokeWidth <= 32,
+        `${viewport.label} ring stroke is four times the original desktop depth (actual ${geometry.strokeWidth.toFixed(2)}px)`,
+      );
       assert.equal(geometry.detailBelowOrbit, true, `${viewport.label} detail panel must remain below the ship`);
       assert.ok(geometry.visualRatio >= .89, `${viewport.label} ship graphic uses at least 89% of the orbit width`);
       assert.notEqual(geometry.leaderDisplay, 'none');
@@ -160,6 +165,10 @@ try {
         `${viewport.label} ring passes behind and in front of the ship`,
       );
     } else {
+      assert.ok(
+        Math.abs(geometry.strokeWidth - 15) <= .1,
+        `${viewport.label} ring stroke is four times the original mobile depth (actual ${geometry.strokeWidth.toFixed(2)}px)`,
+      );
       assert.equal(geometry.leaderDisplay, 'none');
       assert.equal(geometry.navPosition, 'static');
       assert.equal(geometry.buttonPosition, 'static');

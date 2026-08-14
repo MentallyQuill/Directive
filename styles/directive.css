@@ -4220,7 +4220,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-cohesion-segment {
   fill: none;
   stroke: rgba(79, 93, 119, .58);
-  stroke-width: clamp(5px, .7vw, 8px);
+  stroke-width: clamp(20px, 2.8vw, 32px);
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
   transition: stroke 120ms ease, filter 120ms ease, opacity 120ms ease;
@@ -4330,7 +4330,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .ship-cohesion-visual { inset: 0 3% auto; width: 94%; height: var(--ship-cohesion-canvas-height); }
   .directive-expanded-shell .ship-cohesion-ring { inset: 0 0 auto; height: var(--ship-cohesion-canvas-height); }
   .directive-expanded-shell .ship-cohesion-ring-layer { top: 50%; width: min(calc(var(--ship-cohesion-canvas-height) - 12px), 76vw, 300px); }
-  .directive-expanded-shell .ship-cohesion-segment { stroke-width: 3.75px; }
+  .directive-expanded-shell .ship-cohesion-segment { stroke-width: 15px; }
   .directive-expanded-shell .ship-task-leaders { display: none; }
   .directive-expanded-shell .ship-task-nav {
     position: static;

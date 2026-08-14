@@ -176,8 +176,8 @@ function createSvgElement(tagName, className = '') {
 function cohesionArcPath(index) {
   const center = 50;
   const radius = 44;
-  const startAngle = -90 + (index * 18) + 1.9;
-  const endAngle = -90 + ((index + 1) * 18) - 1.9;
+  const startAngle = -90 + (index * 18) + 4.75;
+  const endAngle = -90 + ((index + 1) * 18) - 4.75;
   const point = (angle) => {
     const radians = angle * (Math.PI / 180);
     return [center + (radius * Math.cos(radians)), center + (radius * Math.sin(radians))];
