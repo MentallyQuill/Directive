@@ -159,7 +159,7 @@ Expected: FAIL because `.campaign-browser-hero` still resolves to the base `230p
 
 - [ ] **Step 3: Add the minimal static expanded-height rule**
 
-Immediately after the base `.campaign-hero` rule, add:
+After the phone-specific base hero override and immediately before the shared `.directive-responsive-hero` rule, add:
 
 ```css
 .directive-expanded-shell .campaign-browser-hero {

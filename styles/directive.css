@@ -4513,6 +4513,10 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 
 /* Shared Campaign and Ship image expansion. */
 .directive-expanded-shell .directive-expanded-ship { grid-template-rows: auto minmax(0, 1fr); }
+.directive-expanded-shell .campaign-browser-hero {
+  box-sizing: border-box;
+  height: var(--directive-responsive-hero-expanded-height);
+}
 .directive-expanded-shell .directive-responsive-hero {
   box-sizing: border-box;
   height: var(--directive-responsive-hero-collapsed-height);

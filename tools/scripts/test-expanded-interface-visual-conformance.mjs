@@ -455,6 +455,32 @@ try {
             `${viewport.width}px Back to Current Campaign touch target`
           );
         }
+        const measureBrowserHero = async (hero) => hero.evaluate((node) => ({
+          height: node.getBoundingClientRect().height,
+          responsive: node.classList.contains('directive-responsive-hero'),
+          toggleCount: node.querySelectorAll('.directive-responsive-hero-toggle').length,
+          ariaExpanded: node.getAttribute('aria-expanded'),
+          transitionDuration: getComputedStyle(node).transitionDuration,
+          horizontalOverflow: node.scrollWidth - node.clientWidth
+        }));
+        const expectedBrowserHeroHeight = viewport.width <= 640 ? 220 : 320;
+        const storyHero = page.locator('.campaign-browser-hero:visible').first();
+        const storyHeroBefore = await measureBrowserHero(storyHero);
+        assert.ok(
+          Math.abs(storyHeroBefore.height - expectedBrowserHeroHeight) < 1,
+          `${viewport.width}px saved-story cover must use the expanded Campaigns-browser height`
+        );
+        assert.equal(storyHeroBefore.responsive, false);
+        assert.equal(storyHeroBefore.toggleCount, 0);
+        assert.equal(storyHeroBefore.ariaExpanded, null);
+        assert.equal(storyHeroBefore.transitionDuration, '0s');
+        assert.ok(storyHeroBefore.horizontalOverflow <= 1);
+        await storyHero.click({ position: { x: 20, y: 20 } });
+        const storyHeroAfter = await measureBrowserHero(storyHero);
+        assert.ok(
+          Math.abs(storyHeroAfter.height - storyHeroBefore.height) < 1,
+          `${viewport.width}px saved-story cover click must not resize the hero`
+        );
         const futureRow = viewport.width <= 640
           ? page.locator('.campaign-mobile-trigger[data-campaign-availability="coming-later"]').first()
           : page.locator('.campaign-desktop-master button[data-campaign-availability="coming-later"]').first();
@@ -470,6 +496,23 @@ try {
         assert.match(row.description, /Nerine Reef/);
 
         await futureRow.click();
+        const libraryHero = page.locator('.campaign-library-hero:visible').first();
+        const libraryHeroBefore = await measureBrowserHero(libraryHero);
+        assert.ok(
+          Math.abs(libraryHeroBefore.height - expectedBrowserHeroHeight) < 1,
+          `${viewport.width}px Campaign Library cover must use the expanded Campaigns-browser height`
+        );
+        assert.equal(libraryHeroBefore.responsive, false);
+        assert.equal(libraryHeroBefore.toggleCount, 0);
+        assert.equal(libraryHeroBefore.ariaExpanded, null);
+        assert.equal(libraryHeroBefore.transitionDuration, '0s');
+        assert.ok(libraryHeroBefore.horizontalOverflow <= 1);
+        await libraryHero.click({ position: { x: 20, y: 20 } });
+        const libraryHeroAfter = await measureBrowserHero(libraryHero);
+        assert.ok(
+          Math.abs(libraryHeroAfter.height - libraryHeroBefore.height) < 1,
+          `${viewport.width}px Campaign Library cover click must not resize the hero`
+        );
         const campaign = await page.evaluate((mobile) => {
           const visible = (node) => Boolean(node?.getClientRects().length) && getComputedStyle(node).display !== 'none';
           const detail = [...document.querySelectorAll('.campaign-library-hero[data-campaign-availability="coming-later"]')].find(visible);
@@ -523,6 +566,11 @@ try {
         assert.match(campaign.actionText, /New campaign/i);
         observedVarianceIds.add('campaign-coming-later');
         observedVarianceIds.add('campaign-current-descriptions');
+        if (viewport.width === 1440 || viewport.width === 390) {
+          await page.screenshot({
+            path: path.join(artifactRoot, `campaign-browser-static-covers-${viewport.width}x${viewport.height}.png`)
+          });
+        }
         await page.locator('[data-campaign-action="back-to-current"]').click();
         await page.waitForSelector('.campaign-dashboard');
         assert.equal(await page.locator('.campaign-browser').count(), 0, `${viewport.width}px browser closes back to dashboard`);
