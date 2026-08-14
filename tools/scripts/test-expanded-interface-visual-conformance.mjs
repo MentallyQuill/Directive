@@ -222,8 +222,8 @@ try {
     });
   });
   assert.equal(mobileRelay.length, 5);
-  assert.ok(mobileRelay.every(({ compositeLuminanceLift }) => compositeLuminanceLift >= 13));
-  assert.ok(mobileRelay.every(({ opacity }) => opacity >= .8 && opacity <= .84));
+  assert.ok(mobileRelay.every(({ compositeLuminanceLift }) => compositeLuminanceLift >= 18 && compositeLuminanceLift <= 36));
+  assert.ok(mobileRelay.every(({ opacity }) => opacity >= .94 && opacity <= .98));
   await mobileRelayPage.close();
 
   const reducedRelayPage = await browser.newPage({ viewport: viewports[0] });
