@@ -53,9 +53,15 @@ class Element {
   removeAttribute(name) { this.attributes.delete(name); }
   addEventListener(type, handler) { this.listeners.set(type, handler); }
   querySelector(selector) {
-    if (!selector.startsWith('.')) return null;
-    const className = selector.slice(1);
-    return this.children.flatMap((child) => [child, ...all(child)]).find((node) => node.classList.contains(className)) || null;
+    const descendants = this.children.flatMap((child) => [child, ...all(child)]);
+    if (selector.startsWith('.')) {
+      const className = selector.slice(1);
+      return descendants.find((node) => node.classList.contains(className)) || null;
+    }
+    const campaignAction = selector.match(/^\[data-campaign-action="([^"]+)"\]$/)?.[1];
+    return campaignAction
+      ? descendants.find((node) => node.dataset.campaignAction === campaignAction) || null
+      : null;
   }
   contains(candidate) { return candidate === this || this.children.some((child) => child.contains(candidate)); }
   focus() { globalThis.document.activeElement = this; }
@@ -389,6 +395,25 @@ const runtimeCallsBeforeBack = startCampaignCalls;
 await currentBackControl.click();
 assert.equal(byClass(body, 'campaign-dashboard').length, 1, 'Back to Current Campaign must restore the focused dashboard');
 assert.equal(startCampaignCalls, runtimeCallsBeforeBack, 'browser navigation must not invoke a campaign runtime action');
+
+const continueBody = new Element('div');
+resetCampaignPanelState();
+let continuePayload = null;
+const continueActions = {
+  openCampaignChat: async (payload) => { continuePayload = payload; },
+  refresh: async () => {
+    continueBody.replaceChildren();
+    renderCampaignPanel(continueBody, view, continueActions);
+  }
+};
+renderCampaignPanel(continueBody, view, continueActions);
+const originalContinue = byData(continueBody, 'campaignAction', 'continue')[0];
+originalContinue.focus();
+await originalContinue.click();
+const replacementContinue = byData(continueBody, 'campaignAction', 'continue')[0];
+assert.deepEqual(continuePayload, { saveId: 'save.current' });
+assert.notEqual(replacementContinue, originalContinue, 'Campaign refresh must replace the completed Continue control');
+assert.equal(globalThis.document.activeElement, replacementContinue, 'Continue refresh must focus the replacement Continue control');
 
 const emptyBody = new Element('div');
 resetCampaignPanelState();

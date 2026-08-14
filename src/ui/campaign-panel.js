@@ -19,9 +19,10 @@ export function resetCampaignPanelState() {
   lastActiveCampaignId = null;
 }
 
-async function runAndRefresh(action, payload, actions) {
+async function runAndRefresh(action, payload, actions, afterRefresh = null) {
   await action?.(payload);
   await actions.refresh?.();
+  afterRefresh?.();
 }
 
 function focusCampaignAction(body, action) {
@@ -64,7 +65,11 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
   return row;
 }
 
-function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity = false, dashboard = false } = {}) {
+function appendCampaignDetail(detail, campaign, pack, actions, {
+  compactIdentity = false,
+  dashboard = false,
+  focusRoot = detail
+} = {}) {
   const hero = createElement('section', 'campaign-hero');
   if (compactIdentity) hero.classList.add('campaign-hero-compact-identity');
   if (pack) hero.appendChild(packageImage(pack, 'hero', 'campaign-hero-media'));
@@ -96,7 +101,12 @@ function appendCampaignDetail(detail, campaign, pack, actions, { compactIdentity
       label: 'Continue',
       icon: 'fa-solid fa-arrow-right',
       className: 'campaign-command campaign-command-primary',
-      onClick: () => runAndRefresh(actions.openCampaignChat, { saveId: campaign.activeTimeline?.saveId }, actions)
+      onClick: () => runAndRefresh(
+        actions.openCampaignChat,
+        { saveId: campaign.activeTimeline?.saveId },
+        actions,
+        () => focusCampaignAction(focusRoot, 'continue')
+      )
     });
     continueCampaign.dataset.campaignAction = 'continue';
     commands.appendChild(continueCampaign);
@@ -271,7 +281,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
     heading.append(title, campaigns);
     dashboard.appendChild(heading);
     const pack = model.packages.find((candidate) => candidate.packageId === activeCampaign.packageId);
-    appendCampaignDetail(dashboard, activeCampaign, pack, actions, { dashboard: true });
+    appendCampaignDetail(dashboard, activeCampaign, pack, actions, { dashboard: true, focusRoot: body });
     body.appendChild(dashboard);
     return;
   }
@@ -358,7 +368,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
 
   const detail = createElement('section', 'campaign-detail campaign-desktop-detail');
   detail.dataset.directiveScrollOwner = 'true';
-  appendRecordDetail(detail, selectedRecordKey, model, actions);
+  appendRecordDetail(detail, selectedRecordKey, model, actions, { focusRoot: body });
 
   const mobile = createElement('section', 'campaign-mobile-accordion');
   mobile.dataset.directiveScrollOwner = 'true';
@@ -382,7 +392,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
     trigger.removeAttribute('aria-pressed');
     const recordDetail = createElement('div', 'campaign-mobile-detail');
     recordDetail.id = mobileDetailId(key);
-    appendRecordDetail(recordDetail, key, model, actions, { compactIdentity: true });
+    appendRecordDetail(recordDetail, key, model, actions, { compactIdentity: true, focusRoot: body });
     record.append(trigger, recordDetail);
     mobile.appendChild(record);
     mobileRecords.push({ key, trigger, panel: recordDetail });
@@ -430,7 +440,7 @@ export function renderCampaignPanel(body, view, actions = {}) {
         row.setAttribute('aria-pressed', active ? 'true' : 'false');
       }
       detail.replaceChildren();
-      appendRecordDetail(detail, key, model, actions);
+      appendRecordDetail(detail, key, model, actions, { focusRoot: body });
       mobileRecords.find((record) => record.key === key)?.trigger.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
   });

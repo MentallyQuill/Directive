@@ -8,6 +8,7 @@ import {
   createNativeBranchTranscriptAttestation,
   verifyNativeBranchTranscriptAttestation
 } from '../../runtime/native-branch-lineage.mjs';
+import { createDirectiveMobileComposerFocusGuard } from './mobile-composer-focus-guard.js';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -2241,46 +2242,51 @@ export function createSillyTavernChatAdapter({
     if (!ctx || !binding) return false;
     if (isCurrentChat(binding.chatId)) return true;
 
-    const chatFileEntity = entityFromChatId(ctx, binding.chatId);
-    const inferredEntity = bestEntityForBinding(ctx, binding.chatId, binding);
-    const entityType = nonEmptyString(binding.entityType)
-      || nonEmptyString(chatFileEntity?.entityType)
-      || nonEmptyString(inferredEntity?.entityType)
-      || (binding.entityId ? 'character' : null);
-    const entityId = nonEmptyString(chatFileEntity?.entityId)
-      || nonEmptyString(binding.entityId)
-      || nonEmptyString(inferredEntity?.entityId);
-    if (entityType === 'character' && entityId) {
-      const selected = currentEntity(ctx);
-      if (String(selected.entityId || '') !== String(entityId)) {
-        const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
-        if (typeof selectCharacter === 'function') {
-          try {
-            await selectCharacter.call(ctx, Number(entityId), { switchMenu: false });
-            ctx = context();
-          } catch {
-            // Fall through to the host open APIs; some hosts can open by file name alone.
+    const composerFocusGuard = createDirectiveMobileComposerFocusGuard();
+    try {
+      const chatFileEntity = entityFromChatId(ctx, binding.chatId);
+      const inferredEntity = bestEntityForBinding(ctx, binding.chatId, binding);
+      const entityType = nonEmptyString(binding.entityType)
+        || nonEmptyString(chatFileEntity?.entityType)
+        || nonEmptyString(inferredEntity?.entityType)
+        || (binding.entityId ? 'character' : null);
+      const entityId = nonEmptyString(chatFileEntity?.entityId)
+        || nonEmptyString(binding.entityId)
+        || nonEmptyString(inferredEntity?.entityId);
+      if (entityType === 'character' && entityId) {
+        const selected = currentEntity(ctx);
+        if (String(selected.entityId || '') !== String(entityId)) {
+          const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
+          if (typeof selectCharacter === 'function') {
+            try {
+              await selectCharacter.call(ctx, Number(entityId), { switchMenu: false });
+              ctx = context();
+            } catch {
+              // Fall through to the host open APIs; some hosts can open by file name alone.
+            }
           }
         }
       }
-    }
-    const methods = [
-      ['openChat', [binding.chatId]],
-      ...(entityType === 'group'
-        ? [['openGroupChat', [binding.entityId, binding.chatId]]]
-        : [['openCharacterChat', [binding.chatId]]]),
-      ['selectChat', [binding.chatId]]
-    ];
-    for (const [methodName, args] of methods) {
-      if (typeof ctx[methodName] !== 'function') continue;
-      try {
-        await ctx[methodName](...args);
-        if (await waitForCurrentChat(binding.chatId)) return true;
-      } catch {
-        // Try the next host API shape.
+      const methods = [
+        ['openChat', [binding.chatId]],
+        ...(entityType === 'group'
+          ? [['openGroupChat', [binding.entityId, binding.chatId]]]
+          : [['openCharacterChat', [binding.chatId]]]),
+        ['selectChat', [binding.chatId]]
+      ];
+      for (const [methodName, args] of methods) {
+        if (typeof ctx[methodName] !== 'function') continue;
+        try {
+          await ctx[methodName](...args);
+          if (await waitForCurrentChat(binding.chatId)) return true;
+        } catch {
+          // Try the next host API shape.
+        }
       }
+      return false;
+    } finally {
+      composerFocusGuard.releaseAfter();
     }
-    return false;
   }
 
   async function deleteCampaignChat(binding) {

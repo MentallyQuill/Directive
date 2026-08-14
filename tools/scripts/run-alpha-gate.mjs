@@ -119,6 +119,7 @@ const checks = [
   "test-sillytavern-host-context.mjs",
   "test-sillytavern-fresh-chat-hygiene.mjs",
   "test-sillytavern-checkpoint-chat.mjs",
+  "test-sillytavern-mobile-chat-focus.mjs",
   "test-directive-runtime-overlay-host.mjs",
   "test-character-creator-assist-dialog.mjs",
   "test-character-creator-assist-panel.mjs",
