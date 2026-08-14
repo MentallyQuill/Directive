@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Directive launcher button fixture</title>
+  <style>
+    :root {
+      --animation-duration-2x: 200ms;
+      --bottomFormBlockSize: 34.5px;
+      --bottomFormIconSize: 28.5px;
+      --SmartThemeBlurTintColor: rgb(23, 23, 23);
+      --SmartThemeBodyColor: rgb(220, 220, 210);
+      --SmartThemeBorderColor: rgba(0, 0, 0, 0.5);
+    }
+
+    body {
+      margin: 0;
+      color: var(--SmartThemeBodyColor);
+      background: rgb(16, 16, 16);
+    }
+
+    #leftSendForm {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      padding-left: 2px;
+      font-size: var(--bottomFormIconSize);
+    }
+
+    #leftSendForm > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--bottomFormBlockSize);
+      height: var(--bottomFormBlockSize);
+      box-sizing: border-box;
+      margin: 0;
+      border: none;
+      color: inherit;
+      opacity: 0.7;
+      cursor: pointer;
+      transition: opacity var(--animation-duration-2x);
+    }
+
+    #leftSendForm > div:hover {
+      opacity: 1;
+      filter: brightness(1.2);
+    }
+
+    #extensionsMenuButton {
+      order: 4;
+      padding: 1px;
+    }
+
+    .menu_button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: min-content;
+      margin: 5px 0;
+      padding: 3px 5px;
+      color: var(--SmartThemeBodyColor);
+      background-color: var(--SmartThemeBlurTintColor);
+      border: 1px solid var(--SmartThemeBorderColor);
+      border-radius: 5px;
+      filter: grayscale(0.5);
+    }
+  </style>
+  <link rel="stylesheet" href="/styles/directive.css">
+</head>
+<body>
+  <div id="leftSendForm">
+    <div id="extensionsMenuButton" class="interactable" aria-label="Extensions">&#10022;</div>
+  </div>
+  <textarea id="send_textarea" aria-label="Message"></textarea>
+  <script type="module">
+    import { installDirectiveLauncherButton } from '/src/hosts/sillytavern/directive-launcher-button.js';
+
+    globalThis.__directiveLauncherOpenCount = 0;
+    globalThis.__directiveLauncherInstalled = installDirectiveLauncherButton({
+      openDirective() {
+        globalThis.__directiveLauncherOpenCount += 1;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -116,6 +116,7 @@ const checks = [
   "test-sillytavern-blank-send-continue.mjs",
   "test-sillytavern-event-wiring.mjs",
   "test-turn-activity-indicator-visual.mjs",
+  "test-directive-launcher-button-visual.mjs",
   "test-settlement-retry-dialog.mjs",
   "test-sillytavern-host-context.mjs",
   "test-sillytavern-fresh-chat-hygiene.mjs",

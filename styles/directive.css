@@ -27,24 +27,41 @@
 .directive-vector-glyph[data-glyph="action-view"] { --directive-glyph-url: url("../assets/icons/directive-vector-glyphs-v1/icons/action-view.svg"); }
 
 .directive-launcher-button {
+  -webkit-appearance: none;
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   order: 5;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  flex: 0 0 var(--bottomFormBlockSize);
+  width: var(--bottomFormBlockSize);
+  height: var(--bottomFormBlockSize);
+  min-width: var(--bottomFormBlockSize);
+  min-height: var(--bottomFormBlockSize);
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  color: inherit;
+  font: inherit;
   line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 0.7;
+  filter: none;
+  cursor: pointer;
+  transition: opacity var(--animation-duration-2x);
+}
+
+.directive-launcher-button:hover {
+  opacity: 1;
+  filter: brightness(1.2);
 }
 
 .directive-launcher-button .directive-launcher-button-icon {
-  width: 28.5px;
-  height: 28.5px;
+  width: calc(var(--bottomFormIconSize) * 1.25);
+  height: calc(var(--bottomFormIconSize) * 1.25);
   color: currentColor;
 }
 

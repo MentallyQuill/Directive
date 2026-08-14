@@ -58,7 +58,7 @@ export function installDirectiveLauncherButton({
   const button = document.createElement('button');
   button.type = 'button';
   button.id = DIRECTIVE_LAUNCHER_BUTTON_ID;
-  button.className = 'menu_button interactable directive-launcher-button';
+  button.className = 'interactable directive-launcher-button';
   button.dataset.directiveTour = 'runtime.launcher';
   button.setAttribute('aria-label', 'Open Directive');
   addTooltip(button, 'Open Directive');
