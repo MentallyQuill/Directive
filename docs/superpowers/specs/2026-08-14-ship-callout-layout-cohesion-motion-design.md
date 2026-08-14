@@ -138,7 +138,8 @@ Debt and queued-debt segments have no idle animation, glow cycle, or scale chang
 
 The wave must read through illumination inside each segment face, matching the flat transmissive character of the LCARS sidebar rather than an exterior lamp halo. Keep the approved ten-second timeline, half-second stagger, two-segment crest, and `1.02` scale ceiling unchanged, but widen the luminance range:
 
-- the trough uses a darker, slightly desaturated steel blue whose relative luminance is no more than 55% of the crest;
+- the trough preserves the original full steel-blue face color (`#8bb5f4`) and must not be dimmed below it;
+- the original blue still remains no more than 55% of the near-white crest luminance, so no darker resting color is needed to produce visible motion;
 - the crest face reaches an icy near-white with every RGB channel at or above 238;
 - every blue-wave drop shadow uses a blur radius no larger than 2 CSS pixels;
 - the crest may retain a compact edge highlight, but no broad bloom, extra SVG filter, stroke expansion, or opacity flash is introduced.
@@ -156,7 +157,7 @@ Preview segments override every idle blue animation property. All segments owned
 
 The amber pulse continues while a task remains selected, including after pointer hover ends. Hover or keyboard focus temporarily previews another task through the existing selection-return behavior.
 
-Amber preview segments use the same contained-lighting language. Their trough remains recognizably amber, their synchronized crest reaches a warm near-white, and all drop-shadow blur radii remain at or below 2 CSS pixels. The two-second period, shared phase, and `1.02` scale ceiling do not change.
+Amber preview segments use the same contained-lighting language. Their trough preserves the original full amber face color (`#ffa24f`), their synchronized crest reaches a warm near-white, and all drop-shadow blur radii remain at or below 2 CSS pixels. The two-second period, shared phase, and `1.02` scale ceiling do not change.
 
 ### Reduced motion
 

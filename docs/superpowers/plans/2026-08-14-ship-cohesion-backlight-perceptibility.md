@@ -14,7 +14,8 @@
 - Keep the amber preview at 0.5 Hz with every preview segment in phase.
 - Keep both animation scale ceilings at `1.02`.
 - Keep debt and queued-debt segments static.
-- Blue crest RGB channels must each be at least 238; blue trough relative luminance must be no more than 55% of crest luminance.
+- Blue crest RGB channels must each be at least 238; the trough must preserve the original `#8bb5f4` channel floors and remain no more than 55% of crest luminance.
+- Amber trough must preserve the original `#ffa24f` channel floors.
 - Animated blue and amber drop-shadow blur radii must never exceed 2 CSS pixels.
 - Keep reduced-motion behavior static and distinguishable.
 - Do not alter Ship geometry, task data, selection behavior, leader lines, or gameplay state.
@@ -56,11 +57,11 @@ Expected: FAIL because the current blue crest does not reach near-white and curr
 
 - [ ] **Step 1: Implement the minimal blue treatment**
 
-Set the filled resting face to steel blue. In `ship-cohesion-blue-wave`, use the same darker trough at offsets 0%, 10%, and 100%, an icy near-white at 5%, a 1px trough shadow, and a 2px crest shadow. Preserve every keyframe offset, delay, duration, easing, and transform.
+Preserve the original `#8bb5f4` filled resting face. In `ship-cohesion-blue-wave`, use that same full-color trough at offsets 0%, 10%, and 100%, an icy near-white at 5%, a 1px trough shadow, and a 2px crest shadow. Preserve every keyframe offset, delay, duration, easing, and transform.
 
 - [ ] **Step 2: Implement the matching amber treatment**
 
-Use a recognizably amber trough and a warm near-white 50% crest in `ship-cohesion-preview-pulse`, with 1px and 2px shadows respectively. Preserve its two-second duration, shared zero delay, easing, and transform.
+Preserve the original `#ffa24f` amber trough and use a warm near-white 50% crest in `ship-cohesion-preview-pulse`, with 1px and 2px shadows respectively. Preserve its two-second duration, shared zero delay, easing, and transform.
 
 - [ ] **Step 3: Run the focused visual gate and verify GREEN**
 

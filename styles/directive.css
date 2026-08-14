@@ -4558,13 +4558,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 .directive-expanded-shell .ship-cohesion-segment-shape { display: block; fill: currentColor; stroke: none; }
 .directive-expanded-shell .ship-cohesion-segment-shape.is-mobile { display: none; }
-.directive-expanded-shell .ship-cohesion-segment.is-filled { color: #6687b8; filter: drop-shadow(0 0 1px rgba(103, 162, 243, .2)); }
+.directive-expanded-shell .ship-cohesion-segment.is-filled { color: #8bb5f4; filter: drop-shadow(0 0 1px rgba(103, 162, 243, .2)); }
 .directive-expanded-shell .ship-cohesion-segment.is-filled:not(.is-preview) {
   animation: ship-cohesion-blue-wave 10s linear infinite;
   animation-delay: var(--ship-cohesion-wave-delay);
 }
 @keyframes ship-cohesion-blue-wave {
-  0%, 10%, 100% { color: #6687b8; filter: drop-shadow(0 0 1px rgba(103, 162, 243, .2)) brightness(.9); transform: scale(1); }
+  0%, 10%, 100% { color: #8bb5f4; filter: drop-shadow(0 0 1px rgba(103, 162, 243, .2)) brightness(1); transform: scale(1); }
   5% { color: #f4f9ff; filter: drop-shadow(0 0 2px rgba(190, 222, 255, .68)) brightness(1.02); transform: scale(1.02); }
 }
 .directive-expanded-shell .ship-cohesion-segment.is-debt { color: rgba(118, 62, 76, .78); }
@@ -4575,13 +4575,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   stroke-linejoin: miter;
 }
 .directive-expanded-shell .ship-cohesion-segment.is-preview {
-  color: #c97832;
+  color: #ffa24f;
   filter: drop-shadow(0 0 1px rgba(255, 162, 79, .24));
   animation: ship-cohesion-preview-pulse 2s ease-in-out infinite;
   animation-delay: 0s;
 }
 @keyframes ship-cohesion-preview-pulse {
-  0%, 100% { color: #c97832; filter: drop-shadow(0 0 1px rgba(255, 162, 79, .24)) brightness(.9); transform: scale(1); }
+  0%, 100% { color: #ffa24f; filter: drop-shadow(0 0 1px rgba(255, 162, 79, .24)) brightness(1); transform: scale(1); }
   50% { color: #fff0dc; filter: drop-shadow(0 0 2px rgba(255, 218, 184, .72)) brightness(1.02); transform: scale(1.02); }
 }
 .directive-expanded-shell .ship-task-leaders { position: absolute; z-index: 4; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }

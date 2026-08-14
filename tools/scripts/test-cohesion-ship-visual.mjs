@@ -142,6 +142,11 @@ try {
       `${viewport.label} blue face carries a wide backlight contrast range`,
     );
     assert.equal(
+      motionProfile.blueBacklight.trough.channels.every((channel, index) => channel >= [139, 181, 244][index]),
+      true,
+      `${viewport.label} blue trough preserves its original full color`,
+    );
+    assert.equal(
       motionProfile.blueBacklight.crest.channels.every((channel) => channel >= 238),
       true,
       `${viewport.label} blue crest reaches icy near-white`,
@@ -153,6 +158,11 @@ try {
         && motionProfile.amberBacklight.crest.channels[2] >= 200,
       true,
       `${viewport.label} amber crest reaches warm near-white`,
+    );
+    assert.equal(
+      motionProfile.amberBacklight.trough.channels.every((channel, index) => channel >= [255, 162, 79][index]),
+      true,
+      `${viewport.label} amber trough preserves its original full color`,
     );
     assert.equal(motionProfile.amberBacklight.maxBlur <= 2, true, `${viewport.label} amber glow stays edge-tight`);
     assert.equal(await page.locator('.ship-cohesion-ring-layer.is-back .ship-cohesion-segment').count(), 10);
