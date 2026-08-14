@@ -239,15 +239,25 @@ await new Promise((resolve) => setTimeout(resolve, 400));
 const boundaryActivity = globalThis.document.getElementById('directive-turn-activity-indicator');
 assert.equal(boundaryActivity?.hidden, false, 'slow generation-boundary settlement must expose reading activity');
 assert.equal(
+  boundaryActivity?.querySelector('.directive-notification-category')?.textContent,
+  'Directive',
+  'reading activity should use the unified notification category hierarchy'
+);
+assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'Directive is reading your post...'
+  'Reading your post...'
 );
 releaseBoundarySettlement();
 await boundaryInterception;
 await new Promise((resolve) => setTimeout(resolve, 75));
 assert.equal(
+  boundaryActivity?.querySelector('.directive-notification-category')?.textContent,
+  'SillyTavern',
+  'handoff should update the same card category without creating another notification'
+);
+assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'SillyTavern is writing...',
+  'Writing...',
   'successful settlement must hand activity off to host narration'
 );
 await new Promise((resolve) => setTimeout(resolve, 375));

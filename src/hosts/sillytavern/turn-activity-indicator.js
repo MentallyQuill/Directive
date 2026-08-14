@@ -1,4 +1,7 @@
-import { appendDirectiveOverlay } from '../../ui/directive-overlay-root.js';
+import {
+  acquireDirectiveNotificationSurface,
+  releaseDirectiveNotificationSurface,
+} from '../../ui/directive-notification-surface.js';
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
 const MIN_READING_VISIBLE_MS = 450;
@@ -14,24 +17,33 @@ function canRender() {
 }
 
 function createIndicator() {
-  const indicator = document.createElement('div');
+  const indicator = document.createElement('article');
   indicator.id = INDICATOR_ID;
-  indicator.className = 'directive-turn-activity-indicator';
+  indicator.className = 'directive-notification-card directive-turn-activity-indicator is-activity';
   indicator.dataset.directiveTurnActivity = 'active';
   indicator.setAttribute('role', 'status');
   indicator.setAttribute('aria-live', 'polite');
-  indicator.hidden = true;
 
-  const spinner = document.createElement('span');
-  spinner.className = 'directive-turn-activity-spinner';
-  spinner.setAttribute('aria-hidden', 'true');
+  const copy = document.createElement('div');
+  copy.className = 'directive-turn-activity-copy';
+
+  const category = document.createElement('span');
+  category.className = 'directive-notification-category';
+
+  const titleRow = document.createElement('span');
+  titleRow.className = 'directive-notification-title-row';
+  const icon = document.createElement('span');
+  icon.className = 'directive-vector-glyph directive-notification-title-icon';
+  icon.dataset.glyph = 'route-campaign';
+  icon.setAttribute('aria-hidden', 'true');
 
   const label = document.createElement('strong');
   label.className = 'directive-turn-activity-label';
-  label.textContent = DEFAULT_LABEL;
 
-  indicator.append(spinner, label);
-  appendDirectiveOverlay(indicator, { fallbackParent: document.body });
+  titleRow.append(icon, label);
+  copy.append(category, titleRow);
+  indicator.appendChild(copy);
+  acquireDirectiveNotificationSurface('activity').activitySlot.appendChild(indicator);
   return indicator;
 }
 
@@ -44,16 +56,30 @@ function latestActivity() {
   return [...activeActivities.values()].at(-1) || null;
 }
 
+function activityPresentation(activity) {
+  if (activity?.phase === 'writing') return { category: 'SillyTavern', title: 'Writing...' };
+  if (activity?.phase === 'reading') return { category: 'Directive', title: 'Reading your post...' };
+  return { category: 'Directive', title: activity?.label || DEFAULT_LABEL };
+}
+
 function render() {
   if (!canRender()) return;
-  const indicator = indicatorElement();
   const activity = latestActivity();
+  const existing = document.getElementById(INDICATOR_ID);
+  if (!activity) {
+    existing?.remove?.();
+    releaseDirectiveNotificationSurface('activity');
+    return;
+  }
+  const indicator = existing || indicatorElement();
   if (!indicator) return;
-  indicator.hidden = !activity;
-  if (!activity) return;
+  indicator.hidden = false;
   indicator.dataset.directiveTurnActivityPhase = activity.phase;
+  const presentation = activityPresentation(activity);
+  const category = indicator.querySelector('.directive-notification-category');
+  if (category) category.textContent = presentation.category;
   const label = indicator.querySelector('.directive-turn-activity-label');
-  if (label) label.textContent = activity.label;
+  if (label) label.textContent = presentation.title;
 }
 
 function clearTimer(token) {
@@ -131,6 +157,7 @@ export function disposeDirectiveTurnActivity() {
   clearTimers.clear();
   const indicator = canRender() ? document.getElementById(INDICATOR_ID) : null;
   indicator?.remove?.();
+  releaseDirectiveNotificationSurface('activity');
 }
 
 export const __directiveTurnActivityTestHooks = Object.freeze({

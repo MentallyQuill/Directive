@@ -65,12 +65,6 @@
   color: currentColor;
 }
 
-@keyframes directive-spinner {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes directive-turn-chip-enter {
   from {
     opacity: 0;
@@ -100,6 +94,7 @@
   left: 50%;
   z-index: 100160;
   display: grid;
+  gap: 6px;
   width: min(340px, calc(100vw - 24px));
   transform: translateX(-50%);
   pointer-events: none;
@@ -113,11 +108,9 @@
 
 .directive-notification-activity-slot:empty { display: none; }
 
-.directive-gameplay-notification {
+.directive-notification-card {
   --directive-notification-accent: #f2a126;
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   overflow: hidden;
   color: #f8efe0;
   background:
@@ -129,6 +122,11 @@
   box-shadow: 0 9px 24px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(248, 239, 224, .025);
   pointer-events: auto;
   animation: directive-gameplay-notification-enter 180ms ease-out both;
+}
+
+.directive-gameplay-notification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .directive-gameplay-notification.is-people { --directive-notification-accent: #9b82cf; }
@@ -153,7 +151,7 @@
   text-align: left;
 }
 
-.directive-gameplay-notification-category {
+.directive-notification-category {
   color: var(--directive-notification-accent);
   font: 800 8px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif;
   letter-spacing: .08em;
@@ -256,7 +254,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .directive-gameplay-notification { animation: none; }
+  .directive-notification-card { animation: none; }
   .directive-gameplay-notification.is-exiting {
     opacity: 0;
     transition: opacity 120ms linear;
@@ -321,60 +319,41 @@
 }
 
 .directive-turn-activity-indicator {
-  position: fixed;
-  left: 50%;
-  bottom: clamp(72px, 12vh, 132px);
-  z-index: 100130;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  max-width: min(420px, calc(100vw - 28px));
-  padding: 9px 13px;
-  border: 1px solid color-mix(in srgb, var(--SmartThemeQuoteColor, #f2a65a) 56%, transparent);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--SmartThemeBodyColor, #111) 92%, #000), color-mix(in srgb, var(--SmartThemeBodyColor, #111) 84%, var(--SmartThemeQuoteColor, #f2a65a)));
-  box-shadow: 0 10px 30px color-mix(in srgb, #000 48%, transparent);
-  color: var(--SmartThemeEmColor, #fff);
-  font-size: 0.82rem;
-  line-height: 1.25;
-  transform: translateX(-50%);
+  --directive-notification-accent: #ef7f72;
+  display: grid;
   pointer-events: none;
-}
-
-.directive-turn-activity-indicator[data-directive-turn-activity="background"] {
-  border-color: color-mix(in srgb, var(--SmartThemeUnderlineColor, #74c0fc) 48%, transparent);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--SmartThemeBodyColor, #111) 94%, #000), color-mix(in srgb, var(--SmartThemeBodyColor, #111) 88%, var(--SmartThemeUnderlineColor, #74c0fc)));
-}
-
-.directive-turn-activity-indicator[data-directive-turn-activity="review"] {
-  border-color: color-mix(in srgb, #ffb86c 72%, transparent);
-  pointer-events: auto;
 }
 
 .directive-turn-activity-indicator[hidden] {
   display: none !important;
 }
 
-.directive-turn-activity-spinner {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  border: 2px solid color-mix(in srgb, currentColor 26%, transparent);
-  border-top-color: var(--SmartThemeQuoteColor, #f2a65a);
-  border-radius: 50%;
-  animation: directive-spinner 800ms linear infinite;
+.directive-turn-activity-copy {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 9px;
 }
 
 .directive-turn-activity-label {
-  overflow-wrap: anywhere;
-  font-weight: 700;
-  letter-spacing: 0;
+  overflow: hidden;
+  min-width: 0;
+  color: #f8efe0;
+  font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directive-turn-activity-indicator .directive-notification-title-icon {
+  animation: directive-activity-glyph-pulse 1100ms ease-in-out infinite alternate;
+}
+
+@keyframes directive-activity-glyph-pulse {
+  from { opacity: .55; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-.directive-turn-activity-spinner {
+  .directive-turn-activity-indicator .directive-notification-title-icon {
     animation: none;
   }
 }

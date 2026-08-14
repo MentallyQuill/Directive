@@ -48,25 +48,57 @@ try {
 
   const indicator = page.locator('#directive-turn-activity-indicator');
   await indicator.waitFor({ state: 'visible', timeout: 1200 });
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Directive is reading your post...');
+  assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'Directive');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reading your post...');
+  assert.equal(await indicator.locator('.directive-notification-title-icon').getAttribute('data-glyph'), 'route-campaign');
+  assert.equal(await indicator.locator('button').count(), 0, 'turn activity remains lifecycle-controlled and non-dismissible');
+  await page.waitForTimeout(220);
   const readingGeometry = await indicator.boundingBox();
   assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
-  assert.ok(readingGeometry.y > 400, 'reading status stays near the lower edge of the viewport');
+  assert.ok(
+    readingGeometry.y >= 8 && readingGeometry.y <= 40,
+    `reading status shares the upper Directive notification lane: ${JSON.stringify(readingGeometry)}`,
+  );
   assert.equal(
     await page.evaluate(async () => (await globalThis.__directiveBoundaryInterception).responseStrategy),
     'injectAndContinue',
     'presentation dwell must not delay the generation interceptor result'
   );
-  await page.waitForTimeout(250);
-  assert.equal(await indicator.isVisible(), true, 'fast interception must keep the reading phase visible long enough to perceive');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Directive is reading your post...');
+  assert.equal(await indicator.isVisible(), true, 'fast interception keeps the reading phase visible long enough to perceive');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reading your post...');
+
+  await page.evaluate(() => {
+    const base = {
+      kind: 'objectiveComplete',
+      title: 'Objective complete',
+      summary: 'Notification coexistence proof.',
+      priority: 70,
+      sourceRevision: 'mission:2;story:1',
+    };
+    globalThis.__directiveShowGameplayNotifications([
+      { ...base, id: 'mission.activity-stack', route: 'mission', subjectId: 'mission.activity-stack' },
+      { ...base, id: 'people.activity-stack', route: 'people', subjectId: 'people.activity-stack' },
+      { ...base, id: 'ship.activity-stack', route: 'ship', subjectId: 'ship.activity-stack' },
+    ]);
+  });
+  await page.waitForTimeout(220);
+  assert.equal(await page.locator('#directive-notifications').count(), 1, 'activity and gameplay share one notification host');
+  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'activity does not consume a gameplay slot');
+  const stackedGeometry = await page.evaluate(() => {
+    const activity = document.querySelector('#directive-turn-activity-indicator').getBoundingClientRect();
+    const gameplay = document.querySelector('.directive-gameplay-notification').getBoundingClientRect();
+    return { activityBottom: activity.bottom, gameplayTop: gameplay.top };
+  });
+  assert.ok(stackedGeometry.gameplayTop >= stackedGeometry.activityBottom + 6, 'gameplay cards stack below active turn status');
 
   await page.waitForFunction(() => (
     document.querySelector('#directive-turn-activity-indicator')?.dataset.directiveTurnActivityPhase === 'writing'
   ));
   assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'writing');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'SillyTavern is writing...');
+  assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'SillyTavern');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Writing...');
   await indicator.waitFor({ state: 'hidden', timeout: 1500 });
+  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'activity cleanup leaves gameplay notifications intact');
 
   await page.evaluate(async () => {
     const bridge = await import('/src/hosts/sillytavern/runtime-bridge.mjs');
