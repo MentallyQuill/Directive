@@ -4455,9 +4455,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   mask-position: 0 0;
   -webkit-mask-repeat: repeat;
   mask-repeat: repeat;
-  -webkit-mask-size: 256px 256px;
-  mask-size: 256px 256px;
-  animation: directive-hero-windows-live 10s linear -2.5s infinite;
+  -webkit-mask-size: 192px 192px;
+  mask-size: 192px 192px;
+  animation: directive-hero-windows-live 15s linear -3.75s infinite;
   will-change: mask-position;
 }
 .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="nacelles"] {
@@ -4507,8 +4507,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 }
 @keyframes directive-hero-windows-live {
   to {
-    -webkit-mask-position: -256px -256px;
-    mask-position: -256px -256px;
+    -webkit-mask-position: -192px -192px;
+    mask-position: -192px -192px;
   }
 }
 @keyframes directive-hero-nacelles-pulse {
