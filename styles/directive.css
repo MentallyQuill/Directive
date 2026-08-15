@@ -4457,7 +4457,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   mask-repeat: repeat;
   -webkit-mask-size: 256px 256px;
   mask-size: 256px 256px;
-  animation: directive-hero-windows-live 18s linear -4.5s infinite;
+  animation: directive-hero-windows-live 10s linear -2.5s infinite;
   will-change: mask-position;
 }
 .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="nacelles"] {

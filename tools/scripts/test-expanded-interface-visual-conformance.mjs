@@ -960,6 +960,7 @@ try {
         shipLayerBlends: shipLayers.map((layer) => getComputedStyle(layer).mixBlendMode),
         shipLayerAnimations: shipLayers.map((layer) => getComputedStyle(layer).animationName),
         shipLayerAnimationDurations: shipLayers.map((layer) => getComputedStyle(layer).animationDuration),
+        shipLayerAnimationDelays: shipLayers.map((layer) => getComputedStyle(layer).animationDelay),
         shipLayerAnimationTimingFunctions: shipLayers.map((layer) => getComputedStyle(layer).animationTimingFunction),
         shipLayerMaskImages: shipLayers.map((layer) => getComputedStyle(layer).maskImage),
         shipLayerMaskSizes: shipLayers.map((layer) => getComputedStyle(layer).maskSize),
@@ -1054,14 +1055,27 @@ try {
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
       let min = 255;
       let max = 0;
+      let dark = 0;
+      let bright = 0;
       for (let index = 3; index < pixels.length; index += 4) {
         min = Math.min(min, pixels[index]);
         max = Math.max(max, pixels[index]);
+        dark += pixels[index] === 0;
+        bright += pixels[index] === 255;
       }
       const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', pixels))]
         .map((byte) => byte.toString(16).padStart(2, '0'))
         .join('');
-      return { width: canvas.width, height: canvas.height, min, max, digest };
+      const sampleCount = pixels.length / 4;
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        min,
+        max,
+        darkFraction: dark / sampleCount,
+        brightFraction: bright / sampleCount,
+        digest
+      };
     });
   }
 
@@ -1106,7 +1120,9 @@ try {
       height: 256,
       min: 0,
       max: 255,
-      digest: '82c394d605d5646363d26e9d2489a80b9484b83e6dd30bbcb3e1e0da634075e7'
+      darkFraction: 0.3584442138671875,
+      brightFraction: 0.355712890625,
+      digest: '36e5606511570fcf0462450ee4c7eccd3d0a201d4565a52abe46144a2e2f4a42'
     }
   );
   assert.ok(Math.abs(desktopCampaign.hero.top - desktopCampaign.heading.bottom) < 1, 'desktop hero must start directly below the Campaign header');
@@ -1133,7 +1149,8 @@ try {
   assert.deepEqual(desktopCampaign.shipLayerAnimations, [
     'none', 'directive-hero-windows-live', 'directive-hero-nacelles-pulse'
   ]);
-  assert.deepEqual(desktopCampaign.shipLayerAnimationDurations, ['0s', '18s', '2s']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationDurations, ['0s', '10s', '2s']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationDelays, ['0s', '-2.5s', '-0.5s']);
   assert.deepEqual(desktopCampaign.shipLayerAnimationTimingFunctions, ['ease', 'linear', 'ease-in-out']);
   assert.equal(desktopCampaign.shipLayerMaskImages[0], 'none');
   assert.match(desktopCampaign.shipLayerMaskImages[1], /uss-breckenridge\.hero-window-noise\.webp/);
