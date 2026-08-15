@@ -1,5 +1,6 @@
 import { createDirectiveExpandedShell } from '/src/ui/directive-expanded-shell.js';
 import { DIRECTIVE_PRIMARY_ROUTES } from '/src/ui/directive-routes.mjs';
+import { syncCampaignRequiredGuidance } from '/src/ui/current-chat-empty-state.js';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '/src/packages/bundled-package-registry.mjs';
 import { renderCampaignPanel, resetCampaignPanelState } from '/src/ui/campaign-panel.js';
 import { renderMissionPanel } from '/src/ui/mission-panel.js';
@@ -17,6 +18,7 @@ const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-
 
 const fixtureUrl = new URL(globalThis.location.href);
 const requestedRoute = fixtureUrl.searchParams.get('route');
+const campaignRequired = fixtureUrl.searchParams.get('campaignRequired') === '1';
 const requestedTaskCountRaw = fixtureUrl.searchParams.get('taskCount');
 const requestedTaskCount = requestedTaskCountRaw === null
   ? null
@@ -148,7 +150,7 @@ const projection = {
 
 function fixtureView() {
   const activePackage = V1_CAMPAIGN_LIBRARY_TEASERS[0];
-  return {
+  const view = {
     activeTab: activeRouteId,
     activePackage,
     currentChatActivePackage: bundledPackageData,
@@ -205,6 +207,14 @@ function fixtureView() {
     generationRouting: createGenerationRoleRegistry().list(),
     diagnostics: { transcriptAvailable: true }
   };
+  if (!campaignRequired) return view;
+  return {
+    ...view,
+    currentChatActivePackage: null,
+    campaignState: null,
+    v1PlayerProjection: null,
+    currentChat: { status: 'none-selected' },
+  };
 }
 
 const actions = new Proxy({
@@ -248,6 +258,7 @@ function mount() {
   shell.classList.add('directive-screen');
   const body = shell.querySelector('[data-directive-runtime-body="true"]');
   renderRoute(body, fixtureView());
+  syncCampaignRequiredGuidance(shell, body);
   document.body.appendChild(shell);
 }
 
