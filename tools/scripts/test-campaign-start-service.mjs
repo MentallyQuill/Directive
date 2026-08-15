@@ -99,7 +99,7 @@ await assert.rejects(
     saveId: 'save.failed-start',
     now: '2026-08-10T01:02:00.000Z'
   }),
-  (error) => error?.code === 'FAKE_WRITE_FAILED'
+  (error) => error?.code === 'DIRECTIVE_V1_SAVE_BASE_WRITE_FAILED'
 );
 const restoredDraft = await resumeCharacterCreatorDraft({ adapter, draftId: draft.id });
 assert.equal(restoredDraft.status, 'inProgress');
@@ -139,6 +139,8 @@ advanced.worldState.elapsedSeconds = 172800;
 advanced.timeLedger.elapsedMinutes = 2880;
 advanced.timeLedger.elapsedSeconds = 172800;
 advanced.timeLedger.stardate = 53051.2;
+advanced.stateCustody.revision += 1;
+advanced.stateCustody.recentCommitIds.push('test.campaign-service-advance');
 await persistActiveCampaign({
   adapter,
   saveId: started.firstSave.id,
@@ -161,6 +163,9 @@ const snapshot = adapter.snapshot();
 assert.deepEqual(Object.keys(snapshot).sort(), [
   V1_STORAGE_PATHS.draft(draft.id),
   V1_STORAGE_PATHS.index,
+  V1_STORAGE_PATHS.saveBase('checkpoint.hesperus'),
+  V1_STORAGE_PATHS.saveBase(started.firstSave.id),
+  V1_STORAGE_PATHS.saveSegment(started.firstSave.id, 1, 'a'),
   V1_STORAGE_PATHS.save('checkpoint.hesperus'),
   V1_STORAGE_PATHS.save(started.firstSave.id)
 ].sort());
