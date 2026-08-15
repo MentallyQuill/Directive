@@ -11,6 +11,7 @@ import {
   listSillyTavernConnectionProfiles
 } from '../../src/hosts/sillytavern/provider-client.mjs';
 import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/generation-client.mjs';
+import { pickSafeDirectiveSamplerPayload } from '../../src/hosts/sillytavern/profile-samplers.mjs';
 import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.mjs';
 
 assert.deepEqual(GENERATION_ROLE_IDS, [
@@ -22,6 +23,22 @@ assert.deepEqual(GENERATION_ROLE_IDS, [
 assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
 assert.equal(providerKindForRole('peopleDossierAuthor'), 'reasoning');
 assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');
+
+assert.deepEqual(
+  pickSafeDirectiveSamplerPayload({ temperature: 0, top_p: 0.9, top_k: 0, frequency_penalty: 0 }),
+  { temperature: 0, top_p: 0.9, frequency_penalty: 0 },
+  'disabled top_k must be omitted without removing meaningful zero samplers'
+);
+assert.deepEqual(
+  pickSafeDirectiveSamplerPayload({ top_k: -1 }),
+  {},
+  'negative top_k disable sentinels must be omitted'
+);
+assert.deepEqual(
+  pickSafeDirectiveSamplerPayload({ top_k: 40 }),
+  { top_k: 40 },
+  'positive top_k must remain an intentional sampler override'
+);
 
 const profiles = [
   { id: 'chat.local', name: 'Local Chat', model: 'cydonia-local', api: 'openai', preset: 'Local Chat Preset' },
@@ -49,7 +66,7 @@ const profileContext = {
   ChatCompletionService: {
     TYPE: 'openai',
     async presetToGeneratePayload(_preset, _overrides, basePayload) {
-      return { ...basePayload, temperature: 0.6, top_p: 0.9, top_k: 40, custom_url: 'DO_NOT_PROJECT' };
+      return { ...basePayload, temperature: 0.6, top_p: 0.9, top_k: 0, custom_url: 'DO_NOT_PROJECT' };
     }
   }
 };
@@ -144,7 +161,7 @@ assert.deepEqual(profileCalls[0], {
     includeInstruct: false,
     signal: undefined
   },
-  payload: { temperature: 0.6, top_p: 0.9, top_k: 40 }
+  payload: { temperature: 0.6, top_p: 0.9 }
 });
 assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
 
