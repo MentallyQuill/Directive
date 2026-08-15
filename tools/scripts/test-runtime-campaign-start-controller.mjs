@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createCampaignStartController } from '../../src/runtime/campaign-start-controller.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
+import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
 
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(seed));
@@ -84,10 +85,11 @@ assert.equal(campaign.firstSave.kind, 'directive.campaignSave.v1');
 assert.equal(controller.getActiveCampaignState().player.name, 'Ren Okada');
 assert.equal(controller.getActiveCampaignState().mission.v1.kind, 'directive.missionState.v1');
 assert.equal(controller.getActiveCampaignState().storySettlement.kind, 'directive.storySettlement.v1');
-const staleSavePath = `v1/saves/${campaign.firstSave.id}.v1.json`;
-const staleSave = await adapter.readJson(staleSavePath);
-staleSave.state.ship.registry = 'NCC-74638';
-await adapter.writeJson(staleSavePath, staleSave);
+const saveManifestPath = V1_STORAGE_PATHS.save(campaign.firstSave.id);
+const saveManifest = await adapter.readJson(saveManifestPath);
+assert.equal(saveManifest.kind, 'directive.campaignSaveManifest.v1');
+assert.equal(Object.hasOwn(saveManifest, 'state'), false);
+assert.equal((await adapter.readJson(V1_STORAGE_PATHS.saveBase(campaign.firstSave.id))).kind, 'directive.campaignSaveBase.v1');
 const recoveredController = createCampaignStartController({
   adapter,
   packages: [packageData],
@@ -98,7 +100,7 @@ const recoveredController = createCampaignStartController({
 });
 const recoveredCampaign = await recoveredController.initialize();
 assert.equal(recoveredCampaign.campaignState.ship.registry, 'NCC-74656');
-assert.equal((await adapter.readJson(staleSavePath)).state.ship.registry, 'NCC-74656');
+assert.deepEqual(await adapter.readJson(saveManifestPath), saveManifest);
 await controller.initialize();
 const campaignView = await controller.getCampaignView();
 assert.equal(campaignView.campaigns.length, 1);
@@ -146,6 +148,8 @@ deletionState.campaignChatBinding = {
   entityType: 'character',
   entityId: '0'
 };
+deletionState.stateCustody.revision += 1;
+deletionState.stateCustody.recentCommitIds.push('test.bind-deletion-chat');
 await controller.persistActiveCampaign({ campaignState: deletionState });
 await assert.rejects(
   controller.prepareCampaignDeletion({ campaignId: campaign.firstSave.campaignId }),
@@ -164,6 +168,8 @@ deletionState.campaignChatBinding = {
   entityId: '0',
   entityName: 'Ren Okada - Ashes of Peace'
 };
+deletionState.stateCustody.revision += 1;
+deletionState.stateCustody.recentCommitIds.push('test.name-deletion-chat');
 await controller.persistActiveCampaign({ campaignState: deletionState });
 const deletionCheckpoint = await controller.createCheckpoint({ name: 'Delete with campaign' });
 const deletionView = await controller.getCampaignView();

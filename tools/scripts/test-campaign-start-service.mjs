@@ -17,9 +17,11 @@ import {
 
 function memoryAdapter() {
   const files = new Map();
+  const readCounts = new Map();
   let failWritePrefix = null;
   return {
     async readJson(key) {
+      readCounts.set(key, (readCounts.get(key) || 0) + 1);
       if (!files.has(key)) {
         const error = new Error(`not found: ${key}`);
         error.code = 'ENOENT';
@@ -38,6 +40,8 @@ function memoryAdapter() {
     },
     async deleteJsonFile(key) { files.delete(key); },
     failNextWriteFor(prefix) { failWritePrefix = String(prefix); },
+    resetReadCounts() { readCounts.clear(); },
+    readCountFor(key) { return readCounts.get(key) || 0; },
     snapshot: () => Object.fromEntries(files)
   };
 }
@@ -141,12 +145,19 @@ advanced.timeLedger.elapsedSeconds = 172800;
 advanced.timeLedger.stardate = 53051.2;
 advanced.stateCustody.revision += 1;
 advanced.stateCustody.recentCommitIds.push('test.campaign-service-advance');
+adapter.resetReadCounts();
 await persistActiveCampaign({
   adapter,
   saveId: started.firstSave.id,
+  previousSave: started.firstSave,
   campaignState: advanced,
   now: '2026-08-10T01:03:00.000Z'
 });
+assert.equal(
+  adapter.readCountFor(V1_STORAGE_PATHS.saveBase(started.firstSave.id)),
+  0,
+  'persistence from a loaded save must not rehydrate its base or delta chain',
+);
 assert.equal((await loadGame({ adapter, saveId: started.firstSave.id })).campaign.currentStardate, 53051.2);
 
 await createCampaignCheckpoint({

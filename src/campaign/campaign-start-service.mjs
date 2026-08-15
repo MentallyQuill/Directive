@@ -5,6 +5,7 @@ import {
 } from '../creators/character-creator-draft.mjs';
 import { createInitialCampaignStateFromCreatorReview } from './campaign-start.mjs';
 import {
+  assertV1CampaignSave,
   createV1CampaignSave,
   deleteV1CampaignSave,
   deleteV1CreatorDraft,
@@ -132,6 +133,7 @@ export async function acceptCreatorDraftAndCreateFirstSave({
 export async function persistActiveCampaign({
   adapter,
   saveId,
+  previousSave = null,
   campaignState,
   now,
   name = null
@@ -140,8 +142,9 @@ export async function persistActiveCampaign({
   const savedAt = stamp(now);
   let createdAt = savedAt;
   let savedName = name;
+  let existing = previousSave ? assertV1CampaignSave(previousSave) : null;
   try {
-    const existing = await loadV1CampaignSave(adapter, saveId);
+    existing ||= await loadV1CampaignSave(adapter, saveId);
     if (existing.slotType !== 'active') throw new Error('An active campaign cannot overwrite a checkpoint.');
     createdAt = existing.createdAt;
     savedName ||= existing.name;
@@ -154,7 +157,7 @@ export async function persistActiveCampaign({
     state: campaignState,
     createdAt,
     updatedAt: savedAt
-  }));
+  }), { previousSave: existing });
 }
 
 export async function createCampaignCheckpoint({

@@ -206,7 +206,12 @@ function byteLength(value) {
 
 function changedStateRoots(before, after) {
   return [...new Set([...Object.keys(before || {}), ...Object.keys(after || {})])]
-    .filter((root) => canonicalJson(before?.[root]) !== canonicalJson(after?.[root]))
+    .filter((root) => {
+      const beforeValue = before?.[root];
+      const afterValue = after?.[root];
+      if (beforeValue === undefined || afterValue === undefined) return beforeValue !== afterValue;
+      return canonicalJson(beforeValue) !== canonicalJson(afterValue);
+    })
     .sort();
 }
 

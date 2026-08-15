@@ -21,7 +21,10 @@ import {
   storeV1CampaignSave,
   verifyV1Storage
 } from '../storage/v1-storage-repository.mjs';
-import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import {
+  assertV1CampaignState,
+  V1_STATE_CUSTODY_RECENT_COMMIT_LIMIT,
+} from './v1-campaign-state.mjs';
 import { stableJsonStringify } from './v1-host-message-contracts.mjs';
 import {
   deleteTimelineOperation,
@@ -62,6 +65,20 @@ function normalizeIdFactory(idFactory) {
 
 function packageId(packageData) {
   return packageData?.manifest?.id || null;
+}
+
+function advanceStateCustody(nextState, previousState, commitId) {
+  const next = clone(nextState);
+  const previousCustody = previousState.stateCustody;
+  next.stateCustody = {
+    ...clone(previousCustody),
+    revision: previousCustody.revision + 1,
+    recentCommitIds: [
+      ...previousCustody.recentCommitIds,
+      required(commitId, 'state custody commitId'),
+    ].slice(-V1_STATE_CUSTODY_RECENT_COMMIT_LIMIT),
+  };
+  return assertV1CampaignState(next);
 }
 
 export function createRuntimePackageContext(packageData) {
@@ -230,19 +247,6 @@ export function createCampaignStartController({
   async function refreshActive() {
     activeSave = await loadActiveV1CampaignSave(adapter);
     activeState = activeSave ? assertV1CampaignState(clone(activeSave.state)) : null;
-    const canonicalRegistry = String(packageData?.ship?.registry || '').trim();
-    if (activeSave
-      && activeSave.packageId === packageId(packageData)
-      && canonicalRegistry
-      && activeState.ship.registry !== canonicalRegistry) {
-      activeState.ship.registry = canonicalRegistry;
-      activeSave = await storeV1CampaignSave(adapter, {
-        ...activeSave,
-        updatedAt: currentTime(),
-        state: activeState
-      }, { makeActive: true });
-      activeState = clone(activeSave.state);
-    }
     return activeSave;
   }
 
@@ -370,6 +374,7 @@ export function createCampaignStartController({
       const save = await persistActiveCampaign({
         adapter,
         saveId: required(saveId, 'saveId'),
+        previousSave: activeSave?.id === saveId ? activeSave : null,
         campaignState: assertV1CampaignState(campaignState),
         name,
         now: currentTime()
@@ -414,7 +419,7 @@ export function createCampaignStartController({
             || JSON.stringify(existing.state) !== JSON.stringify(campaignState)) {
             throw new Error('The existing timeline checkpoint does not match this operation.');
           }
-          await storeV1CampaignSave(adapter, existing, { makeActive: false });
+          await storeV1CampaignSave(adapter, existing, { makeActive: false, previousSave: existing });
           return clone(existing);
         } catch (error) {
           if (!/was not found/i.test(String(error?.message || ''))) throw error;
@@ -474,7 +479,7 @@ export function createCampaignStartController({
         createdAt: current.createdAt,
         updatedAt: currentTime()
       });
-      await storeV1CampaignSave(adapter, renamed, { makeActive: false });
+      await storeV1CampaignSave(adapter, renamed, { makeActive: false, previousSave: current });
       return clone(renamed);
     },
 
@@ -494,7 +499,7 @@ export function createCampaignStartController({
     async bindCheckpointChat({ checkpointId, binding } = {}) {
       const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
-      const nextState = clone(checkpoint.state);
+      let nextState = clone(checkpoint.state);
       nextState.campaignChatBinding = {
         ...clone(binding),
         kind: 'directive.campaignChatBinding.v1',
@@ -503,6 +508,11 @@ export function createCampaignStartController({
         saveId: checkpoint.parentSaveId,
         status: 'bound'
       };
+      nextState = advanceStateCustody(
+        nextState,
+        checkpoint.state,
+        `checkpoint-binding.${checkpoint.id}.${nextState.campaignChatBinding.chatId}`,
+      );
       const next = createV1CampaignSave({
         id: checkpoint.id,
         name: checkpoint.name,
@@ -512,7 +522,7 @@ export function createCampaignStartController({
         createdAt: checkpoint.createdAt,
         updatedAt: currentTime()
       });
-      await storeV1CampaignSave(adapter, next, { makeActive: false });
+      await storeV1CampaignSave(adapter, next, { makeActive: false, previousSave: checkpoint });
       return clone(next);
     },
 
@@ -520,12 +530,17 @@ export function createCampaignStartController({
       const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
-      const state = clone(checkpoint.state);
+      let state = clone(checkpoint.state);
       if (state.campaignChatBinding) {
         state.campaignChatBinding.saveId = activeSave.id;
         state.campaignChatBinding.chatId = null;
         state.campaignChatBinding.status = 'unbound';
       }
+      state = advanceStateCustody(
+        state,
+        activeSave.state,
+        `checkpoint-load.${checkpoint.id}.${activeSave.id}`,
+      );
       const timeline = createV1CampaignSave({
         id: activeSave.id,
         name: activeSave.name,
@@ -533,7 +548,7 @@ export function createCampaignStartController({
         createdAt: activeSave.createdAt,
         updatedAt: currentTime()
       });
-      await storeV1CampaignSave(adapter, timeline);
+      await storeV1CampaignSave(adapter, timeline, { previousSave: activeSave });
       activeSave = clone(timeline);
       activeState = clone(state);
       return { timeline: clone(timeline), checkpoint: clone(checkpoint) };

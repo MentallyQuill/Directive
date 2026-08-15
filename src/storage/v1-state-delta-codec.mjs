@@ -56,6 +56,7 @@ function deltaError(code, message, details = {}) {
 }
 
 function equal(left, right) {
+  if (left === undefined || right === undefined) return left === right;
   return canonicalJson(left) === canonicalJson(right);
 }
 
