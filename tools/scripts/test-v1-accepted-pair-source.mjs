@@ -120,6 +120,30 @@ const generationAnchored = prepareV1AcceptedPairSnapshot({
 assert.equal(generationAnchored.ok, true);
 assert.equal(generationAnchored.snapshot.source.previousAssistant.promptingPlayerHostMessageId, 'player.1');
 
+const missingRequiredAnchor = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.missing-anchor', index: 51 },
+  previousAssistantMessage: { ...assistant, id: 'assistant.missing-anchor', index: 50 },
+  requirePromptingPlayerAnchor: true,
+  chatId: 'chat.ashes'
+});
+assert.equal(missingRequiredAnchor.ok, false);
+assert.equal(missingRequiredAnchor.reason, 'previous-assistant-prompting-player-missing');
+
+const explicitRequiredAnchor = prepareV1AcceptedPairSnapshot({
+  campaignState,
+  currentPlayerMessage: { ...player, id: 'player.explicit-anchor', index: 51 },
+  previousAssistantMessage: { ...assistant, id: 'assistant.explicit-anchor', index: 50 },
+  promptingPlayerHostMessageId: 'player.prompting-anchor',
+  requirePromptingPlayerAnchor: true,
+  chatId: 'chat.ashes'
+});
+assert.equal(explicitRequiredAnchor.ok, true);
+assert.equal(
+  explicitRequiredAnchor.snapshot.source.previousAssistant.promptingPlayerHostMessageId,
+  'player.prompting-anchor',
+);
+
 const footerAnchored = prepareV1AcceptedPairSnapshot({
   campaignState,
   currentPlayerMessage: { ...player, id: 'player.footer' },

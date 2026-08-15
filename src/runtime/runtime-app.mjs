@@ -32,7 +32,10 @@ import {
   loadBundledCampaignPackageRecords
 } from './package-library.mjs';
 import { createStateDeltaGateway } from './state-delta-gateway.mjs';
-import { prepareV1AcceptedPairSnapshot } from './v1-accepted-pair-source.mjs';
+import {
+  V1_ACCEPTED_PAIR_SOURCE_WINDOW,
+  prepareV1AcceptedPairSnapshot,
+} from './v1-accepted-pair-source.mjs';
 import {
   prepareV1AcceptedPairTimeAdvance,
   prepareV1AcceptedPairTimeInvalidationByHostMessages
@@ -1102,6 +1105,7 @@ export function createDirectiveRuntimeApp({
       campaignState: state,
       currentPlayerMessage,
       recentMessages,
+      requirePromptingPlayerAnchor: true,
       chatId: host.chat.getCurrentChatId?.(),
       ingressId
     });
@@ -1446,7 +1450,10 @@ export function createDirectiveRuntimeApp({
         if (!current || !isUserMessage(current) || !compact(current.text || current.mes || current.content)) {
           return { handled: false, reason: 'no-player-message' };
         }
-        const recent = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
+        const recent = await host.chat.getRecentMessages?.({
+          limit: V1_ACCEPTED_PAIR_SOURCE_WINDOW,
+          playerSafeOnly: false,
+        }) || [];
         if (!currentChatIsBound() || sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
           return { handled: false, reason: 'source-chat-changed' };
         }
@@ -1551,7 +1558,10 @@ export function createDirectiveRuntimeApp({
           };
         }
         const current = await host.chat.getLatestPlayerMessage?.();
-        const recent = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
+        const recent = await host.chat.getRecentMessages?.({
+          limit: V1_ACCEPTED_PAIR_SOURCE_WINDOW,
+          playerSafeOnly: false,
+        }) || [];
         const prepared = current
           ? await acceptedSnapshotForMessage(current, recent, `retry.${messageId(current, current)}`)
           : null;

@@ -9,6 +9,7 @@ function stripLegacyCampaignReplyHeader(text = '') {
 
 const MAX_ASSISTANT_CHARS = 7000;
 const MAX_PLAYER_CHARS = 2500;
+export const V1_ACCEPTED_PAIR_SOURCE_WINDOW = 8;
 
 function compact(value, maximum = 300) {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -192,6 +193,8 @@ export function prepareV1AcceptedPairSnapshot({
   campaignState,
   currentPlayerMessage,
   previousAssistantMessage = null,
+  promptingPlayerHostMessageId = null,
+  requirePromptingPlayerAnchor = false,
   recentMessages = [],
   chatId = null,
   ingressId = null
@@ -227,7 +230,18 @@ export function prepareV1AcceptedPairSnapshot({
   const previousResponseHash = compact(selected.value.selectedResponseHash) || previousTextHash;
   const playerTextHash = stableHash(completePlayerText);
   const sourceRangeHash = stableHash(`${previousId || ''}:${previousResponseHash}:${playerId || ''}:${playerTextHash}`);
-  const promptingPlayerHostMessageId = promptingPlayerBeforeAssistant(recentMessages, resolved.message);
+  const promptingPlayerId = compact(
+    promptingPlayerHostMessageId
+    || directiveMetadata(resolved.message)?.promptingPlayerHostMessageId
+    || promptingPlayerBeforeAssistant(recentMessages, resolved.message),
+    180,
+  ) || null;
+  const assistantIndex = Number(resolved.message?.index ?? resolved.message?.raw?.index);
+  if (requirePromptingPlayerAnchor
+    && !promptingPlayerId
+    && !(Number.isInteger(assistantIndex) && assistantIndex === 0)) {
+    return { ok: false, reason: 'previous-assistant-prompting-player-missing', snapshot: null };
+  }
   return {
     ok: true,
     reason: null,
@@ -245,7 +259,7 @@ export function prepareV1AcceptedPairSnapshot({
       source: {
         previousAssistant: {
           hostMessageId: previousId,
-          promptingPlayerHostMessageId,
+          promptingPlayerHostMessageId: promptingPlayerId,
           selectedVariantId: selected.value.selectedVariantId,
           selectedSwipeIndex: selected.value.selectedSwipeIndex,
           sourceIntegrity: 'clean',

@@ -14,11 +14,28 @@ import {
 } from '../../src/runtime/runtime-app.mjs';
 import { withCampaignTimelineLease } from '../../src/runtime/timeline-transaction-service.mjs';
 import { V1_CAMPAIGN_LIBRARY_TEASERS } from '../../src/packages/bundled-package-registry.mjs';
-import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
+import {
+  V1_STORAGE_PATHS,
+  createV1CampaignSave,
+  loadV1CampaignSave,
+  storeV1CampaignSave,
+} from '../../src/storage/v1-storage-repository.mjs';
 import { createDutyReportVisibleSegment } from '../../src/mission/v1/duty-report-delivery.mjs';
 
 function json(relative) {
   return JSON.parse(fs.readFileSync(new URL(`../../${relative}`, import.meta.url), 'utf8'));
+}
+
+function nextStoredSave(previous, state, updatedAt) {
+  return createV1CampaignSave({
+    id: previous.id,
+    name: previous.name,
+    slotType: previous.slotType,
+    parentSaveId: previous.parentSaveId,
+    state,
+    createdAt: previous.createdAt,
+    updatedAt,
+  });
 }
 
 const runtimeGenerationCalls = [];
@@ -359,7 +376,7 @@ assert.equal(
   'a fresh chat that fails prompt hygiene before binding returns must be deleted after reopening the prior chat'
 );
 assert.equal(
-  (await host.storage.readJson(V1_STORAGE_PATHS.save(recoverableCampaignView.activeSaveId))).state.campaignChatBinding?.chatId ?? null,
+  (await loadV1CampaignSave(host.storage, recoverableCampaignView.activeSaveId)).state.campaignChatBinding?.chatId ?? null,
   null,
   'failed host binding must restore the persisted first save to its unbound state'
 );
@@ -396,7 +413,7 @@ const staleActiveSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
 const saveBeforeExternalMutation = await host.storage.readJson(staleActiveSavePath);
 const externalCampaignLease = withCampaignTimelineLease(missionView.campaignState.campaign.id, async () => {
   const externallyUpdated = structuredClone(saveBeforeExternalMutation);
-  externallyUpdated.state.settings.simulationMode = 'Exploration';
+  externallyUpdated.saveMetadata.updatedAt = '2026-08-10T04:00:00.000Z';
   externallyUpdated.updatedAt = '2026-08-10T04:00:00.000Z';
   await host.storage.writeJson(staleActiveSavePath, externallyUpdated);
   reportExternalCampaignLease();
@@ -435,7 +452,7 @@ assert.equal(
   'active campaign portrait import must update the current runtime state'
 );
 assert.equal(
-  (await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))).state.player.portrait.asset.path,
+  (await loadV1CampaignSave(host.storage, missionView.activeSaveId)).state.player.portrait.asset.path,
   importedCampaignPortraitPath,
   'active campaign portrait import must persist the authoritative save'
 );
@@ -445,7 +462,7 @@ let persistedPathAtCampaignReplacementCleanup = null;
 host.storage.deleteFile = async (path, options) => {
   if (path === importedCampaignPortraitPath) {
     persistedPathAtCampaignReplacementCleanup = (
-      await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))
+      await loadV1CampaignSave(host.storage, missionView.activeSaveId)
     ).state.player.portrait.asset.path;
   }
   return deleteFileBeforeCampaignReplacement.call(host.storage, path, options);
@@ -499,7 +516,7 @@ let persistedPortraitAtCampaignRemovalCleanup = 'not-observed';
 host.storage.deleteFile = async (path, options) => {
   if (path === replacedCampaignPortrait.portrait.asset.path) {
     persistedPortraitAtCampaignRemovalCleanup = (
-      await host.storage.readJson(V1_STORAGE_PATHS.save(missionView.activeSaveId))
+      await loadV1CampaignSave(host.storage, missionView.activeSaveId)
     ).state.player.portrait;
   }
   return deleteFileBeforeCampaignRemoval.call(host.storage, path, options);
@@ -618,13 +635,24 @@ assert.doesNotMatch(installedPrompt, /Directive Command Causality|active Directi
 
 const activeSavePath = V1_STORAGE_PATHS.save(missionView.activeSaveId);
 const explorationFiles = jsonStorage.snapshot();
-explorationFiles[activeSavePath].state.settings.simulationMode = 'Exploration';
+const explorationStorage = createFakeJsonStorage(explorationFiles);
+const explorationPreviousSave = await loadV1CampaignSave(explorationStorage, missionView.activeSaveId);
+const explorationState = structuredClone(explorationPreviousSave.state);
+explorationState.settings.simulationMode = 'Exploration';
+explorationState.stateCustody.revision += 1;
+explorationState.stateCustody.recentCommitIds.push('test.exploration-mode');
+const explorationSave = nextStoredSave(
+  explorationPreviousSave,
+  explorationState,
+  '2026-08-10T03:30:00.000Z',
+);
+await storeV1CampaignSave(explorationStorage, explorationSave, { previousSave: explorationPreviousSave });
 const explorationChat = createFakeChatAdapter({ chatId: boundCampaignChatId });
-await explorationChat.updateBindingMetadata(explorationFiles[activeSavePath].state.campaignChatBinding);
+await explorationChat.updateBindingMetadata(explorationSave.state.campaignChatBinding);
 const explorationHost = createFakeDirectiveHost({
   chatNative: true,
   chat: explorationChat,
-  storage: createFakeJsonStorage(explorationFiles)
+  storage: explorationStorage
 });
 const explorationApp = createDirectiveRuntimeApp({
   host: explorationHost,
@@ -641,13 +669,21 @@ assert.match(explorationPrompt, /strongest causally adjacent nonfatal result/);
 assert.match(explorationPrompt, /do not erase danger, turn failure into success, or make opposition incompetent/i);
 assert.doesNotMatch(explorationPrompt, /COMMAND MODE - FULL SIMULATION/);
 
-const creditedSave = await host.storage.readJson(activeSavePath);
-creditedSave.state.commandBearing = awardV1CommandBearing(creditedSave.state.commandBearing, {
+const creditedPreviousSave = await loadV1CampaignSave(host.storage, missionView.activeSaveId);
+const creditedState = structuredClone(creditedPreviousSave.state);
+creditedState.commandBearing = awardV1CommandBearing(creditedState.commandBearing, {
   awardId: 'award.test.command-bearing',
   sourceId: 'objective.test.optional-command-choice',
   reason: 'You made a meaningful optional command decision.'
 }).commandBearing;
-await host.storage.writeJson(activeSavePath, creditedSave);
+creditedState.stateCustody.revision += 1;
+creditedState.stateCustody.recentCommitIds.push('test.command-bearing-award');
+const creditedSave = nextStoredSave(
+  creditedPreviousSave,
+  creditedState,
+  '2026-08-10T03:45:00.000Z',
+);
+await storeV1CampaignSave(host.storage, creditedSave, { previousSave: creditedPreviousSave });
 app = createDirectiveRuntimeApp({
   host,
   packageLoader: async () => structuredClone(records),
@@ -675,15 +711,32 @@ const opening = chat.messages()[0];
 const player = chat.pushPlayerMessage({ text: 'I take the chair opposite Whitaker and open the handover packet.' });
 const acceptedHistoryReads = [];
 const acceptedHistoryReader = host.chat.getRecentMessages;
+const acceptedPairTail = acceptedHistoryReader({ limit: 2, playerSafeOnly: false });
+const simulatedTenThousandMessageHistory = [
+  ...Array.from({ length: 9998 }, (_, index) => ({
+    id: `historical.${index}`,
+    hostMessageId: `historical.${index}`,
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    isUser: index % 2 === 0,
+    text: `Historical message ${index}`,
+  })),
+  ...acceptedPairTail,
+];
 host.chat.getRecentMessages = (options) => {
   acceptedHistoryReads.push(options);
-  return acceptedHistoryReader(options);
+  const limit = Math.max(1, Number(options?.limit || 12));
+  return structuredClone(simulatedTenThousandMessageHistory.slice(-limit));
 };
 const settled = await app.observeHostPlayerMessage({ message: player });
 host.chat.getRecentMessages = acceptedHistoryReader;
 assert.equal(acceptedHistoryReads.some((options) => (
-  options?.limit === Number.MAX_SAFE_INTEGER && options?.playerSafeOnly === false
-)), true, 'accepted-pair custody must read complete raw chat source');
+  options?.limit <= 8 && options?.playerSafeOnly === false
+)), true, 'accepted-pair custody must use a fixed raw-source window even with 10,000 messages');
+assert.equal(
+  acceptedHistoryReads.some((options) => options?.limit > 8),
+  false,
+  'normal accepted-pair settlement must never widen to complete history',
+);
 assert.equal(settled.handled, true);
 assert.equal(settled.mission.ok, false);
 assert.equal(settled.mission.reasonCode, 'provider-empty');
@@ -812,7 +865,7 @@ assert.notEqual(continuedCheckpoint.timeline.id, disposableCheckpoint.checkpoint
 assert.equal(continuedCheckpoint.timeline.state.campaignChatBinding.saveId, continuedCheckpoint.timeline.id);
 assert.notEqual(continuedCheckpoint.timeline.state.campaignChatBinding.chatId, checkpointChatId);
 assert.deepEqual(
-  await host.storage.readJson(V1_STORAGE_PATHS.save(disposableCheckpoint.checkpoint.id)),
+  await loadV1CampaignSave(host.storage, disposableCheckpoint.checkpoint.id),
   disposableCheckpoint.checkpoint,
   'loading must not mutate the selected immutable saved game'
 );
@@ -992,7 +1045,10 @@ releasePortraitLoadClone();
 const [portraitRaceTimeline, portraitAfterLoad] = await Promise.all([portraitRaceLoad, portraitRaceImport]);
 host.chat.cloneCampaignChat = cloneBeforePortraitLoadRace;
 assert.equal(
-  (await host.storage.readJson(V1_STORAGE_PATHS.save((await host.storage.readJson(V1_STORAGE_PATHS.index)).activeSaveId))).state.player.portrait.asset.path,
+  (await loadV1CampaignSave(
+    host.storage,
+    (await host.storage.readJson(V1_STORAGE_PATHS.index)).activeSaveId,
+  )).state.player.portrait.asset.path,
   portraitAfterLoad.portrait.asset.path,
   'a portrait queued during Load Game must commit to the new active child rather than resurrect the parent'
 );
@@ -1167,7 +1223,10 @@ assert.equal(
 
 chat.pushAssistantMessage({
   text: 'The bridge pauses while the next command is considered.',
-  hostMessageId: 'assistant.analysis-cancel'
+  hostMessageId: 'assistant.analysis-cancel',
+  metadata: {
+    promptingPlayerHostMessageId: [...completeChat].reverse().find((message) => message.isUser)?.hostMessageId,
+  },
 });
 const cancellationPlayer = chat.pushPlayerMessage({
   text: 'Hold that thought.',
