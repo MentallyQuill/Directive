@@ -264,6 +264,6 @@ git add -- styles/directive.css tools/scripts/test-cohesion-ship-visual.mjs docs
 git commit -m "fix(ship): paint continuous bevel edges"
 ```
 
-- [ ] **Step 5: Reconcile and publish only the scoped branch tip**
+- [x] **Step 5: Reconcile and publish only the scoped branch tip**
 
 Use GitHub CLI with network permission to verify current remote `main`. If remote advanced, fetch and merge `origin/main` into this branch without reset or force-push, rerun the full gate, then push the verified scoped tip to `origin/main`. Confirm with `gh api` that the correction commit is an ancestor of current remote `main`.
