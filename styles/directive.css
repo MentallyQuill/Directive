@@ -4447,7 +4447,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   inset: 0;
 }
 .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="windows"] {
-  opacity: .66;
+  opacity: .96;
   mix-blend-mode: screen;
   -webkit-mask-image: var(--directive-hero-window-noise);
   mask-image: var(--directive-hero-window-noise);
@@ -5003,7 +5003,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; transition: none !important; }
   .directive-expanded-shell .directive-hero-ship-card-layer { animation: none !important; }
   .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="windows"] {
-    opacity: .66;
+    opacity: .96;
     -webkit-mask-position: 0 0;
     mask-position: 0 0;
   }

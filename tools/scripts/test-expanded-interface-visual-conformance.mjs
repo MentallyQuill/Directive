@@ -963,6 +963,7 @@ try {
         shipLayerAnimationTimingFunctions: shipLayers.map((layer) => getComputedStyle(layer).animationTimingFunction),
         shipLayerMaskImages: shipLayers.map((layer) => getComputedStyle(layer).maskImage),
         shipLayerMaskSizes: shipLayers.map((layer) => getComputedStyle(layer).maskSize),
+        shipLayerMaskPositions: shipLayers.map((layer) => getComputedStyle(layer).maskPosition),
         shipLayerOpacities: shipLayers.map((layer) => getComputedStyle(layer).opacity),
         shipLayerFilters: shipLayers.map((layer) => getComputedStyle(layer).filter),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
@@ -1036,6 +1037,34 @@ try {
     });
   }
 
+  async function measureWindowNoiseAlphaRange(page) {
+    return page.locator('[data-hero-ship-layer="windows"]').evaluate(async (windowLayer) => {
+      const maskImage = getComputedStyle(windowLayer).maskImage;
+      const source = maskImage.startsWith('url(')
+        ? maskImage.slice(4, -1).replace(/^['"]|['"]$/g, '')
+        : '';
+      const image = new Image();
+      image.src = source;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let min = 255;
+      let max = 0;
+      for (let index = 3; index < pixels.length; index += 4) {
+        min = Math.min(min, pixels[index]);
+        max = Math.max(max, pixels[index]);
+      }
+      const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', pixels))]
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+      return { width: canvas.width, height: canvas.height, min, max, digest };
+    });
+  }
+
   const orbitNumber = (campaign, name) => Number.parseFloat(campaign.orbitVariables[name]) || 0;
   const orbitAxis = (campaign, axis) => ({
     background: orbitNumber(campaign, `--directive-hero-orbit-background-${axis}`),
@@ -1070,6 +1099,16 @@ try {
   await desktopCampaignPage.goto(`${baseUrl}/production?route=campaign`);
   await desktopCampaignPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   const desktopCampaign = await measureCampaignDashboard(desktopCampaignPage);
+  assert.deepEqual(
+    await measureWindowNoiseAlphaRange(desktopCampaignPage),
+    {
+      width: 256,
+      height: 256,
+      min: 199,
+      max: 255,
+      digest: '156bf385fa27d67502f148adef022eea39dd4bb507a415fbe1e1c9f914d2e52f'
+    }
+  );
   assert.ok(Math.abs(desktopCampaign.hero.top - desktopCampaign.heading.bottom) < 1, 'desktop hero must start directly below the Campaign header');
   assert.ok(Math.abs(desktopCampaign.actions.top - desktopCampaign.hero.bottom) < 1, 'desktop dock must start directly below the hero');
   assert.ok(Math.abs(desktopCampaign.actions.bottom - desktopCampaign.dashboard.bottom) < 1, 'desktop dock must form the dashboard bottom edge');
@@ -1100,6 +1139,7 @@ try {
   assert.match(desktopCampaign.shipLayerMaskImages[1], /uss-breckenridge\.hero-window-noise\.webp/);
   assert.equal(desktopCampaign.shipLayerMaskImages[2], 'none');
   assert.deepEqual(desktopCampaign.shipLayerMaskSizes, ['auto', '256px 256px', 'auto']);
+  assert.equal(desktopCampaign.shipLayerOpacities[1], '0.96');
   for (const shipLayer of desktopCampaign.shipLayerRects) {
     assert.ok(Math.abs(shipLayer.left - desktopCampaign.shipLayerRects[0].left) < .1);
     assert.ok(Math.abs(shipLayer.top - desktopCampaign.shipLayerRects[0].top) < .1);
@@ -1163,7 +1203,13 @@ try {
   });
   const cruiseMotionStart = desktopCampaign.cruiseOffsets;
   await desktopCampaignPage.waitForTimeout(1200);
-  const cruiseMotionEnd = (await measureCampaignDashboard(desktopCampaignPage)).cruiseOffsets;
+  const desktopMotionEnd = await measureCampaignDashboard(desktopCampaignPage);
+  const cruiseMotionEnd = desktopMotionEnd.cruiseOffsets;
+  assert.notEqual(
+    desktopMotionEnd.shipLayerMaskPositions[1],
+    desktopCampaign.shipLayerMaskPositions[1],
+    'window mask must travel between deterministic animation phases'
+  );
   const travelDistance = (name) => Math.hypot(
     cruiseMotionEnd[name].x - cruiseMotionStart[name].x,
     cruiseMotionEnd[name].y - cruiseMotionStart[name].y
@@ -1254,6 +1300,8 @@ try {
   assertNeutralOrbit(reducedCampaign, 'reduced-motion hover');
   assert.deepEqual(reducedCampaign.animations, ['none', 'none', 'none', 'none', 'none', 'none']);
   assert.deepEqual(reducedCampaign.shipLayerAnimations, ['none', 'none', 'none']);
+  assert.equal(reducedCampaign.shipLayerOpacities[1], '0.96');
+  assert.equal(reducedCampaign.shipLayerMaskPositions[1], '0px 0px');
   assert.deepEqual(reducedCampaign.transforms.slice(2, 4), ['none', 'none']);
   assert.equal(reducedCampaign.opacities[5], '0.12');
   assert.equal(reducedCampaign.filters[5], 'none');
