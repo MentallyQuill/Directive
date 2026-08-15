@@ -17,6 +17,11 @@ assert.match(
   /@keyframes directive-hero-stars-near-cruise\s*\{\s*to\s*\{\s*transform:\s*translate3d\(-960px,\s*-600px,\s*0\);\s*\}\s*\}/,
   'near-star loop endpoint must equal exactly one displayed near tile'
 );
+assert.match(
+  directiveCss,
+  /@keyframes directive-hero-windows-live\s*\{\s*to\s*\{\s*-webkit-mask-position:\s*-192px\s*-192px;\s*mask-position:\s*-192px\s*-192px;\s*\}\s*\}/,
+  'window-noise loop endpoint must equal exactly one displayed mask tile'
+);
 const port = 54000 + (process.pid % 10000);
 const baseUrl = `http://127.0.0.1:${port}`;
 const artifactRoot = path.join(repoRoot, 'artifacts', 'expanded-interface-conformance');
@@ -1149,13 +1154,13 @@ try {
   assert.deepEqual(desktopCampaign.shipLayerAnimations, [
     'none', 'directive-hero-windows-live', 'directive-hero-nacelles-pulse'
   ]);
-  assert.deepEqual(desktopCampaign.shipLayerAnimationDurations, ['0s', '10s', '2s']);
-  assert.deepEqual(desktopCampaign.shipLayerAnimationDelays, ['0s', '-2.5s', '-0.5s']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationDurations, ['0s', '15s', '2s']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationDelays, ['0s', '-3.75s', '-0.5s']);
   assert.deepEqual(desktopCampaign.shipLayerAnimationTimingFunctions, ['ease', 'linear', 'ease-in-out']);
   assert.equal(desktopCampaign.shipLayerMaskImages[0], 'none');
   assert.match(desktopCampaign.shipLayerMaskImages[1], /uss-breckenridge\.hero-window-noise\.webp/);
   assert.equal(desktopCampaign.shipLayerMaskImages[2], 'none');
-  assert.deepEqual(desktopCampaign.shipLayerMaskSizes, ['auto', '256px 256px', 'auto']);
+  assert.deepEqual(desktopCampaign.shipLayerMaskSizes, ['auto', '192px 192px', 'auto']);
   assert.equal(desktopCampaign.shipLayerOpacities[1], '0.96');
   for (const shipLayer of desktopCampaign.shipLayerRects) {
     assert.ok(Math.abs(shipLayer.left - desktopCampaign.shipLayerRects[0].left) < .1);
