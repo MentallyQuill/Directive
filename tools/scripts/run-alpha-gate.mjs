@@ -57,6 +57,7 @@ const checks = [
   "test-v1-timeline-storage.mjs",
   "test-v1-native-branch-runtime.mjs",
   "test-v1-state-delta-gateway.mjs",
+  "test-v1-state-delta-codec.mjs",
   "test-v1-runtime-app.mjs",
   "test-v1-runtime-opening-prompt.mjs",
   "test-v1-player-portrait.mjs",
