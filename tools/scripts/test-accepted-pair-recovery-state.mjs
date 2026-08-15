@@ -28,6 +28,7 @@ assert.equal(retry.pair.fingerprint, 'pair.fingerprint.one');
 assert.notEqual(retry.pair.snapshot, snapshot);
 
 const budget = createAcceptedPairCallBudget();
+assert.equal(budget.entryCount(), 0);
 assert.equal(budget.reserve('pair.fingerprint.one', 'automatic'), true);
 assert.equal(budget.reserve('pair.fingerprint.one', 'automatic'), false);
 assert.equal(budget.reserve('pair.fingerprint.one', 'manual'), true);
@@ -35,5 +36,8 @@ assert.equal(budget.reserve('pair.fingerprint.one', 'manual'), false);
 assert.deepEqual(budget.inspect('pair.fingerprint.one'), { automatic: 1, manual: 1 });
 budget.release('pair.fingerprint.one', 'manual');
 assert.equal(budget.reserve('pair.fingerprint.one', 'manual'), true);
+assert.equal(budget.entryCount(), 1);
+budget.clear('pair.fingerprint.one');
+assert.equal(budget.entryCount(), 0);
 
 console.log('Accepted-pair recovery state passed.');

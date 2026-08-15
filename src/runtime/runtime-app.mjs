@@ -712,20 +712,13 @@ export function createDirectiveRuntimeApp({
       error.code = 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE';
       throw error;
     }
-    const recentMessages = await host.chat.getRecentMessages?.({ limit: 500 }) || [];
-    if (!state || !currentChatIsBound()) {
-      await restoreNarrationPreset();
-      await host.prompt.clear?.({ reason: 'chat-changed-during-history-read' });
-      return { ok: true, active: false };
-    }
-    const normalizedMessages = recentMessages
-      .map((message) => normalizeMessage(host, message))
-      .filter(Boolean);
-    const acceptedPairLineage = createActiveAcceptedPairLineage({
-      campaignState: state,
-      recentMessages: normalizedMessages,
-      chatId: host.chat.getCurrentChatId?.()
-    });
+    const acceptedPairLineage = (state.storySettlement?.acceptedPairReceipts || [])
+      .slice(0, 2)
+      .map((receipt) => ({
+        previousAssistantHostMessageId: compact(receipt.previousAssistant?.messageId) || null,
+        currentPlayerHostMessageId: compact(receipt.currentPlayer?.messageId) || null,
+        sourceRangeHash: compact(receipt.sourceRangeHash) || null,
+      }));
     const preparedDutyReport = missionRuntime.preparePendingDutyReport({
       runtimeAssets,
       availableActors: availableDirectorActors(runtimeAssets),
@@ -1069,7 +1062,9 @@ export function createDirectiveRuntimeApp({
     } finally {
       if (activeAnalysisController === analysisController) activeAnalysisController = null;
     }
-    if (budgetReserved && mission?.attempted !== true) {
+    if (mission?.ok === true) {
+      acceptedPairCallBudget.clear(fingerprint);
+    } else if (budgetReserved && mission?.attempted !== true) {
       acceptedPairCallBudget.release(fingerprint, budgetAttemptKind);
     }
     const time = mission?.time || null;
@@ -2119,6 +2114,9 @@ export function createDirectiveRuntimeApp({
         storage: await controller.verifyStorage(),
         providers: providerConfiguration(host),
         routing: clone(GENERATION_ROUTING),
+        runtime: {
+          acceptedPairCallBudgetEntries: acceptedPairCallBudget.entryCount(),
+        },
         stateEnvelope: state ? {
           campaignId: state.campaign.id,
           package: state.activeCampaignPackage,

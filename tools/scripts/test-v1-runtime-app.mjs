@@ -718,38 +718,73 @@ assert.equal(reserved.commandBearing.spends[reserved.spendId].status, 'reserved'
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
 
 const opening = chat.messages()[0];
+const scaledPromptingPlayer = chat.pushPlayerMessage({
+  text: 'Give me the handover situation first.',
+  hostMessageId: 'player.scale-prompt',
+});
+chat.pushAssistantMessage({
+  text: 'Whitaker places the handover packet on the desk and waits for the commander.',
+  hostMessageId: 'assistant.scale-response',
+  metadata: { promptingPlayerHostMessageId: scaledPromptingPlayer.hostMessageId },
+});
 const player = chat.pushPlayerMessage({ text: 'I take the chair opposite Whitaker and open the handover packet.' });
 const acceptedHistoryReads = [];
 const acceptedHistoryReader = host.chat.getRecentMessages;
-const acceptedPairTail = acceptedHistoryReader({ limit: 2, playerSafeOnly: false });
-const simulatedTenThousandMessageHistory = [
-  ...Array.from({ length: 9998 }, (_, index) => ({
+const ordinaryChatBeforeScaleCheck = chat.messages();
+const tenThousandMessageHistory = [
+  ...Array.from({ length: 9997 }, (_, index) => ({
     id: `historical.${index}`,
     hostMessageId: `historical.${index}`,
     role: index % 2 === 0 ? 'user' : 'assistant',
     isUser: index % 2 === 0,
     text: `Historical message ${index}`,
   })),
-  ...acceptedPairTail,
+  ...ordinaryChatBeforeScaleCheck.slice(-3),
 ];
+chat.setMessagesForChat(chat.getCurrentChatId(), tenThousandMessageHistory);
+assert.equal(chat.messages().length, 10000);
 host.chat.getRecentMessages = (options) => {
   acceptedHistoryReads.push(options);
-  const limit = Math.max(1, Number(options?.limit || 12));
-  return structuredClone(simulatedTenThousandMessageHistory.slice(-limit));
+  return acceptedHistoryReader.call(host.chat, options);
 };
-const settled = await app.observeHostPlayerMessage({ message: player });
-host.chat.getRecentMessages = acceptedHistoryReader;
+const utilityCallsBeforeScaledContinue = generation.calls()
+  .filter((call) => call.role === 'acceptedPairMissionEvidence').length;
+const episodeCallsBeforeScaledContinue = generation.calls()
+  .filter((call) => call.role === 'episodeEvaluator').length;
+let settled;
+try {
+  settled = await app.observeHostPlayerMessage({ message: player });
+} finally {
+  host.chat.getRecentMessages = acceptedHistoryReader;
+  chat.setMessagesForChat(chat.getCurrentChatId(), ordinaryChatBeforeScaleCheck);
+}
+assert.equal(settled.handled, true, `scaled settlement failed before analysis: ${JSON.stringify(settled)}`);
 assert.equal(acceptedHistoryReads.some((options) => (
   options?.limit <= 8 && options?.playerSafeOnly === false
 )), true, 'accepted-pair custody must use a fixed raw-source window even with 10,000 messages');
 assert.equal(
   acceptedHistoryReads.some((options) => options?.limit > 8),
   false,
-  'normal accepted-pair settlement must never widen to complete history',
+  `normal accepted-pair settlement must never widen to complete history: ${JSON.stringify(acceptedHistoryReads)}`,
 );
-assert.equal(settled.handled, true);
+assert.equal(
+  generation.calls().filter((call) => call.role === 'acceptedPairMissionEvidence').length,
+  utilityCallsBeforeScaledContinue + 1,
+  'the real 10,000-row runtime path must make exactly one accepted-pair utility call',
+);
+assert.equal(
+  generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
+  episodeCallsBeforeScaledContinue,
+  'normal Continue must not invoke the post-narration episode evaluator',
+);
 assert.equal(settled.mission.ok, false);
 assert.equal(settled.mission.reasonCode, 'provider-empty');
+const failedPairSupport = JSON.parse((await app.exportSupportDiagnostics()).jsonText);
+assert.equal(
+  failedPairSupport.runtime.acceptedPairCallBudgetEntries,
+  1,
+  'a failed pair must retain its budget entry for bounded manual Retry',
+);
 assert.equal(
   generation.calls().some((call) => call.role === 'timeAdvanceAdjudicator'),
   false,
@@ -766,8 +801,39 @@ assert.equal(
   1,
   'generation interception must not automatically call the model again for a failed pair',
 );
-const manuallyRetriedPair = await app.retryPendingAcceptedPairSettlement();
+acceptedHistoryReads.length = 0;
+chat.setMessagesForChat(chat.getCurrentChatId(), tenThousandMessageHistory);
+host.chat.getRecentMessages = (options) => {
+  acceptedHistoryReads.push(options);
+  return acceptedHistoryReader.call(host.chat, options);
+};
+let manuallyRetriedPair;
+try {
+  manuallyRetriedPair = await app.retryPendingAcceptedPairSettlement();
+} finally {
+  host.chat.getRecentMessages = acceptedHistoryReader;
+  chat.setMessagesForChat(chat.getCurrentChatId(), ordinaryChatBeforeScaleCheck);
+}
 assert.equal(manuallyRetriedPair.ok, true);
+assert.equal(
+  acceptedHistoryReads.some((options) => options?.limit > 8),
+  false,
+  `successful settlement must not widen beyond the source window: ${JSON.stringify(acceptedHistoryReads)}`,
+);
+const persistedScaledPair = await loadV1CampaignSave(host.storage, missionView.activeSaveId);
+assert.equal(
+  persistedScaledPair.state.storySettlement.acceptedPairReceipts.some((receipt) => (
+    receipt.currentPlayer?.messageId === player.hostMessageId
+  )),
+  true,
+  'the 10,000-row runtime pair must remain durably settled after save reload',
+);
+const settledPairSupport = JSON.parse((await app.exportSupportDiagnostics()).jsonText);
+assert.equal(
+  settledPairSupport.runtime.acceptedPairCallBudgetEntries,
+  0,
+  'a successful pair must release its in-memory call-budget entry',
+);
 const intercepted = await app.getChatTurnOrchestrator().interceptGeneration();
 assert.ok(
   narrationPresetLifecycle.filter((entry) => entry === 'activate').length > activationsBeforeGeneration,

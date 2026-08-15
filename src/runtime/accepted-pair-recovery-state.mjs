@@ -103,5 +103,8 @@ export function createAcceptedPairCallBudget({ maxAutomatic = 1, maxManual = 1 }
       const key = compact(fingerprint);
       if (key) usage.delete(key);
     },
+    entryCount() {
+      return usage.size;
+    },
   });
 }

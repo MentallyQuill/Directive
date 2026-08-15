@@ -183,21 +183,21 @@ for (const messageCount of [30, 1000, 10000]) {
   results.push({
     messageCount,
     pairCount,
-    sourceReadCount,
-    maximumRowsRead,
-    utilityCalls,
-    evaluatorCallsDuringContinue,
-    postNarrationEvaluatorCalls: evaluatorCalls,
+    sourceFixtureReads: sourceReadCount,
+    sourceFixtureMaximumRows: maximumRowsRead,
+    callBudgetFixtureAutomaticReservations: utilityCalls,
+    schedulerCallsBeforePostNarration: evaluatorCallsDuringContinue,
+    schedulerPostNarrationCalls: evaluatorCalls,
     segmentCount: manifest.segments.length,
   });
 }
 
 for (const result of results) {
-  assert.equal(result.sourceReadCount, 1);
-  assert.ok(result.maximumRowsRead <= V1_ACCEPTED_PAIR_SOURCE_WINDOW);
-  assert.equal(result.utilityCalls, 1);
-  assert.equal(result.evaluatorCallsDuringContinue, 0);
-  assert.equal(result.postNarrationEvaluatorCalls, 1);
+  assert.equal(result.sourceFixtureReads, 1);
+  assert.ok(result.sourceFixtureMaximumRows <= V1_ACCEPTED_PAIR_SOURCE_WINDOW);
+  assert.equal(result.callBudgetFixtureAutomaticReservations, 1);
+  assert.equal(result.schedulerCallsBeforePostNarration, 0);
+  assert.equal(result.schedulerPostNarrationCalls, 1);
 }
 
-console.log(`V1 scalability contract passed: ${JSON.stringify(results)}`);
+console.log(`V1 segmented persistence scale contract passed: ${JSON.stringify(results)}`);
