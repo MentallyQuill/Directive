@@ -1157,6 +1157,7 @@ export function createV1MissionRuntime({
         hardBoundary = null,
         acceptedCommandBearingEdge = null,
         signal = null,
+        allowModelCall = true,
     } = {}) {
         let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1294,6 +1295,11 @@ export function createV1MissionRuntime({
         if (interpretationReused) {
             interpreted = structuredClone(cachedInterpretation.value);
         } else {
+            if (allowModelCall !== true) {
+                return unavailable('model-call-budget-exhausted', {
+                    candidateCount: candidatePacket.candidates.length,
+                }, { attempted: false });
+            }
             try {
                 interpreted = await interpreter({
                     candidatePacket,

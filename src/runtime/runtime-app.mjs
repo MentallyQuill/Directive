@@ -46,6 +46,14 @@ import {
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { createTimelineTransactionService } from './timeline-transaction-service.mjs';
+import {
+  acceptedPairFingerprint,
+  assertAcceptedPairRecovery,
+  createAcceptedPairCallBudget,
+  noAcceptedPairRecovery,
+  pairRetryRecovery,
+  reconcileRequiredRecovery,
+} from './accepted-pair-recovery-state.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -550,8 +558,8 @@ export function createDirectiveRuntimeApp({
   let activeScreen = 'campaign';
   let storageDiagnostics = null;
   let settlementQueue = Promise.resolve();
-  let acceptedPairReplayNeeded = false;
-  let pendingAcceptedPairSettlement = null;
+  let acceptedPairRecovery = noAcceptedPairRecovery();
+  const acceptedPairCallBudget = createAcceptedPairCallBudget();
   let activeAnalysisController = null;
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
@@ -997,7 +1005,10 @@ export function createDirectiveRuntimeApp({
 
   async function settleSnapshot(snapshot, ingressId = null, {
     syncPromptAfter = true,
-    publishNotifications = true
+    publishNotifications = true,
+    attemptKind = 'automatic',
+    allowModelCall = true,
+    updateRecovery = true,
   } = {}) {
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
@@ -1026,6 +1037,11 @@ export function createDirectiveRuntimeApp({
     activeAnalysisController = analysisController;
     let mission = null;
     let persistenceAttempts = 0;
+    const fingerprint = acceptedPairFingerprint(snapshot);
+    const budgetAttemptKind = attemptKind === 'manual' ? 'manual' : 'automatic';
+    const budgetReserved = allowModelCall === true
+      && fingerprint
+      && acceptedPairCallBudget.reserve(fingerprint, budgetAttemptKind);
     try {
       do {
         persistenceAttempts += 1;
@@ -1033,7 +1049,8 @@ export function createDirectiveRuntimeApp({
           runtimeAssets,
           snapshot,
           acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
-          signal: analysisController?.signal || null
+          signal: analysisController?.signal || null,
+          allowModelCall: budgetReserved === true,
         });
       } while (mission?.ok === false
         && mission.reasonCode === 'persistence-failed'
@@ -1048,20 +1065,22 @@ export function createDirectiveRuntimeApp({
     } finally {
       if (activeAnalysisController === analysisController) activeAnalysisController = null;
     }
+    if (budgetReserved && mission?.attempted !== true) {
+      acceptedPairCallBudget.release(fingerprint, budgetAttemptKind);
+    }
     const time = mission?.time || null;
-    const settlementBlocked = mission?.ok === false && mission.reasonCode === 'persistence-failed';
-    if (settlementBlocked) {
-      pendingAcceptedPairSettlement = {
-        snapshot: clone(snapshot),
+    const settlementBlocked = mission?.ok === false;
+    if (updateRecovery && settlementBlocked) {
+      acceptedPairRecovery = pairRetryRecovery({
+        snapshot,
         ingressId,
         reasonCode: mission.reasonCode,
-        persistenceAttempts
-      };
-      acceptedPairReplayNeeded = false;
-    } else if (mission?.ok === false) {
-      acceptedPairReplayNeeded = true;
-    } else {
-      pendingAcceptedPairSettlement = null;
+        persistenceAttempts,
+      });
+    } else if (updateRecovery && mission?.ok === true
+      && (acceptedPairRecovery.mode !== 'pair-retry'
+        || acceptedPairRecovery.pair?.fingerprint === fingerprint)) {
+      acceptedPairRecovery = noAcceptedPairRecovery();
     }
     const commandBearing = mission?.acceptedCommandBearingEdge || {
       applied: false,
@@ -1121,7 +1140,7 @@ export function createDirectiveRuntimeApp({
       if (activeMessageIds.has(persistedId)) continue;
       const invalidated = await invalidateSourceAuthority(persistedId, 'source-missing-from-chat');
       if (invalidated.mission?.ok === false) {
-        acceptedPairReplayNeeded = true;
+        acceptedPairRecovery = reconcileRequiredRecovery('source-invalidation-persistence-failed');
         return {
           replayed: 0,
           reconciled,
@@ -1134,7 +1153,7 @@ export function createDirectiveRuntimeApp({
     }
     let replayed = 0;
     let blockedAtMessageId = null;
-    acceptedPairReplayNeeded = false;
+    let unresolvedCount = 0;
     for (const message of activeMessages) {
       if (!isUserMessage(message)) continue;
       const hostMessageId = message.hostMessageId || message.id;
@@ -1142,22 +1161,27 @@ export function createDirectiveRuntimeApp({
       if (!prepared.ok) continue;
       const result = await settleSnapshot(prepared.snapshot, `replay.${hostMessageId}`, {
         syncPromptAfter: false,
-        publishNotifications: false
+        publishNotifications: false,
+        attemptKind: 'reconcile',
+        allowModelCall: false,
+        updateRecovery: false,
       });
       if (result.mission?.ok === false) {
-        blockedAtMessageId = hostMessageId || null;
-        acceptedPairReplayNeeded = true;
-        break;
+        unresolvedCount += 1;
+        blockedAtMessageId ||= hostMessageId || null;
+        continue;
       }
       if (result.mission?.status !== 'already-settled') replayed += 1;
     }
+    acceptedPairRecovery = noAcceptedPairRecovery();
     await syncPrompt({ rebuild: true });
     return {
       replayed,
       ...(reconciled > 0 ? { reconciled } : {}),
-      blocked: acceptedPairReplayNeeded,
+      ...(unresolvedCount > 0 ? { unresolved: unresolvedCount } : {}),
+      blocked: false,
       blockedAtMessageId,
-      retryPending: acceptedPairReplayNeeded
+      retryPending: false
     };
   }
 
@@ -1204,8 +1228,15 @@ export function createDirectiveRuntimeApp({
       }
       const id = messageId(payload, normalized);
       if (!id) return { handled: false, reason: 'message-id-unavailable' };
+      acceptedPairRecovery = reconcileRequiredRecovery(eventType);
       const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType);
-      const replay = await rebuildAcceptedStateFromChat();
+      await syncPrompt({ rebuild: true });
+      const replay = {
+        replayed: 0,
+        blocked: false,
+        deferred: true,
+        reasonCode: acceptedPairRecovery.reasonCode,
+      };
       return { handled: true, mission, time, commandBearing, replay };
     });
   }
@@ -1254,21 +1285,22 @@ export function createDirectiveRuntimeApp({
         await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
         return { handled: false, reason: 'inactive-or-unbound' };
       }
-      if (pendingAcceptedPairSettlement) {
+      assertAcceptedPairRecovery(acceptedPairRecovery);
+      if (acceptedPairRecovery.mode === 'pair-retry') {
         return {
           handled: true,
           abortDefaultGeneration: true,
           responseStrategy: 'blockAndRetry',
           settlementError: {
             code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
-            reasonCode: pendingAcceptedPairSettlement.reasonCode,
-            persistenceAttempts: pendingAcceptedPairSettlement.persistenceAttempts
+            reasonCode: acceptedPairRecovery.reasonCode,
+            persistenceAttempts: acceptedPairRecovery.pair.persistenceAttempts
           }
         };
       }
       const latestPlayerMessage = await host.chat.getLatestPlayerMessage?.();
       let acceptedPairReplay = null;
-      if (acceptedPairReplayNeeded) {
+      if (acceptedPairRecovery.mode === 'reconcile-required') {
         acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
       } else if (latestPlayerMessage) {
         await publicApi.observeHostPlayerMessage({
@@ -1278,16 +1310,15 @@ export function createDirectiveRuntimeApp({
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
-      if (pendingAcceptedPairSettlement || acceptedPairReplay?.blocked === true) {
-        const pending = pendingAcceptedPairSettlement;
+      if (acceptedPairRecovery.mode !== 'none' || acceptedPairReplay?.blocked === true) {
         return {
           handled: true,
           abortDefaultGeneration: true,
           responseStrategy: 'blockAndRetry',
           settlementError: {
             code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
-            reasonCode: pending?.reasonCode || 'accepted-pair-replay-pending',
-            persistenceAttempts: pending?.persistenceAttempts || 0
+            reasonCode: acceptedPairRecovery.reasonCode || 'accepted-pair-replay-pending',
+            persistenceAttempts: acceptedPairRecovery.pair?.persistenceAttempts || 0
           },
           acceptedPairReplay
         };
@@ -1432,15 +1463,28 @@ export function createDirectiveRuntimeApp({
         if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
           return { handled: false, reason: 'source-chat-changed' };
         }
-        if (acceptedPairReplayNeeded) {
-          const acceptedPairReplay = await rebuildAcceptedStateFromChat();
+        let acceptedPairReplay = null;
+        if (acceptedPairRecovery.mode === 'reconcile-required') {
+          acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          if (acceptedPairReplay.blocked === true) {
+            return {
+              handled: false,
+              reason: 'accepted-pair-replay-pending',
+              responseStrategy: 'blockAndRetry',
+              abortDefaultGeneration: true,
+              acceptedPairReplay,
+              campaignState: clone(state),
+            };
+          }
+        }
+        if (acceptedPairRecovery.mode === 'pair-retry') {
           return {
-            handled: acceptedPairReplay.blocked !== true,
-            reason: acceptedPairReplay.blocked ? 'accepted-pair-replay-pending' : null,
-            responseStrategy: 'injectAndContinue',
-            abortDefaultGeneration: false,
-            acceptedPairReplay,
-            campaignState: clone(state)
+            handled: false,
+            reason: 'accepted-pair-retry-pending',
+            responseStrategy: 'blockAndRetry',
+            abortDefaultGeneration: true,
+            settlementBlocked: true,
+            campaignState: clone(state),
           };
         }
         const current = normalizeMessage(host, payload) || await host.chat.getLatestPlayerMessage?.();
@@ -1467,6 +1511,7 @@ export function createDirectiveRuntimeApp({
         handled: true,
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
+          ...(acceptedPairReplay ? { acceptedPairReplay } : {}),
           ...(await settleSnapshot(prepared.snapshot, ingressId))
         };
       });
@@ -1540,14 +1585,14 @@ export function createDirectiveRuntimeApp({
     async retryPendingAcceptedPairSettlement() {
       await ensureInitialized();
       return enqueueSettlement(async () => {
-        const pending = pendingAcceptedPairSettlement;
-        if (!pending && !acceptedPairReplayNeeded) {
+        assertAcceptedPairRecovery(acceptedPairRecovery);
+        if (acceptedPairRecovery.mode === 'none') {
           return { ok: false, reasonCode: 'no-pending-settlement', settlementBlocked: false };
         }
         if (!state || !currentChatIsBound()) {
           return { ok: false, reasonCode: 'inactive-or-unbound', settlementBlocked: true };
         }
-        if (!pending) {
+        if (acceptedPairRecovery.mode === 'reconcile-required') {
           const acceptedPairReplay = await rebuildAcceptedStateFromChat();
           const settlementBlocked = acceptedPairReplay.blocked === true;
           return {
@@ -1557,6 +1602,7 @@ export function createDirectiveRuntimeApp({
             acceptedPairReplay
           };
         }
+        const pending = clone(acceptedPairRecovery.pair);
         const current = await host.chat.getLatestPlayerMessage?.();
         const recent = await host.chat.getRecentMessages?.({
           limit: V1_ACCEPTED_PAIR_SOURCE_WINDOW,
@@ -1567,11 +1613,13 @@ export function createDirectiveRuntimeApp({
           : null;
         if (!prepared?.ok
           || compact(prepared.snapshot?.source?.sourceRangeHash) !== compact(pending.snapshot?.source?.sourceRangeHash)) {
-          pendingAcceptedPairSettlement = null;
-          acceptedPairReplayNeeded = true;
+          acceptedPairRecovery = reconcileRequiredRecovery('pending-source-stale');
           return { ok: false, reasonCode: 'pending-source-stale', settlementBlocked: false };
         }
-        const settled = await settleSnapshot(pending.snapshot, pending.ingressId);
+        const settled = await settleSnapshot(pending.snapshot, pending.ingressId, {
+          attemptKind: 'manual',
+          allowModelCall: true,
+        });
         return {
           ...settled,
           ok: settled.mission?.ok === true,
@@ -1661,7 +1709,7 @@ export function createDirectiveRuntimeApp({
           });
         } catch (error) {
           if (!timelineFork) throw error;
-          acceptedPairReplayNeeded = true;
+          acceptedPairRecovery = reconcileRequiredRecovery('post-fork-replay-failed');
           host.logger?.warn?.('[Directive] Post-fork accepted-pair replay failed after the new timeline was committed.', error);
           acceptedPairReplay = {
             replayed: 0,

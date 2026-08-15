@@ -117,7 +117,7 @@ const changedHash = rebuildV1CommandBearingForLineage(bearing, {
 });
 assert.equal(changedHash.spends['spend.safe'].status, 'refunded');
 
-const longParent = Array.from({ length: 5000 }, (_, index) => ({
+const longParent = Array.from({ length: 10000 }, (_, index) => ({
   id: `scale.${index}`,
   role: index % 2 === 0 ? 'assistant' : 'user',
   mes: `Long campaign message ${index}`
@@ -125,7 +125,7 @@ const longParent = Array.from({ length: 5000 }, (_, index) => ({
 const longRebuild = await reconstructV1BranchState({
   parentState,
   parentMessages: longParent,
-  childMessages: longParent.slice(0, 3750),
+  childMessages: longParent.slice(0, 7500),
   lineageHash: 'lineage.scale',
   targetSaveId: 'save.scale-child',
   targetChatBinding: {
@@ -135,8 +135,9 @@ const longRebuild = await reconstructV1BranchState({
   runtimeAssets,
   now: () => '2026-08-11T12:00:00.000Z'
 });
-assert.equal(longRebuild.retainedSourceCount, 3750);
-assert.equal(longRebuild.discardedHostMessageIds.length, 1250);
+assert.equal(longRebuild.retainedSourceCount, 7500);
+assert.equal(longRebuild.discardedHostMessageIds.length, 2500);
+assert.equal(longRebuild.modelCallCount, 0);
 assert.equal(longRebuild.projection.ok, true);
 
 console.log('V1 branch reconstruction tests passed');

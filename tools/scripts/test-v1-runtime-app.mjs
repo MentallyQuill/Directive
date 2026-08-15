@@ -748,13 +748,22 @@ assert.equal(
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision, 0);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'reserved');
 const activationsBeforeGeneration = narrationPresetLifecycle.filter((entry) => entry === 'activate').length;
+const blockedIntercept = await app.getChatTurnOrchestrator().interceptGeneration();
+assert.equal(blockedIntercept.abortDefaultGeneration, true);
+assert.equal(blockedIntercept.settlementError.reasonCode, 'provider-empty');
+assert.equal(
+  missionInterpretationCalls,
+  1,
+  'generation interception must not automatically call the model again for a failed pair',
+);
+const manuallyRetriedPair = await app.retryPendingAcceptedPairSettlement();
+assert.equal(manuallyRetriedPair.ok, true);
 const intercepted = await app.getChatTurnOrchestrator().interceptGeneration();
 assert.ok(
   narrationPresetLifecycle.filter((entry) => entry === 'activate').length > activationsBeforeGeneration,
   'every bound host generation must reassert the Directive narration preset before prompt synchronization'
 );
-assert.equal(intercepted.acceptedPairReplay.replayed, 1);
-assert.equal(intercepted.acceptedPairReplay.retryPending, false);
+assert.equal(intercepted.abortDefaultGeneration, false);
 assert.equal(missionInterpretationCalls, 2);
 const acceptedPairRequest = generation.calls().find((call) => call.role === 'acceptedPairMissionEvidence')?.request;
 assert.match(acceptedPairRequest.messages[1].content, /"secondOfDay": 30600/);
@@ -1187,7 +1196,7 @@ host.storage.writeJson = async (path, value) => {
   if (path === retrySavePath) throw new Error('forced atomic invalidation persistence failure');
   return retryWriteJson.call(host.storage, path, value);
 };
-const failedAtomicInvalidation = await app.handleHostMessageDeleted({ hostMessageId: 'player.persistence-block' });
+const failedAtomicInvalidation = await app.handleHostMessageDeleted({ hostMessageId: 'player.persistence-retry' });
 host.storage.writeJson = retryWriteJson;
 assert.equal(failedAtomicInvalidation.mission.ok, false);
 assert.equal(failedAtomicInvalidation.mission.reasonCode, 'persistence-failed');
@@ -1198,8 +1207,8 @@ assert.deepEqual(afterAtomicInvalidationFailure.storySettlement, beforeAtomicInv
 
 const elapsedBeforeMissingSource = afterAtomicInvalidationFailure.timeLedger.elapsedSeconds;
 const completeChat = chat.messages().filter((message) => ![
-  'assistant.persistence-block',
-  'player.persistence-block'
+  'assistant.persistence-retry',
+  'player.persistence-retry'
 ].includes(message.hostMessageId));
 for (let index = 0; index < 510; index += 1) {
   completeChat.push({
@@ -1252,13 +1261,12 @@ reportHeldInterpretationStarted = null;
 rejectMissionInterpretation = true;
 const blockedReplayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
 assert.equal(blockedReplayAfterCancellation.abortDefaultGeneration, true);
-assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'accepted-pair-replay-pending');
-assert.equal(blockedReplayAfterCancellation.settlementError.persistenceAttempts, 0);
+assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'provider-aborted');
+assert.equal(blockedReplayAfterCancellation.settlementError.persistenceAttempts, 1);
 rejectMissionInterpretation = false;
 const retriedReplayAfterCancellation = await app.retryPendingAcceptedPairSettlement();
-assert.equal(retriedReplayAfterCancellation.ok, true, 'manual Retry must resume replay when no persistence object exists');
+assert.equal(retriedReplayAfterCancellation.ok, true, 'manual Retry must resume the exact aborted pair');
 assert.equal(retriedReplayAfterCancellation.settlementBlocked, false);
-assert.equal(retriedReplayAfterCancellation.acceptedPairReplay.blocked, false);
 const noActiveAnalysis = await app.handleHostGenerationStopped();
 assert.deepEqual(noActiveAnalysis, {
   ok: true,
