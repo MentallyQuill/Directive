@@ -174,6 +174,29 @@ await assert.rejects(
 );
 assert.deepEqual(await loadV1CampaignSave(manifestFailureAdapter, active.id), active);
 
+const indexRefreshFailureAdapter = memoryAdapter();
+await storeV1CampaignSave(indexRefreshFailureAdapter, active);
+indexRefreshFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.index);
+await assert.rejects(
+  storeV1CampaignSave(indexRefreshFailureAdapter, revisedActive, { previousSave: active }),
+  /injected write failure/,
+);
+assert.equal(
+  indexRefreshFailureAdapter.snapshot()[V1_STORAGE_PATHS.index].saves[active.id].updatedAt,
+  active.updatedAt,
+  'an interrupted index refresh must leave the prior summary intact',
+);
+assert.deepEqual(
+  await loadV1CampaignSave(indexRefreshFailureAdapter, active.id),
+  revisedActive,
+  'the committed manifest head must remain loadable after an index-refresh failure',
+);
+assert.equal(
+  indexRefreshFailureAdapter.snapshot()[V1_STORAGE_PATHS.index].saves[active.id].updatedAt,
+  revisedActive.updatedAt,
+  'loading a committed manifest must repair its stale index summary',
+);
+
 const corruptionAdapter = memoryAdapter();
 await storeV1CampaignSave(corruptionAdapter, active);
 await storeV1CampaignSave(corruptionAdapter, revisedActive, { previousSave: active });

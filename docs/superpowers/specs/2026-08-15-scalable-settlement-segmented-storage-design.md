@@ -49,6 +49,8 @@ Episode evaluation is retained. It is removed only from `settleSnapshot()` and h
 
 Every pending checkpoint has a durable attempt record keyed by branch, episode, and checkpoint sequence. The scheduler is single-flight by that key. It runs after the corresponding SillyTavern narration completes, so a slow evaluator cannot block Continue. A successful result still passes the existing request/proposal validation and stale-token checks before it can mutate only Story Settlement.
 
+The pending-attempt commit and final result commit pass through the serialized mutation queue, but the evaluator provider call runs outside it. A subsequent Continue can therefore settle while evaluation is in flight; the evaluator result must pass the captured revision check when it re-enters the queue or fail closed as stale.
+
 Failure preserves the prior working capsule and accepted evidence. The attempt is not automatically repeated for the same checkpoint. Manual retry may explicitly override it. A later checkpoint may make one new automatic call and coalesces still-unreviewed source-backed evidence; it never starts a catch-up loop. Hard mission boundaries continue to seal deterministically without episode evaluation.
 
 The current narration receives the working capsule plus bounded recent accepted evidence already accumulated during pair settlement. The evaluator's refreshed summary, relationship state, or soft seal becomes visible to the UI and the next narration after durable completion.
@@ -100,7 +102,7 @@ For an ordinary state commit:
 6. Update the index summary.
 7. Return success to the state-delta gateway.
 
-Failure before step 5 leaves the prior manifest authoritative. Failure after step 5 but before index refresh leaves the campaign state recoverable; the next repository load repairs only the index summary from the valid manifest. In-memory state is rolled back on persistence failure under the existing gateway contract.
+Failure before step 5 leaves the prior manifest authoritative. Failure after step 5 but before index refresh leaves the campaign state recoverable; the next repository load repairs an existing published index summary from the valid manifest. A brand-new unpublished manifest is not made visible by an inspection load; its journal-owned idempotent retry must publish it. In-memory state is rolled back on persistence failure under the existing gateway contract.
 
 ## Projection and page compatibility
 

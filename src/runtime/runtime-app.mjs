@@ -564,11 +564,12 @@ export function createDirectiveRuntimeApp({
   let activeAnalysisController = null;
   const episodeReviewScheduler = createEpisodeReviewScheduler({
     getToken: () => missionRuntime?.pendingEpisodeReview?.() || null,
-    review: ({ automatic, signal }) => enqueueSettlement(() => missionRuntime.reviewPendingEpisode({
+    review: ({ automatic, signal }) => missionRuntime.reviewPendingEpisode({
       runtimeAssets,
       signal,
       automatic,
-    })),
+      runMutation: enqueueSettlement,
+    }),
   });
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;

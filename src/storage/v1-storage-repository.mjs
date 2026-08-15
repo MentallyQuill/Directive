@@ -567,9 +567,16 @@ export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, 
     throw error;
   }
   const { save } = await hydrateManifest(adapter, manifestRecord, id);
+  const index = await loadIndex(adapter, { create: true, now: now || save.updatedAt });
+  const summary = saveSummary(save);
+  const publishedSummary = index.saves[id] ?? null;
+  const summaryStale = publishedSummary !== null
+    && canonicalJson(publishedSummary) !== canonicalJson(summary);
+  if (summaryStale || makeActive) index.saves[id] = summary;
   if (makeActive) {
-    const index = await loadIndex(adapter, { create: true, now: now || save.updatedAt });
     index.activeSaveId = id;
+  }
+  if (summaryStale || makeActive) {
     await writeIndex(adapter, index, now || save.updatedAt);
   }
   return save;

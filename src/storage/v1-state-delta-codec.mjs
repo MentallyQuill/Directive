@@ -78,6 +78,39 @@ function assertPath(path) {
 function diffValue(before, after, path, operations) {
   if (equal(before, after)) return;
   if (Array.isArray(before) && Array.isArray(after)) {
+    if (before.length === after.length && before.length > 1) {
+      const maximumShift = Math.min(8, before.length - 1);
+      for (let shift = 1; shift <= maximumShift; shift += 1) {
+        if (before.slice(shift).every((value, index) => equal(value, after[index]))) {
+          operations.push({ op: 'splice', path: clone(path), start: 0, deleteCount: shift, items: [] });
+          operations.push({
+            op: 'splice',
+            path: clone(path),
+            start: after.length - shift,
+            deleteCount: 0,
+            items: clone(after.slice(after.length - shift)),
+          });
+          return;
+        }
+        if (before.slice(0, before.length - shift).every((value, index) => equal(value, after[index + shift]))) {
+          operations.push({
+            op: 'splice',
+            path: clone(path),
+            start: before.length - shift,
+            deleteCount: shift,
+            items: [],
+          });
+          operations.push({
+            op: 'splice',
+            path: clone(path),
+            start: 0,
+            deleteCount: 0,
+            items: clone(after.slice(0, shift)),
+          });
+          return;
+        }
+      }
+    }
     let prefix = 0;
     while (prefix < before.length && prefix < after.length && equal(before[prefix], after[prefix])) prefix += 1;
     let suffix = 0;
@@ -241,6 +274,13 @@ function applyOperation(state, operation) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_PATH_MISSING', 'State delta operation parent does not exist.');
   }
   if (operation.op === 'set') {
+    if (Array.isArray(parent)
+      && (!Number.isInteger(key) || key < 0 || key >= parent.length)) {
+      throw deltaError(
+        'DIRECTIVE_V1_STATE_DELTA_SET_INVALID',
+        'State delta array updates require an existing numeric index; use splice for structural changes.',
+      );
+    }
     parent[key] = clone(operation.value);
     return;
   }
@@ -255,8 +295,9 @@ export async function applyV1StateDelta({ saveId, state, delta } = {}) {
   if (!object(delta) || delta.kind !== V1_CAMPAIGN_STATE_DELTA_KIND) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_REJECTED', 'State delta kind is invalid.');
   }
-  if (Object.keys(delta).some((key) => !DELTA_FIELDS.has(key))) {
-    throw deltaError('DIRECTIVE_V1_STATE_DELTA_REJECTED', 'State delta contains unknown top-level fields.');
+  if (Object.keys(delta).length !== DELTA_FIELDS.size
+    || Object.keys(delta).some((key) => !DELTA_FIELDS.has(key))) {
+    throw deltaError('DIRECTIVE_V1_STATE_DELTA_REJECTED', 'State delta fields are incomplete or unsupported.');
   }
   if (!id || delta.saveId !== id) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_SAVE_MISMATCH', 'State delta belongs to a different save.');

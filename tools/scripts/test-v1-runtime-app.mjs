@@ -121,9 +121,19 @@ let missionInterpretationCalls = 0;
 let holdMissionInterpretation = false;
 let rejectMissionInterpretation = false;
 let reportHeldInterpretationStarted = null;
+let holdEpisodeEvaluation = false;
+let reportHeldEpisodeEvaluationStarted = null;
+let releaseHeldEpisodeEvaluation = null;
 const generation = createFakeGenerationClient({
   responses: {
     narration: { text: 'Captain Whitaker waits in the ready room. “Come in, Commander.”', providerId: 'fake-narrator' },
+    episodeEvaluator: async () => {
+      if (holdEpisodeEvaluation) {
+        reportHeldEpisodeEvaluationStarted?.();
+        await new Promise((resolve) => { releaseHeldEpisodeEvaluation = resolve; });
+      }
+      return { text: '{}', providerId: 'fake-reasoning' };
+    },
     acceptedPairMissionEvidence: async ({ rawOptions }) => {
       missionInterpretationCalls += 1;
       if (holdMissionInterpretation) {
@@ -1247,7 +1257,27 @@ const cancellationAssistant = chat.pushAssistantMessage({
 });
 const episodeCallsBeforeNarrationEnd = generation.calls()
   .filter((call) => call.role === 'episodeEvaluator').length;
-const firstNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
+let releaseHeldEpisodeStarted = null;
+const heldEpisodeStarted = new Promise((resolve) => { releaseHeldEpisodeStarted = resolve; });
+reportHeldEpisodeEvaluationStarted = releaseHeldEpisodeStarted;
+holdEpisodeEvaluation = true;
+const firstNarrationEndReviewPending = app.handleHostGenerationEnded({ message: cancellationAssistant });
+await heldEpisodeStarted;
+const continueWhileEpisodeReviewPending = app.getChatTurnOrchestrator().interceptGeneration();
+const episodeQueueTimeout = Symbol('episode-review-queue-timeout');
+assert.notEqual(
+  await Promise.race([
+    continueWhileEpisodeReviewPending,
+    new Promise((resolve) => setTimeout(() => resolve(episodeQueueTimeout), 500)),
+  ]),
+  episodeQueueTimeout,
+  'a post-narration episode evaluator must not hold the next Continue behind its provider call',
+);
+releaseHeldEpisodeEvaluation();
+const firstNarrationEndReview = await firstNarrationEndReviewPending;
+holdEpisodeEvaluation = false;
+reportHeldEpisodeEvaluationStarted = null;
+releaseHeldEpisodeEvaluation = null;
 const duplicateNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
 assert.equal(firstNarrationEndReview.episodeReview.attempted, true);
 assert.equal(duplicateNarrationEndReview.episodeReview.status, 'automatic-attempt-exhausted');

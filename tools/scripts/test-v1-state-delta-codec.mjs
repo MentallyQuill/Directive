@@ -76,4 +76,43 @@ await assert.rejects(
   'unknown top-level fields must be rejected before replay',
 );
 
+const beforeRing = structuredClone(before);
+beforeRing.stateCustody.recentCommitIds = Array.from({ length: 64 }, (_, index) => `commit.${index}`);
+const afterRing = structuredClone(beforeRing);
+afterRing.stateCustody.revision = 8;
+afterRing.stateCustody.recentCommitIds = [
+  ...beforeRing.stateCustody.recentCommitIds.slice(1),
+  'commit.64',
+];
+const ringDelta = await encodeV1StateDelta({
+  saveId: 'save.alpha',
+  before: beforeRing,
+  after: afterRing,
+  changedRoots: ['stateCustody'],
+  createdAt: '2026-08-15T12:01:00.000Z',
+  source: 'test-ring',
+});
+assert.ok(ringDelta.operations.length <= 3, 'a bounded custody ring shift must not emit one operation per item');
+assert.deepEqual(await applyV1StateDelta({ saveId: 'save.alpha', state: beforeRing, delta: ringDelta }), afterRing);
+
+const missingMetadataDelta = structuredClone(ringDelta);
+delete missingMetadataDelta.source;
+await assert.rejects(
+  applyV1StateDelta({ saveId: 'save.alpha', state: beforeRing, delta: missingMetadataDelta }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_DELTA_REJECTED',
+  'persisted deltas must contain every required top-level field',
+);
+
+const hiddenArrayPropertyDelta = structuredClone(ringDelta);
+hiddenArrayPropertyDelta.operations.unshift({
+  op: 'set',
+  path: ['stateCustody', 'recentCommitIds', 'hidden'],
+  value: 'not-json-visible',
+});
+await assert.rejects(
+  applyV1StateDelta({ saveId: 'save.alpha', state: beforeRing, delta: hiddenArrayPropertyDelta }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_DELTA_SET_INVALID',
+  'array mutations must use existing numeric indexes or splice operations',
+);
+
 console.log('V1 state delta codec passed.');

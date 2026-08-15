@@ -1760,6 +1760,12 @@ export function createV1MissionRuntime({
         const campaignState = getState();
         const settlement = campaignState?.storySettlement;
         const previousAttempt = settlement?.episodeReviewAttempt;
+        const pendingToken = createPendingEpisodeReviewToken(settlement);
+        if (status === 'pending' && !sameReviewCheckpoint(pendingToken, token)) {
+            const error = new Error('Episode review checkpoint changed before its attempt could begin.');
+            error.code = 'DIRECTIVE_EPISODE_REVIEW_STALE';
+            throw error;
+        }
         if (previousAttempt && !sameReviewCheckpoint(previousAttempt.token, token)) {
             const error = new Error('Episode review attempt belongs to a stale checkpoint.');
             error.code = 'DIRECTIVE_EPISODE_REVIEW_STALE';
@@ -1786,7 +1792,15 @@ export function createV1MissionRuntime({
         return committed.campaignState.storySettlement.episodeReviewAttempt;
     }
 
-    async function reviewPendingEpisode({ runtimeAssets = {}, signal = null, automatic = false } = {}) {
+    async function reviewPendingEpisode({
+        runtimeAssets = {},
+        signal = null,
+        automatic = false,
+        runMutation = null,
+    } = {}) {
+        const mutate = typeof runMutation === 'function'
+            ? runMutation
+            : async (task) => task();
         let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return { ...resolved, reviewToken: createPendingEpisodeReviewToken(campaignState?.storySettlement) };
@@ -1834,12 +1848,12 @@ export function createV1MissionRuntime({
 
         let attempt;
         try {
-            attempt = await persistEpisodeReviewAttempt({
+            attempt = await mutate(() => persistEpisodeReviewAttempt({
                 token: reviewToken,
                 status: 'pending',
                 automaticAttemptCount: previousAutomaticCount + (automatic === true ? 1 : 0),
                 reasonCode: null,
-            });
+            }));
         } catch (error) {
             const reasonCode = errorReasonCode(error);
             if (reasonCode === 'persistence-rollback-conflict') {
@@ -1869,12 +1883,12 @@ export function createV1MissionRuntime({
             request = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement });
         } catch {
             try {
-                await persistEpisodeReviewAttempt({
+                await mutate(() => persistEpisodeReviewAttempt({
                     token: reviewToken,
                     status: 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode: 'episode-review-invalid',
-                });
+                }));
             } catch { /* Pending custody still suppresses another automatic call. */ }
             return {
                 ...unavailable('episode-review-invalid', {}, { attempted: false }),
@@ -1892,12 +1906,12 @@ export function createV1MissionRuntime({
         if (!evaluated?.ok || !evaluated?.proposal) {
             const reasonCode = evaluated?.reasonCode || 'episode-review-unavailable';
             try {
-                await persistEpisodeReviewAttempt({
+                await mutate(() => persistEpisodeReviewAttempt({
                     token: reviewToken,
                     status: 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode,
-                });
+                }));
             } catch { /* Pending custody still suppresses another automatic call. */ }
             return {
                 ...unavailable(reasonCode, diagnostics, { attempted: true }),
@@ -1913,18 +1927,21 @@ export function createV1MissionRuntime({
             checkpointEveryContributions,
         });
         try {
-            const applied = await spine.applyEpisodeReview({
-                definition: resolved.definition,
-                reviewToken,
-                request,
-                proposal: evaluated.proposal,
-                gatewayBaseRevision,
-            });
-            await persistEpisodeReviewAttempt({
-                token: reviewToken,
-                status: 'committed',
-                automaticAttemptCount: attempt.automaticAttemptCount,
-                reasonCode: null,
+            const applied = await mutate(async () => {
+                const result = await spine.applyEpisodeReview({
+                    definition: resolved.definition,
+                    reviewToken,
+                    request,
+                    proposal: evaluated.proposal,
+                    gatewayBaseRevision,
+                });
+                await persistEpisodeReviewAttempt({
+                    token: reviewToken,
+                    status: 'committed',
+                    automaticAttemptCount: attempt.automaticAttemptCount,
+                    reasonCode: null,
+                });
+                return result;
             });
             const decision = evaluated.proposal.decision;
             return {
@@ -1942,12 +1959,12 @@ export function createV1MissionRuntime({
         } catch (error) {
             const reasonCode = errorReasonCode(error);
             try {
-                await persistEpisodeReviewAttempt({
+                await mutate(() => persistEpisodeReviewAttempt({
                     token: reviewToken,
                     status: reasonCode === 'persistence-rollback-conflict' ? 'indeterminate' : 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode,
-                });
+                }));
             } catch { /* Preserve the strongest already-durable attempt state. */ }
             if (reasonCode === 'persistence-rollback-conflict') {
                 return {

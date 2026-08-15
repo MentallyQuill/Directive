@@ -176,6 +176,8 @@ assert.equal(unrelatedMutationRan, false, 'Save, rename, and delete mutations mu
 const staleBranchRuntime = await harness();
 const externallyRevisedBranchSave = await loadV1CampaignSave(staleBranchRuntime.storage, 'save.parent');
 externallyRevisedBranchSave.state.settings.simulationMode = 'Exploration';
+externallyRevisedBranchSave.state.stateCustody.revision += 1;
+externallyRevisedBranchSave.state.stateCustody.recentCommitIds.push('test.external-branch-revision');
 externallyRevisedBranchSave.updatedAt = '2026-08-11T12:00:01.000Z';
 await storeV1CampaignSave(staleBranchRuntime.storage, externallyRevisedBranchSave);
 await assert.rejects(
@@ -408,6 +410,8 @@ assert.equal(crossCampaignLoad.prompt.calls().length, crossCampaignPromptCallsBe
 const staleLoadRuntime = await loadHarness();
 const externallyRevisedLoadSave = await loadV1CampaignSave(staleLoadRuntime.storage, 'save.load-parent');
 externallyRevisedLoadSave.state.settings.simulationMode = 'Exploration';
+externallyRevisedLoadSave.state.stateCustody.revision += 1;
+externallyRevisedLoadSave.state.stateCustody.recentCommitIds.push('test.external-load-revision');
 externallyRevisedLoadSave.updatedAt = '2026-08-11T12:00:01.000Z';
 await storeV1CampaignSave(staleLoadRuntime.storage, externallyRevisedLoadSave);
 const staleLoadCallsBefore = staleLoadRuntime.chat.calls().length;
