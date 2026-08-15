@@ -52,6 +52,10 @@ import {
     findTimeBoundaryForSourceAnchorRange,
 } from './v1-accepted-pair-time.mjs';
 import {
+    createV1AcceptedPairReceipt,
+    v1AcceptedPairReceiptMatches,
+} from './v1-accepted-pair-receipt.mjs';
+import {
     createPeopleInterpretationContext,
     materializeAcceptedPairPeopleEvents,
 } from '../people/accepted-pair-people.mjs';
@@ -713,6 +717,21 @@ function settledContributionIds(campaignState = {}) {
     return new Set(ids);
 }
 
+function settledContributionMatchesSource(campaignState = {}, source = {}, role = 'user') {
+    const settled = settledContributionIds(campaignState);
+    const invalidated = invalidatedContributionIds(campaignState);
+    return (campaignState?.storySettlement?.episodes || []).some((episode) => (
+        (episode.contributions || []).some((contribution) => (
+            settled.has(contribution?.id)
+            && !invalidated.has(contribution.id)
+            && contribution.role === role
+            && compact(contribution.messageId) === compact(source.messageId)
+            && compact(contribution.swipeId) === compact(source.selectedSwipeId)
+            && compact(contribution.textHash) === compact(source.textHash)
+        ))
+    ));
+}
+
 function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
     const target = compact(hostMessageId);
     if (!target) return [];
@@ -1197,6 +1216,8 @@ export function createV1MissionRuntime({
         const currentSources = [
             {
                 id: assistantSource.contributionId,
+                role: 'assistant',
+                source: sourcePair.previousAssistant,
                 lineageInvalidated: contributionLineageWasInvalidated(
                     campaignState,
                     branchId,
@@ -1205,6 +1226,8 @@ export function createV1MissionRuntime({
             },
             {
                 id: playerSource.contributionId,
+                role: 'user',
+                source: sourcePair.currentPlayer,
                 lineageInvalidated: contributionLineageWasInvalidated(
                     campaignState,
                     branchId,
@@ -1212,10 +1235,18 @@ export function createV1MissionRuntime({
                 ),
             },
         ];
-        const restoredSources = currentSources.filter((source) => source.lineageInvalidated);
-        const pairAlreadySettled = restoredSources.length > 0
-            ? restoredSources.every((source) => alreadySettled.has(source.id))
-            : alreadySettled.has(playerSource.contributionId);
+        const pairSourcesSettled = currentSources.every((source) => (
+            alreadySettled.has(source.id)
+            || settledContributionMatchesSource(campaignState, source.source, source.role)
+        ));
+        const pairReceiptSettled = (campaignState?.storySettlement?.acceptedPairReceipts || []).some(
+            (receipt) => v1AcceptedPairReceiptMatches(receipt, {
+                branchId,
+                sourceRangeHash: snapshot?.source?.sourceRangeHash,
+                sourcePair,
+            }),
+        );
+        const pairAlreadySettled = pairSourcesSettled || pairReceiptSettled;
         if (pairAlreadySettled) {
             if (cachedInterpretation?.key === interpretationKey) cachedInterpretation = null;
             if (cachedPreparedPeopleEvents?.key === interpretationKey) cachedPreparedPeopleEvents = null;
@@ -1473,6 +1504,16 @@ export function createV1MissionRuntime({
             ...deterministicRuntime.contributions,
             ...authoritativeTime.contributions,
         ];
+        const acceptedPairReceipt = createV1AcceptedPairReceipt({
+            branchId,
+            sourceRangeHash: snapshot.source.sourceRangeHash,
+            sourcePair,
+            assistantAcceptance: interpreted.interpretation.assistantAcceptance,
+            sourceContributionIds: [
+                ...(assistantAccepted ? [assistantContributionId] : []),
+                playerContributionId,
+            ],
+        });
         const sourceObservations = [
             ...(assistantAccepted ? [{
                 contributionId: assistantContributionId,
@@ -1510,6 +1551,7 @@ export function createV1MissionRuntime({
                 proposal: settlementProposal,
                 sourceContributions: contributions,
                 sourceObservations,
+                acceptedPairReceipt,
                 gatewayBaseRevision,
                 scene: {
                     episodeId: `episode.v1.${sceneHash}`,
@@ -1631,7 +1673,15 @@ export function createV1MissionRuntime({
             return unavailable('story-branch-mismatch');
         }
         const contributionIds = contributionIdsForHostMessage(campaignState, hostMessageId);
-        if (contributionIds.length === 0) {
+        const acceptedPairReceiptMatchesMessage = (campaignState?.storySettlement?.acceptedPairReceipts || [])
+            .some((receipt) => (
+                compact(receipt?.previousAssistant?.messageId) === compact(hostMessageId)
+                || compact(receipt?.currentPlayer?.messageId) === compact(hostMessageId)
+            ));
+        const authorityChangeRequested = (Array.isArray(authorityDomains) ? authorityDomains : []).some(
+            (domain) => Object.hasOwn(authorityPatch || {}, domain),
+        );
+        if (contributionIds.length === 0 && !acceptedPairReceiptMatchesMessage && !authorityChangeRequested) {
             return {
                 ok: true,
                 attempted: true,
@@ -1660,6 +1710,7 @@ export function createV1MissionRuntime({
                 missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
                 branchId,
                 contributionIds,
+                sourceMessageIds: [hostMessageId],
                 gatewayBaseRevision,
                 reason,
                 authorityPatch,

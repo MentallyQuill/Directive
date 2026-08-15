@@ -5,6 +5,10 @@ import { createInitialMissionJourney } from '../../src/mission/v1/mission-journe
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { prepareV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
+import {
+    rebindV1CampaignStateCustody,
+    reconstructV1BranchState,
+} from '../../src/runtime/v1-branch-reconstruction.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -187,6 +191,37 @@ const unchanged = JSON.stringify({
         confidence: 0.9,
     },
 });
+const acceptedAssistantClaim = JSON.stringify({
+    kind: 'directive.missionEvidenceInterpretation.v1',
+    assistantAcceptance: 'accepted',
+    claims: [{
+        candidateId: 'policy.prelude.command-handover-completed',
+        sourceSlot: 'previousAssistant',
+    }],
+    abstained: false,
+    time: {
+        decision: 'unchanged',
+        elapsedSeconds: 0,
+        reason: 'same-minute',
+        confidence: 0.9,
+    },
+});
+const correctedPlayerClaim = JSON.stringify({
+    kind: 'directive.missionEvidenceInterpretation.v1',
+    assistantAcceptance: 'corrected',
+    claims: [{
+        candidateId: 'policy.hesperus.rescue-risk-decision',
+        sourceSlot: 'currentPlayer',
+        value: 'saferPlan',
+    }],
+    abstained: false,
+    time: {
+        decision: 'unchanged',
+        elapsedSeconds: 0,
+        reason: 'same-minute',
+        confidence: 0.9,
+    },
+});
 
 const definition = clockReadyDefinition();
 const mainSnapshot = snapshot('main');
@@ -234,6 +269,39 @@ assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.filter(
     (entry) => entry.claimType === 'timeAdvanced',
 ).length, 1);
 
+const branchSnapshot = structuredClone(mainSnapshot);
+branchSnapshot.envelope.saveId = 'save.time.branch-child';
+branchSnapshot.envelope.chatId = 'chat.time.branch-child';
+const branchRuntimeAssets = {
+    ...mainHarness.runtimeAssets,
+    missionDefinitions: [definition],
+};
+const branchReconstruction = rebindV1CampaignStateCustody({
+    campaignState: mainHarness.campaignState,
+    targetSaveId: branchSnapshot.envelope.saveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: mainHarness.campaignState.campaign.id,
+        saveId: branchSnapshot.envelope.saveId,
+        chatId: branchSnapshot.envelope.chatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+const branchHarness = createHarness({
+    definition,
+    sceneSnapshot: branchSnapshot,
+    state: branchReconstruction.campaignState,
+    outputs: [abstained],
+});
+const branchReplay = await branchHarness.runtime.settleAcceptedPair({
+    runtimeAssets: branchHarness.runtimeAssets,
+    snapshot: branchSnapshot,
+});
+assert.equal(branchReplay.status, 'already-settled', 'retained branch authority must reconcile without reinterpretation');
+assert.equal(branchHarness.generationCount, 0, 'retained branch authority cannot call the semantic provider');
+
 const invalidated = await mainHarness.runtime.invalidateSourceMutation({
     runtimeAssets: mainHarness.runtimeAssets,
     hostMessageId: mainSnapshot.source.currentPlayer.hostMessageId,
@@ -251,10 +319,333 @@ const restored = await mainHarness.runtime.settleAcceptedPair({
     snapshot: mainSnapshot,
 });
 assert.equal(restored.status, 'settled');
+assert.equal(
+    mainHarness.generationCount,
+    2,
+    'an invalidated exact pair must be reinterpreted before replacement authority exists',
+);
 assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 28.5);
 assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.find(
     (entry) => entry.claimType === 'timeAdvanced',
 ).sourceContributionId.endsWith('.r1'), true);
+
+const restoredBranchSnapshot = structuredClone(mainSnapshot);
+restoredBranchSnapshot.envelope.saveId = 'save.time.restored-branch-child';
+restoredBranchSnapshot.envelope.chatId = 'chat.time.restored-branch-child';
+const restoredBranchReconstruction = rebindV1CampaignStateCustody({
+    campaignState: mainHarness.campaignState,
+    targetSaveId: restoredBranchSnapshot.envelope.saveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: mainHarness.campaignState.campaign.id,
+        saveId: restoredBranchSnapshot.envelope.saveId,
+        chatId: restoredBranchSnapshot.envelope.chatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+const restoredBranchHarness = createHarness({
+    definition,
+    sceneSnapshot: restoredBranchSnapshot,
+    state: restoredBranchReconstruction.campaignState,
+    outputs: [abstained],
+});
+const restoredBranchReplay = await restoredBranchHarness.runtime.settleAcceptedPair({
+    runtimeAssets: restoredBranchHarness.runtimeAssets,
+    snapshot: restoredBranchSnapshot,
+});
+assert.equal(
+    restoredBranchReplay.status,
+    'already-settled',
+    'retained branch authority with invalidation history must reconcile without reinterpretation',
+);
+assert.equal(
+    restoredBranchHarness.generationCount,
+    0,
+    'retained restored branch authority cannot call the semantic provider',
+);
+
+const discardedPlayerSnapshot = snapshot('discarded-player-parent');
+const discardedPlayerHarness = createHarness({
+    definition,
+    sceneSnapshot: discardedPlayerSnapshot,
+    state: initialCampaignState(definition, discardedPlayerSnapshot, {
+        suffix: 'discarded-player-parent',
+        boundary: null,
+    }),
+    outputs: [acceptedAssistantClaim, acceptedAssistantClaim],
+});
+const discardedPlayerInitialSettlement = await discardedPlayerHarness.runtime.settleAcceptedPair({
+    runtimeAssets: discardedPlayerHarness.runtimeAssets,
+    snapshot: discardedPlayerSnapshot,
+});
+assert.equal(discardedPlayerInitialSettlement.status, 'settled');
+const discardedPlayerInvalidation = await discardedPlayerHarness.runtime.invalidateSourceMutation({
+    runtimeAssets: discardedPlayerHarness.runtimeAssets,
+    hostMessageId: discardedPlayerSnapshot.source.previousAssistant.hostMessageId,
+    eventType: 'assistantMessageEdited',
+});
+assert.equal(discardedPlayerInvalidation.status, 'invalidated');
+const discardedPlayerResettlement = await discardedPlayerHarness.runtime.settleAcceptedPair({
+    runtimeAssets: discardedPlayerHarness.runtimeAssets,
+    snapshot: discardedPlayerSnapshot,
+});
+assert.equal(discardedPlayerResettlement.status, 'settled');
+
+const newPlayerBranchSnapshot = structuredClone(discardedPlayerSnapshot);
+newPlayerBranchSnapshot.envelope.saveId = 'save.time.discarded-player-child';
+newPlayerBranchSnapshot.envelope.chatId = 'chat.time.discarded-player-child';
+newPlayerBranchSnapshot.source.sourceRangeHash = 'range.time.discarded-player-child.new-player';
+newPlayerBranchSnapshot.source.currentPlayer = {
+    hostMessageId: 'message.time.discarded-player-child.new-player',
+    text: 'I take the branch in a different direction.',
+    textHash: 'c'.repeat(64),
+    sourceIntegrity: 'clean',
+};
+const discardedPlayerParentMessages = [
+    {
+        id: discardedPlayerSnapshot.source.previousAssistant.hostMessageId,
+        role: 'assistant',
+        mes: discardedPlayerSnapshot.source.previousAssistant.text,
+    },
+    {
+        id: discardedPlayerSnapshot.source.currentPlayer.hostMessageId,
+        role: 'user',
+        mes: discardedPlayerSnapshot.source.currentPlayer.text,
+    },
+];
+const newPlayerBranchReconstruction = await reconstructV1BranchState({
+    parentState: discardedPlayerHarness.campaignState,
+    parentMessages: discardedPlayerParentMessages,
+    childMessages: discardedPlayerParentMessages.slice(0, 1),
+    targetSaveId: newPlayerBranchSnapshot.envelope.saveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: discardedPlayerHarness.campaignState.campaign.id,
+        saveId: newPlayerBranchSnapshot.envelope.saveId,
+        chatId: newPlayerBranchSnapshot.envelope.chatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+const newPlayerBranchHarness = createHarness({
+    definition,
+    sceneSnapshot: newPlayerBranchSnapshot,
+    state: newPlayerBranchReconstruction.campaignState,
+    outputs: [unchanged],
+});
+assert.deepEqual(
+    newPlayerBranchReconstruction.discardedHostMessageIds,
+    [discardedPlayerSnapshot.source.currentPlayer.hostMessageId],
+);
+const newPlayerBranchSettlement = await newPlayerBranchHarness.runtime.settleAcceptedPair({
+    runtimeAssets: newPlayerBranchHarness.runtimeAssets,
+    snapshot: newPlayerBranchSnapshot,
+});
+assert.equal(
+    newPlayerBranchSettlement.status,
+    'settled-no-effect',
+    'a new player response after a retained assistant must be interpreted',
+);
+assert.equal(
+    newPlayerBranchHarness.generationCount,
+    1,
+    'assistant lineage alone cannot prove that the new accepted pair was already settled',
+);
+
+const correctedAssistantSnapshot = snapshot('corrected-assistant');
+const correctedAssistantHarness = createHarness({
+    definition,
+    sceneSnapshot: correctedAssistantSnapshot,
+    state: initialCampaignState(definition, correctedAssistantSnapshot, {
+        suffix: 'corrected-assistant',
+        boundary: null,
+    }),
+    outputs: [correctedPlayerClaim, unchanged],
+});
+const correctedAssistantSettlement = await correctedAssistantHarness.runtime.settleAcceptedPair({
+    runtimeAssets: correctedAssistantHarness.runtimeAssets,
+    snapshot: correctedAssistantSnapshot,
+});
+assert.equal(correctedAssistantSettlement.status, 'settled');
+const correctedAssistantReplay = await correctedAssistantHarness.runtime.settleAcceptedPair({
+    runtimeAssets: correctedAssistantHarness.runtimeAssets,
+    snapshot: correctedAssistantSnapshot,
+});
+assert.equal(
+    correctedAssistantReplay.status,
+    'already-settled',
+    'durable pair authority must preserve an exact corrected-assistant outcome',
+);
+assert.equal(correctedAssistantHarness.generationCount, 1);
+assert.equal(correctedAssistantHarness.campaignState.storySettlement.acceptedPairReceipts.length, 1);
+
+const agedCorrectedState = structuredClone(correctedAssistantHarness.campaignState);
+const decisionTemplate = agedCorrectedState.timeLedger.decisions[0];
+agedCorrectedState.timeLedger.decisions = Array.from({ length: 128 }, (_, index) => ({
+    ...structuredClone(decisionTemplate),
+    id: `v1-time-decision.aged-${index}`,
+    sourceAnchorRange: {
+        kind: 'acceptedPair',
+        previousAssistantHostMessageId: `message.aged.${index}.assistant`,
+        currentPlayerHostMessageId: `message.aged.${index}.player`,
+        rangeHash: `range.aged.${index}`,
+    },
+    evidenceMessageIds: [`message.aged.${index}.assistant`, `message.aged.${index}.player`],
+}));
+const agedCorrectedSnapshot = structuredClone(correctedAssistantSnapshot);
+agedCorrectedSnapshot.envelope.saveId = 'save.time.corrected-assistant-aged-child';
+agedCorrectedSnapshot.envelope.chatId = 'chat.time.corrected-assistant-aged-child';
+const agedCorrectedReconstruction = rebindV1CampaignStateCustody({
+    campaignState: agedCorrectedState,
+    targetSaveId: agedCorrectedSnapshot.envelope.saveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: agedCorrectedState.campaign.id,
+        saveId: agedCorrectedSnapshot.envelope.saveId,
+        chatId: agedCorrectedSnapshot.envelope.chatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+const agedCorrectedHarness = createHarness({
+    definition,
+    sceneSnapshot: agedCorrectedSnapshot,
+    state: agedCorrectedReconstruction.campaignState,
+    outputs: [unchanged],
+});
+const agedCorrectedReplay = await agedCorrectedHarness.runtime.settleAcceptedPair({
+    runtimeAssets: agedCorrectedHarness.runtimeAssets,
+    snapshot: agedCorrectedSnapshot,
+});
+assert.equal(
+    agedCorrectedReplay.status,
+    'already-settled',
+    'corrected pair authority must outlive the bounded 128-decision time ledger',
+);
+assert.equal(agedCorrectedHarness.generationCount, 0);
+
+const sameTextOtherSwipeSnapshot = structuredClone(correctedAssistantSnapshot);
+sameTextOtherSwipeSnapshot.source.previousAssistant = {
+    ...sameTextOtherSwipeSnapshot.source.previousAssistant,
+    selectedVariantId: '1',
+    selectedVariant: {
+        selectedVariantId: '1',
+        selectedTextHash: correctedAssistantSnapshot.source.previousAssistant.textHash,
+        sourceIntegrity: 'clean',
+    },
+};
+const sameTextOtherSwipeSettlement = await correctedAssistantHarness.runtime.settleAcceptedPair({
+    runtimeAssets: correctedAssistantHarness.runtimeAssets,
+    snapshot: sameTextOtherSwipeSnapshot,
+});
+assert.notEqual(
+    sameTextOtherSwipeSettlement.status,
+    'already-settled',
+    'identical assistant text under another swipe must be reinterpreted',
+);
+assert.equal(correctedAssistantHarness.generationCount, 2);
+const rejectedAssistantInvalidation = await correctedAssistantHarness.runtime.invalidateSourceMutation({
+    runtimeAssets: correctedAssistantHarness.runtimeAssets,
+    hostMessageId: correctedAssistantSnapshot.source.previousAssistant.hostMessageId,
+    eventType: 'selected-swipe-changed',
+});
+assert.equal(
+    rejectedAssistantInvalidation.status,
+    'invalidated',
+    'receipt custody must invalidate even though corrected assistant prose is absent from contributions',
+);
+
+const editedCorrectedAssistantSnapshot = structuredClone(correctedAssistantSnapshot);
+editedCorrectedAssistantSnapshot.source.sourceRangeHash = 'range.time.corrected-assistant.edited';
+editedCorrectedAssistantSnapshot.source.previousAssistant = {
+    ...editedCorrectedAssistantSnapshot.source.previousAssistant,
+    text: 'The corrected assistant response now says something materially different.',
+    textHash: 'd'.repeat(64),
+    selectedVariantId: '1',
+    selectedVariant: {
+        selectedVariantId: '1',
+        selectedTextHash: 'd'.repeat(64),
+        sourceIntegrity: 'clean',
+    },
+};
+const editedCorrectedAssistantSettlement = await correctedAssistantHarness.runtime.settleAcceptedPair({
+    runtimeAssets: correctedAssistantHarness.runtimeAssets,
+    snapshot: editedCorrectedAssistantSnapshot,
+});
+assert.notEqual(editedCorrectedAssistantSettlement.status, 'already-settled');
+assert.equal(
+    correctedAssistantHarness.generationCount,
+    3,
+    'player custody alone cannot preserve stale assistant acceptance semantics',
+);
+
+const resettledCorrectedSnapshot = snapshot('resettled-corrected');
+const resettledCorrectedHarness = createHarness({
+    definition,
+    sceneSnapshot: resettledCorrectedSnapshot,
+    state: initialCampaignState(definition, resettledCorrectedSnapshot, {
+        suffix: 'resettled-corrected',
+        boundary: null,
+    }),
+    outputs: [acceptedAssistantClaim, correctedPlayerClaim],
+});
+const initiallyAccepted = await resettledCorrectedHarness.runtime.settleAcceptedPair({
+    runtimeAssets: resettledCorrectedHarness.runtimeAssets,
+    snapshot: resettledCorrectedSnapshot,
+});
+assert.equal(initiallyAccepted.status, 'settled');
+const acceptedPairInvalidation = await resettledCorrectedHarness.runtime.invalidateSourceMutation({
+    runtimeAssets: resettledCorrectedHarness.runtimeAssets,
+    hostMessageId: resettledCorrectedSnapshot.source.previousAssistant.hostMessageId,
+    eventType: 'selected-swipe-changed',
+});
+assert.equal(acceptedPairInvalidation.status, 'invalidated');
+const correctedReplacement = await resettledCorrectedHarness.runtime.settleAcceptedPair({
+    runtimeAssets: resettledCorrectedHarness.runtimeAssets,
+    snapshot: resettledCorrectedSnapshot,
+});
+assert.equal(correctedReplacement.status, 'settled');
+assert.equal(
+    resettledCorrectedHarness.campaignState.storySettlement.acceptedPairReceipts[0].assistantAcceptance,
+    'corrected',
+);
+
+const resettledCorrectedBranchSnapshot = structuredClone(resettledCorrectedSnapshot);
+resettledCorrectedBranchSnapshot.envelope.saveId = 'save.time.resettled-corrected-child';
+resettledCorrectedBranchSnapshot.envelope.chatId = 'chat.time.resettled-corrected-child';
+const resettledCorrectedReconstruction = rebindV1CampaignStateCustody({
+    campaignState: resettledCorrectedHarness.campaignState,
+    targetSaveId: resettledCorrectedBranchSnapshot.envelope.saveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: resettledCorrectedHarness.campaignState.campaign.id,
+        saveId: resettledCorrectedBranchSnapshot.envelope.saveId,
+        chatId: resettledCorrectedBranchSnapshot.envelope.chatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+const resettledCorrectedBranchHarness = createHarness({
+    definition,
+    sceneSnapshot: resettledCorrectedBranchSnapshot,
+    state: resettledCorrectedReconstruction.campaignState,
+    outputs: [unchanged],
+});
+const resettledCorrectedBranchReplay = await resettledCorrectedBranchHarness.runtime.settleAcceptedPair({
+    runtimeAssets: resettledCorrectedBranchHarness.runtimeAssets,
+    snapshot: resettledCorrectedBranchSnapshot,
+});
+assert.equal(
+    resettledCorrectedBranchReplay.status,
+    'already-settled',
+    'a corrected replacement receipt remains authoritative despite historical invalidation',
+);
+assert.equal(resettledCorrectedBranchHarness.generationCount, 0);
 
 const failureSnapshot = snapshot('failure-atomic');
 const failureInitialState = initialCampaignState(definition, failureSnapshot, {

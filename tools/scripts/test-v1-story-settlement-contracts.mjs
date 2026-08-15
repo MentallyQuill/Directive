@@ -5,6 +5,10 @@ import {
     createEmptyStorySettlement,
     validateStorySettlement,
 } from '../../src/story/story-settlement-contracts.mjs';
+import {
+    createV1AcceptedPairReceipt,
+    v1AcceptedPairReceiptMatches,
+} from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 
 const schema = JSON.parse(fs.readFileSync('schemas/story/story-settlement.schema.json', 'utf8'));
 assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
@@ -14,6 +18,8 @@ assert.equal(schema.$defs.episode.additionalProperties, false);
 assert.equal(schema.$defs.sourceContribution.additionalProperties, false);
 assert.equal(schema.$defs.effect.additionalProperties, false);
 assert.equal(schema.$defs.receipt.additionalProperties, false);
+assert.equal(schema.$defs.acceptedPairReceipt.additionalProperties, false);
+assert.equal(schema.$defs.acceptedPairSource.additionalProperties, false);
 assert.equal(schema.$defs.focus.additionalProperties, false);
 assert.equal(schema.$defs.episodeBoundaryState.additionalProperties, false);
 assert.equal(schema.$defs.episodeHardBoundary.additionalProperties, false);
@@ -36,10 +42,18 @@ assert.deepEqual(empty, {
     activeEpisode: null,
     episodes: [],
     receipts: [],
+    acceptedPairReceipts: [],
     focus: null,
 });
 
 assert.deepEqual(validateStorySettlement(empty), { ok: true, errors: [] });
+const legacyEmpty = structuredClone(empty);
+delete legacyEmpty.acceptedPairReceipts;
+assert.deepEqual(
+    validateStorySettlement(legacyEmpty),
+    { ok: true, errors: [] },
+    'schema-v1 saves without durable pair receipts remain valid',
+);
 
 assert.match(
     validateStorySettlement({ ...empty, branchId: '' }).errors.join('\n'),
@@ -61,9 +75,101 @@ for (const [label, value, pattern] of [
     ['revision', { ...empty, revision: -1 }, /revision/],
     ['episodes collection', { ...empty, episodes: null }, /episodes/],
     ['receipts collection', { ...empty, receipts: null }, /receipts/],
+    ['accepted-pair receipts collection', { ...empty, acceptedPairReceipts: null }, /acceptedPairReceipts/],
 ]) {
     assert.match(validateStorySettlement(value).errors.join('\n'), pattern, label);
 }
+
+const acceptedPairReceipt = {
+    kind: 'directive.acceptedPairReceipt.v1',
+    id: 'accepted-pair.aaaaaaaaaaaaaaaaaaaaaaaa.corrected',
+    branchId: 'save.alpha',
+    fingerprint: 'a'.repeat(24),
+    sourceRangeHash: 'range.accepted-pair.alpha',
+    previousAssistant: {
+        messageId: 'message.assistant.1',
+        selectedSwipeId: '0',
+        textHash: 'b'.repeat(64),
+    },
+    currentPlayer: {
+        messageId: 'message.player.2',
+        selectedSwipeId: null,
+        textHash: 'c'.repeat(64),
+    },
+    assistantAcceptance: 'corrected',
+    sourceContributionIds: ['contribution.player.2'],
+    settledAtRevision: 1,
+};
+assert.equal(validateStorySettlement({
+    ...empty,
+    revision: 1,
+    acceptedPairReceipts: [acceptedPairReceipt],
+}).ok, true);
+
+for (const [label, receiptValue, pattern] of [
+    ['kind', { ...acceptedPairReceipt, kind: 'directive.acceptedPairReceipt.v0' }, /kind/],
+    ['branch', { ...acceptedPairReceipt, branchId: 'save.beta' }, /branchId/],
+    ['fingerprint', { ...acceptedPairReceipt, fingerprint: 'not-a-fingerprint' }, /fingerprint/],
+    ['range', { ...acceptedPairReceipt, sourceRangeHash: '' }, /sourceRangeHash/],
+    ['assistant source', { ...acceptedPairReceipt, previousAssistant: { ...acceptedPairReceipt.previousAssistant, textHash: '' } }, /previousAssistant/],
+    ['player source', { ...acceptedPairReceipt, currentPlayer: { ...acceptedPairReceipt.currentPlayer, selectedSwipeId: '' } }, /currentPlayer/],
+    ['acceptance', { ...acceptedPairReceipt, assistantAcceptance: 'probably' }, /assistantAcceptance/],
+    ['source contributions', { ...acceptedPairReceipt, sourceContributionIds: ['bad contribution id'] }, /sourceContributionIds/],
+    ['revision', { ...acceptedPairReceipt, settledAtRevision: -1 }, /settledAtRevision/],
+]) {
+    assert.match(validateStorySettlement({
+        ...empty,
+        acceptedPairReceipts: [receiptValue],
+    }).errors.join('\n'), pattern, label);
+}
+assert.match(validateStorySettlement({
+    ...empty,
+    acceptedPairReceipts: [
+        acceptedPairReceipt,
+        { ...acceptedPairReceipt, id: 'accepted-pair.aaaaaaaaaaaaaaaaaaaaaaaa.accepted', assistantAcceptance: 'accepted' },
+    ],
+}).errors.join('\n'), /duplicate accepted-pair fingerprint/);
+
+const sourcePair = {
+    previousAssistant: {
+        messageId: 'message.assistant.1',
+        selectedSwipeId: '0',
+        textHash: 'b'.repeat(64),
+    },
+    currentPlayer: {
+        messageId: 'message.player.2',
+        selectedSwipeId: null,
+        textHash: 'c'.repeat(64),
+    },
+};
+const createdAcceptedPairReceipt = createV1AcceptedPairReceipt({
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.accepted-pair.alpha',
+    sourcePair,
+    assistantAcceptance: 'corrected',
+    sourceContributionIds: ['contribution.player.2'],
+});
+assert.equal(createdAcceptedPairReceipt.kind, 'directive.acceptedPairReceipt.v1');
+assert.match(createdAcceptedPairReceipt.fingerprint, /^[a-f0-9]{24}$/);
+assert.equal(createdAcceptedPairReceipt.id, `accepted-pair.${createdAcceptedPairReceipt.fingerprint}.corrected`);
+assert.equal(v1AcceptedPairReceiptMatches(createdAcceptedPairReceipt, {
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.accepted-pair.alpha',
+    sourcePair,
+}), true);
+assert.equal(v1AcceptedPairReceiptMatches(createdAcceptedPairReceipt, {
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.accepted-pair.alpha',
+    sourcePair: {
+        ...sourcePair,
+        previousAssistant: { ...sourcePair.previousAssistant, selectedSwipeId: '1' },
+    },
+}), false, 'identical text under another swipe is a different accepted-pair source');
+assert.equal(v1AcceptedPairReceiptMatches(createdAcceptedPairReceipt, {
+    branchId: 'save.beta',
+    sourceRangeHash: 'range.accepted-pair.alpha',
+    sourcePair,
+}), false);
 
 const boundaryState = {
     kind: 'directive.episodeBoundaryState.v1',

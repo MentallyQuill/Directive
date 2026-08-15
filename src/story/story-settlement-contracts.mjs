@@ -1,6 +1,7 @@
 export const STORY_SETTLEMENT_KIND = 'directive.storySettlement.v1';
 export const STORY_EPISODE_KIND = 'directive.storyEpisode.v1';
 export const STORY_SETTLEMENT_RECEIPT_KIND = 'directive.storySettlementReceipt.v1';
+export const ACCEPTED_PAIR_RECEIPT_KIND = 'directive.acceptedPairReceipt.v1';
 export const EMERGENT_FOCUS_KIND = 'directive.emergentFocus.v1';
 export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
     'open',
@@ -15,9 +16,16 @@ import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
 const TERMINAL_EPISODE_STATUSES = new Set(['sealed', 'invalidated']);
 const SOURCE_CONTRIBUTION_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
 const SETTLEMENT_RECEIPT_DISPOSITIONS = new Set(['sealed', 'insignificant', 'invalidated']);
+const ASSISTANT_ACCEPTANCE_OUTCOMES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const SETTLEMENT_FIELDS = new Set([
-    'kind', 'schemaVersion', 'branchId', 'revision', 'activeEpisode', 'episodes', 'receipts', 'focus',
+    'kind', 'schemaVersion', 'branchId', 'revision', 'activeEpisode', 'episodes', 'receipts',
+    'acceptedPairReceipts', 'focus',
 ]);
+const ACCEPTED_PAIR_RECEIPT_FIELDS = new Set([
+    'kind', 'id', 'branchId', 'fingerprint', 'sourceRangeHash', 'previousAssistant',
+    'currentPlayer', 'assistantAcceptance', 'sourceContributionIds', 'settledAtRevision',
+]);
+const ACCEPTED_PAIR_SOURCE_FIELDS = new Set(['messageId', 'selectedSwipeId', 'textHash']);
 const EPISODE_FIELDS = new Set([
     'kind', 'id', 'branchId', 'sceneId', 'status', 'openedAtRevision', 'sealedAtRevision',
     'boundaryReason', 'summary', 'contributions', 'effects', 'unresolvedConsequences',
@@ -32,6 +40,26 @@ function isNonEmptyString(value) {
 
 function isStableId(value) {
     return isNonEmptyString(value) && /^[a-z0-9][a-z0-9._:-]*$/.test(value);
+}
+
+function validateAcceptedPairSource(source, errors, label) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+        errors.push(`${label} must be an object`);
+        return;
+    }
+    for (const field of Object.keys(source)) {
+        if (!ACCEPTED_PAIR_SOURCE_FIELDS.has(field)) errors.push(`${label} contains unknown field: ${field}`);
+    }
+    if (!isNonEmptyString(source.messageId) || source.messageId.length > 300) {
+        errors.push(`${label} messageId must be a non-empty string`);
+    }
+    if (source.selectedSwipeId !== null
+        && (!isNonEmptyString(source.selectedSwipeId) || source.selectedSwipeId.length > 300)) {
+        errors.push(`${label} selectedSwipeId must be a non-empty string or null`);
+    }
+    if (!isNonEmptyString(source.textHash) || source.textHash.length > 128) {
+        errors.push(`${label} textHash must be a non-empty string`);
+    }
 }
 
 function validateBoundaryState(boundaryState, episode, errors, episodeId) {
@@ -107,6 +135,7 @@ export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
         activeEpisode: null,
         episodes: [],
         receipts: [],
+        acceptedPairReceipts: [],
         focus: null,
     };
 }
@@ -128,6 +157,9 @@ export function validateStorySettlement(value = {}) {
     }
     if (!Array.isArray(value?.episodes)) errors.push('episodes must be an array');
     if (!Array.isArray(value?.receipts)) errors.push('receipts must be an array');
+    if (Object.hasOwn(value || {}, 'acceptedPairReceipts') && !Array.isArray(value.acceptedPairReceipts)) {
+        errors.push('acceptedPairReceipts must be an array');
+    }
     if (Array.isArray(value?.episodes)) {
         const episodeIds = new Set();
         for (const episode of value.episodes) {
@@ -407,6 +439,57 @@ export function validateStorySettlement(value = {}) {
                 errors.push(`${receiptId} sourceMessageIds must align with sourceContributionIds`);
             } else if (new Set(receipt.sourceMessageIds).size !== receipt.sourceMessageIds.length) {
                 errors.push(`${receiptId} sourceMessageIds must be unique`);
+            }
+            if (!Number.isInteger(receipt?.settledAtRevision) || receipt.settledAtRevision < 0) {
+                errors.push(`${receiptId} settledAtRevision must be a non-negative integer`);
+            }
+        }
+    }
+    if (Array.isArray(value?.acceptedPairReceipts)) {
+        const receiptIds = new Set();
+        const fingerprints = new Set();
+        for (const receipt of value.acceptedPairReceipts) {
+            const receiptId = isStableId(receipt?.id) ? receipt.id : '<unknown accepted-pair receipt>';
+            if (receiptId === '<unknown accepted-pair receipt>') errors.push('accepted-pair receipt id must be a stable id');
+            if (receiptIds.has(receiptId)) errors.push(`duplicate accepted-pair receipt id: ${receiptId}`);
+            receiptIds.add(receiptId);
+            for (const field of Object.keys(receipt || {})) {
+                if (!ACCEPTED_PAIR_RECEIPT_FIELDS.has(field)) {
+                    errors.push(`${receiptId} contains unknown accepted-pair receipt field: ${field}`);
+                }
+            }
+            if (receipt?.kind !== ACCEPTED_PAIR_RECEIPT_KIND) {
+                errors.push(`${receiptId} kind must be ${ACCEPTED_PAIR_RECEIPT_KIND}`);
+            }
+            if (receipt?.branchId !== value.branchId) {
+                errors.push(`${receiptId} branchId must match the settlement branch`);
+            }
+            if (!/^[a-f0-9]{24}$/.test(String(receipt?.fingerprint || ''))) {
+                errors.push(`${receiptId} fingerprint must be 24 lowercase hexadecimal characters`);
+            } else if (fingerprints.has(receipt.fingerprint)) {
+                errors.push(`duplicate accepted-pair fingerprint: ${receipt.fingerprint}`);
+            } else {
+                fingerprints.add(receipt.fingerprint);
+            }
+            if (!isNonEmptyString(receipt?.sourceRangeHash) || receipt.sourceRangeHash.length > 300) {
+                errors.push(`${receiptId} sourceRangeHash must be a non-empty string`);
+            }
+            validateAcceptedPairSource(receipt?.previousAssistant, errors, `${receiptId} previousAssistant`);
+            validateAcceptedPairSource(receipt?.currentPlayer, errors, `${receiptId} currentPlayer`);
+            if (!ASSISTANT_ACCEPTANCE_OUTCOMES.has(receipt?.assistantAcceptance)) {
+                errors.push(`${receiptId} assistantAcceptance is unknown`);
+            }
+            if (!Array.isArray(receipt?.sourceContributionIds)) {
+                errors.push(`${receiptId} sourceContributionIds must be an array`);
+            } else {
+                if (new Set(receipt.sourceContributionIds).size !== receipt.sourceContributionIds.length) {
+                    errors.push(`${receiptId} sourceContributionIds must be unique`);
+                }
+                for (const contributionId of receipt.sourceContributionIds) {
+                    if (!isStableId(contributionId)) {
+                        errors.push(`${receiptId} sourceContributionIds contains an invalid id`);
+                    }
+                }
             }
             if (!Number.isInteger(receipt?.settledAtRevision) || receipt.settledAtRevision < 0) {
                 errors.push(`${receiptId} settledAtRevision must be a non-negative integer`);

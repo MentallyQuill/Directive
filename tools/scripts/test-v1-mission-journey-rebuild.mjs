@@ -245,6 +245,11 @@ assert.equal(
     false,
     'descendant Story summaries are not retained as current or audit prose',
 );
+assert.deepEqual(
+    rollbackHarness.campaignState.storySettlement.acceptedPairReceipts || [],
+    [],
+    'causal rollback removes the accepted-pair receipts for the invalidated source and every descendant pair',
+);
 for (const root of ['ship', 'commandBearing']) {
     assert.deepEqual(rollbackHarness.campaignState[root], beforeRollback[root], `${root} remains outside causal rollback`);
 }
@@ -269,6 +274,26 @@ const restartedReplay = await restartedHarness.runtime.invalidateSourceMutation(
 assert.equal(restartedReplay.status, 'no-change');
 assert.equal(restartedHarness.generationCount, 0);
 
+const causalReplayHarness = createHarness({
+    state: restartedState,
+    outputs: [
+        output('policy.hesperus-survivors-transferred'),
+        output('policy.hesperus-survivors-transferred'),
+    ],
+});
+const replayedA = await causalReplayHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(missionA, 1),
+});
+assert.equal(replayedA.transitionActivated, true, JSON.stringify(replayedA));
+const replayedB = await causalReplayHarness.runtime.settleAcceptedPair({
+    runtimeAssets,
+    snapshot: snapshot(missionB, 2),
+});
+assert.equal(replayedB.transitionActivated, true, JSON.stringify(replayedB));
+assert.equal(causalReplayHarness.generationCount, 2, 'both causally rolled-back pairs are reinterpreted');
+assert.equal(causalReplayHarness.campaignState.mission.v1.definitionId, missionC.id);
+
 const laterHarness = createHarness({
     outputs: [
         output('policy.hesperus-survivors-transferred'),
@@ -278,6 +303,11 @@ const laterHarness = createHarness({
 await advanceThroughB(laterHarness);
 const archivedA = structuredClone(laterHarness.campaignState.mission.v1History[0]);
 const storyAId = selectCurrentStoryEpisodes(laterHarness.campaignState.storySettlement)[0].id;
+const earlierPairReceipt = structuredClone(
+    laterHarness.campaignState.storySettlement.acceptedPairReceipts.find(
+        (receipt) => receipt.currentPlayer.messageId === 'message.journey.player.1',
+    ),
+);
 const laterMutation = await laterHarness.runtime.invalidateSourceMutation({
     runtimeAssets,
     hostMessageId: 'message.journey.assistant.2',
@@ -297,6 +327,11 @@ assert.deepEqual(
     selectCurrentStoryEpisodes(laterHarness.campaignState.storySettlement).map((episode) => episode.id),
     [storyAId],
     'earlier Story history remains current',
+);
+assert.deepEqual(
+    laterHarness.campaignState.storySettlement.acceptedPairReceipts,
+    [earlierPairReceipt],
+    'rolling back a later mission preserves the exact receipt for an earlier unrelated pair',
 );
 
 const stillClosesHarness = createHarness({

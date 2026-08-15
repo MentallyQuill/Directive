@@ -87,6 +87,65 @@ export function acceptStoryContributions(settlement, contributions = []) {
     return next;
 }
 
+function acceptedPairReceiptEquivalent(existing = {}, proposal = {}) {
+    return existing.id === proposal.id
+        && existing.branchId === proposal.branchId
+        && existing.fingerprint === proposal.fingerprint
+        && existing.sourceRangeHash === proposal.sourceRangeHash
+        && existing.assistantAcceptance === proposal.assistantAcceptance
+        && JSON.stringify(existing.previousAssistant) === JSON.stringify(proposal.previousAssistant)
+        && JSON.stringify(existing.currentPlayer) === JSON.stringify(proposal.currentPlayer)
+        && JSON.stringify(existing.sourceContributionIds || []) === JSON.stringify(proposal.sourceContributionIds || []);
+}
+
+export function recordAcceptedPairReceipt(settlement, receipt) {
+    assertValid(settlement);
+    const proposal = {
+        ...structuredClone(receipt),
+        branchId: settlement.branchId,
+    };
+    const existing = (settlement.acceptedPairReceipts || []).find(
+        (candidate) => candidate.fingerprint === proposal.fingerprint,
+    );
+    if (existing && acceptedPairReceiptEquivalent(existing, proposal)) return structuredClone(settlement);
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    next.acceptedPairReceipts = (next.acceptedPairReceipts || [])
+        .filter((candidate) => candidate.fingerprint !== proposal.fingerprint);
+    next.acceptedPairReceipts.push({
+        ...proposal,
+        settledAtRevision: next.revision,
+    });
+    return assertValid(next);
+}
+
+export function invalidateAcceptedPairReceipts(settlement, {
+    sourceMessageIds = [],
+    sourceContributionIds = [],
+} = {}) {
+    assertValid(settlement);
+    const invalidated = new Set((Array.isArray(sourceMessageIds) ? sourceMessageIds : [])
+        .map((messageId) => String(messageId ?? '').trim())
+        .filter(Boolean));
+    const invalidatedContributions = new Set((Array.isArray(sourceContributionIds) ? sourceContributionIds : [])
+        .map((contributionId) => String(contributionId ?? '').trim())
+        .filter(Boolean));
+    if (invalidated.size === 0 && invalidatedContributions.size === 0) return structuredClone(settlement);
+    const receipts = settlement.acceptedPairReceipts || [];
+    const retained = receipts.filter((receipt) => (
+        !invalidated.has(String(receipt.previousAssistant?.messageId ?? '').trim())
+        && !invalidated.has(String(receipt.currentPlayer?.messageId ?? '').trim())
+        && !(receipt.sourceContributionIds || []).some((contributionId) => (
+            invalidatedContributions.has(String(contributionId ?? '').trim())
+        ))
+    ));
+    if (retained.length === receipts.length) return structuredClone(settlement);
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    next.acceptedPairReceipts = structuredClone(retained);
+    return assertValid(next);
+}
+
 export function appendStoryEffects(settlement, effects = []) {
     assertValid(settlement);
     if (!activeEpisode(settlement)) throw new TypeError('an active episode is required');

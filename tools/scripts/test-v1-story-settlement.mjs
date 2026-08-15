@@ -6,12 +6,15 @@ import {
     acceptStoryContributions,
     appendStoryEffects,
     checkpointStoryEpisode,
+    invalidateAcceptedPairReceipts,
     invalidateStorySource,
     openStoryEpisode,
+    recordAcceptedPairReceipt,
     sealStoryEpisode,
     setEmergentFocus,
     settleInsignificantScene,
 } from '../../src/story/story-settlement.mjs';
+import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
 const opened = openStoryEpisode(empty, {
@@ -223,5 +226,80 @@ assert.deepEqual(invalidateStorySource(invalidated, {
     contributionId: 'contribution.bridge-handover',
     reason: 'selected-swipe-changed',
 }), invalidated);
+
+const pairSource = {
+    previousAssistant: {
+        messageId: 'message.assistant-1',
+        selectedSwipeId: '0',
+        textHash: 'a'.repeat(64),
+    },
+    currentPlayer: {
+        messageId: 'message.player-2',
+        selectedSwipeId: null,
+        textHash: 'b'.repeat(64),
+    },
+};
+const correctedPairReceipt = createV1AcceptedPairReceipt({
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.corrected-pair',
+    sourcePair: pairSource,
+    assistantAcceptance: 'corrected',
+    sourceContributionIds: ['contribution.bridge-player'],
+});
+const pairRecorded = recordAcceptedPairReceipt(empty, correctedPairReceipt);
+assert.equal(pairRecorded.revision, 1);
+assert.equal(pairRecorded.acceptedPairReceipts.length, 1);
+assert.equal(pairRecorded.acceptedPairReceipts[0].settledAtRevision, 1);
+assert.deepEqual(recordAcceptedPairReceipt(pairRecorded, correctedPairReceipt), pairRecorded);
+
+const acceptedReplacement = createV1AcceptedPairReceipt({
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.corrected-pair',
+    sourcePair: pairSource,
+    assistantAcceptance: 'accepted',
+    sourceContributionIds: ['contribution.bridge-handover', 'contribution.bridge-player'],
+});
+const pairReplaced = recordAcceptedPairReceipt(pairRecorded, acceptedReplacement);
+assert.equal(pairReplaced.revision, 2);
+assert.equal(pairReplaced.acceptedPairReceipts.length, 1);
+assert.equal(pairReplaced.acceptedPairReceipts[0].assistantAcceptance, 'accepted');
+assert.equal(pairReplaced.acceptedPairReceipts[0].settledAtRevision, 2);
+
+const otherPairReceipt = createV1AcceptedPairReceipt({
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.other-pair',
+    sourcePair: {
+        previousAssistant: { ...pairSource.previousAssistant, messageId: 'message.assistant-3' },
+        currentPlayer: { ...pairSource.currentPlayer, messageId: 'message.player-4' },
+    },
+    assistantAcceptance: 'accepted',
+    sourceContributionIds: ['contribution.other-assistant', 'contribution.other-player'],
+});
+const twoPairs = recordAcceptedPairReceipt(pairReplaced, otherPairReceipt);
+assert.equal(twoPairs.acceptedPairReceipts.length, 2);
+assert.deepEqual(invalidateAcceptedPairReceipts(twoPairs, {
+    sourceMessageIds: ['message.unrelated'],
+}), twoPairs);
+const pairInvalidated = invalidateAcceptedPairReceipts(twoPairs, {
+    sourceMessageIds: ['message.assistant-1'],
+});
+assert.equal(pairInvalidated.revision, twoPairs.revision + 1);
+assert.deepEqual(
+    pairInvalidated.acceptedPairReceipts.map((receipt) => receipt.fingerprint),
+    [otherPairReceipt.fingerprint],
+);
+const descendantPairInvalidated = invalidateAcceptedPairReceipts(twoPairs, {
+    sourceContributionIds: ['contribution.other-assistant'],
+});
+assert.deepEqual(
+    descendantPairInvalidated.acceptedPairReceipts.map((receipt) => receipt.fingerprint),
+    [acceptedReplacement.fingerprint],
+);
+
+const legacySettlement = structuredClone(empty);
+delete legacySettlement.acceptedPairReceipts;
+const upgradedPairSettlement = recordAcceptedPairReceipt(legacySettlement, correctedPairReceipt);
+assert.equal(upgradedPairSettlement.acceptedPairReceipts.length, 1);
+assert.equal(upgradedPairSettlement.revision, 1);
 
 console.log('V1 Story Settlement lifecycle tests passed.');

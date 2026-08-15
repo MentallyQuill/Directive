@@ -235,7 +235,7 @@ export async function reconstructV1BranchState({
   const discardedHostMessageIds = normalizedParent.slice(normalizedChild.length).map((message) => message.hostMessageId).filter(Boolean);
   const discardedIds = new Set(discardedHostMessageIds);
   const contributionIds = discardedContributionIds(campaignState, discardedIds);
-  if (contributionIds.length > 0) {
+  if (discardedHostMessageIds.length > 0) {
     const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
     if (!resolved.ok) throw reconstructionError('DIRECTIVE_BRANCH_MISSION_REBUILD_FAILED', 'Mission authority could not be resolved.', resolved);
     const spine = createV1StateSpine({ getState: () => campaignState, stateDeltaGateway: gateway, resolveSourceRef: () => null, now });
@@ -245,6 +245,7 @@ export async function reconstructV1BranchState({
         missionDefinitions: runtimeAssets.missionDefinitions || [],
         branchId: campaignState.campaignChatBinding.saveId,
         contributionIds,
+        sourceMessageIds: discardedHostMessageIds,
         gatewayBaseRevision: gateway.revision(),
         reason: 'native-branch-discarded',
         shipDataset: runtimeAssets.shipDataset || null

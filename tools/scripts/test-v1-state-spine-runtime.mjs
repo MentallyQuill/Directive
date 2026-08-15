@@ -9,6 +9,7 @@ import {
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 import { V1_MUTABLE_STATE_DOMAINS } from '../../src/runtime/v1-campaign-state.mjs';
 import {
     createPendingEpisodeReviewToken,
@@ -111,12 +112,31 @@ const proposal = {
         },
     }],
 };
+const acceptedPairReceipt = createV1AcceptedPairReceipt({
+    branchId: 'save.alpha',
+    sourceRangeHash: 'range.hesperus-rescue',
+    sourcePair: {
+        previousAssistant: {
+            messageId: source.messageId,
+            selectedSwipeId: source.selectedSwipeId,
+            textHash: source.textHash,
+        },
+        currentPlayer: {
+            messageId: 'message.player-accepts-rescue',
+            selectedSwipeId: null,
+            textHash: 'b'.repeat(64),
+        },
+    },
+    assistantAcceptance: 'accepted',
+    sourceContributionIds: [sourceContribution.id],
+});
 
 const settled = await spine.settleAcceptedPair({
     definition,
     missionDefinitions: [definition],
     proposal,
     sourceContribution,
+    acceptedPairReceipt,
     sourceObservations: [{
         contributionId: sourceContribution.id,
         role: sourceContribution.role,
@@ -144,6 +164,8 @@ assert.equal(settled.evidence.acceptedClaims.length, 1);
 assert.equal(settled.reviewToken, null, 'mission-transition hard boundaries do not queue soft review');
 assert.equal(campaignState.storySettlement.episodes.length, 1);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'sealed');
+assert.equal(campaignState.storySettlement.acceptedPairReceipts.length, 1);
+assert.equal(campaignState.storySettlement.acceptedPairReceipts[0].fingerprint, acceptedPairReceipt.fingerprint);
 assert.equal(campaignState.mission.v1.status, 'terminal');
 assert.equal(campaignState.mission.v1.terminalDisposition, 'primarySuccess');
 assert.equal(settled.commandBearingAwardCount, 1);
@@ -208,6 +230,7 @@ await spine.invalidateSources({
     definition,
     branchId: 'save.alpha',
     contributionIds: ['contribution.hesperus-rescue'],
+    sourceMessageIds: [source.messageId],
     missionDefinitions: [definition],
     gatewayBaseRevision: 1,
     reason: 'selected-swipe-changed',
@@ -215,6 +238,7 @@ await spine.invalidateSources({
 assert.equal(persistCount, 2);
 assert.equal(gateway.revision(), 2);
 assert.equal(campaignState.storySettlement.episodes[0].status, 'invalidated');
+assert.equal(campaignState.storySettlement.acceptedPairReceipts.length, 0);
 assert.equal(campaignState.mission.v1.status, 'active');
 assert.equal(campaignState.mission.v1.transitionReceipt, null);
 
@@ -236,6 +260,68 @@ await spine.invalidateSources({
 });
 assert.equal(persistCount, 2);
 assert.equal(gateway.revision(), 2);
+
+let receiptOnlyState = createAshesInitialState({
+    campaignId: 'campaign.receipt-only',
+    saveId: 'save.receipt-only',
+    chatId: 'chat.receipt-only',
+});
+const receiptOnlyJourney = createInitialMissionJourney({ definition, branchId: 'save.receipt-only' });
+receiptOnlyState.mission = {
+    activeMissionId: definition.packageBinding.sourceId,
+    v1: createMissionState({ definition, branchId: 'save.receipt-only' }),
+    v1Journey: receiptOnlyJourney.journey,
+    v1History: receiptOnlyJourney.history,
+};
+const receiptOnlyAuthority = createV1AcceptedPairReceipt({
+    branchId: 'save.receipt-only',
+    sourceRangeHash: 'range.receipt-only',
+    sourcePair: {
+        previousAssistant: {
+            messageId: 'message.receipt-only.assistant',
+            selectedSwipeId: '0',
+            textHash: 'c'.repeat(64),
+        },
+        currentPlayer: {
+            messageId: 'message.receipt-only.player',
+            selectedSwipeId: null,
+            textHash: 'd'.repeat(64),
+        },
+    },
+    assistantAcceptance: 'corrected',
+    sourceContributionIds: [],
+});
+receiptOnlyState.storySettlement = {
+    ...receiptOnlyState.storySettlement,
+    revision: 1,
+    acceptedPairReceipts: [{ ...receiptOnlyAuthority, settledAtRevision: 1 }],
+};
+let receiptOnlyPersistCount = 0;
+const receiptOnlyGateway = createStateDeltaGateway({
+    getState: () => receiptOnlyState,
+    setState: (next) => { receiptOnlyState = next; },
+    persist: async () => { receiptOnlyPersistCount += 1; },
+    now: () => '2026-08-09T12:30:00.000Z',
+});
+const receiptOnlySpine = createV1StateSpine({
+    getState: () => receiptOnlyState,
+    stateDeltaGateway: receiptOnlyGateway,
+    resolveSourceRef: () => null,
+    now: () => '2026-08-09T12:30:00.000Z',
+});
+const receiptOnlyInvalidation = await receiptOnlySpine.invalidateSources({
+    definition,
+    branchId: 'save.receipt-only',
+    contributionIds: [],
+    sourceMessageIds: ['message.receipt-only.assistant'],
+    gatewayBaseRevision: 0,
+    reason: 'selected-swipe-changed',
+});
+assert.equal(receiptOnlyInvalidation.noChange, false);
+assert.equal(receiptOnlyPersistCount, 1);
+assert.equal(receiptOnlyGateway.revision(), 1);
+assert.deepEqual(receiptOnlyState.storySettlement.acceptedPairReceipts, []);
+assert.equal(receiptOnlyState.mission.v1.revision, 0);
 
 const accumulationEvents = Array.from({ length: 6 }, (_, index) => ({
     id: `event.accumulation-${index + 1}`,

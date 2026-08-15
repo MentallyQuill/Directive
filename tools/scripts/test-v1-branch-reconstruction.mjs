@@ -9,7 +9,9 @@ import {
   reserveV1CommandBearingEdge
 } from '../../src/command/v1-command-bearing.mjs';
 import { hashStableJson } from '../../src/runtime/v1-host-message-contracts.mjs';
+import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 import { reconstructV1BranchState } from '../../src/runtime/v1-branch-reconstruction.mjs';
+import { recordAcceptedPairReceipt } from '../../src/story/story-settlement.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
 const runtimeAssets = loadAshesRuntimeAssets();
@@ -20,6 +22,27 @@ const parentMessages = [
   { id: 'player.2', role: 'user', mes: 'Ask for the readiness report.' },
   { id: 'assistant.2', role: 'assistant', mes: 'Whitaker passes over the slate.' }
 ];
+parentState.storySettlement = recordAcceptedPairReceipt(
+  parentState.storySettlement,
+  createV1AcceptedPairReceipt({
+    branchId: 'save.parent',
+    sourceRangeHash: 'range.discarded-player-2',
+    sourcePair: {
+      previousAssistant: {
+        messageId: 'assistant.1',
+        selectedSwipeId: null,
+        textHash: hashStableJson({ text: 'The lift doors open.' }),
+      },
+      currentPlayer: {
+        messageId: 'player.2',
+        selectedSwipeId: null,
+        textHash: hashStableJson({ text: 'Ask for the readiness report.' }),
+      },
+    },
+    assistantAcceptance: 'corrected',
+    sourceContributionIds: [],
+  }),
+);
 const original = structuredClone(parentState);
 const rebuilt = await reconstructV1BranchState({
   parentState,
@@ -51,6 +74,7 @@ assert.equal(rebuilt.retainedSourceCount, 2);
 assert.equal(rebuilt.lineageHash, 'lineage.1');
 assert.equal(rebuilt.modelCallCount, 0);
 assert.equal(rebuilt.projection.ok, true);
+assert.deepEqual(rebuilt.campaignState.storySettlement.acceptedPairReceipts, []);
 
 let bearing = createV1CommandBearing({ capacity: 3 });
 bearing = awardV1CommandBearing(bearing, { awardId: 'award.keep.1', sourceId: 'objective.keep.1', reason: 'Kept one', now: '2026-08-11T01:00:00.000Z' }).commandBearing;

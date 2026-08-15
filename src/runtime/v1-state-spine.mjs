@@ -38,11 +38,13 @@ import {
     appendStoryEffects,
     appendStoryPeopleEvents,
     checkpointStoryEpisode,
+    invalidateAcceptedPairReceipts,
     invalidateStorySources,
     invalidateStorySourcesAndDescendants,
     observeStoryWorkingEvidence,
     openStoryEpisode,
     pruneStoryEffects,
+    recordAcceptedPairReceipt,
     sealStoryEpisode,
     settleInsignificantScene,
 } from '../story/story-settlement.mjs';
@@ -549,6 +551,7 @@ export function createV1StateSpine({
         sourceContribution,
         sourceContributions = [],
         sourceObservations = [],
+        acceptedPairReceipt = null,
         gatewayBaseRevision = null,
         scene = {},
         hardBoundary = null,
@@ -811,6 +814,9 @@ export function createV1StateSpine({
                 minimumNewContributions: checkpointEveryContributions,
             });
         }
+        if (acceptedPairReceipt) {
+            storySettlement = recordAcceptedPairReceipt(storySettlement, acceptedPairReceipt);
+        }
         const reviewToken = createPendingEpisodeReviewToken(storySettlement);
 
         const currentMissionRoot = campaignState?.mission || {};
@@ -966,6 +972,7 @@ export function createV1StateSpine({
         missionDefinitions = [],
         branchId,
         contributionIds = [],
+        sourceMessageIds = [],
         gatewayBaseRevision = null,
         reason = 'source-invalidated',
         authorityPatch = {},
@@ -984,6 +991,10 @@ export function createV1StateSpine({
         const authorityChanged = additionalDomains.some(
             (domain) => !jsonEqual(campaignState?.[domain], additionalPatch[domain]),
         );
+        const receiptPrunedSettlement = invalidateAcceptedPairReceipts(currentStorySettlement, {
+            sourceMessageIds,
+        });
+        const acceptedPairReceiptsChanged = !jsonEqual(currentStorySettlement, receiptPrunedSettlement);
         const hasJourney = campaignState?.mission?.v1Journey !== undefined
             || campaignState?.mission?.v1History !== undefined;
         const definitions = (Array.isArray(missionDefinitions) ? missionDefinitions : [])
@@ -1028,21 +1039,29 @@ export function createV1StateSpine({
             (id) => !previouslyInvalidated.has(id) && knownContributionIds.has(id),
         );
         if (newContributionIds.length === 0) {
-            if (authorityChanged) {
+            if (authorityChanged || acceptedPairReceiptsChanged) {
+                const patch = {
+                    ...additionalPatch,
+                    ...(acceptedPairReceiptsChanged ? { storySettlement: receiptPrunedSettlement } : {}),
+                };
+                const domains = [...new Set([
+                    ...(acceptedPairReceiptsChanged ? ['storySettlement'] : []),
+                    ...additionalDomains,
+                ])];
                 const committed = await stateDeltaGateway.applyProposal({
-                    patch: additionalPatch,
-                    domains: additionalDomains,
+                    patch,
+                    domains,
                     baseRevision: capturedGatewayRevision,
                     source: 'v1StateSpineSourceRecovery',
-                    reason: 'Rebuilt non-mission authority after accepted-source invalidation.',
+                    reason: 'Rebuilt accepted-pair and non-mission authority after source invalidation.',
                 });
                 return {
                     missionState: currentMission,
-                    storySettlement: currentStorySettlement,
+                    storySettlement: receiptPrunedSettlement,
                     campaignState: committed.campaignState,
                     invalidatedContributionIds: [],
                     noChange: false,
-                    reviewToken: createPendingEpisodeReviewToken(currentStorySettlement),
+                    reviewToken: createPendingEpisodeReviewToken(receiptPrunedSettlement),
                     missionChanged: false,
                 };
             }
@@ -1074,7 +1093,7 @@ export function createV1StateSpine({
         }
 
         if (matchingRuns.length === 0) {
-            const storySettlement = invalidateStorySources(currentStorySettlement, {
+            const storySettlement = invalidateStorySources(receiptPrunedSettlement, {
                 contributionIds: [...invalidated],
                 reason,
                 summarizeEffects: (effects) => deterministicEffectSummary(definition, effects),
@@ -1176,18 +1195,42 @@ export function createV1StateSpine({
         if (rebuiltMission.transitionReceipt) rebuiltMission.transitionReceipt.committedAtRevision = rebuiltMission.revision;
 
         const crossedClosure = matchedRun.kind === 'archived' || matchedRun.state.status === 'terminal';
+        const storyReceiptIdsBeforeRollback = new Set(
+            (receiptPrunedSettlement.receipts || []).map((receipt) => receipt.id),
+        );
         let storySettlement = crossedClosure
-            ? invalidateStorySourcesAndDescendants(currentStorySettlement, {
+            ? invalidateStorySourcesAndDescendants(receiptPrunedSettlement, {
                 contributionIds: [...invalidated],
                 reason,
                 cutoffMissionId: matchedDefinition.id,
                 summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
             })
-            : invalidateStorySources(currentStorySettlement, {
+            : invalidateStorySources(receiptPrunedSettlement, {
                 contributionIds: [...invalidated],
                 reason,
                 summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
             });
+        if (crossedClosure) {
+            const descendantMissionContributionIds = runs
+                .slice(matchedRun.index + 1)
+                .flatMap((run) => (run.state?.evidenceLog || []).map((entry) => entry.sourceContributionId))
+                .filter(Boolean);
+            const causalStoryReceipts = (storySettlement.receipts || []).filter((receipt) => (
+                receipt.disposition === 'invalidated'
+                && !storyReceiptIdsBeforeRollback.has(receipt.id)
+            ));
+            storySettlement = invalidateAcceptedPairReceipts(storySettlement, {
+                sourceMessageIds: [
+                    ...sourceMessageIds,
+                    ...causalStoryReceipts.flatMap((receipt) => receipt.sourceMessageIds || []),
+                ],
+                sourceContributionIds: [
+                    ...newContributionIds,
+                    ...descendantMissionContributionIds,
+                    ...causalStoryReceipts.flatMap((receipt) => receipt.sourceContributionIds || []),
+                ],
+            });
+        }
         if (!crossedClosure && dependencyPrunedEvidence.length > 0) {
             const prunedEffectIds = dependencyPrunedEvidence.map((entry) => (
                 `effect.v1.${stableHash([entry.claimId, entry.sourceContributionId].filter(Boolean).join('|'))}`

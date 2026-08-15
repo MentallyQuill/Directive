@@ -31,6 +31,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/receipt" }
     },
+    "acceptedPairReceipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/acceptedPairReceipt" }
+    },
     "focus": {
       "anyOf": [
         { "type": "null" },
@@ -490,6 +494,55 @@
         },
         "settledAtRevision": { "type": "integer", "minimum": 0 },
         "diagnostics": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "acceptedPairSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageId", "selectedSwipeId", "textHash"],
+      "properties": {
+        "messageId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "selectedSwipeId": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "textHash": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "acceptedPairReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "branchId",
+        "fingerprint",
+        "sourceRangeHash",
+        "previousAssistant",
+        "currentPlayer",
+        "assistantAcceptance",
+        "sourceContributionIds",
+        "settledAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.acceptedPairReceipt.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{24}$" },
+        "sourceRangeHash": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "previousAssistant": { "$ref": "#/$defs/acceptedPairSource" },
+        "currentPlayer": { "$ref": "#/$defs/acceptedPairSource" },
+        "assistantAcceptance": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "corrected", "ambiguous"]
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "settledAtRevision": { "type": "integer", "minimum": 0 }
       }
     },
     "focus": {
