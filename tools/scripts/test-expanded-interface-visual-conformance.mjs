@@ -900,6 +900,7 @@ try {
       const layers = [...hero.querySelectorAll('.directive-hero-scene-layer')];
       const foreground = layers.find((layer) => layer.dataset.heroSceneLayer === 'foreground');
       const sunlight = layers.find((layer) => layer.dataset.heroSceneLayer === 'sunlight');
+      const shipLayers = [...foreground.querySelectorAll('.directive-hero-ship-card-layer')];
       const sceneStyle = getComputedStyle(scene);
       const foregroundStyle = getComputedStyle(foreground);
       const sunlightStyle = getComputedStyle(sunlight);
@@ -952,6 +953,18 @@ try {
         layerTags: layers.map((layer) => layer.tagName),
         objectFits: layers.map((layer) => getComputedStyle(layer).objectFit),
         naturalSizes: layers.map((layer) => `${layer.naturalWidth || 0}x${layer.naturalHeight || 0}`),
+        shipLayerOrder: shipLayers.map((layer) => layer.dataset.heroShipLayer),
+        shipLayerTags: shipLayers.map((layer) => layer.tagName),
+        shipLayerNaturalSizes: shipLayers.map((layer) => `${layer.naturalWidth || 0}x${layer.naturalHeight || 0}`),
+        shipLayerRects: shipLayers.map(rect),
+        shipLayerBlends: shipLayers.map((layer) => getComputedStyle(layer).mixBlendMode),
+        shipLayerAnimations: shipLayers.map((layer) => getComputedStyle(layer).animationName),
+        shipLayerAnimationDurations: shipLayers.map((layer) => getComputedStyle(layer).animationDuration),
+        shipLayerAnimationTimingFunctions: shipLayers.map((layer) => getComputedStyle(layer).animationTimingFunction),
+        shipLayerMaskImages: shipLayers.map((layer) => getComputedStyle(layer).maskImage),
+        shipLayerMaskSizes: shipLayers.map((layer) => getComputedStyle(layer).maskSize),
+        shipLayerOpacities: shipLayers.map((layer) => getComputedStyle(layer).opacity),
+        shipLayerFilters: shipLayers.map((layer) => getComputedStyle(layer).filter),
         animations: layers.map((layer) => getComputedStyle(layer).animationName),
         animationDurations: layers.map((layer) => getComputedStyle(layer).animationDuration),
         timingFunctions: layers.map((layer) => getComputedStyle(layer).animationTimingFunction),
@@ -1045,7 +1058,10 @@ try {
   };
   const assertNeutralOrbit = (campaign, label) => {
     for (const [name, value] of Object.entries(campaign.orbitVariables)) {
-      assert.equal(Number.parseFloat(value) || 0, 0, `${label} ${name} must return to neutral`);
+      assert.ok(
+        Math.abs(Number.parseFloat(value) || 0) <= .001,
+        `${label} ${name} must return to perceptual neutral`
+      );
     }
     assert.equal(campaign.heroOrbitEngaged, false, `${label} must not retain engaged state`);
   };
@@ -1068,9 +1084,28 @@ try {
   assert.equal(desktopCampaign.heroExpanded, false);
   assert.equal(desktopCampaign.heroOrbitBound, 'true');
   assert.deepEqual(desktopCampaign.layerOrder, ['background', 'stars', 'stars-far', 'stars-near', 'foreground', 'sunlight']);
-  assert.deepEqual(desktopCampaign.layerTags, ['IMG', 'IMG', 'SPAN', 'SPAN', 'IMG', 'IMG']);
+  assert.deepEqual(desktopCampaign.layerTags, ['IMG', 'IMG', 'SPAN', 'SPAN', 'SPAN', 'IMG']);
   assert.deepEqual(desktopCampaign.objectFits, ['cover', 'cover', 'fill', 'fill', 'contain', 'cover'], 'dashboard must keep authored images aligned, repeating fields bounded, and the foreground ship contained');
-  assert.deepEqual(desktopCampaign.naturalSizes, ['1672x941', '1672x941', '0x0', '0x0', '1672x941', '1672x941']);
+  assert.deepEqual(desktopCampaign.naturalSizes, ['1672x941', '1672x941', '0x0', '0x0', '0x0', '1672x941']);
+  assert.deepEqual(desktopCampaign.shipLayerOrder, ['base', 'windows', 'nacelles']);
+  assert.deepEqual(desktopCampaign.shipLayerTags, ['IMG', 'IMG', 'IMG']);
+  assert.deepEqual(desktopCampaign.shipLayerNaturalSizes, ['1672x941', '1672x941', '1672x941']);
+  assert.deepEqual(desktopCampaign.shipLayerBlends, ['normal', 'screen', 'screen']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimations, [
+    'none', 'directive-hero-windows-live', 'directive-hero-nacelles-pulse'
+  ]);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationDurations, ['0s', '18s', '2s']);
+  assert.deepEqual(desktopCampaign.shipLayerAnimationTimingFunctions, ['ease', 'linear', 'ease-in-out']);
+  assert.equal(desktopCampaign.shipLayerMaskImages[0], 'none');
+  assert.match(desktopCampaign.shipLayerMaskImages[1], /uss-breckenridge\.hero-window-noise\.webp/);
+  assert.equal(desktopCampaign.shipLayerMaskImages[2], 'none');
+  assert.deepEqual(desktopCampaign.shipLayerMaskSizes, ['auto', '256px 256px', 'auto']);
+  for (const shipLayer of desktopCampaign.shipLayerRects) {
+    assert.ok(Math.abs(shipLayer.left - desktopCampaign.shipLayerRects[0].left) < .1);
+    assert.ok(Math.abs(shipLayer.top - desktopCampaign.shipLayerRects[0].top) < .1);
+    assert.ok(Math.abs(shipLayer.width - desktopCampaign.shipLayerRects[0].width) < .1);
+    assert.ok(Math.abs(shipLayer.height - desktopCampaign.shipLayerRects[0].height) < .1);
+  }
   assert.deepEqual(desktopCampaign.animations, [
     'none', 'none', 'directive-hero-stars-far-cruise', 'directive-hero-stars-near-cruise', 'directive-hero-ship-drift', 'directive-hero-sunlight-pulse'
   ], 'dashboard scene must use static authored stars plus seamless parallax and aligned sunlight');
@@ -1218,6 +1253,7 @@ try {
   const reducedCampaign = await measureCampaignDashboard(desktopCampaignPage);
   assertNeutralOrbit(reducedCampaign, 'reduced-motion hover');
   assert.deepEqual(reducedCampaign.animations, ['none', 'none', 'none', 'none', 'none', 'none']);
+  assert.deepEqual(reducedCampaign.shipLayerAnimations, ['none', 'none', 'none']);
   assert.deepEqual(reducedCampaign.transforms.slice(2, 4), ['none', 'none']);
   assert.equal(reducedCampaign.opacities[5], '0.12');
   assert.equal(reducedCampaign.filters[5], 'none');

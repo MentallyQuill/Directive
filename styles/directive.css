@@ -4433,6 +4433,40 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   animation: directive-hero-ship-drift 30s linear -7.5s infinite alternate;
   will-change: transform;
 }
+.directive-expanded-shell .directive-hero-ship-card-layer {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+.directive-expanded-shell .directive-hero-ship-card-layer:not([data-hero-ship-layer="base"]) {
+  position: absolute;
+  inset: 0;
+}
+.directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="windows"] {
+  opacity: .66;
+  mix-blend-mode: screen;
+  -webkit-mask-image: var(--directive-hero-window-noise);
+  mask-image: var(--directive-hero-window-noise);
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 256px 256px;
+  mask-size: 256px 256px;
+  animation: directive-hero-windows-live 18s linear -4.5s infinite;
+  will-change: mask-position;
+}
+.directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="nacelles"] {
+  opacity: .58;
+  mix-blend-mode: screen;
+  filter: brightness(.96);
+  animation: directive-hero-nacelles-pulse 2s ease-in-out -.5s infinite;
+  will-change: opacity, filter;
+}
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="sunlight"] {
   z-index: 5;
   opacity: .12;
@@ -4470,6 +4504,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 @keyframes directive-hero-ship-drift {
   from { transform: perspective(1200px) rotateX(var(--directive-hero-orbit-card-pitch)) rotateY(var(--directive-hero-orbit-card-yaw)) translate3d(var(--directive-hero-ship-x-start), var(--directive-hero-ship-y-start), 0) scale(var(--directive-hero-ship-scale-start)) rotate(var(--directive-hero-ship-rotate-start)); }
   to { transform: perspective(1200px) rotateX(var(--directive-hero-orbit-card-pitch)) rotateY(var(--directive-hero-orbit-card-yaw)) translate3d(var(--directive-hero-ship-x-end), var(--directive-hero-ship-y-end), 0) scale(var(--directive-hero-ship-scale-end)) rotate(var(--directive-hero-ship-rotate-end)); }
+}
+@keyframes directive-hero-windows-live {
+  to {
+    -webkit-mask-position: -256px -256px;
+    mask-position: -256px -256px;
+  }
+}
+@keyframes directive-hero-nacelles-pulse {
+  0%, 100% { opacity: .58; filter: brightness(.96); }
+  50% { opacity: .78; filter: brightness(1.12); }
 }
 @keyframes directive-hero-stars-drift {
   from { transform: translate3d(var(--directive-hero-stars-x-start), var(--directive-hero-stars-y-start), 0) scale(1.005); }
@@ -4957,6 +5001,13 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-hero-orbit-card-pitch: 0deg !important;
   }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; transition: none !important; }
+  .directive-expanded-shell .directive-hero-ship-card-layer { animation: none !important; }
+  .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="windows"] {
+    opacity: .66;
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+  }
+  .directive-expanded-shell .directive-hero-ship-card-layer[data-hero-ship-layer="nacelles"] { opacity: .68; filter: none; }
   .directive-expanded-shell .directive-hero-scene-has-cruise { transition: none !important; }
   .directive-expanded-shell .directive-hero-cruise-stars { transform: none !important; }
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { rotate: 0deg; transform: scale(var(--directive-hero-ship-rest-scale)); }

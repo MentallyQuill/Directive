@@ -23,6 +23,33 @@ function createStarFieldLayer(name, path) {
   return layer;
 }
 
+function createShipCardImage(name, path, loading) {
+  const image = createElement('img', 'directive-hero-ship-card-layer');
+  image.dataset.heroShipLayer = name;
+  image.src = resolveDirectiveAssetUrl(path);
+  image.alt = '';
+  image.loading = loading;
+  image.decoding = 'async';
+  image.draggable = false;
+  image.setAttribute('draggable', 'false');
+  image.setAttribute('aria-hidden', 'true');
+  return image;
+}
+
+function createShipCard(scene, loading) {
+  const card = createElement('span', 'directive-hero-scene-layer directive-hero-ship-card');
+  card.dataset.heroSceneLayer = 'foreground';
+  card.setAttribute('aria-hidden', 'true');
+  card.style.setProperty(
+    '--directive-hero-window-noise',
+    `url("${resolveDirectiveAssetUrl(scene.emissive.windowNoise)}")`
+  );
+  card.appendChild(createShipCardImage('base', scene.layers.foreground, loading));
+  card.appendChild(createShipCardImage('windows', scene.emissive.windows, loading));
+  card.appendChild(createShipCardImage('nacelles', scene.emissive.nacelles, loading));
+  return card;
+}
+
 export function createPackageHeroVisual(packageData, query = {}, options = {}) {
   const scene = resolvePackageHeroScene(packageData, query);
   if (!scene) return createPackageImage(packageData, query, options);
@@ -44,7 +71,9 @@ export function createPackageHeroVisual(packageData, query = {}, options = {}) {
   } else {
     frame.appendChild(createSceneLayer('stars-glow', scene.layers.stars, loading));
   }
-  frame.appendChild(createSceneLayer('foreground', scene.layers.foreground, loading));
+  frame.appendChild(scene.emissive
+    ? createShipCard(scene, loading)
+    : createSceneLayer('foreground', scene.layers.foreground, loading));
   if (scene.cruise) frame.appendChild(createSceneLayer('sunlight', scene.cruise.sunlight, loading));
   return frame;
 }

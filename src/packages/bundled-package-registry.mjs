@@ -61,7 +61,8 @@ function teaser({ id, title, era, theater, shipId, shipName, shipClass, rank, bi
         ...(layers ? {
           layers: {
             ...layers,
-            ...(layers.cruise ? { cruise: { ...layers.cruise } } : {})
+            ...(layers.cruise ? { cruise: { ...layers.cruise } } : {}),
+            ...(layers.emissive ? { emissive: { ...layers.emissive } } : {})
           }
         } : {}),
         alt: `${shipName} campaign artwork`
@@ -92,6 +93,11 @@ export const V1_CAMPAIGN_LIBRARY_TEASERS = Object.freeze([
         farStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-far.svg',
         nearStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-near.svg',
         sunlight: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-sunlight.svg'
+      },
+      emissive: {
+        windows: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-windows.png',
+        nacelles: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-nacelles.png',
+        windowNoise: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-window-noise.webp'
       }
     }
   }),

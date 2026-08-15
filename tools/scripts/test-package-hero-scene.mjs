@@ -43,6 +43,11 @@ const layeredPackage = {
         farStars: 'stars-far.svg',
         nearStars: 'stars-near.svg',
         sunlight: 'sunlight.svg'
+      },
+      emissive: {
+        windows: 'windows.png',
+        nacelles: 'nacelles.png',
+        windowNoise: 'window-noise.webp'
       }
     },
     alt: 'Breckenridge scene'
@@ -68,7 +73,14 @@ assert.equal(scene.children[2].tagName, 'SPAN');
 assert.equal(scene.children[3].tagName, 'SPAN');
 assert.match(scene.children[2].styleProperties.get('--directive-hero-star-texture'), /stars-far\.svg/);
 assert.match(scene.children[3].styleProperties.get('--directive-hero-star-texture'), /stars-near\.svg/);
-assert.equal(scene.children[4].src.endsWith('/ship.webp'), true);
+assert.equal(scene.children[4].tagName, 'SPAN');
+assert.deepEqual(scene.children[4].children.map((node) => node.dataset.heroShipLayer), [
+  'base', 'windows', 'nacelles'
+]);
+assert.equal(scene.children[4].children[0].src.endsWith('/ship.webp'), true);
+assert.equal(scene.children[4].children[1].src.endsWith('/windows.png'), true);
+assert.equal(scene.children[4].children[2].src.endsWith('/nacelles.png'), true);
+assert.match(scene.children[4].styleProperties.get('--directive-hero-window-noise'), /window-noise\.webp/);
 assert.equal(scene.children[5].src.endsWith('/sunlight.svg'), true);
 assert.equal(scene.children.filter((node) => node.tagName === 'IMG').every((node) => node.alt === ''), true);
 assert.equal(scene.children.every((node) => node.getAttribute('aria-hidden') === 'true'), true);

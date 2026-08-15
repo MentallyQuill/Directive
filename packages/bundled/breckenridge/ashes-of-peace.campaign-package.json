@@ -341,6 +341,11 @@
             "farStars": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-far.svg",
             "nearStars": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-near.svg",
             "sunlight": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-sunlight.svg"
+          },
+          "emissive": {
+            "windows": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-windows.png",
+            "nacelles": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-nacelles.png",
+            "windowNoise": "assets/packages/breckenridge/images/ship/uss-breckenridge.hero-window-noise.webp"
           }
         },
         "alt": "U.S.S. Breckenridge in flight above a nebula"

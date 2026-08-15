@@ -79,6 +79,11 @@ const expectedHeroLayers = {
     farStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-far.svg',
     nearStars: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-stars-near.svg',
     sunlight: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-sunlight.svg'
+  },
+  emissive: {
+    windows: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-windows.png',
+    nacelles: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-nacelles.png',
+    windowNoise: 'assets/packages/breckenridge/images/ship/uss-breckenridge.hero-window-noise.webp'
   }
 };
 assert.deepEqual(V1_CAMPAIGN_LIBRARY_TEASERS[0].assets.images[0].layers, expectedHeroLayers);
@@ -87,7 +92,8 @@ for (const path of [
   expectedHeroLayers.background,
   expectedHeroLayers.stars,
   expectedHeroLayers.foreground,
-  ...Object.values(expectedHeroLayers.cruise)
+  ...Object.values(expectedHeroLayers.cruise),
+  ...Object.values(expectedHeroLayers.emissive)
 ]) {
   assert.equal(fs.existsSync(path), true, `${path} must exist`);
 }

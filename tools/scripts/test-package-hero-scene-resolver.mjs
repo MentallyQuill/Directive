@@ -27,6 +27,11 @@ const packageData = {
             farStars: 'breckenridge-stars-far.svg',
             nearStars: 'breckenridge-stars-near.svg',
             sunlight: 'breckenridge-sunlight.svg'
+          },
+          emissive: {
+            windows: 'breckenridge-windows.png',
+            nacelles: 'breckenridge-nacelles.png',
+            windowNoise: 'breckenridge-window-noise.webp'
           }
         },
         alt: 'The U.S.S. Breckenridge in flight'
@@ -53,6 +58,11 @@ assert.deepEqual(
       farStars: 'breckenridge-stars-far.svg',
       nearStars: 'breckenridge-stars-near.svg',
       sunlight: 'breckenridge-sunlight.svg'
+    },
+    emissive: {
+      windows: 'breckenridge-windows.png',
+      nacelles: 'breckenridge-nacelles.png',
+      windowNoise: 'breckenridge-window-noise.webp'
     }
   }
 );
@@ -71,6 +81,22 @@ assert.equal(
   Object.hasOwn(partialCruiseScene, 'cruise'),
   false,
   'partial cruise records must preserve the base scene without partial effects'
+);
+
+const partialEmissiveScene = resolvePackageHeroScene({ assets: { images: [{
+  kind: 'ship.hero',
+  subjectId: 'uss-breckenridge',
+  layers: {
+    background: 'background.webp',
+    stars: 'stars.webp',
+    foreground: 'foreground.webp',
+    emissive: { windows: 'windows.png', nacelles: 'nacelles.png' }
+  }
+}] } }, { kind: 'ship.hero', subjectId: 'uss-breckenridge' });
+assert.equal(
+  Object.hasOwn(partialEmissiveScene, 'emissive'),
+  false,
+  'partial emissive records must preserve the base ship without partial illumination'
 );
 
 assert.equal(

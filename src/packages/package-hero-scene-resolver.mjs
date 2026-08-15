@@ -23,6 +23,12 @@ export function resolvePackageHeroScene(packageData, { kind = '', subjectId = ''
   const cruise = farStars && nearStars && sunlight
     ? Object.freeze({ farStars, nearStars, sunlight })
     : null;
+  const windows = String(layers?.emissive?.windows || '').trim();
+  const nacelles = String(layers?.emissive?.nacelles || '').trim();
+  const windowNoise = String(layers?.emissive?.windowNoise || '').trim();
+  const emissive = windows && nacelles && windowNoise
+    ? Object.freeze({ windows, nacelles, windowNoise })
+    : null;
 
   return Object.freeze({
     type: 'layered-scene',
@@ -32,6 +38,7 @@ export function resolvePackageHeroScene(packageData, { kind = '', subjectId = ''
     subjectId: requestedSubjectId,
     alt: String(image.alt || ''),
     layers: Object.freeze({ background, stars, foreground }),
-    ...(cruise ? { cruise } : {})
+    ...(cruise ? { cruise } : {}),
+    ...(emissive ? { emissive } : {})
   });
 }
