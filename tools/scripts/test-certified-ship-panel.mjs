@@ -118,6 +118,14 @@ assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').mat
 assert.equal(segmentShapes.every((shape) => ((shape.getAttribute('d') || '').match(/\bQ\b/g) || []).length === 4), true);
 assert.equal(byClass('ship-task-button').length, 3);
 assert.equal(byClass('ship-task-button').every((button) => !/ship-task-position-/.test(button.className)), true);
+assert.deepEqual(
+  byClass('ship-task-desktop-level').map(({ textContent }) => textContent),
+  ['L1', 'L1', 'L2'],
+);
+const firstTaskTitleRow = byClass('ship-task-button-title')[0];
+assert.equal(firstTaskTitleRow.children[0].classList.contains('ship-task-desktop-level'), true);
+assert.equal(firstTaskTitleRow.children[1].classList.contains('ship-task-category-icon'), true);
+assert.equal(firstTaskTitleRow.children[2].tagName, 'STRONG');
 assert.equal(byClass('ship-task-mobile-panel').length, 3);
 assert.equal(
   byClass('ship-task-mobile-panel').every((panel) => panel.querySelector('.ship-task-detail-eyebrow')?.textContent?.endsWith('Command Assignment')),

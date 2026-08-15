@@ -448,9 +448,13 @@ export function createShipCohesionWorkspace(ship, activePackage, actions = {}, c
     button.setAttribute('aria-pressed', 'false');
     button.setAttribute('aria-expanded', 'false');
     const titleRow = createElement('span', 'ship-task-button-title');
+    const level = createElement('span', 'ship-task-desktop-level');
+    level.textContent = `L${task.level}`;
+    level.setAttribute('aria-hidden', 'true');
     const label = createElement('strong');
     label.textContent = task.title;
     const titleIcon = createTaskCategoryIcon(task);
+    titleRow.appendChild(level);
     if (titleIcon) titleRow.appendChild(titleIcon);
     titleRow.appendChild(label);
     const disclosure = createElement('span', 'ship-task-disclosure');

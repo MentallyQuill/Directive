@@ -4681,18 +4681,31 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-nav { position: absolute; z-index: 5; inset: 0; pointer-events: none; }
 .directive-expanded-shell .ship-task-mobile-callouts { display: none; }
 .directive-expanded-shell .ship-task-button {
+  --ship-task-bevel: 4px;
   appearance: none;
   position: absolute;
   display: grid;
   gap: 3px;
-  width: clamp(132px, 17vw, 205px);
+  width: fit-content;
+  min-width: 120px;
+  max-width: 205px;
   min-height: 50px;
   padding: 8px 10px;
   color: var(--directive-expanded-text);
   background: rgba(12, 15, 24, .94);
   border: 1px solid rgba(155, 130, 207, .5);
   border-left: 3px solid var(--directive-expanded-violet);
-  border-radius: 4px;
+  border-radius: 0;
+  clip-path: polygon(
+    var(--ship-task-bevel) 0,
+    calc(100% - var(--ship-task-bevel)) 0,
+    100% var(--ship-task-bevel),
+    100% calc(100% - var(--ship-task-bevel)),
+    calc(100% - var(--ship-task-bevel)) 100%,
+    var(--ship-task-bevel) 100%,
+    0 calc(100% - var(--ship-task-bevel)),
+    0 var(--ship-task-bevel)
+  );
   box-shadow: 0 8px 16px rgba(0, 0, 0, .22);
   font-family: inherit;
   text-align: left;
@@ -4702,6 +4715,12 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-button strong { overflow: hidden; font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .directive-expanded-shell .ship-task-button-title,
 .directive-expanded-shell .ship-task-title-row { display: flex; align-items: center; min-width: 0; gap: 7px; }
+.directive-expanded-shell .ship-task-desktop-level {
+  flex: 0 0 auto;
+  color: var(--directive-expanded-violet);
+  font: 800 9px/1 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .035em;
+}
 .directive-expanded-shell .ship-task-button-info { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 8px; }
 .directive-expanded-shell .ship-task-button-next { display: none; min-width: 0; overflow: hidden; color: var(--directive-expanded-muted); font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .directive-expanded-shell .ship-task-disclosure { display: none; }
@@ -4722,7 +4741,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-category-icon[data-icon="systems"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/systems.svg"); }
 .directive-expanded-shell .ship-task-category-icon[data-icon="life"] { --ship-task-icon: url("../assets/icons/cohesion-task-categories/life.svg"); }
 .directive-expanded-shell .ship-task-button:hover .ship-task-category-icon,
-.directive-expanded-shell .ship-task-button.is-selected .ship-task-category-icon { color: #ffa24f; }
+.directive-expanded-shell .ship-task-button.is-selected .ship-task-category-icon,
+.directive-expanded-shell .ship-task-button:hover .ship-task-desktop-level,
+.directive-expanded-shell .ship-task-button.is-selected .ship-task-desktop-level { color: #ffa24f; }
 .directive-expanded-shell .ship-task-reward { color: #ffa24f; font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; letter-spacing: .035em; text-transform: uppercase; }
 .directive-expanded-shell .ship-task-button:hover,
 .directive-expanded-shell .ship-task-button.is-selected { border-color: #ffa24f; border-left-color: #ffa24f; background: rgba(25, 22, 30, .98); }
@@ -4818,11 +4839,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     position: static;
     grid-template-rows: auto auto;
     width: auto;
+    min-width: 0;
+    max-width: none;
     min-height: 56px;
     padding: 8px 10px;
+    border-radius: 4px;
+    clip-path: none;
     transform: none;
     box-shadow: none;
   }
+  .directive-expanded-shell .ship-task-desktop-level { display: none; }
   .directive-expanded-shell .ship-task-button-title { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .directive-expanded-shell .ship-task-button-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding-left: 24px; }
   .directive-expanded-shell .ship-task-button-next { display: block; }
