@@ -3851,7 +3851,7 @@ textarea.directive-field-control {
   }
   .directive-expanded-shell .campaign-dashboard > .campaign-dashboard-actions [data-campaign-action="delete"] {
     top: 12px;
-    right: 12px;
+    right: 20px;
   }
 
   .directive-expanded-shell .campaign-journal {

@@ -1376,6 +1376,19 @@ try {
   assert.ok(Math.abs(mobileCampaign.actionBoxes[0].top - mobileCampaign.actionBoxes[3].top) < 1, 'Continue and Delete must share mobile row one');
   assert.ok(Math.abs(mobileCampaign.actionBoxes[1].top - mobileCampaign.actionBoxes[2].top) < 1, 'Save and Load must share mobile row two');
   assert.ok(mobileCampaign.actionBoxes[1].top > mobileCampaign.actionBoxes[0].bottom, 'mobile action row two must follow row one');
+  const mobileActionBoxes = Object.fromEntries(
+    mobileCampaign.actionBoxes.map((box) => [box.action, box])
+  );
+  const primaryRowGap = mobileActionBoxes.delete.left - mobileActionBoxes.continue.right;
+  const secondaryRowGap = mobileActionBoxes.load.left - mobileActionBoxes.save.right;
+  assert.ok(
+    Math.abs(mobileActionBoxes.delete.right - mobileActionBoxes.load.right) < 1,
+    'Delete campaign and Load Game must share the mobile dock right edge'
+  );
+  assert.ok(
+    Math.abs(primaryRowGap - secondaryRowGap) < 1,
+    'mobile Campaign action rows must use the same horizontal gap'
+  );
   assert.ok(mobileCampaign.horizontalOverflow <= 1);
   const mobileHero = touchPage.locator('.campaign-dashboard-hero');
   await mobileHero.evaluate((hero) => {
