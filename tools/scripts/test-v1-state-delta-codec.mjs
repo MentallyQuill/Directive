@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyV1StateDelta,
+  applyV1StateDeltaChain,
   applyV1StateDeltaChainStep,
   canonicalJson,
   encodeV1StateDelta,
@@ -99,6 +100,28 @@ assert.deepEqual(
   { state: after, stateHash: delta.afterHash },
   'a manifest-verified chain step must advance state and its trusted running hash together',
 );
+const ownedHydrationState = structuredClone(before);
+const decodedChain = await applyV1StateDeltaChain({
+  saveId: 'save.alpha',
+  state: ownedHydrationState,
+  deltas: [delta],
+  expectedBeforeHash: delta.beforeHash,
+});
+assert.notEqual(
+  decodedChain.state,
+  ownedHydrationState,
+  'verified chain decoding must preserve its caller-owned input',
+);
+assert.deepEqual(decodedChain, { state: after, stateHash: delta.afterHash });
+assert.deepEqual(ownedHydrationState, before);
+assert.deepEqual(before, {
+  stateCustody: { revision: 7 },
+  campaign: { title: 'Ashes', flags: { ready: false, obsolete: true } },
+  storySettlement: {
+    episodes: [{ id: 'episode.one', status: 'open' }],
+    receipts: [],
+  },
+}, 'the public immutable chain decoders must leave caller-owned input unchanged');
 
 await assert.rejects(
   applyV1StateDelta({ saveId: 'save.beta', state: before, delta }),

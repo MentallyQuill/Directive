@@ -312,11 +312,11 @@ function validateV1StateDelta({ saveId, state, delta }) {
   return roots;
 }
 
-function replayV1StateDelta({ state, delta, roots, expectedBeforeHash }) {
+function replayV1StateDelta({ state, delta, roots, expectedBeforeHash, cloneState = true }) {
   if (expectedBeforeHash !== delta.beforeHash) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_BEFORE_HASH_MISMATCH', 'State delta before hash does not match current state.');
   }
-  const next = clone(state);
+  const next = cloneState ? clone(state) : state;
   for (const operation of delta.operations) {
     assertOperation(operation, roots);
     applyOperation(next, operation);
@@ -331,6 +331,26 @@ export async function applyV1StateDeltaChainStep({ saveId, state, delta, expecte
   const roots = validateV1StateDelta({ saveId, state, delta });
   const next = replayV1StateDelta({ state, delta, roots, expectedBeforeHash });
   return { state: next, stateHash: delta.afterHash };
+}
+
+export async function applyV1StateDeltaChain({ saveId, state, deltas, expectedBeforeHash } = {}) {
+  if (!Array.isArray(deltas)) {
+    throw deltaError('DIRECTIVE_V1_STATE_DELTA_REJECTED', 'State delta chain must be an array.');
+  }
+  let next = clone(state);
+  let stateHash = expectedBeforeHash;
+  for (const delta of deltas) {
+    const roots = validateV1StateDelta({ saveId, state: next, delta });
+    next = replayV1StateDelta({
+      state: next,
+      delta,
+      roots,
+      expectedBeforeHash: stateHash,
+      cloneState: false,
+    });
+    stateHash = delta.afterHash;
+  }
+  return { state: next, stateHash };
 }
 
 export async function applyV1StateDelta({ saveId, state, delta } = {}) {

@@ -24,7 +24,7 @@ Deleting base and segment files before removing the published index entry can le
 
 ### Hydration hash cost
 
-Every segment is content-hash verified and every delta carries a before/after hash chain, yet hydration currently recomputes full-state SHA-256 before and after every delta. Hydration will instead validate each strict delta against the trusted running hash declared by the verified base/previous delta, apply the operations and revision checks, and compute one final full-state hash against the manifest head. The public standalone delta decoder retains full before/after hashing.
+Every segment is content-hash verified and every delta carries a before/after hash chain, yet hydration currently recomputes full-state SHA-256 before and after every delta. Hydration will instead validate each strict delta against the trusted running hash declared by the verified base/previous delta, apply the operations and revision checks into one repository-owned base clone, and compute one final full-state hash against the manifest head. The public standalone delta decoder retains immutable replay with full before/after hashing.
 
 ### Host event isolation
 
@@ -32,7 +32,7 @@ The runtime no longer holds Directive's mutation queue during the episode-evalua
 
 ### Scale-test truthfulness and bounded caches
 
-The current scale test directly calls the source-window constant and call-budget helper, so those assertions cannot detect a regression in `runtime-app`. A real 10,000-row fake chat must execute `observeHostPlayerMessage()` and assert the actual host read limit, accepted-pair Utility call delta, evaluator-call delta, and successful durable settlement. The per-fingerprint in-memory call-budget entry must be cleared after a successful receipt commit so a long process retains only unresolved failures.
+The current scale test directly calls the source-window constant and call-budget helper, so those assertions cannot detect a regression in `runtime-app`. A real 10,000-row fake chat must execute `observeHostPlayerMessage()` and assert the actual host read limit, accepted-pair Utility call delta, evaluator-call delta, and successful durable settlement. Successful prompt synchronization must derive its bounded opening-phase signal from authoritative accepted-pair receipts rather than rescanning the last 500 chat rows; that scan both widened normal Continue and could misclassify an established long-running story once its first receipt fell outside the window. The per-fingerprint in-memory call-budget entry must be cleared after a successful receipt commit so a long process retains only unresolved failures.
 
 ## Failure handling
 

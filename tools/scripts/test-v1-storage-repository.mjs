@@ -17,16 +17,23 @@ import { createAshesInitialState } from './v1-test-fixtures.mjs';
 async function countSha256Digests(action) {
   const subtle = globalThis.crypto.subtle;
   const originalDigest = subtle.digest;
+  const originalStructuredClone = globalThis.structuredClone;
   let count = 0;
+  let fullStateCloneCount = 0;
   subtle.digest = async (...args) => {
     count += 1;
     return originalDigest.apply(subtle, args);
   };
+  globalThis.structuredClone = (value, ...args) => {
+    if (value?.campaign && value?.stateCustody) fullStateCloneCount += 1;
+    return originalStructuredClone(value, ...args);
+  };
   try {
     const value = await action();
-    return { count, value };
+    return { count, fullStateCloneCount, value };
   } finally {
     subtle.digest = originalDigest;
+    globalThis.structuredClone = originalStructuredClone;
   }
 }
 
@@ -314,6 +321,8 @@ const measuredHydration = await countSha256Digests(() => loadV1CampaignSave(roll
 assert.deepEqual(measuredHydration.value, rolloverSave);
 assert.equal(measuredHydration.count, 4,
   '65-delta hydration must hash only the base, two segments, and final manifest head');
+assert.ok(measuredHydration.fullStateCloneCount <= 1,
+  'verified hydration must clone accumulated state at most once for the complete delta chain');
 assert.equal((await verifyV1Storage(rolloverAdapter)).ok, true);
 const missingSegmentAdapter = memoryAdapter(rolloverAdapter.snapshot());
 const missingSegmentPath = rolloverManifest.segments[0].path;

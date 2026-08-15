@@ -1,6 +1,6 @@
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
 import {
-  applyV1StateDeltaChainStep,
+  applyV1StateDeltaChain,
   canonicalJson,
   encodeV1StateDelta,
   sha256Json,
@@ -248,27 +248,25 @@ async function hydrateManifest(adapter, manifestRecord, saveId) {
       'Directive V1 campaign-save base failed integrity verification.',
     );
   }
-  let state = clone(base.state);
-  let stateHash = base.stateHash;
+  const deltas = [];
   for (const reference of manifest.segments) {
     const segment = await readVerifiedSegment(adapter, manifest, reference);
-    for (const delta of segment.deltas) {
-      const applied = await applyV1StateDeltaChainStep({
-        saveId,
-        state,
-        delta,
-        expectedBeforeHash: stateHash,
-      });
-      state = applied.state;
-      stateHash = applied.stateHash;
-    }
-    if (state.stateCustody.revision !== reference.afterRevision) {
+    if (segment.deltas[0].beforeRevision !== reference.beforeRevision
+      || segment.deltas.at(-1).afterRevision !== reference.afterRevision) {
       throw saveStorageError(
         'DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
         'Directive V1 campaign-save segment did not reach its declared revision.',
       );
     }
+    deltas.push(...segment.deltas);
   }
+  const applied = await applyV1StateDeltaChain({
+    saveId,
+    state: base.state,
+    deltas,
+    expectedBeforeHash: base.stateHash,
+  });
+  const { state, stateHash } = applied;
   if (state.stateCustody.revision !== manifest.currentRevision
     || stateHash !== manifest.currentStateHash
     || await sha256Json(state) !== manifest.currentStateHash) {
