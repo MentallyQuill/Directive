@@ -7,6 +7,7 @@ class Element {
     this.children = [];
     this.dataset = {};
     this.attributes = new Map();
+    this.listeners = new Map();
     this.className = '';
     this.id = '';
     this.textContent = '';
@@ -67,6 +68,27 @@ class Element {
     if (name === 'id') this.id = '';
   }
 
+  addEventListener(type, handler) {
+    this.listeners.set(type, handler);
+  }
+
+  removeEventListener(type) {
+    this.listeners.delete(type);
+  }
+
+  click() {
+    return this.listeners.get('click')?.({
+      target: this,
+      currentTarget: this,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+  }
+
+  focus() {
+    this.focused = true;
+  }
+
   #matches(selector) {
     if (selector.startsWith('#')) return this.id === selector.slice(1);
     if (selector.startsWith('.')) return this.classList.contains(selector.slice(1));
@@ -104,6 +126,7 @@ globalThis.document = {
 const {
   appendCurrentChatEmptyState,
   CAMPAIGN_GUIDANCE_INSTRUCTION_ID,
+  syncCampaignRequiredGuidance,
 } = await import('../../src/ui/current-chat-empty-state.js');
 
 const body = document.createElement('section');
@@ -139,4 +162,43 @@ for (const render of [renderMissionPanel, renderCrewPanel, renderShipPanel]) {
 const missionSource = fs.readFileSync(new URL('../../src/ui/mission-panel.js', import.meta.url), 'utf8');
 assert.match(missionSource, /appendEmpty\(body, 'No current V1 mission is available\.'\)/);
 
-console.log('Campaign-required empty-state renderer and route guards passed.');
+const { createDirectiveExpandedShell } = await import('../../src/ui/directive-expanded-shell.js');
+const shell = createDirectiveExpandedShell({
+  routes: ['campaign', 'mission', 'people', 'ship', 'settings'].map((id) => ({ id, label: id })),
+  activeRouteId: 'ship',
+});
+const shellBody = shell.querySelector('[data-directive-runtime-body="true"]');
+appendCurrentChatEmptyState(shellBody, { currentChat: { status: 'none-selected' } });
+assert.equal(syncCampaignRequiredGuidance(shell, shellBody), true);
+assert.equal(shell.getAttribute('data-campaign-guidance'), 'true');
+const campaign = shell.querySelector('[data-route-id="campaign"]');
+assert.equal(campaign.classList.contains('is-campaign-guidance-target'), true);
+assert.equal(campaign.getAttribute('aria-describedby'), CAMPAIGN_GUIDANCE_INSTRUCTION_ID);
+
+delete shellBody.dataset.campaignRequired;
+assert.equal(syncCampaignRequiredGuidance(shell, shellBody), false);
+assert.equal(shell.getAttribute('data-campaign-guidance'), 'false');
+assert.equal(campaign.classList.contains('is-campaign-guidance-target'), false);
+assert.equal(campaign.getAttribute('aria-describedby'), null);
+
+const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
+assert.match(css, /@keyframes\s+directive-campaign-guidance-pulse/);
+assert.match(
+  css,
+  /\.directive-route-control\.is-campaign-guidance-target:not\(\.active\)[\s\S]*?animation:\s*directive-campaign-guidance-pulse\s+2s\s+ease-in-out\s+infinite/,
+);
+assert.match(
+  css,
+  /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.directive-route-control\.is-campaign-guidance-target:not\(\.active\)[\s\S]*?animation:\s*none/,
+);
+const pulseKeyframes = css.match(/@keyframes\s+directive-campaign-guidance-pulse[\s\S]*?\n\}/)?.[0] || '';
+assert.doesNotMatch(pulseKeyframes, /transform:/);
+
+const runtimeSource = fs.readFileSync(new URL('../../src/runtime/runtime-shell.js', import.meta.url), 'utf8');
+assert.match(runtimeSource, /delete\s+body\.dataset\.campaignRequired/);
+assert.ok(
+  [...runtimeSource.matchAll(/syncCampaignRequiredGuidance\(panel, body\)/g)].length >= 3,
+  'runtime shell must clear, apply, and error-clean campaign guidance state',
+);
+
+console.log('Campaign-required empty-state renderer, route guards, and shell guidance passed.');

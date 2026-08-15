@@ -33,3 +33,13 @@ export function appendCurrentChatEmptyState(container, view) {
   container.appendChild(surface);
   return surface;
 }
+
+export function syncCampaignRequiredGuidance(panel, body) {
+  const required = body?.dataset?.campaignRequired === 'true';
+  const campaign = panel?.querySelector?.('[data-route-id="campaign"]');
+  panel?.setAttribute?.('data-campaign-guidance', required ? 'true' : 'false');
+  campaign?.classList?.toggle?.('is-campaign-guidance-target', required);
+  if (required) campaign?.setAttribute?.('aria-describedby', CAMPAIGN_GUIDANCE_INSTRUCTION_ID);
+  else campaign?.removeAttribute?.('aria-describedby');
+  return required;
+}
