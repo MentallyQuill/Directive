@@ -1,6 +1,7 @@
 import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
 import { cancelActiveCreatorAssistSession } from '../ui/character-creator-assist-dialog.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
+import { syncCampaignRequiredGuidance } from '../ui/current-chat-empty-state.js';
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import {
   highlightDirectivePresetSettingsCard,
@@ -283,18 +284,23 @@ async function renderBody(panel) {
   const body = panel.querySelector?.('[data-directive-runtime-body="true"]');
   if (!body) return false;
   clearElement(body);
+  delete body.dataset.campaignRequired;
+  syncCampaignRequiredGuidance(panel, body);
   try {
     const view = await getRuntimeView();
     if (requestId !== renderBodyRequestId) return false;
     syncRequiredWorkspace(panel, view);
     renderActivePanel(body, view);
+    syncCampaignRequiredGuidance(panel, body);
     return true;
   } catch (error) {
     if (requestId !== renderBodyRequestId) return false;
     clearElement(body);
+    delete body.dataset.campaignRequired;
     syncRequiredWorkspace(panel, null);
     appendSectionTitle(body, getDirectiveRouteLabel(activeTab));
     appendEmpty(body, error?.message || String(error));
+    syncCampaignRequiredGuidance(panel, body);
     return true;
   }
 }

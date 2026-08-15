@@ -1,5 +1,5 @@
-import { appendEmpty, createButton, createElement } from './runtime-ui-kit.js';
-import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
+import { createButton, createElement } from './runtime-ui-kit.js';
+import { appendCurrentChatEmptyState } from './current-chat-empty-state.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedPeopleView } from './view-models/certified-people-view.mjs';
 import { createPeopleJournal, resetPeopleJournalState } from './people-journal.js';
@@ -62,7 +62,7 @@ function createCommandBearingStrip(commandBearing, actions) {
 export function renderCrewPanel(body, view, actions = {}) {
   const projection = requireV1PlayerProjection(view);
   if (!projection) {
-    appendEmpty(body, currentChatEmptyMessage(view));
+    appendCurrentChatEmptyState(body, view);
     return;
   }
   const model = buildCertifiedPeopleView(projection, view);

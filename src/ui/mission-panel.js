@@ -1,5 +1,5 @@
 import { appendEmpty, createElement, createIcon } from './runtime-ui-kit.js';
-import { currentChatEmptyMessage } from './current-chat-scope-copy.js';
+import { appendCurrentChatEmptyState } from './current-chat-empty-state.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedMissionView } from './view-models/certified-mission-view.mjs';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
@@ -126,7 +126,7 @@ function mobileMissionDetailId(missionId) {
 export function renderMissionPanel(body, view) {
   const projection = requireV1PlayerProjection(view);
   if (!projection) {
-    appendEmpty(body, currentChatEmptyMessage(view));
+    appendCurrentChatEmptyState(body, view);
     return;
   }
   const model = buildCertifiedMissionView(projection);

@@ -133,6 +133,8 @@ const checks = [
   "test-character-creator-assist-layout.mjs",
   "test-expanded-interface-shell.mjs",
   "test-expanded-interface-focus.mjs",
+  "test-campaign-required-empty-state.mjs",
+  "test-campaign-required-empty-state-visual.mjs",
   "test-route-title-hierarchy.mjs",
   "test-ship-panel-state-records.mjs",
   "test-player-facing-route-contracts.mjs",

@@ -3289,6 +3289,62 @@ textarea.directive-field-control {
   background: transparent !important;
 }
 
+.directive-expanded-shell .directive-campaign-required {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(14px, 3vw, 24px);
+  width: min(620px, calc(100% - 32px));
+  margin: auto;
+  padding: clamp(18px, 4vw, 30px);
+  border: 1px solid color-mix(in srgb, var(--directive-expanded-amber) 46%, transparent);
+  border-radius: 8px 0 8px 8px;
+  color: var(--directive-expanded-text);
+  background:
+    linear-gradient(118deg, color-mix(in srgb, var(--directive-expanded-amber) 8%, transparent), transparent 46%),
+    color-mix(in srgb, var(--directive-expanded-surface) 92%, transparent);
+  box-shadow:
+    inset 4px 0 0 color-mix(in srgb, var(--directive-expanded-amber) 78%, transparent),
+    inset 0 0 24px rgba(255, 159, 74, .035);
+}
+
+.directive-expanded-shell .directive-campaign-required-icon {
+  width: clamp(52px, 8vw, 76px);
+  height: clamp(52px, 8vw, 76px);
+  color: var(--directive-expanded-amber);
+}
+
+.directive-expanded-shell .directive-campaign-required-copy {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.directive-expanded-shell .directive-campaign-required-eyebrow {
+  color: var(--directive-expanded-amber);
+  font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.directive-expanded-shell .directive-campaign-required-instruction,
+.directive-expanded-shell .directive-campaign-required-detail {
+  margin: 0;
+}
+
+.directive-expanded-shell .directive-campaign-required-instruction {
+  max-width: 31ch;
+  color: #f8efe0;
+  font: 800 clamp(18px, 2.6vw, 24px)/1.16 "Roboto Condensed", "Arial Narrow", sans-serif;
+}
+
+.directive-expanded-shell .directive-campaign-required-detail {
+  max-width: 58ch;
+  color: #b9b1a5;
+  font: 500 12px/1.42 "Segoe UI", system-ui, sans-serif;
+}
+
 .directive-expanded-shell .directive-route-heading {
   display: grid;
   flex: 0 0 auto;
@@ -3372,6 +3428,42 @@ textarea.directive-field-control {
   color: var(--directive-expanded-bg);
   background: var(--directive-route-color);
   box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.12);
+}
+
+@keyframes directive-campaign-guidance-pulse {
+  0%, 100% {
+    color: color-mix(in srgb, var(--directive-route-color) 88%, white);
+    background: color-mix(in srgb, var(--directive-route-color) 8%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--directive-route-color) 62%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--directive-route-color) 28%, transparent),
+      inset 0 0 10px color-mix(in srgb, var(--directive-route-color) 8%, transparent);
+  }
+
+  50% {
+    color: color-mix(in srgb, var(--directive-route-color) 96%, white);
+    background: color-mix(in srgb, var(--directive-route-color) 24%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--directive-route-color) 94%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--directive-route-color) 66%, transparent),
+      inset 0 0 20px color-mix(in srgb, var(--directive-route-color) 22%, transparent);
+  }
+}
+
+.directive-expanded-shell .directive-route-control.is-campaign-guidance-target:not(.active) {
+  animation: directive-campaign-guidance-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .directive-expanded-shell .directive-route-control.is-campaign-guidance-target:not(.active) {
+    color: color-mix(in srgb, var(--directive-route-color) 96%, white);
+    background: color-mix(in srgb, var(--directive-route-color) 18%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--directive-route-color) 88%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--directive-route-color) 58%, transparent),
+      inset 0 0 16px color-mix(in srgb, var(--directive-route-color) 16%, transparent);
+    animation: none;
+  }
 }
 
 .directive-expanded-shell .directive-route-control-icon {
