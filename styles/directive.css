@@ -4282,6 +4282,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-hero-identity p { margin: 6px 0 0; max-width: 780px; color: var(--directive-expanded-muted); font-size: 12px; line-height: 1.4; }
 
 /* Package-authored layered Campaign and Ship hero scenes. */
+@property --directive-hero-orbit-card-yaw {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+@property --directive-hero-orbit-card-pitch {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
 .directive-expanded-shell .directive-hero-scene {
   --directive-hero-ship-x-start: -3%;
   --directive-hero-ship-y-start: -1.2%;
@@ -4309,6 +4319,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --directive-hero-orbit-ship-x: 0px;
   --directive-hero-orbit-ship-y: 0px;
   --directive-hero-orbit-ship-roll: 0deg;
+  --directive-hero-orbit-card-yaw: 0deg;
+  --directive-hero-orbit-card-pitch: 0deg;
   isolation: isolate;
   background: #05070a;
 }
@@ -4330,11 +4342,23 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .directive-hero-scene-has-cruise .directive-hero-scene-layer {
   transition: translate 420ms cubic-bezier(.2, .8, .2, 1);
 }
+.directive-expanded-shell .directive-hero-scene-has-cruise {
+  transition:
+    --directive-hero-orbit-card-yaw 420ms cubic-bezier(.2, .8, .2, 1),
+    --directive-hero-orbit-card-pitch 420ms cubic-bezier(.2, .8, .2, 1);
+}
 .directive-expanded-shell .campaign-hero.is-hero-orbit-engaged .directive-hero-scene-has-cruise .directive-hero-scene-layer {
   transition-duration: 90ms;
   transition-timing-function: ease-out;
 }
+.directive-expanded-shell .campaign-hero.is-hero-orbit-engaged .directive-hero-scene-has-cruise {
+  transition-duration: 90ms;
+  transition-timing-function: ease-out;
+}
 .directive-expanded-shell .campaign-hero.is-hero-orbit-engaged.is-hero-orbit-mouse .directive-hero-scene-has-cruise .directive-hero-scene-layer {
+  transition-duration: 360ms;
+}
+.directive-expanded-shell .campaign-hero.is-hero-orbit-engaged.is-hero-orbit-mouse .directive-hero-scene-has-cruise {
   transition-duration: 360ms;
 }
 .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="background"] {
@@ -4444,8 +4468,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-hero-identity { z-index: 7; }
 
 @keyframes directive-hero-ship-drift {
-  from { transform: translate3d(var(--directive-hero-ship-x-start), var(--directive-hero-ship-y-start), 0) scale(var(--directive-hero-ship-scale-start)) rotate(var(--directive-hero-ship-rotate-start)); }
-  to { transform: translate3d(var(--directive-hero-ship-x-end), var(--directive-hero-ship-y-end), 0) scale(var(--directive-hero-ship-scale-end)) rotate(var(--directive-hero-ship-rotate-end)); }
+  from { transform: perspective(1200px) rotateX(var(--directive-hero-orbit-card-pitch)) rotateY(var(--directive-hero-orbit-card-yaw)) translate3d(var(--directive-hero-ship-x-start), var(--directive-hero-ship-y-start), 0) scale(var(--directive-hero-ship-scale-start)) rotate(var(--directive-hero-ship-rotate-start)); }
+  to { transform: perspective(1200px) rotateX(var(--directive-hero-orbit-card-pitch)) rotateY(var(--directive-hero-orbit-card-yaw)) translate3d(var(--directive-hero-ship-x-end), var(--directive-hero-ship-y-end), 0) scale(var(--directive-hero-ship-scale-end)) rotate(var(--directive-hero-ship-rotate-end)); }
 }
 @keyframes directive-hero-stars-drift {
   from { transform: translate3d(var(--directive-hero-stars-x-start), var(--directive-hero-stars-y-start), 0) scale(1.005); }
@@ -4929,8 +4953,11 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     --directive-hero-orbit-ship-x: 0px !important;
     --directive-hero-orbit-ship-y: 0px !important;
     --directive-hero-orbit-ship-roll: 0deg !important;
+    --directive-hero-orbit-card-yaw: 0deg !important;
+    --directive-hero-orbit-card-pitch: 0deg !important;
   }
   .directive-expanded-shell .directive-hero-scene-layer { animation: none !important; filter: none !important; transition: none !important; }
+  .directive-expanded-shell .directive-hero-scene-has-cruise { transition: none !important; }
   .directive-expanded-shell .directive-hero-cruise-stars { transform: none !important; }
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="foreground"] { rotate: 0deg; transform: scale(var(--directive-hero-ship-rest-scale)); }
   .directive-expanded-shell .directive-hero-scene-layer[data-hero-scene-layer="sunlight"] { opacity: .12; }

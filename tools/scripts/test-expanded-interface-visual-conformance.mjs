@@ -910,7 +910,8 @@ try {
         '--directive-hero-orbit-far-x', '--directive-hero-orbit-far-y',
         '--directive-hero-orbit-near-x', '--directive-hero-orbit-near-y',
         '--directive-hero-orbit-ship-x', '--directive-hero-orbit-ship-y',
-        '--directive-hero-orbit-ship-roll'
+        '--directive-hero-orbit-ship-roll',
+        '--directive-hero-orbit-card-yaw', '--directive-hero-orbit-card-pitch'
       ];
       const transformOffset = (node) => {
         const transform = getComputedStyle(node).transform;
@@ -1096,7 +1097,9 @@ try {
     '--directive-hero-orbit-near-y': '0px',
     '--directive-hero-orbit-ship-x': '0px',
     '--directive-hero-orbit-ship-y': '0px',
-    '--directive-hero-orbit-ship-roll': '0deg'
+    '--directive-hero-orbit-ship-roll': '0deg',
+    '--directive-hero-orbit-card-yaw': '0deg',
+    '--directive-hero-orbit-card-pitch': '0deg'
   });
   assert.deepEqual(desktopCampaign.willChange, ['auto', 'auto', 'transform', 'transform', 'transform', 'opacity, filter']);
   assert.deepEqual(desktopCampaign.backgroundRepeats.slice(2, 4), ['repeat', 'repeat']);
@@ -1140,10 +1143,17 @@ try {
   const desktopHeroBox = await desktopCampaignPage.locator('.campaign-dashboard-hero').boundingBox();
   assert.ok(desktopHeroBox, 'desktop Campaign hero must expose a hover target');
   await desktopCampaignPage.mouse.move(
+    desktopHeroBox.x + (desktopHeroBox.width * .5),
+    desktopHeroBox.y + (desktopHeroBox.height * .5)
+  );
+  await desktopCampaignPage.waitForTimeout(450);
+  await desktopCampaignPage.mouse.move(
     desktopHeroBox.x + (desktopHeroBox.width * .85),
     desktopHeroBox.y + (desktopHeroBox.height * .80)
   );
-  await desktopCampaignPage.waitForTimeout(120);
+  await desktopCampaignPage.waitForTimeout(60);
+  const desktopOrbitEarly = await measureCampaignDashboard(desktopCampaignPage);
+  await desktopCampaignPage.waitForTimeout(360);
   const desktopOrbit = await measureCampaignDashboard(desktopCampaignPage);
   assert.equal(desktopOrbit.heroOrbitEngaged, true);
   assert.equal(desktopOrbit.heroOrbitMouse, true);
@@ -1165,6 +1175,21 @@ try {
     orbitNumber(desktopOrbit, '--directive-hero-orbit-ship-roll'),
     0,
     'desktop orbit must not rotate the ship independently of the authored scene'
+  );
+  assert.ok(
+    orbitNumber(desktopOrbit, '--directive-hero-orbit-card-yaw') > 0
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-card-yaw') <= 1.8,
+    'desktop card yaw must remain subtle'
+  );
+  assert.ok(
+    orbitNumber(desktopOrbit, '--directive-hero-orbit-card-pitch') < 0
+      && orbitNumber(desktopOrbit, '--directive-hero-orbit-card-pitch') >= -.6,
+    'desktop card pitch must remain subtle'
+  );
+  assert.ok(
+    Math.abs(orbitNumber(desktopOrbitEarly, '--directive-hero-orbit-card-yaw'))
+      < Math.abs(orbitNumber(desktopOrbit, '--directive-hero-orbit-card-yaw')),
+    'desktop card yaw must ease toward the pointer instead of jumping to its final angle'
   );
   assert.deepEqual(desktopOrbit.animations, desktopCampaign.animations, 'hover orbit must not replace idle animation names');
   assert.deepEqual(desktopOrbit.animationDurations, desktopCampaign.animationDurations, 'hover orbit must not retime idle animation');

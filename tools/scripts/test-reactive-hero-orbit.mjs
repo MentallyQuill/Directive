@@ -115,14 +115,16 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 1, y: 1, width: 1440, height: 500 })
   background: { x: -3.5, y: -2.25 },
   far: { x: -6, y: -4 },
   near: { x: -10, y: -6 },
-  ship: { x: 1, y: 0.5, roll: 0 }
+  ship: { x: 1, y: 0.5, roll: 0 },
+  card: { yaw: 1.8, pitch: -0.6 }
 }, 'full lower-right precise input must keep the ship anchored while the environment carries the orbit');
 
 assert.deepEqual(computeHeroOrbitFrame({ x: -5, y: -3, width: 390, height: 112 }), {
   background: { x: 1.5, y: 0.504 },
   far: { x: 3, y: 2 },
   near: { x: 5, y: 3 },
-  ship: { x: -0.5, y: -0.25, roll: 0 }
+  ship: { x: -0.5, y: -0.25, roll: 0 },
+  card: { yaw: -1.8, pitch: 0.6 }
 }, 'input and compact-hero amplitudes must clamp without collapsing the depth ordering');
 
 assert.deepEqual(computeHeroOrbitFrame({
@@ -131,14 +133,16 @@ assert.deepEqual(computeHeroOrbitFrame({
   background: { x: -3, y: -1.98 },
   far: { x: -12, y: -11 },
   near: { x: -25.35, y: -19.8 },
-  ship: { x: 0.5, y: 0.25, roll: 0 }
+  ship: { x: 0.5, y: 0.25, roll: 0 },
+  card: { yaw: 1.8, pitch: -0.6 }
 }, 'full touch input must keep strong environment parallax while sharing the anchored desktop ship response');
 
 assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }), {
   background: { x: 0, y: 0 },
   far: { x: 0, y: 0 },
   near: { x: 0, y: 0 },
-  ship: { x: 0, y: 0, roll: 0 }
+  ship: { x: 0, y: 0, roll: 0 },
+  card: { yaw: 0, pitch: 0 }
 }, 'neutral input must produce a completely neutral orbit frame');
 
 {
@@ -158,6 +162,8 @@ assert.deepEqual(computeHeroOrbitFrame({ x: 0, y: 0, width: 390, height: 112 }),
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-x'), '1px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-y'), '0.5px');
   assert.equal(scene.styleProperties.get('--directive-hero-orbit-ship-roll'), '0deg');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-card-yaw'), '1.8deg');
+  assert.equal(scene.styleProperties.get('--directive-hero-orbit-card-pitch'), '-0.6deg');
   assert.equal(hero.classList.contains('is-hero-orbit-engaged'), true);
   assert.equal(hero.classList.contains('is-hero-orbit-mouse'), true);
 

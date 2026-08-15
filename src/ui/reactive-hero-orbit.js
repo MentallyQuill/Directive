@@ -43,6 +43,10 @@ export function computeHeroOrbitFrame({ x = 0, y = 0, width = 0, height = 0, res
       x: scaled(normalizedX, amplitude(width, .0015, 1, 2) * .5),
       y: scaled(normalizedY, amplitude(height, .002, .5, 1) * .5),
       roll: 0
+    },
+    card: {
+      yaw: scaled(normalizedX, 1.8),
+      pitch: scaled(-normalizedY, .6)
     }
   };
 }
@@ -62,6 +66,8 @@ function writeFrame(scene, frame) {
   scene.style.setProperty('--directive-hero-orbit-ship-x', cssNumber(frame.ship.x, 'px'));
   scene.style.setProperty('--directive-hero-orbit-ship-y', cssNumber(frame.ship.y, 'px'));
   scene.style.setProperty('--directive-hero-orbit-ship-roll', cssNumber(frame.ship.roll, 'deg'));
+  scene.style.setProperty('--directive-hero-orbit-card-yaw', cssNumber(frame.card.yaw, 'deg'));
+  scene.style.setProperty('--directive-hero-orbit-card-pitch', cssNumber(frame.card.pitch, 'deg'));
 }
 
 function findTouch(touches, identifier) {
