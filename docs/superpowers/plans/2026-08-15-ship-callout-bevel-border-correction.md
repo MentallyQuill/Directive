@@ -29,7 +29,7 @@
 - Consumes: rendered `.ship-task-button`, its `::before`/`::after` pseudo-elements, and `.ship-task-leader` SVG polylines.
 - Produces: computed-style proof for the polygon edge layers, responsive rollback, and leader stroke contract at every certified viewport.
 
-- [ ] **Step 1: Add the Android desktop-site viewport**
+- [x] **Step 1: Add the Android desktop-site viewport**
 
 Add this entry between tablet and mobile:
 
@@ -37,7 +37,7 @@ Add this entry between tablet and mobile:
 { width: 980, height: 720, label: 'android-desktop-site' },
 ```
 
-- [ ] **Step 2: Add failing callout-layer assertions**
+- [x] **Step 2: Add failing callout-layer assertions**
 
 Extend `desktopCalloutContract` with real computed pseudo-element styles:
 
@@ -73,7 +73,7 @@ assert.equal(desktopCalloutContract.every(({ borderTopWidth }) => borderTopWidth
 assert.equal(desktopCalloutContract.every(({ beforeContent, afterContent }) => beforeContent === 'none' && afterContent === 'none'), true);
 ```
 
-- [ ] **Step 3: Add failing leader-style assertions**
+- [x] **Step 3: Add failing leader-style assertions**
 
 After the existing leader count assertions, evaluate all leader styles:
 
@@ -90,7 +90,7 @@ assert.equal(leaderStyles.every(({ dasharray }) => dasharray === 'none'), true, 
 assert.equal(leaderStyles.every(({ active, width }) => Math.abs(width - (active ? 2 : 1.5)) < .01), true, `${viewport.label} leader widths`);
 ```
 
-- [ ] **Step 4: Run the browser test and verify RED**
+- [x] **Step 4: Run the browser test and verify RED**
 
 Run:
 
@@ -112,7 +112,7 @@ Expected: FAIL because desktop callouts still compute a 1px rectangular border w
 - Consumes: existing `.ship-task-button` children and state classes plus `.ship-task-leader.is-active`.
 - Produces: continuous polygon edge painting, responsive rectangular rollback, and unchanged leader geometry with new stroke presentation.
 
-- [ ] **Step 1: Replace the clipped rectangular border with layered variables**
+- [x] **Step 1: Replace the clipped rectangular border with layered variables**
 
 In the desktop button rule, define:
 
@@ -132,7 +132,7 @@ isolation: isolate;
 
 Keep the existing 4px outer `clip-path`.
 
-- [ ] **Step 2: Add the inner surface, left accent, and content stacking**
+- [x] **Step 2: Add the inner surface, left accent, and content stacking**
 
 Add:
 
@@ -171,7 +171,7 @@ Change hover/selection to update variables while retaining the existing text/ico
 }
 ```
 
-- [ ] **Step 3: Restore the responsive accordion presentation**
+- [x] **Step 3: Restore the responsive accordion presentation**
 
 Inside `@media (max-width: 820px)`, add to the button override:
 
@@ -192,7 +192,7 @@ Disable the polygon layers and stacking changes:
 
 Retain the current `clip-path: none`, rounded closed/open radii, and accordion widths.
 
-- [ ] **Step 4: Make leader strokes solid at the approved weights**
+- [x] **Step 4: Make leader strokes solid at the approved weights**
 
 Change only the presentation declarations:
 
@@ -204,7 +204,7 @@ Change only the presentation declarations:
 .directive-expanded-shell .ship-task-leader.is-active { stroke-width: 2; }
 ```
 
-- [ ] **Step 5: Run the focused browser test and verify GREEN**
+- [x] **Step 5: Run the focused browser test and verify GREEN**
 
 Run:
 
@@ -226,11 +226,11 @@ Expected: PASS across desktop, tablet, Android desktop-site, mobile, and compact
 - Consumes: the corrected CSS and browser assertions.
 - Produces: visually certified, fully tested, scoped commits published to `origin/main` without unrelated history.
 
-- [ ] **Step 1: Inspect generated desktop screenshots**
+- [x] **Step 1: Inspect generated desktop screenshots**
 
 Inspect 1440x900, 1024x768, and 980x720 initial and selected screenshots. Confirm every callout has continuous top, diagonal, side, and bottom edge painting; left accents terminate cleanly at the bevel; solid leaders remain subordinate to the ship; and selected amber states remain balanced.
 
-- [ ] **Step 2: Run focused structural and interaction checks**
+- [x] **Step 2: Run focused structural and interaction checks**
 
 Run:
 
@@ -242,7 +242,7 @@ node tools/scripts/test-cohesion-ship-visual.mjs
 
 Expected: all three scripts exit 0.
 
-- [ ] **Step 3: Run the full repository gate**
+- [x] **Step 3: Run the full repository gate**
 
 Run:
 
@@ -253,7 +253,7 @@ git diff --check
 
 Expected: the alpha gate reports all focused checks passing and the diff check exits 0.
 
-- [ ] **Step 4: Review and commit only scoped files**
+- [x] **Step 4: Review and commit only scoped files**
 
 Run:
 
