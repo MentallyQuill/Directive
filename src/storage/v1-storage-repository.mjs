@@ -1,6 +1,6 @@
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
 import {
-  applyV1StateDelta,
+  applyV1StateDeltaChainStep,
   canonicalJson,
   encodeV1StateDelta,
   sha256Json,
@@ -249,10 +249,18 @@ async function hydrateManifest(adapter, manifestRecord, saveId) {
     );
   }
   let state = clone(base.state);
+  let stateHash = base.stateHash;
   for (const reference of manifest.segments) {
     const segment = await readVerifiedSegment(adapter, manifest, reference);
     for (const delta of segment.deltas) {
-      state = await applyV1StateDelta({ saveId, state, delta });
+      const applied = await applyV1StateDeltaChainStep({
+        saveId,
+        state,
+        delta,
+        expectedBeforeHash: stateHash,
+      });
+      state = applied.state;
+      stateHash = applied.stateHash;
     }
     if (state.stateCustody.revision !== reference.afterRevision) {
       throw saveStorageError(
@@ -262,6 +270,7 @@ async function hydrateManifest(adapter, manifestRecord, saveId) {
     }
   }
   if (state.stateCustody.revision !== manifest.currentRevision
+    || stateHash !== manifest.currentStateHash
     || await sha256Json(state) !== manifest.currentStateHash) {
     throw saveStorageError(
       'DIRECTIVE_V1_SAVE_MANIFEST_INTEGRITY_FAILED',

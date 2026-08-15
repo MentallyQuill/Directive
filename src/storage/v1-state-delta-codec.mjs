@@ -290,7 +290,7 @@ function applyOperation(state, operation) {
   delete parent[key];
 }
 
-export async function applyV1StateDelta({ saveId, state, delta } = {}) {
+function validateV1StateDelta({ saveId, state, delta }) {
   const id = String(saveId ?? '').trim();
   if (!object(delta) || delta.kind !== V1_CAMPAIGN_STATE_DELTA_KIND) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_REJECTED', 'State delta kind is invalid.');
@@ -306,11 +306,15 @@ export async function applyV1StateDelta({ saveId, state, delta } = {}) {
   if (revisionOf(state) !== delta.beforeRevision) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_REVISION_GAP', 'State delta before revision does not match current state.');
   }
-  if (await sha256Json(state) !== delta.beforeHash) {
-    throw deltaError('DIRECTIVE_V1_STATE_DELTA_BEFORE_HASH_MISMATCH', 'State delta before hash does not match current state.');
-  }
   if (!Array.isArray(delta.operations)) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_OPERATION_INVALID', 'State delta operations must be an array.');
+  }
+  return roots;
+}
+
+function replayV1StateDelta({ state, delta, roots, expectedBeforeHash }) {
+  if (expectedBeforeHash !== delta.beforeHash) {
+    throw deltaError('DIRECTIVE_V1_STATE_DELTA_BEFORE_HASH_MISMATCH', 'State delta before hash does not match current state.');
   }
   const next = clone(state);
   for (const operation of delta.operations) {
@@ -320,6 +324,23 @@ export async function applyV1StateDelta({ saveId, state, delta } = {}) {
   if (revisionOf(next) !== delta.afterRevision) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_REVISION_INVALID', 'Applied state delta does not reach its after revision.');
   }
+  return next;
+}
+
+export async function applyV1StateDeltaChainStep({ saveId, state, delta, expectedBeforeHash } = {}) {
+  const roots = validateV1StateDelta({ saveId, state, delta });
+  const next = replayV1StateDelta({ state, delta, roots, expectedBeforeHash });
+  return { state: next, stateHash: delta.afterHash };
+}
+
+export async function applyV1StateDelta({ saveId, state, delta } = {}) {
+  const roots = validateV1StateDelta({ saveId, state, delta });
+  const next = replayV1StateDelta({
+    state,
+    delta,
+    roots,
+    expectedBeforeHash: await sha256Json(state),
+  });
   if (await sha256Json(next) !== delta.afterHash) {
     throw deltaError('DIRECTIVE_V1_STATE_DELTA_AFTER_HASH_MISMATCH', 'Applied state delta does not match its after hash.');
   }

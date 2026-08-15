@@ -2,10 +2,27 @@ import assert from 'node:assert/strict';
 
 import {
   applyV1StateDelta,
+  applyV1StateDeltaChainStep,
   canonicalJson,
   encodeV1StateDelta,
   sha256Json,
 } from '../../src/storage/v1-state-delta-codec.mjs';
+
+async function countSha256Digests(action) {
+  const subtle = globalThis.crypto.subtle;
+  const originalDigest = subtle.digest;
+  let count = 0;
+  subtle.digest = async (...args) => {
+    count += 1;
+    return originalDigest.apply(subtle, args);
+  };
+  try {
+    const value = await action();
+    return { count, value };
+  } finally {
+    subtle.digest = originalDigest;
+  }
+}
 
 const before = {
   stateCustody: { revision: 7 },
@@ -32,6 +49,8 @@ assert.equal(
   await sha256Json({ z: 1, nested: { b: 2, a: 1 } }),
   await sha256Json({ nested: { a: 1, b: 2 }, z: 1 }),
 );
+const measuredDigest = await countSha256Digests(() => sha256Json({ measured: true }));
+assert.equal(measuredDigest.count, 1);
 
 const delta = await encodeV1StateDelta({
   saveId: 'save.alpha',
@@ -59,6 +78,26 @@ assert.equal(
 assert.deepEqual(
   await applyV1StateDelta({ saveId: 'save.alpha', state: before, delta }),
   after,
+);
+await assert.rejects(
+  applyV1StateDeltaChainStep({
+    saveId: 'save.alpha',
+    state: before,
+    delta,
+    expectedBeforeHash: '0'.repeat(64),
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_DELTA_BEFORE_HASH_MISMATCH',
+  'a chain step must reject a delta disconnected from its trusted predecessor hash',
+);
+assert.deepEqual(
+  await applyV1StateDeltaChainStep({
+    saveId: 'save.alpha',
+    state: before,
+    delta,
+    expectedBeforeHash: delta.beforeHash,
+  }),
+  { state: after, stateHash: delta.afterHash },
+  'a manifest-verified chain step must advance state and its trusted running hash together',
 );
 
 await assert.rejects(

@@ -14,6 +14,22 @@ import {
 } from '../../src/storage/v1-storage-repository.mjs';
 import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
+async function countSha256Digests(action) {
+  const subtle = globalThis.crypto.subtle;
+  const originalDigest = subtle.digest;
+  let count = 0;
+  subtle.digest = async (...args) => {
+    count += 1;
+    return originalDigest.apply(subtle, args);
+  };
+  try {
+    const value = await action();
+    return { count, value };
+  } finally {
+    subtle.digest = originalDigest;
+  }
+}
+
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(structuredClone(seed)));
   let nextWriteFailure = null;
@@ -294,7 +310,10 @@ const rolloverManifest = rolloverAdapter.snapshot()[V1_STORAGE_PATHS.save(active
 assert.deepEqual(rolloverManifest.segments.map((entry) => entry.deltaCount), [64, 1]);
 assert.deepEqual(rolloverManifest.segments.map((entry) => entry.sealed), [true, false]);
 assert.ok(rolloverManifest.segments.every((entry) => entry.byteLength <= 512 * 1024));
-assert.deepEqual(await loadV1CampaignSave(rolloverAdapter, active.id), rolloverSave);
+const measuredHydration = await countSha256Digests(() => loadV1CampaignSave(rolloverAdapter, active.id));
+assert.deepEqual(measuredHydration.value, rolloverSave);
+assert.equal(measuredHydration.count, 4,
+  '65-delta hydration must hash only the base, two segments, and final manifest head');
 assert.equal((await verifyV1Storage(rolloverAdapter)).ok, true);
 const missingSegmentAdapter = memoryAdapter(rolloverAdapter.snapshot());
 const missingSegmentPath = rolloverManifest.segments[0].path;
