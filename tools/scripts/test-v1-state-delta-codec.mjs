@@ -9,22 +9,6 @@ import {
   sha256Json,
 } from '../../src/storage/v1-state-delta-codec.mjs';
 
-async function countSha256Digests(action) {
-  const subtle = globalThis.crypto.subtle;
-  const originalDigest = subtle.digest;
-  let count = 0;
-  subtle.digest = async (...args) => {
-    count += 1;
-    return originalDigest.apply(subtle, args);
-  };
-  try {
-    const value = await action();
-    return { count, value };
-  } finally {
-    subtle.digest = originalDigest;
-  }
-}
-
 const before = {
   stateCustody: { revision: 7 },
   campaign: { title: 'Ashes', flags: { ready: false, obsolete: true } },
@@ -50,8 +34,23 @@ assert.equal(
   await sha256Json({ z: 1, nested: { b: 2, a: 1 } }),
   await sha256Json({ nested: { a: 1, b: 2 }, z: 1 }),
 );
-const measuredDigest = await countSha256Digests(() => sha256Json({ measured: true }));
-assert.equal(measuredDigest.count, 1);
+const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+Object.defineProperty(globalThis, 'crypto', {
+  configurable: true,
+  get() {
+    throw new Error('segmented-save hashing must not access Web Crypto');
+  },
+});
+try {
+  assert.equal(
+    await sha256Json({ probe: true }),
+    'c775500ea34eded73c2a3c3bede193f0d839e6c14b36f21b6cc31472e0720a91',
+    'segmented-save SHA-256 must work without reading Web Crypto',
+  );
+} finally {
+  if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+  else delete globalThis.crypto;
+}
 
 const delta = await encodeV1StateDelta({
   saveId: 'save.alpha',

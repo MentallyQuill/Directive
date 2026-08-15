@@ -1,3 +1,5 @@
+import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
+
 export const V1_CAMPAIGN_STATE_DELTA_KIND = 'directive.campaignStateDelta.v1';
 
 const BLOCKED_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -40,12 +42,7 @@ export function canonicalJson(value) {
 }
 
 export async function sha256Json(value) {
-  if (!globalThis.crypto?.subtle) {
-    throw deltaError('DIRECTIVE_V1_STATE_DELTA_CRYPTO_UNAVAILABLE', 'SHA-256 is unavailable in this runtime.');
-  }
-  const bytes = new TextEncoder().encode(canonicalJson(value));
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return stableSha256Hex(canonicalJson(value));
 }
 
 function deltaError(code, message, details = {}) {

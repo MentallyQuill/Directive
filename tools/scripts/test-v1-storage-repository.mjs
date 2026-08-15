@@ -14,15 +14,16 @@ import {
 } from '../../src/storage/v1-storage-repository.mjs';
 import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
-async function countSha256Digests(action) {
-  const subtle = globalThis.crypto.subtle;
-  const originalDigest = subtle.digest;
+async function countWholeObjectEncodes(action) {
+  const originalTextEncoder = globalThis.TextEncoder;
   const originalStructuredClone = globalThis.structuredClone;
   let count = 0;
   let fullStateCloneCount = 0;
-  subtle.digest = async (...args) => {
-    count += 1;
-    return originalDigest.apply(subtle, args);
+  globalThis.TextEncoder = class CountingTextEncoder extends originalTextEncoder {
+    encode(...args) {
+      count += 1;
+      return super.encode(...args);
+    }
   };
   globalThis.structuredClone = (value, ...args) => {
     if (value?.campaign && value?.stateCustody) fullStateCloneCount += 1;
@@ -32,7 +33,7 @@ async function countSha256Digests(action) {
     const value = await action();
     return { count, fullStateCloneCount, value };
   } finally {
-    subtle.digest = originalDigest;
+    globalThis.TextEncoder = originalTextEncoder;
     globalThis.structuredClone = originalStructuredClone;
   }
 }
@@ -317,10 +318,10 @@ const rolloverManifest = rolloverAdapter.snapshot()[V1_STORAGE_PATHS.save(active
 assert.deepEqual(rolloverManifest.segments.map((entry) => entry.deltaCount), [64, 1]);
 assert.deepEqual(rolloverManifest.segments.map((entry) => entry.sealed), [true, false]);
 assert.ok(rolloverManifest.segments.every((entry) => entry.byteLength <= 512 * 1024));
-const measuredHydration = await countSha256Digests(() => loadV1CampaignSave(rolloverAdapter, active.id));
+const measuredHydration = await countWholeObjectEncodes(() => loadV1CampaignSave(rolloverAdapter, active.id));
 assert.deepEqual(measuredHydration.value, rolloverSave);
-assert.equal(measuredHydration.count, 4,
-  '65-delta hydration must hash only the base, two segments, and final manifest head');
+assert.equal(measuredHydration.count, 6,
+  '65-delta hydration must encode only two segment lengths plus the base, two segments, and manifest-head hashes');
 assert.ok(measuredHydration.fullStateCloneCount <= 1,
   'verified hydration must clone accumulated state at most once for the complete delta chain');
 assert.equal((await verifyV1Storage(rolloverAdapter)).ok, true);
