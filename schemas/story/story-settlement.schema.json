@@ -40,6 +40,12 @@
         { "type": "null" },
         { "$ref": "#/$defs/focus" }
       ]
+    },
+    "episodeReviewAttempt": {
+      "anyOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/episodeReviewAttempt" }
+      ]
     }
   },
   "$defs": {
@@ -543,6 +549,31 @@
           "uniqueItems": true
         },
         "settledAtRevision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "episodeReviewToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "branchId", "episodeId", "episodeRevision", "checkpointSequence"],
+      "properties": {
+        "kind": { "const": "directive.episodeReviewToken.v1" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "episodeId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "episodeRevision": { "type": "integer", "minimum": 0 },
+        "checkpointSequence": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "episodeReviewAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "token", "status", "automaticAttemptCount", "reasonCode", "committedRevision"],
+      "properties": {
+        "kind": { "const": "directive.episodeReviewAttempt.v1" },
+        "token": { "$ref": "#/$defs/episodeReviewToken" },
+        "status": { "type": "string", "enum": ["pending", "failed", "committed", "indeterminate"] },
+        "automaticAttemptCount": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "reasonCode": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
+        "committedRevision": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
     "focus": {

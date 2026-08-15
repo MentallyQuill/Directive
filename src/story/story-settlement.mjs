@@ -1,5 +1,6 @@
 import {
     EMERGENT_FOCUS_KIND,
+    EPISODE_REVIEW_ATTEMPT_KIND,
     STORY_EPISODE_KIND,
     STORY_SETTLEMENT_RECEIPT_KIND,
     validateStorySettlement,
@@ -143,6 +144,50 @@ export function invalidateAcceptedPairReceipts(settlement, {
     const next = structuredClone(settlement);
     next.revision += 1;
     next.acceptedPairReceipts = structuredClone(retained);
+    return assertValid(next);
+}
+
+function sameEpisodeReviewCheckpoint(left, right) {
+    return left?.kind === 'directive.episodeReviewToken.v1'
+        && right?.kind === 'directive.episodeReviewToken.v1'
+        && left.branchId === right.branchId
+        && left.episodeId === right.episodeId
+        && left.checkpointSequence === right.checkpointSequence;
+}
+
+export function recordEpisodeReviewAttempt(settlement, {
+    token,
+    status,
+    automaticAttemptCount = 0,
+    reasonCode = null,
+} = {}) {
+    assertValid(settlement);
+    if (!sameEpisodeReviewCheckpoint(token, token) || token.branchId !== settlement.branchId) {
+        throw new TypeError('episode review attempt token is invalid');
+    }
+    const previous = settlement.episodeReviewAttempt;
+    if (previous && sameEpisodeReviewCheckpoint(previous.token, token)
+        && previous.status === status
+        && previous.automaticAttemptCount === automaticAttemptCount
+        && previous.reasonCode === reasonCode) {
+        return structuredClone(settlement);
+    }
+    const next = structuredClone(settlement);
+    next.revision += 1;
+    next.episodeReviewAttempt = {
+        kind: EPISODE_REVIEW_ATTEMPT_KIND,
+        token: {
+            kind: 'directive.episodeReviewToken.v1',
+            branchId: token.branchId,
+            episodeId: token.episodeId,
+            episodeRevision: next.revision,
+            checkpointSequence: token.checkpointSequence,
+        },
+        status,
+        automaticAttemptCount,
+        reasonCode,
+        committedRevision: status === 'committed' ? next.revision : null,
+    };
     return assertValid(next);
 }
 

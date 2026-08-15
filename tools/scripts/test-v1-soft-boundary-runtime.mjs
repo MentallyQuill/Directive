@@ -199,16 +199,20 @@ const continueToken = createPendingEpisodeReviewToken(continueHarness.campaignSt
 const continueRequest = createEpisodeEvaluationRequest({ settlement: continueHarness.campaignState.storySettlement });
 const continueProposal = proposalFor(continueRequest, 'continue');
 assert.deepEqual(continueHarness.runtime.pendingEpisodeReview(), continueToken);
-assert.equal(continueHarness.runtime.buildPlayerProjection({ runtimeAssets }).ok, true);
+const continueProjectionBefore = continueHarness.runtime.buildPlayerProjection({ runtimeAssets });
+assert.equal(continueProjectionBefore.ok, true);
 assert.equal(continueHarness.evaluationCount, 0, 'ordinary projection never invokes episode evaluation');
 const continued = await continueHarness.runtime.reviewPendingEpisode({ runtimeAssets });
 assert.equal(continued.ok, true);
 assert.equal(continued.status, 'continued');
 assert.deepEqual(continued.committedRoots, ['storySettlement']);
 assert.equal(continued.reviewToken, null);
-assert.equal(continueHarness.persistCount, 1);
-assert.equal(continueHarness.persistDescriptors[0].source, 'v1EpisodeReviewAuthority');
-assert.doesNotMatch(continueHarness.persistDescriptors[0].source, /shadow/i);
+assert.equal(continueHarness.persistCount, 3);
+assert.deepEqual(
+    continueHarness.persistDescriptors.map((descriptor) => descriptor.source),
+    ['v1EpisodeReviewAttempt', 'v1EpisodeReviewAuthority', 'v1EpisodeReviewAttempt'],
+);
+assert.doesNotMatch(continueHarness.persistDescriptors[1].source, /shadow/i);
 assert.equal(continueHarness.evaluationCount, 1);
 const continuedEpisode = continueHarness.campaignState.storySettlement.episodes[0];
 assert.equal(continuedEpisode.status, 'open');
@@ -220,6 +224,12 @@ assert.deepEqual(continuedEpisode.workingCapsule.recentEvidence, []);
 assert.equal(continuedEpisode.workingCapsule.observedContributionCount, continuedEpisode.contributions.length);
 assert.equal(continuedEpisode.workingCapsule.lastEvaluatedCheckpointSequence, 1);
 assert.equal(continuedEpisode.workingCapsule.needsReview, false);
+assert.equal(continueHarness.campaignState.storySettlement.episodeReviewAttempt.status, 'committed');
+assert.deepEqual(
+    continueHarness.runtime.buildPlayerProjection({ runtimeAssets }).projection.mission,
+    continueProjectionBefore.projection.mission,
+    'episode review must not change the Mission page projection',
+);
 assert.deepEqual(
     continuedEpisode.effects
         .filter((effect) => effect.targetId === 'mara-whitaker')
@@ -252,7 +262,7 @@ const replayedContinue = await replaySpine.applyEpisodeReview({
     gatewayBaseRevision: continueHarness.gateway.revision(),
 });
 assert.equal(replayedContinue.noChange, true);
-assert.equal(continueHarness.persistCount, 1, 'replaying an applied continue proposal is idempotent');
+assert.equal(continueHarness.persistCount, 3, 'replaying an applied continue proposal is idempotent');
 
 const sealHarness = createHarness({
     evaluator: ({ request }) => ({
@@ -300,6 +310,7 @@ assert.deepEqual(sealedEpisode.softBoundary, {
     checkpointSequence: 1,
 });
 assert.equal(sealHarness.campaignState.storySettlement.receipts.length, 1);
+assert.equal(sealHarness.campaignState.storySettlement.episodeReviewAttempt.status, 'committed');
 
 const sealReplaySpine = createV1StateSpine({
     getState: () => sealHarness.campaignState,
@@ -314,7 +325,7 @@ const replayedSeal = await sealReplaySpine.applyEpisodeReview({
     gatewayBaseRevision: sealHarness.gateway.revision(),
 });
 assert.equal(replayedSeal.noChange, true);
-assert.equal(sealHarness.persistCount, 1, 'replaying an applied seal proposal is idempotent');
+assert.equal(sealHarness.persistCount, 3, 'replaying an applied seal proposal is idempotent');
 
 const abstainHarness = createHarness({
     evaluator: ({ request }) => ({
@@ -328,9 +339,10 @@ const abstainToken = abstainHarness.runtime.pendingEpisodeReview();
 const abstained = await abstainHarness.runtime.reviewPendingEpisode({ runtimeAssets });
 assert.equal(abstained.ok, true);
 assert.equal(abstained.status, 'abstained');
-assert.equal(abstained.noChange, true);
-assert.deepEqual(abstained.reviewToken, abstainToken);
-assert.equal(abstainHarness.persistCount, 0);
+assert.equal(abstained.noChange, false);
+assert.equal(abstained.reviewToken.checkpointSequence, abstainToken.checkpointSequence);
+assert.equal(abstainHarness.campaignState.storySettlement.episodeReviewAttempt.status, 'committed');
+assert.equal(abstainHarness.persistCount, 2);
 
 const failedHarness = createHarness({
     evaluator: async () => ({
@@ -341,11 +353,19 @@ const failedHarness = createHarness({
     }),
 });
 const failedToken = failedHarness.runtime.pendingEpisodeReview();
-const failed = await failedHarness.runtime.reviewPendingEpisode({ runtimeAssets });
+const failed = await failedHarness.runtime.reviewPendingEpisode({ runtimeAssets, automatic: true });
 assert.equal(failed.ok, false);
 assert.equal(failed.reasonCode, 'provider-timeout');
-assert.deepEqual(failed.reviewToken, failedToken);
-assert.equal(failedHarness.persistCount, 0);
+assert.equal(failed.reviewToken.checkpointSequence, failedToken.checkpointSequence);
+assert.equal(failedHarness.campaignState.storySettlement.episodeReviewAttempt.status, 'failed');
+assert.equal(failedHarness.campaignState.storySettlement.episodeReviewAttempt.automaticAttemptCount, 1);
+const suppressedAutomaticRetry = await failedHarness.runtime.reviewPendingEpisode({ runtimeAssets, automatic: true });
+assert.equal(suppressedAutomaticRetry.status, 'automatic-attempt-exhausted');
+assert.equal(failedHarness.evaluationCount, 1);
+const manualFailedRetry = await failedHarness.runtime.reviewPendingEpisode({ runtimeAssets, automatic: false });
+assert.equal(manualFailedRetry.reasonCode, 'provider-timeout');
+assert.equal(failedHarness.evaluationCount, 2);
+assert.equal(failedHarness.campaignState.storySettlement.episodeReviewAttempt.automaticAttemptCount, 1);
 assert.equal(JSON.stringify(failed).includes('SECRET-ERROR'), false);
 
 const conflictHarness = createHarness({
@@ -365,7 +385,7 @@ assert.equal(conflict.ok, false);
 assert.equal(conflict.reasonCode, 'state-revision-conflict');
 assert.equal(conflictHarness.campaignState.storySettlement.activeEpisode, 'episode.soft-review');
 assert.notEqual(conflictHarness.runtime.pendingEpisodeReview(), null);
-assert.equal(conflictHarness.persistCount, 1, 'only the simulated concurrent change persisted');
+assert.equal(conflictHarness.persistCount, 3, 'attempt custody brackets the simulated concurrent change');
 
 const staleHarness = createHarness();
 const staleToken = staleHarness.runtime.pendingEpisodeReview();
@@ -452,8 +472,10 @@ assert.equal(indeterminate.noChange, false);
 assert.deepEqual(indeterminate.committedRoots, ['storySettlement']);
 assert.equal(indeterminate.requiresOperatorReview, true);
 assert.equal(indeterminate.retrySafe, false);
-assert.equal(indeterminate.reviewToken, null);
-assert.equal(indeterminateHarness.campaignState.storySettlement.episodes[0].workingCapsule.lastEvaluatedCheckpointSequence, 1);
+assert.notEqual(indeterminate.reviewToken, null);
+assert.equal(indeterminateHarness.campaignState.storySettlement.episodes[0].workingCapsule.lastEvaluatedCheckpointSequence, 0);
+assert.equal(indeterminateHarness.campaignState.storySettlement.episodeReviewAttempt.status, 'pending');
+assert.equal(indeterminateHarness.evaluationCount, 0);
 assert.equal(indeterminateHarness.campaignState.commandBearing.balance, 2);
 assert.equal(JSON.stringify(indeterminate).includes('SECRET-CONCURRENT-PERSISTENCE-FAILURE'), false);
 

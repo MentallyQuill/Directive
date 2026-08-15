@@ -28,6 +28,8 @@ assert.equal(schema.$defs.episodeReferences.additionalProperties, false);
 assert.equal(schema.$defs.characterMoment.additionalProperties, false);
 assert.equal(schema.$defs.workingCapsule.additionalProperties, false);
 assert.equal(schema.$defs.workingEvidence.additionalProperties, false);
+assert.equal(schema.$defs.episodeReviewAttempt.additionalProperties, false);
+assert.equal(schema.$defs.episodeReviewToken.additionalProperties, false);
 assert.equal(schema.$defs.episode.properties.workingCapsule.$ref, '#/$defs/workingCapsule');
 assert.equal(schema.$defs.episode.properties.softBoundary.anyOf[1].$ref, '#/$defs/episodeSoftBoundary');
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
@@ -44,9 +46,33 @@ assert.deepEqual(empty, {
     receipts: [],
     acceptedPairReceipts: [],
     focus: null,
+    episodeReviewAttempt: null,
 });
 
 assert.deepEqual(validateStorySettlement(empty), { ok: true, errors: [] });
+const failedAttempt = {
+    kind: 'directive.episodeReviewAttempt.v1',
+    token: {
+        kind: 'directive.episodeReviewToken.v1',
+        branchId: 'save.alpha',
+        episodeId: 'episode.alpha',
+        episodeRevision: 1,
+        checkpointSequence: 1,
+    },
+    status: 'failed',
+    automaticAttemptCount: 1,
+    reasonCode: 'provider-timeout',
+    committedRevision: null,
+};
+assert.equal(validateStorySettlement({ ...empty, revision: 1, episodeReviewAttempt: failedAttempt }).ok, true);
+assert.match(
+    validateStorySettlement({
+        ...empty,
+        revision: 1,
+        episodeReviewAttempt: { ...failedAttempt, automaticAttemptCount: 2 },
+    }).errors.join('\n'),
+    /automaticAttemptCount/,
+);
 const legacyEmpty = structuredClone(empty);
 delete legacyEmpty.acceptedPairReceipts;
 assert.deepEqual(

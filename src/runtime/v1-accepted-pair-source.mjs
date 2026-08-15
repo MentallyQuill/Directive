@@ -233,6 +233,11 @@ export function prepareV1AcceptedPairSnapshot({
   const promptingPlayerId = compact(
     promptingPlayerHostMessageId
     || directiveMetadata(resolved.message)?.promptingPlayerHostMessageId
+    || selectedSwipeRuntimeMetadata(
+      resolved.message,
+      selected.value.selectedSwipeIndex,
+      selected.value.swipeCount,
+    )?.promptingPlayerHostMessageId
     || promptingPlayerBeforeAssistant(recentMessages, resolved.message),
     180,
   ) || null;

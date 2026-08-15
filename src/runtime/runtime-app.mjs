@@ -54,6 +54,7 @@ import {
   pairRetryRecovery,
   reconcileRequiredRecovery,
 } from './accepted-pair-recovery-state.mjs';
+import { createEpisodeReviewScheduler } from './episode-review-scheduler.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -561,6 +562,14 @@ export function createDirectiveRuntimeApp({
   let acceptedPairRecovery = noAcceptedPairRecovery();
   const acceptedPairCallBudget = createAcceptedPairCallBudget();
   let activeAnalysisController = null;
+  const episodeReviewScheduler = createEpisodeReviewScheduler({
+    getToken: () => missionRuntime?.pendingEpisodeReview?.() || null,
+    review: ({ automatic, signal }) => enqueueSettlement(() => missionRuntime.reviewPendingEpisode({
+      runtimeAssets,
+      signal,
+      automatic,
+    })),
+  });
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
   let deferredInternalChatChangeScheduled = false;
@@ -1056,12 +1065,6 @@ export function createDirectiveRuntimeApp({
         && mission.reasonCode === 'persistence-failed'
         && persistenceAttempts < 3
         && analysisController?.signal?.aborted !== true);
-      if (mission?.ok === true && missionRuntime.pendingEpisodeReview()) {
-        await missionRuntime.reviewPendingEpisode({
-          runtimeAssets,
-          signal: analysisController?.signal || null
-        });
-      }
     } finally {
       if (activeAnalysisController === analysisController) activeAnalysisController = null;
     }
@@ -1128,6 +1131,13 @@ export function createDirectiveRuntimeApp({
       chatId: host.chat.getCurrentChatId?.(),
       ingressId
     });
+  }
+
+  function scheduleEpisodeReviewFlight({ automatic = true, signal = null } = {}) {
+    if (!state || !missionRuntime) {
+      return Promise.resolve({ ok: false, attempted: false, status: 'inactive', reasonCode: 'inactive' });
+    }
+    return episodeReviewScheduler.schedule({ automatic, signal });
   }
 
   async function rebuildAcceptedStateFromChat() {
@@ -1519,16 +1529,17 @@ export function createDirectiveRuntimeApp({
 
     async handleHostGenerationEnded(payload = {}) {
       await ensureInitialized();
-      if (!state || !currentChatIsBound() || typeof host.chat.attachAssistantRuntimeMetadata !== 'function') {
-        return { handled: false, reason: 'inactive-unbound-or-unsupported' };
+      if (!state || !currentChatIsBound()) {
+        return { handled: false, reason: 'inactive-or-unbound' };
       }
       let message = normalizeMessage(host, payload);
       const directId = messageId(payload, message);
       if (directId && (!object(message) || !compact(message.text || message.mes || message.content))) {
         message = await host.chat.getMessage?.(directId);
       }
+      let recent = [];
       if (!object(message) || isUserMessage(message) || message.isSystem === true || message.is_system === true) {
-        const recent = await host.chat.getRecentMessages?.({ limit: 20, playerSafeOnly: false }) || [];
+        recent = await host.chat.getRecentMessages?.({ limit: 20, playerSafeOnly: false }) || [];
         message = [...recent].reverse().find((item) => (
           object(item)
           && !isUserMessage(item)
@@ -1540,46 +1551,90 @@ export function createDirectiveRuntimeApp({
       }
       const hostMessageId = messageId(message, message);
       const responseText = compact(message?.text || message?.mes || message?.content);
-      if (!hostMessageId || !responseText) return { handled: false, reason: 'assistant-message-unavailable' };
+      if (!hostMessageId || !responseText) {
+        const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });
+        return {
+          handled: episodeReview.attempted === true,
+          reason: 'assistant-message-unavailable',
+          episodeReview,
+        };
+      }
       const responseId = `host-response.${hostMessageId}`;
       const sourceTransactionId = `host-generation.${compact(state.campaignChatBinding?.chatId)}.${hostMessageId}`;
+      if (recent.length === 0) {
+        recent = await host.chat.getRecentMessages?.({
+          limit: V1_ACCEPTED_PAIR_SOURCE_WINDOW,
+          playerSafeOnly: false,
+        }) || [];
+      }
+      const assistantIndex = recent.findIndex((item) => messageId(item, item) === hostMessageId);
+      const promptingPlayer = recent.slice(0, assistantIndex < 0 ? recent.length : assistantIndex)
+        .reverse()
+        .find((item) => isUserMessage(item) && activeSourceRow(item));
+      const runtimeMetadata = {
+        responseId,
+        promptingPlayerHostMessageId: messageId(promptingPlayer, promptingPlayer) || null,
+      };
       const prepared = missionRuntime.preparePendingDutyReport({
         runtimeAssets,
         availableActors: availableDirectorActors(runtimeAssets),
         responseId,
         sourceTransactionId
       });
-      if (!prepared?.ok || prepared.status !== 'ready') {
-        return { handled: false, reason: prepared?.reasonCode || prepared?.status || 'no-pending-report' };
-      }
-      const definition = (runtimeAssets?.missionDefinitions || [])
-        .map((entry) => entry?.definition || entry)
-        .find((entry) => entry?.id === prepared.definitionId);
-      if (!definition) return { handled: false, reason: 'definition-unavailable' };
-      let manifest;
-      try {
-        manifest = createDutyReportManifest({
-          definition,
-          packet: prepared.packet,
-          branchId: prepared.manifestInput.branchId,
-          responseId,
-          sourceTransactionId,
-          responseText,
-          segment: prepared.segment
-        });
-      } catch {
-        return { handled: false, reason: 'canonical-segment-not-delivered' };
-      }
-      await host.chat.attachAssistantRuntimeMetadata({
-        hostMessageId,
-        runtimeMetadata: { responseId, dutyReportManifest: manifest }
-      });
-      return {
-        handled: true,
-        status: 'duty-report-custody-attached',
-        hostMessageId,
-        reportId: manifest.reportId
+      let dutyReport = {
+        attached: false,
+        reasonCode: prepared?.reasonCode || prepared?.status || 'no-pending-report',
       };
+      if (prepared?.ok && prepared.status === 'ready'
+        && typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
+        const definition = (runtimeAssets?.missionDefinitions || [])
+          .map((entry) => entry?.definition || entry)
+          .find((entry) => entry?.id === prepared.definitionId);
+        if (definition) {
+          let manifest = null;
+          try {
+            manifest = createDutyReportManifest({
+              definition,
+              packet: prepared.packet,
+              branchId: prepared.manifestInput.branchId,
+              responseId,
+              sourceTransactionId,
+              responseText,
+              segment: prepared.segment,
+            });
+          } catch {
+            dutyReport = { attached: false, reasonCode: 'canonical-segment-not-delivered' };
+          }
+          if (manifest) {
+            runtimeMetadata.dutyReportManifest = manifest;
+            dutyReport = { attached: true, reportId: manifest.reportId, reasonCode: null };
+          }
+        } else {
+          dutyReport = { attached: false, reasonCode: 'definition-unavailable' };
+        }
+      }
+      if (typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
+        await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
+      }
+      const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });
+      return {
+        handled: dutyReport.attached || episodeReview.attempted === true,
+        status: dutyReport.attached ? 'duty-report-custody-attached' : 'generation-ended-reviewed',
+        hostMessageId,
+        ...(dutyReport.reportId ? { reportId: dutyReport.reportId } : {}),
+        dutyReport,
+        episodeReview,
+      };
+    },
+
+    async schedulePendingEpisodeReview(options = {}) {
+      await ensureInitialized();
+      return scheduleEpisodeReviewFlight({ ...options, automatic: true });
+    },
+
+    async retryPendingEpisodeReview(options = {}) {
+      await ensureInitialized();
+      return scheduleEpisodeReviewFlight({ ...options, automatic: false });
     },
 
     async retryPendingAcceptedPairSettlement() {

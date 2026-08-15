@@ -804,7 +804,15 @@ assert.deepEqual(attachedDutyReport, {
   handled: true,
   status: 'duty-report-custody-attached',
   hostMessageId: 'assistant.provisional',
-  reportId: 'report.hesperus.distress'
+  reportId: 'report.hesperus.distress',
+  dutyReport: { attached: true, reportId: 'report.hesperus.distress', reasonCode: null },
+  episodeReview: {
+    ok: true,
+    attempted: false,
+    status: 'no-pending-review',
+    reasonCode: null,
+    reviewToken: null,
+  },
 });
 const hostedReportMessage = chat.messages().find((message) => message.hostMessageId === 'assistant.provisional');
 assert.equal(hostedReportMessage.isDirectiveOwned, false, 'Duty Report custody must not take ownership of host narration');
@@ -1230,13 +1238,24 @@ assert.equal(
   'complete-chat reconciliation must remove an accepted pair outside the last 500 rows'
 );
 
-chat.pushAssistantMessage({
+const cancellationAssistant = chat.pushAssistantMessage({
   text: 'The bridge pauses while the next command is considered.',
   hostMessageId: 'assistant.analysis-cancel',
   metadata: {
     promptingPlayerHostMessageId: [...completeChat].reverse().find((message) => message.isUser)?.hostMessageId,
   },
 });
+const episodeCallsBeforeNarrationEnd = generation.calls()
+  .filter((call) => call.role === 'episodeEvaluator').length;
+const firstNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
+const duplicateNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
+assert.equal(firstNarrationEndReview.episodeReview.attempted, true);
+assert.equal(duplicateNarrationEndReview.episodeReview.status, 'automatic-attempt-exhausted');
+assert.equal(
+  generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
+  episodeCallsBeforeNarrationEnd + 1,
+  'duplicate generation-ended events must make one automatic evaluator call for a checkpoint',
+);
 const cancellationPlayer = chat.pushPlayerMessage({
   text: 'Hold that thought.',
   hostMessageId: 'player.analysis-cancel'

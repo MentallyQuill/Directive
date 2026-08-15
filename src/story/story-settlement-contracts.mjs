@@ -3,6 +3,7 @@ export const STORY_EPISODE_KIND = 'directive.storyEpisode.v1';
 export const STORY_SETTLEMENT_RECEIPT_KIND = 'directive.storySettlementReceipt.v1';
 export const ACCEPTED_PAIR_RECEIPT_KIND = 'directive.acceptedPairReceipt.v1';
 export const EMERGENT_FOCUS_KIND = 'directive.emergentFocus.v1';
+export const EPISODE_REVIEW_ATTEMPT_KIND = 'directive.episodeReviewAttempt.v1';
 export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
     'open',
     'sealPending',
@@ -20,6 +21,7 @@ const ASSISTANT_ACCEPTANCE_OUTCOMES = new Set(['accepted', 'rejected', 'correcte
 const SETTLEMENT_FIELDS = new Set([
     'kind', 'schemaVersion', 'branchId', 'revision', 'activeEpisode', 'episodes', 'receipts',
     'acceptedPairReceipts', 'focus',
+    'episodeReviewAttempt',
 ]);
 const ACCEPTED_PAIR_RECEIPT_FIELDS = new Set([
     'kind', 'id', 'branchId', 'fingerprint', 'sourceRangeHash', 'previousAssistant',
@@ -33,6 +35,13 @@ const EPISODE_FIELDS = new Set([
     'peopleEvents', 'workingCapsule', 'supersedesEpisodeId', 'supersedesEpisodeIds', 'invalidationReason',
     'diagnostics',
 ]);
+const EPISODE_REVIEW_ATTEMPT_FIELDS = new Set([
+    'kind', 'token', 'status', 'automaticAttemptCount', 'reasonCode', 'committedRevision',
+]);
+const EPISODE_REVIEW_TOKEN_FIELDS = new Set([
+    'kind', 'branchId', 'episodeId', 'episodeRevision', 'checkpointSequence',
+]);
+const EPISODE_REVIEW_ATTEMPT_STATUSES = new Set(['pending', 'failed', 'committed', 'indeterminate']);
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.length > 0;
@@ -126,6 +135,63 @@ function validateEpisodeReferences(references, errors, episodeId) {
     }
 }
 
+function validateEpisodeReviewAttempt(attempt, settlement, errors) {
+    if (attempt === null || attempt === undefined) return;
+    if (!attempt || typeof attempt !== 'object' || Array.isArray(attempt)) {
+        errors.push('episodeReviewAttempt must be null or an object');
+        return;
+    }
+    for (const field of Object.keys(attempt)) {
+        if (!EPISODE_REVIEW_ATTEMPT_FIELDS.has(field)) errors.push(`episodeReviewAttempt contains unknown field: ${field}`);
+    }
+    if (attempt.kind !== EPISODE_REVIEW_ATTEMPT_KIND) {
+        errors.push(`episodeReviewAttempt kind must be ${EPISODE_REVIEW_ATTEMPT_KIND}`);
+    }
+    if (!EPISODE_REVIEW_ATTEMPT_STATUSES.has(attempt.status)) {
+        errors.push('episodeReviewAttempt status is invalid');
+    }
+    if (!Number.isInteger(attempt.automaticAttemptCount)
+        || attempt.automaticAttemptCount < 0
+        || attempt.automaticAttemptCount > 1) {
+        errors.push('episodeReviewAttempt automaticAttemptCount must be 0 or 1');
+    }
+    if (attempt.reasonCode !== null && !isNonEmptyString(attempt.reasonCode)) {
+        errors.push('episodeReviewAttempt reasonCode must be null or a non-empty string');
+    }
+    if (attempt.status === 'failed' && !isNonEmptyString(attempt.reasonCode)) {
+        errors.push('failed episodeReviewAttempt requires reasonCode');
+    }
+    if (new Set(['pending', 'committed']).has(attempt.status) && attempt.reasonCode !== null) {
+        errors.push(`${attempt.status} episodeReviewAttempt reasonCode must be null`);
+    }
+    if (attempt.committedRevision !== null
+        && (!Number.isInteger(attempt.committedRevision)
+            || attempt.committedRevision < 0
+            || attempt.committedRevision > settlement.revision)) {
+        errors.push('episodeReviewAttempt committedRevision is invalid');
+    }
+    if (attempt.status === 'committed' && !Number.isInteger(attempt.committedRevision)) {
+        errors.push('committed episodeReviewAttempt requires committedRevision');
+    }
+    const token = attempt.token;
+    if (!token || typeof token !== 'object' || Array.isArray(token)) {
+        errors.push('episodeReviewAttempt token must be an object');
+        return;
+    }
+    for (const field of Object.keys(token)) {
+        if (!EPISODE_REVIEW_TOKEN_FIELDS.has(field)) errors.push(`episodeReviewAttempt token contains unknown field: ${field}`);
+    }
+    if (token.kind !== 'directive.episodeReviewToken.v1') errors.push('episodeReviewAttempt token kind is invalid');
+    if (token.branchId !== settlement.branchId) errors.push('episodeReviewAttempt token branchId must match settlement');
+    if (!isStableId(token.episodeId)) errors.push('episodeReviewAttempt token episodeId must be stable');
+    if (!Number.isInteger(token.episodeRevision) || token.episodeRevision < 0 || token.episodeRevision > settlement.revision) {
+        errors.push('episodeReviewAttempt token episodeRevision is invalid');
+    }
+    if (!Number.isInteger(token.checkpointSequence) || token.checkpointSequence < 1) {
+        errors.push('episodeReviewAttempt token checkpointSequence must be positive');
+    }
+}
+
 export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
     return {
         kind: STORY_SETTLEMENT_KIND,
@@ -137,6 +203,7 @@ export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
         receipts: [],
         acceptedPairReceipts: [],
         focus: null,
+        episodeReviewAttempt: null,
     };
 }
 
@@ -160,6 +227,7 @@ export function validateStorySettlement(value = {}) {
     if (Object.hasOwn(value || {}, 'acceptedPairReceipts') && !Array.isArray(value.acceptedPairReceipts)) {
         errors.push('acceptedPairReceipts must be an array');
     }
+    validateEpisodeReviewAttempt(value?.episodeReviewAttempt, value, errors);
     if (Array.isArray(value?.episodes)) {
         const episodeIds = new Set();
         for (const episode of value.episodes) {
