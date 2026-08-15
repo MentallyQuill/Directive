@@ -646,10 +646,12 @@ const nativeBranchIntent = {
   capturedAt: Date.now()
 };
 const originalGetRecentMessages = appChat.getRecentMessages.bind(appChat);
-let recentMessageReadCount = 0;
+let postForkReplayFailureInjected = false;
 appChat.getRecentMessages = async (...args) => {
-  recentMessageReadCount += 1;
-  if (recentMessageReadCount > 1) throw new Error('injected:post-fork-replay');
+  if (!postForkReplayFailureInjected && args[0]?.limit === Number.MAX_SAFE_INTEGER) {
+    postForkReplayFailureInjected = true;
+    throw new Error('injected:post-fork-replay');
+  }
   return originalGetRecentMessages(...args);
 };
 const changed = await app.handleHostChatChanged({ nativeBranchIntent });
