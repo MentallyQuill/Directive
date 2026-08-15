@@ -22,6 +22,7 @@
 
 **Files:**
 - Modify: `tools/scripts/test-v1-state-delta-codec.mjs`
+- Modify: `tools/scripts/test-v1-storage-repository.mjs`
 - Modify: `src/storage/v1-state-delta-codec.mjs`
 
 **Interfaces:**
@@ -83,7 +84,11 @@ export async function sha256Json(value) {
 
 Remove the obsolete `DIRECTIVE_V1_STATE_DELTA_CRYPTO_UNAVAILABLE` branch. Do not retain feature detection or an alternative implementation.
 
-- [ ] **Step 4: Run focused verification and verify GREEN**
+- [ ] **Step 4: Update the bounded-hashing test instrumentation**
+
+In `tools/scripts/test-v1-storage-repository.mjs`, preserve the bounded hydration performance assertion through the repository-owned SHA-256 implementation's `TextEncoder.encode()` boundary. Assert exactly six whole-object encodes: two segment byte-length checks plus hashes of the base, two segments, and final manifest head. Remove the obsolete `crypto.subtle.digest()` monkeypatch so the test suite itself has no Web Crypto requirement.
+
+- [ ] **Step 5: Run focused verification and verify GREEN**
 
 Run:
 
@@ -95,7 +100,7 @@ node tools/scripts/test-browser-runtime-safety.mjs
 
 Expected: all three scripts exit 0 and print their pass messages.
 
-- [ ] **Step 5: Run the complete Directive alpha gate**
+- [ ] **Step 6: Run the complete Directive alpha gate**
 
 Run:
 
@@ -105,15 +110,15 @@ npm.cmd test
 
 Expected: exit 0 with every alpha-gate script passing.
 
-- [ ] **Step 6: Review and commit the implementation**
+- [ ] **Step 7: Review and commit the implementation**
 
 Review `git diff --check`, the scoped diff, and the final status. Stage only the two implementation files and commit:
 
 ```powershell
-git add -- src/storage/v1-state-delta-codec.mjs tools/scripts/test-v1-state-delta-codec.mjs
+git add -- src/storage/v1-state-delta-codec.mjs tools/scripts/test-v1-state-delta-codec.mjs tools/scripts/test-v1-storage-repository.mjs docs/superpowers/plans/2026-08-15-runtime-independent-save-hashing.md
 git commit -m "fix(storage): remove Web Crypto dependency"
 ```
 
-- [ ] **Step 7: Reconcile and push `main`**
+- [ ] **Step 8: Reconcile and push `main`**
 
 Verify local and remote ancestry without overwriting divergent work, rerun the full gate on the exact tree being pushed if reconciliation changes it, then push `main` to `origin`. Confirm the remote `main` SHA equals local `HEAD`.
