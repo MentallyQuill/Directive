@@ -1614,8 +1614,23 @@ export function createDirectiveRuntimeApp({
           dutyReport = { attached: false, reasonCode: 'definition-unavailable' };
         }
       }
+      let metadataAttachment = null;
       if (typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
-        await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
+        try {
+          await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
+        } catch (error) {
+          metadataAttachment = {
+            attached: false,
+            reasonCode: 'assistant-runtime-metadata-attachment-failed',
+          };
+          if (dutyReport.attached) {
+            dutyReport = {
+              attached: false,
+              reasonCode: 'assistant-runtime-metadata-attachment-failed',
+            };
+          }
+          host.logger?.warn?.('Directive assistant runtime metadata attachment failed.', error);
+        }
       }
       const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });
       return {
@@ -1624,6 +1639,7 @@ export function createDirectiveRuntimeApp({
         hostMessageId,
         ...(dutyReport.reportId ? { reportId: dutyReport.reportId } : {}),
         dutyReport,
+        ...(metadataAttachment ? { metadataAttachment } : {}),
         episodeReview,
       };
     },

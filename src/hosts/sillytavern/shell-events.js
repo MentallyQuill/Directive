@@ -197,9 +197,12 @@ export async function handleGenerationStopped(payload = {}) {
   };
 }
 
-export async function handleGenerationEnded(payload = {}) {
+export function handleGenerationEnded(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
-  return app()?.handleHostGenerationEnded?.(payload);
+  return scheduleReconciliation(
+    'Post-narration Directive work failed',
+    () => app()?.handleHostGenerationEnded?.(payload)
+  );
 }
 
 export async function handleChatChanged(payload = {}) {

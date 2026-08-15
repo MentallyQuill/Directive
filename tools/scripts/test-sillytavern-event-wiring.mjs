@@ -207,16 +207,35 @@ clearSillyTavernDirectiveRuntimeBridge();
 __directiveRuntimeActionTestHooks.clearRuntimeActions();
 
 let endedPayload = null;
+let releaseEndedReview = null;
+const heldEndedReview = new Promise((resolve) => { releaseEndedReview = resolve; });
 setSillyTavernDirectiveRuntimeBridge({
   app: {
     async handleHostGenerationEnded(payload) {
       endedPayload = payload;
+      await heldEndedReview;
       return { handled: true };
     }
   }
 });
-await __directiveEventTestHooks.handleGenerationEnded({ messageId: 'assistant.42' });
+const endedCallbackTimeout = Symbol('ended-callback-timeout');
+const endedCallbackResult = await Promise.race([
+  __directiveEventTestHooks.handleGenerationEnded({ messageId: 'assistant.42' }),
+  new Promise((resolve) => setTimeout(() => resolve(endedCallbackTimeout), 25)),
+]);
+assert.notEqual(
+  endedCallbackResult,
+  endedCallbackTimeout,
+  'post-narration Directive work must not hold SillyTavern generation-ended listeners',
+);
+assert.deepEqual(endedCallbackResult, {
+  handled: true,
+  scheduled: true,
+  abortDefaultGeneration: false,
+});
 assert.deepEqual(endedPayload, { messageId: 'assistant.42' });
+releaseEndedReview({ handled: true });
+await heldEndedReview;
 clearSillyTavernDirectiveRuntimeBridge();
 
 installFakeDom();

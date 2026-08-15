@@ -1261,8 +1261,22 @@ let releaseHeldEpisodeStarted = null;
 const heldEpisodeStarted = new Promise((resolve) => { releaseHeldEpisodeStarted = resolve; });
 reportHeldEpisodeEvaluationStarted = releaseHeldEpisodeStarted;
 holdEpisodeEvaluation = true;
-const firstNarrationEndReviewPending = app.handleHostGenerationEnded({ message: cancellationAssistant });
-await heldEpisodeStarted;
+const attachRuntimeMetadataBeforeFailure = host.chat.attachAssistantRuntimeMetadata;
+host.chat.attachAssistantRuntimeMetadata = async () => {
+  throw new Error('forced assistant metadata attachment failure');
+};
+const firstNarrationEndReviewPending = app.handleHostGenerationEnded({ message: cancellationAssistant })
+  .then((value) => ({ value }), (error) => ({ error }));
+const episodeStartTimeout = Symbol('episode-start-timeout');
+assert.notEqual(
+  await Promise.race([
+    heldEpisodeStarted.then(() => 'episode-started'),
+    new Promise((resolve) => setTimeout(() => resolve(episodeStartTimeout), 100)),
+  ]),
+  episodeStartTimeout,
+  'assistant metadata attachment failure must not prevent the pending episode review',
+);
+host.chat.attachAssistantRuntimeMetadata = attachRuntimeMetadataBeforeFailure;
 const continueWhileEpisodeReviewPending = app.getChatTurnOrchestrator().interceptGeneration();
 const episodeQueueTimeout = Symbol('episode-review-queue-timeout');
 assert.notEqual(
@@ -1274,12 +1288,23 @@ assert.notEqual(
   'a post-narration episode evaluator must not hold the next Continue behind its provider call',
 );
 releaseHeldEpisodeEvaluation();
-const firstNarrationEndReview = await firstNarrationEndReviewPending;
+const firstNarrationEndReviewOutcome = await firstNarrationEndReviewPending;
+assert.equal(firstNarrationEndReviewOutcome.error, undefined);
+const firstNarrationEndReview = firstNarrationEndReviewOutcome.value;
 holdEpisodeEvaluation = false;
 reportHeldEpisodeEvaluationStarted = null;
 releaseHeldEpisodeEvaluation = null;
 const duplicateNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
 assert.equal(firstNarrationEndReview.episodeReview.attempted, true);
+assert.deepEqual(firstNarrationEndReview.metadataAttachment, {
+  attached: false,
+  reasonCode: 'assistant-runtime-metadata-attachment-failed',
+});
+assert.equal(
+  runtimeWarnings.some((args) => args.some((value) => String(value).includes('metadata attachment failed'))),
+  true,
+  'metadata attachment failure must remain diagnosable without aborting post-narration analysis',
+);
 assert.equal(duplicateNarrationEndReview.episodeReview.status, 'automatic-attempt-exhausted');
 assert.equal(
   generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
