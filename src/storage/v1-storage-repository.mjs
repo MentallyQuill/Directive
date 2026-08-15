@@ -12,6 +12,12 @@ export const V1_STORAGE_PATHS = Object.freeze({
 });
 
 const SAFE_ID = /^[a-zA-Z0-9_.-]+$/;
+const RESERVED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const INDEX_LOCK_NAME = 'directive-v1-storage-index';
+
+const indexMutationQueues = new Map();
+const localAdapterLockNames = new WeakMap();
+let nextLocalAdapterLockId = 1;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -21,9 +27,14 @@ function object(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isSafeId(value) {
+  const id = String(value ?? '').trim();
+  return Boolean(id) && SAFE_ID.test(id) && !RESERVED_OBJECT_KEYS.has(id);
+}
+
 function safeId(value, label) {
   const id = String(value ?? '').trim();
-  if (!id || !SAFE_ID.test(id)) throw new Error(`${label} must be a safe non-empty id`);
+  if (!isSafeId(id)) throw new Error(`${label} must be a safe non-empty id`);
   return id;
 }
 
@@ -36,9 +47,33 @@ function time(value, label = 'timestamp') {
 }
 
 function missing(error) {
-  return error?.code === 'ENOENT'
-    || error?.name === 'NotFoundError'
-    || /not found|missing/i.test(String(error?.message || ''));
+  return error?.status === 404
+    || error?.statusCode === 404
+    || error?.code === 'ENOENT'
+    || error?.code === 'NOT_FOUND'
+    || error?.code === 'DIRECTIVE_FAKE_HOST_FILE_MISSING'
+    || error?.name === 'NotFoundError';
+}
+
+function indexLockName(adapter) {
+  const hostId = String(adapter.hostId || '').trim();
+  if (hostId) return `${INDEX_LOCK_NAME}:${hostId}`;
+  if (!localAdapterLockNames.has(adapter)) {
+    localAdapterLockNames.set(adapter, `${INDEX_LOCK_NAME}:local-${nextLocalAdapterLockId}`);
+    nextLocalAdapterLockId += 1;
+  }
+  return localAdapterLockNames.get(adapter);
+}
+
+function withIndexMutationLease(adapter, operation) {
+  requireAdapter(adapter);
+  const lockName = indexLockName(adapter);
+  const run = () => typeof globalThis.navigator?.locks?.request === 'function'
+    ? globalThis.navigator.locks.request(lockName, { mode: 'exclusive' }, operation)
+    : operation();
+  const pending = (indexMutationQueues.get(lockName) || Promise.resolve()).then(run, run);
+  indexMutationQueues.set(lockName, pending.catch(() => undefined));
+  return pending;
 }
 
 function requireAdapter(adapter) {
@@ -91,6 +126,9 @@ export function assertV1StorageIndex(index) {
     error.code = 'DIRECTIVE_V1_STORAGE_INDEX_REJECTED';
     throw error;
   }
+  for (const id of Object.keys(index.drafts)) safeId(id, 'index draft id');
+  for (const id of Object.keys(index.saves)) safeId(id, 'index save id');
+  if (index.activeSaveId !== null) safeId(index.activeSaveId, 'index activeSaveId');
   return index;
 }
 
@@ -117,7 +155,7 @@ export function assertV1CampaignSave(save) {
   const activeSlot = save.slotType === 'active';
   const validSlotRelation = activeSlot
     ? save.parentSaveId === null
-    : typeof save.parentSaveId === 'string' && Boolean(save.parentSaveId.trim()) && SAFE_ID.test(save.parentSaveId);
+    : isSafeId(save.parentSaveId);
   if (!validSlotRelation) {
     const error = new Error('Directive V1 save slot and parent relationship is invalid.');
     error.code = 'DIRECTIVE_V1_SAVE_SLOT_RELATION_INVALID';
@@ -197,7 +235,7 @@ async function writeIndex(adapter, index, now) {
 }
 
 export async function initializeV1Storage(adapter, { now = new Date().toISOString() } = {}) {
-  return loadIndex(adapter, { create: true, now });
+  return withIndexMutationLease(adapter, () => loadIndex(adapter, { create: true, now }));
 }
 
 export async function getV1StorageIndex(adapter) {
@@ -207,10 +245,12 @@ export async function getV1StorageIndex(adapter) {
 export async function storeV1CreatorDraft(adapter, draft, { now = draft?.updatedAt } = {}) {
   requireAdapter(adapter);
   const record = clone(assertDraft(draft));
-  const index = await loadIndex(adapter, { create: true, now });
-  await adapter.writeJson(V1_STORAGE_PATHS.draft(record.id), record);
-  index.drafts[record.id] = draftSummary(record);
-  await writeIndex(adapter, index, now);
+  await withIndexMutationLease(adapter, async () => {
+    const index = await loadIndex(adapter, { create: true, now });
+    await adapter.writeJson(V1_STORAGE_PATHS.draft(record.id), record);
+    index.drafts[record.id] = draftSummary(record);
+    await writeIndex(adapter, index, now);
+  });
   return clone(record);
 }
 
@@ -229,11 +269,13 @@ export async function listV1CreatorDrafts(adapter) {
 
 export async function deleteV1CreatorDraft(adapter, draftId, { now = new Date().toISOString() } = {}) {
   const id = safeId(draftId, 'draftId');
-  const index = await loadIndex(adapter, { create: true, now });
-  const deleted = await remove(adapter, V1_STORAGE_PATHS.draft(id));
-  delete index.drafts[id];
-  await writeIndex(adapter, index, now);
-  return { deleted, id };
+  return withIndexMutationLease(adapter, async () => {
+    const index = await loadIndex(adapter, { create: true, now });
+    const deleted = await remove(adapter, V1_STORAGE_PATHS.draft(id));
+    delete index.drafts[id];
+    await writeIndex(adapter, index, now);
+    return { deleted, id };
+  });
 }
 
 export function createV1CampaignSave({
@@ -266,25 +308,32 @@ export function createV1CampaignSave({
 export async function storeV1CampaignSave(adapter, save, { makeActive = save?.slotType === 'active' } = {}) {
   requireAdapter(adapter);
   const record = clone(assertV1CampaignSave(save));
-  const index = await loadIndex(adapter, { create: true, now: record.updatedAt });
-  await adapter.writeJson(V1_STORAGE_PATHS.save(record.id), record);
-  index.saves[record.id] = saveSummary(record);
-  if (makeActive) index.activeSaveId = record.id;
-  await writeIndex(adapter, index, record.updatedAt);
+  await withIndexMutationLease(adapter, async () => {
+    const index = await loadIndex(adapter, { create: true, now: record.updatedAt });
+    await adapter.writeJson(V1_STORAGE_PATHS.save(record.id), record);
+    index.saves[record.id] = saveSummary(record);
+    if (makeActive) index.activeSaveId = record.id;
+    await writeIndex(adapter, index, record.updatedAt);
+  });
   return clone(record);
 }
 
 export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, now = null } = {}) {
   const id = safeId(saveId, 'saveId');
-  const record = await readOrNull(requireAdapter(adapter), V1_STORAGE_PATHS.save(id));
-  if (!record) throw new Error(`V1 campaign save "${id}" was not found.`);
-  const save = clone(assertV1CampaignSave(record));
-  if (makeActive) {
+  requireAdapter(adapter);
+  const load = async () => {
+    const record = await readOrNull(adapter, V1_STORAGE_PATHS.save(id));
+    if (!record) throw new Error(`V1 campaign save "${id}" was not found.`);
+    return clone(assertV1CampaignSave(record));
+  };
+  if (!makeActive) return load();
+  return withIndexMutationLease(adapter, async () => {
+    const save = await load();
     const index = await loadIndex(adapter, { create: true, now: now || save.updatedAt });
     index.activeSaveId = id;
     await writeIndex(adapter, index, now || save.updatedAt);
-  }
-  return save;
+    return save;
+  });
 }
 
 export async function listV1CampaignSaves(adapter) {
@@ -306,35 +355,41 @@ export async function compareAndSwapActiveV1CampaignSave(adapter, {
 } = {}) {
   const expectedId = safeId(expectedSaveId, 'expectedSaveId');
   const nextId = safeId(nextSaveId, 'nextSaveId');
-  const index = await loadIndex(requireAdapter(adapter), { create: true, now });
-  if (index.activeSaveId !== expectedId) {
-    const error = new Error(`The active V1 save changed from "${expectedId}" before the timeline could be activated.`);
-    error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_MISMATCH';
-    error.details = { expectedSaveId: expectedId, actualSaveId: index.activeSaveId, nextSaveId: nextId };
-    throw error;
-  }
-  const [expected, next] = await Promise.all([
-    loadV1CampaignSave(adapter, expectedId),
-    loadV1CampaignSave(adapter, nextId)
-  ]);
-  if (expected.slotType !== 'active' || next.slotType !== 'active' || expected.campaignId !== next.campaignId) {
-    const error = new Error('The timeline activation records are not compatible active saves from one campaign.');
-    error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_TARGET_INVALID';
-    throw error;
-  }
-  index.activeSaveId = nextId;
-  await writeIndex(adapter, index, now);
-  return { swapped: true, expectedSaveId: expectedId, activeSaveId: nextId };
+  requireAdapter(adapter);
+  return withIndexMutationLease(adapter, async () => {
+    const index = await loadIndex(adapter, { create: true, now });
+    if (index.activeSaveId !== expectedId) {
+      const error = new Error(`The active V1 save changed from "${expectedId}" before the timeline could be activated.`);
+      error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_MISMATCH';
+      error.details = { expectedSaveId: expectedId, actualSaveId: index.activeSaveId, nextSaveId: nextId };
+      throw error;
+    }
+    const [expected, next] = await Promise.all([
+      loadV1CampaignSave(adapter, expectedId),
+      loadV1CampaignSave(adapter, nextId)
+    ]);
+    if (expected.slotType !== 'active' || next.slotType !== 'active' || expected.campaignId !== next.campaignId) {
+      const error = new Error('The timeline activation records are not compatible active saves from one campaign.');
+      error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_TARGET_INVALID';
+      throw error;
+    }
+    index.activeSaveId = nextId;
+    await writeIndex(adapter, index, now);
+    return { swapped: true, expectedSaveId: expectedId, activeSaveId: nextId };
+  });
 }
 
 export async function deleteV1CampaignSave(adapter, saveId, { now = new Date().toISOString() } = {}) {
   const id = safeId(saveId, 'saveId');
-  const index = await loadIndex(adapter, { create: true, now });
-  const deleted = await remove(adapter, V1_STORAGE_PATHS.save(id));
-  delete index.saves[id];
-  if (index.activeSaveId === id) index.activeSaveId = null;
-  await writeIndex(adapter, index, now);
-  return { deleted, deletedActive: index.activeSaveId === null, id };
+  return withIndexMutationLease(adapter, async () => {
+    const index = await loadIndex(adapter, { create: true, now });
+    const deletedActive = index.activeSaveId === id;
+    const deleted = await remove(adapter, V1_STORAGE_PATHS.save(id));
+    delete index.saves[id];
+    if (deletedActive) index.activeSaveId = null;
+    await writeIndex(adapter, index, now);
+    return { deleted, deletedActive, id };
+  });
 }
 
 export async function verifyV1Storage(adapter) {

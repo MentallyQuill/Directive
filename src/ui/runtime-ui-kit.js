@@ -357,12 +357,22 @@ export function createInputField({ label, path, value = '', type = 'text', multi
   return wrapper;
 }
 
+const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function safePathSegments(path) {
+  const segments = String(path || '').split('.').filter(Boolean);
+  if (segments.length === 0 || segments.some((segment) => UNSAFE_PATH_SEGMENTS.has(segment))) {
+    throw new Error('Input path must contain only safe object keys.');
+  }
+  return segments;
+}
+
 export function getNestedValue(source, path) {
-  return String(path || '').split('.').filter(Boolean).reduce((value, key) => value?.[key], source);
+  return safePathSegments(path).reduce((value, key) => value?.[key], source);
 }
 
 export function setNestedValue(target, path, value) {
-  const keys = String(path || '').split('.').filter(Boolean);
+  const keys = safePathSegments(path);
   let cursor = target;
   for (const key of keys.slice(0, -1)) {
     if (!cursor[key] || typeof cursor[key] !== 'object' || Array.isArray(cursor[key])) {

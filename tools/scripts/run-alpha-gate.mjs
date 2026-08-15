@@ -52,6 +52,7 @@ const checks = [
   "test-campaign-start-service.mjs",
   "test-runtime-campaign-start-controller.mjs",
   "test-v1-storage-repository.mjs",
+  "test-safe-object-boundaries.mjs",
   "test-native-branch-lineage.mjs",
   "test-v1-branch-reconstruction.mjs",
   "test-v1-timeline-storage.mjs",

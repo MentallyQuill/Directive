@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   createPlayerPortraitUpload,
@@ -11,15 +12,45 @@ import {
 import { isCreatorPortraitLifecycleSupported } from '../../src/ui/character-creator-panel.js';
 
 const now = '2026-08-10T12:00:00.000Z';
-const imageBytes = new Uint8Array([1, 2, 3, 4]);
+const pngFixture = new Uint8Array(await readFile(new URL(
+  '../../assets/icons/directive-vector-glyphs-v1/preview.png',
+  import.meta.url
+)));
+const webpFixture = new Uint8Array(await readFile(new URL(
+  '../../assets/packages/aster-vale/images/ship/uss-aster-vale.thumb.webp',
+  import.meta.url
+)));
+const jpegFixture = new Uint8Array(Buffer.from(
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////'
+  + '2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB'
+  + '/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAH/xAAUEAEAAAAAAAAA'
+  + 'AAAAAAAAAAAA/9oACAEBAAEFAqf/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/Aaf/xAAUEQEAAAAAAAAAAAAAAAAA'
+  + 'AAAA/9oACAECAQE/Aaf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAY/Aqf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oA'
+  + 'CAEBAAE/IV//2gAMAwEAAgADAAAAEP/EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8QH//EABQRAQAAAAAAAAAAAAAA'
+  + 'AAAAABD/2gAIAQIBAT8QH//EABQQAQAAAAAAAAAAAAAAAAAAABD/2gAIAQEAAT8QH//Z',
+  'base64'
+));
+const imageFixtures = [
+  ['image/png', 'commander.png', '.png', pngFixture],
+  ['image/jpeg', 'commander.jpeg', '.jpg', jpegFixture],
+  ['image/webp', 'commander.webp', '.webp', webpFixture]
+];
+const imageBytes = imageFixtures[0][3];
 
-for (const [mimeType, fileName, extension] of [
-  ['image/png', 'commander.png', '.png'],
-  ['image/jpeg', 'commander.jpeg', '.jpg'],
-  ['image/webp', 'commander.webp', '.webp']
-]) {
+function crc32(bytes, start, end) {
+  let crc = 0xffffffff;
+  for (let index = start; index < end; index += 1) {
+    crc ^= bytes[index];
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+for (const [mimeType, fileName, extension, fixtureBytes] of imageFixtures) {
   const upload = await createPlayerPortraitUpload({
-    bytes: imageBytes,
+    bytes: fixtureBytes,
     mimeType,
     fileName,
     ownerKind: 'creatorDraft',
@@ -29,8 +60,20 @@ for (const [mimeType, fileName, extension] of [
   assert.equal(upload.kind, 'directive.playerPortraitUpload');
   assert.equal(upload.descriptor.asset.mimeType, mimeType);
   assert.equal(upload.fileName.endsWith(extension), true);
-  assert.equal(upload.byteLength, imageBytes.byteLength);
+  assert.equal(upload.byteLength, fixtureBytes.byteLength);
 }
+
+await assert.rejects(
+  createPlayerPortraitUpload({
+    bytes: new Uint8Array([1, 2, 3, 4]),
+    mimeType: 'image/png',
+    fileName: 'not-an-image.png',
+    ownerKind: 'creatorDraft',
+    ownerId: 'draft-1',
+    now
+  }),
+  /not a valid PNG image/
+);
 
 await assert.rejects(
   createPlayerPortraitUpload({
@@ -57,6 +100,98 @@ await assert.rejects(
   /or smaller/
 );
 assert.equal(PLAYER_PORTRAIT_MAX_BYTES, 5 * 1024 * 1024);
+
+let oversizedFileRead = false;
+await assert.rejects(
+  createPlayerPortraitUpload({
+    file: {
+      name: 'oversized.png',
+      type: 'image/png',
+      size: PLAYER_PORTRAIT_MAX_BYTES + 1,
+      async arrayBuffer() {
+        oversizedFileRead = true;
+        return new ArrayBuffer(0);
+      }
+    },
+    ownerKind: 'creatorDraft',
+    ownerId: 'draft-1',
+    now
+  }),
+  /or smaller/
+);
+assert.equal(oversizedFileRead, false, 'oversized files must be rejected before allocation');
+
+const oversizedDimensions = imageBytes.slice();
+oversizedDimensions.set([0x00, 0x00, 0x23, 0x29], 16);
+new DataView(
+  oversizedDimensions.buffer,
+  oversizedDimensions.byteOffset,
+  oversizedDimensions.byteLength
+).setUint32(29, crc32(oversizedDimensions, 12, 29));
+await assert.rejects(
+  createPlayerPortraitUpload({
+    bytes: oversizedDimensions,
+    mimeType: 'image/png',
+    fileName: 'oversized-dimensions.png',
+    ownerKind: 'creatorDraft',
+    ownerId: 'draft-1',
+    now
+  }),
+  /dimensions are too large/
+);
+
+const originalCreateImageBitmap = globalThis.createImageBitmap;
+const originalOffscreenCanvas = globalThis.OffscreenCanvas;
+let bitmapClosed = false;
+try {
+  globalThis.createImageBitmap = async () => ({
+    width: 2,
+    height: 1,
+    close() { bitmapClosed = true; }
+  });
+  globalThis.OffscreenCanvas = class {
+    getContext() {
+      return {
+        clearRect() {},
+        drawImage() {}
+      };
+    }
+
+    async convertToBlob({ type }) {
+      return new Blob([new Uint8Array([1, 2, 3])], { type });
+    }
+  };
+  const normalized = await createPlayerPortraitUpload({
+    bytes: imageBytes,
+    mimeType: 'image/png',
+    fileName: 'normalized.png',
+    ownerKind: 'creatorDraft',
+    ownerId: 'draft-1',
+    now
+  });
+  assert.equal(normalized.descriptor.asset.mimeType, 'image/webp');
+  assert.equal(normalized.descriptor.asset.width, 768);
+  assert.equal(normalized.descriptor.asset.height, 768);
+  assert.equal(bitmapClosed, true);
+
+  globalThis.createImageBitmap = async () => { throw new Error('decode failed'); };
+  await assert.rejects(
+    createPlayerPortraitUpload({
+      bytes: imageBytes,
+      mimeType: 'image/png',
+      fileName: 'decode-failure.png',
+      ownerKind: 'creatorDraft',
+      ownerId: 'draft-1',
+      now
+    }),
+    /could not be decoded/
+  );
+} finally {
+  if (originalCreateImageBitmap === undefined) delete globalThis.createImageBitmap;
+  else globalThis.createImageBitmap = originalCreateImageBitmap;
+  if (originalOffscreenCanvas === undefined) delete globalThis.OffscreenCanvas;
+  else globalThis.OffscreenCanvas = originalOffscreenCanvas;
+}
 
 const calls = [];
 const adapter = {

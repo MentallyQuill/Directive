@@ -108,6 +108,10 @@ assert.equal(capabilities.chat.domRegistry, false);
 assert.equal(capabilities.worldBooks.attachments, false);
 assert.equal(capabilities.presets.variables, false);
 assert.equal(capabilities.installer.unifiedHubInstall, false);
+assert.throws(
+  () => createHostCapabilities(JSON.parse('{"__proto__":{"polluted":true}}')),
+  /Unsafe host capability key/
+);
 
 const campaignChat = createFakeChatAdapter({
   chatId: 'campaign-chat',

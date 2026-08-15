@@ -94,10 +94,13 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function mergeObjects(base, override) {
   const next = cloneJson(base);
   if (!isObject(override)) return next;
   for (const [key, value] of Object.entries(override)) {
+    if (UNSAFE_OBJECT_KEYS.has(key)) throw new Error(`Unsafe host capability key: ${key}`);
     next[key] = isObject(value) && isObject(next[key])
       ? mergeObjects(next[key], value)
       : value;

@@ -21,6 +21,8 @@ function requireNonEmptyString(value, label) {
   return value.trim();
 }
 
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function mergeObjects(base, patch) {
   if (!isObject(patch)) {
     return cloneJson(base || {});
@@ -28,6 +30,7 @@ function mergeObjects(base, patch) {
 
   const next = cloneJson(base || {});
   for (const [key, value] of Object.entries(patch)) {
+    if (UNSAFE_OBJECT_KEYS.has(key)) throw new Error(`Unsafe Character Creator input key: ${key}`);
     if (isObject(value) && isObject(next[key])) {
       next[key] = mergeObjects(next[key], value);
     } else {

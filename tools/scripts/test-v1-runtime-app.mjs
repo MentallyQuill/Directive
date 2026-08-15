@@ -21,6 +21,15 @@ function json(relative) {
   return JSON.parse(fs.readFileSync(new URL(`../../${relative}`, import.meta.url), 'utf8'));
 }
 
+const portraitPngBytes = new Uint8Array(fs.readFileSync(new URL(
+  '../../assets/icons/directive-vector-glyphs-v1/preview.png',
+  import.meta.url
+)));
+const portraitWebpBytes = new Uint8Array(fs.readFileSync(new URL(
+  '../../assets/packages/aster-vale/images/ship/uss-aster-vale.thumb.webp',
+  import.meta.url
+)));
+
 const runtimeGenerationCalls = [];
 const runtimeGenerationRouter = createDirectiveGenerationRouter({
   generation: {
@@ -230,7 +239,7 @@ assert.deepEqual(incompleteStorageView.media, { playerPortraitImportSupported: f
 
 await app.startCreatorDraft();
 const disposablePortrait = await app.importCreatorPortrait({
-  bytes: new Uint8Array([1, 2, 3, 4]),
+  bytes: portraitPngBytes,
   mimeType: 'image/png',
   fileName: 'disposable.png'
 });
@@ -257,7 +266,7 @@ const storedBeforeFailedImport = storedPortraitPaths.length;
 const deletedBeforeFailedImport = deletedPortraitPaths.length;
 await assert.rejects(
   app.importCreatorPortrait({
-    bytes: new Uint8Array([5, 6, 7, 8]),
+    bytes: portraitPngBytes,
     mimeType: 'image/png',
     fileName: 'must-be-removed.png'
   }),
@@ -271,7 +280,7 @@ await app.discardCreatorDraft();
 
 await app.startCreatorDraft();
 await app.importCreatorPortrait({
-  bytes: new Uint8Array([9, 10, 11, 12]),
+  bytes: portraitPngBytes,
   mimeType: 'image/png',
   fileName: 'cleanup-warning.png'
 });
@@ -423,7 +432,7 @@ await assert.rejects(
 await host.storage.writeJson(staleActiveSavePath, saveBeforeExternalMutation);
 
 const importedCampaignPortrait = await app.importCampaignPlayerPortrait({
-  bytes: new Uint8Array([13, 14, 15, 16]),
+  bytes: portraitPngBytes,
   mimeType: 'image/png',
   fileName: 'active-campaign.png'
 });
@@ -451,7 +460,7 @@ host.storage.deleteFile = async (path, options) => {
   return deleteFileBeforeCampaignReplacement.call(host.storage, path, options);
 };
 const replacedCampaignPortrait = await app.importCampaignPlayerPortrait({
-  bytes: new Uint8Array([17, 18, 19, 20]),
+  bytes: portraitWebpBytes,
   mimeType: 'image/webp',
   fileName: 'active-campaign-replacement.webp'
 });
@@ -478,7 +487,7 @@ host.storage.writeJson = async (path, value) => {
 };
 await assert.rejects(
   app.importCampaignPlayerPortrait({
-    bytes: new Uint8Array([21, 22, 23, 24]),
+    bytes: portraitPngBytes,
     mimeType: 'image/png',
     fileName: 'active-campaign-rollback.png'
   }),
@@ -979,7 +988,7 @@ const portraitRaceLoad = app.loadCheckpoint({ checkpointId: restoreFailureCheckp
 await portraitLoadCloneStarted;
 let portraitRaceResolved = false;
 const portraitRaceImport = app.importCampaignPlayerPortrait({
-  bytes: new Uint8Array([31, 32, 33, 34]),
+  bytes: portraitPngBytes,
   mimeType: 'image/png',
   fileName: 'load-race.png'
 }).then((result) => {
