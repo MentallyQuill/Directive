@@ -17,6 +17,7 @@ import { createAshesInitialState } from './v1-test-fixtures.mjs';
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(structuredClone(seed)));
   let nextWriteFailure = null;
+  let nextDeleteFailure = null;
   let nextReadMutation = null;
   return {
     async readJson(key) {
@@ -41,12 +42,24 @@ function memoryAdapter(seed = {}) {
       }
       files.set(key, structuredClone(value));
     },
-    async deleteJsonFile(key) { files.delete(key); },
+    async deleteJsonFile(key) {
+      if (nextDeleteFailure?.matches(key)) {
+        const failure = nextDeleteFailure;
+        nextDeleteFailure = null;
+        throw failure.error;
+      }
+      files.delete(key);
+    },
     snapshot: () => Object.fromEntries(files),
     failNextWriteFor(match, code = 'TEST_WRITE_FAILED') {
       const error = new Error(`injected write failure: ${match}`);
       error.code = code;
       nextWriteFailure = { matches: (key) => key.includes(match), error };
+    },
+    failNextDeleteFor(match, code = 'TEST_DELETE_FAILED') {
+      const error = new Error(`injected delete failure: ${match}`);
+      error.code = code;
+      nextDeleteFailure = { matches: (key) => key.includes(match), error };
     },
     mutateNextReadFor(match, mutate) {
       nextReadMutation = { matches: (key) => key.includes(match), mutate };
@@ -177,9 +190,9 @@ assert.deepEqual(await loadV1CampaignSave(manifestFailureAdapter, active.id), ac
 const indexRefreshFailureAdapter = memoryAdapter();
 await storeV1CampaignSave(indexRefreshFailureAdapter, active);
 indexRefreshFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.index);
-await assert.rejects(
+await assert.doesNotReject(
   storeV1CampaignSave(indexRefreshFailureAdapter, revisedActive, { previousSave: active }),
-  /injected write failure/,
+  'an already-published manifest commit must not be rolled back by a stale summary cache',
 );
 assert.equal(
   indexRefreshFailureAdapter.snapshot()[V1_STORAGE_PATHS.index].saves[active.id].updatedAt,
@@ -195,6 +208,45 @@ assert.equal(
   indexRefreshFailureAdapter.snapshot()[V1_STORAGE_PATHS.index].saves[active.id].updatedAt,
   revisedActive.updatedAt,
   'loading a committed manifest must repair its stale index summary',
+);
+
+const newPublicationFailureAdapter = memoryAdapter();
+newPublicationFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.index);
+await assert.rejects(
+  storeV1CampaignSave(newPublicationFailureAdapter, active),
+  /injected write failure/,
+  'a new manifest must not report success until its index publication commits',
+);
+
+const pointerChangeFailureAdapter = memoryAdapter();
+await storeV1CampaignSave(pointerChangeFailureAdapter, active);
+const pointerCheckpoint = createV1CampaignSave({
+  id: 'checkpoint.pointer-change',
+  name: 'Pointer Change Checkpoint',
+  slotType: 'checkpoint',
+  parentSaveId: active.id,
+  state: active.state,
+  createdAt: '2026-08-10T00:02:40.000Z',
+});
+await storeV1CampaignSave(pointerChangeFailureAdapter, pointerCheckpoint, { makeActive: false });
+const renamedPointerCheckpoint = createV1CampaignSave({
+  ...pointerCheckpoint,
+  name: 'Renamed Pointer Change Checkpoint',
+  updatedAt: '2026-08-10T00:02:41.000Z',
+});
+pointerChangeFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.index);
+await assert.rejects(
+  storeV1CampaignSave(pointerChangeFailureAdapter, renamedPointerCheckpoint, {
+    makeActive: true,
+    previousSave: pointerCheckpoint,
+  }),
+  /injected write failure/,
+  'an active-pointer move must not report success until the index commits',
+);
+assert.equal(
+  pointerChangeFailureAdapter.snapshot()[V1_STORAGE_PATHS.index].activeSaveId,
+  active.id,
+  'a failed active-pointer move must leave the published pointer unchanged',
 );
 
 const corruptionAdapter = memoryAdapter();
@@ -252,6 +304,32 @@ assert.deepEqual(await verifyV1Storage(missingSegmentAdapter), {
   initialized: true,
   missingKey: missingSegmentPath,
 });
+const deleteIndexFailureAdapter = memoryAdapter(rolloverAdapter.snapshot());
+const beforeDeleteIndexFailure = deleteIndexFailureAdapter.snapshot();
+deleteIndexFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.index);
+await assert.rejects(
+  deleteV1CampaignSave(deleteIndexFailureAdapter, active.id, { now: '2026-08-10T01:59:00.000Z' }),
+  /injected write failure/,
+);
+assert.deepEqual(
+  deleteIndexFailureAdapter.snapshot(),
+  beforeDeleteIndexFailure,
+  'an index unpublication failure must not delete any save artifact',
+);
+const cleanupFailureAdapter = memoryAdapter(rolloverAdapter.snapshot());
+const failedCleanupPath = V1_STORAGE_PATHS.saveBase(active.id);
+cleanupFailureAdapter.failNextDeleteFor(failedCleanupPath);
+const cleanupFailureResult = await deleteV1CampaignSave(cleanupFailureAdapter, active.id, {
+  now: '2026-08-10T01:59:30.000Z',
+});
+assert.deepEqual(cleanupFailureResult.cleanupFailures, [failedCleanupPath]);
+assert.deepEqual(await listV1CampaignSaves(cleanupFailureAdapter), []);
+assert.equal(Object.hasOwn(cleanupFailureAdapter.snapshot(), failedCleanupPath), true);
+assert.equal(
+  Object.hasOwn(cleanupFailureAdapter.snapshot(), V1_STORAGE_PATHS.save(active.id)),
+  false,
+  'post-unpublication cleanup must continue after one artifact delete fails',
+);
 await deleteV1CampaignSave(rolloverAdapter, active.id, { now: '2026-08-10T02:00:00.000Z' });
 const deletedRolloverFiles = rolloverAdapter.snapshot();
 assert.equal(Object.hasOwn(deletedRolloverFiles, V1_STORAGE_PATHS.save(active.id)), false);

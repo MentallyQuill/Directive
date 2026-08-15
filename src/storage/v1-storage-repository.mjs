@@ -396,6 +396,8 @@ export async function storeV1CampaignSave(adapter, save, {
   const manifestPath = V1_STORAGE_PATHS.save(record.id);
   const existing = await readOrNull(adapter, manifestPath);
   if (existing) {
+    const alreadyPublished = Object.hasOwn(index.saves, record.id);
+    const activePointerStable = !makeActive || index.activeSaveId === record.id;
     if (existing.kind !== V1_CAMPAIGN_SAVE_MANIFEST_KIND) {
       const error = new Error('Directive V1 rejects monolithic or unsupported campaign-save layouts.');
       error.code = 'DIRECTIVE_V1_SAVE_LAYOUT_UNSUPPORTED';
@@ -524,7 +526,11 @@ export async function storeV1CampaignSave(adapter, save, {
     );
     index.saves[record.id] = saveSummary(record);
     if (makeActive) index.activeSaveId = record.id;
-    await writeIndex(adapter, index, record.updatedAt);
+    try {
+      await writeIndex(adapter, index, record.updatedAt);
+    } catch (error) {
+      if (!alreadyPublished || !activePointerStable) throw error;
+    }
     return clone(record);
   }
   const stateHash = await sha256Json(record.state);
@@ -630,19 +636,28 @@ export async function deleteV1CampaignSave(adapter, saveId, { now = new Date().t
   const manifest = manifestRecord?.kind === V1_CAMPAIGN_SAVE_MANIFEST_KIND
     ? assertV1CampaignSaveManifest(manifestRecord, { saveId: id })
     : null;
-  if (manifest) {
-    for (const reference of manifest.segments) {
-      await remove(adapter, V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'a'));
-      await remove(adapter, V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'b'));
-    }
-  }
-  await remove(adapter, V1_STORAGE_PATHS.saveBase(id));
-  const deleted = await remove(adapter, manifestPath);
   const deletedActive = index.activeSaveId === id;
   delete index.saves[id];
-  if (index.activeSaveId === id) index.activeSaveId = null;
+  if (deletedActive) index.activeSaveId = null;
   await writeIndex(adapter, index, now);
-  return { deleted, deletedActive, id };
+  const cleanupFailures = [];
+  const cleanup = async (path) => {
+    try {
+      return await remove(adapter, path);
+    } catch {
+      cleanupFailures.push(path);
+      return false;
+    }
+  };
+  const deleted = await cleanup(manifestPath);
+  await cleanup(V1_STORAGE_PATHS.saveBase(id));
+  if (manifest) {
+    for (const reference of manifest.segments) {
+      await cleanup(V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'a'));
+      await cleanup(V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'b'));
+    }
+  }
+  return { deleted, deletedActive, id, cleanupFailures };
 }
 
 export async function verifyV1Storage(adapter) {
