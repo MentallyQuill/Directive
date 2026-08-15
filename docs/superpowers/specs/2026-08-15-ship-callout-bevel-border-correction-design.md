@@ -4,7 +4,7 @@
 
 ## Goal
 
-Correct the floating desktop Ship callouts so their 4px bevels have continuous painted edges instead of visibly clipped rectangular borders. Make Ship leader lines solid and one pixel thicker.
+Correct the floating desktop Ship callouts so their 4px bevels have continuous painted edges instead of visibly clipped rectangular borders. Make Ship leader lines solid at 1.5px normally and 2px when highlighted.
 
 ## Root Cause
 
@@ -20,7 +20,7 @@ At the existing `max-width: 820px` breakpoint, the pseudo-element bevel layers a
 
 ## Leader Contract
 
-All `.ship-task-leader` routes become solid. Default stroke width changes from `1` to `2`; active preview/selection width changes from `1.5` to `2.5`. Geometry, endpoints, colors, routing, and pointer/selection behavior remain unchanged.
+All `.ship-task-leader` routes become solid. Default stroke width changes from `1` to `1.5`; active preview/selection width changes from `1.5` to `2`. Geometry, endpoints, colors, routing, and pointer/selection behavior remain unchanged.
 
 ## Verification
 
@@ -30,7 +30,7 @@ Browser coverage must fail against the clipped-border implementation and then pr
 - the inner layer is inset one pixel and uses a 3px bevel;
 - the left accent layer is 3px wide;
 - responsive accordion buttons disable both polygon layers and retain their existing rectangular border;
-- every leader is solid and computes to 2px, while the active leader computes to 2.5px;
+- every leader is solid and computes to 1.5px, while the active leader computes to 2px;
 - callouts remain intrinsically sized, in bounds, non-overlapping, and connected without crossings.
 
 Rendered inspection covers 1440x900, 1024x768, and the Android desktop-site 980x720 CSS viewport, plus existing mobile viewports. The full repository gate and exact remote ancestry check are required before publication.
