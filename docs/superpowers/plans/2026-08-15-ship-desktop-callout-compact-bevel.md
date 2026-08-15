@@ -32,7 +32,7 @@
 - Consumes: existing visible task records with numeric `task.level`, `task.title`, `task.reward`, and task-category data.
 - Produces: one `.ship-task-desktop-level` span per `.ship-task-button`; no changed function signature, projection, persistence record, or layout API.
 
-- [ ] **Step 1: Write failing structural assertions**
+- [x] **Step 1: Write failing structural assertions**
 
 After the existing `.ship-task-button` count assertion in `test-certified-ship-panel.mjs`, add:
 
@@ -47,7 +47,7 @@ assert.equal(firstTitleRow.children[1].classList.contains('ship-task-category-ic
 assert.equal(firstTitleRow.children[2].tagName, 'STRONG');
 ```
 
-- [ ] **Step 2: Run the focused structural test and verify RED**
+- [x] **Step 2: Run the focused structural test and verify RED**
 
 Run:
 
@@ -57,7 +57,7 @@ node tools/scripts/test-certified-ship-panel.mjs
 
 Expected: FAIL because no `.ship-task-desktop-level` elements exist.
 
-- [ ] **Step 3: Render the level before the category symbol**
+- [x] **Step 3: Render the level before the category symbol**
 
 In the `.ship-task-button` title-row construction in `ship-journal.js`, add the presentation span before `createTaskCategoryIcon(task)`:
 
@@ -76,7 +76,7 @@ titleRow.appendChild(label);
 
 Keep the existing button accessible name and mobile badge rendering unchanged. The visible desktop level is decorative to assist scanning because the selected detail already exposes `Level {n} Command Assignment` and mobile badges keep their own accessible level phrase.
 
-- [ ] **Step 4: Add bounded intrinsic sizing and the desktop bevel**
+- [x] **Step 4: Add bounded intrinsic sizing and the desktop bevel**
 
 Replace the desktop button's fixed width and radius in `directive.css`:
 
@@ -128,7 +128,7 @@ In the existing `@media (max-width: 820px)` `.ship-task-button` override, explic
 
 Retain the existing open-row `border-radius: 4px 4px 0 0` rule. If the clipped desktop outline is not legible in Chromium, add a task-button-specific `:focus-visible` filter ring after visual inspection without changing `.ship-command-relief-button` focus styling.
 
-- [ ] **Step 5: Run the focused structural and interaction checks and verify GREEN**
+- [x] **Step 5: Run the focused structural and interaction checks and verify GREEN**
 
 Run:
 
@@ -139,7 +139,7 @@ node tools/scripts/test-cohesion-ship-interaction.mjs
 
 Expected: both scripts exit 0 with their PASS summaries; existing button selection and accordion behavior remain intact.
 
-- [ ] **Step 6: Commit the structural implementation**
+- [x] **Step 6: Commit the structural implementation**
 
 Run:
 
@@ -162,7 +162,7 @@ git commit -m "feat(ship): compact desktop callouts"
 - Consumes: rendered `.ship-task-button`, `.ship-task-desktop-level`, `.ship-task-mobile-callout`, leader polylines, and the unchanged `data-slot`/`data-corner` layout result.
 - Produces: browser certification that bounded intrinsic widths, bevels, and levels affect only desktop callouts.
 
-- [ ] **Step 1: Add browser assertions for the approved desktop contract**
+- [x] **Step 1: Add browser assertions for the approved desktop contract**
 
 Within the existing viewport loop in `test-cohesion-ship-visual.mjs`, add a desktop/mobile branch:
 
@@ -194,7 +194,7 @@ if (viewport.width > 820) {
 
 Keep the existing `layoutSafety` assertion requiring `{ overlapCount: 0, crossingCount: 0 }` and the resize/restoration check. Do not change the mobile badge assertions or geometry thresholds.
 
-- [ ] **Step 2: Run the browser test and verify the new contract**
+- [x] **Step 2: Run the browser test and verify the new contract**
 
 Run:
 
@@ -204,7 +204,7 @@ node tools/scripts/test-cohesion-ship-visual.mjs
 
 Expected: the script exits 0, produces certified screenshots, and proves varied desktop widths with no callout overlap or leader crossing.
 
-- [ ] **Step 3: Inspect the certified screenshots and interaction states**
+- [x] **Step 3: Inspect the certified screenshots and interaction states**
 
 Inspect the generated desktop screenshots at 1440x900 and 1024x768. Confirm visually that:
 
@@ -216,7 +216,7 @@ Inspect the generated desktop screenshots at 1440x900 and 1024x768. Confirm visu
 
 If inspection finds a concrete defect, adjust only the 120px minimum, title-row gaps, level typography, or task-button-specific focus treatment. Keep the approved 4px bevel and 205px maximum.
 
-- [ ] **Step 4: Re-run the focused browser test after any polish**
+- [x] **Step 4: Re-run the focused browser test after any polish**
 
 Run:
 
@@ -226,7 +226,7 @@ node tools/scripts/test-cohesion-ship-visual.mjs
 
 Expected: PASS with the final CSS values and regenerated screenshots.
 
-- [ ] **Step 5: Commit the browser certification**
+- [x] **Step 5: Commit the browser certification**
 
 Run:
 
@@ -288,4 +288,3 @@ git rev-parse HEAD
 ```
 
 Use `gh api repos/{owner}/{repo}/commits/main --jq .sha` with network permission and confirm it exactly matches local `HEAD`. Report source, focused tests, full gate, remote SHA, and preservation of the unrelated `debug.log` change separately.
-

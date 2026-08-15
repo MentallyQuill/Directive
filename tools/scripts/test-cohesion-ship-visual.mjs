@@ -200,6 +200,31 @@ try {
       true,
       `${viewport.label} decorative task icons stay out of the accessibility tree`,
     );
+    const desktopCalloutContract = await page.locator('.ship-task-button').evaluateAll((buttons) => buttons.map((button) => {
+      const style = getComputedStyle(button);
+      const level = button.querySelector('.ship-task-desktop-level');
+      return {
+        width: button.getBoundingClientRect().width,
+        maxWidth: style.maxWidth,
+        clipPath: style.clipPath,
+        levelText: level?.textContent || '',
+        levelDisplay: level ? getComputedStyle(level).display : 'missing',
+      };
+    }));
+    if (viewport.width > 820) {
+      assert.equal(desktopCalloutContract.every(({ levelText }) => /^L\d+$/.test(levelText)), true);
+      assert.equal(desktopCalloutContract.every(({ levelDisplay }) => levelDisplay !== 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ width }) => width >= 120 && width <= 205.5), true);
+      assert.equal(desktopCalloutContract.every(({ maxWidth }) => maxWidth === '205px'), true);
+      assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath !== 'none'), true);
+      assert.ok(
+        new Set(desktopCalloutContract.map(({ width }) => Math.round(width))).size > 1,
+        `${viewport.label} title widths produce varied callouts`,
+      );
+    } else {
+      assert.equal(desktopCalloutContract.every(({ levelDisplay }) => levelDisplay === 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath === 'none'), true);
+    }
     assert.equal(await page.locator('.ship-task-detail').count(), 1);
     assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 additional assignments queued/);
 
@@ -507,6 +532,11 @@ try {
       assert.equal(await activeDetail.locator('h3').count(), 0, `${viewport.label} inline detail does not repeat the title`);
     } else {
       assert.match(await page.locator('.ship-task-detail h3').textContent(), /Systems Integration/);
+      assert.equal(
+        await buttons.nth(1).locator('.ship-task-desktop-level').evaluate((level) => getComputedStyle(level).color),
+        'rgb(255, 162, 79)',
+        `${viewport.label} selected desktop level becomes amber`,
+      );
     }
     const activeDetailText = await activeDetail.textContent();
     for (const heading of [
@@ -521,7 +551,21 @@ try {
     assert.doesNotMatch(activeDetailText, /Why it matters to you|How to pursue it/);
     assert.match(activeDetailText, /always ask the ship's computer for help/i);
 
-    await buttons.nth(2).focus();
+    await page.evaluate(() => document.activeElement?.blur());
+    let thirdButtonHasKeyboardFocus = false;
+    for (let attempt = 0; attempt < 30 && !thirdButtonHasKeyboardFocus; attempt += 1) {
+      await page.keyboard.press('Tab');
+      thirdButtonHasKeyboardFocus = await buttons.nth(2).evaluate((button) => document.activeElement === button);
+    }
+    assert.equal(thirdButtonHasKeyboardFocus, true, `${viewport.label} third task is keyboard reachable`);
+    assert.equal(
+      await buttons.nth(2).evaluate((button) => {
+        const style = getComputedStyle(button);
+        return style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) >= 2;
+      }),
+      true,
+      `${viewport.label} keyboard-focused task retains a visible outline`,
+    );
     await page.keyboard.press('Enter');
     assert.equal(await buttons.nth(2).getAttribute('aria-pressed'), 'true', `${viewport.label} keyboard task selection`);
     if (mobile) {
