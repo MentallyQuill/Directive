@@ -1104,9 +1104,9 @@ try {
     {
       width: 256,
       height: 256,
-      min: 199,
+      min: 0,
       max: 255,
-      digest: '156bf385fa27d67502f148adef022eea39dd4bb507a415fbe1e1c9f914d2e52f'
+      digest: '82c394d605d5646363d26e9d2489a80b9484b83e6dd30bbcb3e1e0da634075e7'
     }
   );
   assert.ok(Math.abs(desktopCampaign.hero.top - desktopCampaign.heading.bottom) < 1, 'desktop hero must start directly below the Campaign header');
