@@ -25,8 +25,6 @@ export function pickSafeDirectiveSamplerPayload(payload = {}) {
   return Object.fromEntries(SAFE_DIRECTIVE_SAMPLER_FIELDS.flatMap((field) => {
     if (!Object.hasOwn(source, field)) return [];
     const value = cloneSamplerValue(source[field]);
-    const numericValue = Number(value);
-    if (field === 'top_k' && Number.isFinite(numericValue) && numericValue <= 0) return [];
     return value === undefined ? [] : [[field, value]];
   }));
 }
