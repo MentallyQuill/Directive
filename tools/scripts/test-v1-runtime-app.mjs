@@ -148,15 +148,25 @@ const generation = createFakeGenerationClient({
       }
       if (rejectMissionInterpretation) throw new Error('forced fake provider failure');
       if (missionInterpretationCalls === 1) throw new Error('transient fake provider failure');
+      const acceptedClaimsByCall = {
+        2: [{
+          candidateId: 'policy.prelude.command-handover-terms-settled',
+          sourceSlot: 'previousAssistant',
+          evidenceQuote: 'Whitaker sets the handover terms: she retains decisions to commit the ship, while the XO owns day-to-day coordination.'
+        }],
+        3: [{
+          candidateId: 'policy.prelude.command-handover-completed',
+          sourceSlot: 'previousAssistant',
+          evidenceQuote: 'The practical command handover is now complete; take the chair, Commander.'
+        }]
+      };
+      const acceptedClaims = acceptedClaimsByCall[missionInterpretationCalls] || [];
       return {
         text: JSON.stringify({
           kind: 'directive.missionEvidenceInterpretation.v1',
           assistantAcceptance: 'accepted',
-          claims: missionInterpretationCalls === 3 ? [{
-            candidateId: 'policy.prelude.command-handover-completed',
-            sourceSlot: 'previousAssistant'
-          }] : [],
-          abstained: missionInterpretationCalls !== 3,
+          claims: acceptedClaims,
+          abstained: acceptedClaims.length === 0,
           time: {
             decision: 'advance',
             elapsedSeconds: 47,
@@ -723,7 +733,7 @@ const scaledPromptingPlayer = chat.pushPlayerMessage({
   hostMessageId: 'player.scale-prompt',
 });
 chat.pushAssistantMessage({
-  text: 'Whitaker places the handover packet on the desk and waits for the commander.',
+  text: 'Whitaker sets the handover terms: she retains decisions to commit the ship, while the XO owns day-to-day coordination.',
   hostMessageId: 'assistant.scale-response',
   metadata: { promptingPlayerHostMessageId: scaledPromptingPlayer.hostMessageId },
 });
@@ -869,10 +879,11 @@ const dutyReportText = createDutyReportVisibleSegment({
 const acceptedRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(acceptedRevision > 1);
 
+const completedHandoverText = `Nayar steps forward. ${dutyReportText} Whitaker adds, “The practical command handover is now complete; take the chair, Commander.”`;
 const provisional = chat.pushAssistantMessage({
-  text: `Nayar steps forward. ${dutyReportText}`,
+  text: completedHandoverText,
   hostMessageId: 'assistant.provisional',
-  swipes: ['Whitaker closes the packet.', `Nayar steps forward. ${dutyReportText}`],
+  swipes: ['Whitaker closes the packet.', completedHandoverText],
   swipeId: 1
 });
 const attachedDutyReport = await app.handleHostGenerationEnded({ message: provisional });
