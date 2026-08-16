@@ -107,11 +107,20 @@ function snapshotFor({
 }
 
 function interpretationOutput({ assistantAcceptance = 'accepted', claims = [], peopleEvents = [], abstained = false } = {}) {
+    const evidenceQuoteFor = (sourceSlot) => sourceSlot === 'currentPlayer'
+        ? 'I accept the watch and proceed.'
+        : 'Captain Whitaker completes the command handover and places the watch in your hands.';
     return JSON.stringify({
         kind: 'directive.missionEvidenceInterpretation.v1',
         assistantAcceptance,
-        claims,
-        peopleEvents,
+        claims: claims.map((claim) => ({
+            ...claim,
+            evidenceQuote: claim.evidenceQuote || evidenceQuoteFor(claim.sourceSlot),
+        })),
+        peopleEvents: peopleEvents.map((event) => ({
+            ...event,
+            evidenceQuote: event.evidenceQuote || evidenceQuoteFor(event.sourceSlot),
+        })),
         abstained,
         time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
@@ -971,6 +980,7 @@ for (const [label, assistantAcceptance, sourceOptions, expectedReason] of [
             claims: [{
                 candidateId: 'policy.hesperus-discrepancy-disclosed',
                 sourceSlot: 'previousAssistant',
+                evidenceQuote: 'Bronn opens the reviewed file.',
             }],
         })],
     });
@@ -997,6 +1007,7 @@ const optionalProseHarness = reportHarnessFor({
         claims: [{
             candidateId: 'policy.hesperus-discrepancy-disclosed',
             sourceSlot: 'previousAssistant',
+            evidenceQuote: 'Bronn opens the reviewed file.',
         }],
     })],
 });
@@ -1020,6 +1031,7 @@ const optionalInvalidHarness = reportHarnessFor({
         claims: [{
             candidateId: 'policy.hesperus-discrepancy-disclosed',
             sourceSlot: 'previousAssistant',
+            evidenceQuote: 'Bronn opens the reviewed file.',
         }],
     })],
 });

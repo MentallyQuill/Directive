@@ -151,11 +151,11 @@ function acceptedPairSnapshot(number) {
     };
 }
 
-function interpretation(candidateId) {
+function interpretation(candidateId, evidenceQuote) {
     return JSON.stringify({
         kind: 'directive.missionEvidenceInterpretation.v1',
         assistantAcceptance: 'accepted',
-        claims: [{ candidateId, sourceSlot: 'previousAssistant' }],
+        claims: [{ candidateId, sourceSlot: 'previousAssistant', evidenceQuote }],
         abstained: false,
         time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
@@ -170,8 +170,8 @@ let atomicState = {
 };
 let generationIndex = 0;
 const atomicOutputs = [
-    interpretation('policy.prelude.command-handover-completed'),
-    interpretation('policy.prelude.staff-readiness-established'),
+    interpretation('policy.prelude.command-handover-completed', 'Assistant source 1'),
+    interpretation('policy.prelude.staff-readiness-established', 'Assistant source 2'),
 ];
 const atomicGateway = createStateDeltaGateway({
     getState: () => atomicState,

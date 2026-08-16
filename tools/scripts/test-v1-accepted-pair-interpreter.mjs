@@ -23,7 +23,7 @@ const sourcePair = {
         messageId: 'message.assistant.17',
         selectedSwipeId: '2',
         textHash: 'a'.repeat(64),
-        text: 'With the last patient aboard, Sato confirms everyone from Hesperus is safe.',
+        text: 'With the last patient aboard, Sato confirms everyone from Hesperus is safe. Ari Sol gives her name during the engineering-deck conversation.',
     },
     currentPlayer: {
         messageId: 'message.player.18',
@@ -73,7 +73,7 @@ assert.match(prompt.systemPrompt, /merely mentioned.*(?:does not|do not) create/
 assert.match(prompt.messages[1].content, /mara-whitaker/);
 const claimVariants = prompt.jsonSchema.properties.claims.items.oneOf;
 assert.ok(claimVariants.length >= candidatePacket.candidates.length);
-assert.equal(prompt.jsonSchema.properties.claims.maxItems, Math.min(16, claimVariants.length));
+assert.equal(prompt.jsonSchema.properties.claims.maxItems, Math.min(4, claimVariants.length));
 assert.equal(claimVariants.every((variant) => variant.additionalProperties === false), true);
 assert.equal(
     claimVariants.some((variant) => variant.properties.candidateId.const === 'policy.hesperus.rescue-result'),
@@ -92,11 +92,13 @@ const validOutput = {
             candidateId: 'policy.hesperus.rescue-result',
             sourceSlot: 'previousAssistant',
             value: 'safe',
+            evidenceQuote: 'Sato confirms everyone from Hesperus is safe.',
         },
         {
             candidateId: 'policy.hesperus.rescue-risk-decision',
             sourceSlot: 'currentPlayer',
             value: 'saferPlan',
+            evidenceQuote: 'Use the safer plan for the remaining transfer.',
         },
     ],
     peopleEvents: [{
@@ -105,6 +107,7 @@ const validOutput = {
         name: 'Ari Sol',
         introductionSummary: 'Ari gave her name during a direct engineering-deck conversation.',
         sourceSlot: 'previousAssistant',
+        evidenceQuote: 'Ari Sol gives her name during the engineering-deck conversation.',
     }],
     abstained: false,
     time: {
@@ -116,7 +119,7 @@ const validOutput = {
 };
 const parsed = parseMissionAcceptedPairInterpretationOutput(
     `Result follows:\n\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\``,
-    { candidatePacket },
+    { candidatePacket, sourcePair },
 );
 assert.equal(parsed.ok, true, parsed.errors?.join('\n'));
 assert.equal(parsed.value.claims.length, 2);
@@ -147,6 +150,8 @@ assert.deepEqual(proposal.claims[1].sourceRef, {
 });
 assert.equal(proposal.claims[0].targetId, 'outcome.hesperus.rescue-result');
 assert.equal(proposal.claims[1].claimType, 'decisionRecorded');
+assert.equal(proposal.claims[0].evidenceQuote, 'Sato confirms everyone from Hesperus is safe.');
+assert.match(proposal.claims[0].evidenceQuoteHash, /^[a-f0-9]{8}$/);
 assert.match(proposal.claims[0].claimId, /^claim\.[a-f0-9]{8}$/);
 
 const mixedCandidatePacket = {
@@ -170,10 +175,12 @@ const mixedOutput = {
     claims: [validOutput.claims[0], {
         candidateId: 'ship-milestone.sensor-baseline',
         sourceSlot: 'previousAssistant',
+        evidenceQuote: 'Sato confirms everyone from Hesperus is safe.',
     }],
 };
 const mixedParsed = parseMissionAcceptedPairInterpretationOutput(mixedOutput, {
     candidatePacket: mixedCandidatePacket,
+    sourcePair,
 });
 assert.equal(mixedParsed.ok, true, mixedParsed.errors?.join('\n'));
 const mixedProposal = materializeMissionEvidenceProposal({
@@ -192,7 +199,7 @@ assert.deepEqual(mixedProposal.claims.map(({ domain, claimType }) => ({ domain, 
 const corrected = parseMissionAcceptedPairInterpretationOutput({
     ...validOutput,
     assistantAcceptance: 'corrected',
-}, { candidatePacket });
+}, { candidatePacket, sourcePair });
 assert.equal(corrected.ok, true);
 assert.deepEqual(corrected.value.claims, [validOutput.claims[1]]);
 assert.deepEqual(corrected.value.peopleEvents, []);
@@ -211,7 +218,7 @@ const abstained = parseMissionAcceptedPairInterpretationOutput({
         reason: 'insufficient-evidence',
         confidence: 0.2,
     },
-}, { candidatePacket });
+}, { candidatePacket, sourcePair });
 assert.equal(abstained.ok, true);
 assert.deepEqual(abstained.value.claims, []);
 
@@ -221,7 +228,7 @@ for (const [label, output, pattern] of [
     ['unknown acceptance', { ...validOutput, assistantAcceptance: 'probably' }, /assistantAcceptance/],
     ['unknown candidate', {
         ...validOutput,
-        claims: [{ candidateId: 'policy.hallucinated', sourceSlot: 'previousAssistant' }],
+        claims: [{ candidateId: 'policy.hallucinated', sourceSlot: 'previousAssistant', evidenceQuote: 'Sato confirms everyone from Hesperus is safe.' }],
     }, /unknown candidate/],
     ['wrong source slot', {
         ...validOutput,
@@ -229,6 +236,7 @@ for (const [label, output, pattern] of [
             candidateId: 'policy.hesperus.rescue-risk-decision',
             sourceSlot: 'previousAssistant',
             value: 'saferPlan',
+            evidenceQuote: 'Sato confirms everyone from Hesperus is safe.',
         }],
     }, /sourceSlot is not authorized/],
     ['disallowed value', {
@@ -237,11 +245,12 @@ for (const [label, output, pattern] of [
             candidateId: 'policy.hesperus.rescue-result',
             sourceSlot: 'previousAssistant',
             value: 'unresolved',
+            evidenceQuote: 'Sato confirms everyone from Hesperus is safe.',
         }],
     }, /value is not allowed/],
     ['missing value', {
         ...validOutput,
-        claims: [{ candidateId: 'policy.hesperus.rescue-result', sourceSlot: 'previousAssistant' }],
+        claims: [{ candidateId: 'policy.hesperus.rescue-result', sourceSlot: 'previousAssistant', evidenceQuote: 'Sato confirms everyone from Hesperus is safe.' }],
     }, /value is required/],
     ['value on non-valued claim', {
         ...validOutput,
@@ -249,12 +258,30 @@ for (const [label, output, pattern] of [
             candidateId: 'policy.prelude.command-handover-completed',
             sourceSlot: 'previousAssistant',
             value: true,
+            evidenceQuote: 'Sato confirms everyone from Hesperus is safe.',
         }],
     }, /value is not allowed/],
     ['duplicate selection', {
         ...validOutput,
         claims: [validOutput.claims[0], validOutput.claims[0]],
     }, /duplicate claim selection/],
+    ['missing evidence quote', {
+        ...validOutput,
+        claims: [{ ...validOutput.claims[0], evidenceQuote: undefined }],
+    }, /evidenceQuote/],
+    ['short evidence quote', {
+        ...validOutput,
+        claims: [{ ...validOutput.claims[0], evidenceQuote: 'too short' }],
+    }, /12 through 240/],
+    ['quote absent from authorized source', {
+        ...validOutput,
+        claims: [{ ...validOutput.claims[0], evidenceQuote: 'Everyone reached a station that the source never names.' }],
+    }, /authorized source/],
+    ['five durable selections', {
+        ...validOutput,
+        claims: [validOutput.claims[0], validOutput.claims[1], validOutput.claims[0], validOutput.claims[1]],
+        peopleEvents: [validOutput.peopleEvents[0]],
+    }, /no more than 4 durable selections/],
     ['abstained with claims', { ...validOutput, abstained: true }, /abstained output cannot contain claims/],
     ['unknown time field', { ...validOutput, time: { ...validOutput.time, absoluteClock: '0842' } }, /time contains unknown field/],
     ['negative elapsed time', { ...validOutput, time: { ...validOutput.time, elapsedSeconds: -1 } }, /nonnegative integer/],
@@ -267,12 +294,12 @@ for (const [label, output, pattern] of [
         time: { ...validOutput.time, elapsedSeconds: 2678401 },
     }, /must not exceed/],
 ]) {
-    const invalid = parseMissionAcceptedPairInterpretationOutput(output, { candidatePacket });
+    const invalid = parseMissionAcceptedPairInterpretationOutput(output, { candidatePacket, sourcePair });
     assert.equal(invalid.ok, false, label);
     assert.match(invalid.errors.join('\n'), pattern, label);
 }
 
-const malformed = parseMissionAcceptedPairInterpretationOutput('not json', { candidatePacket });
+const malformed = parseMissionAcceptedPairInterpretationOutput('not json', { candidatePacket, sourcePair });
 assert.equal(malformed.ok, false);
 assert.match(malformed.errors.join('\n'), /valid JSON/);
 
