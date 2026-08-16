@@ -115,6 +115,7 @@ const checks = [
   "test-v1-semantic-authority-cutover.mjs",
   "test-ashes-objective-progression-gates.mjs",
   "test-prelude-premature-completion-regression.mjs",
+  "test-sam-vickers-premature-evidence-repair.mjs",
   "test-ashes-v1-campaign.mjs",
   "test-host-contract-fake.mjs",
   "test-logical-storage-adapter.mjs",
