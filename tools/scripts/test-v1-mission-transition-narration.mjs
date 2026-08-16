@@ -82,6 +82,7 @@ const runtime = createV1MissionRuntime({
                         claims: [{
                             candidateId: 'policy.hesperus-survivors-transferred',
                             sourceSlot: 'previousAssistant',
+                            evidenceQuote: 'The last Hesperus survivor reaches safety aboard the Breckenridge.',
                         }],
                         abstained: false,
                         time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
