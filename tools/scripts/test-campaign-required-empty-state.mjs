@@ -137,15 +137,20 @@ assert.equal(body.querySelectorAll('.directive-campaign-required').length, 1);
 const lcarsRails = body.querySelectorAll('.directive-campaign-required-rail');
 assert.equal(lcarsRails.length, 2);
 assert.ok(lcarsRails.every((rail) => rail.getAttribute('aria-hidden') === 'true'));
+const lcarsFrame = body.querySelector('.directive-campaign-required-frame');
+assert.ok(lcarsFrame, 'campaign-required state must render a decorative LCARS frame');
+assert.equal(lcarsFrame.getAttribute('aria-hidden'), 'true');
+assert.equal(body.querySelectorAll('.directive-campaign-required-elbow').length, 1);
 const lcarsSegments = body.querySelectorAll('.directive-campaign-required-segment');
 assert.equal(lcarsSegments.length, 6);
 assert.deepEqual(
   lcarsSegments.map((segment) => segment.dataset.tone),
   ['amber', 'lilac', 'blue', 'violet', 'salmon', 'amber'],
 );
-const lcarsCore = body.querySelector('.directive-campaign-required-core');
-assert.equal(lcarsCore.children[0].classList.contains('directive-campaign-required-icon-pod'), true);
-assert.equal(lcarsCore.children[1].classList.contains('directive-campaign-required-copy'), true);
+assert.equal(body.querySelectorAll('.directive-campaign-required-icon-pod').length, 0);
+const lcarsContent = body.querySelector('.directive-campaign-required-content');
+assert.equal(lcarsContent.children[0].classList.contains('directive-campaign-required-icon-field'), true);
+assert.equal(lcarsContent.children[1].classList.contains('directive-campaign-required-copy'), true);
 assert.equal(
   body.querySelector('.directive-campaign-required-eyebrow').textContent,
   'CAMPAIGN CONNECTION REQUIRED',
@@ -194,6 +199,18 @@ assert.equal(campaign.classList.contains('is-campaign-guidance-target'), false);
 assert.equal(campaign.getAttribute('aria-describedby'), null);
 
 const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.url), 'utf8');
+const campaignRequiredStyles = css.slice(
+  css.indexOf('.directive-expanded-shell .directive-campaign-required {'),
+  css.indexOf('.directive-expanded-shell .directive-route-heading'),
+);
+assert.doesNotMatch(campaignRequiredStyles, /\.directive-campaign-required-elbow::after/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-elbow[\s\S]*?border:\s*14px\s+solid\s+var\(--directive-expanded-amber\)/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-elbow[\s\S]*?border-right:\s*0/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-elbow[\s\S]*?background:\s*transparent/);
+assert.doesNotMatch(campaignRequiredStyles, /border-radius:\s*62px\s+0\s+0\s+62px/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-copy[\s\S]*?background:\s*transparent/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-copy[\s\S]*?border-radius:\s*0/);
+assert.match(campaignRequiredStyles, /\.directive-campaign-required-copy[\s\S]*?box-shadow:\s*none/);
 assert.match(css, /@keyframes\s+directive-campaign-guidance-pulse/);
 assert.match(
   css,

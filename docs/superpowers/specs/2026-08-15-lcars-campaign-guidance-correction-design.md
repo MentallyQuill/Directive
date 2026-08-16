@@ -2,6 +2,8 @@
 
 **Date:** 2026-08-15
 
+> **Correction:** The notification-frame composition in this document is superseded by `2026-08-15-continuous-lcars-campaign-guidance-design.md`. The Campaign backlight timing and behavioral boundaries remain unchanged.
+
 ## Goal
 
 Correct the campaign-required empty state so it reads as a composed LCARS status assembly rather than a conventional bordered card, and replace the Campaign tab's soft breathing glow with a held-state bridge-panel backlight.

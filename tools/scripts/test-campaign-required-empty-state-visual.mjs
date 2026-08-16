@@ -83,6 +83,9 @@ try {
         'Open Campaign below, then choose or load a save to bring this panel online.',
       );
       const lcarsSegments = statusPanel.locator('.directive-campaign-required-segment');
+      assert.equal(await statusPanel.locator('.directive-campaign-required-frame').count(), 1, `${route} ${viewport.label} must render one LCARS frame`);
+      assert.equal(await statusPanel.locator('.directive-campaign-required-elbow').count(), 1, `${route} ${viewport.label} must render one continuous elbow`);
+      assert.equal(await statusPanel.locator('.directive-campaign-required-icon-pod').count(), 0, `${route} ${viewport.label} must not render the old icon pod`);
       assert.equal(await lcarsSegments.count(), 6, `${route} ${viewport.label} must render six LCARS segments`);
       assert.deepEqual(
         await lcarsSegments.evaluateAll((segments) => segments.map((segment) => segment.dataset.tone)),
@@ -101,8 +104,29 @@ try {
           nav: copyRect(nav.getBoundingClientRect()),
           panelScrollWidth: panel.scrollWidth,
           bodyClientWidth: body.clientWidth,
-          iconPod: copyRect(document.querySelector('.directive-campaign-required-icon-pod').getBoundingClientRect()),
+          elbow: copyRect(document.querySelector('.directive-campaign-required-elbow').getBoundingClientRect()),
+          elbowStyle: (() => {
+            const style = getComputedStyle(document.querySelector('.directive-campaign-required-elbow'));
+            return {
+              background: style.backgroundColor,
+              borderTopWidth: style.borderTopWidth,
+              borderRightWidth: style.borderRightWidth,
+              borderBottomWidth: style.borderBottomWidth,
+              borderLeftWidth: style.borderLeftWidth,
+            };
+          })(),
+          topRail: copyRect(document.querySelector('.directive-campaign-required-rail-top').getBoundingClientRect()),
+          bottomRail: copyRect(document.querySelector('.directive-campaign-required-rail-bottom').getBoundingClientRect()),
+          icon: copyRect(document.querySelector('.directive-campaign-required-icon').getBoundingClientRect()),
           copy: copyRect(document.querySelector('.directive-campaign-required-copy').getBoundingClientRect()),
+          copyStyle: (() => {
+            const style = getComputedStyle(document.querySelector('.directive-campaign-required-copy'));
+            return {
+              background: style.backgroundColor,
+              boxShadow: style.boxShadow,
+              borderRadius: style.borderRadius,
+            };
+          })(),
           documentOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         };
 
@@ -120,7 +144,26 @@ try {
       );
       assert.ok(geometry.panel.bottom < geometry.nav.top, `${route} ${viewport.label} panel must clear navigation`);
       assert.ok(geometry.panelScrollWidth <= geometry.bodyClientWidth, `${route} ${viewport.label} panel must fit route body`);
-      assert.ok(geometry.iconPod.right <= geometry.copy.left, `${route} ${viewport.label} ship pod must stay left of copy`);
+      assert.ok(Math.abs(geometry.elbow.right - geometry.topRail.left) <= 1, `${route} ${viewport.label} upper rail must touch elbow`);
+      assert.ok(Math.abs(geometry.elbow.right - geometry.bottomRail.left) <= 1, `${route} ${viewport.label} lower rail must touch elbow`);
+      assert.ok(Math.abs(geometry.elbow.top - geometry.topRail.top) <= 1, `${route} ${viewport.label} upper rail must align with elbow top`);
+      assert.ok(Math.abs(geometry.elbow.bottom - geometry.bottomRail.bottom) <= 1, `${route} ${viewport.label} lower rail must align with elbow bottom`);
+      assert.deepEqual(
+        geometry.elbowStyle,
+        {
+          background: 'rgba(0, 0, 0, 0)',
+          borderTopWidth: '14px',
+          borderRightWidth: '0px',
+          borderBottomWidth: '14px',
+          borderLeftWidth: '14px',
+        },
+        `${route} ${viewport.label} elbow must expose the real black field through a three-sided border`,
+      );
+      assert.ok(geometry.icon.left >= geometry.elbow.left && geometry.icon.right <= geometry.elbow.right, `${route} ${viewport.label} ship must sit inside elbow field`);
+      assert.ok(geometry.copy.left >= geometry.elbow.right, `${route} ${viewport.label} copy must begin outside elbow`);
+      assert.equal(geometry.copyStyle.background, 'rgba(0, 0, 0, 0)', `${route} ${viewport.label} copy field must stay open`);
+      assert.equal(geometry.copyStyle.boxShadow, 'none', `${route} ${viewport.label} copy field must not cast a card shadow`);
+      assert.equal(geometry.copyStyle.borderRadius, '0px', `${route} ${viewport.label} copy field must not have card corners`);
       assert.equal(geometry.documentOverflowX, false, `${route} ${viewport.label} must not overflow the viewport`);
 
       const campaign = page.locator('[data-route-id="campaign"]');

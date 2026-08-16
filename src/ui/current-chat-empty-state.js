@@ -20,10 +20,16 @@ export function appendCurrentChatEmptyState(container, view) {
   container.dataset.campaignRequired = 'true';
 
   const surface = createElement('section', 'directive-campaign-required');
+  const frame = createElement('div', 'directive-campaign-required-frame');
+  frame.setAttribute('aria-hidden', 'true');
+  const elbow = createElement('span', 'directive-campaign-required-elbow');
   const topRail = createLcarsRail('top', ['amber', 'lilac', 'blue']);
-  const core = createElement('div', 'directive-campaign-required-core');
-  const iconPod = createElement('div', 'directive-campaign-required-icon-pod');
-  iconPod.setAttribute('aria-hidden', 'true');
+  const bottomRail = createLcarsRail('bottom', ['violet', 'salmon', 'amber']);
+  frame.append(elbow, topRail, bottomRail);
+
+  const content = createElement('div', 'directive-campaign-required-content');
+  const iconField = createElement('div', 'directive-campaign-required-icon-field');
+  iconField.setAttribute('aria-hidden', 'true');
   const icon = createIconFromDescriptor(
     resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], 'route.ship'),
     {
@@ -33,7 +39,7 @@ export function appendCurrentChatEmptyState(container, view) {
     },
   );
   icon.setAttribute('aria-hidden', 'true');
-  iconPod.appendChild(icon);
+  iconField.appendChild(icon);
 
   const copy = createElement('div', 'directive-campaign-required-copy');
   const eyebrow = createElement('span', 'directive-campaign-required-eyebrow');
@@ -45,9 +51,8 @@ export function appendCurrentChatEmptyState(container, view) {
   detail.textContent = currentChatEmptyMessage(view);
 
   copy.append(eyebrow, instruction, detail);
-  core.append(iconPod, copy);
-  const bottomRail = createLcarsRail('bottom', ['violet', 'salmon', 'amber']);
-  surface.append(topRail, core, bottomRail);
+  content.append(iconField, copy);
+  surface.append(frame, content);
   container.appendChild(surface);
   return surface;
 }
