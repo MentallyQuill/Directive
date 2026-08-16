@@ -4,6 +4,13 @@
   "fragments": {
     "command-handover": [
       {
+        "claimId": "claim.command-handover-terms-settled",
+        "policyId": "policy.prelude.command-handover-terms-settled",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.command-handover-terms-settled",
+        "sourceRole": "assistant"
+      },
+      {
         "claimId": "claim.command-handover-completed",
         "policyId": "policy.prelude.command-handover-completed",
         "claimType": "eventOccurred",
@@ -12,6 +19,41 @@
       }
     ],
     "staff-readiness": [
+      {
+        "claimId": "claim.operations-readiness-exchange",
+        "policyId": "policy.prelude.operations-readiness-exchange",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.operations-readiness-exchange",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.security-readiness-exchange",
+        "policyId": "policy.prelude.security-readiness-exchange",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.security-readiness-exchange",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.science-readiness-exchange",
+        "policyId": "policy.prelude.science-readiness-exchange",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.science-readiness-exchange",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.medical-readiness-exchange",
+        "policyId": "policy.prelude.medical-readiness-exchange",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.medical-readiness-exchange",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.engineering-readiness-exchange",
+        "policyId": "policy.prelude.engineering-readiness-exchange",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.engineering-readiness-exchange",
+        "sourceRole": "assistant"
+      },
       {
         "claimId": "claim.staff-readiness-established",
         "policyId": "policy.prelude.staff-readiness-established",
@@ -40,6 +82,13 @@
         "policyId": "policy.hesperus.rescue-response-begun",
         "claimType": "eventOccurred",
         "targetId": "event.hesperus.rescue-response-begun",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-contact-established",
+        "policyId": "policy.hesperus.contact-established",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.contact-established",
         "sourceRole": "assistant"
       },
       {
@@ -77,6 +126,13 @@
         "policyId": "policy.hesperus.rescue-response-begun",
         "claimType": "eventOccurred",
         "targetId": "event.hesperus.rescue-response-begun",
+        "sourceRole": "assistant"
+      },
+      {
+        "claimId": "claim.hesperus-contact-established",
+        "policyId": "policy.hesperus.contact-established",
+        "claimType": "eventOccurred",
+        "targetId": "event.hesperus.contact-established",
         "sourceRole": "assistant"
       },
       {
@@ -556,7 +612,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 23,
+        "acceptedClaimCount": 30,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completed"
@@ -579,7 +635,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 22,
+        "acceptedClaimCount": 29,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completed"
@@ -603,7 +659,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 21,
+        "acceptedClaimCount": 28,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completed"
@@ -630,7 +686,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 18,
+        "acceptedClaimCount": 25,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -648,7 +704,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 21,
+        "acceptedClaimCount": 28,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -668,7 +724,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 19,
+        "acceptedClaimCount": 26,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -688,7 +744,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 22,
+        "acceptedClaimCount": 29,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "completedWithCost"
@@ -707,7 +763,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 22,
+        "acceptedClaimCount": 29,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "handedOff"
@@ -726,7 +782,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 22,
+        "acceptedClaimCount": 29,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": null
@@ -748,7 +804,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 24,
+        "acceptedClaimCount": 31,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.rhee-apprehension": "failedAfterInformedAction"
@@ -772,7 +828,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 29,
+        "acceptedClaimCount": 36,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-accountability": "completed",
@@ -792,7 +848,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 13,
+        "acceptedClaimCount": 20,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.command-handover": "completed",
@@ -816,7 +872,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccessWithCost",
-        "acceptedClaimCount": 13,
+        "acceptedClaimCount": 20,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-rescue": "completedWithCost",
@@ -836,7 +892,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 17,
+        "acceptedClaimCount": 24,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-rescue": "completed"
@@ -855,7 +911,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 19,
+        "acceptedClaimCount": 26,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-accountability": "completed"
@@ -874,7 +930,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 18,
+        "acceptedClaimCount": 25,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-accountability": "knowinglyDeclined"
@@ -892,7 +948,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "limitedFailureForward",
-        "acceptedClaimCount": 14,
+        "acceptedClaimCount": 21,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-rescue": "failedAfterInformedAction",
@@ -914,7 +970,7 @@
       "expected": {
         "status": "terminal",
         "terminalDisposition": "limitedFailureForward",
-        "acceptedClaimCount": 13,
+        "acceptedClaimCount": 20,
         "rejectedReasonCodes": [],
         "objectiveDispositions": {
           "objective.prelude.hesperus-rescue": "handedOff",
@@ -932,24 +988,76 @@
       "id": "reversed-command-objective-order",
       "sequence": ["staff-readiness", "command-handover", "hesperus-open", "rescue-safe", "final-clean"],
       "expected": {
-        "status": "terminal",
-        "terminalDisposition": "primarySuccess",
-        "acceptedClaimCount": 13,
-        "rejectedReasonCodes": [],
+        "status": "active",
+        "terminalDisposition": null,
+        "acceptedClaimCount": 10,
+        "rejectedReasonCodes": ["precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met", "precondition-not-met"],
         "objectiveDispositions": {
           "objective.prelude.command-handover": "completed",
-          "objective.prelude.staff-readiness": "completed",
+          "objective.prelude.staff-readiness": null,
           "objective.prelude.hesperus-rescue": "completed",
-          "objective.prelude.final-readiness-arrival": "completed"
+          "objective.prelude.final-readiness-arrival": null
         },
         "outcomeDimensions": {
           "dimension.hesperus.rescue-quality": "full",
           "dimension.hesperus.rescue-cost": "none",
-          "dimension.prelude.command-readiness": "ready",
-          "dimension.prelude.arrival": "on-schedule"
+          "dimension.prelude.command-readiness": "pending",
+          "dimension.prelude.arrival": "pending"
         },
         "knownFactsExcludes": ["fact.hesperus.record-inconsistency", "fact.hesperus.record-discrepancy", "fact.hesperus.record-falsified"],
-        "transitionTargetId": "chapter-1-the-empty-convoy"
+        "transitionTargetId": null
+      }
+    },
+    {
+      "id": "premature-handover-without-settled-terms",
+      "steps": [
+        {
+          "claimId": "claim.premature-command-handover",
+          "policyId": "policy.prelude.command-handover-completed",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.command-handover-completed",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["precondition-not-met"],
+        "objectiveDispositions": { "objective.prelude.command-handover": null }
+      }
+    },
+    {
+      "id": "premature-staff-readiness-without-exchanges",
+      "steps": [
+        {
+          "claimId": "claim.premature-staff-readiness",
+          "policyId": "policy.prelude.staff-readiness-established",
+          "claimType": "eventOccurred",
+          "targetId": "event.prelude.staff-readiness-established",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["precondition-not-met"],
+        "objectiveDispositions": { "objective.prelude.staff-readiness": null }
+      }
+    },
+    {
+      "id": "premature-rescue-result-before-contact",
+      "steps": [
+        {
+          "claimId": "claim.premature-hesperus-safe",
+          "policyId": "policy.hesperus.rescue-result",
+          "claimType": "outcomeObserved",
+          "targetId": "outcome.hesperus.rescue-result",
+          "value": "safeWithCost",
+          "sourceRole": "assistant"
+        }
+      ],
+      "expected": {
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0,
+        "rejectedReasonCodes": ["precondition-not-met"],
+        "objectiveDispositions": { "objective.prelude.hesperus-rescue": null }
       }
     },
     {

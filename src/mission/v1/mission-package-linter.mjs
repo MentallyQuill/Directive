@@ -2,6 +2,7 @@ import { createMissionState } from './mission-state.mjs';
 import { createMissionPlayerProjection } from './player-projection.mjs';
 import { validateMissionDefinition } from './mission-contracts.mjs';
 import { validateMissionEntryCapabilitySources } from './mission-entry-capabilities.mjs';
+import { collectMissionPredicateRefs } from './predicate-evaluator.mjs';
 
 export const DEFAULT_MISSION_SPOILER_TERMS = Object.freeze([
     'fraud',
@@ -98,6 +99,40 @@ function lintReportReachability(definition, errors) {
     }
 }
 
+function lintTerminalEvidenceGates(definition, errors) {
+    for (const objective of definition.objectives || []) {
+        const terminalEventIds = new Set();
+        const terminalOutcomeIds = new Set();
+        for (const route of objective.terminalWhen || []) {
+            const refs = collectMissionPredicateRefs(route.when);
+            refs.events.forEach((id) => terminalEventIds.add(id));
+            refs.outcomes.forEach((id) => terminalOutcomeIds.add(id));
+        }
+        for (const policy of definition.evidencePolicies || []) {
+            const terminalPolicy = (policy.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
+                || (new Set(['outcomeObserved', 'decisionRecorded']).has(policy.claimType)
+                    && terminalOutcomeIds.has(policy.targetId));
+            if (!terminalPolicy) continue;
+            const atomicPlayerDecision = policy.claimType === 'decisionRecorded'
+                && policy.sourceRoles?.length > 0
+                && policy.sourceRoles.every((role) => role === 'user');
+            if (atomicPlayerDecision || !policy.sourceRoles?.includes('assistant')) continue;
+            const refs = collectMissionPredicateRefs(policy.when);
+            refs.outcomes.delete(policy.targetId);
+            const causalRefCount = refs.facts.size
+                + refs.events.size
+                + refs.outcomes.size
+                + refs.objectives.size
+                + refs.clocks.size
+                + refs.entryCapabilities.size
+                + refs.shipCapabilities.size;
+            if (causalRefCount === 0) {
+                errors.push(`${objective.id} terminal evidence policy ${policy.id} requires a causal gate`);
+            }
+        }
+    }
+}
+
 export function lintMissionPackage({
     definition = {},
     knownDefinitions = [],
@@ -143,6 +178,7 @@ export function lintMissionPackage({
         }
     }
     lintEvidenceCoverage(definition, errors);
+    lintTerminalEvidenceGates(definition, errors);
     lintReportReachability(definition, errors);
 
     const uniqueErrors = [...new Set(errors)].sort();

@@ -2,6 +2,9 @@
   "kind": "directive.ashesV1Chapter5Scenarios.v1",
   "definitionId": "mission.chapter-5-old-lessons",
   "fragments": {
+    "orison-engagement": [
+      { "claimId": "claim.chapter5.orison-engagement", "policyId": "policy.chapter5.orison-engagement-established", "claimType": "eventOccurred", "targetId": "event.chapter5.orison-engagement-established", "sourceRole": "assistant" }
+    ],
     "pattern-evidence": [
       { "claimId": "claim.chapter5.pattern-evidence", "policyId": "policy.chapter5.concentration-evidence", "claimType": "eventOccurred", "targetId": "event.chapter5.concentration-pattern-corroborated", "sourceRole": "assistant" },
       { "claimId": "claim.chapter5.pattern-disclosed", "policyId": "policy.chapter5.concentration-disclosed", "claimType": "factDisclosed", "targetId": "fact.chapter5.concentration-and-model-gap", "sourceRole": "assistant" }
@@ -139,9 +142,9 @@
   "scenarios": [
     {
       "id": "multi-front-success",
-      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "sequence": ["orison-engagement", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -149,9 +152,9 @@
     },
     {
       "id": "lives-saved-core-lost-before-knowledge",
-      "sequence": ["traffic-stable", "platform-disabled", "sigma-core-taken", "operator-identified-escape", "pattern-evidence", "target-evidence", "chain-evidence", "route-external"],
+      "sequence": ["orison-engagement", "traffic-stable", "platform-disabled", "sigma-core-taken", "operator-identified-escape", "pattern-evidence", "target-evidence", "chain-evidence", "route-external"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "core-taken", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "pending" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -159,9 +162,9 @@
     },
     {
       "id": "core-saved-at-cost",
-      "sequence": ["traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
+      "sequence": ["orison-engagement", "traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized-with-cost", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "interface-recovered", "dimension.chapter5.command": "follow-without-testing" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -169,9 +172,9 @@
     },
     {
       "id": "cascade-forward",
-      "sequence": ["traffic-cascade", "platform-fired", "sigma-core-taken", "operator-unknown-escape", "chain-evidence", "pattern-evidence", "target-evidence", "route-external"],
+      "sequence": ["orison-engagement", "traffic-cascade", "platform-fired", "sigma-core-taken", "operator-unknown-escape", "chain-evidence", "pattern-evidence", "target-evidence", "route-external"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "cascadeForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "cascadeForward", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.orison": "cascade", "dimension.chapter5.authentication": "core-taken", "dimension.chapter5.operator": "escaped-unidentified" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -179,9 +182,9 @@
     },
     {
       "id": "partial-containment",
-      "sequence": ["traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
+      "sequence": ["orison-engagement", "traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-with-record", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "evidence-based-alternative" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -189,9 +192,9 @@
     },
     {
       "id": "responsible-handoff",
-      "sequence": ["traffic-handoff", "platform-handoff", "pattern-evidence", "target-evidence", "chain-evidence", "route-external", "sigma-handoff-choice", "sigma-handoff-result", "operator-handoff"],
+      "sequence": ["orison-engagement", "traffic-handoff", "platform-handoff", "pattern-evidence", "target-evidence", "chain-evidence", "route-external", "sigma-handoff-choice", "sigma-handoff-result", "operator-handoff"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "responsibleHandoff", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "handedOff", "objective.chapter5.operation": "handedOff", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.orison": "handed-off", "dimension.chapter5.authentication": "handed-off", "dimension.chapter5.operator": "handed-off" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -199,9 +202,9 @@
     },
     {
       "id": "informed-destruction-without-record",
-      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-disabled", "sigma-destroy-no-record-choice", "sigma-destroyed-no-record", "operator-evidence-destroyed"],
+      "sequence": ["orison-engagement", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-disabled", "sigma-destroy-no-record-choice", "sigma-destroyed-no-record", "operator-evidence-destroyed"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "livesSavedCoreLost", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "failedAfterInformedAction", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-without-record", "dimension.chapter5.operator": "evidence-destroyed" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -209,9 +212,9 @@
     },
     {
       "id": "non-linear-front-order-no-command-posture",
-      "sequence": ["operator-captured", "chain-evidence", "traffic-stable", "target-evidence", "platform-controlled", "pattern-evidence", "route-direct", "sigma-recover-choice", "sigma-secured"],
+      "sequence": ["orison-engagement", "operator-captured", "chain-evidence", "traffic-stable", "target-evidence", "platform-controlled", "pattern-evidence", "route-direct", "sigma-recover-choice", "sigma-secured"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "pending" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -219,9 +222,9 @@
     },
     {
       "id": "clean-success-dismissive-posture",
-      "sequence": ["traffic-stable", "platform-controlled", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-dismiss"],
+      "sequence": ["orison-engagement", "traffic-stable", "platform-controlled", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-dismiss"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.command": "dismissed-without-testing" },
         "transitionTargetId": "open-orders-2-what-survives"
@@ -229,12 +232,19 @@
     },
     {
       "id": "choices-alone-do-not-resolve",
-      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "command-integrate"],
+      "sequence": ["orison-engagement", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "command-integrate"],
       "expected": {
-        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": null, "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.authentication": "pending", "dimension.chapter5.operator": "pending" }
       }
+    },
+    {
+      "id": "operator-result-before-engagement",
+      "steps": [
+        { "claimId": "claim.chapter5.premature-operator", "policyId": "policy.chapter5.operator-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter5.operator-result", "value": "operatorCaptured", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
     },
     {
       "id": "sigma-choice-before-target-known",
@@ -297,9 +307,9 @@
     },
     {
       "id": "ivers-evacuates-ren-tal-holds",
-      "sequence": ["ivers-vulnerable-ships", "ren-tal-colony-cargo", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "sequence": ["orison-engagement", "ivers-vulnerable-ships", "ren-tal-colony-cargo", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 18, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
         "knownFactsIncludes": ["fact.chapter5.ivers-vulnerable-ships", "fact.chapter5.ren-tal-colony-cargo"],
@@ -308,9 +318,9 @@
     },
     {
       "id": "shala-venn-refuses-network-orders",
-      "sequence": ["shala-venn-direct-verification", "traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
+      "sequence": ["orison-engagement", "shala-venn-direct-verification", "traffic-cost", "platform-controlled", "pattern-evidence", "chain-evidence", "target-evidence", "route-mixed", "sigma-recover-choice", "sigma-secured", "interface-recovered", "command-follow"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "coreSavedAtCost", "acceptedClaimCount": 16, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized-with-cost", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "interface-recovered", "dimension.chapter5.command": "follow-without-testing" },
         "knownFactsIncludes": ["fact.chapter5.shala-venn-direct-verification"],
@@ -319,9 +329,9 @@
     },
     {
       "id": "holt-intent-before-autonomous-escalation",
-      "sequence": ["pattern-evidence", "target-evidence", "holt-diversion-intent", "autonomous-escalation", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "sequence": ["orison-engagement", "pattern-evidence", "target-evidence", "holt-diversion-intent", "autonomous-escalation", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 18, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.orison": "stabilized", "dimension.chapter5.authentication": "secured", "dimension.chapter5.operator": "operator-captured", "dimension.chapter5.command": "integrate-and-test" },
         "knownFactsIncludes": ["fact.chapter5.holt-diversion-intent", "fact.chapter5.autonomous-escalation"],
@@ -330,9 +340,9 @@
     },
     {
       "id": "bronn-kieran-tested-alternative",
-      "sequence": ["bronn-authentication-contingency", "kieran-manual-corridor", "traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
+      "sequence": ["orison-engagement", "bronn-authentication-contingency", "kieran-manual-corridor", "traffic-stable", "platform-hazard", "target-evidence", "pattern-evidence", "chain-evidence", "route-mixed", "sigma-destroy-record-choice", "sigma-destroyed-record", "operator-identified-escape", "command-alternative"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 17, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "partialContainmentForward", "acceptedClaimCount": 18, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completedWithCost", "objective.chapter5.operation": "completedWithCost", "objective.chapter5.understanding": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter5.authentication": "destroyed-with-record", "dimension.chapter5.operator": "identified-escaped", "dimension.chapter5.command": "evidence-based-alternative" },
         "knownFactsIncludes": ["fact.chapter5.bronn-authentication-contingency", "fact.chapter5.kieran-manual-corridor"],
@@ -341,9 +351,9 @@
     },
     {
       "id": "authentication-record-imports-to-open-orders2",
-      "sequence": ["pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
+      "sequence": ["orison-engagement", "pattern-evidence", "target-evidence", "chain-evidence", "route-direct", "traffic-stable", "platform-controlled", "sigma-recover-choice", "sigma-secured", "operator-captured", "command-integrate"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "multiFrontSuccess", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter5.safety": "completed", "objective.chapter5.operation": "completed", "objective.chapter5.understanding": "completed" },
         "outcomeDimensions": { "dimension.chapter5.authentication": "secured" },
         "transitionTargetId": "open-orders-2-what-survives"

@@ -64,6 +64,18 @@
   ],
   "evidencePolicies": [
     {
+      "id": "policy.chapter7.annex-engagement-established",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter7.annex-engagement-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter7.annex-constitutional-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the Breckenridge establishes direct operational contact with Annex Six, Compact command, or the approaching task group and the live crisis engagement begins.",
+        "exclusions": ["Receiving the initial briefing, reviewing background records, planning contact, or being merely en route is not an established live engagement."]
+      }
+    },
+    {
       "id": "policy.chapter7.civilian-corridor-opened",
       "claimType": "eventOccurred",
       "targetId": "event.chapter7.civilian-corridor-opened",
@@ -262,7 +274,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.standoff-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "eventOccurred": "event.chapter7.annex-engagement-established" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual settled security result of the Annex standoff, not an attempted tactic or forecast.",
@@ -281,7 +293,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.civilian-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "eventOccurred": "event.chapter7.annex-engagement-established" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate civilian safety result of the Annex crisis.",
@@ -300,7 +312,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.interface-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "eventOccurred": "event.chapter7.annex-engagement-established" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual custody and operational disposition of the portable interface and its immediate pathways.",
@@ -320,7 +332,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.settlement-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter7.implementation-mechanism", "equals": "pending" } } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual enforceable political and command settlement produced by the story, independently of what the player proposed. A positive settlement requires a recorded implementation mechanism; a preference or promise without one must fail forward as fragmented authority or open conflict according to the accepted consequences.",
@@ -362,7 +374,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.annex-control",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate control of Annex Six and regional defense systems after the crisis disposition.",
@@ -382,7 +394,7 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter7.coalition-posture",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": { "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual sustainable posture among Kessler, Holt, Mercer, the Compact, and the approaching task group after the settlement.",
@@ -451,6 +463,10 @@
     }
   ],
   "events": [
+    {
+      "id": "event.chapter7.annex-engagement-established",
+      "playerVisibility": "hidden"
+    },
     {
       "id": "event.chapter7.task-group-arrived",
       "playerVisibility": "hidden"

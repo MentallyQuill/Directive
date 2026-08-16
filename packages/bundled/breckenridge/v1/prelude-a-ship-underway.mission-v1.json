@@ -281,15 +281,87 @@
       }
     },
     {
-      "id": "policy.prelude.command-handover-completed",
+      "id": "policy.prelude.command-handover-terms-settled",
       "claimType": "eventOccurred",
-      "targetId": "event.prelude.command-handover-completed",
+      "targetId": "event.prelude.command-handover-terms-settled",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": true,
       "interpretation": {
         "evidenceStandard": "clearOutcome",
-        "guidance": "This policy defines a joint accepted-pair condition. Claim from previousAssistant when it depicts Whitaker's settled authority boundaries or completed transfer offer and either that prose itself completes the XO-watch transfer or currentPlayer explicitly accepts those boundaries or takes the watch. A closed transfer packet, confirmation that the watch or chair is now the player's, or the player proceeding as XO are valid completion signals. Anchor the claim to previousAssistant even when currentPlayer supplies the player-controlled acceptance. The scene may remain open for a different next decision.",
-        "exclusions": ["A greeting, assignment announcement, invitation to negotiate, unilateral player assertion without Whitaker's settled terms, or discussion that leaves the authority boundaries or transfer unresolved is not completion."]
+        "guidance": "Claim only when accepted assistant prose depicts Whitaker and the new XO settling concrete authority, escalation, and working-boundary terms for the assignment.",
+        "exclusions": ["A greeting, assignment announcement, invitation to negotiate, unilateral player assertion, or interrupted discussion that leaves material terms open is not a settled handover framework."]
+      }
+    },
+    {
+      "id": "policy.prelude.command-handover-completed",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.command-handover-completed",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-terms-settled" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose, after the settled terms, explicitly depicts Whitaker completing the practical XO authority or watch transfer.",
+        "exclusions": ["Settled boundaries alone, sitting in the chair, acting informally as XO, a future transfer offer, or a handover interrupted before the practical transfer is complete is not completion."]
+      }
+    },
+    {
+      "id": "policy.prelude.operations-readiness-exchange",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.operations-readiness-exchange",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with operations chief Priya Nayar.",
+        "exclusions": ["A passing introduction, name mention, summons, or discussion with another officer is not the operations readiness exchange."]
+      }
+    },
+    {
+      "id": "policy.prelude.security-readiness-exchange",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.security-readiness-exchange",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with tactical and security chief Hadrik Bronn.",
+        "exclusions": ["Bronn attending another meeting, acting as temporary XO, or receiving one isolated order is not the security readiness exchange."]
+      }
+    },
+    {
+      "id": "policy.prelude.science-readiness-exchange",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.science-readiness-exchange",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with science chief Rowan Saye.",
+        "exclusions": ["A sensor report, name mention, summons, or discussion with another officer is not the science readiness exchange."]
+      }
+    },
+    {
+      "id": "policy.prelude.medical-readiness-exchange",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.medical-readiness-exchange",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with chief medical officer Miriam Sato.",
+        "exclusions": ["A medical status report, planned Sickbay visit, name mention, or discussion with another officer is not the medical readiness exchange."]
+      }
+    },
+    {
+      "id": "policy.prelude.engineering-readiness-exchange",
+      "claimType": "eventOccurred",
+      "targetId": "event.prelude.engineering-readiness-exchange",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with chief engineer Imani Cross.",
+        "exclusions": ["An engineering estimate, name mention, summons, or discussion with another officer is not the engineering readiness exchange."]
       }
     },
     {
@@ -297,7 +369,15 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.staff-readiness-established",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": true,
+      "when": {
+        "all": [
+          { "eventOccurred": "event.prelude.operations-readiness-exchange" },
+          { "eventOccurred": "event.prelude.security-readiness-exchange" },
+          { "eventOccurred": "event.prelude.science-readiness-exchange" },
+          { "eventOccurred": "event.prelude.medical-readiness-exchange" },
+          { "eventOccurred": "event.prelude.engineering-readiness-exchange" }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts the senior staff reaching a workable delegation and readiness procedure with ownership and acknowledged limits.",
@@ -317,13 +397,25 @@
       }
     },
     {
+      "id": "policy.hesperus.contact-established",
+      "claimType": "eventOccurred",
+      "targetId": "event.hesperus.contact-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "eventOccurred": "event.hesperus.rescue-response-begun" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the Breckenridge actually reaching Hesperus or establishing direct operational contact with the ship and its people.",
+        "exclusions": ["Being en route, estimating travel time, discussing approach options, receiving the original distress call, or reviewing remote registry data is not contact with Hesperus."]
+      }
+    },
+    {
       "id": "policy.hesperus.integration-cascade-avoided",
       "claimType": "eventOccurred",
       "targetId": "event.hesperus.integration-cascade-avoided",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": {
         "all": [
-          { "eventOccurred": "event.hesperus.rescue-response-begun" },
+          { "eventOccurred": "event.hesperus.contact-established" },
           { "shipCapabilityAvailable": "ship-capability.segmented-isolation" }
         ]
       },
@@ -338,7 +430,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.hesperus.records-reviewed",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.distress-established" },
+      "when": { "eventOccurred": "event.hesperus.rescue-response-begun" },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose depicts an actual review of the Hesperus maintenance records.",
@@ -410,7 +502,7 @@
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": {
         "any": [
-          { "eventOccurred": "event.hesperus.rescue-response-begun" },
+          { "eventOccurred": "event.hesperus.contact-established" },
           { "eventOccurred": "event.hesperus.material-report-omitted" }
         ]
       },
@@ -431,7 +523,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.hesperus.rescue-cost",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "factKnown": "fact.hesperus.distress-established" },
+      "when": {
+        "outcomeIs": {
+          "id": "outcome.hesperus.rescue-result",
+          "in": ["safe", "safeWithCost", "handedOff", "failedInformed", "failedAfterOmittedReport"]
+        }
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted assistant prose establishes whether the completed rescue incurred a material operational cost.",
@@ -1131,9 +1228,39 @@
   ],
   "events": [
     {
+      "id": "event.prelude.command-handover-terms-settled",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "Captain Whitaker and the new XO settled the assignment's authority and working-boundary terms." }
+    },
+    {
       "id": "event.prelude.command-handover-completed",
       "playerVisibility": "visible",
       "playerText": { "summary": "Captain Whitaker and the new XO completed the command handover." }
+    },
+    {
+      "id": "event.prelude.operations-readiness-exchange",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO completed an operations delegation and readiness exchange with Priya Nayar." }
+    },
+    {
+      "id": "event.prelude.security-readiness-exchange",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO completed a tactical and security delegation and readiness exchange with Hadrik Bronn." }
+    },
+    {
+      "id": "event.prelude.science-readiness-exchange",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO completed a science delegation and readiness exchange with Rowan Saye." }
+    },
+    {
+      "id": "event.prelude.medical-readiness-exchange",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO completed a medical delegation and readiness exchange with Miriam Sato." }
+    },
+    {
+      "id": "event.prelude.engineering-readiness-exchange",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The new XO completed an engineering delegation and readiness exchange with Imani Cross." }
     },
     {
       "id": "event.prelude.staff-readiness-established",
@@ -1144,6 +1271,11 @@
       "id": "event.hesperus.rescue-response-begun",
       "playerVisibility": "visible",
       "playerText": { "summary": "The Breckenridge committed to a Hesperus rescue response." }
+    },
+    {
+      "id": "event.hesperus.contact-established",
+      "playerVisibility": "visible",
+      "playerText": { "summary": "The Breckenridge established direct operational contact with Hesperus and its people." }
     },
     {
       "id": "event.hesperus.integration-cascade-avoided",

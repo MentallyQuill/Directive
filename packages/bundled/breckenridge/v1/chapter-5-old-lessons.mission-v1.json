@@ -104,6 +104,18 @@
   ],
   "evidencePolicies": [
     {
+      "id": "policy.chapter5.orison-engagement-established",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter5.orison-engagement-established",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter5.orison-crisis" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the Breckenridge establishes live operational engagement with Orison traffic, defense platforms, or the Sigma pursuit.",
+        "exclusions": ["Receiving the crisis briefing, reviewing background data, setting a future course, or discussing response options is not live engagement."]
+      }
+    },
+    {
       "id": "policy.chapter5.ivers-contacted",
       "claimType": "eventOccurred",
       "targetId": "event.chapter5.ivers-contacted",
@@ -427,7 +439,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter5.traffic-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "pending" } },
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter5.orison-engagement-established" },
+          { "outcomeIs": { "id": "outcome.chapter5.traffic-result", "equals": "pending" } }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record only the actual aggregate civilian and Compact traffic result after movement, weapons, collision, panic, and coordination consequences are depicted.",
@@ -445,7 +462,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter5.platform-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "pending" } },
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter5.orison-engagement-established" },
+          { "outcomeIs": { "id": "outcome.chapter5.platform-result", "equals": "pending" } }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate disposition of O-17 and the immediate defense-platform threat.",
@@ -491,7 +513,7 @@
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
       "when": {
         "all": [
-          { "factKnown": "fact.chapter5.orison-crisis" },
+          { "eventOccurred": "event.chapter5.orison-engagement-established" },
           { "outcomeIs": { "id": "outcome.chapter5.sigma-result", "equals": "pending" } }
         ]
       },
@@ -513,7 +535,12 @@
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter5.operator-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } },
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter5.orison-engagement-established" },
+          { "outcomeIs": { "id": "outcome.chapter5.operator-result", "equals": "pending" } }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Record the actual aggregate disposition of the Meridian operator and portable evidence after capture, pursuit, negotiation, escape, destruction, or handoff is depicted.",
@@ -710,6 +737,7 @@
     }
   ],
   "events": [
+    { "id": "event.chapter5.orison-engagement-established", "playerVisibility": "hidden" },
     { "id": "event.chapter5.concentration-pattern-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter5.sigma-target-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter5.control-chain-corroborated", "playerVisibility": "hidden" },

@@ -128,6 +128,15 @@ assert.match(
     /outcome\.hesperus\.rescue-result has no usable outcome evidence policy/,
 );
 
+const unconditionalTerminalPolicy = structuredClone(definition);
+unconditionalTerminalPolicy.evidencePolicies.find(
+    (policy) => policy.id === 'policy.hesperus.rescue-result',
+).when = true;
+assert.match(
+    lint(unconditionalTerminalPolicy).errors.join('\n'),
+    /objective\.prelude\.hesperus-rescue terminal evidence policy policy\.hesperus\.rescue-result requires a causal gate/,
+);
+
 const impossibleDisclosure = structuredClone(definition);
 impossibleDisclosure.evidencePolicies = impossibleDisclosure.evidencePolicies.filter(
     (policy) => policy.id !== 'policy.hesperus.distress-established',

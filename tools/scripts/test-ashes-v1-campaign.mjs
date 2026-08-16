@@ -514,7 +514,7 @@ assertShipInteractionEvidence({
   policyId: 'policy.hesperus.integration-cascade-avoided',
   targetId: 'event.hesperus.integration-cascade-avoided',
   capabilityId: 'ship-capability.segmented-isolation',
-  prepareState: (state) => state.events.push('event.hesperus.rescue-response-begun'),
+  prepareState: (state) => state.events.push('event.hesperus.contact-established'),
 });
 
 const chapter2Definition = bySourceId.get('chapter-2-false-colors');

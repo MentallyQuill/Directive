@@ -96,11 +96,28 @@
   ],
   "evidencePolicies": [
     {
+      "id": "policy.chapter3.approach-attempted",
+      "claimType": "eventOccurred",
+      "targetId": "event.chapter3.approach-attempted",
+      "sourceRoles": ["assistant", "runtime", "adjudicator"],
+      "when": { "factKnown": "fact.chapter3.hecate-route" },
+      "interpretation": {
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when the crew actually begins a hazardous approach or operating-position attempt at Hecate Seven.",
+        "exclusions": ["Receiving the route, discussing hazards, setting a future course, or requesting options is not an attempted approach."]
+      }
+    },
+    {
       "id": "policy.chapter3.access-result",
       "claimType": "outcomeObserved",
       "targetId": "outcome.chapter3.access-result",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "pending" } },
+      "when": {
+        "all": [
+          { "eventOccurred": "event.chapter3.approach-attempted" },
+          { "outcomeIs": { "id": "outcome.chapter3.access-result", "equals": "pending" } }
+        ]
+      },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when accepted narration establishes the actual result of the approach or operating-position attempt at Hecate Seven.",
@@ -984,6 +1001,7 @@
     }
   ],
   "events": [
+    { "id": "event.chapter3.approach-attempted", "playerVisibility": "hidden" },
     { "id": "event.chapter3.site-contact-established", "playerVisibility": "hidden" },
     { "id": "event.chapter3.relay-evidence-acquired", "playerVisibility": "hidden" },
     { "id": "event.chapter3.access-history-evidence-acquired", "playerVisibility": "hidden" },

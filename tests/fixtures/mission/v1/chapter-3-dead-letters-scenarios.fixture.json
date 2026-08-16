@@ -3,9 +3,11 @@
   "definitionId": "mission.chapter-3-dead-letters",
   "fragments": {
     "access-safe": [
+      { "claimId": "claim.chapter3.approach-attempted-safe", "policyId": "policy.chapter3.approach-attempted", "claimType": "eventOccurred", "targetId": "event.chapter3.approach-attempted", "sourceRole": "assistant" },
       { "claimId": "claim.chapter3.access-safe", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "safeAccess", "sourceRole": "assistant" }
     ],
     "access-cost": [
+      { "claimId": "claim.chapter3.approach-attempted-cost", "policyId": "policy.chapter3.approach-attempted", "claimType": "eventOccurred", "targetId": "event.chapter3.approach-attempted", "sourceRole": "assistant" },
       { "claimId": "claim.chapter3.access-cost", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "accessWithCost", "sourceRole": "assistant" }
     ],
     "withdraw": [
@@ -13,6 +15,7 @@
       { "claimId": "claim.chapter3.relay-withdraw-choice", "policyId": "policy.chapter3.withdraw-relay-decision", "claimType": "decisionRecorded", "targetId": "outcome.chapter3.relay-decision", "value": "withdraw", "sourceRole": "user" }
     ],
     "forced-off": [
+      { "claimId": "claim.chapter3.approach-attempted-forced-off", "policyId": "policy.chapter3.approach-attempted", "claimType": "eventOccurred", "targetId": "event.chapter3.approach-attempted", "sourceRole": "assistant" },
       { "claimId": "claim.chapter3.forced-off", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "forcedOff", "sourceRole": "assistant" }
     ],
     "site-contact": [
@@ -134,7 +137,7 @@
       "id": "accountable-isolation",
       "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -144,7 +147,7 @@
       "id": "bounded-observation",
       "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-observe-choice", "archive-restricted-choice", "relay-observed-contained", "archive-restricted"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "boundedObservation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "boundedObservation", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter3.relay": "controlled-observation", "dimension.chapter3.archive": "protected-restricted" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -154,7 +157,7 @@
       "id": "destroyed-after-copy-broad-release",
       "sequence": ["access-cost", "site-contact", "relay-evidence", "direct-route", "relay-destroy-copy-choice", "archive-release-choice", "relay-destroyed-copy", "archive-released"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "costlyTruthForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "costlyTruthForward", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completedWithCost", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter3.access": "with-cost", "dimension.chapter3.relay": "destroyed-after-copy", "dimension.chapter3.archive": "broad-release" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -164,7 +167,7 @@
       "id": "privacy-first-destruction-alternate-route",
       "sequence": ["access-safe", "site-contact", "relay-destroy-no-copy-choice", "relay-destroyed-no-copy", "archive-not-recovered", "alternate-route"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 8, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 9, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
         "knownFactsExcludes": ["fact.chapter3.network-architecture-picture"],
         "outcomeDimensions": { "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "destroyed-without-copy", "dimension.chapter3.archive": "not-recovered" },
@@ -186,7 +189,7 @@
       "id": "lost-or-seized-after-discovery",
       "sequence": ["access-safe", "site-contact", "relay-evidence", "direct-route", "relay-observe-choice", "relay-lost", "archive-lost"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 10, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "failedAfterInformedAction" },
         "outcomeDimensions": { "dimension.chapter3.relay": "lost-or-seized", "dimension.chapter3.archive": "lost-control" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -196,7 +199,7 @@
       "id": "forced-off-partial-alternate",
       "sequence": ["forced-off", "relay-left", "archive-not-recovered", "alternate-route"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 5, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 6, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completedWithCost", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "handedOff" },
         "knownFactsExcludes": ["fact.chapter3.relay-archive-character", "fact.chapter3.network-architecture-picture"],
         "outcomeDimensions": { "dimension.chapter3.access": "forced-off", "dimension.chapter3.evidence": "partial-alternate" },
@@ -207,7 +210,7 @@
       "id": "loss-before-informed-choice",
       "sequence": ["access-safe", "site-contact-event-only", "relay-lost", "archive-lost", "relay-character-report-only", "alternate-route"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 7, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "compromisedCustodyForward", "acceptedClaimCount": 8, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
         "knownFactsExcludes": ["fact.chapter3.network-architecture-picture"],
         "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "lost-or-seized", "dimension.chapter3.archive": "lost-control" },
@@ -218,7 +221,7 @@
       "id": "non-linear-custody-before-full-analysis",
       "sequence": ["access-safe", "site-contact", "relay-isolate-choice", "archive-restricted-choice", "relay-isolated", "archive-restricted", "relay-evidence", "direct-route"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.archive": "protected-restricted" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -228,7 +231,7 @@
       "id": "lead-before-full-analysis",
       "sequence": ["access-safe", "site-contact", "relay-evidence-event-only", "direct-route", "architecture-report-only", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 11, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 12, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -238,10 +241,17 @@
       "id": "choice-alone-does-not-resolve",
       "sequence": ["access-safe", "site-contact", "relay-isolate-choice", "archive-joint-choice"],
       "expected": {
-        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 5, "rejectedReasonCodes": [],
+        "status": "active", "terminalDisposition": null, "acceptedClaimCount": 6, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.custody": null },
         "outcomeDimensions": { "dimension.chapter3.relay": "pending", "dimension.chapter3.archive": "pending" }
       }
+    },
+    {
+      "id": "access-result-before-approach",
+      "steps": [
+        { "claimId": "claim.chapter3.premature-access", "policyId": "policy.chapter3.access-result", "claimType": "outcomeObserved", "targetId": "outcome.chapter3.access-result", "value": "safeAccess", "sourceRole": "assistant" }
+      ],
+      "expected": { "status": "active", "terminalDisposition": null, "acceptedClaimCount": 0, "rejectedReasonCodes": ["precondition-not-met"] }
     },
     {
       "id": "site-contact-plan-only",
@@ -301,7 +311,7 @@
       "id": "message-owner-consent-before-relay-custody",
       "sequence": ["access-safe", "site-contact", "nella-consent-boundary", "message-authenticity", "relay-evidence", "local-access-history", "demeris-direct-routing", "direct-route", "relay-isolate-choice", "archive-joint-choice", "relay-isolated", "archive-joint"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 19, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 20, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-joint" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -311,7 +321,7 @@
       "id": "restricted-family-disclosure",
       "sequence": ["access-safe", "site-contact", "nia-independent-custody", "asha-recipient-protection", "message-authenticity", "relay-evidence", "local-access-history", "demeris-direct-routing", "direct-route", "relay-isolate-choice", "archive-restricted-choice", "relay-isolated", "archive-restricted"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 21, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "accountableIsolation", "acceptedClaimCount": 22, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completed", "objective.chapter3.custody": "completed" },
         "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "complete-direct", "dimension.chapter3.relay": "preserved-isolated", "dimension.chapter3.archive": "protected-restricted" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
@@ -321,7 +331,7 @@
       "id": "relay-destroyed-demeris-corroboration",
       "sequence": ["access-safe", "site-contact", "nella-consent-boundary", "message-authenticity", "relay-destroy-no-copy-choice", "relay-destroyed-no-copy", "archive-not-recovered", "demeris-alternate-routing", "alternate-route"],
       "expected": {
-        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "status": "terminal", "terminalDisposition": "privacyProtectedEvidenceLost", "acceptedClaimCount": 15, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.chapter3.access": "completed", "objective.chapter3.evidence": "completedWithCost", "objective.chapter3.custody": "completedWithCost" },
         "outcomeDimensions": { "dimension.chapter3.access": "stable", "dimension.chapter3.evidence": "partial-alternate", "dimension.chapter3.relay": "destroyed-without-copy", "dimension.chapter3.archive": "not-recovered" },
         "transitionTargetId": "chapter-4-the-colony-that-stayed"
