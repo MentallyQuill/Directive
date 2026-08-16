@@ -15,6 +15,7 @@ import {
 } from '../projection/v1/prompt-projection.mjs';
 import { createPeoplePromptProjection } from '../projection/v1/people-projection.mjs';
 import { deriveGameplayNotifications } from '../projection/v1/gameplay-notifications.mjs';
+import { createPlayerAuthorityPolicy } from './player-authority-policy.mjs';
 import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
@@ -339,6 +340,7 @@ export function createV1RuntimePromptPacket({
   acceptedPairLineage = [],
   director = null
 }) {
+  const playerAuthority = createPlayerAuthorityPolicy({ playerName: state.player?.name });
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
     storyProjection: projection.story,
@@ -407,6 +409,7 @@ export function createV1RuntimePromptPacket({
   };
   const text = [
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
+    playerAuthority.narratorConstraint,
     'Continue a story-first command RPG from the accepted state below.',
     'Only this packet and the visible chat are canon. Never expose undiscovered facts or hidden objective text.',
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, clocks, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',

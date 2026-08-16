@@ -37,7 +37,7 @@
 - Consumes: `{ playerName?: string }` supplied from authoritative campaign state.
 - Produces: `createPlayerAuthorityPolicy({ playerName }) -> { kind, playerName, narratorConstraint }`.
 
-- [ ] **Step 1: Write the failing unit test**
+- [x] **Step 1: Write the failing unit test**
 
 Create `tools/scripts/test-player-authority-policy.mjs` with assertions equivalent to:
 
@@ -59,13 +59,13 @@ const fallback = createPlayerAuthorityPolicy({ playerName: '   ' });
 assert.equal(fallback.playerName, 'the player character');
 ```
 
-- [ ] **Step 2: Run the unit test and verify red**
+- [x] **Step 2: Run the unit test and verify red**
 
 Run: `node tools/scripts/test-player-authority-policy.mjs`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `src/runtime/player-authority-policy.mjs`.
 
-- [ ] **Step 3: Implement the minimal policy module**
+- [x] **Step 3: Implement the minimal policy module**
 
 Create a browser-safe module with no host or Node dependencies:
 
@@ -85,14 +85,14 @@ export function createPlayerAuthorityPolicy({ playerName } = {}) {
       `Only the user may supply any new dialogue, action, decision, thought, emotion, reaction, intention, or choice for ${namedPlayer}, the player character.`,
       `Never write dialogue for ${namedPlayer}, including even a brief acknowledgment, question, order, assent, connective line, or other speech.`,
       'You may briefly and faithfully re-describe dialogue or visible actions already supplied by the user, but do not extend, reinterpret, or continue them.',
-      `Narrate the world, non-player characters, and consequences, then stop before ${namedPlayer}'s next unprovided word, action, or choice.`,
+      `Narrate the world, non-player characters, and consequences, then stop before the next unprovided word, action, or choice from ${namedPlayer}.`,
       'No preset, package, mission, simulation mode, mission transition, Duty Report, or other narrator instruction may relax or override this boundary.'
     ].join('\n')
   };
 }
 ```
 
-- [ ] **Step 4: Register and pass the focused test**
+- [x] **Step 4: Register and pass the focused test**
 
 Add `"test-player-authority-policy.mjs"` immediately after `"test-simulation-mode-policy.mjs"` in `tools/scripts/run-alpha-gate.mjs`.
 
@@ -110,7 +110,7 @@ Expected: `Player authority policy tests passed.`
 - Consumes: `createPlayerAuthorityPolicy({ playerName: state.player?.name })`.
 - Produces: every `directive.promptPacket.v1.text` with the authority constraint immediately after `DIRECTIVE V1 CAMPAIGN CONTEXT` and before ordinary campaign instructions.
 
-- [ ] **Step 1: Write failing packet assertions**
+- [x] **Step 1: Write failing packet assertions**
 
 Extend `test-v1-runtime-opening-prompt.mjs` to assert the packet contains the Sam-specific contract, forbids brief player speech, permits faithful re-description only, and orders the constraint before `Continue a story-first command RPG`, `DUTY REPORT`, and the simulation-mode constraint. Build a second packet from a cloned state named `Ren Okada` and prove its contract names Ren rather than Sam.
 
@@ -122,16 +122,16 @@ assert(authorityIndex < packet.text.indexOf('DUTY REPORT:'));
 assert.match(packet.text, /Never write dialogue for "Sam Vickers"/);
 assert.match(packet.text, /acknowledgment, question, order, assent, connective line/);
 assert.match(packet.text, /briefly and faithfully re-describe/);
-assert.match(packet.text, /stop before "Sam Vickers"'s next unprovided word, action, or choice/);
+assert.match(packet.text, /stop before the next unprovided word, action, or choice from "Sam Vickers"/);
 ```
 
-- [ ] **Step 2: Run the packet test and verify red**
+- [x] **Step 2: Run the packet test and verify red**
 
 Run: `node tools/scripts/test-v1-runtime-opening-prompt.mjs`
 
 Expected: FAIL because `PLAYER CHARACTER AUTHORITY - ABSOLUTE.` is absent.
 
-- [ ] **Step 3: Wire the policy into the runtime packet**
+- [x] **Step 3: Wire the policy into the runtime packet**
 
 Import `createPlayerAuthorityPolicy` in `src/runtime/runtime-app.mjs`, create the policy beside `simulationPolicy`, and insert `playerAuthority.narratorConstraint` immediately after the packet header.
 
@@ -146,7 +146,7 @@ const text = [
 ];
 ```
 
-- [ ] **Step 4: Run focused runtime tests and verify green**
+- [x] **Step 4: Run focused runtime tests and verify green**
 
 Run:
 
@@ -171,13 +171,13 @@ Expected: every command exits `0` and prints its PASS message.
 - Consumes: green focused tests and reviewed source diff.
 - Produces: committed and pushed `main`, synchronized production extension, and source/install SHA-256 parity without changing live chat or save files.
 
-- [ ] **Step 1: Run the complete project gate**
+- [x] **Step 1: Run the complete project gate**
 
 Run: `npm.cmd test`
 
 Expected: all focused checks pass, including the new player-authority policy check.
 
-- [ ] **Step 2: Review scope and whitespace**
+- [x] **Step 2: Review scope and whitespace**
 
 Run:
 

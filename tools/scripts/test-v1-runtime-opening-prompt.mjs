@@ -146,6 +146,14 @@ const packet = createV1RuntimePromptPacket({
     }
   }
 });
+const authorityIndex = packet.text.indexOf('PLAYER CHARACTER AUTHORITY - ABSOLUTE.');
+assert(authorityIndex > packet.text.indexOf('DIRECTIVE V1 CAMPAIGN CONTEXT'));
+assert(authorityIndex < packet.text.indexOf('Continue a story-first command RPG'));
+assert(authorityIndex < packet.text.indexOf('DUTY REPORT:'));
+assert.match(packet.text, /Never write dialogue for "Sam Vickers"/);
+assert.match(packet.text, /acknowledgment, question, order, assent, connective line, or other speech/);
+assert.match(packet.text, /briefly and faithfully re-describe dialogue or visible actions already supplied by the user/);
+assert.match(packet.text, /stop before the next unprovided word, action, or choice from "Sam Vickers"/);
 assert.match(packet.text, /"workingStory"/);
 assert.match(packet.text, /Whitaker and the commander are establishing their working tone/);
 assert.match(packet.text, /I answer her plainly/);
@@ -163,6 +171,17 @@ assert.match(packet.text, /dialogue.*seconds/i);
 assert.match(packet.text, /Deadlines, schedules, past events, hypothetical durations.*do not themselves advance/i);
 assert.doesNotMatch(packet.text, /Begin the assistant response with exactly/);
 assert.match(packet.text, /"currentTime": \{/);
+
+const renState = structuredClone(state);
+renState.player.name = 'Ren Okada';
+const renPacket = createV1RuntimePromptPacket({
+  state: renState,
+  projection,
+  runtimeAssets,
+  acceptedPairLineage: []
+});
+assert.match(renPacket.text, /Never write dialogue for "Ren Okada"/);
+assert.doesNotMatch(renPacket.text, /Never write dialogue for "Sam Vickers"/);
 
 const firstMeetingState = structuredClone(state);
 firstMeetingState.storySettlement.receipts.push({

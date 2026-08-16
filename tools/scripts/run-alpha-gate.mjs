@@ -45,6 +45,7 @@ const checks = [
   "test-campaign-delete-layout.mjs",
   "test-campaign-package-context.mjs",
   "test-simulation-mode-policy.mjs",
+  "test-player-authority-policy.mjs",
   "test-bundled-package-registry.mjs",
   "test-package-hero-scene-resolver.mjs",
   "test-campaign-library-presentation.mjs",
