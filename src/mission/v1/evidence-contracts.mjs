@@ -81,6 +81,26 @@ function claimOrder(a, b) {
     return idDifference || a.originalIndex - b.originalIndex;
 }
 
+function terminalEvidencePolicyIds(definition, index) {
+    const terminalEventIds = new Set();
+    const terminalOutcomeIds = new Set();
+    for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
+        for (const route of Array.isArray(objective?.terminalWhen) ? objective.terminalWhen : []) {
+            const refs = collectMissionPredicateRefs(route?.when);
+            refs.events.forEach((id) => terminalEventIds.add(id));
+            refs.outcomes.forEach((id) => terminalOutcomeIds.add(id));
+        }
+    }
+    return new Set((Array.isArray(definition?.evidencePolicies) ? definition.evidencePolicies : [])
+        .filter((policy) => (
+            (policy?.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
+            || (new Set(['outcomeObserved', 'decisionRecorded']).has(policy?.claimType)
+                && terminalOutcomeIds.has(policy.targetId))
+        ))
+        .filter((policy) => index.evidencePolicies.has(policy.id))
+        .map((policy) => policy.id));
+}
+
 export function revalidateMissionEvidenceReplay({
     definition = {},
     state = {},
@@ -89,6 +109,8 @@ export function revalidateMissionEvidenceReplay({
     activeDependencyEffectIds = new Set(),
 } = {}) {
     const index = indexMissionDefinition(definition);
+    const terminalPolicyIds = terminalEvidencePolicyIds(definition, index);
+    const baseContext = missionStateContext(definition, state, { shipCapabilityEvidenceById });
     const stagedState = structuredClone(state);
     stagedState.knownFacts = [...(stagedState.knownFacts || [])];
     stagedState.worldFacts = [...(stagedState.worldFacts || [])];
@@ -115,9 +137,10 @@ export function revalidateMissionEvidenceReplay({
             rejectedRecords.push({ claim, originalIndex, reasonCode: 'dependency-not-met' });
             continue;
         }
-        const policyResult = evaluateMissionPredicate(policy.when, missionStateContext(definition, stagedState, {
-            shipCapabilityEvidenceById,
-        }));
+        const policyContext = terminalPolicyIds.has(policy.id)
+            ? baseContext
+            : missionStateContext(definition, stagedState, { shipCapabilityEvidenceById });
+        const policyResult = evaluateMissionPredicate(policy.when, policyContext);
         const disclosureHasTruth = claim.claimType !== 'factDisclosed'
             || stagedState.worldFacts.includes(claim.targetId);
         if (!policyResult.ok || !policyResult.value || !disclosureHasTruth) {
@@ -150,6 +173,8 @@ export function validateMissionEvidenceProposal({
     if (proposal.baseRevision !== state.revision) return rejectAll(claims, 'stale-revision');
 
     const index = indexMissionDefinition(definition);
+    const terminalPolicyIds = terminalEvidencePolicyIds(definition, index);
+    const baseContext = missionStateContext(definition, state, { shipCapabilityEvidenceById });
     const candidates = [];
     const rejectedRecords = [];
     const previouslyAccepted = new Set(Array.isArray(state.acceptedEvidenceKeys) ? state.acceptedEvidenceKeys : []);
@@ -283,10 +308,10 @@ export function validateMissionEvidenceProposal({
             rejectAt(candidate.claim, 'duplicate-claim', candidate.originalIndex);
             continue;
         }
-        const policyResult = evaluateMissionPredicate(
-            candidate.policy.when,
-            missionStateContext(definition, stagedState, { shipCapabilityEvidenceById }),
-        );
+        const policyContext = terminalPolicyIds.has(candidate.policy.id)
+            ? baseContext
+            : missionStateContext(definition, stagedState, { shipCapabilityEvidenceById });
+        const policyResult = evaluateMissionPredicate(candidate.policy.when, policyContext);
         const disclosureHasTruth = candidate.claim.claimType !== 'factDisclosed'
             || stagedState.worldFacts.includes(candidate.claim.targetId);
         if (!policyResult.ok || !policyResult.value || !disclosureHasTruth) {

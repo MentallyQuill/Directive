@@ -7,10 +7,19 @@ import {
 
 const definition = {
     id: 'mission.hesperus-reference',
-    objectives: [{ id: 'objective.hesperus-rescue' }],
+    objectives: [{
+        id: 'objective.hesperus-rescue',
+        terminalWhen: [{
+            disposition: 'completed',
+            when: { outcomeIs: { id: 'outcome.rescue-result', equals: 'safe' } },
+        }],
+    }],
     facts: [{ id: 'fact.hesperus-discrepancy-known' }],
-    events: [{ id: 'event.survivors-transferred' }],
-    outcomes: [{ id: 'outcome.evidence-preserved', allowedValues: ['unknown', 'yes', 'no'] }],
+    events: [{ id: 'event.survivors-transferred' }, { id: 'event.rescue-begun' }],
+    outcomes: [
+        { id: 'outcome.evidence-preserved', allowedValues: ['unknown', 'yes', 'no'] },
+        { id: 'outcome.rescue-result', allowedValues: ['pending', 'safe'] },
+    ],
     clocks: [{ id: 'clock.life-support' }],
     evidencePolicies: [
         {
@@ -26,6 +35,20 @@ const definition = {
             targetId: 'outcome.evidence-preserved',
             sourceRoles: ['assistant', 'runtime', 'adjudicator'],
             when: true,
+        },
+        {
+            id: 'policy.rescue-begun',
+            claimType: 'eventOccurred',
+            targetId: 'event.rescue-begun',
+            sourceRoles: ['assistant', 'runtime', 'adjudicator'],
+            when: true,
+        },
+        {
+            id: 'policy.rescue-result',
+            claimType: 'outcomeObserved',
+            targetId: 'outcome.rescue-result',
+            sourceRoles: ['assistant', 'runtime', 'adjudicator'],
+            when: { eventOccurred: 'event.rescue-begun' },
         },
         {
             id: 'policy.evidence-decision',
@@ -71,7 +94,10 @@ const state = {
     knownFacts: [],
     worldFacts: [],
     events: [],
-    outcomes: { 'outcome.evidence-preserved': 'unknown' },
+    outcomes: {
+        'outcome.evidence-preserved': 'unknown',
+        'outcome.rescue-result': 'pending',
+    },
     objectives: { 'objective.hesperus-rescue': { state: 'available', disposition: null } },
     clocks: { 'clock.life-support': { state: 'running', value: 30 } },
     status: 'active',
@@ -362,6 +388,55 @@ const lowConfidence = validate({
     proposalOverrides: { providerConfidence: 0.01 },
 });
 assert.equal(lowConfidence.acceptedClaims.length, 1);
+
+const sameProposalCannotCreateTerminalPrerequisite = validate({
+    claims: [
+        {
+            claimId: 'claim.rescue-begun',
+            policyId: 'policy.rescue-begun',
+            claimType: 'eventOccurred',
+            targetId: 'event.rescue-begun',
+            sourceRef: sourceRef(assistantSource),
+        },
+        {
+            claimId: 'claim.rescue-result',
+            policyId: 'policy.rescue-result',
+            claimType: 'outcomeObserved',
+            targetId: 'outcome.rescue-result',
+            value: 'safe',
+            sourceRef: sourceRef(assistantSource),
+        },
+    ],
+});
+assert.deepEqual(
+    sameProposalCannotCreateTerminalPrerequisite.acceptedClaims.map((claim) => claim.claimId),
+    ['claim.rescue-begun'],
+);
+assert.equal(sameProposalCannotCreateTerminalPrerequisite.rejectedClaims[0]?.claimId, 'claim.rescue-result');
+assert.equal(sameProposalCannotCreateTerminalPrerequisite.rejectedClaims[0]?.reasonCode, 'precondition-not-met');
+
+const replayCannotCreateTerminalPrerequisite = revalidateMissionEvidenceReplay({
+    definition,
+    state,
+    claims: [
+        {
+            claimId: 'claim.rescue-begun',
+            policyId: 'policy.rescue-begun',
+            claimType: 'eventOccurred',
+            targetId: 'event.rescue-begun',
+        },
+        {
+            claimId: 'claim.rescue-result',
+            policyId: 'policy.rescue-result',
+            claimType: 'outcomeObserved',
+            targetId: 'outcome.rescue-result',
+            value: 'safe',
+        },
+    ],
+});
+assert.deepEqual(replayCannotCreateTerminalPrerequisite.acceptedClaims.map((claim) => claim.claimId), ['claim.rescue-begun']);
+assert.equal(replayCannotCreateTerminalPrerequisite.rejectedClaims[0]?.claimId, 'claim.rescue-result');
+assert.equal(replayCannotCreateTerminalPrerequisite.rejectedClaims[0]?.reasonCode, 'precondition-not-met');
 
 const shipCapabilityDefinition = structuredClone(definition);
 shipCapabilityDefinition.events.push({ id: 'event.segmented-isolation-used' });
