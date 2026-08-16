@@ -37,6 +37,8 @@ async function sampleCampaignPulse(campaign, currentTime) {
       borderBottomColor: style.borderBottomColor,
       boxShadow: style.boxShadow,
       color: style.color,
+      borderRadius: style.borderRadius,
+      outlineStyle: style.outlineStyle,
       rect: {
         left: rect.left,
         top: rect.top,
@@ -80,6 +82,14 @@ try {
         await statusPanel.locator('.directive-campaign-required-instruction').textContent(),
         'Open Campaign below, then choose or load a save to bring this panel online.',
       );
+      const lcarsSegments = statusPanel.locator('.directive-campaign-required-segment');
+      assert.equal(await lcarsSegments.count(), 6, `${route} ${viewport.label} must render six LCARS segments`);
+      assert.deepEqual(
+        await lcarsSegments.evaluateAll((segments) => segments.map((segment) => segment.dataset.tone)),
+        ['amber', 'lilac', 'blue', 'violet', 'salmon', 'amber'],
+      );
+      const segmentColors = await lcarsSegments.evaluateAll((segments) => segments.map((segment) => getComputedStyle(segment).backgroundColor));
+      assert.equal(new Set(segmentColors).size, 5, `${route} ${viewport.label} must use all five LCARS theme colors`);
 
       const geometry = await page.evaluate(() => {
         const body = document.querySelector('[data-directive-runtime-body="true"]');
@@ -91,6 +101,8 @@ try {
           nav: copyRect(nav.getBoundingClientRect()),
           panelScrollWidth: panel.scrollWidth,
           bodyClientWidth: body.clientWidth,
+          iconPod: copyRect(document.querySelector('.directive-campaign-required-icon-pod').getBoundingClientRect()),
+          copy: copyRect(document.querySelector('.directive-campaign-required-copy').getBoundingClientRect()),
           documentOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         };
 
@@ -108,6 +120,7 @@ try {
       );
       assert.ok(geometry.panel.bottom < geometry.nav.top, `${route} ${viewport.label} panel must clear navigation`);
       assert.ok(geometry.panelScrollWidth <= geometry.bodyClientWidth, `${route} ${viewport.label} panel must fit route body`);
+      assert.ok(geometry.iconPod.right <= geometry.copy.left, `${route} ${viewport.label} ship pod must stay left of copy`);
       assert.equal(geometry.documentOverflowX, false, `${route} ${viewport.label} must not overflow the viewport`);
 
       const campaign = page.locator('[data-route-id="campaign"]');
@@ -117,22 +130,42 @@ try {
         return {
           animationDuration: style.animationDuration,
           animationName: style.animationName,
+          animationTimingFunction: style.animationTimingFunction,
           transform: style.transform,
         };
       });
       assert.equal(cueStyle.animationName, 'directive-campaign-guidance-pulse');
-      assert.equal(cueStyle.animationDuration, '2s');
+      assert.equal(cueStyle.animationDuration, '2.4s');
+      assert.equal(cueStyle.animationTimingFunction, 'linear');
       assert.equal(cueStyle.transform, 'none');
 
       const quiet = await sampleCampaignPulse(campaign, 0);
-      const bright = await sampleCampaignPulse(campaign, 1000);
-      assert.ok(quiet && bright, `${route} ${viewport.label} campaign cue must expose a CSS animation`);
+      const bright = await sampleCampaignPulse(campaign, 200);
+      const brightHold = await sampleCampaignPulse(campaign, 1000);
+      const quietAfterRamp = await sampleCampaignPulse(campaign, 1400);
+      const quietHold = await sampleCampaignPulse(campaign, 2200);
+      assert.ok(quiet && bright && brightHold && quietAfterRamp && quietHold, `${route} ${viewport.label} campaign cue must expose a CSS animation`);
       assert.notDeepEqual(
         [quiet.background, quiet.borderBottomColor, quiet.boxShadow, quiet.color],
         [bright.background, bright.borderBottomColor, bright.boxShadow, bright.color],
         `${route} ${viewport.label} cue must visibly change internal illumination`,
       );
+      assert.deepEqual(
+        [bright.background, bright.borderBottomColor, bright.boxShadow, bright.color],
+        [brightHold.background, brightHold.borderBottomColor, brightHold.boxShadow, brightHold.color],
+        `${route} ${viewport.label} cue must hold fully illuminated for one second`,
+      );
+      assert.deepEqual(
+        [quietAfterRamp.background, quietAfterRamp.borderBottomColor, quietAfterRamp.boxShadow, quietAfterRamp.color],
+        [quietHold.background, quietHold.borderBottomColor, quietHold.boxShadow, quietHold.color],
+        `${route} ${viewport.label} cue must hold dark for one second`,
+      );
+      assert.notEqual(bright.borderRadius, '0px', `${route} ${viewport.label} illumination must use the button silhouette`);
+      assert.equal(bright.outlineStyle, 'none', `${route} ${viewport.label} illumination must not draw an outline`);
+      assert.doesNotMatch(bright.boxShadow, /0px 0px 0px 1px/, `${route} ${viewport.label} illumination must not draw an inset stroke`);
       assert.deepEqual(quiet.rect, bright.rect, `${route} ${viewport.label} pulse must not change control geometry`);
+      assert.deepEqual(quiet.rect, brightHold.rect, `${route} ${viewport.label} hold must not change control geometry`);
+      assert.deepEqual(quiet.rect, quietAfterRamp.rect, `${route} ${viewport.label} off ramp must not change control geometry`);
 
       await campaign.click();
       await page.waitForSelector('.directive-expanded-shell[data-active-route="campaign"]');

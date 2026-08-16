@@ -2,6 +2,8 @@
 
 **Date:** 2026-08-15
 
+> **Correction:** The visual composition and Campaign backlight timing in this document are superseded by `2026-08-15-lcars-campaign-guidance-correction-design.md`. State, copy, navigation, and accessibility boundaries remain unchanged.
+
 ## Goal
 
 Replace the plain current-chat warning on live Mission, People, and Ship routes with an intentional Directive empty state that teaches the existing navigation model. The user should understand that Campaign is the single place to choose a campaign, open its campaign chat, or load a save.

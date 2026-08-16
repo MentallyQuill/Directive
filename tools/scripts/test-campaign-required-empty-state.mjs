@@ -134,6 +134,18 @@ appendCurrentChatEmptyState(body, { currentChat: { status: 'none-selected' } });
 
 assert.equal(body.dataset.campaignRequired, 'true');
 assert.equal(body.querySelectorAll('.directive-campaign-required').length, 1);
+const lcarsRails = body.querySelectorAll('.directive-campaign-required-rail');
+assert.equal(lcarsRails.length, 2);
+assert.ok(lcarsRails.every((rail) => rail.getAttribute('aria-hidden') === 'true'));
+const lcarsSegments = body.querySelectorAll('.directive-campaign-required-segment');
+assert.equal(lcarsSegments.length, 6);
+assert.deepEqual(
+  lcarsSegments.map((segment) => segment.dataset.tone),
+  ['amber', 'lilac', 'blue', 'violet', 'salmon', 'amber'],
+);
+const lcarsCore = body.querySelector('.directive-campaign-required-core');
+assert.equal(lcarsCore.children[0].classList.contains('directive-campaign-required-icon-pod'), true);
+assert.equal(lcarsCore.children[1].classList.contains('directive-campaign-required-copy'), true);
 assert.equal(
   body.querySelector('.directive-campaign-required-eyebrow').textContent,
   'CAMPAIGN CONNECTION REQUIRED',
@@ -185,7 +197,7 @@ const css = fs.readFileSync(new URL('../../styles/directive.css', import.meta.ur
 assert.match(css, /@keyframes\s+directive-campaign-guidance-pulse/);
 assert.match(
   css,
-  /\.directive-route-control\.is-campaign-guidance-target:not\(\.active\)[\s\S]*?animation:\s*directive-campaign-guidance-pulse\s+2s\s+ease-in-out\s+infinite/,
+  /\.directive-route-control\.is-campaign-guidance-target:not\(\.active\)[\s\S]*?animation:\s*directive-campaign-guidance-pulse\s+2\.4s\s+linear\s+infinite/,
 );
 assert.match(
   css,
@@ -193,6 +205,9 @@ assert.match(
 );
 const pulseKeyframes = css.match(/@keyframes\s+directive-campaign-guidance-pulse[\s\S]*?\n\}/)?.[0] || '';
 assert.doesNotMatch(pulseKeyframes, /transform:/);
+assert.match(pulseKeyframes, /8\.333%\s*,\s*50%/);
+assert.match(pulseKeyframes, /58\.333%\s*,\s*100%/);
+assert.doesNotMatch(pulseKeyframes, /inset\s+0\s+0\s+0\s+1px/);
 
 const runtimeSource = fs.readFileSync(new URL('../../src/runtime/runtime-shell.js', import.meta.url), 'utf8');
 assert.match(runtimeSource, /delete\s+body\.dataset\.campaignRequired/);

@@ -5,10 +5,25 @@ import { createElement, createIconFromDescriptor } from './runtime-ui-kit.js';
 export const CAMPAIGN_GUIDANCE_INSTRUCTION_ID = 'directive-campaign-guidance-instruction';
 export const CAMPAIGN_GUIDANCE_INSTRUCTION = 'Open Campaign below, then choose or load a save to bring this panel online.';
 
+function createLcarsRail(position, tones) {
+  const rail = createElement('div', `directive-campaign-required-rail directive-campaign-required-rail-${position}`);
+  rail.setAttribute('aria-hidden', 'true');
+  tones.forEach((tone) => {
+    const segment = createElement('span', 'directive-campaign-required-segment');
+    segment.dataset.tone = tone;
+    rail.appendChild(segment);
+  });
+  return rail;
+}
+
 export function appendCurrentChatEmptyState(container, view) {
   container.dataset.campaignRequired = 'true';
 
   const surface = createElement('section', 'directive-campaign-required');
+  const topRail = createLcarsRail('top', ['amber', 'lilac', 'blue']);
+  const core = createElement('div', 'directive-campaign-required-core');
+  const iconPod = createElement('div', 'directive-campaign-required-icon-pod');
+  iconPod.setAttribute('aria-hidden', 'true');
   const icon = createIconFromDescriptor(
     resolveDirectiveIconSlot(DIRECTIVE_BUNDLED_ICON_PACKS[0], 'route.ship'),
     {
@@ -18,6 +33,7 @@ export function appendCurrentChatEmptyState(container, view) {
     },
   );
   icon.setAttribute('aria-hidden', 'true');
+  iconPod.appendChild(icon);
 
   const copy = createElement('div', 'directive-campaign-required-copy');
   const eyebrow = createElement('span', 'directive-campaign-required-eyebrow');
@@ -29,7 +45,9 @@ export function appendCurrentChatEmptyState(container, view) {
   detail.textContent = currentChatEmptyMessage(view);
 
   copy.append(eyebrow, instruction, detail);
-  surface.append(icon, copy);
+  core.append(iconPod, copy);
+  const bottomRail = createLcarsRail('bottom', ['violet', 'salmon', 'amber']);
+  surface.append(topRail, core, bottomRail);
   container.appendChild(surface);
   return surface;
 }
