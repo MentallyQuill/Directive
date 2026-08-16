@@ -45,7 +45,7 @@ function snapshot(suffix = 'main') {
             sourceRangeHash: `range.time.${suffix}`,
             previousAssistant: {
                 hostMessageId: `message.time.${suffix}.assistant`,
-                text: 'After ninety minutes of accepted story activity, the scene reaches a natural boundary.',
+                text: 'After ninety minutes, Captain Whitaker settles the command handover terms and the scene reaches a natural boundary.',
                 textHash: 'a'.repeat(64),
                 sourceIntegrity: 'clean',
                 selectedVariantId: '0',
@@ -195,8 +195,9 @@ const acceptedAssistantClaim = JSON.stringify({
     kind: 'directive.missionEvidenceInterpretation.v1',
     assistantAcceptance: 'accepted',
     claims: [{
-        candidateId: 'policy.prelude.command-handover-completed',
+        candidateId: 'policy.prelude.command-handover-terms-settled',
         sourceSlot: 'previousAssistant',
+        evidenceQuote: 'Captain Whitaker settles the command handover terms',
     }],
     abstained: false,
     time: {
@@ -213,6 +214,7 @@ const correctedPlayerClaim = JSON.stringify({
         candidateId: 'policy.hesperus.rescue-risk-decision',
         sourceSlot: 'currentPlayer',
         value: 'saferPlan',
+        evidenceQuote: 'I acknowledge the elapsed time and continue.',
     }],
     abstained: false,
     time: {
