@@ -4,6 +4,7 @@ import {
     createPeopleInterpretationContext,
     materializeAcceptedPairPeopleEvents,
 } from '../../src/people/accepted-pair-people.mjs';
+import { validatePeopleEvent } from '../../src/people/people-event-contracts.mjs';
 
 const peopleContext = createPeopleInterpretationContext({
     crewDataset: {
@@ -69,5 +70,7 @@ assert.deepEqual(events[2].sourceContributionIds, ['contribution.player.people']
 assert.equal(events[2].personId, introductions[0].personId);
 assert.equal(events.every((event) => event.evidenceQuote.length >= 12), true);
 assert.equal(events.every((event) => /^[a-f0-9]{8}$/.test(event.evidenceQuoteHash)), true);
+const tamperedPeopleEvent = { ...events[0], evidenceQuote: 'A substituted observation quote long enough to pass shape checks.' };
+assert.equal(validatePeopleEvent(tamperedPeopleEvent).ok, false);
 
 console.log('V1 accepted-pair People materialization tests passed.');

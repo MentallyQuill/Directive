@@ -1,3 +1,5 @@
+import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
+
 export const PEOPLE_EVENT_TYPES = Object.freeze([
     'personIntroduced',
     'publicFactLearned',
@@ -91,6 +93,8 @@ export function validatePeopleEvent(event = {}, {
         }
         if (!/^[a-f0-9]{8}$/.test(String(event.evidenceQuoteHash || ''))) {
             errors.push('people event evidenceQuoteHash must be an 8-character lowercase hex digest');
+        } else if (event.evidenceQuoteHash !== stableSha256Hex(quote).slice(0, 8)) {
+            errors.push('people event evidenceQuoteHash does not match evidenceQuote');
         }
     } else if (event.evidenceQuoteHash !== undefined) {
         errors.push('people event evidenceQuoteHash requires evidenceQuote');

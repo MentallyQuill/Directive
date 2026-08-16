@@ -14,6 +14,15 @@ const CLAIM_TARGET_COLLECTION = Object.freeze({
     intentExpressed: 'objectives',
 });
 
+function evidenceQuoteHash(value = '') {
+    let hash = 0x811c9dc5;
+    for (const character of String(value)) {
+        hash ^= character.charCodeAt(0);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
 function jsonEqual(left, right) {
     return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -65,6 +74,17 @@ function validateEvidenceLog(definition, state, errors) {
         }
         if (typeof entry?.sourceContributionId !== 'string' || entry.sourceContributionId.length === 0) {
             errors.push('evidenceLog entry sourceContributionId is required');
+        }
+        if (entry.evidenceQuote !== undefined) {
+            const quote = String(entry.evidenceQuote);
+            if ([...quote].length < 12 || [...quote].length > 240) {
+                errors.push('evidenceLog evidenceQuote must contain 12 through 240 characters');
+            }
+            if (entry.evidenceQuoteHash !== evidenceQuoteHash(quote)) {
+                errors.push('evidenceLog evidenceQuoteHash does not match evidenceQuote');
+            }
+        } else if (entry.evidenceQuoteHash !== undefined) {
+            errors.push('evidenceLog evidenceQuoteHash requires evidenceQuote');
         }
         if (entry?.delivery !== undefined) {
             const delivery = validateDutyReportDeliveryReceipt({

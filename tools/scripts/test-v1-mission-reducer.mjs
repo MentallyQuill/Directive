@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { validateMissionDefinition } from '../../src/mission/v1/mission-contracts.mjs';
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 
 const definition = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
 const definitionValidation = validateMissionDefinition(definition);
@@ -59,7 +60,7 @@ const rescueClaims = [{
     targetId: 'event.hesperus-survivors-transferred',
     evidenceKey: 'evidence.survivors-transferred',
     evidenceQuote: 'The last Hesperus survivor crosses into the Breckenridge airlock.',
-    evidenceQuoteHash: '1a2b3c4d',
+    evidenceQuoteHash: 'ff952024',
 }];
 const sourceContribution = {
     id: 'contribution.hesperus-rescue',
@@ -83,7 +84,11 @@ assert.equal(
     rescueOnly.state.evidenceLog[0].evidenceQuote,
     'The last Hesperus survivor crosses into the Breckenridge airlock.',
 );
-assert.equal(rescueOnly.state.evidenceLog[0].evidenceQuoteHash, '1a2b3c4d');
+assert.equal(rescueOnly.state.evidenceLog[0].evidenceQuoteHash, 'ff952024');
+assert.equal(validateMissionStateAuthority({ definition, state: rescueOnly.state }).ok, true);
+const tamperedQuoteAuthority = structuredClone(rescueOnly.state);
+tamperedQuoteAuthority.evidenceLog[0].evidenceQuote = 'A different source excerpt was substituted after acceptance.';
+assert.equal(validateMissionStateAuthority({ definition, state: tamperedQuoteAuthority }).ok, false);
 assert.equal(rescueOnly.state.status, 'terminal');
 assert.equal(rescueOnly.state.terminalDisposition, 'primarySuccess');
 assert.equal(rescueOnly.state.objectives['objective.hesperus-rescue'].disposition, 'completed');
