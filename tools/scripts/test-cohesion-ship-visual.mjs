@@ -12,6 +12,7 @@ const artifactRoot = path.join(repoRoot, 'artifacts', 'cohesion-ship-visual');
 const viewports = [
   { width: 1440, height: 900, label: 'desktop' },
   { width: 1024, height: 768, label: 'tablet' },
+  { width: 980, height: 720, label: 'android-desktop-site' },
   { width: 390, height: 844, label: 'mobile' },
   { width: 360, height: 500, label: 'compact-mobile' },
 ];
@@ -203,12 +204,20 @@ try {
     const desktopCalloutContract = await page.locator('.ship-task-button').evaluateAll((buttons) => buttons.map((button) => {
       const style = getComputedStyle(button);
       const level = button.querySelector('.ship-task-desktop-level');
+      const before = getComputedStyle(button, '::before');
+      const after = getComputedStyle(button, '::after');
       return {
         width: button.getBoundingClientRect().width,
         maxWidth: style.maxWidth,
         clipPath: style.clipPath,
         levelText: level?.textContent || '',
         levelDisplay: level ? getComputedStyle(level).display : 'missing',
+        borderTopWidth: style.borderTopWidth,
+        beforeContent: before.content,
+        beforeInset: before.inset,
+        beforeClipPath: before.clipPath,
+        afterContent: after.content,
+        afterWidth: after.width,
       };
     }));
     if (viewport.width > 820) {
@@ -217,6 +226,12 @@ try {
       assert.equal(desktopCalloutContract.every(({ width }) => width >= 120 && width <= 205.5), true);
       assert.equal(desktopCalloutContract.every(({ maxWidth }) => maxWidth === '205px'), true);
       assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath !== 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ borderTopWidth }) => borderTopWidth === '0px'), true);
+      assert.equal(desktopCalloutContract.every(({ beforeContent }) => beforeContent !== 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ beforeInset }) => beforeInset === '1px'), true);
+      assert.equal(desktopCalloutContract.every(({ beforeClipPath }) => beforeClipPath !== 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ afterContent }) => afterContent !== 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ afterWidth }) => afterWidth === '3px'), true);
       assert.ok(
         new Set(desktopCalloutContract.map(({ width }) => Math.round(width))).size > 1,
         `${viewport.label} title widths produce varied callouts`,
@@ -224,6 +239,11 @@ try {
     } else {
       assert.equal(desktopCalloutContract.every(({ levelDisplay }) => levelDisplay === 'none'), true);
       assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath === 'none'), true);
+      assert.equal(desktopCalloutContract.every(({ borderTopWidth }) => borderTopWidth === '1px'), true);
+      assert.equal(
+        desktopCalloutContract.every(({ beforeContent, afterContent }) => beforeContent === 'none' && afterContent === 'none'),
+        true,
+      );
     }
     assert.equal(await page.locator('.ship-task-detail').count(), 1);
     assert.match(await page.locator('.ship-cohesion-backlog').textContent(), /3 additional assignments queued/);
@@ -371,6 +391,21 @@ try {
       assert.equal(geometry.ringAboveTasks, true, `${viewport.label} ring stays above the task accordion`);
       assert.ok(geometry.ringShipCenterDelta <= 2, `${viewport.label} ship and ring stay centered together`);
     }
+    const leaderStyles = await page.locator('.ship-task-leader').evaluateAll((leaders) => leaders.map((leader) => {
+      const style = getComputedStyle(leader);
+      return {
+        active: leader.classList.contains('is-active'),
+        dasharray: style.strokeDasharray,
+        width: Number.parseFloat(style.strokeWidth),
+      };
+    }));
+    assert.equal(leaderStyles.some(({ active }) => active), true, `${viewport.label} has one highlighted leader`);
+    assert.equal(leaderStyles.every(({ dasharray }) => dasharray === 'none'), true, `${viewport.label} leaders are solid`);
+    assert.equal(
+      leaderStyles.every(({ active, width }) => Math.abs(width - (active ? 2 : 1.5)) < .01),
+      true,
+      `${viewport.label} leader widths`,
+    );
 
     const endpointErrors = await page.evaluate(({ mobile }) => {
       const targetSelector = mobile ? '.ship-task-mobile-callout' : '.ship-task-button';

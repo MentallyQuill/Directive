@@ -4832,13 +4832,16 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   50% { color: #fff0dc; filter: drop-shadow(0 0 2px rgba(255, 218, 184, .72)) brightness(1.02); transform: scale(1.02); }
 }
 .directive-expanded-shell .ship-task-leaders { position: absolute; z-index: 4; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.directive-expanded-shell .ship-task-leader { fill: none; stroke: rgba(155, 130, 207, .48); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.directive-expanded-shell .ship-task-leader.is-active { stroke: #ffa24f; stroke-width: 1.5; }
+.directive-expanded-shell .ship-task-leader { fill: none; stroke: rgba(155, 130, 207, .48); stroke-width: 1.5; stroke-dasharray: none; vector-effect: non-scaling-stroke; }
+.directive-expanded-shell .ship-task-leader.is-active { stroke: #ffa24f; stroke-width: 2; }
 .directive-expanded-shell .ship-task-leaders.is-layout-unavailable { visibility: hidden; }
 .directive-expanded-shell .ship-task-nav { position: absolute; z-index: 5; inset: 0; pointer-events: none; }
 .directive-expanded-shell .ship-task-mobile-callouts { display: none; }
 .directive-expanded-shell .ship-task-button {
   --ship-task-bevel: 4px;
+  --ship-task-edge: rgba(155, 130, 207, .5);
+  --ship-task-accent: var(--directive-expanded-violet);
+  --ship-task-surface: rgba(12, 15, 24, .94);
   appearance: none;
   position: absolute;
   display: grid;
@@ -4849,9 +4852,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   min-height: 50px;
   padding: 8px 10px;
   color: var(--directive-expanded-text);
-  background: rgba(12, 15, 24, .94);
-  border: 1px solid rgba(155, 130, 207, .5);
-  border-left: 3px solid var(--directive-expanded-violet);
+  background: var(--ship-task-edge);
+  border: 0;
   border-radius: 0;
   clip-path: polygon(
     var(--ship-task-bevel) 0,
@@ -4864,11 +4866,33 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     0 var(--ship-task-bevel)
   );
   box-shadow: 0 8px 16px rgba(0, 0, 0, .22);
+  isolation: isolate;
   font-family: inherit;
   text-align: left;
   pointer-events: auto;
   cursor: pointer;
 }
+.directive-expanded-shell .ship-task-button::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 1px;
+  background: var(--ship-task-surface);
+  clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px);
+  pointer-events: none;
+}
+.directive-expanded-shell .ship-task-button::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 3px;
+  background: var(--ship-task-accent);
+  pointer-events: none;
+}
+.directive-expanded-shell .ship-task-button > * { position: relative; z-index: 2; }
 .directive-expanded-shell .ship-task-button strong { overflow: hidden; font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .directive-expanded-shell .ship-task-button-title,
 .directive-expanded-shell .ship-task-title-row { display: flex; align-items: center; min-width: 0; gap: 7px; }
@@ -4903,7 +4927,11 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-button.is-selected .ship-task-desktop-level { color: #ffa24f; }
 .directive-expanded-shell .ship-task-reward { color: #ffa24f; font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; letter-spacing: .035em; text-transform: uppercase; }
 .directive-expanded-shell .ship-task-button:hover,
-.directive-expanded-shell .ship-task-button.is-selected { border-color: #ffa24f; border-left-color: #ffa24f; background: rgba(25, 22, 30, .98); }
+.directive-expanded-shell .ship-task-button.is-selected {
+  --ship-task-edge: #ffa24f;
+  --ship-task-accent: #ffa24f;
+  --ship-task-surface: rgba(25, 22, 30, .98);
+}
 .directive-expanded-shell .ship-task-button:focus-visible,
 .directive-expanded-shell .ship-command-relief-button:focus-visible { outline: 2px solid #b8d3ff; outline-offset: 3px; }
 .directive-expanded-shell .ship-task-mobile-panel { display: none; }
@@ -5000,11 +5028,18 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     max-width: none;
     min-height: 56px;
     padding: 8px 10px;
+    background: var(--ship-task-surface);
+    border: 1px solid var(--ship-task-edge);
+    border-left: 3px solid var(--ship-task-accent);
     border-radius: 4px;
     clip-path: none;
     transform: none;
     box-shadow: none;
+    isolation: auto;
   }
+  .directive-expanded-shell .ship-task-button::before,
+  .directive-expanded-shell .ship-task-button::after { content: none; }
+  .directive-expanded-shell .ship-task-button > * { position: static; z-index: auto; }
   .directive-expanded-shell .ship-task-desktop-level { display: none; }
   .directive-expanded-shell .ship-task-button-title { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .directive-expanded-shell .ship-task-button-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding-left: 24px; }
