@@ -1,0 +1,70 @@
+{
+  "kind": "directive.preludePrematureCompletionRegression.v1",
+  "pairs": [
+    {
+      "id": "handover-boundaries-not-transfer",
+      "assistant": {
+        "messageId": "12",
+        "selectedSwipeId": "0",
+        "textHash": "e3d534d3",
+        "text": "\"I should tell you how I intend to run this ship with you aboard, because you deserve that before the first moment we're in the same room during a crisis and you're guessing whether I want a second opinion or silence.\" She lifted a hand, palm out, in a small, leveling gesture. \"In the normal run, I'll give you broad latitude. You'll set the duty rotation, own the crew readiness picture, and keep the senior staff moving without needing me to hand down a schedule. When I give an order, I expect it followed — but I expect to be told when it's wrong. Not in the moment if lives depend on it. Afterward, in private, with specifics. I'm not interested in an XO who only salutes.\"\n\n\"There is exactly one place where I will not share the bridge, and I want to be very clear about it now so there's no ambiguity later. The decisions that determine whether we commit the ship — to a fight, to a rescue, to a course that puts this crew in danger — those are mine. I'll hear arguments, and I'll weigh them. But I will make the call, and I will sign the log. If that line ever feels too absolute to you, I'd rather you tell me now than discover it at the wrong moment.\""
+      },
+      "player": {
+        "messageId": "13",
+        "selectedSwipeId": null,
+        "textHash": "player-13",
+        "text": "\"The lanes are clear, Captain. But I appreciate you being clear about it,\" Sam replied. \"Do you mind if I ask a personal question?\""
+      },
+      "formerSelections": [
+        { "candidateId": "policy.prelude.command-handover-completed", "sourceSlot": "previousAssistant" }
+      ]
+    },
+    {
+      "id": "registry-and-medical-briefing",
+      "assistant": {
+        "messageId": "34",
+        "selectedSwipeId": "0",
+        "textHash": "9910c8b5",
+        "text": "The XO's chair took his weight with the faint, unfamiliar give of a seat nobody had broken in yet. The console at his right hand woke under his fingers, and the Breckenridge's library index unfolded — fast, cleanly indexed, the refit's one unambiguous improvement.\n\nThe turbolift opened at the port side of the bridge, and Doctor Miriam Sato stepped out with a PADD held against her chest and the unhurried walk of someone who had decided that running would communicate the wrong thing. She was small, sharp-featured, gray coming in at the temples, and she came to a stop at the rail beside the command chairs rather than hovering behind them.\n\n\"Probe away,\" Vale reported. On the forward screen, a brief bright streak peeled off the Breckenridge's ventral line and vanished ahead of them into the warp corridor. \"Telemetry green. First relay burst in approximately forty-eight minutes.\"\n\n\"Forty-eight minutes for eyes, Commander. Six hours to arrive if we stay reasonable, four if we don't.\" She said it evenly, laying the pieces on the table rather than pushing them. \"And an engineer downstairs who hasn't been asked yet what nine-point-two actually costs us.\""
+      },
+      "player": {
+        "messageId": "35",
+        "selectedSwipeId": null,
+        "textHash": "player-35",
+        "text": "\"Understood, Captain,\" Sam said, before tapping his comm badge. \"Bridge to Engineering. We have a developing situation that may call for high warp. What can the ship confidently do, and what happens if we push it past that?\""
+      },
+      "formerSelections": [
+        { "candidateId": "policy.prelude.sickbay-consultation-held", "sourceSlot": "previousAssistant" },
+        { "candidateId": "policy.prelude.staff-readiness-established", "sourceSlot": "previousAssistant" },
+        { "candidateId": "policy.prelude.poker-invitation-disclosed", "sourceSlot": "previousAssistant" },
+        { "candidateId": "ship-milestone.integration-isolation-test", "sourceSlot": "previousAssistant" },
+        { "candidateId": "ship-milestone.sensor-controlled-baseline", "sourceSlot": "previousAssistant" }
+      ]
+    },
+    {
+      "id": "uncertainty-not-completed-work",
+      "assistant": {
+        "messageId": "36",
+        "selectedSwipeId": "0",
+        "textHash": "c58333e5",
+        "text": "\"The other answer is that propulsion isn't the system you're asking about. When we run nine-plus, we don't just spin the core harder. We load the EPS trunk, the structural integrity field, the inertial dampers, and the plasma flow regulators simultaneously, and all four of those run through the new integration layer the yard installed. Utopia Planitia certified those components individually. They never certified them together under a sustained representative load, because that takes eleven days and they had four months to give us instead of six.\"\n\n\"So here's what I can actually tell you, Commander. Warp eight, indefinitely, no reservations — we've held that since we left the yard and the telemetry is clean. Eight-point-five, comfortable. Nine, I'd want to be watching it, but I'd sign for it. Nine-point-two into an ion front on an unvalidated integration stack is not a risk I can price for you, and I want to be precise about why. It isn't that I think we'd lose the core. It's that if one refit segment faults under combined load, I have no accepted data telling me whether it stays in that segment or walks sideways into three others. That's not pessimism. That's an absence of evidence, and I won't dress it up as either confidence or fear.\""
+      },
+      "player": {
+        "messageId": "37",
+        "selectedSwipeId": null,
+        "textHash": "player-37",
+        "text": "\"Understood, Commander. Thank you for the clarity. Standby,\" Sam said, then turned to the Captain, waiting for her decision."
+      },
+      "formerSelections": [
+        { "candidateId": "policy.prelude.poker-conversation-held", "sourceSlot": "previousAssistant" },
+        { "candidateId": "policy.hesperus.records-reviewed", "sourceSlot": "previousAssistant" },
+        { "candidateId": "policy.hesperus.rescue-cost", "sourceSlot": "previousAssistant", "value": "material" },
+        { "candidateId": "policy.hesperus.rescue-result", "sourceSlot": "previousAssistant", "value": "safeWithCost" },
+        { "candidateId": "policy.prelude.redline-inventory-drift-disclosed", "sourceSlot": "previousAssistant" },
+        { "candidateId": "policy.hesperus.injector-limit-disclosed", "sourceSlot": "previousAssistant" },
+        { "candidateId": "ship-milestone.integration-combined-load-test", "sourceSlot": "previousAssistant" },
+        { "candidateId": "ship-milestone.sensor-live-load-validation", "sourceSlot": "previousAssistant" }
+      ]
+    }
+  ]
+}
