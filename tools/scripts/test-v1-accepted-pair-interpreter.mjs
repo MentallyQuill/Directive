@@ -16,7 +16,11 @@ const definition = JSON.parse(fs.readFileSync(
 ));
 const state = createMissionState({ definition, branchId: 'save.alpha' });
 state.knownFacts.push('fact.hesperus.distress-established', 'fact.hesperus.passenger-risk');
-state.events.push('event.hesperus.rescue-response-begun');
+state.events.push(
+    'event.hesperus.rescue-response-begun',
+    'event.hesperus.contact-established',
+    'event.prelude.command-handover-terms-settled',
+);
 const candidatePacket = createMissionInterpretationCandidatePacket({ definition, state });
 const sourcePair = {
     previousAssistant: {

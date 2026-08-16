@@ -16,7 +16,7 @@ assert.equal(initial.missionId, definition.id);
 assert.equal(initial.definitionVersion, definition.version);
 assert.equal(initial.branchId, 'save.alpha');
 assert.equal(initial.baseRevision, 0);
-assert.equal(initial.candidates.length, 4, 'only currently eligible policies enter the opening model envelope');
+assert.equal(initial.candidates.length, 3, 'only currently eligible policies enter the opening model envelope');
 assert.deepEqual(
     initial.candidates.map((candidate) => candidate.id),
     [...initial.candidates.map((candidate) => candidate.id)].sort(),
@@ -31,7 +31,7 @@ assert.equal(
     'predicate-ineligible evidence must not be sent to the model',
 );
 assert.deepEqual(
-    initial.candidates.find((candidate) => candidate.id === 'policy.prelude.command-handover-completed')?.sourceSlots,
+    initial.candidates.find((candidate) => candidate.id === 'policy.prelude.command-handover-terms-settled')?.sourceSlots,
     ['previousAssistant'],
 );
 

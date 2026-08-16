@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createV1PlayerProjection } from '../../src/projection/v1/player-projection.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
@@ -168,6 +169,36 @@ let atomicState = {
         chatId: 'chat.atomic-rebuild',
     }),
 };
+atomicState.mission.v1 = reduceMissionEvidence({
+    definition,
+    state: atomicState.mission.v1,
+    acceptedClaims: [
+        {
+            claimId: 'claim.atomic.command-terms',
+            policyId: 'policy.prelude.command-handover-terms-settled',
+            evidenceKey: 'atomic|command-terms',
+            claimType: 'eventOccurred',
+            targetId: 'event.prelude.command-handover-terms-settled',
+            value: null,
+            sourceContributionId: 'contribution.atomic.prerequisites',
+        },
+        ...[
+            ['operations', 'event.prelude.operations-readiness-exchange'],
+            ['security', 'event.prelude.security-readiness-exchange'],
+            ['science', 'event.prelude.science-readiness-exchange'],
+            ['medical', 'event.prelude.medical-readiness-exchange'],
+            ['engineering', 'event.prelude.engineering-readiness-exchange'],
+        ].map(([department, targetId]) => ({
+            claimId: `claim.atomic.${department}-readiness`,
+            policyId: `policy.prelude.${department}-readiness-exchange`,
+            evidenceKey: `atomic|${department}-readiness`,
+            claimType: 'eventOccurred',
+            targetId,
+            value: null,
+            sourceContributionId: 'contribution.atomic.prerequisites',
+        })),
+    ],
+}).state;
 let generationIndex = 0;
 const atomicOutputs = [
     interpretation('policy.prelude.command-handover-completed', 'Assistant source 1'),

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import {
     createV1MissionRuntime,
@@ -59,6 +60,24 @@ function campaignStateFor({ definition = canonicalDefinition, activeMissionId = 
         v1Journey: initialJourney.journey,
         v1History: initialJourney.history,
     };
+    return state;
+}
+
+function campaignStateWithCommandTerms() {
+    const state = campaignStateFor();
+    state.mission.v1 = reduceMissionEvidence({
+        definition: canonicalDefinition,
+        state: state.mission.v1,
+        acceptedClaims: [{
+            claimId: 'claim.runtime.command-handover-terms',
+            policyId: 'policy.prelude.command-handover-terms-settled',
+            evidenceKey: 'runtime|command-handover-terms',
+            claimType: 'eventOccurred',
+            targetId: 'event.prelude.command-handover-terms-settled',
+            value: null,
+            sourceContributionId: 'contribution.runtime.command-handover-terms',
+        }],
+    }).state;
     return state;
 }
 
@@ -234,7 +253,9 @@ assert.equal(resolveActiveV1MissionDefinition({
     }),
 }).reasonCode, 'package-version-mismatch');
 
+const settlementState = campaignStateWithCommandTerms();
 const settlementHarness = createHarness({
+    state: settlementState,
     outputs: [interpretationOutput({
         claims: [{
             candidateId: 'policy.prelude.command-handover-completed',
@@ -512,6 +533,7 @@ assert.equal(invalidBoundaryHarness.generationCount, 0);
 assert.equal(invalidBoundaryHarness.persistCount, 0);
 
 const explicitBoundaryHarness = createHarness({
+    state: campaignStateWithCommandTerms(),
     outputs: [interpretationOutput({ claims: [{
         candidateId: 'policy.prelude.command-handover-completed',
         sourceSlot: 'previousAssistant',
@@ -535,6 +557,7 @@ assert.deepEqual(explicitBoundaryHarness.campaignState.storySettlement.episodes[
 assert.equal(explicitlySealed.reviewToken, null);
 
 const continuationHarness = createHarness({
+    state: campaignStateWithCommandTerms(),
     checkpointEveryContributions: 4,
     outputs: [
         interpretationOutput({ claims: [{
@@ -599,7 +622,7 @@ const correctionHarness = createHarness({
     outputs: [interpretationOutput({
         assistantAcceptance: 'corrected',
         claims: [{
-            candidateId: 'policy.prelude.command-handover-completed',
+            candidateId: 'policy.prelude.command-handover-terms-settled',
             sourceSlot: 'previousAssistant',
         }, {
             candidateId: 'policy.hesperus.rescue-risk-decision',
@@ -677,7 +700,7 @@ const conflictRuntime = createV1MissionRuntime({
             return {
                 ok: true,
                 response: { text: interpretationOutput({ claims: [{
-                    candidateId: 'policy.prelude.command-handover-completed',
+                    candidateId: 'policy.prelude.command-handover-terms-settled',
                     sourceSlot: 'previousAssistant',
                 }] }) },
             };
