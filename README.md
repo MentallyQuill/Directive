@@ -4,81 +4,64 @@
 
 # Directive
 
-Directive is a pre-alpha SillyTavern extension for a persistent, freeform Star Trek command RPG. V1 is story-first: models write natural prose and recognize bounded authored evidence, while deterministic reducers own campaign truth.
+Directive is a SillyTavern extension for persistent Star Trek-style roleplay.
 
-Ashes of Peace is the only playable V1 campaign. The player is the new executive officer aboard the U.S.S. Breckenridge, with Captain Mara Whitaker and an autonomous senior staff participating in the story. Other campaign names and images may appear as locked previews; they have no runtime packages or activation path.
+The project is currently in Alpha. It is changing fast.
+Some features will break, and existing behavior can shift between updates.
+Play with this in mind and keep local backups when possible.
+
+## What you can play today
+
+Ashes of Peace is the only live campaign.
+You play as the executive officer of the U.S.S. Breckenridge with Captain Mara Whitaker and the ship’s senior staff.
+Other campaign names may show as previews, but they are not yet playable.
 
 ## Fast start
 
-1. Install this repository as a SillyTavern extension and reload.
-2. Click the ship icon beside SillyTavern's composer.
-3. In Settings, install the bundled Directive preset and configure the Utility and Reasoning model lanes.
+1. Install this repository as a SillyTavern extension and reload the page.
+2. Click the ship icon next to the message input.
+3. In Settings, install the bundled Directive preset and set the two model lanes.
 4. On Campaign, start Ashes of Peace and complete character creation.
-5. Play in the campaign chat using ordinary roleplay prose.
+5. Chat normally in roleplay prose.
 
-Assistant replies are provisional. You may swipe freely; a selected reply becomes accepted only when you send the next player message. Mission state, Story Settlement, story time, ship status, people moments, and Command Bearing derive only from validated accepted sources.
+Assistant replies are drafts until you send your next message.
+You can swipe through drafts freely.
+The draft you accept is the one you send after selecting.
 
-## V1 surfaces
+## Main screens
 
-| Route | Purpose |
-|---|---|
-| Campaign | Start/resume Ashes, manage exact V1 saves and checkpoints, view locked previews. |
-| Mission | See visible primary/optional objectives, known facts, known clocks, support, outcomes, and mission completion. |
-| People | Use Command Bearing and see public records, current relationships, and the complete defining-moment history for named contacts. |
-| Ship | See identity, capability, one operational aggregate, and material limitations. |
-| Settings | Configure providers/preset and verify or export support state. |
+Campaign is where you start and continue games.
+Mission shows current goals, known limits, and objective outcomes.
+People tracks important contacts and relationship moments.
+Ship shows the operational state of the U.S.S. Breckenridge.
+Settings covers model lanes, presets, storage checks, and diagnostics.
 
-## Architecture
+## Alpha expectations
 
-```text
-accepted assistant/player pair
-  -> closed model interpretation
-  -> deterministic validation and mission reduction
-  -> revisioned, domain-bounded V1 state commits
-  -> aggregate Story Settlement
-  -> concise player projections and chat-bound prompt context
-```
+This is not a stable release yet.
+Expect occasional resets, UI shifts, and save edge cases.
+If you notice odd behavior, verify the campaign chat binding, refresh Directive, and check Storage in Settings.
+If a saved state does not re-open cleanly, use the built-in recovery path in Settings before editing any JSON files manually.
 
-Directive V1 does not load or migrate other Directive state layouts. It contains no compatibility hydration, parallel semantic writers, command log, thread ledger, reconciliation workflow, sidecar scheduler, or per-mention issue tracker.
+## What not to expect (yet)
 
-## Project layout
-
-```text
-assets/                 Branding and package media.
-docs/                   Current V1 architecture, authoring, operations, and source references.
-packages/               Ashes package, concise crew/ship datasets, mission definitions, preview registry.
-presets/                Bundled SillyTavern preset.
-schemas/                Exact V1 JSON contracts.
-src/                    Runtime, host integration, reducers, projections, and UI.
-styles/                 Directive UI stylesheet.
-tests/fixtures/          Ashes scenario matrices and bounded story fixtures.
-tools/scripts/          Focused V1 contract gate.
-```
-
-## Verification
-
-Install the pinned Chromium runtime once after installing Node dependencies:
-
-```powershell
-npm.cmd run test:browser:install
-```
-
-Then run the focused V1 gate:
-
-```powershell
-npm.cmd test
-```
-
-`test`, `verify`, and `v1-gate` run the same focused V1 gate. The gate includes real Chromium layout coverage and requires the browser installed by `test:browser:install`. Release confidence additionally requires an installed-copy SillyTavern soak covering new campaign start, swipes, source mutation, objective progress, mission transition, restart/resume, and mobile UI.
+Directive V1 does not support migration from old save formats.
+There is no command log, thread ledger, sidecar scheduler, or compatibility shim.
+Only the active V1 format is supported.
 
 ## Documentation
 
-Start with the [V1 documentation index](docs/DOCUMENTATION_INDEX.md), [first campaign workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md), and [V1 gameplay architecture](docs/architecture/V1_GAMEPLAY_ARCHITECTURE.md).
+Start with [V1 documentation index](docs/DOCUMENTATION_INDEX.md),
+[First Campaign Workflow](docs/user/FIRST_CAMPAIGN_WORKFLOW.md), and [V1 gameplay architecture](docs/architecture/V1_GAMEPLAY_ARCHITECTURE.md) if you want the deeper design.
 
 ## Security and providers
 
-Directive runs as a browser-side SillyTavern extension. Utility and Reasoning calls may use the current SillyTavern model, a connection profile, or an explicitly configured OpenAI-compatible endpoint. Direct endpoint API keys are session-only. Model output never mutates semantic state without deterministic validation.
+Directive is a browser-side SillyTavern extension.
+Model calls can use your current SillyTavern model or a connection profile.
+Runtime state changes are only applied after deterministic validation.
 
 ## Source and license
 
-Creative source documents are retained under `docs/source/`; runtime package data is authoritative during play. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for borrowed-behavior attribution and [LICENSE](LICENSE) for license terms.
+Creative source docs live in `docs/source/`.
+Runtime package data controls what is active while playing.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE).

@@ -1,34 +1,68 @@
 # V1 Storage and State Safety
 
-Directive V1 uses an isolated logical namespace:
+Directive is currently alpha, so this section is intentionally practical and conservative.
+Keep this mindset: saves are important, but recovery is designed for interruption.
 
-```text
-v1/index.v1.json
-v1/drafts/{draftId}.v1.json
-v1/saves/{saveId}.v1.json
-v1/operations/{campaignId}.timeline.v1.json
-```
+## What is stored
 
-SillyTavern maps these keys to user-scoped files whose names begin with `directive-v1-`. Player portraits use a separate V1 portrait path.
+V1 storage uses an isolated set of files.
+Those files are mapped to SillyTavern user files under names that start with `directive-v1-`.
 
-An accepted portrait remains part of the campaign and can be replaced or removed from the player's Crew record. Directive removes a superseded user file only after the draft or campaign change commits. If persistence fails after a new upload, Directive compensates by removing that unreferenced upload; cleanup failures are reported without rolling back an already-valid state change.
+The player-facing pieces are:
 
-Campaign acceptance validates the complete first save before changing the draft. If first-save persistence fails, Directive removes the partial save and restores the resumable draft. If host chat binding fails after the first save exists, the campaign remains as an unbound, recoverable V1 save; Directive restores the prior host chat and removes the failed campaign chat before the player retries Continue.
+Saves for active campaigns.
+Checkpoints for exact snapshots.
+Operation journals for campaign operations.
+Draft entries for active work-in-progress state.
 
-Every save must be `directive.campaignSave.v1`, bind to the exact Ashes package ID/version, contain an exact architecture stamp, and pass the V1 state contract. Directive does not search for, import, upgrade, or infer any other data. An unrecognized file is ignored unless it occupies a required V1 key, in which case initialization fails closed with a clear error.
+## How state is accepted
 
-State commits use a revisioned gateway. The gateway rejects stale proposals and forbidden domains. Persistence writes the save before publishing a successful result. If persistence fails, in-memory rollback occurs only when no concurrent state change has intervened; otherwise Directive reports an indeterminate conflict requiring operator review.
+A save becomes official only through the accepted assistant/player pair flow.
+Directive writes persistence only after validation of campaign, mission, people, and ship constraints.
 
-Saved games are complete immutable V1 snapshots with `slotType: checkpoint` and a source active-save reference. Their storage IDs do not replace the branch ID inside the saved state. **Save Game** clones the current chat without changing the active timeline. **Load Game** never overwrites or consumes the selected save: it preserves the timeline being left, clones the selected saved chat, assigns a new active save and chat identity, and opens that new continuation.
+If persistence fails before validation is complete, the in-memory state rolls back.
+If persistence fails after partial steps, Directive reports a conflict rather than guessing a repair path.
 
-If the checkpoint chat is currently selected when it is deleted, Directive first reopens the authoritative active campaign chat, restores its prompt, and only then removes the checkpoint clone. It never asks the host to delete the currently active chat.
+## What a checkpoint does
 
-Creating a native SillyTavern branch from the exact active Directive campaign chat also creates a saved game automatically. Directive proves the parent backlink, character identity, exact retained message IDs, selected swipe, and text hashes before accepting the branch. Bookmarks, copied chats, unrelated chats, changed transcripts, and branches from non-campaign chats remain unbound. The optional naming dialog changes only the saved-game label.
+Checkpoint creates a frozen V1 snapshot with `slotType: checkpoint`.
+It captures the current save and opens a cloned playable continuation.
+It is a checkpoint, not a full timeline undo.
 
-Save Game, branching, and Load Game use a per-campaign operation journal. Exact clone filenames are recorded before SillyTavern chat writes, so retry can reuse the owned chat instead of guessing or duplicating it. The old timeline stays authoritative until a compare-and-swap changes `index.activeSaveId`. Before that commit point, failures leave the parent active and generation unbound in the incomplete child. After it, recovery moves forward to the child; it never overwrites the selected save or guesses a rollback across host and Directive storage.
+Load Game uses the saved snapshot to create a new continuation.
+It does not overwrite the selected save.
+It keeps the old timeline intact and gives you a new playable branch.
 
-Directive does not write a complete snapshot for every message. Native branch reconstruction scans the retained transcript once, invalidates discarded accepted sources in isolated memory, rebuilds derived state without model calls, assigns new custody identities, and validates the full V1 projection before persistence. Complete snapshots are written only for explicit Save Game, native branching, and Load Game operations.
+## Save Game and Load Game safety
 
-Opening an immutable saved-game chat directly in SillyTavern does not activate it or install the campaign prompt. Use **Load Game** to create a playable continuation.
+Save Game makes an explicit clone of the current accepted chat and saves it as a V1 snapshot.
+Load Game never consumes the source snapshot.
+Load Game restores a playable continuation with a new save and chat identity.
 
-For recovery, preserve the affected files, use Settings to verify storage, and export support diagnostics. Do not rename or hand-edit state files, and do not copy saves between package versions.
+When a campaign is changed by branch/replay operations:
+
+Directive writes owned clone filenames before host chat writes.
+It verifies retained message IDs and selected swipe before commit.
+If the operation fails early, it does not force the timeline in an unknown state.
+
+## Branching and recovery behavior
+
+Creating a native SillyTavern branch from the active campaign chat creates a saved game automatically.
+Directive verifies identity links and message hashes before accepting that branch.
+Bookmarks, copied chats, unrelated chats, and non-campaign branches are ignored as saved-game sources.
+
+If a save is not recognized or the package version is wrong, Directive rejects it and shows a clear error.
+Unrecognized files are ignored unless they occupy required V1 keys.
+
+If a failure happens mid-operation, the active timeline remains authoritative until a successful compare-and-swap updates `index.activeSaveId`.
+After that point, continuation moves forward.
+Directive does not overwrite unrelated saves while recovering.
+
+## Important rules for players
+
+Do not rename, hand-edit, or copy V1 state files.
+Do not transfer saves across different package versions.
+Use Settings diagnostics and built-in recovery paths if anything feels inconsistent.
+
+If a campaign chat appears broken, do not try to reconstruct history by hand.
+Re-run storage verification in Settings and follow the built-in restore flow.

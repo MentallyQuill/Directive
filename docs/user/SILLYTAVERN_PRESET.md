@@ -1,9 +1,25 @@
 # SillyTavern Preset
 
-Directive bundles `presets/sillytavern/directive.json`. Install it from Directive Settings or import it through SillyTavern's Chat Completion preset controls.
+# SillyTavern Preset
 
-The preset supplies Directive's narrative style, player-agency rules, anti-repetition guidance, and response cleanup. Live campaign facts, Stardate, whole-second `HH:MM:SS` ship time, time-passage guidance, and the visible timestamp footer come from Directive's chat-bound runtime packet, not from static preset text or preset regex.
+Directive includes one bundled preset at `presets/sillytavern/directive.json`.
+Install or refresh it from Directive Settings, or import it from SillyTavern’s preset controls.
 
-Settings reports whether the bundled preset is installed and current. Reinstalling replaces the Directive preset record with the bundled version; it does not alter unrelated presets. When a bound Directive campaign chat is open, Directive activates the installed preset before synchronizing campaign context and before each host generation. Leaving for an unrelated chat or disabling Directive restores the preset that was selected before campaign play.
+This preset gives Directive its tone and formatting preferences:
 
-If the preset is missing, install it and refresh status. Directive fails open with the exact campaign context packet if the host cannot activate the preset, so campaign state and ship-time custody remain available; only the bundled narrative style, cleanup, and model-neutral generation defaults are unavailable.
+Narrative style.
+Player-agency direction.
+Anti-repetition behavior.
+Reply cleanup behavior.
+
+Campaign data itself does not come from the preset.
+Live mission facts, Stardate, elapsed ship time, time-passage hints, and footer time stamps come from Directive runtime state.
+
+Settings always shows whether the bundled preset is installed and current.
+Reinstalling only updates the bundled preset entry and leaves unrelated SillyTavern presets untouched.
+
+When you enter a bound Directive campaign, Directive activates the installed preset before each generation.
+If you leave that chat or disable Directive, your previous SillyTavern preset is restored.
+
+If the preset is missing, install it and refresh status.
+Directive still keeps campaign and ship-time state, but you lose the bundled narrative defaults.
