@@ -438,6 +438,63 @@ assert.deepEqual(replayCannotCreateTerminalPrerequisite.acceptedClaims.map((clai
 assert.equal(replayCannotCreateTerminalPrerequisite.rejectedClaims[0]?.claimId, 'claim.rescue-result');
 assert.equal(replayCannotCreateTerminalPrerequisite.rejectedClaims[0]?.reasonCode, 'precondition-not-met');
 
+const factTerminalDefinition = structuredClone(definition);
+factTerminalDefinition.objectives[0].terminalWhen.push({
+    disposition: 'completed',
+    when: { factKnown: 'fact.hesperus-discrepancy-known' },
+});
+factTerminalDefinition.evidencePolicies.find(
+    (policy) => policy.id === 'policy.discrepancy-disclosed',
+).when = {
+    all: [
+        { worldFact: 'fact.hesperus-discrepancy-known' },
+        { eventOccurred: 'event.rescue-begun' },
+    ],
+};
+const sameProposalCannotCreateFactTerminalPrerequisite = validateMissionEvidenceProposal({
+    definition: factTerminalDefinition,
+    state,
+    proposal: {
+        ...proposal,
+        claims: [
+            {
+                claimId: 'claim.fact-terminal-established',
+                policyId: 'policy.discrepancy-established',
+                claimType: 'worldFactEstablished',
+                targetId: 'fact.hesperus-discrepancy-known',
+                sourceRef: sourceRef(runtimeSource),
+            },
+            {
+                claimId: 'claim.fact-terminal-stage',
+                policyId: 'policy.rescue-begun',
+                claimType: 'eventOccurred',
+                targetId: 'event.rescue-begun',
+                sourceRef: sourceRef(assistantSource),
+            },
+            {
+                claimId: 'claim.fact-terminal-disclosed',
+                policyId: 'policy.discrepancy-disclosed',
+                claimType: 'factDisclosed',
+                targetId: 'fact.hesperus-discrepancy-known',
+                sourceRef: sourceRef(assistantSource),
+            },
+        ],
+    },
+    resolveSourceRef: (ref) => acceptedSources.get(ref.messageId),
+});
+assert.deepEqual(
+    sameProposalCannotCreateFactTerminalPrerequisite.acceptedClaims.map((claim) => claim.claimId),
+    ['claim.fact-terminal-established', 'claim.fact-terminal-stage'],
+);
+assert.equal(
+    sameProposalCannotCreateFactTerminalPrerequisite.rejectedClaims[0]?.claimId,
+    'claim.fact-terminal-disclosed',
+);
+assert.equal(
+    sameProposalCannotCreateFactTerminalPrerequisite.rejectedClaims[0]?.reasonCode,
+    'precondition-not-met',
+);
+
 const shipCapabilityDefinition = structuredClone(definition);
 shipCapabilityDefinition.events.push({ id: 'event.segmented-isolation-used' });
 shipCapabilityDefinition.evidencePolicies.push({

@@ -82,18 +82,21 @@ function claimOrder(a, b) {
 }
 
 function terminalEvidencePolicyIds(definition, index) {
+    const terminalFactIds = new Set();
     const terminalEventIds = new Set();
     const terminalOutcomeIds = new Set();
     for (const objective of Array.isArray(definition?.objectives) ? definition.objectives : []) {
         for (const route of Array.isArray(objective?.terminalWhen) ? objective.terminalWhen : []) {
             const refs = collectMissionPredicateRefs(route?.when);
+            refs.facts.forEach((id) => terminalFactIds.add(id));
             refs.events.forEach((id) => terminalEventIds.add(id));
             refs.outcomes.forEach((id) => terminalOutcomeIds.add(id));
         }
     }
     return new Set((Array.isArray(definition?.evidencePolicies) ? definition.evidencePolicies : [])
         .filter((policy) => (
-            (policy?.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
+            (policy?.claimType === 'factDisclosed' && terminalFactIds.has(policy.targetId))
+            || (policy?.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
             || (new Set(['outcomeObserved', 'decisionRecorded']).has(policy?.claimType)
                 && terminalOutcomeIds.has(policy.targetId))
         ))

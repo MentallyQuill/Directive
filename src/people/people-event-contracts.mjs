@@ -24,6 +24,8 @@ const INTRODUCTION_FIELDS = new Set([
     'introductionSummary',
     'publicFacts',
     'sourceContributionIds',
+    'evidenceQuote',
+    'evidenceQuoteHash',
 ]);
 const PUBLIC_FACT_FIELDS = new Set([
     'id',
@@ -32,6 +34,8 @@ const PUBLIC_FACT_FIELDS = new Set([
     'field',
     'value',
     'sourceContributionIds',
+    'evidenceQuote',
+    'evidenceQuoteHash',
 ]);
 const RELATIONSHIP_EVIDENCE_FIELDS = new Set([
     'id',
@@ -39,6 +43,8 @@ const RELATIONSHIP_EVIDENCE_FIELDS = new Set([
     'personId',
     'summary',
     'sourceContributionIds',
+    'evidenceQuote',
+    'evidenceQuoteHash',
 ]);
 
 function isObject(value) {
@@ -78,6 +84,17 @@ export function validatePeopleEvent(event = {}, {
     }
     if (!isStableId(event.id)) errors.push('people event id must be stable');
     if (!isStableId(event.personId)) errors.push('people event personId must be stable');
+    if (event.evidenceQuote !== undefined) {
+        const quote = compact(event.evidenceQuote);
+        if ([...quote].length < 12 || [...quote].length > 240) {
+            errors.push('people event evidenceQuote must contain 12 through 240 characters');
+        }
+        if (!/^[a-f0-9]{8}$/.test(String(event.evidenceQuoteHash || ''))) {
+            errors.push('people event evidenceQuoteHash must be an 8-character lowercase hex digest');
+        }
+    } else if (event.evidenceQuoteHash !== undefined) {
+        errors.push('people event evidenceQuoteHash requires evidenceQuote');
+    }
     if (event.type === 'personIntroduced') {
         for (const field of Object.keys(event)) {
             if (!INTRODUCTION_FIELDS.has(field)) errors.push(`people event contains unknown field: ${field}`);

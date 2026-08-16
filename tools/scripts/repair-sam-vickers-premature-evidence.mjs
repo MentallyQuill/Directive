@@ -258,10 +258,9 @@ function rebuildMission({ definition, mission, storySettlement, shipDataset }) {
         throw error;
     }
     rebuilt.revision = mission.revision + 1;
-    rebuilt.invalidatedSourceContributionIds = [...new Set([
-        ...(mission.invalidatedSourceContributionIds || []),
-        ...CONTRIBUTIONS.map((entry) => entry.id),
-    ])];
+    rebuilt.invalidatedSourceContributionIds = structuredClone(
+        mission.invalidatedSourceContributionIds || [],
+    );
     if (rebuilt.transitionReceipt) rebuilt.transitionReceipt.committedAtRevision = rebuilt.revision;
     const authority = validateMissionStateAuthority({ definition, state: rebuilt });
     if (!authority.ok) {
@@ -382,6 +381,91 @@ export async function prepareSamVickersPrematureEvidenceRepair(save, {
     };
 }
 
+export async function prepareSamVickersPreservedAuthorityCorrection(save, {
+    definition,
+    missionDefinitions,
+    now = new Date().toISOString(),
+} = {}) {
+    const errors = [];
+    const state = save?.state || {};
+    const mission = state?.mission?.v1 || {};
+    const targetContributionIds = new Set(CONTRIBUTIONS.map((entry) => entry.id));
+    const expectedInvalidated = [
+        'contribution.v1.3a145d30',
+        'contribution.v1.6cac05d9',
+        ...CONTRIBUTIONS.map((entry) => entry.id),
+    ];
+    for (const [actual, expected, label] of [
+        [save?.id, SAVE_ID, 'save id'],
+        [state?.stateCustody?.revision, 52, 'state custody revision'],
+        [mission?.revision, 17, 'mission revision'],
+        [mission?.definitionId, MISSION_ID, 'active mission id'],
+        [mission?.status, 'active', 'mission status'],
+    ]) {
+        if (actual !== expected) errors.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    }
+    if (!jsonEqual(mission.invalidatedSourceContributionIds || [], expectedInvalidated)) {
+        errors.push('mission invalidated-source markers do not match the exact post-repair state');
+    }
+    if ((mission.evidenceLog || []).some((entry) => targetContributionIds.has(entry.sourceContributionId))) {
+        errors.push('targeted unsupported evidence unexpectedly returned');
+    }
+    const targetEffectIds = new Set(EFFECTS.map(([id]) => id));
+    if ((state?.storySettlement?.episodes || []).flatMap((episode) => episode.effects || [])
+        .some((effect) => targetEffectIds.has(effect.id))) {
+        errors.push('targeted unsupported Story Settlement effects unexpectedly returned');
+    }
+    const allContributions = (state?.storySettlement?.episodes || []).flatMap(
+        (episode) => episode.contributions || [],
+    );
+    for (const expected of CONTRIBUTIONS) {
+        const contribution = allContributions.find((entry) => entry.id === expected.id);
+        if (!contribution || contribution.messageId !== expected.messageId || contribution.textHash !== expected.textHash) {
+            errors.push(`preserved narration contribution ${expected.id} is missing or changed`);
+        }
+    }
+    if (errors.length > 0) failGuard(errors);
+
+    const before = structuredClone(save);
+    const repairedMission = structuredClone(mission);
+    repairedMission.invalidatedSourceContributionIds = (mission.invalidatedSourceContributionIds || [])
+        .filter((id) => !targetContributionIds.has(id));
+    repairedMission.revision += 1;
+    if (repairedMission.transitionReceipt) {
+        repairedMission.transitionReceipt.committedAtRevision = repairedMission.revision;
+    }
+    const authority = validateMissionStateAuthority({ definition, state: repairedMission });
+    if (!authority.ok) {
+        throw new Error(`Corrected mission authority is invalid:\n${authority.errors.join('\n')}`);
+    }
+    let campaignState = structuredClone(state);
+    const gateway = createStateDeltaGateway({
+        getState: () => campaignState,
+        setState: (next) => { campaignState = next; },
+    });
+    await gateway.applyProposal({
+        operations: [{ op: 'set', path: 'mission.v1', value: repairedMission }],
+        domains: ['mission'],
+        baseRevision: campaignState.stateCustody.revision,
+        source: 'repairSamVickersPreservedAuthorityMarkers',
+        reason: 'Restored accepted narration source authority after surgical effect rollback.',
+        metadata: { restoredContributionCount: CONTRIBUTIONS.length },
+    });
+    const journey = validateMissionJourney({ campaignState, definitions: missionDefinitions });
+    if (!journey.ok) throw new Error(`Corrected mission journey is invalid:\n${journey.errors.join('\n')}`);
+    return {
+        save: { ...before, updatedAt: now, state: campaignState },
+        report: {
+            restoredContributionAuthorityCount: CONTRIBUTIONS.length,
+            stateRevisionBefore: before.state.stateCustody.revision,
+            stateRevisionAfter: campaignState.stateCustody.revision,
+            missionRevisionBefore: before.state.mission.v1.revision,
+            missionRevisionAfter: campaignState.mission.v1.revision,
+            remainingInvalidatedSourceContributionIds: campaignState.mission.v1.invalidatedSourceContributionIds,
+        },
+    };
+}
+
 function loadRuntimeAssets(repoRoot) {
     const definitionNames = [
         'prelude-a-ship-underway',
@@ -466,6 +550,7 @@ function createBackup({ dataRoot, userFilesRoot, chatPath, now }) {
 async function runCli() {
     const args = new Set(process.argv.slice(2));
     const apply = args.has('--apply');
+    const correctPreservedAuthority = args.has('--correct-preserved-authority');
     const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     const dataRoot = process.env.DIRECTIVE_SILLYTAVERN_DATA_ROOT
         ? path.resolve(process.env.DIRECTIVE_SILLYTAVERN_DATA_ROOT)
@@ -481,7 +566,9 @@ async function runCli() {
     const before = await loadV1CampaignSave(adapter, SAVE_ID);
     const assets = loadRuntimeAssets(repoRoot);
     const now = new Date().toISOString();
-    const prepared = await prepareSamVickersPrematureEvidenceRepair(before, { ...assets, now });
+    const prepared = correctPreservedAuthority
+        ? await prepareSamVickersPreservedAuthorityCorrection(before, { ...assets, now })
+        : await prepareSamVickersPrematureEvidenceRepair(before, { ...assets, now });
     if (!apply) {
         console.log(JSON.stringify({ mode: 'dry-run', ...prepared.report }, null, 2));
         return;

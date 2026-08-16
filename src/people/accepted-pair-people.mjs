@@ -125,6 +125,8 @@ export function materializeAcceptedPairPeopleEvents({
             type: observation.type,
             personId,
             sourceContributionIds: [contributionId],
+            evidenceQuote: compact(observation.evidenceQuote),
+            evidenceQuoteHash: shortHash(compact(observation.evidenceQuote)),
         };
         if (observation.type === 'personIntroduced') {
             return {

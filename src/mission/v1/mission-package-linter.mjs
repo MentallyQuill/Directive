@@ -101,15 +101,18 @@ function lintReportReachability(definition, errors) {
 
 function lintTerminalEvidenceGates(definition, errors) {
     for (const objective of definition.objectives || []) {
+        const terminalFactIds = new Set();
         const terminalEventIds = new Set();
         const terminalOutcomeIds = new Set();
         for (const route of objective.terminalWhen || []) {
             const refs = collectMissionPredicateRefs(route.when);
+            refs.facts.forEach((id) => terminalFactIds.add(id));
             refs.events.forEach((id) => terminalEventIds.add(id));
             refs.outcomes.forEach((id) => terminalOutcomeIds.add(id));
         }
         for (const policy of definition.evidencePolicies || []) {
-            const terminalPolicy = (policy.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
+            const terminalPolicy = (policy.claimType === 'factDisclosed' && terminalFactIds.has(policy.targetId))
+                || (policy.claimType === 'eventOccurred' && terminalEventIds.has(policy.targetId))
                 || (new Set(['outcomeObserved', 'decisionRecorded']).has(policy.claimType)
                     && terminalOutcomeIds.has(policy.targetId));
             if (!terminalPolicy) continue;
@@ -118,6 +121,7 @@ function lintTerminalEvidenceGates(definition, errors) {
                 && policy.sourceRoles.every((role) => role === 'user');
             if (atomicPlayerDecision || !policy.sourceRoles?.includes('assistant')) continue;
             const refs = collectMissionPredicateRefs(policy.when);
+            refs.facts.delete(policy.targetId);
             refs.outcomes.delete(policy.targetId);
             const causalRefCount = refs.facts.size
                 + refs.events.size

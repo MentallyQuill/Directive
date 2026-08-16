@@ -182,6 +182,7 @@ assert.deepEqual(inspectSamVickersPrematureEvidenceRepair(before), {
 
 const beforeContributions = structuredClone(before.state.storySettlement.episodes[0].contributions);
 const beforeReceipts = structuredClone(before.state.storySettlement.acceptedPairReceipts);
+const beforeInvalidatedSources = structuredClone(before.state.mission.v1.invalidatedSourceContributionIds);
 const beforeLegitimateKeys = before.state.mission.v1.acceptedEvidenceKeys.filter((entry) => entry.startsWith('legitimate|'));
 const repaired = await prepareSamVickersPrematureEvidenceRepair(before, {
     definition,
@@ -196,6 +197,7 @@ assert.equal(repaired.save.state.stateCustody.revision, 52);
 assert.equal(repaired.save.state.mission.v1.revision, before.state.mission.v1.revision + 1);
 assert.deepEqual(repaired.save.state.storySettlement.episodes[0].contributions, beforeContributions);
 assert.deepEqual(repaired.save.state.storySettlement.acceptedPairReceipts, beforeReceipts);
+assert.deepEqual(repaired.save.state.mission.v1.invalidatedSourceContributionIds, beforeInvalidatedSources);
 assert.deepEqual(
     repaired.save.state.mission.v1.acceptedEvidenceKeys.filter((entry) => entry.startsWith('legitimate|')),
     beforeLegitimateKeys,

@@ -222,6 +222,8 @@ export function reduceMissionEvidence({
             targetId: claim.targetId,
             value: claim.value ?? null,
             sourceContributionId: contributionId,
+            ...(claim.evidenceQuote ? { evidenceQuote: claim.evidenceQuote } : {}),
+            ...(claim.evidenceQuoteHash ? { evidenceQuoteHash: claim.evidenceQuoteHash } : {}),
             ...(Array.isArray(claim.dependencyEffectIds) && claim.dependencyEffectIds.length > 0
                 ? { dependencyEffectIds: [...claim.dependencyEffectIds] }
                 : {}),

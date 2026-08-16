@@ -122,6 +122,7 @@ function output(candidateId, value = undefined) {
         claims: [{
             candidateId,
             sourceSlot: 'previousAssistant',
+            evidenceQuote: 'Accepted assistant source',
             ...(value === undefined ? {} : { value }),
         }],
         abstained: false,

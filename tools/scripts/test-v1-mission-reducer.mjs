@@ -58,6 +58,8 @@ const rescueClaims = [{
     claimType: 'eventOccurred',
     targetId: 'event.hesperus-survivors-transferred',
     evidenceKey: 'evidence.survivors-transferred',
+    evidenceQuote: 'The last Hesperus survivor crosses into the Breckenridge airlock.',
+    evidenceQuoteHash: '1a2b3c4d',
 }];
 const sourceContribution = {
     id: 'contribution.hesperus-rescue',
@@ -77,6 +79,11 @@ assert.deepEqual(state, stateBefore);
 assert.equal(rescueOnly.state.revision, 1);
 assert.equal(rescueOnly.state.evidenceLog[0].claimId, 'claim.survivors-transferred');
 assert.equal(rescueOnly.state.evidenceLog[0].policyId, 'policy.hesperus-survivors-transferred');
+assert.equal(
+    rescueOnly.state.evidenceLog[0].evidenceQuote,
+    'The last Hesperus survivor crosses into the Breckenridge airlock.',
+);
+assert.equal(rescueOnly.state.evidenceLog[0].evidenceQuoteHash, '1a2b3c4d');
 assert.equal(rescueOnly.state.status, 'terminal');
 assert.equal(rescueOnly.state.terminalDisposition, 'primarySuccess');
 assert.equal(rescueOnly.state.objectives['objective.hesperus-rescue'].disposition, 'completed');

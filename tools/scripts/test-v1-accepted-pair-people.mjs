@@ -43,17 +43,20 @@ const events = materializeAcceptedPairPeopleEvents({
         name: 'Ari Sol',
         introductionSummary: 'Ari gave her name during a direct engineering-deck conversation.',
         sourceSlot: 'previousAssistant',
+        evidenceQuote: 'Ari gave her name during a direct engineering-deck conversation.',
     }, {
         type: 'personIntroduced',
         localRef: 'new-2',
         name: 'Tovan Rel',
         introductionSummary: 'Tovan introduced himself beside the damaged relay.',
         sourceSlot: 'previousAssistant',
+        evidenceQuote: 'Tovan introduced himself beside the damaged relay.',
     }, {
         type: 'relationshipEvidence',
         personRef: 'new-1',
         summary: 'The commander protected Ari\'s team from an unsafe restart order.',
         sourceSlot: 'currentPlayer',
+        evidenceQuote: 'The commander protected Ari\'s team from an unsafe restart order.',
     }],
 });
 
@@ -64,5 +67,7 @@ assert.match(introductions[1].personId, /^person\.emergent\.[a-f0-9]{8}$/);
 assert.notEqual(introductions[0].personId, introductions[1].personId);
 assert.deepEqual(events[2].sourceContributionIds, ['contribution.player.people']);
 assert.equal(events[2].personId, introductions[0].personId);
+assert.equal(events.every((event) => event.evidenceQuote.length >= 12), true);
+assert.equal(events.every((event) => /^[a-f0-9]{8}$/.test(event.evidenceQuoteHash)), true);
 
 console.log('V1 accepted-pair People materialization tests passed.');
