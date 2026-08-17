@@ -76,7 +76,7 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.12');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.13');
 assert.equal(metadata.supportsDirectiveRuntime, true);
 assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.11'), '0.1.0');
 assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.11'), -1);
@@ -88,7 +88,7 @@ assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.12');
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.13');
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-past')?.enabled, true);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-present')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
@@ -141,6 +141,21 @@ assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-scene-shape-variation')?.content || '',
   /must belong to a non-player character/
 );
+const proseEnforcement = asset.prompts.find((entry) => entry.identifier === 'directive-grounded-prose');
+assert.equal(proseEnforcement?.name, 'Directive Prose Enforcement');
+const chatHistoryIndex = assetOrder.findIndex((entry) => entry.identifier === 'chatHistory');
+const proseEnforcementIndex = assetOrder.findIndex((entry) => entry.identifier === 'directive-grounded-prose');
+const postHistoryIndex = assetOrder.findIndex((entry) => entry.identifier === 'directive-post-history');
+assert.ok(proseEnforcementIndex > chatHistoryIndex, 'Prose enforcement should follow chat history.');
+assert.ok(proseEnforcementIndex < postHistoryIndex, 'Gameplay reinforcement should remain the final enabled system prompt.');
+const proseEnforcementContent = proseEnforcement?.content || '';
+assert.ok(proseEnforcementContent.trim().split(/\s+/).length <= 320, 'Prose enforcement should remain compact.');
+assert.match(proseEnforcementContent, /Epanorthosis/);
+assert.match(proseEnforcementContent, /Technobabble as atmosphere/);
+assert.match(proseEnforcementContent, /Automatic command validation/);
+assert.match(proseEnforcementContent, /State Y directly/);
+assert.match(proseEnforcementContent, /Fresh Ink/);
+assert.match(proseEnforcementContent, /Voice Isolation/);
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-post-history')?.content || '',
   /Conversations require turn-taking/
@@ -347,7 +362,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.12');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.13');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 

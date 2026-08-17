@@ -4853,7 +4853,6 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .ship-task-nav { position: absolute; z-index: 5; inset: 0; pointer-events: none; }
 .directive-expanded-shell .ship-task-mobile-callouts { display: none; }
 .directive-expanded-shell .ship-task-button {
-  --ship-task-bevel: 4px;
   --ship-task-edge: rgba(155, 130, 207, .5);
   --ship-task-accent: var(--directive-expanded-violet);
   --ship-task-surface: rgba(12, 15, 24, .94);
@@ -4867,47 +4866,17 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   min-height: 50px;
   padding: 8px 10px;
   color: var(--directive-expanded-text);
-  background: var(--ship-task-edge);
-  border: 0;
-  border-radius: 0;
-  clip-path: polygon(
-    var(--ship-task-bevel) 0,
-    calc(100% - var(--ship-task-bevel)) 0,
-    100% var(--ship-task-bevel),
-    100% calc(100% - var(--ship-task-bevel)),
-    calc(100% - var(--ship-task-bevel)) 100%,
-    var(--ship-task-bevel) 100%,
-    0 calc(100% - var(--ship-task-bevel)),
-    0 var(--ship-task-bevel)
-  );
+  background: var(--ship-task-surface);
+  border: 1px solid var(--ship-task-edge);
+  border-left: 3px solid var(--ship-task-accent);
+  border-radius: 6px;
+  clip-path: none;
   box-shadow: 0 8px 16px rgba(0, 0, 0, .22);
-  isolation: isolate;
   font-family: inherit;
   text-align: left;
   pointer-events: auto;
   cursor: pointer;
 }
-.directive-expanded-shell .ship-task-button::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 1px;
-  background: var(--ship-task-surface);
-  clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px);
-  pointer-events: none;
-}
-.directive-expanded-shell .ship-task-button::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  top: 4px;
-  bottom: 4px;
-  left: 0;
-  width: 3px;
-  background: var(--ship-task-accent);
-  pointer-events: none;
-}
-.directive-expanded-shell .ship-task-button > * { position: relative; z-index: 2; }
 .directive-expanded-shell .ship-task-button strong { overflow: hidden; font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .directive-expanded-shell .ship-task-button-title,
 .directive-expanded-shell .ship-task-title-row { display: flex; align-items: center; min-width: 0; gap: 7px; }
@@ -5050,11 +5019,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     clip-path: none;
     transform: none;
     box-shadow: none;
-    isolation: auto;
   }
-  .directive-expanded-shell .ship-task-button::before,
-  .directive-expanded-shell .ship-task-button::after { content: none; }
-  .directive-expanded-shell .ship-task-button > * { position: static; z-index: auto; }
   .directive-expanded-shell .ship-task-desktop-level { display: none; }
   .directive-expanded-shell .ship-task-button-title { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
   .directive-expanded-shell .ship-task-button-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding-left: 24px; }

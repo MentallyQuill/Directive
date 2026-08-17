@@ -6,7 +6,7 @@ import {
 
 export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
-export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.12';
+export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.13';
 export const DIRECTIVE_PRESET_ASSET_URL = new URL('../../../presets/sillytavern/directive.json', import.meta.url);
 export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
 export const DIRECTIVE_DEFAULT_TENSE_RULE = 'past tense';
