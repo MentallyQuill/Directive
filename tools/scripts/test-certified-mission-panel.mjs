@@ -33,6 +33,13 @@ globalThis.document = {
 
 const projection = {
   kind: 'directive.playerProjection.v1',
+  time: {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.405312,
+    secondOfDay: 31059,
+    clockDisplay: '08:37:39',
+    stardateDisplay: '53068.4'
+  },
   player: { kind: 'directive.playerIdentityProjection.v1', playerId: 'player.sam', name: 'Sam Vickers' },
   mission: {
     kind: 'directive.missionPlayerProjection.v1',
@@ -66,6 +73,11 @@ const text = all(body).map((node) => node.textContent || '').join(' ');
 assert.equal(byClass('mission-layout').length, 1);
 assert.equal(byClass('mission-collection').length, 1);
 assert.equal(byClass('mission-detail').length, 1);
+assert.equal(byClass('directive-ship-chronometer-mission').length, 2);
+for (const chronometer of byClass('directive-ship-chronometer-mission')) {
+  assert.equal(chronometer.getAttribute('aria-label'), 'Current accepted ship time');
+  assert.match(all(chronometer).map((node) => node.textContent || '').join(''), /Ship time08:37:39Stardate 53068\.4/);
+}
 assert.equal(all(body).filter((node) => node.dataset.directiveScrollOwner === 'true').length, 3);
 const mobileAccordion = byClass('mission-mobile-accordion')[0];
 const mobileTrigger = byClass('mission-mobile-trigger')[0];

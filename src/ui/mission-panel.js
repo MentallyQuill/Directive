@@ -3,6 +3,7 @@ import { appendCurrentChatEmptyState } from './current-chat-empty-state.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
 import { buildCertifiedMissionView } from './view-models/certified-mission-view.mjs';
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
+import { createShipChronometer } from './ship-chronometer.js';
 
 function objectiveStatus(objective) {
   if (objective.status === 'terminal') return objective.disposition || 'complete';
@@ -94,7 +95,7 @@ function appendTerminal(container, terminal) {
   container.appendChild(card);
 }
 
-function appendMissionDetail(detail, mission, { compactIdentity = false } = {}) {
+function appendMissionDetail(detail, mission, { compactIdentity = false, time = null } = {}) {
   const hero = createElement('header', 'mission-hero');
   if (compactIdentity) hero.classList.add('mission-hero-compact-identity');
   if (!compactIdentity) {
@@ -107,6 +108,8 @@ function appendMissionDetail(detail, mission, { compactIdentity = false } = {}) 
   const summary = createElement('p');
   summary.textContent = mission.summary;
   hero.appendChild(summary);
+  const chronometer = createShipChronometer(time, { variant: 'mission' });
+  if (chronometer) hero.appendChild(chronometer);
   detail.appendChild(hero);
 
   appendTerminal(detail, mission.terminal);
@@ -160,7 +163,7 @@ export function renderMissionPanel(body, view) {
 
   const detail = createElement('section', 'mission-detail mission-desktop-detail');
   detail.dataset.directiveScrollOwner = 'true';
-  appendMissionDetail(detail, mission);
+  appendMissionDetail(detail, mission, { time: model.time });
 
   const mobile = createElement('section', 'mission-mobile-accordion');
   mobile.dataset.directiveScrollOwner = 'true';
@@ -179,7 +182,7 @@ export function renderMissionPanel(body, view) {
     trigger.append(triggerState, triggerTitle, triggerSummary);
     const recordDetail = createElement('div', 'mission-mobile-detail');
     recordDetail.id = mobileMissionDetailId(record.id);
-    appendMissionDetail(recordDetail, record, { compactIdentity: true });
+    appendMissionDetail(recordDetail, record, { compactIdentity: true, time: model.time });
     wrapper.append(trigger, recordDetail);
     mobile.appendChild(wrapper);
     return { key: record.id, trigger, panel: recordDetail };

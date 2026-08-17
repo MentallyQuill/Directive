@@ -1,5 +1,6 @@
 import { appendDirectiveModal } from './directive-overlay-root.js';
 import { appendEmpty, createElement } from './runtime-ui-kit.js';
+import { formatStardate } from '../time/ship-time.mjs';
 
 let dialogSequence = 0;
 
@@ -15,7 +16,8 @@ function formatDate(value) {
 }
 
 function savedGameMeta(savedGame = {}) {
-  return [savedGame.chapter, Number.isFinite(savedGame.stardate) ? `Stardate ${savedGame.stardate}` : savedGame.stardate, formatDate(savedGame.createdAt)]
+  const stardate = formatStardate(savedGame.stardate);
+  return [savedGame.chapter, stardate ? `Stardate ${stardate}` : savedGame.stardate, formatDate(savedGame.createdAt)]
     .filter(Boolean)
     .join(' / ');
 }

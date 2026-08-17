@@ -13,6 +13,7 @@ import {
   createNativeBranchTranscriptAttestation,
   verifyNativeBranchTranscriptAttestation
 } from '../../runtime/native-branch-lineage.mjs';
+import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -445,6 +446,50 @@ export function createFakeChatAdapter({
       };
       calls.push({ type: 'attachAssistantRuntimeMetadata', hostMessageId: id, runtimeMetadata: cloneJson(runtimeMetadata) });
       return { ok: true, hostMessageId: id, index, swipeIndex, runtimeMetadata: cloneJson(message.extra.runtimeMetadata) };
+    },
+    async stripAssistantTimeFooter({ hostMessageId } = {}) {
+      const chatMessages = messagesForChat();
+      const id = String(hostMessageId || '').trim();
+      const index = chatMessages.findIndex((message, cursor) => (
+        String(message.hostMessageId || message.id || cursor) === id
+      ));
+      if (index < 0) return { ok: false, stripped: false, reason: 'message-unavailable' };
+      const message = chatMessages[index];
+      if (message.isUser === true || message.is_user === true || message.isSystem === true || message.is_system === true) {
+        return { ok: false, stripped: false, reason: 'assistant-message-required' };
+      }
+      const swipeIndex = Array.isArray(message.swipes)
+        && Number.isInteger(message.swipe_id)
+        && message.swipe_id >= 0
+        && message.swipe_id < message.swipes.length
+        ? message.swipe_id
+        : null;
+      const selectedText = swipeIndex === null ? message.text : message.swipes[swipeIndex];
+      const sanitized = stripGeneratedShipTimeFooter(selectedText);
+      if (sanitized.stripped) {
+        message.text = sanitized.text;
+        if (swipeIndex !== null) message.swipes[swipeIndex] = sanitized.text;
+        calls.push({ type: 'stripAssistantTimeFooter', hostMessageId: id, swipeIndex });
+      }
+      return {
+        ok: true,
+        stripped: sanitized.stripped,
+        hostMessageId: id,
+        swipeIndex,
+        footerText: sanitized.footerText,
+        message: cloneJson({
+          id: message.id || id,
+          hostMessageId: message.hostMessageId || id,
+          index,
+          chatId: message.chatId || currentChatId,
+          role: 'assistant',
+          text: message.text || '',
+          isUser: false,
+          isDirectiveOwned: message.isDirectiveOwned === true,
+          metadata: message.metadata || null,
+          raw: message
+        })
+      };
     },
     async cloneCampaignChat(options = {}) {
       const sourceChatId = options.sourceChatId || currentChatId;

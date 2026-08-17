@@ -3,6 +3,15 @@ import { buildCertifiedCampaignView } from '../../src/ui/view-models/certified-c
 
 const ashesId = 'directive:campaign-package:breckenridge-ashes-of-peace';
 const view = {
+  v1PlayerProjection: {
+    time: {
+      kind: 'directive.timePlayerProjection.v1',
+      stardate: 53068.405312,
+      secondOfDay: 31059,
+      clockDisplay: '08:37:39',
+      stardateDisplay: '53068.4'
+    }
+  },
   campaign: {
     packages: [
       {
@@ -39,6 +48,7 @@ const view = {
 };
 
 const campaign = buildCertifiedCampaignView(view);
+assert.deepEqual(campaign.time, view.v1PlayerProjection.time);
 assert.deepEqual(campaign.packages.map(({ availability }) => availability), ['available', 'coming-later']);
 assert.deepEqual(campaign.packages.map(({ disabled }) => disabled), [false, true]);
 assert.deepEqual(campaign.packages.map(({ description }) => description), [

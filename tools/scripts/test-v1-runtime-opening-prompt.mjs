@@ -165,10 +165,10 @@ assert.match(packet.text, /"canonicalOpeningMessage":/);
 assert.match(packet.text, /Yesterday morning, your shuttle rendezvoused/);
 assert.match(packet.text, /Preserve every established opening beat/);
 assert.match(packet.text, /Do not take the player through the ready-room door/);
-assert.match(packet.text, /End the assistant response with exactly one final nonblank line/);
-assert.match(packet.text, /\*Stardate 53068\.4 \| 08:30:47 hours\*/);
-assert.match(packet.text, /dialogue.*seconds/i);
-assert.match(packet.text, /Deadlines, schedules, past events, hypothetical durations.*do not themselves advance/i);
+assert.match(packet.text, /Directive displays accepted ship time in its interface/);
+assert.match(packet.text, /Do not print a Stardate, ship-time header, footer, tracker, or timestamp/);
+assert.doesNotMatch(packet.text, /End the assistant response with exactly one final nonblank line/);
+assert.doesNotMatch(packet.text, /\*Stardate 53068\.4 \| 08:30:47 hours\*/);
 assert.doesNotMatch(packet.text, /Begin the assistant response with exactly/);
 assert.match(packet.text, /"currentTime": \{/);
 

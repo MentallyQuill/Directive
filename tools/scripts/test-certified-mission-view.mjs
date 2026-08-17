@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import { buildCertifiedMissionView } from '../../src/ui/view-models/certified-mission-view.mjs';
 
 const projection = {
+  time: {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.405312,
+    secondOfDay: 31059,
+    clockDisplay: '08:37:39',
+    stardateDisplay: '53068.4'
+  },
   mission: {
     kind: 'directive.missionPlayerProjection.v1',
     missionId: 'mission.prelude',
@@ -36,6 +43,7 @@ const projection = {
 };
 
 assert.deepEqual(buildCertifiedMissionView(projection), {
+  time: projection.time,
   selectedMissionId: 'mission.prelude',
   missions: [{
     id: 'mission.prelude',

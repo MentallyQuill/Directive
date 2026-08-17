@@ -47,7 +47,7 @@ const campaign = {
   chapter: 'Prelude: A Ship Underway',
   savedGames: [{
     id: 'saved.1', name: 'Before Whitaker', chapter: 'Prelude: A Ship Underway',
-    stardate: 53068.4, createdAt: '2026-08-11T12:00:00.000Z'
+    stardate: 53068.405312, createdAt: '2026-08-11T12:00:00.000Z'
   }, {
     id: 'saved.2', name: 'Before the signal', chapter: 'Prelude: A Ship Underway',
     stardate: 53069.1, createdAt: '2026-08-11T13:00:00.000Z'
@@ -62,7 +62,8 @@ const loadDialog = createLoadGameDialog({
 });
 assert.equal(loadDialog.dialog.getAttribute('role'), 'dialog');
 assert.match(textOf(loadDialog.dialog), /Loading this save creates a new timeline\. Your current timeline will be preserved automatically\./);
-assert.match(textOf(loadDialog.rows[0]), /Before Whitaker.*Prelude: A Ship Underway.*Stardate 53068\.4.*2026/);
+assert.match(textOf(loadDialog.rows[0]), /Before Whitaker.*Prelude: A Ship Underway.*Stardate 53068\.4\s+\/.*2026/);
+assert.doesNotMatch(textOf(loadDialog.rows[0]), /53068\.405312/);
 assert.equal(loadDialog.primary.disabled, true);
 assert.equal(loadDialog.deleteButtons.length, 0, 'saved-game deletion must be absent without an authoritative handler');
 loadDialog.rows[0].listeners.get('click')();

@@ -29,5 +29,5 @@ export function buildCertifiedMissionView(projection) {
     capabilities: clone(mission.capabilities),
     terminal: clone(mission.terminal)
   };
-  return { selectedMissionId: record.id, missions: [record] };
+  return { time: clone(projection.time), selectedMissionId: record.id, missions: [record] };
 }

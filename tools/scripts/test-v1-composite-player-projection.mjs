@@ -26,6 +26,11 @@ const campaignState = {
         packageVersion: definition.packageBinding.packageVersion,
     },
     campaignChatBinding: { saveId: branchId, chatId: 'chat.composite' },
+    timeLedger: {
+        kind: 'directive.timeLedger.v1',
+        stardate: 53068.405312,
+        shipClock: { secondOfDay: 31059, minuteOfDay: 517, display: '08:37:39 hours' },
+    },
     mission: {
         activeMissionId: definition.packageBinding.sourceId,
         v1: createMissionState({ definition, branchId }),
@@ -74,6 +79,13 @@ const stateBefore = structuredClone(campaignState);
 const assetsBefore = structuredClone(runtimeAssets);
 const projection = createV1PlayerProjection({ campaignState, runtimeAssets, definition });
 assert.equal(projection.kind, 'directive.playerProjection.v1');
+assert.deepEqual(projection.time, {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.405312,
+    secondOfDay: 31059,
+    clockDisplay: '08:37:39',
+    stardateDisplay: '53068.4',
+});
 assert.equal(projection.packageId, definition.packageBinding.packageId);
 assert.equal(projection.branchId, branchId);
 assert.equal(projection.mission.kind, 'directive.missionPlayerProjection.v1');

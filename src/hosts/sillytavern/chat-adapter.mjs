@@ -9,6 +9,7 @@ import {
   verifyNativeBranchTranscriptAttestation
 } from '../../runtime/native-branch-lineage.mjs';
 import { createDirectiveMobileComposerFocusGuard } from './mobile-composer-focus-guard.js';
+import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -1833,6 +1834,63 @@ export function createSillyTavernChatAdapter({
     };
   }
 
+  async function stripAssistantTimeFooter({ hostMessageId } = {}) {
+    const ctx = context();
+    if (!ctx) return { ok: false, stripped: false, reason: 'context-unavailable' };
+    const chat = getChatArray(ctx);
+    const id = nonEmptyString(hostMessageId);
+    let index = numericMessageIndex(id);
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      index = chat.findIndex((message, cursor) => normalizeMessageId(message, cursor) === id);
+    }
+    if (!Number.isInteger(index) || index < 0 || index >= chat.length) {
+      return { ok: false, stripped: false, reason: 'message-unavailable' };
+    }
+    const message = chat[index];
+    const assistant = message?.is_user !== true
+      && message?.role !== 'user'
+      && message?.is_system !== true
+      && message?.role !== 'system';
+    if (!assistant) return { ok: false, stripped: false, reason: 'assistant-message-required' };
+    const swipeIndex = Array.isArray(message.swipes)
+      && Number.isInteger(message.swipe_id)
+      && message.swipe_id >= 0
+      && message.swipe_id < message.swipes.length
+      ? message.swipe_id
+      : null;
+    const selectedText = swipeIndex === null ? messageText(message) : message.swipes[swipeIndex];
+    const sanitized = stripGeneratedShipTimeFooter(selectedText);
+    if (!sanitized.stripped) {
+      return {
+        ok: true,
+        stripped: false,
+        hostMessageId: normalizeMessageId(message, index),
+        swipeIndex,
+        message: normalizeSillyTavernMessage(message, index)
+      };
+    }
+    const previousMes = message.mes;
+    const previousSwipe = swipeIndex === null ? null : message.swipes[swipeIndex];
+    message.mes = sanitized.text;
+    if (swipeIndex !== null) message.swipes[swipeIndex] = sanitized.text;
+    try {
+      await saveChat(ctx);
+    } catch (error) {
+      message.mes = previousMes;
+      if (swipeIndex !== null) message.swipes[swipeIndex] = previousSwipe;
+      throw error;
+    }
+    await refreshMessageDisplay(ctx, index, message);
+    return {
+      ok: true,
+      stripped: true,
+      hostMessageId: normalizeMessageId(message, index),
+      swipeIndex,
+      footerText: sanitized.footerText,
+      message: normalizeSillyTavernMessage(message, index)
+    };
+  }
+
   async function appendAssistantMessageSwipe({
     hostMessageId,
     text,
@@ -2382,6 +2440,7 @@ export function createSillyTavernChatAdapter({
     getMessage,
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
+    stripAssistantTimeFooter,
     attachAssistantRuntimeMetadata,
     appendAssistantMessageSwipe,
     continueHostGeneration,

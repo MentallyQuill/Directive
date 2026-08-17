@@ -39,6 +39,7 @@ const makeTask = (id, title, segmentIds) => ({
 const tasks = [makeTask('task.one', 'First Task', [0]), makeTask('task.two', 'Second Task', [1, 2])];
 const projection = {
   kind: 'directive.playerProjection.v1', player: { kind: 'directive.playerIdentityProjection.v1' },
+  time: { kind: 'directive.timePlayerProjection.v1', stardate: 53068.4, secondOfDay: 30600, clockDisplay: '08:30:00', stardateDisplay: '53068.4' },
   mission: { kind: 'directive.missionPlayerProjection.v1' }, people: { kind: 'directive.peoplePlayerProjection.v1' },
   commandBearing: { kind: 'directive.commandBearingPlayerProjection.v1', balance: 1, capacity: 3, pendingEdge: null, pendingCohesionRelief: null, latestSpend: null },
   ship: {

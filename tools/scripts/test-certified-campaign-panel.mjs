@@ -94,6 +94,15 @@ globalThis.document = {
 const ashesId = 'directive:campaign-package:breckenridge-ashes-of-peace';
 const body = new Element('div');
 const view = {
+  v1PlayerProjection: {
+    time: {
+      kind: 'directive.timePlayerProjection.v1',
+      stardate: 53068.405312,
+      secondOfDay: 31059,
+      clockDisplay: '08:37:39',
+      stardateDisplay: '53068.4'
+    }
+  },
   campaign: {
     packages: [
       {
@@ -217,6 +226,10 @@ assert.equal(byClass(body, 'campaign-saves').length, 0, 'active dashboard must k
 const dashboard = byClass(body, 'campaign-dashboard')[0];
 const dashboardHero = byClass(body, 'campaign-dashboard-hero')[0];
 assert.ok(dashboardHero, 'active dashboard must expose its full-height hero contract');
+assert.equal(byClass(dashboardHero, 'directive-ship-chronometer').length, 1);
+const dashboardChronometer = byClass(dashboardHero, 'directive-ship-chronometer')[0];
+assert.equal(dashboardChronometer.getAttribute('aria-label'), 'Current accepted ship time');
+assert.match(textOf(dashboardChronometer), /Ship time\s+08:37:39\s+Stardate 53068\.4/);
 assert.equal(dashboardHero.classList.contains('directive-responsive-hero'), false);
 assert.equal(dashboardHero.dataset.heroOrbitBound, 'true', 'active Campaign dashboard must bind its complete cruise hero');
 assert.equal(byClass(dashboardHero, 'directive-responsive-hero-toggle').length, 0);
@@ -237,6 +250,7 @@ assert.equal(byClass(body, 'campaign-dashboard').length, 0, 'Campaigns must leav
 assert.equal(byClass(body, 'campaign-layout').length, 1);
 assert.equal(byClass(body, 'campaign-master').length, 1);
 assert.equal(byClass(body, 'campaign-detail').length, 1);
+assert.equal(byClass(body, 'directive-ship-chronometer').length, 0, 'Campaign library must keep ship time on the current-campaign surface');
 assert.equal(byData(body, 'directiveScrollOwner', 'true').length, 3);
 const backToCurrent = byData(body, 'campaignAction', 'back-to-current')[0];
 assert.ok(backToCurrent, 'Campaign browser must return to the current campaign without a runtime action');

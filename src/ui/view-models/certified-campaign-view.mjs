@@ -40,6 +40,9 @@ export function buildCertifiedCampaignView(view = {}) {
     };
   });
   return {
+    time: view?.v1PlayerProjection?.time?.kind === 'directive.timePlayerProjection.v1'
+      ? clone(view.v1PlayerProjection.time)
+      : null,
     selectedCampaignId: explicitCampaignId || activeCampaignId,
     mobileCampaignId: explicitCampaignId || lastPlayedCampaignId || activeCampaignId,
     packages,

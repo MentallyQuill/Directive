@@ -1,4 +1,5 @@
 const PLAYER_PROJECTION_KIND = 'directive.playerProjection.v1';
+const TIME_PROJECTION_KIND = 'directive.timePlayerProjection.v1';
 const PLAYER_IDENTITY_PROJECTION_KIND = 'directive.playerIdentityProjection.v1';
 const MISSION_PROJECTION_KIND = 'directive.missionPlayerProjection.v1';
 const PEOPLE_PROJECTION_KIND = 'directive.peoplePlayerProjection.v1';
@@ -30,6 +31,7 @@ export function requireV1PlayerProjection(view = {}) {
   if (projection?.kind !== PLAYER_PROJECTION_KIND) {
     throw projectionError('This campaign is not valid Directive V1 state and cannot be displayed.');
   }
+  requireProjectionKind(projection.time, TIME_PROJECTION_KIND, 'time');
   requireProjectionKind(projection.player, PLAYER_IDENTITY_PROJECTION_KIND, 'player identity');
   requireProjectionKind(projection.mission, MISSION_PROJECTION_KIND, 'mission');
   requireProjectionKind(projection.people, PEOPLE_PROJECTION_KIND, 'people');

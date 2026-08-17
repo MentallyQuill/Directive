@@ -73,6 +73,7 @@ renderShipPanel(body, {
   campaignState: { campaign: { title: 'Ashes of Peace' } },
   v1PlayerProjection: {
     kind: 'directive.playerProjection.v1',
+    time: { kind: 'directive.timePlayerProjection.v1', stardate: 53068.4, secondOfDay: 30600, clockDisplay: '08:30:00', stardateDisplay: '53068.4' },
     player: {
       kind: 'directive.playerIdentityProjection.v1',
       id: 'player-commander',
