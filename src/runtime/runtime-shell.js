@@ -21,7 +21,7 @@ import {
 } from '../ui/directive-routes.mjs';
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
 import { appendEmpty, appendSectionTitle, clearElement } from '../ui/runtime-ui-kit.js';
-import { appendDirectiveOverlay } from '../ui/directive-overlay-root.js';
+import { showPresetUpdateNotification } from '../ui/preset-update-notification.js';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
 export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map((route) => ({
@@ -343,49 +343,6 @@ function onDirectiveShellPopstate() {
   hideDirectiveRuntimePanel({ skipHistory: true });
 }
 
-function removeDirectivePresetUpdateDialog() {
-  if (!canUseDocument()) return;
-  document.getElementById('directive-preset-update-dialog')?.remove?.();
-}
-
-function createDirectivePresetUpdateDialog(reminder) {
-  if (!canUseDocument()) return null;
-  removeDirectivePresetUpdateDialog();
-  const overlay = document.createElement('div');
-  overlay.id = 'directive-preset-update-dialog';
-  overlay.className = 'directive-preset-update-dialog-overlay';
-  overlay.setAttribute('role', 'presentation');
-  const dialog = document.createElement('section');
-  dialog.className = 'directive-preset-update-dialog';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-  const title = document.createElement('h2');
-  title.textContent = reminder?.title || 'Directive Preset needs attention';
-  const message = document.createElement('p');
-  message.textContent = reminder?.message || 'Open Directive Preset settings to install the latest bundled preset.';
-  const meta = document.createElement('p');
-  meta.className = 'directive-preset-update-meta';
-  meta.textContent = `Bundled preset: ${reminder?.bundledVersion || 'latest'}`;
-  const actions = document.createElement('div');
-  actions.className = 'directive-preset-update-dialog-actions';
-  const openButton = document.createElement('button');
-  openButton.type = 'button';
-  openButton.className = 'directive-button directive-primary-command';
-  openButton.textContent = 'Open Preset Settings';
-  const notNowButton = document.createElement('button');
-  notNowButton.type = 'button';
-  notNowButton.className = 'directive-button directive-secondary-command';
-  notNowButton.textContent = 'Not Now';
-  const disableButton = document.createElement('button');
-  disableButton.type = 'button';
-  disableButton.className = 'directive-button directive-secondary-command';
-  disableButton.textContent = "Don't Remind Me Again";
-  actions.append(openButton, notNowButton, disableButton);
-  dialog.append(title, message, meta, actions);
-  overlay.appendChild(dialog);
-  return { overlay, openButton, notNowButton, disableButton };
-}
-
 export function setDirectiveRuntimeApp(app) {
   runtimeApp = app || null;
 }
@@ -409,24 +366,12 @@ export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {
   }
   const reminder = await app.getDirectivePresetStartupReminder();
   if (!reminder?.shouldPrompt) return { shown: false, reminder };
-  const dialog = createDirectivePresetUpdateDialog(reminder);
-  if (!dialog) return { shown: false, reason: 'missing-document', reminder };
-  appendDirectiveOverlay(dialog.overlay, { fallbackParent: runtimeHost() });
-  const close = () => dialog.overlay.remove?.();
-  dialog.openButton.addEventListener('click', async () => {
-    close();
-    await openDirectivePresetSettings({ highlight: true });
+  const result = showPresetUpdateNotification(reminder, {
+    onOpen: () => openDirectivePresetSettings({ highlight: true }),
+    onLater: () => app.dismissDirectivePresetStartupReminder?.({ bundledVersion: reminder.bundledVersion }),
+    onDisable: () => app.dismissDirectivePresetStartupReminder?.({ disable: true, bundledVersion: reminder.bundledVersion }),
   });
-  dialog.notNowButton.addEventListener('click', async () => {
-    close();
-    await app.dismissDirectivePresetStartupReminder?.({ bundledVersion: reminder.bundledVersion });
-  });
-  dialog.disableButton.addEventListener('click', async () => {
-    close();
-    await app.dismissDirectivePresetStartupReminder?.({ disable: true, bundledVersion: reminder.bundledVersion });
-  });
-  dialog.openButton.focus?.();
-  return { shown: true, reminder };
+  return { ...result, reminder };
 }
 
 export async function showDirectiveRuntimePanel({ opener = null } = {}) {

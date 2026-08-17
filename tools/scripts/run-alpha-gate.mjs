@@ -21,6 +21,7 @@ const checks = [
   "test-package-hero-scene.mjs",
   "test-reactive-hero-orbit.mjs",
   "test-directive-notification-surface.mjs",
+  "test-preset-update-notification.mjs",
   "test-gameplay-notification-center.mjs",
   "test-certified-campaign-panel.mjs",
   "test-campaign-delete-dialog.mjs",
