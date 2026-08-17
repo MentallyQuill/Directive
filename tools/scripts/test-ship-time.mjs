@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 
-import { extractShipTimeFooter, formatShipTimeFooter } from '../../src/time/ship-time.mjs';
+import {
+  extractShipTimeFooter,
+  formatShipClock,
+  formatStardate,
+  formatShipTimeFooter,
+} from '../../src/time/ship-time.mjs';
+
+assert.equal(formatShipClock({ secondOfDay: 31059 }), '08:37:39');
+assert.equal(formatStardate(53068.405312), '53068.4');
+assert.equal(formatStardate(Number.NaN), '');
 
 assert.equal(
   formatShipTimeFooter({ stardate: 53068.4, secondOfDay: 0 }),

@@ -11,6 +11,13 @@ import {
 
 const projection = {
   kind: 'directive.playerProjection.v1',
+  time: {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.405312,
+    secondOfDay: 31059,
+    clockDisplay: '08:37:39',
+    stardateDisplay: '53068.4'
+  },
   player: {
     kind: 'directive.playerIdentityProjection.v1',
     id: 'player-commander',
@@ -115,6 +122,13 @@ assert.throws(
   () => requireV1PlayerProjection({
     campaignState: { campaign: {} },
     v1PlayerProjection: { ...projection, player: undefined }
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_PLAYER_PROJECTION_REQUIRED'
+);
+assert.throws(
+  () => requireV1PlayerProjection({
+    campaignState: { campaign: {} },
+    v1PlayerProjection: { ...projection, time: undefined }
   }),
   (error) => error?.code === 'DIRECTIVE_V1_PLAYER_PROJECTION_REQUIRED'
 );

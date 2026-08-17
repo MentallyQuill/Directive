@@ -2,16 +2,26 @@ const DAY_SECONDS = 86400;
 const FINAL_TIME_FOOTER = /(?:^|\r?\n)[\t ]*(\*Stardate\s+(\d{4,6}(?:\.\d+)?)\s*\|\s*(\d{2}):(\d{2}):(\d{2})\s+hours\*)[\t ]*(?:\r?\n[\t ]*)*$/i;
 const LEGACY_FINAL_TIME_FOOTER = /(?:^|\r?\n)[\t ]*(\*Stardate\s+(\d{4,6}(?:\.\d+)?)\s*\|\s*(\d{2})(\d{2})\s+hours\*)[\t ]*(?:\r?\n[\t ]*)*$/i;
 
-export function formatShipTimeFooter({ stardate, secondOfDay, minuteOfDay } = {}) {
-  const numericStardate = Number(stardate);
+export function formatShipClock({ secondOfDay, minuteOfDay } = {}) {
   const numericSecond = Number(secondOfDay ?? (Number(minuteOfDay) * 60));
-  if (!Number.isFinite(numericStardate) || !Number.isFinite(numericSecond)) return '';
+  if (!Number.isFinite(numericSecond)) return '';
   const second = ((Math.round(numericSecond) % DAY_SECONDS) + DAY_SECONDS) % DAY_SECONDS;
   const hour = Math.floor(second / 3600);
   const minute = Math.floor((second % 3600) / 60);
   const clockSecond = second % 60;
-  const clock = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(clockSecond).padStart(2, '0')}`;
-  return `*Stardate ${numericStardate.toFixed(1).padStart(7, '0')} | ${clock} hours*`;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(clockSecond).padStart(2, '0')}`;
+}
+
+export function formatStardate(stardate) {
+  const numeric = Number(stardate);
+  return Number.isFinite(numeric) ? numeric.toFixed(1) : '';
+}
+
+export function formatShipTimeFooter({ stardate, secondOfDay, minuteOfDay } = {}) {
+  const stardateDisplay = formatStardate(stardate);
+  const clock = formatShipClock({ secondOfDay, minuteOfDay });
+  if (!stardateDisplay || !clock) return '';
+  return `*Stardate ${stardateDisplay.padStart(7, '0')} | ${clock} hours*`;
 }
 
 export function extractShipTimeFooter(text = '') {

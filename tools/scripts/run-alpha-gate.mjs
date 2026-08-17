@@ -83,6 +83,7 @@ const checks = [
   "test-v1-story-projection.mjs",
   "test-v1-prompt-projection.mjs",
   "test-v1-player-identity-projection.mjs",
+  "test-v1-time-player-projection.mjs",
   "test-v1-ship-projection.mjs",
   "test-v1-ship-mechanics-contracts.mjs",
   "test-v1-ship-mechanics-state.mjs",
