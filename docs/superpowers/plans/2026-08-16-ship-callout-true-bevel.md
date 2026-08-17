@@ -92,6 +92,6 @@ npm.cmd test
 
 Expected: all focused checks pass.
 
-- [ ] **Step 6: Review, commit, reconcile, and publish**
+- [x] **Step 6: Review, commit, reconcile, and publish**
 
 Stage only the design, plan, CSS, and Ship visual-test files. Commit the correction, fetch current GitHub `main`, merge any concurrent work without resetting or force-pushing, rerun the full gate if the merge changes the branch, push the scoped branch tip to `origin/main`, and confirm the code commit is an ancestor of remote `main`.
