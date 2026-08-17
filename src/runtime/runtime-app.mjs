@@ -20,7 +20,6 @@ import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mj
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
 import { createDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
-import { formatShipTimeFooter } from '../time/ship-time.mjs';
 import { createShipOperationalPacket } from '../ship/v1/ship-operational-packet.mjs';
 import {
   deleteV1PlayerPortrait,
@@ -210,8 +209,7 @@ function currentTime(state) {
     secondOfDay: normalized,
     minuteOfDay: Math.floor(normalized / 60),
     elapsedSeconds: Number(state?.timeLedger?.elapsedSeconds ?? (Number(state?.timeLedger?.elapsedMinutes || 0) * 60)),
-    shipTime: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(remainder).padStart(2, '0')} hours`,
-    footer: formatShipTimeFooter({ stardate, secondOfDay: normalized })
+    shipTime: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(remainder).padStart(2, '0')} hours`
   };
 }
 
@@ -442,12 +440,7 @@ export function createV1RuntimePromptPacket({
     simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
     payload.campaign.currentTime
-      ? [
-        'SHIP TIME: campaign.currentTime is the authoritative time at the start of this response. Prior chat timestamps are display artifacts, not accepted clock state.',
-        'Infer only the fictional time actually supported by the scene you narrate. Spoken dialogue, pauses, and immediate physical actions normally consume plausible whole seconds even when the displayed minute does not change; do not round sub-minute activity down to zero merely because it remains within one minute.',
-        'Travel, waiting, completed work, meals, sleep, research, and explicit scene cuts should reflect their supported duration. Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
-        'For an ordinary in-character response: End the assistant response with exactly one final nonblank line shaped `*Stardate 53068.4 | 08:30:47 hours*`, using your proposed scene-end Stardate and 24-hour ship time. Use 00:00:00 through 23:59:59, never 24:00:00. Do not add a second timestamp or a time tracker. An explicitly OOC-only reply may omit the footer.'
-      ].join('\n')
+      ? 'SHIP TIME: campaign.currentTime is the accepted current time at the start of this response. Directive displays accepted ship time in its interface. Use it only for chronology. Do not print a Stardate, ship-time header, footer, tracker, or timestamp.'
       : '',
     JSON.stringify(payload, null, 2)
   ].filter(Boolean).join('\n\n');
@@ -979,9 +972,7 @@ export function createDirectiveRuntimeApp({
   async function postOpeningIfEmpty() {
     const messages = await host.chat.getRecentMessages?.({ limit: 4 }) || [];
     if (messages.some((message) => !message.isSystem && message.role !== 'system')) return { posted: false, reason: 'chat-not-empty' };
-    let opening = compact(records.packageData.campaign.openingMessage);
-    const openingFooter = currentTime(state)?.footer || '';
-    if (openingFooter && !opening.endsWith(openingFooter)) opening = `${opening}\n\n${openingFooter}`;
+    const opening = compact(records.packageData.campaign.openingMessage);
     return host.chat.postAssistantMessage({
       text: opening,
       campaignId: state.campaign.id,
@@ -1549,6 +1540,10 @@ export function createDirectiveRuntimeApp({
         )) || null;
       }
       const hostMessageId = messageId(message, message);
+      if (hostMessageId && typeof host.chat.stripAssistantTimeFooter === 'function') {
+        const sanitized = await host.chat.stripAssistantTimeFooter({ hostMessageId });
+        if (object(sanitized?.message)) message = sanitized.message;
+      }
       const responseText = compact(message?.text || message?.mes || message?.content);
       if (!hostMessageId || !responseText) {
         const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });

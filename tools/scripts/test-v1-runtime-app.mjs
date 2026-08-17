@@ -879,7 +879,8 @@ const dutyReportText = createDutyReportVisibleSegment({
 const acceptedRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(acceptedRevision > 1);
 
-const completedHandoverText = `Nayar steps forward. ${dutyReportText} Whitaker adds, “The practical command handover is now complete; take the chair, Commander.”`;
+const completedHandoverNarrative = `Nayar steps forward. ${dutyReportText} Whitaker adds, “The practical command handover is now complete; take the chair, Commander.”`;
+const completedHandoverText = `${completedHandoverNarrative}\n\n*Stardate 53068.4 | 08:42:16 hours*`;
 const provisional = chat.pushAssistantMessage({
   text: completedHandoverText,
   hostMessageId: 'assistant.provisional',
@@ -901,6 +902,15 @@ assert.deepEqual(attachedDutyReport, {
     reviewToken: null,
   },
 });
+assert.equal(
+  chat.messages().find((message) => message.hostMessageId === 'assistant.provisional')?.text,
+  completedHandoverNarrative,
+  'generation completion must remove the selected narrator time footer before custody'
+);
+assert.equal(
+  chat.calls().some((call) => call.type === 'stripAssistantTimeFooter' && call.hostMessageId === 'assistant.provisional'),
+  true
+);
 const hostedReportMessage = chat.messages().find((message) => message.hostMessageId === 'assistant.provisional');
 assert.equal(hostedReportMessage.isDirectiveOwned, false, 'Duty Report custody must not take ownership of host narration');
 assert.equal(hostedReportMessage.extra.runtimeMetadata.responseId, 'host-response.assistant.provisional');
@@ -935,8 +945,8 @@ assert.equal(
 );
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /"reportId": "report\.hesperus\.distress"/);
-assert.equal(opening.text.endsWith('*Stardate 53068.4 | 08:30:00 hours*'), true);
-assert.equal(opening.text.startsWith('*Stardate'), false);
+assert.equal(opening.text, records.packageData.campaign.openingMessage);
+assert.doesNotMatch(opening.text, /Stardate .* hours/);
 
 const publishesBeforeInvalidation = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;
 await app.handleHostMessageSelectedSwipeChanged({ message: provisional });

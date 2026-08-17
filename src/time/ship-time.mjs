@@ -1,6 +1,7 @@
 const DAY_SECONDS = 86400;
 const FINAL_TIME_FOOTER = /(?:^|\r?\n)[\t ]*(\*Stardate\s+(\d{4,6}(?:\.\d+)?)\s*\|\s*(\d{2}):(\d{2}):(\d{2})\s+hours\*)[\t ]*(?:\r?\n[\t ]*)*$/i;
 const LEGACY_FINAL_TIME_FOOTER = /(?:^|\r?\n)[\t ]*(\*Stardate\s+(\d{4,6}(?:\.\d+)?)\s*\|\s*(\d{2})(\d{2})\s+hours\*)[\t ]*(?:\r?\n[\t ]*)*$/i;
+const GENERATED_FINAL_TIME_FOOTER = /(?:^|\r?\n)[\t ]*(\*?\s*Stardate\s+\d{4,6}(?:\.\d+)?\s*\|\s*(?:\d{2}:\d{2}:\d{2}|\d{4}:\d{2}|\d{4})\s+hours\s*\*?)[\t ]*(?:\r?\n[\t ]*)*$/i;
 
 export function formatShipClock({ secondOfDay, minuteOfDay } = {}) {
   const numericSecond = Number(secondOfDay ?? (Number(minuteOfDay) * 60));
@@ -45,5 +46,16 @@ export function extractShipTimeFooter(text = '') {
       secondOfDay,
       minuteOfDay: Math.floor(secondOfDay / 60)
     }
+  };
+}
+
+export function stripGeneratedShipTimeFooter(text = '') {
+  const source = String(text ?? '');
+  const match = source.match(GENERATED_FINAL_TIME_FOOTER);
+  if (!match) return { text: source, stripped: false, footerText: null };
+  return {
+    text: source.slice(0, match.index).trim(),
+    stripped: true,
+    footerText: match[1].trim()
   };
 }
