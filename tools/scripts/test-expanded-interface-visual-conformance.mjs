@@ -398,6 +398,11 @@ try {
         const workspace = shell.querySelector('.directive-workspace');
         const routeBody = shell.querySelector('.directive-route-body');
         const rect = shell.getBoundingClientRect();
+        const compactRect = (node) => {
+          const box = node.getBoundingClientRect();
+          return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+        };
+        const topbar = shell.querySelector('.directive-topbar');
         const owners = [...shell.querySelectorAll('[data-directive-scroll-owner="true"]')]
           .filter((node) => node.getClientRects().length && /(auto|scroll)/.test(`${getComputedStyle(node).overflowX} ${getComputedStyle(node).overflowY}`));
         const illegal = [...shell.querySelectorAll('*')]
@@ -411,6 +416,12 @@ try {
         return {
           route,
           shell: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, overflow: getComputedStyle(shell).overflow },
+          header: {
+            topbar: compactRect(topbar),
+            brand: compactRect(topbar.querySelector('.directive-brand')),
+            path: compactRect(topbar.querySelector('.directive-route-path')),
+            close: compactRect(topbar.querySelector('.directive-close-action')),
+          },
           workspaceOverflow: getComputedStyle(workspace).overflow,
           routeBodyOverflow: getComputedStyle(routeBody).overflow,
           ownerCount: owners.length,
@@ -436,6 +447,12 @@ try {
       assert.equal(metrics.documentOverflowY, false, `${route} ${viewport.width}px document overflow-y`);
       assert.ok(metrics.shell.left >= 0 && metrics.shell.top >= 0);
       assert.ok(metrics.shell.right <= viewport.width + .5 && metrics.shell.bottom <= viewport.height + .5);
+      for (const [name, box] of Object.entries({ brand: metrics.header.brand, path: metrics.header.path, close: metrics.header.close })) {
+        assert.ok(box.top >= metrics.header.topbar.top - .5, `${route} ${viewport.width}px ${name} starts inside the top bar`);
+        assert.ok(box.bottom <= metrics.header.topbar.bottom + .5, `${route} ${viewport.width}px ${name} ends inside the top bar`);
+        assert.ok(box.top >= metrics.shell.top - .5, `${route} ${viewport.width}px ${name} starts inside the shell`);
+        assert.ok(box.bottom <= metrics.shell.bottom + .5, `${route} ${viewport.width}px ${name} ends inside the shell`);
+      }
       assert.match(metrics.routeFont, /Roboto Condensed|Arial Narrow/);
 
       if (route === 'settings') {
