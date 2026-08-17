@@ -1,10 +1,11 @@
 import { appendDirectiveOverlay } from './directive-overlay-root.js';
 
-const OWNER_NAMES = new Set(['activity', 'gameplay']);
+const OWNER_NAMES = new Set(['activity', 'system', 'gameplay']);
 const owners = new Set();
 
 let host = null;
 let activitySlot = null;
+let systemSlot = null;
 let gameplaySlot = null;
 let resizeObserver = null;
 let mutationObserver = null;
@@ -58,7 +59,7 @@ export function acquireDirectiveNotificationSurface(owner) {
   ensureSurface();
   startObservers();
   refreshDirectiveNotificationSurface();
-  return { host, activitySlot, gameplaySlot };
+  return { host, activitySlot, systemSlot, gameplaySlot };
 }
 
 export function refreshDirectiveNotificationSurface() {
@@ -109,6 +110,7 @@ export function releaseDirectiveNotificationSurface(owner) {
     host?.remove?.();
     host = null;
     activitySlot = null;
+    systemSlot = null;
     gameplaySlot = null;
     lastChatRect = null;
     lastTopBarRect = null;
@@ -122,6 +124,7 @@ export function resetDirectiveNotificationSurface(reason = 'reset') {
   host?.remove?.();
   host = null;
   activitySlot = null;
+  systemSlot = null;
   gameplaySlot = null;
   lastChatRect = null;
   lastTopBarRect = null;
@@ -184,11 +187,15 @@ function ensureSurface() {
   host.setAttribute('aria-label', 'Directive notifications');
   activitySlot = document.createElement('div');
   activitySlot.className = 'directive-notification-activity-slot';
+  systemSlot = document.createElement('div');
+  systemSlot.className = 'directive-system-notification-list';
+  systemSlot.setAttribute('aria-live', 'polite');
+  systemSlot.setAttribute('aria-relevant', 'additions');
   gameplaySlot = document.createElement('div');
   gameplaySlot.className = 'directive-gameplay-notification-list';
   gameplaySlot.setAttribute('aria-live', 'polite');
   gameplaySlot.setAttribute('aria-relevant', 'additions');
-  host.append(activitySlot, gameplaySlot);
+  host.append(activitySlot, systemSlot, gameplaySlot);
   appendDirectiveOverlay(host, { fallbackParent: document.body });
   return host;
 }

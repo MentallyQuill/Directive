@@ -72,15 +72,25 @@ const document = installFakeDom();
 resetDirectiveNotificationSurface('test-start');
 const activitySurface = acquireDirectiveNotificationSurface('activity');
 const gameplaySurface = acquireDirectiveNotificationSurface('gameplay');
+const systemSurface = acquireDirectiveNotificationSurface('system');
 
 assert.equal(activitySurface.host, gameplaySurface.host);
+assert.equal(systemSurface.host, activitySurface.host);
 assert.equal(document.documentElement.querySelectorAll('#directive-notifications').length, 1);
 assert.equal(activitySurface.activitySlot.parentNode, activitySurface.host);
+assert.equal(systemSurface.systemSlot.parentNode, systemSurface.host);
 assert.equal(activitySurface.gameplaySlot.parentNode, activitySurface.host);
+assert.deepEqual(systemSurface.host.children, [
+  systemSurface.activitySlot,
+  systemSurface.systemSlot,
+  systemSurface.gameplaySlot,
+]);
 
 releaseDirectiveNotificationSurface('activity');
 assert.equal(document.getElementById('directive-notifications'), gameplaySurface.host);
 releaseDirectiveNotificationSurface('gameplay');
+assert.equal(document.getElementById('directive-notifications'), systemSurface.host);
+releaseDirectiveNotificationSurface('system');
 assert.equal(document.getElementById('directive-notifications'), null);
 
 const topBar = document.createElement('div');
