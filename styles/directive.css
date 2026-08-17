@@ -107,6 +107,7 @@
 }
 
 .directive-notification-activity-slot,
+.directive-system-notification-list,
 .directive-gameplay-notification-list {
   display: grid;
   gap: 6px;
@@ -124,7 +125,8 @@
     rgba(13, 16, 24, .96);
   border: 1px solid color-mix(in srgb, var(--directive-notification-accent) 54%, rgba(248, 239, 224, .14));
   border-left: 4px solid var(--directive-notification-accent);
-  border-radius: 5px;
+  border-radius: 0;
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
   box-shadow: 0 9px 24px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(248, 239, 224, .025);
   pointer-events: auto;
   animation: directive-gameplay-notification-enter 180ms ease-out both;
@@ -134,9 +136,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
 }
-
-.directive-gameplay-notification.is-people { --directive-notification-accent: #9b82cf; }
-.directive-gameplay-notification.is-ship { --directive-notification-accent: #79aaf2; }
 
 .directive-gameplay-notification-dismiss,
 .directive-gameplay-notification-view {
@@ -325,7 +324,6 @@
 }
 
 .directive-turn-activity-indicator {
-  --directive-notification-accent: #ef7f72;
   display: grid;
   pointer-events: none;
 }
@@ -1641,60 +1639,54 @@ textarea.directive-field-control {
   border-radius: 16px 6px 6px 16px;
 }
 
-.directive-preset-update-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2147482500;
+.directive-preset-update-notification {
   display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgba(2, 3, 6, 0.48);
+  gap: 0;
 }
 
-.directive-preset-update-dialog {
-  width: min(460px, calc(100vw - 36px));
+.directive-preset-update-notification-content {
   display: grid;
-  gap: 11px;
-  padding: 16px;
-  color: var(--directive-text, #f8efe0);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--directive-operations, #ffc766) 18%, transparent), transparent 74%),
-    rgba(8, 10, 15, 0.96);
-  border: 1px solid var(--directive-border-strong, rgba(255, 199, 102, 0.72));
-  border-radius: 8px;
-  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.5);
+  gap: 3px;
+  padding: 9px 10px 8px;
 }
 
-.directive-preset-update-dialog h2,
-.directive-preset-update-dialog p {
+.directive-preset-update-notification-meta {
+  color: color-mix(in srgb, var(--directive-notification-accent) 78%, #b9b1a5);
+  font: 800 8px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.directive-preset-update-notification-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  border-top: 1px solid color-mix(in srgb, var(--directive-notification-accent) 34%, transparent);
+}
+
+.directive-preset-update-action {
+  min-width: 0;
+  min-height: 38px;
   margin: 0;
-}
-
-.directive-preset-update-dialog h2 {
-  color: var(--directive-accent, #ff9f4a);
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.15;
+  padding: 6px 8px;
+  color: var(--directive-notification-accent);
+  background: transparent;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--directive-notification-accent) 24%, transparent);
+  border-radius: 0;
+  font: 800 9px/1.1 "Roboto Condensed", "Arial Narrow", sans-serif;
   text-transform: uppercase;
+  cursor: pointer;
 }
 
-.directive-preset-update-dialog p {
-  color: var(--directive-muted, rgba(248, 239, 224, 0.76));
-  font-size: 0.84rem;
-  line-height: 1.32;
-}
+.directive-preset-update-action:first-child { border-left: 0; }
+.directive-preset-update-action:hover { background: color-mix(in srgb, var(--directive-notification-accent) 11%, transparent); }
+.directive-preset-update-action:focus-visible { position: relative; z-index: 1; outline: 2px solid #ffe58f; outline-offset: -2px; }
+.directive-preset-update-action:disabled { opacity: .55; cursor: wait; }
 
-.directive-preset-update-meta {
-  font-size: 0.72rem !important;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.directive-preset-update-dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  justify-content: flex-end;
+@media (max-width: 360.5px) {
+  .directive-preset-update-notification-actions { grid-template-columns: minmax(0, 1fr) minmax(0, .72fr); }
+  .directive-preset-update-action { min-height: 44px; }
+  .directive-preset-update-action.is-disable { grid-column: 1 / -1; border-top: 1px solid color-mix(in srgb, var(--directive-notification-accent) 24%, transparent); border-left: 0; }
 }
 
 @container (max-width: 460px) {

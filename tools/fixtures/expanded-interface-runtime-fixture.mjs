@@ -13,6 +13,7 @@ import {
   publishGameplayNotifications,
   resetGameplayNotifications,
 } from '/src/ui/gameplay-notification-center.js';
+import { showPresetUpdateNotification } from '/src/ui/preset-update-notification.js';
 
 const bundledPackageData = await fetch('/packages/bundled/breckenridge/ashes-of-peace.campaign-package.json').then((response) => response.json());
 
@@ -277,6 +278,11 @@ globalThis.__directiveShowGameplayNotifications = (records) => publishGameplayNo
   onView: async ({ route }) => globalThis.__directiveFixtureSetRoute(route),
 });
 globalThis.__directiveResetGameplayNotifications = () => resetGameplayNotifications('fixture-reset');
+globalThis.__directiveShowPresetUpdateNotification = (reminder) => showPresetUpdateNotification(reminder, {
+  onOpen: async () => globalThis.__directiveFixtureActions.push({ action: 'openPresetSettings', args: [] }),
+  onLater: async () => globalThis.__directiveFixtureActions.push({ action: 'dismissPresetUpdate', args: [] }),
+  onDisable: async () => globalThis.__directiveFixtureActions.push({ action: 'disablePresetUpdates', args: [] }),
+});
 
 mount();
 const notificationProofRecords = Object.freeze({

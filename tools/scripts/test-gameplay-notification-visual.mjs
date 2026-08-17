@@ -79,8 +79,18 @@ try {
   const cardStyles = await page.locator('.directive-gameplay-notification').evaluateAll((cards) => cards.map((card) => ({
     route: [...card.classList].find((name) => name.startsWith('is-')),
     borderLeftColor: getComputedStyle(card).borderLeftColor,
+    clipPath: getComputedStyle(card).clipPath,
   })));
-  assert.equal(new Set(cardStyles.map(({ borderLeftColor }) => borderLeftColor)).size, 3, 'each route has a distinct Directive accent');
+  assert.deepEqual(
+    new Set(cardStyles.map(({ borderLeftColor }) => borderLeftColor)),
+    new Set(['rgb(242, 161, 38)']),
+    'every Directive gameplay notification uses the shared yellow-orange accent',
+  );
+  assert.equal(
+    cardStyles.every(({ clipPath }) => clipPath.includes('4px')),
+    true,
+    'every Directive gameplay notification exposes four-pixel bevel geometry',
+  );
   const titleGlyphs = await page.locator('.directive-notification-title-icon').evaluateAll((icons) => icons.map((icon) => ({
     glyph: icon.dataset.glyph,
     maskImage: getComputedStyle(icon).maskImage,
@@ -113,6 +123,26 @@ try {
   await page.waitForTimeout(220);
   assert.equal(await page.locator('[data-directive-runtime-body="true"]').getAttribute('data-route-view'), 'people', 'View opens the matching panel');
   await page.close();
+
+  const presetPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await presetPage.goto(`${baseUrl}/production?route=settings`);
+  await presetPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await presetPage.evaluate(() => globalThis.__directiveShowPresetUpdateNotification({
+    title: 'Directive Preset update available',
+    message: 'Install the latest bundled narration preset.',
+    bundledVersion: '0.3.0',
+  }));
+  const presetGeometry = await presetPage.locator('.directive-preset-update-notification').evaluate((card) => ({
+    borderLeftColor: getComputedStyle(card).borderLeftColor,
+    clipPath: getComputedStyle(card).clipPath,
+    actionCount: card.querySelectorAll('.directive-preset-update-action').length,
+    surfaceId: card.parentElement?.parentElement?.id,
+  }));
+  assert.equal(presetGeometry.borderLeftColor, 'rgb(242, 161, 38)');
+  assert.match(presetGeometry.clipPath, /4px/);
+  assert.equal(presetGeometry.actionCount, 3);
+  assert.equal(presetGeometry.surfaceId, 'directive-notifications');
+  await presetPage.close();
 
   const collisionPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await collisionPage.goto(`${baseUrl}/production?route=mission`);

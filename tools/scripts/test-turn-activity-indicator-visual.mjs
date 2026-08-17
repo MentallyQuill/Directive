@@ -52,6 +52,12 @@ try {
   assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reading your post...');
   assert.equal(await indicator.locator('.directive-notification-title-icon').getAttribute('data-glyph'), 'route-campaign');
   assert.equal(await indicator.locator('button').count(), 0, 'turn activity remains lifecycle-controlled and non-dismissible');
+  const activityStyle = await indicator.evaluate((card) => ({
+    borderLeftColor: getComputedStyle(card).borderLeftColor,
+    clipPath: getComputedStyle(card).clipPath,
+  }));
+  assert.equal(activityStyle.borderLeftColor, 'rgb(242, 161, 38)', 'activity uses the shared yellow-orange accent');
+  assert.match(activityStyle.clipPath, /4px/, 'activity uses the shared four-pixel bevel');
   await page.waitForTimeout(220);
   const readingGeometry = await indicator.boundingBox();
   assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
