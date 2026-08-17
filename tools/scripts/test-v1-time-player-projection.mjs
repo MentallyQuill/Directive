@@ -25,6 +25,26 @@ assert.deepEqual(projection, {
   stardateDisplay: '53068.4',
 });
 
+assert.deepEqual(
+  createTimePlayerProjection({
+    campaignState: {
+      timeLedger: {
+        kind: 'directive.timeLedger.v1',
+        stardate: 53068.4,
+        shipClock: { minuteOfDay: 510, display: '08:30 hours' },
+      },
+    },
+  }),
+  {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.4,
+    secondOfDay: 30600,
+    clockDisplay: '08:30:00',
+    stardateDisplay: '53068.4',
+  },
+  'Validated minute-only V1 saves project their canonical minute at second zero.',
+);
+
 assert.throws(
   () => createTimePlayerProjection({ campaignState: {} }),
   (error) => error.code === 'DIRECTIVE_V1_TIME_PROJECTION_INVALID',

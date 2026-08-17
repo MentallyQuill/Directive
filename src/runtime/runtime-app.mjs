@@ -1540,9 +1540,28 @@ export function createDirectiveRuntimeApp({
         )) || null;
       }
       const hostMessageId = messageId(message, message);
+      let timeFooterNormalization = null;
       if (hostMessageId && typeof host.chat.stripAssistantTimeFooter === 'function') {
-        const sanitized = await host.chat.stripAssistantTimeFooter({ hostMessageId });
-        if (object(sanitized?.message)) message = sanitized.message;
+        try {
+          const sanitized = await host.chat.stripAssistantTimeFooter({ hostMessageId });
+          if (sanitized?.ok === false) {
+            timeFooterNormalization = {
+              attempted: true,
+              stripped: false,
+              reasonCode: compact(sanitized.reason) || 'assistant-time-footer-normalization-unavailable',
+            };
+            host.logger?.warn?.('Directive assistant time footer normalization was unavailable.', sanitized);
+          } else if (object(sanitized?.message)) {
+            message = sanitized.message;
+          }
+        } catch (error) {
+          timeFooterNormalization = {
+            attempted: true,
+            stripped: false,
+            reasonCode: 'assistant-time-footer-normalization-failed',
+          };
+          host.logger?.warn?.('Directive assistant time footer normalization failed.', error);
+        }
       }
       const responseText = compact(message?.text || message?.mes || message?.content);
       if (!hostMessageId || !responseText) {
@@ -1633,6 +1652,7 @@ export function createDirectiveRuntimeApp({
         ...(dutyReport.reportId ? { reportId: dutyReport.reportId } : {}),
         dutyReport,
         ...(metadataAttachment ? { metadataAttachment } : {}),
+        ...(timeFooterNormalization ? { timeFooterNormalization } : {}),
         episodeReview,
       };
     },

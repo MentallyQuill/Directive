@@ -11,12 +11,20 @@ function invalidTimeProjection() {
 export function createTimePlayerProjection({ campaignState = {} } = {}) {
   const ledger = campaignState.timeLedger;
   const stardate = Number(ledger?.stardate);
-  const secondOfDay = Number(ledger?.shipClock?.secondOfDay);
+  const minuteOfDay = Number(ledger?.shipClock?.minuteOfDay);
+  const hasSecondOfDay = Object.hasOwn(ledger?.shipClock || {}, 'secondOfDay');
+  const secondOfDay = hasSecondOfDay
+    ? Number(ledger.shipClock.secondOfDay)
+    : minuteOfDay * 60;
   if (ledger?.kind !== 'directive.timeLedger.v1'
     || !Number.isFinite(stardate)
+    || !Number.isInteger(minuteOfDay)
+    || minuteOfDay < 0
+    || minuteOfDay >= 1440
     || !Number.isInteger(secondOfDay)
     || secondOfDay < 0
-    || secondOfDay >= 86400) {
+    || secondOfDay >= 86400
+    || Math.floor(secondOfDay / 60) !== minuteOfDay) {
     throw invalidTimeProjection();
   }
   return {

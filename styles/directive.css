@@ -4038,11 +4038,28 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-hero { height: 170px; }
   .directive-expanded-shell .campaign-hero-copy { padding: 13px 14px; }
   .directive-expanded-shell .campaign-hero-copy h2 { font-size: 23px; }
+  .directive-expanded-shell .campaign-dashboard > .campaign-dashboard-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .directive-expanded-shell .campaign-dashboard > .campaign-dashboard-hero .campaign-hero-copy {
+    position: relative;
+    inset: auto;
+    order: 1;
+    width: 100%;
+    margin-top: auto;
+  }
   .directive-expanded-shell .directive-ship-chronometer-campaign {
-    top: 9px;
-    right: 9px;
-    min-width: 132px;
+    position: relative;
+    inset: auto;
+    order: 2;
+    align-self: stretch;
+    min-width: 0;
+    width: auto;
+    margin: 0 14px 14px;
     padding: 7px 9px 8px;
+    text-align: left;
   }
   .directive-expanded-shell .directive-ship-chronometer-clock { font-size: 22px; }
   .directive-expanded-shell .campaign-library-detail-body { padding: 13px 12px 16px 16px; }
@@ -4184,11 +4201,17 @@ textarea.directive-field-control {
   position: absolute;
   top: 17px;
   right: 18px;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 10px;
   border-right: 6px solid var(--directive-expanded-lilac);
   text-align: right;
 }
 
+.directive-expanded-shell .directive-ship-chronometer-mission .directive-ship-chronometer-label { grid-column: 1; }
+.directive-expanded-shell .directive-ship-chronometer-mission .directive-ship-chronometer-clock { grid-column: 2; }
 .directive-expanded-shell .directive-ship-chronometer-mission .directive-ship-chronometer-stardate {
+  grid-column: 1 / -1;
   color: var(--directive-expanded-lilac);
 }
 
@@ -4224,7 +4247,7 @@ textarea.directive-field-control {
   .directive-expanded-shell .directive-ship-chronometer-mission {
     position: relative;
     inset: auto;
-    width: min(100%, 260px);
+    width: 100%;
     margin-top: 11px;
     text-align: left;
   }

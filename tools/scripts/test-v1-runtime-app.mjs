@@ -911,6 +911,49 @@ assert.equal(
   chat.calls().some((call) => call.type === 'stripAssistantTimeFooter' && call.hostMessageId === 'assistant.provisional'),
   true
 );
+const messagesBeforeStripDiagnostics = chat.messages();
+const stripAssistantTimeFooter = host.chat.stripAssistantTimeFooter;
+const metadataCallsBeforeStripFailure = chat.calls().filter((call) => call.type === 'attachAssistantRuntimeMetadata').length;
+const stripFailureAssistant = chat.pushAssistantMessage({
+  text: 'The bridge remains steady.\n\n*Stardate 53068.4 | 08:43:00 hours*',
+  hostMessageId: 'assistant.strip-failure',
+});
+host.chat.stripAssistantTimeFooter = async () => {
+  throw new Error('forced time-footer save failure');
+};
+const stripFailureResult = await app.handleHostGenerationEnded({ message: stripFailureAssistant });
+host.chat.stripAssistantTimeFooter = stripAssistantTimeFooter;
+assert.deepEqual(stripFailureResult.timeFooterNormalization, {
+  attempted: true,
+  stripped: false,
+  reasonCode: 'assistant-time-footer-normalization-failed',
+});
+assert.equal(
+  chat.calls().filter((call) => call.type === 'attachAssistantRuntimeMetadata').length,
+  metadataCallsBeforeStripFailure + 1,
+  'footer-save failure must not block response metadata custody',
+);
+assert.equal(runtimeWarnings.some((warning) => /time footer normalization failed/i.test(warning[0] || '')), true);
+
+const metadataCallsBeforeStripUnavailable = chat.calls().filter((call) => call.type === 'attachAssistantRuntimeMetadata').length;
+const stripUnavailableAssistant = chat.pushAssistantMessage({
+  text: 'The bridge remains steady.',
+  hostMessageId: 'assistant.strip-unavailable',
+});
+host.chat.stripAssistantTimeFooter = async () => ({ ok: false, stripped: false, reason: 'message-unavailable' });
+const stripUnavailableResult = await app.handleHostGenerationEnded({ message: stripUnavailableAssistant });
+host.chat.stripAssistantTimeFooter = stripAssistantTimeFooter;
+assert.deepEqual(stripUnavailableResult.timeFooterNormalization, {
+  attempted: true,
+  stripped: false,
+  reasonCode: 'message-unavailable',
+});
+assert.equal(
+  chat.calls().filter((call) => call.type === 'attachAssistantRuntimeMetadata').length,
+  metadataCallsBeforeStripUnavailable + 1,
+  'an unavailable normalizer target must not block response metadata custody',
+);
+chat.setMessagesForChat(chat.getCurrentChatId(), messagesBeforeStripDiagnostics);
 const hostedReportMessage = chat.messages().find((message) => message.hostMessageId === 'assistant.provisional');
 assert.equal(hostedReportMessage.isDirectiveOwned, false, 'Duty Report custody must not take ownership of host narration');
 assert.equal(hostedReportMessage.extra.runtimeMetadata.responseId, 'host-response.assistant.provisional');

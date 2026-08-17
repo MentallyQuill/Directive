@@ -14,6 +14,7 @@ export function formatShipClock({ secondOfDay, minuteOfDay } = {}) {
 }
 
 export function formatStardate(stardate) {
+  if (stardate === null || stardate === undefined || (typeof stardate === 'string' && !stardate.trim())) return '';
   const numeric = Number(stardate);
   return Number.isFinite(numeric) ? numeric.toFixed(1) : '';
 }
@@ -54,7 +55,7 @@ export function stripGeneratedShipTimeFooter(text = '') {
   const match = source.match(GENERATED_FINAL_TIME_FOOTER);
   if (!match) return { text: source, stripped: false, footerText: null };
   return {
-    text: source.slice(0, match.index).trim(),
+    text: source.slice(0, match.index).replace(/\s+$/, ''),
     stripped: true,
     footerText: match[1].trim()
   };

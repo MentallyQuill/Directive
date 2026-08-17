@@ -59,8 +59,30 @@ try {
       const clockBox = await chronometer.boundingBox();
       const copy = page.locator(route === 'campaign' ? '.campaign-hero-copy:visible' : '.mission-hero > p:visible').first();
       const copyBox = await copy.boundingBox();
+      const layout = await chronometer.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const parentBox = node.parentElement?.getBoundingClientRect();
+        return {
+          position: style.position,
+          gridTemplateColumns: style.gridTemplateColumns,
+          parentWidth: parentBox?.width || 0,
+          previousClass: node.previousElementSibling?.className || '',
+          previousTag: node.previousElementSibling?.tagName || '',
+        };
+      });
       assert.ok(clockBox && clockBox.width > 100 && clockBox.height > 40, `${viewport.label} ${route} clock is visible`);
       assert.ok(copyBox && !overlaps(clockBox, copyBox), `${viewport.label} ${route} clock does not cover page identity`);
+      if (viewport.label === 'mobile') {
+        assert.equal(layout.position, 'relative', `${route} phone clock is in flow`);
+        assert.ok(clockBox.width / layout.parentWidth > 0.85, `${route} phone clock spans the hero content width`);
+        assert.equal(
+          route === 'campaign' ? layout.previousClass.includes('campaign-hero-copy') : layout.previousTag,
+          route === 'campaign' ? true : 'P',
+          `${route} phone clock follows the identity and summary`,
+        );
+      } else if (route === 'mission') {
+        assert.ok(layout.gridTemplateColumns.split(' ').length >= 2, 'desktop Mission clock uses its compact horizontal layout');
+      }
       await page.screenshot({
         path: path.join(artifactRoot, `${route}-${viewport.label}.png`),
         fullPage: true,

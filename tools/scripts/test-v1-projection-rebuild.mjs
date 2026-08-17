@@ -94,6 +94,16 @@ const before = createV1PlayerProjection({ campaignState, runtimeAssets, definiti
 assert.deepEqual(before.story.entries.map((entry) => entry.id), ['episode.before-edit']);
 assert.equal(before.people.people.find((person) => person.id === 'hadrik-bronn').moments.length, 1);
 
+const loadedMinuteOnlyState = JSON.parse(JSON.stringify(campaignState));
+delete loadedMinuteOnlyState.timeLedger.shipClock.secondOfDay;
+const loadedMinuteOnlyProjection = createV1PlayerProjection({
+    campaignState: loadedMinuteOnlyState,
+    runtimeAssets,
+    definition,
+});
+assert.equal(loadedMinuteOnlyProjection.time.secondOfDay, loadedMinuteOnlyState.timeLedger.shipClock.minuteOfDay * 60);
+assert.equal(loadedMinuteOnlyProjection.time.clockDisplay, '08:30:00');
+
 const rebuiltSettlement = invalidateStorySources(storySettlement, {
     contributionIds: ['contribution.beta'],
     reason: 'selected-swipe-changed',

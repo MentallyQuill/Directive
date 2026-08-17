@@ -1869,10 +1869,18 @@ export function createSillyTavernChatAdapter({
         message: normalizeSillyTavernMessage(message, index)
       };
     }
+    const previousMes = message.mes;
+    const previousSwipe = swipeIndex === null ? null : message.swipes[swipeIndex];
     message.mes = sanitized.text;
     if (swipeIndex !== null) message.swipes[swipeIndex] = sanitized.text;
+    try {
+      await saveChat(ctx);
+    } catch (error) {
+      message.mes = previousMes;
+      if (swipeIndex !== null) message.swipes[swipeIndex] = previousSwipe;
+      throw error;
+    }
     await refreshMessageDisplay(ctx, index, message);
-    await saveChat(ctx);
     return {
       ok: true,
       stripped: true,

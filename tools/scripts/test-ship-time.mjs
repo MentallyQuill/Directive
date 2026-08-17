@@ -9,8 +9,11 @@ import {
 } from '../../src/time/ship-time.mjs';
 
 assert.equal(formatShipClock({ secondOfDay: 31059 }), '08:37:39');
+assert.equal(formatShipClock({ minuteOfDay: 510 }), '08:30:00');
 assert.equal(formatStardate(53068.405312), '53068.4');
 assert.equal(formatStardate(Number.NaN), '');
+assert.equal(formatStardate(null), '');
+assert.equal(formatStardate('  '), '');
 
 assert.equal(
   formatShipTimeFooter({ stardate: 53068.4, secondOfDay: 0 }),
@@ -68,6 +71,11 @@ assert.deepEqual(
     footerText: null
   },
   'A nonterminal time reference is preserved.'
+);
+assert.equal(
+  stripGeneratedShipTimeFooter('    Indented narrative.\n\n*Stardate 53068.4 | 08:30:47 hours*').text,
+  '    Indented narrative.',
+  'Stripping a footer preserves leading narrative whitespace.'
 );
 
 console.log('Ship-time formatting and parsing tests passed.');
