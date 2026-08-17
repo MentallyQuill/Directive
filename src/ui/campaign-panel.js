@@ -92,7 +92,7 @@ function appendCampaignDetail(detail, campaign, pack, actions, {
   if (dashboard) {
     hero.classList.add('campaign-dashboard-hero');
     const chronometer = createShipChronometer(time, { variant: 'campaign' });
-    if (chronometer) hero.appendChild(chronometer);
+    if (chronometer) copy.appendChild(chronometer);
   } else {
     hero.classList.add('campaign-browser-hero');
   }

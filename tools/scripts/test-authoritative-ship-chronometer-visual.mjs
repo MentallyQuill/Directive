@@ -57,31 +57,67 @@ try {
         `${viewport.label} ${route} clock uses stable-width numerals`,
       );
       const clockBox = await chronometer.boundingBox();
-      const copy = page.locator(route === 'campaign' ? '.campaign-hero-copy:visible' : '.mission-hero > p:visible').first();
-      const copyBox = await copy.boundingBox();
+      const title = page.locator(
+        route === 'campaign'
+          ? '.campaign-hero-copy > h2:visible'
+          : viewport.label === 'mobile'
+            ? '.mission-mobile-trigger:visible strong'
+            : '.mission-hero > h2:visible',
+      ).first();
+      const summary = page.locator(route === 'campaign' ? '.campaign-summary:visible' : '.mission-hero > p:visible').first();
+      const titleBox = await title.boundingBox();
+      const summaryBox = await summary.boundingBox();
       const layout = await chronometer.evaluate((node) => {
         const style = getComputedStyle(node);
+        const clockStyle = getComputedStyle(node.querySelector('.directive-ship-chronometer-clock'));
+        const titleNode = node.closest('.campaign-hero')?.querySelector('.campaign-hero-copy h2')
+          || node.closest('.mission-mobile-record')?.querySelector('.mission-mobile-trigger strong')
+          || node.closest('.mission-hero')?.querySelector('h2');
         const parentBox = node.parentElement?.getBoundingClientRect();
+        const parentStyle = getComputedStyle(node.parentElement);
         return {
           position: style.position,
-          gridTemplateColumns: style.gridTemplateColumns,
+          backgroundImage: style.backgroundImage,
+          backgroundColor: style.backgroundColor,
+          borderRightWidth: style.borderRightWidth,
+          boxShadow: style.boxShadow,
+          clockFontSize: Number.parseFloat(clockStyle.fontSize),
+          titleFontSize: Number.parseFloat(getComputedStyle(titleNode).fontSize),
           parentWidth: parentBox?.width || 0,
-          previousClass: node.previousElementSibling?.className || '',
+          parentScrollWidth: node.parentElement?.scrollWidth || 0,
+          parentClass: node.parentElement?.className || '',
+          parentDisplay: parentStyle.display,
+          parentPaddingRight: Number.parseFloat(parentStyle.paddingRight),
           previousTag: node.previousElementSibling?.tagName || '',
         };
       });
-      assert.ok(clockBox && clockBox.width > 100 && clockBox.height > 40, `${viewport.label} ${route} clock is visible`);
-      assert.ok(copyBox && !overlaps(clockBox, copyBox), `${viewport.label} ${route} clock does not cover page identity`);
+      assert.ok(clockBox && clockBox.width > 100 && clockBox.height > 24, `${viewport.label} ${route} clock is visible`);
+      assert.ok(titleBox && !overlaps(clockBox, titleBox), `${viewport.label} ${route} clock does not cover the page title`);
+      assert.ok(summaryBox && !overlaps(clockBox, summaryBox), `${viewport.label} ${route} clock does not cover the page summary`);
+      assert.equal(layout.position, 'static', `${viewport.label} ${route} clock participates in page flow`);
+      assert.equal(layout.backgroundImage, 'none', `${viewport.label} ${route} clock has no card gradient`);
+      assert.equal(layout.backgroundColor, 'rgba(0, 0, 0, 0)', `${viewport.label} ${route} clock has no card fill`);
+      assert.equal(layout.borderRightWidth, '0px', `${viewport.label} ${route} clock has no heavy edge`);
+      assert.equal(layout.boxShadow, 'none', `${viewport.label} ${route} clock has no card shadow`);
+      assert.ok(layout.titleFontSize > layout.clockFontSize, `${viewport.label} ${route} title remains visually dominant`);
+      assert.ok(
+        layout.clockFontSize <= (route === 'campaign' ? 20 : viewport.label === 'desktop' ? 18 : 15),
+        `${viewport.label} ${route} clock remains quiet`,
+      );
       if (viewport.label === 'mobile') {
-        assert.equal(layout.position, 'relative', `${route} phone clock is in flow`);
         assert.ok(clockBox.width / layout.parentWidth > 0.85, `${route} phone clock spans the hero content width`);
-        assert.equal(
-          route === 'campaign' ? layout.previousClass.includes('campaign-hero-copy') : layout.previousTag,
-          route === 'campaign' ? true : 'P',
-          `${route} phone clock follows the identity and summary`,
-        );
+        assert.equal(layout.previousTag, 'P', `${route} phone clock follows the identity and summary`);
+        assert.ok(layout.parentScrollWidth <= layout.parentWidth + 1, `${route} phone clock creates no horizontal overflow`);
+        if (route === 'campaign') {
+          assert.ok(layout.parentClass.includes('campaign-hero-copy'), 'Campaign phone clock belongs to the identity caption');
+        }
+      } else if (route === 'campaign') {
+        assert.ok(layout.parentClass.includes('campaign-hero-copy'), 'Campaign desktop clock belongs to the identity caption');
+        assert.equal(layout.parentDisplay, 'grid', 'Campaign desktop caption composes identity and time together');
       } else if (route === 'mission') {
-        assert.ok(layout.gridTemplateColumns.split(' ').length >= 2, 'desktop Mission clock uses its compact horizontal layout');
+        assert.ok(layout.parentClass.includes('mission-hero'), 'Mission desktop clock belongs to the mission header');
+        assert.equal(layout.parentDisplay, 'grid', 'Mission desktop header composes status and time together');
+        assert.ok(layout.parentPaddingRight < 50, 'Mission desktop header does not reserve an overlay column');
       }
       await page.screenshot({
         path: path.join(artifactRoot, `${route}-${viewport.label}.png`),
