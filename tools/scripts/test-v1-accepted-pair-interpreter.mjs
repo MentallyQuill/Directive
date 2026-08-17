@@ -285,7 +285,7 @@ for (const [label, output, pattern] of [
         ...validOutput,
         claims: [validOutput.claims[0], validOutput.claims[1], validOutput.claims[0], validOutput.claims[1]],
         peopleEvents: [validOutput.peopleEvents[0]],
-    }, /no more than 4 durable selections/],
+    }, /duplicate claim selection/],
     ['abstained with claims', { ...validOutput, abstained: true }, /abstained output cannot contain claims/],
     ['unknown time field', { ...validOutput, time: { ...validOutput.time, absoluteClock: '0842' } }, /time contains unknown field/],
     ['negative elapsed time', { ...validOutput, time: { ...validOutput.time, elapsedSeconds: -1 } }, /nonnegative integer/],

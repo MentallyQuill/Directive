@@ -134,6 +134,26 @@ function peopleEventSchema() {
     };
 }
 
+function durableSelectionBudgetSchema(candidateSelectionCount) {
+    const maximumClaims = Math.min(MAX_CLAIMS, candidateSelectionCount);
+    return {
+        oneOf: Array.from({ length: maximumClaims + 1 }, (_, claimCount) => ({
+            type: 'object',
+            properties: {
+                claims: {
+                    type: 'array',
+                    minItems: claimCount,
+                    maxItems: claimCount,
+                },
+                peopleEvents: {
+                    type: 'array',
+                    maxItems: MAX_DURABLE_SELECTIONS - claimCount,
+                },
+            },
+        })),
+    };
+}
+
 export function createMissionAcceptedPairInterpretationSchema({ candidatePacket = {} } = {}) {
     const candidateSelections = (candidatePacket.candidates || []).flatMap((candidate) => {
         const sourceSlots = candidate.sourceSlots || [];
@@ -163,6 +183,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
         type: 'object',
         additionalProperties: false,
         required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time'],
+        allOf: [durableSelectionBudgetSchema(candidateSelections.length)],
         properties: {
             kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
             assistantAcceptance: { type: 'string', enum: [...ASSISTANT_ACCEPTANCE_VALUES] },
@@ -349,17 +370,25 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     if (!parsed.ok) {
         return { ok: false, errors: ['interpretation output must contain valid JSON'] };
     }
-    const errors = interpretationErrors(parsed.value, candidatePacket, peopleContext, sourcePair);
+    const boundedValue = cloneJson(parsed.value);
+    const claimCount = Array.isArray(boundedValue?.claims) ? boundedValue.claims.length : 0;
+    const peopleCapacity = Math.max(0, MAX_DURABLE_SELECTIONS - claimCount);
+    const rawPeopleEventCount = Array.isArray(boundedValue?.peopleEvents) ? boundedValue.peopleEvents.length : 0;
+    if (Array.isArray(boundedValue?.peopleEvents) && rawPeopleEventCount > peopleCapacity) {
+        boundedValue.peopleEvents = boundedValue.peopleEvents.slice(0, peopleCapacity);
+    }
+    const discardedOverflowPeopleEventCount = Math.max(0, rawPeopleEventCount - peopleCapacity);
+    const errors = interpretationErrors(boundedValue, candidatePacket, peopleContext, sourcePair);
     if (errors.length > 0) return { ok: false, errors };
-    const discardedAssistantClaimCount = parsed.value.assistantAcceptance === 'accepted'
+    const discardedAssistantClaimCount = boundedValue.assistantAcceptance === 'accepted'
         ? 0
-        : parsed.value.claims.filter((claim) => claim.sourceSlot === 'previousAssistant').length;
-    const claims = parsed.value.assistantAcceptance === 'accepted'
-        ? parsed.value.claims
-        : parsed.value.claims.filter((claim) => claim.sourceSlot !== 'previousAssistant');
-    const acceptedPeopleEvents = parsed.value.assistantAcceptance === 'accepted'
-        ? (parsed.value.peopleEvents || [])
-        : (parsed.value.peopleEvents || []).filter((event) => event.sourceSlot !== 'previousAssistant');
+        : boundedValue.claims.filter((claim) => claim.sourceSlot === 'previousAssistant').length;
+    const claims = boundedValue.assistantAcceptance === 'accepted'
+        ? boundedValue.claims
+        : boundedValue.claims.filter((claim) => claim.sourceSlot !== 'previousAssistant');
+    const acceptedPeopleEvents = boundedValue.assistantAcceptance === 'accepted'
+        ? (boundedValue.peopleEvents || [])
+        : (boundedValue.peopleEvents || []).filter((event) => event.sourceSlot !== 'previousAssistant');
     const survivingLocalRefs = new Set(acceptedPeopleEvents
         .filter((event) => event.type === 'personIntroduced')
         .map((event) => event.localRef));
@@ -370,19 +399,20 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
         || survivingLocalRefs.has(event.personRef)
         || (peopleContext.knownPeople || []).length === 0
     ));
-    const time = cloneJson(parsed.value.time);
+    const time = cloneJson(boundedValue.time);
     return {
         ok: true,
         value: {
             kind: MISSION_EVIDENCE_INTERPRETATION_KIND,
-            assistantAcceptance: parsed.value.assistantAcceptance,
+            assistantAcceptance: boundedValue.assistantAcceptance,
             claims: cloneJson(claims),
             peopleEvents: cloneJson(peopleEvents),
-            abstained: parsed.value.abstained,
+            abstained: boundedValue.abstained,
             time,
         },
         discardedAssistantClaimCount,
-        discardedAssistantPeopleEventCount: (parsed.value.peopleEvents || []).length - peopleEvents.length,
+        discardedAssistantPeopleEventCount: (boundedValue.peopleEvents || []).length - peopleEvents.length,
+        discardedOverflowPeopleEventCount,
     };
 }
 
@@ -640,6 +670,7 @@ export function createMissionAcceptedPairInterpreter({
                 discardedAssistantClaimCount: parsed.discardedAssistantClaimCount,
                 peopleEventCount: parsed.value.peopleEvents.length,
                 discardedAssistantPeopleEventCount: parsed.discardedAssistantPeopleEventCount,
+                discardedOverflowPeopleEventCount: parsed.discardedOverflowPeopleEventCount,
                 providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
                 model: generation?.response?.model || null,
                 latencyMs: generation?.diagnostics?.latencyMs ?? null,
