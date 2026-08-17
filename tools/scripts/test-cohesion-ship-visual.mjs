@@ -216,10 +216,7 @@ try {
         borderRightWidth: style.borderRightWidth,
         borderBottomWidth: style.borderBottomWidth,
         borderLeftWidth: style.borderLeftWidth,
-        borderTopColor: style.borderTopColor,
-        borderRightColor: style.borderRightColor,
-        borderBottomColor: style.borderBottomColor,
-        borderLeftColor: style.borderLeftColor,
+        borderRadius: style.borderRadius,
         beforeContent: before.content,
         afterContent: after.content,
       };
@@ -232,18 +229,14 @@ try {
       assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath === 'none'), true);
       assert.equal(
         desktopCalloutContract.every(({ borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth }) => (
-          [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth].every((width) => width === '3px')
+          borderTopWidth === '1px'
+          && borderRightWidth === '1px'
+          && borderBottomWidth === '1px'
+          && borderLeftWidth === '3px'
         )),
         true,
       );
-      assert.equal(
-        desktopCalloutContract.every(({ borderTopColor, borderRightColor, borderBottomColor, borderLeftColor }) => (
-          borderTopColor === borderLeftColor
-          && borderRightColor === borderBottomColor
-          && borderTopColor !== borderBottomColor
-        )),
-        true,
-      );
+      assert.equal(desktopCalloutContract.every(({ borderRadius }) => borderRadius === '6px'), true);
       assert.equal(
         desktopCalloutContract.every(({ beforeContent, afterContent }) => beforeContent === 'none' && afterContent === 'none'),
         true,

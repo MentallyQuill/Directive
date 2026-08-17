@@ -4856,8 +4856,6 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --ship-task-edge: rgba(155, 130, 207, .5);
   --ship-task-accent: var(--directive-expanded-violet);
   --ship-task-surface: rgba(12, 15, 24, .94);
-  --ship-task-bevel-light: rgba(155, 130, 207, .72);
-  --ship-task-bevel-dark: rgba(49, 38, 68, .92);
   appearance: none;
   position: absolute;
   display: grid;
@@ -4869,9 +4867,9 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   padding: 8px 10px;
   color: var(--directive-expanded-text);
   background: var(--ship-task-surface);
-  border: 3px solid;
-  border-color: var(--ship-task-bevel-light) var(--ship-task-bevel-dark) var(--ship-task-bevel-dark) var(--ship-task-bevel-light);
-  border-radius: 2px;
+  border: 1px solid var(--ship-task-edge);
+  border-left: 3px solid var(--ship-task-accent);
+  border-radius: 6px;
   clip-path: none;
   box-shadow: 0 8px 16px rgba(0, 0, 0, .22);
   font-family: inherit;
@@ -4917,8 +4915,6 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   --ship-task-edge: #ffa24f;
   --ship-task-accent: #ffa24f;
   --ship-task-surface: rgba(25, 22, 30, .98);
-  --ship-task-bevel-light: #ffa24f;
-  --ship-task-bevel-dark: #7c3915;
 }
 .directive-expanded-shell .ship-task-button:focus-visible,
 .directive-expanded-shell .ship-command-relief-button:focus-visible { outline: 2px solid #b8d3ff; outline-offset: 3px; }
