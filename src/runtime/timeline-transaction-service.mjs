@@ -3,6 +3,7 @@ import { hashStableJson } from './v1-host-message-contracts.mjs';
 import { createNativeBranchTranscriptAttestation } from './native-branch-lineage.mjs';
 import { reconstructV1BranchState, rebindV1CampaignStateCustody } from './v1-branch-reconstruction.mjs';
 import { V1_TIMELINE_OPERATION_STAGES } from './timeline-operation-journal.mjs';
+import { formatStardate } from '../time/ship-time.mjs';
 
 const STAGE_INDEX = new Map(V1_TIMELINE_OPERATION_STAGES.map((stage, index) => [stage, index]));
 const CAMPAIGN_TIMELINE_LEASES = new Map();
@@ -73,7 +74,7 @@ export function suggestPreviousTimelineName(campaignState = {}, runtimeAssets = 
   const definition = (runtimeAssets.missionDefinitions || []).find((entry) => entry.id === definitionId);
   const mission = compact(definition?.title || campaignState?.mission?.activeMissionId || 'Previous Timeline');
   const stardate = campaignState?.campaign?.currentStardate;
-  if (Number.isFinite(stardate)) return `${mission} — Stardate ${stardate}`;
+  if (Number.isFinite(stardate)) return `${mission} — Stardate ${formatStardate(stardate)}`;
   return `${mission} — ${new Date().toLocaleString()}`;
 }
 

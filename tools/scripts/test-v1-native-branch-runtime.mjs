@@ -11,6 +11,7 @@ import { createCampaignStartController } from '../../src/runtime/campaign-start-
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import {
   createTimelineTransactionService,
+  suggestPreviousTimelineName,
   withCampaignTimelineLease
 } from '../../src/runtime/timeline-transaction-service.mjs';
 import {
@@ -25,6 +26,14 @@ import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtu
 const assets = loadAshesRuntimeAssets();
 const records = { ...assets, campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS };
 const fixedNow = '2026-08-11T12:00:00.000Z';
+
+assert.equal(
+  suggestPreviousTimelineName({
+    mission: { activeMissionId: 'Prelude: A Ship Underway' },
+    campaign: { currentStardate: 53068.405312 }
+  }),
+  'Prelude: A Ship Underway — Stardate 53068.4'
+);
 
 const leaseOrder = [];
 let releaseFirstLease;
