@@ -497,10 +497,10 @@
       "forbid_overrides": true
     },
     {
-      "name": "Directive Grounded Prose",
+      "name": "Directive Prose Enforcement",
       "system_prompt": true,
       "role": "system",
-      "content": "# Grounded Prose\nWrite immediate, concrete scene prose. Prefer observable action, specific dialogue, professional behavior, object interaction, spatial pressure, and material evidence over abstract summary.\n\nStart with new content. Do not restate, quote, summarize, or decorate the user's last message. React to it through the world, crew, NPCs, ship systems, reports, or direct consequence.\n\nUse dialogue as professional action: pressure, refusal, concession, evidence, boundary-setting, request, report, warning, or practical help. Keep most spoken lines concise under stress. Let subtext, duty, and competing priorities carry weight without making every exchange a moral essay.\n\nGround sensory details in sources: consoles, deck vibration, damaged panels, recycled air, medical equipment, shuttle traffic, uniforms, padds, doors, alert lighting, crowd movement, weather, or stellar phenomena. Use one or two details that affect decision, safety, attention, or mood.\n\nAvoid stock phrasing, melodramatic wrap-ups, repetitive body-language tics, and dramatic weather mirroring. Do not lean on phrases like a beat, palpable tension, something shifted, searched their face, breath caught, voice dropped, eyes widened, heart raced, or time stopped. Replace cliche with a concrete action, visible choice, or environmental fact.",
+      "content": "# Prose Enforcement\nApply these rules in narration and NPC dialogue. Preserve deliberate character voice and necessary facts.\n\n## Banned Constructions\n- Epanorthosis and rhetorical correction: `not X, but Y`, `it is not X, it is Y`, `not just X`, and close variants. State Y directly.\n- Negative parallelism used for drama: `No sound. No movement. No hope.` Describe what happens.\n- Hollow atmosphere: heavy silence, palpable tension, charged air, or a ship or room seeming to breathe, wait, or understand.\n- Unnamed significance: a nameless feeling, something shifting between people, the weight of a moment, or an action immediately explaining its symbolism.\n- Perception dodging and mouth choreography: `didn't know what to say`, mouth opening and closing, swallowing thickly, or searching a face.\n- Fragmented emphasis, rule-of-three summaries, and poetic or reflective scene wrap-ups.\n\n## Stock Starship Prose\n- Technobabble as atmosphere: quantum, subspace, chroniton, or sensor terms without a reading, mechanism, or consequence.\n- Decorative ship ambience: unexplained ozone, ionized air, metallic tang, holographic shimmer, console chirps, or machinery hum used only for mood.\n- Automatic command validation: bridge-wide awe, a crew moving as one, instant respect, approving looks, professional masks slipping on cue, or narration praising rank.\n- Generic body tics: caught breath, widened eyes, tightened jaw, whitened knuckles, dropped voice, racing heart, or a shiver down the spine.\n\n## Use Instead\nUse direct statements, character-specific dialogue, professional behavior, readings, reports, object handling, spatial changes, and concrete consequences. Technical language requires a supporting measurement, diagnosis, failure, or scientific claim. Literal negation remains valid for facts, refusals, warnings, and operational limits.\n\n## Fresh Ink\nThe previous turn already happened. Begin with new action, dialogue, evidence, or consequence. Do not restate, paraphrase, decorate, or echo the player's wording.\n\n## Voice Isolation\nUse chat history for factual continuity and established character voices, not narrator clichés, cadence, or repeated sentence frames.",
       "identifier": "directive-grounded-prose",
       "injection_position": 0,
       "injection_depth": 0,
@@ -607,7 +607,6 @@
         { "identifier": "directive-knowledge-boundaries", "enabled": true },
         { "identifier": "directive-off-screen-pressure", "enabled": true },
         { "identifier": "directive-prose-lenses", "enabled": true },
-        { "identifier": "directive-grounded-prose", "enabled": true },
         { "identifier": "directive-scene-shape-variation", "enabled": true },
         { "identifier": "worldInfoBefore", "enabled": true },
         { "identifier": "personaDescription", "enabled": true },
@@ -617,6 +616,7 @@
         { "identifier": "worldInfoAfter", "enabled": true },
         { "identifier": "dialogueExamples", "enabled": true },
         { "identifier": "chatHistory", "enabled": true },
+        { "identifier": "directive-grounded-prose", "enabled": true },
         { "identifier": "directive-post-history", "enabled": true },
         { "identifier": "jailbreak", "enabled": false }
       ]
@@ -643,7 +643,7 @@
   "extensions": {
     "directive": {
       "presetName": "Directive",
-      "presetVersion": "Directive-0.1.0-pre-alpha.12",
+      "presetVersion": "Directive-0.1.0-pre-alpha.13",
       "version": "0.1.0",
       "metadataSchema": 1,
       "bundledPreset": true,
@@ -849,5 +849,5 @@
       }
     ]
   },
-  "notes": "Directive 0.1.0-pre-alpha.12 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, Pura-style top-level bias_presets, hybrid named-anchor prose lenses, grounded prose reinforcement, SillyTavern scene-shape variation macros, anti-omniscience, professional character agency, speech/perception boundaries, telepathy limits including forced intrusion, off-screen pressure, anti-echo behavior, runtime-packet compliance, turn-taking conversation pacing, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
+  "notes": "Directive 0.1.0-pre-alpha.13 bundled SillyTavern chat preset. Stable front-facing preset name: Directive. Metadata-backed update detection lives under extensions.directive. Campaign and timeline specifics belong to package data and Directive-injected prompt blocks, not this preset. Inspired by reference preset techniques: modular prompt sections, Wandlight-style POV controls, Pura/Celia-style preset regex cleanup, Pura-style top-level bias_presets, hybrid named-anchor prose lenses, compact Wandlight-style post-history prose enforcement tuned for Starfleet and science-fiction narration, SillyTavern scene-shape variation macros, anti-omniscience, professional character agency, speech/perception boundaries, telepathy limits including forced intrusion, off-screen pressure, anti-echo behavior, runtime-packet compliance, turn-taking conversation pacing, and post-history constraints. Excludes CYOA menus, hidden trackers, NSFW toggles, dice/HP combat, and player-impersonation behavior because Directive owns campaign state and chat-native play."
 }
