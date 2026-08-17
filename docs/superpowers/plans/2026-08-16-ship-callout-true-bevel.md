@@ -27,15 +27,15 @@
 - Consumes: computed styles from `.ship-task-button` at each certified viewport.
 - Produces: a browser-level regression contract for intact corners and directional bevel planes.
 
-- [ ] **Step 1: Change the desktop computed-style assertions**
+- [x] **Step 1: Change the desktop computed-style assertions**
 
 Capture `borderTopColor`, `borderRightColor`, `borderBottomColor`, `borderLeftColor`, and `borderTopWidth`. For viewports wider than 820px, require `clipPath === 'none'`, a 3px border on every card, equal light top/left colors, equal dark bottom/right colors, and different light/dark planes. Require both pseudo-elements to compute `content: none`.
 
-- [ ] **Step 2: Preserve the responsive contract**
+- [x] **Step 2: Preserve the responsive contract**
 
 For viewports at or below 820px, retain the existing assertions for `clipPath === 'none'`, a 1px top border, hidden desktop level, and disabled pseudo-elements.
 
-- [ ] **Step 3: Run the visual test and verify RED**
+- [x] **Step 3: Run the visual test and verify RED**
 
 Run:
 
@@ -57,19 +57,19 @@ Expected: FAIL because the current desktop cards compute a polygon `clip-path` a
 - Consumes: existing normal, hover, selected, and responsive `.ship-task-button` states.
 - Produces: compact desktop cards with intact corners and a shallow directional bevel.
 
-- [ ] **Step 1: Replace the desktop polygon shell**
+- [x] **Step 1: Replace the desktop polygon shell**
 
 Remove the desktop bevel-size variable, polygon `clip-path`, polygon pseudo-element surfaces, isolation, and child stacking. Restore the dark surface as the button background. Set a 3px solid border with a lighter top/left color and darker bottom/right color, plus a restrained 2px radius.
 
-- [ ] **Step 2: Preserve the interaction colors**
+- [x] **Step 2: Preserve the interaction colors**
 
 Keep the normal violet edge family. On hover and selection, change the light plane to orange and the dark plane to burnt orange while retaining the current dark selected surface.
 
-- [ ] **Step 3: Keep the responsive rows unchanged**
+- [x] **Step 3: Keep the responsive rows unchanged**
 
 Leave the current `max-width: 820px` button geometry, 1px border, 3px left accent, 4px radius, and pseudo-element disabling behavior intact. Remove only declarations that existed to undo the desktop polygon implementation and are no longer necessary.
 
-- [ ] **Step 4: Run focused verification and inspect screenshots**
+- [x] **Step 4: Run focused verification and inspect screenshots**
 
 Run:
 
@@ -82,7 +82,7 @@ git diff --check
 
 Inspect the initial and selected screenshots at 1440x900, 1024x768, and 980x720. Confirm intact rectangular corners, visible but restrained bevel depth, and unchanged leader routing and weights. Inspect 390x844 and 360x500 to confirm accordion rows remain unchanged.
 
-- [ ] **Step 5: Run the full gate**
+- [x] **Step 5: Run the full gate**
 
 Run:
 

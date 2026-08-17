@@ -213,11 +213,15 @@ try {
         levelText: level?.textContent || '',
         levelDisplay: level ? getComputedStyle(level).display : 'missing',
         borderTopWidth: style.borderTopWidth,
+        borderRightWidth: style.borderRightWidth,
+        borderBottomWidth: style.borderBottomWidth,
+        borderLeftWidth: style.borderLeftWidth,
+        borderTopColor: style.borderTopColor,
+        borderRightColor: style.borderRightColor,
+        borderBottomColor: style.borderBottomColor,
+        borderLeftColor: style.borderLeftColor,
         beforeContent: before.content,
-        beforeInset: before.inset,
-        beforeClipPath: before.clipPath,
         afterContent: after.content,
-        afterWidth: after.width,
       };
     }));
     if (viewport.width > 820) {
@@ -225,13 +229,25 @@ try {
       assert.equal(desktopCalloutContract.every(({ levelDisplay }) => levelDisplay !== 'none'), true);
       assert.equal(desktopCalloutContract.every(({ width }) => width >= 120 && width <= 205.5), true);
       assert.equal(desktopCalloutContract.every(({ maxWidth }) => maxWidth === '205px'), true);
-      assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath !== 'none'), true);
-      assert.equal(desktopCalloutContract.every(({ borderTopWidth }) => borderTopWidth === '0px'), true);
-      assert.equal(desktopCalloutContract.every(({ beforeContent }) => beforeContent !== 'none'), true);
-      assert.equal(desktopCalloutContract.every(({ beforeInset }) => beforeInset === '1px'), true);
-      assert.equal(desktopCalloutContract.every(({ beforeClipPath }) => beforeClipPath !== 'none'), true);
-      assert.equal(desktopCalloutContract.every(({ afterContent }) => afterContent !== 'none'), true);
-      assert.equal(desktopCalloutContract.every(({ afterWidth }) => afterWidth === '3px'), true);
+      assert.equal(desktopCalloutContract.every(({ clipPath }) => clipPath === 'none'), true);
+      assert.equal(
+        desktopCalloutContract.every(({ borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth }) => (
+          [borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth].every((width) => width === '3px')
+        )),
+        true,
+      );
+      assert.equal(
+        desktopCalloutContract.every(({ borderTopColor, borderRightColor, borderBottomColor, borderLeftColor }) => (
+          borderTopColor === borderLeftColor
+          && borderRightColor === borderBottomColor
+          && borderTopColor !== borderBottomColor
+        )),
+        true,
+      );
+      assert.equal(
+        desktopCalloutContract.every(({ beforeContent, afterContent }) => beforeContent === 'none' && afterContent === 'none'),
+        true,
+      );
       assert.ok(
         new Set(desktopCalloutContract.map(({ width }) => Math.round(width))).size > 1,
         `${viewport.label} title widths produce varied callouts`,
