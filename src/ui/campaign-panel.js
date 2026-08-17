@@ -7,6 +7,7 @@ import { createLoadGameDialog, createSaveGameDialog } from './timeline-dialogs.j
 import { bindSingleOpenDisclosure } from './mobile-record-disclosure.js';
 import { createPackageHeroVisual } from './package-hero-scene.js';
 import { bindReactiveHeroOrbit } from './reactive-hero-orbit.js';
+import { createShipChronometer } from './ship-chronometer.js';
 
 let selectedRecordKey = null;
 let campaignPanelMode = null;
@@ -68,6 +69,7 @@ function createSelectableRow({ key, title, meta, state, availability = '', image
 function appendCampaignDetail(detail, campaign, pack, actions, {
   compactIdentity = false,
   dashboard = false,
+  time = null,
   focusRoot = detail
 } = {}) {
   const hero = createElement('section', 'campaign-hero');
@@ -89,6 +91,8 @@ function appendCampaignDetail(detail, campaign, pack, actions, {
   hero.appendChild(copy);
   if (dashboard) {
     hero.classList.add('campaign-dashboard-hero');
+    const chronometer = createShipChronometer(time, { variant: 'campaign' });
+    if (chronometer) hero.appendChild(chronometer);
   } else {
     hero.classList.add('campaign-browser-hero');
   }
@@ -281,7 +285,11 @@ export function renderCampaignPanel(body, view, actions = {}) {
     heading.append(title, campaigns);
     dashboard.appendChild(heading);
     const pack = model.packages.find((candidate) => candidate.packageId === activeCampaign.packageId);
-    appendCampaignDetail(dashboard, activeCampaign, pack, actions, { dashboard: true, focusRoot: body });
+    appendCampaignDetail(dashboard, activeCampaign, pack, actions, {
+      dashboard: true,
+      time: model.time,
+      focusRoot: body
+    });
     body.appendChild(dashboard);
     return;
   }

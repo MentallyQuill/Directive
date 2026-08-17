@@ -51,6 +51,13 @@ const cohesionTasks = [
 
 const projection = {
   kind: 'directive.playerProjection.v1',
+  time: {
+    kind: 'directive.timePlayerProjection.v1',
+    stardate: 53068.405312,
+    secondOfDay: 31059,
+    clockDisplay: '08:37:39',
+    stardateDisplay: '53068.4'
+  },
   player: {
     kind: 'directive.playerIdentityProjection.v1',
     playerId: 'player.sam-vickers',

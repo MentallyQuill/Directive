@@ -3811,6 +3811,50 @@ textarea.directive-field-control {
 .directive-expanded-shell .campaign-hero-copy h2 { margin: 3px 0 0; color: var(--directive-expanded-text); font: 800 29px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
 .directive-expanded-shell .campaign-hero-copy p { margin: 4px 0 0; color: var(--directive-expanded-muted); font-size: 13px; line-height: 1.4; }
 
+.directive-expanded-shell .directive-ship-chronometer {
+  z-index: 2;
+  display: grid;
+  gap: 3px;
+  min-width: 148px;
+  padding: 9px 12px 10px;
+  color: var(--directive-expanded-text);
+  background: linear-gradient(115deg, rgba(13, 16, 24, .94), rgba(24, 27, 38, .82));
+  border: 1px solid rgba(248, 239, 224, .18);
+  border-radius: 4px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .32), inset 0 0 0 1px rgba(248, 239, 224, .025);
+  font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.directive-expanded-shell .directive-ship-chronometer-campaign {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  border-right: 6px solid var(--directive-expanded-amber);
+  text-align: right;
+}
+
+.directive-expanded-shell .directive-ship-chronometer-label {
+  color: var(--directive-expanded-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.directive-expanded-shell .directive-ship-chronometer-clock {
+  font: 800 27px/.95 "Roboto Condensed", "Arial Narrow", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .055em;
+}
+
+.directive-expanded-shell .directive-ship-chronometer-stardate {
+  color: var(--directive-expanded-amber);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
 .directive-expanded-shell .campaign-library-detail-body {
   display: grid;
   gap: 14px;
@@ -3994,6 +4038,13 @@ textarea.directive-field-control {
   .directive-expanded-shell .campaign-hero { height: 170px; }
   .directive-expanded-shell .campaign-hero-copy { padding: 13px 14px; }
   .directive-expanded-shell .campaign-hero-copy h2 { font-size: 23px; }
+  .directive-expanded-shell .directive-ship-chronometer-campaign {
+    top: 9px;
+    right: 9px;
+    min-width: 132px;
+    padding: 7px 9px 8px;
+  }
+  .directive-expanded-shell .directive-ship-chronometer-clock { font-size: 22px; }
   .directive-expanded-shell .campaign-library-detail-body { padding: 13px 12px 16px 16px; }
   .directive-expanded-shell .campaign-library-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .directive-expanded-shell .campaign-detail-actions { margin-right: 12px; margin-left: 16px; }
@@ -4124,10 +4175,22 @@ textarea.directive-field-control {
 .directive-expanded-shell .mission-row p { margin: 0; color: var(--directive-expanded-muted); font-size: 11px; line-height: 1.4; }
 
 .directive-expanded-shell .mission-detail { padding-bottom: 18px; box-shadow: inset 8px 0 0 var(--directive-expanded-lilac); }
-.directive-expanded-shell .mission-hero { padding: 19px 22px 17px 27px; background: var(--directive-expanded-high); border-bottom: 1px solid rgba(183, 138, 215, .24); }
+.directive-expanded-shell .mission-hero { position: relative; min-height: 102px; padding: 19px 205px 17px 27px; background: var(--directive-expanded-high); border-bottom: 1px solid rgba(183, 138, 215, .24); }
 .directive-expanded-shell .mission-status { color: var(--directive-expanded-lilac); font: 800 10px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
 .directive-expanded-shell .mission-hero h2 { margin: 4px 0 0; color: var(--directive-expanded-text); font: 800 27px/1.08 "Roboto Condensed", "Arial Narrow", sans-serif; }
 .directive-expanded-shell .mission-hero p { margin: 7px 0 0; color: var(--directive-expanded-muted); font-size: 13px; line-height: 1.45; }
+
+.directive-expanded-shell .directive-ship-chronometer-mission {
+  position: absolute;
+  top: 17px;
+  right: 18px;
+  border-right: 6px solid var(--directive-expanded-lilac);
+  text-align: right;
+}
+
+.directive-expanded-shell .directive-ship-chronometer-mission .directive-ship-chronometer-stardate {
+  color: var(--directive-expanded-lilac);
+}
 
 .directive-expanded-shell .mission-detail-section,
 .directive-expanded-shell .mission-terminal { margin: 15px 20px 0 27px; }
@@ -4156,8 +4219,15 @@ textarea.directive-field-control {
 @media (max-width: 640px) {
   .directive-expanded-shell .directive-expanded-mission { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(96px, 32%) minmax(0, 1fr); gap: 8px; margin: 7px 0; }
   .directive-expanded-shell .mission-row p { display: none; }
-  .directive-expanded-shell .mission-hero { padding: 14px 14px 13px 18px; }
+  .directive-expanded-shell .mission-hero { min-height: 0; padding: 14px 14px 13px 18px; }
   .directive-expanded-shell .mission-hero h2 { font-size: 23px; }
+  .directive-expanded-shell .directive-ship-chronometer-mission {
+    position: relative;
+    inset: auto;
+    width: min(100%, 260px);
+    margin-top: 11px;
+    text-align: left;
+  }
   .directive-expanded-shell .mission-detail-section,
   .directive-expanded-shell .mission-terminal { margin-right: 12px; margin-left: 18px; }
   .directive-expanded-shell .mission-objective-row { grid-template-columns: 16px minmax(0, 1fr); }
