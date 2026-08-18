@@ -10,7 +10,6 @@ const CLAIM_REDUCTION_ORDER = Object.freeze({
     factDisclosed: 40,
     intentExpressed: 50,
     decisionRecorded: 60,
-    timeAdvanced: 70,
 });
 
 function compareClaims(a, b) {
@@ -39,9 +38,6 @@ function effectVisibility(index, state, claim) {
     if (new Set(['outcomeObserved', 'decisionRecorded']).has(claim.claimType)) {
         return index.outcomes.get(claim.targetId)?.playerVisibility || 'hidden';
     }
-    if (claim.claimType === 'timeAdvanced') {
-        return state.clocks[claim.targetId]?.visibility || 'hidden';
-    }
     return 'hidden';
 }
 
@@ -54,48 +50,6 @@ function applyClaim(definition, state, claim) {
         addUnique(state.events, claim.targetId);
     } else if (new Set(['outcomeObserved', 'decisionRecorded']).has(claim.claimType)) {
         state.outcomes[claim.targetId] = claim.value;
-    } else if (claim.claimType === 'timeAdvanced') {
-        const clockDefinition = indexMissionDefinition(definition).clocks.get(claim.targetId);
-        const clock = state.clocks[claim.targetId];
-        if (clockDefinition && clock?.state === 'running') {
-            clock.value += clockDefinition.direction === 'down' ? -claim.value : claim.value;
-            clock.lastAdvancementEvidenceKey = claim.evidenceKey;
-            if (clockDefinition.direction === 'down' && clock.value <= 0) {
-                clock.value = 0;
-                clock.state = 'expired';
-            }
-        }
-    }
-}
-
-function reduceClocks(definition, state, effects, sourceContribution, predicateContext) {
-    const index = indexMissionDefinition(definition);
-    for (const clockDefinition of definition.clocks || []) {
-        const clock = state.clocks[clockDefinition.id];
-        clock.visibility = evaluate(clockDefinition.visibleWhen, definition, state, predicateContext) ? 'visible' : 'hidden';
-        if (clock.state === 'notStarted' && evaluate(clockDefinition.startWhen, definition, state, predicateContext)) clock.state = 'running';
-        if (clock.state === 'running' && clockDefinition.pauseWhen && evaluate(clockDefinition.pauseWhen, definition, state, predicateContext)) {
-            clock.state = 'paused';
-        } else if (clock.state === 'paused' && clockDefinition.resumeWhen && evaluate(clockDefinition.resumeWhen, definition, state, predicateContext)) {
-            clock.state = 'running';
-        }
-        if (clockDefinition.resolveWhen && evaluate(clockDefinition.resolveWhen, definition, state, predicateContext)) clock.state = 'resolved';
-        if (clock.state === 'expired' && !clock.expiryApplied && evaluate(clockDefinition.expireWhen, definition, state, predicateContext)) {
-            const consequence = clockDefinition.consequence;
-            if (consequence.effectType === 'eventOccurred' && index.events.has(consequence.targetId)) {
-                addUnique(state.events, consequence.targetId);
-            }
-            clock.expiryApplied = true;
-            effects.push({
-                id: `effect.${clockDefinition.id}.expired`,
-                type: `mission.${consequence.effectType}`,
-                targetId: consequence.targetId,
-                value: consequence.value,
-                sourceContributionIds: sourceContribution?.id ? [sourceContribution.id] : [],
-                playerVisibility: clock.visibility,
-                status: 'active',
-            });
-        }
     }
 }
 
@@ -253,7 +207,6 @@ export function reduceMissionEvidence({
     };
 
     const predicateContext = { shipCapabilityEvidenceById };
-    reduceClocks(definition, state, effects, sourceContribution, predicateContext);
     reduceObjectives(definition, state, predicateContext);
     reduceOutcomeDimensions(definition, state, predicateContext);
     if (state.status !== 'terminal' && evaluate(definition.closeWhen, definition, state, predicateContext)) {

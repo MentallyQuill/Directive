@@ -45,23 +45,6 @@ function projectFacts(definition, state) {
         }));
 }
 
-function projectClocks(definition, state) {
-    return (definition.clocks || [])
-        .filter((clock) => state.clocks?.[clock.id]?.visibility === 'visible')
-        .map((clock) => {
-            const clockState = state.clocks[clock.id];
-            return {
-                id: clock.id,
-                label: clock.playerText.label,
-                unit: clock.unit,
-                value: clockState.value,
-                status: clockState.state,
-                deadline: clock.playerText.deadline.replaceAll('{value}', String(clockState.value)),
-                consequence: clock.playerText.consequence,
-            };
-        });
-}
-
 function projectOutcomeDimensions(definition, state) {
     return (definition.outcomeDimensions || [])
         .filter((dimension) => Object.hasOwn(state.outcomeDimensions || {}, dimension.id))
@@ -117,7 +100,6 @@ export function createMissionPlayerProjection({ definition = {}, state = {} } = 
         progress: progressFor(objectives),
         capabilities: projectCapabilities(definition, state, index),
         facts: projectFacts(definition, state),
-        clocks: projectClocks(definition, state),
         outcomeDimensions: projectOutcomeDimensions(definition, state),
         terminal: projectTerminal(definition, state, index),
     };

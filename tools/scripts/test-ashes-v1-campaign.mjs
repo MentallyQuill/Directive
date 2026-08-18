@@ -142,10 +142,7 @@ const EXPECTED_INITIAL_MISSION_TEXT = new Map([
     'Determine what each side can legitimately claim and establish trusted control of the systems shaping the crisis.',
     'Establish legitimate command arrangements',
     'Produce an actual enforceable settlement with a named implementation mechanism, Annex and defense-control disposition, and sustainable posture for the approaching task group.',
-    'Compact units occupy Asterion Annex Six and claim regional authority over defense infrastructure, intelligence oversight, reconstruction participation, local hearings, and Compact facilities. Rear Admiral Tolland orders restoration of Federation control and prevention of military-system transfer. Captain Joelle Mercer\'s task group will arrive in approximately thirty-six hours and may assume tactical control if the situation becomes openly hostile.',
-    'Starfleet task-group arrival',
-    'Approximately 36 hours until arrival',
-    'Captain Mercer\'s task group will arrive and may assume tactical control if the situation is openly hostile; arrival changes leverage but does not end the mission.'
+    'Compact units occupy Asterion Annex Six and claim regional authority over defense infrastructure, intelligence oversight, reconstruction participation, local hearings, and Compact facilities. Rear Admiral Tolland orders restoration of Federation control and prevention of military-system transfer. Captain Joelle Mercer\'s task group will arrive in approximately thirty-six hours and may assume tactical control if the situation becomes openly hostile.'
   ]],
   ['mission.open-orders-3-before-the-lamps-go-out', [
     'Open Orders III: Before the Lamps Go Out',
@@ -234,7 +231,6 @@ function playerFacingText(projection) {
     ...projection.objectives.flatMap((objective) => [objective.title, objective.summary]),
     ...projection.capabilities.flatMap((capability) => [capability.label, capability.summary]),
     ...projection.facts.map((fact) => fact.summary),
-    ...projection.clocks.flatMap((clock) => [clock.label, clock.deadline, clock.consequence]),
     ...projection.outcomeDimensions.flatMap((dimension) => [dimension.label, dimension.value]),
     ...(projection.terminal ? [
       projection.terminal.title,
@@ -377,10 +373,6 @@ function assertScenarioResult(definition, scenario, result) {
   }
   for (const id of expected.eventsExclude || []) {
     assert.equal(result.state.events.includes(id), false, `${label}:${id}`);
-  }
-  for (const [id, value] of Object.entries(expected.clockStates || {})) {
-    assert.equal(result.state.clocks[id]?.state, value.state, `${label}:${id}:state`);
-    assert.equal(result.state.clocks[id]?.value, value.value, `${label}:${id}:value`);
   }
   if (Object.hasOwn(expected, 'commandBearingAwardIds')) {
     assert.deepEqual(

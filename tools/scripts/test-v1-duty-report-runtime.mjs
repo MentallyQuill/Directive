@@ -239,7 +239,10 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
             true,
         );
     } else {
-        assert.equal(projectionBeforeMutation.mission.clocks.some((item) => item.id === 'clock.hesperus-life-support'), true);
+        assert.equal(
+            projectionBeforeMutation.mission.facts.some((item) => item.id === 'fact.hesperus.passenger-risk'),
+            true,
+        );
     }
 
     const invalidated = await harness.runtime.invalidateSourceMutation({
@@ -269,7 +272,10 @@ for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-r
             false,
         );
     } else {
-        assert.equal(projectionAfterMutation.mission.clocks.some((item) => item.id === 'clock.hesperus-life-support'), false);
+        assert.equal(
+            projectionAfterMutation.mission.facts.some((item) => item.id === 'fact.hesperus.passenger-risk'),
+            false,
+        );
     }
     assert.equal(prepare(harness, runtimeAssets, reportId, 'eligible-again').packet.reportId, reportId);
     assert.deepEqual(protectedStateRoots(harness.campaignState), protectedBefore, `${reportId}: repair stays scoped`);

@@ -5,7 +5,7 @@
     "id": "directive:campaign-package:breckenridge-ashes-of-peace",
     "slug": "breckenridge-ashes-of-peace",
     "title": "Ashes of Peace",
-    "version": "0.3.0-pre-alpha.1",
+    "version": "0.3.0-pre-alpha.2",
     "status": "v1-native",
     "bundled": true,
     "openingMissionId": "prelude-a-ship-underway",

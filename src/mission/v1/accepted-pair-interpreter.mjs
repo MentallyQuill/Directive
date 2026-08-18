@@ -435,7 +435,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'publicFactLearned is limited to public identity or professional facts explicitly established in the accepted source. relationshipEvidence must describe an observable interaction outcome, commitment, trust change, disagreement, obligation, or repair rather than sentiment speculation.',
         'Independently estimate elapsed story time across the complete accepted pair. The supplied footer is a proposal, not authority.',
         'Account for both the previous-assistant response and the current player response. Mission-claim rejection or correction does not erase time consumed by visible speech or action.',
-        'Spoken dialogue, pauses, and immediate physical actions normally consume whole seconds even when the clock remains within the same minute. Use zero only when the complete pair supports no fictional time passage.',
+        'Spoken dialogue, pauses, and immediate physical actions normally consume whole seconds even when ship time remains within the same minute. Use zero only when the complete pair supports no fictional time passage.',
         'Advance time only when visible prose supports waiting, travel, work, rest, a scene cut, or another completed duration.',
         'Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
         'Use advance with a positive whole number of seconds, unchanged with zero when no fictional time passes, or indeterminate with zero when evidence conflicts or is insufficient.',

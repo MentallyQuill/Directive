@@ -2,10 +2,10 @@
   "kind": "directive.missionDefinition.v1",
   "schemaVersion": 1,
   "id": "mission.prelude-a-ship-underway",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "prelude-a-ship-underway"
   },
   "playerText": {
@@ -1033,13 +1033,6 @@
         ],
         "exclusions": ["A future handoff, voluntary treatment without custody, escape, or unsupported detention is not lawfulCustodyExecuted."]
       }
-    },
-    {
-      "id": "policy.hesperus.authoritative-time",
-      "claimType": "timeAdvanced",
-      "targetId": "clock.hesperus-life-support",
-      "sourceRoles": ["runtime", "adjudicator"],
-      "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
     }
   ],
   "shipInteractions": [
@@ -1292,11 +1285,6 @@
       "playerVisibility": "hidden"
     },
     {
-      "id": "event.hesperus.life-support-window-expired",
-      "playerVisibility": "visible",
-      "playerText": { "summary": "The reported safe-response window aboard Hesperus has expired." }
-    },
-    {
       "id": "event.prelude.final-load-reviewed",
       "playerVisibility": "visible",
       "playerText": { "summary": "The combined-load test and final command review were completed." }
@@ -1496,18 +1484,9 @@
               { "factKnown": "fact.hesperus.passenger-risk" }
             ]
           }
-        },
-        {
-          "disposition": "expiredAfterKnownDeadline",
-          "when": {
-            "all": [
-              { "clockState": { "id": "clock.hesperus-life-support", "equals": "expired" } },
-              { "factKnown": "fact.hesperus.passenger-risk" }
-            ]
-          }
         }
       ],
-      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"],
+      "supportedDispositions": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"],
       "playerText": {
         "title": "Bring the Hesperus emergency to a safe disposition",
         "summary": "Protect the people aboard the disabled civilian transport and establish a safe next step.",
@@ -1515,8 +1494,7 @@
           { "disposition": "completed", "text": "The people aboard Hesperus reached safety." },
           { "disposition": "completedWithCost", "text": "The people aboard Hesperus reached safety with material cost recorded." },
           { "disposition": "handedOff", "text": "Captain Whitaker or another authority assumed the remaining emergency response." },
-          { "disposition": "failedAfterInformedAction", "text": "The rescue failed after a known risk was deliberately accepted." },
-          { "disposition": "expiredAfterKnownDeadline", "text": "The known safe-response window expired before the emergency was resolved." }
+          { "disposition": "failedAfterInformedAction", "text": "The rescue failed after a known risk was deliberately accepted." }
         ]
       }
     },
@@ -1732,8 +1710,7 @@
         { "value": "full", "priority": 100, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safe" } } },
         { "value": "full-with-cost", "priority": 90, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "safeWithCost" } } },
         { "value": "safeguarded-by-handoff", "priority": 80, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "in": ["handedOff", "failedAfterOmittedReport"] } } },
-        { "value": "failure-after-informed-action", "priority": 70, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "failedInformed" } } },
-        { "value": "known-deadline-expired", "priority": 60, "when": { "objectiveDisposition": { "id": "objective.prelude.hesperus-rescue", "equals": "expiredAfterKnownDeadline" } } }
+        { "value": "failure-after-informed-action", "priority": 70, "when": { "outcomeIs": { "id": "outcome.hesperus.rescue-result", "equals": "failedInformed" } } }
       ]
     },
     {
@@ -1865,36 +1842,6 @@
       ]
     }
   ],
-  "clocks": [
-    {
-      "id": "clock.hesperus-life-support",
-      "unit": "hours",
-      "direction": "down",
-      "initialValue": 30,
-      "startWhen": { "worldFact": "fact.hesperus.distress-established" },
-      "advanceSources": ["authoritativeStoryTime"],
-      "pauseWhen": false,
-      "resumeWhen": false,
-      "expireWhen": { "clockState": { "id": "clock.hesperus-life-support", "equals": "expired" } },
-      "resolveWhen": {
-        "outcomeIs": {
-          "id": "outcome.hesperus.rescue-result",
-          "in": ["safe", "safeWithCost", "handedOff", "failedInformed", "failedAfterOmittedReport"]
-        }
-      },
-      "visibleWhen": { "factKnown": "fact.hesperus.passenger-risk" },
-      "consequence": {
-        "effectType": "eventOccurred",
-        "targetId": "event.hesperus.life-support-window-expired",
-        "value": true
-      },
-      "playerText": {
-        "label": "Hesperus safe-response window",
-        "deadline": "{value} hours remaining",
-        "consequence": "Conditions aboard Hesperus will become critical if no safe disposition is reached."
-      }
-    }
-  ],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
@@ -1902,7 +1849,7 @@
       {
         "objectiveDisposition": {
           "id": "objective.prelude.hesperus-rescue",
-          "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"]
+          "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"]
         }
       },
       {
@@ -1920,7 +1867,7 @@
       "when": {
         "objectiveDisposition": {
           "id": "objective.prelude.hesperus-rescue",
-          "in": ["handedOff", "failedAfterInformedAction", "expiredAfterKnownDeadline"]
+          "in": ["handedOff", "failedAfterInformedAction"]
         }
       },
       "playerText": {

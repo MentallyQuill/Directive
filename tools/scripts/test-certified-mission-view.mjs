@@ -36,7 +36,6 @@ const projection = {
       }
     ],
     facts: [],
-    clocks: [],
     capabilities: [],
     terminal: null
   }
@@ -67,7 +66,6 @@ assert.deepEqual(buildCertifiedMissionView(projection), {
       terminalText: 'The passengers are safe.'
     }],
     knownFacts: [],
-    clocks: [],
     capabilities: [],
     terminal: null
   }]

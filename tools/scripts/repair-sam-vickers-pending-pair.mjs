@@ -12,6 +12,10 @@ import { createMissionPlayerProjection } from '../../src/mission/v1/player-proje
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
 import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 import { prepareV1AcceptedPairSnapshot } from '../../src/runtime/v1-accepted-pair-source.mjs';
+import {
+    MISSION_CLOCK_REMOVAL_TARGET_VERSION,
+    migrateV1MissionClockRemoval,
+} from '../../src/runtime/v1-mission-clock-removal-migration.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import {
@@ -268,7 +272,25 @@ export async function prepareSamVickersPendingPairRepair(save, {
         .find(({ id }) => id === MISSION_ID);
     if (!definition) throw new TypeError('the current Prelude mission definition is required');
 
-    let campaignState = structuredClone(save.state);
+    const migration = migrateV1MissionClockRemoval({
+        campaignState: save.state,
+        packageData: assets.packageData,
+        missionDefinitions: assets.missionDefinitions,
+    });
+    if (!migration.ok) {
+        const error = new Error(`The guarded save could not cross the mission clock-removal boundary: ${migration.reasonCode}`);
+        error.code = 'DIRECTIVE_SAM_VICKERS_PENDING_REPAIR_MIGRATION_FAILED';
+        error.details = migration;
+        throw error;
+    }
+    let campaignState = migration.campaignState;
+    const migratedSave = {
+        ...structuredClone(save),
+        packageVersion: MISSION_CLOCK_REMOVAL_TARGET_VERSION,
+        state: structuredClone(campaignState),
+    };
+    const migratedSnapshot = structuredClone(pendingSnapshot);
+    migratedSnapshot.envelope.packageVersion = MISSION_CLOCK_REMOVAL_TARGET_VERSION;
     const gateway = createStateDeltaGateway({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
@@ -284,7 +306,7 @@ export async function prepareSamVickersPendingPairRepair(save, {
         metadata: { sourceMessageId: '38', sourceContributionId: acceptedTermsSource.contributionId },
     });
     const stagedCheckpoint = {
-        ...structuredClone(save),
+        ...structuredClone(migratedSave),
         updatedAt: now,
         state: structuredClone(campaignState),
     };
@@ -322,7 +344,7 @@ export async function prepareSamVickersPendingPairRepair(save, {
     });
     const settled = await runtime.settleAcceptedPair({
         runtimeAssets: assets,
-        snapshot: pendingSnapshot,
+        snapshot: migratedSnapshot,
         allowModelCall: true,
     });
     if (!settled.ok || !new Set(['settled', 'settled-no-effect']).has(settled.status)) {
@@ -347,7 +369,7 @@ export async function prepareSamVickersPendingPairRepair(save, {
         throw new Error('Repaired objective projection does not match the accepted narration.');
     }
 
-    const repairedSave = { ...structuredClone(save), updatedAt: now, state: campaignState };
+    const repairedSave = { ...structuredClone(migratedSave), updatedAt: now, state: campaignState };
     return {
         save: repairedSave,
         persistenceCheckpoints: [stagedCheckpoint, repairedSave],

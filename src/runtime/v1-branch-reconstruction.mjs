@@ -67,7 +67,6 @@ function rebindMissionEvidenceKeys(campaignState, sourceBranchId, targetBranchId
         replacements.set(priorEvidenceKey, entry.evidenceKey);
       }
     }
-    state.clocks = replaceExactValues(state.clocks, replacements);
     state.acceptedEvidenceKeys = (state.evidenceLog || []).map((entry) => entry.evidenceKey);
   }
   return campaignState;

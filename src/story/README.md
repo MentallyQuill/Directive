@@ -2,7 +2,7 @@
 
 Story Settlement owns accepted contributions, scene-sized episodes, working capsules, semantic boundary evaluation, source-backed People events, qualitative relationship state, character moments, ship effects, supersession, and player/prompt projections.
 
-Ordinary back-and-forth does not create separate records. Mission state remains authoritative for objectives and clocks; Story Settlement records only durable story meaning.
+Ordinary back-and-forth does not create separate records. Mission state remains authoritative for objectives and outcomes; Story Settlement records only durable story meaning. Canonical elapsed time remains separate accepted-time custody.
 
 The accepted-pair Utility call observes all People changes together. A direct NPC introduction creates an identity-stable event only after the NPC gives the player a usable name. One optional Reasoning batch may author ordinary public dossier fields for every new contact in that pair. The episode evaluator reviews all supported relationship evidence together; it may update posture/open matter and retain a defining moment at a meaningful seal.
 

@@ -17,16 +17,13 @@ const sourceDefinition = JSON.parse(fs.readFileSync(
     'utf8',
 ));
 
-function clockReadyDefinition({ unit = 'hours', startWhen = undefined } = {}) {
+function narrativeTimeDefinition() {
     const definition = structuredClone(sourceDefinition);
     for (const factId of ['fact.hesperus.distress-established', 'fact.hesperus.passenger-risk']) {
         const fact = definition.facts.find((candidate) => candidate.id === factId);
         fact.initiallyTrue = true;
         fact.visibility = 'known';
     }
-    const clock = definition.clocks.find((candidate) => candidate.id === 'clock.hesperus-life-support');
-    clock.unit = unit;
-    if (startWhen !== undefined) clock.startWhen = startWhen;
     return definition;
 }
 
@@ -112,7 +109,7 @@ function initialCampaignState(definition, sceneSnapshot, {
 }
 
 function runtimeAssets(definition) {
-    const record = { path: 'test/clock-ready-definition.json', definition };
+    const record = { path: 'test/narrative-time-definition.json', definition };
     const ashesAssets = loadAshesRuntimeAssets();
     return {
         packageData: ashesAssets.packageData,
@@ -225,7 +222,7 @@ const correctedPlayerClaim = JSON.stringify({
     },
 });
 
-const definition = clockReadyDefinition();
+const definition = narrativeTimeDefinition();
 const mainSnapshot = snapshot('main');
 const mainHarness = createHarness({
     definition,
@@ -243,33 +240,25 @@ assert.equal(advanced.ok, true, JSON.stringify({
     reasonCode: advanced.reasonCode,
     diagnostics: advanced.diagnostics,
 }));
-assert.equal(advanced.status, 'settled');
+assert.equal(advanced.status, 'settled-no-effect');
 assert.equal(advanced.time.status, 'committed');
 assert.equal(mainHarness.persistCount, 1, 'accepted-pair authority must use one persistence commit');
 assert.equal(mainHarness.campaignState.timeLedger.entries.length, 1);
-assert.equal(advanced.diagnostics.acceptedClaimCount, 1);
-assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].state, 'running');
-assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 28.5);
-const timeEvidence = mainHarness.campaignState.mission.v1.evidenceLog.find(
-    (entry) => entry.claimType === 'timeAdvanced',
-);
-assert.equal(timeEvidence.value, 1.5);
-const timeContribution = mainHarness.campaignState.storySettlement.episodes
-    .flatMap((episode) => episode.contributions)
-    .find((contribution) => contribution.id === timeEvidence.sourceContributionId);
-assert.equal(timeContribution.role, 'runtime');
-assert.match(timeContribution.messageId, /^time-boundary:/);
-assert.notEqual(timeContribution.messageId, mainSnapshot.source.currentPlayer.hostMessageId);
+assert.equal(mainHarness.campaignState.timeLedger.elapsedSeconds, 5400);
+assert.equal(advanced.diagnostics.acceptedClaimCount, 0);
+assert.equal(Object.hasOwn(mainHarness.campaignState.mission.v1, 'clocks'), false);
+assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.some(
+    (entry) => entry.claimType === 'timeAdvanced'
+), false);
 
 const replay = await mainHarness.runtime.settleAcceptedPair({
     runtimeAssets: mainHarness.runtimeAssets,
     snapshot: mainSnapshot,
 });
 assert.equal(replay.status, 'already-settled');
-assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 28.5);
 assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.filter(
     (entry) => entry.claimType === 'timeAdvanced',
-).length, 1);
+).length, 0);
 
 const branchSnapshot = structuredClone(mainSnapshot);
 branchSnapshot.envelope.saveId = 'save.time.branch-child';
@@ -310,7 +299,6 @@ const invalidated = await mainHarness.runtime.invalidateSourceMutation({
     eventType: 'playerMessageEdited',
 });
 assert.equal(invalidated.status, 'invalidated');
-assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 30);
 assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.some(
     (entry) => entry.claimType === 'timeAdvanced',
 ), false);
@@ -320,16 +308,13 @@ const restored = await mainHarness.runtime.settleAcceptedPair({
     runtimeAssets: mainHarness.runtimeAssets,
     snapshot: mainSnapshot,
 });
-assert.equal(restored.status, 'settled');
+assert.equal(restored.status, 'settled-no-effect');
 assert.equal(
     mainHarness.generationCount,
     2,
     'an invalidated exact pair must be reinterpreted before replacement authority exists',
 );
-assert.equal(mainHarness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 28.5);
-assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.find(
-    (entry) => entry.claimType === 'timeAdvanced',
-).sourceContributionId.endsWith('.r1'), true);
+assert.equal(Object.hasOwn(mainHarness.campaignState.mission.v1, 'clocks'), false);
 
 const restoredBranchSnapshot = structuredClone(mainSnapshot);
 restoredBranchSnapshot.envelope.saveId = 'save.time.restored-branch-child';
@@ -672,29 +657,4 @@ assert.equal(failureHarness.campaignState.timeLedger.entries.length, 0);
 assert.equal(failureHarness.campaignState.mission.v1.revision, failureInitialState.mission.v1.revision);
 assert.deepEqual(failureHarness.campaignState.storySettlement, failureInitialState.storySettlement);
 
-for (const [label, testDefinition, boundaryOptions] of [
-    ['mismatched boundary', clockReadyDefinition(), { currentPlayerHostMessageId: 'message.other.player', rangeHash: 'range.other' }],
-    ['not-started clock', clockReadyDefinition({ startWhen: false }), {}],
-    ['unsupported clock unit', clockReadyDefinition({ unit: 'fortnights' }), {}],
-]) {
-    const suffix = label.replaceAll(' ', '-');
-    const sceneSnapshot = snapshot(suffix);
-    const boundary = timeBoundaryFor(sceneSnapshot, boundaryOptions);
-    const harness = createHarness({
-        definition: testDefinition,
-        sceneSnapshot,
-        state: initialCampaignState(testDefinition, sceneSnapshot, { suffix, boundary }),
-        outputs: [unchanged],
-    });
-    const result = await harness.runtime.settleAcceptedPair({
-        runtimeAssets: harness.runtimeAssets,
-        snapshot: sceneSnapshot,
-    });
-    assert.equal(result.ok, true, label);
-    assert.equal(result.status, 'settled-no-effect', label);
-    assert.equal(result.diagnostics.acceptedClaimCount, 0, label);
-    assert.equal(harness.campaignState.mission.v1.clocks['clock.hesperus-life-support'].value, 30, label);
-    assert.equal(harness.campaignState.mission.v1.evidenceLog.length, 0, label);
-}
-
-console.log('V1 authoritative mission-time runtime tests passed.');
+console.log('V1 accepted narrative-time runtime tests passed.');

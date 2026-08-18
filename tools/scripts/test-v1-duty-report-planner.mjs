@@ -24,10 +24,6 @@ const state = {
         state: 'available',
         disposition: null,
     }])),
-    clocks: Object.fromEntries(definition.clocks.map((clock) => [clock.id, {
-        state: 'running',
-        value: clock.initialValue,
-    }])),
 };
 
 const bronn = {

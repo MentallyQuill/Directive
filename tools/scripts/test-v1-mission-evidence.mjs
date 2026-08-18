@@ -20,7 +20,6 @@ const definition = {
         { id: 'outcome.evidence-preserved', allowedValues: ['unknown', 'yes', 'no'] },
         { id: 'outcome.rescue-result', allowedValues: ['pending', 'safe'] },
     ],
-    clocks: [{ id: 'clock.life-support' }],
     evidencePolicies: [
         {
             id: 'policy.survivors-transferred',
@@ -65,13 +64,6 @@ const definition = {
             when: true,
         },
         {
-            id: 'policy.authoritative-time',
-            claimType: 'timeAdvanced',
-            targetId: 'clock.life-support',
-            sourceRoles: ['runtime', 'adjudicator'],
-            when: { clockState: { id: 'clock.life-support', equals: 'running' } },
-        },
-        {
             id: 'policy.discrepancy-established',
             claimType: 'worldFactEstablished',
             targetId: 'fact.hesperus-discrepancy-known',
@@ -99,7 +91,6 @@ const state = {
         'outcome.rescue-result': 'pending',
     },
     objectives: { 'objective.hesperus-rescue': { state: 'available', disposition: null } },
-    clocks: { 'clock.life-support': { state: 'running', value: 30 } },
     status: 'active',
 };
 const assistantSource = {
@@ -239,14 +230,6 @@ for (const claim of [
         value: 'no',
         sourceRef: sourceRef(playerSource),
     },
-    {
-        claimId: 'claim.time-advanced',
-        policyId: 'policy.authoritative-time',
-        claimType: 'timeAdvanced',
-        targetId: 'clock.life-support',
-        value: 5,
-        sourceRef: sourceRef(runtimeSource),
-    },
 ]) {
     const accepted = validate({ claims: [claim] });
     if (claim.claimType === 'decisionRecorded') {
@@ -276,13 +259,13 @@ for (const [label, options, reasonCode] of [
             sourceRef: sourceRef(assistantSource),
         }],
     }, 'effect-not-allowed'],
-    ['invalid time advance', {
+    ['removed mission time claim', {
         claims: [{
-            claimId: 'claim.invalid-time',
+            claimId: 'claim.removed-mission-time',
             policyId: 'policy.authoritative-time',
             claimType: 'timeAdvanced',
             targetId: 'clock.life-support',
-            value: -5,
+            value: 5,
             sourceRef: sourceRef(runtimeSource),
         }],
     }, 'effect-not-allowed'],
@@ -330,14 +313,6 @@ for (const [label, claim, reasonCode] of [
         targetId: 'fact.hesperus-discrepancy-known',
         sourceRef: sourceRef(assistantSource),
     }, 'world-truth-authority-required'],
-    ['assistant advances authoritative time', {
-        claimId: 'claim.assistant-time',
-        policyId: 'policy.authoritative-time',
-        claimType: 'timeAdvanced',
-        targetId: 'clock.life-support',
-        value: 5,
-        sourceRef: sourceRef(assistantSource),
-    }, 'authoritative-time-required'],
     ['disclosure before truth', {
         claimId: 'claim.premature-disclosure',
         policyId: 'policy.discrepancy-disclosed',

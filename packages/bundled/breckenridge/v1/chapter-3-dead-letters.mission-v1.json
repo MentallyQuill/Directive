@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "chapter-3-dead-letters"
   },
   "playerText": {
@@ -1311,7 +1311,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.chapter3.access", "in": ["completed", "completedWithCost", "handedOff"] } },

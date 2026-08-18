@@ -25,7 +25,6 @@ export function buildCertifiedMissionView(projection) {
     requiredObjectives: mission.primaryObjectives.map(objectiveView),
     optionalObjectives: mission.optionalObjectives.map(objectiveView),
     knownFacts: clone(mission.knownFacts),
-    clocks: clone(mission.clocks),
     capabilities: clone(mission.capabilities),
     terminal: clone(mission.terminal)
   };

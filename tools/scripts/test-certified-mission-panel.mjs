@@ -53,7 +53,6 @@ const projection = {
     ],
     progress: { requiredCompleted: 0, requiredTotal: 1, optionalCompleted: 1, optionalTotal: 1 },
     facts: [{ id: 'fact.distress', summary: 'A transport sent a distress call.' }],
-    clocks: [],
     capabilities: [],
     terminal: null
   },
@@ -105,6 +104,8 @@ assert.match(text, /Prelude: A Ship Underway/);
 assert.match(text, /Primary objectives/);
 assert.match(text, /Optional objectives/);
 assert.equal(byClass('is-resolved').length, 2, 'desktop and phone details must each render the resolved objective');
+assert.equal(byClass('mission-clock-section').length, 0);
+assert.doesNotMatch(text, /Time-sensitive/i);
 assert.doesNotMatch(text, /fraud/i);
 assert.doesNotMatch(text, /percent|reconciliation|open world|recovery/i);
 

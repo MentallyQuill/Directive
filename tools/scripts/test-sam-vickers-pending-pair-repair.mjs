@@ -168,6 +168,8 @@ const repaired = await prepareSamVickersPendingPairRepair(before, {
 });
 
 assert.equal(repaired.report.usedModelCall, false);
+assert.equal(repaired.save.packageVersion, runtimeAssets.packageData.manifest.version);
+assert.equal(repaired.save.state.activeCampaignPackage.packageVersion, runtimeAssets.packageData.manifest.version);
 assert.equal(repaired.report.stagedTermsFromMessageId, '38');
 assert.equal(repaired.report.settledAssistantMessageId, '40');
 assert.equal(repaired.report.settledPlayerMessageId, '41');

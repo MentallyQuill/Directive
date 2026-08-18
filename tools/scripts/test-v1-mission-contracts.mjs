@@ -12,6 +12,10 @@ const missionSchema = JSON.parse(fs.readFileSync('schemas/mission/mission-v1.sch
 assert.equal(missionSchema.$schema, 'https://json-schema.org/draft/2020-12/schema');
 assert.equal(missionSchema.additionalProperties, false);
 assert.equal(missionSchema.properties.kind.const, 'directive.missionDefinition.v1');
+assert.equal(Object.hasOwn(missionSchema.properties, 'clocks'), false, 'V1 mission definitions must not expose countdown clocks');
+assert.equal(missionSchema.required.includes('clocks'), false, 'V1 mission definitions must not require countdown clocks');
+assert.equal(MISSION_EVIDENCE_CLAIM_TYPES.has('timeAdvanced'), false, 'story time must not be mission evidence');
+assert.equal(JSON.stringify(missionSchema.$defs.predicate).includes('clockState'), false, 'mission predicates must not inspect countdown clocks');
 for (const boundary of [
     'packageBinding',
     'playerText',
@@ -28,7 +32,6 @@ for (const boundary of [
     'event',
     'outcome',
     'outcomeDimension',
-    'clock',
     'terminalDisposition',
     'transition',
     'campaignConclusionTarget',
@@ -131,13 +134,6 @@ const referenceMission = {
                 ],
                 exclusions: ['A question, suggestion, or undecided thought is not a recorded decision.'],
             },
-        },
-        {
-            id: 'policy.hesperus-life-support-time',
-            claimType: 'timeAdvanced',
-            targetId: 'clock.hesperus-life-support',
-            sourceRoles: ['runtime', 'adjudicator'],
-            when: { clockState: { id: 'clock.hesperus-life-support', equals: 'running' } },
         },
     ],
     reportRoutes: [
@@ -260,31 +256,6 @@ const referenceMission = {
             ],
         },
     ],
-    clocks: [
-        {
-            id: 'clock.hesperus-life-support',
-            unit: 'minutes',
-            direction: 'down',
-            initialValue: 30,
-            startWhen: true,
-            advanceSources: ['authoritativeStoryTime'],
-            pauseWhen: false,
-            resumeWhen: false,
-            expireWhen: { clockState: { id: 'clock.hesperus-life-support', in: ['expired'] } },
-            resolveWhen: { eventOccurred: 'event.hesperus-survivors-transferred' },
-            visibleWhen: true,
-            consequence: {
-                effectType: 'mission.clockExpired',
-                targetId: 'clock.hesperus-life-support',
-                value: 'life-support-exhausted',
-            },
-            playerText: {
-                label: 'Life support reserve',
-                deadline: '{value} minutes remaining',
-                consequence: 'Conditions aboard Hesperus will become critical.',
-            },
-        },
-    ],
     closeWhen: {
         objectiveDisposition: {
             id: 'objective.hesperus-rescue',
@@ -332,7 +303,6 @@ assert.equal(index.evidencePolicies.has('policy.hesperus-discrepancy-disclosed')
 assert.equal(index.reportRoutes.has('report.hesperus-discrepancy'), true);
 assert.equal(index.events.has('event.hesperus-survivors-transferred'), true);
 assert.equal(index.outcomes.has('outcome.hesperus-evidence-preserved'), true);
-assert.equal(index.clocks.has('clock.hesperus-life-support'), true);
 assert.equal(index.terminalDispositions.has('primarySuccess'), true);
 assert.equal(index.transitions.has('transition.hesperus-command-review'), true);
 
@@ -385,7 +355,6 @@ for (const [label, definition, pattern] of [
     ['invalid policy predicate', replacePolicy(0, { when: { worldFact: 'fact.unknown' } }), /when references unknown fact/],
     ['disclosure without truth guard', replacePolicy(1, { when: true }), /factDisclosed when must require its target worldFact/],
     ['assistant establishes truth', replacePolicy(0, { sourceRoles: ['assistant'] }), /worldFactEstablished sourceRoles/],
-    ['assistant advances time', replacePolicy(4, { sourceRoles: ['assistant'] }), /timeAdvanced sourceRoles/],
     ['user claims an event', replacePolicy(2, { sourceRoles: ['user'] }), /user sourceRole may only prove intentExpressed or decisionRecorded/],
     ['missing interpretation', replacePolicy(1, { interpretation: undefined }), /interpretation is required/],
     ['blank interpretation guidance', replacePolicy(1, {
@@ -465,7 +434,6 @@ for (const [label, definition, pattern] of [
     ['events', { ...referenceMission, events: null }, /events/],
     ['outcomes', { ...referenceMission, outcomes: null }, /outcomes/],
     ['outcome dimensions', { ...referenceMission, outcomeDimensions: null }, /outcomeDimensions/],
-    ['clocks', { ...referenceMission, clocks: null }, /clocks/],
     ['terminal dispositions', { ...referenceMission, terminalDispositions: null }, /terminalDispositions/],
     ['transitions', { ...referenceMission, transitions: null }, /transitions/],
 ]) {
@@ -483,16 +451,6 @@ for (const [label, packageBinding, pattern] of [
         label,
     );
 }
-
-const clockWithoutOptionalPredicates = { ...referenceMission.clocks[0] };
-delete clockWithoutOptionalPredicates.pauseWhen;
-delete clockWithoutOptionalPredicates.resumeWhen;
-delete clockWithoutOptionalPredicates.resolveWhen;
-const optionalClockResult = validateMissionDefinition({
-    ...referenceMission,
-    clocks: [clockWithoutOptionalPredicates],
-});
-assert.equal(optionalClockResult.ok, true, optionalClockResult.errors.join('\n'));
 
 assert.match(
     validateMissionDefinition({
@@ -563,7 +521,7 @@ for (const [label, predicate, pattern] of [
     ['unknown event', { eventOccurred: 'event.unknown' }, /unknown event/],
     ['unknown outcome', { outcomeIs: { id: 'outcome.unknown', equals: 'yes' } }, /unknown outcome/],
     ['unknown objective', { objectiveState: { id: 'objective.unknown', in: ['terminal'] } }, /unknown objective/],
-    ['unknown clock', { clockState: { id: 'clock.unknown', in: ['running'] } }, /unknown clock/],
+    ['removed clock operator', { clockState: { id: 'clock.unknown', in: ['running'] } }, /unknown predicate operator: clockState/],
     ['unknown operator', { modelDecides: 'anything' }, /unknown predicate operator: modelDecides/],
 ]) {
     assert.match(
@@ -683,27 +641,6 @@ assert.match(
     }).errors.join('\n'),
     /objective disposition is not supported: knowinglyDeclined/,
 );
-
-function replaceClock(replacement) {
-    return {
-        ...referenceMission,
-        clocks: [{ ...referenceMission.clocks[0], ...replacement }],
-    };
-}
-
-for (const [label, definition, pattern] of [
-    ['unit', replaceClock({ unit: '' }), /clock\.hesperus-life-support unit/],
-    ['direction', replaceClock({ direction: 'sideways' }), /direction/],
-    ['initial value', replaceClock({ initialValue: Number.NaN }), /initialValue/],
-    ['advance sources', replaceClock({ advanceSources: [] }), /advanceSources/],
-    ['start predicate', replaceClock({ startWhen: undefined }), /startWhen/],
-    ['expiry predicate', replaceClock({ expireWhen: undefined }), /expireWhen/],
-    ['visibility predicate', replaceClock({ visibleWhen: undefined }), /visibleWhen/],
-    ['consequence', replaceClock({ consequence: null }), /consequence/],
-    ['player text', replaceClock({ playerText: null }), /playerText/],
-]) {
-    assert.match(validateMissionDefinition(definition).errors.join('\n'), pattern, label);
-}
 
 assert.match(
     validateMissionDefinition({

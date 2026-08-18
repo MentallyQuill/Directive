@@ -5,7 +5,7 @@ These modules render the exact V1 player surface. They consume player-safe view 
 The shell owns the five routes: Campaign, Mission, People, Ship, and Settings. Panels must not duplicate primary information across routes or expose hidden campaign facts.
 
 - Campaign: Ashes selection, disabled campaign previews, player setup, and exact V1 records.
-- Mission: revealed mission purpose, objectives, known clocks, and optional commitments.
+- Mission: revealed mission purpose, objectives, known information, optional commitments, and canonical ship time/date.
 - People: concise public crew profiles and durable character moments.
 - Ship: one aggregated operational picture.
 - Settings: tooltip preference, SillyTavern-native provider policy, preset state, read-only model-call routing, storage verification, and privacy-bounded support export.

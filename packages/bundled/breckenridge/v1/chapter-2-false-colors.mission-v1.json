@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "chapter-2-false-colors"
   },
   "playerText": {
@@ -731,7 +731,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.chapter2.medical", "in": ["completed", "completedWithCost", "handedOff", "failedAfterInformedAction"] } },

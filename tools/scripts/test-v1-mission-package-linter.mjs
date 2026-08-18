@@ -98,13 +98,6 @@ assert.match(
     /objective\.prelude\.final-readiness-arrival has no reachable terminal scenario fixture/,
 );
 
-const ungroundedClock = structuredClone(definition);
-ungroundedClock.clocks[0].visibleWhen = true;
-assert.match(
-    lint(ungroundedClock).errors.join('\n'),
-    /clock\.hesperus-life-support lacks a player-known visibility basis/,
-);
-
 assert.match(
     lint(definition, { knownTransitionTargetIds: new Set(['mission.somewhere-else']) }).errors.join('\n'),
     /transition.*targets unknown package mission: chapter-1-the-empty-convoy/,

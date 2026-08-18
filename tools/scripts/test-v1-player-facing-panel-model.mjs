@@ -66,7 +66,6 @@ const projection = {
     },
     capabilities: [],
     facts: [{ id: 'fact.hesperus.distress', summary: 'Hesperus sent a distress call.' }],
-    clocks: [],
     outcomeDimensions: [],
     terminal: null
   },
@@ -136,7 +135,7 @@ assert.throws(
 const mission = createV1MissionPanelModel(projection);
 assert.equal(mission.primaryObjectives.length, 1);
 assert.equal(mission.optionalObjectives.length, 1);
-assert.equal(mission.clocks.length, 0, 'no visible clock means no urgency presentation');
+assert.equal(Object.hasOwn(mission, 'clocks'), false, 'Mission UI must not expose countdown state');
 assert.deepEqual(mission.knownFacts.map((fact) => fact.summary), ['Hesperus sent a distress call.']);
 assert.equal(JSON.stringify(mission).includes('fraud'), false, 'the panel model cannot invent hidden plot text');
 assert.equal(Object.hasOwn(mission, 'percentage'), false, 'V1 mission progress is objective-based, not fake percentage');

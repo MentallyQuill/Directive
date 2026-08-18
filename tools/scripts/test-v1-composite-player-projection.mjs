@@ -189,12 +189,6 @@ assert.throws(
     }),
     (error) => error.code === 'DIRECTIVE_V1_PROJECTION_STATE_INVALID',
 );
-const forgedClockState = structuredClone(campaignState);
-forgedClockState.mission.v1.clocks['clock.hesperus-life-support'].visibility = 'visible';
-assert.throws(
-    () => createV1PlayerProjection({ campaignState: forgedClockState, runtimeAssets, definition }),
-    (error) => error.code === 'DIRECTIVE_V1_PROJECTION_STATE_INVALID',
-);
 const forgedDimensionState = structuredClone(campaignState);
 forgedDimensionState.mission.v1.outcomeDimensions['dimension.hesperus.accountability'] = 'handed-off';
 assert.throws(
@@ -216,19 +210,6 @@ fractionalTimeMissionState = reduceMissionEvidence({
         sourceContributionId: 'contribution.fractional',
     }],
 }).state;
-fractionalTimeMissionState = reduceMissionEvidence({
-    definition,
-    state: fractionalTimeMissionState,
-    acceptedClaims: [{
-        claimId: 'claim.fractional.time',
-        policyId: null,
-        evidenceKey: 'evidence.fractional.time',
-        claimType: 'timeAdvanced',
-        targetId: 'clock.hesperus-life-support',
-        value: 0.5,
-        sourceContributionId: 'contribution.fractional',
-    }],
-}).state;
 const fractionalTimeProjection = createV1PlayerProjection({
     campaignState: {
         ...campaignState,
@@ -237,7 +218,8 @@ const fractionalTimeProjection = createV1PlayerProjection({
     runtimeAssets,
     definition,
 });
-assert.equal(fractionalTimeProjection.mission.revision, 2);
+assert.equal(fractionalTimeProjection.mission.revision, 1);
+assert.equal(Object.hasOwn(fractionalTimeProjection.mission, 'clocks'), false);
 
 assert.throws(
     () => createV1PlayerProjection({

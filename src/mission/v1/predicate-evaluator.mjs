@@ -10,7 +10,6 @@ const PREDICATE_OPERATORS = new Set([
     'outcomeIs',
     'objectiveState',
     'objectiveDisposition',
-    'clockState',
     'missionStatus',
 ]);
 const OBJECTIVE_STATES = new Set(['inactive', 'available', 'inProgress', 'terminal']);
@@ -21,9 +20,7 @@ const OBJECTIVE_DISPOSITIONS = new Set([
     'knowinglyDeclined',
     'waived',
     'failedAfterInformedAction',
-    'expiredAfterKnownDeadline',
 ]);
-const CLOCK_STATES = new Set(['notStarted', 'running', 'paused', 'expired', 'resolved']);
 const MISSION_STATUSES = new Set(['inactive', 'active', 'terminal', 'invalidated']);
 
 function createRefs() {
@@ -32,7 +29,6 @@ function createRefs() {
         events: new Set(),
         outcomes: new Set(),
         objectives: new Set(),
-        clocks: new Set(),
         entryCapabilities: new Set(),
         shipCapabilities: new Set(),
     };
@@ -137,12 +133,6 @@ function validateNode(predicate, index, path, errors, refs) {
         }
         return;
     }
-    if (operator === 'clockState') {
-        refs.clocks.add(value?.id);
-        if (!index?.clocks?.has(value?.id)) errors.push(`${path} references unknown clock: ${value?.id}`);
-        validateMatch(value, CLOCK_STATES, path, errors);
-        return;
-    }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         errors.push(`${path} missionStatus must be an object`);
         return;
@@ -165,7 +155,6 @@ function collectRefsNode(predicate, refs) {
     if (Object.hasOwn(predicate, 'outcomeIs')) refs.outcomes.add(predicate.outcomeIs?.id);
     if (Object.hasOwn(predicate, 'objectiveState')) refs.objectives.add(predicate.objectiveState?.id);
     if (Object.hasOwn(predicate, 'objectiveDisposition')) refs.objectives.add(predicate.objectiveDisposition?.id);
-    if (Object.hasOwn(predicate, 'clockState')) refs.clocks.add(predicate.clockState?.id);
     if (Object.hasOwn(predicate, 'capabilityAvailable')) refs.entryCapabilities.add(predicate.capabilityAvailable);
     if (Object.hasOwn(predicate, 'shipCapabilityAvailable')) refs.shipCapabilities.add(predicate.shipCapabilityAvailable);
 }
@@ -258,14 +247,6 @@ function evaluateNode(predicate, context, reasons) {
                 getValue(context.objectives, predicate.objectiveDisposition.id)?.disposition,
                 predicate.objectiveDisposition,
             ),
-        );
-    }
-    if (Object.hasOwn(predicate, 'clockState')) {
-        return recordReason(
-            reasons,
-            'clockState',
-            predicate.clockState.id,
-            matches(getValue(context.clocks, predicate.clockState.id)?.state, predicate.clockState),
         );
     }
     if (Object.hasOwn(predicate, 'missionStatus')) {

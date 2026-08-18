@@ -7,7 +7,7 @@ import {
 } from '../../src/runtime/v1-semantic-authority.mjs';
 
 const packageId = 'directive:campaign-package:breckenridge-ashes-of-peace';
-const packageVersion = '0.3.0-pre-alpha.1';
+const packageVersion = '0.3.0-pre-alpha.2';
 const packageData = {
   manifest: {
     kind: 'directive.campaignPackage.v1',

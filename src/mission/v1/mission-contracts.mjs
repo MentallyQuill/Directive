@@ -8,7 +8,6 @@ export const MISSION_EVIDENCE_CLAIM_TYPES = Object.freeze(new Set([
     'factDisclosed',
     'eventOccurred',
     'outcomeObserved',
-    'timeAdvanced',
 ]));
 export const MISSION_EVIDENCE_POLICY_SOURCE_ROLES = Object.freeze(new Set([
     'user',
@@ -23,7 +22,6 @@ export const MISSION_EVIDENCE_TARGET_COLLECTION_BY_CLAIM_TYPE = Object.freeze({
     factDisclosed: 'facts',
     eventOccurred: 'events',
     outcomeObserved: 'outcomes',
-    timeAdvanced: 'clocks',
 });
 export const MISSION_DUTY_REPORT_URGENCIES = Object.freeze(new Set(['routine', 'material', 'urgent']));
 export const MISSION_DUTY_REPORT_CONFIDENCE_LEVELS = Object.freeze(new Set([
@@ -45,7 +43,6 @@ export const MISSION_OBJECTIVE_DISPOSITIONS = Object.freeze(new Set([
     'knowinglyDeclined',
     'waived',
     'failedAfterInformedAction',
-    'expiredAfterKnownDeadline',
 ]));
 export const MISSION_COMMAND_BEARING_CREDITABLE_DISPOSITIONS = Object.freeze(new Set([
     'completed',
@@ -66,7 +63,7 @@ function isStableId(value) {
 }
 
 function targetExistsAnywhere(index, targetId) {
-    return ['objectives', 'facts', 'events', 'outcomes', 'clocks']
+    return ['objectives', 'facts', 'events', 'outcomes']
         .some((key) => index[key].has(targetId));
 }
 
@@ -115,7 +112,7 @@ function validateEvidencePolicies(definition, index, errors) {
                     errors.push(`${policyId} user sourceRole may only prove intentExpressed or decisionRecorded`);
                 }
             }
-            if (new Set(['worldFactEstablished', 'timeAdvanced']).has(claimType)) {
+            if (claimType === 'worldFactEstablished') {
                 const unauthorized = [...uniqueRoles].filter((role) => !new Set(['runtime', 'adjudicator']).has(role));
                 if (unauthorized.length > 0) {
                     errors.push(`${policyId} ${claimType} sourceRoles must be runtime or adjudicator`);
@@ -288,14 +285,6 @@ function validateDefinitionPredicates(definition, index, errors) {
             validateAt(derivation?.when, `${dimension?.id}.derive[${deriveIndex}]`);
         }
     }
-    for (const clock of Array.isArray(definition?.clocks) ? definition.clocks : []) {
-        for (const key of ['startWhen', 'expireWhen', 'visibleWhen']) {
-            validateAt(clock?.[key], `${clock?.id}.${key}`);
-        }
-        for (const key of ['pauseWhen', 'resumeWhen', 'resolveWhen']) {
-            if (Object.hasOwn(clock || {}, key)) validateAt(clock[key], `${clock?.id}.${key}`);
-        }
-    }
     for (const ref of validateAt(definition?.closeWhen, 'closeWhen')) closeObjectiveRefs.add(ref);
     for (const disposition of Array.isArray(definition?.terminalDispositions) ? definition.terminalDispositions : []) {
         validateAt(disposition?.when, `${disposition?.id}.when`);
@@ -347,7 +336,6 @@ export function indexMissionDefinition(definition = {}) {
         events: byId(definition.events),
         outcomes: byId(definition.outcomes),
         outcomeDimensions: byId(definition.outcomeDimensions),
-        clocks: byId(definition.clocks),
         terminalDispositions: byId(definition.terminalDispositions),
         transitions: byId(definition.transitions),
         commandBearingAwards: byId(definition.commandBearingAwards),
@@ -383,7 +371,6 @@ export function validateMissionDefinition(definition = {}) {
         'outcomes',
         'outcomeDimensions',
         'commandBearingAwards',
-        'clocks',
         'terminalDispositions',
         'transitions',
     ]) {
@@ -401,7 +388,6 @@ export function validateMissionDefinition(definition = {}) {
         'outcomes',
         'outcomeDimensions',
         'commandBearingAwards',
-        'clocks',
         'terminalDispositions',
         'transitions',
     ]) {
@@ -592,28 +578,6 @@ export function validateMissionDefinition(definition = {}) {
         }
         if (!isNonEmptyString(dimension?.playerText?.label)) {
             errors.push(`${dimensionId} playerText label is required`);
-        }
-    }
-    for (const clock of Array.isArray(definition?.clocks) ? definition.clocks : []) {
-        const clockId = clock?.id || '<unknown clock>';
-        if (!isNonEmptyString(clock?.unit)) errors.push(`${clockId} unit is required`);
-        if (!new Set(['down', 'up']).has(clock?.direction)) errors.push(`${clockId} direction must be down or up`);
-        if (!Number.isFinite(clock?.initialValue)) errors.push(`${clockId} initialValue must be finite`);
-        if (!Array.isArray(clock?.advanceSources) || clock.advanceSources.length === 0 || clock.advanceSources.some((source) => !isNonEmptyString(source))) {
-            errors.push(`${clockId} advanceSources must contain at least one authoritative source`);
-        }
-        for (const predicateKey of ['startWhen', 'expireWhen', 'visibleWhen']) {
-            if (!Object.hasOwn(clock || {}, predicateKey)) errors.push(`${clockId} ${predicateKey} is required`);
-        }
-        if (!isNonEmptyString(clock?.consequence?.effectType) || !isNonEmptyString(clock?.consequence?.targetId)) {
-            errors.push(`${clockId} consequence requires effectType and targetId`);
-        }
-        if (
-            !isNonEmptyString(clock?.playerText?.label)
-            || !isNonEmptyString(clock?.playerText?.deadline)
-            || !isNonEmptyString(clock?.playerText?.consequence)
-        ) {
-            errors.push(`${clockId} playerText requires label, deadline, and consequence`);
         }
     }
     const terminalPriorities = new Set();

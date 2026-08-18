@@ -19,7 +19,6 @@
     "objectives",
     "commandBearingAwards",
     "outcomeDimensions",
-    "clocks",
     "closeWhen",
     "terminalDispositions",
     "transitions"
@@ -69,10 +68,6 @@
     "outcomeDimensions": {
       "type": "array",
       "items": { "$ref": "#/$defs/outcomeDimension" }
-    },
-    "clocks": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/clock" }
     },
     "closeWhen": { "$ref": "#/$defs/predicate" },
     "terminalDispositions": {
@@ -203,8 +198,7 @@
         "handedOff",
         "knowinglyDeclined",
         "waived",
-        "failedAfterInformedAction",
-        "expiredAfterKnownDeadline"
+        "failedAfterInformedAction"
       ]
     },
     "enumMatch": {
@@ -343,14 +337,6 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["clockState"],
-          "properties": {
-            "clockState": { "$ref": "#/$defs/enumMatch" }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
           "required": ["missionStatus"],
           "properties": {
             "missionStatus": { "$ref": "#/$defs/missionStatusMatch" }
@@ -386,8 +372,7 @@
             "worldFactEstablished",
             "factDisclosed",
             "eventOccurred",
-            "outcomeObserved",
-            "timeAdvanced"
+            "outcomeObserved"
           ]
         },
         "targetId": { "$ref": "#/$defs/stableId" },
@@ -643,62 +628,6 @@
           "minItems": 1,
           "items": { "$ref": "#/$defs/dimensionDerivation" }
         }
-      }
-    },
-    "clockConsequence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["effectType", "targetId", "value"],
-      "properties": {
-        "effectType": { "$ref": "#/$defs/stableId" },
-        "targetId": { "$ref": "#/$defs/stableId" },
-        "value": { "type": ["string", "number", "boolean", "null"] }
-      }
-    },
-    "clockPlayerText": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["label", "deadline", "consequence"],
-      "properties": {
-        "label": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "deadline": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "consequence": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-      }
-    },
-    "clock": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "unit",
-        "direction",
-        "initialValue",
-        "startWhen",
-        "advanceSources",
-        "expireWhen",
-        "visibleWhen",
-        "consequence",
-        "playerText"
-      ],
-      "properties": {
-        "id": { "$ref": "#/$defs/stableId" },
-        "unit": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "direction": { "type": "string", "enum": ["down", "up"] },
-        "initialValue": { "type": "number" },
-        "startWhen": { "$ref": "#/$defs/predicate" },
-        "advanceSources": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/stableId" },
-          "uniqueItems": true
-        },
-        "pauseWhen": { "$ref": "#/$defs/predicate" },
-        "resumeWhen": { "$ref": "#/$defs/predicate" },
-        "expireWhen": { "$ref": "#/$defs/predicate" },
-        "resolveWhen": { "$ref": "#/$defs/predicate" },
-        "visibleWhen": { "$ref": "#/$defs/predicate" },
-        "consequence": { "$ref": "#/$defs/clockConsequence" },
-        "playerText": { "$ref": "#/$defs/clockPlayerText" }
       }
     },
     "terminalDisposition": {

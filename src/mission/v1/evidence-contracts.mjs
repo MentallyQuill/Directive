@@ -20,7 +20,6 @@ const CLAIM_VALIDATION_ORDER = Object.freeze({
     factDisclosed: 40,
     intentExpressed: 50,
     decisionRecorded: 60,
-    timeAdvanced: 70,
 });
 
 function rejection(claim, reasonCode) {
@@ -49,7 +48,7 @@ function evidenceKey(branchId, claim, source) {
 }
 
 function targetExistsAnywhere(index, targetId) {
-    return ['objectives', 'facts', 'events', 'outcomes', 'clocks']
+    return ['objectives', 'facts', 'events', 'outcomes']
         .some((key) => index[key].has(targetId));
 }
 
@@ -120,7 +119,6 @@ export function revalidateMissionEvidenceReplay({
     stagedState.events = [...(stagedState.events || [])];
     stagedState.outcomes = { ...(stagedState.outcomes || {}) };
     stagedState.objectives = { ...(stagedState.objectives || {}) };
-    stagedState.clocks = { ...(stagedState.clocks || {}) };
     const acceptedClaims = [];
     const rejectedRecords = [];
     const ordered = (Array.isArray(claims) ? claims : [])
@@ -254,10 +252,6 @@ export function validateMissionEvidenceProposal({
             rejectAt(claim, 'world-truth-authority-required', originalIndex);
             continue;
         }
-        if (claim.claimType === 'timeAdvanced' && !AUTHORITATIVE_SOURCE_ROLES.has(source.role)) {
-            rejectAt(claim, 'authoritative-time-required', originalIndex);
-            continue;
-        }
         if (!Array.isArray(policy.sourceRoles) || !policy.sourceRoles.includes(source.role)) {
             rejectAt(claim, 'source-role-not-authorized', originalIndex);
             continue;
@@ -281,10 +275,6 @@ export function validateMissionEvidenceProposal({
                 continue;
             }
         }
-        if (claim.claimType === 'timeAdvanced' && (!Number.isFinite(claim.value) || claim.value <= 0)) {
-            rejectAt(claim, 'effect-not-allowed', originalIndex);
-            continue;
-        }
         if (source.role === 'user' && !PLAYER_PROVABLE_CLAIM_TYPES.has(claim.claimType)) {
             rejectAt(claim, 'player-cannot-prove-outcome', originalIndex);
             continue;
@@ -303,7 +293,6 @@ export function validateMissionEvidenceProposal({
     stagedState.events = [...(stagedState.events || [])];
     stagedState.outcomes = { ...(stagedState.outcomes || {}) };
     stagedState.objectives = { ...(stagedState.objectives || {}) };
-    stagedState.clocks = { ...(stagedState.clocks || {}) };
     const acceptedClaims = [];
     const acceptedInProposal = new Set();
     for (const candidate of [...candidates].sort(claimOrder)) {

@@ -2,10 +2,10 @@
   "kind": "directive.missionDefinition.v1",
   "schemaVersion": 1,
   "id": "mission.chapter-7-a-peace-of-their-own",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "chapter-7-a-peace-of-their-own"
   },
   "playerText": {
@@ -409,13 +409,6 @@
         ],
         "exclusions": ["One officer's opinion, a temporary weapons posture, a threat, or a proposed alliance does not establish the sustainable coalition result."]
       }
-    },
-    {
-      "id": "policy.chapter7.authoritative-time",
-      "claimType": "timeAdvanced",
-      "targetId": "clock.chapter7.task-group-arrival",
-      "sourceRoles": ["runtime", "adjudicator"],
-      "when": { "clockState": { "id": "clock.chapter7.task-group-arrival", "equals": "running" } }
     }
   ],
   "reportRoutes": [
@@ -465,10 +458,6 @@
   "events": [
     {
       "id": "event.chapter7.annex-engagement-established",
-      "playerVisibility": "hidden"
-    },
-    {
-      "id": "event.chapter7.task-group-arrived",
       "playerVisibility": "hidden"
     },
     { "id": "event.chapter7.civilian-corridor-opened", "playerVisibility": "hidden" },
@@ -754,33 +743,6 @@
         { "value": "open-hostility", "priority": 50, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "openHostility" } } },
         { "value": "handed-off", "priority": 40, "when": { "outcomeIs": { "id": "outcome.chapter7.coalition-posture", "equals": "handedOff" } } }
       ]
-    }
-  ],
-  "clocks": [
-    {
-      "id": "clock.chapter7.task-group-arrival",
-      "unit": "hours",
-      "direction": "down",
-      "initialValue": 36,
-      "startWhen": true,
-      "advanceSources": ["authoritativeStoryTime"],
-      "pauseWhen": false,
-      "resumeWhen": false,
-      "expireWhen": { "clockState": { "id": "clock.chapter7.task-group-arrival", "equals": "expired" } },
-      "resolveWhen": {
-        "not": { "outcomeIs": { "id": "outcome.chapter7.settlement-result", "equals": "pending" } }
-      },
-      "visibleWhen": { "factKnown": "fact.chapter7.annex-constitutional-crisis" },
-      "consequence": {
-        "effectType": "eventOccurred",
-        "targetId": "event.chapter7.task-group-arrived",
-        "value": true
-      },
-      "playerText": {
-        "label": "Starfleet task-group arrival",
-        "deadline": "Approximately {value} hours until arrival",
-        "consequence": "Captain Mercer's task group will arrive and may assume tactical control if the situation is openly hostile; arrival changes leverage but does not end the mission."
-      }
     }
   ],
   "closeWhen": {

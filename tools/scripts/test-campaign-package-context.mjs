@@ -45,7 +45,7 @@ assert.equal(summary.seniorCrewPreview.length, 8);
 assert.equal(summary.assets.images.some((image) => image.subjectId === 'uss-breckenridge'), true);
 
 const runtime = createRuntimePackageContext(packageData);
-assert.equal(runtime.package.version, '0.3.0-pre-alpha.1');
+assert.equal(runtime.package.version, '0.3.0-pre-alpha.2');
 assert.equal(runtime.campaign.id, 'ashes-of-peace');
 assert.equal(runtime.ship.id, 'uss-breckenridge');
 assert.deepEqual(runtime.guardrails.simulationModes, ['Exploration', 'Command']);

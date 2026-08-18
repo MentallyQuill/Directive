@@ -567,7 +567,6 @@
 }
 
 .directive-expanded-shell .directive-v1-objective-grid,
-.directive-expanded-shell .directive-v1-clock-grid,
 .directive-expanded-shell .directive-v1-roster {
   display: grid;
   gap: 7px;
@@ -599,21 +598,6 @@
   font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
   text-transform: uppercase;
 }
-
-.directive-expanded-shell .directive-v1-clock {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 12px;
-  padding: 12px;
-  background: var(--high);
-  border-left: 4px solid var(--salmon);
-  border-radius: 4px;
-}
-
-.directive-expanded-shell .directive-v1-clock p,
-.directive-expanded-shell .directive-v1-clock small { grid-column: 1 / -1; margin: 0; color: var(--muted); }
-
-.directive-expanded-shell .directive-v1-clock-value { color: var(--salmon); font-weight: 800; }
 
 .directive-expanded-shell .directive-v1-information-list { margin: 0; padding-left: 18px; color: var(--text); }
 
@@ -745,7 +729,6 @@
 
 @media (min-width: 720px) {
 .directive-expanded-shell .directive-v1-objective-grid,
-.directive-expanded-shell .directive-v1-clock-grid,
 .directive-expanded-shell .directive-v1-roster,
 .directive-expanded-shell .directive-v1-campaign-packages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -4245,10 +4228,6 @@ textarea.directive-field-control {
 .directive-expanded-shell .mission-objective-row.is-resolved { opacity: .55; border-left-color: var(--directive-expanded-lilac); }
 .directive-expanded-shell .mission-objective-row.is-resolved strong { text-decoration: line-through; }
 
-.directive-expanded-shell .mission-clock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
-.directive-expanded-shell .mission-clock { display: grid; gap: 3px; padding: 10px; background: var(--directive-expanded-high); border-top: 3px solid var(--directive-expanded-salmon); }
-.directive-expanded-shell .mission-clock span { color: var(--directive-expanded-salmon); font-weight: 800; }
-.directive-expanded-shell .mission-clock p { margin: 0; color: var(--directive-expanded-muted); font-size: 10px; }
 .directive-expanded-shell .mission-information-list { display: grid; gap: 5px; margin: 8px 0 0; padding-left: 18px; color: var(--directive-expanded-text); font-size: 11px; line-height: 1.4; }
 .directive-expanded-shell .mission-terminal { padding: 12px; background: rgba(183, 138, 215, .1); border: 1px solid rgba(183, 138, 215, .28); }
 .directive-expanded-shell .mission-terminal > span { color: var(--directive-expanded-lilac); font: 800 9px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
@@ -4273,7 +4252,6 @@ textarea.directive-field-control {
   .directive-expanded-shell .mission-terminal { margin-right: 12px; margin-left: 18px; }
   .directive-expanded-shell .mission-objective-row { grid-template-columns: 16px minmax(0, 1fr); }
   .directive-expanded-shell .mission-objective-status { grid-column: 2; }
-  .directive-expanded-shell .mission-clock-grid { grid-template-columns: minmax(0, 1fr); }
 
   .directive-expanded-shell .directive-expanded-mission {
     display: flex;

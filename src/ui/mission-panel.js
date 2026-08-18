@@ -61,27 +61,6 @@ function appendSimpleList(container, label, entries, textFor) {
   container.appendChild(section);
 }
 
-function appendClocks(container, clocks) {
-  if (!clocks.length) return;
-  const section = createElement('section', 'mission-detail-section mission-clock-section');
-  const heading = createElement('h3');
-  heading.textContent = 'Time-sensitive';
-  const grid = createElement('div', 'mission-clock-grid');
-  clocks.forEach((clock) => {
-    const card = createElement('article', 'mission-clock');
-    const title = createElement('strong');
-    title.textContent = clock.label;
-    const value = createElement('span');
-    value.textContent = [clock.value, clock.unit].filter((item) => item !== undefined && item !== null).join(' ');
-    const deadline = createElement('p');
-    deadline.textContent = clock.deadline || clock.summary || '';
-    card.append(title, value, deadline);
-    grid.appendChild(card);
-  });
-  section.append(heading, grid);
-  container.appendChild(section);
-}
-
 function appendTerminal(container, terminal) {
   if (!terminal) return;
   const card = createElement('section', 'mission-terminal');
@@ -115,7 +94,6 @@ function appendMissionDetail(detail, mission, { compactIdentity = false, time = 
   appendTerminal(detail, mission.terminal);
   appendObjectiveGroup(detail, 'Primary objectives', mission.requiredObjectives);
   appendObjectiveGroup(detail, 'Optional objectives', mission.optionalObjectives, 'Shapes the outcome; not required to finish');
-  appendClocks(detail, mission.clocks);
   appendSimpleList(detail, 'Known information', mission.knownFacts, (fact) => fact.summary);
   appendSimpleList(detail, 'Available support', mission.capabilities, (capability) => (
     capability.summary ? `${capability.label || 'Support'}: ${capability.summary}` : capability.label

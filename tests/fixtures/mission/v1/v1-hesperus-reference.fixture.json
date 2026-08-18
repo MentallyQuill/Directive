@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "prelude-a-ship-underway"
   },
   "playerText": {
@@ -111,13 +111,6 @@
         ],
         "exclusions": ["Routine effort or speculative risk is not a material cost."]
       }
-    },
-    {
-      "id": "policy.hesperus-life-support-time",
-      "claimType": "timeAdvanced",
-      "targetId": "clock.hesperus-life-support",
-      "sourceRoles": ["runtime", "adjudicator"],
-      "when": { "clockState": { "id": "clock.hesperus-life-support", "equals": "running" } }
     }
   ],
   "reportRoutes": [
@@ -352,38 +345,6 @@
           }
         }
       ]
-    }
-  ],
-  "clocks": [
-    {
-      "id": "clock.hesperus-life-support",
-      "unit": "hours",
-      "direction": "down",
-      "initialValue": 30,
-      "startWhen": true,
-      "advanceSources": ["authoritativeStoryTime"],
-      "pauseWhen": false,
-      "resumeWhen": false,
-      "expireWhen": {
-        "clockState": {
-          "id": "clock.hesperus-life-support",
-          "equals": "expired"
-        }
-      },
-      "resolveWhen": {
-        "eventOccurred": "event.hesperus-survivors-transferred"
-      },
-      "visibleWhen": true,
-      "consequence": {
-        "effectType": "eventOccurred",
-        "targetId": "event.hesperus-life-support-exhausted",
-        "value": true
-      },
-      "playerText": {
-        "label": "Life support reserve",
-        "deadline": "{value} hours remaining",
-        "consequence": "Conditions aboard Hesperus will become critical."
-      }
     }
   ],
   "closeWhen": {

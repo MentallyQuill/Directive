@@ -108,6 +108,7 @@ const checks = [
   "test-v1-mission-package-linter.mjs",
   "test-v1-mission-runtime.mjs",
   "test-v1-mission-authoritative-time-runtime.mjs",
+  "test-v1-mission-clock-removal-migration.mjs",
   "test-v1-mission-transition-runtime.mjs",
   "test-v1-mission-transition-narration.mjs",
   "test-v1-soft-boundary-runtime.mjs",

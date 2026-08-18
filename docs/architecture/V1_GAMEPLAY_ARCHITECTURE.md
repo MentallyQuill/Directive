@@ -38,7 +38,7 @@ Native branching and Load Game are serialized, journaled transactions. They pres
 The semantic authorities are:
 
 - mission definitions: authored rules and hidden truth;
-- mission reducer: facts, knowledge, objectives, outcomes, clocks, and terminal state;
+- mission reducer: facts, knowledge, objectives, outcomes, and terminal state;
 - Story Settlement: aggregate story chronology and typed lasting effects;
 - Command Bearing: neutral reserve, explicit awards, and explicit spends;
 - time ledger: accepted story time;
@@ -52,7 +52,7 @@ Command Bearing spending follows the same acceptance rule as story state. A poin
 
 Immediate mission mechanics may change on an accepted pair when validated authored evidence warrants it. Player-facing story memory changes at semantic episode boundaries, not every turn. A routine exchange may produce no story entry. A substantial scene normally becomes one episode even if it contains several decisions, facts, character moments, and ship consequences.
 
-Ship output is one operational aggregate plus material limitations and, when authored by the campaign, a small set of derived system state ladders. Each system shows its current state, why that state is supported, its gameplay effect, and known or completed narrative work. People output begins with the accepted commander identity and portrait, followed by source-backed public records for authored crew and directly named emergent contacts, current qualitative posture and open matter when established, and every defining accepted relationship moment in collapsed entries. The separately bounded narration projection includes only compact current relationship state and recent defining moments. Mission output contains only visible objectives, known clocks, visible outcomes, and the current terminal or transition state.
+Ship output is one operational aggregate plus material limitations and, when authored by the campaign, a small set of derived system state ladders. Each system shows its current state, why that state is supported, its gameplay effect, and known or completed narrative work. People output begins with the accepted commander identity and portrait, followed by source-backed public records for authored crew and directly named emergent contacts, current qualitative posture and open matter when established, and every defining accepted relationship moment in collapsed entries. The separately bounded narration projection includes only compact current relationship state and recent defining moments. Mission output contains only visible objectives, known facts, visible outcomes, and the current terminal or transition state. Canonical ship time, date, and Stardate come from the separate accepted-time projection.
 
 Ship work shares the accepted-pair interpretation and Story Settlement transaction already used by mission evidence. The model may propose only currently revealed authored milestones; deterministic validation binds each accepted claim to the selected assistant source. Settlement records a typed Ship milestone effect and the mission evidence receipt atomically. There is no Ship state root, project queue, repair percentage, or extra model call.
 
@@ -60,7 +60,7 @@ Derived Ship capabilities are causal affordances, not bonuses or automatic succe
 
 ## Missions
 
-Mission definitions support required, optional, and conditional objectives; non-linear predicates; discoverable facts; fair failure conditions; outcome dimensions; known deadlines; Duty Report routes; entry capabilities; terminal dispositions; and deterministic transitions. Completion depends on `closeWhen`, not checklist order. Hidden facts never appear merely because they exist in package data.
+Mission definitions support required, optional, and conditional objectives; non-linear predicates; discoverable facts; fair failure conditions; outcome dimensions; Duty Report routes; entry capabilities; terminal dispositions; and deterministic transitions. Completion depends on `closeWhen`, not checklist order. Hidden facts never appear merely because they exist in package data. Time pressure is narrative evidence, never an independent mission countdown: accepted prose must establish any deadline before facts, events, or outcomes can reflect it.
 
 The model recognizes prose variation by selecting from a closed candidate set built from the active mission. Deterministic validation checks source identity, branch, swipe, hash, policy, predicates, revision, and target before reduction. This division is flexible about prose and strict about authority.
 
@@ -78,4 +78,4 @@ Ashes of Peace is the only playable campaign. Other campaign identities and imag
 
 ## Non-negotiable exclusions
 
-V1 contains no save migration, compatibility hydration, shadow writers, alternate trackers, quest ledger, command log, thread ledger, reconciliation workflow, manual semantic editing, sidecar scheduler, inspiration/resolve split, ranks, marks, anti-cheat enforcement, per-mention ship issue creation, or clickable Ship project system. Cooperative players can narratively pursue authored Ship work whenever the fiction and dependencies support it; Directive does not attempt to prevent save or chat editing.
+V1 contains no general save migration, compatibility hydration, shadow writers, alternate trackers, quest ledger, command log, thread ledger, reconciliation workflow, manual semantic editing, sidecar scheduler, inspiration/resolve split, ranks, marks, anti-cheat enforcement, per-mention ship issue creation, or clickable Ship project system. The sole compatibility exception is a version-locked, one-shot migration from the immediately preceding Ashes clock-bearing package to the clockless package; it fails closed when replay would change narrated meaning. Cooperative players can narratively pursue authored Ship work whenever the fiction and dependencies support it; Directive does not attempt to prevent save or chat editing.

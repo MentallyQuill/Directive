@@ -49,10 +49,6 @@ import {
     createMissionTransitionNarrationRequest,
 } from '../mission/v1/mission-transition-narration.mjs';
 import {
-    findTimeBoundaryForPlayerMessage,
-    findTimeBoundaryForSourceAnchorRange,
-} from './v1-accepted-pair-time.mjs';
-import {
     createV1AcceptedPairReceipt,
     v1AcceptedPairReceiptMatches,
 } from './v1-accepted-pair-receipt.mjs';
@@ -297,83 +293,6 @@ function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAsset
     };
 }
 
-function timeBoundaryAnchorRange(boundary = {}) {
-    return boundary.sourceAnchorRange
-        || boundary.adjudication?.sourceAnchorRange
-        || boundary.metadata?.sourceAnchorRange
-        || null;
-}
-
-function timeBoundaryElapsedSeconds(boundary = {}) {
-    const seconds = Number(boundary?.elapsedSeconds);
-    if (Number.isInteger(seconds) && seconds >= 0) return seconds;
-    const minutes = Number(boundary?.elapsedMinutes);
-    return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes * 60) : 0;
-}
-
-function acceptedSceneTimeBoundary(campaignState = {}, snapshot = {}) {
-    const currentPlayerHostMessageId = compact(snapshot?.source?.currentPlayer?.hostMessageId);
-    const byPlayer = findTimeBoundaryForPlayerMessage(campaignState, currentPlayerHostMessageId);
-    const expectedAnchor = {
-        kind: 'acceptedPair',
-        previousAssistantHostMessageId: compact(snapshot?.source?.previousAssistant?.hostMessageId) || null,
-        currentPlayerHostMessageId: currentPlayerHostMessageId || null,
-        rangeHash: compact(snapshot?.source?.sourceRangeHash) || null,
-    };
-    const byRange = findTimeBoundaryForSourceAnchorRange(campaignState, expectedAnchor);
-    const ledger = campaignState?.timeLedger || {};
-    const candidates = [
-        byPlayer,
-        byRange,
-        ...(Array.isArray(ledger.entries) ? ledger.entries : []),
-        ledger.lastBoundary,
-    ].filter(Boolean);
-    return candidates.find((boundary) => {
-        if (boundary?.kind !== 'directive.timeBoundary.v1') return false;
-        if (timeBoundaryElapsedSeconds(boundary) <= 0) return false;
-        const anchor = timeBoundaryAnchorRange(boundary);
-        if (!anchor) return false;
-        return compact(anchor.previousAssistantHostMessageId) === compact(expectedAnchor.previousAssistantHostMessageId)
-            && compact(anchor.currentPlayerHostMessageId) === compact(expectedAnchor.currentPlayerHostMessageId)
-            && compact(anchor.rangeHash) === compact(expectedAnchor.rangeHash);
-    }) || null;
-}
-
-function clockAdvanceValue(clockDefinition = {}, elapsedMinutes = 0) {
-    const minutes = Number(elapsedMinutes);
-    if (!Number.isFinite(minutes) || minutes <= 0) return null;
-    const unit = compact(clockDefinition.unit).toLowerCase();
-    if (new Set(['minute', 'minutes']).has(unit)) return minutes;
-    if (new Set(['hour', 'hours']).has(unit)) return minutes / 60;
-    if (new Set(['day', 'days']).has(unit)) return minutes / 1440;
-    return null;
-}
-
-function timeBoundaryAdvanceSources(boundary = {}) {
-    return new Set([
-        'authoritativeStoryTime',
-        compact(boundary.source),
-        compact(boundary.type),
-        compact(boundary.reason),
-        compact(boundary.adjudication?.source),
-    ].filter(Boolean));
-}
-
-function boundaryCurrentPlayerHostMessageId(boundary = {}) {
-    return compact(timeBoundaryAnchorRange(boundary)?.currentPlayerHostMessageId);
-}
-
-function timeBoundarySourceMessageId(boundary = {}, role = 'runtime') {
-    const anchor = timeBoundaryAnchorRange(boundary);
-    const hostToken = stableHash(boundaryCurrentPlayerHostMessageId(boundary) || 'no-player-source');
-    const boundaryToken = stableHash([
-        compact(boundary.id),
-        compact(anchor?.rangeHash),
-        timeBoundaryElapsedSeconds(boundary),
-    ].join('|'));
-    return `time-boundary:${hostToken}:${boundaryToken}:${role}`;
-}
-
 function sourceMessageMatchesHostMessage(sourceMessageId = '', hostMessageId = '') {
     const source = compact(sourceMessageId);
     const host = compact(hostMessageId);
@@ -496,108 +415,6 @@ function sourceResolutionRecord(
         responseId: compact(source.responseId) || null,
         directiveOwned: source.directiveOwned === true,
         dutyReportCustodyOwned: source.dutyReportCustodyOwned === true,
-    };
-}
-
-function materializeAuthoritativeTimeEvidence({
-    definition = {},
-    missionState = {},
-    campaignState = {},
-    snapshot = {},
-    branchId = '',
-} = {}) {
-    const boundary = acceptedSceneTimeBoundary(campaignState, snapshot);
-    const elapsedSeconds = timeBoundaryElapsedSeconds(boundary);
-    const elapsedMinutes = elapsedSeconds / 60;
-    if (!boundary || elapsedSeconds <= 0) {
-        return { boundary: null, claims: [], sources: [], contributions: [], observations: [] };
-    }
-    const acceptedAdvanceSources = timeBoundaryAdvanceSources(boundary);
-    const policies = (definition.evidencePolicies || []).filter((policy) => policy?.claimType === 'timeAdvanced');
-    const eligible = [];
-    for (const clock of definition.clocks || []) {
-        if (missionState.clocks?.[clock.id]?.state !== 'running') continue;
-        if (!(clock.advanceSources || []).some((source) => acceptedAdvanceSources.has(compact(source)))) continue;
-        const value = clockAdvanceValue(clock, elapsedMinutes);
-        if (!Number.isFinite(value) || value <= 0) continue;
-        const policy = policies.find((candidate) => candidate.targetId === clock.id);
-        const role = policy?.sourceRoles?.includes('runtime')
-            ? 'runtime'
-            : (policy?.sourceRoles?.includes('adjudicator') ? 'adjudicator' : null);
-        if (!policy || !role) continue;
-        eligible.push({ clock, policy, role, value });
-    }
-    if (eligible.length === 0) {
-        return { boundary, claims: [], sources: [], contributions: [], observations: [] };
-    }
-
-    const sourceByRole = new Map();
-    const boundaryAnchor = timeBoundaryAnchorRange(boundary);
-    for (const role of new Set(eligible.map((item) => item.role))) {
-        const messageId = timeBoundarySourceMessageId(boundary, role);
-        const text = `Authoritative story time advanced by ${elapsedSeconds} seconds at ${compact(boundary.id) || 'the accepted scene boundary'}.`;
-        const sourceInput = {
-            messageId,
-            selectedSwipeId: null,
-            textHash: stableHash([
-                compact(boundary.id),
-                compact(boundaryAnchor?.rangeHash),
-                elapsedSeconds,
-                role,
-            ].join('|')),
-            text,
-        };
-        const contributionId = activeContributionId(campaignState, branchId, sourceInput);
-        const source = sourceResolutionRecord(
-            branchId,
-            role,
-            sourceInput,
-            missionState.revision,
-            contributionId,
-        );
-        sourceByRole.set(role, {
-            source,
-            contribution: contributionFor(
-                branchId,
-                role,
-                sourceInput,
-                missionState.revision,
-                contributionId,
-            ),
-            observation: {
-                contributionId,
-                role,
-                textHash: sourceInput.textHash,
-                text,
-            },
-        });
-    }
-
-    const claims = eligible.map(({ clock, policy, role, value }) => {
-        const source = sourceByRole.get(role).source;
-        return {
-            claimId: `claim.authoritative-time.${stableHash([
-                compact(boundary.id),
-                compact(boundaryAnchor?.rangeHash),
-                clock.id,
-            ].join('|'))}.${clock.id}`,
-            policyId: policy.id,
-            claimType: 'timeAdvanced',
-            targetId: clock.id,
-            value,
-            sourceRef: {
-                messageId: source.messageId,
-                swipeId: null,
-                textHash: source.textHash,
-            },
-        };
-    });
-    return {
-        boundary,
-        claims,
-        sources: [...sourceByRole.values()].map((record) => record.source),
-        contributions: [...sourceByRole.values()].map((record) => record.contribution),
-        observations: [...sourceByRole.values()].map((record) => record.observation),
     };
 }
 
@@ -1466,13 +1283,6 @@ export function createV1MissionRuntime({
             proposal: interpretedMissionProposal,
             dutyReportResult,
         });
-        const authoritativeTime = materializeAuthoritativeTimeEvidence({
-            definition,
-            missionState,
-            campaignState: plannedCampaignState,
-            snapshot,
-            branchId,
-        });
         const deterministicRuntime = materializeDeterministicRuntimeEvidence({
             definition,
             missionState,
@@ -1484,14 +1294,12 @@ export function createV1MissionRuntime({
             claims: [
                 ...(dutyProposal.proposal?.claims || []),
                 ...deterministicRuntime.claims,
-                ...authoritativeTime.claims,
             ],
         };
         const sources = [
             assistantSource,
             playerSource,
             ...deterministicRuntime.sources,
-            ...authoritativeTime.sources,
         ];
         const contributions = [
             ...(assistantAccepted ? [contributionFor(
@@ -1509,7 +1317,6 @@ export function createV1MissionRuntime({
                 playerContributionId,
             ),
             ...deterministicRuntime.contributions,
-            ...authoritativeTime.contributions,
         ];
         const acceptedPairReceipt = createV1AcceptedPairReceipt({
             branchId,
@@ -1535,7 +1342,6 @@ export function createV1MissionRuntime({
                 text: sourcePair.currentPlayer.text,
             },
             ...deterministicRuntime.observations,
-            ...authoritativeTime.observations,
         ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
@@ -1631,12 +1437,9 @@ export function createV1MissionRuntime({
                     peopleDossierAttempted,
                     peopleDossierStatus,
                     acceptedDutyReportCount,
-                    acceptedTimeAdvanceCount: (settled.evidence?.acceptedClaims || [])
-                        .filter((claim) => claim?.claimType === 'timeAdvanced').length,
                     commandBearingAwardCount: settled.commandBearingAwardCount || 0,
                     strippedRequiredDutyReportClaimCount: dutyProposal.strippedRequiredClaimCount,
                     rejectedDutyReportReasonCode,
-                    authoritativeTimeBoundaryId: authoritativeTime.boundary?.id || null,
                     providerId: interpreted.diagnostics?.providerId || null,
                     model: interpreted.diagnostics?.model || null,
                     latencyMs: interpreted.diagnostics?.latencyMs ?? null,

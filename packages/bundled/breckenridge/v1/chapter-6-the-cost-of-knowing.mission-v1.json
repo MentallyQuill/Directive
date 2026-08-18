@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "chapter-6-the-cost-of-knowing"
   },
   "playerText": {
@@ -736,7 +736,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.chapter6.command-network", "in": ["completed", "completedWithCost"] } },

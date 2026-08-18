@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "chapter-8-the-last-directive"
   },
   "playerText": {
@@ -164,7 +164,7 @@
       "id": "capability.chapter8.provisional-regional-accord",
       "source": {
         "definitionId": "mission.chapter-7-a-peace-of-their-own",
-        "definitionVersion": "1.0.0",
+        "definitionVersion": "1.1.0",
         "requirements": [{ "dimensionId": "dimension.chapter7.settlement", "in": ["provisional-accord", "armed-stand-down"] }]
       },
       "playerText": {
@@ -775,7 +775,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.chapter8.command", "in": ["completed", "completedWithCost"] } },

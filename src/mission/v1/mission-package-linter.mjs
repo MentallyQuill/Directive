@@ -22,19 +22,6 @@ function effectiveObjectiveClass(objective) {
     return objective.class === 'conditional' ? objective.activatedAs : objective.class;
 }
 
-function predicateRequiresFactKnown(predicate) {
-    if (!predicate || typeof predicate !== 'object' || Array.isArray(predicate)) return false;
-    if (typeof predicate.factKnown === 'string') return true;
-    if (Array.isArray(predicate.all)) {
-        return predicate.all.some((child) => predicateRequiresFactKnown(child));
-    }
-    if (Array.isArray(predicate.any)) {
-        return predicate.any.length > 0
-            && predicate.any.every((child) => predicateRequiresFactKnown(child));
-    }
-    return false;
-}
-
 function hasUsablePolicy(definition, targetId, claimTypes) {
     const acceptedTypes = new Set(claimTypes);
     return (definition.evidencePolicies || []).some((policy) => (
@@ -69,11 +56,7 @@ function lintEvidenceCoverage(definition, errors) {
             errors.push(`${fact.id} has no usable disclosure evidence policy`);
         }
     }
-    const derivedEventIds = new Set(
-        (definition.clocks || []).map((clock) => clock?.consequence?.targetId).filter(Boolean),
-    );
     for (const event of definition.events || []) {
-        if (derivedEventIds.has(event.id)) continue;
         if (!hasUsablePolicy(definition, event.id, ['eventOccurred'])) {
             errors.push(`${event.id} has no usable event evidence policy`);
         }
@@ -81,11 +64,6 @@ function lintEvidenceCoverage(definition, errors) {
     for (const outcome of definition.outcomes || []) {
         if (!hasUsablePolicy(definition, outcome.id, ['outcomeObserved', 'decisionRecorded'])) {
             errors.push(`${outcome.id} has no usable outcome evidence policy`);
-        }
-    }
-    for (const clock of definition.clocks || []) {
-        if (!hasUsablePolicy(definition, clock.id, ['timeAdvanced'])) {
-            errors.push(`${clock.id} has no usable authoritative-time evidence policy`);
         }
     }
 }
@@ -127,7 +105,6 @@ function lintTerminalEvidenceGates(definition, errors) {
                 + refs.events.size
                 + refs.outcomes.size
                 + refs.objectives.size
-                + refs.clocks.size
                 + refs.entryCapabilities.size
                 + refs.shipCapabilities.size;
             if (causalRefCount === 0) {
@@ -174,11 +151,6 @@ export function lintMissionPackage({
     for (const transition of definition.transitions || []) {
         if (!knownTargets.has(transition.target?.id)) {
             errors.push(`${transition.id} targets unknown package mission: ${transition.target?.id}`);
-        }
-    }
-    for (const clock of definition.clocks || []) {
-        if (clock.visibleWhen !== false && !predicateRequiresFactKnown(clock.visibleWhen)) {
-            errors.push(`${clock.id} lacks a player-known visibility basis`);
         }
     }
     lintEvidenceCoverage(definition, errors);

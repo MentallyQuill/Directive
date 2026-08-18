@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "open-orders-2-what-survives"
   },
   "playerText": {
@@ -34,7 +34,7 @@
       "id": "capability.open-orders2.medical-supply-safeguards",
       "source": {
         "definitionId": "mission.prelude-a-ship-underway",
-        "definitionVersion": "1.0.0",
+        "definitionVersion": "1.1.0",
         "requirements": [
           {
             "dimensionId": "dimension.prelude.redline",
@@ -1152,7 +1152,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "objectiveDisposition": { "id": "objective.open-orders2.conclusion", "in": ["completed", "completedWithCost"] }
   },

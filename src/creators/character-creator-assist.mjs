@@ -1139,7 +1139,7 @@ function createPrompt(snapshot) {
     'Draft one Character Creator section for Directive.',
     'Return JSON only. Do not include markdown.',
     'Use only the supplied player-visible campaign and package setup context.',
-    'Never expose hidden campaign state, Director notes, raw relationship values, pressure values, hidden clocks, or future reveals.',
+    'Never expose hidden campaign state, Director notes, raw relationship values, pressure values, or future reveals.',
     'Respect currentSection as authoritative inspiration in refine mode. Fill missing values and improve weak phrasing without overwriting clear player intent.',
     'For select fields, return only allowed option ids. For text fields, stay concise and plausible for a Starfleet officer in this campaign.',
     `For self-fill text boxes, target about ${CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET.min}-${CHARACTER_CREATOR_SELF_FILL_CHARACTER_TARGET.max} characters. Treat the ${CHARACTER_CREATOR_SELF_FILL_CHAR_LIMIT}-character box limit as a target limit, not a reason to cut off or omit a complete reply.`,

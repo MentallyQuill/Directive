@@ -10,8 +10,28 @@ export const MISSION_STATE_KIND = 'directive.missionState.v1';
 
 const MISSION_STATUSES = new Set(['active', 'terminal']);
 const OBJECTIVE_VISIBILITIES = new Set(['hidden', 'visible', 'resolved']);
-const CLOCK_STATES = new Set(['notStarted', 'running', 'paused', 'expired', 'resolved']);
-const CLOCK_VISIBILITIES = new Set(['hidden', 'visible']);
+const MISSION_STATE_KEYS = new Set([
+    'kind',
+    'schemaVersion',
+    'definitionId',
+    'definitionVersion',
+    'packageBinding',
+    'branchId',
+    'revision',
+    'status',
+    'entryContext',
+    'objectives',
+    'knownFacts',
+    'worldFacts',
+    'events',
+    'outcomes',
+    'outcomeDimensions',
+    'acceptedEvidenceKeys',
+    'evidenceLog',
+    'invalidatedSourceContributionIds',
+    'terminalDisposition',
+    'transitionReceipt',
+]);
 
 function isStableId(value) {
     return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
@@ -46,6 +66,9 @@ function validateExactRecordKeys(record, expectedIds, label, errors) {
 export function validateMissionState({ definition = {}, state = {} } = {}) {
     const errors = [];
     const index = indexMissionDefinition(definition);
+    for (const key of Object.keys(state || {})) {
+        if (!MISSION_STATE_KEYS.has(key)) errors.push(`mission state contains unknown field: ${key}`);
+    }
     if (state?.kind !== MISSION_STATE_KIND) errors.push(`kind must be ${MISSION_STATE_KIND}`);
     if (state?.schemaVersion !== 1) errors.push('schemaVersion must be 1');
     if (!isStableId(state?.branchId)) errors.push('branchId must be a stable id');
@@ -99,27 +122,6 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
         for (const [outcomeId, outcome] of index.outcomes.entries()) {
             if (!(outcome.allowedValues || []).includes(state.outcomes[outcomeId])) {
                 errors.push(`outcomes.${outcomeId} value is not authored`);
-            }
-        }
-    }
-
-    const clockIds = new Set(index.clocks.keys());
-    if (validateExactRecordKeys(state?.clocks, clockIds, 'clocks', errors)) {
-        for (const clockId of clockIds) {
-            const clock = state.clocks[clockId];
-            if (!clock || typeof clock !== 'object' || Array.isArray(clock)) {
-                errors.push(`clocks.${clockId} must be an object`);
-                continue;
-            }
-            if (!CLOCK_STATES.has(clock.state)) errors.push(`clocks.${clockId} state is unknown`);
-            if (!CLOCK_VISIBILITIES.has(clock.visibility)) errors.push(`clocks.${clockId} visibility is unknown`);
-            if (!Number.isFinite(clock.value)) errors.push(`clocks.${clockId} value must be finite`);
-            if (clock.lastAdvancementEvidenceKey !== null
-                && typeof clock.lastAdvancementEvidenceKey !== 'string') {
-                errors.push(`clocks.${clockId} lastAdvancementEvidenceKey must be null or a string`);
-            }
-            if (typeof clock.expiryApplied !== 'boolean') {
-                errors.push(`clocks.${clockId} expiryApplied must be boolean`);
             }
         }
     }
@@ -198,7 +200,6 @@ export function missionStateContext(definition, state, { shipCapabilityEvidenceB
         events: new Set(state.events || []),
         outcomes: new Map(Object.entries(state.outcomes || {})),
         objectives: new Map(Object.entries(state.objectives || {})),
-        clocks: new Map(Object.entries(state.clocks || {})),
         missionStatus: state.status,
     };
 }
@@ -228,13 +229,6 @@ export function createMissionState({ definition = {}, branchId = 'main', entryCo
             .map((fact) => fact.id),
         events: [],
         outcomes: Object.fromEntries((definition.outcomes || []).map((outcome) => [outcome.id, outcome.initialValue])),
-        clocks: Object.fromEntries((definition.clocks || []).map((clock) => [clock.id, {
-            state: 'notStarted',
-            value: clock.initialValue,
-            visibility: 'hidden',
-            lastAdvancementEvidenceKey: null,
-            expiryApplied: false,
-        }])),
         outcomeDimensions: {},
         acceptedEvidenceKeys: [],
         evidenceLog: [],
@@ -273,12 +267,6 @@ export function createMissionState({ definition = {}, branchId = 'main', entryCo
             visibility: visible ? 'visible' : 'hidden',
             disposition: null,
         };
-    }
-    for (const clock of definition.clocks || []) {
-        const running = predicateValue(clock.startWhen, definition, state);
-        const visible = predicateValue(clock.visibleWhen, definition, state);
-        state.clocks[clock.id].state = running ? 'running' : 'notStarted';
-        state.clocks[clock.id].visibility = visible ? 'visible' : 'hidden';
     }
     return state;
 }

@@ -52,7 +52,6 @@ for (const missionFile of missionFiles) {
                     + gateRefs.events.size
                     + gateRefs.outcomes.size
                     + gateRefs.objectives.size
-                    + gateRefs.clocks.size
                     + gateRefs.entryCapabilities.size
                     + gateRefs.shipCapabilities.size;
                 assert.ok(causalRefCount > 0,
@@ -70,6 +69,6 @@ for (const missionFile of missionFiles) {
 
 assert.equal(missionFiles.length, 13, 'campaign mission inventory changed');
 assert.equal(objectiveCount, 50, 'campaign objective inventory changed');
-assert.equal(terminalRouteCount, 143, 'campaign terminal-route inventory changed');
+assert.equal(terminalRouteCount, 142, 'campaign terminal-route inventory changed');
 
 console.log('Ashes objective progression gate tests passed.');

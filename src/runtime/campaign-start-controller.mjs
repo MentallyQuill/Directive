@@ -25,6 +25,7 @@ import {
   assertV1CampaignState,
   V1_STATE_CUSTODY_RECENT_COMMIT_LIMIT,
 } from './v1-campaign-state.mjs';
+import { migrateV1MissionClockRemoval } from './v1-mission-clock-removal-migration.mjs';
 import { stableJsonStringify } from './v1-host-message-contracts.mjs';
 import {
   deleteTimelineOperation,
@@ -244,8 +245,42 @@ export function createCampaignStartController({
   let activeState = null;
   let activeDraftId = null;
 
+  async function migrateLoadedSave(save, { makeActive = save?.slotType === 'active' } = {}) {
+    if (!save) return null;
+    const migration = migrateV1MissionClockRemoval({
+      campaignState: save.state,
+      packageData,
+      missionDefinitions: definitions,
+    });
+    if (!migration.ok) {
+      const error = new Error(`Directive V1 could not migrate this campaign: ${migration.reasonCode}.`);
+      error.code = 'DIRECTIVE_V1_MISSION_CLOCK_REMOVAL_BLOCKED';
+      error.reasonCode = migration.reasonCode;
+      error.details = clone(migration.diagnostics);
+      throw error;
+    }
+    if (!migration.migrated) return clone(save);
+    const timestamp = currentTime();
+    const migratedState = advanceStateCustody(
+      migration.campaignState,
+      save.state,
+      `migration.mission-clock-removal.${migration.diagnostics.sourcePackageVersion}.to.${migration.diagnostics.targetPackageVersion}`,
+    );
+    const migratedSave = {
+      ...clone(save),
+      packageVersion: migration.diagnostics.targetPackageVersion,
+      updatedAt: timestamp,
+      state: migratedState,
+    };
+    return storeV1CampaignSave(adapter, migratedSave, {
+      makeActive,
+      previousSave: save,
+    });
+  }
+
   async function refreshActive() {
     activeSave = await loadActiveV1CampaignSave(adapter);
+    if (activeSave) activeSave = await migrateLoadedSave(activeSave, { makeActive: true });
     activeState = activeSave ? assertV1CampaignState(clone(activeSave.state)) : null;
     return activeSave;
   }
@@ -301,7 +336,10 @@ export function createCampaignStartController({
       ]);
       const activeSaves = await Promise.all(saveSummaries
         .filter((save) => save.slotType === 'active')
-        .map((save) => loadV1CampaignSave(adapter, save.id)));
+        .map(async (save) => migrateLoadedSave(
+          await loadV1CampaignSave(adapter, save.id),
+          { makeActive: save.id === index.activeSaveId },
+        )));
       const saves = [
         ...activeSaves,
         ...saveSummaries.filter((save) => save.slotType !== 'active')
@@ -468,7 +506,10 @@ export function createCampaignStartController({
     },
 
     async renameSavedGame({ savedGameId, name } = {}) {
-      const current = await loadV1CampaignSave(adapter, required(savedGameId, 'savedGameId'));
+      const current = await migrateLoadedSave(
+        await loadV1CampaignSave(adapter, required(savedGameId, 'savedGameId')),
+        { makeActive: false },
+      );
       if (current.slotType !== 'checkpoint') throw new Error('Only an immutable saved game can be renamed.');
       const renamed = createV1CampaignSave({
         id: current.id,
@@ -493,11 +534,17 @@ export function createCampaignStartController({
     storeTimelineOperation: (operation) => storeTimelineOperation(adapter, operation),
     loadTimelineOperation: ({ campaignId }) => loadTimelineOperation(adapter, required(campaignId, 'campaignId')),
     deleteTimelineOperation: ({ campaignId }) => deleteTimelineOperation(adapter, required(campaignId, 'campaignId')),
-    loadSaveRecord: ({ saveId }) => loadV1CampaignSave(adapter, required(saveId, 'saveId')),
+    loadSaveRecord: async ({ saveId }) => migrateLoadedSave(
+      await loadV1CampaignSave(adapter, required(saveId, 'saveId')),
+      { makeActive: false },
+    ),
     getStorageIndex: () => initializeV1Storage(adapter, { now: currentTime() }),
 
     async bindCheckpointChat({ checkpointId, binding } = {}) {
-      const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
+      const checkpoint = await migrateLoadedSave(
+        await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId')),
+        { makeActive: false },
+      );
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
       let nextState = clone(checkpoint.state);
       nextState.campaignChatBinding = {
@@ -527,7 +574,10 @@ export function createCampaignStartController({
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
-      const checkpoint = await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId'));
+      const checkpoint = await migrateLoadedSave(
+        await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId')),
+        { makeActive: false },
+      );
       if (checkpoint.slotType !== 'checkpoint') throw new Error('The selected V1 save is not a checkpoint.');
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
       let state = clone(checkpoint.state);
@@ -642,10 +692,11 @@ export function createCampaignStartController({
     },
 
     async loadGame({ saveId } = {}) {
-      const save = await loadV1CampaignSave(adapter, required(saveId, 'saveId'), {
+      const loaded = await loadV1CampaignSave(adapter, required(saveId, 'saveId'), {
         makeActive: true,
         now: currentTime()
       });
+      const save = await migrateLoadedSave(loaded, { makeActive: true });
       if (save.slotType !== 'active') throw new Error('Load checkpoints through loadCheckpoint.');
       activeSave = clone(save);
       activeState = clone(save.state);

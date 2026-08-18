@@ -25,9 +25,7 @@ assert.equal(state.objectives['objective.hesperus-rescue'].state, 'available');
 assert.equal(state.objectives['objective.hesperus-rescue'].visibility, 'visible');
 assert.equal(state.objectives['objective.hesperus-accountability'].state, 'inactive');
 assert.equal(state.objectives['objective.hesperus-accountability'].visibility, 'hidden');
-assert.equal(state.clocks['clock.hesperus-life-support'].state, 'running');
-assert.equal(state.clocks['clock.hesperus-life-support'].value, 30);
-assert.equal(state.clocks['clock.hesperus-life-support'].visibility, 'visible');
+assert.equal(Object.hasOwn(state, 'clocks'), false);
 assert.equal(state.terminalDisposition, null);
 assert.equal(state.transitionReceipt, null);
 
@@ -96,7 +94,6 @@ assert.equal(rescueOnly.state.objectives['objective.hesperus-accountability'].st
 assert.equal(rescueOnly.state.objectives['objective.hesperus-accountability'].visibility, 'hidden');
 assert.equal(rescueOnly.state.outcomeDimensions['dimension.lives-protected'], 'full');
 assert.equal(rescueOnly.state.outcomeDimensions['dimension.accountability'], undefined);
-assert.equal(rescueOnly.state.clocks['clock.hesperus-life-support'].state, 'resolved');
 assert.equal(rescueOnly.transitionPacket.kind, 'directive.missionTransitionNarration.v1');
 assert.equal(rescueOnly.transitionPacket.next.id, 'phase.command-review');
 assert.equal(rescueOnly.transitionPacket.optionalOutcomeSummaries.length, 0);
@@ -192,33 +189,6 @@ assert.deepEqual(replay.state.transitionReceipt, rescueOnly.state.transitionRece
 assert.deepEqual(replay.effects, []);
 assert.deepEqual(replay.transitionPacket, rescueOnly.transitionPacket);
 
-const timeAdvance = (value, suffix) => ({
-    claimId: `claim.time-${suffix}`,
-    claimType: 'timeAdvanced',
-    targetId: 'clock.hesperus-life-support',
-    value,
-    evidenceKey: `evidence.time-${suffix}`,
-});
-const clockAdvanced = reduceMissionEvidence({
-    definition,
-    state,
-    acceptedClaims: [timeAdvance(10, 'ten')],
-    sourceContribution,
-});
-assert.equal(clockAdvanced.state.status, 'active');
-assert.equal(clockAdvanced.state.clocks['clock.hesperus-life-support'].value, 20);
-assert.equal(clockAdvanced.transitionPacket, null);
-const reconstructedClock = reduceMissionEvidence({
-    definition,
-    state,
-    acceptedClaims: [{
-        ...timeAdvance(10, 'reconstructed'),
-        sourceContributionId: 'contribution.original-time-source',
-    }],
-    sourceContribution: null,
-});
-assert.equal(reconstructedClock.state.evidenceLog[0].sourceContributionId, 'contribution.original-time-source');
-
 const multiSource = reduceMissionEvidence({
     definition,
     state: createMissionState({ definition, branchId: 'save.multi-source' }),
@@ -273,9 +243,9 @@ const shipObjectiveResult = reduceMissionEvidence({
     state: createMissionState({ definition: shipObjectiveDefinition, branchId: 'save.ship-objective' }),
     acceptedClaims: [{
         claimId: 'claim.ship-objective-trigger',
-        claimType: 'timeAdvanced',
-        targetId: 'clock.hesperus-life-support',
-        value: 1,
+        policyId: 'policy.hesperus-fraud-established',
+        claimType: 'worldFactEstablished',
+        targetId: 'fact.hesperus-fraud-confirmed',
         evidenceKey: 'evidence.ship-objective-trigger',
     }],
     sourceContribution,
@@ -286,16 +256,6 @@ const shipObjectiveResult = reduceMissionEvidence({
 });
 assert.equal(shipObjectiveResult.state.objectives['objective.hesperus-accountability'].state, 'available');
 assert.equal(shipObjectiveResult.state.objectives['objective.hesperus-accountability'].visibility, 'visible');
-const clockExpired = reduceMissionEvidence({
-    definition,
-    state: clockAdvanced.state,
-    acceptedClaims: [timeAdvance(25, 'twenty-five')],
-    sourceContribution,
-});
-assert.equal(clockExpired.state.clocks['clock.hesperus-life-support'].state, 'expired');
-assert.equal(clockExpired.state.clocks['clock.hesperus-life-support'].value, 0);
-assert.equal(clockExpired.state.clocks['clock.hesperus-life-support'].expiryApplied, true);
-assert.equal(clockExpired.state.events.includes('event.hesperus-life-support-exhausted'), true);
 
 const rescueWithCost = reduceMissionEvidence({
     definition,
@@ -315,33 +275,5 @@ const rescueWithCost = reduceMissionEvidence({
 assert.equal(rescueWithCost.state.objectives['objective.hesperus-rescue'].disposition, 'completedWithCost');
 assert.equal(rescueWithCost.state.terminalDisposition, 'primarySuccessWithCost');
 assert.equal(rescueWithCost.state.outcomeDimensions['dimension.lives-protected'], 'full-with-cost');
-
-const hiddenClockDefinition = structuredClone(definition);
-hiddenClockDefinition.clocks.push({
-    ...hiddenClockDefinition.clocks[0],
-    id: 'clock.hidden-causal-pressure',
-    initialValue: 5,
-    visibleWhen: false,
-    expireWhen: {
-        clockState: { id: 'clock.hidden-causal-pressure', equals: 'expired' },
-    },
-});
-const hiddenClockState = createMissionState({ definition: hiddenClockDefinition, branchId: 'save.alpha' });
-assert.equal(hiddenClockState.clocks['clock.hidden-causal-pressure'].visibility, 'hidden');
-const hiddenClockExpired = reduceMissionEvidence({
-    definition: hiddenClockDefinition,
-    state: hiddenClockState,
-    acceptedClaims: [{
-        claimId: 'claim.hidden-time',
-        claimType: 'timeAdvanced',
-        targetId: 'clock.hidden-causal-pressure',
-        value: 5,
-        evidenceKey: 'evidence.hidden-time',
-    }],
-    sourceContribution,
-});
-assert.equal(hiddenClockExpired.state.status, 'active');
-assert.equal(hiddenClockExpired.state.objectives['objective.hesperus-rescue'].disposition, null);
-assert.equal(hiddenClockExpired.effects.find((effect) => effect.id === 'effect.clock.hidden-causal-pressure.expired')?.playerVisibility, 'hidden');
 
 console.log('V1 mission reducer tests passed.');

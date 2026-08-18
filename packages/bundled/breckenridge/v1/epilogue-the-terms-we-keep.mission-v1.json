@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "packageBinding": {
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "packageVersion": "0.3.0-pre-alpha.1",
+    "packageVersion": "0.3.0-pre-alpha.2",
     "sourceId": "epilogue-the-terms-we-keep"
   },
   "playerText": {
@@ -47,7 +47,7 @@
       "id": "capability.epilogue.provisional-regional-accord",
       "source": {
         "definitionId": "mission.chapter-7-a-peace-of-their-own",
-        "definitionVersion": "1.0.0",
+        "definitionVersion": "1.1.0",
         "requirements": [{ "dimensionId": "dimension.chapter7.settlement", "in": ["provisional-accord", "armed-stand-down"] }]
       },
       "playerText": {
@@ -57,17 +57,17 @@
     },
     {
       "id": "capability.epilogue.rhee-lawful-custody",
-      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-lawful-custody"] }] },
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.1.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-lawful-custody"] }] },
       "playerText": { "label": "Rhee Lawful Custody Record", "summary": "The supported Prelude custody disposition is available for a bounded personal coda." }
     },
     {
       "id": "capability.epilogue.rhee-treatment-handoff",
-      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-treatment-handoff"] }] },
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.1.0", "requirements": [{ "dimensionId": "dimension.prelude.redline", "in": ["contained-treatment-handoff"] }] },
       "playerText": { "label": "Rhee Treatment Handoff Record", "summary": "The supported Prelude treatment or responsible-handoff disposition is available for a bounded personal coda." }
     },
     {
       "id": "capability.epilogue.daro-confidential-care",
-      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.0.0", "requirements": [{ "dimensionId": "dimension.prelude.daro-care", "in": ["confidential-treatment"] }] },
+      "source": { "definitionId": "mission.prelude-a-ship-underway", "definitionVersion": "1.1.0", "requirements": [{ "dimensionId": "dimension.prelude.daro-care", "in": ["confidential-treatment"] }] },
       "playerText": { "label": "Daro Confidential Care Record", "summary": "Daro's established confidential treatment and duty boundary are available for a bounded personal coda." }
     }
   ],
@@ -668,7 +668,6 @@
       ]
     }
   ],
-  "clocks": [],
   "closeWhen": {
     "all": [
       { "objectiveDisposition": { "id": "objective.epilogue.aftermath", "equals": "completed" } },

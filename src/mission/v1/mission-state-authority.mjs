@@ -10,7 +10,6 @@ const CLAIM_TARGET_COLLECTION = Object.freeze({
     eventOccurred: 'events',
     outcomeObserved: 'outcomes',
     decisionRecorded: 'outcomes',
-    timeAdvanced: 'clocks',
     intentExpressed: 'objectives',
 });
 
@@ -68,9 +67,6 @@ function validateEvidenceLog(definition, state, errors) {
             if (!(outcome.allowedValues || []).includes(entry.value)) {
                 errors.push(`evidenceLog outcome value is not authored: ${entry.targetId}`);
             }
-        }
-        if (entry.claimType === 'timeAdvanced' && (!Number.isFinite(entry.value) || entry.value <= 0)) {
-            errors.push(`evidenceLog time advancement must be a positive finite number: ${entry.targetId}`);
         }
         if (typeof entry?.sourceContributionId !== 'string' || entry.sourceContributionId.length === 0) {
             errors.push('evidenceLog entry sourceContributionId is required');
@@ -186,7 +182,6 @@ export function validateMissionStateAuthority({ definition = {}, state = {} } = 
         'worldFacts',
         'events',
         'outcomes',
-        'clocks',
         'outcomeDimensions',
         'acceptedEvidenceKeys',
         'terminalDisposition',

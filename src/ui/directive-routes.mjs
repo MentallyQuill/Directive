@@ -15,7 +15,7 @@ export const DIRECTIVE_PRIMARY_ROUTES = Object.freeze([
     shelfLabel: 'Objectives & Outcomes',
     iconSlot: 'route.mission',
     icon: 'fa-solid fa-compass',
-    description: 'Review the active mission, objectives, known clocks, and outcomes.'
+    description: 'Review the active mission, objectives, known information, and outcomes.'
   },
   {
     id: 'people',

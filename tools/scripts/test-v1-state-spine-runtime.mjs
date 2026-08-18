@@ -352,7 +352,6 @@ const accumulationDefinition = {
     outcomes: [],
     objectives: [],
     outcomeDimensions: [],
-    clocks: [],
     closeWhen: false,
     terminalDispositions: [],
     transitions: [],

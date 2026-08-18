@@ -18,7 +18,6 @@ const index = {
         id: 'objective.account-crew',
         supportedDispositions: ['handedOff'],
     }]]),
-    clocks: new Map([['clock.life-support', { id: 'clock.life-support' }]]),
 };
 
 const predicate = {
@@ -41,7 +40,6 @@ const context = {
     events: new Set(['event.survivors-transferred']),
     outcomes: new Map([['outcome.evidence-preserved', 'yes']]),
     objectives: new Map([['objective.account-crew', { state: 'terminal', disposition: 'handedOff' }]]),
-    clocks: new Map([['clock.life-support', { state: 'running' }]]),
     missionStatus: 'active',
 };
 
@@ -71,7 +69,6 @@ for (const [label, candidate, expected] of [
     ['outcome in', { outcomeIs: { id: 'outcome.evidence-preserved', in: ['unknown', 'yes'] } }, true],
     ['objective state', { objectiveState: { id: 'objective.account-crew', in: ['terminal'] } }, true],
     ['objective disposition', { objectiveDisposition: { id: 'objective.account-crew', equals: 'handedOff' } }, true],
-    ['clock state', { clockState: { id: 'clock.life-support', equals: 'running' } }, true],
     ['mission status', { missionStatus: { in: ['terminal', 'active'] } }, true],
     ['entry capability', { capabilityAvailable: 'capability.entry-only' }, true],
     ['ship capability', { shipCapabilityAvailable: 'ship-capability.segmented-isolation' }, true],
@@ -91,7 +88,7 @@ for (const [label, candidate, pattern] of [
     ['unknown event', { eventOccurred: 'event.unknown' }, /unknown event/],
     ['unknown outcome', { outcomeIs: { id: 'outcome.unknown', equals: 'yes' } }, /unknown outcome/],
     ['unknown objective', { objectiveState: { id: 'objective.unknown', equals: 'terminal' } }, /unknown objective/],
-    ['unknown clock', { clockState: { id: 'clock.unknown', equals: 'running' } }, /unknown clock/],
+    ['removed clock operator', { clockState: { id: 'clock.unknown', equals: 'running' } }, /unknown predicate operator: clockState/],
     ['invalid state', { objectiveState: { id: 'objective.account-crew', equals: 'done' } }, /unknown value/],
     ['mission status extra field', { missionStatus: { id: 'model-owned', equals: 'active' } }, /unknown match field/],
     ['invalid ship capability id', { shipCapabilityAvailable: 'spaces are invalid' }, /stable id/],
@@ -115,7 +112,6 @@ assert.deepEqual([...refs.facts], ['fact.manifest-reconciled']);
 assert.deepEqual([...refs.events], ['event.survivors-transferred']);
 assert.deepEqual([...refs.objectives], ['objective.account-crew']);
 assert.deepEqual([...refs.outcomes], []);
-assert.deepEqual([...refs.clocks], []);
 const shipRefs = collectMissionPredicateRefs({
     all: [{ capabilityAvailable: 'capability.entry-only' }, { shipCapabilityAvailable: 'ship-capability.segmented-isolation' }],
 });
@@ -136,7 +132,6 @@ const contextBefore = {
     events: [...context.events],
     outcomes: [...context.outcomes.entries()],
     objectives: [...context.objectives.entries()].map(([id, value]) => [id, { ...value }]),
-    clocks: [...context.clocks.entries()].map(([id, value]) => [id, { ...value }]),
     missionStatus: context.missionStatus,
 };
 evaluateMissionPredicate(predicate, context);
@@ -146,7 +141,6 @@ assert.deepEqual({
     events: [...context.events],
     outcomes: [...context.outcomes.entries()],
     objectives: [...context.objectives.entries()].map(([id, value]) => [id, { ...value }]),
-    clocks: [...context.clocks.entries()].map(([id, value]) => [id, { ...value }]),
     missionStatus: context.missionStatus,
 }, contextBefore);
 assert.equal(evaluated.reasons.every((reason) => /^[A-Za-z]+:[A-Za-z0-9._:-]+=(true|false)$/.test(reason)), true);

@@ -31,7 +31,7 @@ assert.deepEqual(initial.progress, {
     optionalTotal: 0,
 });
 assert.deepEqual(initial.facts, []);
-assert.deepEqual(initial.clocks, []);
+assert.equal(Object.hasOwn(initial, 'clocks'), false);
 assert.deepEqual(initial.outcomeDimensions, []);
 assert.equal(initial.terminal, null);
 assert.doesNotMatch(JSON.stringify(initial), /Hesperus|Kieran/i);
@@ -86,7 +86,7 @@ const distressKnown = reduceMissionEvidence({
 const distressProjection = createMissionPlayerProjection({ definition, state: distressKnown });
 assert.equal(distressProjection.progress.requiredTotal, 3);
 assert.equal(distressProjection.objectives.some((objective) => objective.id === 'objective.prelude.hesperus-rescue'), true);
-assert.deepEqual(distressProjection.clocks, [], 'the causal clock remains hidden until its risk basis is known');
+assert.equal(Object.hasOwn(distressProjection, 'clocks'), false);
 
 const riskKnown = reduceMissionEvidence({
     definition,
@@ -99,11 +99,8 @@ const riskKnown = reduceMissionEvidence({
     )],
 }).state;
 const riskProjection = createMissionPlayerProjection({ definition, state: riskKnown });
-assert.equal(riskProjection.clocks.length, 1);
-assert.equal(riskProjection.clocks[0].id, 'clock.hesperus-life-support');
-assert.equal(riskProjection.clocks[0].unit, 'hours');
-assert.equal(riskProjection.clocks[0].value, 30);
-assert.equal(riskProjection.clocks[0].deadline, '30 hours remaining');
+assert.equal(Object.hasOwn(riskProjection, 'clocks'), false);
+assert.equal(riskProjection.facts.some((fact) => fact.id === 'fact.hesperus.passenger-risk'), true);
 
 const confirmedState = reduceMissionEvidence({
     definition,

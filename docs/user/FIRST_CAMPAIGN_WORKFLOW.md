@@ -8,7 +8,7 @@
 6. Play in normal prose. No command syntax is required.
 7. Swipe the assistant drafts until the one you want is selected.
 8. Send your next message to accept the selected draft.
-9. Keep Mission open for current objectives, hard deadlines, and outcomes.
+9. Keep Mission open for current objectives, known information, outcomes, and the canonical ship time/date. Any urgency or deadline comes from the story, not a separate UI countdown.
 10. Use People for crew background, ties, and your Command Bearing reserve.
 11. Use Ship for the U.S.S. Breckenridge status, active limits, and what work is realistically available.
 12. Do ship work in chat only. There is no “build this project” button.

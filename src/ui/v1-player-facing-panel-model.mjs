@@ -54,7 +54,6 @@ export function createV1MissionPanelModel(projection) {
     progress: copy(mission.progress),
     capabilities: copy(mission.capabilities || []),
     knownFacts: copy(mission.facts || []),
-    clocks: copy(mission.clocks || []),
     outcomeDimensions: copy(mission.outcomeDimensions || []),
     terminal: copy(mission.terminal)
   };
