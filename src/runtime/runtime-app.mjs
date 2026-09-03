@@ -665,6 +665,14 @@ export function createDirectiveRuntimeApp({
     });
   }
 
+  function sameHostChatIdentity(expected, current) {
+    if (!expected || !current) return false;
+    return ['hostId', 'chatId', 'entityType', 'entityId', 'entityName'].every((field) => {
+      const expectedValue = compact(expected[field]);
+      return !expectedValue || expectedValue === compact(current[field]);
+    });
+  }
+
   async function activateNarrationPreset() {
     if (typeof host.presets?.activateNarrationPreset !== 'function') return { ok: false, reason: 'unsupported' };
     try {
@@ -915,12 +923,12 @@ export function createDirectiveRuntimeApp({
     });
     let binding = null;
     try {
-      binding = await host.chat.createOrBindCampaignChat({
+      binding = await withInternalChatOpen(() => host.chat.createOrBindCampaignChat({
         campaignId: state.campaign.id,
         saveId: save.id,
         name: `${state.campaign.title} - ${state.player.name}`,
         createNew: true
-      });
+      }));
       const exactBinding = await commitBinding(binding, { updateHostMetadata: false });
       await openExactCampaignChat(exactBinding);
       await host.chat.updateBindingMetadata?.(exactBinding);
@@ -940,19 +948,39 @@ export function createDirectiveRuntimeApp({
       } catch (rollbackError) {
         host.logger?.warn?.('[Directive] Could not restore the unbound campaign after chat binding failed.', rollbackError);
       }
-      if (previousChat?.chatId && compact(host.chat.getCurrentChatId?.()) !== previousChat.chatId) {
+      const currentRollbackChat = host.chat.getCurrentBinding?.() || {
+        chatId: compact(host.chat.getCurrentChatId?.()) || null
+      };
+      if (previousChat?.chatId && !sameHostChatIdentity(previousChat, currentRollbackChat)) {
         try {
-          await host.chat.open?.(previousChat);
+          await withInternalChatOpen(() => host.chat.open?.(previousChat));
         } catch (rollbackError) {
           host.logger?.warn?.('[Directive] Could not reopen the previous host chat after campaign binding failed.', rollbackError);
         }
       }
+      let deletedFailedCharacter = false;
       if (binding?.createdByDirective === true
+        && binding.entityType === 'character'
+        && (binding.entityId || binding.entityAvatar || (binding.campaignId && binding.saveId))
+        && binding.entityName
+        && typeof host.chat.deleteCampaignCharacter === 'function') {
+        try {
+          const cleanup = await withInternalChatOpen(() => host.chat.deleteCampaignCharacter(binding));
+          deletedFailedCharacter = cleanup?.deleted === true;
+          if (!deletedFailedCharacter) {
+            host.logger?.warn?.('[Directive] Could not remove a failed campaign character and its chats.', cleanup);
+          }
+        } catch (cleanupError) {
+          host.logger?.warn?.('[Directive] Could not remove a failed campaign character and its chats.', cleanupError);
+        }
+      }
+      if (!deletedFailedCharacter
+        && binding?.createdByDirective === true
         && binding.chatId
-        && binding.chatId !== previousChat?.chatId
+        && !sameHostChatIdentity(binding, previousChat)
         && typeof host.chat.deleteCampaignChat === 'function') {
         try {
-          const cleanup = await host.chat.deleteCampaignChat(binding);
+          const cleanup = await withInternalChatOpen(() => host.chat.deleteCampaignChat(binding));
           if (cleanup?.deleted !== true) {
             host.logger?.warn?.('[Directive] Could not remove a failed campaign chat.', cleanup);
           }
@@ -2017,7 +2045,9 @@ export function createDirectiveRuntimeApp({
         error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE';
         throw error;
       }
-      const hostDeletion = await host.chat.deleteCampaignCharacter(target.campaignChatBinding);
+      const hostDeletion = await withInternalChatOpen(() => (
+        host.chat.deleteCampaignCharacter(target.campaignChatBinding)
+      ));
       const result = await controller.deleteCampaign({
         campaignId: target.campaignId,
         saveId: target.saveId
