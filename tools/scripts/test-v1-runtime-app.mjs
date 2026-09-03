@@ -358,42 +358,92 @@ await app.saveCreatorDraft({
 });
 const chatBeforeFailedCampaignStart = host.chat.getCurrentChatId();
 const createOrBindCampaignChat = host.chat.createOrBindCampaignChat;
+const deleteCampaignCharacterAfterFailedStart = host.chat.deleteCampaignCharacter;
+const deleteCampaignChatAfterFailedStart = host.chat.deleteCampaignChat;
+const getCurrentBindingBeforeFailedStart = host.chat.getCurrentBinding;
+const openChatBeforeFailedStart = host.chat.open;
+const failedCampaignCharacterCleanup = [];
+const failedCampaignChatCleanup = [];
+const failedCampaignRollbackOpenBindings = [];
+let failedCampaignEntityActive = false;
 const failedFreshChatBinding = {
   hostId: 'fake',
-  chatId: 'failed-fresh-chat',
+  chatId: chatBeforeFailedCampaignStart,
   campaignId: 'campaign.failed-fresh-chat',
   saveId: 'save.failed-fresh-chat',
   entityType: 'character',
-  entityId: 'fake-character-1',
+  entityId: null,
   entityName: 'Failed fresh chat',
+  entityAvatar: 'failed-fresh-chat.png',
   createdByDirective: true
 };
+host.chat.getCurrentBinding = () => (
+  failedCampaignEntityActive
+    ? structuredClone(failedFreshChatBinding)
+    : getCurrentBindingBeforeFailedStart.call(host.chat)
+);
+host.chat.open = async (nextBinding) => {
+  failedCampaignRollbackOpenBindings.push(structuredClone(nextBinding));
+  failedCampaignEntityActive = false;
+  return openChatBeforeFailedStart.call(host.chat, nextBinding);
+};
+let internalCreateChatChange = null;
 host.chat.createOrBindCampaignChat = async () => {
+  failedCampaignEntityActive = true;
   chat.setCurrentChatId(failedFreshChatBinding.chatId);
+  internalCreateChatChange = await app.handleHostChatChanged({ source: 'fake-native-campaign-create' });
   const error = new Error("Directive could not persist fresh campaign chat Author's Note isolation.");
   error.code = 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED';
   error.retryable = true;
   error.createdBinding = structuredClone(failedFreshChatBinding);
   throw error;
 };
+host.chat.deleteCampaignCharacter = async (nextBinding) => {
+  failedCampaignCharacterCleanup.push({
+    binding: structuredClone(nextBinding),
+    currentChatId: host.chat.getCurrentChatId(),
+    currentBinding: structuredClone(host.chat.getCurrentBinding())
+  });
+  return { deleted: false, reason: 'simulated-character-cleanup-failure' };
+};
+host.chat.deleteCampaignChat = async (nextBinding) => {
+  failedCampaignChatCleanup.push(structuredClone(nextBinding));
+  return { deleted: true, chatId: nextBinding.chatId };
+};
 await assert.rejects(
   app.acceptCreatorDraftAndStartCampaign(),
   (error) => error?.code === 'DIRECTIVE_FRESH_CHAT_PROMPT_HYGIENE_FAILED'
 );
 host.chat.createOrBindCampaignChat = createOrBindCampaignChat;
+host.chat.deleteCampaignCharacter = deleteCampaignCharacterAfterFailedStart;
+host.chat.deleteCampaignChat = deleteCampaignChatAfterFailedStart;
+host.chat.getCurrentBinding = getCurrentBindingBeforeFailedStart;
+host.chat.open = openChatBeforeFailedStart;
 const recoverableCampaignView = await app.getCurrentView({ tabId: 'campaign' });
 assert.equal(recoverableCampaignView.activeScreen, 'campaign');
 assert.equal(recoverableCampaignView.creator, null);
 assert.equal(recoverableCampaignView.campaignIndex.campaigns.length, 1);
 assert.equal(recoverableCampaignView.campaignState, null);
 assert.equal(host.chat.getCurrentChatId(), chatBeforeFailedCampaignStart);
-assert.equal(
-  chat.calls().some((call) => (
-    call.type === 'deleteCampaignChat'
-    && call.chatId === failedFreshChatBinding.chatId
-  )),
-  true,
-  'a fresh chat that fails prompt hygiene before binding returns must be deleted after reopening the prior chat'
+assert.equal(internalCreateChatChange.internalDirectiveOpen, true);
+assert.equal(internalCreateChatChange.deferred, true);
+assert.deepEqual(
+  failedCampaignCharacterCleanup,
+  [{
+    binding: failedFreshChatBinding,
+    currentChatId: chatBeforeFailedCampaignStart,
+    currentBinding: {
+      ...getCurrentBindingBeforeFailedStart.call(host.chat),
+      chatId: chatBeforeFailedCampaignStart
+    }
+  }],
+  'failed campaign startup must restore the previous chat before deleting its exact Directive-created character and chats'
+);
+assert.equal(failedCampaignRollbackOpenBindings.length, 1, 'rollback must reopen the previous entity when a character-scoped chat ID is reused');
+assert.deepEqual(
+  failedCampaignChatCleanup,
+  [failedFreshChatBinding],
+  'a failed character cleanup must still delete the failed exact chat when another character reuses its filename'
 );
 assert.equal(
   (await loadV1CampaignSave(host.storage, recoverableCampaignView.activeSaveId)).state.campaignChatBinding?.chatId ?? null,
@@ -1500,7 +1550,22 @@ assert.equal(afterFailedCampaignDeletion.campaignIndex.campaigns.length, 1);
 assert.equal(afterFailedCampaignDeletion.activeSaveId, beforeCampaignDeletion.activeSaveId);
 assert.notEqual(afterFailedCampaignDeletion.campaignState, null);
 
-const campaignDeletion = await app.deleteCampaign({ campaignId: deletionCampaignId });
+let internalDeleteChatChange = null;
+host.chat.deleteCampaignCharacter = async (binding) => {
+  internalDeleteChatChange = await app.handleHostChatChanged({ source: 'fake-native-character-delete' });
+  return deleteCampaignCharacter.call(host.chat, binding);
+};
+const campaignDeletion = await Promise.race([
+  app.deleteCampaign({ campaignId: deletionCampaignId }),
+  new Promise((_resolve, reject) => setTimeout(() => {
+    const error = new Error('campaign deletion deadlocked while awaiting SillyTavern CHAT_CHANGED');
+    error.code = 'FAKE_CAMPAIGN_DELETE_DEADLOCK';
+    reject(error);
+  }, 250))
+]);
+host.chat.deleteCampaignCharacter = deleteCampaignCharacter;
+assert.equal(internalDeleteChatChange.internalDirectiveOpen, true);
+assert.equal(internalDeleteChatChange.deferred, true);
 assert.equal(campaignDeletion.hostDeletion.deleted, true);
 assert.equal(campaignDeletion.result.deleted, true);
 assert.equal(campaignDeletion.view.activeScreen, 'campaign');

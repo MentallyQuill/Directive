@@ -52,4 +52,23 @@ await assert.rejects(
   (error) => error?.code === 'DIRECTIVE_PROMPT_CHAT_MISMATCH'
 );
 
+const liveContextCalls = [];
+const liveContext = {
+  chatId: 'stale-chat-snapshot',
+  getCurrentChatId() {
+    return 'live-campaign-chat';
+  },
+  extension_prompt_types: { IN_CHAT: 1 },
+  extension_prompt_roles: { SYSTEM: 0 },
+  setExtensionPrompt(...args) {
+    liveContextCalls.push(args);
+  }
+};
+const liveContextAdapter = createSillyTavernPromptAdapter({ contextFactory: () => liveContext });
+await liveContextAdapter.install({
+  binding: { chatId: 'live-campaign-chat' },
+  packet: { revision: 4, text: 'Live chat prompt' }
+});
+assert.deepEqual(liveContextCalls[0].slice(0, 2), [DIRECTIVE_V1_PROMPT_KEY, 'Live chat prompt']);
+
 console.log('PASS V1 prompt adapter');

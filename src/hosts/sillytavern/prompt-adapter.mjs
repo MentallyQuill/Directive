@@ -5,14 +5,26 @@ function clone(value) {
 }
 
 function contextChatId(context) {
-  const value = context?.chatId
-    ?? context?.chat_id
-    ?? context?.currentChatId
-    ?? context?.current_chat_id
-    ?? context?.getCurrentChatId?.()
-    ?? context?.chatMetadata?.chat_id
-    ?? context?.chat_metadata?.chat_id;
-  return String(value ?? '').trim() || null;
+  let live = null;
+  try {
+    live = typeof context?.getCurrentChatId === 'function' ? context.getCurrentChatId() : null;
+  } catch {
+    live = null;
+  }
+  const values = [
+    live,
+    context?.chatId,
+    context?.chat_id,
+    context?.currentChatId,
+    context?.current_chat_id,
+    context?.chatMetadata?.chat_id,
+    context?.chat_metadata?.chat_id
+  ];
+  for (const value of values) {
+    const normalized = String(value ?? '').trim();
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 function api(context) {
