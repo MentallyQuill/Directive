@@ -326,7 +326,7 @@ Selected checkpoint: Before the Distress Call
 
 The shipped V1 runtime exposes one checkpoint-producing **Save Game** command and one immutable **Load Game** path. It does not expose overwrite-style `Save Game`, `Save Game As...`, or `Load Campaign` behavior.
 
-Pre-alpha cutover decision: no legacy save or mutable-branch compatibility is supported. Existing legacy records are not migrated, relabeled, imported, or exposed through a compatibility utility. Production code, tests, and UI move forward using only the immutable checkpoint contract below.
+Pre-V1 gameplay saves and mutable-branch compatibility are not supported. The sole storage compatibility boundary is lossless conversion of an exact `directive.campaignSave.v1` monolithic record into the current manifest/base layout. That conversion preserves and verifies the old record before publishing the manifest and does not reinterpret campaign state. Production code, tests, and UI otherwise use only the immutable checkpoint contract below.
 
 Checkpoint record shape:
 

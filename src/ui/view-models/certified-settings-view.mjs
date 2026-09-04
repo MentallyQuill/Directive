@@ -26,7 +26,8 @@ export function buildCertifiedSettingsView(view = {}) {
         label: 'Diagnostics',
         support: {
           activeSaveId: view.activeSaveId || null,
-          transcriptAvailable: view.diagnostics?.transcriptAvailable === true
+          transcriptAvailable: view.diagnostics?.transcriptAvailable === true,
+          storage: clone(view.storageDiagnostics || null),
         }
       }
     ]

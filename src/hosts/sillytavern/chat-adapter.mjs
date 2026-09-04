@@ -451,7 +451,10 @@ function characterForEntity(context, entity) {
   return { index, character };
 }
 
-function exactCharacterEntity(context, binding) {
+function exactCharacterEntity(context, binding, {
+  requireDirectiveMarker = false,
+  allowAvatarFallback = false,
+} = {}) {
   const entityId = nonEmptyString(binding?.entityId);
   const entityName = nonEmptyString(binding?.entityName);
   const entityAvatar = nonEmptyString(binding?.entityAvatar);
@@ -462,10 +465,17 @@ function exactCharacterEntity(context, binding) {
     || !entityName
     || (!entityId && !entityAvatar && !canUseDirectiveMarker)) return null;
   let target = entityId ? characterForEntity(context, { entityId }) : null;
+  const targetMarker = target?.character ? characterDirectiveMarker(target.character) : null;
+  const targetMarkerMatches = !requireDirectiveMarker || (
+    nonEmptyString(target?.character?.creator || target?.character?.data?.creator)?.toLowerCase() === DIRECTIVE_CHARACTER_CREATOR.toLowerCase()
+    && nonEmptyString(targetMarker?.campaignId) === campaignId
+    && nonEmptyString(targetMarker?.saveId) === saveId
+  );
   if (target?.character
     && String(target.index) === entityId
     && characterEntryName(target.character) === entityName
-    && (!entityAvatar || characterEntryAvatar(target.character) === entityAvatar)) {
+    && (!entityAvatar || characterEntryAvatar(target.character) === entityAvatar)
+    && targetMarkerMatches) {
     return {
       entityType: 'character',
       entityId,
@@ -474,13 +484,19 @@ function exactCharacterEntity(context, binding) {
       target
     };
   }
-  if (binding?.createdByDirective !== true) return null;
+  if (!allowAvatarFallback && binding?.createdByDirective !== true) return null;
   const matches = getCharactersArray(context)
     .map((character, index) => ({ index, character }))
     .filter(({ character }) => (
       characterEntryName(character) === entityName
       && (entityAvatar
         ? characterEntryAvatar(character) === entityAvatar
+          && (!requireDirectiveMarker || (() => {
+            const marker = characterDirectiveMarker(character);
+            return nonEmptyString(character?.creator || character?.data?.creator)?.toLowerCase() === DIRECTIVE_CHARACTER_CREATOR.toLowerCase()
+              && nonEmptyString(marker?.campaignId) === campaignId
+              && nonEmptyString(marker?.saveId) === saveId;
+          })())
         : (() => {
             const marker = characterDirectiveMarker(character);
             return nonEmptyString(character?.creator || character?.data?.creator)?.toLowerCase() === DIRECTIVE_CHARACTER_CREATOR.toLowerCase()
@@ -715,7 +731,9 @@ async function refreshCharacters(context) {
     || globalThis.SillyTavern?.getContext?.()?.getCharacters;
   if (typeof getCharacters === 'function') {
     await getCharacters.call(context);
+    return true;
   }
+  return false;
 }
 
 async function createDirectiveCharacterCard(context, payload) {
@@ -2636,7 +2654,7 @@ export function createSillyTavernChatAdapter({
     return { deleted: true, chatId };
   }
 
-  async function deleteCampaignCharacter(binding) {
+  async function deleteCampaignCharacter(binding, { allowAlreadyAbsent = false } = {}) {
     let ctx = context();
     const entityName = nonEmptyString(binding?.entityName);
     const entityId = nonEmptyString(binding?.entityId);
@@ -2652,14 +2670,32 @@ export function createSillyTavernChatAdapter({
       error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_INVALID';
       throw error;
     }
+    let charactersRefreshed = false;
     try {
-      await refreshCharacters(ctx);
+      charactersRefreshed = await refreshCharacters(ctx);
       ctx = context() || ctx;
     } catch {
       // Validate against the current list when the host cannot refresh it.
     }
-    const exact = exactCharacterEntity(ctx, binding);
+    const exact = exactCharacterEntity(ctx, binding, {
+      requireDirectiveMarker: hasDirectiveMarkerIdentity && !entityAvatar,
+      allowAvatarFallback: Boolean(entityAvatar),
+    });
     if (!exact?.target?.character) {
+      const stableIdentity = Boolean(entityAvatar || hasDirectiveMarkerIdentity);
+      const conflictingCandidate = getCharactersArray(ctx).some((character) => {
+        const marker = characterDirectiveMarker(character);
+        const markerMatches = hasDirectiveMarkerIdentity
+          && nonEmptyString(character?.creator || character?.data?.creator)?.toLowerCase() === DIRECTIVE_CHARACTER_CREATOR.toLowerCase()
+          && nonEmptyString(marker?.campaignId) === nonEmptyString(binding.campaignId)
+          && nonEmptyString(marker?.saveId) === nonEmptyString(binding.saveId);
+        return characterEntryName(character) === entityName
+          || (entityAvatar && characterEntryAvatar(character) === entityAvatar)
+          || markerMatches;
+      });
+      if (allowAlreadyAbsent === true && charactersRefreshed && stableIdentity && !conflictingCandidate) {
+        return { deleted: false, alreadyAbsent: true, entityId, entityName };
+      }
       const error = new Error(`Directive will not delete a character that does not match "${entityName}".`);
       error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_MISMATCH';
       throw error;

@@ -89,6 +89,7 @@ When using Structured Output Auto, Directive validates the exact native schema b
 
 Diagnostics exclude hidden messages, credentials, and unselected or deleted branches.
 Transcript export is opt-in and includes only player-visible messages from the active selected branch.
+When Directive has upgraded an older monolithic V1 save, Diagnostics shows the number of verified local recovery copies retained.
 
 ## Swipes and corrections
 
@@ -105,6 +106,7 @@ Refresh Directive.
 Open Settings and verify storage.
 Check preset status.
 Reload SillyTavern once.
-If the issue remains, export diagnostics and use the recovery path.
+If the issue remains, export diagnostics before changing any files.
 
-Directive refuses unknown saves rather than guessing a repair.
+Directive upgrades only an exact, valid monolithic V1 record. It refuses unknown or mismatched saves rather than guessing a repair.
+If startup cannot complete that upgrade safely, follow the persistent storage-recovery notice and preserve the account's `directive-v1-*` files before making changes.

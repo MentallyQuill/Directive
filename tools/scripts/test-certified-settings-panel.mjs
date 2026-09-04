@@ -46,6 +46,7 @@ const view = {
     { id: 'acceptedPairMissionEvidence', label: 'Mission evidence and story time', providerKind: 'utility' },
     { id: 'characterCreatorSectionDraft', label: 'Character draft', providerKind: 'reasoning' }
   ],
+  storageDiagnostics: { ok: true, initialized: true, saveCount: 1, draftCount: 0, recoveryCopyCount: 1 },
   diagnostics: { transcriptAvailable: false }
 };
 const updates = [];
@@ -88,6 +89,8 @@ assert.match(text, /Structured Output/);
 assert.match(text, /Output token ceiling/);
 assert.match(text, /Model-Call Routing/);
 assert.match(text, /Include Story Transcript/);
+assert.match(text, /upgraded 1 older V1 save/i);
+assert.match(text, /verified recovery copy/i);
 assert.doesNotMatch(text, /OpenAI-compatible|Base URL|API key|Tutorial Prompts|Startup Tips|Help & Tutorials/i);
 
 const providerControls = nodes.filter((node) => node.dataset.settingsControl?.endsWith('-provider'));

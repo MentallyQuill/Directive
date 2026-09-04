@@ -369,6 +369,15 @@ function appendDiagnostics(container, support, actions) {
   summary.append(title, copy);
   const privacy = createElement('p', 'settings-diagnostics-privacy');
   privacy.textContent = 'Exports exclude credentials, system prompts, hidden messages, alternate swipes, and unselected branches.';
+  const recoveryCount = Number(support.storage?.recoveryCopyCount || 0);
+  const recovery = recoveryCount > 0
+    ? createElement('p', 'settings-storage-recovery')
+    : null;
+  if (recovery) {
+    const saveWord = recoveryCount === 1 ? 'save' : 'saves';
+    const copyWord = recoveryCount === 1 ? 'copy' : 'copies';
+    recovery.textContent = `Directive upgraded ${recoveryCount} older V1 ${saveWord} and kept ${recoveryCount} verified recovery ${copyWord}.`;
+  }
   const transcript = createElement('input');
   transcript.type = 'checkbox';
   transcript.checked = false;
@@ -406,7 +415,9 @@ function appendDiagnostics(container, support, actions) {
     }),
     feedback
   );
-  details.append(summary, privacy, transcriptField, actionsRow);
+  details.append(summary, privacy);
+  if (recovery) details.append(recovery);
+  details.append(transcriptField, actionsRow);
   container.appendChild(details);
 }
 

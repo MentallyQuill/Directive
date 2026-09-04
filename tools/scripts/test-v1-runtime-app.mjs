@@ -1549,11 +1549,44 @@ const afterFailedCampaignDeletion = await app.getCurrentView({ tabId: 'campaign'
 assert.equal(afterFailedCampaignDeletion.campaignIndex.campaigns.length, 1);
 assert.equal(afterFailedCampaignDeletion.activeSaveId, beforeCampaignDeletion.activeSaveId);
 assert.notEqual(afterFailedCampaignDeletion.campaignState, null);
+assert.deepEqual(
+  (await storage.readJson(V1_STORAGE_PATHS.index)).campaignDeletions,
+  {},
+  'host deletion failure must cancel the prepared tombstone and restore the playable campaign index',
+);
+
+const recoveryPath = V1_STORAGE_PATHS.monolithicRecovery(beforeCampaignDeletion.activeSaveId);
+const deletionIndex = await storage.readJson(V1_STORAGE_PATHS.index);
+deletionIndex.recoveryCopies[beforeCampaignDeletion.activeSaveId] = {
+  kind: 'directive.monolithicSaveRecoveryReference.v1',
+  version: 1,
+  saveId: beforeCampaignDeletion.activeSaveId,
+  path: recoveryPath,
+  sourceHash: 'a'.repeat(64),
+};
+await storage.writeJson(V1_STORAGE_PATHS.index, deletionIndex);
+await storage.writeJson(recoveryPath, { retainedForForcedCleanupFailure: true });
+const campaignDeletionWriteJson = storage.writeJson;
+let failHostDeletedPhaseWrite = false;
+storage.writeJson = async (path, value) => {
+  if (failHostDeletedPhaseWrite
+    && path === V1_STORAGE_PATHS.index
+    && Object.values(value?.campaignDeletions || {}).some((entry) => entry.status === 'host-deleted')) {
+    failHostDeletedPhaseWrite = false;
+    const error = new Error('forced host-deleted phase write failure');
+    error.code = 'FAKE_HOST_DELETED_PHASE_WRITE_FAILED';
+    throw error;
+  }
+  return campaignDeletionWriteJson.call(storage, path, value);
+};
+const deleteJsonFile = storage.deleteJsonFile;
 
 let internalDeleteChatChange = null;
 host.chat.deleteCampaignCharacter = async (binding) => {
   internalDeleteChatChange = await app.handleHostChatChanged({ source: 'fake-native-character-delete' });
-  return deleteCampaignCharacter.call(host.chat, binding);
+  const deletion = await deleteCampaignCharacter.call(host.chat, binding);
+  failHostDeletedPhaseWrite = true;
+  return deletion;
 };
 const campaignDeletion = await Promise.race([
   app.deleteCampaign({ campaignId: deletionCampaignId }),
@@ -1568,6 +1601,8 @@ assert.equal(internalDeleteChatChange.internalDirectiveOpen, true);
 assert.equal(internalDeleteChatChange.deferred, true);
 assert.equal(campaignDeletion.hostDeletion.deleted, true);
 assert.equal(campaignDeletion.result.deleted, true);
+assert.equal(campaignDeletion.result.cleanupPending, true);
+assert.deepEqual(campaignDeletion.result.cleanupFailures, [V1_STORAGE_PATHS.index]);
 assert.equal(campaignDeletion.view.activeScreen, 'campaign');
 assert.equal(campaignDeletion.view.campaignIndex.campaigns.length, 0);
 assert.equal(campaignDeletion.view.activeSaveId, null);
@@ -1577,5 +1612,84 @@ assert.equal(
   true
 );
 assert.equal(host.prompt.inspect().blocks.length, 0);
+
+const pendingDeletionIndex = await storage.readJson(V1_STORAGE_PATHS.index);
+assert.equal(
+  Object.hasOwn(pendingDeletionIndex.saves, beforeCampaignDeletion.activeSaveId),
+  false,
+  'post-host cleanup failure must keep the deleted campaign unpublished',
+);
+assert.equal(
+  pendingDeletionIndex.campaignDeletions[deletionCampaignId].status,
+  'prepared',
+  'a failed durable host-deleted transition must leave all artifacts behind a retryable prepared tombstone',
+);
+assert.deepEqual(await storage.readJson(recoveryPath), { retainedForForcedCleanupFailure: true });
+
+storage.writeJson = campaignDeletionWriteJson;
+let failRecoveryCleanup = true;
+storage.deleteJsonFile = async (path) => {
+  if (failRecoveryCleanup && path === recoveryPath) {
+    failRecoveryCleanup = false;
+    const error = new Error('forced recovery cleanup failure');
+    error.code = 'FAKE_RECOVERY_CLEANUP_FAILED';
+    throw error;
+  }
+  return deleteJsonFile.call(storage, path);
+};
+let preparedResumeChatChange = null;
+let preparedResumeDeleteOptions = null;
+let resumedDeletionApp;
+host.chat.deleteCampaignCharacter = async (binding, options) => {
+  preparedResumeChatChange = await resumedDeletionApp.handleHostChatChanged({
+    source: 'fake-prepared-deletion-startup-resume',
+  });
+  preparedResumeDeleteOptions = options;
+  return deleteCampaignCharacter.call(host.chat, binding, options);
+};
+resumedDeletionApp = createDirectiveRuntimeApp({
+  host,
+  packageLoader: async () => structuredClone(records),
+  idFactory: (prefix) => `${prefix}.resumed.${++nextId}`,
+  now: () => new Date(Date.parse('2026-08-11T03:00:00.000Z') + (nextMinute++ * 60_000)).toISOString(),
+});
+const resumedDeletionView = await Promise.race([
+  resumedDeletionApp.initialize(),
+  new Promise((_resolve, reject) => setTimeout(() => {
+    const error = new Error('prepared campaign deletion deadlocked during startup CHAT_CHANGED');
+    error.code = 'FAKE_PREPARED_DELETION_RESUME_DEADLOCK';
+    reject(error);
+  }, 250)),
+]);
+assert.equal(resumedDeletionView.campaignIndex.campaigns.length, 0);
+assert.equal(resumedDeletionView.activeSaveId, null);
+assert.equal(preparedResumeChatChange.internalDirectiveOpen, true);
+assert.equal(preparedResumeChatChange.deferred, true);
+assert.deepEqual(preparedResumeDeleteOptions, { allowAlreadyAbsent: true });
+const cleanupPendingIndex = await storage.readJson(V1_STORAGE_PATHS.index);
+assert.equal(cleanupPendingIndex.campaignDeletions[deletionCampaignId].status, 'cleanup-pending');
+assert.deepEqual(await storage.readJson(recoveryPath), { retainedForForcedCleanupFailure: true });
+
+storage.deleteJsonFile = deleteJsonFile;
+host.chat.deleteCampaignCharacter = deleteCampaignCharacter;
+const cleanupResumeApp = createDirectiveRuntimeApp({
+  host,
+  packageLoader: async () => structuredClone(records),
+  idFactory: (prefix) => `${prefix}.cleanup-resumed.${++nextId}`,
+  now: () => new Date(Date.parse('2026-08-12T03:00:00.000Z') + (nextMinute++ * 60_000)).toISOString(),
+});
+const cleanupResumeView = await cleanupResumeApp.initialize();
+assert.equal(cleanupResumeView.campaignIndex.campaigns.length, 0);
+assert.equal(cleanupResumeView.activeSaveId, null);
+assert.deepEqual(
+  (await storage.readJson(V1_STORAGE_PATHS.index)).campaignDeletions,
+  {},
+  'startup must finish pending storage cleanup and retire the deletion tombstone',
+);
+await assert.rejects(
+  storage.readJson(recoveryPath),
+  /not found|missing/i,
+  'startup resumption must delete the retained recovery artifact',
+);
 
 console.log('PASS V1 runtime app');

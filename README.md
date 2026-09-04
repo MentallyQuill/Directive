@@ -41,11 +41,11 @@ Settings covers model lanes, presets, storage checks, and diagnostics.
 This is not a stable release yet.
 Expect occasional resets, UI shifts, and save edge cases.
 If you notice odd behavior, verify the campaign chat binding, refresh Directive, and check Storage in Settings.
-If a saved state does not re-open cleanly, use the built-in recovery path in Settings before editing any JSON files manually.
+If a saved state does not re-open cleanly, check the storage result in Settings before editing any JSON files manually.
 
 ## What not to expect (yet)
 
-Directive V1 does not support migration from old save formats.
+Directive does not migrate pre-V1 gameplay formats. It does automatically upgrade the former monolithic V1 storage layout when the complete save still passes the current V1 state contract. The exact old record is verified and retained as a local recovery copy before the live save path changes.
 There is no command log, thread ledger, sidecar scheduler, or compatibility shim.
 Only the active V1 format is supported.
 
