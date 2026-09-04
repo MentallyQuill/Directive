@@ -58,11 +58,24 @@ If a failure happens mid-operation, the active timeline remains authoritative un
 After that point, continuation moves forward.
 Directive does not overwrite unrelated saves while recovering.
 
+## Older V1 storage upgrade
+
+Directive may find a V1 campaign save written before campaign state was split into a manifest, base, and bounded delta segments.
+If the complete old record still passes the exact V1 campaign-state contract, Directive upgrades only that storage layout during startup.
+It first writes and reads back an exact local recovery copy, then writes and verifies the new base, publishes the manifest last, and proves that loading the result reproduces the original save.
+
+This is not a best-effort conversion of older gameplay formats.
+If the record, indexed identity, or an existing recovery copy does not match exactly, Directive leaves the live file unchanged and stops with a specific recovery error.
+SillyTavern then shows a persistent **Directive save needs attention** notice with a safe error code and backup instructions; Directive does not activate gameplay against the unresolved save.
+Settings reports how many verified recovery copies are retained.
+Deleting the migrated campaign also deletes its recovery copy.
+
 ## Important rules for players
 
 Do not rename, hand-edit, or copy V1 state files.
 Do not transfer saves across different package versions.
-Use Settings diagnostics and built-in recovery paths if anything feels inconsistent.
+Use Settings diagnostics if anything feels inconsistent. A message there confirms when an older V1 save was upgraded and its verified recovery copy was retained.
 
 If a campaign chat appears broken, do not try to reconstruct history by hand.
-Re-run storage verification in Settings and follow the built-in restore flow.
+Stop using that campaign, open Settings > Diagnostics, and run storage verification.
+If verification reports a problem, keep the affected account's `directive-v1` files unchanged and copy them to a safe backup location before asking for recovery help.

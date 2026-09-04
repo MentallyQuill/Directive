@@ -15,6 +15,7 @@ const view = {
   generationRouting: [
     { id: 'episodeEvaluator', label: 'Bounded story analysis', providerKind: 'reasoning' }
   ],
+  storageDiagnostics: { ok: true, initialized: true, saveCount: 1, draftCount: 0, recoveryCopyCount: 1 },
   diagnostics: { transcriptAvailable: false },
   legacy: { tutorial: true, help: true, directEndpoint: true }
 };
@@ -28,7 +29,11 @@ assert.deepEqual(buildCertifiedSettingsView(view), {
     {
       id: 'diagnostics',
       label: 'Diagnostics',
-      support: { activeSaveId: 'save.current', transcriptAvailable: false }
+      support: {
+        activeSaveId: 'save.current',
+        transcriptAvailable: false,
+        storage: view.storageDiagnostics,
+      }
     }
   ]
 });

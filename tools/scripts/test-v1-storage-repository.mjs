@@ -2,16 +2,22 @@ import assert from 'node:assert/strict';
 import {
   V1_STORAGE_PATHS,
   V1_CREATOR_DRAFT_KIND,
+  V1_MONOLITHIC_RECOVERY_KIND,
+  beginV1CampaignDeletion,
+  completeV1CampaignDeletion,
   createV1CampaignSave,
   deleteV1CampaignSave,
   initializeV1Storage,
   listV1CampaignSaves,
   loadActiveV1CampaignSave,
+  loadV1CampaignDeletionResumeTarget,
   loadV1CampaignSave,
+  migrateMonolithicV1CampaignSaves,
   storeV1CampaignSave,
   storeV1CreatorDraft,
   verifyV1Storage,
 } from '../../src/storage/v1-storage-repository.mjs';
+import { sha256Json } from '../../src/storage/v1-state-delta-codec.mjs';
 import { createAshesInitialState } from './v1-test-fixtures.mjs';
 
 async function countWholeObjectEncodes(action) {
@@ -410,6 +416,277 @@ assert.throws(() => createV1CampaignSave({
 
 await deleteV1CampaignSave(adapter, 'checkpoint.one', { now: '2026-08-10T00:04:00.000Z' });
 assert.deepEqual((await listV1CampaignSaves(adapter)).map((entry) => entry.id), ['save.one']);
+
+const legacyMonolithicSave = createV1CampaignSave({
+  id: 'save.legacy',
+  name: 'Legacy Ashes',
+  state: createAshesInitialState({
+    campaignId: 'campaign.legacy',
+    saveId: 'save.legacy',
+    chatId: 'chat.legacy',
+  }),
+  createdAt: '2026-08-10T00:00:00.000Z',
+  updatedAt: '2026-08-10T00:05:00.000Z',
+});
+const legacyIndex = {
+  kind: 'directive.storageIndex.v1',
+  version: 1,
+  activeSaveId: legacyMonolithicSave.id,
+  drafts: {},
+  saves: { [legacyMonolithicSave.id]: { id: legacyMonolithicSave.id } },
+  updatedAt: '2026-08-10T00:05:00.000Z',
+};
+const legacyAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyIndex,
+  [V1_STORAGE_PATHS.save(legacyMonolithicSave.id)]: legacyMonolithicSave,
+});
+const migratedLegacy = await migrateMonolithicV1CampaignSaves(legacyAdapter, {
+  now: '2026-08-10T00:06:00.000Z',
+});
+assert.deepEqual(migratedLegacy, {
+  ok: true,
+  scannedSaveCount: 1,
+  migratedSaveCount: 1,
+  migratedSaveIds: ['save.legacy'],
+  recoveryCopyCount: 1,
+});
+const migratedLegacyFiles = legacyAdapter.snapshot();
+const legacyRecoveryEnvelope = migratedLegacyFiles[
+  V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id)
+];
+assert.equal(legacyRecoveryEnvelope.kind, V1_MONOLITHIC_RECOVERY_KIND);
+assert.deepEqual(
+  legacyRecoveryEnvelope.save,
+  legacyMonolithicSave,
+  'the exact legacy record must be preserved before its live path changes',
+);
+assert.equal(legacyRecoveryEnvelope.sourceHash, await sha256Json(legacyMonolithicSave));
+assert.equal(
+  migratedLegacyFiles[V1_STORAGE_PATHS.index].recoveryCopies[legacyMonolithicSave.id].sourceHash,
+  legacyRecoveryEnvelope.sourceHash,
+  'the authoritative index must retain independent recovery provenance',
+);
+assert.equal(
+  migratedLegacyFiles[V1_STORAGE_PATHS.save(legacyMonolithicSave.id)].kind,
+  'directive.campaignSaveManifest.v1',
+);
+assert.equal(
+  migratedLegacyFiles[V1_STORAGE_PATHS.saveBase(legacyMonolithicSave.id)].kind,
+  'directive.campaignSaveBase.v1',
+);
+assert.deepEqual(await loadV1CampaignSave(legacyAdapter, legacyMonolithicSave.id), legacyMonolithicSave);
+assert.equal((await verifyV1Storage(legacyAdapter)).recoveryCopyCount, 1);
+assert.deepEqual(await migrateMonolithicV1CampaignSaves(legacyAdapter), {
+  ok: true,
+  scannedSaveCount: 1,
+  migratedSaveCount: 0,
+  migratedSaveIds: [],
+  recoveryCopyCount: 1,
+});
+const damagedNonAuthoritativeRecoveryAdapter = memoryAdapter(legacyAdapter.snapshot());
+const differentValidRecoverySave = { ...legacyMonolithicSave, name: 'Different valid recovery state' };
+damagedNonAuthoritativeRecoveryAdapter.setFile(
+  V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id),
+  {
+    kind: V1_MONOLITHIC_RECOVERY_KIND,
+    version: 1,
+    saveId: legacyMonolithicSave.id,
+    sourceHash: await sha256Json(differentValidRecoverySave),
+    save: differentValidRecoverySave,
+  },
+);
+assert.equal(
+  (await migrateMonolithicV1CampaignSaves(damagedNonAuthoritativeRecoveryAdapter)).migratedSaveCount,
+  0,
+  'a damaged recovery copy must not block an already-valid current manifest',
+);
+assert.deepEqual(await verifyV1Storage(damagedNonAuthoritativeRecoveryAdapter), {
+  ok: false,
+  initialized: true,
+  invalidRecoverySaveId: legacyMonolithicSave.id,
+  errorCode: 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_PROVENANCE_MISMATCH',
+});
+const recoveryDeleteFailureAdapter = memoryAdapter(legacyAdapter.snapshot());
+recoveryDeleteFailureAdapter.failNextDeleteFor(
+  V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id),
+);
+await assert.rejects(
+  deleteV1CampaignSave(recoveryDeleteFailureAdapter, legacyMonolithicSave.id),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_DELETE_FAILED'
+    && error?.details?.indexRestored === true,
+);
+const recoveryDeleteFailureFiles = recoveryDeleteFailureAdapter.snapshot();
+assert.equal(
+  recoveryDeleteFailureFiles[V1_STORAGE_PATHS.index].activeSaveId,
+  legacyMonolithicSave.id,
+  'a recovery-delete failure must restore the active index pointer',
+);
+assert.equal(
+  Object.hasOwn(recoveryDeleteFailureFiles[V1_STORAGE_PATHS.index].saves, legacyMonolithicSave.id),
+  true,
+);
+assert.equal(
+  Object.hasOwn(recoveryDeleteFailureFiles[V1_STORAGE_PATHS.index].recoveryCopies, legacyMonolithicSave.id),
+  true,
+);
+assert.deepEqual(
+  recoveryDeleteFailureFiles[V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id)],
+  legacyRecoveryEnvelope,
+);
+
+const deletionTarget = {
+  campaignId: legacyMonolithicSave.campaignId,
+  saveId: legacyMonolithicSave.id,
+  saveIds: [legacyMonolithicSave.id],
+};
+const tamperedDeletionPathAdapter = memoryAdapter(legacyAdapter.snapshot());
+await beginV1CampaignDeletion(tamperedDeletionPathAdapter, deletionTarget);
+const tamperedDeletionIndex = tamperedDeletionPathAdapter.snapshot()[V1_STORAGE_PATHS.index];
+tamperedDeletionIndex.campaignDeletions[legacyMonolithicSave.campaignId].artifactPaths = [
+  'v1/saves/save.victim.v1.json',
+];
+tamperedDeletionPathAdapter.setFile(V1_STORAGE_PATHS.index, tamperedDeletionIndex);
+tamperedDeletionPathAdapter.setFile('v1/saves/save.victim.v1.json', { mustRemain: true });
+await assert.rejects(
+  completeV1CampaignDeletion(tamperedDeletionPathAdapter, legacyMonolithicSave.campaignId),
+  (error) => error?.code === 'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+);
+assert.deepEqual(
+  tamperedDeletionPathAdapter.snapshot()['v1/saves/save.victim.v1.json'],
+  { mustRemain: true },
+  'a persisted cleanup-path injection must be rejected without touching the target',
+);
+
+const tamperedDeletionBindingAdapter = memoryAdapter(legacyAdapter.snapshot());
+await beginV1CampaignDeletion(tamperedDeletionBindingAdapter, deletionTarget);
+const tamperedBasePath = V1_STORAGE_PATHS.saveBase(legacyMonolithicSave.id);
+const tamperedManifestPath = V1_STORAGE_PATHS.save(legacyMonolithicSave.id);
+const tamperedBase = tamperedDeletionBindingAdapter.snapshot()[tamperedBasePath];
+tamperedBase.state.campaignChatBinding = {
+  ...tamperedBase.state.campaignChatBinding,
+  entityId: 'victim-character-id',
+  entityName: 'Unrelated Character',
+};
+tamperedBase.stateHash = await sha256Json(tamperedBase.state);
+tamperedDeletionBindingAdapter.setFile(tamperedBasePath, tamperedBase);
+const tamperedManifest = tamperedDeletionBindingAdapter.snapshot()[tamperedManifestPath];
+tamperedManifest.base.stateHash = tamperedBase.stateHash;
+tamperedManifest.currentStateHash = tamperedBase.stateHash;
+tamperedDeletionBindingAdapter.setFile(tamperedManifestPath, tamperedManifest);
+await assert.rejects(
+  loadV1CampaignDeletionResumeTarget(tamperedDeletionBindingAdapter, legacyMonolithicSave.campaignId),
+  (error) => error?.code === 'DIRECTIVE_V1_CAMPAIGN_DELETION_RESUME_TARGET_INVALID',
+  'startup must reject a changed character binding even when the retained save hashes are internally consistent',
+);
+
+const migratedDeletionAdapter = memoryAdapter(legacyAdapter.snapshot());
+await deleteV1CampaignSave(migratedDeletionAdapter, legacyMonolithicSave.id);
+assert.equal(
+  Object.hasOwn(
+    migratedDeletionAdapter.snapshot(),
+    V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id),
+  ),
+  false,
+  'deleting a migrated campaign must delete its legacy recovery copy too',
+);
+
+const invalidLegacyRecord = { kind: 'directive.campaignSave.v1', version: 1, id: 'save.invalid' };
+const invalidLegacyAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: {
+    ...legacyIndex,
+    activeSaveId: 'save.invalid',
+    saves: { 'save.invalid': { id: 'save.invalid' } },
+  },
+  [V1_STORAGE_PATHS.save('save.invalid')]: invalidLegacyRecord,
+});
+await assert.rejects(
+  migrateMonolithicV1CampaignSaves(invalidLegacyAdapter),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_SAVE_UNRECOVERABLE'
+    && error?.details?.saveId === 'save.invalid',
+);
+assert.deepEqual(
+  invalidLegacyAdapter.snapshot()[V1_STORAGE_PATHS.save('save.invalid')],
+  invalidLegacyRecord,
+  'an unvalidated legacy record must remain untouched',
+);
+assert.equal(
+  Object.hasOwn(invalidLegacyAdapter.snapshot(), V1_STORAGE_PATHS.monolithicRecovery('save.invalid')),
+  false,
+);
+
+const conflictingRecoveryAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyIndex,
+  [V1_STORAGE_PATHS.save(legacyMonolithicSave.id)]: legacyMonolithicSave,
+  [V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id)]: {
+    kind: V1_MONOLITHIC_RECOVERY_KIND,
+    version: 1,
+    saveId: legacyMonolithicSave.id,
+    sourceHash: await sha256Json(differentValidRecoverySave),
+    save: differentValidRecoverySave,
+  },
+});
+await assert.rejects(
+  migrateMonolithicV1CampaignSaves(conflictingRecoveryAdapter),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_CONFLICT',
+);
+assert.deepEqual(
+  conflictingRecoveryAdapter.snapshot()[V1_STORAGE_PATHS.save(legacyMonolithicSave.id)],
+  legacyMonolithicSave,
+);
+
+const interruptedMigrationAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyIndex,
+  [V1_STORAGE_PATHS.save(legacyMonolithicSave.id)]: legacyMonolithicSave,
+});
+interruptedMigrationAdapter.failNextWriteFor('.base.v1.json');
+await assert.rejects(
+  migrateMonolithicV1CampaignSaves(interruptedMigrationAdapter),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_SAVE_MIGRATION_FAILED',
+);
+assert.deepEqual(
+  interruptedMigrationAdapter.snapshot()[V1_STORAGE_PATHS.save(legacyMonolithicSave.id)],
+  legacyMonolithicSave,
+  'a failed pre-commit migration must leave the live monolithic save intact',
+);
+assert.deepEqual(
+  interruptedMigrationAdapter.snapshot()[V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id)].save,
+  legacyMonolithicSave,
+  'a failed migration must still retain the verified recovery copy',
+);
+const legacyManifestFailureAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyIndex,
+  [V1_STORAGE_PATHS.save(legacyMonolithicSave.id)]: legacyMonolithicSave,
+});
+legacyManifestFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.save(legacyMonolithicSave.id));
+await assert.rejects(
+  migrateMonolithicV1CampaignSaves(legacyManifestFailureAdapter),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_SAVE_MIGRATION_FAILED'
+    && error?.details?.originalRestored === true,
+);
+assert.deepEqual(
+  legacyManifestFailureAdapter.snapshot()[V1_STORAGE_PATHS.save(legacyMonolithicSave.id)],
+  legacyMonolithicSave,
+  'a manifest-publication failure must restore the live monolithic save',
+);
+assert.deepEqual(
+  legacyManifestFailureAdapter.snapshot()[V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id)].save,
+  legacyMonolithicSave,
+);
+
+const recoveryWriteFailureAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyIndex,
+  [V1_STORAGE_PATHS.save(legacyMonolithicSave.id)]: legacyMonolithicSave,
+});
+recoveryWriteFailureAdapter.failNextWriteFor(V1_STORAGE_PATHS.monolithicRecovery(legacyMonolithicSave.id));
+await assert.rejects(
+  migrateMonolithicV1CampaignSaves(recoveryWriteFailureAdapter),
+  (error) => error?.code === 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_WRITE_FAILED',
+);
+assert.deepEqual(
+  recoveryWriteFailureAdapter.snapshot()[V1_STORAGE_PATHS.save(legacyMonolithicSave.id)],
+  legacyMonolithicSave,
+  'a recovery-copy failure must not mutate the live save path',
+);
 
 await assert.rejects(
   loadV1CampaignSave(memoryAdapter({

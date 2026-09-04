@@ -2,10 +2,24 @@ import { configureRuntimeApp } from '../../extension/runtime-mount.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
 import { configureDirectiveOverlayRoot } from '../../ui/directive-overlay-root.js';
 import { handleGameplayNotificationUiMessage } from '../../ui/gameplay-notification-center.js';
-import { runDirectivePresetStartupReminder } from '../../runtime/runtime-shell.js';
+import {
+  isDirectiveStartupRecoveryError,
+  showDirectiveStartupRecoveryNotification,
+} from '../../ui/startup-recovery-notification.js';
+import {
+  hideDirectiveRuntimePanel,
+  runDirectivePresetStartupReminder,
+} from '../../runtime/runtime-shell.js';
 import { activateSillyTavernDirectiveRuntime } from './runtime-activation.mjs';
+import { disposeBlankSendContinue } from './blank-send-continue.js';
+import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
 import { createSillyTavernDirectiveHost } from './host-factory.mjs';
-import { setSillyTavernDirectiveRuntimeBridge } from './runtime-bridge.mjs';
+import {
+  removeDirectiveGenerationInterceptor,
+  setSillyTavernDirectiveRuntimeBridge,
+} from './runtime-bridge.mjs';
+import { disposeSillyTavernDirectiveEventLifecycle } from './shell-events.js';
+import { removeGlobalBridge } from '../../extension/global-bridge.js';
 
 export function getSillyTavernContext() {
   try {
@@ -16,14 +30,17 @@ export function getSillyTavernContext() {
   }
 }
 
-export async function bootstrapDirectiveExtension() {
-  const ctx = getSillyTavernContext();
+export async function bootstrapDirectiveExtension(options = {}) {
+  const ctx = options.context || getSillyTavernContext();
   if (!ctx) {
     console.warn('[Directive] SillyTavern context unavailable; runtime shell not mounted.');
     return { ok: false, reason: 'missing-context' };
   }
 
-  const host = createSillyTavernDirectiveHost({
+  const hostFactory = options.hostFactory || createSillyTavernDirectiveHost;
+  const appFactory = options.appFactory || createDirectiveRuntimeApp;
+  const activateRuntime = options.activateRuntime || activateSillyTavernDirectiveRuntime;
+  const host = hostFactory({
     context: ctx,
     ui: { send: handleGameplayNotificationUiMessage }
   });
@@ -33,12 +50,27 @@ export async function bootstrapDirectiveExtension() {
       || documentRef?.querySelector?.('#chat')?.parentElement
       || documentRef?.body
   });
-  const app = createDirectiveRuntimeApp({ host });
+  const app = appFactory({ host });
+  try {
+    await app.initialize();
+  } catch (error) {
+    if (!isDirectiveStartupRecoveryError(error)) throw error;
+    configureRuntimeApp(null);
+    setSillyTavernDirectiveRuntimeBridge({ app: null, turnOrchestrator: null, directiveHost: null, active: false });
+    disposeSillyTavernDirectiveEventLifecycle();
+    removeDirectiveGenerationInterceptor();
+    removeGlobalBridge();
+    disposeBlankSendContinue();
+    disposeDirectiveLauncherButton();
+    hideDirectiveRuntimePanel();
+    const notice = showDirectiveStartupRecoveryNotification(error);
+    host.logger?.error?.(`[Directive] ${notice.code}: ${notice.message}`);
+    return { ok: false, reason: 'storage-recovery-required', errorCode: notice.code };
+  }
   configureRuntimeApp(app);
-  await app.initialize();
   const turnOrchestrator = app.getChatTurnOrchestrator?.() || null;
   setSillyTavernDirectiveRuntimeBridge({ app, turnOrchestrator, directiveHost: host, active: true });
-  await activateSillyTavernDirectiveRuntime({ context: ctx });
+  await activateRuntime({ context: ctx });
   try {
     await runDirectivePresetStartupReminder({ app });
   } catch (error) {

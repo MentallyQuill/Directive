@@ -26,4 +26,4 @@ Mission definitions own authored facts, evidence policies, events, outcomes, obj
 
 ## Runtime data
 
-V1 storage contains only `v1/index.v1.json`, V1 creator drafts, V1 saves, and separately stored V1 player portraits. The repository does not scan for or import other layouts.
+V1 storage contains only `v1/index.v1.json`, V1 creator drafts, V1 saves, verified monolithic-V1 recovery copies, and separately stored V1 player portraits. The repository does not scan for or import other layouts. At startup it checks only save IDs already named by the V1 index and losslessly upgrades an exact older `directive.campaignSave.v1` record at that save's canonical path.

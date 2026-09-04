@@ -22,6 +22,9 @@ import {
 export const V1_STORAGE_INDEX_KIND = 'directive.storageIndex.v1';
 export const V1_CAMPAIGN_SAVE_KIND = 'directive.campaignSave.v1';
 export const V1_CREATOR_DRAFT_KIND = 'directive.characterCreatorDraft.v1';
+export const V1_MONOLITHIC_RECOVERY_KIND = 'directive.monolithicSaveRecovery.v1';
+export const V1_MONOLITHIC_RECOVERY_REFERENCE_KIND = 'directive.monolithicSaveRecoveryReference.v1';
+export const V1_CAMPAIGN_DELETION_KIND = 'directive.campaignDeletion.v1';
 
 export const V1_STORAGE_PATHS = Object.freeze({
   index: 'v1/index.v1.json',
@@ -29,10 +32,12 @@ export const V1_STORAGE_PATHS = Object.freeze({
   save: (saveId) => `v1/saves/${safeId(saveId, 'saveId')}.v1.json`,
   saveBase: V1_SEGMENTED_SAVE_PATHS.base,
   saveSegment: V1_SEGMENTED_SAVE_PATHS.segment,
+  monolithicRecovery: (saveId) => `v1/recovery/${safeId(saveId, 'saveId')}.monolithic.v1.json`,
   timelineOperation: (campaignId) => `v1/operations/${safeId(campaignId, 'campaignId')}.timeline.v1.json`
 });
 
 const SAFE_ID = /^[a-zA-Z0-9_.-]+$/;
+const SHA256 = /^[a-f0-9]{64}$/;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -98,6 +103,8 @@ function emptyIndex(now) {
     activeSaveId: null,
     drafts: {},
     saves: {},
+    recoveryCopies: {},
+    campaignDeletions: {},
     updatedAt: time(now)
   };
 }
@@ -107,7 +114,9 @@ export function assertV1StorageIndex(index) {
     || index.kind !== V1_STORAGE_INDEX_KIND
     || index.version !== 1
     || !object(index.drafts)
-    || !object(index.saves)) {
+    || !object(index.saves)
+    || (index.recoveryCopies !== undefined && !object(index.recoveryCopies))
+    || (index.campaignDeletions !== undefined && !object(index.campaignDeletions))) {
     const error = new Error('Directive V1 rejects storage without an exact V1 index.');
     error.code = 'DIRECTIVE_V1_STORAGE_INDEX_REJECTED';
     throw error;
@@ -326,6 +335,19 @@ async function writeIndex(adapter, index, now) {
   return next;
 }
 
+async function writeIndexVerified(adapter, index, now, code) {
+  const next = clone(assertV1StorageIndex(index));
+  next.updatedAt = time(now);
+  return verifiedWrite(
+    adapter,
+    V1_STORAGE_PATHS.index,
+    next,
+    assertV1StorageIndex,
+    `${code}_VERIFICATION_FAILED`,
+    `${code}_WRITE_FAILED`,
+  );
+}
+
 export async function initializeV1Storage(adapter, { now = new Date().toISOString() } = {}) {
   return loadIndex(adapter, { create: true, now });
 }
@@ -391,6 +413,266 @@ export function createV1CampaignSave({
     state: clone(state)
   };
   return assertV1CampaignSave(record);
+}
+
+function assertMonolithicV1CampaignSave(record, saveId) {
+  const save = clone(assertV1CampaignSave(record));
+  if (save.id !== saveId) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_MONOLITHIC_SAVE_ID_MISMATCH',
+      'The older Directive save does not match its indexed save ID.',
+    );
+  }
+  return save;
+}
+
+function assertMonolithicRecoveryEnvelope(value, saveId) {
+  const fields = Object.keys(value || {}).sort();
+  const expectedFields = ['kind', 'save', 'saveId', 'sourceHash', 'version'];
+  if (!object(value)
+    || canonicalJson(fields) !== canonicalJson(expectedFields)
+    || value.kind !== V1_MONOLITHIC_RECOVERY_KIND
+    || value.version !== 1
+    || value.saveId !== saveId
+    || !SHA256.test(String(value.sourceHash || ''))) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_MONOLITHIC_RECOVERY_INVALID',
+      'The preserved older Directive save has invalid recovery metadata.',
+    );
+  }
+  assertMonolithicV1CampaignSave(value.save, saveId);
+  return value;
+}
+
+async function verifyMonolithicRecoveryEnvelope(value, saveId) {
+  const envelope = assertMonolithicRecoveryEnvelope(value, saveId);
+  if (await sha256Json(envelope.save) !== envelope.sourceHash) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_MONOLITHIC_RECOVERY_INTEGRITY_FAILED',
+      'The preserved older Directive save failed integrity verification.',
+    );
+  }
+  return clone(envelope);
+}
+
+function createMonolithicRecoveryReference(saveId, sourceHash) {
+  return {
+    kind: V1_MONOLITHIC_RECOVERY_REFERENCE_KIND,
+    version: 1,
+    saveId,
+    path: V1_STORAGE_PATHS.monolithicRecovery(saveId),
+    sourceHash,
+  };
+}
+
+function assertMonolithicRecoveryReference(value, saveId) {
+  const fields = Object.keys(value || {}).sort();
+  const expectedFields = ['kind', 'path', 'saveId', 'sourceHash', 'version'];
+  if (!object(value)
+    || canonicalJson(fields) !== canonicalJson(expectedFields)
+    || value.kind !== V1_MONOLITHIC_RECOVERY_REFERENCE_KIND
+    || value.version !== 1
+    || value.saveId !== saveId
+    || value.path !== V1_STORAGE_PATHS.monolithicRecovery(saveId)
+    || !SHA256.test(String(value.sourceHash || ''))) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_MONOLITHIC_RECOVERY_REFERENCE_INVALID',
+      'The older Directive save recovery reference is invalid.',
+    );
+  }
+  return value;
+}
+
+async function restoreMonolithicSave(adapter, path, save) {
+  try {
+    await adapter.writeJson(path, save);
+    const restored = assertMonolithicV1CampaignSave(await adapter.readJson(path), save.id);
+    return canonicalJson(restored) === canonicalJson(save);
+  } catch {
+    return false;
+  }
+}
+
+export async function migrateMonolithicV1CampaignSaves(adapter) {
+  requireAdapter(adapter);
+  const index = await loadIndex(adapter, { create: false });
+  if (!index) {
+    return {
+      ok: true,
+      scannedSaveCount: 0,
+      migratedSaveCount: 0,
+      migratedSaveIds: [],
+      recoveryCopyCount: 0,
+    };
+  }
+  const saveIds = Object.keys(index.saves).sort();
+  index.recoveryCopies = object(index.recoveryCopies) ? clone(index.recoveryCopies) : {};
+  const migratedSaveIds = [];
+  let recoveryCopyCount = 0;
+  let recoveryReferencesChanged = false;
+  for (const saveId of saveIds) {
+    const manifestPath = V1_STORAGE_PATHS.save(saveId);
+    const record = await readOrNull(adapter, manifestPath);
+    if (!record) continue;
+    const recoveryPath = V1_STORAGE_PATHS.monolithicRecovery(saveId);
+    const existingRecovery = await readOrNull(adapter, recoveryPath);
+    if (record.kind === V1_CAMPAIGN_SAVE_MANIFEST_KIND) {
+      if (existingRecovery) {
+        try {
+          const envelope = await verifyMonolithicRecoveryEnvelope(existingRecovery, saveId);
+          const expectedReference = createMonolithicRecoveryReference(saveId, envelope.sourceHash);
+          const publishedReference = index.recoveryCopies[saveId] || null;
+          if (publishedReference) {
+            assertMonolithicRecoveryReference(publishedReference, saveId);
+            if (canonicalJson(publishedReference) !== canonicalJson(expectedReference)) {
+              throw saveStorageError(
+                'DIRECTIVE_V1_MONOLITHIC_RECOVERY_PROVENANCE_MISMATCH',
+                'The older Directive save recovery copy does not match its published provenance.',
+              );
+            }
+          } else {
+            index.recoveryCopies[saveId] = expectedReference;
+            recoveryReferencesChanged = true;
+          }
+          recoveryCopyCount += 1;
+        } catch {
+          // The current manifest remains authoritative. Storage diagnostics report
+          // the damaged non-authoritative recovery copy without blocking startup.
+        }
+      }
+      continue;
+    }
+
+    let legacySave;
+    try {
+      legacySave = assertMonolithicV1CampaignSave(record, saveId);
+    } catch (cause) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_MONOLITHIC_SAVE_UNRECOVERABLE',
+        'An older Directive save could not be upgraded safely. It was left unchanged.',
+        { saveId, recoveryPath, causeCode: cause?.code || null },
+      );
+    }
+
+    const sourceHash = await sha256Json(legacySave);
+    const recoveryEnvelope = {
+      kind: V1_MONOLITHIC_RECOVERY_KIND,
+      version: 1,
+      saveId,
+      sourceHash,
+      save: clone(legacySave),
+    };
+    const recoveryReference = createMonolithicRecoveryReference(saveId, sourceHash);
+    const publishedReference = index.recoveryCopies[saveId] || null;
+    if (publishedReference) {
+      try {
+        assertMonolithicRecoveryReference(publishedReference, saveId);
+      } catch (cause) {
+        throw saveStorageError(
+          'DIRECTIVE_V1_MONOLITHIC_RECOVERY_CONFLICT',
+          'The recovery provenance for this older Directive save is invalid. The live save was left unchanged.',
+          { saveId, recoveryPath, causeCode: cause?.code || null },
+        );
+      }
+      if (canonicalJson(publishedReference) !== canonicalJson(recoveryReference)) {
+        throw saveStorageError(
+          'DIRECTIVE_V1_MONOLITHIC_RECOVERY_CONFLICT',
+          'Different recovery provenance already exists for this older Directive save. The live save was left unchanged.',
+          { saveId, recoveryPath },
+        );
+      }
+    }
+
+    if (existingRecovery) {
+      try {
+        const verifiedRecovery = await verifyMonolithicRecoveryEnvelope(existingRecovery, saveId);
+        if (canonicalJson(verifiedRecovery) !== canonicalJson(recoveryEnvelope)) {
+          throw new Error('recovery content differs');
+        }
+      } catch (cause) {
+        throw saveStorageError(
+          'DIRECTIVE_V1_MONOLITHIC_RECOVERY_CONFLICT',
+          'A different recovery copy already exists for this older Directive save. The live save was left unchanged.',
+          { saveId, recoveryPath, causeCode: cause?.code || null },
+        );
+      }
+    } else {
+      await verifiedWrite(
+        adapter,
+        recoveryPath,
+        recoveryEnvelope,
+        (value) => assertMonolithicRecoveryEnvelope(value, saveId),
+        'DIRECTIVE_V1_MONOLITHIC_RECOVERY_WRITE_VERIFICATION_FAILED',
+        'DIRECTIVE_V1_MONOLITHIC_RECOVERY_WRITE_FAILED',
+      );
+      await verifyMonolithicRecoveryEnvelope(await adapter.readJson(recoveryPath), saveId);
+    }
+    index.recoveryCopies[saveId] = recoveryReference;
+    recoveryReferencesChanged = true;
+    recoveryCopyCount += 1;
+
+    try {
+      const stateHash = await sha256Json(legacySave.state);
+      const base = createV1CampaignSaveBase({ saveId, state: legacySave.state, stateHash });
+      const manifest = createV1CampaignSaveManifest({ save: legacySave, stateHash });
+      await verifiedWrite(
+        adapter,
+        V1_STORAGE_PATHS.saveBase(saveId),
+        base,
+        (value) => assertV1CampaignSaveBase(value, { saveId }),
+        'DIRECTIVE_V1_MONOLITHIC_BASE_WRITE_VERIFICATION_FAILED',
+        'DIRECTIVE_V1_MONOLITHIC_BASE_WRITE_FAILED',
+      );
+      await verifiedWrite(
+        adapter,
+        manifestPath,
+        manifest,
+        (value) => assertV1CampaignSaveManifest(value, { saveId }),
+        'DIRECTIVE_V1_MONOLITHIC_MANIFEST_WRITE_VERIFICATION_FAILED',
+        'DIRECTIVE_V1_MONOLITHIC_MANIFEST_WRITE_FAILED',
+      );
+      const hydrated = await hydrateManifest(adapter, manifest, saveId);
+      if (canonicalJson(hydrated.save) !== canonicalJson(legacySave)) {
+        throw saveStorageError(
+          'DIRECTIVE_V1_MONOLITHIC_SAVE_ROUND_TRIP_FAILED',
+          'The upgraded Directive save did not reproduce the original state.',
+        );
+      }
+    } catch (cause) {
+      const restored = await restoreMonolithicSave(adapter, manifestPath, legacySave);
+      throw saveStorageError(
+        'DIRECTIVE_V1_MONOLITHIC_SAVE_MIGRATION_FAILED',
+        restored
+          ? 'Directive could not upgrade an older save. The original live save and its recovery copy were retained.'
+          : 'Directive could not upgrade or restore an older save. Use the preserved recovery copy before continuing.',
+        {
+          saveId,
+          recoveryPath,
+          originalRestored: restored,
+          causeCode: cause?.code || null,
+        },
+      );
+    }
+    migratedSaveIds.push(saveId);
+  }
+  if (recoveryReferencesChanged) {
+    try {
+      await writeIndex(adapter, index, index.updatedAt);
+    } catch (cause) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_MONOLITHIC_RECOVERY_INDEX_WRITE_FAILED',
+        'Directive upgraded the older save but could not publish its recovery provenance. Reload to retry safely.',
+        { causeCode: cause?.code || null },
+      );
+    }
+  }
+  return {
+    ok: true,
+    scannedSaveCount: saveIds.length,
+    migratedSaveCount: migratedSaveIds.length,
+    migratedSaveIds,
+    recoveryCopyCount,
+  };
 }
 
 export async function storeV1CampaignSave(adapter, save, {
@@ -635,18 +917,381 @@ export async function compareAndSwapActiveV1CampaignSave(adapter, {
   return { swapped: true, expectedSaveId: expectedId, activeSaveId: nextId };
 }
 
+function assertCampaignDeletionTombstone(value, campaignId = null) {
+  const expectedCampaignId = campaignId ? safeId(campaignId, 'campaignId') : null;
+  const expectedFields = [
+    'activeSaveId', 'campaignChatBindingHash', 'campaignId', 'cleanupFailures',
+    'hostDeletedAt', 'kind', 'recoveryCopies', 'requestedAt', 'saveId',
+    'saveIds', 'saveSummaries', 'status', 'version',
+  ];
+  if (!object(value)
+    || canonicalJson(Object.keys(value).sort()) !== canonicalJson(expectedFields)
+    || value.kind !== V1_CAMPAIGN_DELETION_KIND
+    || value.version !== 1
+    || !['prepared', 'host-deleted', 'cleanup-pending'].includes(value.status)
+    || !Array.isArray(value.saveIds)
+    || value.saveIds.length === 0
+    || !object(value.saveSummaries)
+    || !object(value.recoveryCopies)
+    || !SHA256.test(String(value.campaignChatBindingHash || ''))
+    || !Array.isArray(value.cleanupFailures)) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+      'A pending Directive campaign deletion record is invalid.',
+    );
+  }
+  const actualCampaignId = safeId(value.campaignId, 'campaignDeletion.campaignId');
+  const activeSaveId = safeId(value.saveId, 'campaignDeletion.saveId');
+  const saveIds = [...new Set(value.saveIds.map((id) => safeId(id, 'campaignDeletion.saveIds[]')))].sort();
+  const summaryIds = Object.keys(value.saveSummaries).sort();
+  if (canonicalJson(value.saveIds) !== canonicalJson(saveIds)
+    || canonicalJson(summaryIds) !== canonicalJson(saveIds)
+    || !saveIds.includes(activeSaveId)
+    || value.activeSaveId !== activeSaveId
+    || !value.cleanupFailures.every((path) => typeof path === 'string' && path.trim())) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+      'A pending Directive campaign deletion record has inconsistent save custody.',
+    );
+  }
+  for (const id of saveIds) {
+    const summary = value.saveSummaries[id];
+    if (!object(summary) || summary.id !== id || summary.campaignId !== actualCampaignId) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+        'A pending Directive campaign deletion record has invalid save metadata.',
+      );
+    }
+  }
+  for (const [id, reference] of Object.entries(value.recoveryCopies)) {
+    if (!saveIds.includes(id)) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+        'A pending Directive campaign deletion record has unrelated recovery metadata.',
+      );
+    }
+    assertMonolithicRecoveryReference(reference, id);
+  }
+  time(value.requestedAt, 'campaignDeletion.requestedAt');
+  if (value.status === 'prepared') {
+    if (value.hostDeletedAt !== null) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+        'A prepared Directive campaign deletion cannot claim completed host deletion.',
+      );
+    }
+  } else {
+    time(value.hostDeletedAt, 'campaignDeletion.hostDeletedAt');
+  }
+  if (expectedCampaignId && value.campaignId !== expectedCampaignId) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_MISMATCH',
+      'A pending Directive campaign deletion record does not match the requested campaign.',
+    );
+  }
+  return value;
+}
+
+async function validatedCampaignDeletionSave(adapter, tombstone, saveId) {
+  let save;
+  try {
+    save = await loadV1CampaignSave(adapter, saveId);
+  } catch (cause) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_RESUME_TARGET_INVALID',
+      'Directive could not verify the retained save for a pending campaign deletion.',
+      { campaignId: tombstone.campaignId, saveId, causeCode: cause?.code || null },
+    );
+  }
+  if (save.campaignId !== tombstone.campaignId
+    || canonicalJson(saveSummary(save)) !== canonicalJson(tombstone.saveSummaries[saveId])) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_RESUME_TARGET_INVALID',
+      'A retained Directive save does not match its pending campaign deletion record.',
+      { campaignId: tombstone.campaignId, saveId },
+    );
+  }
+  return save;
+}
+
+export async function beginV1CampaignDeletion(adapter, {
+  campaignId,
+  saveId,
+  saveIds,
+} = {}, { now = new Date().toISOString() } = {}) {
+  const expectedCampaignId = safeId(campaignId, 'campaignId');
+  const expectedSaveId = safeId(saveId, 'saveId');
+  const expectedSaveIds = [...new Set((saveIds || []).map((id) => safeId(id, 'saveIds[]')))].sort();
+  if (!expectedSaveIds.includes(expectedSaveId)) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_TARGET_INVALID',
+      'The active campaign save is missing from its deletion set.',
+    );
+  }
+  const index = await loadIndex(adapter, { create: true, now });
+  index.recoveryCopies = object(index.recoveryCopies) ? clone(index.recoveryCopies) : {};
+  index.campaignDeletions = object(index.campaignDeletions) ? clone(index.campaignDeletions) : {};
+  const existing = index.campaignDeletions[expectedCampaignId];
+  if (existing) return clone(assertCampaignDeletionTombstone(existing, expectedCampaignId));
+
+  const saveSummaries = {};
+  const recoveryCopies = {};
+  let activeDeletionSave = null;
+  for (const id of expectedSaveIds) {
+    const summary = index.saves[id];
+    if (!summary || summary.campaignId !== expectedCampaignId) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_TARGET_INVALID',
+        'Directive could not atomically prepare every save in the selected campaign for deletion.',
+        { campaignId: expectedCampaignId, saveId: id },
+      );
+    }
+    saveSummaries[id] = clone(summary);
+    const retainedSave = await loadV1CampaignSave(adapter, id);
+    if (retainedSave.campaignId !== expectedCampaignId
+      || canonicalJson(saveSummary(retainedSave)) !== canonicalJson(summary)) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_TARGET_INVALID',
+        'Directive could not verify every retained save before preparing campaign deletion.',
+        { campaignId: expectedCampaignId, saveId: id },
+      );
+    }
+    if (id === expectedSaveId) activeDeletionSave = retainedSave;
+    if (index.recoveryCopies[id]) {
+      recoveryCopies[id] = clone(assertMonolithicRecoveryReference(index.recoveryCopies[id], id));
+    }
+  }
+  const tombstone = assertCampaignDeletionTombstone({
+    kind: V1_CAMPAIGN_DELETION_KIND,
+    version: 1,
+    status: 'prepared',
+    campaignId: expectedCampaignId,
+    saveId: expectedSaveId,
+    saveIds: expectedSaveIds,
+    activeSaveId: expectedSaveIds.includes(index.activeSaveId) ? index.activeSaveId : null,
+    campaignChatBindingHash: await sha256Json(activeDeletionSave?.state?.campaignChatBinding || null),
+    saveSummaries,
+    recoveryCopies,
+    cleanupFailures: [],
+    requestedAt: time(now),
+    hostDeletedAt: null,
+  }, expectedCampaignId);
+  index.campaignDeletions[expectedCampaignId] = clone(tombstone);
+  for (const id of expectedSaveIds) {
+    delete index.saves[id];
+    delete index.recoveryCopies[id];
+  }
+  if (expectedSaveIds.includes(index.activeSaveId)) index.activeSaveId = null;
+  await writeIndexVerified(adapter, index, now, 'DIRECTIVE_V1_CAMPAIGN_DELETION_PREPARE');
+  return clone(tombstone);
+}
+
+export async function loadV1CampaignDeletionResumeTarget(adapter, campaignId) {
+  const expectedCampaignId = safeId(campaignId, 'campaignId');
+  const index = await loadIndex(adapter, { create: false });
+  const tombstone = index?.campaignDeletions?.[expectedCampaignId];
+  if (!tombstone) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_NOT_PENDING',
+      'The requested Directive campaign deletion is not pending.',
+    );
+  }
+  assertCampaignDeletionTombstone(tombstone, expectedCampaignId);
+  if (tombstone.status !== 'prepared') {
+    return { tombstone: clone(tombstone), campaignChatBinding: null };
+  }
+  const save = await validatedCampaignDeletionSave(adapter, tombstone, tombstone.saveId);
+  const campaignChatBinding = clone(save.state?.campaignChatBinding || null);
+  if (await sha256Json(campaignChatBinding) !== tombstone.campaignChatBindingHash) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_RESUME_TARGET_INVALID',
+      'The retained SillyTavern character binding changed after campaign deletion was prepared.',
+      { campaignId: tombstone.campaignId, saveId: tombstone.saveId },
+    );
+  }
+  return {
+    tombstone: clone(tombstone),
+    campaignChatBinding,
+  };
+}
+
+export async function cancelV1CampaignDeletion(adapter, campaignId, {
+  now = new Date().toISOString(),
+} = {}) {
+  const expectedCampaignId = safeId(campaignId, 'campaignId');
+  const index = await loadIndex(adapter, { create: true, now });
+  index.recoveryCopies = object(index.recoveryCopies) ? clone(index.recoveryCopies) : {};
+  index.campaignDeletions = object(index.campaignDeletions) ? clone(index.campaignDeletions) : {};
+  const tombstone = index.campaignDeletions[expectedCampaignId];
+  if (!tombstone) return { canceled: false, reason: 'not-pending', campaignId: expectedCampaignId };
+  assertCampaignDeletionTombstone(tombstone, expectedCampaignId);
+  if (tombstone.status !== 'prepared') {
+    throw saveStorageError(
+      'DIRECTIVE_V1_CAMPAIGN_DELETION_ALREADY_COMMITTED',
+      'Directive cannot restore a campaign after its SillyTavern character was deleted.',
+      { campaignId: expectedCampaignId, status: tombstone.status },
+    );
+  }
+  for (const id of tombstone.saveIds) {
+    if (index.saves[id] && canonicalJson(index.saves[id]) !== canonicalJson(tombstone.saveSummaries[id])) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_CAMPAIGN_DELETION_CANCEL_CONFLICT',
+        'Directive could not safely cancel campaign deletion because its save index changed.',
+        { campaignId: expectedCampaignId, saveId: id },
+      );
+    }
+    index.saves[id] = clone(tombstone.saveSummaries[id]);
+    if (tombstone.recoveryCopies[id]) {
+      index.recoveryCopies[id] = clone(tombstone.recoveryCopies[id]);
+    }
+  }
+  if (tombstone.activeSaveId) index.activeSaveId = tombstone.activeSaveId;
+  delete index.campaignDeletions[expectedCampaignId];
+  await writeIndex(adapter, index, now);
+  return { canceled: true, campaignId: expectedCampaignId };
+}
+
+export async function completeV1CampaignDeletion(adapter, campaignId, {
+  now = new Date().toISOString(),
+} = {}) {
+  const expectedCampaignId = safeId(campaignId, 'campaignId');
+  const index = await loadIndex(adapter, { create: true, now });
+  index.campaignDeletions = object(index.campaignDeletions) ? clone(index.campaignDeletions) : {};
+  const tombstone = index.campaignDeletions[expectedCampaignId];
+  if (!tombstone) {
+    return { deleted: true, campaignId: expectedCampaignId, cleanupPending: false, cleanupFailures: [] };
+  }
+  assertCampaignDeletionTombstone(tombstone, expectedCampaignId);
+  const cleanupFailures = [];
+  tombstone.status = 'host-deleted';
+  tombstone.hostDeletedAt = tombstone.hostDeletedAt || time(now);
+  tombstone.cleanupFailures = [];
+  try {
+    await writeIndexVerified(adapter, index, now, 'DIRECTIVE_V1_CAMPAIGN_DELETION_HOST_DELETED');
+  } catch {
+    return {
+      deleted: true,
+      campaignId: expectedCampaignId,
+      saveId: tombstone.saveId,
+      saveIds: clone(tombstone.saveIds),
+      cleanupPending: true,
+      cleanupFailures: [V1_STORAGE_PATHS.index],
+    };
+  }
+
+  const orderedSaveIds = [
+    ...tombstone.saveIds.filter((id) => id !== tombstone.saveId),
+    tombstone.saveId,
+  ];
+  cleanup: for (const id of orderedSaveIds) {
+    const manifestPath = V1_STORAGE_PATHS.save(id);
+    const manifestRecord = await readOrNull(adapter, manifestPath);
+    if (!manifestRecord) continue;
+    let manifest;
+    try {
+      manifest = assertV1CampaignSaveManifest(manifestRecord, { saveId: id });
+      if (manifest.saveMetadata?.campaignId !== expectedCampaignId) {
+        throw new Error('manifest campaign mismatch');
+      }
+    } catch {
+      cleanupFailures.push(manifestPath);
+      break;
+    }
+    const paths = [
+      V1_STORAGE_PATHS.monolithicRecovery(id),
+      ...manifest.segments.flatMap((reference) => [
+        V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'a'),
+        V1_STORAGE_PATHS.saveSegment(id, reference.sequence, 'b'),
+      ]),
+      V1_STORAGE_PATHS.saveBase(id),
+      manifestPath,
+    ];
+    for (const path of paths) {
+      try {
+        await remove(adapter, path);
+      } catch {
+        cleanupFailures.push(path);
+        break cleanup;
+      }
+    }
+  }
+  if (cleanupFailures.length === 0) {
+    delete index.campaignDeletions[expectedCampaignId];
+    try {
+      await writeIndex(adapter, index, now);
+    } catch {
+      cleanupFailures.push(V1_STORAGE_PATHS.index);
+    }
+  }
+  if (cleanupFailures.length > 0) {
+    tombstone.status = 'cleanup-pending';
+    tombstone.cleanupFailures = [...new Set(cleanupFailures)].sort();
+    index.campaignDeletions[expectedCampaignId] = tombstone;
+    try {
+      await writeIndex(adapter, index, now);
+    } catch {
+      // The verified host-deleted tombstone still keeps the campaign hidden and
+      // makes storage cleanup safe to retry on the next startup.
+    }
+  }
+  return {
+    deleted: true,
+    campaignId: expectedCampaignId,
+    saveId: tombstone.saveId,
+    saveIds: clone(tombstone.saveIds),
+    cleanupPending: cleanupFailures.length > 0,
+    cleanupFailures: [...new Set(cleanupFailures)].sort(),
+  };
+}
+
+export async function listPendingV1CampaignDeletions(adapter) {
+  const index = await loadIndex(adapter, { create: false });
+  if (!index) return [];
+  return Object.values(object(index.campaignDeletions) ? index.campaignDeletions : {})
+    .map((entry) => clone(assertCampaignDeletionTombstone(entry)))
+    .sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+}
+
 export async function deleteV1CampaignSave(adapter, saveId, { now = new Date().toISOString() } = {}) {
   const id = safeId(saveId, 'saveId');
   const index = await loadIndex(adapter, { create: true, now });
+  const previousIndex = clone(index);
   const manifestPath = V1_STORAGE_PATHS.save(id);
+  const recoveryPath = V1_STORAGE_PATHS.monolithicRecovery(id);
   const manifestRecord = await readOrNull(adapter, manifestPath);
   const manifest = manifestRecord?.kind === V1_CAMPAIGN_SAVE_MANIFEST_KIND
     ? assertV1CampaignSaveManifest(manifestRecord, { saveId: id })
     : null;
   const deletedActive = index.activeSaveId === id;
   delete index.saves[id];
+  if (object(index.recoveryCopies)) delete index.recoveryCopies[id];
   if (deletedActive) index.activeSaveId = null;
   await writeIndex(adapter, index, now);
+  try {
+    await remove(adapter, recoveryPath);
+  } catch (cause) {
+    let indexRestored = false;
+    try {
+      await verifiedWrite(
+        adapter,
+        V1_STORAGE_PATHS.index,
+        previousIndex,
+        assertV1StorageIndex,
+        'DIRECTIVE_V1_MONOLITHIC_RECOVERY_DELETE_INDEX_RESTORE_VERIFICATION_FAILED',
+        'DIRECTIVE_V1_MONOLITHIC_RECOVERY_DELETE_INDEX_RESTORE_FAILED',
+      );
+      indexRestored = true;
+    } catch {
+      // The surfaced error reports whether a safe retry remains indexed.
+    }
+    throw saveStorageError(
+      'DIRECTIVE_V1_MONOLITHIC_RECOVERY_DELETE_FAILED',
+      indexRestored
+        ? 'Directive could not delete the older-save recovery copy, so campaign deletion was cancelled.'
+        : 'Directive could not delete the older-save recovery copy or restore its campaign index. Recovery is required.',
+      { saveId: id, recoveryPath, indexRestored, causeCode: cause?.code || null },
+    );
+  }
   const cleanupFailures = [];
   const cleanup = async (path) => {
     try {
@@ -670,6 +1315,26 @@ export async function deleteV1CampaignSave(adapter, saveId, { now = new Date().t
 export async function verifyV1Storage(adapter) {
   const index = await loadIndex(adapter, { create: false });
   if (!index) return { ok: true, initialized: false, saveCount: 0, draftCount: 0 };
+  const pendingCampaignDeletions = Object.values(
+    object(index.campaignDeletions) ? index.campaignDeletions : {},
+  );
+  try {
+    pendingCampaignDeletions.forEach((entry) => assertCampaignDeletionTombstone(entry));
+  } catch (error) {
+    return {
+      ok: false,
+      initialized: true,
+      errorCode: error?.code || 'DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID',
+    };
+  }
+  if (pendingCampaignDeletions.length > 0) {
+    return {
+      ok: false,
+      initialized: true,
+      pendingCampaignDeletionCount: pendingCampaignDeletions.length,
+      errorCode: 'DIRECTIVE_V1_CAMPAIGN_DELETION_CLEANUP_PENDING',
+    };
+  }
   const manifests = [];
   for (const saveId of Object.keys(index.saves)) {
     const manifestPath = V1_STORAGE_PATHS.save(saveId);
@@ -716,10 +1381,57 @@ export async function verifyV1Storage(adapter) {
       };
     }
   }
+  let recoveryCopyCount = 0;
+  const recoveryCopies = object(index.recoveryCopies) ? index.recoveryCopies : {};
+  const orphanedRecoverySaveId = Object.keys(recoveryCopies)
+    .find((saveId) => !Object.hasOwn(index.saves, saveId));
+  if (orphanedRecoverySaveId) {
+    return {
+      ok: false,
+      initialized: true,
+      invalidRecoverySaveId: orphanedRecoverySaveId,
+      errorCode: 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_ORPHANED',
+    };
+  }
+  for (const saveId of Object.keys(index.saves)) {
+    const recoveryPath = V1_STORAGE_PATHS.monolithicRecovery(saveId);
+    const recovery = await readOrNull(adapter, recoveryPath);
+    const reference = recoveryCopies[saveId] || null;
+    if (!recovery && !reference) continue;
+    if (!recovery || !reference) {
+      return {
+        ok: false,
+        initialized: true,
+        invalidRecoverySaveId: saveId,
+        errorCode: !recovery
+          ? 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_MISSING'
+          : 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_UNREFERENCED',
+      };
+    }
+    try {
+      const verified = await verifyMonolithicRecoveryEnvelope(recovery, saveId);
+      const verifiedReference = assertMonolithicRecoveryReference(reference, saveId);
+      if (verified.sourceHash !== verifiedReference.sourceHash) {
+        throw saveStorageError(
+          'DIRECTIVE_V1_MONOLITHIC_RECOVERY_PROVENANCE_MISMATCH',
+          'The older Directive save recovery copy does not match its published provenance.',
+        );
+      }
+      recoveryCopyCount += 1;
+    } catch (error) {
+      return {
+        ok: false,
+        initialized: true,
+        invalidRecoverySaveId: saveId,
+        errorCode: error?.code || 'DIRECTIVE_V1_MONOLITHIC_RECOVERY_INVALID',
+      };
+    }
+  }
   return {
     ok: true,
     initialized: true,
     saveCount: Object.keys(index.saves).length,
-    draftCount: Object.keys(index.drafts).length
+    draftCount: Object.keys(index.drafts).length,
+    recoveryCopyCount,
   };
 }

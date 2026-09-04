@@ -10,14 +10,20 @@ import {
 import { createCharacterCreationContext, createCampaignPackageSummary } from '../packages/campaign-package-context.mjs';
 import { ASHES_V1_PACKAGE_ID } from '../packages/bundled-package-registry.mjs';
 import {
+  beginV1CampaignDeletion,
+  cancelV1CampaignDeletion,
+  completeV1CampaignDeletion,
   createV1CampaignSave,
   compareAndSwapActiveV1CampaignSave,
   deleteV1CampaignSave,
   initializeV1Storage,
   listV1CampaignSaves,
+  listPendingV1CampaignDeletions,
   listV1CreatorDrafts,
   loadActiveV1CampaignSave,
+  loadV1CampaignDeletionResumeTarget,
   loadV1CampaignSave,
+  migrateMonolithicV1CampaignSaves,
   storeV1CampaignSave,
   verifyV1Storage
 } from '../storage/v1-storage-repository.mjs';
@@ -49,6 +55,32 @@ function campaignDeletionError(code, message) {
   const error = new Error(message);
   error.code = code;
   return error;
+}
+
+function exactCampaignDeletionBinding(save) {
+  const binding = clone(save?.state?.campaignChatBinding || null);
+  const entityId = String(binding?.entityId ?? '').trim();
+  const entityName = String(binding?.entityName ?? '').trim();
+  const entityAvatar = String(binding?.entityAvatar ?? '').trim();
+  const hasDirectiveMarkerIdentity = binding?.createdByDirective === true
+    && binding.campaignId === save?.campaignId
+    && binding.saveId === save?.id;
+  const exactCharacterBinding = binding?.kind === 'directive.campaignChatBinding.v1'
+    && binding.version === 1
+    && binding.status === 'bound'
+    && binding.entityType === 'character'
+    && Boolean(entityId)
+    && Boolean(entityName)
+    && (Boolean(entityAvatar) || hasDirectiveMarkerIdentity)
+    && binding.campaignId === save?.campaignId
+    && binding.saveId === save?.id;
+  if (!exactCharacterBinding) {
+    throw campaignDeletionError(
+      'DIRECTIVE_CAMPAIGN_DELETE_CHARACTER_REQUIRED',
+      'The selected campaign has no exact SillyTavern character binding.',
+    );
+  }
+  return binding;
 }
 
 function normalizeNow(now) {
@@ -314,11 +346,16 @@ export function createCampaignStartController({
   return {
     async initialize() {
       await initializeV1Storage(adapter, { now: currentTime() });
+      await migrateMonolithicV1CampaignSaves(adapter);
+      const pendingCampaignDeletions = await listPendingV1CampaignDeletions(adapter);
       await refreshActive();
       return {
         recovered: Boolean(activeSave),
         activeSave: clone(activeSave),
-        campaignState: clone(activeState)
+        campaignState: clone(activeState),
+        ...(pendingCampaignDeletions.length > 0 ? {
+          pendingCampaignDeletions: clone(pendingCampaignDeletions),
+        } : {}),
       };
     },
 
@@ -640,23 +677,7 @@ export function createCampaignStartController({
         );
       }
       const save = await loadV1CampaignSave(adapter, summary.id);
-      const binding = clone(save.state?.campaignChatBinding || null);
-      const entityId = String(binding?.entityId ?? '').trim();
-      const entityName = String(binding?.entityName ?? '').trim();
-      const exactCharacterBinding = binding?.kind === 'directive.campaignChatBinding.v1'
-        && binding.version === 1
-        && binding.status === 'bound'
-        && binding.entityType === 'character'
-        && Boolean(entityId)
-        && Boolean(entityName)
-        && binding.campaignId === save.campaignId
-        && binding.saveId === save.id;
-      if (!exactCharacterBinding) {
-        throw campaignDeletionError(
-          'DIRECTIVE_CAMPAIGN_DELETE_CHARACTER_REQUIRED',
-          'The selected campaign has no exact SillyTavern character binding.'
-        );
-      }
+      const binding = exactCampaignDeletionBinding(save);
       return {
         campaignId: save.campaignId,
         saveId: save.id,
@@ -673,22 +694,64 @@ export function createCampaignStartController({
       };
     },
 
-    async deleteCampaign({ campaignId, saveId } = {}) {
-      const target = await this.prepareCampaignDeletion({ campaignId, saveId });
-      for (const recordId of target.saveIds.filter((id) => id !== target.saveId)) {
-        await deleteV1CampaignSave(adapter, recordId, { now: currentTime() });
+    async deleteCampaignWithHost({ campaignId, saveId, deleteHostEntity } = {}) {
+      if (typeof deleteHostEntity !== 'function') {
+        throw campaignDeletionError(
+          'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE',
+          'SillyTavern character deletion is unavailable.',
+        );
       }
-      const activeDeletion = await deleteV1CampaignSave(adapter, target.saveId, { now: currentTime() });
+      const target = await this.prepareCampaignDeletion({ campaignId, saveId });
+      await beginV1CampaignDeletion(adapter, target, { now: currentTime() });
+      let hostDeletion;
+      try {
+        hostDeletion = await deleteHostEntity(clone(target.campaignChatBinding));
+      } catch (error) {
+        await cancelV1CampaignDeletion(adapter, target.campaignId, { now: currentTime() });
+        throw error;
+      }
+      const deletion = await completeV1CampaignDeletion(
+        adapter,
+        target.campaignId,
+        { now: currentTime() },
+      );
       if (activeSave?.id === target.saveId) {
         activeSave = null;
         activeState = null;
       }
       return {
-        deleted: activeDeletion.deleted,
+        ...deletion,
         campaignId: target.campaignId,
         saveId: target.saveId,
-        checkpointIds: clone(target.checkpointIds)
+        checkpointIds: clone(target.checkpointIds),
+        hostDeletion: clone(hostDeletion),
       };
+    },
+
+    async resumeCampaignDeletion({ campaignId, deleteHostEntity } = {}) {
+      const expectedCampaignId = required(campaignId, 'campaignId');
+      const target = await loadV1CampaignDeletionResumeTarget(adapter, expectedCampaignId);
+      let hostDeletion = null;
+      if (target.tombstone.status === 'prepared') {
+        if (typeof deleteHostEntity !== 'function') {
+          throw campaignDeletionError(
+            'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE',
+            'SillyTavern character deletion is unavailable while resuming campaign deletion.',
+          );
+        }
+        const binding = exactCampaignDeletionBinding({
+          campaignId: target.tombstone.campaignId,
+          id: target.tombstone.saveId,
+          state: { campaignChatBinding: target.campaignChatBinding },
+        });
+        hostDeletion = await deleteHostEntity(binding);
+      }
+      const deletion = await completeV1CampaignDeletion(adapter, expectedCampaignId, { now: currentTime() });
+      if (activeSave?.campaignId === expectedCampaignId) {
+        activeSave = null;
+        activeState = null;
+      }
+      return { ...deletion, hostDeletion: clone(hostDeletion) };
     },
 
     async loadGame({ saveId } = {}) {

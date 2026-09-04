@@ -228,12 +228,14 @@ assert.deepEqual(deleted[0], {
   avatar_url: 'directive.png'
 });
 
-const characterDeletion = await adapter.deleteCampaignCharacter({
+const stableCharacterBinding = {
   ...context.chatMetadata.directiveCampaignBinding,
+  entityAvatar: 'directive.png',
   kind: 'directive.campaignChatBinding.v1',
   version: 1,
   status: 'bound'
-});
+};
+const characterDeletion = await adapter.deleteCampaignCharacter(stableCharacterBinding);
 assert.deepEqual(characterDeletion, {
   deleted: true,
   entityId: '0',
@@ -243,6 +245,48 @@ assert.deepEqual(deletedCharacters, [{
   avatar: 'directive.png',
   options: { deleteChats: true }
 }]);
+
+const retainedCharacters = context.characters;
+context.getCharacters = async () => {};
+context.characters = [
+  { name: 'Other Character', avatar: 'other.png' },
+  { name: 'Directive Campaign', avatar: 'directive.png', chat: 'active-chat' }
+];
+const shiftedCharacterDeletion = await adapter.deleteCampaignCharacter({
+  ...stableCharacterBinding,
+}, { allowAlreadyAbsent: true });
+assert.deepEqual(shiftedCharacterDeletion, {
+  deleted: true,
+  entityId: '1',
+  entityName: 'Directive Campaign'
+});
+
+for (const conflictingCharacters of [
+  [{ name: 'Renamed Directive Campaign', avatar: 'directive.png' }],
+  [{ name: 'Directive Campaign', avatar: 'changed-avatar.png' }],
+  [{ name: 'Directive Campaign', avatar: 'replacement.png' }],
+]) {
+  context.characters = conflictingCharacters;
+  await assert.rejects(
+    adapter.deleteCampaignCharacter({
+      ...stableCharacterBinding,
+    }, { allowAlreadyAbsent: true }),
+    (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_TARGET_MISMATCH',
+    'renamed, avatar-changed, and same-name index-reuse candidates must remain ambiguous',
+  );
+}
+
+context.characters = [{ name: 'Unrelated Character After Index Compaction', avatar: 'unrelated.png' }];
+const resumedCharacterDeletion = await adapter.deleteCampaignCharacter({
+  ...stableCharacterBinding,
+}, { allowAlreadyAbsent: true });
+assert.deepEqual(resumedCharacterDeletion, {
+  deleted: false,
+  alreadyAbsent: true,
+  entityId: '0',
+  entityName: 'Directive Campaign'
+}, 'an unrelated character shifted into the old array index must not prevent definitive stable-identity absence');
+context.characters = retainedCharacters;
 
 await assert.rejects(
   adapter.deleteCampaignCharacter({
@@ -264,7 +308,7 @@ const unavailableAdapter = createSillyTavernChatAdapter({
   importScript: async () => ({})
 });
 await assert.rejects(
-  unavailableAdapter.deleteCampaignCharacter(context.chatMetadata.directiveCampaignBinding),
+  unavailableAdapter.deleteCampaignCharacter(stableCharacterBinding),
   (error) => error?.code === 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE'
 );
 

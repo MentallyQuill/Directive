@@ -543,6 +543,7 @@ export function createDirectiveRuntimeApp({
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
   const generationRouter = createDirectiveGenerationRouter(host);
   let initialized = false;
+  let initializing = false;
   let records = null;
   let runtimeAssets = null;
   let controller = null;
@@ -572,7 +573,7 @@ export function createDirectiveRuntimeApp({
   let deferredInternalChatChangeScheduled = false;
 
   function scheduleDeferredInternalChatChange() {
-    if (deferredInternalChatChangeScheduled || internalChatOpenDepth > 0 || !deferredInternalChatChange) return;
+    if (initializing || deferredInternalChatChangeScheduled || internalChatOpenDepth > 0 || !deferredInternalChatChange) return;
     deferredInternalChatChangeScheduled = true;
     Promise.resolve().then(async () => {
       deferredInternalChatChangeScheduled = false;
@@ -1365,38 +1366,68 @@ export function createDirectiveRuntimeApp({
     isCurrentChatBound: () => currentChatIsBound(),
     async initialize() {
       if (initialized) return campaignViewEnvelope('campaign');
-      records = await packageLoader();
-      runtimeAssets = indexRuntimeAssets(records).get(records.packageData.manifest.id);
-      controller = createCampaignStartController({
-        adapter: host.storage,
-        packages: [records.packageData],
-        missionDefinitions: records.missionDefinitions,
-        campaignLibrary: records.campaignLibrary || createV1CampaignLibrary(),
-        idFactory,
-        now
-      });
-      const recovered = await controller.initialize();
-      setState(recovered.campaignState);
-      configureStateRuntime();
-      timelineTransactions = createTimelineTransactionService({
-        controller,
-        chat: host.chat,
-        prompt: host.prompt,
-        getState: () => state,
-        setState,
-        configureRuntime: configureStateRuntime,
-        rebuildPrompt: () => syncPrompt({ rebuild: true }),
-        openCampaignChat: (binding) => withInternalChatOpen(() => host.chat.openCampaignChat(binding)),
-        cloneCampaignChat: (options) => withInternalChatOpen(() => host.chat.cloneCampaignChat(options)),
-        runtimeAssets,
-        idFactory,
-        now
-      });
-      initialized = true;
-      await host.ui?.mount?.();
-      if (state) await publicApi.handleHostChatChanged();
-      storageDiagnostics = await controller.verifyStorage();
-      return campaignViewEnvelope('campaign');
+      if (initializing) {
+        const error = new Error('Directive runtime initialization is already in progress.');
+        error.code = 'DIRECTIVE_RUNTIME_INITIALIZATION_IN_PROGRESS';
+        throw error;
+      }
+      initializing = true;
+      try {
+        records = await packageLoader();
+        runtimeAssets = indexRuntimeAssets(records).get(records.packageData.manifest.id);
+        controller = createCampaignStartController({
+          adapter: host.storage,
+          packages: [records.packageData],
+          missionDefinitions: records.missionDefinitions,
+          campaignLibrary: records.campaignLibrary || createV1CampaignLibrary(),
+          idFactory,
+          now
+        });
+        const recovered = await controller.initialize();
+        for (const pendingDeletion of recovered.pendingCampaignDeletions || []) {
+          try {
+            await controller.resumeCampaignDeletion({
+              campaignId: pendingDeletion.campaignId,
+              deleteHostEntity: (binding) => withInternalChatOpen(() => (
+                host.chat.deleteCampaignCharacter(binding, { allowAlreadyAbsent: true })
+              )),
+            });
+          } catch (error) {
+            if (['DIRECTIVE_V1_CAMPAIGN_DELETION_TOMBSTONE_INVALID', 'DIRECTIVE_V1_CAMPAIGN_DELETION_RESUME_TARGET_INVALID']
+              .includes(String(error?.code || ''))) {
+              throw error;
+            }
+            host.logger?.warn?.('[Directive] Pending campaign deletion will be retried on the next startup.', {
+              code: compact(error?.code) || 'DIRECTIVE_CAMPAIGN_DELETION_RESUME_FAILED',
+              campaignId: pendingDeletion.campaignId,
+            });
+          }
+        }
+        setState(recovered.campaignState);
+        configureStateRuntime();
+        timelineTransactions = createTimelineTransactionService({
+          controller,
+          chat: host.chat,
+          prompt: host.prompt,
+          getState: () => state,
+          setState,
+          configureRuntime: configureStateRuntime,
+          rebuildPrompt: () => syncPrompt({ rebuild: true }),
+          openCampaignChat: (binding) => withInternalChatOpen(() => host.chat.openCampaignChat(binding)),
+          cloneCampaignChat: (options) => withInternalChatOpen(() => host.chat.cloneCampaignChat(options)),
+          runtimeAssets,
+          idFactory,
+          now
+        });
+        initialized = true;
+        await host.ui?.mount?.();
+        if (state) await publicApi.handleHostChatChanged();
+        storageDiagnostics = await controller.verifyStorage();
+        return campaignViewEnvelope('campaign');
+      } finally {
+        initializing = false;
+        if (initialized) scheduleDeferredInternalChatChange();
+      }
     },
 
     getChatTurnOrchestrator: () => orchestrator,
@@ -1752,7 +1783,6 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostChatChanged(payload = {}) {
-      await ensureInitialized();
       if (internalChatOpenDepth > 0) {
         deferredInternalChatChange = clone(payload || {});
         return {
@@ -1764,6 +1794,7 @@ export function createDirectiveRuntimeApp({
           deferred: true
         };
       }
+      await ensureInitialized();
       sendGameplayNotificationMessage({
         type: 'directive.gameplayNotifications.reset.v1',
         payload: { reason: 'chat-changed' }
@@ -2039,19 +2070,19 @@ export function createDirectiveRuntimeApp({
     async deleteCampaign({ campaignId, saveId = null } = {}) {
       await ensureInitialized();
       return enqueueSettlement(async () => {
-      const target = await controller.prepareCampaignDeletion({ campaignId, saveId });
       if (typeof host.chat.deleteCampaignCharacter !== 'function') {
         const error = new Error('SillyTavern character deletion is unavailable.');
         error.code = 'DIRECTIVE_CAMPAIGN_CHARACTER_DELETE_UNAVAILABLE';
         throw error;
       }
-      const hostDeletion = await withInternalChatOpen(() => (
-        host.chat.deleteCampaignCharacter(target.campaignChatBinding)
-      ));
-      const result = await controller.deleteCampaign({
-        campaignId: target.campaignId,
-        saveId: target.saveId
+      const deletion = await controller.deleteCampaignWithHost({
+        campaignId,
+        saveId,
+        deleteHostEntity: (binding) => withInternalChatOpen(() => (
+          host.chat.deleteCampaignCharacter(binding)
+        )),
       });
+      const { hostDeletion, ...result } = deletion;
       setState(null);
       configureStateRuntime();
       activeScreen = 'campaign';

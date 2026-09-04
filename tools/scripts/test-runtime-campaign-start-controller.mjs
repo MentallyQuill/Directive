@@ -8,6 +8,7 @@ import { V1_STORAGE_PATHS } from '../../src/storage/v1-storage-repository.mjs';
 
 function memoryAdapter(seed = {}) {
   const files = new Map(Object.entries(seed));
+  let nextDeleteFailure = null;
   return {
     async readJson(key) {
       if (!files.has(key)) {
@@ -18,7 +19,19 @@ function memoryAdapter(seed = {}) {
       return structuredClone(files.get(key));
     },
     async writeJson(key, value) { files.set(key, structuredClone(value)); },
-    async deleteJsonFile(key) { files.delete(key); }
+    async deleteJsonFile(key) {
+      if (nextDeleteFailure?.matches(key)) {
+        const failure = nextDeleteFailure;
+        nextDeleteFailure = null;
+        throw failure.error;
+      }
+      files.delete(key);
+    },
+    failNextDeleteFor(match, code = 'TEST_DELETE_FAILED') {
+      const error = new Error(`injected delete failure: ${match}`);
+      error.code = code;
+      nextDeleteFailure = { matches: (key) => key.includes(match), error };
+    }
   };
 }
 
@@ -90,6 +103,81 @@ const saveManifest = await adapter.readJson(saveManifestPath);
 assert.equal(saveManifest.kind, 'directive.campaignSaveManifest.v1');
 assert.equal(Object.hasOwn(saveManifest, 'state'), false);
 assert.equal((await adapter.readJson(V1_STORAGE_PATHS.saveBase(campaign.firstSave.id))).kind, 'directive.campaignSaveBase.v1');
+const legacyStartupIndex = await adapter.readJson(V1_STORAGE_PATHS.index);
+const legacyStartupAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyStartupIndex,
+  [V1_STORAGE_PATHS.save(campaign.firstSave.id)]: campaign.firstSave,
+});
+const legacyStartupController = createCampaignStartController({
+  adapter: legacyStartupAdapter,
+  packages: [packageData],
+  missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.${++id}`,
+  now: () => `2026-08-10T02:${String(minute++).padStart(2, '0')}:30.000Z`,
+});
+const recoveredLegacyCampaign = await legacyStartupController.initialize();
+assert.equal(recoveredLegacyCampaign.campaignState.player.name, 'Ren Okada');
+assert.equal(
+  (await legacyStartupAdapter.readJson(V1_STORAGE_PATHS.save(campaign.firstSave.id))).kind,
+  'directive.campaignSaveManifest.v1',
+  'controller startup must upgrade a valid monolithic V1 save before loading it',
+);
+assert.deepEqual(
+  (await legacyStartupAdapter.readJson(V1_STORAGE_PATHS.monolithicRecovery(campaign.firstSave.id))).save,
+  campaign.firstSave,
+  'controller startup must retain the exact monolithic recovery copy',
+);
+const legacyDeletableSave = structuredClone(campaign.firstSave);
+legacyDeletableSave.state.campaignChatBinding = {
+  kind: 'directive.campaignChatBinding.v1',
+  version: 1,
+  hostId: 'sillytavern',
+  chatId: 'legacy-delete-chat',
+  campaignId: legacyDeletableSave.campaignId,
+  saveId: legacyDeletableSave.id,
+  status: 'bound',
+  entityType: 'character',
+  entityId: 'legacy-delete-character',
+  entityName: 'Legacy Delete Character',
+  entityAvatar: 'legacy-delete-character.png',
+};
+const legacyDeleteAdapter = memoryAdapter({
+  [V1_STORAGE_PATHS.index]: legacyStartupIndex,
+  [V1_STORAGE_PATHS.save(legacyDeletableSave.id)]: legacyDeletableSave,
+});
+const legacyDeleteController = createCampaignStartController({
+  adapter: legacyDeleteAdapter,
+  packages: [packageData],
+  missionDefinitions,
+  campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS,
+  idFactory: (prefix) => `${prefix}.${++id}`,
+  now: () => `2026-08-10T02:${String(minute++).padStart(2, '0')}:45.000Z`,
+});
+await legacyDeleteController.initialize();
+legacyDeleteAdapter.failNextDeleteFor(V1_STORAGE_PATHS.monolithicRecovery(legacyDeletableSave.id));
+const pendingLegacyDeletion = await legacyDeleteController.deleteCampaignWithHost({
+  campaignId: legacyDeletableSave.campaignId,
+  saveId: legacyDeletableSave.id,
+  deleteHostEntity: async (binding) => ({ deleted: true, entityId: binding.entityId }),
+});
+assert.equal(pendingLegacyDeletion.deleted, true);
+assert.equal(pendingLegacyDeletion.cleanupPending, true);
+assert.deepEqual(pendingLegacyDeletion.cleanupFailures, [
+  V1_STORAGE_PATHS.monolithicRecovery(legacyDeletableSave.id),
+]);
+assert.equal(
+  (await legacyDeleteController.getCampaignView()).campaigns.length,
+  0,
+  'post-delete cleanup failure must not resurrect a campaign whose host entity may be gone',
+);
+const resumedLegacyDeletion = await legacyDeleteController.resumeCampaignDeletion({
+  campaignId: legacyDeletableSave.campaignId,
+  deleteHostEntity: async () => {
+    throw new Error('host deletion must not repeat after its phase was committed');
+  },
+});
+assert.equal(resumedLegacyDeletion.cleanupPending, false);
 const recoveredController = createCampaignStartController({
   adapter,
   packages: [packageData],
@@ -166,7 +254,8 @@ deletionState.campaignChatBinding = {
   status: 'bound',
   entityType: 'character',
   entityId: '0',
-  entityName: 'Ren Okada - Ashes of Peace'
+  entityName: 'Ren Okada - Ashes of Peace',
+  entityAvatar: 'ren-okada-directive.png'
 };
 deletionState.stateCustody.revision += 1;
 deletionState.stateCustody.recentCommitIds.push('test.name-deletion-chat');
@@ -190,11 +279,17 @@ await assert.rejects(
   (error) => error?.code === 'DIRECTIVE_CAMPAIGN_DELETE_TARGET_NOT_FOUND'
 );
 
-const campaignDeletion = await controller.deleteCampaign({
+let controllerHostDeletionCalls = 0;
+const campaignDeletion = await controller.deleteCampaignWithHost({
   campaignId: deletionTarget.campaignId,
-  saveId: deletionTarget.saveId
+  saveId: deletionTarget.saveId,
+  deleteHostEntity: async (binding) => {
+    controllerHostDeletionCalls += 1;
+    return { deleted: true, entityId: binding.entityId };
+  },
 });
 assert.equal(campaignDeletion.deleted, true);
+assert.equal(controllerHostDeletionCalls, 1);
 assert.equal(campaignDeletion.saveId, campaign.firstSave.id);
 assert.deepEqual(new Set(campaignDeletion.checkpointIds), new Set([checkpoint.id, deletionCheckpoint.id]));
 assert.equal(controller.getActiveSave(), null);
