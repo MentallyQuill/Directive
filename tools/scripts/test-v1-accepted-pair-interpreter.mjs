@@ -63,6 +63,8 @@ assert.match(prompt.systemPrompt, /deadlines.*do not themselves advance/i);
 assert.match(prompt.systemPrompt, /complete accepted pair/i);
 assert.match(prompt.systemPrompt, /both.*previous-assistant.*current player/i);
 assert.match(prompt.systemPrompt, /spoken dialogue.*seconds/i);
+assert.match(prompt.systemPrompt, /opening-baseline/i);
+assert.match(prompt.systemPrompt, /do not charge.*retrospective/i);
 assert.match(prompt.systemPrompt, /"time":\{"decision":"advance\|unchanged\|indeterminate"/);
 assert.match(prompt.messages[1].content, /53068\.4/);
 assert.match(prompt.messages[1].content, /08:42:17 hours/);
@@ -73,6 +75,9 @@ assert.equal(prompt.kind, 'directive.missionEvidenceInterpretationRequest.v1');
 assert.equal(prompt.jsonSchema.additionalProperties, false);
 assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.missionEvidenceInterpretation.v1');
 assert.equal(prompt.jsonSchema.properties.peopleEvents.type, 'array');
+assert.equal(prompt.jsonSchema.properties.time.properties.durationSeconds.type, 'integer');
+assert.equal(prompt.jsonSchema.properties.time.properties.durationSourceSlot.type, 'string');
+assert.equal(prompt.jsonSchema.properties.time.properties.durationEvidenceQuote.type, 'string');
 assert.match(prompt.systemPrompt, /merely mentioned.*(?:does not|do not) create/i);
 assert.match(prompt.messages[1].content, /mara-whitaker/);
 const claimVariants = prompt.jsonSchema.properties.claims.items.oneOf;
@@ -87,6 +92,32 @@ assert.equal(
     claimVariants.some((variant) => variant.properties.candidateId.const === 'policy.not-authorized'),
     false,
 );
+
+const openingBaselinePrompt = createMissionAcceptedPairInterpretationPrompt({
+    candidatePacket,
+    sourcePair: {
+        previousAssistant: {
+            ...sourcePair.previousAssistant,
+            text: 'Yesterday morning the shuttle docked. Now it is 0830 the following morning.',
+        },
+        currentPlayer: {
+            ...sourcePair.currentPlayer,
+            text: 'I acknowledge the handover and ask Whitaker for her immediate priorities.',
+        },
+    },
+    timeContext: {
+        ...timeContext,
+        scope: {
+            kind: 'directive.acceptedPairTimeScope.v1',
+            previousAssistantTiming: 'opening-baseline',
+            countPreviousAssistant: false,
+            countCurrentPlayer: true,
+        },
+    },
+    peopleContext,
+});
+assert.match(openingBaselinePrompt.messages[1].content, /"previousAssistantTiming": "opening-baseline"/);
+assert.match(openingBaselinePrompt.systemPrompt, /count only.*current player/i);
 
 const validOutput = {
     kind: 'directive.missionEvidenceInterpretation.v1',
@@ -129,6 +160,29 @@ assert.equal(parsed.ok, true, parsed.errors?.join('\n'));
 assert.equal(parsed.value.claims.length, 2);
 assert.deepEqual(parsed.value.peopleEvents, validOutput.peopleEvents);
 assert.deepEqual(parsed.value.time, validOutput.time);
+
+const explicitDurationSourcePair = {
+    ...sourcePair,
+    currentPlayer: {
+        ...sourcePair.currentPlayer,
+        text: 'Use the safer plan for the remaining transfer. I wait exactly ten minutes before I begin the safer transfer.',
+    },
+};
+const explicitDurationOutput = {
+    ...validOutput,
+    time: {
+        ...validOutput.time,
+        elapsedSeconds: 600,
+        durationSeconds: 600,
+        durationSourceSlot: 'currentPlayer',
+        durationEvidenceQuote: 'I wait exactly ten minutes before I begin the safer transfer.',
+    },
+};
+const parsedExplicitDuration = parseMissionAcceptedPairInterpretationOutput(explicitDurationOutput, {
+    candidatePacket,
+    sourcePair: explicitDurationSourcePair,
+});
+assert.equal(parsedExplicitDuration.ok, true, parsedExplicitDuration.errors?.join('\n'));
 
 const proposal = materializeMissionEvidenceProposal({
     interpretation: parsed.value,
@@ -297,6 +351,28 @@ for (const [label, output, pattern] of [
         ...validOutput,
         time: { ...validOutput.time, elapsedSeconds: 2678401 },
     }, /must not exceed/],
+    ['partial duration evidence', {
+        ...validOutput,
+        time: { ...validOutput.time, durationSeconds: 47 },
+    }, /requires durationSeconds, durationSourceSlot, and durationEvidenceQuote together/],
+    ['mismatched duration seconds', {
+        ...validOutput,
+        time: {
+            ...validOutput.time,
+            durationSeconds: 600,
+            durationSourceSlot: 'currentPlayer',
+            durationEvidenceQuote: 'Use the safer plan for the remaining transfer.',
+        },
+    }, /durationSeconds must equal time.elapsedSeconds/],
+    ['duration evidence without temporal language', {
+        ...validOutput,
+        time: {
+            ...validOutput.time,
+            durationSeconds: 47,
+            durationSourceSlot: 'currentPlayer',
+            durationEvidenceQuote: 'Use the safer plan for the remaining transfer.',
+        },
+    }, /temporal-anchor-missing/],
 ]) {
     const invalid = parseMissionAcceptedPairInterpretationOutput(output, { candidatePacket, sourcePair });
     assert.equal(invalid.ok, false, label);

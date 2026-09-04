@@ -276,6 +276,10 @@ function sourcePairFromSnapshot(snapshot = {}) {
 
 function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAssets = {}) {
     const ledger = campaignState?.timeLedger || {};
+    const previousAssistant = snapshot?.source?.previousAssistant || {};
+    const selectedVariant = previousAssistant.selectedVariant || {};
+    const openingBaseline = selectedVariant.outcomeId === 'opening'
+        || compact(selectedVariant.responseId).startsWith('directive.v1.opening.');
     const secondOfDay = ledger.shipClock?.secondOfDay
         ?? (Number(ledger.shipClock?.minuteOfDay || 0) * 60);
     const elapsedSeconds = ledger.elapsedSeconds
@@ -287,6 +291,12 @@ function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAsset
             minuteOfDay: Math.floor(secondOfDay / 60),
             elapsedSeconds,
             elapsedMinutes: Math.floor(elapsedSeconds / 60),
+        },
+        scope: {
+            kind: 'directive.acceptedPairTimeScope.v1',
+            previousAssistantTiming: openingBaseline ? 'opening-baseline' : 'elapsed-from-current',
+            countPreviousAssistant: !openingBaseline,
+            countCurrentPlayer: true,
         },
         footer: snapshot?.source?.previousAssistant?.timeFooter || null,
         stardatePerDay: runtimeAssets?.packageData?.world?.layout?.stardatePerDay ?? 1,

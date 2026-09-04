@@ -1,5 +1,6 @@
 import { parseStructuredJsonText } from '../../providers/structured-output-parser.mjs';
 import { createGenerationRoleRegistry } from '../../generation/generation-roles.mjs';
+import { inspectEnactedDurationEvidence } from '../../time/time-evidence.mjs';
 
 export const MISSION_EVIDENCE_INTERPRETATION_KIND = 'directive.missionEvidenceInterpretation.v1';
 export const MISSION_EVIDENCE_INTERPRETER_ROLE_ID = 'acceptedPairMissionEvidence';
@@ -20,7 +21,9 @@ const PEOPLE_FACT_NAMES = new Set([
     'displayName', 'role', 'affiliation', 'species', 'age', 'birthplace',
     'serviceBackground', 'assignmentHistory', 'profileSummary',
 ]);
-const TIME_FIELDS = new Set(['decision', 'elapsedSeconds', 'reason', 'confidence']);
+const TIME_FIELDS = new Set([
+    'decision', 'elapsedSeconds', 'reason', 'confidence', 'durationSeconds', 'durationSourceSlot', 'durationEvidenceQuote',
+]);
 const MAX_DURABLE_SELECTIONS = 4;
 const MAX_CLAIMS = MAX_DURABLE_SELECTIONS;
 const MAX_PEOPLE_EVENTS = 24;
@@ -207,13 +210,20 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
                     elapsedSeconds: { type: 'integer', minimum: 0, maximum: MAX_TIME_ADVANCE_SECONDS },
                     reason: { type: 'string', minLength: 1, maxLength: 180 },
                     confidence: { type: 'number', minimum: 0, maximum: 1 },
+                    durationSeconds: { type: 'integer', minimum: 1, maximum: MAX_TIME_ADVANCE_SECONDS },
+                    durationSourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
+                    durationEvidenceQuote: {
+                        type: 'string',
+                        minLength: MIN_EVIDENCE_QUOTE_LENGTH,
+                        maxLength: MAX_EVIDENCE_QUOTE_LENGTH,
+                    },
                 },
             },
         },
     };
 }
 
-function timeDecisionErrors(value) {
+function timeDecisionErrors(value, sourcePair = {}) {
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ['time must be an object'];
     for (const field of unknownFields(value, TIME_FIELDS)) errors.push(`time contains unknown field: ${field}`);
@@ -234,6 +244,34 @@ function timeDecisionErrors(value) {
     }
     if (!Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1) {
         errors.push('time.confidence must be between 0 and 1');
+    }
+    const hasDurationSource = Object.hasOwn(value, 'durationSourceSlot');
+    const hasDurationQuote = Object.hasOwn(value, 'durationEvidenceQuote');
+    const hasDurationSeconds = Object.hasOwn(value, 'durationSeconds');
+    if (new Set([hasDurationSource, hasDurationQuote, hasDurationSeconds]).size > 1) {
+        errors.push('time duration evidence requires durationSeconds, durationSourceSlot, and durationEvidenceQuote together');
+    } else if (hasDurationSource) {
+        if (value.decision !== 'advance') errors.push('time duration evidence is allowed only for advance');
+        if (!Number.isInteger(value.durationSeconds)
+            || value.durationSeconds <= 0
+            || value.durationSeconds > MAX_TIME_ADVANCE_SECONDS) {
+            errors.push(`time.durationSeconds must be between 1 and ${MAX_TIME_ADVANCE_SECONDS}`);
+        }
+        if (value.durationSeconds !== value.elapsedSeconds) {
+            errors.push('time.durationSeconds must equal time.elapsedSeconds');
+        }
+        if (!SOURCE_SLOTS.has(value.durationSourceSlot)) errors.push('time.durationSourceSlot is unknown');
+        errors.push(...evidenceQuoteErrors({
+            sourceSlot: value.durationSourceSlot,
+            evidenceQuote: value.durationEvidenceQuote,
+        }, sourcePair, 'time.duration'));
+        const durationEvidence = inspectEnactedDurationEvidence({
+            sourceText: sourcePair?.[value.durationSourceSlot]?.text,
+            evidenceQuote: value.durationEvidenceQuote,
+        });
+        if (!durationEvidence.ok) {
+            errors.push(`time.durationEvidenceQuote must show enacted forward time: ${durationEvidence.reasonCode}`);
+        }
     }
     return errors;
 }
@@ -312,7 +350,7 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair)
         errors.push('assistantAcceptance is unknown');
     }
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
-    errors.push(...timeDecisionErrors(value.time));
+    errors.push(...timeDecisionErrors(value.time, sourcePair));
     errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext, sourcePair));
     if (!Array.isArray(value.claims)) {
         errors.push('claims must be an array');
@@ -434,6 +472,8 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Use a supplied known person ID whenever the subject matches the knownPeople directory. Never merge identities, invent a durable person ID, infer private information, or turn routine dialogue into relationship evidence.',
         'publicFactLearned is limited to public identity or professional facts explicitly established in the accepted source. relationshipEvidence must describe an observable interaction outcome, commitment, trust change, disagreement, obligation, or repair rather than sentiment speculation.',
         'Independently estimate elapsed story time across the complete accepted pair. The supplied footer is a proposal, not authority.',
+        'Obey time.scope. When time.scope.previousAssistantTiming is opening-baseline, the previous assistant text establishes the clock at its final current-scene moment: do not charge its retrospective setup, earlier events, or transition to that baseline as new elapsed time. Count only time enacted by the current player after that baseline.',
+        'When an explicit duration, clock jump, or scene-cut phrase primarily determines an advance, add durationSeconds, durationSourceSlot, and durationEvidenceQuote to time. durationSeconds must equal elapsedSeconds. The quote must be verbatim from that source and must show enacted forward passage, not a refusal, question, plan, hypothetical, schedule, or past event. Omit all three duration fields for implicit seconds of ordinary speech or action.',
         'Account for both the previous-assistant response and the current player response. Mission-claim rejection or correction does not erase time consumed by visible speech or action.',
         'Spoken dialogue, pauses, and immediate physical actions normally consume whole seconds even when ship time remains within the same minute. Use zero only when the complete pair supports no fictional time passage.',
         'Advance time only when visible prose supports waiting, travel, work, rest, a scene cut, or another completed duration.',
@@ -441,6 +481,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Use advance with a positive whole number of seconds, unchanged with zero when no fictional time passes, or indeterminate with zero when evidence conflicts or is insufficient.',
         'Return exactly one JSON object with no markdown or prose:',
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
+        'Explicit-duration time example only: {"decision":"advance","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
     ].join('\n');
     const userPayload = {
         envelope: {
