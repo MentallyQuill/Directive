@@ -123,6 +123,7 @@ function runtimeAssets(definition) {
 function createHarness({ definition, sceneSnapshot, state, outputs = [], failPersistenceCount = 0 }) {
     let campaignState = structuredClone(state);
     let generationCount = 0;
+    const generationRequests = [];
     let persistCount = 0;
     const gateway = createStateDeltaGateway({
         getState: () => campaignState,
@@ -137,7 +138,8 @@ function createHarness({ definition, sceneSnapshot, state, outputs = [], failPer
         getState: () => campaignState,
         stateDeltaGateway: gateway,
         generationRouter: {
-            generate: async () => {
+            generate: async (roleId, request) => {
+                generationRequests.push({ roleId, request: structuredClone(request) });
                 const text = outputs[generationCount] ?? outputs.at(-1) ?? '';
                 generationCount += 1;
                 return { ok: true, response: { text } };
@@ -160,6 +162,7 @@ function createHarness({ definition, sceneSnapshot, state, outputs = [], failPer
         sceneSnapshot,
         get campaignState() { return campaignState; },
         get generationCount() { return generationCount; },
+        get generationRequests() { return structuredClone(generationRequests); },
         get persistCount() { return persistCount; },
     };
 }
@@ -223,6 +226,46 @@ const correctedPlayerClaim = JSON.stringify({
 });
 
 const definition = narrativeTimeDefinition();
+const openingSceneSnapshot = snapshot('opening-baseline');
+openingSceneSnapshot.source.previousAssistant.text = 'Yesterday morning the shuttle docked. The hours passed. Now it is 0830 the following morning.';
+openingSceneSnapshot.source.previousAssistant.selectedVariant = {
+    ...openingSceneSnapshot.source.previousAssistant.selectedVariant,
+    outcomeId: 'opening',
+    responseId: 'directive.v1.opening.save.time.opening-baseline',
+};
+openingSceneSnapshot.source.currentPlayer.text = 'I acknowledge the handover and ask Whitaker for her immediate priorities.';
+const openingHistoricalAdvance = JSON.stringify({
+    kind: 'directive.missionEvidenceInterpretation.v1',
+    assistantAcceptance: 'accepted',
+    claims: [],
+    abstained: true,
+    time: {
+        decision: 'advance',
+        elapsedSeconds: 86400,
+        reason: 'previous-assistant-says-following-morning',
+        confidence: 0.94,
+    },
+});
+const openingHarness = createHarness({
+    definition,
+    sceneSnapshot: openingSceneSnapshot,
+    state: initialCampaignState(definition, openingSceneSnapshot, { suffix: 'opening-baseline', boundary: null }),
+    outputs: [openingHistoricalAdvance],
+});
+const openingSettled = await openingHarness.runtime.settleAcceptedPair({
+    runtimeAssets: openingHarness.runtimeAssets,
+    snapshot: openingSceneSnapshot,
+});
+assert.equal(openingSettled.ok, true);
+assert.equal(openingSettled.time.status, 'recorded');
+assert.equal(openingHarness.campaignState.timeLedger.elapsedSeconds, 0);
+assert.equal(openingHarness.campaignState.timeLedger.decisions.at(-1).reason, 'opening-baseline-retrospective-time-excluded');
+assert.match(
+    openingHarness.generationRequests[0].request.messages[1].content,
+    /"previousAssistantTiming": "opening-baseline"/,
+    'the Utility request must receive the opening-baseline scope from real snapshot metadata',
+);
+
 const mainSnapshot = snapshot('main');
 const mainHarness = createHarness({
     definition,
