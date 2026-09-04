@@ -37,6 +37,59 @@ assert.equal(eventSource.listenerCount('updated'), 1);
 disposeSillyTavernDirectiveEventLifecycle();
 for (const event of Object.values(eventTypes)) assert.equal(eventSource.listenerCount(event), 0);
 
+const playerEventSource = createFakeEventAdapter();
+const currentPlayerEventTypes = {
+  MESSAGE_SENT: 'message_sent',
+  USER_MESSAGE_RENDERED: 'user_message_rendered'
+};
+let observedPlayerMessages = 0;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async observeHostPlayerMessage() {
+      observedPlayerMessages += 1;
+      return { handled: true };
+    }
+  }
+});
+wireEvents({ eventSource: playerEventSource, eventTypes: currentPlayerEventTypes });
+assert.equal(
+  playerEventSource.listenerCount('message_sent'),
+  1,
+  'the resolved MESSAGE_SENT event must not be registered again through its symbolic fallback'
+);
+assert.equal(
+  playerEventSource.listenerCount('user_message_rendered'),
+  0,
+  'one logical user send must use one canonical host event instead of observing both sent and rendered phases'
+);
+await playerEventSource.emit('message_sent', 1);
+await playerEventSource.emit('user_message_rendered', 1);
+await Promise.resolve();
+assert.equal(observedPlayerMessages, 1, 'one SillyTavern user send must schedule one Directive observation');
+disposeSillyTavernDirectiveEventLifecycle();
+clearSillyTavernDirectiveRuntimeBridge();
+
+const renderedFallbackEventSource = createFakeEventAdapter();
+let renderedFallbackCalls = 0;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    async observeHostPlayerMessage() {
+      renderedFallbackCalls += 1;
+      return { handled: true };
+    }
+  }
+});
+wireEvents({
+  eventSource: renderedFallbackEventSource,
+  eventTypes: { USER_MESSAGE_RENDERED: 'legacy_user_message_rendered' }
+});
+assert.equal(renderedFallbackEventSource.listenerCount('legacy_user_message_rendered'), 1);
+renderedFallbackEventSource.emit('legacy_user_message_rendered', 2);
+await Promise.resolve();
+assert.equal(renderedFallbackCalls, 1, 'legacy hosts without MESSAGE_SENT must retain rendered-message observation');
+disposeSillyTavernDirectiveEventLifecycle();
+clearSillyTavernDirectiveRuntimeBridge();
+
 let releaseEditedReconciliation = null;
 const editedReconciliation = new Promise((resolve) => { releaseEditedReconciliation = resolve; });
 setSillyTavernDirectiveRuntimeBridge({

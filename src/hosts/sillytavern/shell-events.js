@@ -271,12 +271,11 @@ export function wireEvents(context) {
   const events = context.eventTypes || context.event_types || {};
   const disposers = [];
   register(adapter, [events.CHAT_CHANGED || 'CHAT_CHANGED'], handleChatChanged, disposers);
-  register(adapter, [
-    events.MESSAGE_SENT,
-    events.USER_MESSAGE_SENT,
-    events.USER_MESSAGE_RENDERED,
-    'MESSAGE_SENT'
-  ], handlePlayerMessage, disposers);
+  const playerMessageEvent = events.MESSAGE_SENT
+    || events.USER_MESSAGE_SENT
+    || events.USER_MESSAGE_RENDERED
+    || 'MESSAGE_SENT';
+  register(adapter, [playerMessageEvent], handlePlayerMessage, disposers);
   register(adapter, [events.MESSAGE_EDITED || 'MESSAGE_EDITED'], handleMessageEdited, disposers);
   register(adapter, [events.MESSAGE_UPDATED || 'MESSAGE_UPDATED'], handleMessageVisibilityChanged, disposers);
   register(adapter, [events.MESSAGE_SWIPED || 'MESSAGE_SWIPED'], handleMessageSelectedSwipeChanged, disposers);
