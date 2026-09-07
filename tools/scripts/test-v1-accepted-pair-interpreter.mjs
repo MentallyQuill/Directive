@@ -10,6 +10,13 @@ import {
 import { createMissionInterpretationCandidatePacket } from '../../src/mission/v1/interpretation-candidates.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 
+const capturedFlashOutput = JSON.parse(fs.readFileSync(
+    'tests/fixtures/mission/v1/glm-flash-invalid-output.fixture.json', 'utf8',
+));
+const capturedRejection = parseMissionAcceptedPairInterpretationOutput(capturedFlashOutput.output, capturedFlashOutput);
+assert.equal(capturedRejection.ok, false, 'captured malformed evidence must remain rejected');
+assert.deepEqual(capturedRejection.errors, capturedFlashOutput.expectedErrors);
+
 const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
     'utf8',
@@ -22,6 +29,15 @@ state.events.push(
     'event.prelude.command-handover-terms-settled',
 );
 const candidatePacket = createMissionInterpretationCandidatePacket({ definition, state });
+const capturedJoinedQuote = JSON.parse(fs.readFileSync(
+    'tests/fixtures/mission/v1/glm-flash-nonverbatim-quote.fixture.json', 'utf8',
+));
+const joinedQuoteRejection = parseMissionAcceptedPairInterpretationOutput(capturedJoinedQuote.output, {
+    candidatePacket, sourcePair: capturedJoinedQuote.sourcePair,
+});
+assert.equal(joinedQuoteRejection.ok, false, 'joined live excerpts must not become authoritative evidence');
+assert.ok(joinedQuoteRejection.errors.some(error => /quote/i.test(JSON.stringify(error))));
+assert.ok(joinedQuoteRejection.errors.includes('abstained output cannot contain claims'));
 const sourcePair = {
     previousAssistant: {
         messageId: 'message.assistant.17',
@@ -55,6 +71,9 @@ const prompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, 
 assert.equal(prompt.metadata.roleId, 'acceptedPairMissionEvidence');
 assert.equal(prompt.metadata.missionId, definition.id);
 assert.match(prompt.systemPrompt, /plans, attempts, guesses, questions/i);
+assert.match(prompt.systemPrompt, /one continuous excerpt/);
+assert.match(prompt.systemPrompt, /Never join separated passages/);
+assert.match(prompt.systemPrompt, /If claims is nonempty, set abstained to false/);
 assert.match(prompt.systemPrompt, /do not create/i);
 assert.match(prompt.systemPrompt, /joint accepted-pair condition/i);
 assert.match(prompt.messages[1].content, /last patient aboard/);
@@ -69,8 +88,9 @@ assert.match(prompt.systemPrompt, /"time":\{"decision":"advance\|unchanged\|inde
 assert.match(prompt.messages[1].content, /53068\.4/);
 assert.match(prompt.messages[1].content, /08:42:17 hours/);
 assert.equal(prompt.messages[1].content.includes('mustNotReveal'), false);
-assert.equal(prompt.maxTokens, 2500);
-assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 2500 });
+assert.equal(prompt.maxTokens, 8192, 'reasoning-producing Utility routes need room for visible JSON');
+assert.deepEqual(prompt.parameters, { temperature: 0, top_p: 1, max_tokens: 8192 });
+assert.ok(prompt.systemPrompt.includes(JSON.stringify(prompt.jsonSchema)), 'Prompt JSON must receive the same complete contract as native schema');
 assert.equal(prompt.kind, 'directive.missionEvidenceInterpretationRequest.v1');
 assert.equal(prompt.jsonSchema.additionalProperties, false);
 assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.missionEvidenceInterpretation.v1');

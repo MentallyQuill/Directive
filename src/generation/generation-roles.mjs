@@ -14,7 +14,8 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     providerKind: 'utility',
     blocking: true,
     output: 'structured-json',
-    timeoutMs: 120000,
+    // The shared completion budget includes provider reasoning and visible JSON.
+    timeoutMs: 240000,
     structuredOutput: true,
     mayProposeState: false,
     mayInjectPrompt: false,

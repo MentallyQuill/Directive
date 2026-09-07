@@ -2,6 +2,8 @@ export const SAFE_DIRECTIVE_SAMPLER_FIELDS = Object.freeze([
   'temperature', 'top_p', 'top_k', 'min_p', 'top_a', 'typical_p', 'tfs',
   'repetition_penalty', 'rep_pen', 'rep_pen_range', 'rep_pen_slope',
   'frequency_penalty', 'presence_penalty', 'penalty_alpha',
+  // Reasoning effort is a model generation control, independent of preset prose.
+  'reasoning_effort',
   'no_repeat_ngram_size', 'encoder_repetition_penalty',
   'seed', 'do_sample', 'num_beams',
   'mirostat_mode', 'mirostat_tau', 'mirostat_eta',
