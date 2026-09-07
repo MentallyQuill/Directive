@@ -15,7 +15,7 @@ No compatibility layer; no paid model calls; current-mission corrections only; p
 - [x] Add canonical decision state and generic resolution/correction/replay handling with focused failing-then-passing tests. Own mission/runtime/projection core. Define action API for UI integration.
 - [x] Wire Mission adjustments, notifications and pending/error feedback through shared commands; add controlled browser checks. Own UI and host action wiring, coordinate exact API with core.
 - [x] Integrate, run full alpha gate, review source and test coverage against spec, address findings.
-- [ ] Commit scoped work, push feature branch and create draft PR with controlled validation evidence and explicit deferred live testing.
+- [x] Commit scoped work, push feature branch and create draft PR with controlled validation evidence and explicit deferred live testing.
 
 ## Rulings and evidence
 
@@ -27,3 +27,4 @@ No compatibility layer; no paid model calls; current-mission corrections only; p
 - Manual changes update pending transition eligibility; transition activation remains in the existing lifecycle.
 - Independent review covered replay prerequisites, stale provider cancellation ownership, conflicting terminal evidence, conditional visibility, and notification retirement. Regression tests cover the reported defects.
 - Final controlled alpha gate passed 164 focused checks (exit 0). Live-model testing remains deferred.
+- Delivery: [draft PR #6](https://github.com/MentallyQuill/Directive/pull/6), branch `codex/objective-progress`; no merge or deployment.
