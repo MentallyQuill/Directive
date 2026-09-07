@@ -49,7 +49,7 @@ const profileContext = {
   ChatCompletionService: {
     TYPE: 'openai',
     async presetToGeneratePayload(_preset, _overrides, basePayload) {
-      return { ...basePayload, temperature: 0.6, top_p: 0.9, top_k: 40, custom_url: 'DO_NOT_PROJECT' };
+      return { ...basePayload, temperature: 0.6, top_p: 0.9, top_k: 40, reasoning_effort: 'medium', custom_url: 'DO_NOT_PROJECT' };
     }
   }
 };
@@ -144,7 +144,7 @@ assert.deepEqual(profileCalls[0], {
     includeInstruct: false,
     signal: undefined
   },
-  payload: { temperature: 0.6, top_p: 0.9, top_k: 40 }
+  payload: { temperature: 0.6, top_p: 0.9, top_k: 40, reasoning_effort: 'medium' }
 });
 assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
 

@@ -5893,7 +5893,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .objective-progress-explanation { margin-bottom: 8px; font-size: 12px; }
 .objective-progress-explanation summary { cursor: pointer; }
 .objective-progress-feedback { font-size: 12px; overflow-wrap: anywhere; }
-.objective-progress-overlay { position: fixed; inset: 0; z-index: 2147483646; background: #0009; display: grid; place-items: center; padding: 16px; pointer-events: auto; }
+.objective-progress-overlay { position: fixed; inset: 0; box-sizing: border-box; width: 100vw; height: 100dvh; z-index: 2147483646; background: #0009; display: grid; place-items: center; padding: 16px; pointer-events: auto; }
 .objective-progress-dialog { box-sizing: border-box; width: min(440px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; background: var(--directive-expanded-surface, #0d1018); color: var(--directive-expanded-text, #f8efe0); border: 1px solid var(--directive-expanded-amber, #ff9f4a); border-radius: 6px; box-shadow: 0 24px 72px #000b; font-family: "Segoe UI", system-ui, sans-serif; }
 .objective-progress-dialog h2 { margin: 0 0 12px; color: var(--directive-expanded-amber, #ff9f4a); font: 900 20px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; }
 .objective-progress-dialog p { line-height: 1.5; }

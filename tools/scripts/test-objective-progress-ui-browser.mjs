@@ -24,6 +24,9 @@ try {
   document.querySelector('#opener').onclick=()=>window.controls.showObjectiveProgressDialog({objective:window.objective,mission:{id:'mission-x',runId:'run-x'},onCommitted:()=>window.committed=true});
  });
  await page.locator('#opener').click();
+ await page.evaluate(()=>{document.body.style.transform='translateZ(0)';document.body.style.height='0px';});
+ assert.ok(await page.evaluate(()=>{const r=document.querySelector('.objective-progress-dialog').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),'dialog must stay in viewport when host body forms a zero-height fixed containing block');
+ await page.evaluate(()=>{document.body.style.transform='';document.body.style.height='';});
  await page.getByRole('button',{name:'Still underway',exact:true}).click();
  assert.equal(await page.getByRole('status').textContent(),'Saving progress…');
  await page.keyboard.press('Escape');

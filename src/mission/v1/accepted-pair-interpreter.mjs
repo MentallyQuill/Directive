@@ -7,7 +7,7 @@ export const MISSION_EVIDENCE_INTERPRETER_ROLE_ID = 'acceptedPairMissionEvidence
 export const MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS = createGenerationRoleRegistry()
     .get(MISSION_EVIDENCE_INTERPRETER_ROLE_ID).timeoutMs;
 
-const MISSION_EVIDENCE_MAX_TOKENS = 2500;
+const MISSION_EVIDENCE_MAX_TOKENS = 8192;
 
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const TIME_DECISION_VALUES = new Set(['advance', 'unchanged', 'indeterminate']);
@@ -460,6 +460,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
 export function createMissionAcceptedPairInterpretationPrompt({
     candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {},
 } = {}) {
+    const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket });
     const systemPrompt = [
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
         'Select only candidate IDs supplied in this request. Do not create or invent policies, targets, values, state, summaries, trackers, objectives, consequences, rewards, or narration.',
@@ -470,7 +471,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
         'Every claim and People observation must include evidenceQuote: a verbatim 12–240 character excerpt from its selected source slot that directly proves the selection.',
+        'Copy one continuous excerpt exactly as written. Never join separated passages, insert ellipses, paraphrase, or repair the source inside evidenceQuote. Use a shorter intact excerpt when needed.',
         'Return no more than four durable selections total across claims and People observations.',
+        'abstained refers to mission claims only. If claims is nonempty, set abstained to false. Set it to true only when claims is empty; never return claims together with abstained:true.',
         'Observe People changes in the same response. A direct NPC encounter may create personIntroduced only when that NPC gives the player a usable name. A name merely mentioned by someone else does not create a person and must be omitted.',
         'Use a supplied known person ID whenever the subject matches the knownPeople directory. Never merge identities, invent a durable person ID, infer private information, or turn routine dialogue into relationship evidence.',
         'publicFactLearned is limited to public identity or professional facts explicitly established in the accepted source. relationshipEvidence must describe an observable interaction outcome, commitment, trust change, disagreement, obligation, or repair rather than sentiment speculation.',
@@ -485,6 +488,8 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Resolve only settled results. Orders, intentions, attempts, temporary stabilization, predictions, negated outcomes, and questions are not completed outcomes even when quoted accurately. Apply the full authored requirement, including evidence accumulated in current state.',
         'Candidates with corrections include evidence rejected by the player. Repetition, paraphrase, retrospective discussion, or a new message quoting that same event is not new evidence. Select such a candidate only for a materially new enacted result after the correction, and explicitly set materiallyNewEvidence:true. Otherwise abstain on it. Player-set resolutions are authoritative.',
         'Return exactly one JSON object with no markdown or prose:',
+        'The complete output schema below applies in Prompt JSON mode as well as native schema mode. Omit claim value unless that candidate permits it. People observations use type, personRef (or localRef for introductions), sourceSlot, and evidenceQuote; do not invent alternative field names. Keep time.reason within 180 characters.',
+        `Output JSON Schema: ${JSON.stringify(jsonSchema)}`,
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
         'Explicit-duration time example only: {"decision":"advance","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
     ].join('\n');
@@ -518,7 +523,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
             { role: 'system', content: systemPrompt },
             { role: 'user', content: user },
         ],
-        jsonSchema: createMissionAcceptedPairInterpretationSchema({ candidatePacket }),
+        jsonSchema,
         metadata: {
             roleId: MISSION_EVIDENCE_INTERPRETER_ROLE_ID,
             missionId: candidatePacket.missionId || null,

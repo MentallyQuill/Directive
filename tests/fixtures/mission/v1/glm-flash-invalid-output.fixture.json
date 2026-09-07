@@ -1,0 +1,87 @@
+{
+  "provenance": {
+    "kind": "captured-live-provider-output",
+    "date": "2026-09-07",
+    "model": "z-ai/glm-5.3-flash",
+    "provider": "nanogpt",
+    "note": "Visible output only; rejected output must not be repaired into authoritative claims."
+  },
+  "candidatePacket": {
+    "kind": "directive.missionInterpretationCandidates.v1",
+    "missionId": "mission.prelude-a-ship-underway",
+    "definitionVersion": "1.1.0",
+    "branchId": "save-1788789259779-3",
+    "baseRevision": 1,
+    "candidates": [
+      {
+        "id": "policy.hesperus.distress-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.hesperus.distress-established",
+        "sourceSlots": [
+          "previousAssistant"
+        ],
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted assistant prose communicates the Hesperus distress call to the player character.",
+        "exclusions": [
+          "A private signal, hidden alert, or unrelated mention of Hesperus does not establish player knowledge."
+        ]
+      },
+      {
+        "id": "policy.prelude.command-handover-terms-settled",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.command-handover-terms-settled",
+        "sourceSlots": [
+          "previousAssistant"
+        ],
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts Whitaker and the new XO settling concrete authority, escalation, and working-boundary terms for the assignment.",
+        "exclusions": [
+          "A greeting, assignment announcement, invitation to negotiate, unilateral player assertion, or interrupted discussion that leaves material terms open is not a settled handover framework."
+        ]
+      },
+      {
+        "id": "policy.prelude.poker-invitation-disclosed",
+        "claimType": "factDisclosed",
+        "targetId": "fact.prelude.poker-invitation",
+        "sourceSlots": [
+          "previousAssistant"
+        ],
+        "evidenceStandard": "explicit",
+        "guidance": "Claim only when accepted prose explicitly depicts Kieran Vale inviting the player to the established junior-officer poker game after first watch.",
+        "exclusions": [
+          "Kieran being present, mentioning off-duty plans, or the player independently asking about poker does not establish that the invitation was given."
+        ]
+      },
+      {
+        "id": "policy.prelude.sickbay-consultation-held",
+        "claimType": "eventOccurred",
+        "targetId": "event.prelude.sickbay-consultation-held",
+        "sourceSlots": [
+          "previousAssistant"
+        ],
+        "evidenceStandard": "clearOutcome",
+        "guidance": "Claim only when accepted assistant prose depicts the player actually meeting Commander Sato in Sickbay during the transit.",
+        "exclusions": [
+          "Planning a visit, summoning Sato elsewhere, or a passing corridor exchange is not the Sickbay consultation."
+        ]
+      }
+    ]
+  },
+  "sourcePair": {
+    "previousAssistant": {
+      "text": "Whitaker studied Ellis for a beat — not long enough to be hesitation, but long enough to be a choice. She gave a short nod.\n\n\"Granted. Coordinate the response. I want to know what we're walking into before we commit to a vector, and I want to be in the loop before you change that assessment. Otherwise, it's your watch to run.\" She tapped the comm. \"Lieutenant Nayar, the Commander has the conn on this one. Answer his questions.\"\n\nNayar's voice came back promptly, her tone shifting into the precise, unhurried register of someone reading from a consolidated display.\n\n\"Commander, the distress call is from the civilian transport *Hesperus* — Antares-class, registered out of Rigel. She transmitted on standard emergency frequencies four minutes ago. Position is bearing zero-four-seven mark twelve, approximately two point three light-years from our present course. No subspace relay relayed it — we picked up the signal directly, which puts her within our long-range reception envelope but at the edge of useful resolution.\"\n\nA brief pause — the sound of someone checking a second readout.\n\n\"The transmission states main power failure and loss of propulsion. She reports fourteen souls aboard — twelve passengers, two crew. Life support is on backup and she gives no estimate on remaining duration. No mention of hostile contact, hull breach, or medical emergency in the transmission itself.\"\n\nNayar continued, her courtesy tightening by a degree — the tell that something about the data didn't line up cleanly.\n\n\"I should note, Commander — the *Hesperus* is not on any scheduled civilian lane for this sector. Her registered route of service is Rigel-to-Deneva. This position is well off that track. I can confirm the distress signal is real and matches her registered transponder signature, but with our sensor stack still provisional, I can't independently corroborate her hull status, actual crew complement, or anything else about the vessel beyond what the transmission itself states. We'd need to close to short-range sensor contact for that.\"\n\nThe ready room was quiet for a moment after Nayar finished. Whitaker had been listening without interrupting, her attention on the bulkhead-mounted display that mirrored the bridge tactical feed — the *Hesperus*'s position marker sat at the edge of the plotted range, a small amber icon in otherwise empty space.\n\n\"Off her registered lane,\" Whitaker said, not quite to Ellis, not quite to herself. Then, to him, directly: \"Your call, Commander. What do you need?\""
+    },
+    "currentPlayer": {
+      "text": "\"Set an intercept at a safe speed within our present readiness limits. Hail Hesperus and ask her master for life-support endurance, injured passengers, and any hazardous cargo. Have Engineering and Medical prepare a joint response team and portable support equipment. We will assess before moving anyone or touching her propulsion.\" I look to Whitaker. \"I will bring any change in risk to you immediately, Captain.\""
+    }
+  },
+  "output": "{\"kind\":\"directive.missionEvidenceInterpretation.v1\",\"assistantAcceptance\":\"accepted\",\"claims\":[{\"candidateId\":\"policy.hesperus.distress-disclosed\",\"sourceSlot\":\"previousAssistant\",\"value\":\"true\",\"evidenceQuote\":\"Commander, the distress call is from the civilian transport *Hesperus* — Antares-class, registered out of Rigel.\"},{\"candidateId\":\"policy.prelude.command-handover-terms-settled\",\"sourceSlot\":\"previousAssistant\",\"value\":\"true\",\"evidenceQuote\":\"Granted. Coordinate the response. I want to know what we're walking into before we commit to a vector, and I want to be in the loop before you change that assessment. Otherwise, it's your watch to run.\"}],\"peopleEvents\":[{\"personId\":\"mara-whitaker\",\"changeType\":\"relationshipEvidence\",\"summary\":\"Whitaker delegates the distress-response watch to the player with an explicit keep-her-informed obligation; the player's reply accepts that escalation duty.\",\"evidenceQuote\":\"I want to be in the loop before you change that assessment. Otherwise, it's your watch to run.\"}],\"abstained\":false,\"time\":{\"decision\":\"advance\",\"elapsedSeconds\":120,\"reason\":\"Extended spoken exchange: Whitaker's grant, Nayar's full distress briefing with a reading pause, and the player's responding orders and reassurance all consume real dialogue time; no explicit duration stated.\",\"confidence\":0.7}}",
+  "expectedErrors": [
+    "time.reason must be a nonempty string no longer than 180 characters",
+    "peopleEvents[0] sourceSlot is unknown",
+    "peopleEvents[0].evidenceQuote must occur in its authorized source",
+    "peopleEvents[0] type is unsupported",
+    "claims[0] value is not allowed for policy.hesperus.distress-disclosed",
+    "claims[1] value is not allowed for policy.prelude.command-handover-terms-settled"
+  ]
+}
