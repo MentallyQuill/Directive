@@ -1,0 +1,4459 @@
+{
+  "schemaVersion": 1,
+  "kind": "directive.controlledObjectivePredicateCorpus",
+  "language": "synthetic",
+  "verificationBoundary": "Production activation, availability, visibility, progress and terminal predicates evaluated against synthetic accepted-state sequences. terminalMatch is a predicate result, not an actual reducer completion. Transcript text is not interpreted by a model. Rewards, closure, corrections, notification delivery and storage integration are not exercised.",
+  "cases": [
+    {
+      "id": "objective.chapter1.relief.controlled",
+      "missionId": "mission.chapter-1-the-empty-convoy",
+      "objectiveId": "objective.chapter1.relief",
+      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter1.relief-result": "pending",
+          "outcome.chapter1.authority-result": "pending",
+          "outcome.chapter1.hardware-result": "pending",
+          "outcome.chapter1.incident-record": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter1.relief-result\",\"equals\":\"safe\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter1.relief-result": "safe"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter1.authority.controlled",
+      "missionId": "mission.chapter-1-the-empty-convoy",
+      "objectiveId": "objective.chapter1.authority",
+      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter1.relief-result": "pending",
+          "outcome.chapter1.authority-result": "pending",
+          "outcome.chapter1.hardware-result": "pending",
+          "outcome.chapter1.incident-record": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter1.authority-conflict"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter1.authority-result\",\"in\":[\"jointDisposition\",\"lawfulStarfleetDisposition\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter1.authority-result": "jointDisposition"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter1.hardware.controlled",
+      "missionId": "mission.chapter-1-the-empty-convoy",
+      "objectiveId": "objective.chapter1.hardware",
+      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter1.relief-result": "pending",
+          "outcome.chapter1.authority-result": "pending",
+          "outcome.chapter1.hardware-result": "pending",
+          "outcome.chapter1.incident-record": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter1.dispersal-picture"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter1.hardware-result\",\"in\":[\"recoveredJointly\",\"securedByAuthority\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter1.hardware-result": "recoveredJointly"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter1.shared-record.controlled",
+      "missionId": "mission.chapter-1-the-empty-convoy",
+      "objectiveId": "objective.chapter1.shared-record",
+      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter1.relief-result": "pending",
+          "outcome.chapter1.authority-result": "pending",
+          "outcome.chapter1.hardware-result": "pending",
+          "outcome.chapter1.incident-record": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter1.dispersal-picture"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter1.incident-record\",\"equals\":\"jointRecord\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter1.incident-record": "jointRecord"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter2.medical.controlled",
+      "missionId": "mission.chapter-2-false-colors",
+      "objectiveId": "objective.chapter2.medical",
+      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter2.medical-result": "pending",
+          "outcome.chapter2.attack-account-result": "pending",
+          "outcome.chapter2.verification-security-result": "pending",
+          "outcome.chapter2.partnership-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter2.medical-result\",\"equals\":\"stabilizedNeutral\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter2.medical-result": "stabilizedNeutral"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter2.attack-account.controlled",
+      "missionId": "mission.chapter-2-false-colors",
+      "objectiveId": "objective.chapter2.attack-account",
+      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter2.medical-result": "pending",
+          "outcome.chapter2.attack-account-result": "pending",
+          "outcome.chapter2.verification-security-result": "pending",
+          "outcome.chapter2.partnership-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter2.attack-account-result\",\"in\":[\"jointlyVerified\",\"independentlyEstablished\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter2.attack-account-result": "jointlyVerified"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter2.verification-security.controlled",
+      "missionId": "mission.chapter-2-false-colors",
+      "objectiveId": "objective.chapter2.verification-security",
+      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter2.medical-result": "pending",
+          "outcome.chapter2.attack-account-result": "pending",
+          "outcome.chapter2.verification-security-result": "pending",
+          "outcome.chapter2.partnership-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter2.verification-access-dispute"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter2.verification-security-result\",\"equals\":\"protectedWithCredibleAlternative\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter2.verification-security-result": "protectedWithCredibleAlternative"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter2.joint-framework.controlled",
+      "missionId": "mission.chapter-2-false-colors",
+      "objectiveId": "objective.chapter2.joint-framework",
+      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter2.medical-result": "pending",
+          "outcome.chapter2.attack-account-result": "pending",
+          "outcome.chapter2.verification-security-result": "pending",
+          "outcome.chapter2.partnership-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter2.independent-evidence-picture"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter2.partnership-result\",\"equals\":\"jointFramework\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter2.partnership-result": "jointFramework"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter3.access.controlled",
+      "missionId": "mission.chapter-3-dead-letters",
+      "objectiveId": "objective.chapter3.access",
+      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter3.access-result": "pending",
+          "outcome.chapter3.relay-decision": "pending",
+          "outcome.chapter3.archive-decision": "pending",
+          "outcome.chapter3.relay-result": "pending",
+          "outcome.chapter3.archive-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter3.access-result\",\"equals\":\"safeAccess\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter3.access-result": "safeAccess"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter3.evidence.controlled",
+      "missionId": "mission.chapter-3-dead-letters",
+      "objectiveId": "objective.chapter3.evidence",
+      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter3.access-result": "pending",
+          "outcome.chapter3.relay-decision": "pending",
+          "outcome.chapter3.archive-decision": "pending",
+          "outcome.chapter3.relay-result": "pending",
+          "outcome.chapter3.archive-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter3.relay-archive-character\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter3.relay-archive-character"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter3.network-architecture-picture\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter3.network-architecture-picture"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter3.access-history-and-demeris-route\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter3.access-history-and-demeris-route"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter3.custody.controlled",
+      "missionId": "mission.chapter-3-dead-letters",
+      "objectiveId": "objective.chapter3.custody",
+      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter3.access-result": "pending",
+          "outcome.chapter3.relay-decision": "pending",
+          "outcome.chapter3.archive-decision": "pending",
+          "outcome.chapter3.relay-result": "pending",
+          "outcome.chapter3.archive-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter3.relay-result\",\"equals\":\"preservedIsolated\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter3.relay-result": "preservedIsolated"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter3.archive-result\",\"in\":[\"protectedJoint\",\"protectedRestricted\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter3.archive-result": "protectedJoint"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter4.process.controlled",
+      "missionId": "mission.chapter-4-the-colony-that-stayed",
+      "objectiveId": "objective.chapter4.process",
+      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter4.process-decision": "pending",
+          "outcome.chapter4.process-result": "pending",
+          "outcome.chapter4.evidence-route": "pending",
+          "outcome.chapter4.solenn-decision": "pending",
+          "outcome.chapter4.solenn-result": "pending",
+          "outcome.chapter4.interface-decision": "pending",
+          "outcome.chapter4.interface-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter4.process-result\",\"in\":[\"jointPublicInquiry\",\"localProtectedInquiry\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter4.process-result": "jointPublicInquiry"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter4.truth.controlled",
+      "missionId": "mission.chapter-4-the-colony-that-stayed",
+      "objectiveId": "objective.chapter4.truth",
+      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter4.process-decision": "pending",
+          "outcome.chapter4.process-result": "pending",
+          "outcome.chapter4.evidence-route": "pending",
+          "outcome.chapter4.solenn-decision": "pending",
+          "outcome.chapter4.solenn-result": "pending",
+          "outcome.chapter4.interface-decision": "pending",
+          "outcome.chapter4.interface-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter4.survival-and-evacuation-record\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter4.survival-and-evacuation-record"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter4.solenn-use-benefit-and-harm\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter4.solenn-use-benefit-and-harm"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter4.continuing-access-and-orison-route\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter4.continuing-access-and-orison-route"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter4.evidence-route\",\"equals\":\"directInquiry\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter4.evidence-route": "directInquiry"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter4.accountability.controlled",
+      "missionId": "mission.chapter-4-the-colony-that-stayed",
+      "objectiveId": "objective.chapter4.accountability",
+      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter4.process-decision": "pending",
+          "outcome.chapter4.process-result": "pending",
+          "outcome.chapter4.evidence-route": "pending",
+          "outcome.chapter4.solenn-decision": "pending",
+          "outcome.chapter4.solenn-result": "pending",
+          "outcome.chapter4.interface-decision": "pending",
+          "outcome.chapter4.interface-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter4.solenn-result\",\"in\":[\"restorativeProcess\",\"localProceedings\",\"cooperativeProtection\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter4.solenn-result": "restorativeProcess"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter4.interface-result\",\"in\":[\"sharedSecured\",\"localSecured\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter4.interface-result": "sharedSecured"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter5.safety.controlled",
+      "missionId": "mission.chapter-5-old-lessons",
+      "objectiveId": "objective.chapter5.safety",
+      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter5.traffic-result": "pending",
+          "outcome.chapter5.platform-result": "pending",
+          "outcome.chapter5.sigma-decision": "pending",
+          "outcome.chapter5.sigma-result": "pending",
+          "outcome.chapter5.operator-result": "pending",
+          "outcome.chapter5.evidence-route": "pending",
+          "outcome.chapter5.command-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter5.traffic-result\",\"equals\":\"stabilized\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.traffic-result": "stabilized"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter5.platform-result\",\"in\":[\"controlled\",\"disabled\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.platform-result": "controlled"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter5.operation.controlled",
+      "missionId": "mission.chapter-5-old-lessons",
+      "objectiveId": "objective.chapter5.operation",
+      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter5.traffic-result": "pending",
+          "outcome.chapter5.platform-result": "pending",
+          "outcome.chapter5.sigma-decision": "pending",
+          "outcome.chapter5.sigma-result": "pending",
+          "outcome.chapter5.operator-result": "pending",
+          "outcome.chapter5.evidence-route": "pending",
+          "outcome.chapter5.command-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter5.sigma-result\",\"in\":[\"secured\",\"destroyedWithRecord\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.sigma-result": "secured"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter5.operator-result\",\"in\":[\"operatorCaptured\",\"interfaceRecovered\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.operator-result": "operatorCaptured"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter5.understanding.controlled",
+      "missionId": "mission.chapter-5-old-lessons",
+      "objectiveId": "objective.chapter5.understanding",
+      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter5.traffic-result": "pending",
+          "outcome.chapter5.platform-result": "pending",
+          "outcome.chapter5.sigma-decision": "pending",
+          "outcome.chapter5.sigma-result": "pending",
+          "outcome.chapter5.operator-result": "pending",
+          "outcome.chapter5.evidence-route": "pending",
+          "outcome.chapter5.command-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter5.concentration-and-model-gap\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter5.concentration-and-model-gap"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter5.sigma-target-and-doctrine-model\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter5.sigma-target-and-doctrine-model"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter5.holt-initiation-and-autonomous-escalation\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter5.holt-initiation-and-autonomous-escalation"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter5.evidence-route\",\"equals\":\"direct\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.evidence-route": "direct"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter6.command-network.controlled",
+      "missionId": "mission.chapter-6-the-cost-of-knowing",
+      "objectiveId": "objective.chapter6.command-network",
+      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter6.rourke-boundary": "pending",
+          "outcome.chapter6.network-response": "pending",
+          "outcome.chapter6.network-result": "pending",
+          "outcome.chapter6.farwatch-account-route": "pending",
+          "outcome.chapter6.nightfall-risk-route": "pending",
+          "outcome.chapter6.evidence-disposition": "pending",
+          "outcome.chapter6.evidence-result": "pending",
+          "outcome.chapter6.rourke-result": "pending",
+          "outcome.chapter6.regional-information": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter6.network-result\",\"in\":[\"contained\",\"handedOff\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter6.network-result": "contained"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter6.farwatch-truth.controlled",
+      "missionId": "mission.chapter-6-the-cost-of-knowing",
+      "objectiveId": "objective.chapter6.farwatch-truth",
+      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter6.rourke-boundary": "pending",
+          "outcome.chapter6.network-response": "pending",
+          "outcome.chapter6.network-result": "pending",
+          "outcome.chapter6.farwatch-account-route": "pending",
+          "outcome.chapter6.nightfall-risk-route": "pending",
+          "outcome.chapter6.evidence-disposition": "pending",
+          "outcome.chapter6.evidence-result": "pending",
+          "outcome.chapter6.rourke-result": "pending",
+          "outcome.chapter6.regional-information": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter6.farwatch-operational-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter6.farwatch-operational-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter6.authenticated-pathway-nightfall-risk\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter6.authenticated-pathway-nightfall-risk"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter6.evidence-authority.controlled",
+      "missionId": "mission.chapter-6-the-cost-of-knowing",
+      "objectiveId": "objective.chapter6.evidence-authority",
+      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter6.rourke-boundary": "pending",
+          "outcome.chapter6.network-response": "pending",
+          "outcome.chapter6.network-result": "pending",
+          "outcome.chapter6.farwatch-account-route": "pending",
+          "outcome.chapter6.nightfall-risk-route": "pending",
+          "outcome.chapter6.evidence-disposition": "pending",
+          "outcome.chapter6.evidence-result": "pending",
+          "outcome.chapter6.rourke-result": "pending",
+          "outcome.chapter6.regional-information": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter6.evidence-result\",\"in\":[\"assetSecured\",\"preservedWithoutAsset\",\"publicCopy\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter6.evidence-result": "assetSecured"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter6.rourke-result\",\"in\":[\"cooperativeRestricted\",\"relieved\",\"detained\",\"witnessUnderReview\",\"handedOff\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter6.rourke-result": "cooperativeRestricted"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter6.regional-information\",\"in\":[\"privateBriefing\",\"publicFramework\",\"delayedDisclosure\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter6.regional-information": "privateBriefing"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter7.standoff.controlled",
+      "missionId": "mission.chapter-7-a-peace-of-their-own",
+      "objectiveId": "objective.chapter7.standoff",
+      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter7.crisis-posture": "pending",
+          "outcome.chapter7.political-account-route": "pending",
+          "outcome.chapter7.interface-truth-route": "pending",
+          "outcome.chapter7.interface-response": "pending",
+          "outcome.chapter7.settlement-framework": "pending",
+          "outcome.chapter7.standoff-result": "pending",
+          "outcome.chapter7.civilian-result": "pending",
+          "outcome.chapter7.interface-result": "pending",
+          "outcome.chapter7.settlement-result": "pending",
+          "outcome.chapter7.implementation-mechanism": "pending",
+          "outcome.chapter7.annex-control": "pending",
+          "outcome.chapter7.coalition-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.standoff-result\",\"equals\":\"stabilized\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.standoff-result": "stabilized"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.civilian-result\",\"equals\":\"protected\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.civilian-result": "protected"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter7.shared-truth-interface.controlled",
+      "missionId": "mission.chapter-7-a-peace-of-their-own",
+      "objectiveId": "objective.chapter7.shared-truth-interface",
+      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter7.crisis-posture": "pending",
+          "outcome.chapter7.political-account-route": "pending",
+          "outcome.chapter7.interface-truth-route": "pending",
+          "outcome.chapter7.interface-response": "pending",
+          "outcome.chapter7.settlement-framework": "pending",
+          "outcome.chapter7.standoff-result": "pending",
+          "outcome.chapter7.civilian-result": "pending",
+          "outcome.chapter7.interface-result": "pending",
+          "outcome.chapter7.settlement-result": "pending",
+          "outcome.chapter7.implementation-mechanism": "pending",
+          "outcome.chapter7.annex-control": "pending",
+          "outcome.chapter7.coalition-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter7.political-legitimacy-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter7.political-legitimacy-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter7.mutual-telemetry-manipulation\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter7.mutual-telemetry-manipulation"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.interface-result\",\"in\":[\"sharedControl\",\"isolatedOrCaptured\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.interface-result": "sharedControl"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter7.command-settlement.controlled",
+      "missionId": "mission.chapter-7-a-peace-of-their-own",
+      "objectiveId": "objective.chapter7.command-settlement",
+      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter7.crisis-posture": "pending",
+          "outcome.chapter7.political-account-route": "pending",
+          "outcome.chapter7.interface-truth-route": "pending",
+          "outcome.chapter7.interface-response": "pending",
+          "outcome.chapter7.settlement-framework": "pending",
+          "outcome.chapter7.standoff-result": "pending",
+          "outcome.chapter7.civilian-result": "pending",
+          "outcome.chapter7.interface-result": "pending",
+          "outcome.chapter7.settlement-result": "pending",
+          "outcome.chapter7.implementation-mechanism": "pending",
+          "outcome.chapter7.annex-control": "pending",
+          "outcome.chapter7.coalition-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.settlement-result\",\"in\":[\"provisionalAccord\",\"armedStandDown\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.settlement-result": "provisionalAccord"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.implementation-mechanism\",\"in\":[\"sharedVerificationCell\",\"authenticatedStandDown\",\"civilianOversightReview\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.implementation-mechanism": "sharedVerificationCell"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.annex-control\",\"in\":[\"sharedControl\",\"neutralized\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.annex-control": "sharedControl"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter7.coalition-posture\",\"in\":[\"jointImplementation\",\"tenseStandDown\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter7.coalition-posture": "jointImplementation"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter8.command.controlled",
+      "missionId": "mission.chapter-8-the-last-directive",
+      "objectiveId": "objective.chapter8.command",
+      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter8.command-plan": "pending",
+          "outcome.chapter8.command-result": "pending",
+          "outcome.chapter8.mesh-result": "pending",
+          "outcome.chapter8.weapons-result": "pending",
+          "outcome.chapter8.core-result": "pending",
+          "outcome.chapter8.civilians-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter8.command-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter8.command-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter8.command-result\",\"equals\":\"sharedAuthority\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter8.command-result": "sharedAuthority"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter8.mesh.controlled",
+      "missionId": "mission.chapter-8-the-last-directive",
+      "objectiveId": "objective.chapter8.mesh",
+      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter8.command-plan": "pending",
+          "outcome.chapter8.command-result": "pending",
+          "outcome.chapter8.mesh-result": "pending",
+          "outcome.chapter8.weapons-result": "pending",
+          "outcome.chapter8.core-result": "pending",
+          "outcome.chapter8.civilians-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter8.mesh-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter8.mesh-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter8.mesh-result\",\"equals\":\"trustedSharedMesh\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter8.mesh-result": "trustedSharedMesh"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter8.weapons.controlled",
+      "missionId": "mission.chapter-8-the-last-directive",
+      "objectiveId": "objective.chapter8.weapons",
+      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter8.command-plan": "pending",
+          "outcome.chapter8.command-result": "pending",
+          "outcome.chapter8.mesh-result": "pending",
+          "outcome.chapter8.weapons-result": "pending",
+          "outcome.chapter8.core-result": "pending",
+          "outcome.chapter8.civilians-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter8.weapons-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter8.weapons-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter8.weapons-result\",\"equals\":\"weaponsFreeze\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter8.weapons-result": "weaponsFreeze"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter8.core.controlled",
+      "missionId": "mission.chapter-8-the-last-directive",
+      "objectiveId": "objective.chapter8.core",
+      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter8.command-plan": "pending",
+          "outcome.chapter8.command-result": "pending",
+          "outcome.chapter8.mesh-result": "pending",
+          "outcome.chapter8.weapons-result": "pending",
+          "outcome.chapter8.core-result": "pending",
+          "outcome.chapter8.civilians-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter8.core-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter8.core-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter8.core-result\",\"in\":[\"allNodesSecured\",\"quorumBroken\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter8.core-result": "allNodesSecured"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.chapter8.civilians.controlled",
+      "missionId": "mission.chapter-8-the-last-directive",
+      "objectiveId": "objective.chapter8.civilians",
+      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter8.command-plan": "pending",
+          "outcome.chapter8.command-result": "pending",
+          "outcome.chapter8.mesh-result": "pending",
+          "outcome.chapter8.weapons-result": "pending",
+          "outcome.chapter8.core-result": "pending",
+          "outcome.chapter8.civilians-result": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.chapter8.civilians-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.chapter8.civilians-account"
+            ]
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.chapter8.civilians-result\",\"equals\":\"evacuationProtected\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter8.civilians-result": "evacuationProtected"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.epilogue.aftermath.controlled",
+      "missionId": "mission.epilogue-the-terms-we-keep",
+      "objectiveId": "objective.epilogue.aftermath",
+      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.epilogue.authority-position": "pending",
+          "outcome.epilogue.accountability-position": "pending",
+          "outcome.epilogue.compact-status": "pending",
+          "outcome.epilogue.defense-control": "pending",
+          "outcome.epilogue.farwatch-accountability": "pending",
+          "outcome.epilogue.lantern-custody": "pending",
+          "outcome.epilogue.cardassian-participation": "pending",
+          "outcome.epilogue.public-narrative": "pending",
+          "outcome.epilogue.command-future": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.epilogue.aftermath-record\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.epilogue.aftermath-record"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.epilogue.authority.controlled",
+      "missionId": "mission.epilogue-the-terms-we-keep",
+      "objectiveId": "objective.epilogue.authority",
+      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.epilogue.authority-position": "pending",
+          "outcome.epilogue.accountability-position": "pending",
+          "outcome.epilogue.compact-status": "pending",
+          "outcome.epilogue.defense-control": "pending",
+          "outcome.epilogue.farwatch-accountability": "pending",
+          "outcome.epilogue.lantern-custody": "pending",
+          "outcome.epilogue.cardassian-participation": "pending",
+          "outcome.epilogue.public-narrative": "pending",
+          "outcome.epilogue.command-future": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.epilogue.authority-position\",\"equals\":\"positionStated\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.epilogue.authority-position": "positionStated"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.epilogue.settlement-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.epilogue.settlement-account"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.epilogue.accountability.controlled",
+      "missionId": "mission.epilogue-the-terms-we-keep",
+      "objectiveId": "objective.epilogue.accountability",
+      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.epilogue.authority-position": "pending",
+          "outcome.epilogue.accountability-position": "pending",
+          "outcome.epilogue.compact-status": "pending",
+          "outcome.epilogue.defense-control": "pending",
+          "outcome.epilogue.farwatch-accountability": "pending",
+          "outcome.epilogue.lantern-custody": "pending",
+          "outcome.epilogue.cardassian-participation": "pending",
+          "outcome.epilogue.public-narrative": "pending",
+          "outcome.epilogue.command-future": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.epilogue.accountability-position\",\"equals\":\"positionStated\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.epilogue.accountability-position": "positionStated"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.epilogue.settlement-account\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.epilogue.settlement-account"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.epilogue.command.controlled",
+      "missionId": "mission.epilogue-the-terms-we-keep",
+      "objectiveId": "objective.epilogue.command",
+      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.epilogue.authority-position": "pending",
+          "outcome.epilogue.accountability-position": "pending",
+          "outcome.epilogue.compact-status": "pending",
+          "outcome.epilogue.defense-control": "pending",
+          "outcome.epilogue.farwatch-accountability": "pending",
+          "outcome.epilogue.lantern-custody": "pending",
+          "outcome.epilogue.cardassian-participation": "pending",
+          "outcome.epilogue.public-narrative": "pending",
+          "outcome.epilogue.command-future": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"factKnown\":\"fact.epilogue.command-review\"}",
+          "acceptedDelta": {
+            "facts": [
+              "fact.epilogue.command-review"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders1.conclusion.controlled",
+      "missionId": "mission.open-orders-1-work-worth-doing",
+      "objectiveId": "objective.open-orders1.conclusion",
+      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders1.long-repair-engagement": "pending",
+          "outcome.open-orders1.long-repair-result": "pending",
+          "outcome.open-orders1.borrowed-wings-engagement": "pending",
+          "outcome.open-orders1.borrowed-wings-result": "pending",
+          "outcome.open-orders1.quiet-channels-engagement": "pending",
+          "outcome.open-orders1.quiet-channels-result": "pending",
+          "outcome.open-orders1.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders1.conclusion\",\"in\":[\"concludeAfterTwo\",\"broadCoverage\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders1.conclusion": "concludeAfterTwo"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders1.long-repair.controlled",
+      "missionId": "mission.open-orders-1-work-worth-doing",
+      "objectiveId": "objective.open-orders1.long-repair",
+      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders1.long-repair-engagement": "pending",
+          "outcome.open-orders1.long-repair-result": "pending",
+          "outcome.open-orders1.borrowed-wings-engagement": "pending",
+          "outcome.open-orders1.borrowed-wings-result": "pending",
+          "outcome.open-orders1.quiet-channels-engagement": "pending",
+          "outcome.open-orders1.quiet-channels-result": "pending",
+          "outcome.open-orders1.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders1.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders1.long-repair-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders1.long-repair-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders1.borrowed-wings.controlled",
+      "missionId": "mission.open-orders-1-work-worth-doing",
+      "objectiveId": "objective.open-orders1.borrowed-wings",
+      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders1.long-repair-engagement": "pending",
+          "outcome.open-orders1.long-repair-result": "pending",
+          "outcome.open-orders1.borrowed-wings-engagement": "pending",
+          "outcome.open-orders1.borrowed-wings-result": "pending",
+          "outcome.open-orders1.quiet-channels-engagement": "pending",
+          "outcome.open-orders1.quiet-channels-result": "pending",
+          "outcome.open-orders1.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders1.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders1.borrowed-wings-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders1.borrowed-wings-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders1.quiet-channels.controlled",
+      "missionId": "mission.open-orders-1-work-worth-doing",
+      "objectiveId": "objective.open-orders1.quiet-channels",
+      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders1.long-repair-engagement": "pending",
+          "outcome.open-orders1.long-repair-result": "pending",
+          "outcome.open-orders1.borrowed-wings-engagement": "pending",
+          "outcome.open-orders1.borrowed-wings-result": "pending",
+          "outcome.open-orders1.quiet-channels-engagement": "pending",
+          "outcome.open-orders1.quiet-channels-result": "pending",
+          "outcome.open-orders1.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders1.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders1.quiet-channels-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders1.quiet-channels-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders2.conclusion.controlled",
+      "missionId": "mission.open-orders-2-what-survives",
+      "objectiveId": "objective.open-orders2.conclusion",
+      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders2.last-watch-engagement": "pending",
+          "outcome.open-orders2.last-watch-result": "pending",
+          "outcome.open-orders2.second-opinion-engagement": "pending",
+          "outcome.open-orders2.second-opinion-result": "pending",
+          "outcome.open-orders2.unwelcome-result-engagement": "pending",
+          "outcome.open-orders2.unwelcome-result-result": "pending",
+          "outcome.open-orders2.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders2.conclusion\",\"in\":[\"concludeAfterTwo\",\"broadCoverage\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders2.conclusion": "concludeAfterTwo"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders2.last-watch.controlled",
+      "missionId": "mission.open-orders-2-what-survives",
+      "objectiveId": "objective.open-orders2.last-watch",
+      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders2.last-watch-engagement": "pending",
+          "outcome.open-orders2.last-watch-result": "pending",
+          "outcome.open-orders2.second-opinion-engagement": "pending",
+          "outcome.open-orders2.second-opinion-result": "pending",
+          "outcome.open-orders2.unwelcome-result-engagement": "pending",
+          "outcome.open-orders2.unwelcome-result-result": "pending",
+          "outcome.open-orders2.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders2.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders2.last-watch-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders2.last-watch-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders2.second-opinion.controlled",
+      "missionId": "mission.open-orders-2-what-survives",
+      "objectiveId": "objective.open-orders2.second-opinion",
+      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders2.last-watch-engagement": "pending",
+          "outcome.open-orders2.last-watch-result": "pending",
+          "outcome.open-orders2.second-opinion-engagement": "pending",
+          "outcome.open-orders2.second-opinion-result": "pending",
+          "outcome.open-orders2.unwelcome-result-engagement": "pending",
+          "outcome.open-orders2.unwelcome-result-result": "pending",
+          "outcome.open-orders2.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders2.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders2.second-opinion-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders2.second-opinion-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders2.unwelcome-result.controlled",
+      "missionId": "mission.open-orders-2-what-survives",
+      "objectiveId": "objective.open-orders2.unwelcome-result",
+      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders2.last-watch-engagement": "pending",
+          "outcome.open-orders2.last-watch-result": "pending",
+          "outcome.open-orders2.second-opinion-engagement": "pending",
+          "outcome.open-orders2.second-opinion-result": "pending",
+          "outcome.open-orders2.unwelcome-result-engagement": "pending",
+          "outcome.open-orders2.unwelcome-result-result": "pending",
+          "outcome.open-orders2.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders2.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders2.unwelcome-result-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders2.unwelcome-result-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders3.conclusion.controlled",
+      "missionId": "mission.open-orders-3-before-the-lamps-go-out",
+      "objectiveId": "objective.open-orders3.conclusion",
+      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders3.name-engagement": "pending",
+          "outcome.open-orders3.name-result": "pending",
+          "outcome.open-orders3.signal-engagement": "pending",
+          "outcome.open-orders3.signal-result": "pending",
+          "outcome.open-orders3.signatures-engagement": "pending",
+          "outcome.open-orders3.signatures-result": "pending",
+          "outcome.open-orders3.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders3.conclusion\",\"in\":[\"concludeAfterTwo\",\"broadCoverage\"]}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders3.conclusion": "concludeAfterTwo"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders3.name.controlled",
+      "missionId": "mission.open-orders-3-before-the-lamps-go-out",
+      "objectiveId": "objective.open-orders3.name",
+      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders3.name-engagement": "pending",
+          "outcome.open-orders3.name-result": "pending",
+          "outcome.open-orders3.signal-engagement": "pending",
+          "outcome.open-orders3.signal-result": "pending",
+          "outcome.open-orders3.signatures-engagement": "pending",
+          "outcome.open-orders3.signatures-result": "pending",
+          "outcome.open-orders3.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders3.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders3.name-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders3.name-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders3.signal.controlled",
+      "missionId": "mission.open-orders-3-before-the-lamps-go-out",
+      "objectiveId": "objective.open-orders3.signal",
+      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders3.name-engagement": "pending",
+          "outcome.open-orders3.name-result": "pending",
+          "outcome.open-orders3.signal-engagement": "pending",
+          "outcome.open-orders3.signal-result": "pending",
+          "outcome.open-orders3.signatures-engagement": "pending",
+          "outcome.open-orders3.signatures-result": "pending",
+          "outcome.open-orders3.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders3.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders3.signal-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders3.signal-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.open-orders3.signatures.controlled",
+      "missionId": "mission.open-orders-3-before-the-lamps-go-out",
+      "objectiveId": "objective.open-orders3.signatures",
+      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders3.name-engagement": "pending",
+          "outcome.open-orders3.name-result": "pending",
+          "outcome.open-orders3.signal-engagement": "pending",
+          "outcome.open-orders3.signal-result": "pending",
+          "outcome.open-orders3.signatures-engagement": "pending",
+          "outcome.open-orders3.signatures-result": "pending",
+          "outcome.open-orders3.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders3.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.open-orders3.signatures-result\",\"equals\":\"assetEarned\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders3.signatures-result": "assetEarned"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.command-handover.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.command-handover",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"eventOccurred\":\"event.prelude.command-handover-completed\"}",
+          "acceptedDelta": {
+            "events": [
+              "event.prelude.command-handover-completed"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.staff-readiness.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.staff-readiness",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"eventOccurred\":\"event.prelude.staff-readiness-established\"}",
+          "acceptedDelta": {
+            "events": [
+              "event.prelude.staff-readiness-established"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.hesperus-rescue.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.hesperus-rescue",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.hesperus.distress-established"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.hesperus.rescue-result\",\"equals\":\"safe\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.hesperus.rescue-result": "safe"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.final-readiness-arrival.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.final-readiness-arrival",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "objectives": {
+              "objective.prelude.command-handover": {
+                "state": "terminal",
+                "disposition": "completed"
+              },
+              "objective.prelude.staff-readiness": {
+                "state": "terminal",
+                "disposition": "completed"
+              },
+              "objective.prelude.hesperus-rescue": {
+                "state": "terminal",
+                "disposition": "completed"
+              }
+            }
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.prelude.command-readiness\",\"equals\":\"ready\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.prelude.command-readiness": "ready"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.prelude.arrival-condition\",\"equals\":\"onSchedule\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.prelude.arrival-condition": "onSchedule"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.hesperus-accountability.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.hesperus-accountability",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "handedOff",
+            "knowinglyDeclined",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.hesperus.record-falsified"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.hesperus.accountability-result\",\"equals\":\"proportionateActionCommitted\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.hesperus.accountability-result": "proportionateActionCommitted"
+            }
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "objective.prelude.rhee-apprehension.controlled",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.rhee-apprehension",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "plan-order-question-negation",
+          "transcript": "We should attempt this. Has it worked? No completed result is established yet.",
+          "acceptedDelta": {},
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.prelude.redline.distribution-confirmed"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.prelude.redline-evidence\",\"equals\":\"twoIndependentClasses\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.prelude.redline-evidence": "twoIndependentClasses"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "partial-evidence",
+          "transcript": "Synthetic accepted evidence: {\"outcomeIs\":{\"id\":\"outcome.prelude.rhee-disposition\",\"equals\":\"lawfulCustodyExecuted\"}}",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.prelude.rhee-disposition": "lawfulCustodyExecuted"
+            }
+          },
+          "forbiddenDispositions": [
+            "completed",
+            "completedWithCost",
+            "handedOff",
+            "failedAfterInformedAction"
+          ],
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "settled-result",
+          "transcript": "Synthetic accepted evidence: {\"eventOccurred\":\"event.prelude.rhee-secured-in-custody\"}",
+          "acceptedDelta": {
+            "events": [
+              "event.prelude.rhee-secured-in-custody"
+            ]
+          },
+          "forbiddenDispositions": [],
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "independent.harbor-water",
+      "missionId": "mission.harbor-restoration",
+      "objectiveId": "objective.harbor.water",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {},
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "attempt",
+          "transcript": "Inspect the pipes and try the valve.",
+          "acceptedDelta": {},
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "inspection",
+          "transcript": "The inspection confirmed the pipe is sound, but the water still is not flowing.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.harbor.inspection"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "result",
+          "transcript": "Water now flows through the repaired supply to every harbor tap.",
+          "acceptedDelta": {
+            "events": [
+              "event.harbor.flow-restored"
+            ]
+          },
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Separate runtime suite",
+      "notificationExpectations": "Not exercised",
+      "persistenceReloadExpectations": "JSON roundtrip only"
+    },
+    {
+      "id": "hesperus-informed-failure",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.hesperus-rescue",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "result-without-informed-risk",
+          "transcript": "The rescue failed, but no informed risk decision was established.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.hesperus.rescue-result": "failedInformed"
+            }
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.hesperus.distress-established"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "risk-known-only",
+          "transcript": "The passenger risk had been explained.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.hesperus.passenger-risk"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "informed-course-established",
+          "transcript": "The accepted account establishes that the captain proceeded knowing that risk.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.hesperus.rescue-risk-decision": "proceedKnownRisk"
+            }
+          },
+          "terminalMatch": "failedAfterInformedAction",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "later-handoff-authored-mapping",
+      "missionId": "mission.chapter-6-the-cost-of-knowing",
+      "objectiveId": "objective.chapter6.command-network",
+      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter6.rourke-boundary": "pending",
+          "outcome.chapter6.network-response": "pending",
+          "outcome.chapter6.network-result": "pending",
+          "outcome.chapter6.farwatch-account-route": "pending",
+          "outcome.chapter6.nightfall-risk-route": "pending",
+          "outcome.chapter6.evidence-disposition": "pending",
+          "outcome.chapter6.evidence-result": "pending",
+          "outcome.chapter6.rourke-result": "pending",
+          "outcome.chapter6.regional-information": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "handoff-plan",
+          "transcript": "Transfer responsibility once the receiving command accepts it.",
+          "acceptedDelta": {},
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "settled-handoff",
+          "transcript": "The competent receiving command has assumed the network response.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter6.network-result": "handedOff"
+            }
+          },
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "later-cost-fallback-precedence",
+      "missionId": "mission.chapter-5-old-lessons",
+      "objectiveId": "objective.chapter5.safety",
+      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.chapter5.traffic-result": "pending",
+          "outcome.chapter5.platform-result": "pending",
+          "outcome.chapter5.sigma-decision": "pending",
+          "outcome.chapter5.sigma-result": "pending",
+          "outcome.chapter5.operator-result": "pending",
+          "outcome.chapter5.evidence-route": "pending",
+          "outcome.chapter5.command-posture": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "one-front",
+          "transcript": "Civilian traffic is stable, but the platform remains unresolved.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.traffic-result": "stabilized"
+            }
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        },
+        {
+          "label": "both-fronts",
+          "transcript": "The platform is disabled and traffic remains stabilized.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.chapter5.platform-result": "disabled"
+            }
+          },
+          "terminalMatch": "completed",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": true
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "open-orders3-unengaged-departure",
+      "missionId": "mission.open-orders-3-before-the-lamps-go-out",
+      "objectiveId": "objective.open-orders3.signal",
+      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.open-orders3.name-engagement": "pending",
+          "outcome.open-orders3.name-result": "pending",
+          "outcome.open-orders3.signal-engagement": "pending",
+          "outcome.open-orders3.signal-result": "pending",
+          "outcome.open-orders3.signatures-engagement": "pending",
+          "outcome.open-orders3.signatures-result": "pending",
+          "outcome.open-orders3.conclusion": "pending"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "pending",
+          "transcript": "The opportunity remains unengaged.",
+          "acceptedDelta": {},
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.open-orders3.opportunities"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "departure",
+          "transcript": "The captain concludes Open Orders before engaging this opportunity.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.open-orders3.conclusion": "departEarly"
+            }
+          },
+          "terminalMatch": "knowinglyDeclined",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    },
+    {
+      "id": "hesperus-handoff",
+      "missionId": "mission.prelude-a-ship-underway",
+      "objectiveId": "objective.prelude.hesperus-rescue",
+      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "language": "synthetic",
+      "providerFixture": null,
+      "initialAcceptedState": {
+        "facts": [],
+        "events": [],
+        "outcomes": {
+          "outcome.hesperus.rescue-risk-decision": "unmade",
+          "outcome.hesperus.rescue-result": "unresolved",
+          "outcome.hesperus.rescue-cost": "unassessed",
+          "outcome.hesperus.records-disposition": "unresolved",
+          "outcome.hesperus.accountability-decision": "unmade",
+          "outcome.hesperus.accountability-result": "unresolved",
+          "outcome.prelude.command-readiness": "unreviewed",
+          "outcome.prelude.arrival-condition": "enRoute",
+          "outcome.prelude.redline-evidence": "unresolved",
+          "outcome.prelude.redline-containment": "unresolved",
+          "outcome.prelude.daro-care": "unresolved",
+          "outcome.prelude.rhee-disposition": "unresolved"
+        },
+        "objectives": {}
+      },
+      "steps": [
+        {
+          "label": "temporary-stabilization",
+          "transcript": "The transport is stable for the moment; no receiving authority has accepted the response.",
+          "acceptedDelta": {},
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": false,
+            "availableWhen": false,
+            "visibleWhen": false,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "activation-and-visibility-established",
+          "transcript": "Synthetic prerequisite disclosures or prior objective decisions establish availability.",
+          "acceptedDelta": {
+            "facts": [
+              "fact.hesperus.distress-established"
+            ]
+          },
+          "terminalMatch": null,
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        },
+        {
+          "label": "handoff",
+          "transcript": "Captain Whitaker has assumed the remaining emergency response.",
+          "acceptedDelta": {
+            "outcomes": {
+              "outcome.hesperus.rescue-result": "handedOff"
+            }
+          },
+          "terminalMatch": "handedOff",
+          "expectedPredicates": {
+            "activationWhen": true,
+            "availableWhen": true,
+            "visibleWhen": true,
+            "progressWhen": false
+          }
+        }
+      ],
+      "correctionPrecedence": "Not executed here; player authority is covered by objective-decision runtime tests.",
+      "notificationExpectations": "Not executed by predicate-only corpus.",
+      "persistenceReloadExpectations": "Fixture JSON roundtrip only; not storage integration."
+    }
+  ],
+  "independentMission": {
+    "id": "mission.harbor-restoration",
+    "facts": [
+      {
+        "id": "fact.harbor.inspection"
+      }
+    ],
+    "events": [
+      {
+        "id": "event.harbor.flow-restored"
+      }
+    ],
+    "outcomes": [],
+    "objectives": [
+      {
+        "id": "objective.harbor.water",
+        "supportedDispositions": [
+          "completed"
+        ],
+        "terminalWhen": [
+          {
+            "disposition": "completed",
+            "when": {
+              "all": [
+                {
+                  "factKnown": "fact.harbor.inspection"
+                },
+                {
+                  "eventOccurred": "event.harbor.flow-restored"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -7,8 +7,21 @@ import {
 } from '../runtime/runtime-shell.js';
 import { registerRuntimeActions, runRuntimeAction } from '../runtime/runtime-actions.js';
 
+let configuredRuntimeApp = null;
+
 export function configureRuntimeActions() {
   registerRuntimeActions([
+    {
+      id: 'runtime.adjustObjectiveProgress',
+      category: 'mission',
+      label: 'Adjust objective progress',
+      handler: async (payload) => {
+        if (typeof configuredRuntimeApp?.adjustObjectiveProgress !== 'function') {
+          return { ok: false, message: 'Objective progress is unavailable. Open your current campaign and try again.' };
+        }
+        return configuredRuntimeApp.adjustObjectiveProgress(payload);
+      },
+    },
     {
       id: 'runtime.show',
       category: 'runtime',
@@ -62,6 +75,7 @@ export function configureRuntimeActions() {
 }
 
 export function configureRuntimeApp(app) {
+  configuredRuntimeApp = app || null;
   setDirectiveRuntimeApp(app);
 }
 

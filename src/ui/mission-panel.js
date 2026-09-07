@@ -1,3 +1,4 @@
+import { appendObjectiveProgressControls } from './objective-progress-controls.js';
 import { appendEmpty, createElement, createIcon } from './runtime-ui-kit.js';
 import { appendCurrentChatEmptyState } from './current-chat-empty-state.js';
 import { requireV1PlayerProjection } from './v1-player-facing-panel-model.mjs';
@@ -10,7 +11,7 @@ function objectiveStatus(objective) {
   return objective.status || 'available';
 }
 
-function createObjective(objective) {
+function createObjective(objective, mission) {
   const resolved = objective.status === 'terminal';
   const row = createElement('article', `mission-objective-row${resolved ? ' is-resolved' : ''}`);
   row.dataset.objectiveId = objective.id;
@@ -22,13 +23,14 @@ function createObjective(objective) {
   const summary = createElement('p');
   summary.textContent = objective.terminalText || objective.summary;
   copy.append(title, summary);
+  appendObjectiveProgressControls(copy, { objective, mission });
   const status = createElement('span', 'mission-objective-status');
   status.textContent = objectiveStatus(objective);
   row.append(marker, copy, status);
   return row;
 }
 
-function appendObjectiveGroup(container, label, objectives, note = '') {
+function appendObjectiveGroup(container, label, objectives, mission, note = '') {
   if (!objectives.length) return;
   const section = createElement('section', 'mission-detail-section');
   const heading = createElement('header', 'mission-section-heading');
@@ -41,7 +43,7 @@ function appendObjectiveGroup(container, label, objectives, note = '') {
     heading.appendChild(aside);
   }
   const list = createElement('div', 'mission-objective-list');
-  objectives.forEach((objective) => list.appendChild(createObjective(objective)));
+  objectives.forEach((objective) => list.appendChild(createObjective(objective, mission)));
   section.append(heading, list);
   container.appendChild(section);
 }
@@ -92,8 +94,8 @@ function appendMissionDetail(detail, mission, { compactIdentity = false, time = 
   detail.appendChild(hero);
 
   appendTerminal(detail, mission.terminal);
-  appendObjectiveGroup(detail, 'Primary objectives', mission.requiredObjectives);
-  appendObjectiveGroup(detail, 'Optional objectives', mission.optionalObjectives, 'Shapes the outcome; not required to finish');
+  appendObjectiveGroup(detail, 'Primary objectives', mission.requiredObjectives, mission);
+  appendObjectiveGroup(detail, 'Optional objectives', mission.optionalObjectives, mission, 'Shapes the outcome; not required to finish');
   appendSimpleList(detail, 'Known information', mission.knownFacts, (fact) => fact.summary);
   appendSimpleList(detail, 'Available support', mission.capabilities, (capability) => (
     capability.summary ? `${capability.label || 'Support'}: ${capability.summary}` : capability.label

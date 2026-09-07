@@ -1,3 +1,4 @@
+import { objectiveResolutionRefs } from './objective-progress-policy.mjs';
 import { indexMissionDefinition } from './mission-contracts.mjs';
 import { missionStateContext } from './mission-state.mjs';
 import { evaluateMissionPredicate } from './predicate-evaluator.mjs';
@@ -58,6 +59,12 @@ function reduceObjectives(definition, state, predicateContext) {
         let changed = false;
         for (const objective of definition.objectives || []) {
             const current = state.objectives[objective.id];
+            const decision = state.objectiveDecisions?.[objective.id];
+            if (decision?.mode === 'player_set') {
+                if (current.state !== 'terminal' || current.visibility !== 'resolved' || current.disposition !== decision.disposition) changed = true;
+                state.objectives[objective.id] = { state: 'terminal', visibility: 'resolved', disposition: decision.disposition };
+                continue;
+            }
             if (current.state === 'terminal') continue;
             const active = evaluate(objective.activationWhen, definition, state, predicateContext);
             const visible = active && evaluate(objective.visibleWhen, definition, state, predicateContext);
@@ -71,6 +78,10 @@ function reduceObjectives(definition, state, predicateContext) {
                     disposition = terminal.disposition;
                     break;
                 }
+            }
+            if (disposition && decision?.mode === 'confirmation_required') {
+                nextState = available && evaluate(objective.progressWhen, definition, state, predicateContext) ? 'inProgress' : (available ? 'available' : 'inactive');
+                disposition = null;
             }
             const nextVisibility = visible ? (nextState === 'terminal' ? 'resolved' : 'visible') : 'hidden';
             if (current.state !== nextState || current.visibility !== nextVisibility || current.disposition !== disposition) {
@@ -150,9 +161,32 @@ export function reduceMissionEvidence({
     acceptedClaims = [],
     sourceContribution = null,
     shipCapabilityEvidenceById = new Map(),
+    forceRecompute = false,
+    replaying = false,
 } = {}) {
     const state = structuredClone(inputState);
-    if (state.transitionReceipt && acceptedClaims.every((claim) => state.acceptedEvidenceKeys.includes(claim.evidenceKey))) {
+    const quarantined = new Set();
+    for (const [objectiveId, decision] of Object.entries(state.objectiveDecisions || {})) {
+        const objective = definition.objectives.find(item => item.id === objectiveId);
+        const refs = objectiveResolutionRefs(definition, objective);
+        const related = acceptedClaims.filter(claim => refs.events.has(claim.targetId) || refs.facts.has(claim.targetId) || refs.outcomes.has(claim.targetId));
+        const rejectedEntries = decision.rejectedEvidence || state.evidenceLog.filter(entry => decision.rejectedEvidenceKeys?.includes(entry.evidenceKey));
+        for (const claim of related) {
+            if (rejectedEntries.some(entry => entry.claimType === claim.claimType && entry.targetId === claim.targetId && entry.value === (claim.value ?? null)) && claim.materiallyNewEvidence !== true) quarantined.add(claim.evidenceKey);
+            if (claim.evidenceQuote && rejectedEntries.some(entry=>entry.evidenceQuote?.replace(/\s+/g,' ').trim() === claim.evidenceQuote.replace(/\s+/g,' ').trim())) quarantined.add(claim.evidenceKey);
+        }
+        if (replaying || decision.mode !== 'confirmation_required' || decision.proposal) continue;
+        const fresh = related.filter(claim => !quarantined.has(claim.evidenceKey) && !state.acceptedEvidenceKeys.includes(claim.evidenceKey) && !decision.rejectedEvidenceKeys.includes(claim.evidenceKey));
+        if (!fresh.length) continue;
+        const trial = structuredClone(state);
+        for (const control of Object.values(trial.objectiveDecisions)) if (control.mode === 'confirmation_required') control.mode = 'automatic';
+        const predicted = reduceMissionEvidence({definition,state:trial,acceptedClaims:fresh,shipCapabilityEvidenceById}).state.objectives[objectiveId];
+        if (predicted.state === 'terminal') {
+            decision.proposal = {id:`objective-proposal.${objectiveId}.${state.revision}`,disposition:predicted.disposition,evidenceKeys:fresh.map(claim=>claim.evidenceKey)};
+            for (const claim of fresh) quarantined.add(claim.evidenceKey);
+        }
+    }
+    if (!forceRecompute && state.transitionReceipt && acceptedClaims.every((claim) => state.acceptedEvidenceKeys.includes(claim.evidenceKey))) {
         return {
             state,
             effects: [],
@@ -162,7 +196,7 @@ export function reduceMissionEvidence({
     }
     const index = indexMissionDefinition(definition);
     const effects = [];
-    let changed = false;
+    let changed = forceRecompute;
     const acceptedAtMissionRevision = state.revision;
     for (const claim of [...acceptedClaims].sort(compareClaims)) {
         if (!claim?.evidenceKey || state.acceptedEvidenceKeys.includes(claim.evidenceKey)) continue;
@@ -182,8 +216,11 @@ export function reduceMissionEvidence({
                 ? { dependencyEffectIds: [...claim.dependencyEffectIds] }
                 : {}),
             acceptedAtMissionRevision,
+            ...(claim.materiallyNewEvidence === true ? { materiallyNewEvidence: true } : {}),
             ...(claim.delivery ? { delivery: structuredClone(claim.delivery) } : {}),
         });
+        const rejected = quarantined.has(claim.evidenceKey) || Object.values(state.objectiveDecisions || {}).some((decision) => decision.rejectedEvidenceKeys?.includes(claim.evidenceKey) || decision.proposal?.evidenceKeys?.includes(claim.evidenceKey));
+        if (rejected) { changed = true; continue; }
         applyClaim(definition, state, claim);
         effects.push({
             id: claim.claimId,

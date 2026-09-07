@@ -46,6 +46,7 @@ export function createV1MissionPanelModel(projection) {
   const objectives = copy(mission.objectives || []);
   return {
     missionId: mission.missionId,
+    runId: mission.runId,
     title: mission.title,
     summary: mission.summary,
     status: mission.status,

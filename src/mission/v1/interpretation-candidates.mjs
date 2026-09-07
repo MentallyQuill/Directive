@@ -54,6 +54,13 @@ export function createMissionInterpretationCandidatePacket({ definition = {}, st
         .map((policy) => candidateFor(policy, state, context))
         .filter(Boolean)
         .sort((left, right) => left.id.localeCompare(right.id));
+    for (const candidate of candidates) {
+        const corrections = Object.entries(state.objectiveDecisions || {}).flatMap(([objectiveId, decision]) => {
+            const rejected = (decision.rejectedEvidence || []).filter(entry => entry.targetId === candidate.targetId);
+            return rejected.length ? [{objectiveId,mode:decision.mode,rejectedEvidence:rejected}] : [];
+        });
+        if (corrections.length) candidate.corrections = corrections;
+    }
     return {
         kind: MISSION_INTERPRETATION_CANDIDATE_PACKET_KIND,
         missionId: definition.id,

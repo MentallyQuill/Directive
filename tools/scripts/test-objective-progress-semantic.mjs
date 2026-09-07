@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { createMissionAcceptedPairInterpretationPrompt,parseMissionAcceptedPairInterpretationOutput,materializeMissionEvidenceProposal } from '../../src/mission/v1/accepted-pair-interpreter.mjs';
+const quote='The second transfer has now safely finished.';
+const candidatePacket={missionId:'mission.survey',definitionVersion:'1.0.0',branchId:'save.survey',baseRevision:2,candidates:[{id:'policy.survey',claimType:'eventOccurred',targetId:'event.survey',sourceSlots:['previousAssistant'],guidance:'A settled new transfer.',evidenceStandard:'explicit',exclusions:[],corrections:[{objectiveId:'objective.survey',mode:'confirmation_required',rejectedEvidence:[{evidenceQuote:'The first transfer supposedly finished.'}]}]}]};
+const sourcePair={previousAssistant:{messageId:'message.new',textHash:'hash.new',text:quote},currentPlayer:{messageId:'player.new',textHash:'hash.player',text:'Proceed.'}};
+const value={kind:'directive.missionEvidenceInterpretation.v1',assistantAcceptance:'accepted',claims:[{candidateId:'policy.survey',sourceSlot:'previousAssistant',evidenceQuote:quote}],peopleEvents:[],abstained:false,time:{decision:'unchanged',elapsedSeconds:0,reason:'No passage established.',confidence:1}};
+assert.equal(parseMissionAcceptedPairInterpretationOutput(value,{candidatePacket,sourcePair}).ok,false);
+value.claims[0].materiallyNewEvidence=true;
+const parsed=parseMissionAcceptedPairInterpretationOutput(value,{candidatePacket,sourcePair});
+assert.equal(parsed.ok,true,JSON.stringify(parsed.errors));
+assert.equal(materializeMissionEvidenceProposal({interpretation:parsed.value,candidatePacket,sourcePair}).claims[0].materiallyNewEvidence,true);
+const prompt=createMissionAcceptedPairInterpretationPrompt({candidatePacket,sourcePair});
+assert.match(prompt.messages[1].content,/first transfer supposedly/);
+assert.match(prompt.systemPrompt,/paraphrase/);
+console.log('Objective correction semantic contract passed (mocked classification, no model calls).');

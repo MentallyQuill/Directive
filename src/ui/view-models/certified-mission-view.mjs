@@ -11,7 +11,8 @@ function objectiveView(objective) {
     summary: objective.summary,
     status: objective.status,
     disposition: objective.disposition ?? null,
-    terminalText: objective.terminalText ?? null
+    terminalText: objective.terminalText ?? null,
+    ...(objective.progressControl ? { progressControl: clone(objective.progressControl) } : {})
   };
 }
 
@@ -19,6 +20,7 @@ export function buildCertifiedMissionView(projection) {
   const mission = createV1MissionPanelModel(projection);
   const record = {
     id: mission.missionId,
+    ...(mission.runId ? { runId: mission.runId } : {}),
     title: mission.title,
     summary: mission.summary,
     status: mission.status,

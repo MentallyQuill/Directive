@@ -1,6 +1,8 @@
 export const GAMEPLAY_NOTIFICATION_KINDS = Object.freeze({
   missionComplete: 'missionComplete',
   objectiveComplete: 'objectiveComplete',
+  objectiveAdjusted: 'objectiveAdjusted',
+  objectiveProposal: 'objectiveProposal',
   newContact: 'newContact',
   relationshipUpdated: 'relationshipUpdated',
   shipTaskComplete: 'shipTaskComplete',
@@ -50,6 +52,9 @@ function missionNotifications(previousMission, nextMission, sourceRevision) {
       id: `mission.missionComplete.${missionId}.${revision}`,
       route: 'mission',
       subjectId: missionId,
+      missionId,
+      objectiveIds: (nextMission.objectives || []).filter(objective => objective.status === 'terminal').map(objective => objective.id),
+      reviewObjectives: true,
       kind: GAMEPLAY_NOTIFICATION_KINDS.missionComplete,
       title: 'Mission complete',
       summary: nextMission.terminal?.title || nextMission.title,
@@ -62,14 +67,49 @@ function missionNotifications(previousMission, nextMission, sourceRevision) {
     id: `mission.objectiveComplete.${missionId}.${revision}.${completed.map(({ id }) => id).sort().join('+')}`,
     route: 'mission',
     subjectId: missionId,
+    missionId,
+    objectiveIds: completed.map(({ id }) => id),
+    ...(completed.length > 1 ? { reviewObjectives: true } : {}),
+    ...(completed.length === 1 && completed[0].progressControl?.mode === 'automatic' && nextMission.runId ? {
+      progressAction: {
+        missionId,
+        objectiveId: completed[0].id,
+        expectedRunId: nextMission.runId,
+        expectedRevision: completed[0].progressControl.expectedRevision,
+        action: 'reopen',
+      },
+    } : {}),
     kind: GAMEPLAY_NOTIFICATION_KINDS.objectiveComplete,
     title: completed.length === 1 ? 'Objective complete' : 'Objectives complete',
     summary: completed.length === 1
-      ? completed[0].terminalText || completed[0].title
+      ? `${completed[0].terminalText || completed[0].title}${completed[0].progressControl?.origin === 'player' ? ' · Set by you.' : ''}`
       : `${completed.length} objectives completed`,
     priority: 70,
     sourceRevision,
   }];
+}
+
+function objectiveDecisionNotifications(previousMission, nextMission, sourceRevision) {
+  if (previousMission.missionId !== nextMission.missionId) return [];
+  const priorById = indexById(previousMission.objectives);
+  return (nextMission.objectives || []).flatMap((objective) => {
+    const prior = priorById.get(objective.id);
+    const control = objective.progressControl;
+    if (!prior || !control) return [];
+    const base = { route: 'mission', subjectId: nextMission.missionId, missionId: nextMission.missionId,
+      objectiveIds: [objective.id], sourceRevision };
+    if (control.proposal && control.proposal.id !== prior.progressControl?.proposal?.id) {
+      return [{ ...base, id: `objective.proposal.${nextMission.runId}.${objective.id}.${control.proposal.id}`,
+        kind: GAMEPLAY_NOTIFICATION_KINDS.objectiveProposal, title: 'Ready to complete?',
+        summary: objective.title, priority: 50, reviewObjectives: true }];
+    }
+    if (control.mode === 'confirmation_required' && prior.status === 'terminal' && objective.status !== 'terminal') {
+      return [{ ...base, id: `objective.reopened.${nextMission.runId}.${objective.id}.${nextMission.revision}`,
+        kind: GAMEPLAY_NOTIFICATION_KINDS.objectiveAdjusted, title: 'Objective reopened',
+        summary: `${objective.title} · Future completion needs your confirmation.`, priority: 70 }];
+    }
+    return [];
+  });
 }
 
 function peopleNotifications(previousPeople, nextPeople, sourceRevision) {
@@ -171,6 +211,7 @@ export function deriveGameplayNotifications({
   const sourceRevision = projectionRevision(nextProjection);
   return Object.freeze([
     ...missionNotifications(previousProjection.mission, nextProjection.mission, sourceRevision),
+    ...objectiveDecisionNotifications(previousProjection.mission, nextProjection.mission, sourceRevision),
     ...peopleNotifications(previousProjection.people, nextProjection.people, sourceRevision),
     ...shipNotifications(previousProjection.ship, nextProjection.ship, sourceRevision),
   ]

@@ -1,3 +1,4 @@
+import { commitObjectiveProgress } from './objective-progress-controls.js';
 import { runRuntimeAction } from '../runtime/runtime-actions.js';
 import { refreshRuntimeSafely } from '../extension/runtime-mount.js';
 import {
@@ -81,9 +82,41 @@ function createCard(entry) {
   icon.dataset.glyph = 'action-view';
   icon.setAttribute('aria-hidden', 'true');
   const viewText = createElement('span', 'directive-gameplay-notification-view-text');
-  viewText.textContent = 'View';
+  viewText.textContent = record.reviewObjectives ? 'Review objectives' : 'View';
+  if (record.reviewObjectives) view.setAttribute('aria-label', 'Review objectives');
   view.append(icon, viewText);
   card.append(dismiss, view);
+  if (record.progressAction) {
+    const actions = createElement('div', 'objective-progress-actions');
+    const correct = createElement('button', 'objective-progress-button');
+    correct.type = 'button';
+    correct.textContent = 'Still underway';
+    const feedback = createElement('p', 'objective-progress-feedback');
+    feedback.setAttribute('role', 'status');
+    correct.addEventListener('focus', () => pauseEntry(entry, 'correction-focus'));
+    correct.addEventListener('blur', () => resumeEntry(entry, 'correction-focus'));
+    correct.addEventListener('click', async () => {
+      if (correct.disabled) return;
+      pauseEntry(entry, 'correction');
+      correct.disabled = true;
+      dismiss.disabled = true;
+      view.disabled = true;
+      feedback.textContent = 'Saving progress…';
+      try {
+        await commitObjectiveProgress(record.progressAction);
+        dismissEntry(entry, 'corrected');
+        await refreshRuntimeSafely();
+      } catch (error) {
+        feedback.textContent = error.message || 'Progress could not be saved. Try again.';
+        correct.disabled = false;
+        dismiss.disabled = false;
+        view.disabled = false;
+        // Keep a failed correction available for recovery, without another timeout.
+      }
+    });
+    actions.append(correct);
+    card.append(actions, feedback);
+  }
   entry.card = card;
   dismiss.addEventListener('click', () => dismissEntry(entry, 'body'));
   card.addEventListener('pointerenter', () => pauseEntry(entry, 'hover'));
@@ -195,6 +228,19 @@ export function resetGameplayNotifications(reason = 'reset') {
 }
 
 export function handleGameplayNotificationUiMessage(message = {}) {
+  if (message.type === 'directive.gameplayNotifications.retire.v1') {
+    const ids = new Set(message.payload?.ids || []);
+    const missionId = message.payload?.missionId;
+    const objectiveIds = new Set(message.payload?.objectiveIds || []);
+    const matches = ({ record }) => ids.has(record.id) || (
+      record.route === 'mission' && missionId && (record.missionId || record.subjectId) === missionId
+      && (objectiveIds.size === 0 || (record.objectiveIds || [record.progressAction?.objectiveId]).some(id => objectiveIds.has(id)))
+    );
+    const retired = queued.filter(matches).length + [...visible.values()].filter(matches).length;
+    queued = queued.filter(entry => !matches(entry));
+    for (const entry of visible.values()) if (matches(entry)) dismissEntry(entry, 'obsolete');
+    return { retired };
+  }
   if (message.type === 'directive.gameplayNotifications.reset.v1') {
     return resetGameplayNotifications(message.payload?.reason || 'runtime-reset');
   }

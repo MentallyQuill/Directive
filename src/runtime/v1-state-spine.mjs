@@ -9,6 +9,7 @@ import {
 } from '../mission/v1/evidence-contracts.mjs';
 import { reduceMissionEvidence } from '../mission/v1/mission-reducer.mjs';
 import { createMissionState } from '../mission/v1/mission-state.mjs';
+import { rebuildObjectiveProgress } from '../mission/v1/objective-progress.mjs';
 import { deriveMissionEntryContext } from '../mission/v1/mission-entry-capabilities.mjs';
 import {
     appendShipWorkEvidenceToMissionState,
@@ -1164,6 +1165,19 @@ export function createV1StateSpine({
                 : {}),
         });
         const dependencyPrunedEvidence = [];
+        rebuiltMission.objectiveDecisions = structuredClone(matchedRun.state.objectiveDecisions || {});
+        for (const decision of Object.values(rebuiltMission.objectiveDecisions)) {
+            if (decision.proposal?.evidenceKeys.some(key=> !survivingEvidence.some(entry=>entry.evidenceKey === key))) decision.proposal = null;
+        }
+        if (Object.values(rebuiltMission.objectiveDecisions).some(decision => decision.mode === 'player_set')) {
+            rebuiltMission = reduceMissionEvidence({
+                definition: matchedDefinition,
+                state: rebuiltMission,
+                forceRecompute: true,
+                replaying: true,
+                shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
+            }).state;
+        }
         for (const batch of orderedEvidenceBatches(survivingEvidence)) {
             const shipClaims = batch.claims.filter((claim) => claim.domain === 'shipWork');
             const missionClaims = batch.claims.filter((claim) => claim.domain !== 'shipWork');
@@ -1183,11 +1197,15 @@ export function createV1StateSpine({
                 definition: matchedDefinition,
                 state: rebuiltMission,
                 acceptedClaims: replayable.acceptedClaims,
+                replaying: true,
                 sourceContribution: null,
                 shipCapabilityEvidenceById: shipContext.capabilityEvidenceById,
             }).state;
         }
         rebuiltMission.revision = matchedRun.state.revision + 1;
+        if (Object.keys(matchedRun.state.objectiveDecisions || {}).length) {
+            rebuiltMission = rebuildObjectiveProgress(matchedDefinition, rebuiltMission);
+        }
         rebuiltMission.invalidatedSourceContributionIds = [
             ...(matchedRun.state.invalidatedSourceContributionIds || []),
             ...missionInvalidatedIds,
