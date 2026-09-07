@@ -29,6 +29,16 @@ Conditional objectives appear only after their trigger becomes known.
 Deadline information is shown only when it is known in your current story state.
 Missions can close in different outcomes, including partial success or transfer scenarios, according to authored rules.
 
+### Correcting objective progress
+
+Directive tracks objectives from the accepted story. If it gets a result wrong, open the objective's **Adjust progress** control in Mission. Choose **Still underway** to reopen it, or choose an available resolution when Directive missed a real result. You do not need to repeat the scene or change the chat to correct the journal.
+
+A resolution you choose is marked **Set by you**. Automatic tracking will not replace it. After you reopen an objective, later completion needs your confirmation. You can choose **Resume automatic tracking** to let Directive update it again; previously rejected evidence stays rejected.
+
+Completion notifications provide a shortcut to correction. A grouped notice opens the objectives for review. Dismissing a notification does not change progress. New resolution proposals remain on the Mission card until addressed and do not interrupt narration.
+
+Adjustments apply to the current mission. Use a checkpoint to revisit an earlier mission. If a correction would undo a benefit that has already been used, follow the recovery explanation rather than editing save files. Keep checkpoints before major mission transitions.
+
 ## People
 
 People cards are public-facing records for notable NPC contacts.

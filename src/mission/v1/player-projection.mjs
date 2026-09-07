@@ -1,4 +1,5 @@
 import { indexMissionDefinition } from './mission-contracts.mjs';
+import { objectiveResolutionRefs } from './objective-progress-policy.mjs';
 
 export const MISSION_PLAYER_PROJECTION_KIND = 'directive.missionPlayerProjection.v1';
 
@@ -11,8 +12,13 @@ function terminalObjectiveText(objective, disposition) {
         ?.find((item) => item.disposition === disposition)?.text || null;
 }
 
-function projectObjective(objective, objectiveState) {
+function projectObjective(objective, objectiveState, state, definition) {
     const disposition = objectiveState.disposition || null;
+    const decision = state.objectiveDecisions?.[objective.id];
+    const labels = {completed:'Completed',completedWithCost:'Completed with cost',failedAfterInformedAction:'Failed after informed action',handedOff:'Handed off',knowinglyDeclined:'Declined',waived:'Waived'};
+    const refs = objectiveResolutionRefs(definition,objective);
+    const rejected = new Set(Object.values(state.objectiveDecisions || {}).flatMap(control=>[...(control.rejectedEvidenceKeys || []),...(control.proposal?.evidenceKeys || [])]));
+    const evidence = [...state.evidenceLog].reverse().find(entry=> !rejected.has(entry.evidenceKey) && entry.evidenceQuote && (refs.events.has(entry.targetId) || refs.outcomes.has(entry.targetId) || (refs.facts.has(entry.targetId) && state.knownFacts.includes(entry.targetId))));
     return {
         id: objective.id,
         class: effectiveObjectiveClass(objective),
@@ -21,6 +27,14 @@ function projectObjective(objective, objectiveState) {
         title: objective.playerText.title,
         summary: objective.playerText.summary,
         terminalText: disposition ? terminalObjectiveText(objective, disposition) : null,
+        progressControl: {
+            mode: decision?.mode || 'automatic',
+            origin: decision?.mode === 'player_set' ? 'player' : 'automatic',
+            allowedResolutions: [...new Set((objective.terminalWhen || []).map(item=>item.disposition))].map(value=>({disposition:value,label:labels[value] || value})),
+            proposal: decision?.proposal ? {id:decision.proposal.id,disposition:decision.proposal.disposition,label:labels[decision.proposal.disposition] || decision.proposal.disposition} : null,
+            explanation: decision?.mode === 'player_set' ? 'Set by you.' : decision?.mode === 'confirmation_required' ? 'Completion needs your confirmation. Earlier rejected evidence will not resolve this objective again.' : objectiveState.state === 'terminal' ? (evidence ? `Accepted story evidence: “${evidence.evidenceQuote}”` : 'Resolved from accepted story evidence.') : '',
+            expectedRevision: state.revision,
+        },
     };
 }
 
@@ -87,7 +101,7 @@ export function createMissionPlayerProjection({ definition = {}, state = {} } = 
     const index = indexMissionDefinition(definition);
     const objectives = (definition.objectives || [])
         .filter((objective) => new Set(['visible', 'resolved']).has(state.objectives?.[objective.id]?.visibility))
-        .map((objective) => projectObjective(objective, state.objectives[objective.id]));
+        .map((objective) => projectObjective(objective, state.objectives[objective.id], state, definition));
     return {
         kind: MISSION_PLAYER_PROJECTION_KIND,
         missionId: definition.id,

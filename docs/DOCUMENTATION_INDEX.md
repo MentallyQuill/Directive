@@ -24,6 +24,9 @@ If you want deeper architecture details, use these documents:
 - [Directive Datasets](technical/DIRECTIVE_DATASETS.md)
 - [Host Integration Manual](technical/HOST_INTEGRATION_MANUAL.md)
 - [V1 Test Contract](testing/V1_GAMEPLAY_ARCHITECTURE_TEST_PLAN.md)
+- [Reliable Objective Progress: Feature and Audit Contract](design/RELIABLE_OBJECTIVE_PROGRESS.md)
+- [Objective Progress Audit](testing/OBJECTIVE_PROGRESS_AUDIT.md)
+- [Objective Progress Verification Record](testing/OBJECTIVE_PROGRESS_VALIDATION.md)
 
 For writers and campaign builders:
 

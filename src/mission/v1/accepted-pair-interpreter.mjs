@@ -13,7 +13,7 @@ const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected'
 const TIME_DECISION_VALUES = new Set(['advance', 'unchanged', 'indeterminate']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
 const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time']);
-const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value', 'evidenceQuote']);
+const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value', 'evidenceQuote', 'materiallyNewEvidence']);
 const PEOPLE_INTRODUCTION_FIELDS = new Set(['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_FACT_FIELDS = new Set(['type', 'personRef', 'field', 'value', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_RELATIONSHIP_FIELDS = new Set(['type', 'personRef', 'summary', 'sourceSlot', 'evidenceQuote']);
@@ -173,6 +173,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
                     candidateId: { type: 'string', const: candidate.id },
                     sourceSlot: { type: 'string', const: sourceSlot },
                     ...(hasValue ? { value: constSchema(value) } : {}),
+                    ...(candidate.corrections?.length ? { materiallyNewEvidence: {type:'boolean',const:true} } : {}),
                     evidenceQuote: {
                         type: 'string',
                         minLength: MIN_EVIDENCE_QUOTE_LENGTH,
@@ -380,6 +381,8 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair)
             errors.push(`${path} sourceSlot is not authorized for ${claim.candidateId}`);
         }
         errors.push(...evidenceQuoteErrors(claim, sourcePair, path));
+        if (candidate.corrections?.length && claim.materiallyNewEvidence !== true) errors.push(`${path} requires materially new evidence after the player correction`);
+        if (claim.materiallyNewEvidence !== undefined && claim.materiallyNewEvidence !== true) errors.push(`${path} materiallyNewEvidence must be true when supplied`);
         const candidateValues = Array.isArray(candidate.values) ? candidate.values : null;
         if (candidateValues) {
             if (!Object.hasOwn(claim, 'value')) {
@@ -479,6 +482,8 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Advance time only when visible prose supports waiting, travel, work, rest, a scene cut, or another completed duration.',
         'Deadlines, schedules, past events, hypothetical durations, and statements about how long something usually takes do not themselves advance the current scene.',
         'Use advance with a positive whole number of seconds, unchanged with zero when no fictional time passes, or indeterminate with zero when evidence conflicts or is insufficient.',
+        'Resolve only settled results. Orders, intentions, attempts, temporary stabilization, predictions, negated outcomes, and questions are not completed outcomes even when quoted accurately. Apply the full authored requirement, including evidence accumulated in current state.',
+        'Candidates with corrections include evidence rejected by the player. Repetition, paraphrase, retrospective discussion, or a new message quoting that same event is not new evidence. Select such a candidate only for a materially new enacted result after the correction, and explicitly set materiallyNewEvidence:true. Otherwise abstain on it. Player-set resolutions are authoritative.',
         'Return exactly one JSON object with no markdown or prose:',
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
         'Explicit-duration time example only: {"decision":"advance","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
@@ -563,6 +568,7 @@ export function materializeMissionEvidenceProposal({
                 ...(Object.hasOwn(selection, 'value') ? { value: cloneJson(selection.value) } : {}),
                 evidenceQuote: normalizedEvidenceText(selection.evidenceQuote),
                 evidenceQuoteHash: stableHash(normalizedEvidenceText(selection.evidenceQuote)),
+                ...(selection.materiallyNewEvidence === true ? {materiallyNewEvidence:true} : {}),
                 sourceRef: {
                     messageId: source.messageId,
                     swipeId: source.selectedSwipeId || null,

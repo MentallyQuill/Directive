@@ -21,6 +21,7 @@ const MISSION_STATE_KEYS = new Set([
     'status',
     'entryContext',
     'objectives',
+    'objectiveDecisions',
     'knownFacts',
     'worldFacts',
     'events',
@@ -84,6 +85,18 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
     errors.push(...entryContext.errors);
 
     const objectiveIds = new Set(index.objectives.keys());
+    if (state.objectiveDecisions !== undefined) {
+        if (!state.objectiveDecisions || typeof state.objectiveDecisions !== 'object' || Array.isArray(state.objectiveDecisions)) errors.push('objectiveDecisions must be a record');
+        else for (const [id, decision] of Object.entries(state.objectiveDecisions)) {
+            const objective = index.objectives.get(id);
+            if (!objective || !decision || !new Set(['automatic','player_set','confirmation_required']).has(decision.mode)) { errors.push('objective decision is invalid'); continue; }
+            if (decision.origin !== 'player' || !Number.isInteger(decision.revision) || decision.revision < 1 || decision.revision > state.revision) errors.push('objective decision revision or origin is invalid');
+            if (!Array.isArray(decision.rejectedEvidenceKeys) || !Array.isArray(decision.rejectedEvidence)) errors.push('objective decision rejected evidence is invalid');
+            const dispositions = new Set(objective.terminalWhen.map(item=>item.disposition));
+            if (decision.mode === 'player_set' && !dispositions.has(decision.disposition)) errors.push('objective player disposition is invalid');
+            if (decision.proposal && (decision.mode !== 'confirmation_required' || typeof decision.proposal.id !== 'string' || !dispositions.has(decision.proposal.disposition) || !Array.isArray(decision.proposal.evidenceKeys))) errors.push('objective proposal is invalid');
+        }
+    }
     if (validateExactRecordKeys(state?.objectives, objectiveIds, 'objectives', errors)) {
         for (const [objectiveId, objective] of index.objectives.entries()) {
             const record = state.objectives[objectiveId];
@@ -221,6 +234,7 @@ export function createMissionState({ definition = {}, branchId = 'main', entryCo
         revision: 0,
         status: 'active',
         objectives: {},
+        objectiveDecisions: {},
         knownFacts: (definition.facts || [])
             .filter((fact) => fact.initiallyTrue === true && fact.visibility === 'known')
             .map((fact) => fact.id),

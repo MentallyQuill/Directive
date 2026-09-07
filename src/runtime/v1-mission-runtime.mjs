@@ -57,6 +57,11 @@ import {
     materializeAcceptedPairPeopleEvents,
 } from '../people/accepted-pair-people.mjs';
 import { createPeopleDossierAuthor } from '../people/people-dossier-author.mjs';
+import { adjustMissionObjectiveProgress } from '../mission/v1/objective-progress.mjs';
+import { eligibleMissionCommandBearingAwards } from '../mission/v1/mission-reducer.mjs';
+import { awardV1CommandBearing } from '../command/v1-command-bearing.mjs';
+import { pruneStoryEffects } from '../story/story-settlement.mjs';
+import { stableHash24 } from './v1-stable-hash.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -706,6 +711,99 @@ export function createV1MissionRuntime({
         return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
     }
 
+    async function adjustObjectiveProgress({
+        runtimeAssets = {}, missionId, objectiveId, action, disposition, proposalId,
+        expectedRevision, expectedRunId,
+    } = {}) {
+        const failure = (reasonCode, message) => ({
+            ok: false, status: 'rejected', reasonCode, message, noChange: true,
+        });
+        const campaignState = getState();
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+        if (!resolved.ok || resolved.definition.id !== missionId) {
+            return failure('objective-scope-changed',
+                'This mission is no longer current. Use a checkpoint to correct an earlier mission.');
+        }
+        const current = campaignState.mission.v1;
+        const runId = campaignState.mission.v1Journey?.activeRunId
+            || (current && current.branchId + ':' + current.definitionId);
+        if (!current || expectedRevision !== current.revision || expectedRunId !== runId) {
+            return failure('objective-stale',
+                'Progress changed while this control was open. Review the current Mission card and try again.');
+        }
+        const baseRevision = stateDeltaGateway.revision();
+        try {
+            const adjusted = adjustMissionObjectiveProgress({
+                definition: resolved.definition, state: current, objectiveId, action, disposition, proposalId,
+            });
+            const commandBearing = structuredClone(campaignState.commandBearing);
+            const nextAwards = eligibleMissionCommandBearingAwards(resolved.definition, adjusted.state);
+            const eligibleIds = new Set(nextAwards.map(award => award.id));
+            const removed = (resolved.definition.commandBearingAwards || []).filter(award =>
+                commandBearing.awards[award.id] && !eligibleIds.has(award.id));
+            const debit = removed.filter(award => commandBearing.awards[award.id].credited).length;
+            if (debit > commandBearing.balance) {
+                return failure('objective-checkpoint-required',
+                    'The Command Bearing earned from this result has already been spent. Restore a checkpoint from before that spend to correct this objective.');
+            }
+            commandBearing.balance -= debit;
+            for (const award of removed) {
+                if (commandBearing.awards[award.id].credited) delete commandBearing.awards[award.id];
+            }
+            let reconciledBearing = commandBearing;
+            for (const award of nextAwards) {
+                reconciledBearing = awardV1CommandBearing(reconciledBearing, {
+                    awardId: award.id, sourceId: award.sourceObjectiveId, reason: award.reason, now,
+                }).commandBearing;
+            }
+            const rejectedKeys = new Set(Object.values(adjusted.state.objectiveDecisions || {})
+                .flatMap(decision => decision.rejectedEvidenceKeys || []));
+            const rejectedEffectIds = new Set(current.evidenceLog
+                .filter(entry => rejectedKeys.has(entry.evidenceKey))
+                .map(entry => `effect.v1.${stableHash24([entry.claimId, entry.sourceContributionId].join('|'))}`));
+            const effects = (campaignState.storySettlement?.episodes || [])
+                .flatMap(episode => episode.effects || []);
+            const removedEffects = new Set(effects.filter(effect => rejectedEffectIds.has(effect.id))
+                .map(effect => effect.id));
+            for (let pass = 0; pass <= effects.length; pass += 1) {
+                const size = removedEffects.size;
+                for (const effect of effects) {
+                    if ((effect.dependencyEffectIds || []).some(id => removedEffects.has(id))) {
+                        removedEffects.add(effect.id);
+                    }
+                }
+                if (size === removedEffects.size) break;
+            }
+            const storySettlement = campaignState.storySettlement && removedEffects.size
+                ? pruneStoryEffects(campaignState.storySettlement, {
+                    effectIds: [...removedEffects],
+                    summarizeEffects: () => 'The remaining established progress is retained; the player corrected an objective result.',
+                })
+                : campaignState.storySettlement;
+            await stateDeltaGateway.applyProposal({
+                operations: [
+                    { op: 'set', path: 'mission.v1', value: adjusted.state },
+                    { op: 'set', path: 'commandBearing', value: reconciledBearing },
+                    ...(storySettlement ? [{ op: 'set', path: 'storySettlement', value: storySettlement }] : []),
+                ],
+                domains: ['mission', 'commandBearing', ...(storySettlement ? ['storySettlement'] : [])],
+                baseRevision,
+                source: 'v1ObjectiveProgress',
+                reason: 'Committed player objective progress decision.',
+                metadata: { missionId, objectiveId, action },
+            });
+            cachedInterpretation = null;
+            return {
+                ok: true, status: 'committed', missionId, objectiveId,
+                revision: adjusted.state.revision, noChange: false,
+            };
+        } catch (error) {
+            return failure(error.code || 'objective-adjustment-failed', error.code
+                ? 'The change could not be saved. Review current progress and try again.'
+                : error.message);
+        }
+    }
+
     function inspectPendingTransition({ runtimeAssets = {} } = {}) {
         return inspectV1MissionTransition({ campaignState: getState(), runtimeAssets });
     }
@@ -1148,6 +1246,7 @@ export function createV1MissionRuntime({
                 latencyMs: interpreted?.diagnostics?.latencyMs ?? null,
             }, { attempted: true });
         }
+        if (signal?.aborted) return unavailable('provider-aborted', {}, {attempted:true});
         if (stateDeltaGateway.revision() !== interpretationBaseRevision) {
             return unavailable('state-revision-conflict', {}, { attempted: true });
         }
@@ -1369,6 +1468,7 @@ export function createV1MissionRuntime({
             playerContributionId,
         ].join('|'));
         try {
+            if (signal?.aborted) return unavailable('provider-aborted', {}, {attempted:true});
             const settled = await spine.settleAcceptedPair({
                 definition,
                 proposal: settlementProposal,
@@ -1812,6 +1912,7 @@ export function createV1MissionRuntime({
         settleAcceptedPair,
         invalidateSourceMutation,
         buildPlayerProjection,
+        adjustObjectiveProgress,
         pendingEpisodeReview: () => createPendingEpisodeReviewToken(getState()?.storySettlement),
         reviewPendingEpisode,
     };

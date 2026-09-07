@@ -1,6 +1,17 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-objective-support-matrix.mjs",
+  "test-objective-progress-core.mjs",
+  "test-objective-progress-runtime.mjs",
+  "test-objective-progress-corpus.mjs",
+  "test-objective-progress-action.mjs",
+  "test-objective-progress-app.mjs",
+  "test-objective-progress-app-race.mjs",
+  "test-objective-progress-semantic.mjs",
+  "test-objective-progress-notifications.mjs",
+  "test-objective-progress-ui.mjs",
+  "test-objective-progress-ui-browser.mjs",
   "test-v1-cohesion-contracts.mjs",
   "test-v1-cohesion-state.mjs",
   "test-v1-cohesion-scheduler.mjs",

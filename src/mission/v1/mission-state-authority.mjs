@@ -3,6 +3,7 @@ import { createMissionState, validateMissionState } from './mission-state.mjs';
 import { validateDutyReportDeliveryReceipt } from './duty-report-delivery.mjs';
 import { collectMissionPredicateRefs } from './predicate-evaluator.mjs';
 import { appendShipWorkEvidenceToMissionState } from '../../ship/v1/ship-work-evidence.mjs';
+import { rebuildObjectiveProgress } from './objective-progress.mjs';
 
 const CLAIM_TARGET_COLLECTION = Object.freeze({
     worldFactEstablished: 'facts',
@@ -175,6 +176,7 @@ export function validateMissionStateAuthority({ definition = {}, state = {} } = 
         return { ok: false, errors: [...errors, 'evidenceLog cannot reconstruct mission authority'] };
     }
 
+    if (Object.keys(state.objectiveDecisions || {}).length > 0) rebuilt = rebuildObjectiveProgress(definition, state);
     for (const field of [
         'status',
         'objectives',

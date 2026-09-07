@@ -68,6 +68,10 @@ function rebindMissionEvidenceKeys(campaignState, sourceBranchId, targetBranchId
       }
     }
     state.acceptedEvidenceKeys = (state.evidenceLog || []).map((entry) => entry.evidenceKey);
+    for (const decision of Object.values(state.objectiveDecisions || {})) {
+      for (const key of decision.rejectedEvidenceKeys || []) if (key.startsWith(sourceBranchId + '|')) replacements.set(key,targetBranchId + key.slice(sourceBranchId.length));
+    }
+    if (state.objectiveDecisions) state.objectiveDecisions = replaceExactValues(state.objectiveDecisions,replacements);
   }
   return campaignState;
 }

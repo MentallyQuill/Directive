@@ -559,6 +559,7 @@ export function createDirectiveRuntimeApp({
   let acceptedPairRecovery = noAcceptedPairRecovery();
   const acceptedPairCallBudget = createAcceptedPairCallBudget();
   let activeAnalysisController = null;
+  let activeAnalysisFingerprint = null;
   const episodeReviewScheduler = createEpisodeReviewScheduler({
     getToken: () => missionRuntime?.pendingEpisodeReview?.() || null,
     review: ({ automatic, signal }) => missionRuntime.reviewPendingEpisode({
@@ -1064,6 +1065,7 @@ export function createDirectiveRuntimeApp({
     let mission = null;
     let persistenceAttempts = 0;
     const fingerprint = acceptedPairFingerprint(snapshot);
+    activeAnalysisFingerprint = fingerprint;
     const budgetAttemptKind = attemptKind === 'manual' ? 'manual' : 'automatic';
     const budgetReserved = allowModelCall === true
       && fingerprint
@@ -1083,7 +1085,10 @@ export function createDirectiveRuntimeApp({
         && persistenceAttempts < 3
         && analysisController?.signal?.aborted !== true);
     } finally {
-      if (activeAnalysisController === analysisController) activeAnalysisController = null;
+      if (activeAnalysisController === analysisController) {
+        activeAnalysisController = null;
+        activeAnalysisFingerprint = null;
+      }
     }
     if (mission?.ok === true) {
       acceptedPairCallBudget.clear(fingerprint);
@@ -1435,6 +1440,56 @@ export function createDirectiveRuntimeApp({
     async getCurrentView({ tabId = 'campaign' } = {}) {
       await ensureInitialized();
       return campaignViewEnvelope(tabId);
+    },
+
+    async adjustObjectiveProgress(options = {}) {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound()) {
+        return { ok: false, message: 'Open the current campaign chat before adjusting progress.' };
+      }
+      const mission = projectionResult()?.projection?.mission;
+      const objective = mission?.objectives?.find(item => item.id === options.objectiveId);
+      if (!objective?.progressControl || mission?.missionId !== options.missionId || mission?.runId !== options.expectedRunId
+        || objective?.progressControl?.expectedRevision !== options.expectedRevision) {
+        return { ok: false, message: 'Progress changed while this control was open. Review the current Mission card and try again.' };
+      }
+      // Only this flight's cancellation may be recovered after committing the correction.
+      const canceledFingerprint = activeAnalysisController && !activeAnalysisController.signal.aborted
+        ? activeAnalysisFingerprint : null;
+      if (canceledFingerprint) activeAnalysisController.abort(new Error('objective-progress-adjusted'));
+      return enqueueSettlement(async () => {
+        if (!state || !currentChatIsBound()) {
+          return { ok: false, message: 'The campaign chat changed. Open the current mission and try again.' };
+        }
+        const previousProjection = projectionResult()?.projection || null;
+        let result;
+        try {
+          result = await missionRuntime.adjustObjectiveProgress({ ...options, runtimeAssets });
+        } catch (error) {
+          host.logger?.warn?.('[Directive] Objective progress could not be committed.', error);
+          return { ok: false, message: 'Progress could not be saved. Refresh the mission and try again.' };
+        }
+        if (result.ok !== true) return result;
+        if (canceledFingerprint && acceptedPairRecovery.mode === 'pair-retry'
+          && acceptedPairRecovery.reasonCode === 'provider-aborted'
+          && acceptedPairRecovery.pair?.fingerprint === canceledFingerprint) {
+          acceptedPairRecovery = reconcileRequiredRecovery('objective-progress-adjusted');
+        }
+        const nextProjection = projectionResult()?.projection || null;
+        sendGameplayNotificationMessage({
+          type: 'directive.gameplayNotifications.retire.v1',
+          payload: { missionId: options.missionId, objectiveIds: [options.objectiveId] }
+        });
+        const notifications = deriveGameplayNotifications({ previousProjection, nextProjection });
+        if (notifications.length) sendGameplayNotificationMessage({
+          type: 'directive.gameplayNotifications.publish.v1', payload: { records: clone(notifications) }
+        });
+        // The state is already committed: a prompt refresh failure must not invite a duplicate mutation.
+        try { await syncPrompt(); } catch (error) {
+          host.logger?.warn?.('[Directive] Progress saved; prompt refresh will be retried.', error);
+        }
+        return { ...result, notifications: clone(notifications) };
+      });
     },
 
     async buildV1PlayerProjection() {

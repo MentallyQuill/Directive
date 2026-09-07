@@ -109,6 +109,7 @@ export function createV1PlayerProjection({
     assertPersistedState(definition, missionState, storySettlement);
 
     const mission = createMissionPlayerProjection({ definition, state: missionState });
+    mission.runId = campaignState.mission?.v1Journey?.activeRunId || missionState.branchId + ':' + missionState.definitionId;
     const story = createStoryPlayerProjection({ settlement: storySettlement });
     const ship = createShipPlayerProjection({
         campaignState,
