@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,9 +64,11 @@ try {
   const activityStyle = await indicator.evaluate((card) => ({
     borderLeftColor: getComputedStyle(card).borderLeftColor,
     clipPath: getComputedStyle(card).clipPath,
+    borderRadius: getComputedStyle(card).borderRadius,
   }));
   assert.equal(activityStyle.borderLeftColor, 'rgb(242, 161, 38)', 'activity uses the shared yellow-orange accent');
-  assert.match(activityStyle.clipPath, /4px/, 'activity uses the shared four-pixel bevel');
+  assert.equal(activityStyle.clipPath, 'none', 'activity outline and shadow are not polygon-clipped');
+  assert.equal(activityStyle.borderRadius, '4px', 'activity uses the shared softly rounded bevel');
   await page.waitForTimeout(220);
   const readingGeometry = await indicator.boundingBox();
   assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
@@ -106,6 +109,13 @@ try {
 
   await page.waitForTimeout(850);
   assert.equal(await indicator.isVisible(), true, 'non-streaming response remains owned beyond the old expiry');
+  const artifactRoot = path.join(repoRoot, 'artifacts', 'notification-bevel');
+  mkdirSync(artifactRoot, { recursive: true });
+  const waitingBox = await indicator.boundingBox();
+  await page.screenshot({
+    path: path.join(artifactRoot, 'activity-bevel.png'), animations: 'disabled',
+    clip: { x: Math.max(0, waitingBox.x - 24), y: Math.max(0, waitingBox.y - 8), width: waitingBox.width + 48, height: waitingBox.height + 40 },
+  });
   assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'SillyTavern');
   await page.evaluate(async () => {
     globalThis.__emitActivityEnd();

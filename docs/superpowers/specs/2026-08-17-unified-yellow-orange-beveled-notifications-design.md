@@ -10,8 +10,8 @@ The attached top-bar clipping is not reproducible from the current installed art
 
 - Every Directive notification card uses the canonical notification yellow-orange `#f2a126` for its leading edge, border, category, title glyph, and action emphasis.
 - Mission, People, Ship, activity, and preset cards no longer substitute route-specific peach, lilac, or blue accents.
-- Every card has true 4px beveled corners on all four corners.
-- The outer accent edge and inner dark surface use matching polygon geometry so the border follows each diagonal rather than leaving rounded or clipped rectangular corners.
+- Every card has a continuous outline with a subtle 4px corner radius and a shaded bevel: a light upper/left edge and a darker lower/right edge.
+- Correction (2026-09-07): the original polygon implementation was a chamfer, incorrectly described here as a bevel. Do not clip the card to a polygon; preserve the complete border and outer shadow. This applies to activity, system/preset, and gameplay notifications through the shared card style.
 - Existing dark surfaces, compact typography, shadows, entry/exit motion, focus visibility, and reduced-motion behavior remain.
 
 ## Shared Surface
@@ -55,7 +55,7 @@ Use red-green-refactor for each behavior:
 - notification surface accepts and independently releases the system owner;
 - system slot participates in shared stacking and collision measurement;
 - all notification kinds compute the same yellow-orange accent;
-- card corner geometry exposes 4px diagonal bevels on desktop and mobile;
+- cards have continuous outlines, 4px rounded corners, and shaded bevel edges on desktop and mobile;
 - preset notice renders supplied content and all three actions;
 - preset actions preserve open, later, and disable behavior;
 - the persistent preset notice does not create a timer;
