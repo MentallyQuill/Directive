@@ -585,6 +585,7 @@ export function createMissionAcceptedPairInterpreter({
 } = {}) {
     return async function interpretMissionAcceptedPair({
         candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
+        onAttempt = null,
     } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
@@ -598,7 +599,7 @@ export function createMissionAcceptedPairInterpreter({
                 (providerSignal) => generationRouter.generate(
                     MISSION_EVIDENCE_INTERPRETER_ROLE_ID,
                     request,
-                    { timeoutMs, signal: providerSignal, allowVisibleOutputRetry: false },
+                    { timeoutMs, signal: providerSignal, allowVisibleOutputRetry: false, onAttempt },
                 ),
                 timeoutMs,
                 signal,

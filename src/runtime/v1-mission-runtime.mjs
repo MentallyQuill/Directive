@@ -699,6 +699,7 @@ export function createV1MissionRuntime({
     checkpointEveryContributions = 8,
     authorPeopleDossiers = null,
     peopleDossierTimeoutMs = 30000,
+    turnProgress = null,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.revision !== 'function'
@@ -716,6 +717,28 @@ export function createV1MissionRuntime({
         generationRouter,
         timeoutMs: episodeReviewTimeoutMs,
     });
+
+    function runProgress(stage, task, progressScope) {
+        return typeof turnProgress?.run === 'function'
+            ? turnProgress.run(stage, task, { scope: progressScope })
+            : task({ onAttempt: null });
+    }
+
+    function gatewayForProgressScope(progressScope) {
+        if (!progressScope) return stateDeltaGateway;
+        return {
+            revision: () => stateDeltaGateway.revision(),
+            applyProposal: (proposal, options = {}) => stateDeltaGateway.applyProposal(proposal, {
+                ...options,
+                progressScope,
+            }),
+            commit: (campaignState, delta, options = {}) => stateDeltaGateway.commit?.(
+                campaignState,
+                delta,
+                { ...options, progressScope },
+            ),
+        };
+    }
 
     function buildPlayerProjection({ runtimeAssets = {} } = {}) {
         return buildV1RuntimePlayerProjection({ campaignState: getState(), runtimeAssets });
@@ -1094,6 +1117,7 @@ export function createV1MissionRuntime({
         acceptedCommandBearingEdge = null,
         signal = null,
         allowModelCall = true,
+        progressScope = null,
     } = {}) {
         let campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1237,13 +1261,14 @@ export function createV1MissionRuntime({
                 }, { attempted: false });
             }
             try {
-                interpreted = await interpreter({
+                interpreted = await runProgress('reviewing-events', ({ onAttempt }) => interpreter({
                     candidatePacket,
                     sourcePair,
                     timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
                     peopleContext,
                     signal,
-                });
+                    onAttempt,
+                }), progressScope);
             } catch {
                 return unavailable('interpretation-threw', {}, { attempted: true });
             }
@@ -1324,7 +1349,7 @@ export function createV1MissionRuntime({
                 peopleDossierAttempted = true;
                 let authored;
                 try {
-                    authored = await peopleDossierAuthor({
+                    authored = await runProgress('updating-characters', ({ onAttempt }) => peopleDossierAuthor({
                         introductions,
                         campaignContext: {
                             campaignTitle: campaignState?.campaign?.title
@@ -1334,7 +1359,8 @@ export function createV1MissionRuntime({
                             shipSummary: runtimeAssets?.shipDataset?.profile?.summary || '',
                         },
                         signal,
-                    });
+                        onAttempt,
+                    }), progressScope);
                 } catch {
                     authored = { ok: false, status: 'unavailable', reasonCode: 'provider-threw' };
                 }
@@ -1468,7 +1494,7 @@ export function createV1MissionRuntime({
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
             getState,
-            stateDeltaGateway,
+            stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef,
             now,
             checkpointEveryContributions,
@@ -1593,6 +1619,7 @@ export function createV1MissionRuntime({
         eventType = 'source-invalidated',
         authorityPatch = {},
         authorityDomains = [],
+        progressScope = null,
     } = {}) {
         const campaignState = getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1632,7 +1659,7 @@ export function createV1MissionRuntime({
         const reason = safeReasonCode(eventType);
         const spine = createV1StateSpine({
             getState,
-            stateDeltaGateway,
+            stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef: () => null,
             now,
         });
@@ -1682,7 +1709,13 @@ export function createV1MissionRuntime({
             && left.checkpointSequence === right.checkpointSequence;
     }
 
-    async function persistEpisodeReviewAttempt({ token, status, automaticAttemptCount, reasonCode = null }) {
+    async function persistEpisodeReviewAttempt({
+        token,
+        status,
+        automaticAttemptCount,
+        reasonCode = null,
+        progressScope = null,
+    }) {
         const campaignState = getState();
         const settlement = campaignState?.storySettlement;
         const previousAttempt = settlement?.episodeReviewAttempt;
@@ -1714,7 +1747,7 @@ export function createV1MissionRuntime({
                 checkpointSequence: token.checkpointSequence,
                 status,
             },
-        });
+        }, { progressScope });
         return committed.campaignState.storySettlement.episodeReviewAttempt;
     }
 
@@ -1723,6 +1756,7 @@ export function createV1MissionRuntime({
         signal = null,
         automatic = false,
         runMutation = null,
+        progressScope = null,
     } = {}) {
         const mutate = typeof runMutation === 'function'
             ? runMutation
@@ -1779,6 +1813,7 @@ export function createV1MissionRuntime({
                 status: 'pending',
                 automaticAttemptCount: previousAutomaticCount + (automatic === true ? 1 : 0),
                 reasonCode: null,
+                progressScope,
             }));
         } catch (error) {
             const reasonCode = errorReasonCode(error);
@@ -1814,6 +1849,7 @@ export function createV1MissionRuntime({
                     status: 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode: 'episode-review-invalid',
+                    progressScope,
                 }));
             } catch { /* Pending custody still suppresses another automatic call. */ }
             return {
@@ -1824,7 +1860,11 @@ export function createV1MissionRuntime({
         const gatewayBaseRevision = stateDeltaGateway.revision();
         let evaluated;
         try {
-            evaluated = await episodeEvaluator({ request, signal });
+            evaluated = await runProgress('reviewing-episode', ({ onAttempt }) => episodeEvaluator({
+                request,
+                signal,
+                onAttempt,
+            }), progressScope);
         } catch {
             evaluated = { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };
         }
@@ -1837,6 +1877,7 @@ export function createV1MissionRuntime({
                     status: 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode,
+                    progressScope,
                 }));
             } catch { /* Pending custody still suppresses another automatic call. */ }
             return {
@@ -1847,7 +1888,7 @@ export function createV1MissionRuntime({
 
         const spine = createV1StateSpine({
             getState,
-            stateDeltaGateway,
+            stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef: () => null,
             now,
             checkpointEveryContributions,
@@ -1866,6 +1907,7 @@ export function createV1MissionRuntime({
                     status: 'committed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode: null,
+                    progressScope,
                 });
                 return result;
             });
@@ -1890,6 +1932,7 @@ export function createV1MissionRuntime({
                     status: reasonCode === 'persistence-rollback-conflict' ? 'indeterminate' : 'failed',
                     automaticAttemptCount: attempt.automaticAttemptCount,
                     reasonCode,
+                    progressScope,
                 }));
             } catch { /* Preserve the strongest already-durable attempt state. */ }
             if (reasonCode === 'persistence-rollback-conflict') {

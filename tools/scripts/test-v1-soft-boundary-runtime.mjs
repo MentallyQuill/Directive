@@ -5,6 +5,7 @@ import { createInitialMissionJourney } from '../../src/mission/v1/mission-journe
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
+import { createTurnProgressReporter } from '../../src/runtime/turn-progress.mjs';
 import {
     createPendingEpisodeReviewToken,
     createV1StateSpine,
@@ -150,6 +151,7 @@ function createHarness({
     evaluator = null,
     persistError = null,
     persistConflict = false,
+    turnProgress = null,
 } = {}) {
     let campaignState = structuredClone(state);
     let persistCount = 0;
@@ -171,8 +173,9 @@ function createHarness({
         },
         now: () => '2026-08-09T16:00:00.000Z',
     });
-    const evaluateEpisode = async ({ request }) => {
+    const evaluateEpisode = async ({ request, onAttempt }) => {
         evaluationCount += 1;
+        onAttempt?.(1);
         return evaluator
             ? evaluator({ request, gateway, getState: () => campaignState })
             : { ok: true, status: 'continue', proposal: proposalFor(request, 'continue'), diagnostics: {} };
@@ -181,6 +184,7 @@ function createHarness({
         getState: () => campaignState,
         stateDeltaGateway: gateway,
         evaluateEpisode,
+        turnProgress,
         now: () => '2026-08-09T16:00:00.000Z',
     });
     return {
@@ -193,7 +197,10 @@ function createHarness({
     };
 }
 
-const continueHarness = createHarness();
+const episodeProgress = createTurnProgressReporter();
+const episodeProgressEvents = [];
+episodeProgress.subscribeTurnProgress((event) => episodeProgressEvents.push(event));
+const continueHarness = createHarness({ turnProgress: episodeProgress });
 const continueBefore = structuredClone(continueHarness.campaignState);
 const continueToken = createPendingEpisodeReviewToken(continueHarness.campaignState.storySettlement);
 const continueRequest = createEpisodeEvaluationRequest({ settlement: continueHarness.campaignState.storySettlement });
@@ -202,9 +209,18 @@ assert.deepEqual(continueHarness.runtime.pendingEpisodeReview(), continueToken);
 const continueProjectionBefore = continueHarness.runtime.buildPlayerProjection({ runtimeAssets });
 assert.equal(continueProjectionBefore.ok, true);
 assert.equal(continueHarness.evaluationCount, 0, 'ordinary projection never invokes episode evaluation');
-const continued = await continueHarness.runtime.reviewPendingEpisode({ runtimeAssets });
+const continued = await continueHarness.runtime.reviewPendingEpisode({
+    runtimeAssets,
+    progressScope: episodeProgress.createScope(),
+});
 assert.equal(continued.ok, true);
 assert.equal(continued.status, 'continued');
+assert.deepEqual(
+    episodeProgressEvents.filter((event) => event.type === 'start').map((event) => event.stage),
+    ['reviewing-episode'],
+    'episode progress wraps the full evaluator call without inventing persistence in a test gateway',
+);
+assert.equal(episodeProgressEvents.find((event) => event.type === 'update').attempt, 1);
 assert.deepEqual(continued.committedRoots, ['storySettlement']);
 assert.equal(continued.reviewToken, null);
 assert.equal(continueHarness.persistCount, 3);

@@ -25,6 +25,16 @@ assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
 assert.equal(providerKindForRole('peopleDossierAuthor'), 'reasoning');
 assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');
 
+const unavailableAttempts = [];
+const unavailableClient = createDirectiveProviderClient({
+  contextFactory: () => null,
+  settingsStore: {get: () => ({provider: 'current'})},
+});
+await assert.rejects(unavailableClient.generate('episodeEvaluator', {}, {
+  onAttempt: attempt => unavailableAttempts.push(attempt),
+}), error => error.code === 'DIRECTIVE_PROVIDER_UNAVAILABLE');
+assert.deepEqual(unavailableAttempts, [], 'unavailable context never reports a transport attempt');
+
 const profiles = [
   { id: 'chat.local', name: 'Local Chat', model: 'cydonia-local', api: 'openai', preset: 'Local Chat Preset' },
   { id: 'text.local', name: 'Local Text', model: 'llama-local', api: 'textgenerationwebui', instruct: 'Alpaca' },
@@ -101,6 +111,35 @@ const profileClient = createDirectiveProviderClient({
   settingsStore: profileStore,
   now: () => '2026-08-10T12:00:00.000Z'
 });
+
+const providerAttemptNumbers = [];
+let providerAttemptCount = 0;
+const retryProfileContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    async sendRequest() {
+      providerAttemptCount += 1;
+      return providerAttemptCount === 1
+        ? { content: '', reasoning: 'private reasoning only' }
+        : { content: 'visible retry result', reasoning: '' };
+    }
+  }
+};
+const retryProfileStore = createSillyTavernProviderSettingsStore({ context: retryProfileContext });
+retryProfileStore.update('utility', { provider: 'profile', profileId: 'chat.local', structuredOutputMode: 'prompt-json' });
+const retryProfileClient = createDirectiveProviderClient({
+  contextFactory: () => retryProfileContext,
+  settingsStore: retryProfileStore,
+});
+const retryProfileResult = await retryProfileClient.generate('acceptedPairMissionEvidence', {
+  prompt: 'Return visible output.',
+}, {
+  onAttempt: (attempt) => providerAttemptNumbers.push(attempt),
+});
+assert.equal(retryProfileResult.text, 'visible retry result');
+assert.deepEqual(providerAttemptNumbers, [1, 2], 'provider retries report only transport attempts that start');
 
 assert.deepEqual(profileClient.status('utility'), {
   kind: 'utility',
