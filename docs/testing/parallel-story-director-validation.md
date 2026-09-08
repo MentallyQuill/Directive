@@ -4,7 +4,7 @@ This change contains narrator additions on the following turn. It cannot guarant
 
 ## Source and scope
 
-Implementation base: `d5bd5587d` on `origin/main`. The design and implementation plan are dated 2026-09-08. Final local gate and commit evidence is recorded below when release verification finishes.
+Implementation base: `d5bd5587d` on `origin/main`. Tested implementation commit: `f8ec43b2f2f010d52f6b0fddd979912e8a5f78c9`. The design and implementation plan are dated 2026-09-08.
 
 The active `default-user` Sam Vickers save, installed extension and running host were not changed. Tests use repository fixtures and disposable fake host state.
 
@@ -46,4 +46,6 @@ Semantic evaluation must separately record extraction misses, false obligations,
 
 ## Release verification
 
-Pending final full gate and integration review.
+On 2026-09-08, `npm.cmd test` passed all **199 focused checks**, including browser runtime safety for **180 production modules**, the existing authoritative-time and branch regressions, provider routing, storage, and UI checks. `git diff --cached --check` passed. Independent integration review found no unresolved issues after the source-cancellation, receipt-reuse, branch-source mapping, schema and dossier fixes.
+
+The final implementation source and tests are in `f8ec43b2f2f010d52f6b0fddd979912e8a5f78c9`; this release-evidence update changes documentation only. No live provider measurement was performed. The main checkout's unrelated `debug.log` was excluded from the implementation commit.
