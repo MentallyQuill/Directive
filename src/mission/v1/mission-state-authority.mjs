@@ -72,6 +72,10 @@ function validateEvidenceLog(definition, state, errors) {
         if (typeof entry?.sourceContributionId !== 'string' || entry.sourceContributionId.length === 0) {
             errors.push('evidenceLog entry sourceContributionId is required');
         }
+        if (entry.pacingSourceContributionIds !== undefined && (!Array.isArray(entry.pacingSourceContributionIds)
+            || entry.pacingSourceContributionIds.length > 700
+            || entry.pacingSourceContributionIds.some(id=>typeof id !== 'string' || !id || id.length > 240)
+            || new Set(entry.pacingSourceContributionIds).size !== entry.pacingSourceContributionIds.length)) errors.push('evidenceLog pacing dependencies must be bounded unique source ids');
         if (entry.evidenceQuote !== undefined) {
             const quote = String(entry.evidenceQuote);
             if ([...quote].length < 12 || [...quote].length > 240) {

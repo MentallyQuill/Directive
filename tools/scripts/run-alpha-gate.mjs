@@ -1,6 +1,12 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-scene-pacing.mjs",
+  "test-scene-pacing-campaign.mjs",
+  "test-scene-pacing-interpreter.mjs",
+  "test-scene-pacing-findings.mjs",
+  "test-scene-pacing-runtime.mjs",
+  "test-scene-pacing-authorization.mjs",
   "test-narration-settings.mjs",
   "test-narration-settings-browser.mjs",
   "test-campaign-opening.mjs",

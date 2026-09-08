@@ -87,6 +87,10 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter4.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter4.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter4.process.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter4.process.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter4.active"}},
+    {"id":"policy.scene-pacing.chapter4.truth.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter4.truth.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter4.active"}},
+    {"id":"policy.scene-pacing.chapter4.accountability.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter4.accountability.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter4.active"}},
     {
       "id": "policy.chapter4.process-decision",
       "claimType": "decisionRecorded",
@@ -799,6 +803,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter4.survival-and-evacuation-record",
+      "sceneObjectiveIds": ["objective.chapter4.truth"],
       "factId": "fact.chapter4.survival-and-evacuation-record",
       "evidencePolicyId": "policy.chapter4.history-disclosed",
       "capabilityRoles": ["operations", "science"],
@@ -820,6 +825,7 @@
     },
     {
       "id": "report.chapter4.solenn-use-benefit-and-harm",
+      "sceneObjectiveIds": ["objective.chapter4.truth","objective.chapter4.accountability"],
       "factId": "fact.chapter4.solenn-use-benefit-and-harm",
       "evidencePolicyId": "policy.chapter4.solenn-disclosed",
       "capabilityRoles": ["engineering", "medical"],
@@ -841,6 +847,7 @@
     },
     {
       "id": "report.chapter4.continuing-access-and-orison-route",
+      "sceneObjectiveIds": ["objective.chapter4.truth"],
       "factId": "fact.chapter4.continuing-access-and-orison-route",
       "evidencePolicyId": "policy.chapter4.access-disclosed",
       "capabilityRoles": ["operations", "security", "science"],
@@ -862,6 +869,7 @@
     },
     {
       "id": "report.chapter4.marr-jurisdiction-goal",
+      "sceneObjectiveIds": ["objective.chapter4.process"],
       "factId": "fact.chapter4.marr-jurisdiction-goal",
       "evidencePolicyId": "policy.chapter4.marr-jurisdiction-goal",
       "capabilityRoles": ["command", "operations"],
@@ -883,6 +891,7 @@
     },
     {
       "id": "report.chapter4.solenn-accountability-goal",
+      "sceneObjectiveIds": ["objective.chapter4.accountability"],
       "factId": "fact.chapter4.solenn-accountability-goal",
       "evidencePolicyId": "policy.chapter4.solenn-accountability-goal",
       "capabilityRoles": ["command", "engineering"],
@@ -904,6 +913,7 @@
     },
     {
       "id": "report.chapter4.tamas-beneficiary-account",
+      "sceneObjectiveIds": ["objective.chapter4.truth","objective.chapter4.accountability"],
       "factId": "fact.chapter4.tamas-rell-beneficiary-account",
       "evidencePolicyId": "policy.chapter4.tamas-beneficiary-account",
       "capabilityRoles": ["command", "medical"],
@@ -925,6 +935,7 @@
     },
     {
       "id": "report.chapter4.jo-harmed-account",
+      "sceneObjectiveIds": ["objective.chapter4.truth","objective.chapter4.accountability"],
       "factId": "fact.chapter4.jo-meran-harmed-account",
       "evidencePolicyId": "policy.chapter4.jo-harmed-account",
       "capabilityRoles": ["command", "operations"],
@@ -946,6 +957,7 @@
     },
     {
       "id": "report.chapter4.covert-trust-cost",
+      "sceneObjectiveIds": ["objective.chapter4.process"],
       "factId": "fact.chapter4.covert-trust-cost",
       "evidencePolicyId": "policy.chapter4.covert-trust-cost",
       "capabilityRoles": ["command", "operations", "security"],
@@ -967,6 +979,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter4.active","playerVisibility":"hidden"},
     { "id": "event.chapter4.survival-record-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter4.solenn-record-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter4.continuing-access-corroborated", "playerVisibility": "hidden" },
@@ -978,6 +991,9 @@
     { "id": "event.chapter4.covert-trust-breach-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter4.process.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter4.truth.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter4.accountability.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter4.process-decision",
       "allowedValues": ["pending", "jointInquiry", "recognizeLocal", "compelStarfleet", "covertSearch", "withdraw"],
@@ -1021,9 +1037,11 @@
       "playerVisibility": "hidden"
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter4.active"},
   "objectives": [
     {
       "id": "objective.chapter4.process",
+      "scenePacing": {"requirements":["Hear the participating authorities and affected people on the proposed inquiry.","Propose process terms and respond to objections before accepting a functioning process."],"authorizationOutcomeId":"outcome.scene-pacing.chapter4.process.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1062,6 +1080,7 @@
     },
     {
       "id": "objective.chapter4.truth",
+      "scenePacing": {"requirements":["Engage testimony or independent reconstruction and question the supported account.","Respond to corroborated findings and unresolved uncertainty before concluding the inquiry."],"authorizationOutcomeId":"outcome.scene-pacing.chapter4.truth.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1110,6 +1129,7 @@
     },
     {
       "id": "objective.chapter4.accountability",
+      "scenePacing": {"requirements":["Discuss personal and evidence accountability with the affected participants.","Choose terms and respond to objections or practical consequences before settling accountability."],"authorizationOutcomeId":"outcome.scene-pacing.chapter4.accountability.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,

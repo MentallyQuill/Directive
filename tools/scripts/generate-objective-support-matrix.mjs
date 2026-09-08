@@ -8,7 +8,7 @@ const file = 'docs/testing/ashes-objective-support-matrix.json';
 const matrix = JSON.parse(fs.readFileSync(file, 'utf8'));
 const previous = new Map(matrix.missions.map(m => [m.missionId,m]));
 const directory = 'packages/bundled/breckenridge/v1';
-const keys = ['playerText','evidencePolicies','events','outcomes','facts','reportRoutes','commandBearingAwards','outcomeDimensions','closeWhen','terminalDispositions','transitions'];
+const keys = ['playerText','scenePacing','evidencePolicies','events','outcomes','facts','reportRoutes','commandBearingAwards','outcomeDimensions','closeWhen','terminalDispositions','transitions'];
 matrix.missions = fs.readdirSync(directory).filter(f => f.endsWith('.mission-v1.json')).sort().map(name => {
     const sourcePath = `${directory}/${name}`;
     const bytes = fs.readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');

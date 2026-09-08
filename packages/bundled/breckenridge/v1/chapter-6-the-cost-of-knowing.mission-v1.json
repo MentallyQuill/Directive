@@ -79,6 +79,10 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter6.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter6.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter6.command-network.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter6.command-network.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter6.active"}},
+    {"id":"policy.scene-pacing.chapter6.farwatch-truth.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter6.farwatch-truth.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter6.active"}},
+    {"id":"policy.scene-pacing.chapter6.evidence-authority.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter6.evidence-authority.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter6.active"}},
     {
       "id": "policy.chapter6.lacuna-access",
       "claimType": "eventOccurred",
@@ -459,6 +463,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter6.farwatch-operational-account",
+      "sceneObjectiveIds": ["objective.chapter6.farwatch-truth"],
       "factId": "fact.chapter6.farwatch-operational-account",
       "evidencePolicyId": "policy.chapter6.farwatch-account-disclosed",
       "capabilityRoles": ["operations", "engineering", "intelligence"],
@@ -480,6 +485,7 @@
     },
     {
       "id": "report.chapter6.authenticated-pathway-nightfall-risk",
+      "sceneObjectiveIds": ["objective.chapter6.command-network","objective.chapter6.farwatch-truth"],
       "factId": "fact.chapter6.authenticated-pathway-nightfall-risk",
       "evidencePolicyId": "policy.chapter6.nightfall-risk-disclosed",
       "capabilityRoles": ["science", "security", "operations"],
@@ -501,6 +507,7 @@
     },
     {
       "id": "report.chapter6.rourke-operational-constraint",
+      "sceneObjectiveIds": ["objective.chapter6.command-network","objective.chapter6.evidence-authority"],
       "factId": "fact.chapter6.rourke-operational-constraint",
       "evidencePolicyId": "policy.chapter6.rourke-constraint",
       "capabilityRoles": ["command", "security", "intelligence"],
@@ -510,6 +517,7 @@
     },
     {
       "id": "report.chapter6.tolland-concealment-line",
+      "sceneObjectiveIds": ["objective.chapter6.evidence-authority"],
       "factId": "fact.chapter6.tolland-concealment-line",
       "evidencePolicyId": "policy.chapter6.tolland-concealment-line",
       "capabilityRoles": ["command", "operations"],
@@ -519,6 +527,7 @@
     },
     {
       "id": "report.chapter6.keva-lir-methodology",
+      "sceneObjectiveIds": ["objective.chapter6.farwatch-truth"],
       "factId": "fact.chapter6.keva-lir-methodology",
       "evidencePolicyId": "policy.chapter6.keva-methodology",
       "capabilityRoles": ["science", "intelligence"],
@@ -528,6 +537,7 @@
     },
     {
       "id": "report.chapter6.bram-edden-credentials",
+      "sceneObjectiveIds": ["objective.chapter6.farwatch-truth"],
       "factId": "fact.chapter6.bram-edden-credentials",
       "evidencePolicyId": "policy.chapter6.bram-credentials",
       "capabilityRoles": ["operations", "security"],
@@ -537,6 +547,7 @@
     },
     {
       "id": "report.chapter6.evidence-owner-release-boundary",
+      "sceneObjectiveIds": ["objective.chapter6.evidence-authority"],
       "factId": "fact.chapter6.evidence-owner-release-boundary",
       "evidencePolicyId": "policy.chapter6.owner-refuses-public-release",
       "capabilityRoles": ["command", "operations"],
@@ -546,6 +557,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter6.active","playerVisibility":"hidden"},
     {
       "id": "event.chapter6.false-emergency-active",
       "playerVisibility": "hidden",
@@ -562,6 +574,9 @@
     { "id": "event.chapter6.owner-release-position-heard", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter6.command-network.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter6.farwatch-truth.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter6.evidence-authority.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     { "id": "outcome.chapter6.rourke-boundary", "allowedValues": ["pending", "conditionalCooperation", "restrictAccess", "relieveOrDetain", "acceptAuthority", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.chapter6.network-response", "allowedValues": ["pending", "isolateAndVerify", "countermandAndContain", "controlledCountermeasure", "followRecall", "responsibleHandoff"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.chapter6.network-result", "allowedValues": ["pending", "contained", "containedWithExposure", "additionalCredentialSpread", "commandDisrupted", "handedOff"], "initialValue": "pending", "playerVisibility": "hidden" },
@@ -572,9 +587,11 @@
     { "id": "outcome.chapter6.rourke-result", "allowedValues": ["pending", "cooperativeRestricted", "retainedUnderSafeguards", "relieved", "detained", "witnessUnderReview", "departedWithFarwatch", "handedOff"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.chapter6.regional-information", "allowedValues": ["pending", "privateBriefing", "publicFramework", "unilateralPublic", "delayedDisclosure", "notInformed"], "initialValue": "pending", "playerVisibility": "hidden" }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter6.active"},
   "objectives": [
     {
       "id": "objective.chapter6.command-network",
+      "scenePacing": {"requirements":["Engage the network threat assessment and command continuity constraints.","Choose safeguards and respond to a meaningful result or continuing exposure."],"authorizationOutcomeId":"outcome.scene-pacing.chapter6.command-network.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -603,6 +620,7 @@
     },
     {
       "id": "objective.chapter6.farwatch-truth",
+      "scenePacing": {"requirements":["Examine the operation evidence and ask about remaining risks and limits.","Respond to corroboration or a material uncertainty before accepting the operational account."],"authorizationOutcomeId":"outcome.scene-pacing.chapter6.farwatch-truth.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -638,6 +656,7 @@
     },
     {
       "id": "objective.chapter6.evidence-authority",
+      "scenePacing": {"requirements":["Hear competing disclosure and authority positions and their consequences.","Set terms and respond to objections before settling evidence or operative control."],"authorizationOutcomeId":"outcome.scene-pacing.chapter6.evidence-authority.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,

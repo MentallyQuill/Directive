@@ -94,6 +94,7 @@ function acceptedPairReceiptEquivalent(existing = {}, proposal = {}) {
         && existing.fingerprint === proposal.fingerprint
         && existing.sourceRangeHash === proposal.sourceRangeHash
         && existing.assistantAcceptance === proposal.assistantAcceptance
+        && JSON.stringify(existing.scenePacing) === JSON.stringify(proposal.scenePacing)
         && JSON.stringify(existing.previousAssistant) === JSON.stringify(proposal.previousAssistant)
         && JSON.stringify(existing.currentPlayer) === JSON.stringify(proposal.currentPlayer)
         && JSON.stringify(existing.sourceContributionIds || []) === JSON.stringify(proposal.sourceContributionIds || []);
@@ -133,13 +134,17 @@ export function invalidateAcceptedPairReceipts(settlement, {
         .filter(Boolean));
     if (invalidated.size === 0 && invalidatedContributions.size === 0) return structuredClone(settlement);
     const receipts = settlement.acceptedPairReceipts || [];
-    const retained = receipts.filter((receipt) => (
+    const directlyRetained = receipts.filter((receipt) => (
         !invalidated.has(String(receipt.previousAssistant?.messageId ?? '').trim())
         && !invalidated.has(String(receipt.currentPlayer?.messageId ?? '').trim())
         && !(receipt.sourceContributionIds || []).some((contributionId) => (
             invalidatedContributions.has(String(contributionId ?? '').trim())
         ))
     ));
+    // A later pacing observation depended on the earlier accepted scene. Replay
+    // must recompute it instead of retaining cumulative readiness from old text.
+    const firstRemoved = receipts.findIndex(receipt=>!directlyRetained.includes(receipt));
+    const retained = directlyRetained.filter(receipt=>!receipt.scenePacing || firstRemoved < 0 || receipts.indexOf(receipt) < firstRemoved);
     if (retained.length === receipts.length) return structuredClone(settlement);
     const next = structuredClone(settlement);
     next.revision += 1;
@@ -338,7 +343,10 @@ export function checkpointStoryEpisode(settlement, {
         throw new TypeError('minimumNewContributions must be a positive integer');
     }
     const previous = episode.boundaryState;
-    const newContributionCount = episode.contributions.length - previous.contributionCountAtLastReview;
+    // Local pacing bookkeeping is not another conversational contribution and
+    // must not bring forward the existing episode-evaluator model call.
+    const newContributionCount = episode.contributions.slice(previous.contributionCountAtLastReview)
+        .filter(item=>!(item.role === 'runtime' && item.messageId.includes(':policy.scene-pacing.'))).length;
     if (!force && newContributionCount < minimumNewContributions) return structuredClone(settlement);
 
     const next = structuredClone(settlement);

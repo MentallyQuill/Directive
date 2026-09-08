@@ -63,6 +63,10 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter7.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter7.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter7.standoff.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter7.standoff.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter7.active"}},
+    {"id":"policy.scene-pacing.chapter7.shared-truth-interface.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter7.shared-truth-interface.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter7.active"}},
+    {"id":"policy.scene-pacing.chapter7.command-settlement.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter7.command-settlement.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter7.active"}},
     {
       "id": "policy.chapter7.annex-engagement-established",
       "claimType": "eventOccurred",
@@ -414,6 +418,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter7.political-legitimacy",
+      "sceneObjectiveIds": ["objective.chapter7.shared-truth-interface","objective.chapter7.command-settlement"],
       "factId": "fact.chapter7.political-legitimacy-account",
       "evidencePolicyId": "policy.chapter7.political-account-disclosed",
       "capabilityRoles": ["command", "operations", "counseling"],
@@ -435,6 +440,7 @@
     },
     {
       "id": "report.chapter7.interface-manipulation",
+      "sceneObjectiveIds": ["objective.chapter7.shared-truth-interface"],
       "factId": "fact.chapter7.mutual-telemetry-manipulation",
       "evidencePolicyId": "policy.chapter7.interface-truth-disclosed",
       "capabilityRoles": ["science", "engineering", "operations"],
@@ -456,6 +462,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter7.active","playerVisibility":"hidden"},
     {
       "id": "event.chapter7.annex-engagement-established",
       "playerVisibility": "hidden"
@@ -465,6 +472,9 @@
     { "id": "event.chapter7.mercer-demonstration-completed", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter7.standoff.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter7.shared-truth-interface.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter7.command-settlement.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter7.crisis-posture",
       "initialValue": "pending",
@@ -538,9 +548,11 @@
       "playerVisibility": "hidden"
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter7.active"},
   "objectives": [
     {
       "id": "objective.chapter7.standoff",
+      "scenePacing": {"requirements":["Hear the parties to the standoff and examine immediate civilian or operational risks.","Choose a stabilizing approach and respond to resistance or consequences."],"authorizationOutcomeId":"outcome.scene-pacing.chapter7.standoff.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -585,6 +597,7 @@
     },
     {
       "id": "objective.chapter7.shared-truth-interface",
+      "scenePacing": {"requirements":["Question the operational evidence and competing accounts.","Respond to corroboration and uncertainty before accepting a shared picture."],"authorizationOutcomeId":"outcome.scene-pacing.chapter7.shared-truth-interface.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -631,6 +644,7 @@
     },
     {
       "id": "objective.chapter7.command-settlement",
+      "scenePacing": {"requirements":["Hear the participating communities and authorities on legitimate command.","Propose arrangements and respond to consent, refusal, or objections before settlement."],"authorizationOutcomeId":"outcome.scene-pacing.chapter7.command-settlement.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,

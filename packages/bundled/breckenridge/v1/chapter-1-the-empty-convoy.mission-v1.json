@@ -63,6 +63,11 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter1.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter1.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter1.relief.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter1.relief.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter1.active"}},
+    {"id":"policy.scene-pacing.chapter1.authority.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter1.authority.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter1.active"}},
+    {"id":"policy.scene-pacing.chapter1.hardware.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter1.hardware.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter1.active"}},
+    {"id":"policy.scene-pacing.chapter1.shared-record.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter1.shared-record.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter1.active"}},
     {
       "id": "policy.chapter1.convoy-emergency-disclosed",
       "claimType": "factDisclosed",
@@ -332,6 +337,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter1.authority-conflict",
+      "sceneObjectiveIds": ["objective.chapter1.authority"],
       "factId": "fact.chapter1.authority-conflict",
       "evidencePolicyId": "policy.chapter1.authority-conflict-disclosed",
       "capabilityRoles": ["operations", "science"],
@@ -353,6 +359,7 @@
     },
     {
       "id": "report.chapter1.dispersal-picture",
+      "sceneObjectiveIds": ["objective.chapter1.relief"],
       "factId": "fact.chapter1.dispersal-picture",
       "evidencePolicyId": "policy.chapter1.dispersal-picture-disclosed",
       "capabilityRoles": ["operations", "medical", "security"],
@@ -374,6 +381,7 @@
     },
     {
       "id": "report.chapter1.recovery-authentication-picture",
+      "sceneObjectiveIds": ["objective.chapter1.hardware"],
       "factId": "fact.chapter1.recovery-authentication-picture",
       "evidencePolicyId": "policy.chapter1.recovery-authentication-picture-disclosed",
       "capabilityRoles": ["science", "operations", "security"],
@@ -397,6 +405,7 @@
     },
     {
       "id": "report.chapter1.ivers-testimony",
+      "sceneObjectiveIds": ["objective.chapter1.authority","objective.chapter1.shared-record"],
       "factId": "fact.chapter1.ivers-testimony",
       "evidencePolicyId": "policy.chapter1.ivers-testimony-disclosed",
       "capabilityRoles": ["command", "operations", "security"],
@@ -416,6 +425,7 @@
     },
     {
       "id": "report.chapter1.survivor-cargo-manifest",
+      "sceneObjectiveIds": ["objective.chapter1.relief","objective.chapter1.hardware"],
       "factId": "fact.chapter1.survivor-cargo-manifest",
       "evidencePolicyId": "policy.chapter1.survivor-manifest-disclosed",
       "capabilityRoles": ["medical", "operations"],
@@ -435,6 +445,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter1.active","playerVisibility":"hidden"},
     {
       "id": "event.chapter1.initial-assessment-completed",
       "playerVisibility": "visible",
@@ -458,6 +469,10 @@
     }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter1.relief.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter1.authority.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter1.hardware.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter1.shared-record.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter1.relief-result",
       "allowedValues": ["pending", "safe", "safeWithCost", "handedOff", "failedInformed"],
@@ -487,9 +502,11 @@
       "playerText": { "summary": "The disposition of the optional shared incident record." }
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter1.active"},
   "objectives": [
     {
       "id": "objective.chapter1.relief",
+      "scenePacing": {"requirements":["Engage the convoy relief assessment and competing safety needs.","Choose a relief approach and respond to a meaningful result, constraint, or complication."],"authorizationOutcomeId":"outcome.scene-pacing.chapter1.relief.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -516,6 +533,7 @@
     },
     {
       "id": "objective.chapter1.authority",
+      "scenePacing": {"requirements":["Hear and question the conflicting quarantine claims.","Propose authority terms and respond to the other parties before settling the dispute."],"authorizationOutcomeId":"outcome.scene-pacing.chapter1.authority.authorization"},
       "class": "conditional",
       "activatedAs": "required",
       "activationRoute": {
@@ -549,6 +567,7 @@
     },
     {
       "id": "objective.chapter1.hardware",
+      "scenePacing": {"requirements":["Investigate the missing hardware and question the available evidence.","Choose recovery, custody, or handoff and respond to the practical consequences."],"authorizationOutcomeId":"outcome.scene-pacing.chapter1.hardware.authorization"},
       "class": "conditional",
       "activatedAs": "required",
       "activationRoute": {
@@ -582,6 +601,7 @@
     },
     {
       "id": "objective.chapter1.shared-record",
+      "scenePacing": {"requirements":["Discuss the incident account and disagreements with the Compact.","Respond to proposed record terms before accepting or rejecting a shared account."],"authorizationOutcomeId":"outcome.scene-pacing.chapter1.shared-record.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.chapter1.dispersal-picture" },

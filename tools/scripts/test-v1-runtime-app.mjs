@@ -1,3 +1,4 @@
+import {disableScenePacingForFixture} from './unpaced-mission-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -100,6 +101,9 @@ const records = {
   missionDefinitions: definitionNames.map((name) => json(`packages/bundled/breckenridge/v1/${name}.mission-v1.json`)),
   campaignLibrary: V1_CAMPAIGN_LIBRARY_TEASERS
 };
+// This integration fixture exercises host custody and grouped completion notices;
+// canonical scene sequencing is covered by test-scene-pacing-runtime.mjs.
+disableScenePacingForFixture(records.missionDefinitions[0]);
 
 const chat = createFakeChatAdapter({ chatId: 'unbound-chat' });
 const jsonStorage = createFakeJsonStorage();

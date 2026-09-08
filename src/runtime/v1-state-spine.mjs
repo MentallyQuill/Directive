@@ -1,3 +1,4 @@
+import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import {
     awardV1CommandBearing,
     commitV1CommandBearingEdge,
@@ -396,6 +397,7 @@ function prepareMissionTransitionActivation({
     missionDefinitions = [],
     branchId = null,
     allowJourneyInitialization = false,
+    pacingReceipt = null,
 } = {}) {
     let missionPatch = { v1: structuredClone(missionState) };
     if (!transitionPacket) {
@@ -410,6 +412,12 @@ function prepareMissionTransitionActivation({
             },
         };
     }
+    const pacingReceipts = [...(campaignState.storySettlement?.acceptedPairReceipts || []), ...(pacingReceipt ? [pacingReceipt] : [])];
+    const pacing = createScenePacingContext({definition,state:missionState,receipts:pacingReceipts});
+    if (pacing && !pacing.allowMissionDeparture) return {
+        missionPatch,
+        transitionActivation:{status:'awaiting-scene-departure',reasonCode:'scene-still-open',sourceRunId:campaignState.mission?.v1Journey?.activeRunId || null,targetRunId:null,targetDefinitionId:null},
+    };
     const hasJourney = campaignState?.mission?.v1Journey !== undefined
         || campaignState?.mission?.v1History !== undefined;
     let journeyState;
@@ -620,6 +628,7 @@ export function createV1StateSpine({
             missionDefinitions,
             branchId: proposal.branchId,
             allowJourneyInitialization: true,
+            pacingReceipt: acceptedPairReceipt,
         });
         const { missionPatch, transitionActivation } = transitionPlan;
         let commandBearing = structuredClone(campaignState.commandBearing);
@@ -718,7 +727,7 @@ export function createV1StateSpine({
             ?? campaignState?.timeLedger?.elapsedSeconds
             ?? ((campaignState?.timeLedger?.elapsedMinutes || 0) * 60);
         const schedulingBoundary = hardBoundary?.code
-            || (missionResult.transitionPacket ? 'mission-transition' : null);
+            || (missionResult.transitionPacket && transitionActivation.status !== 'awaiting-scene-departure' ? 'mission-transition' : null);
         const cohesionOpportunity = cohesionCatalog && shipDataset
             ? planCohesionOpportunity({
                 catalog: cohesionCatalog,
@@ -781,7 +790,7 @@ export function createV1StateSpine({
         }
 
         let effectiveHardBoundary = hardBoundary;
-        if (storySettlement.activeEpisode !== null && missionResult.transitionPacket) {
+        if (storySettlement.activeEpisode !== null && missionResult.transitionPacket && transitionActivation.status !== 'awaiting-scene-departure') {
             const transitionId = missionState.transitionReceipt?.transitionId || 'mission-transition';
             const transitionContributionIds = [...new Set(
                 missionResult.effects.flatMap((effect) => effect.sourceContributionIds || []),
@@ -1086,10 +1095,20 @@ export function createV1StateSpine({
             currentStorySettlement,
             invalidatedShipEffectIds,
         );
+        // Later pacing observations were made in the scene established by the
+        // changed pair. Remove their authorizations too, even if the edited pair
+        // itself did not supply one of the minimum participation quotations.
+        const retainedPacingReceiptIds = new Set((receiptPrunedSettlement.acceptedPairReceipts || []).map(receipt=>receipt.id));
+        const invalidatedPacingDependencies = new Set([
+            ...invalidated,
+            ...(currentStorySettlement.acceptedPairReceipts || [])
+                .filter(receipt=>receipt.scenePacing && !retainedPacingReceiptIds.has(receipt.id))
+                .flatMap(receipt=>receipt.sourceContributionIds || []),
+        ]);
         const matchingRuns = runs.filter((run) => (run.state?.evidenceLog || []).some(
-            (entry) => invalidated.has(entry.sourceContributionId),
+            (entry) => invalidated.has(entry.sourceContributionId) || entry.pacingSourceContributionIds?.some(id=>invalidatedPacingDependencies.has(id)),
         ));
-        if (matchingRuns.length > 1) {
+        if (runs.filter(run=>(run.state?.evidenceLog || []).some(entry=>invalidated.has(entry.sourceContributionId))).length > 1) {
             throw invalidMissionJourney(['source contribution is owned by more than one mission run']);
         }
 
@@ -1149,6 +1168,12 @@ export function createV1StateSpine({
             matchedRun.state.evidenceLog || []).some((entry) => entry.sourceContributionId === id)
         );
         const missionInvalidated = new Set(missionInvalidatedIds);
+        for (const entry of matchedRun.state.evidenceLog || []) {
+            if (entry.pacingSourceContributionIds?.some(id=>invalidatedPacingDependencies.has(id) || invalidated.has(id))) {
+                missionInvalidated.add(entry.sourceContributionId);
+                invalidated.add(entry.sourceContributionId);
+            }
+        }
         const survivingEvidence = (matchedRun.state.evidenceLog || []).filter(
             (entry) => !missionInvalidated.has(entry.sourceContributionId),
         );
@@ -1208,7 +1233,7 @@ export function createV1StateSpine({
         }
         rebuiltMission.invalidatedSourceContributionIds = [
             ...(matchedRun.state.invalidatedSourceContributionIds || []),
-            ...missionInvalidatedIds,
+            ...missionInvalidated,
         ];
         if (rebuiltMission.transitionReceipt) rebuiltMission.transitionReceipt.committedAtRevision = rebuiltMission.revision;
 

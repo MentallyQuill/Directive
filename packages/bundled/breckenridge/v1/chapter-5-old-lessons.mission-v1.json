@@ -103,6 +103,10 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter5.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter5.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter5.safety.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter5.safety.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter5.active"}},
+    {"id":"policy.scene-pacing.chapter5.operation.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter5.operation.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter5.active"}},
+    {"id":"policy.scene-pacing.chapter5.understanding.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter5.understanding.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter5.active"}},
     {
       "id": "policy.chapter5.orison-engagement-established",
       "claimType": "eventOccurred",
@@ -583,6 +587,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter5.concentration-and-model-gap",
+      "sceneObjectiveIds": ["objective.chapter5.safety","objective.chapter5.understanding"],
       "factId": "fact.chapter5.concentration-and-model-gap",
       "evidencePolicyId": "policy.chapter5.concentration-disclosed",
       "capabilityRoles": ["operations", "science", "security"],
@@ -604,6 +609,7 @@
     },
     {
       "id": "report.chapter5.sigma-target-and-doctrine-model",
+      "sceneObjectiveIds": ["objective.chapter5.operation","objective.chapter5.understanding"],
       "factId": "fact.chapter5.sigma-target-and-doctrine-model",
       "evidencePolicyId": "policy.chapter5.sigma-target-disclosed",
       "capabilityRoles": ["science", "engineering", "operations"],
@@ -625,6 +631,7 @@
     },
     {
       "id": "report.chapter5.holt-initiation-and-autonomous-escalation",
+      "sceneObjectiveIds": ["objective.chapter5.understanding"],
       "factId": "fact.chapter5.holt-initiation-and-autonomous-escalation",
       "evidencePolicyId": "policy.chapter5.control-chain-disclosed",
       "capabilityRoles": ["security", "operations", "science"],
@@ -646,6 +653,7 @@
     },
     {
       "id": "report.chapter5.ivers-vulnerable-ships",
+      "sceneObjectiveIds": ["objective.chapter5.safety"],
       "factId": "fact.chapter5.ivers-vulnerable-ships",
       "evidencePolicyId": "policy.chapter5.ivers-vulnerable-ships",
       "capabilityRoles": ["command", "flight", "operations"],
@@ -659,6 +667,7 @@
     },
     {
       "id": "report.chapter5.ren-tal-colony-cargo",
+      "sceneObjectiveIds": ["objective.chapter5.safety"],
       "factId": "fact.chapter5.ren-tal-colony-cargo",
       "evidencePolicyId": "policy.chapter5.ren-tal-colony-cargo",
       "capabilityRoles": ["command", "flight", "operations"],
@@ -672,6 +681,7 @@
     },
     {
       "id": "report.chapter5.shala-venn-direct-verification",
+      "sceneObjectiveIds": ["objective.chapter5.safety"],
       "factId": "fact.chapter5.shala-venn-direct-verification",
       "evidencePolicyId": "policy.chapter5.shala-venn-direct-verification",
       "capabilityRoles": ["command", "flight", "operations"],
@@ -685,6 +695,7 @@
     },
     {
       "id": "report.chapter5.holt-diversion-intent",
+      "sceneObjectiveIds": ["objective.chapter5.operation","objective.chapter5.understanding"],
       "factId": "fact.chapter5.holt-diversion-intent",
       "evidencePolicyId": "policy.chapter5.holt-diversion-intent",
       "capabilityRoles": ["security", "operations"],
@@ -698,6 +709,7 @@
     },
     {
       "id": "report.chapter5.autonomous-escalation",
+      "sceneObjectiveIds": ["objective.chapter5.safety","objective.chapter5.understanding"],
       "factId": "fact.chapter5.autonomous-escalation",
       "evidencePolicyId": "policy.chapter5.autonomous-escalation",
       "capabilityRoles": ["science", "operations", "security"],
@@ -711,6 +723,7 @@
     },
     {
       "id": "report.chapter5.bronn-authentication-contingency",
+      "sceneObjectiveIds": ["objective.chapter5.operation"],
       "factId": "fact.chapter5.bronn-authentication-contingency",
       "evidencePolicyId": "policy.chapter5.bronn-authentication-contingency",
       "capabilityRoles": ["security", "command"],
@@ -724,6 +737,7 @@
     },
     {
       "id": "report.chapter5.kieran-manual-corridor",
+      "sceneObjectiveIds": ["objective.chapter5.safety"],
       "factId": "fact.chapter5.kieran-manual-corridor",
       "evidencePolicyId": "policy.chapter5.kieran-manual-corridor",
       "capabilityRoles": ["flight", "command"],
@@ -737,6 +751,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter5.active","playerVisibility":"hidden"},
     { "id": "event.chapter5.orison-engagement-established", "playerVisibility": "hidden" },
     { "id": "event.chapter5.concentration-pattern-corroborated", "playerVisibility": "hidden" },
     { "id": "event.chapter5.sigma-target-corroborated", "playerVisibility": "hidden" },
@@ -750,6 +765,9 @@
     { "id": "event.chapter5.kieran-corridor-tested", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter5.safety.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter5.operation.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter5.understanding.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter5.traffic-result",
       "allowedValues": ["pending", "stabilized", "stabilizedWithCost", "cascade", "handedOff"],
@@ -793,9 +811,11 @@
       "playerVisibility": "hidden"
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter5.active"},
   "objectives": [
     {
       "id": "objective.chapter5.safety",
+      "scenePacing": {"requirements":["Engage traffic safety and platform threat assessments with responsible operators.","Choose an operational approach and respond to a meaningful consequence or complication."],"authorizationOutcomeId":"outcome.scene-pacing.chapter5.safety.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -849,6 +869,7 @@
     },
     {
       "id": "objective.chapter5.operation",
+      "scenePacing": {"requirements":["Investigate the operation purpose and discuss credible containment or recovery options.","Choose an approach and respond to operational consequences before settling custody or loss."],"authorizationOutcomeId":"outcome.scene-pacing.chapter5.operation.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -915,6 +936,7 @@
     },
     {
       "id": "objective.chapter5.understanding",
+      "scenePacing": {"requirements":["Question evidence about the origin of the crisis and compare explanations.","Respond to the supported reconstruction and its uncertainty before concluding the investigation."],"authorizationOutcomeId":"outcome.scene-pacing.chapter5.understanding.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,

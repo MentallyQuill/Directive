@@ -128,6 +128,11 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.epilogue.active","claimType":"eventOccurred","targetId":"event.scene-pacing.epilogue.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.epilogue.aftermath.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.epilogue.aftermath.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.epilogue.active"}},
+    {"id":"policy.scene-pacing.epilogue.authority.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.epilogue.authority.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.epilogue.active"}},
+    {"id":"policy.scene-pacing.epilogue.accountability.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.epilogue.accountability.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.epilogue.active"}},
+    {"id":"policy.scene-pacing.epilogue.command.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.epilogue.command.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.epilogue.active"}},
     {
       "id": "policy.epilogue.crew-codas",
       "claimType": "eventOccurred", "targetId": "event.epilogue.crew-codas-recorded", "sourceRoles": ["assistant", "runtime", "adjudicator"],
@@ -453,6 +458,7 @@
   "reportRoutes": [
     {
       "id": "report.epilogue.aftermath-record",
+      "sceneObjectiveIds": ["objective.epilogue.aftermath"],
       "factId": "fact.epilogue.aftermath-record",
       "evidencePolicyId": "policy.epilogue.aftermath-disclosed",
       "capabilityRoles": ["command", "operations", "medical"],
@@ -466,6 +472,7 @@
     },
     {
       "id": "report.epilogue.settlement-account",
+      "sceneObjectiveIds": ["objective.epilogue.authority","objective.epilogue.accountability"],
       "factId": "fact.epilogue.settlement-account",
       "evidencePolicyId": "policy.epilogue.settlement-disclosed",
       "capabilityRoles": ["command", "operations", "diplomacy"],
@@ -479,6 +486,7 @@
     },
     {
       "id": "report.epilogue.command-review",
+      "sceneObjectiveIds": ["objective.epilogue.command"],
       "factId": "fact.epilogue.command-review",
       "evidencePolicyId": "policy.epilogue.command-disclosed",
       "capabilityRoles": ["captain", "command"],
@@ -492,6 +500,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.epilogue.active","playerVisibility":"hidden"},
     { "id": "event.epilogue.aftermath-report-complete", "playerVisibility": "hidden" },
     { "id": "event.epilogue.settlement-record-complete", "playerVisibility": "hidden" },
     { "id": "event.epilogue.command-review-complete", "playerVisibility": "hidden" },
@@ -502,6 +511,10 @@
     { "id": "event.epilogue.daro-care-coda-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.epilogue.aftermath.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.epilogue.authority.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.epilogue.accountability.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.epilogue.command.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     { "id": "outcome.epilogue.authority-position", "allowedValues": ["pending", "positionStated"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.epilogue.accountability-position", "allowedValues": ["pending", "positionStated"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.epilogue.compact-status", "allowedValues": ["pending", "federationAdministration", "permanentRegionalAuthority", "sunsetCharter", "dividedSystems", "mutualAidBody", "autonomousSecurityBloc"], "initialValue": "pending", "playerVisibility": "hidden" },
@@ -512,9 +525,11 @@
     { "id": "outcome.epilogue.public-narrative", "allowedValues": ["pending", "jointPrevention", "starfleetSecrecyExposed", "compactExtremistsBlamed", "communitiesSelfSaved", "breckenridgeForce", "truthClassifiedContested"], "initialValue": "pending", "playerVisibility": "hidden" },
     { "id": "outcome.epilogue.command-future", "allowedValues": ["pending", "broaderAuthority", "continuedAuthority", "boundedAuthority"], "initialValue": "pending", "playerVisibility": "hidden" }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.epilogue.active"},
   "objectives": [
     {
       "id": "objective.epilogue.aftermath",
+      "scenePacing": {"requirements":["Discuss the operational and human aftermath with those responsible or affected.","Respond to losses, gains, and continuing obligations before accepting the aftermath account."],"authorizationOutcomeId":"outcome.scene-pacing.epilogue.aftermath.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -533,6 +548,7 @@
     },
     {
       "id": "objective.epilogue.authority",
+      "scenePacing": {"requirements":["Hear regional positions on future authority and defense.","Propose terms and respond to objections or consent before settling the arrangements."],"authorizationOutcomeId":"outcome.scene-pacing.epilogue.authority.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -551,6 +567,7 @@
     },
     {
       "id": "objective.epilogue.accountability",
+      "scenePacing": {"requirements":["Discuss evidence, custody, and accountability with the affected parties.","Choose terms and respond to their consequences before settling the record."],"authorizationOutcomeId":"outcome.scene-pacing.epilogue.accountability.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -569,6 +586,7 @@
     },
     {
       "id": "objective.epilogue.command",
+      "scenePacing": {"requirements":["Engage the command review and its unresolved questions.","Respond to the review and decide what continues before ending the campaign."],"authorizationOutcomeId":"outcome.scene-pacing.epilogue.command.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,

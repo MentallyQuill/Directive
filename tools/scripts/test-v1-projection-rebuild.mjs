@@ -1,3 +1,4 @@
+import {disableScenePacingForFixture} from './unpaced-mission-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -25,6 +26,9 @@ const definition = JSON.parse(fs.readFileSync(
     'utf8',
 ));
 const runtimeAssets = loadAshesRuntimeAssets();
+// Projection/source ownership fixture; pacing dependencies and transitions are
+// exercised by the separate scene-pacing runtime regression.
+[definition,runtimeAssets.missionDefinitions[0]].forEach(disableScenePacingForFixture);
 const branchId = 'save.rebuild';
 
 const source = (suffix) => ({

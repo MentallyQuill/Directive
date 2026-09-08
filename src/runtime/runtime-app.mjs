@@ -1,4 +1,5 @@
 import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
+import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
 import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
@@ -298,6 +299,8 @@ function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [
 }
 
 function transitionPromptProjection(state, runtimeAssets) {
+  const definition = (runtimeAssets?.missionDefinitions || []).map(entry=>entry.definition || entry).find(entry=>entry.id === state?.mission?.v1?.definitionId);
+  if (definition && state.mission.v1.status === 'terminal' && createScenePacingContext({definition,state:state.mission.v1,receipts:state.storySettlement?.acceptedPairReceipts || []})?.allowMissionDeparture === false) return null;
   if (state?.mission?.v1?.status !== 'terminal' && state?.storySettlement?.activeEpisode !== null) {
     return null;
   }
@@ -420,11 +423,18 @@ export function createV1RuntimePromptPacket({
     pendingTransition: transitionPromptProjection(state, runtimeAssets),
     pendingDutyReport: director?.dutyReport || null
   };
+  const sceneDefinition = (runtimeAssets?.missionDefinitions || []).map(entry=>entry.definition || entry).find(entry=>entry.id === state?.mission?.v1?.definitionId);
+  payload.scenePacing = sceneDefinition ? createScenePacingContext({definition:sceneDefinition,state:state.mission.v1,receipts:state.storySettlement?.acceptedPairReceipts || []}) : null;
   const text = [
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
     playerAuthority.narratorConstraint,
     narrationPolicy.instruction,
     'Continue a story-first command RPG from the accepted state below.',
+    ...(payload.scenePacing ? [
+      'SCENE PACING: Develop the current scene in response to the player. An available objective is not an instruction to finish it. Keep questions, objections, and consequential choices playable. Do not narrate the player agreeing, deciding, leaving, or completing required participation.',
+      'Use scenePacing.currentScene and the visible objective participation requirements. Unless ready is true or the player explicitly delegates/skips that objective, do not depict its completed outcome or summarize away its defining encounter. A ready scene permits a supported result, never automatic success. Resolve one consequential interaction and leave the next player response open.',
+      'Objective completion does not authorize a scene cut. Unless scenePacing.allowDeparture is true, preserve conversation and aftermath; do not introduce unrelated missions, reports, abrupt travel, or a major time jump. Deliver only an explicitly supplied pendingDutyReport. An established immediate danger may have consequences, but do not invent an emergency to hurry a scene. Honor explicit player departure, delegation, refusal, and requests to summarize within accepted facts.',
+    ] : []),
     'Only this packet and the visible chat are canon. Never expose undiscovered facts or hidden objective text.',
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, deadlines, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',

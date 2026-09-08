@@ -1,3 +1,4 @@
+import {disableScenePacingForFixture} from './unpaced-mission-fixture.mjs';
 import assert from 'node:assert/strict';
 
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
@@ -21,6 +22,9 @@ import {
 
 const { missionDefinitions, shipDataset } = loadAshesRuntimeAssets();
 const definition = missionDefinitions.find((entry) => entry.id === SAM_VICKERS_PREMATURE_EVIDENCE_REPAIR.missionId);
+// Preserve the historical repair contract against its pre-pacing definition.
+disableScenePacingForFixture(definition);
+
 const contributionById = new Map(
     SAM_VICKERS_PREMATURE_EVIDENCE_REPAIR.contributions.map((entry) => [entry.id, entry]),
 );

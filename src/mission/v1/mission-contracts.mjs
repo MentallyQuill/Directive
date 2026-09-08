@@ -1,4 +1,4 @@
-import { validateMissionPredicate } from './predicate-evaluator.mjs';
+import { collectMissionPredicateRefs, validateMissionPredicate } from './predicate-evaluator.mjs';
 
 export const MISSION_DEFINITION_KIND = 'directive.missionDefinition.v1';
 export const MISSION_EVIDENCE_CLAIM_TYPES = Object.freeze(new Set([
@@ -400,6 +400,35 @@ export function validateMissionDefinition(definition = {}) {
     const factsById = byId(definition?.facts);
     const factIds = new Set(factsById.keys());
     const definitionIndex = indexMissionDefinition(definition);
+    if (definition.scenePacing) {
+        const runtimeEvent = id => definitionIndex.events.get(id)?.playerVisibility === 'hidden'
+            && (definition.evidencePolicies || []).some(policy => policy.targetId === id
+                && policy.claimType === 'eventOccurred' && policy.sourceRoles?.length === 1 && policy.sourceRoles[0] === 'runtime');
+        if (!runtimeEvent(definition.scenePacing.activationEventId)) errors.push('scenePacing activation must be a hidden runtime-only event');
+        for (const objective of definition.objectives || []) {
+            const pacing = objective.scenePacing;
+            if (pacing?.completionMode !== undefined) {
+                const refs = collectMissionPredicateRefs({any:(objective.terminalWhen || []).map(item=>item.when)});
+                if (pacing.completionMode !== 'playerDecision' || !refs.outcomes.size || refs.events.size || refs.facts.size || refs.objectives.size
+                    || [...refs.outcomes].some(id=> {
+                        const policies=(definition.evidencePolicies || []).filter(policy=>policy.targetId===id);
+                        return !policies.length || policies.some(policy=>policy.claimType!=='decisionRecorded' || policy.sourceRoles?.length!==1 || policy.sourceRoles[0]!=='user');
+                    })) errors.push(`${objective.id} playerDecision pacing mode requires exclusively player-owned terminal decisions`);
+            }
+            const authorization = definitionIndex.outcomes.get(pacing?.authorizationOutcomeId);
+            if (authorization?.playerVisibility !== 'hidden' || authorization.initialValue !== 'held'
+                || JSON.stringify(authorization.allowedValues) !== '["held","authorized"]'
+                || !(definition.evidencePolicies || []).some(policy=>policy.targetId===authorization?.id
+                    && policy.claimType==='outcomeObserved' && policy.sourceRoles?.length===1 && policy.sourceRoles[0]==='runtime')) errors.push(`${objective.id} scenePacing authorization must be a hidden runtime-only outcome`);
+            if (!Array.isArray(pacing?.requirements) || pacing.requirements.length < 1 || pacing.requirements.length > 4
+                || pacing.requirements.some(text=>typeof text !== 'string' || !text.trim() || text.length > 240)) errors.push(`${objective.id} scenePacing requires 1 through 4 bounded participation requirements`);
+        }
+        for (const route of definition.reportRoutes || []) {
+            if (!Array.isArray(route.sceneObjectiveIds) || !route.sceneObjectiveIds.length
+                || route.sceneObjectiveIds.some(id=>!definitionIndex.objectives.has(id))) errors.push(`${route.id} sceneObjectiveIds must reference authored objectives`);
+            if (route.sceneInterruptWhen !== undefined) errors.push(...validateMissionPredicate(route.sceneInterruptWhen,definitionIndex).errors);
+        }
+    }
     for (const capability of Array.isArray(definition?.entryCapabilities) ? definition.entryCapabilities : []) {
         const capabilityId = capability?.id || '<unknown entry capability>';
         if (!isStableId(capability?.source?.definitionId)) {

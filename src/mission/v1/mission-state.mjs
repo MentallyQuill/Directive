@@ -130,9 +130,12 @@ export function validateMissionState({ definition = {}, state = {} } = {}) {
     validateUniqueDefinitionIds(state?.worldFacts, index.facts, 'worldFacts', errors);
     validateUniqueDefinitionIds(state?.events, index.events, 'events', errors);
 
-    const outcomeIds = new Set(index.outcomes.keys());
+    const inactivePacingIds = new Set(!state.events?.includes(definition.scenePacing?.activationEventId)
+        ? (definition.objectives || []).map(objective=>objective.scenePacing?.authorizationOutcomeId).filter(Boolean) : []);
+    const outcomeIds = new Set([...index.outcomes.keys()].filter(id=>!inactivePacingIds.has(id)));
     if (validateExactRecordKeys(state?.outcomes, outcomeIds, 'outcomes', errors)) {
         for (const [outcomeId, outcome] of index.outcomes.entries()) {
+            if (inactivePacingIds.has(outcomeId)) continue;
             if (!(outcome.allowedValues || []).includes(state.outcomes[outcomeId])) {
                 errors.push(`outcomes.${outcomeId} value is not authored`);
             }
@@ -224,6 +227,9 @@ function predicateValue(predicate, definition, state) {
 }
 
 export function createMissionState({ definition = {}, branchId = 'main', entryContext } = {}) {
+    // Runtime pacing authority starts with its first accepted pair. Older saved
+    // evidence replays without manufacturing new outcomes or reopening scenes.
+    const pacingOutcomeIds = new Set((definition.objectives || []).map(objective=>objective.scenePacing?.authorizationOutcomeId).filter(Boolean));
     const state = {
         kind: MISSION_STATE_KIND,
         schemaVersion: 1,
@@ -242,7 +248,7 @@ export function createMissionState({ definition = {}, branchId = 'main', entryCo
             .filter((fact) => fact.initiallyTrue === true)
             .map((fact) => fact.id),
         events: [],
-        outcomes: Object.fromEntries((definition.outcomes || []).map((outcome) => [outcome.id, outcome.initialValue])),
+        outcomes: Object.fromEntries((definition.outcomes || []).filter(outcome=>!pacingOutcomeIds.has(outcome.id)).map((outcome) => [outcome.id, outcome.initialValue])),
         outcomeDimensions: {},
         acceptedEvidenceKeys: [],
         evidenceLog: [],

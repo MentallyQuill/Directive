@@ -49,6 +49,11 @@ function applyClaim(definition, state, claim) {
         addUnique(state.knownFacts, claim.targetId);
     } else if (claim.claimType === 'eventOccurred') {
         addUnique(state.events, claim.targetId);
+        if (claim.targetId === definition.scenePacing?.activationEventId) {
+            for (const objective of definition.objectives || []) {
+                if (objective.scenePacing?.authorizationOutcomeId) state.outcomes[objective.scenePacing.authorizationOutcomeId] ??= 'held';
+            }
+        }
     } else if (new Set(['outcomeObserved', 'decisionRecorded']).has(claim.claimType)) {
         state.outcomes[claim.targetId] = claim.value;
     }
@@ -73,6 +78,12 @@ function reduceObjectives(definition, state, predicateContext) {
             if (available && evaluate(objective.progressWhen, definition, state, predicateContext)) nextState = 'inProgress';
             let disposition = null;
             for (const terminal of objective.terminalWhen || []) {
+                const pacingRequired = definition.scenePacing?.activationEventId
+                    && state.events.includes(definition.scenePacing.activationEventId)
+                    && objective.scenePacing?.authorizationOutcomeId
+                    && objective.scenePacing.completionMode !== 'playerDecision'
+                    && !['handedOff','knowinglyDeclined'].includes(terminal.disposition);
+                if (pacingRequired && state.outcomes[objective.scenePacing.authorizationOutcomeId] !== 'authorized') continue;
                 if (active && evaluate(terminal.when, definition, state, predicateContext)) {
                     nextState = 'terminal';
                     disposition = terminal.disposition;
@@ -210,6 +221,7 @@ export function reduceMissionEvidence({
             targetId: claim.targetId,
             value: claim.value ?? null,
             sourceContributionId: contributionId,
+            ...(claim.pacingSourceContributionIds?.length ? {pacingSourceContributionIds:[...claim.pacingSourceContributionIds]} : {}),
             ...(claim.evidenceQuote ? { evidenceQuote: claim.evidenceQuote } : {}),
             ...(claim.evidenceQuoteHash ? { evidenceQuoteHash: claim.evidenceQuoteHash } : {}),
             ...(Array.isArray(claim.dependencyEffectIds) && claim.dependencyEffectIds.length > 0
@@ -227,7 +239,7 @@ export function reduceMissionEvidence({
             type: `mission.${claim.claimType}`,
             targetId: claim.targetId,
             value: claim.value ?? null,
-            sourceContributionIds: contributionId ? [contributionId] : [],
+            sourceContributionIds: [...new Set([...(contributionId ? [contributionId] : []), ...(claim.pacingSourceContributionIds || [])])],
             ...(Array.isArray(claim.dependencyEffectIds) && claim.dependencyEffectIds.length > 0
                 ? { dependencyEffectIds: [...claim.dependencyEffectIds] }
                 : {}),

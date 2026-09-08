@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {createMissionAcceptedPairInterpretationPrompt,parseMissionAcceptedPairInterpretationOutput} from '../../src/mission/v1/accepted-pair-interpreter.mjs';
+const sourcePair = {previousAssistant:{text:'Which authority do you need?'},currentPlayer:{text:'I need authority over watch assignments.'}};
+const scenePacing = {objectives:[{id:'objective.test',scenePacing:{requirements:['Discuss terms.','Choose terms.']}}],currentScene:null};
+const candidatePacket = {candidates:[],scenePacing};
+const request = createMissionAcceptedPairInterpretationPrompt({candidatePacket,sourcePair});
+assert.ok(request.jsonSchema.properties.scenePacing,'pacing belongs in the existing Utility schema');
+const output = {kind:'directive.missionEvidenceInterpretation.v1',assistantAcceptance:'accepted',claims:[],peopleEvents:[],abstained:true,time:{decision:'unchanged',basis:'noPassage',elapsedSeconds:0,reason:'same instant',confidence:1},scenePacing:{objectiveId:'objective.test',intent:'continue',intentQuote:'',unresolved:'Terms remain open.',participation:[{requirement:0,playerQuote:sourcePair.currentPlayer.text,assistantQuote:sourcePair.previousAssistant.text}]}};
+const parsed = parseMissionAcceptedPairInterpretationOutput(output,{candidatePacket,sourcePair});
+assert.equal(parsed.ok,true,parsed.errors?.join('; '));
+assert.deepEqual(parsed.value.scenePacing,output.scenePacing);
+console.log('Existing Utility schema carries bounded scene pacing.');

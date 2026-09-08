@@ -13,6 +13,7 @@ function json(relative) {
 const packageData = json('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const runtimeAssets = {
   packageData,
+  missionDefinitions: [json('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json')],
   crewDataset: json('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'),
   shipDataset: json('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json')
 };
@@ -28,6 +29,7 @@ const state = {
   mission: {
     activeMissionId: 'prelude-a-ship-underway',
     v1: {
+      definitionId: 'mission.prelude-a-ship-underway',
       objectives: {
         'objective.prelude.command-handover': {
           state: 'available',
@@ -224,6 +226,9 @@ assert.match(conversationAnsweredPacket.text, /"phase": "firstMeeting"/);
 assert.match(conversationAnsweredPacket.text, /"stage": "conversationAnswered"/);
 assert.match(conversationAnsweredPacket.text, /Whitaker greets the player by name/);
 assert.match(conversationAnsweredPacket.text, /FIRST SCENE CONTINUATION:/);
+assert.match(conversationAnsweredPacket.text, /"allowDeparture": false/);
+assert.match(conversationAnsweredPacket.text, /Objective completion does not authorize a scene cut/);
+assert.match(conversationAnsweredPacket.text, /"objectiveId": "objective.prelude.command-handover"/);
 assert.match(conversationAnsweredPacket.text, /transitioning into the command handover/);
 assert.doesNotMatch(conversationAnsweredPacket.text, /This response is only the greeting/);
 assert.doesNotMatch(conversationAnsweredPacket.text, /Do not discuss readiness problems/);

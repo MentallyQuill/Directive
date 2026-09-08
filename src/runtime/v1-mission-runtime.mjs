@@ -1,3 +1,4 @@
+import { createScenePacingContext, gateScenePacingClaims, settleScenePacing, sceneAllowsReport, scenePacingPermissions, scenePacingDependencies } from '../narration/scene-pacing.mjs';
 import {
     createMissionAcceptedPairInterpreter,
     MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
@@ -448,12 +449,26 @@ function materializeDeterministicRuntimeEvidence({
     missionState = {},
     campaignState = {},
     branchId = '',
+    pacingReceipts = [],
+    updatePacingAuthorization = true,
 } = {}) {
+    const permissions = scenePacingPermissions(definition,pacingReceipts,missionState);
+    const pacingOutcomes = new Map((definition.objectives || [])
+        .filter(objective=>updatePacingAuthorization && objective.scenePacing?.authorizationOutcomeId && missionState.objectives?.[objective.id]?.state !== 'terminal')
+        .map(objective=>[objective.scenePacing.authorizationOutcomeId,{
+            value:permissions.has(objective.id) ? 'authorized' : 'held',
+            dependencies:scenePacingDependencies(definition,pacingReceipts,[objective.id],missionState),
+            materiallyNewEvidence:permissions.has(objective.id) && Boolean(missionState.objectiveDecisions?.[objective.id]),
+        }]));
     const eligible = (definition.evidencePolicies || [])
         .filter((policy) => (
-            policy?.claimType === 'worldFactEstablished'
-            && policy?.sourceRoles?.includes('runtime')
-            && !missionState.worldFacts?.includes(policy.targetId)
+            policy?.sourceRoles?.includes('runtime') && (
+                policy?.claimType === 'worldFactEstablished' && !missionState.worldFacts?.includes(policy.targetId)
+                || policy?.claimType === 'eventOccurred' && !missionState.events?.includes(policy.targetId)
+                    && policy.targetId === definition.scenePacing?.activationEventId
+                || policy?.claimType === 'outcomeObserved' && pacingOutcomes.has(policy.targetId)
+                    && (missionState.outcomes?.[policy.targetId] ?? 'held') !== pacingOutcomes.get(policy.targetId).value
+            )
         ))
         .filter((policy) => {
             const result = evaluateMissionPredicate(policy.when, missionStateContext(definition, missionState));
@@ -461,12 +476,14 @@ function materializeDeterministicRuntimeEvidence({
         })
         .sort((left, right) => left.id.localeCompare(right.id));
     const records = eligible.map((policy) => {
+        const pacingAuthorization = pacingOutcomes.get(policy.targetId);
+        const pacingDependencies = pacingAuthorization?.dependencies || [];
         const messageId = `runtime-policy:${definition.id}:${policy.id}`;
         const text = `Directive runtime policy ${policy.id} established ${policy.targetId}.`;
         const sourceInput = {
             messageId,
             selectedSwipeId: null,
-            textHash: stableHash([branchId, definition.id, policy.id, policy.targetId].join('|')),
+            textHash: stableHash([branchId, definition.id, policy.id, policy.targetId,pacingAuthorization?.value || '',pacingAuthorization ? missionState.revision : '',...pacingDependencies].join('|')),
             text,
         };
         const contributionId = activeContributionId(campaignState, branchId, sourceInput);
@@ -493,10 +510,13 @@ function materializeDeterministicRuntimeEvidence({
                 text: 'Deterministic runtime authority changed behind the scenes.',
             },
             claim: {
-                claimId: `claim.runtime-policy.${stableHash([branchId, definition.id, policy.id].join('|'))}`,
+                claimId: `claim.runtime-policy.${stableHash([branchId, definition.id, policy.id,...(pacingAuthorization ? [sourceInput.textHash] : [])].join('|'))}`,
                 policyId: policy.id,
                 claimType: policy.claimType,
                 targetId: policy.targetId,
+                ...(pacingAuthorization ? {value:pacingAuthorization.value} : {}),
+                ...(pacingAuthorization?.materiallyNewEvidence ? {materiallyNewEvidence:true} : {}),
+                ...(pacingDependencies.length ? {pacingSourceContributionIds:pacingDependencies} : {}),
                 sourceRef: {
                     messageId,
                     swipeId: null,
@@ -844,6 +864,9 @@ export function createV1MissionRuntime({
     function prepareTransitionNarration({ runtimeAssets = {} } = {}) {
         const campaignState = getState();
         if (!campaignState) return unavailable('campaign-state-unavailable');
+        const resolved = resolveActiveV1MissionDefinition({campaignState,runtimeAssets});
+        if (resolved.ok && campaignState.mission.v1.status === 'terminal' && createScenePacingContext({definition:resolved.definition,state:campaignState.mission.v1,
+            receipts:campaignState.storySettlement?.acceptedPairReceipts || []})?.allowMissionDeparture === false) return unavailable('scene-still-open');
         const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
         if (definitions.length === 0) return unavailable('definition-assets-missing');
         try {
@@ -894,6 +917,8 @@ export function createV1MissionRuntime({
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
         const definitions = validDefinitionRecords(runtimeAssets).map((record) => record.definition);
+        if (createScenePacingContext({definition:resolved.definition,state:campaignState.mission.v1,
+            receipts:campaignState.storySettlement?.acceptedPairReceipts || []})?.allowMissionDeparture === false) return unavailable('scene-still-open');
         if (inspection.targetPhaseId) {
             try {
                 const receipt = createCampaignConclusionReceipt({
@@ -1063,6 +1088,7 @@ export function createV1MissionRuntime({
             state: missionState,
             availableActors,
             deliveredReportIds,
+            isReportAllowed: route => sceneAllowsReport({definition:resolved.definition,state:missionState,receipts:campaignState.storySettlement?.acceptedPairReceipts || [],route}),
         });
         if (!packet) {
             return {
@@ -1230,6 +1256,7 @@ export function createV1MissionRuntime({
         const missionCandidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
         const candidatePacket = {
             ...missionCandidatePacket,
+            scenePacing: createScenePacingContext({definition,state:missionState,receipts:campaignState.storySettlement?.acceptedPairReceipts || []}),
             candidates: [
                 ...missionCandidatePacket.candidates,
                 ...createShipWorkInterpretationCandidates({
@@ -1315,6 +1342,17 @@ export function createV1MissionRuntime({
             : campaignState;
 
         const assistantAccepted = interpreted.interpretation?.assistantAcceptance === 'accepted';
+        let scenePacing = null;
+        if (candidatePacket.scenePacing) {
+            try {
+                scenePacing = settleScenePacing({definition,state:missionState,
+                    receipts:campaignState.storySettlement?.acceptedPairReceipts || [],sourcePair,
+                    observation:interpreted.interpretation?.scenePacing,assistantAccepted});
+            } catch {
+                cachedInterpretation = null;
+                return unavailable('scene-pacing-invalid', {}, {attempted:true});
+            }
+        }
         assistantSource.accepted = assistantAccepted;
         let peopleEvents = [];
         let peopleDossierAttempted = false;
@@ -1436,6 +1474,8 @@ export function createV1MissionRuntime({
             missionState,
             campaignState: plannedCampaignState,
             branchId,
+            pacingReceipts: campaignState.storySettlement?.acceptedPairReceipts || [],
+            updatePacingAuthorization: assistantAccepted,
         });
         const settlementProposal = {
             ...dutyProposal.proposal,
@@ -1444,6 +1484,10 @@ export function createV1MissionRuntime({
                 ...deterministicRuntime.claims,
             ],
         };
+        const pacingEvidence = gateScenePacingClaims({definition,state:missionState,
+            receipts:campaignState.storySettlement?.acceptedPairReceipts || [],
+            claims:settlementProposal.claims,assistantMessageId:sourcePair.previousAssistant.messageId});
+        settlementProposal.claims = pacingEvidence.acceptedClaims;
         const sources = [
             assistantSource,
             playerSource,
@@ -1476,6 +1520,7 @@ export function createV1MissionRuntime({
                 playerContributionId,
             ],
         });
+        if (scenePacing) acceptedPairReceipt.scenePacing = scenePacing;
         const sourceObservations = [
             ...(assistantAccepted ? [{
                 contributionId: assistantContributionId,
@@ -1579,6 +1624,7 @@ export function createV1MissionRuntime({
                     selectedClaimCount: interpreted.diagnostics?.selectedClaimCount ?? interpreted.proposal?.claims?.length ?? 0,
                     acceptedClaimCount,
                     rejectedClaimCount,
+                    pacingRejectedClaimCount: pacingEvidence.rejectedClaims.length,
                     acceptedShipClaimCount,
                     rejectedShipClaimCount,
                     discardedAssistantClaimCount: interpreted.diagnostics?.discardedAssistantClaimCount ?? 0,

@@ -79,6 +79,11 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.open-orders1.active","claimType":"eventOccurred","targetId":"event.scene-pacing.open-orders1.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.open-orders1.conclusion.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders1.conclusion.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders1.active"}},
+    {"id":"policy.scene-pacing.open-orders1.long-repair.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders1.long-repair.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders1.active"}},
+    {"id":"policy.scene-pacing.open-orders1.borrowed-wings.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders1.borrowed-wings.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders1.active"}},
+    {"id":"policy.scene-pacing.open-orders1.quiet-channels.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders1.quiet-channels.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders1.active"}},
     {
       "id": "policy.open-orders1.long-repair-engagement",
       "claimType": "decisionRecorded",
@@ -446,6 +451,7 @@
   "reportRoutes": [
     {
       "id": "report.open-orders1.long-repair-assessment",
+      "sceneObjectiveIds": ["objective.open-orders1.long-repair"],
       "factId": "fact.open-orders1.long-repair-assessment",
       "evidencePolicyId": "policy.open-orders1.long-repair-assessment-disclosed",
       "capabilityRoles": ["engineering"],
@@ -468,6 +474,7 @@
     },
     {
       "id": "report.open-orders1.borrowed-wings-assessment",
+      "sceneObjectiveIds": ["objective.open-orders1.borrowed-wings"],
       "factId": "fact.open-orders1.borrowed-wings-assessment",
       "evidencePolicyId": "policy.open-orders1.borrowed-wings-assessment-disclosed",
       "capabilityRoles": ["flight", "security"],
@@ -490,6 +497,7 @@
     },
     {
       "id": "report.open-orders1.quiet-channels-assessment",
+      "sceneObjectiveIds": ["objective.open-orders1.quiet-channels"],
       "factId": "fact.open-orders1.quiet-channels-assessment",
       "evidencePolicyId": "policy.open-orders1.quiet-channels-assessment-disclosed",
       "capabilityRoles": ["operations", "communications"],
@@ -512,6 +520,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.open-orders1.active","playerVisibility":"hidden"},
     { "id": "event.open-orders1.long-repair-assessed", "playerVisibility": "visible", "playerText": { "summary": "The Long Repair received a usable aggregate assessment." } },
     { "id": "event.open-orders1.long-repair-complication", "playerVisibility": "visible", "playerText": { "summary": "A combined-load limit forced The Long Repair to confront priorities and bounded support." } },
     { "id": "event.open-orders1.borrowed-wings-assessed", "playerVisibility": "visible", "playerText": { "summary": "Borrowed Wings received a usable aggregate assessment." } },
@@ -520,6 +529,10 @@
     { "id": "event.open-orders1.quiet-channels-complication", "playerVisibility": "visible", "playerText": { "summary": "A concrete favor or verification gap forced the informal network into an accountable boundary." } }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.open-orders1.conclusion.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders1.long-repair.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders1.borrowed-wings.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders1.quiet-channels.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     { "id": "outcome.open-orders1.long-repair-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for The Long Repair." } },
     { "id": "outcome.open-orders1.long-repair-result", "allowedValues": ["pending", "assetEarned", "resolvedWithLimits", "failedInformed"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of The Long Repair." } },
     { "id": "outcome.open-orders1.borrowed-wings-engagement", "allowedValues": ["pending", "direct", "delegated", "declined"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The chosen engagement mode for Borrowed Wings." } },
@@ -528,9 +541,11 @@
     { "id": "outcome.open-orders1.quiet-channels-result", "allowedValues": ["pending", "assetEarned", "resolvedWithLimits", "failedInformed"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The aggregate result of Quiet Channels." } },
     { "id": "outcome.open-orders1.conclusion", "allowedValues": ["pending", "concludeAfterTwo", "broadCoverage", "overextended", "departEarly"], "initialValue": "pending", "playerVisibility": "visible", "playerText": { "summary": "The explicit conclusion of the first Open Orders interval." } }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.open-orders1.active"},
   "objectives": [
     {
       "id": "objective.open-orders1.conclusion",
+      "scenePacing": {"requirements":["Discuss which local work deserves direct attention or delegation.","Review the selected work outcomes and remaining obligations before leaving the interval."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders1.conclusion.authorization","completionMode":"playerDecision"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -559,6 +574,7 @@
     },
     {
       "id": "objective.open-orders1.long-repair",
+      "scenePacing": {"requirements":["Engage the repair assessment and the crew or yard limits.","Choose priorities and respond to proposed support terms before settling the work."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders1.long-repair.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
@@ -593,6 +609,7 @@
     },
     {
       "id": "objective.open-orders1.borrowed-wings",
+      "scenePacing": {"requirements":["Engage the assignment participants and their practical needs.","Choose an approach and respond to the encounter results before settling the assignment."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders1.borrowed-wings.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
@@ -627,6 +644,7 @@
     },
     {
       "id": "objective.open-orders1.quiet-channels",
+      "scenePacing": {"requirements":["Engage the communications problem and the people affected.","Choose an approach and respond to the findings or consequences before settling the assignment."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders1.quiet-channels.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.open-orders1.opportunities" },
