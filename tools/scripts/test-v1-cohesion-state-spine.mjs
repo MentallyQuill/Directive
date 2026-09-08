@@ -34,7 +34,7 @@ campaignState.mission = {
 const snapshot = {
   source: {
     previousAssistant: { hostMessageId: 'message.assistant.cohesion' },
-    currentPlayer: { hostMessageId: 'message.player.cohesion' },
+    currentPlayer: { hostMessageId: 'message.player.cohesion', text: 'I work for four hours.' },
     sourceRangeHash: 'range.cohesion',
   },
 };
@@ -43,7 +43,7 @@ const time = prepareV1AcceptedPairTimeAdvance({
   snapshot,
   packageData: assets.packageData,
   timeDecision: {
-    decision: 'advance',
+    decision: 'advance', basis: 'explicitDuration', durationSeconds: 14400, durationSourceSlot: 'currentPlayer', durationEvidenceQuote: 'I work for four hours.',
     elapsedSeconds: 4 * 60 * 60,
     reason: 'A four-hour watch visibly passed.',
     confidence: 1,

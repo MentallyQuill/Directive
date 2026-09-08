@@ -134,7 +134,7 @@ const generation = createFakeGenerationClient({
       }
       return { text: '{}', providerId: 'fake-reasoning' };
     },
-    acceptedPairMissionEvidence: async ({ rawOptions }) => {
+    acceptedPairMissionEvidence: async ({ rawOptions, request }) => {
       missionInterpretationCalls += 1;
       if (holdMissionInterpretation) {
         reportHeldInterpretationStarted?.();
@@ -169,6 +169,8 @@ const generation = createFakeGenerationClient({
           abstained: acceptedClaims.length === 0,
           time: {
             decision: 'advance',
+            basis: 'implicitAction', sourceSlot: 'currentPlayer',
+            evidenceQuote: JSON.parse(request.messages[1].content.slice(request.messages[1].content.indexOf('{'))).sourcePair.currentPlayer.text.slice(0, 240),
             elapsedSeconds: 47,
             reason: 'brief-exchange',
             confidence: 0.9

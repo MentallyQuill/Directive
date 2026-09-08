@@ -83,6 +83,7 @@ const checks = [
   "test-ship-time.mjs",
   "test-v1-accepted-pair-source.mjs",
   "test-v1-accepted-pair-time.mjs",
+  "test-v1-time-reliability.mjs",
   "test-v1-accepted-pair-interpreter.mjs",
   "test-v1-accepted-pair-people.mjs",
   "test-people-dossier-author.mjs",

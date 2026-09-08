@@ -265,6 +265,9 @@ export function prepareV1AcceptedPairSnapshot({
         previousAssistant: {
           hostMessageId: previousId,
           promptingPlayerHostMessageId: promptingPlayerId,
+          promptingPlayerText: sourceText(recentMessages.find((message) => (
+            isUser(message) && !isSystem(message) && messageId(message) === promptingPlayerId
+          ))).slice(0, MAX_PLAYER_CHARS),
           selectedVariantId: selected.value.selectedVariantId,
           selectedSwipeIndex: selected.value.selectedSwipeIndex,
           sourceIntegrity: 'clean',
