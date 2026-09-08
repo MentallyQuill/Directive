@@ -20,6 +20,7 @@ export function closeSettlementRetryDialog(reason = 'closed') {
 export function showSettlementRetryDialog({
   reasonCode = 'persistence-failed',
   attempts = 3,
+  blockedRoles = [],
   onRetry = null
 } = {}) {
   if (activeDialog && !activeDialog.overlay.isConnected) closeDialog(activeDialog, 'removed');
@@ -37,6 +38,13 @@ export function showSettlementRetryDialog({
   message.textContent = reasonCode === 'persistence-failed'
     ? `Directive could not safely record this turn after ${attempts} attempts. Narration has not begun.`
     : 'Directive could not finish recording this turn. Narration has not begun.';
+  if (blockedRoles.includes('director')) {
+    message.textContent = blockedRoles.includes('interpreter')
+      ? 'Directive could not finish reviewing this turn and preparing story direction. Narration has not begun.'
+      : 'Directive could not finish preparing story direction. Narration has not begun.';
+  } else if (blockedRoles.includes('interpreter')) {
+    message.textContent = 'Directive could not finish reviewing this turn. Narration has not begun.';
+  }
   const detail = createElement('p', 'directive-settlement-retry-detail');
   detail.textContent = reasonCode === 'persistence-failed'
     ? 'Retry recording this turn. Closing this dialog keeps narration paused.'

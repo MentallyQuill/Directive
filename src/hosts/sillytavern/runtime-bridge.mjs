@@ -84,6 +84,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     phase: 'reading',
     hostGeneration: true
   });
+  const boundAtStart = runtimeApp?.isCurrentChatBound?.() === true;
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
     if (result?.handled === true && result?.abortDefaultGeneration === true) {
@@ -91,6 +92,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
       abort?.(false);
       showSettlementRetryDialog({
         reasonCode: result.settlementError?.reasonCode,
+        blockedRoles: result.settlementError?.blockedRoles || [],
         attempts: result.settlementError?.persistenceAttempts,
         onRetry: async ({ signal = null, isActive = null } = {}) => {
           const settled = await runtimeApp?.retryPendingAcceptedPairSettlement?.();
@@ -127,9 +129,22 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     return result;
   } catch (error) {
     finishDirectiveTurnActivity(activityToken);
-    // Fail open. A host generation must not be blocked merely because Directive could
-    // not classify an inactive or malformed turn.
-    host?.logger?.error?.('[Directive] generation interceptor failed open:', error);
+    const bound = boundAtStart || runtimeApp?.isCurrentChatBound?.() === true;
+    host?.logger?.error?.('[Directive] generation interceptor failed:', error);
+    if (bound) {
+      abort?.(false);
+      const reasonCode = error?.reasonCode || error?.code || 'turn-preparation-failed';
+      try { showSettlementRetryDialog({ reasonCode, onRetry: async ({signal = null, isActive = null} = {}) => {
+        const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+        if (result?.abortDefaultGeneration !== false) return {ok:false, reasonCode};
+        if (signal?.aborted || isActive?.() === false) return {ok:false, reasonCode:'settlement-retry-dismissed'};
+        return host?.chat?.continueHostGeneration?.({reason:'directive-settlement-retry', type:type || 'normal', automaticTrigger:true, waitForCompletion:false});
+      } }); } catch (uiError) {
+        host?.logger?.error?.('[Directive] Could not display turn recovery:', uiError);
+      }
+      return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',
+        settlementError: {code:'DIRECTIVE_TURN_PREPARATION_FAILED', reasonCode, blockedRoles:[], persistenceAttempts:0} };
+    }
     return {
       handled: false,
       reason: 'interceptor-error',

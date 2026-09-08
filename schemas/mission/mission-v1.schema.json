@@ -30,6 +30,7 @@
     "version": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
     "packageBinding": { "$ref": "#/$defs/packageBinding" },
     "playerText": { "$ref": "#/$defs/playerText" },
+    "directorGuidance": { "$ref": "#/$defs/directorGuidance" },
     "projectionHints": { "$ref": "#/$defs/projectionHints" },
     "entryCapabilities": {
       "type": "array",
@@ -103,6 +104,21 @@
       "properties": {
         "shipReadinessObjectiveId": { "$ref": "#/$defs/stableId" },
         "shipReadinessDimensionId": { "$ref": "#/$defs/stableId" }
+      }
+    },
+    "directorGuidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["focusText", "avoidText", "constraintRefs"],
+      "properties": {
+        "focusText": { "type": "string", "minLength": 1, "maxLength": 1200 },
+        "avoidText": { "type": "string", "minLength": 1, "maxLength": 1200 },
+        "constraintRefs": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        }
       }
     },
     "playerText": {

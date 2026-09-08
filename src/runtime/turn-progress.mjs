@@ -1,5 +1,6 @@
 export const TURN_PROGRESS_STAGES = Object.freeze([
   'reviewing-events',
+  'directing-story',
   'reviewing-episode',
   'updating-characters',
   'saving',
@@ -9,6 +10,7 @@ export const TURN_PROGRESS_STAGES = Object.freeze([
 const STAGES = new Set(TURN_PROGRESS_STAGES);
 const CANCELED_REASON_CODES = new Set([
   'provider-aborted',
+  'director-aborted',
   'aborted',
   'canceled',
   'cancelled',

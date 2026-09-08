@@ -35,6 +35,18 @@
       "type": "array",
       "items": { "$ref": "#/$defs/acceptedPairReceipt" }
     },
+    "continuityEvents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/continuityEvent" }
+    },
+    "directorReceipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/directorReceipt" }
+    },
+    "pendingDossiers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pendingDossier" }
+    },
     "focus": {
       "anyOf": [
         { "type": "null" },
@@ -49,6 +61,171 @@
     }
   },
   "$defs": {
+    "continuitySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageId", "selectedSwipeId", "textHash", "evidenceQuote"],
+      "properties": {
+        "messageId": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "selectedSwipeId": { "type": ["string", "null"], "minLength": 1, "maxLength": 300 },
+        "textHash": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "evidenceQuote": { "type": "string", "minLength": 12, "maxLength": 240 }
+      }
+    },
+    "continuityOpenPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "category"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": {
+          "type": "string",
+          "enum": ["obligation", "schedule", "constraint", "resource-consequence", "unresolved-problem"]
+        }
+      }
+    },
+    "continuityFactPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "claimType", "authoredRef", "supersedesFactId"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "claimType": {
+          "type": "string",
+          "enum": ["narrated-fact", "character-claim", "player-commitment"]
+        },
+        "authoredRef": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+        },
+        "supersedesFactId": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+        }
+      }
+    },
+    "continuityStatusPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["active", "deferred", "resolved"] }
+      }
+    },
+    "continuityEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "id", "threadId", "branchId", "operation", "payload",
+        "sourceContributionIds", "sources", "dependsOnEventIds", "settledAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.continuityEvent.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "threadId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "operation": { "type": "string", "enum": ["open", "addFact", "setStatus"] },
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/continuityOpenPayload" },
+            { "$ref": "#/$defs/continuityFactPayload" },
+            { "$ref": "#/$defs/continuityStatusPayload" }
+          ]
+        },
+        "sourceContributionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/continuitySource" }
+        },
+        "dependsOnEventIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "settledAtRevision": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "const": "open" } }, "required": ["operation"] },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/continuityOpenPayload" } } }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "addFact" } }, "required": ["operation"] },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/continuityFactPayload" } } }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "setStatus" } }, "required": ["operation"] },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/continuityStatusPayload" } } }
+        }
+      ]
+    },
+    "directorReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "id", "branchId", "packageId", "packageVersion", "missionId",
+        "generationType", "generationTargetKey", "requestKey", "sourceRangeHash",
+        "reuseKey", "sourceContributionIds", "instruction", "dependencyIds", "settledAtRevision"
+      ],
+      "properties": {
+        "kind": { "const": "directive.storyDirectorReceipt.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "branchId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packageId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "packageVersion": {
+          "anyOf": [
+            { "type": "string", "minLength": 1, "maxLength": 80 },
+            { "type": "integer" }
+          ]
+        },
+        "missionId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "generationType": { "type": "string", "enum": ["normal", "continue", "swipe", "regenerate"] },
+        "generationTargetKey": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "requestKey": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "reuseKey": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "sourceRangeHash": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "sourceContributionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "instruction": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "dependencyIds": {
+          "type": "array",
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "settledAtRevision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "pendingDossier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "id", "personId", "introductionSourceContributionIds", "status", "attemptCount"
+      ],
+      "properties": {
+        "kind": { "const": "directive.pendingDossier.v1" },
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "personId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "introductionSourceContributionIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/id" },
+          "uniqueItems": true
+        },
+        "status": { "type": "string", "enum": ["pending", "in-flight", "staged", "failed"] },
+        "attemptCount": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "publicContext": { "type": "object" }
+      }
+    },
     "diagnostics": {
       "type": "object",
       "additionalProperties": false,

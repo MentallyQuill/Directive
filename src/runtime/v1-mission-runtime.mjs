@@ -1,5 +1,6 @@
 import { createScenePacingContext, gateScenePacingClaims, settleScenePacing, sceneAllowsReport, scenePacingPermissions, scenePacingDependencies } from '../narration/scene-pacing.mjs';
 import {
+    createMissionAcceptedPairInterpretationPrompt,
     createMissionAcceptedPairInterpreter,
     MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
 } from '../mission/v1/accepted-pair-interpreter.mjs';
@@ -23,7 +24,29 @@ import {
     createEpisodeEvaluationRequest,
     createEpisodeEvaluator,
 } from '../story/episode-evaluator.mjs';
-import { recordEpisodeReviewAttempt } from '../story/story-settlement.mjs';
+import {
+    recordDirectorReceipt,
+    recordEpisodeReviewAttempt,
+    recordPendingDossier,
+    selectDirectorReceipt,
+} from '../story/story-settlement.mjs';
+import {
+    createDirectorReceipt,
+    createPendingDossier,
+} from '../story/continuity-contracts.mjs';
+import {
+    materializeContinuityChanges,
+    projectContinuityThreads,
+} from '../story/continuity-events.mjs';
+import {
+    createDirectorAuthoredContext,
+    projectDirectorContinuity,
+} from '../story/director-context.mjs';
+import {
+    createStoryDirectorRequest,
+    parseStoryDirectorOutput,
+} from '../story/story-director.mjs';
+import { compileDirectorInstruction } from '../narration/director-instructions.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
 import {
     createDutyReportVisibleSegment,
@@ -63,6 +86,11 @@ import { eligibleMissionCommandBearingAwards } from '../mission/v1/mission-reduc
 import { awardV1CommandBearing } from '../command/v1-command-bearing.mjs';
 import { pruneStoryEffects } from '../story/story-settlement.mjs';
 import { stableHash24 } from './v1-stable-hash.mjs';
+import { createParallelTurnAnalysis } from './parallel-turn-analysis.mjs';
+import { createTurnAnalysisKey } from './turn-analysis-key.mjs';
+import { createTurnCommit } from './turn-state-reconciler.mjs';
+import { assertV1CampaignState } from './v1-campaign-state.mjs';
+import { sha256Json } from '../storage/v1-state-delta-codec.mjs';
 
 function compact(value) {
     return String(value ?? '').trim();
@@ -706,6 +734,256 @@ export function buildV1RuntimePlayerProjection({ campaignState = {}, runtimeAsse
     }
 }
 
+const NARRATION_GENERATION_TYPES = new Set(['normal', 'continue', 'swipe', 'regenerate']);
+
+function narrationGenerationType(value) {
+    const normalized = compact(value || 'normal').toLowerCase();
+    if (!NARRATION_GENERATION_TYPES.has(normalized)) {
+        throw new TypeError('narration-generation-type-invalid');
+    }
+    return normalized;
+}
+
+export function createNarrationGenerationTargetKey({ snapshot = {}, generationType = 'normal' } = {}) {
+    const type = narrationGenerationType(generationType);
+    const playerMessageId = compact(snapshot?.source?.currentPlayer?.hostMessageId);
+    const sourceRangeHash = compact(snapshot?.source?.sourceRangeHash);
+    if (!playerMessageId || !sourceRangeHash) throw new TypeError('narration-generation-target-invalid');
+    return `${type}:${playerMessageId}:${sourceRangeHash}`;
+}
+
+export async function createNarrationDirectionReuseKey({
+    campaignState,
+    runtimeAssets = {},
+    snapshot = {},
+    generationType = 'normal',
+    providerFingerprints = {},
+} = {}) {
+    const acceptedState = structuredClone(campaignState || {});
+    delete acceptedState.stateCustody;
+    if (acceptedState.storySettlement) {
+        delete acceptedState.storySettlement.directorReceipts;
+        delete acceptedState.storySettlement.pendingDossiers;
+    }
+    const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+    const reuseSource = (source = {}) => ({
+        hostMessageId: compact(source.hostMessageId || source.messageId),
+        selectedSwipeId: compact(
+            source.selectedVariant?.selectedSwipeId ?? source.selectedSwipeId ?? source.swipeId,
+        ) || null,
+        textHash: compact(source.textHash || source.selectedVariant?.textHash),
+    });
+    return `direction-reuse.${await sha256Json({
+        contract: 'directive.narrationDirectionReuse.v1',
+        directorRequestContract: 'directive.storyDirectorRequest.v1',
+        instructionContract: 'directive.directorInstruction.v1',
+        generationType: narrationGenerationType(generationType),
+        source: {
+            envelope: {
+                campaignId: compact(campaignState?.campaign?.id),
+                saveId: compact(campaignState?.campaignChatBinding?.saveId),
+                chatId: compact(campaignState?.campaignChatBinding?.chatId),
+                packageId: compact(campaignState?.activeCampaignPackage?.packageId),
+                packageVersion: compact(campaignState?.activeCampaignPackage?.packageVersion),
+                activeMissionId: compact(campaignState?.mission?.activeMissionId),
+            },
+            sourceRangeHash: compact(snapshot?.source?.sourceRangeHash),
+            previousAssistant: reuseSource(snapshot?.source?.previousAssistant),
+            currentPlayer: reuseSource(snapshot?.source?.currentPlayer),
+        },
+        activeDefinition: resolved.ok ? resolved.definition : null,
+        shipMechanics: runtimeAssets?.shipDataset?.mechanics || {},
+        acceptedState,
+        providerFingerprints: providerFingerprints || {},
+    })}`;
+}
+
+function captureFailure(reasonCode) {
+    const error = new TypeError(reasonCode);
+    error.code = reasonCode;
+    return error;
+}
+
+export function captureAcceptedPairAnalysis({
+    campaignState,
+    runtimeAssets = {},
+    snapshot = {},
+    generationType = 'normal',
+} = {}) {
+    const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
+    if (!resolved.ok) throw captureFailure(resolved.reasonCode || 'definition-unavailable');
+    const { definition } = resolved;
+    const integrityReason = snapshotIntegrityReason(snapshot);
+    if (integrityReason) throw captureFailure(integrityReason);
+    const envelopeReason = snapshotEnvelopeReason({ snapshot, state: campaignState, definition });
+    if (envelopeReason) throw captureFailure(envelopeReason);
+    const branchId = compact(snapshot.envelope.saveId);
+    let missionState;
+    try {
+        missionState = resolveV1MissionState({ campaignState, definition, branchId });
+    } catch (error) {
+        throw captureFailure(errorReasonCode(error));
+    }
+    const sourcePair = sourcePairFromSnapshot(snapshot);
+    const assistantContributionId = activeContributionId(
+        campaignState,
+        branchId,
+        sourcePair.previousAssistant,
+    );
+    const playerContributionId = activeContributionId(
+        campaignState,
+        branchId,
+        sourcePair.currentPlayer,
+    );
+    const assistantSource = sourceResolutionRecord(
+        branchId,
+        'assistant',
+        sourcePair.previousAssistant,
+        missionState.revision,
+        assistantContributionId,
+    );
+    const playerSource = sourceResolutionRecord(
+        branchId,
+        'user',
+        sourcePair.currentPlayer,
+        missionState.revision,
+        playerContributionId,
+    );
+    const alreadySettled = settledContributionIds(campaignState);
+    const currentSources = [
+        { id: assistantContributionId, role: 'assistant', source: sourcePair.previousAssistant },
+        { id: playerContributionId, role: 'user', source: sourcePair.currentPlayer },
+    ];
+    const pairSourcesSettled = currentSources.every((source) => (
+        alreadySettled.has(source.id)
+        || settledContributionMatchesSource(campaignState, source.source, source.role)
+    ));
+    const settledPairReceipt = (campaignState?.storySettlement?.acceptedPairReceipts || []).find(
+        (receipt) => v1AcceptedPairReceiptMatches(receipt, {
+            branchId,
+            sourceRangeHash: snapshot?.source?.sourceRangeHash,
+            sourcePair,
+        }),
+    );
+    const missionCandidatePacket = createMissionInterpretationCandidatePacket({ definition, state: missionState });
+    const candidatePacket = {
+        ...missionCandidatePacket,
+        scenePacing: createScenePacingContext({
+            definition,
+            state: missionState,
+            receipts: campaignState.storySettlement?.acceptedPairReceipts || [],
+        }),
+        candidates: [
+            ...missionCandidatePacket.candidates,
+            ...createShipWorkInterpretationCandidates({
+                shipDataset: runtimeAssets?.shipDataset || {},
+                storySettlement: campaignState?.storySettlement || {},
+            }),
+            ...(runtimeAssets?.cohesionCatalog
+                ? createCohesionInterpretationCandidates({
+                    catalog: runtimeAssets.cohesionCatalog,
+                    shipDataset: runtimeAssets?.shipDataset || {},
+                    storySettlement: campaignState?.storySettlement || {},
+                    branchId,
+                })
+                : []),
+        ].sort((left, right) => left.id.localeCompare(right.id)),
+    };
+    const peopleContext = createPeopleInterpretationContext({
+        crewDataset: runtimeAssets?.crewDataset || {},
+        storySettlement: campaignState?.storySettlement || {},
+    });
+    const timeContext = timeContextFromSnapshot(campaignState, snapshot, runtimeAssets);
+    const interpreterInput = { candidatePacket, sourcePair, timeContext, peopleContext };
+    const interpreterRequest = createMissionAcceptedPairInterpretationPrompt(interpreterInput);
+    let episodeReview = null;
+    const reviewToken = createPendingEpisodeReviewToken(campaignState?.storySettlement);
+    if (reviewToken) {
+        try {
+            episodeReview = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement });
+        } catch {
+            throw captureFailure('episode-review-invalid');
+        }
+    }
+    const authoredContext = createDirectorAuthoredContext({
+        definition,
+        missionState,
+        shipMechanics: runtimeAssets?.shipDataset?.mechanics || {},
+        pendingTransition: null,
+        pendingDutyReport: null,
+    });
+    const continuity = projectDirectorContinuity({
+        events: campaignState?.storySettlement?.continuityEvents || [],
+        missionId: definition.id,
+        referencedIds: [],
+    });
+    const type = narrationGenerationType(generationType);
+    const directorSourcePair = Object.fromEntries(
+        ['previousAssistant', 'currentPlayer'].map((slot) => [slot, {
+            messageId: sourcePair[slot].messageId,
+            selectedSwipeId: sourcePair[slot].selectedSwipeId ?? null,
+            textHash: sourcePair[slot].textHash,
+            text: sourcePair[slot].text,
+        }]),
+    );
+    const directorRequest = createStoryDirectorRequest({
+        envelope: {
+            campaignId: compact(snapshot.envelope.campaignId),
+            saveId: branchId,
+            chatId: compact(snapshot.envelope.chatId),
+            packageId: compact(snapshot.envelope.packageId),
+            packageVersion: compact(snapshot.envelope.packageVersion),
+            branchId,
+            baseRevision: campaignState.stateCustody.revision,
+            missionId: definition.id,
+            sourceRangeHash: compact(snapshot.source.sourceRangeHash),
+            generationType: type,
+        },
+        sourcePair: directorSourcePair,
+        authoredContext,
+        continuity,
+        currentScene: null,
+        episodeReview,
+    });
+    return {
+        campaignState: structuredClone(campaignState),
+        definition,
+        missionState,
+        branchId,
+        sourcePair,
+        assistantContributionId,
+        playerContributionId,
+        assistantSource,
+        playerSource,
+        pairAlreadySettled: pairSourcesSettled || Boolean(settledPairReceipt),
+        settledPairReceipt: settledPairReceipt ? structuredClone(settledPairReceipt) : null,
+        interpreterInput,
+        interpreterRequest,
+        directorRequest,
+        reviewToken,
+        generationType: type,
+        generationTargetKey: createNarrationGenerationTargetKey({ snapshot, generationType: type }),
+        snapshot: structuredClone(snapshot),
+        runtimeAssets,
+    };
+}
+
+export async function prepareInterpretedPair({
+    captured,
+    interpreted,
+    campaignState,
+    prepare,
+} = {}) {
+    if (!captured || !interpreted?.ok || !campaignState || typeof prepare !== 'function') {
+        throw new TypeError('interpreted-pair-preparation-invalid');
+    }
+    return prepare({
+        captured,
+        interpreted: structuredClone(interpreted),
+        campaignState: structuredClone(campaignState),
+    });
+}
+
 export function createV1MissionRuntime({
     getState,
     stateDeltaGateway,
@@ -720,6 +998,8 @@ export function createV1MissionRuntime({
     authorPeopleDossiers = null,
     peopleDossierTimeoutMs = 30000,
     turnProgress = null,
+    directStory = null,
+    providerFingerprints = () => ({}),
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.revision !== 'function'
@@ -729,6 +1009,7 @@ export function createV1MissionRuntime({
     const interpreter = interpretAcceptedPair || createMissionAcceptedPairInterpreter({ generationRouter, timeoutMs });
     let cachedInterpretation = null;
     let cachedPreparedPeopleEvents = null;
+    let directedAnalysis = null;
     const peopleDossierAuthor = authorPeopleDossiers || createPeopleDossierAuthor({
         generationRouter,
         timeoutMs: peopleDossierTimeoutMs,
@@ -1136,7 +1417,52 @@ export function createV1MissionRuntime({
         };
     }
 
-    async function settleAcceptedPair({
+    function eligibleDirectionTargets(campaignState, captured) {
+        const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets: captured.runtimeAssets });
+        if (!resolved.ok) throw captureFailure(resolved.reasonCode || 'definition-unavailable');
+        const missionState = resolveV1MissionState({
+            campaignState,
+            definition: resolved.definition,
+            branchId: captured.branchId,
+        });
+        const authoredContext = createDirectorAuthoredContext({
+            definition: resolved.definition,
+            missionState,
+            shipMechanics: captured.runtimeAssets?.shipDataset?.mechanics || {},
+            pendingTransition: null,
+            pendingDutyReport: null,
+        });
+        const targets = new Map();
+        for (const opportunity of authoredContext.opportunities) {
+            const objective = missionState.objectives?.[opportunity.id];
+            const isObjective = opportunity.kind === 'objective';
+            if (isObjective && (
+                objective?.visibility !== 'visible'
+                || !new Set(['available', 'active']).has(objective?.state)
+            )) continue;
+            const conditionIds = opportunity.conditionIds || [];
+            if (conditionIds.length > 0 && opportunity.permissionFlags?.completionAuthorized !== true) continue;
+            targets.set(opportunity.id, {
+                id: opportunity.id,
+                playerSafeText: opportunity.playerSafeText,
+                conditions: new Set(conditionIds),
+                dependencyIds: [opportunity.id, ...conditionIds],
+            });
+        }
+        const events = campaignState.storySettlement?.continuityEvents || [];
+        for (const thread of projectContinuityThreads(events)) {
+            if (!new Set(['active', 'deferred']).has(thread.status)) continue;
+            targets.set(thread.id, {
+                id: thread.id,
+                playerSafeText: thread.title,
+                conditions: new Set(),
+                dependencyIds: [thread.id, ...(thread.sourceContributionIds || [])],
+            });
+        }
+        return targets;
+    }
+
+    async function settleAcceptedPairLegacy({
         runtimeAssets = {},
         snapshot = {},
         hardBoundary = null,
@@ -1144,8 +1470,12 @@ export function createV1MissionRuntime({
         signal = null,
         allowModelCall = true,
         progressScope = null,
+        preparedInterpretation = null,
+        preparedCampaignState = null,
+        prepareOnly = false,
+        queuePeopleDossiers = false,
     } = {}) {
-        let campaignState = getState();
+        let campaignState = preparedCampaignState || getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
         if (!resolved.ok) return resolved;
         const { definition } = resolved;
@@ -1278,8 +1608,11 @@ export function createV1MissionRuntime({
             storySettlement: campaignState?.storySettlement || {},
         });
         let interpreted;
-        const interpretationReused = cachedInterpretation?.key === interpretationKey;
-        if (interpretationReused) {
+        const interpretationReused = Boolean(preparedInterpretation)
+            || cachedInterpretation?.key === interpretationKey;
+        if (preparedInterpretation) {
+            interpreted = structuredClone(preparedInterpretation);
+        } else if (interpretationReused) {
             interpreted = structuredClone(cachedInterpretation.value);
         } else {
             if (allowModelCall !== true) {
@@ -1355,6 +1688,7 @@ export function createV1MissionRuntime({
         }
         assistantSource.accepted = assistantAccepted;
         let peopleEvents = [];
+        let introductions = [];
         let peopleDossierAttempted = false;
         let peopleDossierStatus = 'not-needed';
         if (cachedPreparedPeopleEvents?.key === interpretationKey) {
@@ -1376,14 +1710,14 @@ export function createV1MissionRuntime({
             } catch {
                 return unavailable('people-events-invalid', {}, { attempted: true });
             }
-            const introductions = peopleEvents
+            introductions = peopleEvents
                 .filter((event) => event.type === 'personIntroduced')
                 .map((event) => ({
                     personId: event.personId,
                     name: event.name,
                     introductionSummary: event.introductionSummary,
                 }));
-            if (introductions.length > 0) {
+            if (introductions.length > 0 && !queuePeopleDossiers) {
                 peopleDossierAttempted = true;
                 let authored;
                 try {
@@ -1420,6 +1754,9 @@ export function createV1MissionRuntime({
                         return unavailable('people-dossier-materialization-invalid', {}, { attempted: true });
                     }
                 }
+            }
+            if (introductions.length > 0 && queuePeopleDossiers) {
+                peopleDossierStatus = 'queued';
             }
             cachedPreparedPeopleEvents = {
                 key: interpretationKey,
@@ -1538,7 +1875,7 @@ export function createV1MissionRuntime({
         ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
-            getState,
+            getState: prepareOnly ? () => campaignState : getState,
             stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef,
             now,
@@ -1553,7 +1890,32 @@ export function createV1MissionRuntime({
         ].join('|'));
         try {
             if (signal?.aborted) return unavailable('provider-aborted', {}, {attempted:true});
-            const settled = await spine.settleAcceptedPair({
+            const prepared = prepareOnly
+                ? await spine.prepareAcceptedPair({
+                    definition,
+                    proposal: settlementProposal,
+                    sourceContributions: contributions,
+                    sourceObservations,
+                    acceptedPairReceipt,
+                    gatewayBaseRevision,
+                    scene: {
+                        episodeId: `episode.v1.${sceneHash}`,
+                        sceneId: `scene.v1.${sceneHash}`,
+                    },
+                    hardBoundary,
+                    missionDefinitions: validDefinitionRecords(runtimeAssets).map((record) => record.definition),
+                    authorityPatch: time?.patch || {},
+                    authorityDomains: time?.domains || [],
+                    acceptedCommandBearingEdge: assistantAccepted ? acceptedCommandBearingEdge : null,
+                    shipDataset: runtimeAssets?.shipDataset || null,
+                    shipProposal,
+                    cohesionCatalog: runtimeAssets?.cohesionCatalog || null,
+                    cohesionProposal,
+                    peopleEvents,
+                    knownPersonIds: peopleContext.knownPeople.map((person) => person.id),
+                })
+                : null;
+            const settled = prepared?.result || await spine.settleAcceptedPair({
                 definition,
                 proposal: settlementProposal,
                 sourceContributions: contributions,
@@ -1646,6 +2008,22 @@ export function createV1MissionRuntime({
                     campaignState: settled.campaignState,
                     patch: null,
                 } : time,
+                ...(prepareOnly ? {
+                    candidateState: prepared.candidateState,
+                    commitProposal: prepared.proposal,
+                    preparedResult: prepared.result,
+                    pair: {
+                        sourcePair: structuredClone(sourcePair),
+                        assistantAccepted,
+                        contributionIds: {
+                            previousAssistant: assistantContributionId,
+                            currentPlayer: playerContributionId,
+                        },
+                        peopleEvents: structuredClone(peopleEvents),
+                        introductions: structuredClone(introductions),
+                        acceptedPairReceipt: structuredClone(acceptedPairReceipt),
+                    },
+                } : {}),
             };
         } catch (error) {
             const reasonCode = errorReasonCode(error);
@@ -1657,6 +2035,427 @@ export function createV1MissionRuntime({
             }
             return unavailable(reasonCode, { interpretationReused }, { attempted: true });
         }
+    }
+
+    function directionForMaterializedContinuity(direction, changes, beforeEvents, afterEvents) {
+        if (!direction?.targetRef) return direction;
+        const opened = changes.find((change) => (
+            change?.operation === 'open' && change.localRef === direction.targetRef
+        ));
+        if (!opened) return direction;
+        const priorIds = new Set((beforeEvents || []).map(({ id }) => id));
+        const event = (afterEvents || []).find((candidate) => (
+            !priorIds.has(candidate.id)
+            && candidate.operation === 'open'
+            && candidate.payload?.title === opened.title
+            && candidate.payload?.category === opened.category
+        ));
+        return event ? { ...direction, targetRef: event.threadId } : direction;
+    }
+
+    function compiledInstructionText(compiled) {
+        return [
+            compiled.instruction,
+            compiled.targetText ? `Approved target: ${compiled.targetText}` : null,
+            compiled.complicationInstruction,
+        ].filter(Boolean).join(' ');
+    }
+
+    function clearDirectedAnalysis() {
+        if (!directedAnalysis) return;
+        directedAnalysis.coordinator.clear();
+        directedAnalysis = null;
+    }
+
+    async function runDirectedAnalysis(captured, {
+        signal,
+        progressScope,
+        allowModelCall = true,
+        resolvedProviderFingerprints = null,
+    }) {
+        const fingerprints = resolvedProviderFingerprints || await providerFingerprints({
+            runtimeAssets: captured.runtimeAssets,
+            snapshot: captured.snapshot,
+            generationType: captured.generationType,
+        });
+        const turnKey = await createTurnAnalysisKey({
+            envelope: captured.directorRequest.envelope,
+            interpreterRequest: captured.interpreterRequest,
+            directorRequest: captured.directorRequest,
+            providerFingerprints: fingerprints || {},
+        });
+        if (directedAnalysis?.key !== turnKey) {
+            const coordinator = createParallelTurnAnalysis({
+                interpret: async ({ signal: roleSignal }) => {
+                    if (captured.pairAlreadySettled) {
+                        return {
+                            ok: true,
+                            status: 'already-settled',
+                            interpretation: {
+                                assistantAcceptance: captured.settledPairReceipt?.assistantAcceptance || 'accepted',
+                            },
+                            proposal: null,
+                            diagnostics: { reusedAcceptedPair: true },
+                        };
+                    }
+                    return runProgress(
+                        'reviewing-events',
+                        ({ onAttempt }) => interpreter({
+                            ...captured.interpreterInput,
+                            signal: roleSignal,
+                            onAttempt,
+                        }),
+                        progressScope,
+                    );
+                },
+                direct: async ({ request, signal: roleSignal }) => runProgress(
+                    'directing-story',
+                    async ({ onAttempt }) => {
+                        const result = await directStory({ request, signal: roleSignal, onAttempt });
+                        if (!result?.ok) return result;
+                        const parsed = parseStoryDirectorOutput(result.proposal, { request });
+                        if (!parsed.ok) {
+                            return {
+                                ok: false,
+                                reasonCode: 'director-invalid-output',
+                                diagnostics: { errorCount: parsed.errors.length },
+                            };
+                        }
+                        return { ...result, proposal: parsed.value };
+                    },
+                    progressScope,
+                ),
+            });
+            directedAnalysis = { key: turnKey, coordinator, lastAnalysis: null };
+        }
+        if (allowModelCall !== true && directedAnalysis.lastAnalysis?.ok !== true) {
+            return { analysis: null, turnKey, modelCallBudgetExhausted: true };
+        }
+        const analysis = await directedAnalysis.coordinator.run({
+            key: turnKey,
+            interpreterRequest: captured.interpreterRequest,
+            directorRequest: captured.directorRequest,
+            signal,
+        });
+        directedAnalysis.lastAnalysis = analysis;
+        return { analysis, turnKey };
+    }
+
+    async function prepareDirectedReview(captured, directorResult) {
+        if (!captured.reviewToken) return structuredClone(captured.campaignState);
+        const draft = structuredClone(captured.campaignState);
+        const spine = createV1StateSpine({
+            getState: () => draft,
+            stateDeltaGateway,
+            resolveSourceRef: () => null,
+            now,
+            checkpointEveryContributions,
+        });
+        const prepared = await spine.prepareEpisodeReview({
+            definition: captured.definition,
+            reviewToken: captured.reviewToken,
+            request: captured.directorRequest.episodeReview,
+            proposal: directorResult.proposal.episodeReview,
+            gatewayBaseRevision: draft.stateCustody.revision,
+        });
+        return prepared.candidateState;
+    }
+
+    async function settleDirectedAcceptedPair(input = {}) {
+        const baseState = structuredClone(getState());
+        let captured;
+        try {
+            captured = captureAcceptedPairAnalysis({
+                campaignState: baseState,
+                runtimeAssets: input.runtimeAssets,
+                snapshot: input.snapshot,
+                generationType: input.generationType,
+            });
+        } catch (error) {
+            return unavailable(error?.code || error?.message || 'turn-capture-invalid');
+        }
+        let resolvedProviderFingerprints;
+        let currentReuseKey;
+        try {
+            resolvedProviderFingerprints = await providerFingerprints({
+                runtimeAssets: captured.runtimeAssets,
+                snapshot: captured.snapshot,
+                generationType: captured.generationType,
+            }) || {};
+            currentReuseKey = await createNarrationDirectionReuseKey({
+                campaignState: baseState,
+                runtimeAssets: captured.runtimeAssets,
+                snapshot: captured.snapshot,
+                generationType: captured.generationType,
+                providerFingerprints: resolvedProviderFingerprints,
+            });
+        } catch (error) {
+            return unavailable(errorReasonCode(error));
+        }
+        const activePackage = baseState.activeCampaignPackage || {};
+        const receiptEnvelope = {
+            branchId: captured.branchId,
+            packageId: activePackage.packageId || captured.definition.packageBinding.packageId,
+            packageVersion: activePackage.packageVersion || captured.definition.packageBinding.packageVersion,
+            missionId: baseState.mission.v1.definitionId,
+            generationType: captured.generationType,
+            generationTargetKey: captured.generationTargetKey,
+        };
+        const candidateReceipt = selectDirectorReceipt(baseState.storySettlement, receiptEnvelope);
+        const existingReceipt = selectDirectorReceipt(baseState.storySettlement, {
+            ...receiptEnvelope,
+            reuseKey: currentReuseKey,
+        });
+        const receiptTargetStillEligible = !candidateReceipt?.dependencyIds?.length
+            || eligibleDirectionTargets(baseState, {
+                ...captured,
+                runtimeAssets: input.runtimeAssets,
+            }).has(candidateReceipt.dependencyIds[0]);
+        if (existingReceipt && receiptTargetStillEligible) {
+            return {
+                ok: true,
+                attempted: false,
+                status: 'already-settled',
+                reasonCode: null,
+                definitionId: baseState.mission.v1.definitionId,
+                definitionVersion: baseState.mission.v1.definitionVersion,
+                committedRoots: [],
+                noChange: true,
+                transitionCommitted: false,
+                reviewToken: createPendingEpisodeReviewToken(baseState.storySettlement),
+                instruction: existingReceipt.instruction,
+                directorReceipt: existingReceipt,
+                diagnostics: { turnKey: existingReceipt.requestKey, blockedRoles: [] },
+            };
+        }
+        if (captured.pairAlreadySettled && input.allowModelCall === false) {
+            return {
+                ok: true,
+                attempted: false,
+                status: 'already-settled',
+                reasonCode: null,
+                definitionId: baseState.mission.v1.definitionId,
+                definitionVersion: baseState.mission.v1.definitionVersion,
+                committedRoots: [],
+                noChange: true,
+                transitionCommitted: false,
+                reviewToken: createPendingEpisodeReviewToken(baseState.storySettlement),
+                diagnostics: { blockedRoles: [] },
+            };
+        }
+
+        const { analysis, turnKey, modelCallBudgetExhausted } = await runDirectedAnalysis(captured, {
+            ...input,
+            resolvedProviderFingerprints,
+        });
+        if (modelCallBudgetExhausted) {
+            return unavailable(
+                'model-call-budget-exhausted',
+                { blockedRoles: captured.pairAlreadySettled ? ['director'] : ['interpreter', 'director'], turnKey },
+                { attempted: false },
+            );
+        }
+        if (!analysis.ok) {
+            const blockedRoles = analysis.blockedRoles || [];
+            const failedRole = blockedRoles[0];
+            const analysisReasonCode = analysis[failedRole]?.reasonCode
+                || analysis.reasonCode
+                || `${failedRole || 'turn-analysis'}-unavailable`;
+            const reasonCode = input.signal?.aborted || analysisReasonCode === 'aborted'
+                ? 'provider-aborted'
+                : analysisReasonCode;
+            if (reasonCode === 'provider-aborted') clearDirectedAnalysis();
+            return unavailable(reasonCode, { blockedRoles, turnKey }, { attempted: true });
+        }
+        if (input.signal?.aborted) {
+            clearDirectedAnalysis();
+            return unavailable('provider-aborted', { blockedRoles: [], turnKey }, { attempted: true });
+        }
+
+        let reviewedState;
+        let preparedPair;
+        try {
+            reviewedState = await prepareDirectedReview(captured, analysis.director);
+            if (captured.pairAlreadySettled) {
+                const acceptedIds = captured.settledPairReceipt?.sourceContributionIds || [
+                    captured.assistantContributionId,
+                    captured.playerContributionId,
+                ];
+                preparedPair = {
+                    ok: true,
+                    candidateState: reviewedState,
+                    preparedResult: null,
+                    pair: {
+                        sourcePair: captured.sourcePair,
+                        assistantAccepted: captured.settledPairReceipt
+                            ? captured.settledPairReceipt.assistantAcceptance === 'accepted'
+                            : acceptedIds.includes(captured.assistantContributionId),
+                        contributionIds: {
+                            previousAssistant: captured.assistantContributionId,
+                            currentPlayer: captured.playerContributionId,
+                        },
+                        peopleEvents: [],
+                        introductions: [],
+                        acceptedPairReceipt: captured.settledPairReceipt,
+                    },
+                    noChange: true,
+                    reviewToken: createPendingEpisodeReviewToken(reviewedState.storySettlement),
+                };
+            } else {
+                preparedPair = await prepareInterpretedPair({
+                    captured,
+                    interpreted: analysis.interpreter,
+                    campaignState: reviewedState,
+                    prepare: ({ interpreted, campaignState }) => settleAcceptedPairLegacy({
+                        ...input,
+                        preparedInterpretation: interpreted,
+                        preparedCampaignState: campaignState,
+                        prepareOnly: true,
+                        queuePeopleDossiers: true,
+                    }),
+                });
+                if (!preparedPair?.ok || !preparedPair.candidateState) {
+                    clearDirectedAnalysis();
+                    return unavailable(
+                        preparedPair?.reasonCode || 'interpreted-pair-preparation-failed',
+                        { blockedRoles: ['interpreter'], turnKey },
+                        { attempted: true },
+                    );
+                }
+            }
+
+            let candidateState = structuredClone(preparedPair.candidateState);
+            if (candidateReceipt && (
+                !existingReceipt
+                || !receiptTargetStillEligible
+            )) {
+                candidateState.storySettlement.directorReceipts = (
+                    candidateState.storySettlement.directorReceipts || []
+                ).filter(({ generationTargetKey }) => generationTargetKey !== captured.generationTargetKey);
+            }
+            const priorEvents = candidateState.storySettlement.continuityEvents || [];
+            const authoredIds = [
+                ...captured.directorRequest.authoredContext.constraints,
+                ...captured.directorRequest.authoredContext.opportunities,
+            ].map(({ id }) => id).filter(Boolean);
+            const continuityEvents = await materializeContinuityChanges({
+                changes: analysis.director.proposal.threadChanges,
+                sourcePair: captured.directorRequest.pendingPair,
+                assistantAccepted: preparedPair.pair.assistantAccepted,
+                contributionIds: preparedPair.pair.contributionIds,
+                branchId: captured.branchId,
+                sourceRangeHash: captured.snapshot.source.sourceRangeHash,
+                existingEvents: priorEvents,
+                settledAtRevision: candidateState.storySettlement.revision,
+                authoredIds,
+            });
+            candidateState.storySettlement = {
+                ...candidateState.storySettlement,
+                continuityEvents,
+            };
+            for (const introduction of preparedPair.pair.introductions || []) {
+                const event = (preparedPair.pair.peopleEvents || []).find((item) => (
+                    item.type === 'personIntroduced' && item.personId === introduction.personId
+                ));
+                if (!event) continue;
+                const job = await createPendingDossier({
+                    personId: event.personId,
+                    introductionSourceContributionIds: event.sourceContributionIds,
+                    publicContext: {
+                        displayName: event.name,
+                        introductionSummary: event.introductionSummary,
+                    },
+                });
+                candidateState.storySettlement = recordPendingDossier(candidateState.storySettlement, job);
+            }
+            const targets = eligibleDirectionTargets(candidateState, captured);
+            const direction = directionForMaterializedContinuity(
+                analysis.director.proposal.direction,
+                analysis.director.proposal.threadChanges,
+                priorEvents,
+                continuityEvents,
+            );
+            const compiled = compileDirectorInstruction({ direction, eligibleTargets: targets });
+            const instruction = compiledInstructionText(compiled);
+            const target = compiled.targetRef ? targets.get(compiled.targetRef) : null;
+            const postPackage = candidateState.activeCampaignPackage || {};
+            if (captured.pairAlreadySettled
+                && candidateState.storySettlement.revision === baseState.storySettlement.revision) {
+                candidateState.storySettlement = {
+                    ...candidateState.storySettlement,
+                    revision: candidateState.storySettlement.revision + 1,
+                };
+            }
+            const reuseKey = await createNarrationDirectionReuseKey({
+                campaignState: candidateState,
+                runtimeAssets: captured.runtimeAssets,
+                snapshot: captured.snapshot,
+                generationType: captured.generationType,
+                providerFingerprints: resolvedProviderFingerprints,
+            });
+            const sourceContributionIds = preparedPair.pair.acceptedPairReceipt?.sourceContributionIds
+                || [
+                    ...(preparedPair.pair.assistantAccepted ? [captured.assistantContributionId] : []),
+                    captured.playerContributionId,
+                ];
+            const receipt = await createDirectorReceipt({
+                branchId: captured.branchId,
+                packageId: postPackage.packageId || captured.definition.packageBinding.packageId,
+                packageVersion: postPackage.packageVersion || captured.definition.packageBinding.packageVersion,
+                missionId: candidateState.mission.v1.definitionId,
+                generationType: captured.generationType,
+                generationTargetKey: captured.generationTargetKey,
+                requestKey: turnKey,
+                sourceRangeHash: captured.snapshot.source.sourceRangeHash,
+                sourceContributionIds,
+                instruction,
+                dependencyIds: target?.dependencyIds || [],
+                settledAtRevision: candidateState.storySettlement.revision,
+                reuseKey,
+            });
+            candidateState.storySettlement = recordDirectorReceipt(candidateState.storySettlement, receipt);
+            assertV1CampaignState(candidateState);
+            const commitProposal = createTurnCommit({ before: baseState, after: candidateState, turnKey });
+            if (!commitProposal) throw captureFailure('turn-commit-empty');
+            if (input.signal?.aborted) throw captureFailure('provider-aborted');
+            const committed = await gatewayForProgressScope(input.progressScope).applyProposal(commitProposal);
+            clearDirectedAnalysis();
+            const pairResult = preparedPair;
+            return {
+                ...pairResult,
+                ok: true,
+                attempted: true,
+                status: captured.pairAlreadySettled ? 'directed' : pairResult.status,
+                reasonCode: null,
+                definitionId: candidateState.mission.v1.definitionId,
+                definitionVersion: candidateState.mission.v1.definitionVersion,
+                committedRoots: commitProposal.domains,
+                noChange: false,
+                reviewToken: createPendingEpisodeReviewToken(candidateState.storySettlement),
+                campaignState: committed.campaignState,
+                time: pairResult.time?.campaignState
+                    ? { ...pairResult.time, campaignState: committed.campaignState }
+                    : pairResult.time,
+                instruction,
+                compiledDirection: compiled,
+                directorReceipt: receipt,
+                diagnostics: {
+                    ...(pairResult.diagnostics || {}),
+                    blockedRoles: [],
+                    turnKey,
+                },
+            };
+        } catch (error) {
+            const reasonCode = errorReasonCode(error);
+            if (reasonCode !== 'persistence-failed') clearDirectedAnalysis();
+            return unavailable(reasonCode, { blockedRoles: [], turnKey }, { attempted: true });
+        }
+    }
+
+    async function settleAcceptedPair(input = {}) {
+        return typeof directStory === 'function'
+            ? settleDirectedAcceptedPair(input)
+            : settleAcceptedPairLegacy(input);
     }
 
     async function invalidateSourceMutation({

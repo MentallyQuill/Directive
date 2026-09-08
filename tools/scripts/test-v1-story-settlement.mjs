@@ -10,11 +10,15 @@ import {
     invalidateStorySource,
     openStoryEpisode,
     recordAcceptedPairReceipt,
+    recordDirectorReceipt,
+    recordPendingDossier,
+    selectDirectorReceipt,
     sealStoryEpisode,
     setEmergentFocus,
     settleInsignificantScene,
 } from '../../src/story/story-settlement.mjs';
 import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
+import { createDirectorReceipt, createPendingDossier } from '../../src/story/continuity-contracts.mjs';
 
 const empty = createEmptyStorySettlement({ branchId: 'save.alpha' });
 const opened = openStoryEpisode(empty, {
@@ -76,6 +80,71 @@ const contributed = acceptStoryContribution(opened, contribution);
 assert.equal(contributed.revision, 2);
 assert.deepEqual(contributed.episodes[0].contributions, [contribution]);
 assert.deepEqual(acceptStoryContribution(contributed, contribution), contributed);
+const selectedReceiptFixture = await createDirectorReceipt({
+    branchId: 'save.alpha',
+    packageId: 'package.breckenridge',
+    packageVersion: '1',
+    missionId: 'mission.prelude',
+    generationType: 'normal',
+    generationTargetKey: 'generation-target.bridge',
+    requestKey: 'turn-analysis.bridge',
+    reuseKey: 'reuse.bridge',
+    sourceRangeHash: 'range.bridge',
+    sourceContributionIds: ['contribution.bridge-handover'],
+    instruction: 'Continue the bridge handover without introducing another complication.',
+    dependencyIds: [],
+    settledAtRevision: contributed.revision,
+});
+const withDirectorReceipt = {
+    ...contributed,
+    directorReceipts: [selectedReceiptFixture],
+};
+const recordedDirectorReceipt = recordDirectorReceipt(contributed, selectedReceiptFixture);
+assert.equal(recordedDirectorReceipt.revision, contributed.revision);
+assert.deepEqual(recordedDirectorReceipt.directorReceipts, [selectedReceiptFixture]);
+assert.deepEqual(recordDirectorReceipt(recordedDirectorReceipt, selectedReceiptFixture), recordedDirectorReceipt);
+assert.throws(
+    () => recordDirectorReceipt(recordedDirectorReceipt, {
+        ...selectedReceiptFixture,
+        instruction: 'A conflicting instruction under the same receipt identity.',
+    }),
+    /integrity/,
+);
+const pendingDossierFixture = await createPendingDossier({
+    personId: 'mara-whitaker',
+    introductionSourceContributionIds: ['contribution.bridge-handover'],
+    publicContext: { displayName: 'Mara Whitaker', introductionSummary: 'Whitaker reported aboard.' },
+});
+const withPendingDossier = recordPendingDossier(contributed, pendingDossierFixture);
+assert.equal(withPendingDossier.revision, contributed.revision);
+assert.deepEqual(withPendingDossier.pendingDossiers, [pendingDossierFixture]);
+assert.deepEqual(recordPendingDossier(withPendingDossier, pendingDossierFixture), withPendingDossier);
+assert.deepEqual(selectDirectorReceipt(withDirectorReceipt, {
+    branchId: 'save.alpha',
+    packageId: 'package.breckenridge',
+    packageVersion: '1',
+    missionId: 'mission.prelude',
+    generationType: 'normal',
+    generationTargetKey: 'generation-target.bridge',
+    reuseKey: 'reuse.bridge',
+}), selectedReceiptFixture);
+assert.equal(selectDirectorReceipt(withDirectorReceipt, {
+    branchId: 'save.alpha',
+    packageId: 'package.breckenridge',
+    packageVersion: '1',
+    missionId: 'mission.prelude',
+    generationType: 'normal',
+    generationTargetKey: 'generation-target.bridge',
+    reuseKey: 'reuse.stale',
+}), null);
+assert.equal(selectDirectorReceipt(withDirectorReceipt, {
+    branchId: 'save.alpha',
+    packageId: 'package.breckenridge',
+    packageVersion: '1',
+    missionId: 'mission.prelude',
+    generationType: 'swipe',
+    generationTargetKey: 'generation-target.bridge',
+}), null);
 const playerContribution = {
     id: 'contribution.bridge-player',
     messageId: 'message.player-2',

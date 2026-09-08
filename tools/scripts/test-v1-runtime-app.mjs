@@ -229,6 +229,7 @@ assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
   { id: 'openingSceneDirector', providerKind: 'reasoning' },
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
+  { id: 'storyDirector', providerKind: 'reasoning' },
   { id: 'episodeEvaluator', providerKind: 'reasoning' },
   { id: 'peopleDossierAuthor', providerKind: 'reasoning' },
   { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' }
@@ -250,7 +251,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 5);
+assert.equal(metadataOnlySupport.routing.length, 6);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',
@@ -954,9 +955,8 @@ assert.deepEqual(attachedDutyReport, {
   episodeReview: {
     ok: true,
     attempted: false,
-    status: 'no-pending-review',
+    status: 'deferred-to-director',
     reasonCode: null,
-    reviewToken: null,
   },
 });
 assert.equal(
@@ -1445,25 +1445,11 @@ const cancellationAssistant = chat.pushAssistantMessage({
 });
 const episodeCallsBeforeNarrationEnd = generation.calls()
   .filter((call) => call.role === 'episodeEvaluator').length;
-let releaseHeldEpisodeStarted = null;
-const heldEpisodeStarted = new Promise((resolve) => { releaseHeldEpisodeStarted = resolve; });
-reportHeldEpisodeEvaluationStarted = releaseHeldEpisodeStarted;
-holdEpisodeEvaluation = true;
 const attachRuntimeMetadataBeforeFailure = host.chat.attachAssistantRuntimeMetadata;
 host.chat.attachAssistantRuntimeMetadata = async () => {
   throw new Error('forced assistant metadata attachment failure');
 };
-const firstNarrationEndReviewPending = app.handleHostGenerationEnded({ message: cancellationAssistant })
-  .then((value) => ({ value }), (error) => ({ error }));
-const episodeStartTimeout = Symbol('episode-start-timeout');
-assert.notEqual(
-  await Promise.race([
-    heldEpisodeStarted.then(() => 'episode-started'),
-    new Promise((resolve) => setTimeout(() => resolve(episodeStartTimeout), 100)),
-  ]),
-  episodeStartTimeout,
-  'assistant metadata attachment failure must not prevent the pending episode review',
-);
+const firstNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
 host.chat.attachAssistantRuntimeMetadata = attachRuntimeMetadataBeforeFailure;
 const continueWhileEpisodeReviewPending = app.getChatTurnOrchestrator().interceptGeneration();
 const episodeQueueTimeout = Symbol('episode-review-queue-timeout');
@@ -1473,17 +1459,10 @@ assert.notEqual(
     new Promise((resolve) => setTimeout(() => resolve(episodeQueueTimeout), 500)),
   ]),
   episodeQueueTimeout,
-  'a post-narration episode evaluator must not hold the next Continue behind its provider call',
+  'a narration-ended event must not schedule a model call ahead of Continue',
 );
-releaseHeldEpisodeEvaluation();
-const firstNarrationEndReviewOutcome = await firstNarrationEndReviewPending;
-assert.equal(firstNarrationEndReviewOutcome.error, undefined);
-const firstNarrationEndReview = firstNarrationEndReviewOutcome.value;
-holdEpisodeEvaluation = false;
-reportHeldEpisodeEvaluationStarted = null;
-releaseHeldEpisodeEvaluation = null;
 const duplicateNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
-assert.equal(firstNarrationEndReview.episodeReview.attempted, true);
+assert.equal(firstNarrationEndReview.episodeReview.attempted, false);
 assert.deepEqual(firstNarrationEndReview.metadataAttachment, {
   attached: false,
   reasonCode: 'assistant-runtime-metadata-attachment-failed',
@@ -1493,11 +1472,11 @@ assert.equal(
   true,
   'metadata attachment failure must remain diagnosable without aborting post-narration analysis',
 );
-assert.equal(duplicateNarrationEndReview.episodeReview.status, 'automatic-attempt-exhausted');
+assert.equal(duplicateNarrationEndReview.episodeReview.status, 'deferred-to-director');
 assert.equal(
   generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
-  episodeCallsBeforeNarrationEnd + 1,
-  'duplicate generation-ended events must make one automatic evaluator call for a checkpoint',
+  episodeCallsBeforeNarrationEnd,
+  'generation-ended events never invoke the retired standalone evaluator',
 );
 const cancellationPlayer = chat.pushPlayerMessage({
   text: 'Hold that thought.',

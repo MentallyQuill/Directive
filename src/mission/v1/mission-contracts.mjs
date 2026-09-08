@@ -362,6 +362,36 @@ export function validateMissionDefinition(definition = {}) {
     if (!isNonEmptyString(definition?.playerText?.title) || !isNonEmptyString(definition?.playerText?.summary)) {
         errors.push('playerText requires a non-empty title and summary');
     }
+    if (definition.directorGuidance !== undefined) {
+        const guidance = definition.directorGuidance;
+        const allowed = new Set(['focusText', 'avoidText', 'constraintRefs']);
+        if (!guidance || typeof guidance !== 'object' || Array.isArray(guidance)) {
+            errors.push('directorGuidance must be an object');
+        } else {
+            const unknown = Object.keys(guidance).filter((field) => !allowed.has(field));
+            if (unknown.length > 0) {
+                errors.push(`directorGuidance contains unknown field: ${unknown.join(', ')}`);
+            }
+            for (const field of ['focusText', 'avoidText']) {
+                if (!isNonEmptyString(guidance[field]) || guidance[field].length > 1200) {
+                    errors.push(`directorGuidance ${field} must be a non-empty string of at most 1200 characters`);
+                }
+            }
+            if (!Array.isArray(guidance.constraintRefs)) {
+                errors.push('directorGuidance constraintRefs must be an array');
+            } else {
+                if (guidance.constraintRefs.length > 32) {
+                    errors.push('directorGuidance constraintRefs exceeds 32 entries');
+                }
+                if (new Set(guidance.constraintRefs).size !== guidance.constraintRefs.length) {
+                    errors.push('directorGuidance constraintRefs must be unique');
+                }
+                for (const ref of guidance.constraintRefs) {
+                    if (!isStableId(ref)) errors.push('directorGuidance constraintRefs contains an invalid id');
+                }
+            }
+        }
+    }
     for (const key of [
         'objectives',
         'facts',

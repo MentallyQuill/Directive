@@ -16,6 +16,7 @@ import {
     replaceStoryWorkingSemantics,
 } from './working-capsule.mjs';
 import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
+import { pruneContinuityEvents } from './continuity-events.mjs';
 
 function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
@@ -35,6 +36,91 @@ function normalizedEpisodeReferences(references = {}) {
         participantIds: unique(references.participantIds),
         locationIds: unique(references.locationIds),
     };
+}
+
+function jsonEqual(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function pruneContinuityRecords(settlement, invalidSourceIds) {
+    const invalid = invalidSourceIds instanceof Set ? invalidSourceIds : new Set(invalidSourceIds || []);
+    const priorEvents = settlement.continuityEvents || [];
+    const events = pruneContinuityEvents(priorEvents, invalid);
+    const survivingEventIds = new Set(events.map((event) => event.id));
+    const survivingThreadIds = new Set(events
+        .filter((event) => event.operation === 'open')
+        .map((event) => event.threadId));
+    const removedDependencyIds = new Set();
+    for (const event of priorEvents) {
+        if (!survivingEventIds.has(event.id)) {
+            removedDependencyIds.add(event.id);
+            if (event.operation === 'open') removedDependencyIds.add(event.threadId);
+        }
+    }
+    settlement.continuityEvents = events;
+    settlement.directorReceipts = (settlement.directorReceipts || []).filter((receipt) => (
+        !(receipt.sourceContributionIds || []).some((id) => invalid.has(id))
+        && !(receipt.dependencyIds || []).some((id) => (
+            removedDependencyIds.has(id)
+            || (id.startsWith('continuity-event.') && !survivingEventIds.has(id))
+            || (id.startsWith('continuity-thread.') && !survivingThreadIds.has(id))
+        ))
+    ));
+    settlement.pendingDossiers = (settlement.pendingDossiers || []).filter((job) => (
+        !(job.introductionSourceContributionIds || []).some((id) => invalid.has(id))
+    ));
+    return settlement;
+}
+
+export function recordDirectorReceipt(settlement, receipt) {
+    assertValid(settlement);
+    const existing = (settlement.directorReceipts || []).find((item) => item?.id === receipt?.id);
+    if (existing) {
+        if (jsonEqual(existing, receipt)) return structuredClone(settlement);
+        throw new TypeError(`director-receipt-integrity:${receipt?.id}`);
+    }
+    const next = structuredClone(settlement);
+    next.directorReceipts = [...(next.directorReceipts || []), structuredClone(receipt)];
+    return assertValid(next);
+}
+
+export function recordPendingDossier(settlement, job) {
+    assertValid(settlement);
+    const existing = (settlement.pendingDossiers || []).find((item) => (
+        item?.id === job?.id || item?.personId === job?.personId
+    ));
+    if (existing) {
+        if (jsonEqual(existing, job)) return structuredClone(settlement);
+        throw new TypeError(`pending-dossier-integrity:${job?.id}`);
+    }
+    const next = structuredClone(settlement);
+    next.pendingDossiers = [...(next.pendingDossiers || []), structuredClone(job)];
+    return assertValid(next);
+}
+
+export function selectDirectorReceipt(settlement, {
+    branchId,
+    packageId,
+    packageVersion,
+    missionId,
+    generationType,
+    generationTargetKey,
+    reuseKey,
+} = {}) {
+    assertValid(settlement);
+    const matches = (settlement.directorReceipts || []).filter((receipt) => (
+        receipt.branchId === branchId
+        && receipt.packageId === packageId
+        && receipt.packageVersion === packageVersion
+        && receipt.missionId === missionId
+        && receipt.generationType === generationType
+        && (generationTargetKey === undefined || receipt.generationTargetKey === generationTargetKey)
+        && (reuseKey === undefined || receipt.reuseKey === reuseKey)
+    )).sort((left, right) => (
+        right.settledAtRevision - left.settledAtRevision
+        || right.id.localeCompare(left.id)
+    ));
+    return matches.length > 0 ? structuredClone(matches[0]) : null;
 }
 
 export function openStoryEpisode(settlement, { episodeId, sceneId, references = {} } = {}) {
@@ -722,7 +808,16 @@ export function invalidateStorySources(settlement, {
             }
         }
     }
-    if (episodeWork.size === 0 && receiptWork.length === 0) return structuredClone(settlement);
+    const dependentWork = (settlement.continuityEvents || []).some((event) => (
+        (event.sourceContributionIds || []).some((id) => requested.has(id))
+    )) || (settlement.directorReceipts || []).some((receipt) => (
+        (receipt.sourceContributionIds || []).some((id) => requested.has(id))
+    )) || (settlement.pendingDossiers || []).some((job) => (
+        (job.introductionSourceContributionIds || []).some((id) => requested.has(id))
+    ));
+    if (episodeWork.size === 0 && receiptWork.length === 0 && !dependentWork) {
+        return structuredClone(settlement);
+    }
 
     const next = structuredClone(settlement);
     next.revision += 1;
@@ -836,6 +931,7 @@ export function invalidateStorySources(settlement, {
         });
     }
     if (next.focus && episodeWork.has(next.focus.episodeId)) next.focus = null;
+    pruneContinuityRecords(next, requested);
     return assertValid(next);
 }
 
@@ -905,10 +1001,14 @@ export function invalidateStorySourcesAndDescendants(settlement, {
             }
         }
     }
+    const causalInvalidatedContributionIds = new Set(requested);
     for (const episode of next.episodes || []) {
         if (!rollbackEpisodeIds.has(episode.id)) continue;
         const sourcePairs = (episode.contributions || []).filter((item) => item.id && item.messageId);
         const sourceContributionIds = sourcePairs.map((item) => item.id);
+        for (const sourceContributionId of sourceContributionIds) {
+            causalInvalidatedContributionIds.add(sourceContributionId);
+        }
         const sourceMessageIds = sourcePairs.map((item) => item.messageId);
         if (!affectedEpisodeIds.has(episode.id) && sourceContributionIds.length > 0) {
             next.receipts.push({
@@ -941,5 +1041,6 @@ export function invalidateStorySourcesAndDescendants(settlement, {
         if (next.activeEpisode === episode.id) next.activeEpisode = null;
     }
     if (next.focus && rollbackEpisodeIds.has(next.focus.episodeId)) next.focus = null;
+    pruneContinuityRecords(next, causalInvalidatedContributionIds);
     return assertValid(next);
 }

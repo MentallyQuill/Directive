@@ -3,13 +3,19 @@ import { eligibleMissionCommandBearingAwards } from '../mission/v1/mission-reduc
 import { initialMissionRunId, successorMissionRunId } from '../mission/v1/mission-journey.mjs';
 import { createStateDeltaGateway } from './state-delta-gateway.mjs';
 import { createV1StateSpine } from './v1-state-spine.mjs';
-import { stableHash24 } from './v1-stable-hash.mjs';
+import { stableHash24, stableSha256Hex } from './v1-stable-hash.mjs';
 import { normalizeNativeBranchMessage } from './native-branch-lineage.mjs';
 import { invalidateV1AcceptedPairTimeByHostMessages } from './v1-accepted-pair-time.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { buildV1RuntimePlayerProjection, resolveActiveV1MissionDefinition } from './v1-mission-runtime.mjs';
 import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
 import { validateStorySettlement } from '../story/story-settlement-contracts.mjs';
+import { rebindContinuityEventsSync } from '../story/continuity-events.mjs';
+import {
+  PENDING_DOSSIER_KIND,
+  STORY_DIRECTOR_RECEIPT_KIND,
+} from '../story/continuity-contracts.mjs';
+import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -49,6 +55,138 @@ function replaceExactValues(value, replacements) {
   if (Array.isArray(value)) return value.map((entry) => replaceExactValues(entry, replacements));
   if (!value || typeof value !== 'object') return replacements.has(value) ? replacements.get(value) : value;
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, replaceExactValues(entry, replacements)]));
+}
+
+function contributionHash(value = '') {
+  let hash = 0x811c9dc5;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function reboundContributionId(branchId, source = {}) {
+  return `contribution.v1.${contributionHash([
+    branchId,
+    source.messageId,
+    source.selectedSwipeId || source.swipeId || 'no-swipe',
+    source.textHash,
+  ].join('|'))}`;
+}
+
+function contributionMatchesSource(id, branchId, source) {
+  const baseId = reboundContributionId(branchId, source);
+  return id === baseId || id.startsWith(`${baseId}.r`);
+}
+
+function contributionMapForBranch(campaignState, branchId) {
+  const replacements = new Map();
+  const register = (id, source) => {
+    if (!compact(id) || !compact(source?.messageId) || !compact(source?.textHash)) return;
+    const rebound = reboundContributionId(branchId, source);
+    const existing = replacements.get(id);
+    if (existing && existing !== rebound) {
+      throw reconstructionError('DIRECTIVE_BRANCH_CONTRIBUTION_CONFLICT', 'One contribution has conflicting source custody.', {
+        id,
+        existingReboundId: existing,
+        reboundId: rebound,
+        source: {
+          messageId: source.messageId,
+          selectedSwipeId: source.selectedSwipeId ?? null,
+          swipeId: source.swipeId ?? null,
+          textHash: source.textHash,
+        },
+      });
+    }
+    replacements.set(id, rebound);
+  };
+  for (const episode of campaignState.storySettlement?.episodes || []) {
+    for (const contribution of episode.contributions || []) register(contribution.id, contribution);
+  }
+  for (const event of campaignState.storySettlement?.continuityEvents || []) {
+    for (const [index, contributionId] of (event.sourceContributionIds || []).entries()) {
+      register(contributionId, event.sources?.[index]);
+    }
+  }
+  const missionStates = [
+    ...(campaignState.mission?.v1History || []).map((archive) => archive?.state),
+    campaignState.mission?.v1,
+  ].filter(Boolean);
+  for (const state of missionStates) {
+    for (const entry of state.evidenceLog || []) {
+      register(entry.sourceContributionId, entry.sourceRef);
+    }
+  }
+  for (const receipt of campaignState.storySettlement?.acceptedPairReceipts || []) {
+    const ids = receipt.sourceContributionIds || [];
+    const sources = [receipt.previousAssistant, receipt.currentPlayer].filter(Boolean);
+    for (const id of ids) {
+      if (replacements.has(id)) continue;
+      const matches = sources.filter((source) => contributionMatchesSource(id, receipt.branchId, source));
+      if (matches.length === 1) {
+        register(id, matches[0]);
+      } else if (matches.length > 1) {
+        throw reconstructionError(
+          'DIRECTIVE_BRANCH_CONTRIBUTION_CONFLICT',
+          'One contribution matches multiple accepted-pair sources.',
+          { id, receiptId: receipt.id },
+        );
+      }
+    }
+  }
+  return replacements;
+}
+
+function rebindDirectorReceipts(receipts, { branchId, contributionMap, eventMap, threadMap }) {
+  const dependencyMap = new Map([...contributionMap, ...eventMap, ...threadMap]);
+  return (receipts || []).map((receipt) => {
+    const sourceContributionIds = receipt.sourceContributionIds.map((id) => contributionMap.get(id));
+    if (sourceContributionIds.some((id) => !id)) {
+      throw reconstructionError(
+        'DIRECTIVE_BRANCH_CONTRIBUTION_MISSING',
+        'A director receipt source contribution could not be rebound.',
+        { receiptId: receipt.id },
+      );
+    }
+    const rebound = {
+      ...clone(receipt),
+      branchId,
+      sourceContributionIds,
+      dependencyIds: receipt.dependencyIds.map((id) => dependencyMap.get(id) || id),
+    };
+    const identity = { ...rebound };
+    delete identity.id;
+    identity.settledAtRevision = undefined;
+    rebound.id = `director-receipt.${stableSha256Hex(canonicalJson({
+      contract: STORY_DIRECTOR_RECEIPT_KIND,
+      ...identity,
+    }))}`;
+    return rebound;
+  });
+}
+
+function rebindPendingDossiers(jobs, contributionMap) {
+  return (jobs || []).map((job) => {
+    const introductionSourceContributionIds = job.introductionSourceContributionIds
+      .map((id) => contributionMap.get(id));
+    if (introductionSourceContributionIds.some((id) => !id)) {
+      throw reconstructionError(
+        'DIRECTIVE_BRANCH_CONTRIBUTION_MISSING',
+        'A pending dossier source contribution could not be rebound.',
+        { jobId: job.id },
+      );
+    }
+    return {
+      ...clone(job),
+      id: `pending-dossier.${stableSha256Hex(canonicalJson({
+        contract: PENDING_DOSSIER_KIND,
+        personId: job.personId,
+        introductionSourceContributionIds,
+      }))}`,
+      introductionSourceContributionIds,
+    };
+  });
 }
 
 function rebindMissionEvidenceKeys(campaignState, sourceBranchId, targetBranchId) {
@@ -184,6 +322,8 @@ export function rebindV1CampaignStateCustody({
     throw reconstructionError('DIRECTIVE_BRANCH_TARGET_INVALID', 'State rebinding requires one exact target save binding.');
   }
   const parentBinding = campaignState.campaignChatBinding || {};
+  const sourceSettlement = campaignState.storySettlement || {};
+  const contributionMap = contributionMapForBranch(campaignState, saveId);
   let next = rebindExactCustody(clone(campaignState), new Map([
     [parentBinding.saveId, saveId],
     [parentBinding.chatId, targetChatBinding.chatId]
@@ -191,6 +331,22 @@ export function rebindV1CampaignStateCustody({
   next = rebindMissionEvidenceKeys(next, parentBinding.saveId, saveId);
   next.campaignChatBinding = clone(targetChatBinding);
   next = rebindMissionRunLineage(next, saveId, runtimeAssets);
+  next = replaceExactValues(next, contributionMap);
+  const reboundContinuity = rebindContinuityEventsSync(sourceSettlement.continuityEvents || [], {
+    branchId: saveId,
+    contributionMap,
+  });
+  next.storySettlement.continuityEvents = reboundContinuity.events;
+  next.storySettlement.directorReceipts = rebindDirectorReceipts(sourceSettlement.directorReceipts || [], {
+    branchId: saveId,
+    contributionMap,
+    eventMap: reboundContinuity.eventMap,
+    threadMap: reboundContinuity.threadMap,
+  });
+  next.storySettlement.pendingDossiers = rebindPendingDossiers(
+    sourceSettlement.pendingDossiers || [],
+    contributionMap,
+  );
   assertV1CampaignState(next);
   const projection = buildV1RuntimePlayerProjection({ campaignState: next, runtimeAssets });
   if (!projection.ok) {

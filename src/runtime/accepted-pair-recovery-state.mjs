@@ -29,7 +29,7 @@ export function noAcceptedPairRecovery() {
   };
 }
 
-export function pairRetryRecovery({ snapshot, ingressId = null, reasonCode, persistenceAttempts = 0 } = {}) {
+export function pairRetryRecovery({ snapshot, ingressId = null, reasonCode, persistenceAttempts = 0, blockedRoles = [], turnKey = null, generationType = 'normal' } = {}) {
   const fingerprint = acceptedPairFingerprint(snapshot);
   if (!fingerprint) throw recoveryError('Pair retry recovery requires an accepted-pair fingerprint.');
   return {
@@ -40,6 +40,9 @@ export function pairRetryRecovery({ snapshot, ingressId = null, reasonCode, pers
       fingerprint,
       snapshot: clone(snapshot),
       ingressId: compact(ingressId) || null,
+      blockedRoles: [...new Set(blockedRoles.filter(role => ['interpreter', 'director'].includes(role)))],
+      turnKey: compact(turnKey) || null,
+      generationType: compact(generationType) || 'normal',
       persistenceAttempts: Number.isInteger(persistenceAttempts) && persistenceAttempts >= 0
         ? persistenceAttempts
         : 0,

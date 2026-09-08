@@ -16,11 +16,13 @@ import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.m
 assert.deepEqual(GENERATION_ROLE_IDS, [
   'openingSceneDirector',
   'acceptedPairMissionEvidence',
+  'storyDirector',
   'episodeEvaluator',
   'peopleDossierAuthor',
   'characterCreatorSectionDraft'
 ]);
 assert.equal(providerKindForRole('openingSceneDirector'), 'reasoning');
+assert.equal(providerKindForRole('storyDirector'), 'reasoning');
 assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
 assert.equal(providerKindForRole('peopleDossierAuthor'), 'reasoning');
 assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');

@@ -7,12 +7,13 @@ const INDICATOR_ID = 'directive-turn-activity-indicator';
 const DEFAULT_LABEL = 'Processing the turn...';
 const STAGES = Object.freeze({
   'reviewing-events': 'Reviewing recent events',
+  'directing-story': 'Preparing story direction',
   'reviewing-episode': 'Reviewing the episode',
   'updating-characters': 'Updating character records',
   saving: 'Saving story progress',
   preparing: 'Preparing the reply',
 });
-const MODEL_STAGES = new Set(['reviewing-events', 'reviewing-episode', 'updating-characters']);
+const MODEL_STAGES = new Set(['reviewing-events', 'directing-story', 'reviewing-episode', 'updating-characters']);
 const OUTCOMES = Object.freeze({ complete: 'Finished', failed: 'Failed', canceled: 'Canceled' });
 let nextActivityId = 0;
 const activeActivities = new Map();

@@ -27,6 +27,55 @@ function createMissingFileError(filePath) {
   );
 }
 
+function storyDirectorContext(request = {}) {
+  if (request?.context?.kind === 'directive.storyDirectorRequest.v1') return request.context;
+  const userMessage = [...(request?.messages || [])].reverse().find((message) => message?.role === 'user');
+  if (typeof userMessage?.content !== 'string') return null;
+  try {
+    const parsed = JSON.parse(userMessage.content);
+    return parsed?.kind === 'directive.storyDirectorRequest.v1' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function createFakeStoryDirectorResponse(request = {}) {
+  const context = storyDirectorContext(request);
+  if (!context?.envelope) return { text: '', providerId: 'fake-storyDirector' };
+  const review = context.episodeReview === null ? null : {
+    kind: 'directive.episodeEvaluationProposal.v1',
+    branchId: context.episodeReview.envelope.branchId,
+    episodeId: context.episodeReview.envelope.episodeId,
+    baseRevision: context.episodeReview.envelope.baseRevision,
+    checkpointSequence: context.episodeReview.envelope.checkpointSequence,
+    decision: 'abstain',
+    boundaryReason: null,
+    significanceCriteria: [],
+    summary: null,
+    foregroundQuestion: null,
+    sourceContributionIds: [],
+    effectIds: [],
+    relationshipUpdates: [],
+    characterMoments: [],
+  };
+  return {
+    text: JSON.stringify({
+      kind: 'directive.storyDirectorProposal.v1',
+      envelope: cloneJson(context.envelope),
+      coverage: 'complete',
+      threadChanges: [],
+      direction: {
+        move: 'respond-to-player',
+        targetRef: null,
+        newComplications: 'avoid',
+        requires: [],
+      },
+      episodeReview: review,
+    }),
+    providerId: 'fake-storyDirector',
+  };
+}
+
 export function createFakeJsonStorage(initialFiles = {}) {
   const files = new Map();
   for (const [filePath, value] of Object.entries(initialFiles)) {
@@ -87,7 +136,11 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
   const calls = [];
   async function generate(role, request = {}, options = {}) {
     calls.push({ role, request: cloneJson(request) });
-    const configured = responses[role] ?? (role === 'openingSceneDirector' ? { text: JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:(request.context?.backgroundReferences || []).slice(0,1).map(entry => entry.id),emphasis:'balanced'}) } : { text: defaultText, providerId: `fake-${role}` });
+    const configured = responses[role] ?? (role === 'openingSceneDirector'
+      ? { text: JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:(request.context?.backgroundReferences || []).slice(0,1).map(entry => entry.id),emphasis:'balanced'}) }
+      : role === 'storyDirector'
+        ? createFakeStoryDirectorResponse(request)
+        : { text: defaultText, providerId: `fake-${role}` });
     const response = typeof configured === 'function'
       ? await configured({
         role,
@@ -101,6 +154,7 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
   }
   return {
     generate,
+    supportsIndependentBackgroundRequests: true,
     generateNarration: request => generate('narration', request),
     role(roleName) {
       return {

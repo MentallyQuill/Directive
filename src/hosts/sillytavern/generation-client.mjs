@@ -90,7 +90,7 @@ function reportAttempt(callback, attempt = null) {
   }
 }
 
-async function callSillyTavernGeneration(context, request, route = {}, onAttempt = null) {
+async function callSillyTavernGeneration(context, request, route = {}, onAttempt = null, allowCompatibilityRetry = true) {
   const prompt = promptFromRequest(request);
   const maxTokens = request.parameters?.max_tokens
     || request.max_tokens
@@ -121,7 +121,7 @@ async function callSillyTavernGeneration(context, request, route = {}, onAttempt
         ...(request.signal ? { signal: request.signal } : {})
       });
     } catch (error) {
-      if (isAbortLikeError(error)) throw error;
+      if (isAbortLikeError(error) || !allowCompatibilityRetry) throw error;
       reportAttempt(onAttempt);
       return context.generateQuietPrompt([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
     }
@@ -163,9 +163,10 @@ export function createSillyTavernGenerationClient({
     if (!context) throw providerUnavailable('SillyTavern context is not available for generation.');
     const raw = await withOwnedHostGeneration(() => callSillyTavernGeneration(
       context,
-      request,
+      options.signal ? { ...request, signal: options.signal } : request,
       {},
-      options.onAttempt
+      options.onAttempt,
+      options.allowVisibleOutputRetry !== false
     ));
     return {
       providerId: 'sillytavern-current-provider',
@@ -219,6 +220,7 @@ export function createSillyTavernGenerationClient({
 
   return {
     id: 'sillytavern-generation-client',
+    supportsIndependentBackgroundRequests: typeof providerClient?.generate === 'function',
     async generateNarration(request = {}) {
       return withOwnedGeneration(async () => {
         const context = contextFactory();

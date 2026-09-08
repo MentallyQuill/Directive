@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ravenna-claim-opens-thread",
+    "previousAssistant": "Ravenna said she would hold the repair berth until 1400.",
+    "currentPlayer": "I thank her and ask for the damage report.",
+    "expectedChanges": [
+      {"operation":"open","sourceSlot":"previousAssistant","evidenceQuote":"Ravenna said she would hold the repair berth until 1400.","localRef":"ravenna-berth","title":"Ravenna's repair berth offer","category":"schedule"},
+      {"operation":"addFact","sourceSlot":"previousAssistant","evidenceQuote":"Ravenna said she would hold the repair berth until 1400.","threadRef":"ravenna-berth","text":"Ravenna claims she will hold the repair berth until 1400.","claimType":"character-claim","authoredRef":null,"supersedesFactId":null}
+    ],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "atmosphere-is-not-an-obligation",
+    "previousAssistant": "The corridor smelled faintly of fresh paint. Whitaker waited beside the viewport.",
+    "currentPlayer": "I greet the captain.",
+    "expectedChanges": [],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "disputed-character-claim",
+    "previousAssistant": "T'Vel insisted the missing tender had already crossed the border.",
+    "currentPlayer": "I ask what evidence supports that claim.",
+    "expectedChanges": [
+      {"operation":"open","sourceSlot":"previousAssistant","evidenceQuote":"T'Vel insisted the missing tender had already crossed the border.","localRef":"missing-tender-claim","title":"Disputed location of the missing tender","category":"unresolved-problem"},
+      {"operation":"addFact","sourceSlot":"previousAssistant","evidenceQuote":"T'Vel insisted the missing tender had already crossed the border.","threadRef":"missing-tender-claim","text":"T'Vel claims the missing tender crossed the border.","claimType":"character-claim","authoredRef":null,"supersedesFactId":null}
+    ],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "player-attempt-is-not-success",
+    "previousAssistant": "The damaged relay continued to spark behind the sealed panel.",
+    "currentPlayer": "I bypass the lockout and restore the relay.",
+    "expectedChanges": [],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "supported-delegation",
+    "previousAssistant": "Commander Whitaker offered to carry the inspection through to completion.",
+    "currentPlayer": "I delegate the inspection to Whitaker and ask for her report by 1600.",
+    "expectedChanges": [
+      {"operation":"open","sourceSlot":"currentPlayer","evidenceQuote":"I delegate the inspection to Whitaker and ask for her report by 1600.","localRef":"whitaker-inspection","title":"Whitaker inspection report","category":"obligation"},
+      {"operation":"addFact","sourceSlot":"currentPlayer","evidenceQuote":"I delegate the inspection to Whitaker and ask for her report by 1600.","threadRef":"whitaker-inspection","text":"The player delegated the inspection to Whitaker and requested her report by 1600.","claimType":"player-commitment","authoredRef":null,"supersedesFactId":null}
+    ],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "unavailable-opportunity-is-not-a-target",
+    "previousAssistant": "The bridge settled into the quiet rhythm of the night watch.",
+    "currentPlayer": "I review the current sensor picture.",
+    "expectedChanges": [],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "player-led-diversion",
+    "previousAssistant": "The tender captain waited for an answer about the assignment.",
+    "currentPlayer": "Before that, I want to check on the injured engineer.",
+    "expectedChanges": [],
+    "availableOpportunities": [{"id":"objective.assignment","playerSafeText":"Discuss the outstanding assignment.","conditionIds":[]}],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "new-complication-remains-bounded",
+    "previousAssistant": "A second coolant leak opened while the first repair remained unfinished.",
+    "currentPlayer": "I order damage control to contain both leaks.",
+    "expectedChanges": [
+      {"operation":"open","sourceSlot":"previousAssistant","evidenceQuote":"A second coolant leak opened while the first repair remained unfinished.","localRef":"second-coolant-leak","title":"Second coolant leak","category":"unresolved-problem"},
+      {"operation":"addFact","sourceSlot":"previousAssistant","evidenceQuote":"A second coolant leak opened while the first repair remained unfinished.","threadRef":"second-coolant-leak","text":"A second coolant leak opened before the first repair was complete.","claimType":"narrated-fact","authoredRef":null,"supersedesFactId":null}
+    ],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  },
+  {
+    "id": "scene-without-pacing-metadata",
+    "previousAssistant": "The survey team transmitted its preliminary findings.",
+    "currentPlayer": "I ask the science officer to explain the anomaly.",
+    "expectedChanges": [],
+    "availableOpportunities": [],
+    "allowedMove": "respond-to-player"
+  }
+]

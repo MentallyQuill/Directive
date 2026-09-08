@@ -1,6 +1,21 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-continuity-events.mjs",
+  "test-continuity-lineage.mjs",
+  "test-story-director-contract.mjs",
+  "test-director-context.mjs",
+  "test-director-corpus.mjs",
+  "test-director-instructions.mjs",
+  "test-v1-spine-preparation.mjs",
+  "test-parallel-turn-analysis.mjs",
+  "test-turn-state-reconciliation.mjs",
+  "test-director-host-gate.mjs",
+  "test-director-transport-overlap.mjs",
+  "test-story-director-runtime.mjs",
+  "test-story-director-mission-runtime.mjs",
+  "test-people-dossier-queue.mjs",
+  "test-people-dossier-runtime.mjs",
   "test-scene-pacing.mjs",
   "test-scene-pacing-campaign.mjs",
   "test-scene-pacing-interpreter.mjs",

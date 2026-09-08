@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createSillyTavernGenerationClient,isDirectiveOwnedHostGeneration} from '../../src/hosts/sillytavern/generation-client.mjs';
+const pending=[]; const requests=[];
+const client=createSillyTavernGenerationClient({contextFactory:()=>({generateRaw(request){requests.push(request); return new Promise(resolve=>pending.push(resolve));}})});
+const controller=new AbortController();
+const i=client.generate('acceptedPairMissionEvidence',{prompt:'evidence',signal:controller.signal,parameters:{max_tokens:8192}},{allowVisibleOutputRetry:false});
+const d=client.generate('storyDirector',{prompt:'direction',parameters:{max_tokens:8192}},{signal:controller.signal,allowVisibleOutputRetry:false});
+assert.equal(requests.length,2,'native request boundary is not serialized');
+assert.equal(isDirectiveOwnedHostGeneration(),true);
+assert.equal(requests[0].prompt,'evidence'); assert.equal(requests[1].prompt,'direction');
+assert.equal(requests[0].signal,controller.signal); assert.equal(requests[1].signal,controller.signal);
+pending[0]({text:'{}'}); await i; assert.equal(isDirectiveOwnedHostGeneration(),true,'one completed role cannot release the other role ownership');
+pending[1]({text:'{}'}); await d; assert.equal(isDirectiveOwnedHostGeneration(),false);
+let attempts=0;
+const failed=createSillyTavernGenerationClient({contextFactory:()=>({generateQuietPrompt:async()=>{attempts++;throw new Error('provider failed');}})});
+await assert.rejects(()=>failed.generate('storyDirector',{prompt:'direction'},{allowVisibleOutputRetry:false}));
+assert.equal(attempts,1,'strict analysis cannot silently retry a failed quiet request');
+console.log('Director native transport overlap and attempt-budget tests passed.');

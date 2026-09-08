@@ -394,6 +394,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
 } = {}) {
     const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket });
     const systemPrompt = [
+        'Report what the supplied exchange supports. Select only supplied evidence candidates. Observe player intent and participation; do not choose a future plot or manufacture success.',
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
         ...(candidatePacket.scenePacing ? [
             'Also observe scene participation in this same call. Use only supplied visible objectives and their authored scenePacing requirements. This observation controls the NEXT response, not permission to certify the previous response retroactively.',

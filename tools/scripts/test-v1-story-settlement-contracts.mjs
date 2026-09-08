@@ -30,6 +30,19 @@ assert.equal(schema.$defs.workingCapsule.additionalProperties, false);
 assert.equal(schema.$defs.workingEvidence.additionalProperties, false);
 assert.equal(schema.$defs.episodeReviewAttempt.additionalProperties, false);
 assert.equal(schema.$defs.episodeReviewToken.additionalProperties, false);
+assert.equal(schema.$defs.continuityEvent.additionalProperties, false);
+assert.equal(schema.$defs.continuitySource.additionalProperties, false);
+assert.equal(schema.$defs.directorReceipt.additionalProperties, false);
+assert.equal(schema.$defs.pendingDossier.additionalProperties, false);
+const continuityPayloadByOperation = new Map(schema.$defs.continuityEvent.allOf.map((variant) => [
+    variant.if.properties.operation.const,
+    variant.then.properties.payload.$ref,
+]));
+assert.deepEqual(Object.fromEntries(continuityPayloadByOperation), {
+    open: '#/$defs/continuityOpenPayload',
+    addFact: '#/$defs/continuityFactPayload',
+    setStatus: '#/$defs/continuityStatusPayload',
+});
 assert.equal(schema.$defs.episode.properties.workingCapsule.$ref, '#/$defs/workingCapsule');
 assert.equal(schema.$defs.episode.properties.softBoundary.anyOf[1].$ref, '#/$defs/episodeSoftBoundary');
 assert.equal(Object.hasOwn(schema.properties, 'rawTranscript'), false);
@@ -45,6 +58,9 @@ assert.deepEqual(empty, {
     episodes: [],
     receipts: [],
     acceptedPairReceipts: [],
+    continuityEvents: [],
+    directorReceipts: [],
+    pendingDossiers: [],
     focus: null,
     episodeReviewAttempt: null,
 });
@@ -75,6 +91,9 @@ assert.match(
 );
 const legacyEmpty = structuredClone(empty);
 delete legacyEmpty.acceptedPairReceipts;
+delete legacyEmpty.continuityEvents;
+delete legacyEmpty.directorReceipts;
+delete legacyEmpty.pendingDossiers;
 assert.deepEqual(
     validateStorySettlement(legacyEmpty),
     { ok: true, errors: [] },
@@ -102,6 +121,9 @@ for (const [label, value, pattern] of [
     ['episodes collection', { ...empty, episodes: null }, /episodes/],
     ['receipts collection', { ...empty, receipts: null }, /receipts/],
     ['accepted-pair receipts collection', { ...empty, acceptedPairReceipts: null }, /acceptedPairReceipts/],
+    ['continuity events collection', { ...empty, continuityEvents: null }, /continuityEvents/],
+    ['director receipts collection', { ...empty, directorReceipts: null }, /directorReceipts/],
+    ['pending dossiers collection', { ...empty, pendingDossiers: null }, /pendingDossiers/],
 ]) {
     assert.match(validateStorySettlement(value).errors.join('\n'), pattern, label);
 }
@@ -422,6 +444,118 @@ const contribution = {
     textHash: 'a'.repeat(64),
     acceptedAtRevision: 1,
 };
+const continuityEvent = {
+    kind: 'directive.continuityEvent.v1',
+    id: 'continuity-event.alpha',
+    threadId: 'continuity-thread.alpha',
+    branchId: 'save.alpha',
+    operation: 'open',
+    payload: { title: 'Tender rendezvous', category: 'schedule' },
+    sourceContributionIds: ['contribution.alpha'],
+    sources: [{
+        messageId: 'message.1',
+        selectedSwipeId: null,
+        textHash: 'a'.repeat(64),
+        evidenceQuote: 'The rendezvous is set for 1400.',
+    }],
+    dependsOnEventIds: [],
+    settledAtRevision: 1,
+};
+const directorReceipt = {
+    kind: 'directive.storyDirectorReceipt.v1',
+    id: 'director-receipt.alpha',
+    branchId: 'save.alpha',
+    packageId: 'package.breckenridge',
+    packageVersion: '1',
+    missionId: 'mission.prelude',
+    generationType: 'normal',
+    generationTargetKey: 'generation-target.alpha',
+    requestKey: 'turn-analysis.alpha',
+    reuseKey: 'reuse.alpha',
+    sourceRangeHash: 'range.alpha',
+    sourceContributionIds: ['contribution.alpha'],
+    instruction: 'Respond to the player while preserving the scheduled rendezvous.',
+    dependencyIds: ['continuity-thread.alpha'],
+    settledAtRevision: 1,
+};
+const pendingDossier = {
+    kind: 'directive.pendingDossier.v1',
+    id: 'pending-dossier.whitaker',
+    personId: 'mara-whitaker',
+    introductionSourceContributionIds: ['contribution.alpha'],
+    status: 'pending',
+    attemptCount: 0,
+    publicContext: {
+        displayName: 'Mara Whitaker',
+        introductionSummary: 'Whitaker introduced herself on the bridge.',
+    },
+};
+const settlementWithContinuity = {
+    ...empty,
+    revision: 1,
+    activeEpisode: 'episode.alpha',
+    episodes: [{ ...openEpisode, contributions: [contribution] }],
+    continuityEvents: [continuityEvent],
+    directorReceipts: [directorReceipt],
+    pendingDossiers: [pendingDossier],
+};
+assert.equal(validateStorySettlement(settlementWithContinuity).ok, true);
+for (const [label, settlement, pattern] of [
+    ['continuity unknown source', {
+        ...settlementWithContinuity,
+        continuityEvents: [{ ...continuityEvent, sourceContributionIds: ['contribution.missing'] }],
+    }, /source-unknown/],
+    ['continuity branch', {
+        ...settlementWithContinuity,
+        continuityEvents: [{ ...continuityEvent, branchId: 'save.beta' }],
+    }, /branch-invalid/],
+    ['continuity revision', {
+        ...settlementWithContinuity,
+        continuityEvents: [{ ...continuityEvent, settledAtRevision: 2 }],
+    }, /revision-invalid/],
+    ['continuity unknown field', {
+        ...settlementWithContinuity,
+        continuityEvents: [{ ...continuityEvent, rationale: 'forbidden' }],
+    }, /field-unknown/],
+    ['continuity operation payload mismatch', {
+        ...settlementWithContinuity,
+        continuityEvents: [{
+            ...continuityEvent,
+            operation: 'open',
+            payload: {
+                text: 'The rendezvous is scheduled.',
+                claimType: 'narrated-fact',
+                authoredRef: null,
+                supersedesFactId: null,
+            },
+        }],
+    }, /continuity-event-payload/],
+    ['director unknown source', {
+        ...settlementWithContinuity,
+        directorReceipts: [{ ...directorReceipt, sourceContributionIds: ['contribution.missing'] }],
+    }, /source-unknown/],
+    ['director stale branch', {
+        ...settlementWithContinuity,
+        directorReceipts: [{ ...directorReceipt, branchId: 'save.beta' }],
+    }, /branch-invalid/],
+    ['director missing reuse key', {
+        ...settlementWithContinuity,
+        directorReceipts: [{ ...directorReceipt, reuseKey: undefined }],
+    }, /reuseKey-invalid/],
+    ['pending dossier unknown source', {
+        ...settlementWithContinuity,
+        pendingDossiers: [{
+            ...pendingDossier,
+            introductionSourceContributionIds: ['contribution.missing'],
+        }],
+    }, /source-unknown/],
+    ['pending dossier attempts', {
+        ...settlementWithContinuity,
+        pendingDossiers: [{ ...pendingDossier, attemptCount: 2 }],
+    }, /attempt-count/],
+]) {
+    assert.match(validateStorySettlement(settlement).errors.join('\n'), pattern, label);
+}
 assert.match(
     validateStorySettlement({
         ...empty,

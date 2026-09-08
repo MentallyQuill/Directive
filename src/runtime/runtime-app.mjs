@@ -46,6 +46,7 @@ import {
 } from './v1-accepted-pair-time.mjs';
 import {
   buildV1RuntimePlayerProjection,
+  createNarrationGenerationTargetKey,
   createV1MissionRuntime
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
@@ -58,7 +59,16 @@ import {
   pairRetryRecovery,
   reconcileRequiredRecovery,
 } from './accepted-pair-recovery-state.mjs';
-import { createEpisodeReviewScheduler } from './episode-review-scheduler.mjs';
+import { createStoryDirector } from '../story/story-director.mjs';
+import { selectDirectorReceipt } from '../story/story-settlement.mjs';
+import { createPeopleDossierAuthor } from '../people/people-dossier-author.mjs';
+import {
+  createPeopleDossierQueue,
+  prepareDossierAttempt,
+  prepareDossierEnrichment,
+  prepareDossierRetries,
+} from './people-dossier-queue.mjs';
+import { createTurnCommit } from './turn-state-reconciler.mjs';
 import { createTurnProgressReporter } from './turn-progress.mjs';
 
 function clone(value) {
@@ -427,7 +437,8 @@ export function createV1RuntimePromptPacket({
     acceptedStory: story,
     workingStory: createV1WorkingStoryPromptProjection({ settlement: state.storySettlement }),
     pendingTransition: transitionPromptProjection(state, runtimeAssets),
-    pendingDutyReport: director?.dutyReport || null
+    pendingDutyReport: director?.dutyReport || null,
+    storyDirection: director?.storyInstruction || null,
   };
   const sceneDefinition = (runtimeAssets?.missionDefinitions || []).map(entry=>entry.definition || entry).find(entry=>entry.id === state?.mission?.v1?.definitionId);
   payload.scenePacing = sceneDefinition ? createScenePacingContext({definition:sceneDefinition,state:state.mission.v1,receipts:state.storySettlement?.acceptedPairReceipts || []}) : null;
@@ -441,8 +452,10 @@ export function createV1RuntimePromptPacket({
       'Use scenePacing.currentScene and the visible objective participation requirements. Unless ready is true or the player explicitly delegates/skips that objective, do not depict its completed outcome or summarize away its defining encounter. A ready scene permits a supported result, never automatic success. Resolve one consequential interaction and leave the next player response open.',
       'Objective completion does not authorize a scene cut. Unless scenePacing.allowDeparture is true, preserve conversation and aftermath; do not introduce unrelated missions, reports, abrupt travel, or a major time jump. Deliver only an explicitly supplied pendingDutyReport. An established immediate danger may have consequences, but do not invent an emergency to hurry a scene. Honor explicit player departure, delegation, refusal, and requests to summarize within accepted facts.',
     ] : []),
-    'Only this packet and the visible chat are canon. Never expose undiscovered facts or hidden objective text.',
-    'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, deadlines, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
+    'Authored campaign constraints and accepted mechanical state govern outcomes. Preserve accepted continuity without promoting improvised additions into authored campaign requirements. Visible chat may contain provisional narration, character claims, attempts, or corrections; those are not all established facts. Never expose undiscovered facts or hidden objective text.',
+    'Develop local consequences in response to the player. Respect a player-led diversion, keep established opportunities available, and offer natural resolution without forcing agreement, inventing an emergency, or erasing established costs.',
+    ...(payload.storyDirection ? ['STORY DIRECTION: Follow storyDirection for this beat within accepted state, player authority, scene pacing and authored campaign constraints. It does not authorize objective completion, secret revelations, off-screen success, or overriding the player.'] : []),
+    'Do not invent completed objectives, Command Bearing awards, mechanical relationship changes, authoritative ship conditions, authored mission deadlines, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy. Local story additions remain provisional.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
     payload.opening.phase === 'unanswered'
@@ -606,16 +619,75 @@ export function createDirectiveRuntimeApp({
   const acceptedPairCallBudget = createAcceptedPairCallBudget();
   let activeAnalysisController = null;
   let activeAnalysisFingerprint = null;
-  const episodeReviewScheduler = createEpisodeReviewScheduler({
-    getToken: () => missionRuntime?.pendingEpisodeReview?.() || null,
-    review: ({ automatic, signal, progressScope }) => missionRuntime.reviewPendingEpisode({
-      runtimeAssets,
-      signal,
-      automatic,
-      runMutation: enqueueSettlement,
-      progressScope,
-    }),
+  let nativeNarrationActive = false;
+  let dossierDrain = null;
+  let activeDossierJob = null;
+  const stagedDossiers = new Map();
+  const dossierQueue = createPeopleDossierQueue({
+    author: createPeopleDossierAuthor({ generationRouter }),
+    stageResult: ({ job, outcome }) => {
+      if (activeDossierJob?.job.id === job.id) {
+        stagedDossiers.set(job.id, { job, outcome, binding: activeDossierJob.binding });
+      }
+    },
   });
+
+  function pauseDossiers() {
+    nativeNarrationActive = true;
+    if (activeDossierJob && !stagedDossiers.has(activeDossierJob.job.id)) {
+      stagedDossiers.set(activeDossierJob.job.id, {
+        ...activeDossierJob, outcome: { ok: false, reasonCode: 'dossier-canceled' },
+      });
+    }
+    dossierQueue.clear();
+  }
+
+  function dossierIdle() {
+    return host.generation?.supportsIndependentBackgroundRequests === true
+      && !nativeNarrationActive && !activeAnalysisController && state && currentChatIsBound();
+  }
+
+  function sameDossierBinding(binding) {
+    return ['campaignId', 'saveId', 'chatId'].every(key => binding?.[key] === state?.campaignChatBinding?.[key]);
+  }
+
+  function scheduleIdleDossiers() {
+    if (dossierDrain || !dossierIdle()) return;
+    dossierDrain = (async () => {
+      while (dossierIdle()) {
+        let nextJob = null;
+        await enqueueSettlement(async () => {
+          if (!dossierIdle()) return;
+          for (const [id, staged] of stagedDossiers) {
+            if (!sameDossierBinding(staged.binding)) { stagedDossiers.delete(id); continue; }
+            const prepared = prepareDossierEnrichment({ campaignState: state, job: staged.job, outcome: staged.outcome });
+            const proposal = createTurnCommit({ before: state, after: prepared.candidateState,
+              turnKey: `dossier.merge.${id}.${state.stateCustody.revision}` });
+            if (proposal) await gateway.applyProposal(proposal);
+            stagedDossiers.delete(id);
+          }
+          if (!dossierIdle()) return;
+          const job = (state.storySettlement?.pendingDossiers || []).find(item => item.status === 'pending' && item.attemptCount === 0);
+          if (!job) return;
+          const prepared = prepareDossierAttempt({ campaignState: state, jobId: job.id });
+          const proposal = createTurnCommit({ before: state, after: prepared.candidateState,
+            turnKey: `dossier.attempt.${job.id}.${state.stateCustody.revision}` });
+          if (proposal) await gateway.applyProposal(proposal);
+          if (prepared.job) nextJob = { job: prepared.job, binding: clone(state.campaignChatBinding) };
+        });
+        if (!nextJob) break;
+        activeDossierJob = nextJob;
+        if (!dossierIdle()) {
+          stagedDossiers.set(nextJob.job.id, { ...nextJob, outcome: {ok:false,reasonCode:'dossier-canceled'} });
+          activeDossierJob = null;
+          break;
+        }
+        try { await dossierQueue.run(nextJob.job); }
+        finally { activeDossierJob = null; }
+      }
+    })().catch(error => host.logger?.warn?.('[Directive] Optional biography enrichment was deferred.', error))
+      .finally(() => { dossierDrain = null; });
+  }
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
   let deferredInternalChatChangeScheduled = false;
@@ -674,6 +746,8 @@ export function createDirectiveRuntimeApp({
       getState: () => state,
       stateDeltaGateway: gateway,
       generationRouter,
+      directStory: createStoryDirector({ generationRouter }),
+      providerFingerprints: () => providerConfiguration(host),
       prepareAcceptedPairTime: ({ campaignState, snapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
         prepareV1AcceptedPairTimeAdvance({
           campaignState,
@@ -749,16 +823,16 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function syncPrompt({ rebuild = false, progressScope = null } = {}) {
+  async function syncPrompt({ rebuild = false, progressScope = null, generationType = 'normal', generationTargetKey = undefined } = {}) {
     if (!state || !currentChatIsBound()) {
       await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'unbound-v1-chat' });
       return { ok: true, active: false };
     }
-    return turnProgress.run('preparing', () => syncBoundPrompt({ rebuild }), { scope: progressScope });
+    return turnProgress.run('preparing', () => syncBoundPrompt({ rebuild, generationType, generationTargetKey }), { scope: progressScope });
   }
 
-  async function syncBoundPrompt({ rebuild = false } = {}) {
+  async function syncBoundPrompt({ rebuild = false, generationType = 'normal', generationTargetKey = undefined } = {}) {
     await activateNarrationPreset();
     if (!state || !currentChatIsBound()) {
       await restoreNarrationPreset();
@@ -786,12 +860,20 @@ export function createDirectiveRuntimeApp({
       sourceTransactionId: `pending-host-generation.${state.stateCustody.revision}`
     });
     const director = {
+      storyInstruction: selectDirectorReceipt(state.storySettlement, {
+        branchId: state.campaignChatBinding.saveId,
+        packageId: state.activeCampaignPackage.packageId,
+        packageVersion: state.activeCampaignPackage.packageVersion,
+        missionId: state.mission?.v1?.definitionId,
+        generationType,
+        generationTargetKey,
+      })?.instruction || null,
       dutyReport: preparedDutyReport?.ok && preparedDutyReport.status === 'ready'
         ? { packet: preparedDutyReport.packet, segment: preparedDutyReport.segment }
         : null
     };
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
-    return host.prompt[method]({
+    const installed = await host.prompt[method]({
       binding: clone(state.campaignChatBinding),
       packet: createV1RuntimePromptPacket({
         state,
@@ -803,6 +885,12 @@ export function createDirectiveRuntimeApp({
         openingRecord: host.chat.getOpeningRecord?.() || null
       })
     });
+    if (installed?.ok === false) {
+      const error = new Error('Directive could not install the prepared turn context.');
+      error.code = 'DIRECTIVE_PROMPT_INSTALL_FAILED';
+      throw error;
+    }
+    return installed;
   }
 
   async function commitCommandBearingChange(result, {
@@ -1081,6 +1169,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function settleSnapshot(snapshot, ingressId = null, {
+    generationType = 'normal',
     syncPromptAfter = true,
     publishNotifications = true,
     attemptKind = 'automatic',
@@ -1127,6 +1216,7 @@ export function createDirectiveRuntimeApp({
         mission = await missionRuntime.settleAcceptedPair({
           runtimeAssets,
           snapshot,
+          generationType,
           acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
           signal: analysisController?.signal || null,
           allowModelCall: budgetReserved === true,
@@ -1140,6 +1230,7 @@ export function createDirectiveRuntimeApp({
       if (activeAnalysisController === analysisController) {
         activeAnalysisController = null;
         activeAnalysisFingerprint = null;
+        if (!nativeNarrationActive) scheduleIdleDossiers();
       }
     }
     if (mission?.ok === true) {
@@ -1155,6 +1246,9 @@ export function createDirectiveRuntimeApp({
         ingressId,
         reasonCode: mission.reasonCode,
         persistenceAttempts,
+        blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
+        turnKey: mission.turnKey || mission.diagnostics?.turnKey || null,
+        generationType,
       });
     } else if (updateRecovery && mission?.ok === true
       && (acceptedPairRecovery.mode !== 'pair-retry'
@@ -1186,7 +1280,8 @@ export function createDirectiveRuntimeApp({
         host.logger?.warn?.('[Directive] Could not derive gameplay notifications from committed state.', error);
       }
     }
-    if (mission?.ok === true && syncPromptAfter) await syncPrompt({ progressScope });
+    if (mission?.ok === true && syncPromptAfter) await syncPrompt({ progressScope, generationType,
+      generationTargetKey:createNarrationGenerationTargetKey({snapshot,generationType}) });
     return {
       time,
       mission,
@@ -1217,11 +1312,8 @@ export function createDirectiveRuntimeApp({
     if (!state || !missionRuntime) {
       return Promise.resolve({ ok: false, attempted: false, status: 'inactive', reasonCode: 'inactive' });
     }
-    return episodeReviewScheduler.schedule({
-      automatic,
-      signal,
-      progressScope,
-    });
+    // Retrospective review is part of the next turn's mandatory director request.
+    return Promise.resolve({ ok: true, attempted: false, status: 'deferred-to-director', reasonCode: null });
   }
 
   async function rebuildAcceptedStateFromChat({
@@ -1314,8 +1406,12 @@ export function createDirectiveRuntimeApp({
   }
 
   async function invalidateSource(payload, eventType) {
+    pauseDossiers();
     const progressScope = turnProgress.createScope();
     const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
+    if (currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))) {
+      activeAnalysisController?.abort();
+    }
     return enqueueSettlement(async () => {
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
       if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
@@ -1379,7 +1475,10 @@ export function createDirectiveRuntimeApp({
   }
 
   const orchestrator = {
-    async interceptGeneration() {
+    async interceptGeneration({ type = 'normal' } = {}) {
+      pauseDossiers();
+      const generationType = compact(type) || 'normal';
+      let generationTargetKey = null;
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
       await settlementQueue;
@@ -1396,6 +1495,7 @@ export function createDirectiveRuntimeApp({
           settlementError: {
             code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
             reasonCode: acceptedPairRecovery.reasonCode,
+            blockedRoles: acceptedPairRecovery.pair.blockedRoles || [],
             persistenceAttempts: acceptedPairRecovery.pair.persistenceAttempts
           }
         };
@@ -1408,7 +1508,7 @@ export function createDirectiveRuntimeApp({
         await publicApi.observeHostPlayerMessage({
           message: latestPlayerMessage,
           source: 'v1-generation-boundary'
-        }, { progressScope });
+        }, { progressScope, generationType, syncPromptAfter:false });
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
@@ -1420,12 +1520,34 @@ export function createDirectiveRuntimeApp({
           settlementError: {
             code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
             reasonCode: acceptedPairRecovery.reasonCode || 'accepted-pair-replay-pending',
+            blockedRoles: acceptedPairRecovery.pair?.blockedRoles || [],
             persistenceAttempts: acceptedPairRecovery.pair?.persistenceAttempts || 0
           },
           acceptedPairReplay
         };
       }
-      await syncPrompt({ progressScope });
+      // Host continuation/swipe can arrive without a new player observation.
+      // Recheck the exact generation target; a valid committed receipt is a no-op.
+      if (latestPlayerMessage) {
+        const recent = await host.chat.getRecentMessages?.({limit:V1_ACCEPTED_PAIR_SOURCE_WINDOW,playerSafeOnly:false}) || [];
+        const prepared = await acceptedSnapshotForMessage(latestPlayerMessage, recent);
+        if (prepared?.ok) {
+          generationTargetKey = createNarrationGenerationTargetKey({snapshot:prepared.snapshot,generationType});
+          const direction = await enqueueSettlement(() => settleSnapshot(prepared.snapshot, null, {
+            syncPromptAfter:false, publishNotifications:false, progressScope, generationType,
+          }));
+          if (direction.settlementBlocked) return {
+            handled:true, abortDefaultGeneration:true, responseStrategy:'blockAndRetry',
+            settlementError:{code:'DIRECTIVE_TURN_DIRECTION_BLOCKED',reasonCode:direction.mission?.reasonCode,
+              blockedRoles:acceptedPairRecovery.pair?.blockedRoles || [], persistenceAttempts:direction.persistenceAttempts || 0},
+          };
+        } else if (prepared?.reason !== 'no-previous-assistant') {
+          const error = new Error('The selected story sources could not be verified for narration.');
+          error.code = 'DIRECTIVE_TURN_SOURCE_INVALID';
+          throw error;
+        }
+      }
+      await syncPrompt({ progressScope, generationType, generationTargetKey });
       return {
         handled: true,
         abortDefaultGeneration: false,
@@ -1540,11 +1662,6 @@ export function createDirectiveRuntimeApp({
           return { ok: false, message: 'Progress could not be saved. Refresh the mission and try again.' };
         }
         if (result.ok !== true) return result;
-        if (canceledFingerprint && acceptedPairRecovery.mode === 'pair-retry'
-          && acceptedPairRecovery.reasonCode === 'provider-aborted'
-          && acceptedPairRecovery.pair?.fingerprint === canceledFingerprint) {
-          acceptedPairRecovery = reconcileRequiredRecovery('objective-progress-adjusted');
-        }
         const nextProjection = projectionResult()?.projection || null;
         sendGameplayNotificationMessage({
           type: 'directive.gameplayNotifications.retire.v1',
@@ -1641,7 +1758,10 @@ export function createDirectiveRuntimeApp({
 
     async observeHostPlayerMessage(payload = {}, {
       progressScope = turnProgress.createScope(),
+      generationType = 'normal',
+      syncPromptAfter = true,
     } = {}) {
+      pauseDossiers();
       await ensureInitialized();
       const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
       return enqueueSettlement(async () => {
@@ -1690,7 +1810,7 @@ export function createDirectiveRuntimeApp({
         const ingressId = payload.ingressId || messageId(payload, current);
         const prepared = await acceptedSnapshotForMessage(current, recent, ingressId);
         if (!prepared.ok) {
-          await syncPrompt({ progressScope });
+          if (syncPromptAfter) await syncPrompt({ progressScope });
           return { handled: false, reason: prepared.reason };
         }
         return {
@@ -1698,12 +1818,13 @@ export function createDirectiveRuntimeApp({
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
           ...(acceptedPairReplay ? { acceptedPairReplay } : {}),
-          ...(await settleSnapshot(prepared.snapshot, ingressId, { progressScope }))
+          ...(await settleSnapshot(prepared.snapshot, ingressId, { progressScope, generationType, syncPromptAfter }))
         };
       });
     },
 
     async handleHostGenerationEnded(payload = {}) {
+      nativeNarrationActive = false;
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
       if (!state || !currentChatIsBound()) {
@@ -1753,6 +1874,7 @@ export function createDirectiveRuntimeApp({
       const responseText = compact(message?.text || message?.mes || message?.content);
       if (!hostMessageId || !responseText) {
         const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
+        scheduleIdleDossiers();
         return {
           handled: episodeReview.attempted === true,
           reason: 'assistant-message-unavailable',
@@ -1832,6 +1954,7 @@ export function createDirectiveRuntimeApp({
         }
       }
       const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
+      scheduleIdleDossiers();
       return {
         handled: dutyReport.attached || episodeReview.attempted === true,
         status: dutyReport.attached ? 'duty-report-custody-attached' : 'generation-ended-reviewed',
@@ -1854,6 +1977,26 @@ export function createDirectiveRuntimeApp({
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
       return scheduleEpisodeReviewFlight({ ...options, automatic: false, progressScope });
+    },
+
+    async retryPendingPeopleDossiers() {
+      await ensureInitialized();
+      const result = await enqueueSettlement(async () => {
+        if (!state || !currentChatIsBound()) return {ok:false, reasonCode:'inactive-or-unbound'};
+        const activeJobIds = [
+          ...(activeDossierJob?.job?.id ? [activeDossierJob.job.id] : []),
+          ...stagedDossiers.keys(),
+        ];
+        const prepared = prepareDossierRetries({ campaignState: state, activeJobIds });
+        const candidateState = prepared.candidateState;
+        const queued = prepared.queuedJobIds.length;
+        const proposal = createTurnCommit({before:state, after:candidateState,
+          turnKey:`dossier.retry.${state.campaignChatBinding.saveId}.${state.stateCustody.revision}`});
+        if (proposal) await gateway.applyProposal(proposal);
+        return {ok:true, queued};
+      });
+      scheduleIdleDossiers();
+      return result;
     },
 
     async retryPendingAcceptedPairSettlement() {
@@ -1891,7 +2034,10 @@ export function createDirectiveRuntimeApp({
           acceptedPairRecovery = reconcileRequiredRecovery('pending-source-stale');
           return { ok: false, reasonCode: 'pending-source-stale', settlementBlocked: false };
         }
+        // A new explicit gesture grants one failed-role attempt for this source.
+        acceptedPairCallBudget.release(pending.fingerprint, 'manual');
         const settled = await settleSnapshot(pending.snapshot, pending.ingressId, {
+          generationType: pending.generationType || 'normal',
           attemptKind: 'manual',
           allowModelCall: true,
           progressScope,
@@ -1915,6 +2061,8 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostChatChanged(payload = {}) {
+      pauseDossiers();
+      activeAnalysisController?.abort();
       if (internalChatOpenDepth > 0) {
         deferredInternalChatChange = clone(payload || {});
         return {
@@ -2003,8 +2151,11 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
+      pauseDossiers();
+      nativeNarrationActive = false;
       turnProgress.resetTurnProgress();
       if (!activeAnalysisController || activeAnalysisController.signal.aborted) {
+        scheduleIdleDossiers();
         return { ok: true, canceled: false, reason: 'no-directive-analysis-active' };
       }
       activeAnalysisController.abort(new Error('host-generation-stopped'));
@@ -2350,6 +2501,8 @@ export function createDirectiveRuntimeApp({
       return { fileName: `directive-support-${Date.now()}.json`, jsonText: JSON.stringify(bundle, null, 2) };
     },
     async updateProviderSettings({ kind, patch } = {}) {
+      pauseDossiers();
+      activeAnalysisController?.abort(new Error('provider-settings-changed'));
       const result = host.providers?.updateSettings
         ? host.providers.updateSettings(kind, patch)
         : host.providers?.settings?.update?.(kind, patch);

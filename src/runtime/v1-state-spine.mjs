@@ -59,6 +59,7 @@ import {
     createEpisodeEvaluationRequest,
     parseEpisodeEvaluationProposal,
 } from '../story/episode-evaluator.mjs';
+import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { stableHash24 } from './v1-stable-hash.mjs';
 
 export const EPISODE_REVIEW_TOKEN_KIND = 'directive.episodeReviewToken.v1';
@@ -69,6 +70,20 @@ function stableHash(value = '') {
 
 function jsonEqual(left, right) {
     return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function mergePreparedValue(base, patch) {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return structuredClone(patch);
+    const next = base && typeof base === 'object' && !Array.isArray(base)
+        ? structuredClone(base)
+        : {};
+    for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) continue;
+        next[key] = value && typeof value === 'object' && !Array.isArray(value)
+            ? mergePreparedValue(next[key], value)
+            : structuredClone(value);
+    }
+    return next;
 }
 
 function activeStoryEpisode(settlement) {
@@ -512,6 +527,14 @@ export function createV1StateSpine({
         return currentRevision;
     }
 
+    function assertCampaignRevision(campaignState, expectedRevision) {
+        const currentRevision = campaignState?.stateCustody?.revision;
+        if (expectedRevision !== null && expectedRevision !== undefined && Number(expectedRevision) !== currentRevision) {
+            throw revisionConflict(expectedRevision, currentRevision);
+        }
+        return currentRevision;
+    }
+
     function shipCapabilityContext(shipDataset, storySettlement, excludedEffectIds = new Set()) {
         if (!shipDataset?.mechanics) {
             return { capabilityEvidenceById: new Map(), activeEffectIds: new Set() };
@@ -554,7 +577,7 @@ export function createV1StateSpine({
         return { evidence, missionResult };
     }
 
-    async function settleAcceptedPair({
+    async function prepareAcceptedPair({
         definition,
         proposal,
         sourceContribution,
@@ -575,8 +598,8 @@ export function createV1StateSpine({
         peopleEvents = [],
         knownPersonIds = [],
     } = {}) {
-        const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const campaignState = getState();
+        const capturedGatewayRevision = assertCampaignRevision(campaignState, gatewayBaseRevision);
         if (hardBoundary !== null) {
             const boundaryResult = validateEpisodeHardBoundary(hardBoundary, { branchId: proposal?.branchId });
             if (!boundaryResult.ok) throw invalidHardBoundary(boundaryResult.errors);
@@ -843,14 +866,15 @@ export function createV1StateSpine({
             && jsonEqual(currentStorySettlement, storySettlement)
             && !commandBearingChanged
             && !authorityChanged) {
-            return {
+            const candidateState = structuredClone(campaignState);
+            const result = {
                 evidence,
                 shipEvidence,
                 cohesionEvidence,
                 cohesionOpportunity,
                 missionResult,
                 storySettlement,
-                campaignState: structuredClone(campaignState),
+                campaignState: candidateState,
                 noChange: true,
                 reviewToken,
                 transitionActivation,
@@ -858,6 +882,7 @@ export function createV1StateSpine({
                 commandBearingChanged,
                 acceptedCommandBearingEdge: acceptedCommandBearingEdgeResult,
             };
+            return { candidateState, proposal: null, result };
         }
 
         const activationOperations = transitionActivation.status === 'activated'
@@ -877,7 +902,7 @@ export function createV1StateSpine({
                 })),
             ]
             : null;
-        const committed = await stateDeltaGateway.applyProposal({
+        const stateProposal = {
             ...(activationOperations
                 ? { operations: activationOperations }
                 : { patch: {
@@ -909,15 +934,23 @@ export function createV1StateSpine({
                 transitionTargetDefinitionId: transitionActivation.targetDefinitionId,
                 commandBearingAwardCount,
             },
-        });
-        return {
+        };
+        const candidateState = structuredClone(campaignState);
+        candidateState.storySettlement = structuredClone(storySettlement);
+        candidateState.mission = structuredClone(nextMissionRoot);
+        if (commandBearingChanged) candidateState.commandBearing = structuredClone(commandBearing);
+        for (const domain of additionalDomains) {
+            candidateState[domain] = mergePreparedValue(candidateState[domain], additionalPatch[domain]);
+        }
+        assertV1CampaignState(candidateState);
+        const result = {
             evidence,
             shipEvidence,
             cohesionEvidence,
             cohesionOpportunity,
             missionResult,
             storySettlement,
-            campaignState: committed.campaignState,
+            campaignState: candidateState,
             noChange: false,
             reviewToken,
             transitionActivation,
@@ -925,6 +958,14 @@ export function createV1StateSpine({
             commandBearingChanged,
             acceptedCommandBearingEdge: acceptedCommandBearingEdgeResult,
         };
+        return { candidateState, proposal: stateProposal, result };
+    }
+
+    async function settleAcceptedPair(input) {
+        const prepared = await prepareAcceptedPair(input);
+        if (!prepared.proposal) return prepared.result;
+        const committed = await stateDeltaGateway.applyProposal(prepared.proposal);
+        return { ...prepared.result, campaignState: committed.campaignState };
     }
 
     async function activatePendingTransition({
@@ -1397,14 +1438,13 @@ export function createV1StateSpine({
         };
     }
 
-    async function applyEpisodeReview({
+    async function prepareEpisodeReview({
         definition,
         reviewToken,
         request,
         proposal,
         gatewayBaseRevision = null,
     } = {}) {
-        const capturedGatewayRevision = assertGatewayRevision(gatewayBaseRevision);
         const parsed = parseEpisodeEvaluationProposal(proposal, { request });
         if (!parsed.ok) throw invalidEpisodeReview(parsed.errors);
         const acceptedProposal = parsed.value;
@@ -1413,6 +1453,7 @@ export function createV1StateSpine({
         }
 
         const campaignState = getState();
+        const capturedGatewayRevision = assertCampaignRevision(campaignState, gatewayBaseRevision);
         const currentMission = campaignState?.mission?.v1;
         if (!currentMission
             || currentMission.definitionId !== definition?.id
@@ -1430,12 +1471,14 @@ export function createV1StateSpine({
 
         const currentSettlement = initialStorySettlement(campaignState, reviewToken.branchId);
         if (alreadyAppliedReview(currentSettlement, reviewToken, acceptedProposal)) {
-            return {
+            const candidateState = structuredClone(campaignState);
+            const result = {
                 storySettlement: currentSettlement,
-                campaignState: structuredClone(campaignState),
+                campaignState: candidateState,
                 noChange: true,
                 reviewToken: createPendingEpisodeReviewToken(currentSettlement),
             };
+            return { candidateState, proposal: null, result };
         }
         const currentToken = createPendingEpisodeReviewToken(currentSettlement);
         if (!jsonEqual(currentToken, reviewToken)) {
@@ -1451,12 +1494,14 @@ export function createV1StateSpine({
             throw staleEpisodeReview('accepted sources or visible effects changed during evaluation');
         }
         if (acceptedProposal.decision === 'abstain') {
-            return {
+            const candidateState = structuredClone(campaignState);
+            const result = {
                 storySettlement: currentSettlement,
-                campaignState: structuredClone(campaignState),
+                campaignState: candidateState,
                 noChange: true,
                 reviewToken: currentToken,
             };
+            return { candidateState, proposal: null, result };
         }
 
         const relationshipEffects = relationshipEffectsForReview(reviewToken, acceptedProposal);
@@ -1495,7 +1540,7 @@ export function createV1StateSpine({
             });
         }
 
-        const committed = await stateDeltaGateway.applyProposal({
+        const stateProposal = {
             patch: { storySettlement },
             domains: ['storySettlement'],
             baseRevision: capturedGatewayRevision,
@@ -1507,20 +1552,35 @@ export function createV1StateSpine({
                 checkpointSequence: reviewToken.checkpointSequence,
                 decision: acceptedProposal.decision,
             },
-        });
-        return {
+        };
+        const candidateState = {
+            ...structuredClone(campaignState),
+            storySettlement: structuredClone(storySettlement),
+        };
+        assertV1CampaignState(candidateState);
+        const result = {
             storySettlement,
-            campaignState: committed.campaignState,
+            campaignState: candidateState,
             noChange: false,
             reviewToken: createPendingEpisodeReviewToken(storySettlement),
         };
+        return { candidateState, proposal: stateProposal, result };
+    }
+
+    async function applyEpisodeReview(input) {
+        const prepared = await prepareEpisodeReview(input);
+        if (!prepared.proposal) return prepared.result;
+        const committed = await stateDeltaGateway.applyProposal(prepared.proposal);
+        return { ...prepared.result, campaignState: committed.campaignState };
     }
 
     return {
         settleAcceptedPair,
+        prepareAcceptedPair,
         activatePendingTransition,
         reduceMissionProposal,
         invalidateSources,
         applyEpisodeReview,
+        prepareEpisodeReview,
     };
 }

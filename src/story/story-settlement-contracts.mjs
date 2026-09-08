@@ -14,6 +14,11 @@ export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
 
 import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
 import { scenePacingReceiptErrors } from '../narration/scene-pacing.mjs';
+import {
+    validateContinuityEvent,
+    validateDirectorReceipt,
+    validatePendingDossier,
+} from './continuity-contracts.mjs';
 
 const TERMINAL_EPISODE_STATUSES = new Set(['sealed', 'invalidated']);
 const SOURCE_CONTRIBUTION_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
@@ -23,6 +28,7 @@ const SETTLEMENT_FIELDS = new Set([
     'kind', 'schemaVersion', 'branchId', 'revision', 'activeEpisode', 'episodes', 'receipts',
     'acceptedPairReceipts', 'focus',
     'episodeReviewAttempt',
+    'continuityEvents', 'directorReceipts', 'pendingDossiers',
 ]);
 const ACCEPTED_PAIR_RECEIPT_FIELDS = new Set([
     'kind', 'id', 'branchId', 'fingerprint', 'sourceRangeHash', 'previousAssistant',
@@ -204,6 +210,9 @@ export function createEmptyStorySettlement({ branchId = 'main' } = {}) {
         episodes: [],
         receipts: [],
         acceptedPairReceipts: [],
+        continuityEvents: [],
+        directorReceipts: [],
+        pendingDossiers: [],
         focus: null,
         episodeReviewAttempt: null,
     };
@@ -228,6 +237,15 @@ export function validateStorySettlement(value = {}) {
     if (!Array.isArray(value?.receipts)) errors.push('receipts must be an array');
     if (Object.hasOwn(value || {}, 'acceptedPairReceipts') && !Array.isArray(value.acceptedPairReceipts)) {
         errors.push('acceptedPairReceipts must be an array');
+    }
+    if (Object.hasOwn(value || {}, 'continuityEvents') && !Array.isArray(value.continuityEvents)) {
+        errors.push('continuityEvents must be an array');
+    }
+    if (Object.hasOwn(value || {}, 'directorReceipts') && !Array.isArray(value.directorReceipts)) {
+        errors.push('directorReceipts must be an array');
+    }
+    if (Object.hasOwn(value || {}, 'pendingDossiers') && !Array.isArray(value.pendingDossiers)) {
+        errors.push('pendingDossiers must be an array');
     }
     validateEpisodeReviewAttempt(value?.episodeReviewAttempt, value, errors);
     if (Array.isArray(value?.episodes)) {
@@ -565,6 +583,92 @@ export function validateStorySettlement(value = {}) {
             if (!Number.isInteger(receipt?.settledAtRevision) || receipt.settledAtRevision < 0) {
                 errors.push(`${receiptId} settledAtRevision must be a non-negative integer`);
             }
+        }
+    }
+    const knownContributionIds = new Set([
+        ...(Array.isArray(value?.episodes)
+            ? value.episodes.flatMap((episode) => (episode.contributions || []).map((item) => item?.id))
+            : []),
+        ...(Array.isArray(value?.receipts)
+            ? value.receipts.flatMap((receipt) => receipt.sourceContributionIds || [])
+            : []),
+        ...(Array.isArray(value?.acceptedPairReceipts)
+            ? value.acceptedPairReceipts.flatMap((receipt) => receipt.sourceContributionIds || [])
+            : []),
+    ].filter(isStableId));
+    const continuityEventIds = new Set();
+    const continuityThreadIds = new Set();
+    const continuityCreationByThread = new Map();
+    const continuityEventById = new Map();
+    if (Array.isArray(value?.continuityEvents)) {
+        for (const event of value.continuityEvents) {
+            if (continuityEventIds.has(event?.id)) errors.push(`duplicate continuity event id: ${event?.id}`);
+            const eventResult = validateContinuityEvent(event, {
+                branchId: value.branchId,
+                maximumRevision: value.revision,
+                knownContributionIds,
+                knownEventIds: continuityEventIds,
+                knownThreadIds: continuityThreadIds,
+            });
+            errors.push(...eventResult.errors);
+            if (event?.operation === 'open' && isStableId(event.threadId)) {
+                if (continuityThreadIds.has(event.threadId)) {
+                    errors.push(`duplicate continuity thread id: ${event.threadId}`);
+                } else {
+                    continuityThreadIds.add(event.threadId);
+                    continuityCreationByThread.set(event.threadId, event.id);
+                }
+            } else if (isStableId(event?.threadId)) {
+                const creationId = continuityCreationByThread.get(event.threadId);
+                if (creationId && !(event.dependsOnEventIds || []).includes(creationId)) {
+                    errors.push(`continuity event ${event.id} must depend on its thread creation`);
+                }
+            }
+            if (event?.operation === 'addFact' && event.payload?.supersedesFactId !== null) {
+                const corrected = continuityEventById.get(event.payload?.supersedesFactId);
+                if (!corrected || corrected.operation !== 'addFact') {
+                    errors.push(`continuity event ${event.id} supersedes an unknown fact`);
+                } else if (corrected.threadId !== event.threadId) {
+                    errors.push(`continuity event ${event.id} supersedes a fact from another thread`);
+                }
+            }
+            if (isStableId(event?.id)) {
+                continuityEventIds.add(event.id);
+                continuityEventById.set(event.id, event);
+            }
+        }
+    }
+    if (Array.isArray(value?.directorReceipts)) {
+        const receiptIds = new Set();
+        for (const receipt of value.directorReceipts) {
+            if (receiptIds.has(receipt?.id)) errors.push(`duplicate director receipt id: ${receipt?.id}`);
+            receiptIds.add(receipt?.id);
+            const receiptResult = validateDirectorReceipt(receipt, {
+                branchId: value.branchId,
+                maximumRevision: value.revision,
+                knownContributionIds,
+            });
+            errors.push(...receiptResult.errors);
+            for (const dependencyId of receipt?.dependencyIds || []) {
+                if (dependencyId.startsWith('continuity-event.') && !continuityEventIds.has(dependencyId)) {
+                    errors.push(`director receipt dependency is unknown: ${dependencyId}`);
+                }
+                if (dependencyId.startsWith('continuity-thread.') && !continuityThreadIds.has(dependencyId)) {
+                    errors.push(`director receipt dependency is unknown: ${dependencyId}`);
+                }
+            }
+        }
+    }
+    if (Array.isArray(value?.pendingDossiers)) {
+        const jobIds = new Set();
+        const personIds = new Set();
+        for (const job of value.pendingDossiers) {
+            if (jobIds.has(job?.id)) errors.push(`duplicate pending dossier id: ${job?.id}`);
+            if (personIds.has(job?.personId)) errors.push(`duplicate pending dossier person: ${job?.personId}`);
+            jobIds.add(job?.id);
+            personIds.add(job?.personId);
+            const jobResult = validatePendingDossier(job, { knownContributionIds });
+            errors.push(...jobResult.errors);
         }
     }
     if (value?.focus !== null && (typeof value?.focus !== 'object' || Array.isArray(value.focus))) {
