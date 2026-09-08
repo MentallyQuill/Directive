@@ -63,6 +63,8 @@ const server = spawn(process.execPath, ['tools/scripts/serve-expanded-interface-
   stdio: ['ignore', 'ignore', 'inherit'],
 });
 const browser = await chromium.launch({ headless: true });
+const artifactRoot = path.join(repoRoot, 'artifacts', 'notification-bevel');
+fs.mkdirSync(artifactRoot, { recursive: true });
 
 try {
   await waitForServer();
@@ -72,6 +74,7 @@ try {
   await page.evaluate((records) => globalThis.__directiveShowGameplayNotifications(records), [missionRecord, peopleRecord, shipRecord]);
   await page.waitForTimeout(220);
   assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'desktop shows the bounded three-card stack');
+  await page.screenshot({ path: path.join(artifactRoot, 'gameplay-desktop.png'), animations: 'disabled' });
   const box = await page.locator('.directive-gameplay-notification').first().boundingBox();
   assert.ok(box.width <= 340, 'desktop notification stays compact');
   assert.ok(Math.abs((box.x + (box.width / 2)) - 640) <= 2, 'desktop notification is centered');
@@ -80,6 +83,8 @@ try {
     route: [...card.classList].find((name) => name.startsWith('is-')),
     borderLeftColor: getComputedStyle(card).borderLeftColor,
     clipPath: getComputedStyle(card).clipPath,
+    borderRadius: getComputedStyle(card).borderRadius,
+    boxShadow: getComputedStyle(card).boxShadow,
   })));
   assert.deepEqual(
     new Set(cardStyles.map(({ borderLeftColor }) => borderLeftColor)),
@@ -87,9 +92,9 @@ try {
     'every Directive gameplay notification uses the shared yellow-orange accent',
   );
   assert.equal(
-    cardStyles.every(({ clipPath }) => clipPath.includes('4px')),
+    cardStyles.every(({ clipPath, borderRadius, boxShadow }) => clipPath === 'none' && borderRadius === '4px' && boxShadow.includes('inset')),
     true,
-    'every Directive gameplay notification exposes four-pixel bevel geometry',
+    'every gameplay notification has a continuous rounded outline and shaded bevel, without chamfer clipping',
   );
   const titleGlyphs = await page.locator('.directive-notification-title-icon').evaluateAll((icons) => icons.map((icon) => ({
     glyph: icon.dataset.glyph,
@@ -135,13 +140,16 @@ try {
   const presetGeometry = await presetPage.locator('.directive-preset-update-notification').evaluate((card) => ({
     borderLeftColor: getComputedStyle(card).borderLeftColor,
     clipPath: getComputedStyle(card).clipPath,
+    borderRadius: getComputedStyle(card).borderRadius,
     actionCount: card.querySelectorAll('.directive-preset-update-action').length,
     surfaceId: card.parentElement?.parentElement?.id,
   }));
   assert.equal(presetGeometry.borderLeftColor, 'rgb(242, 161, 38)');
-  assert.match(presetGeometry.clipPath, /4px/);
+  assert.equal(presetGeometry.clipPath, 'none', 'preset outline and shadow are not polygon-clipped');
+  assert.equal(presetGeometry.borderRadius, '4px');
   assert.equal(presetGeometry.actionCount, 3);
   assert.equal(presetGeometry.surfaceId, 'directive-notifications');
+  await presetPage.screenshot({ path: path.join(artifactRoot, 'preset-desktop.png'), animations: 'disabled' });
   await presetPage.close();
 
   const collisionPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -202,6 +210,7 @@ try {
   assert.ok(mobileGeometry.card.top >= 8 && mobileGeometry.card.top <= 40, 'mobile card stays below the safe upper edge');
   assert.equal(Math.round(mobileGeometry.viewWidth), 44, '360px viewport uses the compact 44px View button');
   assert.equal(mobileGeometry.viewTextDisplay, 'none', '360px viewport hides only the visible View label');
+  await mobilePage.screenshot({ path: path.join(artifactRoot, 'gameplay-mobile.png'), animations: 'disabled' });
   await mobilePage.close();
 
   const mobileCollisionPage = await browser.newPage({ viewport: { width: 360, height: 780 } });
