@@ -4,89 +4,184 @@ import {
 } from '../../ui/directive-notification-surface.js';
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
-const DEFAULT_LABEL = 'Directive is reading your post...';
-
+const DEFAULT_LABEL = 'Processing the turn...';
+const STAGES = Object.freeze({
+  'reviewing-events': 'Reviewing recent events',
+  'reviewing-episode': 'Reviewing the episode',
+  'updating-characters': 'Updating character records',
+  saving: 'Saving story progress',
+  preparing: 'Preparing the reply',
+});
+const MODEL_STAGES = new Set(['reviewing-events', 'reviewing-episode', 'updating-characters']);
+const OUTCOMES = Object.freeze({ complete: 'Finished', failed: 'Failed', canceled: 'Canceled' });
 let nextActivityId = 0;
 const activeActivities = new Map();
+const operations = new Map();
+let history = [];
+let sessionStartedAt = null;
+let clockTimer = null;
+const clock = () => performance.now();
 
 function canRender() {
   return typeof document !== 'undefined' && Boolean(document?.body);
 }
 
+function element(tag, className, text = '') {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
+
 function createIndicator() {
-  const indicator = document.createElement('article');
+  const indicator = element('article', 'directive-notification-card directive-turn-activity-indicator is-activity');
   indicator.id = INDICATOR_ID;
-  indicator.className = 'directive-notification-card directive-turn-activity-indicator is-activity';
   indicator.dataset.directiveTurnActivity = 'active';
-  indicator.setAttribute('role', 'status');
-  indicator.setAttribute('aria-live', 'polite');
-
-  const copy = document.createElement('div');
-  copy.className = 'directive-turn-activity-copy';
-
-  const category = document.createElement('span');
-  category.className = 'directive-notification-category';
-
-  const titleRow = document.createElement('span');
-  titleRow.className = 'directive-notification-title-row';
-  const icon = document.createElement('span');
-  icon.className = 'directive-vector-glyph directive-notification-title-icon';
+  const copy = element('div', 'directive-turn-activity-copy');
+  const category = element('span', 'directive-notification-category');
+  const titleRow = element('span', 'directive-notification-title-row');
+  titleRow.setAttribute('role', 'status');
+  titleRow.setAttribute('aria-live', 'polite');
+  titleRow.setAttribute('aria-atomic', 'true');
+  const icon = element('span', 'directive-vector-glyph directive-notification-title-icon');
   icon.dataset.glyph = 'route-campaign';
   icon.setAttribute('aria-hidden', 'true');
-
-  const label = document.createElement('strong');
-  label.className = 'directive-turn-activity-label';
-
-  titleRow.append(icon, label);
-  copy.append(category, titleRow);
+  titleRow.append(icon, element('strong', 'directive-turn-activity-label'));
+  const elapsed = element('span', 'directive-turn-activity-elapsed');
+  elapsed.setAttribute('aria-live', 'off');
+  const concurrent = element('span', 'directive-turn-activity-concurrent');
+  const details = element('details', 'directive-turn-activity-details');
+  details.append(element('summary', '', 'Activity details'), element('ol', 'directive-turn-activity-history'));
+  copy.append(category, titleRow, elapsed, concurrent, details);
   indicator.appendChild(copy);
   acquireDirectiveNotificationSurface('activity').activitySlot.appendChild(indicator);
   return indicator;
-}
-
-function indicatorElement() {
-  if (!canRender()) return null;
-  return document.getElementById(INDICATOR_ID) || createIndicator();
 }
 
 function latestActivity() {
   return [...activeActivities.values()].at(-1) || null;
 }
 
-function activityPresentation(activity) {
-  if (activity?.phase === 'waiting') return { category: 'SillyTavern', title: 'Waiting for a response...' };
-  if (activity?.phase === 'reading') return { category: 'Directive', title: 'Reading your post...' };
-  return { category: 'Directive', title: activity?.label || DEFAULT_LABEL };
+function presentation() {
+  const activity = latestActivity();
+  if (!activity) return null;
+  const operation = [...operations.values()].at(-1);
+  if (operation) return {
+    category: 'Directive', phase: operation.stage, startedAt: operation.startedAt,
+    title: `${STAGES[operation.stage]}...${operation.attempt > 1 ? ` (attempt ${operation.attempt})` : ''}`,
+  };
+  if (activity.phase === 'waiting' || activity.phase === 'receiving') return {
+    category: 'SillyTavern', phase: activity.phase, startedAt: activity.phaseStartedAt,
+    title: activity.phase === 'receiving' ? 'Receiving the reply...' : 'Waiting for the reply...',
+  };
+  return { category: 'Directive', phase: activity.phase, title: activity.label, startedAt: activity.phaseStartedAt };
+}
+
+function duration(start, end = clock()) {
+  const seconds = Math.max(0, Math.floor((end - start) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function renderClock() {
+  const current = presentation();
+  if (!current || !canRender()) return;
+  const node = document.querySelector(`#${INDICATOR_ID} .directive-turn-activity-elapsed`);
+  if (node) node.textContent = `This stage ${duration(current.startedAt)} · Total ${duration(sessionStartedAt)}`;
+}
+
+function trimHistory() {
+  // Bound retained completed work without ever hiding an active operation.
+  while (history.length > 40) {
+    const index = history.findIndex(item => item.endedAt !== undefined);
+    if (index < 0) break;
+    history.splice(index, 1);
+  }
 }
 
 function render() {
-  if (!canRender()) return;
-  const activity = latestActivity();
-  const existing = document.getElementById(INDICATOR_ID);
-  if (!activity) {
-    existing?.remove?.();
+  const current = presentation();
+  if (!current) {
+    if (clockTimer !== null) clearInterval(clockTimer);
+    clockTimer = null;
+    history = [];
+    sessionStartedAt = null;
+    if (canRender()) document.getElementById(INDICATOR_ID)?.remove?.();
     releaseDirectiveNotificationSurface('activity');
     return;
   }
-  const indicator = existing || indicatorElement();
-  if (!indicator) return;
+  if (!canRender()) return;
+  const indicator = document.getElementById(INDICATOR_ID) || createIndicator();
   indicator.hidden = false;
-  indicator.dataset.directiveTurnActivityPhase = activity.phase;
-  const presentation = activityPresentation(activity);
+  indicator.dataset.directiveTurnActivityPhase = current.phase;
   const category = indicator.querySelector('.directive-notification-category');
-  if (category) category.textContent = presentation.category;
+  if (category.textContent !== current.category) category.textContent = current.category;
   const label = indicator.querySelector('.directive-turn-activity-label');
-  if (label) label.textContent = presentation.title;
+  if (label.textContent !== current.title) label.textContent = current.title;
+  const concurrent = indicator.querySelector('.directive-turn-activity-concurrent');
+  const others = [...operations.values()].slice(0, -1);
+  concurrent.textContent = others.length ? `Also: ${others.map(item => STAGES[item.stage]).join('; ')}` : '';
+  concurrent.hidden = others.length === 0;
+  const list = indicator.querySelector('.directive-turn-activity-history');
+  list.replaceChildren(...history.map(item => {
+    const name = STAGES[item.stage] || item.title;
+    const status = item.endedAt === undefined ? 'In progress' : (OUTCOMES[item.outcome] || 'Ended');
+    const row = element('li', '', `${name}${item.attempt > 1 ? ` (attempt ${item.attempt})` : ''} — ${status}${item.endedAt === undefined ? '' : ` · ${duration(item.startedAt, item.endedAt)}`}`);
+    row.dataset.outcome = item.outcome || 'active';
+    return row;
+  }));
+  const details = indicator.querySelector('.directive-turn-activity-details');
+  details.hidden = history.length === 0;
+  renderClock();
+  if (clockTimer === null) clockTimer = setInterval(renderClock, 1000);
+}
+
+// Only allowlisted metadata crosses into this UI. Never retain model text or errors.
+export function recordDirectiveTurnProgress(event = {}) {
+  if (event.type === 'reset') {
+    for (const operation of operations.values()) activeActivities.delete(operation.activityToken);
+    operations.clear();
+    history = [];
+    render();
+    return;
+  }
+  if (typeof event.operationId !== 'string' || !event.operationId) return;
+  if (event.type === 'start') {
+    if (!Object.hasOwn(STAGES, event.stage) || !Number.isFinite(event.startedAt) || operations.has(event.operationId)) return;
+    const operation = {
+      operationId: event.operationId, stage: event.stage, startedAt: event.startedAt,
+      attempt: Number.isInteger(event.attempt) && event.attempt > 0 ? event.attempt : 1,
+    };
+    const alreadyVisible = activeActivities.size > 0;
+    operations.set(event.operationId, operation);
+    if (alreadyVisible) history.push(operation);
+    // Model work can continue after narration. Give real operations their own
+    // lifetime so a host end cannot dismiss still-running background work.
+    if (alreadyVisible || MODEL_STAGES.has(operation.stage)) {
+      operation.activityToken = markDirectiveTurnActivity({ phase: operation.stage });
+    }
+  } else {
+    const operation = operations.get(event.operationId);
+    if (!operation) return;
+    if (event.type === 'update' && Number.isInteger(event.attempt) && event.attempt > operation.attempt) operation.attempt = event.attempt;
+    if (event.type === 'finish') {
+      operation.endedAt = Number.isFinite(event.endedAt) ? event.endedAt : clock();
+      operation.outcome = Object.hasOwn(OUTCOMES, event.outcome) ? event.outcome : 'failed';
+      operations.delete(event.operationId);
+      activeActivities.delete(operation.activityToken);
+    }
+  }
+  trimHistory();
+  render();
 }
 
 export function markDirectiveTurnActivity({ label = DEFAULT_LABEL, phase = 'reading', hostGeneration = false } = {}) {
   const token = `directive-turn-${++nextActivityId}`;
-  activeActivities.set(token, {
-    token,
-    hostGeneration,
-    label: String(label || DEFAULT_LABEL),
-    phase: String(phase || 'reading')
-  });
+  const startedAt = clock();
+  if (!activeActivities.size) {
+    sessionStartedAt = Math.min(startedAt, ...[...operations.values()].map(item => item.startedAt));
+    history = [...operations.values()];
+  }
+  activeActivities.set(token, { token, hostGeneration, label: String(label || DEFAULT_LABEL), phase: String(phase || 'reading'), phaseStartedAt: startedAt });
   render();
   return token;
 }
@@ -95,7 +190,10 @@ export function updateDirectiveTurnActivity(token, { label = null, phase = null 
   const activity = activeActivities.get(token);
   if (!activity) return { ok: false, reason: 'activity-unavailable' };
   if (label) activity.label = String(label);
-  if (phase) activity.phase = String(phase);
+  if (phase && phase !== activity.phase) {
+    activity.phase = String(phase);
+    activity.phaseStartedAt = clock();
+  }
   render();
   return { ok: true, token };
 }
@@ -112,34 +210,54 @@ export function finishDirectiveTurnActivity(token) {
 
 export function cancelActiveDirectiveTurnActivities() {
   const count = activeActivities.size;
-  for (const token of [...activeActivities.keys()]) clearDirectiveTurnActivity(token);
+  activeActivities.clear();
+  operations.clear();
+  render();
   return { ok: true, canceled: count };
 }
 
 export function resolveDirectiveHostGenerationHandoff({ token } = {}) {
   const result = updateDirectiveTurnActivity(token, { phase: 'waiting' });
+  if (result.ok) {
+    history.push({ operationId: token, title: 'Waiting for the reply', startedAt: clock() });
+    trimHistory();
+    render();
+  }
   return { ...result, handedOff: result.ok ? 1 : 0 };
 }
 
-// SillyTavern's stream-token event precedes asynchronous rendering. Until the
-// host exposes rendered-chunk evidence, keep waiting through its end/stop event.
+// This proves receipt only, not that the host has rendered the chunk.
+export function receiveDirectiveHostGenerationChunk() {
+  for (const activity of activeActivities.values()) {
+    if (activity.phase !== 'waiting') continue;
+    const entry = history.find(item => item.operationId === activity.token && item.endedAt === undefined);
+    if (entry) { entry.endedAt = clock(); entry.outcome = 'complete'; }
+    history.push({ operationId: activity.token, title: 'Receiving the reply', startedAt: clock() });
+    trimHistory();
+    updateDirectiveTurnActivity(activity.token, { phase: 'receiving' });
+  }
+}
+
 export function finishDirectiveHostGenerationActivities() {
   const tokens = [...activeActivities.values()]
-    .filter((activity) => activity.hostGeneration || activity.phase === 'waiting')
-    .map((activity) => activity.token);
-  for (const token of tokens) clearDirectiveTurnActivity(token);
+    .filter(activity => activity.hostGeneration || activity.phase === 'waiting' || activity.phase === 'receiving')
+    .map(activity => activity.token);
+  for (const token of tokens) {
+    for (const item of history.filter(item => item.operationId === token && item.endedAt === undefined)) {
+      item.endedAt = clock();
+      // Host end alone does not prove success (it also fires for errors).
+      item.outcome = 'ended';
+    }
+    clearDirectiveTurnActivity(token);
+  }
   return { ok: true, finished: tokens.length };
 }
 
 export function disposeDirectiveTurnActivity() {
   cancelActiveDirectiveTurnActivities();
-  const indicator = canRender() ? document.getElementById(INDICATOR_ID) : null;
-  indicator?.remove?.();
-  releaseDirectiveNotificationSurface('activity');
 }
 
 export const __directiveTurnActivityTestHooks = Object.freeze({
-  activeActivities() {
-    return [...activeActivities.values()].map((activity) => ({ ...activity }));
-  }
+  activeActivities: () => [...activeActivities.values()].map(activity => ({ ...activity })),
+  progress: () => ({ presentation: presentation(), active: [...operations.values()].map(item => ({ ...item })), history: history.map(item => ({ ...item })) }),
 });

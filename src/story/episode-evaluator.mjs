@@ -911,7 +911,7 @@ async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
 
 export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000 } = {}) {
     const effectiveTimeoutMs = boundedTimeout(timeoutMs);
-    return async function evaluateEpisode({ request = {}, signal = null } = {}) {
+    return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -934,6 +934,7 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
                         timeoutMs: effectiveTimeoutMs,
                         signal: providerSignal,
                         allowVisibleOutputRetry: false,
+                        onAttempt,
                     },
                 ),
                 effectiveTimeoutMs,

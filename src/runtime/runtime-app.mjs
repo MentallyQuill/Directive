@@ -59,6 +59,7 @@ import {
   reconcileRequiredRecovery,
 } from './accepted-pair-recovery-state.mjs';
 import { createEpisodeReviewScheduler } from './episode-review-scheduler.mjs';
+import { createTurnProgressReporter } from './turn-progress.mjs';
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -566,6 +567,7 @@ export function createDirectiveRuntimeApp({
   idFactory = null
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
+  const turnProgress = createTurnProgressReporter();
   const generationRouter = createDirectiveGenerationRouter(host);
   let fallbackNarrationSettings = normalizeNarrationSettings();
   const narrationSettings = () => normalizeNarrationSettings(host.narration?.getSettings?.() || fallbackNarrationSettings);
@@ -600,11 +602,12 @@ export function createDirectiveRuntimeApp({
   let activeAnalysisFingerprint = null;
   const episodeReviewScheduler = createEpisodeReviewScheduler({
     getToken: () => missionRuntime?.pendingEpisodeReview?.() || null,
-    review: ({ automatic, signal }) => missionRuntime.reviewPendingEpisode({
+    review: ({ automatic, signal, progressScope }) => missionRuntime.reviewPendingEpisode({
       runtimeAssets,
       signal,
       automatic,
       runMutation: enqueueSettlement,
+      progressScope,
     }),
   });
   let internalChatOpenDepth = 0;
@@ -655,8 +658,10 @@ export function createDirectiveRuntimeApp({
     gateway = createStateDeltaGateway({
       getState: () => state,
       setState,
-      persist: async (next) => {
-        await controller.persistActiveCampaign({ campaignState: next });
+      persist: async (next, _descriptor, { progressScope = null } = {}) => {
+        await turnProgress.run('saving', () => (
+          controller.persistActiveCampaign({ campaignState: next })
+        ), { scope: progressScope });
       }
     });
     missionRuntime = createV1MissionRuntime({
@@ -672,7 +677,8 @@ export function createDirectiveRuntimeApp({
           now
         })
       ),
-      now
+      now,
+      turnProgress,
     });
   }
 
@@ -737,12 +743,16 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function syncPrompt({ rebuild = false } = {}) {
+  async function syncPrompt({ rebuild = false, progressScope = null } = {}) {
     if (!state || !currentChatIsBound()) {
       await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'unbound-v1-chat' });
       return { ok: true, active: false };
     }
+    return turnProgress.run('preparing', () => syncBoundPrompt({ rebuild }), { scope: progressScope });
+  }
+
+  async function syncBoundPrompt({ rebuild = false } = {}) {
     await activateNarrationPreset();
     if (!state || !currentChatIsBound()) {
       await restoreNarrationPreset();
@@ -1070,6 +1080,7 @@ export function createDirectiveRuntimeApp({
     attemptKind = 'automatic',
     allowModelCall = true,
     updateRecovery = true,
+    progressScope = turnProgress.createScope(),
   } = {}) {
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
@@ -1113,6 +1124,7 @@ export function createDirectiveRuntimeApp({
           acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
           signal: analysisController?.signal || null,
           allowModelCall: budgetReserved === true,
+          progressScope,
         });
       } while (mission?.ok === false
         && mission.reasonCode === 'persistence-failed'
@@ -1168,7 +1180,7 @@ export function createDirectiveRuntimeApp({
         host.logger?.warn?.('[Directive] Could not derive gameplay notifications from committed state.', error);
       }
     }
-    if (mission?.ok === true && syncPromptAfter) await syncPrompt();
+    if (mission?.ok === true && syncPromptAfter) await syncPrompt({ progressScope });
     return {
       time,
       mission,
@@ -1191,14 +1203,24 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  function scheduleEpisodeReviewFlight({ automatic = true, signal = null } = {}) {
+  function scheduleEpisodeReviewFlight({
+    automatic = true,
+    signal = null,
+    progressScope = turnProgress.createScope(),
+  } = {}) {
     if (!state || !missionRuntime) {
       return Promise.resolve({ ok: false, attempted: false, status: 'inactive', reasonCode: 'inactive' });
     }
-    return episodeReviewScheduler.schedule({ automatic, signal });
+    return episodeReviewScheduler.schedule({
+      automatic,
+      signal,
+      progressScope,
+    });
   }
 
-  async function rebuildAcceptedStateFromChat() {
+  async function rebuildAcceptedStateFromChat({
+    progressScope = turnProgress.createScope(),
+  } = {}) {
     if (!state || !currentChatIsBound()) return { replayed: 0, blocked: false };
     const messages = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || [];
     const activeMessages = messages.filter(activeSourceRow);
@@ -1233,6 +1255,7 @@ export function createDirectiveRuntimeApp({
         attemptKind: 'reconcile',
         allowModelCall: false,
         updateRecovery: false,
+        progressScope,
       });
       if (result.mission?.ok === false) {
         unresolvedCount += 1;
@@ -1242,7 +1265,7 @@ export function createDirectiveRuntimeApp({
       if (result.mission?.status !== 'already-settled') replayed += 1;
     }
     acceptedPairRecovery = noAcceptedPairRecovery();
-    await syncPrompt({ rebuild: true });
+    await syncPrompt({ rebuild: true, progressScope });
     return {
       replayed,
       ...(reconciled > 0 ? { reconciled } : {}),
@@ -1253,7 +1276,7 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  async function invalidateSourceAuthority(id, eventType) {
+  async function invalidateSourceAuthority(id, eventType, progressScope = null) {
     const timePlan = prepareV1AcceptedPairTimeInvalidationByHostMessages({
       campaignState: state,
       hostMessageIds: [id],
@@ -1275,7 +1298,8 @@ export function createDirectiveRuntimeApp({
       hostMessageId: id,
       eventType,
       authorityPatch,
-      authorityDomains
+      authorityDomains,
+      progressScope,
     });
     const time = timePlan.patch
       ? { ...timePlan, status: mission.ok === true ? 'invalidated' : 'unavailable', campaignState: clone(state), patch: null }
@@ -1284,6 +1308,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function invalidateSource(payload, eventType) {
+    const progressScope = turnProgress.createScope();
     const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
     return enqueueSettlement(async () => {
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
@@ -1297,8 +1322,8 @@ export function createDirectiveRuntimeApp({
       const id = messageId(payload, normalized);
       if (!id) return { handled: false, reason: 'message-id-unavailable' };
       acceptedPairRecovery = reconcileRequiredRecovery(eventType);
-      const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType);
-      await syncPrompt({ rebuild: true });
+      const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType, progressScope);
+      await syncPrompt({ rebuild: true, progressScope });
       const replay = {
         replayed: 0,
         blocked: false,
@@ -1349,6 +1374,7 @@ export function createDirectiveRuntimeApp({
 
   const orchestrator = {
     async interceptGeneration() {
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
       await settlementQueue;
       if (!state || !currentChatIsBound()) {
@@ -1371,12 +1397,12 @@ export function createDirectiveRuntimeApp({
       const latestPlayerMessage = await host.chat.getLatestPlayerMessage?.();
       let acceptedPairReplay = null;
       if (acceptedPairRecovery.mode === 'reconcile-required') {
-        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat());
+        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat({ progressScope }));
       } else if (latestPlayerMessage) {
         await publicApi.observeHostPlayerMessage({
           message: latestPlayerMessage,
           source: 'v1-generation-boundary'
-        });
+        }, { progressScope });
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
@@ -1393,7 +1419,7 @@ export function createDirectiveRuntimeApp({
           acceptedPairReplay
         };
       }
-      await syncPrompt();
+      await syncPrompt({ progressScope });
       return {
         handled: true,
         abortDefaultGeneration: false,
@@ -1404,6 +1430,8 @@ export function createDirectiveRuntimeApp({
   };
 
   const publicApi = {
+    subscribeTurnProgress: (listener) => turnProgress.subscribeTurnProgress(listener),
+    resetTurnProgress: () => turnProgress.resetTurnProgress(),
     isCurrentChatBound: () => currentChatIsBound(),
     async initialize() {
       if (initialized) return campaignViewEnvelope('campaign');
@@ -1605,7 +1633,9 @@ export function createDirectiveRuntimeApp({
       });
     },
 
-    async observeHostPlayerMessage(payload = {}) {
+    async observeHostPlayerMessage(payload = {}, {
+      progressScope = turnProgress.createScope(),
+    } = {}) {
       await ensureInitialized();
       const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
       return enqueueSettlement(async () => {
@@ -1615,7 +1645,7 @@ export function createDirectiveRuntimeApp({
         }
         let acceptedPairReplay = null;
         if (acceptedPairRecovery.mode === 'reconcile-required') {
-          acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          acceptedPairReplay = await rebuildAcceptedStateFromChat({ progressScope });
           if (acceptedPairReplay.blocked === true) {
             return {
               handled: false,
@@ -1654,7 +1684,7 @@ export function createDirectiveRuntimeApp({
         const ingressId = payload.ingressId || messageId(payload, current);
         const prepared = await acceptedSnapshotForMessage(current, recent, ingressId);
         if (!prepared.ok) {
-          await syncPrompt();
+          await syncPrompt({ progressScope });
           return { handled: false, reason: prepared.reason };
         }
         return {
@@ -1662,12 +1692,13 @@ export function createDirectiveRuntimeApp({
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
           ...(acceptedPairReplay ? { acceptedPairReplay } : {}),
-          ...(await settleSnapshot(prepared.snapshot, ingressId))
+          ...(await settleSnapshot(prepared.snapshot, ingressId, { progressScope }))
         };
       });
     },
 
     async handleHostGenerationEnded(payload = {}) {
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
       if (!state || !currentChatIsBound()) {
         return { handled: false, reason: 'inactive-or-unbound' };
@@ -1715,7 +1746,7 @@ export function createDirectiveRuntimeApp({
       }
       const responseText = compact(message?.text || message?.mes || message?.content);
       if (!hostMessageId || !responseText) {
-        const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });
+        const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
         return {
           handled: episodeReview.attempted === true,
           reason: 'assistant-message-unavailable',
@@ -1794,7 +1825,7 @@ export function createDirectiveRuntimeApp({
           host.logger?.warn?.('Directive assistant runtime metadata attachment failed.', error);
         }
       }
-      const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true });
+      const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
       return {
         handled: dutyReport.attached || episodeReview.attempted === true,
         status: dutyReport.attached ? 'duty-report-custody-attached' : 'generation-ended-reviewed',
@@ -1808,16 +1839,19 @@ export function createDirectiveRuntimeApp({
     },
 
     async schedulePendingEpisodeReview(options = {}) {
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
-      return scheduleEpisodeReviewFlight({ ...options, automatic: true });
+      return scheduleEpisodeReviewFlight({ ...options, automatic: true, progressScope });
     },
 
     async retryPendingEpisodeReview(options = {}) {
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
-      return scheduleEpisodeReviewFlight({ ...options, automatic: false });
+      return scheduleEpisodeReviewFlight({ ...options, automatic: false, progressScope });
     },
 
     async retryPendingAcceptedPairSettlement() {
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
       return enqueueSettlement(async () => {
         assertAcceptedPairRecovery(acceptedPairRecovery);
@@ -1828,7 +1862,7 @@ export function createDirectiveRuntimeApp({
           return { ok: false, reasonCode: 'inactive-or-unbound', settlementBlocked: true };
         }
         if (acceptedPairRecovery.mode === 'reconcile-required') {
-          const acceptedPairReplay = await rebuildAcceptedStateFromChat();
+          const acceptedPairReplay = await rebuildAcceptedStateFromChat({ progressScope });
           const settlementBlocked = acceptedPairReplay.blocked === true;
           return {
             ok: !settlementBlocked,
@@ -1854,6 +1888,7 @@ export function createDirectiveRuntimeApp({
         const settled = await settleSnapshot(pending.snapshot, pending.ingressId, {
           attemptKind: 'manual',
           allowModelCall: true,
+          progressScope,
         });
         return {
           ...settled,
@@ -1885,6 +1920,8 @@ export function createDirectiveRuntimeApp({
           deferred: true
         };
       }
+      turnProgress.resetTurnProgress();
+      const progressScope = turnProgress.createScope();
       await ensureInitialized();
       sendGameplayNotificationMessage({
         type: 'directive.gameplayNotifications.reset.v1',
@@ -1940,7 +1977,7 @@ export function createDirectiveRuntimeApp({
         try {
           acceptedPairReplay = await timelineTransactions.runExclusive({
             campaignId: state.campaign.id,
-            task: rebuildAcceptedStateFromChat
+            task: () => rebuildAcceptedStateFromChat({ progressScope })
           });
         } catch (error) {
           if (!timelineFork) throw error;
@@ -1954,12 +1991,13 @@ export function createDirectiveRuntimeApp({
           };
         }
       }
-      else await syncPrompt();
+      else await syncPrompt({ progressScope });
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
       }, { campaignLease: false });
     },
 
     async handleHostGenerationStopped() {
+      turnProgress.resetTurnProgress();
       if (!activeAnalysisController || activeAnalysisController.signal.aborted) {
         return { ok: true, canceled: false, reason: 'no-directive-analysis-active' };
       }
@@ -2349,6 +2387,7 @@ export function createDirectiveRuntimeApp({
     ),
 
     async resetRuntimeUiState() {
+      turnProgress.resetTurnProgress();
       activeScreen = 'campaign';
       creatorView = null;
       activeDraftId = null;

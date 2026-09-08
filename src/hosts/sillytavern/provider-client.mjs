@@ -472,7 +472,7 @@ function policyFor(kind, config, context, { forceStructuredOutput = null } = {})
   return { ...identity, certification, policy };
 }
 
-async function sendViaConnectionProfile(context, config, request, resolved) {
+async function sendViaConnectionProfile(context, config, request, resolved, onAttempt) {
   const { service, profile, metadata, apiMap } = resolveProfile(context, config.profileId);
   const schema = resolved.policy.structuredOutputMethod === 'native-schema' ? schemaContract(request) : null;
   let samplerPayload = resolved.policy.samplerOverrides || {};
@@ -491,19 +491,17 @@ async function sendViaConnectionProfile(context, config, request, resolved) {
     ...samplerPayload,
     ...(schema ? { json_schema: schema } : {})
   };
-  const response = await service.sendRequest(
-    config.profileId,
-    requestMessages(request),
-    requestMaxTokens(request, config),
-    {
-      stream: false,
-      extractData: true,
-      includePreset: resolved.policy.includePreset,
-      includeInstruct: resolved.policy.includeInstruct,
-      signal: request.signal
-    },
-    payload
-  );
+  const messages = requestMessages(request);
+  const maxTokens = requestMaxTokens(request, config);
+  const requestOptions = {
+    stream: false,
+    extractData: true,
+    includePreset: resolved.policy.includePreset,
+    includeInstruct: resolved.policy.includeInstruct,
+    signal: request.signal
+  };
+  onAttempt?.();
+  const response = await service.sendRequest(config.profileId, messages, maxTokens, requestOptions, payload);
   return {
     response,
     providerId: `sillytavern-profile:${metadata.id}`,
@@ -513,7 +511,7 @@ async function sendViaConnectionProfile(context, config, request, resolved) {
   };
 }
 
-async function sendViaCurrentModel(context, config, request, resolved) {
+async function sendViaCurrentModel(context, config, request, resolved, onAttempt) {
   const { messages } = requestPrompts(request);
   const schema = resolved.policy.structuredOutputMethod === 'native-schema' ? schemaContract(request) : null;
   const maxTokens = requestMaxTokens(request, config);
@@ -542,7 +540,7 @@ async function sendViaCurrentModel(context, config, request, resolved) {
   if (resolved.completionMode === 'chat' && typeof context?.ChatCompletionService?.processRequest === 'function') {
     const source = textValue(context?.chatCompletionSettings?.chat_completion_source);
     const appliedPresetName = resolved.policy.includePreset ? presetName : '';
-    response = await context.ChatCompletionService.processRequest({
+    const payload = {
       stream: false,
       messages,
       ...(model ? { model } : {}),
@@ -550,11 +548,13 @@ async function sendViaCurrentModel(context, config, request, resolved) {
       max_tokens: maxTokens,
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
-    }, appliedPresetName ? { presetName: appliedPresetName } : {}, true, request.signal);
+    };
+    onAttempt?.();
+    response = await context.ChatCompletionService.processRequest(payload, appliedPresetName ? { presetName: appliedPresetName } : {}, true, request.signal);
   } else if (resolved.completionMode === 'text' && typeof context?.TextCompletionService?.processRequest === 'function') {
     const appliedPresetName = resolved.policy.includePreset ? presetName : '';
     const instructName = resolved.policy.includeInstruct ? currentInstructName(context) : '';
-    response = await context.TextCompletionService.processRequest({
+    const payload = {
       stream: false,
       prompt: messages,
       ...(model ? { model } : {}),
@@ -562,10 +562,13 @@ async function sendViaCurrentModel(context, config, request, resolved) {
       api_type: textValue(context?.textCompletionSettings?.type || context?.textGenType),
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
-    }, {
+    };
+    const requestOptions = {
       ...(appliedPresetName ? { presetName: appliedPresetName } : {}),
       ...(instructName ? { instructName } : {})
-    }, true, request.signal);
+    };
+    onAttempt?.();
+    response = await context.TextCompletionService.processRequest(payload, requestOptions, true, request.signal);
   } else {
     throw providerError(
       'DIRECTIVE_PROVIDER_UNAVAILABLE',
@@ -608,8 +611,8 @@ export function createDirectiveProviderClient({
       );
     }
     const sent = config.provider === 'profile'
-      ? await sendViaConnectionProfile(context, config, request, resolved)
-      : await sendViaCurrentModel(context, config, request, resolved);
+      ? await sendViaConnectionProfile(context, config, request, resolved, options.onAttempt)
+      : await sendViaCurrentModel(context, config, request, resolved, options.onAttempt);
     const response = normalizeSillyTavernResponse(sent.response);
     const text = extractText(response, {
       providerTitle: config.provider === 'profile' ? 'Connection profile' : 'SillyTavern',
@@ -646,18 +649,28 @@ export function createDirectiveProviderClient({
     const control = createGenerationControl(request, options);
     let result;
     let retriedForVisibleOutput = false;
+    let attempt = 0;
+    const onTransportAttempt = () => {
+      attempt += 1;
+      try {
+        Promise.resolve(options.onAttempt?.(attempt)).catch(() => null);
+      } catch {
+        // Attempt reporting is presentation-only.
+      }
+    };
+    const sendAttempt = (attemptRequest, transportOptions = {}) => control.run(sendTransport(
+      kind, config, attemptRequest, { ...transportOptions, onAttempt: onTransportAttempt }
+    ));
     try {
       try {
-        result = await control.run(sendTransport(kind, config, control.request));
+        result = await sendAttempt(control.request);
       } catch (error) {
         if (options.allowVisibleOutputRetry === false || !shouldRetryVisibleOutput(error)) throw error;
         retriedForVisibleOutput = true;
-        result = await control.run(sendTransport(
-          kind,
-          config,
+        result = await sendAttempt(
           visibleOutputRetryRequest(control.request),
           { retriedForVisibleOutput: true }
-        ));
+        );
       }
     } catch (error) {
       throw normalizeThrownError(error, kind);

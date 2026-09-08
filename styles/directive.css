@@ -342,7 +342,7 @@
 
 .directive-turn-activity-indicator {
   display: grid;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .directive-turn-activity-indicator[hidden] {
@@ -360,8 +360,7 @@
   min-width: 0;
   color: #f8efe0;
   font: 800 12px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .directive-turn-activity-indicator .directive-notification-title-icon {
@@ -6018,3 +6017,38 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     min-height: 44px;
   }
 }
+
+.directive-turn-activity-elapsed,
+.directive-turn-activity-concurrent,
+.directive-turn-activity-details {
+  color: #c6bba8;
+  font: 400 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif;
+  overflow-wrap: anywhere;
+}
+.directive-turn-activity-elapsed {
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+.directive-turn-activity-details { margin-top: 3px; }
+.directive-turn-activity-details summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 3px 2px;
+  color: #f2a126;
+}
+.directive-turn-activity-details summary:focus-visible {
+  outline: 2px solid #ffc15b;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.directive-turn-activity-history {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  max-height: min(200px, 30vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.directive-turn-activity-history li { padding: 2px 0; }
+.directive-turn-activity-history [data-outcome="failed"] { color: #ffbd9e; }
+.directive-turn-activity-concurrent[hidden],
+.directive-turn-activity-details[hidden] { display: none; }

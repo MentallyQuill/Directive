@@ -317,7 +317,7 @@ assert.equal(
 );
 assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'Reading your post...'
+  'Processing the turn...'
 );
 releaseBoundarySettlement();
 await boundaryInterception;
@@ -329,7 +329,7 @@ assert.equal(
 );
 assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'Waiting for a response...',
+  'Waiting for the reply...',
   'successful settlement must hand activity off to host narration'
 );
 await new Promise((resolve) => setTimeout(resolve, 850));

@@ -224,11 +224,12 @@ export function createStateDeltaGateway({
     return state;
   }
 
-  async function persistCommit(before, after, descriptor) {
+  async function persistCommit(before, after, descriptor, options = {}) {
     setState(after);
     if (typeof persist !== 'function' || descriptor?.persist === false) return;
     try {
-      await persist(after, descriptor);
+      if (options?.progressScope) await persist(after, descriptor, options);
+      else await persist(after, descriptor);
     } catch (cause) {
       const current = getState();
       if (stableJson(current) === stableJson(after)) {
@@ -247,7 +248,7 @@ export function createStateDeltaGateway({
     }
   }
 
-  async function applyProposal(proposal = {}) {
+  async function applyProposal(proposal = {}, options = {}) {
     const before = cloneJson(currentState());
     const domains = normalizeDomains(proposal.domains);
     const id = proposalId(proposal, domains);
@@ -269,7 +270,7 @@ export function createStateDeltaGateway({
     }
     const after = withCustodyCommit(candidate, id);
     assertV1CampaignState(after);
-    await persistCommit(before, after, proposal);
+    await persistCommit(before, after, proposal, options);
     return {
       campaignState: cloneJson(after),
       noChange: false,
@@ -290,7 +291,7 @@ export function createStateDeltaGateway({
     if (!changed.length) return before;
     const after = withCustodyCommit(candidate, id);
     assertV1CampaignState(after);
-    await persistCommit(before, after, { ...delta, persist: options.persist ?? delta.persist });
+    await persistCommit(before, after, { ...delta, persist: options.persist ?? delta.persist }, options);
     return cloneJson(after);
   }
 

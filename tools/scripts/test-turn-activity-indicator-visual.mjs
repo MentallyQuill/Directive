@@ -40,6 +40,7 @@ try {
       off(name) { listeners.delete(name); }
     }, eventTypes: { GENERATION_ENDED: 'generation_ended' } });
     globalThis.__emitActivityEnd = () => listeners.get('generation_ended')();
+    globalThis.__emitActivityStream = text => listeners.get('STREAM_TOKEN_RECEIVED')(text);
     bridge.setSillyTavernDirectiveRuntimeBridge({
       turnOrchestrator: {
         async interceptGeneration() {
@@ -58,7 +59,7 @@ try {
   const indicator = page.locator('#directive-turn-activity-indicator');
   await indicator.waitFor({ state: 'visible', timeout: 1200 });
   assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'Directive');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reading your post...');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Processing the turn...');
   assert.equal(await indicator.locator('.directive-notification-title-icon').getAttribute('data-glyph'), 'route-campaign');
   assert.equal(await indicator.locator('button').count(), 0, 'turn activity remains lifecycle-controlled and non-dismissible');
   const activityStyle = await indicator.evaluate((card) => ({
@@ -69,7 +70,7 @@ try {
   assert.equal(activityStyle.borderLeftColor, 'rgb(242, 161, 38)', 'activity uses the shared yellow-orange accent');
   assert.equal(activityStyle.clipPath, 'none', 'activity outline and shadow are not polygon-clipped');
   assert.equal(activityStyle.borderRadius, '4px', 'activity uses the shared softly rounded bevel');
-  await page.waitForTimeout(220);
+  await indicator.evaluate(card => Promise.all(card.getAnimations().map(animation => animation.finished)));
   const readingGeometry = await indicator.boundingBox();
   assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
   assert.ok(
@@ -77,11 +78,40 @@ try {
     `reading status shares the upper Directive notification lane: ${JSON.stringify(readingGeometry)}`,
   );
   await page.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'review', stage: 'reviewing-events', startedAt: performance.now() });
+  });
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reviewing recent events...');
+  assert.equal(await indicator.locator('[role="status"]').count(), 1);
+  assert.equal(await indicator.locator('.directive-turn-activity-elapsed').getAttribute('aria-live'), 'off');
+  await indicator.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await indicator.locator('details').getAttribute('open'), '');
+  assert.match(await indicator.locator('ol').textContent(), /Reviewing recent events.*In progress/);
+  await page.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'episode', stage: 'reviewing-episode', startedAt: performance.now() });
+    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'episode', attempt: 2 });
+  });
+  assert.match(await indicator.locator('.directive-turn-activity-concurrent').textContent(), /Reviewing recent events/);
+  assert.match(await indicator.locator('.directive-turn-activity-label').textContent(), /attempt 2/);
+  assert.equal(await indicator.locator('summary').evaluate(node => node === document.activeElement), true, 'progress updates preserve disclosure focus');
+  const progressArtifacts = path.join(repoRoot, 'artifacts', 'turn-progress');
+  mkdirSync(progressArtifacts, { recursive: true });
+  await page.screenshot({path: path.join(progressArtifacts, 'desktop-details.png')});
+  await page.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'episode', outcome: 'failed', endedAt: performance.now() });
+    activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'review', outcome: 'complete', endedAt: performance.now() });
+  });
+  assert.match(await indicator.locator('ol').textContent(), /Reviewing the episode.*Failed/);
+  await indicator.locator('summary').click();
+  await page.evaluate(async () => {
     globalThis.__releaseActivityInterception();
     await globalThis.__directiveBoundaryInterception;
   });
   assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'waiting', 'handoff updates immediately without a reading hold');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Waiting for a response...');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Waiting for the reply...');
 
   await page.evaluate(() => {
     const base = {
@@ -117,6 +147,8 @@ try {
     clip: { x: Math.max(0, waitingBox.x - 24), y: Math.max(0, waitingBox.y - 8), width: waitingBox.width + 48, height: waitingBox.height + 40 },
   });
   assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'SillyTavern');
+  await page.evaluate(() => globalThis.__emitActivityStream('actual stream chunk'));
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Receiving the reply...');
   await page.evaluate(async () => {
     globalThis.__emitActivityEnd();
   });
@@ -145,6 +177,22 @@ try {
   }));
   assert.equal(reducedStyles.cardAnimation, 'none');
   assert.equal(reducedStyles.glyphAnimation, 'none');
+  await reducedPage.evaluate(async () => {
+    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'mobile', stage: 'updating-characters', startedAt: performance.now() });
+    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 2 });
+  });
+  await reducedIndicator.locator('summary').click();
+  const mobileBox = await reducedIndicator.boundingBox();
+  assert.ok(mobileBox.x >= 0 && mobileBox.x + mobileBox.width <= 390, 'expanded mobile status remains inside the viewport');
+  assert.equal(await reducedIndicator.locator('.directive-turn-activity-label').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'long retry label wraps without clipping');
+  await reducedPage.screenshot({path: path.join(progressArtifacts, 'mobile-details.png')});
+  await reducedPage.setViewportSize({width: 320, height: 780});
+  await reducedPage.waitForFunction(() => {
+    const box = document.querySelector('#directive-turn-activity-indicator').getBoundingClientRect();
+    return box.left >= 0 && box.right <= 320;
+  });
+  assert.equal(await reducedIndicator.locator('.directive-turn-activity-label').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'retry label remains readable at 320px');
   await reducedPage.evaluate(async () => {
     const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
     activity.clearDirectiveTurnActivity(globalThis.__directiveReducedActivityToken);

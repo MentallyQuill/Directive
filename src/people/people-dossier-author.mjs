@@ -184,7 +184,9 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
 }
 
 export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs = 30000 } = {}) {
-    return async function authorPeopleDossiers({ introductions = [], campaignContext = {}, signal = null } = {}) {
+    return async function authorPeopleDossiers({
+        introductions = [], campaignContext = {}, signal = null, onAttempt = null,
+    } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -200,6 +202,7 @@ export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs =
                 timeoutMs,
                 signal,
                 allowVisibleOutputRetry: false,
+                onAttempt,
             });
         } catch {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };
