@@ -87,7 +87,7 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
   const calls = [];
   async function generate(role, request = {}, options = {}) {
     calls.push({ role, request: cloneJson(request) });
-    const configured = responses[role] ?? { text: defaultText, providerId: `fake-${role}` };
+    const configured = responses[role] ?? (role === 'openingSceneDirector' ? { text: JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:(request.context?.backgroundReferences || []).slice(0,1).map(entry => entry.id),emphasis:'balanced'}) } : { text: defaultText, providerId: `fake-${role}` });
     const response = typeof configured === 'function'
       ? await configured({
         role,
@@ -101,6 +101,7 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
   }
   return {
     generate,
+    generateNarration: request => generate('narration', request),
     role(roleName) {
       return {
         id: `fake-${roleName}`,
@@ -144,6 +145,7 @@ export function createFakeChatAdapter({
   let currentChatId = chatId;
   let binding = null;
   const metadataByChatId = new Map();
+  const openingRecords = new Map();
   const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
   const calls = [];
@@ -304,6 +306,8 @@ export function createFakeChatAdapter({
       });
     },
     async postAssistantMessage(options = {}) {
+      if (options.requireEmpty && messagesForChat(currentChatId).some(message => !message.isSystem && message.role !== 'system')) return {posted:false,reason:'chat-not-empty'};
+      if (options.expectedBinding && ['campaignId', 'saveId', 'chatId'].some(field => this.getCurrentBinding()?.[field] !== options.expectedBinding[field])) throw new Error('Opening binding changed.');
       const chatMessages = messagesForChat();
       const existing = chatMessages.find((message) => message.metadata?.idempotencyKey === options.idempotencyKey);
       if (existing) {
@@ -548,6 +552,7 @@ export function createFakeChatAdapter({
         }
       }
       metadataByChatId.set(String(branchChatId), cloneJson(nextBinding));
+      if (openingRecords.has(String(sourceChatId))) openingRecords.set(String(branchChatId), cloneJson(openingRecords.get(String(sourceChatId))));
       if (options.open === true) {
         currentChatId = branchChatId;
         storeBinding(nextBinding);
@@ -622,6 +627,7 @@ export function createFakeChatAdapter({
       endpoint.extra = endpoint.extra && typeof endpoint.extra === 'object' ? endpoint.extra : {};
       endpoint.extra.branches = Array.isArray(endpoint.extra.branches) ? endpoint.extra.branches : [];
       if (!endpoint.extra.branches.includes(resolvedChildChatId)) endpoint.extra.branches.push(resolvedChildChatId);
+      if (openingRecords.has(String(parentChatId))) openingRecords.set(String(resolvedChildChatId), cloneJson(openingRecords.get(String(parentChatId))));
       metadataByChatId.set(String(resolvedChildChatId), {
         main_chat: parentChatId,
         entityType: 'character',
@@ -668,6 +674,8 @@ export function createFakeChatAdapter({
       });
       return true;
     },
+    getOpeningRecord() { return cloneJson(openingRecords.get(String(currentChatId)) || null); },
+    async setOpeningRecord(record) { openingRecords.set(String(currentChatId), cloneJson(record)); return true; },
     getBindingMetadata() {
       return cloneJson(metadataByChatId.get(String(currentChatId)) || null);
     },
@@ -689,6 +697,7 @@ export function createFakeChatAdapter({
         return { deleted: false, reason: 'active-chat' };
       }
       metadataByChatId.delete(String(chatId));
+      openingRecords.delete(String(chatId));
       const deleted = chatsById.delete(String(chatId));
       calls.push({ type: 'deleteCampaignChat', chatId });
       return { deleted, chatId };
@@ -706,6 +715,7 @@ export function createFakeChatAdapter({
       const deletedChatIds = [...chatsById.keys()];
       chatsById.clear();
       metadataByChatId.clear();
+      openingRecords.clear();
       nativeMainChatByChatId.clear();
       binding = null;
       currentChatId = '';
@@ -996,6 +1006,7 @@ export function createFakeDirectiveHost(options = {}) {
     events: options.events || createFakeEventAdapter(),
     generation: options.generation || createFakeGenerationClient(options.generationOptions),
     providers: options.providers || createFakeProviderAdapter(options.providerOptions),
+    narration: options.narration,
     presets: options.presets,
     chat: options.chat || createFakeChatAdapter(options.chatOptions),
     prompt: options.prompt || createFakePromptAdapter(),

@@ -18,10 +18,30 @@
     "openingStardate": 53068.4,
     "openingYear": 2376,
     "highConcept": "The war is over, but peace in the Asterion Reach depends on who controls Starfleet's voice, who receives relief, and whose evidence survives. The newly refit U.S.S. Breckenridge enters that fracture with an incoming executive officer and a command team still learning how to trust one another.",
-    "openingMessage": "Yesterday morning, your shuttle rendezvoused with the U.S.S. Breckenridge while the newly refitted ship held at impulse beyond Mars. The docking collar settled with a muted thump, and the first open hatch revealed fresh bulkhead panels, old deck plating, and a crew still learning the shape of its ship after four months in the yards.\n\nAn operations yeoman showed you to the executive officer’s cabin. Four PADDs waited on the desk: your transfer orders, senior-staff dossiers, the refit and readiness reports, and Starfleet’s briefing on the Asterion Reach. The hours that followed passed between those files and a first walk through the Breckenridge—enough time to see where the official reports and the lived-in ship did not quite agree.\n\nNow it is 0830 the following morning. The Breckenridge is underway, and the softer chime of Captain Mara Whitaker’s ready room waits beside your hand. The formal command handover is on the other side of the door.",
-    "openingContext": {
-      "continuitySummary": "The player arrived aboard the U.S.S. Breckenridge by shuttle the previous morning, was shown to the executive officer’s cabin, and received PADDs containing transfer orders, senior-staff dossiers, refit and readiness reports, and the Asterion Reach briefing. The player spent the intervening day reviewing those materials and seeing the newly refitted ship firsthand.",
+    "openingPremise": {
+      "firstSceneEndObjectiveId": "objective.prelude.command-handover",
+      "continuitySummary": "The player arrived aboard the U.S.S. Breckenridge by shuttle the previous morning while the ship held at impulse beyond Mars, was shown to the executive officer’s cabin, and received PADDs containing transfer orders, senior-staff dossiers, refit and readiness reports, and the Asterion Reach briefing. Those materials and the newly refitted ship were available during the intervening day; do not invent what the player read, thought, or chose to do.",
       "firstPlayableScene": "At 0830 the following morning, the player is outside Captain Mara Whitaker’s ready room before their first personal meeting and formal command handover.",
+      "requiredContext": [
+        "The player is the incoming executive officer of the U.S.S. Breckenridge.",
+        "The ship has returned from four months of repairs and modernization at Utopia Planitia.",
+        "It is 0830 the morning after arrival; the Breckenridge is underway.",
+        "The player is outside Captain Mara Whitaker’s ready room; the first personal meeting and formal command handover have not begun."
+      ],
+      "sceneMaterial": [
+        "Fresh bulkhead panels contrast with older deck plating.",
+        "Four PADDs were waiting in the executive officer’s cabin: transfer orders, senior-staff dossiers, refit and readiness reports, and the Asterion Reach briefing.",
+        "The ready-room door and its chime mark the boundary of the first playable scene."
+      ],
+      "personalization": [
+        "Use relevant accepted public service background to frame the assignment without inventing a memory, reaction or decision.",
+        "Preserve the accepted player name and address."
+      ],
+      "forbiddenFacts": [
+        "Do not invent player speech, actions, thoughts, feelings, choices or review of the supplied reports.",
+        "Do not reveal private motives, secrets, hidden crew state, or future mission developments.",
+        "Do not sound the chime, enter the ready room, or begin the meeting on the player’s behalf."
+      ],
       "firstSceneGuidance": [
         "Whitaker greets the player by name and introduces herself properly before discussing command business.",
         "Whitaker offers a seat and coffee or another ordinary professional courtesy.",
@@ -30,6 +50,10 @@
         "In the first reply inside the ready room, stop after the greeting, courtesy, and one conversational question or invitation; Whitaker does not pivot into business in that same reply.",
         "Do not mention readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms until the player has answered that conversational opening.",
         "Transition naturally into the command handover only after a human conversational rhythm is established; do not frame the meeting as an interrogation, wartime emergency, or immediate mission briefing."
+      ],
+      "continuationGuidance": [
+        "After the player answers the conversational opening, allow a natural conversational rhythm before transitioning into the command handover.",
+        "The captain retains final command authority. Keep the handover professional and unhurried; do not invent the player’s acceptance or social posture."
       ]
     }
   },

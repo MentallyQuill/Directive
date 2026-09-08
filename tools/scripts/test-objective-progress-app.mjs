@@ -38,5 +38,5 @@ assert.equal(reopened.ok, true, reopened.message);
 const openView = await reloadedApp.getCurrentView({ tabId: 'mission' });
 assert.equal(openView.v1PlayerProjection.mission.objectives.find(o => o.id === objective.id).progressControl.mode, 'confirmation_required');
 assert.ok(host.ui.messages().some(m => m.payload?.type === 'directive.gameplayNotifications.retire.v1'), 'correction retires old completion notices');
-assert.equal(host.generation.calls().length, 0, 'manual adjustments and reload require no model calls');
+assert.equal(host.generation.calls().filter(call => !['openingSceneDirector', 'narration'].includes(call.role)).length, 0, 'manual adjustments and reload require no model calls');
 console.log('Objective progress app command integration passed with fake host and no provider calls.');

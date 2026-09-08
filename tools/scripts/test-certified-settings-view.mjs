@@ -23,6 +23,7 @@ const view = {
 assert.deepEqual(buildCertifiedSettingsView(view), {
   sections: [
     { id: 'interface', label: 'Interface' },
+    { id: 'narration', label: 'Narration', narrationSettings: { pov: 'third-person-limited', tense: 'past' } },
     { id: 'providers', label: 'Model Lanes', providerConfiguration: view.providerConfiguration },
     { id: 'preset', label: 'Directive Preset', directivePreset: view.directivePreset },
     { id: 'routing', label: 'Model-Call Routing', generationRouting: view.generationRouting },

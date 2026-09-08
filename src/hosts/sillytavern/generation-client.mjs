@@ -97,7 +97,7 @@ async function callSillyTavernGeneration(context, request, route = {}) {
       return context.generateQuietPrompt([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
     }
   }
-  if (typeof context.generate === 'function') return context.generate(prompt);
+  if (typeof context.generate === 'function') return context.generate([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
   if (typeof context.generateText === 'function') return context.generateText({ ...request, prompt });
   throw providerUnavailable('SillyTavern context does not expose a supported generation method.');
 }
@@ -171,6 +171,23 @@ export function createSillyTavernGenerationClient({
 
   return {
     id: 'sillytavern-generation-client',
+    async generateNarration(request = {}) {
+      return withOwnedGeneration(async () => {
+        const context = contextFactory();
+        if (!context) throw providerUnavailable('SillyTavern context is not available for narration.');
+        // Main narration uses the selected chat model, never a structured utility/reasoning profile.
+        const messages = Array.isArray(request.messages) ? request.messages : [];
+        const nativeRequest = messages.length ? {
+          ...request,
+          systemPrompt: [request.systemPrompt, ...messages.filter(message => message.role === 'system').map(message => message.content)].filter(Boolean).join('\n\n'),
+          prompt: messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n')
+        } : request;
+        const raw = await callSillyTavernGeneration(context, nativeRequest);
+        const text = normalizeText(raw);
+        if (!text || isReasoningOnly(text)) throw providerUnavailable('The narration model returned no visible opening.');
+        return { text, providerId: 'sillytavern-current-provider', roleId: 'narration' };
+      });
+    },
     generate,
     batch,
     role(roleId) {

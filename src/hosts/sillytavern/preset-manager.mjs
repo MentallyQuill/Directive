@@ -1,3 +1,5 @@
+import { createNarrationPolicy } from '../../narration/narration-policy.mjs';
+import { getSillyTavernDirectiveNarrationSettings } from './settings-store.mjs';
 import {
   getSillyTavernDirectivePresetAutoCheckPreference,
   setSillyTavernDirectivePresetAutoCheckDismissedVersion,
@@ -6,11 +8,11 @@ import {
 
 export const DIRECTIVE_PRESET_API_ID = 'openai';
 export const DIRECTIVE_PRESET_NAME = 'Directive';
-export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.13';
+export const DIRECTIVE_PRESET_VERSION = 'Directive-0.1.0-pre-alpha.14';
 export const DIRECTIVE_PRESET_ASSET_URL = new URL('../../../presets/sillytavern/directive.json', import.meta.url);
 export const DIRECTIVE_DEFAULT_POV_RULE = 'third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.';
 export const DIRECTIVE_DEFAULT_TENSE_RULE = 'past tense';
-export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = '# Player Agency And Perspective\nWrite in past tense, third person limited external - narrate the world, crew, NPCs, ship or station, reports, and observable player command-character behavior from outside the player\'s private interior. Do not enter the player\'s thoughts, feelings, unspoken intent, or decisions.\n\nOnly the user speaks, acts, decides, and thinks for the player\'s command character. Do not write the player\'s dialogue, private thoughts, physical actions, chosen orders, final decision, emotional reaction, unspoken intent, or future choice.\n\nDescribe only what others can observe about the player\'s command character: words already written by the user, visible posture, position, equipment, injuries, publicly available status, and consequences already established by Directive state or chat history. Typed narration, planning notes, stage direction, and private inner monologue are not audible. Treat only explicit dialogue, spoken orders, transmissions, or established telepathic contact as information other characters can perceive. If the next beat requires the player\'s choice, stop at a command-relevant opening instead of filling in the choice.';
+export const DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE = createNarrationPolicy().instruction;
 
 const VERSION_PATTERN = /(?:Directive[-\s]*)?v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-z.-]+))?/i;
 const DIRECTIVE_TENSE_VARIABLE = 'directive_tense';
@@ -132,17 +134,6 @@ function extractDirectivePov(content) {
   return value;
 }
 
-function extractDirectiveTense(content) {
-  const source = String(content || '');
-  const pattern = new RegExp(`\\{\\{setvar::${DIRECTIVE_TENSE_VARIABLE}::([\\s\\S]*?)\\}\\}`, 'gi');
-  let match = null;
-  let value = '';
-  while ((match = pattern.exec(source))) {
-    value = compactText(match[1]);
-  }
-  return value;
-}
-
 function activePromptContent(preset, identifier) {
   return orderedPresetPrompts(preset)
     .find((entry) => entry.enabled && entry.identifier === identifier)
@@ -168,81 +159,17 @@ function compatibleDirectivePreset(preset, presetName = '') {
     && Boolean(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER));
 }
 
-function missingDirectiveStyleReason({ tense = '', perspective = '' } = {}) {
-  const missing = [];
-  if (!tense) missing.push('directive_tense');
-  if (!perspective) missing.push('directive_pov');
-  if (missing.length === 0) return null;
-  return `Directive-compatible preset did not expose enabled ${missing.join(' and ')} value${missing.length === 1 ? '' : 's'}; Directive default style applied.`;
-}
-
-export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'narration' } = {}) {
-  const base = {
-    kind: 'directive.narrationPresetContext',
-    roleId,
-    activePresetName: presetName || null,
-    compatible: false,
-    source: 'directive-default',
-    tense: DIRECTIVE_DEFAULT_TENSE_RULE,
-    perspective: DIRECTIVE_DEFAULT_POV_RULE,
-    instructions: DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE,
-    promptIdentifiers: [],
-    reason: null
-  };
-  if (!isObject(preset)) {
-    return {
-      ...base,
-      source: 'preset-unavailable',
-      reason: 'No active SillyTavern preset could be read; Directive default perspective applied.'
-    };
-  }
-  if (!compatibleDirectivePreset(preset, presetName)) {
-    return {
-      ...base,
-      source: 'unrelated-active-preset',
-      reason: 'The active SillyTavern preset is not Directive-compatible; Directive default perspective applied.'
-    };
-  }
-
-  let perspective = '';
-  let tense = '';
-  let perspectivePromptId = null;
-  let tensePromptId = null;
-  const promptIdentifiers = [];
-  for (const entry of orderedPresetPrompts(preset)) {
-    if (!entry.enabled) continue;
-    promptIdentifiers.push(entry.identifier);
-    const nextTense = extractDirectiveTense(entry.prompt?.content);
-    if (nextTense) {
-      tense = nextTense;
-      tensePromptId = entry.identifier;
-    }
-    const nextPov = extractDirectivePov(entry.prompt?.content);
-    if (nextPov) {
-      perspective = nextPov;
-      perspectivePromptId = entry.identifier;
-    }
-  }
-  const resolvedTense = tense || DIRECTIVE_DEFAULT_TENSE_RULE;
-  const resolvedPerspective = perspective || DIRECTIVE_DEFAULT_POV_RULE;
-  const playerAgency = compactText(activePromptContent(preset, DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER))
-    .replace(new RegExp(`\\{\\{getvar::${DIRECTIVE_TENSE_VARIABLE}\\}\\}`, 'gi'), resolvedTense)
-    .replace(new RegExp(`\\{\\{getvar::${DIRECTIVE_POV_VARIABLE}\\}\\}`, 'gi'), resolvedPerspective)
-    .replace(/\{\{user\}\}/g, 'the user');
-  const instructions = playerAgency || DIRECTIVE_DEFAULT_PLAYER_AGENCY_RULE;
+export function directiveNarrationContextFromPreset(preset, { presetName = '', roleId = 'narration', settings, player } = {}) {
+  const policy = createNarrationPolicy({ settings, player });
+  const compatible = compatibleDirectivePreset(preset, presetName);
   return {
-    ...base,
-    compatible: true,
-    source: directivePresetMetadata(preset).supportsDirectiveRuntime || String(presetName || '').trim().toLowerCase() === DIRECTIVE_PRESET_NAME.toLowerCase()
-      ? 'active-directive-preset'
-      : 'active-compatible-preset',
-    tense: resolvedTense,
-    perspective: resolvedPerspective,
-    instructions,
-    promptIdentifiers,
-    tensePromptId,
-    perspectivePromptId,
-    reason: missingDirectiveStyleReason({ tense, perspective })
+    kind: 'directive.narrationPresetContext', roleId, activePresetName: presetName || null,
+    compatible, source: !isObject(preset) ? 'preset-unavailable' : !compatible ? 'unrelated-active-preset' : 'active-directive-preset',
+    tense: policy.tense + ' tense',
+    perspective: policy.pov === 'third-person-limited' ? DIRECTIVE_DEFAULT_POV_RULE : policy.pov.replaceAll('-', ' '),
+    instructions: policy.instruction,
+    promptIdentifiers: orderedPresetPrompts(preset).filter(entry => entry.enabled).map(entry => entry.identifier),
+    tensePromptId: null, perspectivePromptId: null, reason: null
   };
 }
 
@@ -663,14 +590,59 @@ export function createSillyTavernDirectivePresetManager({
     const pm = manager();
     if (!pm) {
       return directiveNarrationContextFromPreset(null, {
+        settings: getSillyTavernDirectiveNarrationSettings(getContext()),
+        player: options.player,
         roleId: options.roleId || 'narration'
       });
     }
     const selected = selectedPresetRecord(pm);
     return cloneJson(directiveNarrationContextFromPreset(selected.preset, {
       presetName: selected.name,
-      roleId: options.roleId || 'narration'
+      settings: getSillyTavernDirectiveNarrationSettings(getContext()),
+        player: options.player,
+        roleId: options.roleId || 'narration'
     }));
+  }
+
+  async function getProseGuidance() {
+    const bundled = await loadBundledPreset();
+    const selected = selectedPresetRecord(manager());
+    const preset = compatibleDirectivePreset(selected.preset, selected.name) ? selected.preset : bundled;
+    // Resolve only request-local variables. Host macro substitution can mutate
+    // chat/global variables, so opening extraction must never invoke it.
+    const variables = new Map();
+    const protectedVariables = new Set(['directive_pov', 'directive_tense']);
+    const resolve = (content) => {
+      let result = String(content || '');
+      for (let pass = 0; pass < 20; pass += 1) {
+        const previous = result;
+        result = result.replace(/\{\{([^{}]*)\}\}/g, (_, macro) => {
+          const [operation, name, ...parts] = macro.split('::');
+          if (operation === 'setvar') {
+            if (!protectedVariables.has(name)) variables.set(name, parts.join('::'));
+            return '';
+          }
+          if (operation === 'getvar') return protectedVariables.has(name)
+            ? 'the injected global narration policy' : variables.get(name) || '';
+          if (operation === 'random' || operation === 'pick') {
+            const choices = [name, ...parts];
+            return choices[Math.floor(choices.length / 2)] || '';
+          }
+          if (operation === 'user') return 'the user';
+          if (operation === 'newline') return '\n';
+          return '';
+        });
+        if (result === previous) break;
+      }
+      return result.trim();
+    };
+    const guidance = orderedPresetPrompts(preset).filter(entry => entry.enabled && !entry.prompt.marker
+      && !/^directive-(tense|pov)-/.test(entry.identifier)
+      && entry.identifier !== DIRECTIVE_PLAYER_AGENCY_PROMPT_IDENTIFIER
+      && entry.identifier !== 'directive-scene-shape-variation')
+      .map(entry => resolve(entry.prompt.content)).filter(Boolean);
+    guidance.push('# Opening Scene Length\nUse enough paragraphs to establish the required continuity, setting and selected character background clearly. The opening is a substantial scene introduction, not a short continuation beat. Stop at the package-defined first playable scene without adding events just to increase length.');
+    return guidance.join('\n\n');
   }
 
   function getAutoCheckPreference() {
@@ -748,6 +720,7 @@ export function createSillyTavernDirectivePresetManager({
       return cloneJson(latestStatus || getStatus());
     },
     getNarrationContext,
+    getProseGuidance,
     getAutoCheckPreference,
     setAutoCheckPreference,
     dismissAutoCheckForVersion,

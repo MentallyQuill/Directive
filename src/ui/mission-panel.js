@@ -106,11 +106,35 @@ function mobileMissionDetailId(missionId) {
   return `directive-mission-mobile-${String(missionId).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`;
 }
 
-export function renderMissionPanel(body, view) {
+export function renderMissionPanel(body, view, actions = {}) {
   const projection = requireV1PlayerProjection(view);
   if (!projection) {
     appendCurrentChatEmptyState(body, view);
     return;
+  }
+  if (view.openingGeneration && view.openingGeneration.status !== 'ready') {
+    const notice = createElement('section', 'settings-section opening-generation-notice');
+    const message = createElement('p');
+    message.setAttribute('role', 'status');
+    message.textContent = view.openingGeneration.message;
+    const retry = createElement('button', 'settings-command settings-command-primary');
+    retry.type = 'button';
+    retry.dataset.action = 'retry-opening';
+    retry.textContent = view.openingGeneration.status === 'failed' ? 'Retry opening' : 'Generate opening';
+    retry.disabled = view.openingGeneration.status === 'generating';
+    retry.addEventListener('click', async () => {
+      if (retry.disabled) return;
+      retry.disabled = true;
+      message.textContent = 'Generating the opening scene…';
+      try {
+        await actions.retryOpening?.();
+        await actions.refresh?.();
+      } catch {
+        message.textContent = 'The opening could not be generated. Your character is saved. Please retry.';
+      } finally { retry.disabled = false; }
+    });
+    notice.append(message, retry);
+    body.appendChild(notice);
   }
   const model = buildCertifiedMissionView(projection);
   const mission = model.missions.find((record) => record.id === model.selectedMissionId) || model.missions[0];

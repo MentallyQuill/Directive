@@ -1,3 +1,6 @@
+import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
+import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
+import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
 import {
   armV1CommandBearingEdge,
@@ -252,33 +255,39 @@ function playerPortraitImportSupported(host) {
     && typeof host?.storage?.deleteFile === 'function';
 }
 
-function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [] }) {
+function openingPromptProjection({ state, runtimeAssets, acceptedPairLineage = [], openingRecord = null }) {
   const campaign = runtimeAssets?.packageData?.campaign;
-  const openingContext = campaign?.openingContext;
+  const retainedPremise = openingRecord?.kind === 'directive.openingRecord.v1'
+    && openingRecord.campaignId === state.campaign?.id
+    && getOpeningPremiseErrors(openingRecord.inputs?.premise).length === 0
+    ? openingRecord.inputs.premise : null;
+  const openingContext = retainedPremise || campaign?.openingPremise;
   if (!openingContext) {
-    throw new Error('Directive V1 runtime assets require campaign.openingContext.');
+    throw new Error('Directive V1 runtime assets require campaign.openingPremise.');
   }
   const acceptedPairCount = acceptedPairLineage.length;
   const unanswered = acceptedPairCount === 0;
   if (unanswered) {
     return {
       phase: 'unanswered',
-      canonicalOpeningMessage: campaign.openingMessage,
+      premise: clone(openingContext),
       continuitySummary: openingContext.continuitySummary,
       firstPlayableScene: openingContext.firstPlayableScene,
-      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance),
+      continuationGuidance: clone(openingContext.continuationGuidance || [])
     };
   }
   const openingMissionId = runtimeAssets.packageData.manifest.openingMissionId;
   const inOpeningMission = state.mission?.activeMissionId === openingMissionId;
-  const handoverTerminal = state.mission?.v1?.objectives?.['objective.prelude.command-handover']?.state === 'terminal';
-  if (inOpeningMission && !handoverTerminal) {
+  const firstSceneComplete = state.mission?.v1?.objectives?.[openingContext.firstSceneEndObjectiveId]?.state === 'terminal';
+  if (inOpeningMission && !firstSceneComplete) {
     return {
       phase: 'firstMeeting',
       stage: acceptedPairCount === 1 ? 'introductionPending' : 'conversationAnswered',
       continuitySummary: openingContext.continuitySummary,
       firstPlayableScene: openingContext.firstPlayableScene,
-      firstSceneGuidance: clone(openingContext.firstSceneGuidance)
+      firstSceneGuidance: clone(openingContext.firstSceneGuidance),
+      continuationGuidance: clone(openingContext.continuationGuidance || [])
     };
   }
   return {
@@ -336,8 +345,11 @@ export function createV1RuntimePromptPacket({
   projection,
   runtimeAssets,
   acceptedPairLineage = [],
-  director = null
+  director = null,
+  narrationSettings = {},
+  openingRecord = null
 }) {
+  const narrationPolicy = createNarrationPolicy({ settings: narrationSettings, player: state.player });
   const playerAuthority = createPlayerAuthorityPolicy({ playerName: state.player?.name });
   const simulationPolicy = createSimulationModePolicy(state.settings?.simulationMode);
   const story = createV1PromptProjection({
@@ -390,6 +402,7 @@ export function createV1RuntimePromptPacket({
       cohesion: armedCohesionRelief.cohesion,
       instruction: 'Resolve the named visible Cohesion issue through a credible commander-led result in this response. Do not invent a different issue, bypass unrelated permanent capability evidence, or clear anonymous backlog debt.'
     } : null,
+    narrationPolicy,
     narrationGuidance: {
       crew: (runtimeAssets?.crewDataset?.officers || []).map((officer) => ({
         id: officer.id,
@@ -399,7 +412,8 @@ export function createV1RuntimePromptPacket({
       })),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
-    opening: openingPromptProjection({ state, runtimeAssets, acceptedPairLineage }),
+    opening: { ...openingPromptProjection({ state, runtimeAssets, acceptedPairLineage, openingRecord }),
+      ...(acceptedPairLineage.length === 0 && openingRecord && openingRecord.campaignId === state.campaign?.id ? { openingDirection: clone(openingRecord.direction), openingInputs: clone(openingRecord.inputs) } : {}) },
     acceptedStory: story,
     workingStory: createV1WorkingStoryPromptProjection({ settlement: state.storySettlement }),
     pendingTransition: transitionPromptProjection(state, runtimeAssets),
@@ -408,19 +422,20 @@ export function createV1RuntimePromptPacket({
   const text = [
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
     playerAuthority.narratorConstraint,
+    narrationPolicy.instruction,
     'Continue a story-first command RPG from the accepted state below.',
     'Only this packet and the visible chat are canon. Never expose undiscovered facts or hidden objective text.',
     'Do not invent completed objectives, Command Bearing awards, relationship changes, ship conditions, deadlines, or trackers. Narrate consequences only when supported by accepted state, visible causality, and the selected difficulty policy.',
     'A response is provisional until the player sends their next message with that response selected. Swipes replace it before acceptance.',
     'Depict outcomes naturally in prose; Directive will separately interpret only closed mission evidence candidates after acceptance.',
     payload.opening.phase === 'unanswered'
-      ? 'OPENING REGENERATION: Preserve every established opening beat in opening.canonicalOpeningMessage and opening.continuitySummary. Wording may vary, but end at opening.firstPlayableScene. Do not take the player through the ready-room door, decide their action, or advance into the meeting.'
+      ? 'OPENING REGENERATION: Use the campaign-owned opening.premise and any stored openingDirection and openingInputs. Preserve established continuity and required facts. Weave the selected supported background into the scene; do not invent history or player reactions. Wording may vary with the current narration policy, but end at opening.firstPlayableScene before the next player action. Do not enact firstSceneGuidance yet.'
       : 'Treat opening.continuitySummary as established past experience. Do not replay or recap it unless the player naturally calls for it.',
     payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'introductionPending'
-      ? 'FIRST MEETING: This response is only the greeting, ordinary courtesy, and one genuine conversational opening. Follow opening.firstSceneGuidance in order. Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet. End after Whitaker gives the player a natural opening to answer and establish their own social posture.'
+      ? 'FIRST SCENE: Follow the campaign-owned opening.firstSceneGuidance in order, within the selected narration policy. Leave the next player response open.'
       : '',
     payload.opening.phase === 'firstMeeting' && payload.opening.stage === 'conversationAnswered'
-      ? 'FIRST MEETING CONTINUATION: The player has answered Whitaker’s conversational opening, so the first-reply-only restrictions in opening.firstSceneGuidance are satisfied and no longer apply. Preserve the established warmth and transition naturally into the command handover without turning it into an interrogation, wartime emergency, or abrupt mission briefing.'
+      ? 'FIRST SCENE CONTINUATION: The player has answered the initial conversational opening. The first-reply-only restrictions no longer apply. Follow opening.continuationGuidance while preserving established continuity and player authority.'
       : '',
     armedEdge
       ? 'COMMAND BEARING EDGE IS ARMED. Apply the bounded narrativeEdge instruction in the state packet once in this response.'
@@ -438,7 +453,7 @@ export function createV1RuntimePromptPacket({
       ? 'SHIP OPERATIONAL MECHANICS: Apply shipMechanics only when the player or scene invokes the named system. Active capabilities permit the listed authored routes but never guarantee success. Active constraints block unsupported shortcuts. Use interactions as exact mission-specific affordances and honor every listed limit.'
       : '',
     simulationPolicy.narratorConstraint,
-    'Keep named crew identities and roles exact. Let Captain Whitaker or another appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
+    'Keep named crew identities and roles exact. Let an appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
     payload.campaign.currentTime
       ? 'SHIP TIME: campaign.currentTime is the accepted current time at the start of this response. Directive displays accepted ship time in its interface. Use it only for chronology. Do not print a Stardate, ship-time header, footer, tracker, or timestamp.'
       : '',
@@ -542,6 +557,19 @@ export function createDirectiveRuntimeApp({
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
   const generationRouter = createDirectiveGenerationRouter(host);
+  let fallbackNarrationSettings = normalizeNarrationSettings();
+  const narrationSettings = () => normalizeNarrationSettings(host.narration?.getSettings?.() || fallbackNarrationSettings);
+  const openingLifecycle = createOpeningLifecycle({
+    chat: host.chat,
+    getBinding: () => state?.campaignChatBinding || {},
+    isCurrent: binding => currentChatIsBound() && ['campaignId', 'saveId', 'chatId'].every(key => binding[key] === state?.campaignChatBinding?.[key]),
+    generateDirector: request => host.generation.generate('openingSceneDirector', request, { allowVisibleOutputRetry: false }),
+    generateNarration: request => {
+      if (!host.generation.generateNarration) throw new Error('The host does not support opening narration.');
+      return host.generation.generateNarration(request);
+    },
+    getProseGuidance: () => host.presets?.getProseGuidance?.() || ''
+  });
   let initialized = false;
   let initializing = false;
   let records = null;
@@ -744,7 +772,9 @@ export function createDirectiveRuntimeApp({
         projection: result.projection,
         runtimeAssets,
         acceptedPairLineage,
-        director
+        director,
+        narrationSettings: narrationSettings(),
+        openingRecord: host.chat.getOpeningRecord?.() || null
       })
     });
   }
@@ -1000,16 +1030,10 @@ export function createDirectiveRuntimeApp({
   }
 
   async function postOpeningIfEmpty() {
-    const messages = await host.chat.getRecentMessages?.({ limit: 4 }) || [];
-    if (messages.some((message) => !message.isSystem && message.role !== 'system')) return { posted: false, reason: 'chat-not-empty' };
-    const opening = compact(records.packageData.campaign.openingMessage);
-    return host.chat.postAssistantMessage({
-      text: opening,
-      campaignId: state.campaign.id,
-      turnId: 'opening',
-      outcomeId: 'opening',
-      responseKind: 'narration',
-      idempotencyKey: `directive.v1.opening.${activeSave().id}`
+    return openingLifecycle.generate({
+      premise: records.packageData.campaign.openingPremise,
+      player: clone(state.player),
+      settings: narrationSettings()
     });
   }
 
@@ -1304,6 +1328,8 @@ export function createDirectiveRuntimeApp({
       media: {
         playerPortraitImportSupported: playerPortraitImportSupported(host)
       },
+      narrationSettings: narrationSettings(),
+      openingGeneration: bound ? (openingLifecycle.currentStatus() || ((await host.chat.getRecentMessages({ limit: 4 })).some(message => !message.isSystem && message.role !== 'system') ? null : {status: 'pending', message: 'Your character is ready. Generate the opening scene to begin.'})) : null,
       providerConfiguration: providerConfiguration(host),
       directivePreset: presetConfiguration(host),
       generationRouting: clone(GENERATION_ROUTING),
@@ -2107,6 +2133,7 @@ export function createDirectiveRuntimeApp({
       await createOrRestoreCampaignChat();
       await syncPrompt({ rebuild: true });
       const opening = await postOpeningIfEmpty();
+      if (currentChatIsBound()) await syncPrompt({ rebuild: true });
       return { result: clone(result), opening: clone(opening), view: await campaignViewEnvelope('mission') };
     },
 
@@ -2118,8 +2145,9 @@ export function createDirectiveRuntimeApp({
       }
       const binding = await createOrRestoreCampaignChat();
       await syncPrompt({ rebuild: true });
-      await postOpeningIfEmpty();
-      return { ok: true, binding: clone(binding), view: await campaignViewEnvelope('mission') };
+      const opening = await postOpeningIfEmpty();
+      if (currentChatIsBound()) await syncPrompt({ rebuild: true });
+      return { ok: opening.ok, opening, binding: clone(binding), view: await campaignViewEnvelope('mission') };
     },
 
     async deleteCampaign({ campaignId, saveId = null } = {}) {
@@ -2247,6 +2275,9 @@ export function createDirectiveRuntimeApp({
         activeSaveId: activeSave()?.id || null,
         storage: await controller.verifyStorage(),
         providers: providerConfiguration(host),
+        narrationSettings: narrationSettings(),
+        openingNarrationSettings: currentChatIsBound() && host.chat.getOpeningRecord?.()?.narrationSettings
+          ? normalizeNarrationSettings(host.chat.getOpeningRecord().narrationSettings) : null,
         routing: clone(GENERATION_ROUTING),
         runtime: {
           acceptedPairCallBudgetEntries: acceptedPairCallBudget.entryCount(),
@@ -2282,6 +2313,22 @@ export function createDirectiveRuntimeApp({
     },
 
     refreshDirectivePresetStatus: async () => presetConfiguration(host),
+    async updateNarrationSettings(patch = {}) {
+      const next = normalizeNarrationSettings({ ...narrationSettings(), ...patch });
+      fallbackNarrationSettings = host.narration?.updateSettings ? await host.narration.updateSettings(next) : next;
+      if (state && currentChatIsBound()) await syncPrompt({ rebuild: true });
+      return { narrationSettings: narrationSettings(), view: await campaignViewEnvelope('settings') };
+    },
+
+    async retryOpening() {
+      await ensureInitialized();
+      if (!state || !currentChatIsBound()) return { ok: false, message: 'Open the campaign chat to generate its opening.' };
+      await syncPrompt({ rebuild: true });
+      const opening = await postOpeningIfEmpty();
+      if (currentChatIsBound()) await syncPrompt({ rebuild: true });
+      return { ...opening, view: await campaignViewEnvelope('mission') };
+    },
+
     updateDirectivePresetAutoCheck: async ({ enabled } = {}) => host.presets?.setAutoCheckPreference?.({ enabled }),
     installDirectivePreset: async () => host.presets?.installBundledPreset?.(),
     getDirectivePresetStartupReminder: async () => host.presets?.getStartupCheck?.() || { shouldPrompt: false },

@@ -1,3 +1,4 @@
+import { normalizeNarrationSettings } from '../../narration/narration-policy.mjs';
 export const DIRECTIVE_SILLYTAVERN_SETTINGS_NAMESPACE = 'directive';
 export const DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_SETTING = 'presetAutoCheckOnStartup';
 export const DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_DISMISSED_VERSION_SETTING = 'presetAutoCheckDismissedVersion';
@@ -71,4 +72,15 @@ export function setSillyTavernDirectivePresetAutoCheckDismissedVersion(version, 
   settings[DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_DISMISSED_VERSION_SETTING] = String(version || '').trim();
   saveSettings(context);
   return getSillyTavernDirectivePresetAutoCheckPreference(context);
+}
+
+export function getSillyTavernDirectiveNarrationSettings(context = null) {
+  return normalizeNarrationSettings(getSillyTavernDirectiveSettings(context).narration);
+}
+
+export function updateSillyTavernDirectiveNarrationSettings(patch, context = null) {
+  const settings = getSillyTavernDirectiveSettings(context);
+  settings.narration = normalizeNarrationSettings({ ...normalizeNarrationSettings(settings.narration), ...patch });
+  saveSettings(context);
+  return { ...settings.narration };
 }
