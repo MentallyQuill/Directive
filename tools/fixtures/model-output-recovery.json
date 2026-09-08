@@ -1,0 +1,293 @@
+[
+  {
+    "id": "valid-0",
+    "input": "{\"text\": \"<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}\", \"enabled\": false, \"count\": 0, \"empty\": \"\"}",
+    "expectedOk": true,
+    "expectedValue": {
+      "text": "<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}",
+      "enabled": false,
+      "count": 0,
+      "empty": ""
+    }
+  },
+  {
+    "id": "trailing-0",
+    "input": "{\"text\": \"<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}\", \"enabled\": false, \"count\": 0, \"empty\": \"\",}",
+    "expectedOk": true,
+    "expectedValue": {
+      "text": "<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}",
+      "enabled": false,
+      "count": 0,
+      "empty": ""
+    }
+  },
+  {
+    "id": "fenced-0",
+    "input": "```json\n{\"text\": \"<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}\", \"enabled\": false, \"count\": 0, \"empty\": \"\"}\n```",
+    "expectedOk": true,
+    "expectedValue": {
+      "text": "<think>literal</think> /* keep */ // keep https://a.test “quoted” it’s fine,}",
+      "enabled": false,
+      "count": 0,
+      "empty": ""
+    }
+  },
+  {
+    "id": "valid-1",
+    "input": "{\"nested\": [{\"x\": \"line\\nnext\\rline\", \"path\": \"C:\\\\temp\\\\a\"}, null]}",
+    "expectedOk": true,
+    "expectedValue": {
+      "nested": [
+        {
+          "x": "line\nnext\rline",
+          "path": "C:\\temp\\a"
+        },
+        null
+      ]
+    }
+  },
+  {
+    "id": "trailing-1",
+    "input": "{\"nested\": [{\"x\": \"line\\nnext\\rline\", \"path\": \"C:\\\\temp\\\\a\"}, null],}",
+    "expectedOk": true,
+    "expectedValue": {
+      "nested": [
+        {
+          "x": "line\nnext\rline",
+          "path": "C:\\temp\\a"
+        },
+        null
+      ]
+    }
+  },
+  {
+    "id": "fenced-1",
+    "input": "```json\n{\"nested\": [{\"x\": \"line\\nnext\\rline\", \"path\": \"C:\\\\temp\\\\a\"}, null]}\n```",
+    "expectedOk": true,
+    "expectedValue": {
+      "nested": [
+        {
+          "x": "line\nnext\rline",
+          "path": "C:\\temp\\a"
+        },
+        null
+      ]
+    }
+  },
+  {
+    "id": "valid-2",
+    "input": "{\"__proto__\": {\"x\": 1}}",
+    "expectedOk": true,
+    "expectedValue": {
+      "__proto__": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "id": "trailing-2",
+    "input": "{\"__proto__\": {\"x\": 1},}",
+    "expectedOk": true,
+    "expectedValue": {
+      "__proto__": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "id": "fenced-2",
+    "input": "```json\n{\"__proto__\": {\"x\": 1}}\n```",
+    "expectedOk": true,
+    "expectedValue": {
+      "__proto__": {
+        "x": 1
+      }
+    }
+  },
+  {
+    "id": "valid-3",
+    "input": "{\"x\": \"He said \\\"hello\\\"\"}",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": "He said \"hello\""
+    }
+  },
+  {
+    "id": "trailing-3",
+    "input": "{\"x\": \"He said \\\"hello\\\"\",}",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": "He said \"hello\""
+    }
+  },
+  {
+    "id": "fenced-3",
+    "input": "```json\n{\"x\": \"He said \\\"hello\\\"\"}\n```",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": "He said \"hello\""
+    }
+  },
+  {
+    "id": "single-quotes",
+    "input": "{name: 'Sam', text: 'He said \"hi\"', active: false,}",
+    "expectedOk": true,
+    "expectedValue": {
+      "name": "Sam",
+      "text": "He said \"hi\"",
+      "active": false
+    }
+  },
+  {
+    "id": "escaped-apostrophe",
+    "input": "{text: 'Sam\\'s ship'}",
+    "expectedOk": true,
+    "expectedValue": {
+      "text": "Sam's ship"
+    }
+  },
+  {
+    "id": "line-break",
+    "input": "{\"text\":\"one\ntwo\"}",
+    "expectedOk": true,
+    "expectedValue": {
+      "text": "one\ntwo"
+    }
+  },
+  {
+    "id": "comments",
+    "input": "{/* note */ \"a\":1, // note\n}",
+    "expectedOk": true,
+    "expectedValue": {
+      "a": 1
+    }
+  },
+  {
+    "id": "repeated",
+    "input": "{\"x\":1} {\"x\":1}",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": 1
+    }
+  },
+  {
+    "id": "same-key",
+    "input": "{\"x\":{\"a\":1},\"x\":{\"a\":1}}",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": {
+        "a": 1
+      }
+    }
+  },
+  {
+    "id": "closed-reasoning",
+    "input": "<think><think>inner</think>outer</think>{\"x\":1}",
+    "expectedOk": true,
+    "expectedValue": {
+      "x": 1
+    }
+  },
+  {
+    "id": "duplicate",
+    "input": "{\"x\":1,\"x\":2}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "escaped-key",
+    "input": "{\"a\":1,\"\\u0061\":2}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "nested-duplicate",
+    "input": "{\"x\":{\"a\":1,\"a\":2}}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "competing",
+    "input": "{\"x\":1} {\"x\":2}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "nonfinite-duplicate",
+    "input": "{\"x\":1e400,\"x\":null}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "nonfinite-candidates",
+    "input": "{\"x\":1e400} {\"x\":null}",
+    "expectedOk": false,
+    "expectedCode": "json_ambiguous"
+  },
+  {
+    "id": "truncated",
+    "input": "{\"x\":\"unfinished",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "unclosed-reasoning",
+    "input": "<think>{\"x\":1}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "unclosed-nested",
+    "input": "<think><think>inner</think>{\"x\":1}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "legacy-unrelated",
+    "input": "{\"a\":[{\"x\":1,{\"op\":\"replace\",\"x\":2}]}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "missing-comma",
+    "input": "{\"x\":1 \"y\":2}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "bare-value",
+    "input": "{x: maybe}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "uncertain-apostrophe",
+    "input": "{text: 'Sam's ship'}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "smart-delimiters",
+    "input": "{“x”:1}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "unclosed-comment",
+    "input": "{\"x\":1 /* nope}",
+    "expectedOk": false,
+    "expectedCode": "json_invalid"
+  },
+  {
+    "id": "root-array",
+    "input": "[{\"x\":1}]",
+    "expectedOk": false,
+    "expectedCode": "json_not_object"
+  },
+  {
+    "id": "damaged-root-array",
+    "input": "[{\"x\":1},]",
+    "expectedOk": false,
+    "expectedCode": "json_not_object"
+  }
+]
