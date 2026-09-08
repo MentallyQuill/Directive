@@ -1,3 +1,5 @@
+import { setButtonBusy, isButtonBusy } from './button-busy.js';
+export { setButtonBusy } from './button-busy.js';
 import {
   DIRECTIVE_BUNDLED_ICON_PACKS,
   resolveDirectiveIconSlot
@@ -265,11 +267,12 @@ export function createButton({
   if (typeof onClick === 'function') {
     button.addEventListener('click', async (event) => {
       event?.preventDefault?.();
-      button.disabled = true;
+      if (button.disabled || isButtonBusy(button)) return;
+      const restore = setButtonBusy(button, true);
       try {
         await onClick(event);
       } finally {
-        button.disabled = disabled;
+        restore();
       }
     });
   }

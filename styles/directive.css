@@ -1,3 +1,15 @@
+:root {
+  --directive-motion-control: 120ms;
+  --directive-motion-disclosure: 180ms;
+  --directive-motion-dialog: 220ms;
+  --directive-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --directive-space-control: 8px;
+  --directive-space-dialog: 18px;
+  --directive-dialog-radius: 6px;
+  --directive-control-radius: 5px;
+  --directive-control-height: 40px;
+}
+
 .directive-vector-glyph {
   display: inline-block;
   width: 1em;
@@ -129,7 +141,7 @@
   clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
   box-shadow: 0 9px 24px rgba(0, 0, 0, .42), inset 0 0 0 1px rgba(248, 239, 224, .025);
   pointer-events: auto;
-  animation: directive-gameplay-notification-enter 180ms ease-out both;
+  animation: directive-gameplay-notification-enter var(--directive-motion-disclosure) ease-out both;
 }
 
 .directive-gameplay-notification {
@@ -234,7 +246,7 @@
 
 .directive-gameplay-notification.is-exiting {
   pointer-events: none;
-  animation: directive-gameplay-notification-exit 180ms ease-in both;
+  animation: directive-gameplay-notification-exit var(--directive-motion-disclosure) ease-in both;
 }
 
 @keyframes directive-gameplay-notification-enter {
@@ -262,7 +274,7 @@
   .directive-notification-card { animation: none; }
   .directive-gameplay-notification.is-exiting {
     opacity: 0;
-    transition: opacity 120ms linear;
+    transition: opacity var(--directive-motion-control) linear;
   }
 }
 
@@ -2288,7 +2300,7 @@ textarea.directive-field-control {
   font-weight: 900 !important;
   letter-spacing: 0.045em !important;
   text-transform: uppercase;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+  transition: background var(--directive-motion-control) ease, border-color var(--directive-motion-control) ease, color var(--directive-motion-control) ease;
 }
 
 .directive-button:hover,
@@ -2296,9 +2308,9 @@ textarea.directive-field-control {
 .directive-step-button:hover,
 .directive-step-button:focus-visible {
   color: #090a0b !important;
-  background: var(--directive-amber-bright) !important;
+  background: var(--directive-amber-bright, #ffc15b) !important;
   border-color: #ffc15b !important;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .directive-button:disabled,
@@ -3615,7 +3627,10 @@ textarea.directive-field-control {
 @media (prefers-reduced-motion: reduce) {
 .directive-expanded-shell *,
 .directive-expanded-shell *::before,
-.directive-expanded-shell *::after {
+.directive-expanded-shell *::after,
+.directive-modal-root *,
+.directive-modal-root *::before,
+.directive-modal-root *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
@@ -4434,7 +4449,7 @@ textarea.directive-field-control {
 .directive-expanded-shell .collection-disclosure,
 .directive-expanded-shell .collection-drag-handle,
 .directive-expanded-shell .collection-icon-button { appearance: none; display: grid; place-items: center; min-width: 0; min-height: 30px; margin: 0; padding: 0; color: var(--directive-expanded-blue); background: transparent; border: 0; border-radius: 3px; }
-.directive-expanded-shell .collection-disclosure { font-size: 20px; transform: rotate(90deg); transition: transform 140ms ease; }
+.directive-expanded-shell .collection-disclosure { font-size: 20px; transform: rotate(90deg); transition: transform var(--directive-motion-disclosure) ease; }
 .directive-expanded-shell .collection-disclosure[aria-expanded="false"] { transform: rotate(0deg); }
 .directive-expanded-shell .collection-category-copy { display: grid; gap: 1px; min-width: 0; }
 .directive-expanded-shell .collection-category-copy strong { overflow: hidden; font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
@@ -4512,7 +4527,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   .directive-expanded-shell .mobile-crew-avatar > *,
   .directive-expanded-shell .mobile-crew-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 24%; }
   .directive-expanded-shell .mobile-accordion-toggle { appearance: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 7px 9px; color: var(--directive-expanded-text); background: transparent; border: 0; text-align: left; }
-  .directive-expanded-shell .mobile-accordion-chevron { color: var(--directive-expanded-blue); font-size: 20px; transform: rotate(0deg); transition: transform 140ms ease; }
+  .directive-expanded-shell .mobile-accordion-chevron { color: var(--directive-expanded-blue); font-size: 20px; transform: rotate(0deg); transition: transform var(--directive-motion-disclosure) ease; }
   .directive-expanded-shell .mobile-accordion-toggle[aria-expanded="true"] .mobile-accordion-chevron { transform: rotate(90deg); }
   .directive-expanded-shell .mobile-accordion-detail { padding: 0; border-top: 1px solid rgba(119, 167, 239, .28); }
   .directive-expanded-shell .people-detail-mobile { overflow: visible; border-radius: 0; box-shadow: none; }
@@ -4905,7 +4920,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   color: rgba(79, 93, 119, .58);
   transform-box: fill-box;
   transform-origin: center;
-  transition: color 120ms ease, filter 120ms ease, opacity 120ms ease;
+  transition: color var(--directive-motion-control) ease, filter var(--directive-motion-control) ease, opacity var(--directive-motion-control) ease;
 }
 .directive-expanded-shell .ship-cohesion-segment-shape { display: block; fill: currentColor; stroke: none; }
 .directive-expanded-shell .ship-cohesion-segment-shape.is-mobile { display: none; }
@@ -5121,7 +5136,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
     border-right: 2px solid currentColor;
     border-bottom: 2px solid currentColor;
     transform: rotate(45deg);
-    transition: transform 120ms ease;
+    transition: transform var(--directive-motion-disclosure) ease;
   }
   .directive-expanded-shell .ship-task-button.is-selected[aria-expanded="false"] {
     background: rgba(12, 15, 24, .94);
@@ -5171,7 +5186,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-expanded-shell .directive-responsive-hero {
   box-sizing: border-box;
   height: var(--directive-responsive-hero-collapsed-height);
-  transition: height 180ms ease;
+  transition: height var(--directive-motion-disclosure) ease;
 }
 .directive-expanded-shell .directive-responsive-hero.is-expanded {
   height: var(--directive-responsive-hero-expanded-height);
@@ -5181,7 +5196,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   margin-top: 0 !important;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 180ms ease, margin-top 180ms ease, opacity 120ms ease;
+  transition: max-height var(--directive-motion-disclosure) ease, margin-top var(--directive-motion-disclosure) ease, opacity var(--directive-motion-control) ease;
 }
 .directive-expanded-shell .directive-responsive-hero-toggle {
   appearance: none;
@@ -5212,7 +5227,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   border: 1px solid rgba(248, 239, 224, .48);
   border-radius: 4px;
   font: 800 15px/1 "Segoe UI Symbol", sans-serif;
-  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  transition: color var(--directive-motion-control) ease, background-color var(--directive-motion-control) ease, border-color var(--directive-motion-control) ease;
 }
 .directive-expanded-shell .directive-responsive-hero-toggle:hover::after,
 .directive-expanded-shell .directive-responsive-hero-toggle:focus-visible::after {
@@ -5857,29 +5872,39 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   z-index: 10050;
   display: grid;
   place-items: center;
-  padding: 20px;
-  background: rgb(4 10 18 / 74%);
+  padding: 14px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: blur(4px);
 }
 
 .directive-settlement-retry-dialog {
   width: min(480px, 100%);
-  padding: 22px;
-  border: 1px solid var(--directive-border, #58718b);
-  border-radius: 12px;
-  background: var(--directive-panel, #111c28);
-  color: var(--directive-text, #edf4fb);
-  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+  max-height: calc(100dvh - 28px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--directive-space-dialog);
+  border: 1px solid rgba(255, 159, 74, .58);
+  border-radius: var(--directive-dialog-radius);
+  background: linear-gradient(145deg, rgba(18, 16, 17, .995), rgba(5, 7, 11, .998));
+  color: var(--directive-expanded-text, #f8efe0);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .72), inset 7px 0 0 rgba(255, 159, 74, .58);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.45;
 }
 
-.directive-settlement-retry-title { margin: 0 0 12px; }
+.directive-settlement-retry-title { margin: 0 0 12px; color: var(--directive-expanded-gold, #ffc766); font: 900 18px/1.15 "Roboto Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
 .directive-settlement-retry-message,
 .directive-settlement-retry-detail,
 .directive-settlement-retry-status { margin: 8px 0 14px; }
+.directive-settlement-retry-status { min-height: 2.9em; }
 
 .directive-settlement-retry-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: var(--directive-space-control);
 }
 
 /* Player objective corrections stay within the Mission card and modal. */
@@ -5900,3 +5925,91 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-gameplay-notification .objective-progress-actions { grid-column: 1 / -1; padding: 0 12px 10px; }
 .directive-gameplay-notification .objective-progress-feedback { grid-column: 1 / -1; margin: 0; padding: 0 12px 10px; }
 .directive-expanded-shell .mission-objective-row.is-resolved:has(.objective-progress-controls) { opacity: 1; }
+
+/* Shared interaction language. Palette and intentional LCARS silhouettes stay local. */
+[data-directive-modal="true"] {
+  animation: directive-dialog-enter var(--directive-motion-dialog) var(--directive-ease-out);
+}
+@keyframes directive-dialog-enter {
+  from { opacity: .65; }
+  to { opacity: 1; }
+}
+
+:is(.directive-expanded-shell, .directive-modal-root) :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--directive-focus, #ffe58f);
+  outline-offset: 2px;
+}
+
+:is(.directive-expanded-shell, .directive-modal-root) :is(.campaign-command, .settings-command, .objective-progress-button, .directive-button, .directive-step-button) {
+  transition: color var(--directive-motion-control) ease,
+    background-color var(--directive-motion-control) ease,
+    border-color var(--directive-motion-control) ease,
+    box-shadow var(--directive-motion-control) ease;
+}
+
+:is(.directive-expanded-shell, .directive-modal-root) :is(.campaign-command, .settings-command, .objective-progress-button):hover:not(:disabled):not([aria-disabled="true"]) {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+:is(.directive-expanded-shell, .directive-modal-root) :is(.campaign-command, .settings-command, .objective-progress-button, .directive-button, .directive-step-button):active:not(:disabled):not([aria-disabled="true"]) {
+  box-shadow: inset 0 0 0 2px currentColor !important;
+}
+
+.directive-modal-root .campaign-command {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--directive-space-control);
+  min-height: var(--directive-control-height);
+  min-width: 112px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 13px;
+  color: var(--directive-expanded-amber, #ff9f4a);
+  background: var(--directive-expanded-surface, #0d1018);
+  border: 1px solid rgba(255, 159, 74, .42);
+  border-radius: var(--directive-control-radius);
+  font: 800 11px/1.2 "Roboto Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.directive-modal-root .campaign-command-primary {
+  color: var(--directive-expanded-bg, #05070b);
+  background: var(--directive-expanded-amber, #ff9f4a);
+  border-color: transparent;
+}
+.directive-modal-root .campaign-command-danger {
+  color: var(--directive-expanded-salmon, #ef7f72);
+  border-color: rgba(239, 127, 114, .58);
+}
+.directive-modal-root .campaign-command:disabled { opacity: .55; cursor: not-allowed; }
+
+:is(.directive-expanded-shell, .directive-modal-root) button[data-directive-busy="true"] {
+  opacity: .85 !important;
+  filter: none !important;
+  cursor: progress !important;
+  overflow-wrap: anywhere;
+}
+
+:is(.timeline-dialog-actions, .campaign-delete-dialog-actions, .directive-settlement-retry-actions) {
+  gap: var(--directive-space-control);
+  align-items: center;
+}
+.directive-modal-root :is(.directive-button-icon, .directive-vector-glyph, .campaign-command > i) {
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  .directive-modal-root { --directive-control-height: 44px; --directive-space-dialog: 15px; }
+  .directive-modal-root :is(.campaign-delete-dialog-close, .directive-creator-assist-dialog-close, .connection-profile-picker-close) {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

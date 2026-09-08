@@ -27,23 +27,24 @@ assert.match(opened.dialog.querySelector('.directive-settlement-retry-message').
 assert.equal(document.activeElement, opened.retry);
 assert.equal(shell.inert, true, 'the underlying Directive shell must be inert while narration recovery is modal');
 const click = opened.retry.listeners.get('click')[0]({ preventDefault() {} });
-assert.equal(opened.retry.disabled, true);
-assert.equal(document.activeElement, opened.close, 'pending Retry must hand focus to the enabled Close action');
+assert.equal(opened.retry.disabled, false, 'busy Retry remains focusable');
+assert.equal(opened.retry.getAttribute('aria-busy'), 'true');
+assert.equal(document.activeElement, opened.retry, 'pending Retry preserves focus');
+opened.retry.focus();
 let pendingTabPrevented = 0;
 await opened.dialog.dispatch('keydown', {
   key: 'Tab',
   preventDefault() { pendingTabPrevented += 1; }
 });
-assert.equal(pendingTabPrevented, 1, 'pending Tab must be intercepted by the modal');
-assert.equal(document.activeElement, opened.close, 'pending Tab must stay inside the modal');
+assert.equal(pendingTabPrevented, 1, 'pending Tab must wrap inside the modal');
+assert.equal(document.activeElement, opened.close);
 let pendingShiftTabPrevented = 0;
 await opened.dialog.dispatch('keydown', {
-  key: 'Tab',
-  shiftKey: true,
+  key: 'Tab', shiftKey: true,
   preventDefault() { pendingShiftTabPrevented += 1; }
 });
-assert.equal(pendingShiftTabPrevented, 1, 'pending Shift+Tab must be intercepted by the modal');
-assert.equal(document.activeElement, opened.close, 'pending Shift+Tab must stay inside the modal');
+assert.equal(pendingShiftTabPrevented, 1);
+assert.equal(document.activeElement, opened.retry);
 assert.match(opened.status.textContent, /retrying/i);
 releaseRetry({ ok: true });
 await click;
@@ -75,9 +76,9 @@ await keyboardReplay.dialog.dispatch('keydown', { key: 'Escape' });
 assert.equal(keyboardReplay.overlay.isConnected, false, 'Escape must release the presentation layer');
 
 const trappedReplay = showSettlementRetryDialog({ reasonCode: 'accepted-pair-replay-pending', attempts: 0 });
-trappedReplay.close.focus();
+trappedReplay.retry.focus();
 await trappedReplay.dialog.dispatch('keydown', { key: 'Tab' });
-assert.equal(document.activeElement, trappedReplay.retry, 'Tab must wrap from the final action to the first action');
+assert.equal(document.activeElement, trappedReplay.close, 'Tab must wrap from the final action to the first action');
 await trappedReplay.dialog.dispatch('keydown', { key: 'Escape' });
 
 let releasePendingEscape = null;
@@ -88,7 +89,7 @@ const pendingEscapeReplay = showSettlementRetryDialog({
   onRetry: () => pendingEscapePromise
 });
 const pendingEscapeClick = pendingEscapeReplay.retry.listeners.get('click')[0]({ preventDefault() {} });
-assert.equal(document.activeElement, pendingEscapeReplay.close);
+assert.equal(document.activeElement, pendingEscapeReplay.retry);
 await pendingEscapeReplay.dialog.dispatch('keydown', { key: 'Escape' });
 assert.equal(pendingEscapeReplay.overlay.isConnected, false, 'Escape must dismiss while Retry is pending');
 releasePendingEscape({ ok: true });

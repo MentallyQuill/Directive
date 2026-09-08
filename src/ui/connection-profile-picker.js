@@ -1,5 +1,6 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
-import { createElement } from './runtime-ui-kit.js';
+import { createElement, setButtonBusy } from './runtime-ui-kit.js';
 
 function profileLabel(profile) {
   return String(profile?.name || profile?.label || profile?.id || '').trim();
@@ -20,9 +21,6 @@ function profileSearchText(profile) {
 }
 
 export function createConnectionProfilePicker({ profiles = [], selectedId = '', opener = null, onSelect = null } = {}) {
-  const shell = document.getElementById?.('directive-runtime-panel') || null;
-  const shellWasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
   let busy = false;
   let ownsHistoryEntry = false;
   let closingPromise = null;
@@ -68,8 +66,7 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
     ownsHistoryEntry = false;
     removePopstateListener();
     overlay.remove?.();
-    if (shell) shell.inert = shellWasInert;
-    opener?.focus?.({ preventScroll: true });
+    release();
     const result = { closed: true, reason };
     resolveClosing?.(result);
     resolveClosing = null;
@@ -93,55 +90,30 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
     window.history.back();
     return closingPromise;
   };
-  const selectProfile = async (profileId) => {
-    if (busy) return;
+  const selectProfile = async (profileId, control) => {
+    if (busy || !overlay.isConnected) return;
     busy = true;
+    const restore = setButtonBusy(control, true);
     error.hidden = true;
     error.textContent = '';
     try {
       await onSelect?.(String(profileId || ''));
       busy = false;
+      if (!overlay.isConnected) return;
       await close('selected');
     } catch (cause) {
       busy = false;
+      if (!overlay.isConnected) return;
       error.textContent = cause?.message || 'Could not save the connection profile.';
       error.hidden = false;
       searchInput.focus?.({ preventScroll: true });
+    } finally {
+      restore();
     }
   };
   closeButton.addEventListener('click', () => close('close-control'));
-  clearButton.addEventListener('click', () => selectProfile(''));
-  dialog.addEventListener('keydown', (event) => {
-    if (event?.key === 'Escape') {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      close('escape');
-      return;
-    }
-    if (event?.key !== 'Tab') return;
-    const focusable = [
-      closeButton,
-      searchInput,
-      ...[...(resultList.children || [])].filter((node) => node.tagName === 'BUTTON'),
-      clearButton
-    ].filter((node) => node.disabled !== true && node.hidden !== true);
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault?.();
-      last?.focus?.({ preventScroll: true });
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault?.();
-      first?.focus?.({ preventScroll: true });
-    }
-  });
-  dialog.addEventListener('cancel', (event) => {
-    event?.preventDefault?.();
-    close('cancel');
-  });
-  overlay.addEventListener('click', (event) => {
-    if (event?.target === overlay) close('backdrop');
-  });
+  clearButton.addEventListener('click', () => selectProfile('', clearButton));
+
   const renderOptions = () => {
     const query = String(searchInput.value || '').trim().toLowerCase();
     const matches = profiles.filter((entry) => !query || profileSearchText(entry).includes(query));
@@ -167,7 +139,7 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
       const details = createElement('span', 'connection-profile-picker-option-details');
       details.textContent = profileDetails(profile);
       option.append(label, details);
-      option.addEventListener('click', () => selectProfile(option.dataset.connectionProfileId));
+      option.addEventListener('click', () => selectProfile(option.dataset.connectionProfileId, option));
       resultList.appendChild(option);
     }
   };
@@ -177,6 +149,7 @@ export function createConnectionProfilePicker({ profiles = [], selectedId = '', 
   dialog.append(header, searchInput, resultList, error, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
+  const release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: searchInput, onDismiss: close, dismissOnBackdrop: true, canDismiss: () => !busy });
   const mobileViewport = typeof window !== 'undefined'
     && (typeof window.matchMedia === 'function'
       ? window.matchMedia('(max-width: 640px)').matches

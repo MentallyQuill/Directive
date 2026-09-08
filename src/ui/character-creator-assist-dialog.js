@@ -1,3 +1,4 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
 import { createButton, createElement } from './runtime-ui-kit.js';
 
@@ -27,9 +28,6 @@ export function createCharacterCreatorAssistDialog({
   progressMessage = 'Generating with Reasoning...',
   onRequestClose = null
 } = {}) {
-  const shell = document.getElementById?.('directive-runtime-panel') || null;
-  const shellWasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
 
   const overlay = createElement('div', 'directive-creator-assist-dialog-overlay');
   overlay.dataset.creatorAssistModal = sectionId;
@@ -73,6 +71,7 @@ export function createCharacterCreatorAssistDialog({
   cancel.focus?.({ preventScroll: true });
 
   const showProgress = (message) => {
+    if (!overlay.isConnected) return;
     overlay.dataset.creatorAssistState = 'loading';
     title.textContent = loadingTitle;
     dialog.setAttribute('aria-label', loadingTitle);
@@ -90,6 +89,7 @@ export function createCharacterCreatorAssistDialog({
     onRegenerate = null,
     onDismiss = null
   } = {}) => {
+    if (!overlay.isConnected) return;
     overlay.dataset.creatorAssistState = 'result';
     title.textContent = resultTitle;
     dialog.setAttribute('aria-label', resultTitle);
@@ -122,6 +122,7 @@ export function createCharacterCreatorAssistDialog({
     onRetry = null,
     onDismiss = null
   } = {}) => {
+    if (!overlay.isConnected) return;
     overlay.dataset.creatorAssistState = 'error';
     title.textContent = `${sectionLabel} Draft Unavailable`;
     dialog.setAttribute('aria-label', title.textContent);
@@ -141,8 +142,7 @@ export function createCharacterCreatorAssistDialog({
   const close = (reason = 'dismissed') => {
     if (!overlay.isConnected) return { closed: false, reason };
     overlay.remove?.();
-    if (shell) shell.inert = shellWasInert;
-    opener?.focus?.({ preventScroll: true });
+    release();
     return { closed: true, reason };
   };
 
@@ -158,28 +158,9 @@ export function createCharacterCreatorAssistDialog({
     event?.preventDefault?.();
     requestClose('cancel');
   });
-  dialog.addEventListener('keydown', (event) => {
-    if (event?.key === 'Escape') {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      requestClose('escape');
-      return;
-    }
-    if (event?.key !== 'Tab') return;
-    const actions = dialog.querySelectorAll?.('[data-creator-assist-action]') || [];
-    const focusable = [...actions].filter((action) => action.disabled !== true && action.hidden !== true);
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault?.();
-      last.focus?.();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault?.();
-      first.focus?.();
-    }
-  });
 
+
+  const release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: cancel, onDismiss: requestClose });
   return {
     overlay,
     dialog,

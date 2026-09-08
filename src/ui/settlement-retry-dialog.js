@@ -1,5 +1,6 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
-import { createButton, createElement } from './runtime-ui-kit.js';
+import { createButton, createElement, setButtonBusy } from './runtime-ui-kit.js';
 
 let activeDialog = null;
 
@@ -8,8 +9,7 @@ function closeDialog(instance, reason = 'closed') {
   activeDialog = null;
   instance.retryController?.abort?.(new Error(`settlement-retry-${reason}`));
   instance.overlay.remove?.();
-  if (instance.shell) instance.shell.inert = instance.shellWasInert;
-  instance.opener?.focus?.({ preventScroll: true });
+  instance.release?.();
   return { closed: true, reason };
 }
 
@@ -22,11 +22,9 @@ export function showSettlementRetryDialog({
   attempts = 3,
   onRetry = null
 } = {}) {
+  if (activeDialog && !activeDialog.overlay.isConnected) closeDialog(activeDialog, 'removed');
   if (activeDialog) return activeDialog;
   const opener = document.activeElement || null;
-  const shell = document.getElementById?.('directive-runtime-panel') || null;
-  const shellWasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
   const overlay = createElement('div', 'directive-settlement-retry-overlay');
   const dialog = createElement('section', 'directive-settlement-retry-dialog');
   dialog.setAttribute('role', 'alertdialog');
@@ -38,20 +36,20 @@ export function showSettlementRetryDialog({
   message.setAttribute('role', 'alert');
   message.textContent = reasonCode === 'persistence-failed'
     ? `Directive could not safely record this turn after ${attempts} attempts. Narration has not begun.`
-    : 'Directive could not reconcile accepted story state. Narration has not begun.';
+    : 'Directive could not finish recording this turn. Narration has not begun.';
   const detail = createElement('p', 'directive-settlement-retry-detail');
   detail.textContent = reasonCode === 'persistence-failed'
-    ? 'Check that the active save is writable, then retry.'
-    : 'The accepted story state must be reconciled before narration can continue.';
+    ? 'Retry recording this turn. Closing this dialog keeps narration paused.'
+    : 'Retry recording this turn to continue. Closing this dialog keeps narration paused.';
   const status = createElement('p', 'directive-settlement-retry-status');
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
-  const retry = createButton({ label: 'Retry', icon: 'fa-solid fa-rotate-right' });
+  const retry = createButton({ label: 'Retry', className: 'campaign-command campaign-command-primary', icon: 'fa-solid fa-rotate-right' });
   retry.dataset.settlementRetryAction = 'retry';
-  const close = createButton({ label: 'Close', icon: 'fa-solid fa-xmark' });
+  const close = createButton({ label: 'Close', className: 'campaign-command', icon: 'fa-solid fa-xmark' });
   close.dataset.settlementRetryAction = 'close';
   const actions = createElement('div', 'directive-settlement-retry-actions');
-  actions.append(retry, close);
+  actions.append(close, retry);
   const instance = {
     overlay,
     dialog,
@@ -59,18 +57,15 @@ export function showSettlementRetryDialog({
     close,
     status,
     opener,
-    shell,
-    shellWasInert,
     retryController: null
   };
   retry.addEventListener('click', async () => {
-    if (retry.disabled) return;
-    retry.disabled = true;
-    close.focus?.({ preventScroll: true });
-    status.textContent = 'Retrying accepted story settlement...';
+    if (instance.retryController || retry.dataset.directiveBusy === 'true') return;
+    const restore = setButtonBusy(retry, true, { label: 'Retrying...' });
+    status.textContent = 'Retrying this turn...';
     const retryController = typeof AbortController === 'function' ? new AbortController() : null;
     instance.retryController = retryController;
-    const isActive = () => activeDialog === instance && retryController?.signal?.aborted !== true;
+    const isActive = () => activeDialog === instance && overlay.isConnected && retryController?.signal?.aborted !== true;
     try {
       const result = await onRetry?.({ signal: retryController?.signal || null, isActive });
       if (!isActive()) return;
@@ -82,37 +77,22 @@ export function showSettlementRetryDialog({
     } catch {
       if (!isActive()) return;
       status.textContent = 'Directive still cannot safely record this turn.';
+    } finally {
+      restore();
     }
     if (!isActive()) return;
-    retry.disabled = false;
+    instance.retryController = null;
     retry.focus?.({ preventScroll: true });
   });
   close.addEventListener('click', () => closeDialog(instance, 'dismissed'));
-  overlay.addEventListener('click', (event) => {
-    if (event?.target === overlay) closeDialog(instance, 'backdrop');
-  });
-  dialog.addEventListener('keydown', (event) => {
-    if (event?.key === 'Escape') {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      closeDialog(instance, 'escape');
-      return;
-    }
-    if (event?.key !== 'Tab') return;
-    const focusable = [retry, close].filter((control) => control.disabled !== true && control.hidden !== true);
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault?.();
-      last?.focus?.();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault?.();
-      first?.focus?.();
-    }
-  });
   dialog.append(title, message, detail, status, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
+  instance.release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: retry, onDismiss: reason => closeDialog(instance, reason), dismissOnBackdrop: true,
+    onRelease: () => {
+      if (activeDialog === instance) activeDialog = null;
+      instance.retryController?.abort?.(new Error('settlement-retry-closed'));
+    } });
   activeDialog = instance;
   retry.focus?.({ preventScroll: true });
   return instance;

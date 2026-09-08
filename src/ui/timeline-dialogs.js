@@ -1,5 +1,6 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
-import { appendEmpty, createElement } from './runtime-ui-kit.js';
+import { appendEmpty, createElement, setButtonBusy } from './runtime-ui-kit.js';
 import { formatStardate } from '../time/ship-time.mjs';
 
 let dialogSequence = 0;
@@ -23,9 +24,6 @@ function savedGameMeta(savedGame = {}) {
 }
 
 function createDialogFrame({ title, className, opener = null } = {}) {
-  const shell = globalThis.document?.getElementById?.('directive-runtime-panel') || null;
-  const shellWasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
   const overlay = createElement('div', `timeline-dialog-overlay ${className || ''}`.trim());
   const dialog = createElement('section', 'timeline-dialog');
   const titleId = `directive-timeline-dialog-title-${++dialogSequence}`;
@@ -38,19 +36,16 @@ function createDialogFrame({ title, className, opener = null } = {}) {
   dialog.appendChild(heading);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
+  let closed = false;
   const close = (reason = 'dismissed') => {
+    if (closed) return { closed: false, reason };
+    closed = true;
     overlay.remove?.();
-    if (shell) shell.inert = shellWasInert;
-    opener?.focus?.({ preventScroll: true });
+    release();
     return { closed: true, reason };
   };
-  dialog.addEventListener('keydown', (event) => {
-    if (event?.key !== 'Escape') return;
-    event.preventDefault?.();
-    event.stopPropagation?.();
-    close('escape');
-  });
-  return { overlay, dialog, close };
+  const release = bindDirectiveModal({ overlay, dialog, opener, onDismiss: close });
+  return { overlay, dialog, close, isOpen: () => !closed && overlay.isConnected };
 }
 
 function appendDialogActions(dialog, { primaryLabel, primaryDisabled = false, onPrimary, close }) {
@@ -72,7 +67,7 @@ function appendDialogActions(dialog, { primaryLabel, primaryDisabled = false, on
 export function createSaveGameDialog({ campaign, opener = null, onSave = null, onSaved = null } = {}) {
   const frame = createDialogFrame({ title: 'Save Game', className: 'save-game-dialog-overlay', opener });
   const explanation = createElement('p', 'timeline-dialog-copy');
-  explanation.textContent = 'Create an immutable saved game without leaving your current timeline.';
+  explanation.textContent = 'Save a snapshot without leaving your current timeline.';
   const label = createElement('label', 'timeline-dialog-field');
   const labelText = createElement('span');
   labelText.textContent = 'Save name';
@@ -95,28 +90,28 @@ export function createSaveGameDialog({ campaign, opener = null, onSave = null, o
       busy = true;
       error.hidden = true;
       error.textContent = '';
-      controls.primary.textContent = 'Saving...';
+      const restore = setButtonBusy(controls.primary, true, { label: 'Saving...' });
       controls.cancel.textContent = 'Close';
-      controls.primary.disabled = true;
       let result;
       try {
         result = await onSave?.({ name });
       } catch (cause) {
-        error.textContent = cause?.message || String(cause || 'Save Game failed.');
+        if (!frame.isOpen()) return;
+        error.textContent = cause?.message || 'Could not save this game. Try again.';
         error.hidden = false;
+        return;
+      } finally {
         busy = false;
-        controls.primary.textContent = 'Save Game';
+        restore();
         controls.cancel.textContent = 'Cancel';
         controls.primary.disabled = !compact(input.value);
-        return;
       }
-      busy = false;
-      controls.primary.textContent = 'Save Game';
+      if (!frame.isOpen()) return;
       frame.close('saved');
       await onSaved?.(result);
     }
   });
-  input.addEventListener('input', () => { controls.primary.disabled = !compact(input.value) || busy; });
+  input.addEventListener('input', () => { controls.primary.disabled = !compact(input.value); });
   input.focus?.({ preventScroll: true });
   input.select?.();
   return { ...frame, input, error, ...controls };
@@ -129,6 +124,7 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
   const list = createElement('div', 'timeline-saved-game-list');
   const savedGames = campaign?.savedGames || campaign?.checkpoints || [];
   let selectedId = null;
+  let busy = false;
   const entries = [];
   const rows = [];
   const deleteButtons = [];
@@ -142,12 +138,23 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
     primaryDisabled: true,
     close: frame.close,
     onPrimary: async () => {
-      if (!selectedId || controls.primary.disabled) return;
-      controls.primary.disabled = true;
+      if (!selectedId || busy || !frame.isOpen()) return;
+      busy = true;
+      error.hidden = true;
+      const restore = setButtonBusy(controls.primary, true, { label: 'Loading...' });
+      controls.cancel.textContent = 'Close';
       try {
         await onLoad?.({ savedGameId: selectedId });
-        frame.close('loaded');
+        if (frame.isOpen()) frame.close('loaded');
+      } catch (cause) {
+        if (frame.isOpen()) {
+          error.textContent = cause?.message || 'Could not load this game. Try again.';
+          error.hidden = false;
+        }
       } finally {
+        busy = false;
+        restore();
+        controls.cancel.textContent = 'Cancel';
         controls.primary.disabled = !selectedId;
       }
     }
@@ -164,6 +171,7 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
     meta.textContent = savedGameMeta(savedGame);
     row.append(name, meta);
     row.addEventListener('click', () => {
+      if (busy || !frame.isOpen()) return;
       selectedId = savedGame.id;
       rows.forEach((candidate) => candidate.setAttribute('aria-pressed', candidate === row ? 'true' : 'false'));
       controls.primary.disabled = false;
@@ -177,14 +185,18 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
       remove.addEventListener('click', async (event) => {
         event?.preventDefault?.();
         event?.stopPropagation?.();
+        if (busy || !frame.isOpen()) return;
         const confirmed = typeof globalThis.confirm !== 'function'
           || globalThis.confirm(`Delete saved game "${savedGame.name || 'Saved Game'}"?`);
         if (!confirmed) return;
-        remove.disabled = true;
+        busy = true;
+        const restore = setButtonBusy(remove, true, { label: 'Deleting...' });
+        controls.cancel.textContent = 'Close';
         error.hidden = true;
         error.textContent = '';
         try {
           await onDelete({ savedGameId: savedGame.id });
+          if (!frame.isOpen()) return;
           const index = entries.indexOf(entry);
           if (index >= 0) {
             entries.splice(index, 1);
@@ -196,9 +208,13 @@ export function createLoadGameDialog({ campaign, opener = null, onLoad = null, o
           controls.primary.disabled = !selectedId;
           if (!entries.length) appendEmpty(list, 'No saved games are available to load.');
         } catch (cause) {
-          error.textContent = cause?.message || String(cause || 'Saved game deletion failed.');
+          if (!frame.isOpen()) return;
+          error.textContent = cause?.message || 'Could not delete this saved game. Try again.';
           error.hidden = false;
-          remove.disabled = false;
+        } finally {
+          busy = false;
+          restore();
+          controls.cancel.textContent = 'Cancel';
         }
       });
       deleteButtons.push(remove);
@@ -231,27 +247,39 @@ export function createPreviousTimelineNameDialog({ savedGameId, suggestedName, o
   input.type = 'text';
   input.value = compact(suggestedName);
   label.append(labelText, input);
-  frame.dialog.append(explanation, label);
+  const error = createElement('p', 'timeline-dialog-error');
+  error.setAttribute('role', 'alert');
+  error.hidden = true;
+  frame.dialog.append(explanation, label, error);
   let busy = false;
   const controls = appendDialogActions(frame.dialog, {
     primaryLabel: 'Save Name',
     close: frame.close,
     onPrimary: async () => {
       const name = compact(input.value);
-      if (busy) return;
+      if (busy || !frame.isOpen()) return;
       busy = true;
-      controls.primary.disabled = true;
+      error.hidden = true;
+      const restore = setButtonBusy(controls.primary, true, { label: 'Saving...' });
+      controls.cancel.textContent = 'Close';
       try {
         if (name && name !== compact(suggestedName)) await onRename?.({ savedGameId, name });
-        frame.close(name ? 'saved' : 'kept-automatic-name');
+        if (frame.isOpen()) frame.close(name ? 'saved' : 'kept-automatic-name');
+      } catch (cause) {
+        if (frame.isOpen()) {
+          error.textContent = cause?.message || 'Could not save this name. Try again.';
+          error.hidden = false;
+        }
       } finally {
         busy = false;
+        restore();
+        controls.cancel.textContent = 'Cancel';
       }
     }
   });
   input.focus?.({ preventScroll: true });
   input.select?.();
-  return { ...frame, input, ...controls };
+  return { ...frame, input, error, ...controls };
 }
 
 export const __timelineDialogTestHooks = Object.freeze({ savedGameMeta });
