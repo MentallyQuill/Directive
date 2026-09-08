@@ -90,6 +90,7 @@ export function selectPendingDutyReport({
     state = {},
     availableActors = [],
     deliveredReportIds = [],
+    isReportAllowed = () => true,
 } = {}) {
     const delivered = asSet(deliveredReportIds);
     const knownFacts = asSet(state?.knownFacts);
@@ -97,6 +98,7 @@ export function selectPendingDutyReport({
     const context = missionStateContext(definition, state);
 
     for (const route of [...(definition.reportRoutes || [])].sort(compareRoutes)) {
+        if (!isReportAllowed(route)) continue;
         if (delivered.has(route.id)) continue;
         if (!worldFacts.has(route.factId) || knownFacts.has(route.factId)) continue;
         const predicate = evaluateMissionPredicate(route.when, context);

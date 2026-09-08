@@ -73,6 +73,11 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.open-orders3.active","claimType":"eventOccurred","targetId":"event.scene-pacing.open-orders3.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.open-orders3.conclusion.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders3.conclusion.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders3.active"}},
+    {"id":"policy.scene-pacing.open-orders3.name.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders3.name.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders3.active"}},
+    {"id":"policy.scene-pacing.open-orders3.signal.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders3.signal.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders3.active"}},
+    {"id":"policy.scene-pacing.open-orders3.signatures.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.open-orders3.signatures.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.open-orders3.active"}},
     {
       "id": "policy.open-orders3.memorial-redesigned",
       "claimType": "eventOccurred", "targetId": "event.open-orders3.memorial-redesigned", "sourceRoles": ["assistant", "runtime", "adjudicator"],
@@ -892,6 +897,7 @@
   "reportRoutes": [
     {
       "id": "report.open-orders3.name-assessment",
+      "sceneObjectiveIds": ["objective.open-orders3.name"],
       "factId": "fact.open-orders3.name-assessment",
       "evidencePolicyId": "policy.open-orders3.name-assessment-disclosed",
       "capabilityRoles": [
@@ -938,6 +944,7 @@
     },
     {
       "id": "report.open-orders3.signal-assessment",
+      "sceneObjectiveIds": ["objective.open-orders3.signal"],
       "factId": "fact.open-orders3.signal-assessment",
       "evidencePolicyId": "policy.open-orders3.signal-assessment-disclosed",
       "capabilityRoles": [
@@ -984,6 +991,7 @@
     },
     {
       "id": "report.open-orders3.signatures-assessment",
+      "sceneObjectiveIds": ["objective.open-orders3.signatures"],
       "factId": "fact.open-orders3.signatures-assessment",
       "evidencePolicyId": "policy.open-orders3.signatures-assessment-disclosed",
       "capabilityRoles": [
@@ -1031,6 +1039,7 @@
     },
     {
       "id": "report.open-orders3.distributed-readiness",
+      "sceneObjectiveIds": ["objective.open-orders3.conclusion"],
       "factId": "fact.open-orders3.distributed-readiness",
       "evidencePolicyId": "policy.open-orders3.readiness-disclosed",
       "capabilityRoles": [
@@ -1069,6 +1078,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.open-orders3.active","playerVisibility":"hidden"},
     {
       "id": "event.open-orders3.name-assessed",
       "playerVisibility": "hidden",
@@ -1105,6 +1115,10 @@
     { "id": "event.open-orders3.bounded-emergency-consent-recorded", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.open-orders3.conclusion.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders3.name.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders3.signal.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.open-orders3.signatures.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.open-orders3.name-engagement",
       "allowedValues": [
@@ -1205,9 +1219,11 @@
       }
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.open-orders3.active"},
   "objectives": [
     {
       "id": "objective.open-orders3.conclusion",
+      "scenePacing": {"requirements":["Discuss which preparation work deserves direct attention or delegation.","Review selected preparations and remaining obligations before leaving the interval."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders3.conclusion.authorization","completionMode":"playerDecision"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1297,6 +1313,7 @@
     },
     {
       "id": "objective.open-orders3.name",
+      "scenePacing": {"requirements":["Hear the affected communities and Whitaker on the name and its meaning.","Propose a response and engage objections before settling the dispute."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders3.name.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": {
@@ -1410,6 +1427,7 @@
     },
     {
       "id": "objective.open-orders3.signal",
+      "scenePacing": {"requirements":["Engage the signal and the people for whom it matters.","Choose a response and address its personal or practical consequences."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders3.signal.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": {
@@ -1523,6 +1541,7 @@
     },
     {
       "id": "objective.open-orders3.signatures",
+      "scenePacing": {"requirements":["Hear the parties to the proposed agreement and their conditions.","Respond to their terms and objections before settling the agreement."],"authorizationOutcomeId":"outcome.scene-pacing.open-orders3.signatures.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": {

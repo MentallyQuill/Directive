@@ -13,6 +13,7 @@ export const STORY_EPISODE_STATUSES = Object.freeze(new Set([
 ]));
 
 import { validatePeopleEvent } from '../people/people-event-contracts.mjs';
+import { scenePacingReceiptErrors } from '../narration/scene-pacing.mjs';
 
 const TERMINAL_EPISODE_STATUSES = new Set(['sealed', 'invalidated']);
 const SOURCE_CONTRIBUTION_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
@@ -26,6 +27,7 @@ const SETTLEMENT_FIELDS = new Set([
 const ACCEPTED_PAIR_RECEIPT_FIELDS = new Set([
     'kind', 'id', 'branchId', 'fingerprint', 'sourceRangeHash', 'previousAssistant',
     'currentPlayer', 'assistantAcceptance', 'sourceContributionIds', 'settledAtRevision',
+    'scenePacing',
 ]);
 const ACCEPTED_PAIR_SOURCE_FIELDS = new Set(['messageId', 'selectedSwipeId', 'textHash']);
 const EPISODE_FIELDS = new Set([
@@ -544,6 +546,7 @@ export function validateStorySettlement(value = {}) {
             }
             validateAcceptedPairSource(receipt?.previousAssistant, errors, `${receiptId} previousAssistant`);
             validateAcceptedPairSource(receipt?.currentPlayer, errors, `${receiptId} currentPlayer`);
+            if (receipt.scenePacing !== undefined) errors.push(...scenePacingReceiptErrors(receipt.scenePacing));
             if (!ASSISTANT_ACCEPTANCE_OUTCOMES.has(receipt?.assistantAcceptance)) {
                 errors.push(`${receiptId} assistantAcceptance is unknown`);
             }

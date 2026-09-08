@@ -1,4 +1,5 @@
 import { parseStructuredJsonText } from '../../providers/structured-output-parser.mjs';
+import { createScenePacingSchema, pacingObservationErrors } from '../../narration/scene-pacing.mjs';
 import { createGenerationRoleRegistry } from '../../generation/generation-roles.mjs';
 import { acceptedPairTimeDecisionErrors, createTimeInterpretationSchema } from '../../time/accepted-time-interpretation.mjs';
 
@@ -11,7 +12,7 @@ const MISSION_EVIDENCE_MAX_TOKENS = 8192;
 
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
-const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time']);
+const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time', 'scenePacing']);
 const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value', 'evidenceQuote', 'materiallyNewEvidence']);
 const PEOPLE_INTRODUCTION_FIELDS = new Set(['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_FACT_FIELDS = new Set(['type', 'personRef', 'field', 'value', 'sourceSlot', 'evidenceQuote']);
@@ -181,7 +182,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
     return {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time'],
+        required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time', ...(candidatePacket.scenePacing ? ['scenePacing'] : [])],
         allOf: [durableSelectionBudgetSchema(candidateSelections.length)],
         properties: {
             kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
@@ -198,6 +199,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
                 items: peopleEventSchema(),
             },
             time: createTimeInterpretationSchema(),
+            ...(candidatePacket.scenePacing ? {scenePacing:createScenePacingSchema(candidatePacket.scenePacing)} : {}),
         },
     };
 }
@@ -279,6 +281,8 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair,
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
     errors.push(...acceptedPairTimeDecisionErrors(value.time, sourcePair, value.assistantAcceptance, timeContext));
     errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext, sourcePair));
+    // Older outputs may omit pacing; runtime treats omission as a hold, never permission.
+    if (value.scenePacing !== undefined) errors.push(...pacingObservationErrors(value.scenePacing, {...candidatePacket.scenePacing,sourcePair}));
     if (!Array.isArray(value.claims)) {
         errors.push('claims must be an array');
         return errors;
@@ -377,6 +381,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
             peopleEvents: cloneJson(peopleEvents),
             abstained: boundedValue.abstained,
             time,
+            ...(boundedValue.scenePacing !== undefined ? {scenePacing:cloneJson(boundedValue.scenePacing)} : {}),
         },
         discardedAssistantClaimCount,
         discardedAssistantPeopleEventCount: (boundedValue.peopleEvents || []).length - peopleEvents.length,
@@ -390,6 +395,13 @@ export function createMissionAcceptedPairInterpretationPrompt({
     const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket });
     const systemPrompt = [
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
+        ...(candidatePacket.scenePacing ? [
+            'Also observe scene participation in this same call. Use only supplied visible objectives and their authored scenePacing requirements. This observation controls the NEXT response, not permission to certify the previous response retroactively.',
+            'A greeting, broad order, information request, or NPC monologue is not completed participation. Cite contiguous exact quotes from BOTH currentPlayer and previousAssistant for each requirement actually engaged. Do not invent agreement or treat narrated player conduct as player participation.',
+            'Keep the current scene unless the player explicitly leaves, delegates, or asks to skip/summarize it. Use resolve only when the player chooses an actionable resolution after the required discussion; it permits depicting an outcome but never guarantees success or authorizes departure. List any unresolved question or objection. If uncertain use continue and empty participation. Null objectiveId supports ordinary conversation without objective progress.',
+            'For leave, delegate, skip, or resolve, intentQuote must quote the CURRENT PLAYER. Mentioning a future departure or discussing delegation is not enacting it. Requests for information are not requests to fast-forward. Never move the story because enough turns have elapsed.',
+            'Set missionDepartureQuote only when the CURRENT PLAYER explicitly chooses to finish this mission, conclude the interval/campaign, or proceed to the next mission. Leaving a room, concluding one conversation, delegating an objective, and asking about the next assignment do NOT authorize mission departure. Otherwise return an empty missionDepartureQuote.',
+        ] : []),
         'Select only candidate IDs supplied in this request. Do not create or invent policies, targets, values, state, summaries, trackers, objectives, consequences, rewards, or narration.',
         'The previous assistant text is eligible only if the current player reply accepts, continues from, or acts on that selected response.',
         'Mark the assistant response rejected, corrected, or ambiguous when the player disputes it or does not clearly proceed from it.',
@@ -422,6 +434,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'Return exactly one JSON object with no markdown or prose:',
         'The complete output schema below applies in Prompt JSON mode as well as native schema mode. Omit claim value unless that candidate permits it. People observations use type, personRef (or localRef for introductions), sourceSlot, and evidenceQuote; do not invent alternative field names. Keep time.reason within 180 characters.',
         `Output JSON Schema: ${JSON.stringify(jsonSchema)}`,
+        ...(candidatePacket.scenePacing ? ['Also include scenePacing in the output: {"objectiveId":"the current authored objective id","intent":"continue","intentQuote":"","missionDepartureQuote":"","unresolved":"remaining question or empty string","participation":[]}. Populate participation only with real, relevant player and assistant quotations; missing pacing holds the scene.'] : []),
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","basis":"explicitDuration|implicitAction|sceneTransition|noPassage|unresolved","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
         'Explicit-duration time example only: {"decision":"advance","basis":"explicitDuration","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
     ].join('\n');
@@ -438,6 +451,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
         },
         time: cloneJson(timeContext),
         people: cloneJson(peopleContext),
+        ...(candidatePacket.scenePacing ? {scenePacing:cloneJson(candidatePacket.scenePacing)} : {}),
         candidates: cloneJson(candidatePacket.candidates || []),
     };
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;

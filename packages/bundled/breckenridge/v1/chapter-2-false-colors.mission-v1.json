@@ -96,6 +96,11 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter2.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter2.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter2.medical.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter2.medical.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter2.active"}},
+    {"id":"policy.scene-pacing.chapter2.attack-account.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter2.attack-account.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter2.active"}},
+    {"id":"policy.scene-pacing.chapter2.verification-security.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter2.verification-security.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter2.active"}},
+    {"id":"policy.scene-pacing.chapter2.joint-framework.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter2.joint-framework.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter2.active"}},
     {
       "id": "policy.chapter2.false-colors-crisis-disclosed",
       "claimType": "factDisclosed",
@@ -385,6 +390,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter2.verification-access-dispute",
+      "sceneObjectiveIds": ["objective.chapter2.verification-security"],
       "factId": "fact.chapter2.verification-access-dispute",
       "evidencePolicyId": "policy.chapter2.verification-access-dispute-disclosed",
       "capabilityRoles": ["operations", "security", "command"],
@@ -406,6 +412,7 @@
     },
     {
       "id": "report.chapter2.independent-evidence-picture",
+      "sceneObjectiveIds": ["objective.chapter2.attack-account"],
       "factId": "fact.chapter2.independent-evidence-picture",
       "evidencePolicyId": "policy.chapter2.independent-evidence-picture-disclosed",
       "capabilityRoles": ["operations", "science", "engineering"],
@@ -432,6 +439,7 @@
     },
     {
       "id": "report.chapter2.medical-timeline",
+      "sceneObjectiveIds": ["objective.chapter2.medical","objective.chapter2.attack-account"],
       "factId": "fact.chapter2.medical-timeline",
       "evidencePolicyId": "policy.chapter2.medical-timeline-disclosed",
       "capabilityRoles": ["medical"],
@@ -445,6 +453,7 @@
     },
     {
       "id": "report.chapter2.flight-profile",
+      "sceneObjectiveIds": ["objective.chapter2.attack-account"],
       "factId": "fact.chapter2.flight-profile-reconstruction",
       "evidencePolicyId": "policy.chapter2.flight-profile-disclosed",
       "capabilityRoles": ["flight", "science"],
@@ -458,6 +467,7 @@
     },
     {
       "id": "report.chapter2.systems-baseline",
+      "sceneObjectiveIds": ["objective.chapter2.attack-account"],
       "factId": "fact.chapter2.systems-baseline",
       "evidencePolicyId": "policy.chapter2.systems-baseline-disclosed",
       "capabilityRoles": ["engineering", "science"],
@@ -471,6 +481,7 @@
     },
     {
       "id": "report.chapter2.joint-witness-session",
+      "sceneObjectiveIds": ["objective.chapter2.attack-account","objective.chapter2.joint-framework"],
       "factId": "fact.chapter2.joint-witness-session",
       "evidencePolicyId": "policy.chapter2.joint-witness-session-disclosed",
       "capabilityRoles": ["command", "medical", "operations"],
@@ -484,6 +495,7 @@
     },
     {
       "id": "report.chapter2.counterfeit-route-picture",
+      "sceneObjectiveIds": ["objective.chapter2.attack-account"],
       "factId": "fact.chapter2.counterfeit-route-picture",
       "evidencePolicyId": "policy.chapter2.counterfeit-route-picture-disclosed",
       "capabilityRoles": ["science", "operations", "security", "engineering"],
@@ -506,6 +518,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter2.active","playerVisibility":"hidden"},
     {
       "id": "event.chapter2.independent-baseline-preserved",
       "playerVisibility": "visible",
@@ -529,6 +542,10 @@
     }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter2.medical.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter2.attack-account.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter2.verification-security.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter2.joint-framework.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter2.medical-result",
       "allowedValues": ["pending", "stabilizedNeutral", "stabilizedWithCost", "handedOff", "failedAfterInformedAction"],
@@ -558,9 +575,11 @@
       "playerText": { "summary": "The disposition of the optional joint-investigation framework." }
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter2.active"},
   "objectives": [
     {
       "id": "objective.chapter2.medical",
+      "scenePacing": {"requirements":["Engage the wounded ship assessment and medical access constraints.","Choose a care approach and respond to an operational result or complication."],"authorizationOutcomeId":"outcome.scene-pacing.chapter2.medical.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -587,6 +606,7 @@
     },
     {
       "id": "objective.chapter2.attack-account",
+      "scenePacing": {"requirements":["Examine attack evidence and challenge or compare the available explanations.","Respond to corroboration and uncertainty before accepting a supported account."],"authorizationOutcomeId":"outcome.scene-pacing.chapter2.attack-account.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -613,6 +633,7 @@
     },
     {
       "id": "objective.chapter2.verification-security",
+      "scenePacing": {"requirements":["Discuss verification access, security risks, and credible alternatives.","Negotiate or choose a boundary and respond to the affected party."],"authorizationOutcomeId":"outcome.scene-pacing.chapter2.verification-security.authorization"},
       "class": "conditional",
       "activatedAs": "required",
       "activationRoute": {
@@ -644,6 +665,7 @@
     },
     {
       "id": "objective.chapter2.joint-framework",
+      "scenePacing": {"requirements":["Hear the investigation partners and their conditions for cooperation.","Respond to proposed participation terms before settling the framework."],"authorizationOutcomeId":"outcome.scene-pacing.chapter2.joint-framework.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.chapter2.independent-evidence-picture" },

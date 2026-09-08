@@ -1,3 +1,4 @@
+import {disableScenePacingForFixture} from './unpaced-mission-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -26,6 +27,9 @@ const canonicalDefinition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
     'utf8',
 ));
+// This suite exercises settlement plumbing with an unpaced definition. The
+// canonical campaign's participation/aftermath sequence has its own runtime test.
+disableScenePacingForFixture(canonicalDefinition);
 const transitionDefinition = JSON.parse(fs.readFileSync(
     'tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json',
     'utf8',

@@ -3,6 +3,7 @@ import { collectMissionPredicateRefs } from './predicate-evaluator.mjs';
 export function objectiveResolutionRefs(definition, objective, visited = new Set()) {
     const refs = collectMissionPredicateRefs({any:(objective?.terminalWhen || []).map(item=>item.when)});
     if (!objective || visited.has(objective.id)) return refs;
+    if (objective.scenePacing?.authorizationOutcomeId) refs.outcomes.add(objective.scenePacing.authorizationOutcomeId);
     visited.add(objective.id);
     for (const id of refs.objectives) {
         const dependency = objectiveResolutionRefs(definition,definition.objectives.find(item=>item.id === id),visited);

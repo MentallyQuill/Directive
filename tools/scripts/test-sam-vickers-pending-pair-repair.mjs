@@ -1,3 +1,4 @@
+import {disableScenePacingForFixture} from './unpaced-mission-fixture.mjs';
 import assert from 'node:assert/strict';
 
 import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
@@ -18,6 +19,9 @@ const runtimeAssets = loadAshesRuntimeAssets();
 const definition = runtimeAssets.missionDefinitions.find(
     ({ id }) => id === SAM_VICKERS_PENDING_PAIR_REPAIR.missionId,
 );
+
+// Preserve the historical repair contract against its pre-pacing definition.
+disableScenePacingForFixture(definition);
 
 function seedMission(mission) {
     let next = reduceMissionEvidence({

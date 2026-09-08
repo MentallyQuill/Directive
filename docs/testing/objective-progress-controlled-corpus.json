@@ -8,7 +8,7 @@
       "id": "objective.chapter1.relief.controlled",
       "missionId": "mission.chapter-1-the-empty-convoy",
       "objectiveId": "objective.chapter1.relief",
-      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "sourceHash": "0f1134d4e7cd6d227750566812cf8e7bd3540a52681643e07ae3c6e376a3b47c",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -67,7 +67,7 @@
       "id": "objective.chapter1.authority.controlled",
       "missionId": "mission.chapter-1-the-empty-convoy",
       "objectiveId": "objective.chapter1.authority",
-      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "sourceHash": "0f1134d4e7cd6d227750566812cf8e7bd3540a52681643e07ae3c6e376a3b47c",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -143,7 +143,7 @@
       "id": "objective.chapter1.hardware.controlled",
       "missionId": "mission.chapter-1-the-empty-convoy",
       "objectiveId": "objective.chapter1.hardware",
-      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "sourceHash": "0f1134d4e7cd6d227750566812cf8e7bd3540a52681643e07ae3c6e376a3b47c",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -219,7 +219,7 @@
       "id": "objective.chapter1.shared-record.controlled",
       "missionId": "mission.chapter-1-the-empty-convoy",
       "objectiveId": "objective.chapter1.shared-record",
-      "sourceHash": "7592b7e35bf39609cf6a5cf938b0df358bd3c3a3726b80f2482b9df7dd37627d",
+      "sourceHash": "0f1134d4e7cd6d227750566812cf8e7bd3540a52681643e07ae3c6e376a3b47c",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -293,7 +293,7 @@
       "id": "objective.chapter2.medical.controlled",
       "missionId": "mission.chapter-2-false-colors",
       "objectiveId": "objective.chapter2.medical",
-      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "sourceHash": "17c4f2e97a296955ba9b8a63696514e00fa6c528aa376fc28072bc923e98a47a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -352,7 +352,7 @@
       "id": "objective.chapter2.attack-account.controlled",
       "missionId": "mission.chapter-2-false-colors",
       "objectiveId": "objective.chapter2.attack-account",
-      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "sourceHash": "17c4f2e97a296955ba9b8a63696514e00fa6c528aa376fc28072bc923e98a47a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -411,7 +411,7 @@
       "id": "objective.chapter2.verification-security.controlled",
       "missionId": "mission.chapter-2-false-colors",
       "objectiveId": "objective.chapter2.verification-security",
-      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "sourceHash": "17c4f2e97a296955ba9b8a63696514e00fa6c528aa376fc28072bc923e98a47a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -486,7 +486,7 @@
       "id": "objective.chapter2.joint-framework.controlled",
       "missionId": "mission.chapter-2-false-colors",
       "objectiveId": "objective.chapter2.joint-framework",
-      "sourceHash": "3c7e069d2b8b1aa8fe1d4d104a5732f9673ac48e40878a26fa7588c3762ec681",
+      "sourceHash": "17c4f2e97a296955ba9b8a63696514e00fa6c528aa376fc28072bc923e98a47a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -560,7 +560,7 @@
       "id": "objective.chapter3.access.controlled",
       "missionId": "mission.chapter-3-dead-letters",
       "objectiveId": "objective.chapter3.access",
-      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "sourceHash": "2451d3b88379642994c6faac035e4df97bb3e714496261c8819ce191d56561c8",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -619,7 +619,7 @@
       "id": "objective.chapter3.evidence.controlled",
       "missionId": "mission.chapter-3-dead-letters",
       "objectiveId": "objective.chapter3.evidence",
-      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "sourceHash": "2451d3b88379642994c6faac035e4df97bb3e714496261c8819ce191d56561c8",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -717,7 +717,7 @@
       "id": "objective.chapter3.custody.controlled",
       "missionId": "mission.chapter-3-dead-letters",
       "objectiveId": "objective.chapter3.custody",
-      "sourceHash": "43ccd6b09a517ee450cbf870993cd593ded670a5a567acab5f43c1c656a9facd",
+      "sourceHash": "2451d3b88379642994c6faac035e4df97bb3e714496261c8819ce191d56561c8",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -799,7 +799,7 @@
       "id": "objective.chapter4.process.controlled",
       "missionId": "mission.chapter-4-the-colony-that-stayed",
       "objectiveId": "objective.chapter4.process",
-      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "sourceHash": "d28b452199f57d4c503c40db4e1bba8c2f148c64f9e877d00230e2bd0cfed0a0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -860,7 +860,7 @@
       "id": "objective.chapter4.truth.controlled",
       "missionId": "mission.chapter-4-the-colony-that-stayed",
       "objectiveId": "objective.chapter4.truth",
-      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "sourceHash": "d28b452199f57d4c503c40db4e1bba8c2f148c64f9e877d00230e2bd0cfed0a0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -980,7 +980,7 @@
       "id": "objective.chapter4.accountability.controlled",
       "missionId": "mission.chapter-4-the-colony-that-stayed",
       "objectiveId": "objective.chapter4.accountability",
-      "sourceHash": "7d2b1689fda756336fe25500190e3dd310549a67f8aa732ec560a31628b14585",
+      "sourceHash": "d28b452199f57d4c503c40db4e1bba8c2f148c64f9e877d00230e2bd0cfed0a0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1064,7 +1064,7 @@
       "id": "objective.chapter5.safety.controlled",
       "missionId": "mission.chapter-5-old-lessons",
       "objectiveId": "objective.chapter5.safety",
-      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "sourceHash": "522ad8ce04654d32e04c72dc0d5c4f72b42fe23598c4a328a6adf2d931d31c41",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1146,7 +1146,7 @@
       "id": "objective.chapter5.operation.controlled",
       "missionId": "mission.chapter-5-old-lessons",
       "objectiveId": "objective.chapter5.operation",
-      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "sourceHash": "522ad8ce04654d32e04c72dc0d5c4f72b42fe23598c4a328a6adf2d931d31c41",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1230,7 +1230,7 @@
       "id": "objective.chapter5.understanding.controlled",
       "missionId": "mission.chapter-5-old-lessons",
       "objectiveId": "objective.chapter5.understanding",
-      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "sourceHash": "522ad8ce04654d32e04c72dc0d5c4f72b42fe23598c4a328a6adf2d931d31c41",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1350,7 +1350,7 @@
       "id": "objective.chapter6.command-network.controlled",
       "missionId": "mission.chapter-6-the-cost-of-knowing",
       "objectiveId": "objective.chapter6.command-network",
-      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "sourceHash": "ce505e90a77c6435dd0f6bd33dea18e2869b139c2563f6805d2b0041582d7534",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1412,7 +1412,7 @@
       "id": "objective.chapter6.farwatch-truth.controlled",
       "missionId": "mission.chapter-6-the-cost-of-knowing",
       "objectiveId": "objective.chapter6.farwatch-truth",
-      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "sourceHash": "ce505e90a77c6435dd0f6bd33dea18e2869b139c2563f6805d2b0041582d7534",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1492,7 +1492,7 @@
       "id": "objective.chapter6.evidence-authority.controlled",
       "missionId": "mission.chapter-6-the-cost-of-knowing",
       "objectiveId": "objective.chapter6.evidence-authority",
-      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "sourceHash": "ce505e90a77c6435dd0f6bd33dea18e2869b139c2563f6805d2b0041582d7534",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1594,7 +1594,7 @@
       "id": "objective.chapter7.standoff.controlled",
       "missionId": "mission.chapter-7-a-peace-of-their-own",
       "objectiveId": "objective.chapter7.standoff",
-      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "sourceHash": "845380de36a45cca030fd60d27eaa7e027a4666ff0e33cecbacd093903ef2a37",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1679,7 +1679,7 @@
       "id": "objective.chapter7.shared-truth-interface.controlled",
       "missionId": "mission.chapter-7-a-peace-of-their-own",
       "objectiveId": "objective.chapter7.shared-truth-interface",
-      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "sourceHash": "845380de36a45cca030fd60d27eaa7e027a4666ff0e33cecbacd093903ef2a37",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1784,7 +1784,7 @@
       "id": "objective.chapter7.command-settlement.controlled",
       "missionId": "mission.chapter-7-a-peace-of-their-own",
       "objectiveId": "objective.chapter7.command-settlement",
-      "sourceHash": "c43f6918b33355a033e478a1147a6ea12d0034ca93e88ed9b0bf045a8d09d725",
+      "sourceHash": "845380de36a45cca030fd60d27eaa7e027a4666ff0e33cecbacd093903ef2a37",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1909,7 +1909,7 @@
       "id": "objective.chapter8.command.controlled",
       "missionId": "mission.chapter-8-the-last-directive",
       "objectiveId": "objective.chapter8.command",
-      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "sourceHash": "4e3cd0d8b48f82694a4df02ace5070279f83fc00ab5d942ddc27c2032626b0dc",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -1988,7 +1988,7 @@
       "id": "objective.chapter8.mesh.controlled",
       "missionId": "mission.chapter-8-the-last-directive",
       "objectiveId": "objective.chapter8.mesh",
-      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "sourceHash": "4e3cd0d8b48f82694a4df02ace5070279f83fc00ab5d942ddc27c2032626b0dc",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2067,7 +2067,7 @@
       "id": "objective.chapter8.weapons.controlled",
       "missionId": "mission.chapter-8-the-last-directive",
       "objectiveId": "objective.chapter8.weapons",
-      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "sourceHash": "4e3cd0d8b48f82694a4df02ace5070279f83fc00ab5d942ddc27c2032626b0dc",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2146,7 +2146,7 @@
       "id": "objective.chapter8.core.controlled",
       "missionId": "mission.chapter-8-the-last-directive",
       "objectiveId": "objective.chapter8.core",
-      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "sourceHash": "4e3cd0d8b48f82694a4df02ace5070279f83fc00ab5d942ddc27c2032626b0dc",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2225,7 +2225,7 @@
       "id": "objective.chapter8.civilians.controlled",
       "missionId": "mission.chapter-8-the-last-directive",
       "objectiveId": "objective.chapter8.civilians",
-      "sourceHash": "4dafcde1ec7f755b145454c3ae5b508e62169b94a7be1dfa2510b4a8dee4709f",
+      "sourceHash": "4e3cd0d8b48f82694a4df02ace5070279f83fc00ab5d942ddc27c2032626b0dc",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2304,7 +2304,7 @@
       "id": "objective.epilogue.aftermath.controlled",
       "missionId": "mission.epilogue-the-terms-we-keep",
       "objectiveId": "objective.epilogue.aftermath",
-      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "sourceHash": "60a114ab057ba16ea23e8abbc425e5127eddf6503cd2c9fdf48cba98cb496f1f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2365,7 +2365,7 @@
       "id": "objective.epilogue.authority.controlled",
       "missionId": "mission.epilogue-the-terms-we-keep",
       "objectiveId": "objective.epilogue.authority",
-      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "sourceHash": "60a114ab057ba16ea23e8abbc425e5127eddf6503cd2c9fdf48cba98cb496f1f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2445,7 +2445,7 @@
       "id": "objective.epilogue.accountability.controlled",
       "missionId": "mission.epilogue-the-terms-we-keep",
       "objectiveId": "objective.epilogue.accountability",
-      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "sourceHash": "60a114ab057ba16ea23e8abbc425e5127eddf6503cd2c9fdf48cba98cb496f1f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2525,7 +2525,7 @@
       "id": "objective.epilogue.command.controlled",
       "missionId": "mission.epilogue-the-terms-we-keep",
       "objectiveId": "objective.epilogue.command",
-      "sourceHash": "471c9634aec32f08e6ed39809cd8188c946f6bcabe7a8baf468f9ca87f08cebf",
+      "sourceHash": "60a114ab057ba16ea23e8abbc425e5127eddf6503cd2c9fdf48cba98cb496f1f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2586,7 +2586,7 @@
       "id": "objective.open-orders1.conclusion.controlled",
       "missionId": "mission.open-orders-1-work-worth-doing",
       "objectiveId": "objective.open-orders1.conclusion",
-      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "sourceHash": "2b76e37a0082dd47f942355a8a36add0887b7c6da7720bde5f57628e1d6e2b6f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2646,7 +2646,7 @@
       "id": "objective.open-orders1.long-repair.controlled",
       "missionId": "mission.open-orders-1-work-worth-doing",
       "objectiveId": "objective.open-orders1.long-repair",
-      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "sourceHash": "2b76e37a0082dd47f942355a8a36add0887b7c6da7720bde5f57628e1d6e2b6f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2724,7 +2724,7 @@
       "id": "objective.open-orders1.borrowed-wings.controlled",
       "missionId": "mission.open-orders-1-work-worth-doing",
       "objectiveId": "objective.open-orders1.borrowed-wings",
-      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "sourceHash": "2b76e37a0082dd47f942355a8a36add0887b7c6da7720bde5f57628e1d6e2b6f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2802,7 +2802,7 @@
       "id": "objective.open-orders1.quiet-channels.controlled",
       "missionId": "mission.open-orders-1-work-worth-doing",
       "objectiveId": "objective.open-orders1.quiet-channels",
-      "sourceHash": "da524ec519254eca28c9b9ea9201faa73b2f4f80a2ef7cc00f72be70597a0967",
+      "sourceHash": "2b76e37a0082dd47f942355a8a36add0887b7c6da7720bde5f57628e1d6e2b6f",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2880,7 +2880,7 @@
       "id": "objective.open-orders2.conclusion.controlled",
       "missionId": "mission.open-orders-2-what-survives",
       "objectiveId": "objective.open-orders2.conclusion",
-      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "sourceHash": "a717dae320e677b98493a23b530ca246ea27354b8d8d88195560e8d770f06830",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -2940,7 +2940,7 @@
       "id": "objective.open-orders2.last-watch.controlled",
       "missionId": "mission.open-orders-2-what-survives",
       "objectiveId": "objective.open-orders2.last-watch",
-      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "sourceHash": "a717dae320e677b98493a23b530ca246ea27354b8d8d88195560e8d770f06830",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3018,7 +3018,7 @@
       "id": "objective.open-orders2.second-opinion.controlled",
       "missionId": "mission.open-orders-2-what-survives",
       "objectiveId": "objective.open-orders2.second-opinion",
-      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "sourceHash": "a717dae320e677b98493a23b530ca246ea27354b8d8d88195560e8d770f06830",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3096,7 +3096,7 @@
       "id": "objective.open-orders2.unwelcome-result.controlled",
       "missionId": "mission.open-orders-2-what-survives",
       "objectiveId": "objective.open-orders2.unwelcome-result",
-      "sourceHash": "ad327ac16db97e9946d242680c7b4dc85385220124dd5d55e2c5b72ddcc578c9",
+      "sourceHash": "a717dae320e677b98493a23b530ca246ea27354b8d8d88195560e8d770f06830",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3174,7 +3174,7 @@
       "id": "objective.open-orders3.conclusion.controlled",
       "missionId": "mission.open-orders-3-before-the-lamps-go-out",
       "objectiveId": "objective.open-orders3.conclusion",
-      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "sourceHash": "00b2ee6aec5fd39bebe47e2a0e007b683a681e0980a5e78ccb37f21d7d23cfff",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3234,7 +3234,7 @@
       "id": "objective.open-orders3.name.controlled",
       "missionId": "mission.open-orders-3-before-the-lamps-go-out",
       "objectiveId": "objective.open-orders3.name",
-      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "sourceHash": "00b2ee6aec5fd39bebe47e2a0e007b683a681e0980a5e78ccb37f21d7d23cfff",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3312,7 +3312,7 @@
       "id": "objective.open-orders3.signal.controlled",
       "missionId": "mission.open-orders-3-before-the-lamps-go-out",
       "objectiveId": "objective.open-orders3.signal",
-      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "sourceHash": "00b2ee6aec5fd39bebe47e2a0e007b683a681e0980a5e78ccb37f21d7d23cfff",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3390,7 +3390,7 @@
       "id": "objective.open-orders3.signatures.controlled",
       "missionId": "mission.open-orders-3-before-the-lamps-go-out",
       "objectiveId": "objective.open-orders3.signatures",
-      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "sourceHash": "00b2ee6aec5fd39bebe47e2a0e007b683a681e0980a5e78ccb37f21d7d23cfff",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3468,7 +3468,7 @@
       "id": "objective.prelude.command-handover.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.command-handover",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3532,7 +3532,7 @@
       "id": "objective.prelude.staff-readiness.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.staff-readiness",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3596,7 +3596,7 @@
       "id": "objective.prelude.hesperus-rescue.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3679,7 +3679,7 @@
       "id": "objective.prelude.final-readiness-arrival.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.final-readiness-arrival",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3791,7 +3791,7 @@
       "id": "objective.prelude.hesperus-accountability.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-accountability",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3874,7 +3874,7 @@
       "id": "objective.prelude.rhee-apprehension.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.rhee-apprehension",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4063,7 +4063,7 @@
       "id": "hesperus-informed-failure",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4159,7 +4159,7 @@
       "id": "later-handoff-authored-mapping",
       "missionId": "mission.chapter-6-the-cost-of-knowing",
       "objectiveId": "objective.chapter6.command-network",
-      "sourceHash": "1b46108067e9b89ecbbf8c29612554b03930e03ea9e70fc5caa4443d86e42507",
+      "sourceHash": "ce505e90a77c6435dd0f6bd33dea18e2869b139c2563f6805d2b0041582d7534",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4216,7 +4216,7 @@
       "id": "later-cost-fallback-precedence",
       "missionId": "mission.chapter-5-old-lessons",
       "objectiveId": "objective.chapter5.safety",
-      "sourceHash": "3159ec7ac0dd283038b0fc212552129a817dd9b9e458b9340c361bea32f5e6ce",
+      "sourceHash": "522ad8ce04654d32e04c72dc0d5c4f72b42fe23598c4a328a6adf2d931d31c41",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4275,7 +4275,7 @@
       "id": "open-orders3-unengaged-departure",
       "missionId": "mission.open-orders-3-before-the-lamps-go-out",
       "objectiveId": "objective.open-orders3.signal",
-      "sourceHash": "1aa670efdfe6938bca5070d3c090d6119a0fb8181b8de0af482ff294fb104bfd",
+      "sourceHash": "00b2ee6aec5fd39bebe47e2a0e007b683a681e0980a5e78ccb37f21d7d23cfff",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4346,7 +4346,7 @@
       "id": "hesperus-handoff",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "b2ada03daef253a9813f76edd4ce02f56e0e59e8419d8ddf98b42c4592250f2c",
+      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {

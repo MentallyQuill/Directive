@@ -289,12 +289,12 @@ assert.equal(advanced.ok, true, JSON.stringify({
     reasonCode: advanced.reasonCode,
     diagnostics: advanced.diagnostics,
 }));
-assert.equal(advanced.status, 'settled-no-effect');
+assert.equal(advanced.status, 'settled');
 assert.equal(advanced.time.status, 'committed');
 assert.equal(mainHarness.persistCount, 1, 'accepted-pair authority must use one persistence commit');
 assert.equal(mainHarness.campaignState.timeLedger.entries.length, 1);
 assert.equal(mainHarness.campaignState.timeLedger.elapsedSeconds, 5400);
-assert.equal(advanced.diagnostics.acceptedClaimCount, 0);
+assert.equal(advanced.diagnostics.acceptedClaimCount, 1, 'the first pair activates structural pacing locally');
 assert.equal(Object.hasOwn(mainHarness.campaignState.mission.v1, 'clocks'), false);
 assert.equal(mainHarness.campaignState.mission.v1.evidenceLog.some(
     (entry) => entry.claimType === 'timeAdvanced'

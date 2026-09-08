@@ -28,6 +28,9 @@ function definitionFor(reportId) {
     const definition = structuredClone(canonicalDefinition);
     const distress = definition.facts.find((fact) => fact.id === 'fact.hesperus.distress-established');
     distress.initiallyTrue = true;
+    // Transport/custody fixture: an authored immediate interruption. Canonical
+    // scene sequencing is exercised in test-scene-pacing-runtime.mjs.
+    definition.reportRoutes.forEach(route=>{route.sceneInterruptWhen=true;});
     if (reportId === 'report.hesperus.passenger-risk') distress.visibility = 'known';
     return definition;
 }

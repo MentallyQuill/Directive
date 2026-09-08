@@ -147,6 +147,13 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.prelude.active","claimType":"eventOccurred","targetId":"event.scene-pacing.prelude.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.prelude.command-handover.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.command-handover.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
+    {"id":"policy.scene-pacing.prelude.staff-readiness.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.staff-readiness.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
+    {"id":"policy.scene-pacing.prelude.hesperus-rescue.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.hesperus-rescue.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
+    {"id":"policy.scene-pacing.prelude.final-readiness-arrival.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.final-readiness-arrival.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
+    {"id":"policy.scene-pacing.prelude.hesperus-accountability.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.hesperus-accountability.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
+    {"id":"policy.scene-pacing.prelude.rhee-apprehension.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.prelude.rhee-apprehension.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.prelude.active"}},
     {
       "id": "policy.prelude.poker-invitation-disclosed",
       "claimType": "factDisclosed",
@@ -164,7 +171,7 @@
       "claimType": "worldFactEstablished",
       "targetId": "fact.hesperus.distress-established",
       "sourceRoles": ["runtime", "adjudicator"],
-      "when": true
+      "when": { "eventOccurred": "event.prelude.command-handover-completed" }
     },
     {
       "id": "policy.hesperus.distress-disclosed",
@@ -1050,6 +1057,7 @@
   "reportRoutes": [
     {
       "id": "report.hesperus.distress",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.distress-established",
       "evidencePolicyId": "policy.hesperus.distress-disclosed",
       "capabilityRoles": ["operations", "science"],
@@ -1068,6 +1076,7 @@
     },
     {
       "id": "report.prelude.redline.inventory-drift",
+      "sceneObjectiveIds": ["objective.prelude.rhee-apprehension","objective.prelude.staff-readiness","objective.prelude.hesperus-rescue"],
       "factId": "fact.prelude.redline.inventory-drift",
       "evidencePolicyId": "policy.prelude.redline-inventory-drift-disclosed",
       "capabilityRoles": ["medical"],
@@ -1087,6 +1096,7 @@
     },
     {
       "id": "report.prelude.redline.shortage-consequence",
+      "sceneObjectiveIds": ["objective.prelude.rhee-apprehension","objective.prelude.staff-readiness","objective.prelude.hesperus-rescue"],
       "factId": "fact.prelude.redline.shortage-consequence",
       "evidencePolicyId": "policy.prelude.redline-shortage-consequence-disclosed",
       "capabilityRoles": ["medical", "operations"],
@@ -1106,6 +1116,7 @@
     },
     {
       "id": "report.hesperus.passenger-risk",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.passenger-risk",
       "evidencePolicyId": "policy.hesperus.passenger-risk-disclosed",
       "capabilityRoles": ["medical"],
@@ -1125,6 +1136,7 @@
     },
     {
       "id": "report.hesperus.injector-limit",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.injector-limit",
       "evidencePolicyId": "policy.hesperus.injector-limit-disclosed",
       "capabilityRoles": ["engineering"],
@@ -1144,6 +1156,7 @@
     },
     {
       "id": "report.hesperus.record-inconsistency",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-accountability","objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.record-inconsistency",
       "evidencePolicyId": "policy.hesperus.record-inconsistency-disclosed",
       "capabilityRoles": ["engineering", "operations"],
@@ -1163,6 +1176,7 @@
     },
     {
       "id": "report.hesperus.record-discrepancy",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-accountability","objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.record-discrepancy",
       "evidencePolicyId": "policy.hesperus.record-discrepancy-disclosed",
       "capabilityRoles": ["engineering", "operations"],
@@ -1182,6 +1196,7 @@
     },
     {
       "id": "report.hesperus.record-falsified",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-accountability","objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.record-falsified",
       "evidencePolicyId": "policy.hesperus.record-falsified-disclosed",
       "capabilityRoles": ["operations", "security"],
@@ -1201,6 +1216,7 @@
     },
     {
       "id": "report.hesperus.owner-attribution",
+      "sceneObjectiveIds": ["objective.prelude.hesperus-accountability","objective.prelude.hesperus-rescue"],
       "factId": "fact.hesperus.owner-attribution-supported",
       "evidencePolicyId": "policy.hesperus.owner-attribution-disclosed",
       "capabilityRoles": ["operations", "security"],
@@ -1220,6 +1236,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.prelude.active","playerVisibility":"hidden"},
     {
       "id": "event.prelude.command-handover-terms-settled",
       "playerVisibility": "visible",
@@ -1316,6 +1333,12 @@
     }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.prelude.command-handover.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.prelude.staff-readiness.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.prelude.hesperus-rescue.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.prelude.final-readiness-arrival.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.prelude.hesperus-accountability.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.prelude.rhee-apprehension.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.hesperus.rescue-risk-decision",
       "allowedValues": ["unmade", "proceedKnownRisk", "saferPlan"],
@@ -1397,9 +1420,11 @@
       "playerText": { "summary": "Anika Rhee's disposition in the shipboard redline case is recorded." }
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.prelude.active"},
   "objectives": [
     {
       "id": "objective.prelude.command-handover",
+      "scenePacing": {"requirements":["Discuss concrete XO authority, escalation, and working boundaries with Whitaker; greetings and first impressions do not satisfy this.","Respond to the proposed terms and address questions or disagreements before the practical authority transfer."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.command-handover.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1423,6 +1448,7 @@
     },
     {
       "id": "objective.prelude.staff-readiness",
+      "scenePacing": {"requirements":["Engage senior staff on their readiness assessments, constraints, and competing needs.","Respond to their recommendations with accountable delegation and priorities rather than merely requesting reports."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.staff-readiness.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1446,6 +1472,7 @@
     },
     {
       "id": "objective.prelude.hesperus-rescue",
+      "scenePacing": {"requirements":["Engage the rescue assessment and the people at risk before choosing an approach.","Respond to a meaningful operational result or complication and settle the remaining responsibility."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.hesperus-rescue.authorization"},
       "class": "conditional",
       "activatedAs": "required",
       "activationRoute": {
@@ -1500,6 +1527,7 @@
     },
     {
       "id": "objective.prelude.final-readiness-arrival",
+      "scenePacing": {"requirements":["Engage the final readiness review and outstanding ship or crew limitations.","Choose the readiness disposition and respond to its implications for arrival."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.final-readiness-arrival.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": {
@@ -1582,6 +1610,7 @@
     },
     {
       "id": "objective.prelude.hesperus-accountability",
+      "scenePacing": {"requirements":["Examine the confirmed discrepancy and hear the relevant account before assigning blame.","Choose an accountable response after discussing evidence, uncertainty, and available authority."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.hesperus-accountability.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.hesperus.record-falsified" },
@@ -1635,6 +1664,7 @@
     },
     {
       "id": "objective.prelude.rhee-apprehension",
+      "scenePacing": {"requirements":["Engage independent evidence and the affected people without treating suspicion as proof.","Choose care, containment, or custody with a response to the evidentiary and human consequences."],"authorizationOutcomeId":"outcome.scene-pacing.prelude.rhee-apprehension.authorization"},
       "class": "conditional",
       "activatedAs": "optional",
       "activationWhen": { "factKnown": "fact.prelude.redline.distribution-confirmed" },

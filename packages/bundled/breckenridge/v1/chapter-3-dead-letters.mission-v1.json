@@ -95,6 +95,10 @@
     }
   ],
   "evidencePolicies": [
+    {"id":"policy.scene-pacing.chapter3.active","claimType":"eventOccurred","targetId":"event.scene-pacing.chapter3.active","sourceRoles":["runtime"],"when":true},
+    {"id":"policy.scene-pacing.chapter3.access.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter3.access.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter3.active"}},
+    {"id":"policy.scene-pacing.chapter3.evidence.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter3.evidence.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter3.active"}},
+    {"id":"policy.scene-pacing.chapter3.custody.participated","claimType":"outcomeObserved","targetId":"outcome.scene-pacing.chapter3.custody.authorization","sourceRoles":["runtime"],"when":{"eventOccurred":"event.scene-pacing.chapter3.active"}},
     {
       "id": "policy.chapter3.approach-attempted",
       "claimType": "eventOccurred",
@@ -807,6 +811,7 @@
   "reportRoutes": [
     {
       "id": "report.chapter3.relay-archive-character",
+      "sceneObjectiveIds": ["objective.chapter3.evidence","objective.chapter3.custody"],
       "factId": "fact.chapter3.relay-archive-character",
       "evidencePolicyId": "policy.chapter3.relay-character-disclosed",
       "capabilityRoles": ["operations", "science"],
@@ -828,6 +833,7 @@
     },
     {
       "id": "report.chapter3.network-architecture-picture",
+      "sceneObjectiveIds": ["objective.chapter3.evidence"],
       "factId": "fact.chapter3.network-architecture-picture",
       "evidencePolicyId": "policy.chapter3.architecture-disclosed",
       "capabilityRoles": ["science", "engineering"],
@@ -849,6 +855,7 @@
     },
     {
       "id": "report.chapter3.access-history-and-demeris-route",
+      "sceneObjectiveIds": ["objective.chapter3.evidence"],
       "factId": "fact.chapter3.access-history-and-demeris-route",
       "evidencePolicyId": "policy.chapter3.access-route-disclosed",
       "capabilityRoles": ["operations", "security"],
@@ -875,6 +882,7 @@
     },
     {
       "id": "report.chapter3.nella-consent-boundary",
+      "sceneObjectiveIds": ["objective.chapter3.custody"],
       "factId": "fact.chapter3.nella-ivers-consent-boundary",
       "evidencePolicyId": "policy.chapter3.nella-consent-boundary",
       "capabilityRoles": ["command", "operations"],
@@ -896,6 +904,7 @@
     },
     {
       "id": "report.chapter3.nia-custody-demand",
+      "sceneObjectiveIds": ["objective.chapter3.custody"],
       "factId": "fact.chapter3.nia-kessler-custody-demand",
       "evidencePolicyId": "policy.chapter3.nia-custody-demand",
       "capabilityRoles": ["command", "operations"],
@@ -917,6 +926,7 @@
     },
     {
       "id": "report.chapter3.asha-recipient-protection",
+      "sceneObjectiveIds": ["objective.chapter3.custody"],
       "factId": "fact.chapter3.asha-prel-recipient-protection",
       "evidencePolicyId": "policy.chapter3.asha-recipient-protection",
       "capabilityRoles": ["command", "operations"],
@@ -938,6 +948,7 @@
     },
     {
       "id": "report.chapter3.message-authenticity",
+      "sceneObjectiveIds": ["objective.chapter3.evidence"],
       "factId": "fact.chapter3.message-authenticity",
       "evidencePolicyId": "policy.chapter3.message-authenticity-disclosed",
       "capabilityRoles": ["science", "operations"],
@@ -959,6 +970,7 @@
     },
     {
       "id": "report.chapter3.local-access-history",
+      "sceneObjectiveIds": ["objective.chapter3.evidence"],
       "factId": "fact.chapter3.local-access-history",
       "evidencePolicyId": "policy.chapter3.local-access-history-disclosed",
       "capabilityRoles": ["operations", "security"],
@@ -980,6 +992,7 @@
     },
     {
       "id": "report.chapter3.demeris-routing",
+      "sceneObjectiveIds": ["objective.chapter3.evidence"],
       "factId": "fact.chapter3.demeris-routing",
       "evidencePolicyId": "policy.chapter3.demeris-routing-disclosed",
       "capabilityRoles": ["operations", "security"],
@@ -1001,6 +1014,7 @@
     }
   ],
   "events": [
+    {"id":"event.scene-pacing.chapter3.active","playerVisibility":"hidden"},
     { "id": "event.chapter3.approach-attempted", "playerVisibility": "hidden" },
     { "id": "event.chapter3.site-contact-established", "playerVisibility": "hidden" },
     { "id": "event.chapter3.relay-evidence-acquired", "playerVisibility": "hidden" },
@@ -1014,6 +1028,9 @@
     { "id": "event.chapter3.demeris-routing-established", "playerVisibility": "hidden" }
   ],
   "outcomes": [
+    {"id":"outcome.scene-pacing.chapter3.access.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter3.evidence.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
+    {"id":"outcome.scene-pacing.chapter3.custody.authorization","allowedValues":["held","authorized"],"initialValue":"held","playerVisibility":"hidden"},
     {
       "id": "outcome.chapter3.access-result",
       "allowedValues": ["pending", "safeAccess", "accessWithCost", "withdrewResponsibly", "forcedOff"],
@@ -1045,9 +1062,11 @@
       "playerVisibility": "hidden"
     }
   ],
+  "scenePacing": {"activationEventId":"event.scene-pacing.chapter3.active"},
   "objectives": [
     {
       "id": "objective.chapter3.access",
+      "scenePacing": {"requirements":["Examine the access situation and competing operational or custody constraints.","Choose an approach and respond to the encounter before treating access as settled."],"authorizationOutcomeId":"outcome.scene-pacing.chapter3.access.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1072,6 +1091,7 @@
     },
     {
       "id": "objective.chapter3.evidence",
+      "scenePacing": {"requirements":["Investigate the site evidence and ask about what it can and cannot establish.","Respond to corroborated findings or a material evidentiary limit before concluding the inquiry."],"authorizationOutcomeId":"outcome.scene-pacing.chapter3.evidence.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
@@ -1122,6 +1142,7 @@
     },
     {
       "id": "objective.chapter3.custody",
+      "scenePacing": {"requirements":["Discuss the site and archive custody options with their affected parties.","Choose custody terms and respond to the consequences or objections."],"authorizationOutcomeId":"outcome.scene-pacing.chapter3.custody.authorization"},
       "class": "required",
       "activatedAs": null,
       "activationWhen": true,
