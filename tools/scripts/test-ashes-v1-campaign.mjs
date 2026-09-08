@@ -388,11 +388,32 @@ const { packageData, crewDataset, shipDataset, missionDefinitions } = loadAshesR
 assert.deepEqual(Object.keys(packageData).sort(), EXPECTED_PACKAGE_ROOTS);
 assert.equal(packageData.manifest.kind, 'directive.campaignPackage.v1');
 assert.equal(packageData.manifest.schemaVersion, 1);
-assert.deepEqual(Object.keys(crewDataset).sort(), ['manifest', 'officers']);
+assert.deepEqual(Object.keys(crewDataset).sort(), ['manifest', 'officers', 'supportingCharacters']);
 assert.equal(crewDataset.manifest.kind, 'directive.crewDataset.v1');
 assert.equal(crewDataset.manifest.packageId, packageData.manifest.id);
-assert.equal(crewDataset.manifest.version, '1.1.0');
+assert.equal(crewDataset.manifest.version, '1.2.0');
 assert.equal(crewDataset.officers.length, 7);
+assert.equal(crewDataset.supportingCharacters.length, 20);
+const cast = [...crewDataset.officers, ...crewDataset.supportingCharacters];
+assert.equal(new Set(cast.map(character => character.id)).size, cast.length);
+const agreedReferences = {
+  'mara-whitaker': 'Kathryn Janeway', 'kieran-vale': 'Tom Paris',
+  'priya-nayar': 'Samantha Carter', 'hadrik-bronn': 'Worf',
+  'rowan-saye': 'Rodney McKay', 'miriam-sato': "Miles O'Brien",
+  'imani-cross': "B'Elanna Torres", 'helena-tolland': 'George Hammond',
+  'elias-rourke': 'William Ross'
+};
+for (const character of cast) {
+  const reference = character.narrationGuide.characterReference;
+  assert.ok(reference, `${character.id}: casting reference is authored`);
+  for (const key of ['character', 'source', 'drawFrom', 'boundaries']) {
+    assert.ok(reference[key]?.trim(), `${character.id}: ${key} is specified`);
+  }
+  if (agreedReferences[character.id]) assert.equal(reference.character, agreedReferences[character.id]);
+}
+for (const character of crewDataset.supportingCharacters) {
+  assert.deepEqual(Object.keys(character).sort(), ['id', 'name', 'narrationGuide']);
+}
 const expectedCrewPublicRecords = {
   'mara-whitaker': {
     species: 'Human', age: '47', birthplace: 'Kingston, Ontario, Earth',

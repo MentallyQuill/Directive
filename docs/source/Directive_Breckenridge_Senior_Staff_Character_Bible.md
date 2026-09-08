@@ -1891,6 +1891,8 @@ Deep histories should emerge through relationship rather than exposition. The fo
 
 # 11. Voice Consistency Quick Reference
 
+Use the [campaign character references](Directive_Ashes_of_Peace_Character_References.md) alongside these voice profiles. The bounded performance anchors are authored in the runtime crew dataset; they preserve each officer's original identity and history.
+
 | Character | Sentence rhythm | Typical focus | Emotional leakage | Humor | Avoid |
 |---|---|---|---|---|---|
 | Whitaker | Measured, complete, concise | Assumptions, responsibility, strategic purpose | Increased formality and silence | Dry situational observation | Constant speeches or automatic answers |

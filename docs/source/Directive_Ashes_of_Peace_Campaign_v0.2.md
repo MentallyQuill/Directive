@@ -533,6 +533,8 @@ It should never speak with a theatrical personality unless the player builds an 
 
 ## 8. Recurring Non-Player Characters
 
+The [campaign character reference sheet](Directive_Ashes_of_Peace_Character_References.md) supplies bounded performance anchors for this cast and the additional named captains. These guide delivery without importing reference-character events or revealing the private campaign facts below.
+
 ### 8.1 Rear Admiral Helena Tolland
 
 **Affiliation:** Starfleet Reconstruction Command  
