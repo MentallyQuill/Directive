@@ -1,7 +1,11 @@
+import { hasConflictingJsonKeys, jsonValuesEqual, repairJsonSyntax, scanStructuredOutput } from './structured-output-scanner.mjs';
+
 export const STRUCTURED_OUTPUT_PARSE_ERROR_CODES = Object.freeze({
   JSON_INVALID: 'json_invalid',
   JSON_NOT_OBJECT: 'json_not_object',
-  EMPTY_JSON: 'json_empty'
+  EMPTY_JSON: 'json_empty',
+  JSON_AMBIGUOUS: 'json_ambiguous',
+  RECOVERY_LIMIT: 'json_recovery_limit'
 });
 
 function isObject(value) {
@@ -65,50 +69,8 @@ export function extractBalancedJsonObject(text = '') {
   return clean.slice(start);
 }
 
-function escapeLiteralLineBreaksInStrings(text = '') {
-  const source = String(text || '');
-  let output = '';
-  let inString = false;
-  let escape = false;
-  for (let index = 0; index < source.length; index += 1) {
-    const char = source[index];
-    if (escape) {
-      output += char;
-      escape = false;
-      continue;
-    }
-    if (char === '\\' && inString) {
-      output += char;
-      escape = true;
-      continue;
-    }
-    if (char === '"') {
-      output += char;
-      inString = !inString;
-      continue;
-    }
-    if (inString && char === '\n') {
-      output += '\\n';
-      continue;
-    }
-    if (inString && char === '\r') {
-      output += '\\r';
-      continue;
-    }
-    output += char;
-  }
-  return output;
-}
-
 export function repairCommonJson(text = '') {
-  return escapeLiteralLineBreaksInStrings(String(text || '')
-    .replace(/^\uFEFF/, '')
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/\/\/[^\n\r]*/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/,\s*([}\]])/g, '$1')
-    .trim());
+  return repairJsonSyntax(String(text || '')).text;
 }
 
 export function repairMissingArrayElementObjectClosers(text = '') {
@@ -135,9 +97,11 @@ export function repairMissingArrayElementObjectClosers(text = '') {
       continue;
     }
     if (!inString) {
-      if (char === '{' || char === '[') stack.push(char);
+      if (char === '{' || char === '[') stack.push({ char, index });
       else if (char === '}' || char === ']') stack.pop();
-      if (char === ',' && stack.at(-1) === '{' && stack.includes('[')) {
+      if (char === ',' && stack.at(-1)?.char === '{' && stack.at(-2)?.char === '['
+        && /^\{\s*"op"\s*:/.test(source.slice(stack.at(-1).index))
+        && /"operations"\s*:\s*$/.test(source.slice(0, stack.at(-2).index))) {
         let next = index + 1;
         while (/\s/.test(source[next] || '')) next += 1;
         let afterOpen = source[next] === '{' ? next + 1 : next;
@@ -154,65 +118,52 @@ export function repairMissingArrayElementObjectClosers(text = '') {
   return output;
 }
 
-function uniqueCandidates(values = []) {
-  const seen = new Set();
-  return values.map((value) => String(value || '').trim()).filter((value) => {
-    if (!value || seen.has(value)) return false;
-    seen.add(value);
-    return true;
-  });
-}
-
 export function parseStructuredJsonText(text = '', options = {}) {
   const source = String(text || '').trim();
-  if (!source) {
-    return {
-      ok: false,
-      error: 'Provider returned empty structured output.',
-      diagnostic: createDiagnostic(STRUCTURED_OUTPUT_PARSE_ERROR_CODES.EMPTY_JSON, 'Provider returned empty structured output.', {
-        visibleContentLength: 0
-      })
-    };
-  }
-  const balanced = extractBalancedJsonObject(source);
-  const candidates = uniqueCandidates([
-    stripMarkdownFence(source),
-    balanced,
-    repairCommonJson(balanced),
-    repairCommonJson(stripMarkdownFence(source)),
-    repairMissingArrayElementObjectClosers(repairCommonJson(balanced)),
-    repairMissingArrayElementObjectClosers(repairCommonJson(stripMarkdownFence(source)))
-  ]);
-  let lastError = null;
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (options.requireObject !== false && !isObject(parsed)) {
-        return {
-          ok: false,
-          error: 'Provider structured output must be an object.',
-          diagnostic: createDiagnostic(STRUCTURED_OUTPUT_PARSE_ERROR_CODES.JSON_NOT_OBJECT, 'Provider structured output must be an object.', {
-            visibleContentLength: source.length,
-            sample: source.slice(0, 600)
-          })
-        };
-      }
-      return {
-        ok: true,
-        value: parsed,
-        repaired: candidate !== candidates[0],
-        candidate
-      };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  return {
+  const failure = (code, message) => ({
     ok: false,
-    error: lastError?.message || 'Provider response was not valid JSON.',
-    diagnostic: createDiagnostic(STRUCTURED_OUTPUT_PARSE_ERROR_CODES.JSON_INVALID, lastError?.message || 'Provider response was not valid JSON.', {
+    error: message,
+    diagnostic: createDiagnostic(code, message, {
       visibleContentLength: source.length,
       sample: source.slice(0, 600)
     })
+  });
+  const accept = (candidate, value, stage, repairs = []) => {
+    if (hasConflictingJsonKeys(candidate)) return failure('json_ambiguous', 'Provider output contains conflicting object keys.');
+    if (options.requireObject !== false && !isObject(value)) return failure('json_not_object', 'Provider structured output must be an object.');
+    return { ok: true, value, repaired: stage !== 'direct', candidate, recovery: { stage, repairs } };
   };
+  if (!source) return failure('json_empty', 'Provider returned empty structured output.');
+  let direct;
+  try { direct = JSON.parse(source); } catch { /* Recovery only after direct parsing fails. */ }
+  if (direct !== undefined) return accept(source, direct, 'direct');
+
+  const scan = scanStructuredOutput(source);
+  if (!scan.ok) return failure(scan.errorCode, 'Provider output is incomplete or exceeds recovery limits.');
+  if (!scan.candidates.length) return failure('json_invalid', 'Provider response was not valid JSON.');
+  const results = [];
+  for (const original of scan.candidates) {
+    let candidate = original;
+    let repairs = [];
+    let value;
+    try { value = JSON.parse(candidate); } catch {
+      const repaired = repairJsonSyntax(original);
+      candidate = repaired.text;
+      repairs = repaired.repairs;
+      try { value = JSON.parse(candidate); } catch {
+        const legacy = repairMissingArrayElementObjectClosers(candidate);
+        if (legacy === candidate) return failure('json_invalid', 'Provider response was not valid JSON.');
+        candidate = legacy;
+        repairs = [...repairs, 'legacy-operation-closer'];
+        try { value = JSON.parse(candidate); } catch { return failure('json_invalid', 'Provider response was not valid JSON.'); }
+      }
+    }
+    const result = accept(candidate, value, repairs.length ? 'syntax-repaired' : 'extracted', repairs);
+    if (!result.ok) return result;
+    results.push(result);
+  }
+  if (results.some((result) => !jsonValuesEqual(result.value, results[0].value))) {
+    return failure('json_ambiguous', 'Provider output contains competing JSON answers.');
+  }
+  return results[0];
 }

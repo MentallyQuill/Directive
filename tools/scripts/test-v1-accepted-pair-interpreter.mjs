@@ -396,6 +396,7 @@ for (const [label, output, pattern] of [
 ]) {
     const invalid = parseMissionAcceptedPairInterpretationOutput(output, { candidatePacket, sourcePair });
     assert.equal(invalid.ok, false, label);
+    assert.equal(parseMissionAcceptedPairInterpretationOutput(JSON.stringify(output).replace(/}$/, ',}'), { candidatePacket, sourcePair }).ok, false, label);
     assert.match(invalid.errors.join('\n'), pattern, label);
 }
 
@@ -506,4 +507,16 @@ assert.deepEqual(await externalPending, {
 });
 assert.equal(externalSignal?.aborted, true);
 
+
+assert.deepEqual(parseMissionAcceptedPairInterpretationOutput(JSON.stringify(validOutput).replace(/}$/, ',}'), { candidatePacket, sourcePair }), parsed);
+
+for (const damaged of [false, true]) {
+  let count = 0;
+  const recovered = await createMissionAcceptedPairInterpreter({ generationRouter: { async generate() {
+    count++;
+    return {ok:true, response:{text:JSON.stringify(validOutput).replace(/}$/, damaged ? ',}' : '}')}};
+  }}})({candidatePacket, sourcePair});
+  assert.equal(count, 1);
+  assert.deepEqual(recovered.interpretation, interpreted.interpretation);
+}
 console.log('V1 accepted-pair interpreter tests passed.');

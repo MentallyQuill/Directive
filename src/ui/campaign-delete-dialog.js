@@ -1,5 +1,6 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
-import { createElement } from './runtime-ui-kit.js';
+import { createElement, setButtonBusy } from './runtime-ui-kit.js';
 
 function normalizedConfirmation(value) {
   return String(value || '').trim().toLowerCase() === 'delete';
@@ -10,9 +11,6 @@ export function createCampaignDeleteDialog({
   opener = null,
   onDelete = null
 } = {}) {
-  const shell = document.getElementById?.('directive-runtime-panel') || null;
-  const shellWasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
   let busy = false;
 
   const overlay = createElement('div', 'campaign-delete-dialog-overlay');
@@ -76,14 +74,13 @@ export function createCampaignDeleteDialog({
     input.disabled = disabled;
     cancelButton.disabled = disabled;
     closeButton.disabled = disabled;
-    deleteButton.disabled = disabled || !normalizedConfirmation(input.value);
+    deleteButton.disabled = !normalizedConfirmation(input.value);
   };
 
   const close = (reason = 'dismissed') => {
     if (busy || !overlay.isConnected) return { closed: false, reason };
     overlay.remove?.();
-    if (shell) shell.inert = shellWasInert;
-    opener?.focus?.({ preventScroll: true });
+    release();
     return { closed: true, reason };
   };
 
@@ -109,8 +106,9 @@ export function createCampaignDeleteDialog({
     overlay.dataset.campaignDeleteState = 'deleting';
     error.hidden = true;
     error.textContent = '';
-    deleteButton.textContent = 'Deleting...';
+    const restore = setButtonBusy(deleteButton, true, { label: 'Deleting...' });
     setControlsDisabled(true);
+    deleteButton.focus?.({ preventScroll: true });
     try {
       await onDelete?.({ campaignId: campaign?.id, saveId: campaign?.activeTimeline?.saveId || null });
       busy = false;
@@ -120,33 +118,16 @@ export function createCampaignDeleteDialog({
       overlay.dataset.campaignDeleteState = 'error';
       error.textContent = cause?.message || String(cause || 'Campaign deletion failed.');
       error.hidden = false;
-      deleteButton.textContent = 'Delete';
+      restore();
       setControlsDisabled(false);
       input.focus?.({ preventScroll: true });
-    }
-  });
-  dialog.addEventListener('keydown', (event) => {
-    if (event?.key === 'Escape') {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      requestClose('escape');
-      return;
-    }
-    if (event?.key !== 'Tab') return;
-    const candidates = [...(dialog.querySelectorAll?.('[data-campaign-delete-action]') || [])]
-      .filter((candidate) => candidate.disabled !== true && candidate.hidden !== true);
-    const focusable = [input, ...candidates].filter((candidate) => candidate.disabled !== true);
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault?.();
-      last?.focus?.();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault?.();
-      first?.focus?.();
+    } finally {
+      restore();
     }
   });
 
+
+  const release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: input, onDismiss: requestClose, canDismiss: () => !busy });
   input.focus?.({ preventScroll: true });
   return {
     overlay,

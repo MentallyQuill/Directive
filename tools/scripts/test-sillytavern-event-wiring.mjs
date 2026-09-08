@@ -329,10 +329,12 @@ assert.equal(
 );
 assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'Writing...',
+  'Waiting for a response...',
   'successful settlement must hand activity off to host narration'
 );
-await new Promise((resolve) => setTimeout(resolve, 375));
+await new Promise((resolve) => setTimeout(resolve, 850));
+assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 1, 'waiting persists until an actual host lifecycle event');
+__directiveEventTestHooks.handleGenerationEnded();
 assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 0);
 clearSillyTavernDirectiveRuntimeBridge();
 
@@ -348,6 +350,7 @@ setSillyTavernDirectiveRuntimeBridge({
   },
   turnOrchestrator: {
     async interceptGeneration() {
+      if (settlementRetryCalls > 0) return { handled: true, abortDefaultGeneration: false, responseStrategy: 'injectAndContinue' };
       return {
         handled: true,
         abortDefaultGeneration: true,
@@ -360,6 +363,8 @@ setSillyTavernDirectiveRuntimeBridge({
     chat: {
       async continueHostGeneration(options) {
         continuedGeneration = options;
+        // The production chat adapter calls SillyTavern Generate, which invokes the interceptor again.
+        await directiveGenerationInterceptor([], 8192, () => {}, options.type);
         return { ok: true };
       }
     }
@@ -378,6 +383,10 @@ assert.deepEqual(continuedGeneration, {
   automaticTrigger: true,
   waitForCompletion: false
 });
+assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 1, 'retry generation owns one activity');
+assert.equal(__directiveTurnActivityTestHooks.activeActivities()[0].phase, 'waiting', 'retry re-enters the normal handoff lifecycle');
+__directiveEventTestHooks.handleGenerationEnded();
+assert.equal(__directiveTurnActivityTestHooks.activeActivities().length, 0);
 clearSillyTavernDirectiveRuntimeBridge();
 
 let releaseReplayRetry = null;

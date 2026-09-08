@@ -3,8 +3,6 @@ import { acceptedPairTimeDecisionErrors } from '../time/accepted-time-interpreta
 
 const DAY_SECONDS = 86400;
 const LEDGER_LIMIT = 128;
-const MAX_TIME_ADVANCE_SECONDS = 31 * DAY_SECONDS;
-const MAX_UNQUALIFIED_OPENING_ADVANCE_SECONDS = 5 * 60;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));

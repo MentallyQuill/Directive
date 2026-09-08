@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 import {
@@ -106,4 +107,31 @@ const invalid = parseStructuredJsonText('no object here');
 assert.equal(invalid.ok, false);
 assert.equal(invalid.diagnostic.code, 'json_invalid');
 
-console.log('Provider response parser tests passed.');
+const intact = { text: '<think>literal</think> Keep /* this */ and https://example.test/a', count: 0, enabled: false };
+assert.deepEqual(parseStructuredJsonText(JSON.stringify(intact)).value, intact);
+assert.equal(parseStructuredJsonText(JSON.stringify(intact)).repaired, false);
+assert.deepEqual(parseStructuredJsonText('{"text":"Keep /* this */ literal",}').value, { text: 'Keep /* this */ literal' });
+assert.deepEqual(parseStructuredJsonText("{name: 'Sam', enabled: false,}").value, { name: 'Sam', enabled: false });
+for (const input of ['{"a":1,"a":2}', '{"a":1,"\\u0061":2}', 'Example: {"a":1}\nAnswer: {"a":2}', '{"text":"unfinished', '<think>{"a":1}']) {
+  assert.equal(parseStructuredJsonText(input).ok, false, input);
+}
+
+assert.equal(parseStructuredJsonText('{"x":1e400,"x":null}').ok, false);
+assert.equal(parseStructuredJsonText('{"x":' .repeat(7000) + '0' + '}'.repeat(7000)).ok, true);
+
+const recoveryFixtures = JSON.parse(fs.readFileSync(new URL('../fixtures/model-output-recovery.json', import.meta.url), 'utf8'));
+for (const fixture of recoveryFixtures) {
+  const result = parseStructuredJsonText(fixture.input);
+  assert.equal(result.ok, fixture.expectedOk, fixture.id);
+  if (fixture.expectedOk) assert.deepEqual(result.value, fixture.expectedValue, fixture.id);
+  else assert.equal(result.diagnostic.code, fixture.expectedCode, fixture.id);
+}
+for (const input of ['x'.repeat(262145), 'Result: ' + '['.repeat(65) + '0' + ']'.repeat(65), Array.from({length: 5}, (_, i) => JSON.stringify({i})).join(' ')]) {
+  assert.equal(parseStructuredJsonText(input).diagnostic.code, 'json_recovery_limit');
+}
+assert.deepEqual(parseStructuredJsonText('[false,0,null]', {requireObject:false}).value, [false,0,null]);
+assert.equal(parseStructuredJsonText(JSON.stringify({text:'x'.repeat(262145)})).ok, true);
+
+assert.deepEqual(parseStructuredJsonText('{"a":1, // comment\r"b":2}').value, {a:1,b:2});
+assert.deepEqual(parseStructuredJsonText('{}'.repeat(30000)).value, {});
+console.log(`Provider response parser tests passed (${recoveryFixtures.length} recovery fixtures).`);

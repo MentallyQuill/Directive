@@ -1,6 +1,8 @@
 # Story Time Reliability Implementation Plan
 
-> **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Execute inline; no parallel agent work is needed for this coupled path.
+> Updated from the planning snapshot preserved on main on 2026-09-07. Implementation status below supersedes that snapshot; installed-host observations remain baseline observations.
+
+> **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execute inline; no parallel agent work is needed for this coupled path.
 
 **Goal:** Make accepted story time advance plausibly and exactly once, with explicit evidence for substantial passage and recoverable interpretation failures.
 
@@ -99,4 +101,4 @@ assert.equal(unresolvedWasCommittedAsZero, false);
 
 ## Current status
 
-Implementation and independent review are complete. The new reliability suite passes 59 tests. The full gate previously passed 165 focused checks and is being rerun on the final revision. Existing history-reconstruction tests cover intentional rollback; no new timeline transaction redesign was warranted. The disposable-host evaluation is prepared in docs/testing/STORY_TIME_RELIABILITY_EVALUATION.md, not executed. Installation remains outside this change.
+Implementation and independent review are complete. The new reliability suite passes 59 tests. The full gate passes 168 focused checks on the combined revision incorporating the UI and model-output recovery changes from main. Existing history-reconstruction tests cover intentional rollback; no new timeline transaction redesign was warranted. The disposable-host evaluation is prepared in docs/testing/STORY_TIME_RELIABILITY_EVALUATION.md, not executed. Installation remains outside this change.

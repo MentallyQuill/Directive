@@ -72,4 +72,23 @@ const forbiddenResult = parsePeopleDossierBatchOutput(forbidden, { introductions
 assert.equal(forbiddenResult.ok, false);
 assert.match(forbiddenResult.errors.join('\n'), /unknown field/);
 
+
+for (const damaged of [false, true]) {
+  let count = 0;
+  const recovered = await createPeopleDossierAuthor({ generationRouter: { async generate() {
+    count++;
+    return {ok:true, response:{text:JSON.stringify(output).replace(/}$/, damaged ? ',}' : '}')}};
+  }}})({introductions});
+  assert.equal(count, 1);
+  assert.deepEqual(recovered.dossiers, result.dossiers);
+}
+for (const mutate of [
+  value => {value.dossiers[0].personId = 'person.unknown';},
+  value => {value.dossiers[0].displayName = 'Another person';},
+  value => {value.dossiers.pop();},
+  value => {value.dossiers[1] = structuredClone(value.dossiers[0]);},
+]) {
+  const value = structuredClone(output); mutate(value);
+  assert.equal(parsePeopleDossierBatchOutput(JSON.stringify(value).replace(/}$/, ',}'), {introductions}).ok, false);
+}
 console.log('People dossier author tests passed.');

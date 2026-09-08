@@ -242,6 +242,7 @@ for (const invalid of [
     }),
 ]) {
     assert.equal(parseMissionTransitionNarrationCandidate(invalid, { packet: prepared.packet }).ok, false);
+    assert.equal(parseMissionTransitionNarrationCandidate(invalid.replace(/}$/, ',}'), { packet: prepared.packet }).ok, false);
 }
 
 const reviewRequest = createMissionTransitionNarrationReviewRequest({
@@ -321,4 +322,6 @@ const noTransitionRuntime = createV1MissionRuntime({
 });
 assert.equal(noTransitionRuntime.prepareTransitionNarration({ runtimeAssets }).reasonCode, 'transition-source-unavailable');
 
+
+assert.deepEqual(parseMissionTransitionNarrationCandidate(JSON.stringify({ kind: 'directive.missionTransitionNarrationCandidate.v1', transitionKey: prepared.packet.transitionKey, text: candidateText }).replace(/}$/, ',}'), { packet: prepared.packet }), parsedCandidate);
 console.log('V1 mission transition narration contract tests passed.');
