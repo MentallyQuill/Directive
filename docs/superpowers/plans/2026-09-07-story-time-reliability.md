@@ -1,6 +1,6 @@
 # Story Time Reliability Implementation Plan
 
-> Planning snapshot, preserved 2026-09-07. Implementation work exists separately in the `codex/story-time-reliability` worktree and is not included in this documentation commit. Check that worktree before starting duplicate work. Status and installed-host observations below describe the original planning baseline.
+> Updated from the planning snapshot preserved on main on 2026-09-07. Implementation status below supersedes that snapshot; installed-host observations remain baseline observations.
 
 > **For agentic workers:** Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Execute inline; no parallel agent work is needed for this coupled path.
 
@@ -37,12 +37,12 @@
 
 **Interfaces:** Reuse `parseMissionAcceptedPairInterpretationOutput`, `prepareV1AcceptedPairTimeAdvance`, and the existing runtime test fixtures. Each sequence fixture contains source messages, opening/acceptance context, proposed interpretation, and an expected temporal relationship or exact duration. An implicit dialogue fixture does not demand one arbitrary exact number.
 
-- [ ] Create an isolated checkout for implementation after reading the worktree skill; preserve the current dirty main checkout.
-- [ ] Encode the reproduced failures as regression cases: ten minutes accepted as 3,600 seconds; unsupported 31-day advance; opening meditation and past-tense enacted wait reduced to zero; rejected eight-hour sleep retained; unresolved timing deduplicated as completed.
-- [ ] Add positive controls for ten minutes = 600 seconds, half an hour = 1,800 seconds, 1.5 hours = 5,400 seconds, OOC with no enacted time, and valid opening player passage.
-- [ ] Add paired controls for a scheduled wait, refused wait, retrospective duration, interrupted wait, and a completed wait. Validate the distinction rather than matching a verb.
-- [ ] Add sequences for player action followed by assistant recap, concurrent work, a correction that preserves dialogue, and an explicit scene transition across midnight.
-- [ ] Run `node tools/scripts/test-v1-time-reliability.mjs` and retain the observed failures before editing production code.
+- [x] Create an isolated checkout for implementation after reading the worktree skill; preserve the current dirty main checkout.
+- [x] Encode the reproduced failures as regression cases: ten minutes accepted as 3,600 seconds; unsupported 31-day advance; opening meditation and past-tense enacted wait reduced to zero; rejected eight-hour sleep retained; unresolved timing deduplicated as completed.
+- [x] Add positive controls for ten minutes = 600 seconds, half an hour = 1,800 seconds, 1.5 hours = 5,400 seconds, OOC with no enacted time, and valid opening player passage.
+- [x] Add paired controls for a scheduled wait, refused wait, retrospective duration, interrupted wait, and a completed wait. Validate the distinction rather than matching a verb.
+- [x] Add sequences for player action followed by assistant recap, concurrent work, a correction that preserves dialogue, and an explicit scene transition across midnight.
+- [x] Run `node tools/scripts/test-v1-time-reliability.mjs` and retain the observed failures before editing production code.
 
 Acceptance examples to encode using the existing parser/preparation APIs:
 
@@ -64,13 +64,13 @@ assert.equal(unresolvedWasCommittedAsZero, false);
 
 **Interfaces:** The provider contract distinguishes explicit duration, implicit action, scene transition, no passage, and unresolved timing. It carries source-bound evidence for positive passage. Normalize accepted results to the existing whole-second custody input; keep persisted clock and ledger formats compatible.
 
-- [ ] Update schema, prompt, parser, and fixtures together; require a coherent basis for the decision and evidence identifying the contributing source passage.
-- [ ] Implement exact quantity conversion for unambiguous supported durations. Reject mismatched conversion; do not require total scene time to equal one quoted subinterval when additional sequential action is supported.
-- [ ] Require substantial passage to be explained by enacted duration or transition evidence. Treat contradictory proposals as invalid, never silently clamp them to an arbitrary maximum.
-- [ ] Replace the opening verb gate with source-scope validation of the structured interpretation; preserve the baseline exclusion.
-- [ ] Reject time attributed solely to a rejected event while allowing supported surviving action. Test corrected and ambiguous acceptance separately.
-- [ ] Keep ordinary implicit duration contextual. Teach and test sequential versus overlapping passage, and prevent charging an already-counted player action again when narration recaps it.
-- [ ] Run the new regression suite plus both existing focused suites and verify each original failure is addressed without losing its negative controls.
+- [x] Update schema, prompt, parser, and fixtures together; require a coherent basis for the decision and evidence identifying the contributing source passage.
+- [x] Implement exact quantity conversion for unambiguous supported durations. Reject mismatched conversion; do not require total scene time to equal one quoted subinterval when additional sequential action is supported.
+- [x] Require substantial passage to be explained by enacted duration or transition evidence. Treat contradictory proposals as invalid, never silently clamp them to an arbitrary maximum.
+- [x] Replace the opening verb gate with source-scope validation of the structured interpretation; preserve the baseline exclusion.
+- [x] Reject time attributed solely to a rejected event while allowing supported surviving action. Test corrected and ambiguous acceptance separately.
+- [x] Keep ordinary implicit duration contextual. Teach and test sequential versus overlapping passage, and prevent charging an already-counted player action again when narration recaps it.
+- [x] Run the new regression suite plus both existing focused suites and verify each original failure is addressed without losing its negative controls.
 
 ## Milestone 3: Recovery and timeline sequences
 
@@ -80,11 +80,11 @@ assert.equal(unresolvedWasCommittedAsZero, false);
 
 **Interfaces:** Unresolved timing returns an unavailable settlement result through existing recovery. It produces no durable accepted-pair receipt, no time decision, and no partial mission/time commitment. Retry must be allowed to obtain a fresh interpretation instead of reusing an unresolved cached result.
 
-- [ ] Write a failed-interpretation then successful-retry sequence; assert the first attempt commits nothing and the second commits time once.
-- [ ] Test persistence retry separately: reuse the already validated interpretation and never advance twice.
-- [ ] Test reload with a pending settlement, repeated host delivery, edit, delete, swipe, and branch restoration.
-- [ ] Assert ordinary continuation has nondecreasing total elapsed seconds. Assert intentional reconstruction yields the target timeline, rather than forbidding all decreases.
-- [ ] Inspect whether source invalidation exposes an intermediate clock in the host sequence. Change presentation/reconciliation only if this is reproduced; do not redesign timeline transactions solely from the earlier code-level risk.
+- [x] Write a failed-interpretation then successful-retry sequence; assert the first attempt commits nothing and the second commits time once.
+- [x] Test persistence retry separately: reuse the already validated interpretation and never advance twice.
+- [x] Test reload with a pending settlement, repeated host delivery, edit, delete, swipe, and branch restoration.
+- [x] Assert ordinary continuation has nondecreasing total elapsed seconds. Assert intentional reconstruction yields the target timeline, rather than forbidding all decreases.
+- [x] Inspect whether source invalidation exposes an intermediate clock in the host sequence. Change presentation/reconciliation only if this is reproduced; do not redesign timeline transactions solely from the earlier code-level risk.
 
 ## Milestone 4: Verification and integration report
 
@@ -92,13 +92,13 @@ assert.equal(unresolvedWasCommittedAsZero, false);
 - Modify `tools/scripts/run-alpha-gate.mjs` to include the new suite.
 - Update `docs/technical/MODEL_CALLS_AND_PROVIDER_ROUTING.md` for the final interpretation/recovery contract.
 
-- [ ] Run the focused sequence tests, projection tests, and generated-time hygiene tests.
-- [ ] Run `npm.cmd test` and `git diff --check` after the final implementation.
-- [ ] Review the final diff for save compatibility, accidental model-call growth, unsupported coercion, and unrelated changes.
-- [ ] Report deterministic proof separately from model quality. A scripted model response demonstrates runtime handling, not realistic live estimates.
-- [ ] Prepare a bounded disposable-host evaluation using the same sequence matrix, measuring missed passage, unsupported jumps, double counting, and recovery frequency.
+- [x] Run the focused sequence tests, projection tests, and generated-time hygiene tests.
+- [x] Run `npm.cmd test` and `git diff --check` after the final implementation.
+- [x] Review the final diff for save compatibility, accidental model-call growth, unsupported coercion, and unrelated changes.
+- [x] Report deterministic proof separately from model quality. A scripted model response demonstrates runtime handling, not realistic live estimates.
+- [x] Prepare a bounded disposable-host evaluation using the same sequence matrix, measuring missed passage, unsupported jumps, double counting, and recovery frequency.
 - [ ] Before any later installation, compare the final source with the installed artifact and reconcile concurrent objective-progress work. Do not overwrite the installed extension from this checkout wholesale.
 
 ## Current status
 
-Planning and source baseline inspection are complete. Production code is unchanged. Regression implementation, full verification, and disposable-host evaluation remain to be executed.
+Implementation and independent review are complete. The new reliability suite passes 59 tests. The full gate passes 168 focused checks on the combined revision incorporating the UI and model-output recovery changes from main. Existing history-reconstruction tests cover intentional rollback; no new timeline transaction redesign was warranted. The disposable-host evaluation is prepared in docs/testing/STORY_TIME_RELIABILITY_EVALUATION.md, not executed. Installation remains outside this change.

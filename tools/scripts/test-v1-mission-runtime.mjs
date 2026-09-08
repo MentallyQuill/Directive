@@ -141,7 +141,7 @@ function interpretationOutput({ assistantAcceptance = 'accepted', claims = [], p
             evidenceQuote: event.evidenceQuote || evidenceQuoteFor(event.sourceSlot),
         })),
         abstained,
-        time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
+        time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
 }
 

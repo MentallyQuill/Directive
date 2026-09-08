@@ -174,6 +174,10 @@ const abstained = JSON.stringify({
     abstained: true,
     time: {
         decision: 'advance',
+        basis: 'explicitDuration',
+        durationSeconds: 5400,
+        durationSourceSlot: 'previousAssistant',
+        durationEvidenceQuote: 'After ninety minutes, Captain Whitaker settles the command handover terms',
         elapsedSeconds: 5400,
         reason: 'explicit-duration',
         confidence: 0.96,
@@ -185,7 +189,7 @@ const unchanged = JSON.stringify({
     claims: [],
     abstained: true,
     time: {
-        decision: 'unchanged',
+        decision: 'unchanged', basis: 'noPassage',
         elapsedSeconds: 0,
         reason: 'same-minute',
         confidence: 0.9,
@@ -201,7 +205,7 @@ const acceptedAssistantClaim = JSON.stringify({
     }],
     abstained: false,
     time: {
-        decision: 'unchanged',
+        decision: 'unchanged', basis: 'noPassage',
         elapsedSeconds: 0,
         reason: 'same-minute',
         confidence: 0.9,
@@ -218,7 +222,7 @@ const correctedPlayerClaim = JSON.stringify({
     }],
     abstained: false,
     time: {
-        decision: 'unchanged',
+        decision: 'unchanged', basis: 'noPassage',
         elapsedSeconds: 0,
         reason: 'same-minute',
         confidence: 0.9,
@@ -241,6 +245,8 @@ const openingHistoricalAdvance = JSON.stringify({
     abstained: true,
     time: {
         decision: 'advance',
+        basis: 'sceneTransition', durationSeconds: 86400,
+        durationSourceSlot: 'previousAssistant', durationEvidenceQuote: 'Now it is 0830 the following morning.',
         elapsedSeconds: 86400,
         reason: 'previous-assistant-says-following-morning',
         confidence: 0.94,
@@ -256,10 +262,10 @@ const openingSettled = await openingHarness.runtime.settleAcceptedPair({
     runtimeAssets: openingHarness.runtimeAssets,
     snapshot: openingSceneSnapshot,
 });
-assert.equal(openingSettled.ok, true);
-assert.equal(openingSettled.time.status, 'recorded');
+assert.equal(openingSettled.ok, false);
+assert.equal(openingSettled.reasonCode, 'invalid-output');
 assert.equal(openingHarness.campaignState.timeLedger.elapsedSeconds, 0);
-assert.equal(openingHarness.campaignState.timeLedger.decisions.at(-1).reason, 'opening-baseline-retrospective-time-excluded');
+assert.equal(openingHarness.persistCount, 0);
 assert.match(
     openingHarness.generationRequests[0].request.messages[1].content,
     /"previousAssistantTiming": "opening-baseline"/,

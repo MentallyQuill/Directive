@@ -85,7 +85,7 @@ const runtime = createV1MissionRuntime({
                             evidenceQuote: 'The last Hesperus survivor reaches safety aboard the Breckenridge.',
                         }],
                         abstained: false,
-                        time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
+                        time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
                     }),
                 },
             };

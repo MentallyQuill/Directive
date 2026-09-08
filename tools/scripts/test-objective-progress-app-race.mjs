@@ -11,7 +11,7 @@ const generation = createFakeGenerationClient({ responses: { acceptedPairMission
   observedSignal = rawOptions.signal;
   started();
   await new Promise(resolve => { release = resolve; });
-  return { text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true, time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'No time passed.', confidence: 1 } }), providerId: 'fake-utility' };
+  return { text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true, time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'No time passed.', confidence: 1 } }), providerId: 'fake-utility' };
 } } });
 const host = createFakeDirectiveHost({ chatNative: true, generation });
 let sequence = 0;

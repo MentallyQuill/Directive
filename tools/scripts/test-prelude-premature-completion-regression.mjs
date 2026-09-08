@@ -66,7 +66,7 @@ for (const pair of fixture.pairs) {
         peopleEvents: [],
         abstained: false,
         time: {
-            decision: 'unchanged',
+            decision: 'unchanged', basis: 'noPassage',
             elapsedSeconds: 0,
             reason: 'incident-regression',
             confidence: 1,
@@ -97,7 +97,7 @@ const falseShipCompletion = parseMissionAcceptedPairInterpretationOutput({
     }],
     peopleEvents: [],
     abstained: false,
-    time: { decision: 'unchanged', elapsedSeconds: 0, reason: 'incident-regression', confidence: 1 },
+    time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'incident-regression', confidence: 1 },
 }, {
     candidatePacket,
     sourcePair: { previousAssistant: engineeringPair.assistant, currentPlayer: engineeringPair.player },

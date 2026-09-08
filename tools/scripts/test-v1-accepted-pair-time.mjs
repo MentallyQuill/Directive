@@ -1,3 +1,4 @@
+import { openingDurationCases } from '../fixtures/v1-time-reliability-cases.mjs';
 import assert from 'node:assert/strict';
 
 import {
@@ -63,7 +64,7 @@ const planned = prepareV1AcceptedPairTimeAdvance({
   snapshot,
   packageData,
   timeDecision: {
-    decision: 'advance',
+    decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: snapshot.source.currentPlayer.text,
     elapsedSeconds: 47,
     reason: 'accepted-scene-time',
     confidence: 0.92
@@ -83,7 +84,7 @@ const plannedZero = prepareV1AcceptedPairTimeAdvance({
   campaignState: state,
   snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.plan-zero' } },
   packageData,
-  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'same-second', confidence: 0.8 }
+  timeDecision: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.8 }
 });
 assert.equal(plannedZero.status, 'recorded');
 assert.equal(plannedZero.patch.timeLedger.entries.length, 0);
@@ -106,7 +107,7 @@ const settled = await commitV1AcceptedPairTimeAdvance({
   packageData,
   stateDeltaGateway,
   timeDecision: {
-    decision: 'advance',
+    decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: snapshot.source.currentPlayer.text,
     elapsedSeconds: 47,
     reason: 'accepted-scene-time',
     confidence: 0.92
@@ -167,7 +168,7 @@ const zero = await commitV1AcceptedPairTimeAdvance({
     async commit(next) { zeroCommits += 1; zeroState = structuredClone(next); return structuredClone(next); }
   },
   timeDecision: {
-    decision: 'unchanged',
+    decision: 'unchanged', basis: 'noPassage',
     elapsedSeconds: 0,
     reason: 'same-minute',
     confidence: 0.9
@@ -189,14 +190,14 @@ const indeterminate = await commitV1AcceptedPairTimeAdvance({
     async commit(next) { indeterminateState = structuredClone(next); return structuredClone(next); }
   },
   timeDecision: {
-    decision: 'indeterminate',
+    decision: 'indeterminate', basis: 'unresolved',
     elapsedSeconds: 0,
     reason: 'conflicting-visible-duration',
     confidence: 0.2
   }
 });
-assert.equal(indeterminate.status, 'recorded');
-assert.equal(indeterminateState.timeLedger.decisions.at(-1).decision, 'indeterminate');
+assert.equal(indeterminate.status, 'unavailable');
+assert.equal(indeterminateState, null, 'unresolved timing must not become a durable zero decision');
 
 const openingSnapshot = {
   ...snapshot,
@@ -232,10 +233,8 @@ const retrospectiveOpening = await commitV1AcceptedPairTimeAdvance({
     confidence: 0.94
   }
 });
-assert.equal(retrospectiveOpening.status, 'recorded');
-assert.equal(openingState.timeLedger.elapsedSeconds, 0, 'opening backstory must not advance past its established baseline');
-assert.equal(openingState.timeLedger.decisions.at(-1).decision, 'indeterminate');
-assert.equal(openingState.timeLedger.decisions.at(-1).reason, 'opening-baseline-retrospective-time-excluded');
+assert.equal(retrospectiveOpening.status, 'unavailable');
+assert.equal(openingState, null, 'opening backstory must not create a settled zero boundary');
 
 let openingWaitState = null;
 const explicitOpeningWait = await commitV1AcceptedPairTimeAdvance({
@@ -259,7 +258,7 @@ const explicitOpeningWait = await commitV1AcceptedPairTimeAdvance({
   timeDecision: {
     decision: 'advance',
     elapsedSeconds: 1200,
-    reason: 'explicit-player-wait',
+    basis: 'explicitDuration', reason: 'explicit-player-wait',
     confidence: 0.99,
     durationSeconds: 1200,
     durationSourceSlot: 'currentPlayer',
@@ -269,183 +268,7 @@ const explicitOpeningWait = await commitV1AcceptedPairTimeAdvance({
 assert.equal(explicitOpeningWait.status, 'committed');
 assert.equal(openingWaitState.timeLedger.elapsedSeconds, 1200, 'a forward duration enacted by the player still advances from the opening baseline');
 
-for (const [label, playerText, timeDecision, expectedSeconds] of [
-  ['calendar scene cut', 'The next morning, I report to the bridge and take the conn.', {
-    decision: 'advance', elapsedSeconds: 86400, reason: 'next-morning-scene-cut', confidence: 0.95,
-    durationSeconds: 86400, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'The next morning, I report to the bridge and take the conn.'
-  }, 86400],
-  ['mismatched duration', 'I wait exactly ten minutes before entering.', {
-    decision: 'advance', elapsedSeconds: 86400, reason: 'mismatched-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait exactly ten minutes before entering.'
-  }, 0],
-  ['negated duration', 'I refuse to wait twenty minutes before entering.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'negated-player-wait', confidence: 0.4,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I refuse to wait twenty minutes before entering.'
-  }, 0],
-  ['trimmed negated duration', 'I refuse to wait twenty minutes before entering.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'trimmed-negated-player-wait', confidence: 0.4,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait twenty minutes before entering'
-  }, 0],
-  ['cannot duration', 'I cannot wait twenty minutes before entering.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'cannot-player-wait', confidence: 0.4,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait twenty minutes before entering'
-  }, 0],
-  ['curly negation duration', 'I won’t wait twenty minutes before entering.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'curly-negated-player-wait', confidence: 0.4,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait twenty minutes before entering'
-  }, 0],
-  ['questioned duration', 'Do we spend two hours waiting before entering?', {
-    decision: 'advance', elapsedSeconds: 7200, reason: 'questioned-player-wait', confidence: 0.4,
-    durationSeconds: 7200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'Do we spend two hours waiting before entering?'
-  }, 0],
-  ['conditional duration', 'If we wait ten minutes, we might miss launch.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'conditional-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait ten minutes, we might miss launch'
-  }, 0],
-  ['scheduled duration', 'We are scheduled to wait ten minutes before launch.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'scheduled-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait ten minutes before launch'
-  }, 0],
-  ['past duration', 'Yesterday I waited ten minutes before launch.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'past-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'waited ten minutes before launch'
-  }, 0],
-  ['later negation outside duration clause', 'I wait twenty minutes, not taking my eyes off the screen.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'enacted-player-wait', confidence: 0.99,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait twenty minutes'
-  }, 1200],
-  ['unrelated quoted clause', 'I wait ten minutes, then I enter the ready room.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'unrelated-evidence', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'then I enter the ready room'
-  }, 0],
-  ['last-night duration', 'Last night I waited ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'past-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'waited ten minutes'
-  }, 0],
-  ['estimated duration', 'The repair estimate is ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'estimated-repair', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'repair estimate is ten minutes'
-  }, 0],
-  ['prior-clause negation', 'I cannot enter yet, so I wait twenty minutes.', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'enacted-after-delay', confidence: 0.99,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait twenty minutes'
-  }, 1200],
-  ['later-clause question', 'I wait twenty minutes, then ask, Are we ready?', {
-    decision: 'advance', elapsedSeconds: 1200, reason: 'enacted-before-question', confidence: 0.99,
-    durationSeconds: 1200, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait twenty minutes'
-  }, 1200],
-  ['conditional leading clause', 'If the captain agrees, I wait ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'conditional-leading-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes'
-  }, 0],
-  ['past leading clause', 'Last night, I waited ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'past-leading-player-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'waited ten minutes'
-  }, 0],
-  ['question after comma', 'Do we wait ten minutes, or leave now?', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'question-before-comma', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait ten minutes'
-  }, 0],
-  ['planned conjunction', 'I plan to leave and then wait ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'planned-conjunction', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait ten minutes'
-  }, 0],
-  ['future comma conjunction', 'I will finish this, then wait ten minutes.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'future-comma-conjunction', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'wait ten minutes'
-  }, 0],
-  ['trailing future duration', 'I wait ten minutes tomorrow.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'trailing-future', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes tomorrow'
-  }, 0],
-  ['trailing conditional duration', 'I wait ten minutes if the captain agrees.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'trailing-conditional', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes if the captain agrees'
-  }, 0],
-  ['clock future duration', 'At 0900 tomorrow, I will depart.', {
-    decision: 'advance', elapsedSeconds: 1800, reason: 'future-clock', confidence: 0.4,
-    durationSeconds: 1800, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'At 0900 tomorrow'
-  }, 0],
-  ['markdown enacted wait', '*I wait ten minutes before leaving.*', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'markdown-wait', confidence: 0.99,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes before leaving.'
-  }, 600],
-  ['markdown scene cut', '*Ten minutes later, I enter the bridge.*', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'markdown-scene-cut', confidence: 0.99,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'Ten minutes later, I enter the bridge.'
-  }, 600],
-  ['wrapped conditional', '*If the captain agrees, I wait ten minutes.*', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'wrapped-conditional', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes.'
-  }, 0],
-  ['quoted past condition', '“Last night, I waited ten minutes.”', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'quoted-past', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'waited ten minutes.'
-  }, 0],
-  ['later unrelated modal', 'I wait ten minutes and then ask what we should do.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'wait-before-modal', confidence: 0.99,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes'
-  }, 600],
-  ['concurrent unrelated modal', 'I wait ten minutes while deciding what I might say.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'wait-with-reflection', confidence: 0.99,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes'
-  }, 600],
-  ['only-if duration', 'I wait ten minutes only if the captain agrees.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'only-if-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes only if the captain agrees'
-  }, 0],
-  ['comma conditional duration', 'I wait ten minutes, if the captain agrees.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'comma-if-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes'
-  }, 0],
-  ['parenthetical conditional duration', 'I wait ten minutes (if the captain agrees).', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'parenthetical-if-wait', confidence: 0.4,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten minutes'
-  }, 0],
-  ['conditional clock anchor', 'At 0900, if cleared, I depart.', {
-    decision: 'advance', elapsedSeconds: 1800, reason: 'conditional-clock', confidence: 0.4,
-    durationSeconds: 1800, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'At 0900'
-  }, 0],
-  ['additional-duration compatibility', 'I wait ten more minutes before leaving.', {
-    decision: 'advance', elapsedSeconds: 600, reason: 'additional-wait', confidence: 0.99,
-    durationSeconds: 600, durationSourceSlot: 'currentPlayer',
-    durationEvidenceQuote: 'I wait ten more minutes before leaving.'
-  }, 600]
-]) {
+for (const [label, playerText, timeDecision, expectedSeconds] of openingDurationCases) {
   let resultState = null;
   const result = await commitV1AcceptedPairTimeAdvance({
     campaignState: state,
@@ -465,10 +288,11 @@ for (const [label, playerText, timeDecision, expectedSeconds] of [
     stateDeltaGateway: {
       async commit(next) { resultState = structuredClone(next); return structuredClone(next); }
     },
-    timeDecision
+    timeDecision: timeDecision && { ...timeDecision, basis: label === 'calendar scene cut' ? 'sceneTransition' : 'explicitDuration' }
   });
-  assert.equal(resultState.timeLedger.elapsedSeconds, expectedSeconds, label);
-  assert.equal(result.status, expectedSeconds > 0 ? 'committed' : 'recorded', label);
+  assert.equal(resultState?.timeLedger.elapsedSeconds ?? 0, expectedSeconds, label);
+  assert.equal(result.status, expectedSeconds > 0 ? 'committed' : 'unavailable', label);
+  if (expectedSeconds === 0) assert.equal(resultState, null, `${label} must remain retryable`);
 }
 
 for (const [label, timeDecision] of [
@@ -486,9 +310,9 @@ for (const [label, timeDecision] of [
     },
     packageData,
     stateDeltaGateway: { async commit() { invalidCommits += 1; } },
-    timeDecision
+    timeDecision: timeDecision && { ...timeDecision, basis: label === 'calendar scene cut' ? 'sceneTransition' : 'explicitDuration' }
   });
-  assert.equal(result.status, 'no-change', label);
+  assert.equal(result.status, 'unavailable', label);
   assert.equal(invalidCommits, 0, label);
 }
 
@@ -505,7 +329,7 @@ const rollover = await commitV1AcceptedPairTimeAdvance({
   snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.rollover' } },
   packageData,
   stateDeltaGateway: { async commit(next) { return structuredClone(next); } },
-  timeDecision: { decision: 'advance', elapsedSeconds: 125, reason: 'continuous-action', confidence: 0.9 },
+  timeDecision: { decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: snapshot.source.currentPlayer.text, elapsedSeconds: 125, reason: 'continuous-action', confidence: 0.9 },
   now: '2026-08-09T12:00:00.000Z'
 });
 assert.equal(rollover.campaignState.timeLedger.shipClock.minuteOfDay, 0);
@@ -515,10 +339,10 @@ assert.equal(rollover.campaignState.campaign.currentStardate, 53068.401447);
 
 const longSkip = await commitV1AcceptedPairTimeAdvance({
   campaignState: rolloverState,
-  snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.long-skip' } },
+  snapshot: { ...snapshot, source: { ...snapshot.source, sourceRangeHash: 'range.long-skip', currentPlayer: { ...snapshot.source.currentPlayer, text: 'I wait three days.' } } },
   packageData,
   stateDeltaGateway: { async commit(next) { return structuredClone(next); } },
-  timeDecision: { decision: 'advance', elapsedSeconds: 259200, reason: 'three-day-scene-cut', confidence: 0.95 },
+  timeDecision: { decision: 'advance', elapsedSeconds: 259200, basis: 'explicitDuration', durationSeconds: 259200, durationSourceSlot: 'currentPlayer', durationEvidenceQuote: 'I wait three days.', reason: 'three-day-scene-cut', confidence: 0.95 },
   now: '2026-08-09T12:00:00.000Z'
 });
 assert.equal(longSkip.campaignState.timeLedger.shipClock.minuteOfDay, 1438);
@@ -538,7 +362,7 @@ const cumulative = await commitV1AcceptedPairTimeAdvance({
   },
   packageData,
   stateDeltaGateway: { async commit(next) { cumulativeState = structuredClone(next); return structuredClone(next); } },
-  timeDecision: { decision: 'advance', elapsedSeconds: 35, reason: 'continued-dialogue', confidence: 0.86 },
+  timeDecision: { decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: snapshot.source.currentPlayer.text, elapsedSeconds: 35, reason: 'continued-dialogue', confidence: 0.86 },
   now: '2026-08-09T12:01:00.000Z'
 });
 assert.equal(cumulative.campaignState.timeLedger.elapsedSeconds, 82);
@@ -591,7 +415,7 @@ const upgradedLegacy = await commitV1AcceptedPairTimeAdvance({
   },
   packageData,
   stateDeltaGateway: legacyGateway,
-  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'legacy-same-second', confidence: 0.9 },
+  timeDecision: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'legacy-same-second', confidence: 0.9 },
   now: '2026-08-09T12:03:00.000Z'
 });
 assert.equal(upgradedLegacy.status, 'recorded');
@@ -617,7 +441,7 @@ for (let index = 0; index < 200; index += 1) {
     stateDeltaGateway: {
       async commit(next) { boundedState = structuredClone(next); return structuredClone(next); }
     },
-    timeDecision: { decision: 'advance', elapsedSeconds: 60, reason: 'bounded-history-probe', confidence: 1 }
+    timeDecision: { decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: snapshot.source.currentPlayer.text, elapsedSeconds: 60, reason: 'bounded-history-probe', confidence: 1 }
   });
 }
 assert.equal(boundedState.timeLedger.elapsedSeconds, 12000);
@@ -650,7 +474,7 @@ await commitV1AcceptedPairTimeAdvance({
   snapshot: anchorSnapshot,
   packageData,
   stateDeltaGateway: { async commit(next) { anchoredCommitted = structuredClone(next); return structuredClone(next); } },
-  timeDecision: { decision: 'unchanged', elapsedSeconds: 0, reason: 'anchor-zero', confidence: 1 }
+  timeDecision: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'anchor-zero', confidence: 1 }
 });
 let anchorInvalidated = null;
 await invalidateV1AcceptedPairTimeByHostMessages({

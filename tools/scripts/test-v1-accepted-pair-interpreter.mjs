@@ -15,7 +15,7 @@ const capturedFlashOutput = JSON.parse(fs.readFileSync(
 ));
 const capturedRejection = parseMissionAcceptedPairInterpretationOutput(capturedFlashOutput.output, capturedFlashOutput);
 assert.equal(capturedRejection.ok, false, 'captured malformed evidence must remain rejected');
-assert.deepEqual(capturedRejection.errors, capturedFlashOutput.expectedErrors);
+assert.deepEqual(capturedRejection.errors, ['time.basis is unknown', ...capturedFlashOutput.expectedErrors]);
 
 const definition = JSON.parse(fs.readFileSync(
     'packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json',
@@ -166,7 +166,7 @@ const validOutput = {
     }],
     abstained: false,
     time: {
-        decision: 'advance',
+        decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: sourcePair.currentPlayer.text,
         elapsedSeconds: 47,
         reason: 'briefing-and-handover',
         confidence: 0.92,
@@ -291,7 +291,7 @@ const abstained = parseMissionAcceptedPairInterpretationOutput({
     claims: [],
     abstained: true,
     time: {
-        decision: 'indeterminate',
+        decision: 'indeterminate', basis: 'unresolved',
         elapsedSeconds: 0,
         reason: 'insufficient-evidence',
         confidence: 0.2,
@@ -365,7 +365,7 @@ for (const [label, output, pattern] of [
     ['negative elapsed time', { ...validOutput, time: { ...validOutput.time, elapsedSeconds: -1 } }, /nonnegative integer/],
     ['unchanged with elapsed time', {
         ...validOutput,
-        time: { ...validOutput.time, decision: 'unchanged', elapsedSeconds: 1 },
+        time: { ...validOutput.time, decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 1 },
     }, /unchanged requires zero/],
     ['excessive elapsed time', {
         ...validOutput,
@@ -443,7 +443,7 @@ const timeOnly = await createMissionAcceptedPairInterpreter({
                         claims: [],
                         abstained: true,
                         time: {
-                            decision: 'advance',
+                            decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: sourcePair.currentPlayer.text,
                             elapsedSeconds: 47,
                             reason: 'turbolift-transit',
                             confidence: 0.84,

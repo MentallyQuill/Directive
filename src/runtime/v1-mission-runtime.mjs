@@ -289,7 +289,17 @@ function timeContextFromSnapshot(campaignState = {}, snapshot = {}, runtimeAsset
         ?? (Number(ledger.shipClock?.minuteOfDay || 0) * 60);
     const elapsedSeconds = ledger.elapsedSeconds
         ?? (Number(ledger.elapsedMinutes || campaignState?.worldState?.elapsedMinutes || 0) * 60);
+    const promptingPlayerId = compact(previousAssistant.promptingPlayerHostMessageId);
+    const priorTimeDecision = promptingPlayerId && (ledger.decisions || []).find(decision => (
+        compact(decision.sourceAnchorRange?.currentPlayerHostMessageId) === promptingPlayerId
+    ));
     return {
+        alreadyCountedPlayer: priorTimeDecision && previousAssistant.promptingPlayerText ? {
+            hostMessageId: promptingPlayerId,
+            text: String(previousAssistant.promptingPlayerText),
+            decision: priorTimeDecision.decision,
+            acceptedPairElapsedSeconds: priorTimeDecision.elapsedSeconds,
+        } : null,
         current: {
             stardate: ledger.stardate ?? campaignState?.worldState?.currentStardate ?? campaignState?.campaign?.currentStardate ?? null,
             secondOfDay,
@@ -1268,6 +1278,9 @@ export function createV1MissionRuntime({
                 return unavailable('time-custody-threw', {}, { attempted: true });
             }
             if (!time?.ok) {
+                // Semantic timing failures need a fresh interpretation on manual
+                // retry. Persistence failures below still reuse a valid result.
+                cachedInterpretation = null;
                 return unavailable(time?.reasonCode || 'time-custody-unavailable', {}, { attempted: true });
             }
         }

@@ -1,10 +1,8 @@
 import { formatShipTimeFooter } from '../time/ship-time.mjs';
-import { inspectEnactedDurationEvidence } from '../time/time-evidence.mjs';
+import { acceptedPairTimeDecisionErrors } from '../time/accepted-time-interpretation.mjs';
 
 const DAY_SECONDS = 86400;
 const LEDGER_LIMIT = 128;
-const MAX_TIME_ADVANCE_SECONDS = 31 * DAY_SECONDS;
-const MAX_UNQUALIFIED_OPENING_ADVANCE_SECONDS = 5 * 60;
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -109,59 +107,10 @@ export function findTimeBoundaryForPlayerMessage(campaignState = {}, hostMessage
   )) || null;
 }
 
-function safeProposal(value = {}) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
-  const decision = compact(value.decision);
-  const elapsedSeconds = Number(value.elapsedSeconds);
-  const validAdvance = decision === 'advance'
-    && Number.isInteger(elapsedSeconds)
-    && elapsedSeconds > 0
-    && elapsedSeconds <= MAX_TIME_ADVANCE_SECONDS;
-  const validZero = new Set(['unchanged', 'indeterminate']).has(decision)
-    && elapsedSeconds === 0;
-  return {
-    valid: validAdvance || validZero,
-    decision: validAdvance ? 'advance' : (decision === 'unchanged' ? 'unchanged' : 'indeterminate'),
-    elapsedSeconds: validAdvance ? elapsedSeconds : 0,
-    reason: compact(value.reason).slice(0, 180) || 'accepted-scene-time',
-    confidence: Number.isFinite(Number(value.confidence))
-      ? Math.max(0, Math.min(1, Number(value.confidence)))
-      : null,
-    source: 'acceptedPairMissionEvidence'
-  };
-}
-
 function openingBaselineSnapshot(snapshot = {}) {
   const selectedVariant = snapshot?.source?.previousAssistant?.selectedVariant || {};
   return selectedVariant.outcomeId === 'opening'
     || compact(selectedVariant.responseId).startsWith('directive.v1.opening.');
-}
-
-function playerEnactsExplicitDuration(snapshot = {}, timeDecision = {}) {
-  if (compact(timeDecision.durationSourceSlot) !== 'currentPlayer') return false;
-  if (!Number.isInteger(timeDecision.durationSeconds)
-    || timeDecision.durationSeconds !== Number(timeDecision.elapsedSeconds)) return false;
-  return inspectEnactedDurationEvidence({
-    sourceText: snapshot?.source?.currentPlayer?.text,
-    evidenceQuote: timeDecision.durationEvidenceQuote,
-    requirePlayerEnactment: true
-  }).ok;
-}
-
-function constrainProposalToSourceScope(proposal, snapshot, timeDecision) {
-  if (!proposal.valid
-    || proposal.decision !== 'advance'
-    || proposal.elapsedSeconds <= MAX_UNQUALIFIED_OPENING_ADVANCE_SECONDS
-    || !openingBaselineSnapshot(snapshot)
-    || playerEnactsExplicitDuration(snapshot, timeDecision)) {
-    return proposal;
-  }
-  return {
-    ...proposal,
-    decision: 'indeterminate',
-    elapsedSeconds: 0,
-    reason: 'opening-baseline-retrospective-time-excluded'
-  };
 }
 
 function formatShipTime(secondOfDay) {
@@ -216,20 +165,22 @@ export function prepareV1AcceptedPairTimeAdvance({
     };
   }
 
-  const proposal = constrainProposalToSourceScope(safeProposal(timeDecision), snapshot, timeDecision);
-  if (!proposal.valid) {
-    return {
-      ok: true,
-      status: 'no-change',
-      reasonCode: null,
-      campaignState,
-      proposal,
-      boundary: null,
-      decision: null,
-      patch: null,
-      domains: []
-    };
+  if (acceptedPairTimeDecisionErrors(timeDecision, snapshot.source, 'accepted', {
+    scope: { countPreviousAssistant: !openingBaselineSnapshot(snapshot) }
+  }).length > 0) {
+    return unavailable(campaignState, 'time-interpretation-invalid');
   }
+  if (timeDecision.decision === 'indeterminate') {
+    return unavailable(campaignState, 'time-interpretation-unresolved');
+  }
+  const proposal = {
+    valid: true,
+    decision: timeDecision.decision,
+    elapsedSeconds: timeDecision.elapsedSeconds,
+    reason: timeDecision.reason,
+    confidence: timeDecision.confidence,
+    source: 'acceptedPairMissionEvidence'
+  };
 
   const previousElapsedSeconds = ledgerElapsedSeconds(campaignState.timeLedger);
   const nextElapsedSeconds = previousElapsedSeconds + proposal.elapsedSeconds;

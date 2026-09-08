@@ -87,7 +87,7 @@ const interpretation = {
     }],
     abstained: false,
     time: {
-        decision: 'advance',
+        decision: 'advance', basis: 'implicitAction', sourceSlot: 'currentPlayer', evidenceQuote: sourcePair.currentPlayer.text,
         elapsedSeconds: 70,
         reason: 'formal-handover-and-briefing',
         confidence: 0.9,
