@@ -1,3 +1,4 @@
+import { isDirectiveOwnedHostGeneration } from './generation-client.mjs';
 import { runRuntimeAction } from '../../runtime/runtime-actions.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
@@ -11,12 +12,14 @@ import {
   cancelActiveDirectiveTurnActivities,
   disposeDirectiveTurnActivity,
   finishDirectiveHostGenerationActivities,
+  receiveDirectiveHostGenerationChunk,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity
 } from './turn-activity-indicator.js';
 import {
   getSillyTavernDirectiveRuntimeBridge,
   removeDirectiveGenerationInterceptor,
+  resetDirectiveTurnProgress,
   setSillyTavernDirectiveRuntimeEnabled
 } from './runtime-bridge.mjs';
 
@@ -150,7 +153,7 @@ function payloadWithNativeBranchIntent(payload) {
 
 export function handlePlayerMessage(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
-  const token = markDirectiveTurnActivity({ label: 'Directive is reading your post...', phase: 'reading' });
+  const token = markDirectiveTurnActivity({ label: 'Processing the turn...', phase: 'reading' });
   Promise.resolve(app()?.observeHostPlayerMessage?.(payload))
     .catch((error) => report('Accepted-pair settlement failed', error))
     .finally(() => finishDirectiveTurnActivity(token));
@@ -189,6 +192,7 @@ export async function handleMessageSelectedSwipeChanged(payload = {}) {
 
 export async function handleGenerationStopped(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  resetDirectiveTurnProgress();
   const activityResult = cancelActiveDirectiveTurnActivities();
   const cancelResult = await app()?.handleHostGenerationStopped?.({ ...payload, reason: 'host-generation-stopped' });
   return {
@@ -199,7 +203,13 @@ export async function handleGenerationStopped(payload = {}) {
   };
 }
 
+export function handleStreamTokenReceived(text) {
+  if (!enabled() || isDirectiveOwnedHostGeneration() || typeof text !== 'string' || text.length === 0) return;
+  receiveDirectiveHostGenerationChunk();
+}
+
 export function handleGenerationEnded(payload = {}) {
+  if (isDirectiveOwnedHostGeneration()) return { handled: false, reason: 'directive-owned-generation' };
   finishDirectiveHostGenerationActivities();
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
   return scheduleReconciliation(
@@ -209,6 +219,7 @@ export function handleGenerationEnded(payload = {}) {
 }
 
 export async function handleChatChanged(payload = {}) {
+  resetDirectiveTurnProgress();
   cancelActiveDirectiveTurnActivities();
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
   const changed = await app()?.handleHostChatChanged?.(payloadWithNativeBranchIntent(payload));
@@ -238,6 +249,7 @@ export async function handleChatChanged(payload = {}) {
 }
 
 export function disposeSillyTavernDirectiveEventLifecycle() {
+  resetDirectiveTurnProgress();
   disposeDirectiveTurnActivity();
   lifecycle?.dispose?.();
   lifecycle = null;
@@ -287,6 +299,7 @@ export function wireEvents(context) {
   register(adapter, [events.MESSAGE_DELETED, events.MESSAGE_REMOVED, 'MESSAGE_DELETED'], handleMessageDeleted, disposers);
   register(adapter, [events.GENERATION_STOPPED || 'GENERATION_STOPPED'], handleGenerationStopped, disposers);
   register(adapter, [events.GENERATION_ENDED || 'GENERATION_ENDED'], handleGenerationEnded, disposers);
+  register(adapter, [events.STREAM_TOKEN_RECEIVED || 'STREAM_TOKEN_RECEIVED'], handleStreamTokenReceived, disposers);
   register(adapter, [events.EXTENSION_DISABLED, events.EXTENSION_DISABLE, 'EXTENSION_DISABLED'], handleExtensionDisabled, disposers);
   lifecycle = {
     dispose() {
@@ -308,6 +321,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleMessageSelectedSwipeChanged,
   handleGenerationStopped,
   handleGenerationEnded,
+  handleStreamTokenReceived,
   handleChatChanged,
   handleExtensionDisabled,
   disposeSillyTavernDirectiveEventLifecycle,

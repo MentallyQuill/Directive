@@ -23,13 +23,13 @@ export function createEpisodeReviewScheduler({ getToken, review } = {}) {
     };
   }
   function schedule(options = {}) {
-    const { automatic = true, signal = null } = options;
+    const { automatic = true, signal = null, progressScope = null } = options;
     const token = getToken();
     const key = episodeReviewFlightKey(token);
     if (!key) return Promise.resolve(noPending());
     if (flights.has(key)) return flights.get(key);
     if (flights.size > 0) {
-      queuedRequest = { automatic, signal };
+      queuedRequest = { automatic, signal, progressScope };
       if (!queuedFlight) {
         const active = [...flights.values()][0];
         queuedFlight = active.catch(() => null).then(() => {
@@ -42,7 +42,7 @@ export function createEpisodeReviewScheduler({ getToken, review } = {}) {
       return queuedFlight;
     }
     const flight = Promise.resolve()
-      .then(() => review({ token: structuredClone(token), automatic, signal }))
+      .then(() => review({ token: structuredClone(token), automatic, signal, progressScope }))
       .finally(() => {
         if (flights.get(key) === flight) flights.delete(key);
       });

@@ -1,4 +1,5 @@
 const OWNED_GENERATION_DEPTH_KEY = '__directiveOwnedGenerationDepth';
+const OWNED_HOST_GENERATION_DEPTH_KEY = '__directiveOwnedHostGenerationDepth';
 
 function providerUnavailable(message) {
   const error = new Error(message);
@@ -55,6 +56,10 @@ export function isDirectiveOwnedGeneration() {
   return Number(globalThis[OWNED_GENERATION_DEPTH_KEY] || 0) > 0;
 }
 
+export function isDirectiveOwnedHostGeneration() {
+  return Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 0) > 0;
+}
+
 async function withOwnedGeneration(task) {
   globalThis[OWNED_GENERATION_DEPTH_KEY] = Number(globalThis[OWNED_GENERATION_DEPTH_KEY] || 0) + 1;
   try {
@@ -64,7 +69,28 @@ async function withOwnedGeneration(task) {
   }
 }
 
-async function callSillyTavernGeneration(context, request, route = {}) {
+async function withOwnedHostGeneration(task) {
+  globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] = Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 0) + 1;
+  try {
+    return await task();
+  } finally {
+    globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] = Math.max(
+      0,
+      Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 1) - 1
+    );
+  }
+}
+
+function reportAttempt(callback, attempt = null) {
+  if (typeof callback !== 'function') return;
+  try {
+    Promise.resolve(callback(attempt)).catch(() => null);
+  } catch {
+    // Attempt reporting is presentation-only.
+  }
+}
+
+async function callSillyTavernGeneration(context, request, route = {}, onAttempt = null) {
   const prompt = promptFromRequest(request);
   const maxTokens = request.parameters?.max_tokens
     || request.max_tokens
@@ -82,10 +108,12 @@ async function callSillyTavernGeneration(context, request, route = {}) {
     if (route.topP !== undefined) rawRequest.top_p = route.topP;
     if (request.systemPrompt) rawRequest.systemPrompt = request.systemPrompt;
     if (request.signal) rawRequest.signal = request.signal;
+    reportAttempt(onAttempt);
     return context.generateRaw(rawRequest);
   }
   if (typeof context.generateQuietPrompt === 'function') {
     try {
+      reportAttempt(onAttempt);
       return await context.generateQuietPrompt({
         quietPrompt: [request.systemPrompt, prompt].filter(Boolean).join('\n\n'),
         responseLength: maxTokens,
@@ -94,11 +122,18 @@ async function callSillyTavernGeneration(context, request, route = {}) {
       });
     } catch (error) {
       if (isAbortLikeError(error)) throw error;
+      reportAttempt(onAttempt);
       return context.generateQuietPrompt([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
     }
   }
-  if (typeof context.generate === 'function') return context.generate([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
-  if (typeof context.generateText === 'function') return context.generateText({ ...request, prompt });
+  if (typeof context.generate === 'function') {
+    reportAttempt(onAttempt);
+    return context.generate([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
+  }
+  if (typeof context.generateText === 'function') {
+    reportAttempt(onAttempt);
+    return context.generateText({ ...request, prompt });
+  }
   throw providerUnavailable('SillyTavern context does not expose a supported generation method.');
 }
 
@@ -126,7 +161,12 @@ export function createSillyTavernGenerationClient({
     }
     const context = contextFactory();
     if (!context) throw providerUnavailable('SillyTavern context is not available for generation.');
-    const raw = await callSillyTavernGeneration(context, request);
+    const raw = await withOwnedHostGeneration(() => callSillyTavernGeneration(
+      context,
+      request,
+      {},
+      options.onAttempt
+    ));
     return {
       providerId: 'sillytavern-current-provider',
       text: normalizeText(raw),
@@ -136,10 +176,18 @@ export function createSillyTavernGenerationClient({
 
   async function generate(roleId, request = {}, options = {}) {
     return withOwnedGeneration(async () => {
-      let response = await perform(roleId, request, options);
+      let physicalAttempt = 0;
+      const routedOptions = {
+        ...options,
+        ...(typeof options.onAttempt === 'function'
+          ? { onAttempt: () => reportAttempt(options.onAttempt, ++physicalAttempt) }
+          : {}),
+      };
+      const performAttempt = (attemptRequest) => perform(roleId, attemptRequest, routedOptions);
+      let response = await performAttempt(request);
       let retriedForVisibleOutput = false;
       if (options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {
-        response = await perform(roleId, retryRequest(request), options);
+        response = await performAttempt(retryRequest(request));
         retriedForVisibleOutput = true;
       }
       const text = normalizeText(response);
@@ -182,7 +230,7 @@ export function createSillyTavernGenerationClient({
           systemPrompt: [request.systemPrompt, ...messages.filter(message => message.role === 'system').map(message => message.content)].filter(Boolean).join('\n\n'),
           prompt: messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n')
         } : request;
-        const raw = await callSillyTavernGeneration(context, nativeRequest);
+        const raw = await withOwnedHostGeneration(() => callSillyTavernGeneration(context, nativeRequest));
         const text = normalizeText(raw);
         if (!text || isReasoningOnly(text)) throw providerUnavailable('The narration model returned no visible opening.');
         return { text, providerId: 'sillytavern-current-provider', roleId: 'narration' };
@@ -207,5 +255,6 @@ export const __sillyTavernGenerationClientTestHooks = Object.freeze({
   normalizeText,
   isReasoningOnly,
   retryRequest,
-  isDirectiveOwnedGeneration
+  isDirectiveOwnedGeneration,
+  isDirectiveOwnedHostGeneration
 });

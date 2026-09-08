@@ -2,6 +2,7 @@ import {
   cancelActiveDirectiveTurnActivities,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
+  recordDirectiveTurnProgress,
   resolveDirectiveHostGenerationHandoff
 } from './turn-activity-indicator.js';
 import {
@@ -13,6 +14,18 @@ let runtimeApp = null;
 let orchestrator = null;
 let host = null;
 let enabled = true;
+let unsubscribeProgress = null;
+
+export function resetDirectiveTurnProgress() {
+  runtimeApp?.resetTurnProgress?.();
+  recordDirectiveTurnProgress({ type: 'reset' });
+}
+
+function detachProgress() {
+  unsubscribeProgress?.();
+  unsubscribeProgress = null;
+  resetDirectiveTurnProgress();
+}
 
 export function setSillyTavernDirectiveRuntimeBridge({
   app = null,
@@ -20,11 +33,22 @@ export function setSillyTavernDirectiveRuntimeBridge({
   directiveHost = null,
   active = true
 } = {}) {
+  detachProgress();
+  if (runtimeApp && runtimeApp !== app) cancelActiveDirectiveTurnActivities();
   runtimeApp = app;
   orchestrator = turnOrchestrator;
   host = directiveHost;
   enabled = active !== false;
-  if (!enabled) cancelActiveDirectiveTurnActivities();
+  if (!enabled) {
+    resetDirectiveTurnProgress();
+    cancelActiveDirectiveTurnActivities();
+  }
+  if (enabled && runtimeApp?.subscribeTurnProgress) {
+    const source = runtimeApp;
+    unsubscribeProgress = source.subscribeTurnProgress(event => {
+      if (enabled && runtimeApp === source) recordDirectiveTurnProgress(event);
+    });
+  }
   return getSillyTavernDirectiveRuntimeBridge();
 }
 
@@ -34,11 +58,15 @@ export function getSillyTavernDirectiveRuntimeBridge() {
 
 export function setSillyTavernDirectiveRuntimeEnabled(value) {
   enabled = value !== false;
-  if (!enabled) cancelActiveDirectiveTurnActivities();
+  if (!enabled) {
+    resetDirectiveTurnProgress();
+    cancelActiveDirectiveTurnActivities();
+  }
   return enabled;
 }
 
 export function clearSillyTavernDirectiveRuntimeBridge() {
+  detachProgress();
   cancelActiveDirectiveTurnActivities();
   closeSettlementRetryDialog('bridge-cleared');
   runtimeApp = null;
@@ -52,7 +80,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     return { handled: false, reason: enabled ? 'orchestrator-unavailable' : 'extension-disabled' };
   }
   const activityToken = markDirectiveTurnActivity({
-    label: 'Directive is reading your post...',
+    label: 'Processing the turn...',
     phase: 'reading',
     hostGeneration: true
   });
