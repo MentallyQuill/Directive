@@ -32,9 +32,17 @@ try {
   await page.waitForFunction(() => globalThis.__directiveFixtureReady === true);
   await page.evaluate(async () => {
     const bridge = await import('/src/hosts/sillytavern/runtime-bridge.mjs');
+    const events = await import('/src/hosts/sillytavern/shell-events.js');
+    const listeners = new Map();
+    events.wireEvents({ eventSource: {
+      on(name, handler) { listeners.set(name, handler); },
+      off(name) { listeners.delete(name); }
+    }, eventTypes: { GENERATION_ENDED: 'generation_ended' } });
+    globalThis.__emitActivityEnd = () => listeners.get('generation_ended')();
     bridge.setSillyTavernDirectiveRuntimeBridge({
       turnOrchestrator: {
         async interceptGeneration() {
+          await new Promise(resolve => { globalThis.__releaseActivityInterception = resolve; });
           return {
             handled: true,
             abortDefaultGeneration: false,
@@ -65,13 +73,12 @@ try {
     readingGeometry.y >= 8 && readingGeometry.y <= 40,
     `reading status shares the upper Directive notification lane: ${JSON.stringify(readingGeometry)}`,
   );
-  assert.equal(
-    await page.evaluate(async () => (await globalThis.__directiveBoundaryInterception).responseStrategy),
-    'injectAndContinue',
-    'presentation dwell must not delay the generation interceptor result'
-  );
-  assert.equal(await indicator.isVisible(), true, 'fast interception keeps the reading phase visible long enough to perceive');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reading your post...');
+  await page.evaluate(async () => {
+    globalThis.__releaseActivityInterception();
+    await globalThis.__directiveBoundaryInterception;
+  });
+  assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'waiting', 'handoff updates immediately without a reading hold');
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Waiting for a response...');
 
   await page.evaluate(() => {
     const base = {
@@ -97,12 +104,12 @@ try {
   });
   assert.ok(stackedGeometry.gameplayTop >= stackedGeometry.activityBottom + 6, 'gameplay cards stack below active turn status');
 
-  await page.waitForFunction(() => (
-    document.querySelector('#directive-turn-activity-indicator')?.dataset.directiveTurnActivityPhase === 'writing'
-  ));
-  assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'writing');
+  await page.waitForTimeout(850);
+  assert.equal(await indicator.isVisible(), true, 'non-streaming response remains owned beyond the old expiry');
   assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'SillyTavern');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Writing...');
+  await page.evaluate(async () => {
+    globalThis.__emitActivityEnd();
+  });
   await indicator.waitFor({ state: 'hidden', timeout: 1500 });
   assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'activity cleanup leaves gameplay notifications intact');
 

@@ -1,3 +1,4 @@
+import { bindDirectiveModal } from './modal-lifecycle.js';
 import { createElement } from './runtime-ui-kit.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
 import { runRuntimeAction } from '../runtime/runtime-actions.js';
@@ -52,9 +53,6 @@ export function showObjectiveProgressDialog({ objective, mission, onCommitted = 
   const existing = document.querySelector('.objective-progress-dialog');
   if (existing) { existing.focus(); return null; }
   const opener = document.activeElement;
-  const shell = document.getElementById('directive-runtime-panel');
-  const wasInert = shell?.inert === true;
-  if (shell) shell.inert = true;
   const overlay = createElement('div', 'objective-progress-overlay');
   const dialog = createElement('section', 'objective-progress-dialog');
   dialog.setAttribute('role', 'dialog');
@@ -69,8 +67,7 @@ export function showObjectiveProgressDialog({ objective, mission, onCommitted = 
   const actions = createElement('div', 'objective-progress-actions');
   const status = createElement('p', 'objective-progress-feedback');
   status.setAttribute('role', 'status');
-  let removalObserver = null;
-  const close = () => { removalObserver?.disconnect(); overlay.remove(); if (shell) shell.inert = wasInert; opener?.focus?.({ preventScroll: true }); };
+  const close = () => { overlay.remove(); release(); };
   const run = actionRunner(dialog, status, async () => {
     close();
     await onCommitted();
@@ -90,22 +87,9 @@ export function showObjectiveProgressDialog({ objective, mission, onCommitted = 
   actions.append(button('Cancel', close));
   dialog.append(heading, title, note, actions, status);
   dialog.tabIndex = -1;
-  dialog.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (dialog.getAttribute('aria-busy') !== 'true') close(); return; }
-    if (event.key !== 'Tab') return;
-    const controls = [...dialog.querySelectorAll('button:not(:disabled)')];
-    if (!controls.length) { event.preventDefault(); return; }
-    if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1).focus(); }
-    else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
-  });
   overlay.append(dialog);
   appendDirectiveModal(overlay);
-  if (shell && typeof MutationObserver === 'function') {
-    removalObserver = new MutationObserver(() => {
-      if (!overlay.isConnected) { shell.inert = wasInert; removalObserver.disconnect(); }
-    });
-    removalObserver.observe(overlay.parentNode, { childList: true });
-  }
+  const release = bindDirectiveModal({ overlay, dialog, opener, onDismiss: close, canDismiss: () => dialog.getAttribute('aria-busy') !== 'true' });
   actions.firstElementChild.focus();
   return { overlay, dialog };
 }
