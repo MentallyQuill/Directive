@@ -24,7 +24,12 @@ function evidenceQuoteHash(value = '') {
 }
 
 function jsonEqual(left, right) {
-    return JSON.stringify(left) === JSON.stringify(right);
+    // Save deltas can insert record keys in a different order than replay.
+    // Canonicalize records recursively while preserving evidence array order.
+    const orderedRecord = (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, value[key]]))
+        : value;
+    return JSON.stringify(left, orderedRecord) === JSON.stringify(right, orderedRecord);
 }
 
 function evidenceBatches(evidenceLog, errors) {

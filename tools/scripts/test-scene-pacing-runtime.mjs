@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {createV1MissionRuntime} from '../../src/runtime/v1-mission-runtime.mjs';
+import {createV1MissionRuntime,buildV1RuntimePlayerProjection} from '../../src/runtime/v1-mission-runtime.mjs';
+import {encodeV1StateDelta,applyV1StateDelta} from '../../src/storage/v1-state-delta-codec.mjs';
 import {createStateDeltaGateway} from '../../src/runtime/state-delta-gateway.mjs';
 import {createMissionState} from '../../src/mission/v1/mission-state.mjs';
 import {createInitialMissionJourney} from '../../src/mission/v1/mission-journey.mjs';
@@ -25,8 +26,22 @@ const runtime = createV1MissionRuntime({getState:()=>state,stateDeltaGateway:gat
     return {ok:true,response:{text:JSON.stringify({kind:'directive.missionEvidenceInterpretation.v1',assistantAcceptance:'accepted',claims:nextClaims,peopleEvents:[],abstained:!nextClaims.length,time:{decision:'unchanged',basis:'noPassage',elapsedSeconds:0,reason:'same instant in scripted test',confidence:0.9},scenePacing:nextObservation || {objectiveId:'objective.prelude.command-handover',intent:'continue',intentQuote:'',unresolved:'The command handover has not begun.',participation:[]}})}};
 }}});
 const snapshot = {kind:'directive.acceptedPairSnapshot.v1',envelope:{campaignId:'campaign.pacing',saveId:'save.pacing',chatId:'chat.pacing',packageId:definition.packageBinding.packageId,packageVersion:definition.packageBinding.packageVersion,activeMissionId:definition.packageBinding.sourceId},source:{sourceRangeHash:'range.pacing.1',previousAssistant:{hostMessageId:'2',text:'What are your first impressions of the ship?',textHash:'a1b2c3d4',sourceIntegrity:'clean',selectedVariant:{selectedTextHash:'a1b2c3d4',sourceIntegrity:'clean'}},currentPlayer:{hostMessageId:'3',text:'The refit looks rushed. I would like to know how deep it goes.',textHash:'b1c2d3e4',sourceIntegrity:'clean'}}};
+const beforeFirstPair = structuredClone(state);
 const result = await runtime.settleAcceptedPair({runtimeAssets,snapshot});
 assert.equal(result.ok,true,JSON.stringify(result));
+const persistedDelta = await encodeV1StateDelta({
+    saveId:'save.pacing',before:beforeFirstPair,after:state,
+    changedRoots:Object.keys(state),createdAt:'2026-09-08T15:00:00.000Z',
+});
+const reloaded = await applyV1StateDelta({saveId:'save.pacing',state:beforeFirstPair,delta:persistedDelta});
+assert.deepEqual(reloaded,state,'storage preserves the settled campaign values');
+const reloadedProjection = buildV1RuntimePlayerProjection({campaignState:reloaded,runtimeAssets});
+assert.equal(reloadedProjection.ok,true,JSON.stringify(reloadedProjection));
+const alteredOutcome = structuredClone(reloaded);
+alteredOutcome.mission.v1.outcomes['outcome.scene-pacing.prelude.command-handover.authorization'] = 'authorized';
+assert.equal(buildV1RuntimePlayerProjection({campaignState:alteredOutcome,runtimeAssets}).reasonCode,'projection-state-invalid',
+    'a real outcome change without accepted evidence must still fail');
+state = reloaded;
 assert.equal(calls,1);
 assert.equal(state.storySettlement.acceptedPairReceipts.at(-1).scenePacing.objectiveId,'objective.prelude.command-handover');
 assert.equal(state.storySettlement.acceptedPairReceipts.at(-1).scenePacing.ready,false);
@@ -62,6 +77,10 @@ assert.equal(report.status,'no-pending-report','completed handover does not inte
 await pair(6,'Whitaker finishes explaining the engineering team.','Thank you. Let us finish this meeting and return to duty.',{intent:'leave',intentQuote:'Let us finish this meeting and return to duty.'});
 assert.equal(runtime.preparePendingDutyReport({runtimeAssets,availableActors:[{id:'priya-nayar',capabilityRoles:['operations']}],responseId:'response.next',sourceTransactionId:'generation.next'}).status,'ready','departure can release the next development');
 assert.equal(calls,6,'six accepted pairs used six Utility calls total');
+const reorderedEvidence = structuredClone(state);
+reorderedEvidence.mission.v1.acceptedEvidenceKeys.reverse();
+assert.equal(buildV1RuntimePlayerProjection({campaignState:reorderedEvidence,runtimeAssets}).reasonCode,'projection-state-invalid',
+    'ordered evidence arrays must still match replay');
 assert.equal(state.mission.v1.status,'terminal');
 assert.equal(runtime.prepareTransitionNarration({runtimeAssets}).reasonCode,'scene-still-open');
 assert.equal((await runtime.activatePendingTransition({runtimeAssets})).reasonCode,'scene-still-open');
