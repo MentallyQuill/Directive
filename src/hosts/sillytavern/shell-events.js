@@ -10,6 +10,7 @@ import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
 import {
   cancelActiveDirectiveTurnActivities,
   disposeDirectiveTurnActivity,
+  finishDirectiveHostGenerationActivities,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity
 } from './turn-activity-indicator.js';
@@ -188,16 +189,18 @@ export async function handleMessageSelectedSwipeChanged(payload = {}) {
 
 export async function handleGenerationStopped(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  const activityResult = cancelActiveDirectiveTurnActivities();
   const cancelResult = await app()?.handleHostGenerationStopped?.({ ...payload, reason: 'host-generation-stopped' });
   return {
     handled: true,
     abortDefaultGeneration: false,
     cancelResult,
-    activityResult: cancelActiveDirectiveTurnActivities()
+    activityResult
   };
 }
 
 export function handleGenerationEnded(payload = {}) {
+  finishDirectiveHostGenerationActivities();
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
   return scheduleReconciliation(
     'Post-narration Directive work failed',
@@ -206,6 +209,7 @@ export function handleGenerationEnded(payload = {}) {
 }
 
 export async function handleChatChanged(payload = {}) {
+  cancelActiveDirectiveTurnActivities();
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
   const changed = await app()?.handleHostChatChanged?.(payloadWithNativeBranchIntent(payload));
   const fork = changed?.timelineFork;
@@ -234,6 +238,7 @@ export async function handleChatChanged(payload = {}) {
 }
 
 export function disposeSillyTavernDirectiveEventLifecycle() {
+  disposeDirectiveTurnActivity();
   lifecycle?.dispose?.();
   lifecycle = null;
   disposeDeleteCapture();

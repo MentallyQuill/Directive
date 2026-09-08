@@ -1,4 +1,5 @@
 import {
+  cancelActiveDirectiveTurnActivities,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
   resolveDirectiveHostGenerationHandoff
@@ -23,6 +24,7 @@ export function setSillyTavernDirectiveRuntimeBridge({
   orchestrator = turnOrchestrator;
   host = directiveHost;
   enabled = active !== false;
+  if (!enabled) cancelActiveDirectiveTurnActivities();
   return getSillyTavernDirectiveRuntimeBridge();
 }
 
@@ -32,10 +34,12 @@ export function getSillyTavernDirectiveRuntimeBridge() {
 
 export function setSillyTavernDirectiveRuntimeEnabled(value) {
   enabled = value !== false;
+  if (!enabled) cancelActiveDirectiveTurnActivities();
   return enabled;
 }
 
 export function clearSillyTavernDirectiveRuntimeBridge() {
+  cancelActiveDirectiveTurnActivities();
   closeSettlementRetryDialog('bridge-cleared');
   runtimeApp = null;
   orchestrator = null;
@@ -49,7 +53,8 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
   }
   const activityToken = markDirectiveTurnActivity({
     label: 'Directive is reading your post...',
-    phase: 'reading'
+    phase: 'reading',
+    hostGeneration: true
   });
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
@@ -84,6 +89,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
       && result?.responseStrategy === 'injectAndContinue'
     ) {
       resolveDirectiveHostGenerationHandoff({
+        token: activityToken,
         type,
         responseStrategy: result.responseStrategy
       });

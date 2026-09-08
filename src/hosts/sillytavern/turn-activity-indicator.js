@@ -4,13 +4,10 @@ import {
 } from '../../ui/directive-notification-surface.js';
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
-const MIN_READING_VISIBLE_MS = 450;
-const HANDOFF_CLEAR_DELAY_MS = 350;
 const DEFAULT_LABEL = 'Directive is reading your post...';
 
 let nextActivityId = 0;
 const activeActivities = new Map();
-const clearTimers = new Map();
 
 function canRender() {
   return typeof document !== 'undefined' && Boolean(document?.body);
@@ -57,7 +54,7 @@ function latestActivity() {
 }
 
 function activityPresentation(activity) {
-  if (activity?.phase === 'writing') return { category: 'SillyTavern', title: 'Writing...' };
+  if (activity?.phase === 'waiting') return { category: 'SillyTavern', title: 'Waiting for a response...' };
   if (activity?.phase === 'reading') return { category: 'Directive', title: 'Reading your post...' };
   return { category: 'Directive', title: activity?.label || DEFAULT_LABEL };
 }
@@ -82,19 +79,13 @@ function render() {
   if (label) label.textContent = presentation.title;
 }
 
-function clearTimer(token) {
-  const timer = clearTimers.get(token);
-  if (timer) clearTimeout(timer);
-  clearTimers.delete(token);
-}
-
-export function markDirectiveTurnActivity({ label = DEFAULT_LABEL, phase = 'reading' } = {}) {
+export function markDirectiveTurnActivity({ label = DEFAULT_LABEL, phase = 'reading', hostGeneration = false } = {}) {
   const token = `directive-turn-${++nextActivityId}`;
   activeActivities.set(token, {
     token,
+    hostGeneration,
     label: String(label || DEFAULT_LABEL),
-    phase: String(phase || 'reading'),
-    visibleAt: Date.now()
+    phase: String(phase || 'reading')
   });
   render();
   return token;
@@ -110,7 +101,6 @@ export function updateDirectiveTurnActivity(token, { label = null, phase = null 
 }
 
 export function clearDirectiveTurnActivity(token) {
-  clearTimer(token);
   const removed = activeActivities.delete(token);
   render();
   return { ok: removed, token };
@@ -126,35 +116,23 @@ export function cancelActiveDirectiveTurnActivities() {
   return { ok: true, canceled: count };
 }
 
-export function resolveDirectiveHostGenerationHandoff() {
-  const tokens = [...activeActivities.keys()];
-  for (const token of tokens) {
-    const activity = activeActivities.get(token);
-    if (!activity) continue;
-    clearTimer(token);
-    const beginWriting = () => {
-      if (!activeActivities.has(token)) return;
-      updateDirectiveTurnActivity(token, {
-        label: 'SillyTavern is writing...',
-        phase: 'writing'
-      });
-      clearTimer(token);
-      clearTimers.set(token, setTimeout(() => clearDirectiveTurnActivity(token), HANDOFF_CLEAR_DELAY_MS));
-    };
-    const remainingReadingMs = Math.max(0, MIN_READING_VISIBLE_MS - (Date.now() - activity.visibleAt));
-    if (remainingReadingMs > 0) {
-      clearTimers.set(token, setTimeout(beginWriting, remainingReadingMs));
-    } else {
-      beginWriting();
-    }
-  }
-  return { ok: true, handedOff: tokens.length };
+export function resolveDirectiveHostGenerationHandoff({ token } = {}) {
+  const result = updateDirectiveTurnActivity(token, { phase: 'waiting' });
+  return { ...result, handedOff: result.ok ? 1 : 0 };
+}
+
+// SillyTavern's stream-token event precedes asynchronous rendering. Until the
+// host exposes rendered-chunk evidence, keep waiting through its end/stop event.
+export function finishDirectiveHostGenerationActivities() {
+  const tokens = [...activeActivities.values()]
+    .filter((activity) => activity.hostGeneration || activity.phase === 'waiting')
+    .map((activity) => activity.token);
+  for (const token of tokens) clearDirectiveTurnActivity(token);
+  return { ok: true, finished: tokens.length };
 }
 
 export function disposeDirectiveTurnActivity() {
   cancelActiveDirectiveTurnActivities();
-  for (const timer of clearTimers.values()) clearTimeout(timer);
-  clearTimers.clear();
   const indicator = canRender() ? document.getElementById(INDICATOR_ID) : null;
   indicator?.remove?.();
   releaseDirectiveNotificationSurface('activity');
