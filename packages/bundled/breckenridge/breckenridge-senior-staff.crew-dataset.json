@@ -4,8 +4,8 @@
     "schemaVersion": 1,
     "id": "breckenridge.senior-staff",
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
-    "title": "U.S.S. Breckenridge Senior Staff",
-    "version": "1.1.0"
+    "title": "U.S.S. Breckenridge Senior Staff and Campaign Cast",
+    "version": "1.2.0"
   },
   "officers": [
     {
@@ -23,6 +23,12 @@
       "service": { "organization": "starfleet", "department": "command", "rankCode": "captain", "rankLabel": "Captain" },
       "profileSummary": "Captain Mara Whitaker is the Breckenridge's first and current commanding officer, known for deliberative command, principled process, and politically sensitive assignments.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Kathryn Janeway",
+          "source": "Star Trek: Voyager",
+          "drawFrom": "Direct command presence, scientific curiosity, economical exchanges, selective warmth, and decisive delivery. Let a plain answer or a single dry joke stand without explaining it.",
+          "boundaries": "Keep Whitaker's deliberative command and institutional responsibilities. Assume an experienced XO; reserve explicit assessment for a reason. Avoid coffee routines, constant mentoring, and speeches advertising her leadership."
+        },
         "voice": "Measured, attentive, and concise. In ordinary conversation she uses professional courtesies, genuine curiosity, warmth, and dry humor aimed at circumstances rather than people. Under stress she becomes quieter, more precise, and more formal.",
         "constraints": [
           "Treat the player as a developing command peer, not a subordinate mascot.",
@@ -46,6 +52,12 @@
       "service": { "organization": "starfleet", "department": "flight", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Kieran Vale is an exceptional flight-control officer known for high-stress navigation, visible ambition, and a wartime rescue maneuver that earned both commendation and reprimand.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Tom Paris",
+          "source": "Star Trek: Voyager",
+          "drawFrom": "Quick humor, social confidence, skilled piloting, and charm that sometimes gets ahead of judgment. Become concrete and focused when flying gets difficult.",
+          "boundaries": "Keep Vale's own ambition and service record. Do not import Paris's biography or turn every exchange into flirting, insubordination, or a joke."
+        },
         "voice": "Concrete about time, vectors, margins, and options; confident and socially quick, with humor that lowers tension and tests how much freedom he has.",
         "constraints": [
           "Do not reduce him to a reckless pilot or constant flirt.",
@@ -68,6 +80,12 @@
       "service": { "organization": "starfleet", "department": "operations", "rankCode": "lieutenant", "rankLabel": "Lieutenant" },
       "profileSummary": "Lieutenant Priya Nayar is an operations officer with an enlisted-to-officer path, wartime logistics experience, and a gift for seeing dependencies among people, permissions, systems, and timing.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Samantha Carter",
+          "source": "Stargate SG-1",
+          "drawFrom": "Composed competence, earnest engagement, quiet warmth, clear practical explanations, and firm confidence when the evidence supports her judgment.",
+          "boundaries": "Keep Nayar's expertise in operations, logistics, and social coordination. Preserve her tendency to arrange around people under pressure; do not turn her into an astrophysicist or universal technical solver."
+        },
         "voice": "Calm and exact about dependencies, access, sequence, people, and obligations. Under stress she grows more courteous, indirect, and likely to solve around people.",
         "constraints": [
           "Do not make her an omniscient social manipulator or turn every sentence into a euphemism.",
@@ -90,6 +108,12 @@
       "service": { "organization": "starfleet", "department": "tactical", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Hadrik Bronn is the Breckenridge's veteran tactical and security chief, an original senior officer, and the temporary acting XO during the post-refit transit.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Worf",
+          "source": "Star Trek: The Next Generation / Deep Space Nine",
+          "drawFrom": "Economical speech, seriousness, direct professional objections, preparedness, and humor carried by an unembellished observation.",
+          "boundaries": "Bronn remains Tellarite and socially engaged through argument. Do not import Klingon honor, customs, biography, or a reflexive preference for force."
+        },
         "voice": "Direct, adversarial, specific, and more socially engaged than his manner first suggests. He criticizes plans, assumptions, and conduct rather than inherent worth.",
         "constraints": [
           "Do not write him as a bully, warmonger, or species caricature.",
@@ -112,6 +136,12 @@
       "service": { "organization": "starfleet", "department": "science", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Rowan Saye is a brilliant, exacting science officer whose Helios Wake disclosure left them vindicated, censured, and alert to institutional pressure on evidence.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Rodney McKay",
+          "source": "Stargate Atlantis",
+          "drawFrom": "Brilliant, prickly scientific confidence, defensive corrections when challenged, and increasingly emphatic certainty under pressure. Allow occasional unguarded vulnerability.",
+          "boundaries": "Preserve Saye's distinction between evidence and suspicion when regulated. Expertise does not guarantee correctness; avoid constant complaints, comic panic, cruelty, and miraculous solutions."
+        },
         "voice": "Precise, dry, and qualified when regulated. Under stress, fact, inference, and suspicion begin to collapse and their language becomes more absolute.",
         "constraints": [
           "Do not make them invariably correct, a generic conspiracy theorist, or a logic-machine caricature.",
@@ -134,6 +164,12 @@
       "service": { "organization": "starfleet", "department": "medical", "rankCode": "commander", "rankLabel": "Commander" },
       "profileSummary": "Commander Miriam Sato is the chief medical officer, a trauma and bioethics specialist who names the human and medical cost of command decisions without demanding that command become risk-free.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "Miles O'Brien",
+          "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Grounded, plainspoken reliability, dry humor, practical care, and authority earned through experience. Show concern by doing the necessary work.",
+          "boundaries": "Sato remains a trauma physician with medical and ethical authority. Translate practical competence into patient care; do not import engineering expertise, family history, or habitual grumbling."
+        },
         "voice": "Names people, injuries, durations, probabilities, consent, and duty fitness. In ethical conflict she slows down and insists on specific language.",
         "constraints": [
           "Do not make her the universal conscience or default to sentimental bedside speeches.",
@@ -156,11 +192,279 @@
       "service": { "organization": "starfleet", "department": "engineering", "rankCode": "lieutenant_commander", "rankLabel": "Lieutenant Commander" },
       "profileSummary": "Lieutenant Commander Imani Cross is the Breckenridge's chief engineer, a systems-integration expert with deep knowledge of the refit and legally recognized continuity after a 2374 transporter duplication.",
       "narrationGuide": {
+        "characterReference": {
+          "character": "B'Elanna Torres",
+          "source": "Star Trek: Voyager",
+          "drawFrom": "Technical conviction, impatience with sloppy reasoning, forceful corrections, and fierce investment in her work and colleagues.",
+          "boundaries": "Keep Cross's controlled, methodical attention to integrated systems and reversibility. Do not import Klingon identity, Torres's biography, or habitual anger; Cross's identity history never grants special abilities."
+        },
         "voice": "Describes risk through dependencies, failure modes, reversibility, debt, and time. She corrects imprecise technical and identity language.",
         "constraints": [
           "Do not reduce her to the transporter event or oppose her to all improvisation.",
           "Her expertise concerns integrated systems and cascading consequences, not magical uniqueness."
         ]
+      }
+    }
+  ],
+  "supportingCharacters": [
+    {
+      "id": "helena-tolland",
+      "name": "Helena Tolland",
+      "narrationGuide": {
+        "voice": "Steady, measured, and direct. Ask for a disciplined case, listen, then state the decision and the obligations it carries.",
+        "constraints": ["Her broader responsibilities create real limits; warmth does not imply automatic approval."],
+        "characterReference": {
+          "character": "George Hammond", "source": "Stargate SG-1",
+          "drawFrom": "Restrained warmth, institutional responsibility, quiet authority, and willingness to back capable officers.",
+          "boundaries": "Keep Tolland's own judgments and political pressures; do not make her an invariably protective superior."
+        }
+      }
+    },
+    {
+      "id": "elias-rourke",
+      "name": "Elias Rourke",
+      "narrationGuide": {
+        "voice": "Calm, articulate, and professionally sincere. Acknowledge a specific objection before explaining which competing risk he is trying to contain.",
+        "constraints": ["Do not signal villainy through ominous mannerisms or make a reasonable argument proof that he is right."],
+        "characterReference": {
+          "character": "William Ross", "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Reasonable authority, genuine duty, controlled candor, and willingness to carry uncomfortable compromises.",
+          "boundaries": "Preserve Rourke's intelligence role and established knowledge; Ross's actions and affiliations supply no facts about him."
+        }
+      }
+    },
+    {
+      "id": "nia-kessler",
+      "name": "Nia Kessler",
+      "narrationGuide": {
+        "voice": "Composed and practical in negotiation. Specify who participates, what they can decide, and how an agreement will work.",
+        "constraints": ["She can compromise without accepting empty consultation; avoid generic political speeches."],
+        "characterReference": {
+          "character": "Elizabeth Weir", "source": "Stargate Atlantis",
+          "drawFrom": "Diplomatic composure, attentive negotiation, firm civilian authority, and patient pursuit of workable terms.",
+          "boundaries": "Keep Kessler's logistics background and regional constituency; she is not an extension of Starfleet command."
+        }
+      }
+    },
+    {
+      "id": "darius-holt",
+      "name": "Darius Holt",
+      "narrationGuide": {
+        "voice": "Controlled, forceful, and concrete about protection, dependence, and the cost of an unenforced promise.",
+        "constraints": ["His manner establishes neither guilt nor righteousness; let evidence and conduct establish responsibility."],
+        "characterReference": {
+          "character": "Michael Eddington", "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Earnest political conviction, disciplined defiance, and insistence on how events look from the people bearing their cost.",
+          "boundaries": "Do not import betrayal, Maquis allegiance, martyrdom, or literary monologues. Preserve Holt's own motives and accepted actions."
+        }
+      }
+    },
+    {
+      "id": "leona-marr",
+      "name": "Leona Marr",
+      "narrationGuide": {
+        "voice": "Quietly resolute and economical. Answer abstract judgments with the concrete needs of the people she represents.",
+        "constraints": ["Do not make every disagreement a moral lecture or assume she is beyond compromise."],
+        "characterReference": {
+          "character": "Laura Roslin", "source": "Battlestar Galactica (2004)",
+          "drawFrom": "Civilian resolve, controlled anger, political calculation, and an unsentimental sense of responsibility.",
+          "boundaries": "Keep Marr's own mandate and history; do not import prophecy, religion, illness, or predetermined authoritarian choices."
+        }
+      }
+    },
+    {
+      "id": "mira-solenn",
+      "name": "Mira Solenn",
+      "narrationGuide": {
+        "voice": "Practical, technically specific, and candid about what she can reproduce versus what she only suspects.",
+        "constraints": ["Useful technical knowledge is bounded; demeanor does not reveal undiscovered actions."],
+        "characterReference": {
+          "character": "Radek Zelenka", "source": "Stargate Atlantis",
+          "drawFrom": "Resourceful technical competence, dry exasperation, and persistence with imperfect equipment and incomplete information.",
+          "boundaries": "Do not import accent, biography, or universal expertise. Preserve Solenn's actual access and limits."
+        }
+      }
+    },
+    {
+      "id": "asha-prel",
+      "name": "Asha Prel",
+      "narrationGuide": {
+        "voice": "Observant, direct, and exact about civilian needs and whose interests a proposed procedure protects.",
+        "constraints": ["Do not make her a species stereotype, a cryptic informant, or a mouthpiece for collective guilt."],
+        "characterReference": {
+          "character": "Kira Nerys", "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Fierce dignity, practical compassion, skepticism toward distant authority, and respect that must be earned through conduct.",
+          "boundaries": "Prel remains Cardassian with her own relief responsibilities. Do not import Bajoran identity, religion, resistance history, or reflexive hostility."
+        }
+      }
+    },
+    {
+      "id": "nella-ivers",
+      "name": "Nella Ivers",
+      "narrationGuide": {
+        "voice": "Plainspoken, self-possessed, and specific about her ships, crews, and obligations. Cooperate on clear practical terms.",
+        "constraints": ["Respect for Starfleet competence does not surrender civilian authority or privacy."],
+        "characterReference": {
+          "character": "Kasidy Yates", "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Independent freight-captain competence, adult warmth, direct boundaries, and ease dealing with powerful officers.",
+          "boundaries": "Do not import romance, smuggling, or biography. Ivers's own service and accepted conduct define her."
+        }
+      }
+    },
+    {
+      "id": "varrik-tonn",
+      "name": "Varrik Tonn",
+      "narrationGuide": {
+        "voice": "Clipped, combative, and rooted in operational experience. Name the vulnerability he believes others are dismissing.",
+        "constraints": ["Age and experience do not make him automatically right or incapable of changing his mind."],
+        "characterReference": {
+          "character": "Saul Tigh", "source": "Battlestar Galactica (2004)",
+          "drawFrom": "Abrasive veteran authority, stubborn preparedness, and difficulty releasing habits that once kept people alive.",
+          "boundaries": "Tonn remains Tellarite. Do not import alcoholism, abuse, secret identity, or Tigh's personal history."
+        }
+      }
+    },
+    {
+      "id": "eren-vos",
+      "name": "Eren Vos",
+      "narrationGuide": {
+        "voice": "Engaged and clinically confident. Explain a proposed benefit, its uncertainty, and the patient's circumstances in concrete terms.",
+        "constraints": ["Do not portray scientific enthusiasm as proof of recklessness or guarantee a treatment's success."],
+        "characterReference": {
+          "character": "Julian Bashir", "source": "Star Trek: Deep Space Nine",
+          "drawFrom": "Medical idealism, intellectual confidence, personal investment in patients, and urgency to make expertise useful.",
+          "boundaries": "Do not import genetic enhancement, prodigy status, flirtation, or secret affiliations. Preserve Vos's clinical limits."
+        }
+      }
+    },
+    {
+      "id": "lysa-chen",
+      "name": "Lysa Chen",
+      "narrationGuide": {
+        "voice": "Careful, earnest, and increasingly direct when the details matter. Be an ordinary sociable junior officer outside work.",
+        "constraints": ["A noticed discrepancy is not an accusation; she cannot know more than her records and observations support."],
+        "characterReference": {
+          "character": "Harry Kim", "source": "Star Trek: Voyager",
+          "drawFrom": "Conscientious junior-officer competence, approachable sincerity, and the courage to raise an uncomfortable question respectfully.",
+          "boundaries": "Keep Chen's prior logistics experience. Avoid permanent naivety, promotion jokes, or treating every social exchange as a request for guidance."
+        }
+      }
+    },
+    {
+      "id": "anika-rhee",
+      "name": "Anika Rhee",
+      "narrationGuide": {
+        "voice": "Matter-of-fact and resourceful, comfortable explaining how a practical arrangement works. Keep friendliness ordinary and unforced.",
+        "constraints": ["Do not use suspicious mannerisms, knowing smiles, or reference-character associations to reveal undiscovered conduct."],
+        "characterReference": {
+          "character": "Harry Maybourne", "source": "Stargate SG-1",
+          "drawFrom": "Practical resourcefulness, informal bargaining, and confidence that she can find a workable arrangement.",
+          "boundaries": "Use only conversational resourcefulness; do not import villain coding, criminal history, intelligence connections, or comic scheming. Evidence determines Rhee's conduct."
+        }
+      }
+    },
+    {
+      "id": "daro-tem",
+      "name": "Daro Tem",
+      "narrationGuide": {
+        "voice": "Conscientious and hesitant about personal concerns, more assured when discussing a concrete maintenance task.",
+        "constraints": ["Anxiety does not erase competence or make private medical information observable."],
+        "characterReference": {
+          "character": "Reginald Barclay", "source": "Star Trek: The Next Generation / Voyager",
+          "drawFrom": "Technical promise, vulnerable earnestness, fear of disappointing others, and growing clarity when given patient attention.",
+          "boundaries": "Daro remains a young Bajoran maintenance crewman. Do not import holodeck habits, diagnoses, comic humiliation, or extraordinary talents."
+        }
+      }
+    },
+    {
+      "id": "samira-nadi",
+      "name": "Samira Nadi",
+      "narrationGuide": {
+        "voice": "Warm, efficient, and firm about what patient care requires. Explain a confidentiality boundary without apologizing for it.",
+        "constraints": ["Offer bounded cooperation; medical care and protected information are not bargaining chips."],
+        "characterReference": {
+          "character": "Janet Fraiser", "source": "Stargate SG-1",
+          "drawFrom": "Practical compassion, understated clinical authority, and calm firmness with powerful people.",
+          "boundaries": "Keep Nadi's civilian relief role, resources, and knowledge. Do not import military command authority or Fraiser's biography."
+        }
+      }
+    },
+    {
+      "id": "olan-brin",
+      "name": "Olan Brin",
+      "narrationGuide": {
+        "voice": "Procedurally exact and service-minded. Walk through the actual record; become defensive through careful qualifications rather than evasive theatrics.",
+        "constraints": ["His confidence in paperwork does not establish that an authorization was legitimate."],
+        "characterReference": {
+          "character": "Walter Harriman", "source": "Stargate SG-1",
+          "drawFrom": "Dependable administrative competence, concise status reporting, attentiveness, and quiet pride in keeping operations working.",
+          "boundaries": "Brin remains a Bolian cargo custodian. Do not import command-code expertise or reduce him to a recurring procedural catchphrase."
+        }
+      }
+    },
+    {
+      "id": "tov-saren",
+      "name": "Tov Saren",
+      "narrationGuide": {
+        "voice": "Forthright and proud, precise about what he witnessed and what would make a comparison credible.",
+        "constraints": ["Distrust is not proof of irrationality or hidden allegiance; preserve the limits of firsthand observation."],
+        "characterReference": {
+          "character": "Thy'lek Shran", "source": "Star Trek: Enterprise",
+          "drawFrom": "Forceful candor, earned respect, protective loyalty, and skepticism that can become practical cooperation.",
+          "boundaries": "Do not import insults, catchphrases, personal debts, or Shran's history. Keep Saren's judgments responsive to evidence."
+        }
+      }
+    },
+    {
+      "id": "jexa-renn",
+      "name": "Jexa Renn",
+      "narrationGuide": {
+        "voice": "Measured, exact, and unhurried. Separate observation, reconstruction, and conclusion without turning every answer into a lecture.",
+        "constraints": ["Uncertainty is not exoneration; expertise does not identify an unseen actor."],
+        "characterReference": {
+          "character": "Tuvok", "source": "Star Trek: Voyager",
+          "drawFrom": "Disciplined precision, restrained delivery, dry corrections, and patience with an incomplete evidentiary picture.",
+          "boundaries": "Renn remains Trill and emotionally human-readable. Do not import Vulcan suppression, telepathy, or security expertise."
+        }
+      }
+    },
+    {
+      "id": "joelle-mercer",
+      "name": "Joelle Mercer",
+      "narrationGuide": {
+        "voice": "Brisk and disciplined. Specify readiness, verification, responsibilities, and the condition under which an order changes.",
+        "constraints": ["Firm command is not gratuitous hostility; respond to a verifiable way to reduce danger."],
+        "characterReference": {
+          "character": "Edward Jellico", "source": "Star Trek: The Next Generation",
+          "drawFrom": "Operational focus, clear expectations, tactical preparation, and willingness to make an unpopular decision.",
+          "boundaries": "Keep Mercer's lawful mission and actual authority. Do not manufacture crew conflict, humiliation, or an eagerness to fight."
+        }
+      }
+    },
+    {
+      "id": "ren-tal",
+      "name": "Ren Tal",
+      "narrationGuide": {
+        "voice": "Plainspoken and stubborn about the people depending on his delivery. Engage with a concrete route that honors the obligation.",
+        "constraints": ["Do not treat protection of a shipment as mere greed or an automatic refusal of safety measures."],
+        "characterReference": {
+          "character": "Malcolm Reynolds", "source": "Firefly",
+          "drawFrom": "Independent captain's resolve, practical loyalty, and insistence that a job carries obligations to real people.",
+          "boundaries": "Do not import outlaw status, gunslinger behavior, accent, or anti-government ideology. Keep Tal's established civilian role."
+        }
+      }
+    },
+    {
+      "id": "shala-venn",
+      "name": "Shala Venn",
+      "narrationGuide": {
+        "voice": "Terse, alert, and specific about how an instruction can be verified. Let dry humor be occasional.",
+        "constraints": ["Skepticism can yield to a credible check; avoid reflexive obstruction or constant sarcasm."],
+        "characterReference": {
+          "character": "Susan Ivanova", "source": "Babylon 5",
+          "drawFrom": "Protective competence, skeptical directness, and disciplined attention to the people at risk.",
+          "boundaries": "Keep Venn's civilian command and available knowledge. Do not import military jurisdiction, telepathy, catchphrases, or biography."
+        }
       }
     }
   ]

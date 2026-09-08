@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createPeoplePlayerProjection } from '../../src/projection/v1/people-projection.mjs';
 
 import {
   createActiveAcceptedPairLineage,
@@ -148,6 +149,30 @@ const packet = createV1RuntimePromptPacket({
     }
   }
 });
+// Casting guidance must reach narration without introducing people or private facts.
+const castingAssets = structuredClone(runtimeAssets);
+const castingReference = {
+  character: 'George Hammond',
+  source: 'Stargate SG-1',
+  drawFrom: 'Steady authority and restrained warmth.',
+  boundaries: 'Preserve the original character identity and knowledge.'
+};
+castingAssets.crewDataset.supportingCharacters = [{
+  id: 'helena-tolland', name: 'Helena Tolland',
+  profileSummary: 'PRIVATE UNREVEALED HISTORY',
+  narrationGuide: { voice: 'Measured and direct.', constraints: ['No automatic approval.'], characterReference: castingReference }
+}];
+const castingPacket = createV1RuntimePromptPacket({ state, projection, runtimeAssets: castingAssets });
+const castingPayload = JSON.parse(castingPacket.text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(castingPayload.narrationGuidance.supportingCharacters, [{
+  id: 'helena-tolland', name: 'Helena Tolland',
+  voice: 'Measured and direct.', constraints: ['No automatic approval.'], characterReference: castingReference
+}]);
+assert.doesNotMatch(castingPacket.text, /PRIVATE UNREVEALED HISTORY/);
+const castingPeople = createPeoplePlayerProjection({ runtimeAssets: castingAssets });
+assert.equal(castingPeople.people.length, 7);
+assert.equal(castingPeople.people.some(person => person.id === 'helena-tolland'), false);
+assert.doesNotMatch(JSON.stringify(castingPeople), /George Hammond|characterReference/);
 const authorityIndex = packet.text.indexOf('PLAYER CHARACTER AUTHORITY - ABSOLUTE.');
 assert(authorityIndex > packet.text.indexOf('DIRECTIVE V1 CAMPAIGN CONTEXT'));
 assert(authorityIndex < packet.text.indexOf('Continue a story-first command RPG'));

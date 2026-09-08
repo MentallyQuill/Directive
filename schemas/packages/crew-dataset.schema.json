@@ -23,6 +23,11 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/officer" }
+    },
+    "supportingCharacters": {
+      "description": "Narration-only cast guidance; entries do not introduce a person or create a public dossier.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/supportingCharacter" }
     }
   },
   "$defs": {
@@ -34,20 +39,66 @@
         "id": { "$ref": "../common/common.schema.json#/$defs/id" },
         "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "billet": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "profileSummary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "narrationGuide": {
+        "categoryId": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "species": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "service": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["voice", "constraints"],
+          "required": ["organization", "department", "rankCode", "rankLabel"],
           "properties": {
-            "voice": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-            "constraints": {
-              "type": "array",
-              "minItems": 1,
-              "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-            }
+            "organization": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "department": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "rankCode": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "rankLabel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
           }
-        }
+        },
+        "publicRecord": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "age": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "birthplace": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "serviceBackground": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+            "assignmentHistory": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+          }
+        },
+        "profileSummary": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "narrationGuide": { "$ref": "#/$defs/narrationGuide" }
+      }
+    },
+    "supportingCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "narrationGuide"],
+      "properties": {
+        "id": { "$ref": "../common/common.schema.json#/$defs/id" },
+        "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "narrationGuide": { "$ref": "#/$defs/narrationGuide" }
+      }
+    },
+    "narrationGuide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["voice", "constraints"],
+      "properties": {
+        "voice": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
+        },
+        "characterReference": { "$ref": "#/$defs/characterReference" }
+      }
+    },
+    "characterReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character", "source", "drawFrom", "boundaries"],
+      "properties": {
+        "character": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "source": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "drawFrom": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "boundaries": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
       }
     }
   }

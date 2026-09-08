@@ -408,11 +408,17 @@ export function createV1RuntimePromptPacket({
     } : null,
     narrationPolicy,
     narrationGuidance: {
+      characterReferencePolicy: 'Character references are out-of-world performance guidance. Borrow only their named qualities; the authored character voice and constraints govern dialogue ahead of generic prose flavor. Preserve each original character identity, profession, species, history, knowledge, and accepted relationships. Do not import reference-character events, powers, catchphrases, or plot outcomes, and do not mention the references in story prose. Supporting-character entries do not establish presence or authorize an introduction; use them only when the current scene independently calls for that person.',
       crew: (runtimeAssets?.crewDataset?.officers || []).map((officer) => ({
         id: officer.id,
         name: officer.name,
         billet: officer.billet,
         ...clone(officer.narrationGuide)
+      })),
+      supportingCharacters: (runtimeAssets?.crewDataset?.supportingCharacters || []).map((character) => ({
+        id: character.id,
+        name: character.name,
+        ...clone(character.narrationGuide)
       })),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
