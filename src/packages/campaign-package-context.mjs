@@ -1,3 +1,5 @@
+import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
+
 export const CAMPAIGN_PACKAGE_SPINE = Object.freeze([
   'manifest',
   'campaign',
@@ -61,36 +63,14 @@ export function getCampaignPackageSpineErrors(packageData) {
     [packageData.campaign.title, 'packageData.campaign.title'],
     [packageData.campaign.theater, 'packageData.campaign.theater'],
     [packageData.campaign.highConcept, 'packageData.campaign.highConcept'],
-    [packageData.campaign.openingMessage, 'packageData.campaign.openingMessage'],
     [packageData.ship.id, 'packageData.ship.id'],
     [packageData.ship.name, 'packageData.ship.name'],
     [packageData.world.id, 'packageData.world.id'],
     [packageData.world.openingLocationId, 'packageData.world.openingLocationId']
   ]) requireText(value, label, errors);
-  const openingContext = packageData.campaign.openingContext;
-  requireObject(openingContext, 'packageData.campaign.openingContext', errors);
-  if (object(openingContext)) {
-    requireText(
-      openingContext.continuitySummary,
-      'packageData.campaign.openingContext.continuitySummary',
-      errors
-    );
-    requireText(
-      openingContext.firstPlayableScene,
-      'packageData.campaign.openingContext.firstPlayableScene',
-      errors
-    );
-    if (!Array.isArray(openingContext.firstSceneGuidance) || openingContext.firstSceneGuidance.length === 0) {
-      errors.push('packageData.campaign.openingContext.firstSceneGuidance must be a non-empty array');
-    } else {
-      openingContext.firstSceneGuidance.forEach((entry, index) => {
-        requireText(
-          entry,
-          `packageData.campaign.openingContext.firstSceneGuidance[${index}]`,
-          errors
-        );
-      });
-    }
+  errors.push(...getOpeningPremiseErrors(packageData.campaign.openingPremise, 'packageData.campaign.openingPremise'));
+  for (const legacy of ['openingMessage', 'openingContext']) {
+    if (legacy in packageData.campaign) errors.push(`packageData.campaign.${legacy} is replaced by openingPremise`);
   }
   if (!Number.isFinite(Number(packageData.manifest.openingMinuteOfDay))) {
     errors.push('packageData.manifest.openingMinuteOfDay must be numeric');

@@ -1,3 +1,4 @@
+import { getSillyTavernDirectiveNarrationSettings, updateSillyTavernDirectiveNarrationSettings } from './settings-store.mjs';
 import {
   createHostCapabilities,
   normalizeDirectiveHost
@@ -188,6 +189,10 @@ export function createSillyTavernDirectiveHost({
       contextFactory: getContext,
       providerClient
     }),
+    narration: {
+      getSettings: () => getSillyTavernDirectiveNarrationSettings(getContext()),
+      updateSettings: (patch) => updateSillyTavernDirectiveNarrationSettings(patch, getContext())
+    },
     providers: {
       settings: providerSettings,
       client: providerClient,

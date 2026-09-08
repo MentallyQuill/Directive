@@ -245,6 +245,8 @@ function createRuntimeActions() {
     updateProviderSettings: (options) => callApp('updateProviderSettings', options),
     testProvider: (options) => callApp('testProvider', options),
     refreshDirectivePresetStatus: () => callApp('refreshDirectivePresetStatus'),
+    updateNarrationSettings: (options) => callApp('updateNarrationSettings', options),
+    retryOpening: () => callApp('retryOpening'),
     updateDirectivePresetAutoCheck: (options) => callApp('updateDirectivePresetAutoCheck', options),
     installDirectivePreset: () => callApp('installDirectivePreset'),
     reserveCommandBearingEdge: () => callApp('reserveCommandBearingEdge'),

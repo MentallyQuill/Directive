@@ -221,6 +221,7 @@ assert.equal(
 assert.deepEqual(initial.media, { playerPortraitImportSupported: true });
 assert.equal(app.getChatTurnOrchestrator() != null, true);
 assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, providerKind })), [
+  { id: 'openingSceneDirector', providerKind: 'reasoning' },
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
   { id: 'episodeEvaluator', providerKind: 'reasoning' },
   { id: 'peopleDossierAuthor', providerKind: 'reasoning' },
@@ -243,7 +244,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 4);
+assert.equal(metadataOnlySupport.routing.length, 5);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',
@@ -1038,7 +1039,8 @@ assert.equal(
 );
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
 assert.doesNotMatch(host.prompt.inspect().blocks[0]?.text || '', /"reportId": "report\.hesperus\.distress"/);
-assert.equal(opening.text, records.packageData.campaign.openingMessage);
+assert.equal(opening.text, 'Captain Whitaker waits in the ready room. “Come in, Commander.”');
+assert.equal(generation.calls().filter(call => call.role === 'openingSceneDirector').length, 1);
 assert.doesNotMatch(opening.text, /Stardate .* hours/);
 
 const publishesBeforeInvalidation = gameplayUiMessages('directive.gameplayNotifications.publish.v1').length;

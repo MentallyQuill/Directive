@@ -1,6 +1,13 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-narration-settings.mjs",
+  "test-narration-settings-browser.mjs",
+  "test-campaign-opening.mjs",
+  "test-opening-lifecycle.mjs",
+  "test-opening-runtime.mjs",
+  "test-opening-chat-record.mjs",
+  "test-opening-narration-route.mjs",
   "test-objective-support-matrix.mjs",
   "test-objective-progress-core.mjs",
   "test-objective-progress-runtime.mjs",

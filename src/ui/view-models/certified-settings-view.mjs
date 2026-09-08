@@ -1,3 +1,4 @@
+import { normalizeNarrationSettings } from '../../narration/narration-policy.mjs';
 const clone = (value) => value === undefined
   ? undefined
   : JSON.parse(JSON.stringify(value));
@@ -6,6 +7,7 @@ export function buildCertifiedSettingsView(view = {}) {
   return {
     sections: [
       { id: 'interface', label: 'Interface' },
+      { id: 'narration', label: 'Narration', narrationSettings: normalizeNarrationSettings(view.narrationSettings) },
       {
         id: 'providers',
         label: 'Model Lanes',

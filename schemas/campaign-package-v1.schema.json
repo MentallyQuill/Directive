@@ -44,7 +44,7 @@
     },
     "campaign": {
       "type": "object",
-      "required": ["id", "title", "theater", "openingStardate", "highConcept", "openingMessage"],
+      "required": ["id", "title", "theater", "openingStardate", "highConcept", "openingPremise"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
@@ -52,7 +52,75 @@
         "openingStardate": { "type": "number" },
         "openingYear": { "type": "integer" },
         "highConcept": { "type": "string", "minLength": 1 },
-        "openingMessage": { "type": "string", "minLength": 1 }
+        "openingPremise": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "continuitySummary",
+            "firstPlayableScene",
+            "requiredContext",
+            "sceneMaterial",
+            "personalization",
+            "forbiddenFacts",
+            "firstSceneGuidance"
+          ],
+          "properties": {
+            "firstSceneEndObjectiveId": { "type": "string", "minLength": 1 },
+            "continuitySummary": {
+              "type": "string",
+              "minLength": 1
+            },
+            "firstPlayableScene": {
+              "type": "string",
+              "minLength": 1
+            },
+            "requiredContext": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "sceneMaterial": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "personalization": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "forbiddenFacts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "firstSceneGuidance": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "continuationGuidance": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
       }
     },
     "ship": {

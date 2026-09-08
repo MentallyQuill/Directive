@@ -110,3 +110,9 @@ assert.doesNotMatch(text, /fraud/i);
 assert.doesNotMatch(text, /percent|reconciliation|open world|recovery/i);
 
 console.log('PASS certified Mission panel');
+const retryBody = new Element('div');
+let retryCalls=0, refreshed=0;
+renderMissionPanel(retryBody,{campaignState:{},v1PlayerProjection:projection,openingGeneration:{status:'failed',message:'Your character is saved. Retry the opening.'}},{retryOpening:async()=>{retryCalls++;return {ok:true}},refresh:async()=>{refreshed++}});
+const retryButton=all(retryBody).find(node=>node.dataset.action==='retry-opening');
+assert(retryButton,'failed opening offers an actionable retry');
+await retryButton.click();assert.equal(retryCalls,1);assert.equal(refreshed,1);

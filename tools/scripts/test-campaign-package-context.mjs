@@ -21,20 +21,17 @@ assert.deepEqual(getCampaignPackageSpineErrors(packageData), []);
 const summary = createCampaignPackageSummary(packageData);
 assert.equal(summary.packageId, 'directive:campaign-package:breckenridge-ashes-of-peace');
 assert.equal(summary.campaign.title, 'Ashes of Peace');
+assert.equal('openingMessage' in summary.campaign, false);
+assert.equal('openingContext' in summary.campaign, false);
 assert.equal(summary.campaign.openingStardate, 53068.4);
-assert.match(summary.campaign.openingMessage, /Captain Mara Whitaker/);
-assert.match(summary.campaign.openingMessage, /shuttle/i);
-assert.match(summary.campaign.openingMessage, /PADD/i);
-assert.match(summary.campaign.openingMessage, /ready room/i);
-assert.match(summary.campaign.openingContext.continuitySummary, /cabin/i);
-assert.match(summary.campaign.openingContext.firstPlayableScene, /0830/);
-assert.equal(summary.campaign.openingContext.firstSceneGuidance.length >= 4, true);
+assert.match(summary.campaign.openingPremise.continuitySummary, /cabin/i);
+assert.match(summary.campaign.openingPremise.firstPlayableScene, /0830/);
+assert.equal(summary.campaign.openingPremise.firstSceneGuidance.length >= 4, true);
 assert.doesNotMatch(
   [
-    summary.campaign.openingMessage,
-    summary.campaign.openingContext.continuitySummary,
-    summary.campaign.openingContext.firstPlayableScene,
-    ...summary.campaign.openingContext.firstSceneGuidance
+    summary.campaign.openingPremise.continuitySummary,
+    summary.campaign.openingPremise.firstPlayableScene,
+    ...summary.campaign.openingPremise.firstSceneGuidance
   ].join('\n'),
   /Hesperus|redline|Rhee|Daro/i
 );
@@ -71,40 +68,40 @@ delete missingCampaign.campaign;
 assert.match(getCampaignPackageSpineErrors(missingCampaign).join('\n'), /missing top-level key "campaign"/);
 
 const missingOpeningContext = structuredClone(packageData);
-delete missingOpeningContext.campaign.openingContext;
+delete missingOpeningContext.campaign.openingPremise;
 assert.match(
   getCampaignPackageSpineErrors(missingOpeningContext).join('\n'),
-  /packageData\.campaign\.openingContext must be an object/
+  /packageData\.campaign\.openingPremise must be an object/
 );
 
 const malformedOpeningContext = structuredClone(packageData);
-malformedOpeningContext.campaign.openingContext = {
+malformedOpeningContext.campaign.openingPremise = {
   continuitySummary: ' ',
   firstPlayableScene: '',
   firstSceneGuidance: ['Valid guidance.', '']
 };
 assert.match(
   getCampaignPackageSpineErrors(malformedOpeningContext).join('\n'),
-  /packageData\.campaign\.openingContext\.continuitySummary must be a non-empty string/
+  /packageData\.campaign\.openingPremise\.continuitySummary must be a non-empty string/
 );
 assert.match(
   getCampaignPackageSpineErrors(malformedOpeningContext).join('\n'),
-  /packageData\.campaign\.openingContext\.firstPlayableScene must be a non-empty string/
+  /packageData\.campaign\.openingPremise\.firstPlayableScene must be a non-empty string/
 );
 assert.match(
   getCampaignPackageSpineErrors(malformedOpeningContext).join('\n'),
-  /packageData\.campaign\.openingContext\.firstSceneGuidance\[1\] must be a non-empty string/
+  /packageData\.campaign\.openingPremise\.firstSceneGuidance\[1\] must be a non-empty string/
 );
 
 const emptyFirstSceneGuidance = structuredClone(packageData);
-emptyFirstSceneGuidance.campaign.openingContext = {
+emptyFirstSceneGuidance.campaign.openingPremise = {
   continuitySummary: 'The player arrived aboard the Breckenridge.',
   firstPlayableScene: 'The player waits outside the ready room.',
   firstSceneGuidance: []
 };
 assert.match(
   getCampaignPackageSpineErrors(emptyFirstSceneGuidance).join('\n'),
-  /packageData\.campaign\.openingContext\.firstSceneGuidance must be a non-empty array/
+  /packageData\.campaign\.openingPremise\.firstSceneGuidance must be a non-empty array/
 );
 
 console.log('PASS V1 campaign package context');

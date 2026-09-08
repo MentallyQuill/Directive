@@ -76,7 +76,7 @@ const bundled = ensureDirectivePresetMetadata({
   notes: 'Directive bundled test preset.'
 });
 const metadata = directivePresetMetadata(bundled);
-assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.13');
+assert.equal(metadata.displayVersion, 'Directive-0.1.0-pre-alpha.14');
 assert.equal(metadata.supportsDirectiveRuntime, true);
 assert.equal(comparableDirectivePresetVersion('Directive-0.1.0-pre-alpha.11'), '0.1.0');
 assert.equal(compareDirectivePresetVersions('Directive-0.0.9', 'Directive-0.1.0-pre-alpha.11'), -1);
@@ -88,16 +88,16 @@ assert.equal(compareDirectivePresetVersions('Directive-0.2.0', 'Directive-0.1.0-
 const asset = JSON.parse(fs.readFileSync('presets/sillytavern/directive.json', 'utf8'));
 const assetOrder = asset.prompt_order[0].order;
 assert.equal(asset.prompts.length, assetOrder.length, 'Directive preset prompts and order must stay aligned.');
-assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.13');
-assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-past')?.enabled, true);
+assert.equal(asset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.14');
+assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-past')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-tense-present')?.enabled, false);
-assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, true);
+assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-third-limited')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-second-external')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-pov-first-non-player')?.enabled, false);
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.enabled, true);
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
-  /Write in \{\{getvar::directive_tense\}\}, \{\{getvar::directive_pov\}\}/
+  /global narration policy/
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-player-agency-perspective')?.content || '',
@@ -135,11 +135,11 @@ assert.match(
 assert.equal(assetOrder.find((entry) => entry.identifier === 'directive-scene-shape-variation')?.enabled, true);
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-scene-shape-variation')?.content || '',
-  /\{\{random::a limited-PoV non-player impression::lines of dialogue::an action\}\}/
+  /\{\{random::an observable detail available to the player::lines of dialogue::an action\}\}/
 );
 assert.match(
   asset.prompts.find((entry) => entry.identifier === 'directive-scene-shape-variation')?.content || '',
-  /must belong to a non-player character/
+  /Do not switch into an NPC viewpoint/
 );
 const proseEnforcement = asset.prompts.find((entry) => entry.identifier === 'directive-grounded-prose');
 assert.equal(proseEnforcement?.name, 'Directive Prose Enforcement');
@@ -250,11 +250,11 @@ const secondPersonContext = directiveNarrationContextFromPreset(secondPersonAsse
 });
 assert.equal(secondPersonContext.compatible, true);
 assert.equal(secondPersonContext.source, 'active-directive-preset');
-assert.equal(secondPersonContext.perspectivePromptId, 'directive-pov-second-external');
-assert.match(secondPersonContext.perspective, /second person external/);
-assert.equal(secondPersonContext.tensePromptId, 'directive-tense-present');
-assert.equal(secondPersonContext.tense, 'present tense');
-assert.match(secondPersonContext.instructions, /Write in present tense, second person external/);
+assert.equal(secondPersonContext.perspectivePromptId, null);
+assert.equal(secondPersonContext.perspective, DIRECTIVE_DEFAULT_POV_RULE);
+assert.equal(secondPersonContext.tensePromptId, null);
+assert.equal(secondPersonContext.tense, 'past tense');
+assert.match(secondPersonContext.instructions, /sole authority/);
 
 const unrelatedContext = directiveNarrationContextFromPreset({
   prompts: [{ identifier: 'alien-main', content: 'Write as an unrelated preset.' }],
@@ -362,7 +362,7 @@ const installed = await adapter.installBundledPreset();
 assert.equal(installed.ok, true);
 assert.equal(installed.status.state, 'current');
 assert.equal(installManager.saves[0].name, 'Directive');
-assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.13');
+assert.equal(installManager.saves[0].preset.extensions.directive.presetVersion, 'Directive-0.1.0-pre-alpha.14');
 assert.equal(installManager.selected(), 'Existing Preset');
 assert.equal(installed.restored, true);
 
@@ -380,7 +380,7 @@ const selectedDirectiveAdapter = createSillyTavernDirectivePresetManager({
     }
   })
 });
-assert.match(selectedDirectiveAdapter.getNarrationContext({ roleId: 'narration' }).perspective, /second person external/);
+assert.match(selectedDirectiveAdapter.getNarrationContext({ roleId: 'narration' }).perspective, /third person limited/);
 
 const unrelatedSelectedManager = createPresetManager({
   presets: {
@@ -529,3 +529,30 @@ assert.equal(missingActivation.reason, 'directive-preset-missing');
 assert.equal(missingNarrationPreset.selectedName(), 'Wandlight-1.3');
 
 console.log('SillyTavern preset manager tests passed: metadata, status comparison, install, and narration selection lifecycle');
+
+
+const proseContext = {extensionSettings:{directive:{narration:{pov:'first-person',tense:'present'}}},getPresetManager:()=>selectedDirectiveManager};
+const proseAdapter = createSillyTavernDirectivePresetManager({contextFactory:()=>proseContext,fetchImpl:async()=>({ok:true,json:async()=>asset})});
+const prose = await proseAdapter.getProseGuidance();
+assert.match(prose, /# Prose Enforcement/);
+assert.match(prose, /# Prose Lenses/);
+assert.doesNotMatch(prose, /setvar::|getvar::|random::|first person from a package-defined non-player/);
+assert.doesNotMatch(prose, /# Scene Shape Variation|write 1 paragraph of very short/);
+assert.match(prose, /enough paragraphs to establish/);
+assert.equal(proseAdapter.getNarrationContext().tense,'present tense');
+assert.equal(proseAdapter.getNarrationContext().perspective,'first person');
+console.log('PASS global preset precedence and opening prose guidance');
+
+const macroPreset = structuredClone(asset);
+macroPreset.prompts.push({identifier:'custom-style',content:'{{setvar::scene_length::four paragraphs}}Write {{getvar::scene_length}}. {{setvar::directive_pov::omniscient}}Use {{getvar::directive_pov}}. {{setvar::directive_tense::future}}Tense: {{getvar::directive_tense}}.'});
+macroPreset.prompt_order[0].order.push({identifier:'custom-style',enabled:true});
+const macroSnapshot = JSON.stringify(macroPreset);
+let hostMacroCalls=0;
+const macroManager = createPresetManager({presets:{Directive:macroPreset},selected:'Directive'});
+const macroAdapter=createSillyTavernDirectivePresetManager({contextFactory:()=>({getPresetManager:()=>macroManager,substituteParams(){hostMacroCalls++;throw new Error('must not mutate host variables');}}),fetchImpl:async()=>({ok:true,json:async()=>asset})});
+const macroProse=await macroAdapter.getProseGuidance();
+assert.match(macroProse,/Write four paragraphs\./);
+assert.doesNotMatch(macroProse,/Use omniscient|Tense: future|setvar::|getvar::/);
+assert.equal(JSON.stringify(macroPreset),macroSnapshot);
+assert.equal(hostMacroCalls,0);
+console.log('PASS isolated prose macro resolution');

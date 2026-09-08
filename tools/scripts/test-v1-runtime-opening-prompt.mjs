@@ -75,7 +75,7 @@ const projection = {
 const openingAssistant = {
   hostMessageId: 'opening-assistant',
   role: 'assistant',
-  text: packageData.campaign.openingMessage
+  text: 'Sam stood outside the ready room.'
 };
 const hiddenOriginalEntry = {
   hostMessageId: 'player-entry-1-hidden',
@@ -161,10 +161,11 @@ assert.doesNotMatch(packet.text, /SECRET RUNTIME AUTHORITY/);
 assert.match(packet.text, /DUTY REPORT: Deliver pendingDutyReport\.segment\.canonicalText verbatim exactly once/);
 assert.match(packet.text, /Duty Report â€” A distress signal has been confirmed/);
 assert.match(packet.text, /"phase": "unanswered"/);
-assert.match(packet.text, /"canonicalOpeningMessage":/);
-assert.match(packet.text, /Yesterday morning, your shuttle rendezvoused/);
-assert.match(packet.text, /Preserve every established opening beat/);
-assert.match(packet.text, /Do not take the player through the ready-room door/);
+assert.doesNotMatch(packet.text, /"canonicalOpeningMessage":/);
+assert.match(packet.text, /"premise":/);
+assert.match(packet.text, /The player arrived aboard/);
+assert.match(packet.text, /Preserve established continuity and required facts/);
+assert.match(packet.text, /end at opening.firstPlayableScene before the next player action/);
 assert.match(packet.text, /Directive displays accepted ship time in its interface/);
 assert.match(packet.text, /Do not print a Stardate, ship-time header, footer, tracker, or timestamp/);
 assert.doesNotMatch(packet.text, /End the assistant response with exactly one final nonblank line/);
@@ -203,10 +204,10 @@ assert.doesNotMatch(firstMeetingPacket.text, /"canonicalOpeningMessage":/);
 assert.doesNotMatch(firstMeetingPacket.text, /OPENING REGENERATION/);
 assert.match(firstMeetingPacket.text, /At 0830 the following morning/);
 assert.match(firstMeetingPacket.text, /Whitaker greets the player by name/);
-assert.match(firstMeetingPacket.text, /FIRST MEETING:/);
-assert.match(firstMeetingPacket.text, /This response is only the greeting, ordinary courtesy, and one genuine conversational opening/);
-assert.match(firstMeetingPacket.text, /Do not discuss readiness problems, crew conflicts, the Asterion Reach, flight plans, mission details, reports, command expectations, or the handover terms yet/);
-assert.match(firstMeetingPacket.text, /End after Whitaker gives the player a natural opening to answer/);
+assert.match(firstMeetingPacket.text, /FIRST SCENE:/);
+assert.match(firstMeetingPacket.text, /stop after the greeting, courtesy, and one conversational question/);
+assert.match(firstMeetingPacket.text, /Do not mention readiness problems, crew conflicts/);
+assert.match(firstMeetingPacket.text, /Leave room for the player to answer/);
 
 const conversationAnsweredState = structuredClone(firstMeetingState);
 conversationAnsweredState.storySettlement.receipts = [];
@@ -222,8 +223,8 @@ const conversationAnsweredPacket = createV1RuntimePromptPacket({
 assert.match(conversationAnsweredPacket.text, /"phase": "firstMeeting"/);
 assert.match(conversationAnsweredPacket.text, /"stage": "conversationAnswered"/);
 assert.match(conversationAnsweredPacket.text, /Whitaker greets the player by name/);
-assert.match(conversationAnsweredPacket.text, /FIRST MEETING CONTINUATION:/);
-assert.match(conversationAnsweredPacket.text, /transition naturally into the command handover/);
+assert.match(conversationAnsweredPacket.text, /FIRST SCENE CONTINUATION:/);
+assert.match(conversationAnsweredPacket.text, /transitioning into the command handover/);
 assert.doesNotMatch(conversationAnsweredPacket.text, /This response is only the greeting/);
 assert.doesNotMatch(conversationAnsweredPacket.text, /Do not discuss readiness problems/);
 
@@ -246,6 +247,11 @@ assert.match(postHandoverPacket.text, /"phase": "continuity"/);
 assert.match(postHandoverPacket.text, /"continuitySummary":/);
 assert.doesNotMatch(postHandoverPacket.text, /"firstPlayableScene":/);
 assert.doesNotMatch(postHandoverPacket.text, /"firstSceneGuidance":/);
-assert.doesNotMatch(postHandoverPacket.text, /FIRST MEETING:/);
+assert.doesNotMatch(postHandoverPacket.text, /FIRST SCENE:/);
 
 console.log('V1 runtime opening prompt tests passed.');
+const stableAssets=structuredClone(runtimeAssets);
+const storedPremise=structuredClone(packageData.campaign.openingPremise);
+storedPremise.firstPlayableScene='The original approved doorway.';
+const recorded=createV1RuntimePromptPacket({state:{...state,campaign:{id:'c'}},projection,runtimeAssets:stableAssets,acceptedPairLineage:[],openingRecord:{kind:'directive.openingRecord.v1',campaignId:'c',inputs:{premise:storedPremise},direction:{kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:[],emphasis:'setting'}}});
+assert.equal(JSON.parse(recorded.text.slice(recorded.text.indexOf('{\n'))).opening?.firstPlayableScene,'The original approved doorway.');

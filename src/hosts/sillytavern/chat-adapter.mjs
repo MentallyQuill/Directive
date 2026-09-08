@@ -1961,6 +1961,8 @@ export function createSillyTavernChatAdapter({
     outcomeId = null,
     responseKind = 'narration',
     idempotencyKey,
+    requireEmpty = false,
+    expectedBinding = null,
     extra = {}
   } = {}) {
     const ctx = context();
@@ -1970,6 +1972,12 @@ export function createSillyTavernChatAdapter({
     const key = nonEmptyString(idempotencyKey)
       || `${campaignId || 'campaign'}:${turnId || outcomeId || Date.now()}:${responseKind}`;
     const chat = getChatArray(ctx);
+    if (expectedBinding && ['campaignId', 'saveId', 'chatId'].some(field => getCurrentBinding()?.[field] !== expectedBinding[field])) {
+      throw new Error('The campaign chat changed before the opening could be posted.');
+    }
+    if (requireEmpty && chat.some(message => !message.is_system && message.role !== 'system')) {
+      return { posted: false, reason: 'chat-not-empty' };
+    }
     const displayName = directiveAssistantDisplayName(ctx);
     const existingIndex = chat.findIndex((message) => directiveMetadata(message)?.idempotencyKey === key);
     if (existingIndex >= 0) {
@@ -2538,6 +2546,19 @@ export function createSillyTavernChatAdapter({
     return cloneJson(metadata?.[DIRECTIVE_CHAT_METADATA_KEY] || null);
   }
 
+  function getOpeningRecord() {
+    return cloneJson(chatMetadataObject(context())?.directiveOpening || null);
+  }
+
+  async function setOpeningRecord(record) {
+    const ctx = context();
+    const metadata = chatMetadataObject(ctx);
+    if (!metadata) throw new Error('Opening scene metadata is unavailable.');
+    metadata.directiveOpening = cloneJson(record);
+    await saveMetadata(ctx);
+    return true;
+  }
+
   async function waitForCurrentChat(chatId, timeoutMs = 2500) {
     const expected = nonEmptyString(chatId);
     if (!expected) return false;
@@ -2742,6 +2763,8 @@ export function createSillyTavernChatAdapter({
     continueHostGeneration,
     updateBindingMetadata,
     getBindingMetadata,
+    getOpeningRecord,
+    setOpeningRecord,
     open,
     save: () => saveChat(context())
   };

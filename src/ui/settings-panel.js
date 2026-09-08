@@ -436,6 +436,19 @@ export function renderSettingsPanel(body, view, actions = {}) {
   providers.appendChild(providerGrid);
   content.appendChild(providers);
 
+  const narration = createSection('Narration', 'Point of View and Tense', 'Applies to future narration in every campaign, including regenerated messages. Existing messages stay as written.');
+  const preferences = sectionById(model, 'narration').narrationSettings;
+  for (const [field, label, options] of [
+    ['pov', 'Point of view', [{ value: 'first-person', label: 'First person' }, { value: 'second-person', label: 'Second person' }, { value: 'third-person-limited', label: 'Third person limited' }]],
+    ['tense', 'Tense', [{ value: 'past', label: 'Past' }, { value: 'present', label: 'Present' }]]
+  ]) {
+    const control = createSelect(preferences[field], options, `narration-${field}`);
+    control.addEventListener('change', async () => {
+      await actions.updateNarrationSettings({ [field]: control.value });
+    });
+    narration.appendChild(createField(label, control));
+  }
+  content.appendChild(narration);
   appendPreset(content, sectionById(model, 'preset').directivePreset || {}, actions);
   appendRouting(content, sectionById(model, 'routing').generationRouting || []);
   appendDiagnostics(content, sectionById(model, 'diagnostics').support || {}, actions);

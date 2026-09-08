@@ -133,6 +133,7 @@ export function assertDirectiveStorageAdapter(storage, path = 'host.storage') {
 export function assertDirectiveGenerationClient(generation, path = 'host.generation') {
   requireObject(generation, path);
   requireFunction(generation.generate, `${path}.generate`);
+  if (generation.generateNarration !== undefined) requireFunction(generation.generateNarration, `${path}.generateNarration`);
   if (generation.role !== undefined) requireFunction(generation.role, `${path}.role`);
   if (generation.observe !== undefined) requireFunction(generation.observe, `${path}.observe`);
   return generation;
@@ -154,6 +155,8 @@ export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
     'appendAssistantMessageSwipe',
     'updateBindingMetadata',
     'getBindingMetadata',
+    'getOpeningRecord',
+    'setOpeningRecord',
     'getRecentMessages',
     'getLatestPlayerMessage',
     'getMessage',
@@ -193,6 +196,7 @@ export function assertDirectivePresetAdapter(presets, path = 'host.presets') {
     'getStatus',
     'latestStatus',
     'getNarrationContext',
+    'getProseGuidance',
     'getAutoCheckPreference',
     'setAutoCheckPreference',
     'dismissAutoCheckForVersion',
@@ -238,6 +242,11 @@ export function assertDirectiveHost(host) {
   assertDirectivePromptAdapter(host.prompt || {});
   if (host.providers !== undefined) assertDirectiveProviderAdapter(host.providers);
   if (host.presets !== undefined) assertDirectivePresetAdapter(host.presets);
+  if (host.narration !== undefined) {
+    requireObject(host.narration, 'host.narration');
+    requireFunction(host.narration.getSettings, 'host.narration.getSettings');
+    requireFunction(host.narration.updateSettings, 'host.narration.updateSettings');
+  }
   if (host.jobs !== undefined) requireObject(host.jobs, 'host.jobs');
   return host;
 }

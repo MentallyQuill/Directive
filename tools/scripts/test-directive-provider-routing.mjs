@@ -14,11 +14,13 @@ import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/g
 import { createDirectiveGenerationRouter } from '../../src/runtime/runtime-app.mjs';
 
 assert.deepEqual(GENERATION_ROLE_IDS, [
+  'openingSceneDirector',
   'acceptedPairMissionEvidence',
   'episodeEvaluator',
   'peopleDossierAuthor',
   'characterCreatorSectionDraft'
 ]);
+assert.equal(providerKindForRole('openingSceneDirector'), 'reasoning');
 assert.equal(providerKindForRole('episodeEvaluator'), 'reasoning');
 assert.equal(providerKindForRole('peopleDossierAuthor'), 'reasoning');
 assert.equal(providerKindForRole('acceptedPairMissionEvidence'), 'utility');

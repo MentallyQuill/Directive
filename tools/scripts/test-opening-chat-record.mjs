@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-adapter.mjs';
+const context = {chat:[],chatMetadata:{},chatId:'a', saveMetadata:async()=>{}};
+const chat = createSillyTavernChatAdapter({contextFactory:()=>context});
+assert.equal(typeof chat.setOpeningRecord,'function');
+await chat.setOpeningRecord({kind:'directive.openingRecord.v1',campaignId:'c',direction:{emphasis:'setting'}});
+assert.equal(chat.getOpeningRecord().campaignId,'c');
+const copy=chat.getOpeningRecord();copy.direction.emphasis='changed';
+assert.equal(chat.getOpeningRecord().direction.emphasis,'setting');
+context.chatMetadata={};context.chat_metadata=context.chatMetadata;
+assert.equal(chat.getOpeningRecord(),null);
+console.log('Opening chat metadata custody passed.');
+context.chat=[{is_user:true,mes:'Hold on.'}];
+const guarded=await chat.postAssistantMessage({text:'Opening',requireEmpty:true,idempotencyKey:'test'});
+assert.equal(guarded.posted,false);assert.equal(context.chat.length,1);
