@@ -1,3 +1,4 @@
+import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { validateStorySettlement } from './story-settlement-contracts.mjs';
 import { selectCurrentStoryEpisodes } from './story-settlement.mjs';
 import {
@@ -432,18 +433,12 @@ export function createEpisodeEvaluationRequest({ settlement = {} } = {}) {
     return request;
 }
 
-function parseStrictJsonObject(value) {
+function parseJsonObject(value) {
     if (isObject(value)) return { ok: true, value: cloneJson(value) };
-    if (typeof value !== 'string' || !value.trim()) {
-        return { ok: false, errors: ['episode evaluation output must be a JSON object'] };
-    }
-    try {
-        const parsed = JSON.parse(value.trim());
-        if (!isObject(parsed)) return { ok: false, errors: ['episode evaluation output must be a JSON object'] };
-        return { ok: true, value: parsed };
-    } catch {
-        return { ok: false, errors: ['episode evaluation output must contain strict JSON only'] };
-    }
+    if (typeof value !== 'string') return { ok: false, errors: ['episode evaluation output must be a JSON object'] };
+    const parsed = parseStructuredJsonText(value);
+    return parsed.ok ? { ok: true, value: parsed.value }
+        : { ok: false, errors: ['episode evaluation output must contain one unambiguous JSON object'] };
 }
 
 function validateUniqueIds(value, {
@@ -693,7 +688,7 @@ export function parseEpisodeEvaluationProposal(value, { request = {} } = {}) {
     if (!requestValidation.ok) {
         return { ok: false, errors: requestValidation.errors.map((error) => `invalid request: ${error}`) };
     }
-    const parsed = parseStrictJsonObject(value);
+    const parsed = parseJsonObject(value);
     if (!parsed.ok) return parsed;
     const errors = proposalErrors(parsed.value, request);
     if (errors.length > 0) return { ok: false, errors };

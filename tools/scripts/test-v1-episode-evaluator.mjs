@@ -317,9 +317,10 @@ for (const [label, value, pattern] of [
 ]) {
     const parsed = parseEpisodeEvaluationProposal(value, { request });
     assert.equal(parsed.ok, false, label);
+    assert.equal(parseEpisodeEvaluationProposal(JSON.stringify(value).replace(/}$/, ',}'), { request }).ok, false, label);
     assert.match(parsed.errors.join('\n'), pattern, label);
 }
-assert.equal(parseEpisodeEvaluationProposal(`\`\`\`json\n${JSON.stringify(proposalFor())}\n\`\`\``, { request }).ok, false);
+assert.equal(parseEpisodeEvaluationProposal(`\`\`\`json\n${JSON.stringify(proposalFor())}\n\`\`\``, { request }).ok, true);
 
 const fixture = JSON.parse(fs.readFileSync('tests/fixtures/story/v1/episode-evaluator-borrowed-behavior.fixture.json', 'utf8'));
 assert.deepEqual(fixture.pinnedSources, {
@@ -464,4 +465,16 @@ assert.equal(thrown.ok, false);
 assert.equal(thrown.reasonCode, 'provider-threw');
 assert.equal(JSON.stringify(thrown).includes('SECRET-PROVIDER-FAILURE'), false);
 
+
+assert.deepEqual(parseEpisodeEvaluationProposal(JSON.stringify(proposalFor()).replace(/}$/, ',}'), { request }), validContinue);
+
+for (const damaged of [false, true]) {
+  let count = 0;
+  const recovered = await createEpisodeEvaluator({ generationRouter: { async generate() {
+    count++;
+    return {ok:true, response:{text:JSON.stringify(proposalFor()).replace(/}$/, damaged ? ',}' : '}')}};
+  }}})({request});
+  assert.equal(count, 1);
+  assert.deepEqual(recovered.proposal, evaluated.proposal);
+}
 console.log('V1 episode evaluator tests passed.');

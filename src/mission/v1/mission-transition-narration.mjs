@@ -1,3 +1,4 @@
+import { parseStructuredJsonText } from '../../providers/structured-output-parser.mjs';
 import { validateMissionJourney } from './mission-journey.mjs';
 import { validateStorySettlement } from '../../story/story-settlement-contracts.mjs';
 import { selectCurrentStoryEpisodes } from '../../story/story-settlement.mjs';
@@ -314,12 +315,8 @@ export function createMissionTransitionNarrationRequest(packet = {}) {
 function parseJsonObject(output) {
     if (isObject(output)) return cloneJson(output);
     if (typeof output !== 'string') return null;
-    try {
-        const parsed = JSON.parse(output);
-        return isObject(parsed) ? parsed : null;
-    } catch {
-        return null;
-    }
+    const parsed = parseStructuredJsonText(output);
+    return parsed.ok ? parsed.value : null;
 }
 
 export function parseMissionTransitionNarrationCandidate(output, { packet = {} } = {}) {

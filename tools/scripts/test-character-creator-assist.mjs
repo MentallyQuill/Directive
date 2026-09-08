@@ -296,7 +296,7 @@ const targetedRegeneration = await runCharacterCreatorSectionDraft({
 });
 assert.equal(targetedRegeneration.source, 'provider');
 assert.deepEqual(targetedRegenerationCalls.map((call) => call.options.providerKind), ['reasoning', 'utility', 'reasoning']);
-assert.match(targetedRegenerationCalls[2].request.messages.at(-1).content, /json_invalid/);
+assert.match(targetedRegenerationCalls[2].request.messages.at(-1).content, /json_schema_invalid/);
 assert.equal(targetedRegenerationCalls[2].request.messages.at(-1).content.includes('Do not repeat this damaged text marker'), false);
 assert.equal(targetedRegeneration.diagnostics.repairAttempted, true);
 assert.equal(targetedRegeneration.diagnostics.repairSucceeded, false);
@@ -1131,4 +1131,17 @@ assert.doesNotMatch(request.prompt, /"relationships"\s*:/);
 assert.doesNotMatch(request.prompt, /"hiddenFacts"\s*:/);
 assert.equal(request.prompt.includes('Pale Lantern'), false);
 
+
+for (const damaged of [false, true]) {
+  let count = 0;
+  const recovered = await runCharacterCreatorSectionDraft({packageData, sectionId:'identity', input:{}, generationRouter:{async generate() {
+    count++;
+    const value = {kind:'directive.characterCreatorSectionDraftResult', sectionId:'identity', mode:'create', fields:{'identity.name':'Ari Venn','identity.speciesId':'human'}, notes:[], warnings:[]};
+    return {ok:true,response:{text:JSON.stringify(value).replace(/}$/, damaged ? ',}' : '}')}};
+  }}});
+  assert.equal(count, 1);
+  assert.equal(recovered.source, 'provider');
+  assert.equal(recovered.fields['identity.name'], 'Ari Venn');
+  assert.equal(recovered.diagnostics.repairAttempted, false);
+}
 console.log('Character Creator assist tests passed: provider contract, safety validation, local fallback, and review dossier generation');
