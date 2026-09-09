@@ -27,14 +27,24 @@ reporter.subscribeTurnProgress(() => { throw new Error('presentation failed'); }
 
 const firstGate = deferred();
 const firstScope = reporter.createScope();
-const first = reporter.run('reviewing-events', async ({ onAttempt }) => {
+const first = reporter.run('reviewing-events', async ({ onAttempt, onPhase }) => {
   onAttempt(1);
+  clock = 110;
+  onPhase('validating-response');
+  onPhase('fabricated-secret');
   await firstGate.promise;
   return { ok: true, secret: 'PRIVATE RESPONSE' };
 }, { scope: firstScope });
 assert.deepEqual(events, [
   { type: 'start', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100 },
-  { type: 'update', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100, attempt: 1 },
+  {
+    type: 'update', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100,
+    phase: 'waiting-model', phaseStartedAt: 100, attempt: 1,
+  },
+  {
+    type: 'update', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100,
+    phase: 'validating-response', phaseStartedAt: 110, attempt: 1,
+  },
 ]);
 
 clock = 125;
@@ -48,7 +58,10 @@ assert.equal(events.filter((event) => event.type === 'start').length, 2, 'concur
 const replayed = [];
 reporter.subscribeTurnProgress((event) => replayed.push(event));
 assert.deepEqual(replayed, [
-  { type: 'start', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100, attempt: 1 },
+  {
+    type: 'start', operationId: 'operation-1', stage: 'reviewing-events', startedAt: 100,
+    phase: 'validating-response', phaseStartedAt: 110, attempt: 1,
+  },
   { type: 'start', operationId: 'operation-2', stage: 'updating-characters', startedAt: 125 },
 ]);
 
@@ -214,7 +227,14 @@ assert.deepEqual(
   ['reviewing-events', 'saving'],
   'real interpretation and durable settlement publish their observed wait boundaries',
 );
-assert.equal(wired.progressEvents.find((event) => event.type === 'update').attempt, 1);
+assert.deepEqual(
+  wired.progressEvents.filter((event) => event.type === 'update').map(({ stage, phase, attempt }) => ({ stage, phase, attempt })),
+  [
+    { stage: 'reviewing-events', phase: 'waiting-model', attempt: 1 },
+    { stage: 'reviewing-events', phase: 'validating-response', attempt: 1 },
+  ],
+  'the interpreter reports transport and response validation as phases of one model operation',
+);
 const eventCountBeforeReplay = wired.progressEvents.length;
 const replay = await wired.runtime.settleAcceptedPair({
   runtimeAssets,
@@ -318,6 +338,16 @@ assert.deepEqual(
   dossierWiring.progressEvents.filter((event) => event.type === 'start').map((event) => event.stage),
   ['reviewing-events', 'updating-characters', 'saving'],
   'conditional dossier authoring reports only when introductions require it',
+);
+assert.deepEqual(
+  dossierWiring.progressEvents.filter((event) => event.type === 'update').map(({ stage, phase }) => ({ stage, phase })),
+  [
+    { stage: 'reviewing-events', phase: 'waiting-model' },
+    { stage: 'reviewing-events', phase: 'validating-response' },
+    { stage: 'updating-characters', phase: 'waiting-model' },
+    { stage: 'updating-characters', phase: 'validating-response' },
+  ],
+  'each actual model call owns its transport and validation phases',
 );
 
 console.log('Turn progress runtime tests passed.');

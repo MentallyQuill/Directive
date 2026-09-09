@@ -600,7 +600,7 @@ export function createMissionAcceptedPairInterpreter({
 } = {}) {
     return async function interpretMissionAcceptedPair({
         candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
-        onAttempt = null,
+        onAttempt = null, onPhase = null,
     } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
@@ -637,6 +637,13 @@ export function createMissionAcceptedPairInterpreter({
                     latencyMs: generation?.diagnostics?.latencyMs ?? null,
                 },
             };
+        }
+        if (!signal?.aborted && typeof onPhase === 'function') {
+            try {
+                Promise.resolve(onPhase('validating-response')).catch(() => null);
+            } catch {
+                // Progress observers must not affect generation or validation.
+            }
         }
         const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext });
         if (!parsed.ok) {
