@@ -412,11 +412,12 @@ export function createStoryDirector({
   timeoutMs = STORY_DIRECTOR_DEFAULT_TIMEOUT_MS,
   monotonicNow = defaultMonotonicNow,
 } = {}) {
-  const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+  const fallbackTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
     ? Math.floor(timeoutMs)
     : STORY_DIRECTOR_DEFAULT_TIMEOUT_MS;
   const readMonotonicNow = typeof monotonicNow === 'function' ? monotonicNow : defaultMonotonicNow;
   return async function directStory({ request = {}, signal = null, onAttempt = null } = {}) {
+    const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(STORY_DIRECTOR_ROLE_ID, fallbackTimeoutMs) ?? fallbackTimeoutMs;
     if (signal?.aborted) return { ok: false, reasonCode: 'director-aborted', diagnostics: {} };
     if (typeof generationRouter?.generate !== 'function') {
       return { ok: false, reasonCode: 'director-unavailable', diagnostics: {} };

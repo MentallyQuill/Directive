@@ -279,7 +279,7 @@ test('a completed until-clock transition is accepted as forward passage', () => 
   assert.equal(result.patch?.timeLedger.shipClock.display, '10:00:00 hours');
 });
 
-test('the app blocks narration on unresolved timing and manual retry commits the exact pending pair', async () => {
+test('the app blocks narration on unresolved timing and Generate retries the exact pending pair', async () => {
   let calls = 0;
   const text = 'I wait exactly ten minutes.';
   const generation = createFakeGenerationClient({ responses: { acceptedPairMissionEvidence: async () => ({
@@ -304,10 +304,9 @@ test('the app blocks narration on unresolved timing and manual retry commits the
   const player = host.chat.pushPlayerMessage({ text, hostMessageId: 'time.player' });
   const failed = await app.observeHostPlayerMessage({ message: player });
   assert.equal(failed.mission.reasonCode, 'time-interpretation-unresolved');
-  const blocked = await app.getChatTurnOrchestrator().interceptGeneration();
-  assert.equal(blocked.abortDefaultGeneration, true);
   assert.equal(calls, 1, 'no automatic interpretation loop');
-  assert.equal((await app.retryPendingAcceptedPairSettlement()).ok, true);
+  const retried = await app.getChatTurnOrchestrator().interceptGeneration();
+  assert.equal(retried.abortDefaultGeneration, false);
   assert.equal(calls, 2);
   assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedSeconds, 600);
   assert.equal((await app.getChatTurnOrchestrator().interceptGeneration()).abortDefaultGeneration, false);

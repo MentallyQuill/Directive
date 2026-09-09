@@ -13,6 +13,8 @@ const checks = [
   "test-director-host-gate.mjs",
   "test-director-transport-overlap.mjs",
   "test-story-director-runtime.mjs",
+  "test-generation-timeout-settings.mjs",
+  "test-retry-generation-handoff.mjs",
   "test-story-director-mission-runtime.mjs",
   "test-people-dossier-queue.mjs",
   "test-people-dossier-runtime.mjs",

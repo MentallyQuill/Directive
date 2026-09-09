@@ -87,6 +87,14 @@ assert.match(text, /Instruct Formatting/);
 assert.match(text, /Samplers/);
 assert.match(text, /Structured Output/);
 assert.match(text, /Output token ceiling/);
+assert.match(text, /Request timeout \(seconds\)/);
+for (const kind of ['utility', 'reasoning']) {
+  const timeout = byControl(`${kind}-timeoutSeconds`);
+  assert.equal(Number(timeout.value), 300);
+  timeout.value = '1500';
+  await timeout.dispatch('change');
+  assert.deepEqual(updates.at(-1), { kind, patch: { timeoutSeconds: 1500 } });
+}
 assert.match(text, /Model-Call Routing/);
 assert.match(text, /Include Story Transcript/);
 assert.match(text, /upgraded 1 older V1 save/i);

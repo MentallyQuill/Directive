@@ -48,7 +48,14 @@ export function showSettlementRetryDialog({
   const detail = createElement('p', 'directive-settlement-retry-detail');
   detail.textContent = reasonCode === 'persistence-failed'
     ? 'Retry recording this turn. Closing this dialog keeps narration paused.'
-    : 'Retry recording this turn to continue. Closing this dialog keeps narration paused.';
+    : 'Retry to finish reviewing this turn and generate the reply. You can also close this dialog and press Generate.';
+  if (String(reasonCode).includes('timeout')) {
+    detail.textContent = 'The model request timed out. Increase Request timeout in Settings under Model Lanes, then retry to generate the reply.';
+  }
+  if (reasonCode === 'narration-start-failed') {
+    message.textContent = 'The narration request failed.';
+    detail.textContent = 'Retry to generate the reply. Completed turn review will be reused.';
+  }
   const status = createElement('p', 'directive-settlement-retry-status');
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
@@ -81,7 +88,13 @@ export function showSettlementRetryDialog({
         closeDialog(instance, 'settled');
         return;
       }
-      status.textContent = 'Directive still cannot safely record this turn.';
+      status.textContent = result?.reasonCode === 'host-already-generating'
+        ? 'SillyTavern is still busy. Wait for it to stop, then retry.'
+        : result?.reasonCode === 'narration-start-failed'
+          ? 'The reply could not start. Retry to generate it.'
+          : String(result?.reasonCode).includes('timeout')
+            ? 'The model request timed out. Increase Request timeout in Settings, then retry.'
+            : 'Directive could not prepare or start the reply. You can retry.';
     } catch {
       if (!isActive()) return;
       status.textContent = 'Directive still cannot safely record this turn.';

@@ -340,6 +340,7 @@ clearSillyTavernDirectiveRuntimeBridge();
 
 let abortImmediately = null;
 let settlementRetryCalls = 0;
+let initialRecoveryShown = false;
 let continuedGeneration = null;
 setSillyTavernDirectiveRuntimeBridge({
   app: {
@@ -350,7 +351,11 @@ setSillyTavernDirectiveRuntimeBridge({
   },
   turnOrchestrator: {
     async interceptGeneration() {
-      if (settlementRetryCalls > 0) return { handled: true, abortDefaultGeneration: false, responseStrategy: 'injectAndContinue' };
+      if (initialRecoveryShown) {
+        settlementRetryCalls += 1;
+        return { handled: true, abortDefaultGeneration: false, responseStrategy: 'injectAndContinue' };
+      }
+      initialRecoveryShown = true;
       return {
         handled: true,
         abortDefaultGeneration: true,
@@ -376,8 +381,10 @@ assert.equal(abortImmediately, false, 'Directive must let later extension interc
 const retryButton = globalThis.document.querySelector('[data-settlement-retry-action="retry"]');
 assert(retryButton, 'blocked settlement must expose manual Retry');
 await retryButton.listeners.get('click')[0]({ preventDefault() {} });
-assert.equal(settlementRetryCalls, 1);
-assert.deepEqual(continuedGeneration, {
+assert.equal(settlementRetryCalls, 2, 'Retry prepares through the same interceptor that native Generate re-enters');
+assert.equal(typeof continuedGeneration.onGenerationFailed, 'function');
+const { onGenerationFailed, ...continuedOptions } = continuedGeneration;
+assert.deepEqual(continuedOptions, {
   reason: 'directive-settlement-retry',
   type: 'normal',
   automaticTrigger: true,
@@ -392,6 +399,7 @@ clearSillyTavernDirectiveRuntimeBridge();
 let releaseReplayRetry = null;
 const replayRetryPending = new Promise((resolve) => { releaseReplayRetry = resolve; });
 let replayContinuationCount = 0;
+let replayPreparationCount = 0;
 setSillyTavernDirectiveRuntimeBridge({
   app: {
     async retryPendingAcceptedPairSettlement() {
@@ -400,6 +408,10 @@ setSillyTavernDirectiveRuntimeBridge({
   },
   turnOrchestrator: {
     async interceptGeneration() {
+      if (++replayPreparationCount === 2) {
+        await replayRetryPending;
+        return { handled: true, abortDefaultGeneration: false };
+      }
       return {
         handled: true,
         abortDefaultGeneration: true,

@@ -153,7 +153,7 @@ function bindAutoSave({ control, kind, key, actions, feedback, state, transform 
     try {
       const result = await actions.updateProviderSettings?.({ kind, patch: { [key]: transform(control.value) } });
       if (result?.status) updateProviderState(state, result.status);
-      feedback.textContent = 'Saved / test again after changes';
+      feedback.textContent = key === 'timeoutSeconds' ? 'Saved / applies to the next request' : 'Saved / test again after changes';
     } catch (error) {
       feedback.textContent = error?.message || 'Could not save';
     }
@@ -218,6 +218,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   const temperature = createNumber(settings.temperature ?? (kind === 'utility' ? 0.1 : 0.4), { min: 0, max: 2, step: 0.05 }, `${kind}-temperature`);
   const topP = createNumber(settings.topP ?? 0.95, { min: 0, max: 1, step: 0.05 }, `${kind}-topP`);
   const maxTokens = createNumber(settings.maxTokens ?? 8192, { min: 64, max: 131072, step: 64 }, `${kind}-maxTokens`);
+  const timeoutSeconds = createNumber(settings.timeoutSeconds ?? 300, { min: 1, max: 86400, step: 1 }, `${kind}-timeoutSeconds`);
 
   const grid = createElement('div', 'settings-field-grid');
   const profileField = createField('Connection Profile', profilePicker.wrapper, 'Search supported chat and text profiles.', PROVIDER_TOOLTIPS.profileId);
@@ -239,7 +240,8 @@ function appendProviderCard(container, kind, configuration, actions) {
     createField('Samplers', samplerMode, '', PROVIDER_TOOLTIPS.samplerMode),
     samplerOverrides,
     createField('Structured Output', structuredOutputMode, '', PROVIDER_TOOLTIPS.structuredOutputMode),
-    createField('Output token ceiling', maxTokens, '', PROVIDER_TOOLTIPS.maxTokens)
+    createField('Output token ceiling', maxTokens, '', PROVIDER_TOOLTIPS.maxTokens),
+    createField('Request timeout (seconds)', timeoutSeconds, 'Maximum wait per request. Increase this for slower local or thinking models. Default: 300 seconds (5 minutes).')
   );
   syncConditionalFields();
   card.appendChild(grid);
@@ -252,6 +254,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   bindAutoSave({ control: temperature, kind, key: 'temperature', actions, feedback, state, transform: Number });
   bindAutoSave({ control: topP, kind, key: 'topP', actions, feedback, state, transform: Number });
   bindAutoSave({ control: maxTokens, kind, key: 'maxTokens', actions, feedback, state, transform: Number });
+  bindAutoSave({ control: timeoutSeconds, kind, key: 'timeoutSeconds', actions, feedback, state, transform: Number });
 
   const commands = createElement('div', 'settings-actions');
   commands.append(

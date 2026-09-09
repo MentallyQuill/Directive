@@ -45,6 +45,10 @@ try {
       const context={extensionSettings:persisted,saveSettingsDebounced(){localStorage.setItem('narration-browser-settings',JSON.stringify(context.extensionSettings));}};
       const host=createFakeDirectiveHost({chatNative:true,generation:createFakeGenerationClient({responses:{openingSceneDirector:{text:JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:['background:briefBiography'],emphasis:'balanced'})}}})});
       host.narration={getSettings:()=>store.getSillyTavernDirectiveNarrationSettings(context),updateSettings:patch=>store.updateSillyTavernDirectiveNarrationSettings(patch,context)};
+      const {createSillyTavernProviderSettingsStore}=await import('/src/providers/directive-provider-settings.mjs');
+      const providerStore=createSillyTavernProviderSettingsStore({context});
+      host.providers.getSettings=()=>providerStore.getAll();
+      host.providers.update=(kind,patch)=>providerStore.update(kind,patch);
       let fail=true;
       host.generation.generateNarration=async()=>{if(fail)throw new Error('Controlled browser opening failure');return {text:'The ready-room door was closed.'};};
       assets.missionDefinitionsById=new Map(assets.missionDefinitions.map(definition=>[definition.id,definition]));
@@ -57,7 +61,7 @@ try {
         shell.classList.add('directive-screen');document.body.appendChild(shell);
         const body=shell.querySelector('[data-directive-runtime-body="true"]');
         const view=await app.getCurrentView();
-        if(route==='settings')renderSettingsPanel(body,view,{updateNarrationSettings:async patch=>{await app.updateNarrationSettings(patch);await render();}});
+        if(route==='settings')renderSettingsPanel(body,view,{updateProviderSettings:input=>app.updateProviderSettings(input),updateNarrationSettings:async patch=>{await app.updateNarrationSettings(patch);await render();}});
         else renderMissionPanel(body,view,{retryOpening:()=>app.retryOpening(),refresh:render});
       };
       globalThis.proof={app,host,context,render,readSettings:()=>store.getSillyTavernDirectiveNarrationSettings({extensionSettings:JSON.parse(localStorage.getItem('narration-browser-settings')||'{}')}),async startFailure(){
@@ -82,6 +86,17 @@ try {
     await pov.scrollIntoViewIfNeeded();
     assert.equal(await pov.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),true);
     await page.screenshot({path:path.join(artifacts,`settings-${viewport.width}.png`)});
+    for(const kind of ['utility','reasoning']){
+      const timeout=page.locator(`[data-settings-control="${kind}-timeoutSeconds"]`);
+      await timeout.fill('1500');await timeout.press('Tab');
+      await page.waitForFunction(kind=>proof.host.providers.getSettings()[kind].timeoutSeconds===1500,kind);
+      await page.evaluate(()=>proof.render());
+      assert.equal(await timeout.inputValue(),'1500');
+      assert.equal(await page.evaluate(kind=>JSON.parse(localStorage.getItem('narration-browser-settings')).directive.providers[kind].timeoutSeconds,kind),1500);
+      await timeout.scrollIntoViewIfNeeded();
+      assert.equal(await timeout.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),true);
+    }
+    await page.screenshot({path:path.join(artifacts,`timeout-settings-${viewport.width}.png`)});
     await page.evaluate(()=>proof.startFailure());
     const retry=page.locator('[data-action="retry-opening"]');
     assert.equal(await retry.textContent(),'Retry opening');

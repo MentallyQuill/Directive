@@ -3,6 +3,12 @@
 Directive is played inside SillyTavern chat.
 Open it from the small ship icon beside the send controls.
 
+## Slow models and paused replies
+
+In Settings, each Model Lane (Utility and Reasoning) has a **Request timeout (seconds)** field. It defaults to 300 seconds (5 minutes). Increase it for slower local or thinking models; for example, 1500 allows 25 minutes. Changes apply to the next request and do not require testing the provider again. These limits cover Directive's background analysis and creation requests; narration uses SillyTavern's selected chat model.
+
+If a turn pauses, **Retry** finishes the required review and starts the reply. Closing the dialog and pressing **Generate** also retries. Completed review is reused when possible. If narration fails after review succeeds, Retry can start narration again without requiring another pending review.
+
 ## Alpha guidance
 
 This is active-alpha software.

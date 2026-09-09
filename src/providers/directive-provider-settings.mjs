@@ -21,6 +21,7 @@ const DEFAULT_PROVIDER = Object.freeze({
   temperature: 0.1,
   topP: 0.95,
   maxTokens: 8192,
+  timeoutSeconds: 300,
   certification: Object.freeze({ status: 'not-run' })
 });
 
@@ -91,6 +92,7 @@ export function normalizeDirectiveProviderSettings(settings = {}) {
       temperature: finiteNumber(value.temperature, defaults.temperature, { min: 0, max: 2 }),
       topP: finiteNumber(value.topP, defaults.topP, { min: 0, max: 1 }),
       maxTokens: Math.round(finiteNumber(value.maxTokens, defaults.maxTokens, { min: 64, max: 131072 })),
+      timeoutSeconds: Math.round(finiteNumber(value.timeoutSeconds, defaults.timeoutSeconds, { min: 1, max: 86400 })),
       certification: normalizeCertification(value.certification)
     };
   }
@@ -156,7 +158,7 @@ export function createSillyTavernProviderSettingsStore({ context, extensionKey =
       const id = String(kind || '');
       if (!PROVIDER_KINDS.includes(id)) throw new Error(`Unknown Directive provider kind "${id}"`);
       const sourcePatch = isObject(patch) ? patch : {};
-      const configurationChanged = Object.keys(sourcePatch).some((key) => key !== 'certification');
+      const configurationChanged = Object.keys(sourcePatch).some((key) => key !== 'certification' && key !== 'timeoutSeconds');
       const nextValue = {
         ...extensionState.providers[id],
         ...sourcePatch,

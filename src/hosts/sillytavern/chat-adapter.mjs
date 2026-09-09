@@ -2385,6 +2385,7 @@ export function createSillyTavernChatAdapter({
     observationPollIntervalMs = 250,
     onSettled = null,
     onHostGenerationObserved = null,
+    onGenerationFailed = null,
     ingressId = null,
     turnId = null,
     outcomeId = null
@@ -2444,6 +2445,12 @@ export function createSillyTavernChatAdapter({
       const generationPromise = script.Generate(type || 'normal', {
         automatic_trigger: automaticTrigger !== false
       });
+      if (typeof onGenerationFailed === 'function') {
+        Promise.resolve(generationPromise).catch(error => scheduleHostGenerationSettlement(onGenerationFailed, {
+          ok: false, status: 'failed', reason: 'narration-start-failed',
+          error: { code: error?.code || 'DIRECTIVE_HOST_GENERATION_CONTINUE_FAILED' },
+        }));
+      }
       if (waitForCompletion === false) {
         const release = {
           ok: true,

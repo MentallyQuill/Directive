@@ -12,7 +12,7 @@ import {
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
-import { normalizeDirectiveProviderSettings } from '../providers/directive-provider-settings.mjs';
+import { normalizeDirectiveProviderSettings, providerKindForRole } from '../providers/directive-provider-settings.mjs';
 import {
   createV1PromptProjection,
   createV1WorkingStoryPromptProjection
@@ -229,10 +229,19 @@ function currentTime(state) {
 }
 
 export function createDirectiveGenerationRouter(host) {
+  function getTimeoutMs(roleId, fallback, providerKind = null) {
+    const source = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.();
+    if (!source) return fallback;
+    return normalizeDirectiveProviderSettings(source)[providerKind || providerKindForRole(roleId)].timeoutSeconds * 1000;
+  }
   return {
+    getTimeoutMs,
     async generate(roleId, request, options = {}) {
       try {
-        const response = await host.generation.generate(roleId, request, options);
+        const response = await host.generation.generate(roleId, request, {
+          ...options,
+          timeoutMs: getTimeoutMs(roleId, options.timeoutMs, options.providerKind),
+        });
         return {
           ok: true,
           response: clone(response),
@@ -1487,6 +1496,10 @@ export function createDirectiveRuntimeApp({
         return { handled: false, reason: 'inactive-or-unbound' };
       }
       assertAcceptedPairRecovery(acceptedPairRecovery);
+      if (acceptedPairRecovery.mode === 'pair-retry') {
+        // A fresh Generate gesture retries the failed analysis, just like the dialog.
+        await publicApi.retryPendingAcceptedPairSettlement();
+      }
       if (acceptedPairRecovery.mode === 'pair-retry') {
         return {
           handled: true,

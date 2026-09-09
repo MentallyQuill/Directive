@@ -85,6 +85,30 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     hostGeneration: true
   });
   const boundAtStart = runtimeApp?.isCurrentChatBound?.() === true;
+  const retryApp = runtimeApp;
+  const retryChatId = host?.chat?.getCurrentChatId?.();
+  const retryGeneration = async ({ signal = null, isActive = null } = {}) => {
+    if (signal?.aborted || isActive?.() === false) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
+    const prepared = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    if (prepared?.abortDefaultGeneration !== false) {
+      return { ok: false, reasonCode: prepared?.settlementError?.reasonCode || 'turn-preparation-failed' };
+    }
+    if (signal?.aborted || isActive?.() === false) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
+    const continued = await host?.chat?.continueHostGeneration?.({
+      reason: 'directive-settlement-retry', type: type || 'normal',
+      automaticTrigger: true, waitForCompletion: false,
+      onGenerationFailed: () => {
+        if (runtimeApp !== retryApp || runtimeApp?.isCurrentChatBound?.() !== true
+          || host?.chat?.getCurrentChatId?.() !== retryChatId) return;
+        closeSettlementRetryDialog('narration-failed');
+        showSettlementRetryDialog({ reasonCode: 'narration-start-failed', onRetry: retryGeneration });
+      },
+    });
+    if (continued?.ok !== true || continued.skipped === true) {
+      return { ok: false, reasonCode: continued?.alreadyGenerating ? 'host-already-generating' : 'narration-start-failed' };
+    }
+    return { ok: true };
+  };
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
     if (result?.handled === true && result?.abortDefaultGeneration === true) {
@@ -94,22 +118,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
         reasonCode: result.settlementError?.reasonCode,
         blockedRoles: result.settlementError?.blockedRoles || [],
         attempts: result.settlementError?.persistenceAttempts,
-        onRetry: async ({ signal = null, isActive = null } = {}) => {
-          const settled = await runtimeApp?.retryPendingAcceptedPairSettlement?.();
-          if (settled?.ok === true) {
-            if (signal?.aborted === true || isActive?.() === false) {
-              return { ok: false, reasonCode: 'settlement-retry-dismissed' };
-            }
-            const continued = await host?.chat?.continueHostGeneration?.({
-              reason: 'directive-settlement-retry',
-              type: type || 'normal',
-              automaticTrigger: true,
-              waitForCompletion: false
-            });
-            return continued?.ok === false ? { ok: false } : { ok: true };
-          }
-          return settled;
-        }
+        onRetry: retryGeneration
       });
       return result;
     }
@@ -134,12 +143,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     if (bound) {
       abort?.(false);
       const reasonCode = error?.reasonCode || error?.code || 'turn-preparation-failed';
-      try { showSettlementRetryDialog({ reasonCode, onRetry: async ({signal = null, isActive = null} = {}) => {
-        const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
-        if (result?.abortDefaultGeneration !== false) return {ok:false, reasonCode};
-        if (signal?.aborted || isActive?.() === false) return {ok:false, reasonCode:'settlement-retry-dismissed'};
-        return host?.chat?.continueHostGeneration?.({reason:'directive-settlement-retry', type:type || 'normal', automaticTrigger:true, waitForCompletion:false});
-      } }); } catch (uiError) {
+      try { showSettlementRetryDialog({ reasonCode, onRetry: retryGeneration }); } catch (uiError) {
         host?.logger?.error?.('[Directive] Could not display turn recovery:', uiError);
       }
       return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',

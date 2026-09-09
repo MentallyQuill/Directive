@@ -22,6 +22,7 @@ const expectedUtility = {
   temperature: 0.1,
   topP: 0.95,
   maxTokens: 8192,
+  timeoutSeconds: 300,
   certification: { status: 'not-run' }
 };
 

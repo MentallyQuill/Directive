@@ -861,13 +861,10 @@ assert.equal(
 assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.revision, 0);
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'reserved');
 const activationsBeforeGeneration = narrationPresetLifecycle.filter((entry) => entry === 'activate').length;
-const blockedIntercept = await app.getChatTurnOrchestrator().interceptGeneration();
-assert.equal(blockedIntercept.abortDefaultGeneration, true);
-assert.equal(blockedIntercept.settlementError.reasonCode, 'provider-empty');
 assert.equal(
   missionInterpretationCalls,
   1,
-  'generation interception must not automatically call the model again for a failed pair',
+  'failed settlement must wait for an explicit Generate or Retry gesture',
 );
 acceptedHistoryReads.length = 0;
 chat.setMessagesForChat(chat.getCurrentChatId(), tenThousandMessageHistory);
@@ -1502,7 +1499,7 @@ reportHeldInterpretationStarted = null;
 rejectMissionInterpretation = true;
 const blockedReplayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
 assert.equal(blockedReplayAfterCancellation.abortDefaultGeneration, true);
-assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'provider-aborted');
+assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'provider-empty', 'Generate reports the new retry failure, not the earlier cancellation');
 assert.equal(blockedReplayAfterCancellation.settlementError.persistenceAttempts, 1);
 rejectMissionInterpretation = false;
 const retriedReplayAfterCancellation = await app.retryPendingAcceptedPairSettlement();

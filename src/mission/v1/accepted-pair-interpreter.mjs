@@ -602,6 +602,7 @@ export function createMissionAcceptedPairInterpreter({
         candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
         onAttempt = null,
     } = {}) {
+        const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, timeoutMs) ?? timeoutMs;
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -614,9 +615,9 @@ export function createMissionAcceptedPairInterpreter({
                 (providerSignal) => generationRouter.generate(
                     MISSION_EVIDENCE_INTERPRETER_ROLE_ID,
                     request,
-                    { timeoutMs, signal: providerSignal, allowVisibleOutputRetry: false, onAttempt },
+                    { timeoutMs: effectiveTimeoutMs, signal: providerSignal, allowVisibleOutputRetry: false, onAttempt },
                 ),
-                timeoutMs,
+                effectiveTimeoutMs,
                 signal,
             );
             if (result?.ok === false && new Set(['provider-timeout', 'provider-aborted']).has(result?.reasonCode)) {
