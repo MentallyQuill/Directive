@@ -13,7 +13,7 @@ import {
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
-import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
+import { resolveAnalysisLimits, resolveProviderMaxTokens } from '../generation/analysis-limits.mjs';
 import { normalizeDirectiveProviderSettings, providerKindForRole } from '../providers/directive-provider-settings.mjs';
 import {
   createV1PromptProjection,
@@ -278,7 +278,8 @@ export function createDirectiveGenerationRouter(host) {
     return settings ? settings.timeoutSeconds * 1000 : fallback;
   }
   function getMaxTokens(roleId, fallback, providerKind = null) {
-    return getRoleSettings(roleId, providerKind)?.maxTokens ?? fallback;
+    const settings = getSettings();
+    return settings ? resolveProviderMaxTokens(settings, providerKind || providerKindForRole(roleId), roleId) : fallback;
   }
   return {
     getTimeoutMs,
@@ -287,7 +288,7 @@ export function createDirectiveGenerationRouter(host) {
       return getRoleSettings(roleId)?.maxAttempts ?? fallback;
     },
     getAnalysisLimits() {
-      return normalizeAnalysisLimits(getSettings()?.utility?.analysisLimits);
+      return resolveAnalysisLimits(getSettings()?.utility);
     },
     reportValidationFailure(roleId, errors) {
       host.logger?.warn?.(`[Directive] Model validation failed: ${JSON.stringify({ roleId, errors })}`);

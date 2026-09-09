@@ -459,7 +459,7 @@ try {
         const settingsGeometry = await page.evaluate(() => {
           const layout = document.querySelector('.settings-layout');
           const content = document.querySelector('.settings-content');
-          const cards = [...document.querySelectorAll('.settings-provider-card')].map((card) => card.getBoundingClientRect());
+          const cards = [...document.querySelectorAll('.settings-provider-grid .settings-provider-card')].map((card) => card.getBoundingClientRect());
           const layoutBox = layout.getBoundingClientRect();
           const contentBox = content.getBoundingClientRect();
           return {

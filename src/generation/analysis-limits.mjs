@@ -67,7 +67,12 @@ const definitions = [
   ['episodeMaxMomentTitleCharacters', 'Moment title characters', 120],
   ['episodeMaxMomentSummaryCharacters', 'Moment summary characters', 512],
 ];
-export const ANALYSIS_LIMIT_DESCRIPTORS = Object.freeze(definitions.map(([key, label, defaultValue, min = 1]) => Object.freeze({ key, label, defaultValue, min })));
+const independentLimits = new Set([
+  'hostNarrationTimeoutSeconds', 'providerVisibleOutputAttempts', 'continuityLookupPasses',
+  'threadInactivityRevisions', 'threadDeadlineLeadSeconds', 'continuityDeadlineHorizonSeconds',
+  'interpreterPeopleRefCharacters', 'interpreterPeopleLocalRefCharacters', 'continuityMaxLocalRefCharacters', 'storyMaxTargetIdCharacters',
+]);
+export const ANALYSIS_LIMIT_DESCRIPTORS = Object.freeze(definitions.map(([key, label, defaultValue, min = 1]) => Object.freeze({ key, label, defaultValue, min, scalable: !independentLimits.has(key) })));
 export const DEFAULT_ANALYSIS_LIMITS = Object.freeze(Object.fromEntries(ANALYSIS_LIMIT_DESCRIPTORS.map(item => [item.key, item.defaultValue])));
 
 export function normalizeAnalysisLimits(value = {}) {
@@ -78,4 +83,50 @@ export function normalizeAnalysisLimits(value = {}) {
     const maximum = key === 'hostNarrationTimeoutSeconds' ? MAX_TIMER_TIMEOUT_SECONDS : Number.MAX_SAFE_INTEGER;
     return [key, Number.isFinite(number) ? Math.min(maximum, Math.max(min, Math.round(number))) : defaultValue];
   }));
+}
+
+export function normalizeAnalysisCapacity(value) {
+  const number = value == null || value === '' ? NaN : Number(value);
+  return Number.isFinite(number) ? Math.min(5, Math.max(0.5, number)) : 1;
+}
+
+export function normalizeAnalysisOverrides(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const normalized = normalizeAnalysisLimits(value);
+  return Object.fromEntries(ANALYSIS_LIMIT_DESCRIPTORS.filter(({ key }) => Object.hasOwn(value, key)
+    && value[key] != null && value[key] !== '' && Number.isFinite(Number(value[key])))
+    .map(({ key }) => [key, normalized[key]]));
+}
+
+export function readAnalysisOverrides(utilitySettings = {}) {
+  if (!utilitySettings || typeof utilitySettings !== 'object' || Array.isArray(utilitySettings)) utilitySettings = {};
+  if (Object.hasOwn(utilitySettings, 'analysisOverrides')) return normalizeAnalysisOverrides(utilitySettings.analysisOverrides);
+  const previous = normalizeAnalysisLimits(utilitySettings.analysisLimits);
+  return Object.fromEntries(Object.entries(previous).filter(([key, value]) => value !== DEFAULT_ANALYSIS_LIMITS[key]));
+}
+
+export function resolveAnalysisLimits(utilitySettings = {}) {
+  if (!utilitySettings || typeof utilitySettings !== 'object' || Array.isArray(utilitySettings)) utilitySettings = {};
+  const capacity = normalizeAnalysisCapacity(utilitySettings.analysisCapacity);
+  const scaled = Object.fromEntries(ANALYSIS_LIMIT_DESCRIPTORS.map(({ key, defaultValue, min, scalable }) => [key,
+    scalable ? Math.max(min, Math.round(defaultValue * capacity)) : defaultValue]));
+  return normalizeAnalysisLimits({ ...scaled, ...readAnalysisOverrides(utilitySettings) });
+}
+
+export function normalizeOutputTokenOverride(lane = {}) {
+  if (!lane || typeof lane !== 'object' || Array.isArray(lane)) lane = {};
+  const raw = Object.hasOwn(lane, 'outputTokenOverride') ? lane.outputTokenOverride
+    : lane.maxTokens != null && Number(lane.maxTokens) !== 8192 ? lane.maxTokens : null;
+  if (raw == null || raw === '' || !Number.isFinite(Number(raw))) return null;
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.round(Number(raw))));
+}
+
+export function resolveProviderMaxTokens(settings = {}, lane = 'utility', roleId = null) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) settings = {};
+  const config = settings[lane] || {};
+  const roleOverride = config.roleLimits?.[roleId]?.maxTokens;
+  if (roleOverride != null && roleOverride !== '' && Number.isFinite(Number(roleOverride))) {
+    return Math.min(Number.MAX_SAFE_INTEGER, Math.max(1, Math.round(Number(roleOverride))));
+  }
+  return normalizeOutputTokenOverride(config) ?? Math.round(8192 * normalizeAnalysisCapacity(settings.utility?.analysisCapacity));
 }

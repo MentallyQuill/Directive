@@ -3,7 +3,7 @@ import {
   normalizeV1HostMessageVisibility,
   stableJsonByteLength
 } from '../../runtime/v1-host-message-contracts.mjs';
-import { normalizeAnalysisLimits } from '../../generation/analysis-limits.mjs';
+import { resolveAnalysisLimits } from '../../generation/analysis-limits.mjs';
 import {
   createNativeBranchLineage,
   createNativeBranchTranscriptAttestation,
@@ -2396,7 +2396,7 @@ export function createSillyTavernChatAdapter({
       if (signal?.aborted) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
       const beforeContext = context();
       const extensionSettings = beforeContext?.extensionSettings || beforeContext?.extension_settings || globalThis.extension_settings;
-      observationTimeoutMs ??= normalizeAnalysisLimits(extensionSettings?.directive?.providers?.utility?.analysisLimits).hostNarrationTimeoutSeconds * 1000;
+      observationTimeoutMs ??= resolveAnalysisLimits(extensionSettings?.directive?.providers?.utility).hostNarrationTimeoutSeconds * 1000;
       const beforeChat = getChatArray(beforeContext);
       const beforeIds = new Set(beforeChat.map((message, index) => normalizeMessageId(message, index)));
       const script = scriptModule || (typeof importScript === 'function'

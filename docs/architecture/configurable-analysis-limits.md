@@ -1,10 +1,12 @@
 # Configurable analysis limits
 
-Settings exposes the budgets used to build analysis requests, validate structured responses, and execute model calls. These settings control the current working context and future requests; lowering them does not delete campaign history or truncate persisted facts.
+Settings provides one **Analysis capacity** slider from **0.5× to 5×**, with **1×** as the default. It scales context selection and response capacity together. Higher values allow more context and longer responses, which can use more tokens and take longer. It does not change timeouts, retries, lookup passes, thread retirement, deadline timing, or stored campaign history.
+
+The current multiplier updates while dragging and saves when the value changes. **Reset capacity** returns to 1× without clearing custom settings. Exact budgets live in one collapsed **Advanced** section. A visible count identifies active overrides so the slider's effect is clear.
 
 ## Model lanes and role overrides
 
-Each Utility or Reasoning lane has **Default output tokens** and **Request timeout (seconds)**. The expandable **Per-role output, timeout, and retry limits** section offers independent values for each registered role. Blank output-token and timeout fields inherit the lane value. A role override replaces the lane default, including when it is larger. The runtime router and native provider transport use the same effective value, so old request defaults cannot silently impose a smaller output budget.
+Each Utility or Reasoning lane keeps its connection configuration and **Request timeout (seconds)** visible. **Advanced** contains lane output tokens and each registered role's output, timeout, and retry overrides. Blank fields inherit the value shown in their placeholder. Lane output starts at 8,192 tokens multiplied by capacity; an exact lane override replaces it. A role output override replaces the lane value. The runtime router and native provider transport use the same effective value.
 
 The model provider can still reject budgets beyond its supported context or output size. Directive normalizes numeric values to safe integers. Timeouts are capped at 2,147,483 seconds solely because browser timers use signed 32-bit milliseconds; the earlier 86,400-second cap is removed. Output settings no longer impose the earlier 131,072-token ceiling.
 
@@ -12,7 +14,7 @@ The model provider can still reject budgets beyond its supported context or outp
 
 ## Shared context and response budgets
 
-Under the Utility lane, **Analysis context and response content limits** applies across analysis roles. The source of labels, defaults, allowed minimums, and normalization is `src/generation/analysis-limits.mjs`.
+The **Shared context and response limits** group inside **Advanced** applies across analysis roles. Values are absolute overrides, not multipliers. Clearing an individual field restores inheritance. **Reset advanced overrides** clears both lanes' output overrides, per-role overrides, and shared exact limits; it preserves the capacity slider and lane timeouts. No confirmation dialog is required. The source of labels, defaults, scaling eligibility, and normalization is `src/generation/analysis-limits.mjs`.
 
 The controls cover:
 
@@ -38,12 +40,15 @@ Content limits affect request schemas and corresponding generation validators to
 Configuration lives in the existing SillyTavern extension settings:
 
 ```text
-directive.providers.utility.analysisLimits
+directive.providers.utility.analysisCapacity
+directive.providers.utility.analysisOverrides
+directive.providers.utility.outputTokenOverride
+directive.providers.reasoning.outputTokenOverride
 directive.providers.utility.roleLimits[roleId]
 directive.providers.reasoning.roleLimits[roleId]
 ```
 
-Per-role entries contain `maxTokens`, `timeoutSeconds`, and `maxAttempts`; null token/timeout values mean inheritance. Nested patches merge with existing entries so changing one field preserves sibling settings. Unknown analysis keys and role IDs outside the selected lane are discarded during normalization. The existing Settings action saves these updates through the provider settings store.
+Per-role entries contain `maxTokens`, `timeoutSeconds`, and `maxAttempts`; null values restore inheritance. Sparse `analysisOverrides` entries retain existing custom exact limits. Legacy `analysisLimits` and `maxTokens` settings are migrated without treating old defaults as custom overrides. Scaling always starts from the defaults, so moving the slider repeatedly does not compound values. Nested patches preserve sibling settings; null clears one override or resets its group. The existing Settings action persists the changes.
 
 Changes take effect on subsequent requests. Captured analysis limits travel with the request so validation and follow-up retrieval use the same content budget. They do not rewrite the installed extension, change save facts, or retrospectively declare unresolved threads expired.
 
@@ -52,6 +57,7 @@ Changes take effect on subsequent requests. Captured analysis limits travel with
 - `test-analysis-limit-settings.mjs`: normalization, inheritance, large values, timer range, lane ownership, nested updates, and reload persistence.
 - `test-configured-generation-limits.mjs`: effective role/lane budgets reach transport, coordinator retry settings, visible-output recovery, and provider probe budgets.
 - `test-certified-settings-panel.mjs`: rendered controls dispatch the existing save actions, including resetting an override to inheritance.
+- `test-analysis-capacity-browser.mjs`: desktop/mobile rendering, 0.5× and 5×, current-value display, persistence through reload, collapsed Advanced, inherited values, resets, and unchanged timeout/retry/retirement settings.
 - `test-narration-settings-browser.mjs`: desktop and mobile edits, persistence, rerender, inherited values, and control bounds; screenshots are local artifacts.
 
 Focused continuity and episode tests verify that response content above old defaults is accepted only when the corresponding configured budget permits it.

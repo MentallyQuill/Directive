@@ -23,12 +23,13 @@ const expectedUtility = {
   temperature: 0.1,
   topP: 0.95,
   maxTokens: 8192,
+  outputTokenOverride: null,
   timeoutSeconds: 300,
   roleLimits: {},
   certification: { status: 'not-run' }
 };
 
-assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.utility, { ...expectedUtility, analysisLimits: DEFAULT_ANALYSIS_LIMITS });
+assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.utility, { ...expectedUtility, analysisCapacity: 1, analysisOverrides: {}, analysisLimits: DEFAULT_ANALYSIS_LIMITS });
 assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.reasoning, {
   ...expectedUtility,
   temperature: 0.4
@@ -69,13 +70,16 @@ const normalized = normalizeDirectiveProviderSettings({
 assert.deepEqual(normalized.utility, {
   ...expectedUtility,
   analysisLimits: DEFAULT_ANALYSIS_LIMITS,
+  analysisCapacity: 1,
+  analysisOverrides: {},
   roleLimits: normalizeDirectiveProviderSettings().utility.roleLimits,
   instructMode: 'on',
   samplerMode: 'directive',
   structuredOutputMode: 'prompt-json',
   temperature: 2,
   topP: 0,
-  maxTokens: 12
+  maxTokens: 12,
+  outputTokenOverride: 12
 });
 assert.equal('baseUrl' in normalized.utility, false);
 assert.equal('model' in normalized.utility, false);

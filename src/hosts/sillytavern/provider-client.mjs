@@ -1,5 +1,5 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
-import { normalizeAnalysisLimits } from '../../generation/analysis-limits.mjs';
+import { resolveAnalysisLimits, resolveProviderMaxTokens } from '../../generation/analysis-limits.mjs';
 import {
   directiveProviderConfigFingerprint,
   directiveSourceConfigurationDigest,
@@ -659,9 +659,10 @@ export function createDirectiveProviderClient({
       || providerKindForRole(roleId);
     const config = settingsStore.get(kind);
     const roleLimits = config.roleLimits?.[roleId] || {};
-    const maxTokens = roleLimits.maxTokens ?? config.maxTokens;
+    const utilitySettings = settingsStore.get('utility');
+    const maxTokens = resolveProviderMaxTokens({ utility: utilitySettings, [kind]: config }, kind, roleId);
     const timeoutSeconds = roleLimits.timeoutSeconds ?? config.timeoutSeconds;
-    const analysisLimits = normalizeAnalysisLimits(settingsStore.get('utility')?.analysisLimits);
+    const analysisLimits = resolveAnalysisLimits(utilitySettings);
     const control = createGenerationControl(request, {
       ...options,
       ...(timeoutSeconds == null ? {} : { timeoutMs: timeoutSeconds * 1000 }),
@@ -715,7 +716,7 @@ export function createDirectiveProviderClient({
   async function test(kind) {
     const id = textValue(kind);
     const config = settingsStore.get(id);
-    const testMaxTokens = normalizeAnalysisLimits(settingsStore.get('utility')?.analysisLimits).providerTestMaxTokens;
+    const testMaxTokens = resolveAnalysisLimits(settingsStore.get('utility')).providerTestMaxTokens;
     const context = contextFactory();
     const sendProbe = async (request, options) => {
       const control = createGenerationControl(request, { timeoutMs: config.timeoutSeconds * 1000 });

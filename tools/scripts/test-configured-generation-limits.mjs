@@ -68,3 +68,23 @@ try {
   assert.deepEqual(waits, [7000], 'provider certification honors its lane timeout');
 } finally { globalThis.setTimeout = originalSetTimeout; }
 console.log('Configured generation limit routing tests passed.');
+
+settings.update('reasoning', { outputTokenOverride: null, roleLimits: { episodeEvaluator: { maxTokens: null } } });
+settings.update('utility', { analysisCapacity: 5, analysisOverrides: null });
+assert.equal(router.getMaxTokens('episodeEvaluator'), 40960);
+assert.equal(router.getAnalysisLimits().threadMaxRecords, 60);
+assert.equal(router.getAnalysisLimits().threadInactivityRevisions, 12);
+assert.equal(router.getMaxAttempts('episodeEvaluator'), 1);
+assert.equal(router.getTimeoutMs('episodeEvaluator'), 7000);
+context.ConnectionManagerRequestService.sendRequest = async (_id, _messages, maxTokens) => { sent.push(maxTokens); return { content: 'answer' }; };
+await provider.generate('episodeEvaluator', { prompt: 'test', parameters: { max_tokens: 4096 } });
+assert.equal(sent.at(-1), 40960, 'capacity affects actual provider calls');
+settings.update('utility', { analysisCapacity: 0.5 });
+assert.equal(router.getMaxTokens('episodeEvaluator'), 4096);
+assert.equal(router.getAnalysisLimits().threadMaxRecords, 6);
+settings.update('reasoning', { roleLimits: { episodeEvaluator: { maxTokens: 19000 } } });
+settings.update('utility', { analysisOverrides: { threadMaxRecords: 17 } });
+await provider.generate('episodeEvaluator', { prompt: 'test' });
+assert.equal(sent.at(-1), 19000, 'exact role override remains independent of capacity');
+assert.equal(router.getAnalysisLimits().threadMaxRecords, 17);
+console.log('Analysis capacity transport and independent override tests passed.');

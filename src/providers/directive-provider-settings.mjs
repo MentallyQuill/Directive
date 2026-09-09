@@ -2,7 +2,7 @@
  * Independent Utility and Reasoning lanes using SillyTavern-native connections.
  */
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
-import { DEFAULT_ANALYSIS_LIMITS, MAX_TIMER_TIMEOUT_SECONDS, normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
+import { DEFAULT_ANALYSIS_LIMITS, MAX_TIMER_TIMEOUT_SECONDS, normalizeAnalysisLimits, normalizeAnalysisCapacity, readAnalysisOverrides, normalizeOutputTokenOverride } from '../generation/analysis-limits.mjs';
 
 const PROVIDER_TYPES = Object.freeze(['st', 'profile']);
 const PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
@@ -22,13 +22,14 @@ const DEFAULT_PROVIDER = Object.freeze({
   temperature: 0.1,
   topP: 0.95,
   maxTokens: 8192,
+  outputTokenOverride: null,
   timeoutSeconds: 300,
   roleLimits: Object.freeze({}),
   certification: Object.freeze({ status: 'not-run' })
 });
 
 export const DEFAULT_DIRECTIVE_PROVIDER_SETTINGS = Object.freeze({
-  utility: Object.freeze({ ...DEFAULT_PROVIDER, analysisLimits: DEFAULT_ANALYSIS_LIMITS }),
+  utility: Object.freeze({ ...DEFAULT_PROVIDER, analysisCapacity: 1, analysisOverrides: Object.freeze({}), analysisLimits: DEFAULT_ANALYSIS_LIMITS }),
   reasoning: Object.freeze({ ...DEFAULT_PROVIDER, temperature: 0.4 })
 });
 
@@ -95,6 +96,8 @@ export function normalizeDirectiveProviderSettings(settings = {}) {
     const value = isObject(source[kind]) ? source[kind] : {};
     const rawProvider = String(value.provider ?? defaults.provider).trim().toLowerCase();
     const provider = normalizeProviderType(rawProvider);
+    const outputTokenOverride = normalizeOutputTokenOverride(value);
+    const analysisOverrides = kind === 'utility' ? readAnalysisOverrides(value) : null;
     normalized[kind] = {
       provider,
       profileId: PROVIDER_TYPES.includes(rawProvider)
@@ -106,10 +109,12 @@ export function normalizeDirectiveProviderSettings(settings = {}) {
       structuredOutputMode: enumOr(value.structuredOutputMode, STRUCTURED_OUTPUT_MODES, defaults.structuredOutputMode),
       temperature: finiteNumber(value.temperature, defaults.temperature, { min: 0, max: 2 }),
       topP: finiteNumber(value.topP, defaults.topP, { min: 0, max: 1 }),
-      maxTokens: Math.round(finiteNumber(value.maxTokens, defaults.maxTokens, { min: 1, max: Number.MAX_SAFE_INTEGER })),
+      maxTokens: outputTokenOverride ?? defaults.maxTokens,
+      outputTokenOverride,
       timeoutSeconds: Math.round(finiteNumber(value.timeoutSeconds, defaults.timeoutSeconds, { min: 1, max: MAX_TIMER_TIMEOUT_SECONDS })),
       roleLimits: normalizeRoleLimits(value.roleLimits, kind),
-      ...(kind === 'utility' ? { analysisLimits: normalizeAnalysisLimits(value.analysisLimits) } : {}),
+      ...(kind === 'utility' ? { analysisCapacity: normalizeAnalysisCapacity(value.analysisCapacity), analysisOverrides,
+        analysisLimits: normalizeAnalysisLimits(analysisOverrides) } : {}),
       certification: normalizeCertification(value.certification)
     };
   }
@@ -175,13 +180,20 @@ export function createSillyTavernProviderSettingsStore({ context, extensionKey =
       const id = String(kind || '');
       if (!PROVIDER_KINDS.includes(id)) throw new Error(`Unknown Directive provider kind "${id}"`);
       const sourcePatch = isObject(patch) ? patch : {};
-      const configurationChanged = Object.keys(sourcePatch).some((key) => !['certification', 'timeoutSeconds', 'analysisLimits', 'roleLimits'].includes(key));
+      const configurationChanged = Object.keys(sourcePatch).some((key) => !['certification', 'timeoutSeconds', 'analysisLimits', 'analysisCapacity', 'analysisOverrides', 'roleLimits'].includes(key));
       const nextValue = {
         ...extensionState.providers[id],
         ...sourcePatch,
         ...(isObject(sourcePatch.roleLimits) ? { roleLimits: Object.fromEntries(Object.entries({ ...extensionState.providers[id].roleLimits, ...sourcePatch.roleLimits })
           .map(([roleId, limits]) => [roleId, { ...extensionState.providers[id].roleLimits?.[roleId], ...limits }])) } : {}),
-        ...(id === 'utility' && isObject(sourcePatch.analysisLimits) ? { analysisLimits: { ...extensionState.providers[id].analysisLimits, ...sourcePatch.analysisLimits } } : {}),
+        ...(Object.hasOwn(sourcePatch, 'maxTokens') && !Object.hasOwn(sourcePatch, 'outputTokenOverride') ? { outputTokenOverride: sourcePatch.maxTokens } : {}),
+        ...(id === 'utility' && (Object.hasOwn(sourcePatch, 'analysisOverrides') || isObject(sourcePatch.analysisLimits)) ? {
+          analysisOverrides: sourcePatch.analysisOverrides === null ? {} : {
+            ...extensionState.providers[id].analysisOverrides,
+            ...(isObject(sourcePatch.analysisLimits) ? sourcePatch.analysisLimits : {}),
+            ...(isObject(sourcePatch.analysisOverrides) ? sourcePatch.analysisOverrides : {}),
+          },
+        } : {}),
         ...(configurationChanged ? { certification: { status: 'not-run' } } : {})
       };
       extensionState.providers = normalizeDirectiveProviderSettings({

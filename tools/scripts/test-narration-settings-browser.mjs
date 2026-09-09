@@ -97,7 +97,7 @@ try {
       assert.equal(await timeout.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),true);
     }
     await page.screenshot({path:path.join(artifacts,`timeout-settings-${viewport.width}.png`)});
-    await page.locator('[data-provider-kind="reasoning"] .settings-role-limits summary').click();
+    await page.locator('.settings-analysis-advanced summary').click();
     const roleTokens=page.locator('[data-settings-control="reasoning-storyDirectionAnalyst-maxTokens"]');
     await roleTokens.fill('32000'); await roleTokens.press('Tab');
     await page.waitForFunction(()=>proof.host.providers.getSettings().reasoning.roleLimits.storyDirectionAnalyst.maxTokens===32000);
@@ -106,7 +106,7 @@ try {
     await page.screenshot({path:path.join(artifacts,`role-limits-${viewport.width}.png`)});
     await roleTokens.fill(''); await roleTokens.press('Tab');
     await page.waitForFunction(()=>proof.host.providers.getSettings().reasoning.roleLimits.storyDirectionAnalyst.maxTokens===null);
-    await page.locator('[data-provider-kind="utility"] .settings-analysis-limits summary').click();
+
     const contentLimit=page.locator('[data-settings-control="analysis-continuityFactCharacters"]');
     await contentLimit.fill('8192'); await contentLimit.press('Tab');
     await page.waitForFunction(()=>proof.host.providers.getSettings().utility.analysisLimits.continuityFactCharacters===8192);
@@ -116,7 +116,7 @@ try {
     await page.evaluate(()=>proof.render());
     assert.equal(await contentLimit.inputValue(),'8192');
     assert.equal(await roleTokens.inputValue(),'');
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('narration-browser-settings')).directive.providers.utility.analysisLimits.continuityFactCharacters),8192);
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('narration-browser-settings')).directive.providers.utility.analysisOverrides.continuityFactCharacters),8192);
 
     await page.evaluate(()=>proof.startFailure());
     const retry=page.locator('[data-action="retry-opening"]');

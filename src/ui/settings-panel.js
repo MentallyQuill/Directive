@@ -8,7 +8,7 @@ import {
 import { buildCertifiedSettingsView } from './view-models/certified-settings-view.mjs';
 import { createConnectionProfilePicker } from './connection-profile-picker.js';
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
-import { ANALYSIS_LIMIT_DESCRIPTORS, MAX_TIMER_TIMEOUT_SECONDS, normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
+import { ANALYSIS_LIMIT_DESCRIPTORS, MAX_TIMER_TIMEOUT_SECONDS, resolveAnalysisLimits, resolveProviderMaxTokens, readAnalysisOverrides, normalizeOutputTokenOverride } from '../generation/analysis-limits.mjs';
 
 export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
@@ -148,13 +148,15 @@ function updateProviderState(element, status = {}) {
     : (status.label || 'Needs configuration');
 }
 
-function bindAutoSave({ control, kind, key, actions, feedback, state, transform = (value) => value, beforeSave = null }) {
+function bindAutoSave({ control, kind, key, actions, feedback, state, transform = (value) => value, beforeSave = null, onSaved = null }) {
   control.addEventListener('change', async () => {
     beforeSave?.();
     feedback.textContent = 'Saving...';
     try {
-      const result = await actions.updateProviderSettings?.({ kind, patch: { [key]: transform(control.value) } });
+      const patch = { [key]: transform(control.value) };
+      const result = await actions.updateProviderSettings?.({ kind, patch });
       if (result?.status) updateProviderState(state, result.status);
+      onSaved?.(kind, patch, result);
       feedback.textContent = key === 'timeoutSeconds' ? 'Saved / applies to the next request' : 'Saved / test again after changes';
     } catch (error) {
       feedback.textContent = error?.message || 'Could not save';
@@ -162,7 +164,7 @@ function bindAutoSave({ control, kind, key, actions, feedback, state, transform 
   });
 }
 
-function appendProviderCard(container, kind, configuration, actions) {
+function appendProviderCard(container, kind, configuration, actions, onSettingsSaved = null) {
   const settings = configuration.settings?.[kind] || {};
   const status = configuration.status?.[kind] || {};
   const profiles = configuration.profiles || [];
@@ -219,7 +221,6 @@ function appendProviderCard(container, kind, configuration, actions) {
   ], `${kind}-structuredOutputMode`);
   const temperature = createNumber(settings.temperature ?? (kind === 'utility' ? 0.1 : 0.4), { min: 0, max: 2, step: 0.05 }, `${kind}-temperature`);
   const topP = createNumber(settings.topP ?? 0.95, { min: 0, max: 1, step: 0.05 }, `${kind}-topP`);
-  const maxTokens = createNumber(settings.maxTokens ?? 8192, { min: 1, step: 1 }, `${kind}-maxTokens`);
   const timeoutSeconds = createNumber(settings.timeoutSeconds ?? 300, { min: 1, max: MAX_TIMER_TIMEOUT_SECONDS, step: 1 }, `${kind}-timeoutSeconds`);
 
   const grid = createElement('div', 'settings-field-grid');
@@ -242,7 +243,6 @@ function appendProviderCard(container, kind, configuration, actions) {
     createField('Samplers', samplerMode, '', PROVIDER_TOOLTIPS.samplerMode),
     samplerOverrides,
     createField('Structured Output', structuredOutputMode, '', PROVIDER_TOOLTIPS.structuredOutputMode),
-    createField('Default output tokens', maxTokens, '', PROVIDER_TOOLTIPS.maxTokens),
     createField('Request timeout (seconds)', timeoutSeconds, 'Maximum wait per request. Increase this for slower local or thinking models. Default: 300 seconds (5 minutes).')
   );
   syncConditionalFields();
@@ -255,9 +255,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   bindAutoSave({ control: structuredOutputMode, kind, key: 'structuredOutputMode', actions, feedback, state });
   bindAutoSave({ control: temperature, kind, key: 'temperature', actions, feedback, state, transform: Number });
   bindAutoSave({ control: topP, kind, key: 'topP', actions, feedback, state, transform: Number });
-  bindAutoSave({ control: maxTokens, kind, key: 'maxTokens', actions, feedback, state, transform: Number });
-  bindAutoSave({ control: timeoutSeconds, kind, key: 'timeoutSeconds', actions, feedback, state, transform: Number });
-  appendAnalysisControls(card, kind, settings, actions, feedback);
+  bindAutoSave({ control: timeoutSeconds, kind, key: 'timeoutSeconds', actions, feedback, state, transform: Number, onSaved: onSettingsSaved });
 
   const commands = createElement('div', 'settings-actions');
   commands.append(
@@ -281,51 +279,130 @@ function appendProviderCard(container, kind, configuration, actions) {
   container.appendChild(card);
 }
 
-function appendAnalysisControls(card, kind, settings, actions, feedback) {
-  const save = async (patch) => {
+function appendAnalysisControls(container, configuration, actions) {
+  const settings = structuredClone(configuration.settings || {});
+  settings.utility ||= {};
+  settings.reasoning ||= {};
+  settings.utility.analysisOverrides = readAnalysisOverrides(settings.utility);
+  for (const kind of ['utility', 'reasoning']) settings[kind].outputTokenOverride = normalizeOutputTokenOverride(settings[kind]);
+  const card = createElement('article', 'settings-provider-card settings-capacity-card');
+  const title = createElement('h3'); title.textContent = 'Analysis capacity';
+  const description = createElement('p', 'settings-feedback');
+  description.textContent = 'Higher capacity gives analysis more context and room for longer responses. It can use more tokens and take longer. Timeouts, retries, and thread retirement stay unchanged.';
+  const slider = createElement('input', 'settings-control');
+  slider.type = 'range'; slider.min = '0.5'; slider.max = '5'; slider.step = '0.1';
+  slider.value = String(settings.utility.analysisCapacity ?? 1);
+  slider.dataset.settingsControl = 'analysis-capacity';
+  const value = createElement('output'); value.dataset.analysisCapacityValue = 'true';
+  const hint = createElement('p', 'settings-feedback'); hint.dataset.analysisOverrideHint = 'true';
+  const feedback = createElement('span', 'settings-feedback'); feedback.setAttribute('role', 'status');
+  const controls = [];
+  const roles = createGenerationRoleRegistry().list();
+  const advanced = createElement('details', 'settings-analysis-advanced');
+  const summary = createElement('summary'); summary.textContent = 'Advanced';
+  advanced.appendChild(summary);
+  const advancedCopy = createElement('p', 'settings-feedback');
+  advancedCopy.textContent = 'Exact overrides replace capacity defaults. Leave a field blank to inherit the displayed value. Attempts include the first call.';
+  advanced.appendChild(advancedCopy);
+  const refresh = () => {
+    value.textContent = `${Number(slider.value).toFixed(1)}×`;
+    slider.setAttribute('aria-valuetext', value.textContent);
+    const effective = resolveAnalysisLimits(settings.utility);
+    for (const item of controls) {
+      let override; let inherited;
+      if (item.descriptor) {
+        override = settings.utility.analysisOverrides?.[item.descriptor.key];
+        inherited = effective[item.descriptor.key];
+      } else if (item.role) {
+        override = settings[item.kind].roleLimits?.[item.role.id]?.[item.key];
+        if (item.key === 'maxAttempts' && override === 2) override = null;
+        inherited = item.key === 'maxTokens' ? resolveProviderMaxTokens(settings, item.kind)
+          : item.key === 'timeoutSeconds' ? settings[item.kind].timeoutSeconds ?? 300 : 2;
+      } else {
+        override = settings[item.kind].outputTokenOverride;
+        inherited = Math.round(8192 * Number(slider.value));
+      }
+      item.control.value = override == null ? '' : String(override);
+      item.control.placeholder = `Inherit (${inherited})`;
+    }
+    const count = controls.filter(item => item.control.value !== '').length;
+    hint.textContent = count ? `${count} advanced override${count === 1 ? '' : 's'} active. These values stay fixed when capacity changes.` : 'No advanced overrides.';
+  };
+  const performSave = async (kind, patch) => {
     feedback.textContent = 'Saving...';
     try {
-      await actions.updateProviderSettings?.({ kind, patch });
-      feedback.textContent = 'Saved / applies to the next request';
-    } catch (error) { feedback.textContent = error?.message || 'Could not save'; }
+      const result = await actions.updateProviderSettings?.({ kind, patch });
+      if (result?.settings?.provider) settings[kind] = structuredClone(result.settings);
+      else {
+        const next = { ...settings[kind], ...patch };
+        if (Object.hasOwn(patch, 'analysisOverrides')) {
+          next.analysisOverrides = patch.analysisOverrides === null ? {} : { ...settings[kind].analysisOverrides, ...patch.analysisOverrides };
+          for (const [key, val] of Object.entries(next.analysisOverrides)) if (val === null) delete next.analysisOverrides[key];
+        }
+        if (Object.hasOwn(patch, 'roleLimits')) {
+          next.roleLimits = patch.roleLimits === null ? {} : structuredClone(settings[kind].roleLimits || {});
+          for (const [id, entry] of Object.entries(patch.roleLimits || {})) next.roleLimits[id] = { ...next.roleLimits[id], ...entry };
+        }
+        settings[kind] = next;
+      }
+      refresh(); feedback.textContent = 'Saved / applies to the next request';
+      return true;
+    } catch (error) { feedback.textContent = error?.message || 'Could not save'; return false; }
   };
-  const details = createElement('details', 'settings-role-limits');
-  const summary = createElement('summary'); summary.textContent = 'Per-role output, timeout, and retry limits';
-  details.appendChild(summary);
-  const description = createElement('p', 'settings-feedback');
-  description.textContent = 'Leave output tokens or timeout blank to inherit this lane. Attempts include the first call. Timeout cannot exceed 2,147,483 seconds because browser timers use signed 32-bit milliseconds.';
-  details.appendChild(description);
-  for (const role of createGenerationRoleRegistry().list().filter(role => role.providerKind === kind)) {
-    const heading = createElement('h4'); heading.textContent = role.label;
-    const grid = createElement('div', 'settings-field-grid');
-    const limits = settings.roleLimits?.[role.id] || {};
-    for (const [key, label] of [['maxTokens', 'Output tokens'], ['timeoutSeconds', 'Timeout (seconds)'], ['maxAttempts', 'Attempts']]) {
-      if (key === 'maxAttempts' && !['acceptedPairMissionEvidence', 'storyDirector', 'storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role.id)) continue;
-      const inherit = key !== 'maxAttempts';
-      const control = createNumber(limits[key] ?? (inherit ? '' : 2), { min: 1, ...(key === 'timeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `${kind}-${role.id}-${key}`);
-      if (inherit) control.placeholder = `Inherit lane (${settings[key] ?? (key === 'maxTokens' ? 8192 : 300)})`;
-      control.addEventListener('change', () => save({ roleLimits: { [role.id]: { [key]: inherit && control.value.trim() === '' ? null : Number(control.value) } } }));
-      grid.appendChild(createField(label, control));
+  let saves = Promise.resolve();
+  const save = (kind, patch) => {
+    const pending = saves.then(() => performSave(kind, patch));
+    saves = pending.catch(() => false);
+    return pending;
+  };
+  slider.addEventListener('input', () => { value.textContent = `${Number(slider.value).toFixed(1)}×`; slider.setAttribute('aria-valuetext', value.textContent); });
+  slider.addEventListener('change', () => save('utility', { analysisCapacity: Number(slider.value) }));
+  const capacityReset = createButton({ label: 'Reset capacity', className: 'settings-command', onClick: async () => { slider.value = '1'; await save('utility', { analysisCapacity: 1 }); } });
+  capacityReset.dataset.settingsAction = 'reset-analysis-capacity';
+  const capacityActions = createElement('div', 'settings-actions'); capacityActions.append(value, capacityReset);
+  card.append(title, description, createField('Capacity (0.5×–5×)', slider), capacityActions, hint);
+  for (const kind of ['utility', 'reasoning']) {
+    const heading = createElement('h4'); heading.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
+    const laneGrid = createElement('div', 'settings-field-grid');
+    const output = createNumber('', { min: 1, step: 1 }, `${kind}-maxTokens`);
+    controls.push({ control: output, kind });
+    output.addEventListener('change', () => save(kind, { outputTokenOverride: output.value.trim() === '' ? null : Number(output.value) }));
+    laneGrid.appendChild(createField('Output tokens', output));
+    advanced.append(heading, laneGrid);
+    for (const role of roles.filter(role => role.providerKind === kind)) {
+      const roleTitle = createElement('h4'); roleTitle.textContent = role.label;
+      const grid = createElement('div', 'settings-field-grid');
+      for (const [key, label] of [['maxTokens', 'Output tokens'], ['timeoutSeconds', 'Timeout (seconds)'], ['maxAttempts', 'Attempts']]) {
+        if (key === 'maxAttempts' && !['acceptedPairMissionEvidence', 'storyDirector', 'storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role.id)) continue;
+        const control = createNumber('', { min: 1, ...(key === 'timeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `${kind}-${role.id}-${key}`);
+        controls.push({ control, kind, role, key });
+        control.addEventListener('change', () => save(kind, { roleLimits: { [role.id]: { [key]: control.value.trim() === '' ? null : Number(control.value) } } }));
+        grid.appendChild(createField(label, control));
+      }
+      advanced.append(roleTitle, grid);
     }
-    details.append(heading, grid);
   }
-  card.appendChild(details);
-  if (kind !== 'utility') return;
-  const content = createElement('details', 'settings-analysis-limits');
-  const title = createElement('summary'); title.textContent = 'Analysis context and response content limits';
-  content.appendChild(title);
-  const explanation = createElement('p', 'settings-feedback');
-  explanation.textContent = 'Shared by all analysis roles. These control how much context is selected and how much structured content a response may contain. They do not delete stored history.';
-  content.appendChild(explanation);
-  const grid = createElement('div', 'settings-field-grid');
-  const limits = normalizeAnalysisLimits(settings.analysisLimits);
+  const sharedTitle = createElement('h4'); sharedTitle.textContent = 'Shared context and response limits';
+  const sharedGrid = createElement('div', 'settings-field-grid');
   for (const descriptor of ANALYSIS_LIMIT_DESCRIPTORS) {
-    const control = createNumber(limits[descriptor.key], { min: descriptor.min, ...(descriptor.key === 'hostNarrationTimeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `analysis-${descriptor.key}`);
-    control.addEventListener('change', () => save({ analysisLimits: { [descriptor.key]: Number(control.value) } }));
-    grid.appendChild(createField(descriptor.label, control));
+    const control = createNumber('', { min: descriptor.min, ...(descriptor.key === 'hostNarrationTimeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `analysis-${descriptor.key}`);
+    controls.push({ control, descriptor });
+    control.addEventListener('change', () => save('utility', { analysisOverrides: { [descriptor.key]: control.value.trim() === '' ? null : Number(control.value) } }));
+    sharedGrid.appendChild(createField(descriptor.label, control));
   }
-  content.appendChild(grid);
-  card.appendChild(content);
+  const reset = createButton({ label: 'Reset advanced overrides', className: 'settings-command', onClick: async () => {
+    if (!await save('utility', { analysisOverrides: null, outputTokenOverride: null, roleLimits: null })) return;
+    await save('reasoning', { outputTokenOverride: null, roleLimits: null });
+  } });
+  reset.dataset.settingsAction = 'reset-analysis-overrides';
+  advanced.append(sharedTitle, sharedGrid, reset);
+  card.append(advanced, feedback); refresh(); container.appendChild(card);
+  return (kind, patch, result) => {
+    if (Object.hasOwn(patch, 'timeoutSeconds')) {
+      settings[kind].timeoutSeconds = result?.settings?.timeoutSeconds ?? patch.timeoutSeconds;
+      refresh();
+    }
+  };
 }
 
 function appendInterface(container) {
@@ -483,9 +560,10 @@ export function renderSettingsPanel(body, view, actions = {}) {
   appendInterface(content);
   const providerSection = sectionById(model, 'providers');
   const providers = createSection('Generation', 'Model Lanes', 'Configure the current V1 Utility and Reasoning routes through SillyTavern.');
+  const syncAnalysisSettings = appendAnalysisControls(providers, providerSection.providerConfiguration || {}, actions);
   const providerGrid = createElement('div', 'settings-provider-grid');
-  appendProviderCard(providerGrid, 'utility', providerSection.providerConfiguration || {}, actions);
-  appendProviderCard(providerGrid, 'reasoning', providerSection.providerConfiguration || {}, actions);
+  appendProviderCard(providerGrid, 'utility', providerSection.providerConfiguration || {}, actions, syncAnalysisSettings);
+  appendProviderCard(providerGrid, 'reasoning', providerSection.providerConfiguration || {}, actions, syncAnalysisSettings);
   providers.appendChild(providerGrid);
   content.appendChild(providers);
 
