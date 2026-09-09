@@ -1,5 +1,6 @@
 export const TURN_PROGRESS_STAGES = Object.freeze([
   'reviewing-events',
+  'reviewing-continuity',
   'directing-story',
   'reviewing-episode',
   'updating-characters',

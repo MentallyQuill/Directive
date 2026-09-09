@@ -296,6 +296,18 @@ assert.deepEqual(captured.interpreterInput.sourcePair, captured.sourcePair);
 assert.equal(captured.interpreterRequest.kind, 'directive.missionEvidenceInterpretationRequest.v1');
 assert.equal(captured.directorRequest.envelope.generationType, 'normal');
 assert.notEqual(captured.directorRequest.episodeReview, null);
+const knownLinkCapture = captureAcceptedPairAnalysis({
+    campaignState: createReviewableState(),
+    runtimeAssets: { ...runtimeAssets, crewDataset: { officers: [{ id: 'person.9a71fe02', name: 'Cross', billet: 'Chief engineer' }] } },
+    snapshot, generationType: 'normal', focused: true,
+});
+assert.ok(knownLinkCapture.directorRequest.authoredContext.referenceIds.includes('person.9a71fe02'));
+assert.ok(knownLinkCapture.directorRequest.authoredContext.references.some(reference => reference.id === 'person.9a71fe02' && reference.name === 'Cross' && reference.kind === 'person'));
+assert.equal(knownLinkCapture.directorRequest.authoredContext.referenceIds.includes('person.unknown'), false);
+assert.deepEqual(knownLinkCapture.directorRequest.authoredContext.temporalContext, {
+    elapsedSeconds: knownLinkCapture.interpreterInput.timeContext.current.elapsedSeconds,
+    secondOfDay: knownLinkCapture.interpreterInput.timeContext.current.secondOfDay,
+});
 
 const interpretationGate = deferred();
 const directorGate = deferred();
@@ -589,3 +601,139 @@ assert.equal(failingInterpreterCalls, 1, 'the successful interpretation survives
 assert.equal(failingDirectorCalls, 1, 'the successful direction survives a persistence failure');
 
 console.log('Story director mission runtime tests passed.');
+
+// Production focused orchestration: four independent requests launch before any resolves.
+const focusedHarness = createHarness();
+const focusedGate = deferred();
+const focusedStarted = [];
+const allFocusedStarted = deferred();
+const focusedCalls = { interpreter: 0, director: 0, continuity: 0, episode: 0 };
+const enterFocused = async role => {
+    focusedCalls[role]++;
+    focusedStarted.push(role);
+    if (new Set(focusedStarted).size === 4) allFocusedStarted.resolve();
+    await focusedGate.promise;
+};
+const focusedRuntime = createV1MissionRuntime({
+    getState: focusedHarness.getState,
+    stateDeltaGateway: focusedHarness.gateway,
+    interpretAcceptedPair: async input => { await enterFocused('interpreter'); return interpretedFor(input); },
+    directStory: async ({ request }) => {
+        await enterFocused('director');
+        assert.equal(request.episodeReview, null);
+        return { ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } };
+    },
+    analyzeContinuity: async ({ request }) => {
+        await enterFocused('continuity');
+        assert.equal(request.episodeReview, null);
+        if (focusedCalls.continuity === 1) return { ok: false, reasonCode: 'damaged-json' };
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: directorProposalFor(request).threadChanges, lookupRequests: [] } };
+    },
+    evaluateEpisode: async ({ request }) => {
+        await enterFocused('episode');
+        assert.equal(request.envelope.baseRevision, focusedHarness.getState().storySettlement.revision);
+        return { ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview };
+    },
+});
+const focusedFlight = focusedRuntime.settleAcceptedPair({ runtimeAssets, snapshot: snapshotFor('range.focused'), generationType: 'normal' });
+await allFocusedStarted.promise;
+assert.deepEqual(new Set(focusedStarted), new Set(['interpreter', 'director', 'continuity', 'episode']));
+assert.equal(focusedHarness.persistCount, 0);
+focusedGate.resolve();
+const focusedResult = await focusedFlight;
+assert.equal(focusedResult.ok, true, JSON.stringify(focusedResult));
+assert.deepEqual(focusedCalls, { interpreter: 1, director: 1, continuity: 2, episode: 1 });
+assert.equal(focusedHarness.persistCount, 1, 'focused results commit together');
+assert.equal(focusedHarness.getState().storySettlement.continuityEvents.length, 2);
+console.log('Focused four-role mission runtime tests passed.');
+
+// A lookup is a bounded second pass against captured history; no successful peer reruns.
+const lookupHarness = createHarness();
+let lookupCalls = 0;
+let lookupDirectorCalls = 0;
+const lookupRuntime = createV1MissionRuntime({
+    getState: lookupHarness.getState, stateDeltaGateway: lookupHarness.gateway,
+    interpretAcceptedPair: interpretedFor,
+    directStory: async ({ request }) => {
+        lookupDirectorCalls++;
+        return { ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } };
+    },
+    analyzeContinuity: async ({ request }) => {
+        lookupCalls++;
+        assert.equal(request.envelope.baseRevision, lookupHarness.getState().stateCustody.revision);
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope,
+            coverage: lookupCalls === 1 ? 'lookup-needed' : 'complete',
+            threadChanges: lookupCalls === 1 ? [] : directorProposalFor(request).threadChanges,
+            lookupRequests: lookupCalls === 1 ? [{ threadIds: [], query: 'Ravenna transfer' }] : [],
+        } };
+    },
+    evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+});
+assert.equal((await lookupRuntime.settleAcceptedPair({ runtimeAssets, snapshot: snapshotFor('range.lookup'), generationType: 'normal' })).ok, true);
+assert.equal(lookupCalls, 2);
+assert.equal(lookupDirectorCalls, 1);
+assert.equal(lookupHarness.persistCount, 1);
+
+const staleHarness = createHarness();
+const staleGate = deferred();
+const staleStarted = deferred();
+const staleRuntime = createV1MissionRuntime({
+    getState: staleHarness.getState, stateDeltaGateway: staleHarness.gateway,
+    interpretAcceptedPair: interpretedFor,
+    directStory: async ({ request }) => {
+        staleStarted.resolve(); await staleGate.promise;
+        return { ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } };
+    },
+    analyzeContinuity: async ({ request }) => ({ ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: [], lookupRequests: [] } }),
+    evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+});
+const staleFlight = staleRuntime.settleAcceptedPair({ runtimeAssets, snapshot: snapshotFor('range.stale-focused'), generationType: 'normal' });
+await staleStarted.promise;
+staleHarness.getState().stateCustody.revision++;
+staleGate.resolve();
+assert.equal((await staleFlight).reasonCode, 'state-revision-conflict');
+assert.equal(staleHarness.persistCount, 0);
+console.log('Focused lookup and stale snapshot tests passed.');
+
+// Continuity can close the director's independently selected target in this pair.
+let conflictState = structuredClone(focusedHarness.getState());
+let conflictWrites = 0;
+const conflictGateway = createStateDeltaGateway({ getState: () => conflictState, setState: state => { conflictState = state; }, persist: async () => { conflictWrites++; } });
+const conflictSnapshot = snapshotFor('range.conflict-focused');
+conflictSnapshot.source.previousAssistant.hostMessageId = 'message.conflict.assistant';
+conflictSnapshot.source.previousAssistant.text = 'The Ravenna transfer is completed and the cargo is secured.';
+conflictSnapshot.source.previousAssistant.textHash = 'c'.repeat(64);
+conflictSnapshot.source.previousAssistant.selectedVariant.textHash = 'c'.repeat(64);
+conflictSnapshot.source.currentPlayer.hostMessageId = 'message.conflict.player';
+conflictSnapshot.source.currentPlayer.text = 'I ask for our next assignment.';
+conflictSnapshot.source.currentPlayer.textHash = 'd'.repeat(64);
+const conflictThreadId = conflictState.storySettlement.continuityEvents[0].threadId;
+let conflictDirectorCalls = 0; let conflictContinuityCalls = 0; let conflictInterpreterCalls = 0;
+const conflictRuntime = createV1MissionRuntime({
+    getState: () => conflictState, stateDeltaGateway: conflictGateway,
+    interpretAcceptedPair: input => { conflictInterpreterCalls++; const result = interpretedFor(input); result.interpretation.peopleEvents = []; return result; },
+    directStory: async ({ request }) => {
+        conflictDirectorCalls++;
+        if (conflictDirectorCalls === 2) {
+            assert.ok(!request.continuity.records.some(record => record.id === conflictThreadId));
+            assert.ok(!request.continuity.index.some(record => record.id === conflictThreadId));
+        }
+        return { ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope,
+            direction: conflictDirectorCalls === 1 ? { move: 'continue-thread', targetRef: conflictThreadId, requires: [], newComplications: 'avoid' } : directorProposalFor(request).direction,
+        } };
+    },
+    analyzeContinuity: async ({ request }) => {
+        conflictContinuityCalls++;
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', lookupRequests: [],
+            threadChanges: [{ operation: 'setStatus', threadRef: conflictThreadId, status: 'resolved', sourceSlot: 'previousAssistant', evidenceQuote: conflictSnapshot.source.previousAssistant.text }],
+        } };
+    },
+    evaluateEpisode: async () => { throw new Error('review not due'); },
+});
+const conflictResult = await conflictRuntime.settleAcceptedPair({ runtimeAssets, snapshot: conflictSnapshot, generationType: 'normal' });
+assert.equal(conflictResult.ok, true, JSON.stringify(conflictResult));
+assert.equal(conflictDirectorCalls, 2);
+assert.equal(conflictContinuityCalls, 1);
+assert.equal(conflictInterpreterCalls, 1);
+assert.equal(conflictWrites, 1);
+console.log('Focused director reconciliation tests passed.');

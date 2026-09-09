@@ -2,6 +2,8 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'openingSceneDirector',
   'acceptedPairMissionEvidence',
   'storyDirector',
+  'storyDirectionAnalyst',
+  'continuityAnalyst',
   'episodeEvaluator',
   'peopleDossierAuthor',
   'characterCreatorSectionDraft'
@@ -43,6 +45,20 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
     mayRunDuringMainGeneration: false,
     fallback: 'fail-closed',
     maxTokens: 8192
+  }),
+  storyDirectionAnalyst: Object.freeze({
+    id: 'storyDirectionAnalyst', label: 'Next story direction',
+    providerKind: 'reasoning', blocking: true, output: 'structured-json',
+    timeoutMs: 60000, structuredOutput: true, mayProposeState: false,
+    mayInjectPrompt: false, mayRunDuringMainGeneration: false,
+    fallback: 'fail-closed', maxTokens: 2048,
+  }),
+  continuityAnalyst: Object.freeze({
+    id: 'continuityAnalyst', label: 'Story facts and commitments',
+    providerKind: 'reasoning', blocking: true, output: 'structured-json',
+    timeoutMs: 60000, structuredOutput: true, mayProposeState: false,
+    mayInjectPrompt: false, mayRunDuringMainGeneration: false,
+    fallback: 'fail-closed', maxTokens: 6144,
   }),
   episodeEvaluator: Object.freeze({
     id: 'episodeEvaluator',

@@ -915,9 +915,16 @@ async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
     }
 }
 
-export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000 } = {}) {
+export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000, mandatory = false, maxTokens = null } = {}) {
     return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
-        const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, boundedTimeout(timeoutMs)) ?? boundedTimeout(timeoutMs);
+        // Mandatory turn preparation has an explicit budget; the older background role
+        // default must not silently clamp it to ten seconds.
+        const effectiveTimeoutMs = mandatory
+            ? Math.max(1, Math.min(60000, Number(timeoutMs) || 60000))
+            : generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, boundedTimeout(timeoutMs)) ?? boundedTimeout(timeoutMs);
+        const configuredMaxTokens = maxTokens == null ? null
+            : generationRouter?.getMaxTokens?.(EPISODE_EVALUATOR_ROLE_ID, maxTokens) ?? maxTokens;
+        const outputBudget = maxTokens == null ? null : Math.min(maxTokens, configuredMaxTokens);
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
@@ -930,12 +937,17 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
                 diagnostics: { errorCount: requestValidation.errors.length },
             };
         }
+        const prompt = createEpisodeEvaluationPrompt({ request });
+        if (outputBudget != null) {
+            prompt.maxTokens = outputBudget;
+            prompt.parameters = { ...(prompt.parameters || {}), max_tokens: outputBudget };
+        }
         let generation = null;
         try {
             const result = await runWithTimeout(
                 (providerSignal) => generationRouter.generate(
                     EPISODE_EVALUATOR_ROLE_ID,
-                    createEpisodeEvaluationPrompt({ request }),
+                    prompt,
                     {
                         timeoutMs: effectiveTimeoutMs,
                         signal: providerSignal,

@@ -52,6 +52,8 @@ function normalizeChange(change) {
             claimType: change.claimType,
             authoredRef: change.authoredRef,
             supersedesFactId: change.supersedesFactId,
+            ...(Object.hasOwn(change, 'linkedIds') ? { linkedIds: clone(change.linkedIds) } : {}),
+            ...(Object.hasOwn(change, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: change.deadlineElapsedSeconds } : {}),
         };
     }
     return {
@@ -71,6 +73,8 @@ function payloadFor(change) {
             claimType: change.claimType,
             authoredRef: change.authoredRef,
             supersedesFactId: change.supersedesFactId,
+            ...(Object.hasOwn(change, 'linkedIds') ? { linkedIds: clone(change.linkedIds) } : {}),
+            ...(Object.hasOwn(change, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: change.deadlineElapsedSeconds } : {}),
         };
     }
     return { status: change.status };
@@ -154,6 +158,9 @@ export async function materializeContinuityChanges({
     existingEvents = [],
     settledAtRevision,
     authoredIds = [],
+    authoredDeadlines = {},
+    knownLinkIds = [],
+    temporalContext = null,
 } = {}) {
     assertMaterializeInput({
         contributionIds, branchId, sourceRangeHash, settledAtRevision, existingEvents,
@@ -166,6 +173,9 @@ export async function materializeContinuityChanges({
         sourcePair,
         existingThreads,
         authoredIds,
+        authoredDeadlines,
+        knownLinkIds,
+        temporalContext,
     });
     if (!validation.ok) {
         throw new TypeError(`continuity-changes-invalid:${validation.errors.join(',')}`);
@@ -222,10 +232,14 @@ export async function materializeContinuityChanges({
             throw new TypeError(`continuity-thread-creation-missing:${threadId}`);
         }
         const dependencies = creation ? [creation.id] : [];
+        if (change.operation === 'addFact') for (const linkedId of change.linkedIds || []) {
+            const linkedCreation = creations.get(linkedId);
+            if (linkedCreation) dependencies.push(linkedCreation.id);
+        }
         if (change.operation === 'addFact' && change.supersedesFactId !== null) {
             dependencies.push(change.supersedesFactId);
         }
-        if (change.operation === 'setStatus' && change.status === 'resolved') {
+        if (change.operation === 'setStatus' && ['resolved', 'expired'].includes(change.status)) {
             const liveThread = projectContinuityThreads([...result, ...addedEvents])
                 .find((thread) => thread.id === threadId);
             dependencies.push(...(liveThread?.facts || []).map((fact) => fact.id));
@@ -306,6 +320,8 @@ export function projectContinuityThreads(events) {
                 text: event.payload.text,
                 claimType: event.payload.claimType,
                 authoredRef: event.payload.authoredRef,
+                ...(Object.hasOwn(event.payload, 'linkedIds') ? { linkedIds: clone(event.payload.linkedIds) } : {}),
+                ...(Object.hasOwn(event.payload, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: event.payload.deadlineElapsedSeconds } : {}),
                 sourceContributionIds: clone(event.sourceContributionIds),
                 sources: clone(event.sources),
             });
@@ -375,6 +391,9 @@ export function rebindContinuityEventsSync(events, { branchId, contributionMap }
             .map((id) => contributionReplacement(contributionMap, id)),
         dependsOnEventIds: event.dependsOnEventIds.map((id) => eventMap.get(id)),
     }));
+    for (const event of rebound) if (event.operation === 'addFact' && event.payload.linkedIds) {
+        event.payload = { ...event.payload, linkedIds: event.payload.linkedIds.map(id => threadMap.get(id) || id) };
+    }
     if (rebound.some((event) => (
         !event.id || !event.threadId || event.dependsOnEventIds.some((id) => !id)
         || (event.operation === 'addFact' && event.payload.supersedesFactId === undefined)

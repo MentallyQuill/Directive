@@ -16,7 +16,7 @@ function holdRole(role,signal) {
   return new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(Object.assign(new Error('aborted'),{name:'AbortError'})),{once:true}));
 }
 const generation=createFakeGenerationClient({responses:{
-  storyDirector:async ({request,rawOptions})=>{directorCalls++; directorStarted.resolve(); if(holdBoth)return holdRole('director',rawOptions.signal); await gate.promise; if(failDirector) return {text:'{}'}; return defaults.generate('storyDirector',request);},
+  storyDirectionAnalyst:async ({request,rawOptions})=>{directorCalls++; directorStarted.resolve(); if(holdBoth)return holdRole('director',rawOptions.signal); await gate.promise; if(failDirector) return {text:'{}'}; return defaults.generate('storyDirectionAnalyst',request);},
   acceptedPairMissionEvidence:async ({rawOptions})=>{interpreterCalls++; interpreterStarted.resolve(); if(holdBoth)return holdRole('interpreter',rawOptions.signal); return {text:JSON.stringify({kind:'directive.missionEvidenceInterpretation.v1',assistantAcceptance:'accepted',claims:[],abstained:true,time:{decision:'unchanged',basis:'noPassage',elapsedSeconds:0,reason:'same-second',confidence:0.9}})};},
 }});
 const prompt=createFakePromptAdapter();
@@ -42,15 +42,15 @@ await Promise.race([Promise.all([directorStarted.promise,interpreterStarted.prom
 assert.equal(handedOff,false);
 assert.deepEqual((await app.getCurrentView({tabId:'mission'})).campaignState,stateBefore,'both analyses are read-only while director is pending');
 gate.resolve(); assert.equal((await pending).abortDefaultGeneration,true);
-assert.equal(interpreterCalls,1); assert.equal(directorCalls,1);
+assert.equal(interpreterCalls,1); assert.equal(directorCalls,2);
 host.chat.pushPlayerMessage({text:'Continue.'});
 assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({type:'normal'})).abortDefaultGeneration,true);
-assert.equal(directorCalls,2,'Generate retries the failed role once, without a retry loop');
+assert.equal(directorCalls,4,'Each Generate bounds the failed role to two attempts');
 assert.equal(interpreterCalls,1,'Generate reuses the successful interpreter');
 failDirector=false;
 assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({type:'normal'})).abortDefaultGeneration,false);
 assert.equal(interpreterCalls,1,'retry reuses the successful exact-input interpreter');
-assert.equal(directorCalls,3);
+assert.equal(directorCalls,5);
 const committed=(await app.getCurrentView({tabId:'mission'})).campaignState;
 assert.equal(committed.stateCustody.revision,stateBefore.stateCustody.revision+1,'both results share one custody commit');
 assert.equal(committed.storySettlement.directorReceipts.length,1);
@@ -61,7 +61,7 @@ await assert.rejects(()=>app.getChatTurnOrchestrator().interceptGeneration({type
 failPrompt=false;
 assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({type:'normal'})).abortDefaultGeneration,false);
 assert.equal((await app.getCurrentView({tabId:'mission'})).campaignState.stateCustody.revision,committed.stateCustody.revision);
-assert.equal(directorCalls,3,'prompt retries do not rerun committed analysis');
+assert.equal(directorCalls,5,'prompt retries do not rerun committed analysis');
 await app.handleHostGenerationEnded();
 assert.equal(generation.calls().filter(c=>c.role==='episodeEvaluator').length,0);
 holdBoth=true;
@@ -89,7 +89,7 @@ for (const mutation of ['source-edit', 'chat-switch']) {
   };
   const mutationHost = createFakeDirectiveHost({ chatNative: true, generation: createFakeGenerationClient({ responses: {
     acceptedPairMissionEvidence: ({ rawOptions }) => hold('interpreter', rawOptions.signal),
-    storyDirector: ({ rawOptions }) => hold('director', rawOptions.signal),
+    storyDirectionAnalyst: ({ rawOptions }) => hold('director', rawOptions.signal),
   } }) });
   const mutationApp = createDirectiveRuntimeApp({ host: mutationHost, packageLoader: async () => loadAshesRuntimeAssets(),
     idFactory: prefix => `${prefix}.${++sequence}`, now: () => '2026-09-08T04:00:00.000Z' });

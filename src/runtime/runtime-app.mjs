@@ -59,7 +59,8 @@ import {
   pairRetryRecovery,
   reconcileRequiredRecovery,
 } from './accepted-pair-recovery-state.mjs';
-import { createStoryDirector } from '../story/story-director.mjs';
+import { createStoryDirectionAnalyst } from '../story/story-director.mjs';
+import { createContinuityAnalyst } from '../story/continuity-analyst.mjs';
 import { selectDirectorReceipt } from '../story/story-settlement.mjs';
 import { createPeopleDossierAuthor } from '../people/people-dossier-author.mjs';
 import {
@@ -801,7 +802,8 @@ export function createDirectiveRuntimeApp({
       getState: () => state,
       stateDeltaGateway: gateway,
       generationRouter,
-      directStory: createStoryDirector({ generationRouter }),
+      directStory: createStoryDirectionAnalyst({ generationRouter }),
+      analyzeContinuity: createContinuityAnalyst({ generationRouter }),
       providerFingerprints: () => providerConfiguration(host),
       prepareAcceptedPairTime: ({ campaignState, snapshot, timeDecision, runtimeAssets: acceptedAssets }) => (
         prepareV1AcceptedPairTimeAdvance({

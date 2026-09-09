@@ -1,15 +1,11 @@
 import { collectMissionPredicateRefs } from '../mission/v1/predicate-evaluator.mjs';
-import { projectContinuityThreads } from './continuity-events.mjs';
+import { retrieveContinuityThreads } from './thread-retrieval.mjs';
 
 export const STORY_DIRECTOR_CONTEXT_MAX_CHARACTERS = 48000;
 export const STORY_DIRECTOR_MAX_DETAILED_THREADS = 12;
 
 function compact(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
-}
-
-function clone(value) {
-  return value === undefined ? undefined : structuredClone(value);
 }
 
 function stableId(value) {
@@ -165,60 +161,6 @@ export function createDirectorAuthoredContext({
   return assertBudget({ constraints, opportunities, coverage: 'partial' });
 }
 
-function compactThread(thread) {
-  return {
-    id: thread.id,
-    title: compact(thread.title),
-    category: thread.category,
-    status: thread.status,
-  };
-}
-
-function detailedThread(thread) {
-  return {
-    id: thread.id,
-    title: compact(thread.title),
-    category: thread.category,
-    status: thread.status,
-    facts: (thread.facts || []).map((fact) => ({
-      id: fact.id,
-      text: compact(fact.text),
-      claimType: fact.claimType,
-      authoredRef: fact.authoredRef ?? null,
-      sourceContributionIds: clone(fact.sourceContributionIds || []),
-      sources: clone(fact.sources || []),
-    })),
-    sourceContributionIds: clone(thread.sourceContributionIds || []),
-  };
-}
-
-export function projectDirectorContinuity({
-  events = [],
-  missionId = null,
-  referencedIds = [],
-  maxCharacters = STORY_DIRECTOR_CONTEXT_MAX_CHARACTERS,
-} = {}) {
-  const threads = projectContinuityThreads(events);
-  const requested = new Set([missionId, ...(referencedIds || [])].filter(stableId));
-  const latestRevision = new Map();
-  for (const event of events || []) {
-    if (!stableId(event?.threadId)) continue;
-    latestRevision.set(
-      event.threadId,
-      Math.max(latestRevision.get(event.threadId) ?? -1, event.settledAtRevision ?? -1),
-    );
-  }
-  const referencesRequestedId = (thread) => requested.has(thread.id)
-    || (thread.facts || []).some((fact) => requested.has(fact.id) || requested.has(fact.authoredRef));
-  const unresolved = threads.filter((thread) => thread.status !== 'resolved');
-  const index = unresolved.map(compactThread).sort((left, right) => left.id.localeCompare(right.id));
-  const selectable = threads.filter((thread) => thread.status !== 'resolved' || referencesRequestedId(thread));
-  selectable.sort((left, right) => {
-    const referenceRank = Number(referencesRequestedId(right)) - Number(referencesRequestedId(left));
-    if (referenceRank !== 0) return referenceRank;
-    const revisionRank = (latestRevision.get(right.id) ?? -1) - (latestRevision.get(left.id) ?? -1);
-    return revisionRank || left.id.localeCompare(right.id);
-  });
-  const records = selectable.slice(0, STORY_DIRECTOR_MAX_DETAILED_THREADS).map(detailedThread);
-  return assertBudget({ index, records }, maxCharacters);
+export function projectDirectorContinuity(options = {}) {
+  return retrieveContinuityThreads(options);
 }

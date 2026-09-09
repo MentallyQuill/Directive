@@ -23,6 +23,7 @@ import { validateEpisodeHardBoundary } from '../story/episode-boundary.mjs';
 import {
     createEpisodeEvaluationRequest,
     createEpisodeEvaluator,
+    parseEpisodeEvaluationProposal,
 } from '../story/episode-evaluator.mjs';
 import {
     recordDirectorReceipt,
@@ -45,7 +46,10 @@ import {
 import {
     createStoryDirectorRequest,
     parseStoryDirectorOutput,
+    parseStoryDirectionOutput,
 } from '../story/story-director.mjs';
+import { parseContinuityAnalystOutput } from '../story/continuity-analyst.mjs';
+import { lookupContinuityThreads } from '../story/thread-retrieval.mjs';
 import { compileDirectorInstruction } from '../narration/director-instructions.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
 import {
@@ -809,6 +813,7 @@ export function captureAcceptedPairAnalysis({
     runtimeAssets = {},
     snapshot = {},
     generationType = 'normal',
+    focused = false,
 } = {}) {
     const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
     if (!resolved.ok) throw captureFailure(resolved.reasonCode || 'definition-unavailable');
@@ -912,10 +917,30 @@ export function captureAcceptedPairAnalysis({
         pendingTransition: null,
         pendingDutyReport: null,
     });
+    const exchangeText = `${sourcePair.previousAssistant.text} ${sourcePair.currentPlayer.text}`.toLowerCase();
+    const currentEpisode = (campaignState.storySettlement.episodes || []).find(episode => episode.id === campaignState.storySettlement.activeEpisode);
+    const referenceCandidates = [
+        ...(currentEpisode?.references?.locationIds || []).map(id => ({ id, name: id, kind: 'location', relevant: true })),
+        ...peopleContext.knownPeople.map(person => ({ id: person.id, name: person.name, kind: 'person', relevant: exchangeText.includes(person.name.toLowerCase())
+            || person.name.split(/\s+/).some(part => part.length >= 3 && exchangeText.includes(part.toLowerCase())) })),
+    ];
+    authoredContext.referenceIds = [...new Set(referenceCandidates.filter(item => /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(item.id))
+        .sort((a, b) => Number(b.relevant) - Number(a.relevant) || a.id.localeCompare(b.id)).map(item => item.id))].slice(0, 64);
+    authoredContext.references = authoredContext.referenceIds.map(id => {
+        const reference = referenceCandidates.find(item => item.id === id);
+        return { id, name: reference.name.slice(0, 160), kind: reference.kind };
+    });
+    authoredContext.temporalContext = {
+        elapsedSeconds: timeContext.current.elapsedSeconds,
+        secondOfDay: timeContext.current.secondOfDay,
+    };
     const continuity = projectDirectorContinuity({
         events: campaignState?.storySettlement?.continuityEvents || [],
         missionId: definition.id,
-        referencedIds: [],
+        referencedIds: referenceCandidates.filter(item => item.relevant && authoredContext.referenceIds.includes(item.id)).map(item => item.id),
+        queryText: `${sourcePair.previousAssistant.text} ${sourcePair.currentPlayer.text}`,
+        currentRevision: campaignState.storySettlement.revision,
+        currentElapsedSeconds: timeContext.current.elapsedSeconds,
     });
     const type = narrationGenerationType(generationType);
     const directorSourcePair = Object.fromEntries(
@@ -943,7 +968,7 @@ export function captureAcceptedPairAnalysis({
         authoredContext,
         continuity,
         currentScene: null,
-        episodeReview,
+        episodeReview: focused ? null : episodeReview,
     });
     return {
         campaignState: structuredClone(campaignState),
@@ -960,6 +985,7 @@ export function captureAcceptedPairAnalysis({
         interpreterInput,
         interpreterRequest,
         directorRequest,
+        episodeReviewRequest: episodeReview,
         reviewToken,
         generationType: type,
         generationTargetKey: createNarrationGenerationTargetKey({ snapshot, generationType: type }),
@@ -999,6 +1025,7 @@ export function createV1MissionRuntime({
     peopleDossierTimeoutMs = 30000,
     turnProgress = null,
     directStory = null,
+    analyzeContinuity = null,
     providerFingerprints = () => ({}),
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
@@ -1017,6 +1044,10 @@ export function createV1MissionRuntime({
     const episodeEvaluator = evaluateEpisode || createEpisodeEvaluator({
         generationRouter,
         timeoutMs: episodeReviewTimeoutMs,
+    });
+
+    const mandatoryEpisodeEvaluator = evaluateEpisode || createEpisodeEvaluator({
+        generationRouter, timeoutMs: 60000, mandatory: true, maxTokens: 4096,
     });
 
     function runProgress(stage, task, progressScope) {
@@ -1451,7 +1482,7 @@ export function createV1MissionRuntime({
         }
         const events = campaignState.storySettlement?.continuityEvents || [];
         for (const thread of projectContinuityThreads(events)) {
-            if (!new Set(['active', 'deferred']).has(thread.status)) continue;
+            if (!new Set(['active', 'deferred', 'dormant']).has(thread.status)) continue;
             targets.set(thread.id, {
                 id: thread.id,
                 playerSafeText: thread.title,
@@ -2083,11 +2114,63 @@ export function createV1MissionRuntime({
         const turnKey = await createTurnAnalysisKey({
             envelope: captured.directorRequest.envelope,
             interpreterRequest: captured.interpreterRequest,
-            directorRequest: captured.directorRequest,
+            directorRequest: { ...captured.directorRequest, episodeReview: captured.episodeReviewRequest },
             providerFingerprints: fingerprints || {},
         });
         if (directedAnalysis?.key !== turnKey) {
+            const focused = typeof analyzeContinuity === 'function';
             const coordinator = createParallelTurnAnalysis({
+                maxAttempts: focused ? 2 : 1,
+                continuity: focused ? async ({ request, signal: roleSignal }) => runProgress(
+                    'reviewing-continuity',
+                    async ({ onAttempt, onPhase }) => {
+                        let currentRequest = request;
+                        for (let pass = 0; pass < 2; pass++) {
+                            const result = await analyzeContinuity({ request: currentRequest, signal: roleSignal, onAttempt, onPhase });
+                            if (!result?.ok) return result;
+                            const parsed = parseContinuityAnalystOutput(result.proposal, { request: currentRequest });
+                            if (!parsed.ok) return { ok: false, reasonCode: 'continuity-invalid-output' };
+                            if (parsed.value.coverage !== 'lookup-needed') return { ...result, proposal: parsed.value };
+                            if (pass === 1) return { ok: false, reasonCode: 'continuity-lookup-exhausted' };
+                            const lookups = parsed.value.lookupRequests;
+                            const lookup = lookupContinuityThreads({
+                                events: captured.campaignState.storySettlement.continuityEvents || [],
+                                referencedIds: lookups.flatMap(item => item.threadIds),
+                                queryText: lookups.map(item => item.query || '').join(' '),
+                                currentRevision: captured.campaignState.storySettlement.revision,
+                                currentElapsedSeconds: captured.campaignState.timeLedger?.elapsedSeconds,
+                            });
+                            const records = new Map(request.continuity.records.map(record => [record.id, structuredClone(record)]));
+                            for (const record of lookup.records) {
+                                const old = records.get(record.id);
+                                if (!old) { records.set(record.id, record); continue; }
+                                const facts = [...new Map([...old.facts, ...record.facts].map(fact => [fact.id, fact])).values()];
+                                records.set(record.id, { ...record, facts,
+                                    omittedFactCount: Math.max(0, old.facts.length + old.omittedFactCount - facts.length),
+                                    sourceContributionIds: [...new Set(facts.flatMap(fact => fact.sourceContributionIds || []))],
+                                });
+                            }
+                            const merged = [...records.values()];
+                            currentRequest = { ...request, continuity: {
+                                index: [...new Map([...request.continuity.index, ...lookup.index].map(record => [record.id, record])).values()],
+                                records: merged,
+                                retrieval: { ...lookup.retrieval,
+                                    coverage: 'partial',
+                                    omittedThreadCount: Math.max(0, lookup.retrieval.totalThreadCount - merged.length),
+                                    omittedFactCount: Math.max(0, lookup.retrieval.omittedFactCount + lookup.records.reduce((n,r) => n+r.facts.length, 0) - merged.reduce((n,r) => n+r.facts.length, 0)),
+                                },
+                            } };
+                        }
+                    }, progressScope,
+                ) : undefined,
+                review: focused ? async ({ request, signal: roleSignal }) => runProgress(
+                    'reviewing-episode', async ({ onAttempt, onPhase }) => {
+                        const result = await mandatoryEpisodeEvaluator({ request, signal: roleSignal, onAttempt, onPhase });
+                        if (!result?.ok) return result;
+                        const parsed = parseEpisodeEvaluationProposal(result.proposal, { request });
+                        return parsed.ok ? { ...result, proposal: parsed.value } : { ok: false, reasonCode: 'episode-review-invalid' };
+                    }, progressScope,
+                ) : undefined,
                 interpret: async ({ signal: roleSignal }) => {
                     if (captured.pairAlreadySettled) {
                         return {
@@ -2116,7 +2199,9 @@ export function createV1MissionRuntime({
                     async ({ onAttempt, onPhase }) => {
                         const result = await directStory({ request, signal: roleSignal, onAttempt, onPhase });
                         if (!result?.ok) return result;
-                        const parsed = parseStoryDirectorOutput(result.proposal, { request });
+                        const parsed = focused
+                            ? parseStoryDirectionOutput(result.proposal, { request })
+                            : parseStoryDirectorOutput(result.proposal, { request });
                         if (!parsed.ok) {
                             return {
                                 ok: false,
@@ -2137,9 +2222,20 @@ export function createV1MissionRuntime({
         const analysis = await directedAnalysis.coordinator.run({
             key: turnKey,
             interpreterRequest: captured.interpreterRequest,
-            directorRequest: captured.directorRequest,
+            directorRequest: typeof analyzeContinuity === 'function' ? { ...captured.directorRequest, episodeReview: null } : captured.directorRequest,
+            episodeRequest: typeof analyzeContinuity === 'function' ? captured.episodeReviewRequest : null,
             signal,
         });
+        if (analysis.ok && typeof analyzeContinuity === 'function') {
+            analysis.director.proposal = {
+                kind: 'directive.storyDirectorProposal.v1',
+                envelope: analysis.director.proposal.envelope,
+                coverage: analysis.continuity.proposal.coverage,
+                threadChanges: analysis.continuity.proposal.threadChanges,
+                direction: analysis.director.proposal.direction,
+                episodeReview: analysis.episode?.proposal || null,
+            };
+        }
         directedAnalysis.lastAnalysis = analysis;
         return { analysis, turnKey };
     }
@@ -2157,7 +2253,7 @@ export function createV1MissionRuntime({
         const prepared = await spine.prepareEpisodeReview({
             definition: captured.definition,
             reviewToken: captured.reviewToken,
-            request: captured.directorRequest.episodeReview,
+            request: captured.episodeReviewRequest,
             proposal: directorResult.proposal.episodeReview,
             gatewayBaseRevision: draft.stateCustody.revision,
         });
@@ -2173,6 +2269,7 @@ export function createV1MissionRuntime({
                 runtimeAssets: input.runtimeAssets,
                 snapshot: input.snapshot,
                 generationType: input.generationType,
+                focused: typeof analyzeContinuity === 'function',
             });
         } catch (error) {
             return unavailable(error?.code || error?.message || 'turn-capture-invalid');
@@ -2275,6 +2372,10 @@ export function createV1MissionRuntime({
             return unavailable('provider-aborted', { blockedRoles: [], turnKey }, { attempted: true });
         }
 
+        if (stateDeltaGateway.revision() !== captured.campaignState.stateCustody.revision) {
+            clearDirectedAnalysis();
+            return unavailable('state-revision-conflict', { blockedRoles: [], turnKey }, { attempted: true });
+        }
         let reviewedState;
         let preparedPair;
         try {
@@ -2351,6 +2452,9 @@ export function createV1MissionRuntime({
                 existingEvents: priorEvents,
                 settledAtRevision: candidateState.storySettlement.revision,
                 authoredIds,
+                authoredDeadlines: captured.directorRequest.authoredContext.deadlines || {},
+                knownLinkIds: captured.directorRequest.authoredContext.referenceIds || [],
+                temporalContext: captured.directorRequest.authoredContext.temporalContext,
             });
             candidateState.storySettlement = {
                 ...candidateState.storySettlement,
@@ -2372,13 +2476,57 @@ export function createV1MissionRuntime({
                 candidateState.storySettlement = recordPendingDossier(candidateState.storySettlement, job);
             }
             const targets = eligibleDirectionTargets(candidateState, captured);
-            const direction = directionForMaterializedContinuity(
+            let direction = directionForMaterializedContinuity(
                 analysis.director.proposal.direction,
                 analysis.director.proposal.threadChanges,
                 priorEvents,
                 continuityEvents,
             );
-            const compiled = compileDirectorInstruction({ direction, eligibleTargets: targets });
+            let compiled = compileDirectorInstruction({ direction, eligibleTargets: targets });
+            if (typeof analyzeContinuity === 'function' && direction.move !== compiled.move) {
+                // The independent director can target a thread resolved by this same pair.
+                // Reconcile against validated candidate findings, without committing them early.
+                const request = {
+                    ...captured.directorRequest,
+                    episodeReview: null,
+                    authoredContext: {
+                        ...captured.directorRequest.authoredContext,
+                        opportunities: captured.directorRequest.authoredContext.opportunities.filter(item => targets.has(item.id)),
+                    },
+                    continuity: projectDirectorContinuity({
+                        events: continuityEvents,
+                        missionId: captured.definition.id,
+                        queryText: `${captured.sourcePair.previousAssistant.text} ${captured.sourcePair.currentPlayer.text}`,
+                        currentRevision: candidateState.storySettlement.revision,
+                        currentElapsedSeconds: candidateState.timeLedger?.elapsedSeconds,
+                    }),
+                };
+                request.continuity = {
+                    ...request.continuity,
+                    records: request.continuity.records.filter(record => targets.has(record.id)),
+                    index: request.continuity.index.filter(record => targets.has(record.id)),
+                };
+                if (input.signal?.aborted || stateDeltaGateway.revision() !== captured.campaignState.stateCustody.revision) {
+                    clearDirectedAnalysis();
+                    return unavailable(input.signal?.aborted ? 'provider-aborted' : 'state-revision-conflict', { blockedRoles: [], turnKey }, { attempted: true });
+                }
+                const result = await runProgress('directing-story', ({ onAttempt, onPhase }) => directStory({
+                    request, signal: input.signal, onAttempt, onPhase,
+                }), input.progressScope);
+                const parsed = result?.ok ? parseStoryDirectionOutput(result.proposal, { request }) : null;
+                if (!parsed?.ok) {
+                    directedAnalysis.coordinator.invalidateRole(turnKey, 'director');
+                    directedAnalysis.lastAnalysis = null;
+                    return unavailable(result?.reasonCode || 'director-reconciliation-invalid', { blockedRoles: ['director'], turnKey }, { attempted: true });
+                }
+                direction = parsed.value.direction;
+                compiled = compileDirectorInstruction({ direction, eligibleTargets: targets });
+                if (direction.move !== compiled.move) {
+                    directedAnalysis.coordinator.invalidateRole(turnKey, 'director');
+                    directedAnalysis.lastAnalysis = null;
+                    return unavailable('director-reconciliation-conflict', { blockedRoles: ['director'], turnKey }, { attempted: true });
+                }
+            }
             const instruction = compiledInstructionText(compiled);
             const target = compiled.targetRef ? targets.get(compiled.targetRef) : null;
             const postPackage = candidateState.activeCampaignPackage || {};

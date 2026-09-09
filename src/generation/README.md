@@ -10,7 +10,7 @@ Mission progression is not inferred here. Story Settlement proposes closed candi
 ## Structured response recovery
 
 `src/providers/structured-output-parser.mjs` is the shared text parser for all
-four registered structured roles, plus transition narration candidates and
+registered structured roles, plus transition narration candidates and
 their structured review proposals. Already-parsed objects retain each caller's
 existing handling. Ordinary narration, storage JSON, and native capability
 probes do not pass through recovery.
@@ -42,3 +42,26 @@ results are committed. Provider normalization, token-limit handling, cancellatio
 timeouts, fallback, retry counts, and accepted-source custody remain owned by
 their existing modules. Local recovery adds no model calls and does not change
 prompts or schemas. It repairs representation defects, not unsupported reasoning.
+
+## Parallel turn analysis
+
+Normal directed turns run event interpretation, continuity analysis, and story
+direction concurrently. Episode evaluation joins that group only when a checkpoint
+review is due. Every role reads a captured save revision. The state spine validates
+and commits their combined findings through one custody update before narration.
+
+Continuity owns thread changes; direction owns next-beat guidance and cannot refer
+to a concurrent analyst's new local IDs. Episode evaluation sees only committed
+episode evidence. Each role has its own response contract. The legacy combined
+director adapter remains available for existing injected consumers.
+
+The coordinator allows two attempts per failed role per run, retaining successful
+results for the same input identity. User retry resumes failed roles; source edits,
+chat switches, cancellation, or changed input invalidate reuse. A continuity lookup
+can request stored records and make a second focused pass. A direction invalidated
+by accepted findings is reconciled in a separate direction-only pass. These are
+bounded additional calls, not additional narrative turns.
+
+Full continuity events stay in the save. Routine retrieval selects relevant facts
+and explicitly reports omitted history; absence from a prompt is not evidence of
+absence from the campaign. Dormancy never implies an obligation was fulfilled.

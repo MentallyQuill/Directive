@@ -39,6 +39,31 @@ function storyDirectorContext(request = {}) {
   }
 }
 
+function focusedContext(request = {}) {
+  if (request.context?.envelope) return request.context;
+  const user = [...(request.messages || [])].reverse().find(message => message.role === 'user');
+  const text = String(user?.content || 'null').replace(/^Evaluate this bounded active episode snapshot:\s*/, '');
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+export function createFakeFocusedAnalysisResponse(role, request = {}) {
+  const context = focusedContext(request);
+  if (!context?.envelope) return { text: '', providerId: `fake-${role}` };
+  const proposal = role === 'episodeEvaluator' ? {
+    kind: 'directive.episodeEvaluationProposal.v1',
+    ...cloneJson(context.envelope),
+    decision: 'abstain', boundaryReason: null, significanceCriteria: [], summary: null,
+    foregroundQuestion: null, sourceContributionIds: [], effectIds: [],
+    relationshipUpdates: [], characterMoments: [],
+  } : {
+    kind: `directive.${role}Proposal.v1`, envelope: cloneJson(context.envelope),
+    ...(role === 'continuityAnalyst'
+      ? { coverage: 'complete', threadChanges: [], lookupRequests: [] }
+      : { direction: { move: 'respond-to-player', targetRef: null, newComplications: 'avoid', requires: [] } }),
+  };
+  return { text: JSON.stringify(proposal), providerId: `fake-${role}` };
+}
+
 export function createFakeStoryDirectorResponse(request = {}) {
   const context = storyDirectorContext(request);
   if (!context?.envelope) return { text: '', providerId: 'fake-storyDirector' };
@@ -140,6 +165,8 @@ export function createFakeGenerationClient({ responses = {}, defaultText = 'Fake
       ? { text: JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:(request.context?.backgroundReferences || []).slice(0,1).map(entry => entry.id),emphasis:'balanced'}) }
       : role === 'storyDirector'
         ? createFakeStoryDirectorResponse(request)
+        : ['storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role)
+          ? createFakeFocusedAnalysisResponse(role, request)
         : { text: defaultText, providerId: `fake-${role}` });
     const response = typeof configured === 'function'
       ? await configured({

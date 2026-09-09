@@ -38,3 +38,31 @@ const key = await createTurnAnalysisKey(keyInput);
 assert.equal(key, await createTurnAnalysisKey(structuredClone(keyInput)));
 for (const field of Object.keys(keyInput)) assert.notEqual(key, await createTurnAnalysisKey({...keyInput, [field]: {changed:true}}));
 console.log('Parallel turn analysis tests passed.');
+
+const fourGate = deferred(); const fourStarted = [];
+const four = createParallelTurnAnalysis({
+  interpret: async () => { fourStarted.push('interpreter'); return fourGate.promise; },
+  direct: async () => { fourStarted.push('director'); return fourGate.promise; },
+  continuity: async () => { fourStarted.push('continuity'); return fourGate.promise; },
+  review: async () => { fourStarted.push('episode'); return fourGate.promise; },
+});
+const fourPending = four.run({ ...args, episodeRequest: { due: true } });
+assert.equal(fourStarted.length, 4);
+fourGate.resolve({ ok: true });
+assert.equal((await fourPending).ok, true);
+fourStarted.length = 0;
+await four.run({ ...args, key: 'not-due', episodeRequest: null });
+assert.deepEqual(fourStarted, ['interpreter', 'director', 'continuity']);
+let attempts = 0; let successes = 0;
+const bounded = createParallelTurnAnalysis({
+  maxAttempts: 2,
+  interpret: async () => { successes++; return { ok: true }; },
+  direct: async () => { attempts++; return { ok: false }; },
+});
+assert.equal((await bounded.run(args)).ok, false);
+assert.equal(attempts, 2);
+assert.equal(successes, 1);
+assert.equal((await bounded.run(args)).ok, false);
+assert.equal(attempts, 4);
+assert.equal(successes, 1);
+console.log('Focused coordinator concurrency, due gating, and retry tests passed.');

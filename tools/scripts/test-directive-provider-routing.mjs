@@ -17,6 +17,8 @@ assert.deepEqual(GENERATION_ROLE_IDS, [
   'openingSceneDirector',
   'acceptedPairMissionEvidence',
   'storyDirector',
+  'storyDirectionAnalyst',
+  'continuityAnalyst',
   'episodeEvaluator',
   'peopleDossierAuthor',
   'characterCreatorSectionDraft'

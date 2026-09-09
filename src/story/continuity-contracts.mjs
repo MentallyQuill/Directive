@@ -16,14 +16,14 @@ export const CONTINUITY_CLAIM_TYPES = Object.freeze(new Set([
     'character-claim',
     'player-commitment',
 ]));
-export const CONTINUITY_STATUSES = Object.freeze(new Set(['active', 'deferred', 'resolved']));
+export const CONTINUITY_STATUSES = Object.freeze(new Set(['active', 'deferred', 'dormant', 'resolved', 'expired']));
 
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
 const OPERATION_FIELDS = Object.freeze({
     open: new Set(['operation', 'localRef', 'title', 'category', 'sourceSlot', 'evidenceQuote']),
     addFact: new Set([
         'operation', 'threadRef', 'text', 'claimType', 'authoredRef', 'supersedesFactId',
-        'sourceSlot', 'evidenceQuote',
+        'sourceSlot', 'evidenceQuote', 'linkedIds', 'deadlineElapsedSeconds',
     ]),
     setStatus: new Set(['operation', 'threadRef', 'status', 'sourceSlot', 'evidenceQuote']),
 });
@@ -33,7 +33,7 @@ const EVENT_FIELDS = new Set([
 ]);
 const EVENT_PAYLOAD_FIELDS = Object.freeze({
     open: new Set(['title', 'category']),
-    addFact: new Set(['text', 'claimType', 'authoredRef', 'supersedesFactId']),
+    addFact: new Set(['text', 'claimType', 'authoredRef', 'supersedesFactId', 'linkedIds', 'deadlineElapsedSeconds']),
     setStatus: new Set(['status']),
 });
 const SOURCE_ANCHOR_FIELDS = new Set([
@@ -50,6 +50,7 @@ const PENDING_DOSSIER_FIELDS = new Set([
     'publicContext',
 ]);
 const PENDING_DOSSIER_STATUSES = new Set(['pending', 'in-flight', 'staged', 'failed']);
+const OPTIONAL_FACT_FIELDS = new Set(['linkedIds', 'deadlineElapsedSeconds']);
 
 function normalize(value) {
     return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -125,6 +126,14 @@ function validateAddFact(change, authoredIds, errors) {
     if (change.sourceSlot === 'previousAssistant' && change.claimType === 'player-commitment') {
         errors.push('continuity-player-commitment-source-invalid');
     }
+    if (Object.hasOwn(change, 'linkedIds')) {
+        validateIdArray(change.linkedIds, 'continuity-linked-ids', errors);
+        if (change.linkedIds?.length > 16) errors.push('continuity-linked-ids-count-exceeded');
+    }
+    if (Object.hasOwn(change, 'deadlineElapsedSeconds') && change.deadlineElapsedSeconds !== null
+        && (!Number.isSafeInteger(change.deadlineElapsedSeconds) || change.deadlineElapsedSeconds < 0)) {
+        errors.push('continuity-deadline-invalid');
+    }
 }
 
 function validateSetStatus(change, errors) {
@@ -133,12 +142,18 @@ function validateSetStatus(change, errors) {
     if (change.status === 'resolved' && change.sourceSlot !== 'previousAssistant') {
         errors.push('continuity-resolved-source-invalid');
     }
+    if (change.status === 'expired' && change.sourceSlot !== 'previousAssistant') {
+        errors.push('continuity-expired-source-invalid');
+    }
 }
 
 export function validateContinuityChanges(changes, {
     sourcePair,
     existingThreads = [],
     authoredIds = [],
+    authoredDeadlines = {},
+    knownLinkIds = [],
+    temporalContext = null,
 } = {}) {
     const errors = [];
     if (!Array.isArray(changes)) return { ok: false, errors: ['continuity-changes-invalid'] };
@@ -152,6 +167,7 @@ export function validateContinuityChanges(changes, {
         }
     }
     const authoredIdSet = new Set(Array.isArray(authoredIds) ? authoredIds : authoredIds instanceof Set ? authoredIds : []);
+    const knownLinkIdSet = new Set(Array.isArray(knownLinkIds) ? knownLinkIds : knownLinkIds instanceof Set ? knownLinkIds : []);
     const localRefs = new Set();
     const duplicateLocalRefs = new Set();
 
@@ -167,6 +183,7 @@ export function validateContinuityChanges(changes, {
         }
         unknownFields(change, allowed, `continuity-change-${index}`, errors);
         for (const field of allowed) {
+            if (change.operation === 'addFact' && OPTIONAL_FACT_FIELDS.has(field)) continue;
             if (!Object.hasOwn(change, field)) errors.push(`continuity-change-${index}-field-required:${field}`);
         }
         try {
@@ -180,6 +197,26 @@ export function validateContinuityChanges(changes, {
             localRefs.add(change.localRef);
         } else if (change.operation === 'addFact') {
             validateAddFact(change, authoredIdSet, errors);
+            if (Array.isArray(change.linkedIds)) for (const id of change.linkedIds) {
+                if (!authoredIdSet.has(id) && !existingThreadIds.has(id) && !knownLinkIdSet.has(id)) errors.push(`continuity-linked-id-unknown:${id}`);
+            }
+            if (change.deadlineElapsedSeconds != null) {
+                const deadline = authoredDeadlines instanceof Map ? authoredDeadlines.get(change.authoredRef)
+                    : Object.hasOwn(authoredDeadlines || {}, change.authoredRef) ? authoredDeadlines[change.authoredRef] : undefined;
+                const authored = authoredDeadlines instanceof Map ? authoredDeadlines.has(change.authoredRef)
+                    : Object.hasOwn(authoredDeadlines || {}, change.authoredRef);
+                // A narrative deadline is an attention hint only. The quote grounds its
+                // source; this range check cannot prove the model's clock interpretation.
+                // Nothing here advances time, expires a thread, or establishes an outcome.
+                const temporalHint = Number.isSafeInteger(temporalContext?.elapsedSeconds)
+                    && temporalContext.elapsedSeconds >= 0
+                    && Number.isSafeInteger(temporalContext?.secondOfDay)
+                    && temporalContext.secondOfDay >= 0 && temporalContext.secondOfDay < 86400
+                    && change.deadlineElapsedSeconds <= temporalContext.elapsedSeconds + 604800;
+                if (authored ? deadline !== change.deadlineElapsedSeconds : !temporalHint) {
+                    errors.push('continuity-deadline-authority-invalid');
+                }
+            }
         } else {
             validateSetStatus(change, errors);
         }
@@ -251,6 +288,7 @@ export function validateContinuityEvent(event, {
     } else {
         unknownFields(event.payload, payloadFields, 'continuity-event-payload', errors);
         for (const field of payloadFields) {
+            if (event.operation === 'addFact' && OPTIONAL_FACT_FIELDS.has(field)) continue;
             if (!Object.hasOwn(event.payload, field)) errors.push(`continuity-event-payload-field-required:${field}`);
         }
         if (event.operation === 'open') validateOpen({ ...event.payload, localRef: 'event-local-ref' }, errors);
@@ -264,7 +302,7 @@ export function validateContinuityEvent(event, {
         if (event.operation === 'setStatus') validateSetStatus({
             ...event.payload,
             threadRef: event.threadId,
-            sourceSlot: event.payload.status === 'resolved' ? 'previousAssistant' : 'currentPlayer',
+            sourceSlot: ['resolved', 'expired'].includes(event.payload.status) ? 'previousAssistant' : 'currentPlayer',
         }, errors);
     }
     validateIdArray(event.sourceContributionIds, 'continuity-event-sources', errors, { nonEmpty: true });

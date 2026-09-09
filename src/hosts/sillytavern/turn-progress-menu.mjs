@@ -1,5 +1,6 @@
 export const PROGRESS_STAGES = Object.freeze({
   'reviewing-events': 'Reviewing recent events',
+  'reviewing-continuity': 'Reviewing story threads',
   'directing-story': 'Preparing story direction',
   'reviewing-episode': 'Reviewing the episode',
   'updating-characters': 'Updating character records',
@@ -21,6 +22,7 @@ const LOCAL_LABELS = Object.freeze({
 });
 const MODEL_LABELS = Object.freeze({
   'reviewing-events': 'Interpret recent exchange',
+  'reviewing-continuity': 'Update story threads',
   'directing-story': 'Plan story direction',
   'reviewing-episode': 'Review episode',
   'updating-characters': 'Write character records',

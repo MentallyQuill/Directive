@@ -6,7 +6,7 @@ import {
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
 const DEFAULT_LABEL = 'Processing the turn...';
-const MODEL_STAGES = new Set(['reviewing-events', 'directing-story', 'reviewing-episode', 'updating-characters']);
+const MODEL_STAGES = new Set(['reviewing-events', 'reviewing-continuity', 'directing-story', 'reviewing-episode', 'updating-characters']);
 const OUTCOMES = Object.freeze({ complete: 'Finished', failed: 'Failed', canceled: 'Canceled' });
 let nextActivityId = 0;
 const activeActivities = new Map();

@@ -6,6 +6,7 @@ import {
   createFakeChatAdapter,
   createFakeDirectiveHost,
   createFakeGenerationClient,
+  createFakeFocusedAnalysisResponse,
   createFakeJsonStorage
 } from '../../src/hosts/fake/fake-host.mjs';
 import { awardV1CommandBearing } from '../../src/command/v1-command-bearing.mjs';
@@ -131,12 +132,12 @@ let releaseHeldEpisodeEvaluation = null;
 const generation = createFakeGenerationClient({
   responses: {
     narration: { text: 'Captain Whitaker waits in the ready room. “Come in, Commander.”', providerId: 'fake-narrator' },
-    episodeEvaluator: async () => {
+    episodeEvaluator: async ({ request }) => {
       if (holdEpisodeEvaluation) {
         reportHeldEpisodeEvaluationStarted?.();
         await new Promise((resolve) => { releaseHeldEpisodeEvaluation = resolve; });
       }
-      return { text: '{}', providerId: 'fake-reasoning' };
+      return createFakeFocusedAnalysisResponse('episodeEvaluator', request);
     },
     acceptedPairMissionEvidence: async ({ rawOptions, request }) => {
       missionInterpretationCalls += 1;
@@ -151,14 +152,14 @@ const generation = createFakeGenerationClient({
         });
       }
       if (rejectMissionInterpretation) throw new Error('forced fake provider failure');
-      if (missionInterpretationCalls === 1) throw new Error('transient fake provider failure');
+      if (missionInterpretationCalls <= 2) throw new Error('transient fake provider failure');
       const acceptedClaimsByCall = {
-        2: [{
+        3: [{
           candidateId: 'policy.prelude.command-handover-terms-settled',
           sourceSlot: 'previousAssistant',
           evidenceQuote: 'Whitaker sets the handover terms: she retains decisions to commit the ship, while the XO owns day-to-day coordination.'
         }],
-        3: [{
+        4: [{
           candidateId: 'policy.prelude.command-handover-completed',
           sourceSlot: 'previousAssistant',
           evidenceQuote: 'The practical command handover is now complete; take the chair, Commander.'
@@ -230,6 +231,8 @@ assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, 
   { id: 'openingSceneDirector', providerKind: 'reasoning' },
   { id: 'acceptedPairMissionEvidence', providerKind: 'utility' },
   { id: 'storyDirector', providerKind: 'reasoning' },
+  { id: 'storyDirectionAnalyst', providerKind: 'reasoning' },
+  { id: 'continuityAnalyst', providerKind: 'reasoning' },
   { id: 'episodeEvaluator', providerKind: 'reasoning' },
   { id: 'peopleDossierAuthor', providerKind: 'reasoning' },
   { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' }
@@ -251,7 +254,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 6);
+assert.equal(metadataOnlySupport.routing.length, 8);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',
@@ -837,8 +840,8 @@ assert.equal(
 );
 assert.equal(
   generation.calls().filter((call) => call.role === 'acceptedPairMissionEvidence').length,
-  utilityCallsBeforeScaledContinue + 1,
-  'the real 10,000-row runtime path must make exactly one accepted-pair utility call',
+  utilityCallsBeforeScaledContinue + 2,
+  'the real 10,000-row runtime path bounds a failed interpreter to two attempts',
 );
 assert.equal(
   generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
@@ -863,7 +866,7 @@ assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.comma
 const activationsBeforeGeneration = narrationPresetLifecycle.filter((entry) => entry === 'activate').length;
 assert.equal(
   missionInterpretationCalls,
-  1,
+  2,
   'failed settlement must wait for an explicit Generate or Retry gesture',
 );
 acceptedHistoryReads.length = 0;
@@ -905,7 +908,7 @@ assert.ok(
   'every bound host generation must reassert the Directive narration preset before prompt synchronization'
 );
 assert.equal(intercepted.abortDefaultGeneration, false);
-assert.equal(missionInterpretationCalls, 2);
+assert.equal(missionInterpretationCalls, 3);
 const acceptedPairRequest = generation.calls().find((call) => call.role === 'acceptedPairMissionEvidence')?.request;
 assert.match(acceptedPairRequest.messages[1].content, /"secondOfDay": 30600/);
 assert.match(acceptedPairRequest.messages[1].content, /"elapsedSeconds": 0/);
@@ -1447,6 +1450,8 @@ host.chat.attachAssistantRuntimeMetadata = async () => {
   throw new Error('forced assistant metadata attachment failure');
 };
 const firstNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
+assert.equal(generation.calls().filter(call => call.role === 'episodeEvaluator').length, episodeCallsBeforeNarrationEnd,
+  'generation-ended events defer review until the next directed turn');
 host.chat.attachAssistantRuntimeMetadata = attachRuntimeMetadataBeforeFailure;
 const continueWhileEpisodeReviewPending = app.getChatTurnOrchestrator().interceptGeneration();
 const episodeQueueTimeout = Symbol('episode-review-queue-timeout');
@@ -1472,8 +1477,8 @@ assert.equal(
 assert.equal(duplicateNarrationEndReview.episodeReview.status, 'deferred-to-director');
 assert.equal(
   generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
-  episodeCallsBeforeNarrationEnd,
-  'generation-ended events never invoke the retired standalone evaluator',
+  episodeCallsBeforeNarrationEnd + 1,
+  'Continue runs the due review once; the duplicate generation-ended event does not repeat it',
 );
 const cancellationPlayer = chat.pushPlayerMessage({
   text: 'Hold that thought.',

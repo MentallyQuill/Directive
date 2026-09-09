@@ -503,3 +503,23 @@ for (const outcome of ['valid', 'malformed', 'failed', 'thrown']) {
   }
 }
 console.log('V1 episode evaluator tests passed.');
+
+for (const configuredTokens of [1024, 8192]) {
+    let mandatoryInvocation;
+    const mandatoryEvaluator = createEpisodeEvaluator({
+        timeoutMs: 60000, mandatory: true, maxTokens: 4096,
+        generationRouter: {
+            getTimeoutMs: () => 10000,
+            getMaxTokens: () => configuredTokens,
+            async generate(roleId, providerRequest, options) {
+                mandatoryInvocation = { roleId, providerRequest, options };
+                return { ok: true, response: { text: JSON.stringify(proposalFor()) } };
+            },
+        },
+    });
+    assert.equal((await mandatoryEvaluator({ request })).ok, true);
+    assert.equal(mandatoryInvocation.options.timeoutMs, 60000, 'mandatory analysis is not clamped to the legacy background timeout');
+    assert.equal(mandatoryInvocation.providerRequest.maxTokens, Math.min(4096, configuredTokens));
+    assert.equal(mandatoryInvocation.providerRequest.parameters.max_tokens, Math.min(4096, configuredTokens));
+}
+console.log('Mandatory episode analysis budget tests passed.');
