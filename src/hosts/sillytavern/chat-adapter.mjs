@@ -2386,17 +2386,20 @@ export function createSillyTavernChatAdapter({
     onSettled = null,
     onHostGenerationObserved = null,
     onGenerationFailed = null,
+    signal = null,
     ingressId = null,
     turnId = null,
     outcomeId = null
   } = {}) {
     try {
+      if (signal?.aborted) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
       const beforeContext = context();
       const beforeChat = getChatArray(beforeContext);
       const beforeIds = new Set(beforeChat.map((message, index) => normalizeMessageId(message, index)));
       const script = scriptModule || (typeof importScript === 'function'
         ? await importScript()
         : await import('/script.js'));
+      if (signal?.aborted) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
       const generating = typeof script.isGenerating === 'function'
         ? script.isGenerating() === true
         : script.is_send_press === true;

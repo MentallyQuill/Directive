@@ -192,6 +192,7 @@ export async function handleMessageSelectedSwipeChanged(payload = {}) {
 
 export async function handleGenerationStopped(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  closeSettlementRetryDialog('host-generation-stopped');
   resetDirectiveTurnProgress();
   const activityResult = cancelActiveDirectiveTurnActivities();
   const cancelResult = await app()?.handleHostGenerationStopped?.({ ...payload, reason: 'host-generation-stopped' });

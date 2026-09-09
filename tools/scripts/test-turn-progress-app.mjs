@@ -99,10 +99,13 @@ host.chat.getLatestPlayerMessage = async (...args) => {
 const oldMetadata = bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
 await enteredMetadata.promise;
 await hostEvents.handleGenerationStopped();
+host.chat.getLatestPlayerMessage = originalLatest;
+assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({ type: 'normal' })).abortDefaultGeneration, false,
+  'a fresh Generate can proceed while the canceled metadata read is still pending');
 const afterMetadataStop = progressEvents.length;
 const newerToken = activity.markDirectiveTurnActivity();
 metadataGate.resolve();
-assert.equal((await oldMetadata).responseStrategy, 'injectAndContinue');
+assert.equal((await oldMetadata).responseStrategy, 'cancelStaleTurn');
 assert.equal(progressEvents.slice(afterMetadataStop).some(event => event.type === 'start'), false, 'a canceled interceptor cannot start later child stages in a new turn');
 assert.equal(snapshot().presentation.title, 'Processing the turn...');
 activity.finishDirectiveTurnActivity(newerToken);

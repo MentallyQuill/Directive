@@ -9,17 +9,20 @@ const visible = messages => messages.some(message => !message.isSystem && messag
 export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance }) {
   const flights = new Map();
   let status = null;
+  let epoch = 0;
   function currentStatus() {
     const binding = getBinding();
     return status?.chatId === binding?.chatId && status?.saveId === binding?.saveId ? clone(status) : null;
   }
   function generate(input) {
+    const generationEpoch = epoch;
     const binding = clone(getBinding());
     const key = JSON.stringify(binding);
     if (flights.has(key)) return flights.get(key);
     const captured = clone(input);
     const policy = createNarrationPolicy({ settings: captured.settings, player: captured.player });
     const assertCurrent = () => {
+      if (generationEpoch !== epoch) throw Object.assign(new Error('Generation canceled.'), { code: 'DIRECTIVE_GENERATION_ABORTED' });
       if (!isCurrent(binding)) throw new Error('The campaign chat changed. Return to it to generate the opening.');
     };
     const run = async () => {
@@ -61,7 +64,7 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
         status = { ...binding, status: 'ready', message: null };
         return { ...result, ok: true };
       } catch (error) {
-        if (isCurrent(binding)) status = { ...binding, status: 'failed', message: 'The opening could not be generated. Your character is saved. Retry when ready.' };
+        if (generationEpoch === epoch && isCurrent(binding)) status = { ...binding, status: 'failed', message: 'The opening could not be generated. Your character is saved. Retry when ready.' };
         return { ok: false, posted: false, reason: 'opening-generation-failed', message: currentStatus()?.message || 'The campaign chat changed.', error: { code: error?.code || 'DIRECTIVE_OPENING_FAILED', message: error?.message || String(error) } };
       }
     };
@@ -70,5 +73,9 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
     pending.finally(() => { if (flights.get(key) === pending) flights.delete(key); });
     return pending;
   }
-  return { generate, currentStatus };
+  return { generate, currentStatus, cancel() {
+    epoch += 1;
+    flights.clear();
+    if (status?.status === 'generating') status = { ...status, status: 'pending', message: 'Generation stopped. Retry when ready.' };
+  } };
 }

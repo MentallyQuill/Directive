@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-generation-cancellation.mjs",
   "test-continuity-events.mjs",
   "test-thread-retrieval.mjs",
   "test-focused-story-analysts.mjs",

@@ -11,6 +11,7 @@ await app.initialize();
 assert.equal(typeof app.updateNarrationSettings,'function');
 await app.startCreatorDraft();
 await app.saveCreatorDraft({patch:{activeStep:'review',input:{identity:{name:'Opening Tester',pronounsOrAddress:'they/them',speciesId:'human',ageBandId:'mid-career',appearance:'Attentive.'},service:{careerBackgroundId:'tactical-security',formativeExperienceId:'dominion-war-fleet-service',assignmentReasonId:'experienced-outsider-transfer'},personality:{traits:{insight:'perceptive',connection:'candid',execution:'decisive'},flawId:'impatient'},dossier:{briefBiography:'A command officer who coordinated refugee transports.',publicReputation:'An attentive command officer.'}}}});
+await app.handleHostGenerationStopped();
 const started=await app.acceptCreatorDraftAndStartCampaign();
 assert.equal(started.opening.ok,true,JSON.stringify(started.opening));
 assert.equal(host.chat.messages()[0].text,'The door ahead of you is closed.');

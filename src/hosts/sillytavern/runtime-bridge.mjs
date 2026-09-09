@@ -15,8 +15,10 @@ let orchestrator = null;
 let host = null;
 let enabled = true;
 let unsubscribeProgress = null;
+let cancellationEpoch = 0;
 
 export function resetDirectiveTurnProgress() {
+  cancellationEpoch += 1;
   runtimeApp?.resetTurnProgress?.();
   recordDirectiveTurnProgress({ type: 'reset' });
 }
@@ -88,6 +90,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
   const retryApp = runtimeApp;
   const retryChatId = host?.chat?.getCurrentChatId?.();
   const retryGeneration = async ({ signal = null, isActive = null } = {}) => {
+    const retryEpoch = cancellationEpoch;
     if (signal?.aborted || isActive?.() === false) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
     const prepared = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
     if (prepared?.abortDefaultGeneration !== false) {
@@ -95,9 +98,11 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     }
     if (signal?.aborted || isActive?.() === false) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
     const continued = await host?.chat?.continueHostGeneration?.({
+      signal,
       reason: 'directive-settlement-retry', type: type || 'normal',
       automaticTrigger: true, waitForCompletion: false,
       onGenerationFailed: () => {
+        if (retryEpoch !== cancellationEpoch) return;
         if (runtimeApp !== retryApp || runtimeApp?.isCurrentChatBound?.() !== true
           || host?.chat?.getCurrentChatId?.() !== retryChatId) return;
         closeSettlementRetryDialog('narration-failed');
@@ -147,6 +152,10 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     return result;
   } catch (error) {
     finishDirectiveTurnActivity(activityToken);
+    if (error?.code === 'DIRECTIVE_GENERATION_ABORTED' || error?.name === 'AbortError') {
+      abort?.(false);
+      return { handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: 'host-generation-stopped' };
+    }
     const bound = boundAtStart || runtimeApp?.isCurrentChatBound?.() === true;
     host?.logger?.error?.('[Directive] generation interceptor failed:', error);
     if (bound) {

@@ -467,12 +467,15 @@ assert.equal(JSON.stringify(leakyTest).includes('LEAKED_TOKEN'), false);
 assert.equal(JSON.stringify(leakyTest).includes('FULL_SECRET_BODY'), false);
 
 let cancellationSignal = null;
+let cancellationStarted;
+const cancellationEntered = new Promise(resolve => { cancellationStarted = resolve; });
 const cancellationContext = {
   extensionSettings: {},
   ConnectionManagerRequestService: {
     ...profileService,
     async sendRequest(_profileId, _messages, _maxTokens, options) {
       cancellationSignal = options.signal;
+      cancellationStarted();
       return new Promise((_resolve, reject) => {
         cancellationSignal.addEventListener('abort', () => {
           const error = new Error('aborted');
@@ -488,9 +491,20 @@ cancellationStore.update('utility', { provider: 'profile', profileId: 'chat.loca
 const cancellationClient = createDirectiveProviderClient({ contextFactory: () => cancellationContext, settingsStore: cancellationStore });
 const controller = new AbortController();
 const canceled = cancellationClient.generate('acceptedPairMissionEvidence', { prompt: 'Cancel.' }, { signal: controller.signal, timeoutMs: 1000 });
+await cancellationEntered;
 controller.abort();
 await assert.rejects(canceled, (error) => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
 assert.equal(cancellationSignal.aborted, true);
+const previousSignal = cancellationSignal;
+await assert.rejects(cancellationClient.generate('acceptedPairMissionEvidence', { prompt: 'Already stopped.' }, { signal: controller.signal }),
+  error => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
+assert.equal(cancellationSignal, previousSignal, 'already canceled requests never reach transport');
+const preparingController = new AbortController();
+const preparingRequest = cancellationClient.generate('acceptedPairMissionEvidence', { prompt: 'Stop during sampler preparation.' }, { signal: preparingController.signal });
+preparingController.abort();
+await assert.rejects(preparingRequest, error => error?.code === 'DIRECTIVE_GENERATION_ABORTED');
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(cancellationSignal, previousSignal, 'cancellation during async preparation prevents a later transport start');
 
 const routedProviderClient = createDirectiveProviderClient({ contextFactory: () => cancellationContext, settingsStore: cancellationStore });
 const router = createDirectiveGenerationRouter({

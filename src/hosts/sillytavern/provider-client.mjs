@@ -371,6 +371,10 @@ function normalizeThrownError(error, providerKind) {
   return wrapped;
 }
 
+function assertRequestActive(request) {
+  if (request.signal?.aborted) throw providerError('DIRECTIVE_GENERATION_ABORTED', 'Generation canceled.');
+}
+
 function createGenerationControl(request = {}, options = {}) {
   const externalSignal = options?.signal || request?.signal || null;
   const timeoutMs = Number(options?.timeoutMs);
@@ -500,6 +504,7 @@ async function sendViaConnectionProfile(context, config, request, resolved, onAt
     includeInstruct: resolved.policy.includeInstruct,
     signal: request.signal
   };
+  assertRequestActive(request);
   onAttempt?.();
   const response = await service.sendRequest(config.profileId, messages, maxTokens, requestOptions, payload);
   return {
@@ -536,6 +541,7 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
       samplers = { temperature: config.temperature, top_p: config.topP };
     }
   }
+  assertRequestActive(request);
   let response;
   if (resolved.completionMode === 'chat' && typeof context?.ChatCompletionService?.processRequest === 'function') {
     const source = textValue(context?.chatCompletionSettings?.chat_completion_source);
@@ -594,6 +600,7 @@ export function createDirectiveProviderClient({
   }
 
   async function sendTransport(kind, config, request, options = {}) {
+    assertRequestActive(request);
     const context = contextFactory();
     if (!context) throw providerError('DIRECTIVE_PROVIDER_UNAVAILABLE', 'SillyTavern context is unavailable.');
     const resolved = policyFor(kind, config, context, { forceStructuredOutput: options.forceStructuredOutput });

@@ -17,6 +17,18 @@ fail=false;await Promise.all([lifecycle.generate(input),lifecycle.generate(input
 await lifecycle.generate(input);assert.equal(narratorCalls,2);
 messages=[];let done;release=new Promise(r=>{done=r});const flight=lifecycle.generate(input);while(narratorCalls<3)await new Promise(r=>setTimeout(r,0));identity='save-b';done();assert.equal((await flight).ok,false);assert.equal(messages.length,0);
 console.log('Opening lifecycle retry, deduplication and chat race passed.');
+messages = [];
+let releaseStopped;
+release = new Promise(resolve => { releaseStopped = resolve; });
+const beforeStopCalls = narratorCalls;
+const stoppedOpening = lifecycle.generate(input);
+while (narratorCalls === beforeStopCalls) await new Promise(resolve => setTimeout(resolve, 0));
+lifecycle.cancel();
+releaseStopped();
+assert.equal((await stoppedOpening).ok, false);
+assert.equal(messages.length, 0, 'a stopped opening cannot post a late model response');
+release = null;
+assert.equal((await lifecycle.generate(input)).ok, true, 'explicit retry starts a new opening');
 let lateMessages=[],writes=0;
 const late=createOpeningLifecycle({chat:{getRecentMessages:async()=>lateMessages,getOpeningRecord:()=>null,setOpeningRecord:async()=>{if(++writes===2)lateMessages.push({role:'user',text:'Wait.'})},postAssistantMessage:async r=>{lateMessages.push({role:'assistant',text:r.text});return {posted:true}}},getBinding:()=>({campaignId:'late',saveId:'late',chatId:'late'}),isCurrent:()=>true,generateDirector:async()=>({text:JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:['background:serviceSummary'],emphasis:'setting'})}),generateNarration:async()=>({text:'Opening.'}),getProseGuidance:async()=>''});
 await late.generate(input);assert.equal(lateMessages.length,1,'user message during metadata persistence prevents opening append');assert.notEqual(late.currentStatus()?.status,'generating');

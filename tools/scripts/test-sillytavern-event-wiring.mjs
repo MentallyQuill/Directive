@@ -383,7 +383,8 @@ assert(retryButton, 'blocked settlement must expose manual Retry');
 await retryButton.listeners.get('click')[0]({ preventDefault() {} });
 assert.equal(settlementRetryCalls, 2, 'Retry prepares through the same interceptor that native Generate re-enters');
 assert.equal(typeof continuedGeneration.onGenerationFailed, 'function');
-const { onGenerationFailed, ...continuedOptions } = continuedGeneration;
+const { onGenerationFailed, signal: continuationSignal, ...continuedOptions } = continuedGeneration;
+assert.ok(continuationSignal instanceof AbortSignal, 'Retry forwards cancellation through the native generation handoff');
 assert.deepEqual(continuedOptions, {
   reason: 'directive-settlement-retry',
   type: 'normal',

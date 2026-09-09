@@ -1,3 +1,5 @@
+import { assertGenerationActive } from '../../runtime/generation-cancellation.mjs';
+
 const OWNED_GENERATION_DEPTH_KEY = '__directiveOwnedGenerationDepth';
 const OWNED_HOST_GENERATION_DEPTH_KEY = '__directiveOwnedHostGenerationDepth';
 
@@ -91,6 +93,7 @@ function reportAttempt(callback, attempt = null) {
 }
 
 async function callSillyTavernGeneration(context, request, route = {}, onAttempt = null, allowCompatibilityRetry = true) {
+  assertGenerationActive(request.signal);
   const prompt = promptFromRequest(request);
   const maxTokens = request.parameters?.max_tokens
     || request.max_tokens
@@ -121,6 +124,7 @@ async function callSillyTavernGeneration(context, request, route = {}, onAttempt
         ...(request.signal ? { signal: request.signal } : {})
       });
     } catch (error) {
+      assertGenerationActive(request.signal);
       if (isAbortLikeError(error) || !allowCompatibilityRetry) throw error;
       reportAttempt(onAttempt);
       return context.generateQuietPrompt([request.systemPrompt, prompt].filter(Boolean).join('\n\n'));
@@ -184,7 +188,13 @@ export function createSillyTavernGenerationClient({
           ? { onAttempt: () => reportAttempt(options.onAttempt, ++physicalAttempt) }
           : {}),
       };
-      const performAttempt = (attemptRequest) => perform(roleId, attemptRequest, routedOptions);
+      const performAttempt = async (attemptRequest) => {
+        const signal = options.signal || attemptRequest.signal;
+        assertGenerationActive(signal);
+        const result = await perform(roleId, attemptRequest, routedOptions);
+        assertGenerationActive(signal);
+        return result;
+      };
       let response = await performAttempt(request);
       let retriedForVisibleOutput = false;
       if (options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {

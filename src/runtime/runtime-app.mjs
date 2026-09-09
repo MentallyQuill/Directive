@@ -1,6 +1,7 @@
 import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
+import { createGenerationCancellation, generationAbortedError } from './generation-cancellation.mjs';
 import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
 import {
@@ -642,7 +643,15 @@ export function createDirectiveRuntimeApp({
   idFactory = null
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
+  const generationCancellation = createGenerationCancellation(host.generation);
+  host = { ...host, generation: generationCancellation.generation };
   const turnProgress = createTurnProgressReporter();
+  let canceledThroughEpoch = -1;
+  function assertTurnActive(scope) {
+    if (generationCancellation.stopped || (scope && scope.epoch <= canceledThroughEpoch)) {
+      throw generationAbortedError();
+    }
+  }
   const generationRouter = createDirectiveGenerationRouter(host);
   let fallbackNarrationSettings = normalizeNarrationSettings();
   const narrationSettings = () => normalizeNarrationSettings(host.narration?.getSettings?.() || fallbackNarrationSettings);
@@ -700,6 +709,7 @@ export function createDirectiveRuntimeApp({
 
   function dossierIdle() {
     return host.generation?.supportsIndependentBackgroundRequests === true
+      && !generationCancellation.stopped
       && !nativeNarrationActive && !activeAnalysisController && state && currentChatIsBound();
   }
 
@@ -887,6 +897,9 @@ export function createDirectiveRuntimeApp({
     generationTargetKey = undefined,
     cancelIfUnbound = false,
   } = {}) {
+    if (generationCancellation.stopped || (progressScope && progressScope.epoch <= canceledThroughEpoch)) {
+      return staleDirectivePromptResult('host-generation-stopped');
+    }
     if (!state || !currentChatIsBound()) {
       if (cancelIfUnbound) return staleDirectivePromptResult('unbound');
       await restoreNarrationPreset();
@@ -922,6 +935,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function syncBoundPrompt({ rebuild = false, progressScope = null, generationType = 'normal', generationTargetKey = undefined } = {}) {
+    assertTurnActive(progressScope);
     if (typeof host.presets?.activateNarrationPreset === 'function') {
       await turnProgress.run('activating-preset', () => activateNarrationPreset(), { scope: progressScope });
     }
@@ -931,6 +945,7 @@ export function createDirectiveRuntimeApp({
       return { ok: true, active: false };
     }
     const promptTarget = captureDirectivePromptTarget();
+    assertTurnActive(progressScope);
     const campaignState = promptTarget.campaignState;
     let context;
     try {
@@ -981,6 +996,7 @@ export function createDirectiveRuntimeApp({
       throw error;
     }
     const afterContextStatus = currentDirectivePromptTargetStatus(promptTarget);
+    assertTurnActive(progressScope);
     if (afterContextStatus !== 'current') {
       return staleDirectivePromptResult(afterContextStatus);
     }
@@ -994,6 +1010,7 @@ export function createDirectiveRuntimeApp({
       openingRecord: host.chat.getOpeningRecord?.() || null
     }), { scope: progressScope });
     const afterAssemblyStatus = currentDirectivePromptTargetStatus(promptTarget);
+    assertTurnActive(progressScope);
     if (afterAssemblyStatus !== 'current') {
       return staleDirectivePromptResult(afterAssemblyStatus);
     }
@@ -1007,6 +1024,7 @@ export function createDirectiveRuntimeApp({
       error.code = 'DIRECTIVE_PROMPT_INSTALL_FAILED';
       throw error;
     }
+    assertTurnActive(progressScope);
     return installed;
   }
 
@@ -1260,7 +1278,8 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function postOpeningIfEmpty() {
+  async function postOpeningIfEmpty(signal = generationCancellation.signal) {
+    if (signal.aborted) return { ok: false, posted: false, reason: 'host-generation-stopped' };
     return openingLifecycle.generate({
       premise: records.packageData.campaign.openingPremise,
       player: clone(state.player),
@@ -1294,6 +1313,7 @@ export function createDirectiveRuntimeApp({
     updateRecovery = true,
     progressScope = turnProgress.createScope(),
   } = {}) {
+    assertTurnActive(progressScope);
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
       campaignId: state?.campaign?.id || null,
@@ -1618,12 +1638,15 @@ export function createDirectiveRuntimeApp({
 
   const orchestrator = {
     async interceptGeneration({ type = 'normal' } = {}) {
+      generationCancellation.resume();
       pauseDossiers();
       const generationType = compact(type) || 'normal';
       let generationTargetKey = null;
       const progressScope = turnProgress.createScope();
+      try {
       await ensureInitialized();
       await settlementQueue;
+      assertTurnActive(progressScope);
       if (!state || !currentChatIsBound()) {
         await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
         return { handled: false, reason: 'inactive-or-unbound' };
@@ -1631,8 +1654,9 @@ export function createDirectiveRuntimeApp({
       assertAcceptedPairRecovery(acceptedPairRecovery);
       if (acceptedPairRecovery.mode === 'pair-retry') {
         // A fresh Generate gesture retries the failed analysis, just like the dialog.
-        await publicApi.retryPendingAcceptedPairSettlement();
+        await publicApi.retryPendingAcceptedPairSettlement({ progressScope });
       }
+      assertTurnActive(progressScope);
       if (acceptedPairRecovery.mode === 'pair-retry') {
         return {
           handled: true,
@@ -1647,6 +1671,7 @@ export function createDirectiveRuntimeApp({
         };
       }
       const latestPlayerMessage = await host.chat.getLatestPlayerMessage?.();
+      assertTurnActive(progressScope);
       let acceptedPairReplay = null;
       if (acceptedPairRecovery.mode === 'reconcile-required') {
         acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat({ progressScope }));
@@ -1658,6 +1683,7 @@ export function createDirectiveRuntimeApp({
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
+      assertTurnActive(progressScope);
       if (acceptedPairRecovery.mode !== 'none' || acceptedPairReplay?.blocked === true) {
         return {
           handled: true,
@@ -1682,6 +1708,7 @@ export function createDirectiveRuntimeApp({
           const direction = await enqueueSettlement(() => settleSnapshot(prepared.snapshot, null, {
             syncPromptAfter:false, publishNotifications:false, progressScope, generationType,
           }));
+          assertTurnActive(progressScope);
           if (direction.settlementBlocked) return {
             handled:true, abortDefaultGeneration:true, responseStrategy:'blockAndRetry',
             settlementError:{code:'DIRECTIVE_TURN_DIRECTION_BLOCKED',reasonCode:direction.mission?.reasonCode,
@@ -1713,6 +1740,10 @@ export function createDirectiveRuntimeApp({
         responseStrategy: 'injectAndContinue',
         acceptedPairReplay
       };
+      } catch (error) {
+        if (error?.code !== 'DIRECTIVE_GENERATION_ABORTED') throw error;
+        return { handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: 'host-generation-stopped' };
+      }
     }
   };
 
@@ -1924,6 +1955,7 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
       return enqueueSettlement(async () => {
+        assertTurnActive(progressScope);
         if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
         if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
           return { handled: false, reason: 'source-chat-changed' };
@@ -1983,6 +2015,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationEnded(payload = {}) {
+      if (generationCancellation.stopped) return { handled: false, reason: 'host-generation-stopped' };
       nativeNarrationActive = false;
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
@@ -2139,6 +2172,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async retryPendingPeopleDossiers() {
+      generationCancellation.resume();
       await ensureInitialized();
       const result = await enqueueSettlement(async () => {
         if (!state || !currentChatIsBound()) return {ok:false, reasonCode:'inactive-or-unbound'};
@@ -2158,8 +2192,10 @@ export function createDirectiveRuntimeApp({
       return result;
     },
 
-    async retryPendingAcceptedPairSettlement() {
-      const progressScope = turnProgress.createScope();
+    async retryPendingAcceptedPairSettlement({ progressScope = null } = {}) {
+      if (!progressScope) generationCancellation.resume();
+      progressScope ||= turnProgress.createScope();
+      assertTurnActive(progressScope);
       await ensureInitialized();
       return enqueueSettlement(async () => {
         assertAcceptedPairRecovery(acceptedPairRecovery);
@@ -2310,11 +2346,13 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
+      canceledThroughEpoch = turnProgress.createScope().epoch;
+      generationCancellation.stop();
+      openingLifecycle.cancel();
       pauseDossiers();
       nativeNarrationActive = false;
       turnProgress.resetTurnProgress();
       if (!activeAnalysisController || activeAnalysisController.signal.aborted) {
-        scheduleIdleDossiers();
         return { ok: true, canceled: false, reason: 'no-directive-analysis-active' };
       }
       activeAnalysisController.abort(new Error('host-generation-stopped'));
@@ -2349,6 +2387,8 @@ export function createDirectiveRuntimeApp({
     },
 
     async generateCreatorSectionDraft({ sectionId, input = {}, useProvider = true, signal = null, onProgress = null } = {}) {
+      generationCancellation.resume();
+      signal = AbortSignal.any([generationCancellation.signal, signal].filter(Boolean));
       await ensureInitialized();
       const assistResult = await runCharacterCreatorSectionDraft({
         packageData: records.packageData,
@@ -2487,6 +2527,8 @@ export function createDirectiveRuntimeApp({
     },
 
     async acceptCreatorDraftAndStartCampaign({ simulationMode = 'Command' } = {}) {
+      generationCancellation.resume();
+      const generationSignal = generationCancellation.signal;
       await ensureInitialized();
       const result = await controller.acceptCreatorDraftAndStartCampaign({ draftId: activeDraftId, simulationMode });
       setState(result.campaignState);
@@ -2496,12 +2538,13 @@ export function createDirectiveRuntimeApp({
       activeDraftId = null;
       await createOrRestoreCampaignChat();
       await syncPrompt({ rebuild: true });
-      const opening = await postOpeningIfEmpty();
+      const opening = await postOpeningIfEmpty(generationSignal);
       if (currentChatIsBound()) await syncPrompt({ rebuild: true });
       return { result: clone(result), opening: clone(opening), view: await campaignViewEnvelope('mission') };
     },
 
     async openCampaignChat({ saveId = null } = {}) {
+      const generationSignal = generationCancellation.signal;
       await ensureInitialized();
       if (saveId && saveId !== activeSave()?.id) {
         setState(await controller.loadGame({ saveId }));
@@ -2509,7 +2552,7 @@ export function createDirectiveRuntimeApp({
       }
       const binding = await createOrRestoreCampaignChat();
       await syncPrompt({ rebuild: true });
-      const opening = await postOpeningIfEmpty();
+      const opening = await postOpeningIfEmpty(generationSignal);
       if (currentChatIsBound()) await syncPrompt({ rebuild: true });
       return { ok: opening.ok, opening, binding: clone(binding), view: await campaignViewEnvelope('mission') };
     },
@@ -2687,10 +2730,12 @@ export function createDirectiveRuntimeApp({
     },
 
     async retryOpening() {
+      generationCancellation.resume();
+      const generationSignal = generationCancellation.signal;
       await ensureInitialized();
       if (!state || !currentChatIsBound()) return { ok: false, message: 'Open the campaign chat to generate its opening.' };
       await syncPrompt({ rebuild: true });
-      const opening = await postOpeningIfEmpty();
+      const opening = await postOpeningIfEmpty(generationSignal);
       if (currentChatIsBound()) await syncPrompt({ rebuild: true });
       return { ...opening, view: await campaignViewEnvelope('mission') };
     },

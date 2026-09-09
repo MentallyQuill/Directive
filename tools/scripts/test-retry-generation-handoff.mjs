@@ -32,6 +32,19 @@ try {
 console.log('Retry generation handoff passed.');
 
 const { createSillyTavernChatAdapter } = await import('../../src/hosts/sillytavern/chat-adapter.mjs');
+let releaseImport;
+let delayedStarts = 0;
+const importGate = new Promise(resolve => { releaseImport = resolve; });
+const delayedChat = createSillyTavernChatAdapter({
+  contextFactory: () => ({ chat: [], chatId: 'delayed-retry' }),
+  importScript: () => importGate,
+});
+const stopController = new AbortController();
+const delayedStart = delayedChat.continueHostGeneration({ signal: stopController.signal, waitForCompletion: false });
+stopController.abort();
+releaseImport({ isGenerating: () => false, Generate() { delayedStarts++; } });
+assert.equal((await delayedStart).ok, false);
+assert.equal(delayedStarts, 0, 'Stop during module import prevents queued native Generate');
 let rejectGeneration;
 let preparationCalls = 0;
 const chat = createSillyTavernChatAdapter({
@@ -54,4 +67,10 @@ try {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert.ok(__settlementRetryDialogTestHooks.active(), 'asynchronous native Generate rejection restores recovery');
+  await __settlementRetryDialogTestHooks.active().retry.listeners.get('click')[0]({});
+  const { handleGenerationStopped } = await import('../../src/hosts/sillytavern/shell-events.js');
+  await handleGenerationStopped();
+  rejectGeneration(new Error('Stopped native generation rejected late'));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(__settlementRetryDialogTestHooks.active(), null, 'late rejection after Stop must not reopen recovery');
 } finally { clearSillyTavernDirectiveRuntimeBridge(); }
