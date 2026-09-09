@@ -910,7 +910,7 @@ async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
 }
 
 export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000 } = {}) {
-    return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null } = {}) {
+    return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
         const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, boundedTimeout(timeoutMs)) ?? boundedTimeout(timeoutMs);
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
@@ -953,6 +953,13 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
         };
         if (generation?.ok !== true || (!isObject(payload) && !String(payload || '').trim())) {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-empty', diagnostics };
+        }
+        if (!signal?.aborted && typeof onPhase === 'function') {
+            try {
+                Promise.resolve(onPhase('validating-response')).catch(() => null);
+            } catch {
+                // Progress observers must not affect generation or validation.
+            }
         }
         const parsed = parseEpisodeEvaluationProposal(payload, { request });
         if (!parsed.ok) {

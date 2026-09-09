@@ -416,7 +416,7 @@ export function createStoryDirector({
     ? Math.floor(timeoutMs)
     : STORY_DIRECTOR_DEFAULT_TIMEOUT_MS;
   const readMonotonicNow = typeof monotonicNow === 'function' ? monotonicNow : defaultMonotonicNow;
-  return async function directStory({ request = {}, signal = null, onAttempt = null } = {}) {
+  return async function directStory({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
     const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(STORY_DIRECTOR_ROLE_ID, fallbackTimeoutMs) ?? fallbackTimeoutMs;
     if (signal?.aborted) return { ok: false, reasonCode: 'director-aborted', diagnostics: {} };
     if (typeof generationRouter?.generate !== 'function') {
@@ -474,6 +474,13 @@ export function createStoryDirector({
     const response = responsePayload(generation);
     if (generation?.ok !== true || (!object(response) && !String(response).trim())) {
       return { ok: false, reasonCode: 'director-unavailable', diagnostics: detail };
+    }
+    if (!signal?.aborted && typeof onPhase === 'function') {
+      try {
+        Promise.resolve(onPhase('validating-response')).catch(() => null);
+      } catch {
+        // Progress observers must not affect generation or validation.
+      }
     }
     const parsed = parseStoryDirectorOutput(response, { request });
     if (!parsed.ok) {

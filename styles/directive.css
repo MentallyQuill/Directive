@@ -6052,3 +6052,39 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-turn-activity-history [data-outcome="failed"] { color: #ffbd9e; }
 .directive-turn-activity-concurrent[hidden],
 .directive-turn-activity-details[hidden] { display: none; }
+
+/* Purposeful progress rows, with observed substeps and aligned execution state. */
+.directive-turn-activity-phase {
+  color: #c6bba8;
+  font: 400 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif;
+}
+.directive-turn-activity-phase[hidden] { display: none; }
+.directive-turn-activity-history {
+  list-style: none;
+  padding: 0;
+  max-height: min(300px, 42vh);
+}
+.directive-turn-activity-history .directive-progress-item { padding: 0; }
+.directive-progress-row {
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 0;
+  border-top: 1px solid rgba(248, 239, 224, .08);
+}
+.directive-progress-name { min-width: 0; overflow-wrap: anywhere; color: #f8efe0; }
+.directive-progress-source { display: block; color: #aaa396; font-size: 9px; line-height: 1.2; }
+.directive-progress-status { font-size: 10px; }
+.directive-progress-duration { min-width: 25px; text-align: right; font-variant-numeric: tabular-nums; font-size: 10px; }
+.directive-progress-children { list-style: none; padding: 0 0 0 12px; margin: 0 0 3px 3px; border-left: 1px solid rgba(248, 239, 224, .14); }
+.directive-progress-children .directive-progress-row { border-top: 0; padding: 3px 0; }
+.directive-progress-children .directive-progress-name { color: #c6bba8; }
+.directive-progress-state-dot { width: 5px; height: 5px; align-self: center; border: 1px solid #aaa396; border-radius: 50%; }
+.directive-progress-item[data-outcome="active"] > .directive-progress-row .directive-progress-state-dot { border-color: #f2a126; background: #f2a126; }
+.directive-progress-item[data-outcome="complete"] > .directive-progress-row .directive-progress-state-dot { border-color: #9ec8a0; background: #9ec8a0; }
+.directive-progress-item[data-outcome="failed"] > .directive-progress-row .directive-progress-state-dot { border-color: #ffbd9e; background: #ffbd9e; }
+.directive-progress-item[data-outcome="failed"] > .directive-progress-row .directive-progress-status { color: #ffbd9e; }
+.directive-turn-activity-indicator:has(.directive-turn-activity-details[open]) {
+  background-color: #0d1018;
+}

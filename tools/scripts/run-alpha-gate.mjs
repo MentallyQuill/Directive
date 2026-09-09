@@ -65,6 +65,7 @@ const checks = [
   "test-turn-activity-lifecycle.mjs",
   "test-turn-progress-runtime.mjs",
   "test-turn-progress-presentation.mjs",
+  "test-progress-menu.mjs",
   "test-turn-progress-app.mjs",
   "test-ui-controls-modal-browser.mjs",
   "test-ui-experience-polish-visual.mjs",

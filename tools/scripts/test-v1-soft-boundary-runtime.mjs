@@ -173,9 +173,10 @@ function createHarness({
         },
         now: () => '2026-08-09T16:00:00.000Z',
     });
-    const evaluateEpisode = async ({ request, onAttempt }) => {
+    const evaluateEpisode = async ({ request, onAttempt, onPhase }) => {
         evaluationCount += 1;
         onAttempt?.(1);
+        onPhase?.('validating-response');
         return evaluator
             ? evaluator({ request, gateway, getState: () => campaignState })
             : { ok: true, status: 'continue', proposal: proposalFor(request, 'continue'), diagnostics: {} };
@@ -220,7 +221,14 @@ assert.deepEqual(
     ['reviewing-episode'],
     'episode progress wraps the full evaluator call without inventing persistence in a test gateway',
 );
-assert.equal(episodeProgressEvents.find((event) => event.type === 'update').attempt, 1);
+assert.deepEqual(
+    episodeProgressEvents.filter((event) => event.type === 'update').map(({ phase, attempt }) => ({ phase, attempt })),
+    [
+        { phase: 'waiting-model', attempt: 1 },
+        { phase: 'validating-response', attempt: 1 },
+    ],
+    'episode evaluation reports transport and validation within one operation',
+);
 assert.deepEqual(continued.committedRoots, ['storySettlement']);
 assert.equal(continued.reviewToken, null);
 assert.equal(continueHarness.persistCount, 3);

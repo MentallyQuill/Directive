@@ -600,7 +600,7 @@ export function createMissionAcceptedPairInterpreter({
 } = {}) {
     return async function interpretMissionAcceptedPair({
         candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
-        onAttempt = null,
+        onAttempt = null, onPhase = null,
     } = {}) {
         const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, timeoutMs) ?? timeoutMs;
         if (typeof generationRouter?.generate !== 'function') {
@@ -638,6 +638,13 @@ export function createMissionAcceptedPairInterpreter({
                     latencyMs: generation?.diagnostics?.latencyMs ?? null,
                 },
             };
+        }
+        if (!signal?.aborted && typeof onPhase === 'function') {
+            try {
+                Promise.resolve(onPhase('validating-response')).catch(() => null);
+            } catch {
+                // Progress observers must not affect generation or validation.
+            }
         }
         const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext });
         if (!parsed.ok) {

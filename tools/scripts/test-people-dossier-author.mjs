@@ -91,4 +91,35 @@ for (const mutate of [
   const value = structuredClone(output); mutate(value);
   assert.equal(parsePeopleDossierBatchOutput(JSON.stringify(value).replace(/}$/, ',}'), {introductions}).ok, false);
 }
+
+// Validation progress follows an actual response, even when its content is invalid.
+for (const outcome of ['valid', 'malformed', 'failed', 'thrown']) {
+  const events = [];
+  const invoke = createPeopleDossierAuthor({ generationRouter: { async generate() {
+    events.push('generating');
+    if (outcome === 'thrown') throw new Error('provider failed');
+    events.push('responded');
+    return { ok: outcome !== 'failed', response: { text: outcome === 'malformed' ? '{"kind":' : JSON.stringify(output) } };
+  } } });
+  const observed = await invoke({ ...{ introductions }, onPhase: (...values) => events.push(values) });
+  assert.equal(observed.ok, outcome === 'valid');
+  assert.deepEqual(events, outcome === 'thrown' ? ['generating']
+    : outcome === 'failed' ? ['generating', 'responded']
+    : ['generating', 'responded', ['validating-response']]);
+  if (outcome === 'valid') {
+    const unaffected = await invoke({ ...{ introductions }, onPhase() { throw new Error('observer failed'); } });
+    assert.deepEqual(unaffected, observed, 'observer exceptions do not change the result');
+    const asyncUnaffected = await invoke({ ...{ introductions }, async onPhase() { throw new Error('async observer failed'); } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(asyncUnaffected, observed, 'async observer rejection does not change the result');
+  }
+}
+const canceledPhases = [];
+const controller = new AbortController();
+const canceledAuthor = createPeopleDossierAuthor({ generationRouter: { async generate() {
+  controller.abort();
+  return { ok: true, response: { text: JSON.stringify(output) } };
+} } });
+await canceledAuthor({ introductions, signal: controller.signal, onPhase: (phase) => canceledPhases.push(phase) });
+assert.deepEqual(canceledPhases, [], 'aborted generation never announces validation');
 console.log('People dossier author tests passed.');

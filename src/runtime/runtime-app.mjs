@@ -83,6 +83,39 @@ function compact(value) {
   return String(value ?? '').trim();
 }
 
+const DIRECTIVE_PROMPT_BINDING_FIELDS = Object.freeze([
+  'hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName',
+]);
+
+function directiveBindingMatches(expected, actual) {
+  if (!expected || !actual) return false;
+  return DIRECTIVE_PROMPT_BINDING_FIELDS.every((field) => {
+    const expectedValue = compact(expected[field]);
+    return Boolean(expectedValue) && expectedValue === compact(actual[field]);
+  });
+}
+
+function sameDirectivePromptTarget(captured = {}, current = {}) {
+  if (!captured.campaignState || captured.campaignState !== current.campaignState) return false;
+  if (captured.revision !== current.campaignState?.stateCustody?.revision) return false;
+  const expected = captured.binding;
+  const stateBinding = current.campaignState?.campaignChatBinding;
+  const hostBinding = current.hostBinding;
+  return directiveBindingMatches(expected, stateBinding)
+    && directiveBindingMatches(expected, hostBinding);
+}
+
+function directivePromptTargetStatus(captured = {}, current = {}) {
+  if (sameDirectivePromptTarget(captured, current)) return 'current';
+  return directiveBindingMatches(current.campaignState?.campaignChatBinding, current.hostBinding)
+    ? 'changed-bound-target'
+    : 'unbound';
+}
+
+export const __directiveRuntimeAppTestHooks = Object.freeze({
+  promptTargetStatus: directivePromptTargetStatus,
+});
+
 function required(value, label) {
   const text = compact(value);
   if (!text) throw new Error(`${label} must be a non-empty string`);
@@ -832,68 +865,128 @@ export function createDirectiveRuntimeApp({
     }
   }
 
-  async function syncPrompt({ rebuild = false, progressScope = null, generationType = 'normal', generationTargetKey = undefined } = {}) {
+  async function syncPrompt({
+    rebuild = false,
+    progressScope = null,
+    generationType = 'normal',
+    generationTargetKey = undefined,
+    cancelIfUnbound = false,
+  } = {}) {
     if (!state || !currentChatIsBound()) {
+      if (cancelIfUnbound) return staleDirectivePromptResult('unbound');
       await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'unbound-v1-chat' });
       return { ok: true, active: false };
     }
-    return turnProgress.run('preparing', () => syncBoundPrompt({ rebuild, generationType, generationTargetKey }), { scope: progressScope });
+    return syncBoundPrompt({ rebuild, progressScope, generationType, generationTargetKey });
   }
 
-  async function syncBoundPrompt({ rebuild = false, generationType = 'normal', generationTargetKey = undefined } = {}) {
-    await activateNarrationPreset();
+  function captureDirectivePromptTarget() {
+    return {
+      campaignState: state,
+      revision: state?.stateCustody?.revision,
+      binding: clone(state?.campaignChatBinding),
+    };
+  }
+
+  function currentDirectivePromptTargetStatus(target) {
+    return directivePromptTargetStatus(target, {
+      campaignState: state,
+      hostBinding: host.chat.getCurrentBinding?.(),
+    });
+  }
+
+  function staleDirectivePromptResult(targetStatus) {
+    return {
+      ok: false,
+      active: false,
+      status: 'stale-target',
+      reasonCode: 'prompt-target-changed',
+      targetStatus,
+    };
+  }
+
+  async function syncBoundPrompt({ rebuild = false, progressScope = null, generationType = 'normal', generationTargetKey = undefined } = {}) {
+    if (typeof host.presets?.activateNarrationPreset === 'function') {
+      await turnProgress.run('activating-preset', () => activateNarrationPreset(), { scope: progressScope });
+    }
     if (!state || !currentChatIsBound()) {
       await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'chat-changed-during-preset-activation' });
       return { ok: true, active: false };
     }
-    const result = projectionResult();
-    if (!result.ok) {
-      await host.prompt.clear?.({ reason: result.reasonCode || 'v1-projection-unavailable' });
-      const error = new Error(`Directive V1 player projection unavailable: ${result.reasonCode || 'unknown'}`);
-      error.code = 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE';
+    const promptTarget = captureDirectivePromptTarget();
+    const campaignState = promptTarget.campaignState;
+    let context;
+    try {
+      context = await turnProgress.run('building-context', () => {
+        const result = buildV1RuntimePlayerProjection({ campaignState, runtimeAssets });
+        if (!result.ok) {
+          const error = new Error(`Directive V1 player projection unavailable: ${result.reasonCode || 'unknown'}`);
+          error.code = 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE';
+          error.reasonCode = result.reasonCode || 'v1-projection-unavailable';
+          throw error;
+        }
+        const acceptedPairLineage = (campaignState.storySettlement?.acceptedPairReceipts || [])
+          .slice(0, 2)
+          .map((receipt) => ({
+            previousAssistantHostMessageId: compact(receipt.previousAssistant?.messageId) || null,
+            currentPlayerHostMessageId: compact(receipt.currentPlayer?.messageId) || null,
+            sourceRangeHash: compact(receipt.sourceRangeHash) || null,
+          }));
+        const preparedDutyReport = missionRuntime.preparePendingDutyReport({
+          runtimeAssets,
+          availableActors: availableDirectorActors(runtimeAssets),
+          responseId: 'pending-host-response',
+          sourceTransactionId: `pending-host-generation.${campaignState.stateCustody.revision}`
+        });
+        const director = {
+          storyInstruction: selectDirectorReceipt(campaignState.storySettlement, {
+            branchId: campaignState.campaignChatBinding.saveId,
+            packageId: campaignState.activeCampaignPackage.packageId,
+            packageVersion: campaignState.activeCampaignPackage.packageVersion,
+            missionId: campaignState.mission?.v1?.definitionId,
+            generationType,
+            generationTargetKey,
+          })?.instruction || null,
+          dutyReport: preparedDutyReport?.ok && preparedDutyReport.status === 'ready'
+            ? { packet: preparedDutyReport.packet, segment: preparedDutyReport.segment }
+            : null
+        };
+        return { projection: result.projection, acceptedPairLineage, director };
+      }, { scope: progressScope });
+    } catch (error) {
+      if (error?.code === 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE') {
+        const targetStatus = currentDirectivePromptTargetStatus(promptTarget);
+        if (targetStatus !== 'current') {
+          return staleDirectivePromptResult(targetStatus);
+        }
+        await host.prompt.clear?.({ reason: error.reasonCode });
+      }
       throw error;
     }
-    const acceptedPairLineage = (state.storySettlement?.acceptedPairReceipts || [])
-      .slice(0, 2)
-      .map((receipt) => ({
-        previousAssistantHostMessageId: compact(receipt.previousAssistant?.messageId) || null,
-        currentPlayerHostMessageId: compact(receipt.currentPlayer?.messageId) || null,
-        sourceRangeHash: compact(receipt.sourceRangeHash) || null,
-      }));
-    const preparedDutyReport = missionRuntime.preparePendingDutyReport({
+    const afterContextStatus = currentDirectivePromptTargetStatus(promptTarget);
+    if (afterContextStatus !== 'current') {
+      return staleDirectivePromptResult(afterContextStatus);
+    }
+    const packet = await turnProgress.run('assembling-prompt', () => createV1RuntimePromptPacket({
+      state: campaignState,
+      projection: context.projection,
       runtimeAssets,
-      availableActors: availableDirectorActors(runtimeAssets),
-      responseId: 'pending-host-response',
-      sourceTransactionId: `pending-host-generation.${state.stateCustody.revision}`
-    });
-    const director = {
-      storyInstruction: selectDirectorReceipt(state.storySettlement, {
-        branchId: state.campaignChatBinding.saveId,
-        packageId: state.activeCampaignPackage.packageId,
-        packageVersion: state.activeCampaignPackage.packageVersion,
-        missionId: state.mission?.v1?.definitionId,
-        generationType,
-        generationTargetKey,
-      })?.instruction || null,
-      dutyReport: preparedDutyReport?.ok && preparedDutyReport.status === 'ready'
-        ? { packet: preparedDutyReport.packet, segment: preparedDutyReport.segment }
-        : null
-    };
+      acceptedPairLineage: context.acceptedPairLineage,
+      director: context.director,
+      narrationSettings: narrationSettings(),
+      openingRecord: host.chat.getOpeningRecord?.() || null
+    }), { scope: progressScope });
+    const afterAssemblyStatus = currentDirectivePromptTargetStatus(promptTarget);
+    if (afterAssemblyStatus !== 'current') {
+      return staleDirectivePromptResult(afterAssemblyStatus);
+    }
     const method = rebuild && host.prompt.rebuild ? 'rebuild' : 'install';
-    const installed = await host.prompt[method]({
-      binding: clone(state.campaignChatBinding),
-      packet: createV1RuntimePromptPacket({
-        state,
-        projection: result.projection,
-        runtimeAssets,
-        acceptedPairLineage,
-        director,
-        narrationSettings: narrationSettings(),
-        openingRecord: host.chat.getOpeningRecord?.() || null
-      })
-    });
+    const installed = await turnProgress.run('installing-prompt', () => host.prompt[method]({
+      binding: clone(promptTarget.binding),
+      packet,
+    }), { scope: progressScope });
     if (installed?.ok === false) {
       const error = new Error('Directive could not install the prepared turn context.');
       error.code = 'DIRECTIVE_PROMPT_INSTALL_FAILED';
@@ -1560,7 +1653,20 @@ export function createDirectiveRuntimeApp({
           throw error;
         }
       }
-      await syncPrompt({ progressScope, generationType, generationTargetKey });
+      const promptSync = await syncPrompt({
+        progressScope,
+        generationType,
+        generationTargetKey,
+        cancelIfUnbound: true,
+      });
+      if (promptSync?.status === 'stale-target' || promptSync?.active === false) {
+        return {
+          handled: true,
+          abortDefaultGeneration: true,
+          responseStrategy: 'cancelStaleTurn',
+          reasonCode: promptSync.reasonCode || 'prompt-target-changed',
+        };
+      }
       return {
         handled: true,
         abortDefaultGeneration: false,

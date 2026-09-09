@@ -155,6 +155,7 @@ assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /do not choose actions for the player
 assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /coverage.*overflow/i);
 assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /setStatus.*resolved/i);
 
+const incompletePhases = [];
 let timeoutCalls = 0;
 let observedAbort = false;
 const timedOut = createStoryDirector({
@@ -167,7 +168,7 @@ const timedOut = createStoryDirector({
     },
   },
 });
-assert.deepEqual(await timedOut({ request }), {
+assert.deepEqual(await timedOut({ request, onPhase: (phase) => incompletePhases.push(phase) }), {
   ok: false,
   reasonCode: 'director-timeout',
   diagnostics: { timeoutMs: 10 },
@@ -201,10 +202,34 @@ const cancelInFlight = createStoryDirector({
     },
   },
 });
-const cancellation = cancelInFlight({ request, signal: duringAbort.signal });
+const cancellation = cancelInFlight({ request, signal: duringAbort.signal, onPhase: (phase) => incompletePhases.push(phase) });
 await Promise.resolve();
 duringAbort.abort('cancelled');
 assert.equal((await cancellation).reasonCode, 'director-aborted');
 assert.equal(physicalSignal.aborted, true);
+assert.deepEqual(incompletePhases, [], "timeouts and aborts never start validation");
 
+
+// Validation progress follows an actual response, even when its content is invalid.
+for (const outcome of ['valid', 'malformed', 'failed', 'thrown']) {
+  const events = [];
+  const invoke = createStoryDirector({ monotonicNow: () => 0, generationRouter: { async generate() {
+    events.push('generating');
+    if (outcome === 'thrown') throw new Error('provider failed');
+    events.push('responded');
+    return { ok: outcome !== 'failed', response: { text: outcome === 'malformed' ? '{"kind":' : JSON.stringify(output) } };
+  } } });
+  const observed = await invoke({ ...{ request }, onPhase: (...values) => events.push(values) });
+  assert.equal(observed.ok, outcome === 'valid');
+  assert.deepEqual(events, outcome === 'thrown' ? ['generating']
+    : outcome === 'failed' ? ['generating', 'responded']
+    : ['generating', 'responded', ['validating-response']]);
+  if (outcome === 'valid') {
+    const unaffected = await invoke({ ...{ request }, onPhase() { throw new Error('observer failed'); } });
+    assert.deepEqual(unaffected, observed, 'observer exceptions do not change the result');
+    const asyncUnaffected = await invoke({ ...{ request }, async onPhase() { throw new Error('async observer failed'); } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(asyncUnaffected, observed, 'async observer rejection does not change the result');
+  }
+}
 console.log('Story director contract tests passed.');
