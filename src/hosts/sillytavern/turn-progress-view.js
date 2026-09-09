@@ -3,7 +3,6 @@ import {acquireDirectiveNotificationSurface, releaseDirectiveNotificationSurface
 import {appendDirectiveModal} from '../../ui/directive-overlay-root.js';
 
 let card;
-let launcher;
 let dialog;
 let latest;
 let opener;
@@ -87,7 +86,7 @@ function showLog(event) {
     header.append(title, button('Close', closeLog));
     dialog.append(header, node('p', 'directive-progress-log-total'), list('directive-progress-log-rows'));
     dialog.addEventListener('close', () => {
-      const target = opener?.isConnected ? opener : launcher || card?.querySelector('.directive-progress-full-log');
+      const target = opener?.isConnected ? opener : card?.querySelector('.directive-progress-full-log');
       target?.focus();
     });
     appendDirectiveModal(dialog);
@@ -104,21 +103,14 @@ function updateLog() {
 export function renderProgressView(model) {
   latest = model;
   if (!model.current) {
-    const hadFocus = card?.contains(document.activeElement);
     card?.remove();
     card = null;
-    if (model.rows.length && !launcher?.isConnected) {
-      launcher = button('Last turn activity', showLog);
-      launcher.id = 'directive-turn-activity-log-launcher';
-      acquireDirectiveNotificationSurface('activity').activitySlot.append(launcher);
-    }
+    // An explicitly opened log lives in the modal root, not the notification lane.
+    releaseDirectiveNotificationSurface('activity');
     if (!model.rows.length) clearProgressView();
-    if (hadFocus) launcher?.focus();
     updateLog();
     return;
   }
-  launcher?.remove();
-  launcher = null;
   if (!card?.isConnected) {
     card = node('article', 'directive-notification-card directive-turn-activity-indicator is-activity');
     card.id = 'directive-turn-activity-indicator';
@@ -192,7 +184,6 @@ export function clearProgressView() {
   dialog?.close();
   dialog?.remove();
   card?.remove();
-  launcher?.remove();
-  card = launcher = dialog = latest = opener = null;
+  card = dialog = latest = opener = null;
   releaseDirectiveNotificationSurface('activity');
 }

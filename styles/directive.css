@@ -6052,7 +6052,6 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-progress-action { appearance: none; border: 0; border-radius: 3px; background: transparent; color: #f2a126; cursor: pointer; padding: 5px 2px; margin: 0; width: auto; min-height: 28px; }
 .directive-progress-action:hover { background: #f2a12612; }
 .directive-progress-row:focus-visible, .directive-turn-activity-details > summary:focus-visible, .directive-progress-action:focus-visible { outline: 2px solid #ffc15b; outline-offset: 2px; border-radius: 2px; }
-#directive-turn-activity-log-launcher { pointer-events: auto; padding: 5px 10px; background: #0d1018; border: 1px solid #f2a12650; align-self: end; }
 .directive-progress-log { box-sizing: border-box; width: min(640px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 16px; border: 1px solid #f2a12680; border-radius: 4px; background: #0d1018; color: #f8efe0; box-shadow: 0 12px 48px #0008; }
 .directive-progress-log[open] { display: flex; flex-direction: column; }
 .directive-progress-log::backdrop { background: #0009; }

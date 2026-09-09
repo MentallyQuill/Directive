@@ -138,6 +138,8 @@ try {
   await indicator.getByRole('button', {name:'View full log'}).click();
   await page.evaluate(() => __emitActivityEnd());
   await indicator.waitFor({state:'hidden'});
+  assert.equal(await page.locator('#directive-turn-activity-log-launcher').count(), 0, 'completion leaves no persistent activity button');
+  assert.equal(await page.locator('.directive-notification-activity-slot > *').count(), 0, 'completion frees the notification lane');
   assert.equal(await log.isVisible(), true, 'open log remains readable on completion');
   assert.equal(await log.locator('[data-outcome="active"]').count(), 0);
   const frozen = await log.locator('.directive-progress-log-total').textContent();
@@ -145,14 +147,10 @@ try {
   assert.equal(await log.locator('.directive-progress-log-total').textContent(), frozen, 'completed durations freeze');
   await log.screenshot({path:path.join(artifacts,'full-log.png')});
   await page.keyboard.press('Escape');
-  const launcher = page.locator('#directive-turn-activity-log-launcher');
-  await page.waitForFunction(() => document.activeElement?.id === 'directive-turn-activity-log-launcher');
-  assert.equal(await launcher.evaluate(el => el === document.activeElement), true, 'completion restores focus to retained log control');
-  await launcher.click();
-  assert.match(await log.textContent(), /Last activity/);
+  await log.waitFor({state:'hidden'});
   await page.evaluate(() => __activity.recordDirectiveTurnProgress({type:'reset'}));
   assert.equal(await page.locator('#directive-turn-progress-log').count(), 0, 'reset removes stale log and modal');
-  assert.equal(await launcher.count(), 0);
+  assert.equal(await page.locator('#directive-turn-activity-log-launcher').count(), 0);
   assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'log cleanup preserves gameplay cards');
   await page.evaluate(() => {
     __activity.markDirectiveTurnActivity();
