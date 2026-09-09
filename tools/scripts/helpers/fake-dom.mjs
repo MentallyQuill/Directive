@@ -35,8 +35,18 @@ export class FakeElement {
   get id() { return this.attributes.get('id') || ''; }
   set id(value) { this.setAttribute('id', value); }
   get isConnected() { return this === this.ownerDocument.body || Boolean(this.parentNode?.isConnected); }
+  get lastElementChild() { return this.children.at(-1) || null; }
   append(...nodes) { nodes.forEach((node) => this.appendChild(node)); }
   appendChild(node) { node.parentNode = this; this.children.push(node); return node; }
+  insertBefore(node, reference) {
+    if (node === reference) return node;
+    if (reference !== null && !this.children.includes(reference)) throw new Error('Reference is not a child');
+    node.remove();
+    node.parentNode = this;
+    const index = reference === null ? this.children.length : this.children.indexOf(reference);
+    this.children.splice(index, 0, node);
+    return node;
+  }
   replaceChildren(...nodes) {
     this.children.forEach((child) => { child.parentNode = null; });
     this.children = [];

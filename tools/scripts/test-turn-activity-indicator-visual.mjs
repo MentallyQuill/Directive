@@ -57,166 +57,152 @@ try {
   });
 
   const indicator = page.locator('#directive-turn-activity-indicator');
-  await indicator.waitFor({ state: 'visible', timeout: 1200 });
-  assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'Directive');
+  await indicator.waitFor({state: 'visible'});
   assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Processing the turn...');
-  assert.equal(await indicator.locator('.directive-notification-title-icon').getAttribute('data-glyph'), 'route-campaign');
-  assert.equal(await indicator.locator('button').count(), 0, 'turn activity remains lifecycle-controlled and non-dismissible');
-  const activityStyle = await indicator.evaluate((card) => ({
-    borderLeftColor: getComputedStyle(card).borderLeftColor,
-    clipPath: getComputedStyle(card).clipPath,
-    borderRadius: getComputedStyle(card).borderRadius,
-  }));
-  assert.equal(activityStyle.borderLeftColor, 'rgb(242, 161, 38)', 'activity uses the shared yellow-orange accent');
-  assert.equal(activityStyle.clipPath, 'none', 'activity outline and shadow are not polygon-clipped');
-  assert.equal(activityStyle.borderRadius, '4px', 'activity uses the shared softly rounded bevel');
-  await indicator.evaluate(card => Promise.all(card.getAnimations().map(animation => animation.finished)));
-  const readingGeometry = await indicator.boundingBox();
-  assert.ok(readingGeometry?.width > 0 && readingGeometry?.height > 0, 'reading status must occupy visible browser geometry');
-  assert.ok(
-    readingGeometry.y >= 8 && readingGeometry.y <= 40,
-    `reading status shares the upper Directive notification lane: ${JSON.stringify(readingGeometry)}`,
-  );
+  const styles = await indicator.evaluate(card => ({border: getComputedStyle(card).borderLeftColor, radius: getComputedStyle(card).borderRadius}));
+  assert.equal(styles.border, 'rgb(242, 161, 38)');
+  assert.equal(styles.radius, '4px');
   await page.evaluate(async () => {
     const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    for (let run = 0; run < 3; run++) {
-      for (const stage of ['building-context', 'assembling-prompt', 'installing-prompt']) {
-        const operationId = `${stage}.${run}`;
-        activity.recordDirectiveTurnProgress({type:'start', operationId, stage, startedAt:performance.now()});
-        activity.recordDirectiveTurnProgress({type:'finish', operationId, outcome:'complete', endedAt:performance.now()});
-      }
+    globalThis.__activity = activity;
+    for (let i = 0; i < 8; i++) {
+      activity.recordDirectiveTurnProgress({type:'start', operationId:`done-${i}`, stage:'directing-story', startedAt:performance.now() - 6000});
+      activity.recordDirectiveTurnProgress({type:'update', operationId:`done-${i}`, phase:'waiting-model', phaseStartedAt:performance.now() - 6000});
+      activity.recordDirectiveTurnProgress({type:'update', operationId:`done-${i}`, phase:'validating-response', phaseStartedAt:performance.now() - 500});
+      activity.recordDirectiveTurnProgress({type:'finish', operationId:`done-${i}`, outcome:i === 0 ? 'failed' : 'complete', endedAt:performance.now()});
     }
-    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'review', stage: 'reviewing-events', startedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({type:'update',operationId:'review',phase:'waiting-model',phaseStartedAt:performance.now(),attempt:1});
+    activity.recordDirectiveTurnProgress({type:'start', operationId:'review', stage:'reviewing-events', startedAt:performance.now()});
+    activity.recordDirectiveTurnProgress({type:'update', operationId:'review', phase:'waiting-model', phaseStartedAt:performance.now()});
   });
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reviewing recent events...');
-  assert.equal(await indicator.locator('.directive-turn-activity-elapsed').evaluate(node => node.closest('[role="status"]')), null);
+  const recent = indicator.locator('.directive-progress-recent');
+  assert.equal(await recent.locator(':scope > li').count(), 5, 'four recent operations plus older failure');
+  assert.equal(await indicator.locator('.directive-progress-active > li').count(), 1, 'current work appears once');
+  assert.equal(await indicator.locator('.directive-progress-breakdown:visible').count(), 0, 'substeps start collapsed');
+  assert.equal(await recent.locator(':scope > [data-outcome="failed"]').count(), 1, 'failure stays visible');
   assert.equal(await indicator.locator('.directive-turn-activity-elapsed').getAttribute('aria-live'), 'off');
-  await indicator.locator('summary').focus();
+  const recentBox = await recent.boundingBox();
+  assert.ok(recentBox.height < 180, `five rows fit compactly: ${recentBox.height}`);
+  assert.equal(await recent.evaluate(el => el.scrollHeight <= el.clientHeight), true, 'recent activity does not scroll');
+  const disclosure = indicator.locator('.directive-progress-active > li > details');
+  await disclosure.locator(':scope > summary').focus();
   await page.keyboard.press('Enter');
-  assert.equal(await indicator.locator('details').getAttribute('open'), '');
-  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(), /Interpret recent exchange.*Running/);
-  await page.evaluate(async () => {
-    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'episode', stage: 'reviewing-episode', startedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'episode', attempt: 2, phase:'waiting-model',phaseStartedAt:performance.now() });
-  });
-  assert.match(await indicator.locator('.directive-turn-activity-concurrent').textContent(), /Reviewing recent events/);
-  assert.equal(await indicator.locator('.directive-progress-name').filter({hasText:'Turn context'}).count(),1);
-  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(),/Install reply context \(3 runs\)/);
-  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(),/Wait for model response/);
-  assert.doesNotMatch(await indicator.locator('.directive-turn-activity-history').textContent(),/Preparing the reply/);
-  assert.match(await indicator.locator('.directive-turn-activity-label').textContent(), /attempt 2/);
-  assert.equal(await indicator.locator('summary').evaluate(node => node === document.activeElement), true, 'progress updates preserve disclosure focus');
-  assert.doesNotMatch(await indicator.textContent(), /\uFFFD/);
+  assert.equal(await disclosure.getAttribute('open'), '');
+  await page.evaluate(() => __activity.recordDirectiveTurnProgress({type:'update', operationId:'review', phase:'validating-response', phaseStartedAt:performance.now()}));
+  assert.equal(await disclosure.locator(':scope > summary').evaluate(el => el === document.activeElement), true, 'phase events preserve keyboard focus');
+  assert.equal(await disclosure.getAttribute('open'), '', 'phase events preserve expansion');
   await page.waitForTimeout(2100);
-  assert.notEqual(await indicator.locator('[data-progress-duration="episode"]').textContent(), '<1s', 'model duration advances without progress events');
-  assert.equal(await indicator.locator('summary').evaluate(node => node === document.activeElement), true);
-  assert.equal(await indicator.locator('details').getAttribute('open'), '');
-  const progressArtifacts = path.join(repoRoot, 'artifacts', 'progress-granularity');
-  mkdirSync(progressArtifacts, { recursive: true });
-  await page.screenshot({path: path.join(progressArtifacts, 'desktop-details.png')});
-  await page.evaluate(async () => {
-    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'episode', outcome: 'failed', endedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'review', outcome: 'complete', endedAt: performance.now() });
+  assert.notEqual(await disclosure.locator(':scope > summary [data-progress-duration]').textContent(), '<1s', 'observed duration ticks');
+  await disclosure.locator(':scope > summary').click();
+  await page.evaluate(() => {
+    __activity.recordDirectiveTurnProgress({type:'start', operationId:'episode', stage:'reviewing-episode', startedAt:performance.now()});
+    __activity.recordDirectiveTurnProgress({type:'update', operationId:'episode', attempt:2, phase:'waiting-model', phaseStartedAt:performance.now()});
   });
-  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(), /Review episode.*Failed/);
-  await indicator.locator('summary').click();
+  assert.equal(await indicator.locator('.directive-progress-active > li').count(), 2, 'concurrent operations are both anchored');
+  assert.match(await indicator.locator('.directive-turn-activity-label').textContent(), /attempt 2/);
+  const earlier = indicator.locator('.directive-turn-activity-details');
+  await earlier.locator(':scope > summary').click();
+  assert.equal(await earlier.locator('.directive-progress-earlier > li').count(), 3);
+  await earlier.locator(':scope > summary').click();
+  const artifacts = path.join(repoRoot, 'artifacts', 'compact-turn-progress');
+  mkdirSync(artifacts, {recursive:true});
+  await indicator.screenshot({path:path.join(artifacts,'desktop.png')});
+  await indicator.getByRole('button', {name:'View full log'}).click();
+  const log = page.locator('#directive-turn-progress-log');
+  assert.equal(await log.isVisible(), true);
+  assert.equal(await log.locator('.directive-progress-log-rows > li').count(), 10);
+  await page.keyboard.press('Escape');
+  assert.equal(await indicator.getByRole('button', {name:'View full log'}).evaluate(el => el === document.activeElement), true, 'Escape restores opener focus');
+  const moving = indicator.locator('[data-row-id="review"] > details');
+  await moving.locator(':scope > summary').click();
+  await page.evaluate(() => __activity.recordDirectiveTurnProgress({type:'finish', operationId:'review', outcome:'complete', endedAt:performance.now()}));
+  assert.equal(await moving.getAttribute('open'), '', 'completion retains expanded details');
+  assert.equal(await moving.locator(':scope > summary').evaluate(el => el === document.activeElement), true, 'completion retains keyboard focus');
+  // Completion still owns the active card; retaining a log never keeps it running.
   await page.evaluate(async () => {
+    __activity.recordDirectiveTurnProgress({type:'finish', operationId:'episode', outcome:'failed', endedAt:performance.now()});
+    __activity.recordDirectiveTurnProgress({type:'finish', operationId:'review', outcome:'complete', endedAt:performance.now()});
     globalThis.__releaseActivityInterception();
     await globalThis.__directiveBoundaryInterception;
   });
-  assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'waiting', 'handoff updates immediately without a reading hold');
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Waiting for the reply...');
-
+  assert.equal(await indicator.getAttribute('data-directive-turn-activity-phase'), 'waiting');
   await page.evaluate(() => {
-    const base = {
-      kind: 'objectiveComplete',
-      title: 'Objective complete',
-      summary: 'Notification coexistence proof.',
-      priority: 70,
-      sourceRevision: 'mission:2;story:1',
-    };
-    globalThis.__directiveShowGameplayNotifications([
-      { ...base, id: 'mission.activity-stack', route: 'mission', subjectId: 'mission.activity-stack' },
-      { ...base, id: 'people.activity-stack', route: 'people', subjectId: 'people.activity-stack' },
-      { ...base, id: 'ship.activity-stack', route: 'ship', subjectId: 'ship.activity-stack' },
-    ]);
+    const base = {kind:'objectiveComplete', title:'Objective complete', summary:'Coexistence proof.', priority:70, sourceRevision:'mission:2;story:1'};
+    __directiveShowGameplayNotifications(['mission','people','ship'].map(route => ({...base,id:`${route}.compact`,route,subjectId:`${route}.compact`})));
   });
-  await page.waitForTimeout(220);
-  assert.equal(await page.locator('#directive-notifications').count(), 1, 'activity and gameplay share one notification host');
-  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'activity does not consume a gameplay slot');
-  const stackedGeometry = await page.evaluate(() => {
-    const activity = document.querySelector('#directive-turn-activity-indicator').getBoundingClientRect();
-    const gameplay = document.querySelector('.directive-gameplay-notification').getBoundingClientRect();
-    return { activityBottom: activity.bottom, gameplayTop: gameplay.top };
+  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3);
+  await page.waitForTimeout(250);
+  const stack = await page.evaluate(() => ({bottom:document.querySelector('#directive-turn-activity-indicator').getBoundingClientRect().bottom, top:document.querySelector('.directive-gameplay-notification').getBoundingClientRect().top}));
+  assert.ok(stack.top >= stack.bottom + 6, 'gameplay notifications remain below activity');
+  await page.evaluate(() => __emitActivityStream('actual stream chunk'));
+  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Receiving the reply');
+  await indicator.getByRole('button', {name:'View full log'}).click();
+  await page.evaluate(() => __emitActivityEnd());
+  await indicator.waitFor({state:'hidden'});
+  assert.equal(await log.isVisible(), true, 'open log remains readable on completion');
+  assert.equal(await log.locator('[data-outcome="active"]').count(), 0);
+  const frozen = await log.locator('.directive-progress-log-total').textContent();
+  await page.waitForTimeout(1100);
+  assert.equal(await log.locator('.directive-progress-log-total').textContent(), frozen, 'completed durations freeze');
+  await log.screenshot({path:path.join(artifacts,'full-log.png')});
+  await page.keyboard.press('Escape');
+  const launcher = page.locator('#directive-turn-activity-log-launcher');
+  await page.waitForFunction(() => document.activeElement?.id === 'directive-turn-activity-log-launcher');
+  assert.equal(await launcher.evaluate(el => el === document.activeElement), true, 'completion restores focus to retained log control');
+  await launcher.click();
+  assert.match(await log.textContent(), /Last activity/);
+  await page.evaluate(() => __activity.recordDirectiveTurnProgress({type:'reset'}));
+  assert.equal(await page.locator('#directive-turn-progress-log').count(), 0, 'reset removes stale log and modal');
+  assert.equal(await launcher.count(), 0);
+  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'log cleanup preserves gameplay cards');
+  await page.evaluate(() => {
+    __activity.markDirectiveTurnActivity();
+    __activity.recordDirectiveTurnProgress({type:'start',operationId:'context',stage:'building-context',startedAt:performance.now()});
   });
-  assert.ok(stackedGeometry.gameplayTop >= stackedGeometry.activityBottom + 6, 'gameplay cards stack below active turn status');
-
-  await page.waitForTimeout(850);
-  assert.equal(await indicator.isVisible(), true, 'non-streaming response remains owned beyond the old expiry');
-  const artifactRoot = path.join(repoRoot, 'artifacts', 'notification-bevel');
-  mkdirSync(artifactRoot, { recursive: true });
-  const waitingBox = await indicator.boundingBox();
-  await page.screenshot({
-    path: path.join(artifactRoot, 'activity-bevel.png'), animations: 'disabled',
-    clip: { x: Math.max(0, waitingBox.x - 24), y: Math.max(0, waitingBox.y - 8), width: waitingBox.width + 48, height: waitingBox.height + 40 },
+  assert.equal(await indicator.locator('.directive-progress-active > li').count(), 1, 'local context is not duplicated');
+  assert.notEqual(await indicator.locator('.directive-progress-active > li > details > summary [data-progress-duration]').textContent(), '', 'context has observed duration');
+  await page.evaluate(() => __activity.recordDirectiveTurnProgress({type:'finish',operationId:'context',outcome:'complete',endedAt:performance.now()}));
+  const contextSummary = indicator.locator('[data-row-id="turn-context"] > details > summary');
+  await contextSummary.click();
+  await page.evaluate(() => {
+    for (let i=0; i<5; i++) {
+      __activity.recordDirectiveTurnProgress({type:'start',operationId:`age-${i}`,stage:'directing-story',startedAt:performance.now()});
+      __activity.recordDirectiveTurnProgress({type:'finish',operationId:`age-${i}`,outcome:'complete',endedAt:performance.now()});
+    }
   });
-  assert.equal(await indicator.locator('.directive-notification-category').textContent(), 'SillyTavern');
-  await page.evaluate(() => globalThis.__emitActivityStream('actual stream chunk'));
-  assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Receiving the reply...');
-  await page.evaluate(async () => {
-    globalThis.__emitActivityEnd();
-  });
-  await indicator.waitFor({ state: 'hidden', timeout: 1500 });
-  assert.equal(await page.locator('.directive-gameplay-notification').count(), 3, 'activity cleanup leaves gameplay notifications intact');
-
-  await page.evaluate(async () => {
-    const bridge = await import('/src/hosts/sillytavern/runtime-bridge.mjs');
-    bridge.clearSillyTavernDirectiveRuntimeBridge();
-  });
+  assert.equal(await contextSummary.evaluate(el => el === document.activeElement), true, 'aging into earlier history preserves focus');
+  assert.equal(await contextSummary.isVisible(), true, 'focused older operation remains readable');
+  assert.equal(await indicator.locator('[data-row-id="turn-context"] > details').getAttribute('open'), '');
   await page.close();
 
-  const reducedContext = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 780 } });
-  const reducedPage = await reducedContext.newPage();
-  await reducedPage.goto(`${baseUrl}/production?route=mission`);
-  await reducedPage.waitForFunction(() => globalThis.__directiveFixtureReady === true);
-  await reducedPage.evaluate(async () => {
-    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    globalThis.__directiveReducedActivityToken = activity.markDirectiveTurnActivity();
+  const context = await browser.newContext({reducedMotion:'reduce', viewport:{width:390,height:780}});
+  const mobile = await context.newPage();
+  await mobile.goto(`${baseUrl}/production?route=mission`);
+  await mobile.waitForFunction(() => globalThis.__directiveFixtureReady === true);
+  await mobile.evaluate(async () => {
+    const a = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    a.markDirectiveTurnActivity();
+    for (let i=0;i<5;i++) {
+      a.recordDirectiveTurnProgress({type:'start',operationId:`m${i}`,stage:'updating-characters',startedAt:performance.now()});
+      a.recordDirectiveTurnProgress({type:'finish',operationId:`m${i}`,outcome:'complete',endedAt:performance.now()});
+    }
+    a.recordDirectiveTurnProgress({type:'start',operationId:'mobile',stage:'updating-characters',startedAt:performance.now(),attempt:12});
+    a.recordDirectiveTurnProgress({type:'update',operationId:'mobile',phase:'validating-response',phaseStartedAt:performance.now()});
   });
-  const reducedIndicator = reducedPage.locator('#directive-turn-activity-indicator');
-  await reducedIndicator.waitFor({ state: 'visible', timeout: 1200 });
-  const reducedStyles = await reducedIndicator.evaluate((card) => ({
-    cardAnimation: getComputedStyle(card).animationName,
-    glyphAnimation: getComputedStyle(card.querySelector('.directive-notification-title-icon')).animationName,
-  }));
-  assert.equal(reducedStyles.cardAnimation, 'none');
-  assert.equal(reducedStyles.glyphAnimation, 'none');
-  await reducedPage.evaluate(async () => {
-    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'mobile', stage: 'updating-characters', startedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 1, phase:'waiting-model',phaseStartedAt:performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 1, phase:'validating-response',phaseStartedAt:performance.now() });
-  });
-  await reducedIndicator.locator('summary').click();
-  const mobileBox = await reducedIndicator.boundingBox();
-  assert.ok(mobileBox.x >= 0 && mobileBox.x + mobileBox.width <= 390, 'expanded mobile status remains inside the viewport');
-  assert.equal(await reducedIndicator.locator('.directive-turn-activity-label').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'long retry label wraps without clipping');
-  await reducedPage.screenshot({path: path.join(progressArtifacts, 'mobile-details.png')});
-  await reducedPage.setViewportSize({width: 320, height: 780});
-  await reducedPage.waitForFunction(() => {
-    const box = document.querySelector('#directive-turn-activity-indicator').getBoundingClientRect();
-    return box.left >= 0 && box.right <= 320;
-  });
-  assert.equal(await reducedIndicator.locator('.directive-turn-activity-label').evaluate(node => node.scrollWidth <= node.clientWidth), true, 'retry label remains readable at 320px');
-  await reducedPage.evaluate(async () => {
-    const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
-    activity.clearDirectiveTurnActivity(globalThis.__directiveReducedActivityToken);
-  });
-  await reducedContext.close();
-  console.log('PASS Directive turn activity Playwright reproduction');
+  const mobileCard = mobile.locator('#directive-turn-activity-indicator');
+  for (const width of [390,320]) {
+    await mobile.setViewportSize({width,height:780});
+    const box = await mobileCard.boundingBox();
+    assert.ok(box.x >= 0 && box.x+box.width <= width, `card fits ${width}px`);
+    assert.equal(await mobileCard.locator('.directive-turn-activity-label').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'long operation labels wrap');
+    assert.equal(await mobileCard.locator('.directive-progress-active > li > details > summary .directive-progress-state-dot').evaluate(el => getComputedStyle(el).animationName), 'none');
+    await mobileCard.screenshot({path:path.join(artifacts,`mobile-${width}.png`)});
+    await mobileCard.getByRole('button',{name:'View full log'}).click();
+    const dialogBox = await mobile.locator('dialog[open]').boundingBox();
+    assert.ok(dialogBox.x >= 0 && dialogBox.x+dialogBox.width <= width, 'log fits mobile viewport');
+    await mobile.keyboard.press('Escape');
+  }
+  await context.close();
+  console.log('PASS compact turn progress browser layout, focus, lifecycle, concurrency and mobile');
 } finally {
   await browser.close();
   server.kill();

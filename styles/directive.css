@@ -343,6 +343,7 @@
 .directive-turn-activity-indicator {
   display: grid;
   pointer-events: auto;
+  background-color: #0d1018;
 }
 
 .directive-turn-activity-indicator[hidden] {
@@ -6018,73 +6019,49 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   }
 }
 
-.directive-turn-activity-elapsed,
-.directive-turn-activity-concurrent,
-.directive-turn-activity-details {
-  color: #c6bba8;
-  font: 400 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif;
-  overflow-wrap: anywhere;
-}
-.directive-turn-activity-elapsed {
-  font-variant-numeric: tabular-nums;
-  margin-top: 3px;
-}
-.directive-turn-activity-details { margin-top: 3px; }
-.directive-turn-activity-details summary {
-  cursor: pointer;
-  width: fit-content;
-  padding: 3px 2px;
-  color: #f2a126;
-}
-.directive-turn-activity-details summary:focus-visible {
-  outline: 2px solid #ffc15b;
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-.directive-turn-activity-history {
-  margin: 4px 0 0;
-  padding-left: 18px;
-  max-height: min(200px, 30vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.directive-turn-activity-history li { padding: 2px 0; }
-.directive-turn-activity-history [data-outcome="failed"] { color: #ffbd9e; }
-.directive-turn-activity-concurrent[hidden],
-.directive-turn-activity-details[hidden] { display: none; }
-
-/* Purposeful progress rows, with observed substeps and aligned execution state. */
-.directive-turn-activity-phase {
-  color: #c6bba8;
-  font: 400 11px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif;
-}
-.directive-turn-activity-phase[hidden] { display: none; }
-.directive-turn-activity-history {
-  list-style: none;
-  padding: 0;
-  max-height: min(300px, 42vh);
-}
-.directive-turn-activity-history .directive-progress-item { padding: 0; }
-.directive-progress-row {
-  display: grid;
-  grid-template-columns: 7px minmax(0, 1fr) auto auto;
-  align-items: baseline;
-  gap: 6px;
-  padding: 5px 0;
-  border-top: 1px solid rgba(248, 239, 224, .08);
-}
+/* Compact activity: active work stays above the four recent operations. */
+.directive-progress-heading, .directive-progress-log-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.directive-turn-activity-elapsed, .directive-turn-activity-history, .directive-turn-activity-details, .directive-progress-action, .directive-progress-log { color: #c6bba8; font: 400 12px/1.4 "Roboto Condensed", "Arial Narrow", sans-serif; }
+.directive-turn-activity-elapsed, .directive-progress-duration { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.directive-turn-activity-history { list-style: none; padding: 0; margin: 0; }
+.directive-progress-row { display: grid; grid-template-columns: 13px minmax(0, 1fr) auto auto; align-items: center; gap: 7px; min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; list-style: none; }
+.directive-progress-row::-webkit-details-marker { display: none; }
 .directive-progress-name { min-width: 0; overflow-wrap: anywhere; color: #f8efe0; }
-.directive-progress-source { display: block; color: #aaa396; font-size: 9px; line-height: 1.2; }
-.directive-progress-status { font-size: 10px; }
-.directive-progress-duration { min-width: 25px; text-align: right; font-variant-numeric: tabular-nums; font-size: 10px; }
-.directive-progress-children { list-style: none; padding: 0 0 0 12px; margin: 0 0 3px 3px; border-left: 1px solid rgba(248, 239, 224, .14); }
-.directive-progress-children .directive-progress-row { border-top: 0; padding: 3px 0; }
+.directive-progress-name::after { content: ' ▸'; color: #928b7f; font-size: 10px; }
+.directive-progress-operation[open] > .directive-progress-row .directive-progress-name::after { content: ' ▾'; }
+.directive-progress-duration { min-width: 30px; text-align: right; }
+.directive-progress-source { display: block; color: #aaa396; padding: 3px 0; }
+.directive-progress-breakdown { padding: 0 0 4px 20px; }
+.directive-progress-children { border-left: 1px solid #ffffff20; padding-left: 8px; }
 .directive-progress-children .directive-progress-name { color: #c6bba8; }
-.directive-progress-state-dot { width: 5px; height: 5px; align-self: center; border: 1px solid #aaa396; border-radius: 50%; }
-.directive-progress-item[data-outcome="active"] > .directive-progress-row .directive-progress-state-dot { border-color: #f2a126; background: #f2a126; }
-.directive-progress-item[data-outcome="complete"] > .directive-progress-row .directive-progress-state-dot { border-color: #9ec8a0; background: #9ec8a0; }
-.directive-progress-item[data-outcome="failed"] > .directive-progress-row .directive-progress-state-dot { border-color: #ffbd9e; background: #ffbd9e; }
-.directive-progress-item[data-outcome="failed"] > .directive-progress-row .directive-progress-status { color: #ffbd9e; }
-.directive-turn-activity-indicator:has(.directive-turn-activity-details[open]) {
-  background-color: #0d1018;
-}
+.directive-progress-state-dot { box-sizing: border-box; width: 12px; height: 12px; border: 1px solid #aaa396; border-radius: 50%; display: grid; place-items: center; font: 800 10px/1 sans-serif; color: #aaa396; }
+.directive-progress-item[data-outcome="active"] > details > summary .directive-progress-state-dot { border-color: #f2a126 #f2a126 #f2a126 transparent; animation: directive-progress-spin 1s linear infinite; }
+.directive-progress-item[data-waiting="true"] > details > summary .directive-progress-state-dot { border-color: #f2a126; animation: directive-activity-glyph-pulse 1100ms ease-in-out infinite alternate; }
+.directive-progress-item[data-outcome="complete"] > details > summary .directive-progress-state-dot { border-color: #9ec8a0; color: #9ec8a0; }
+.directive-progress-item[data-outcome="failed"] > details > summary .directive-progress-state-dot { border-color: #ffbd9e; color: #ffbd9e; }
+.directive-progress-item[data-outcome="failed"] > details > summary .directive-progress-status { color: #ffbd9e; }
+.directive-progress-active { padding: 4px 0 6px; }
+.directive-progress-active > .directive-progress-item + .directive-progress-item { margin-top: 4px; }
+.directive-progress-phase { display: block; margin: -1px 0 3px 20px; color: #c6bba8; font-size: 11px; }
+.directive-progress-recent:not(:empty) { border-top: 1px solid #ffffff16; padding-top: 3px; }
+.directive-progress-footer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.directive-turn-activity-details { flex: 1; }
+.directive-turn-activity-details > summary { cursor: pointer; color: #f2a126; padding: 5px 0; }
+.directive-turn-activity-details[open] { flex-basis: 100%; }
+.directive-progress-earlier { max-height: 30vh; overflow-y: auto; overscroll-behavior: contain; }
+.directive-progress-action { appearance: none; border: 0; border-radius: 3px; background: transparent; color: #f2a126; cursor: pointer; padding: 5px 2px; margin: 0; width: auto; min-height: 28px; }
+.directive-progress-action:hover { background: #f2a12612; }
+.directive-progress-row:focus-visible, .directive-turn-activity-details > summary:focus-visible, .directive-progress-action:focus-visible { outline: 2px solid #ffc15b; outline-offset: 2px; border-radius: 2px; }
+#directive-turn-activity-log-launcher { pointer-events: auto; padding: 5px 10px; background: #0d1018; border: 1px solid #f2a12650; align-self: end; }
+.directive-progress-log { box-sizing: border-box; width: min(640px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 16px; border: 1px solid #f2a12680; border-radius: 4px; background: #0d1018; color: #f8efe0; box-shadow: 0 12px 48px #0008; }
+.directive-progress-log[open] { display: flex; flex-direction: column; }
+.directive-progress-log::backdrop { background: #0009; }
+.directive-progress-log-header { flex: none; }
+.directive-progress-log h2 { font: 700 16px/1.4 "Roboto Condensed", sans-serif; margin: 0; }
+.directive-progress-log-total { margin: 4px 0 12px; color: #c6bba8; flex: none; }
+.directive-progress-log-rows { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px; }
+.directive-progress-log-rows > li + li { border-top: 1px solid #ffffff12; }
+.directive-progress-phase[hidden], .directive-turn-activity-details[hidden], .directive-progress-action[hidden] { display: none; }
+.directive-turn-activity-indicator .is-visually-hidden, .directive-progress-log .is-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@keyframes directive-progress-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .directive-progress-item[data-outcome] > details > summary .directive-progress-state-dot { animation: none; } }

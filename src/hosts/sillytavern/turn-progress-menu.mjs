@@ -34,6 +34,13 @@ export function formatProgressDuration(milliseconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 function stateOf(item) { return item.endedAt === undefined ? 'active' : item.outcome || 'ended'; }
+export function partitionProgressRows(rows, recentCount = 4) {
+  const active = rows.filter(row => row.state === 'active');
+  const finished = rows.filter(row => row.state !== 'active');
+  const recentIds = new Set(finished.slice(-recentCount).map(row => row.id));
+  const visible = row => recentIds.has(row.id) || row.state === 'failed' || row.failures > 0;
+  return {active, recent: finished.filter(visible), earlier: finished.filter(row => !visible(row))};
+}
 function aggregateState(items) {
   const states = items.map(stateOf);
   // An earlier failure remains visible even if a later refresh succeeds.
@@ -76,14 +83,15 @@ export function createProgressMenuRows(history, now = performance.now()) {
       if (contextAdded) continue;
       contextAdded = true;
       const stages = [...new Set(contextItems.map(entry => entry.stage))];
-      rows.push({
-        id: 'turn-context', label: 'Turn context', source: 'Local', state: aggregateState(contextItems),
+      rows.push(timedRow('turn-context', 'Turn context', contextItems, now, {
+        source: 'Local', count: 1,
         failures: contextItems.reduce((sum, entry) => sum + (entry.failures ?? Number(entry.outcome === 'failed')), 0),
         children: stages.map(stage => timedRow(stage, LOCAL_LABELS[stage], contextItems.filter(entry => entry.stage === stage), now)),
-      });
+      }));
     } else if (Object.hasOwn(MODEL_LABELS, item.stage)) {
       rows.push(timedRow(item.operationId, MODEL_LABELS[item.stage], [item], now, {
         source: 'Model', attempt: item.attempt,
+        phase: item.endedAt === undefined ? item.phases?.at(-1)?.phase : undefined,
         children: (item.phases || []).map((phase, index) => timedRow(
           `${item.operationId}.phase.${index}`, PROGRESS_PHASES[phase.phase], [phase], now, {attempt: phase.attempt}
         )),

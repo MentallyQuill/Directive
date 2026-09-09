@@ -330,7 +330,7 @@ assert.equal(
 );
 assert.equal(
   boundaryActivity?.querySelector('.directive-turn-activity-label')?.textContent,
-  'Waiting for the reply...',
+  'Waiting for the reply',
   'successful settlement must hand activity off to host narration'
 );
 await new Promise((resolve) => setTimeout(resolve, 850));

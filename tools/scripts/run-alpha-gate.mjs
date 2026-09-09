@@ -78,6 +78,7 @@ const checks = [
   "test-turn-progress-runtime.mjs",
   "test-turn-progress-presentation.mjs",
   "test-progress-menu.mjs",
+  "test-compact-turn-progress.mjs",
   "test-turn-progress-app.mjs",
   "test-ui-controls-modal-browser.mjs",
   "test-ui-experience-polish-visual.mjs",
