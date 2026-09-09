@@ -101,6 +101,14 @@ Diagnostics exclude hidden messages, credentials, and unselected or deleted bran
 Transcript export is opt-in and includes only player-visible messages from the active selected branch.
 When Directive has upgraded an older monolithic V1 save, Diagnostics shows the number of verified local recovery copies retained.
 
+## Following a reply
+
+Open **Activity details** on the turn notification to see the work observed so far. **Turn context** groups local steps such as reading campaign state, assembling reply context, and installing it. Repeated steps show their run count.
+
+Model tasks appear separately, with details for waiting on a response and validating that response. Attempt numbers appear when a request is retried. Tasks appear only when they run; different turns can need different work. **Waiting for the reply** and **Receiving the reply** describe the SillyTavern narration stage.
+
+Elapsed times keep updating while work is pending. They measure time spent, not a predicted completion time. Step statuses distinguish **Done**, **Failed**, and **Canceled** outcomes.
+
 ## Swipes and corrections
 
 Assistant replies are drafts until you send your next player message.

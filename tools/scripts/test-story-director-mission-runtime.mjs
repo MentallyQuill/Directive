@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { createTurnProgressReporter } from '../../src/runtime/turn-progress.mjs';
 import {
     captureAcceptedPairAnalysis,
     createNarrationDirectionReuseKey,
@@ -305,22 +306,32 @@ let directorCalls = 0;
 let latestDirectorRequest = null;
 let directorProviderFingerprint = 'reasoning.1';
 const harness = createHarness();
+const directedProgress = createTurnProgressReporter();
+const directedProgressEvents = [];
+directedProgress.subscribeTurnProgress((event) => directedProgressEvents.push(event));
 const runtime = createV1MissionRuntime({
     getState: harness.getState,
     stateDeltaGateway: harness.gateway,
-    interpretAcceptedPair: async (input) => {
+    interpretAcceptedPair: async ({ onAttempt, onPhase, ...input }) => {
         interpreterCalls += 1;
+        onAttempt?.(1);
         interpreterStarted.resolve();
         await interpretationGate.promise;
+        onPhase?.('validating-response');
         return interpretedFor(input);
     },
-    directStory: async ({ request }) => {
+    directStory: async ({ request, onAttempt, onPhase }) => {
         directorCalls += 1;
+        onAttempt?.(1);
         directorStarted.resolve();
         latestDirectorRequest = request;
-        if (directorCalls === 1) return directorGate.promise;
-        return { ok: true, proposal: directorProposalFor(request), diagnostics: {} };
+        const result = directorCalls === 1
+            ? await directorGate.promise
+            : { ok: true, proposal: directorProposalFor(request), diagnostics: {} };
+        if (result?.ok) onPhase?.('validating-response');
+        return result;
     },
+    turnProgress: directedProgress,
     providerFingerprints: () => ({ interpreter: 'utility.1', director: directorProviderFingerprint }),
     now: () => '2026-09-08T04:00:00.000Z',
 });
@@ -339,11 +350,29 @@ assert.deepEqual(blocked.diagnostics.blockedRoles, ['director']);
 assert.equal(typeof blocked.diagnostics.turnKey, 'string');
 assert.equal(harness.persistCount, 0);
 assert.deepEqual(harness.getState(), before);
+assert.deepEqual(
+    directedProgressEvents.filter((event) => event.type === 'update' && event.stage === 'reviewing-events')
+        .map(({ phase }) => phase),
+    ['waiting-model', 'validating-response'],
+    'the mission wrapper propagates interpreter phases',
+);
+assert.deepEqual(
+    directedProgressEvents.filter((event) => event.type === 'update' && event.stage === 'directing-story')
+        .map(({ phase }) => phase),
+    ['waiting-model'],
+    'a failed director result never claims response validation started',
+);
 
 const settled = await runtime.settleAcceptedPair({ runtimeAssets, snapshot, generationType: 'normal' });
 assert.equal(settled.ok, true, JSON.stringify(settled));
 assert.equal(interpreterCalls, 1, 'the exact successful interpreter result is reused');
 assert.equal(directorCalls, 2);
+assert.deepEqual(
+    directedProgressEvents.filter((event) => event.type === 'update' && event.stage === 'directing-story')
+        .map(({ phase }) => phase),
+    ['waiting-model', 'waiting-model', 'validating-response'],
+    'a successful retry reports validation on the same director operation',
+);
 assert.equal(harness.persistCount, 1, 'review, pair, continuity, receipt and dossier queue share one save');
 assert.equal(harness.getState().stateCustody.revision, before.stateCustody.revision + 1);
 assert.match(settled.instruction, /Respond to the player within the current scene/);

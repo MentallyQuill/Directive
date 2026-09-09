@@ -1,3 +1,4 @@
+import { PROGRESS_STAGES as STAGES, PROGRESS_PHASES, createProgressMenuRows, retainCompletedContextProgress } from './turn-progress-menu.mjs';
 import {
   acquireDirectiveNotificationSurface,
   releaseDirectiveNotificationSurface,
@@ -5,20 +6,13 @@ import {
 
 const INDICATOR_ID = 'directive-turn-activity-indicator';
 const DEFAULT_LABEL = 'Processing the turn...';
-const STAGES = Object.freeze({
-  'reviewing-events': 'Reviewing recent events',
-  'directing-story': 'Preparing story direction',
-  'reviewing-episode': 'Reviewing the episode',
-  'updating-characters': 'Updating character records',
-  saving: 'Saving story progress',
-  preparing: 'Preparing the reply',
-});
 const MODEL_STAGES = new Set(['reviewing-events', 'directing-story', 'reviewing-episode', 'updating-characters']);
 const OUTCOMES = Object.freeze({ complete: 'Finished', failed: 'Failed', canceled: 'Canceled' });
 let nextActivityId = 0;
 const activeActivities = new Map();
 const operations = new Map();
 let history = [];
+const archivedContext = new Map();
 let sessionStartedAt = null;
 let clockTimer = null;
 const clock = () => performance.now();
@@ -50,10 +44,12 @@ function createIndicator() {
   titleRow.append(icon, element('strong', 'directive-turn-activity-label'));
   const elapsed = element('span', 'directive-turn-activity-elapsed');
   elapsed.setAttribute('aria-live', 'off');
+  const phase = element('span', 'directive-turn-activity-phase');
+  phase.setAttribute('role', 'status');
   const concurrent = element('span', 'directive-turn-activity-concurrent');
   const details = element('details', 'directive-turn-activity-details');
-  details.append(element('summary', '', 'Activity details'), element('ol', 'directive-turn-activity-history'));
-  copy.append(category, titleRow, elapsed, concurrent, details);
+  details.append(element('summary', '', 'Activity details'), element('ul', 'directive-turn-activity-history'));
+  copy.append(category, titleRow, phase, elapsed, concurrent, details);
   indicator.appendChild(copy);
   acquireDirectiveNotificationSurface('activity').activitySlot.appendChild(indicator);
   return indicator;
@@ -69,6 +65,7 @@ function presentation() {
   const operation = [...operations.values()].at(-1);
   if (operation) return {
     category: 'Directive', phase: operation.stage, startedAt: operation.startedAt,
+    detail: operation.phases?.length ? PROGRESS_PHASES[operation.phases.at(-1).phase] : '',
     title: `${STAGES[operation.stage]}...${operation.attempt > 1 ? ` (attempt ${operation.attempt})` : ''}`,
   };
   if (activity.phase === 'waiting' || activity.phase === 'receiving') return {
@@ -88,6 +85,13 @@ function renderClock() {
   if (!current || !canRender()) return;
   const node = document.querySelector(`#${INDICATOR_ID} .directive-turn-activity-elapsed`);
   if (node) node.textContent = `This stage ${duration(current.startedAt)} · Total ${duration(sessionStartedAt)}`;
+  const rows = createProgressMenuRows([...archivedContext.values(), ...history]);
+  const durations = new Map(rows.flatMap(row => [row, ...(row.children || [])]).map(row => [row.id, row.duration]));
+  const indicator = document.getElementById(INDICATOR_ID);
+  for (const target of indicator?.querySelectorAll?.('[data-progress-duration]') || []) {
+    const value = durations.get(target.dataset.progressDuration);
+    if (value && target.textContent !== value) target.textContent = value;
+  }
 }
 
 function trimHistory() {
@@ -95,8 +99,45 @@ function trimHistory() {
   while (history.length > 40) {
     const index = history.findIndex(item => item.endedAt !== undefined);
     if (index < 0) break;
+    retainCompletedContextProgress(archivedContext, history[index]);
     history.splice(index, 1);
   }
+}
+
+function renderProgressRow(row) {
+  const item = element('li', 'directive-progress-item');
+  item.dataset.outcome = row.state;
+  const line = element('div', 'directive-progress-row');
+  const dot = element('span', 'directive-progress-state-dot');
+  dot.setAttribute('aria-hidden', 'true');
+  const name = element('span', 'directive-progress-name', `${row.label}${row.count > 1 ? ` (${row.count} runs)` : ''}${row.attempt > 1 ? ` (attempt ${row.attempt})` : ''}`);
+  if (row.source) name.append(element('small', 'directive-progress-source', row.source));
+  const statusLabels = {active:'Running', complete:'Done', failed:'Failed', canceled:'Canceled', ended:'Ended'};
+  const status = element('span', 'directive-progress-status', `${statusLabels[row.state] || 'Ended'}${row.failures && row.state !== 'failed' ? ` / ${row.failures} failed` : ''}`);
+  const elapsed = element('span', 'directive-progress-duration', row.duration || '');
+  if (row.duration) elapsed.dataset.progressDuration = row.id;
+  line.append(dot, name, status, elapsed);
+  item.append(line);
+  if (row.children?.length) {
+    const children = element('ul', 'directive-progress-children');
+    children.append(...row.children.map(renderProgressRow));
+    item.append(children);
+  }
+  return item;
+}
+
+function recordPhase(operation, event) {
+  if (!MODEL_STAGES.has(operation.stage) || !Object.hasOwn(PROGRESS_PHASES, event.phase)) return;
+  const startedAt = Number.isFinite(event.phaseStartedAt) ? event.phaseStartedAt : clock();
+  const previous = operation.phases?.at(-1);
+  const attempt = Number.isInteger(event.attempt) && event.attempt > 0 ? event.attempt : operation.attempt;
+  if (previous?.phase === event.phase && previous.attempt === attempt) return;
+  if (previous) {
+    previous.endedAt = startedAt;
+    previous.outcome = event.phase === 'validating-response' && previous.phase === 'waiting-model' ? 'complete' : 'ended';
+  }
+  operation.phases ||= [];
+  operation.phases.push({phase:event.phase, attempt, startedAt});
 }
 
 function render() {
@@ -105,6 +146,7 @@ function render() {
     if (clockTimer !== null) clearInterval(clockTimer);
     clockTimer = null;
     history = [];
+    archivedContext.clear();
     sessionStartedAt = null;
     if (canRender()) document.getElementById(INDICATOR_ID)?.remove?.();
     releaseDirectiveNotificationSurface('activity');
@@ -118,18 +160,15 @@ function render() {
   if (category.textContent !== current.category) category.textContent = current.category;
   const label = indicator.querySelector('.directive-turn-activity-label');
   if (label.textContent !== current.title) label.textContent = current.title;
+  const phase = indicator.querySelector('.directive-turn-activity-phase');
+  if (phase.textContent !== (current.detail || '')) phase.textContent = current.detail || '';
+  phase.hidden = !current.detail;
   const concurrent = indicator.querySelector('.directive-turn-activity-concurrent');
   const others = [...operations.values()].slice(0, -1);
   concurrent.textContent = others.length ? `Also: ${others.map(item => STAGES[item.stage]).join('; ')}` : '';
   concurrent.hidden = others.length === 0;
   const list = indicator.querySelector('.directive-turn-activity-history');
-  list.replaceChildren(...history.map(item => {
-    const name = STAGES[item.stage] || item.title;
-    const status = item.endedAt === undefined ? 'In progress' : (OUTCOMES[item.outcome] || 'Ended');
-    const row = element('li', '', `${name}${item.attempt > 1 ? ` (attempt ${item.attempt})` : ''} — ${status}${item.endedAt === undefined ? '' : ` · ${duration(item.startedAt, item.endedAt)}`}`);
-    row.dataset.outcome = item.outcome || 'active';
-    return row;
-  }));
+  list.replaceChildren(...createProgressMenuRows([...archivedContext.values(), ...history]).map(renderProgressRow));
   const details = indicator.querySelector('.directive-turn-activity-details');
   details.hidden = history.length === 0;
   renderClock();
@@ -142,6 +181,7 @@ export function recordDirectiveTurnProgress(event = {}) {
     for (const operation of operations.values()) activeActivities.delete(operation.activityToken);
     operations.clear();
     history = [];
+    archivedContext.clear();
     render();
     return;
   }
@@ -152,6 +192,7 @@ export function recordDirectiveTurnProgress(event = {}) {
       operationId: event.operationId, stage: event.stage, startedAt: event.startedAt,
       attempt: Number.isInteger(event.attempt) && event.attempt > 0 ? event.attempt : 1,
     };
+    recordPhase(operation, event);
     const alreadyVisible = activeActivities.size > 0;
     operations.set(event.operationId, operation);
     if (alreadyVisible) history.push(operation);
@@ -164,9 +205,11 @@ export function recordDirectiveTurnProgress(event = {}) {
     const operation = operations.get(event.operationId);
     if (!operation) return;
     if (event.type === 'update' && Number.isInteger(event.attempt) && event.attempt > operation.attempt) operation.attempt = event.attempt;
+    if (event.type === 'update') recordPhase(operation, event);
     if (event.type === 'finish') {
       operation.endedAt = Number.isFinite(event.endedAt) ? event.endedAt : clock();
       operation.outcome = Object.hasOwn(OUTCOMES, event.outcome) ? event.outcome : 'failed';
+      if (operation.phases?.length) Object.assign(operation.phases.at(-1), {endedAt:operation.endedAt, outcome:operation.outcome});
       operations.delete(event.operationId);
       activeActivities.delete(operation.activityToken);
     }
@@ -181,6 +224,7 @@ export function markDirectiveTurnActivity({ label = DEFAULT_LABEL, phase = 'read
   if (!activeActivities.size) {
     sessionStartedAt = Math.min(startedAt, ...[...operations.values()].map(item => item.startedAt));
     history = [...operations.values()];
+    archivedContext.clear();
   }
   activeActivities.set(token, { token, hostGeneration, label: String(label || DEFAULT_LABEL), phase: String(phase || 'reading'), phaseStartedAt: startedAt });
   render();
@@ -260,5 +304,5 @@ export function disposeDirectiveTurnActivity() {
 
 export const __directiveTurnActivityTestHooks = Object.freeze({
   activeActivities: () => [...activeActivities.values()].map(activity => ({ ...activity })),
-  progress: () => ({ presentation: presentation(), active: [...operations.values()].map(item => ({ ...item })), history: history.map(item => ({ ...item })) }),
+  progress: () => ({ rows: createProgressMenuRows([...archivedContext.values(), ...history]), presentation: presentation(), active: [...operations.values()].map(item => ({ ...item })), history: history.map(item => ({ ...item })) }),
 });

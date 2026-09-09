@@ -87,6 +87,15 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
   const boundAtStart = runtimeApp?.isCurrentChatBound?.() === true;
   try {
     const result = await orchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    if (
+      result?.handled === true
+      && result?.abortDefaultGeneration === true
+      && result?.responseStrategy === 'cancelStaleTurn'
+    ) {
+      finishDirectiveTurnActivity(activityToken);
+      abort?.(false);
+      return result;
+    }
     if (result?.handled === true && result?.abortDefaultGeneration === true) {
       finishDirectiveTurnActivity(activityToken);
       abort?.(false);

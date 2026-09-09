@@ -185,7 +185,7 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
 
 export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs = 30000 } = {}) {
     return async function authorPeopleDossiers({
-        introductions = [], campaignContext = {}, signal = null, onAttempt = null,
+        introductions = [], campaignContext = {}, signal = null, onAttempt = null, onPhase = null,
     } = {}) {
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
@@ -214,6 +214,13 @@ export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs =
         };
         if (generation?.ok !== true) {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-empty', diagnostics };
+        }
+        if (!signal?.aborted && typeof onPhase === 'function') {
+            try {
+                Promise.resolve(onPhase('validating-response')).catch(() => null);
+            } catch {
+                // Progress observers must not affect generation or validation.
+            }
         }
         const parsed = parsePeopleDossierBatchOutput(responsePayload(generation), { introductions });
         if (!parsed.ok) {

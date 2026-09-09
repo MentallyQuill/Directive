@@ -1022,7 +1022,7 @@ export function createV1MissionRuntime({
     function runProgress(stage, task, progressScope) {
         return typeof turnProgress?.run === 'function'
             ? turnProgress.run(stage, task, { scope: progressScope })
-            : task({ onAttempt: null });
+            : task({ onAttempt: null, onPhase: null });
     }
 
     function gatewayForProgressScope(progressScope) {
@@ -1621,13 +1621,14 @@ export function createV1MissionRuntime({
                 }, { attempted: false });
             }
             try {
-                interpreted = await runProgress('reviewing-events', ({ onAttempt }) => interpreter({
+                interpreted = await runProgress('reviewing-events', ({ onAttempt, onPhase }) => interpreter({
                     candidatePacket,
                     sourcePair,
                     timeContext: timeContextFromSnapshot(campaignState, snapshot, runtimeAssets),
                     peopleContext,
                     signal,
                     onAttempt,
+                    onPhase,
                 }), progressScope);
             } catch {
                 return unavailable('interpretation-threw', {}, { attempted: true });
@@ -1721,7 +1722,7 @@ export function createV1MissionRuntime({
                 peopleDossierAttempted = true;
                 let authored;
                 try {
-                    authored = await runProgress('updating-characters', ({ onAttempt }) => peopleDossierAuthor({
+                    authored = await runProgress('updating-characters', ({ onAttempt, onPhase }) => peopleDossierAuthor({
                         introductions,
                         campaignContext: {
                             campaignTitle: campaignState?.campaign?.title
@@ -1732,6 +1733,7 @@ export function createV1MissionRuntime({
                         },
                         signal,
                         onAttempt,
+                        onPhase,
                     }), progressScope);
                 } catch {
                     authored = { ok: false, status: 'unavailable', reasonCode: 'provider-threw' };
@@ -2100,18 +2102,19 @@ export function createV1MissionRuntime({
                     }
                     return runProgress(
                         'reviewing-events',
-                        ({ onAttempt }) => interpreter({
+                        ({ onAttempt, onPhase }) => interpreter({
                             ...captured.interpreterInput,
                             signal: roleSignal,
                             onAttempt,
+                            onPhase,
                         }),
                         progressScope,
                     );
                 },
                 direct: async ({ request, signal: roleSignal }) => runProgress(
                     'directing-story',
-                    async ({ onAttempt }) => {
-                        const result = await directStory({ request, signal: roleSignal, onAttempt });
+                    async ({ onAttempt, onPhase }) => {
+                        const result = await directStory({ request, signal: roleSignal, onAttempt, onPhase });
                         if (!result?.ok) return result;
                         const parsed = parseStoryDirectorOutput(result.proposal, { request });
                         if (!parsed.ok) {
@@ -2705,10 +2708,11 @@ export function createV1MissionRuntime({
         const gatewayBaseRevision = stateDeltaGateway.revision();
         let evaluated;
         try {
-            evaluated = await runProgress('reviewing-episode', ({ onAttempt }) => episodeEvaluator({
+            evaluated = await runProgress('reviewing-episode', ({ onAttempt, onPhase }) => episodeEvaluator({
                 request,
                 signal,
                 onAttempt,
+                onPhase,
             }), progressScope);
         } catch {
             evaluated = { ok: false, status: 'unavailable', reasonCode: 'provider-threw', diagnostics: {} };

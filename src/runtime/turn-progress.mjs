@@ -4,10 +4,14 @@ export const TURN_PROGRESS_STAGES = Object.freeze([
   'reviewing-episode',
   'updating-characters',
   'saving',
-  'preparing',
+  'activating-preset',
+  'building-context',
+  'assembling-prompt',
+  'installing-prompt',
 ]);
 
 const STAGES = new Set(TURN_PROGRESS_STAGES);
+const PHASES = new Set(['waiting-model', 'validating-response']);
 const CANCELED_REASON_CODES = new Set([
   'provider-aborted',
   'director-aborted',
@@ -93,7 +97,7 @@ export function createTurnProgressReporter({
   async function run(stage, task, { scope = createScope() } = {}) {
     if (typeof task !== 'function') throw new TypeError('turn progress operation requires a task');
     if (!STAGES.has(stage) || !scopeIsCurrent(scope)) {
-      return task({ onAttempt() {} });
+      return task({ onAttempt() {}, onPhase() {} });
     }
 
     let operationId;
@@ -104,7 +108,7 @@ export function createTurnProgressReporter({
       startedAt = readClock();
       if (!operationId || !Number.isFinite(startedAt)) throw new Error('invalid progress identity');
     } catch {
-      return task({ onAttempt() {} });
+      return task({ onAttempt() {}, onPhase() {} });
     }
 
     const operation = { type: 'start', operationId, stage, startedAt };
@@ -115,11 +119,28 @@ export function createTurnProgressReporter({
       if (!scopeIsCurrent(scope) || active.get(operationId) !== operation) return;
       if (!Number.isInteger(attempt) || attempt < 1 || attempt <= (operation.attempt || 0)) return;
       operation.attempt = attempt;
-      publish({ type: 'update', operationId, stage, startedAt, attempt });
+      operation.phase = 'waiting-model';
+      operation.phaseStartedAt = readClock(startedAt);
+      publish({
+        type: 'update', operationId, stage, startedAt,
+        phase: operation.phase, phaseStartedAt: operation.phaseStartedAt, attempt,
+      });
+    };
+
+    const onPhase = (phase) => {
+      if (!scopeIsCurrent(scope) || active.get(operationId) !== operation) return;
+      if (!PHASES.has(phase) || phase !== 'validating-response') return;
+      operation.phase = phase;
+      operation.phaseStartedAt = readClock(startedAt);
+      publish({
+        type: 'update', operationId, stage, startedAt,
+        phase, phaseStartedAt: operation.phaseStartedAt,
+        ...(operation.attempt ? { attempt: operation.attempt } : {}),
+      });
     };
 
     try {
-      const result = await task({ onAttempt });
+      const result = await task({ onAttempt, onPhase });
       if (scopeIsCurrent(scope) && active.get(operationId) === operation) {
         active.delete(operationId);
         publish({

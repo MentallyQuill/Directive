@@ -79,24 +79,41 @@ try {
   );
   await page.evaluate(async () => {
     const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
+    for (let run = 0; run < 3; run++) {
+      for (const stage of ['building-context', 'assembling-prompt', 'installing-prompt']) {
+        const operationId = `${stage}.${run}`;
+        activity.recordDirectiveTurnProgress({type:'start', operationId, stage, startedAt:performance.now()});
+        activity.recordDirectiveTurnProgress({type:'finish', operationId, outcome:'complete', endedAt:performance.now()});
+      }
+    }
     activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'review', stage: 'reviewing-events', startedAt: performance.now() });
+    activity.recordDirectiveTurnProgress({type:'update',operationId:'review',phase:'waiting-model',phaseStartedAt:performance.now(),attempt:1});
   });
   assert.equal(await indicator.locator('.directive-turn-activity-label').textContent(), 'Reviewing recent events...');
-  assert.equal(await indicator.locator('[role="status"]').count(), 1);
+  assert.equal(await indicator.locator('.directive-turn-activity-elapsed').evaluate(node => node.closest('[role="status"]')), null);
   assert.equal(await indicator.locator('.directive-turn-activity-elapsed').getAttribute('aria-live'), 'off');
   await indicator.locator('summary').focus();
   await page.keyboard.press('Enter');
   assert.equal(await indicator.locator('details').getAttribute('open'), '');
-  assert.match(await indicator.locator('ol').textContent(), /Reviewing recent events.*In progress/);
+  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(), /Interpret recent exchange.*Running/);
   await page.evaluate(async () => {
     const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
     activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'episode', stage: 'reviewing-episode', startedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'episode', attempt: 2 });
+    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'episode', attempt: 2, phase:'waiting-model',phaseStartedAt:performance.now() });
   });
   assert.match(await indicator.locator('.directive-turn-activity-concurrent').textContent(), /Reviewing recent events/);
+  assert.equal(await indicator.locator('.directive-progress-name').filter({hasText:'Turn context'}).count(),1);
+  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(),/Install reply context \(3 runs\)/);
+  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(),/Wait for model response/);
+  assert.doesNotMatch(await indicator.locator('.directive-turn-activity-history').textContent(),/Preparing the reply/);
   assert.match(await indicator.locator('.directive-turn-activity-label').textContent(), /attempt 2/);
   assert.equal(await indicator.locator('summary').evaluate(node => node === document.activeElement), true, 'progress updates preserve disclosure focus');
-  const progressArtifacts = path.join(repoRoot, 'artifacts', 'turn-progress');
+  assert.doesNotMatch(await indicator.textContent(), /\uFFFD/);
+  await page.waitForTimeout(2100);
+  assert.notEqual(await indicator.locator('[data-progress-duration="episode"]').textContent(), '<1s', 'model duration advances without progress events');
+  assert.equal(await indicator.locator('summary').evaluate(node => node === document.activeElement), true);
+  assert.equal(await indicator.locator('details').getAttribute('open'), '');
+  const progressArtifacts = path.join(repoRoot, 'artifacts', 'progress-granularity');
   mkdirSync(progressArtifacts, { recursive: true });
   await page.screenshot({path: path.join(progressArtifacts, 'desktop-details.png')});
   await page.evaluate(async () => {
@@ -104,7 +121,7 @@ try {
     activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'episode', outcome: 'failed', endedAt: performance.now() });
     activity.recordDirectiveTurnProgress({ type: 'finish', operationId: 'review', outcome: 'complete', endedAt: performance.now() });
   });
-  assert.match(await indicator.locator('ol').textContent(), /Reviewing the episode.*Failed/);
+  assert.match(await indicator.locator('.directive-turn-activity-history').textContent(), /Review episode.*Failed/);
   await indicator.locator('summary').click();
   await page.evaluate(async () => {
     globalThis.__releaseActivityInterception();
@@ -180,7 +197,8 @@ try {
   await reducedPage.evaluate(async () => {
     const activity = await import('/src/hosts/sillytavern/turn-activity-indicator.js');
     activity.recordDirectiveTurnProgress({ type: 'start', operationId: 'mobile', stage: 'updating-characters', startedAt: performance.now() });
-    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 2 });
+    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 1, phase:'waiting-model',phaseStartedAt:performance.now() });
+    activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'mobile', attempt: 1, phase:'validating-response',phaseStartedAt:performance.now() });
   });
   await reducedIndicator.locator('summary').click();
   const mobileBox = await reducedIndicator.boundingBox();

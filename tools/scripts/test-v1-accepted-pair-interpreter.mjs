@@ -405,6 +405,7 @@ assert.equal(malformed.ok, false);
 assert.match(malformed.errors.join('\n'), /valid JSON/);
 
 const generatedRequests = [];
+const interpretationPhases = [];
 const interpreter = createMissionAcceptedPairInterpreter({
     generationRouter: {
         async generate(roleId, request, options) {
@@ -418,7 +419,11 @@ const interpreter = createMissionAcceptedPairInterpreter({
     },
     timeoutMs: 100,
 });
-const interpreted = await interpreter({ candidatePacket, sourcePair });
+const interpreted = await interpreter({
+    candidatePacket,
+    sourcePair,
+    onPhase: (phase) => interpretationPhases.push(phase),
+});
 assert.equal(interpreted.ok, true);
 assert.equal(interpreted.status, 'interpreted');
 assert.equal(interpreted.proposal.claims.length, 2);
@@ -428,6 +433,7 @@ assert.equal(generatedRequests[0].options.timeoutMs, 100);
 assert.ok(generatedRequests[0].options.signal instanceof AbortSignal);
 assert.equal(interpreted.diagnostics.providerId, 'fake-utility');
 assert.equal(Object.hasOwn(interpreted.diagnostics, 'rawResponse'), false);
+assert.deepEqual(interpretationPhases, ['validating-response']);
 
 let noCandidateCalls = 0;
 const timeOnly = await createMissionAcceptedPairInterpreter({
@@ -473,6 +479,7 @@ assert.equal(thrown.status, 'unavailable');
 assert.equal(thrown.reasonCode, 'provider-threw');
 assert.equal(JSON.stringify(thrown).includes('secret provider failure'), false);
 
+const timeoutPhases = [];
 let timeoutSignal = null;
 const timedOut = await createMissionAcceptedPairInterpreter({
     generationRouter: {
@@ -482,12 +489,14 @@ const timedOut = await createMissionAcceptedPairInterpreter({
         },
     },
     timeoutMs: 5,
-})({ candidatePacket, sourcePair });
+})({ candidatePacket, sourcePair, onPhase: (phase) => timeoutPhases.push(phase) });
 assert.equal(timedOut.ok, false);
 assert.equal(timedOut.reasonCode, 'provider-timeout');
 assert.equal(timeoutSignal?.aborted, true);
+assert.deepEqual(timeoutPhases, []);
 
 let externalSignal = null;
+const canceledPhases = [];
 const externalController = new AbortController();
 const externalPending = createMissionAcceptedPairInterpreter({
     generationRouter: {
@@ -497,7 +506,12 @@ const externalPending = createMissionAcceptedPairInterpreter({
         },
     },
     timeoutMs: 500,
-})({ candidatePacket, sourcePair, signal: externalController.signal });
+})({
+    candidatePacket,
+    sourcePair,
+    signal: externalController.signal,
+    onPhase: (phase) => canceledPhases.push(phase),
+});
 externalController.abort();
 assert.deepEqual(await externalPending, {
     ok: false,
@@ -506,6 +520,7 @@ assert.deepEqual(await externalPending, {
     diagnostics: {},
 });
 assert.equal(externalSignal?.aborted, true);
+assert.deepEqual(canceledPhases, [], 'canceled generation never claims response validation started');
 
 
 assert.deepEqual(parseMissionAcceptedPairInterpretationOutput(JSON.stringify(validOutput).replace(/}$/, ',}'), { candidatePacket, sourcePair }), parsed);
@@ -518,5 +533,28 @@ for (const damaged of [false, true]) {
   }}})({candidatePacket, sourcePair});
   assert.equal(count, 1);
   assert.deepEqual(recovered.interpretation, interpreted.interpretation);
+}
+
+// Validation progress follows an actual response, even when its content is invalid.
+for (const outcome of ['valid', 'malformed', 'failed', 'thrown']) {
+  const events = [];
+  const invoke = createMissionAcceptedPairInterpreter({ generationRouter: { async generate() {
+    events.push('generating');
+    if (outcome === 'thrown') throw new Error('provider failed');
+    events.push('responded');
+    return { ok: outcome !== 'failed', response: { text: outcome === 'malformed' ? '{"kind":' : JSON.stringify(validOutput) } };
+  } } });
+  const observed = await invoke({ ...{ candidatePacket, sourcePair }, onPhase: (...values) => events.push(values) });
+  assert.equal(observed.ok, outcome === 'valid');
+  assert.deepEqual(events, outcome === 'thrown' ? ['generating']
+    : outcome === 'failed' ? ['generating', 'responded']
+    : ['generating', 'responded', ['validating-response']]);
+  if (outcome === 'valid') {
+    const unaffected = await invoke({ ...{ candidatePacket, sourcePair }, onPhase() { throw new Error('observer failed'); } });
+    assert.deepEqual(unaffected, observed, 'observer exceptions do not change the result');
+    const asyncUnaffected = await invoke({ ...{ candidatePacket, sourcePair }, async onPhase() { throw new Error('async observer failed'); } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(asyncUnaffected, observed, 'async observer rejection does not change the result');
+  }
 }
 console.log('V1 accepted-pair interpreter tests passed.');
