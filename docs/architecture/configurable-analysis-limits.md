@@ -4,6 +4,8 @@ Settings provides one **Analysis capacity** slider from **0.5× to 5×**, with *
 
 The current multiplier updates while dragging and saves when the value changes. **Reset capacity** returns to 1× without clearing custom settings. Exact budgets live in one collapsed **Advanced** section. A visible count identifies active overrides so the slider's effect is clear.
 
+Confirmed provider output-limit failures show one persistent notification suggesting increased Analysis Capacity, with an **Open Settings** shortcut. Exact output overrides receive guidance to increase or clear the override instead; at 5× the notice suggests checking Advanced or trying another model. Concurrent failures and retries reuse the same notice. The recovery dialog also offers the Settings shortcut. Malformed responses, timeouts, and reasoning-only responses without an output-limit finish reason do not trigger this notice.
+
 ## Model lanes and role overrides
 
 Each Utility or Reasoning lane keeps its connection configuration and **Request timeout (seconds)** visible. **Advanced** contains lane output tokens and each registered role's output, timeout, and retry overrides. Blank fields inherit the value shown in their placeholder. Lane output starts at 8,192 tokens multiplied by capacity; an exact lane override replaces it. A role output override replaces the lane value. The runtime router and native provider transport use the same effective value.

@@ -48,6 +48,14 @@ export async function highlightDirectivePresetSettingsCard({ timeoutMs = 2800 } 
   return { highlighted: true };
 }
 
+export function focusAnalysisCapacitySettings() {
+  const slider = globalThis.document?.querySelector?.('[data-settings-control="analysis-capacity"]');
+  if (!slider) return { focused: false };
+  slider.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  slider.focus?.({ preventScroll: true });
+  return { focused: true };
+}
+
 function sectionById(model, id) {
   return model.sections.find((section) => section.id === id) || {};
 }

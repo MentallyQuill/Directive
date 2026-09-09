@@ -87,9 +87,11 @@ export function createSillyTavernDirectiveHost({
   const logger = createSillyTavernLogger(resolvedContext);
   const eventAdapter = createSillyTavernEventAdapter({ context: resolvedContext });
   const providerSettings = createSillyTavernProviderSettingsStore({ context: resolvedContext });
+  const uiAdapter = createSillyTavernUiAdapter(ui);
   const providerClient = createDirectiveProviderClient({
     contextFactory: getContext,
-    settingsStore: providerSettings
+    settingsStore: providerSettings,
+    onOutputLimit: payload => uiAdapter.send({ type: 'directive.modelOutputLimit.v1', payload }),
   });
   const chat = createSillyTavernChatAdapter({ contextFactory: getContext });
   const prompt = createSillyTavernPromptAdapter({ contextFactory: getContext });
@@ -102,7 +104,6 @@ export function createSillyTavernDirectiveHost({
     || typeof globalThis.setExtensionPrompt === 'function'
     || typeof globalThis.SillyTavern?.setExtensionPrompt === 'function';
   const hasPresetManager = hasChatCompletionPresetManager(resolvedContext);
-  const uiAdapter = createSillyTavernUiAdapter(ui);
 
   return normalizeDirectiveHost({
     id: 'sillytavern',

@@ -1,3 +1,4 @@
+import { modelOutputLimitMessage } from './model-output-limit-notification.js';
 import { bindDirectiveModal } from './modal-lifecycle.js';
 import { appendDirectiveModal } from './directive-overlay-root.js';
 import { createButton, createElement, setButtonBusy } from './runtime-ui-kit.js';
@@ -53,7 +54,7 @@ export function showSettlementRetryDialog({
     detail.textContent = 'The model request timed out. Increase Request timeout in Settings under Model Lanes, then retry to generate the reply.';
   }
   if (reasonCode === 'provider_token_limit') {
-    detail.textContent = 'The model hit its output token limit. Increase Output token ceiling in Settings under Model Lanes, then retry.';
+    detail.textContent = modelOutputLimitMessage();
   }
   if (reasonCode === 'narration-start-failed') {
     message.textContent = 'The narration request failed.';
@@ -67,7 +68,18 @@ export function showSettlementRetryDialog({
   const close = createButton({ label: 'Close', className: 'campaign-command', icon: 'fa-solid fa-xmark' });
   close.dataset.settlementRetryAction = 'close';
   const actions = createElement('div', 'directive-settlement-retry-actions');
-  actions.append(close, retry);
+  const settings = createButton({ label: 'Open Settings', className: 'campaign-command', icon: 'fa-solid fa-gear' });
+  settings.dataset.settlementRetryAction = 'settings';
+  settings.hidden = reasonCode !== 'provider_token_limit';
+  settings.addEventListener('click', async () => {
+    try {
+      const { openAnalysisCapacitySettings } = await import('../runtime/runtime-shell.js');
+      await openAnalysisCapacitySettings();
+    } catch {
+      status.textContent = 'Could not open Settings. Close this dialog and open Settings to adjust Analysis Capacity.';
+    }
+  });
+  actions.append(close, settings, retry);
   const instance = {
     overlay,
     dialog,
@@ -91,12 +103,13 @@ export function showSettlementRetryDialog({
         closeDialog(instance, 'settled');
         return;
       }
+      if (result?.reasonCode === 'provider_token_limit') settings.hidden = false;
       status.textContent = result?.reasonCode === 'host-already-generating'
         ? 'SillyTavern is still busy. Wait for it to stop, then retry.'
         : result?.reasonCode === 'narration-start-failed'
           ? 'The reply could not start. Retry to generate it.'
           : result?.reasonCode === 'provider_token_limit'
-            ? 'The model hit its output token limit. Increase Output token ceiling in Settings, then retry.'
+            ? modelOutputLimitMessage()
           : String(result?.reasonCode).toLowerCase().includes('timeout')
             ? 'The model request timed out. Increase Request timeout in Settings, then retry.'
             : 'Directive could not prepare or start the reply. You can retry.';

@@ -1,6 +1,6 @@
 import { appendDirectiveOverlay } from './directive-overlay-root.js';
 
-const OWNER_NAMES = new Set(['activity', 'system', 'gameplay']);
+const OWNER_NAMES = new Set(['activity', 'system', 'gameplay', 'model-output-limit']);
 const owners = new Set();
 
 let host = null;

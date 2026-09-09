@@ -1,5 +1,5 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
-import { resolveAnalysisLimits, resolveProviderMaxTokens } from '../../generation/analysis-limits.mjs';
+import { resolveAnalysisLimits, resolveProviderMaxTokens, normalizeAnalysisCapacity, normalizeOutputTokenOverride, readAnalysisOverrides } from '../../generation/analysis-limits.mjs';
 import {
   directiveProviderConfigFingerprint,
   directiveSourceConfigurationDigest,
@@ -594,10 +594,21 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
 export function createDirectiveProviderClient({
   contextFactory = () => globalThis.SillyTavern?.getContext?.() || null,
   settingsStore,
+  onOutputLimit = null,
   now = () => new Date().toISOString()
 } = {}) {
   if (!settingsStore || typeof settingsStore.get !== 'function') {
     throw new Error('settingsStore with get(kind) is required');
+  }
+
+  function notifyOutputLimit(roleId, utilitySettings, hasOutputOverride) {
+    try {
+      Promise.resolve(onOutputLimit?.({
+        roleId, analysisCapacity: normalizeAnalysisCapacity(utilitySettings?.analysisCapacity), hasOutputOverride,
+      })).catch(() => null);
+    } catch {
+      // Notification failure must not replace the original provider failure.
+    }
   }
 
   async function sendTransport(kind, config, request, options = {}) {
@@ -695,7 +706,11 @@ export function createDirectiveProviderClient({
         }
       }
     } catch (error) {
-      throw normalizeThrownError(error, kind);
+      const failure = normalizeThrownError(error, kind);
+      if (failure.code === PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT && !control.request.signal?.aborted) {
+        notifyOutputLimit(roleId, utilitySettings, roleLimits.maxTokens != null || normalizeOutputTokenOverride(config) != null);
+      }
+      throw failure;
     } finally {
       control.cleanup();
     }
@@ -780,6 +795,10 @@ export function createDirectiveProviderClient({
       };
     } catch (error) {
       const safeError = normalizeThrownError(error, id);
+      if (safeError.code === PROVIDER_RESPONSE_ERROR_CODES.TOKEN_LIMIT) {
+        const utilitySettings = settingsStore.get('utility');
+        notifyOutputLimit('providerTest', utilitySettings, Object.hasOwn(readAnalysisOverrides(utilitySettings), 'providerTestMaxTokens'));
+      }
       settingsStore.update(id, {
         certification: { status: 'failed', testedAt: now() }
       });

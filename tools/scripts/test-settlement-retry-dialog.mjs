@@ -96,7 +96,7 @@ releasePendingEscape({ ok: true });
 await pendingEscapeClick;
 
 for (const [reasonCode, expected] of [
-  ['provider_token_limit', /output token ceiling/i],
+  ['provider_token_limit', /Analysis Capacity/i],
   ['DIRECTIVE_GENERATION_TIMEOUT', /request timeout/i],
 ]) {
   const failure = showSettlementRetryDialog({ reasonCode, onRetry: async () => ({ ok: false, reasonCode }) });

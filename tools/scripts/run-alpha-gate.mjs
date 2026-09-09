@@ -1,6 +1,9 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-model-output-limit-emission.mjs",
+  "test-model-output-limit-notification.mjs",
+  "test-model-output-limit-browser.mjs",
   "test-analysis-capacity-settings.mjs",
   "test-analysis-capacity-browser.mjs",
   "test-analysis-limit-settings.mjs",

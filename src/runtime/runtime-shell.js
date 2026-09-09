@@ -1,3 +1,4 @@
+import { closeSettlementRetryDialog } from '../ui/settlement-retry-dialog.js';
 import { renderCharacterCreatorPanel } from '../ui/character-creator-panel.js';
 import { cancelActiveCreatorAssistSession } from '../ui/character-creator-assist-dialog.js';
 import { renderCrewPanel, resetCrewPanelState } from '../ui/crew-panel.js';
@@ -5,6 +6,7 @@ import { syncCampaignRequiredGuidance } from '../ui/current-chat-empty-state.js'
 import { renderMissionPanel } from '../ui/mission-panel.js';
 import {
   highlightDirectivePresetSettingsCard,
+  focusAnalysisCapacitySettings,
   renderSettingsPanel,
   resetSettingsPanelState,
   selectDirectivePresetSettingsSection
@@ -360,6 +362,13 @@ export async function openDirectivePresetSettings({ highlight = true } = {}) {
   await setDirectiveRuntimeTab('settings');
   if (highlight) await highlightDirectivePresetSettingsCard();
   return { ok: true, activeTab };
+}
+
+export async function openAnalysisCapacitySettings() {
+  closeSettlementRetryDialog('open-settings');
+  await showDirectiveRuntimePanel();
+  await setDirectiveRuntimeTab('settings');
+  return { ok: true, activeTab, ...focusAnalysisCapacitySettings() };
 }
 
 export async function runDirectivePresetStartupReminder({ app = runtimeApp } = {}) {

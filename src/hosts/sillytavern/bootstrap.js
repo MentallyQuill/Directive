@@ -1,3 +1,4 @@
+import { handleModelOutputLimitUiMessage } from '../../ui/model-output-limit-notification.js';
 import { configureRuntimeApp } from '../../extension/runtime-mount.js';
 import { createDirectiveRuntimeApp } from '../../runtime/runtime-app.mjs';
 import { configureDirectiveOverlayRoot } from '../../ui/directive-overlay-root.js';
@@ -8,6 +9,7 @@ import {
 } from '../../ui/startup-recovery-notification.js';
 import {
   hideDirectiveRuntimePanel,
+  openAnalysisCapacitySettings,
   runDirectivePresetStartupReminder,
 } from '../../runtime/runtime-shell.js';
 import { activateSillyTavernDirectiveRuntime } from './runtime-activation.mjs';
@@ -20,6 +22,11 @@ import {
 } from './runtime-bridge.mjs';
 import { disposeSillyTavernDirectiveEventLifecycle } from './shell-events.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
+
+export function handleDirectiveUiMessage(message) {
+  const result = handleModelOutputLimitUiMessage(message, { onOpenSettings: openAnalysisCapacitySettings });
+  return result.handled ? result : handleGameplayNotificationUiMessage(message);
+}
 
 export function getSillyTavernContext() {
   try {
@@ -42,7 +49,7 @@ export async function bootstrapDirectiveExtension(options = {}) {
   const activateRuntime = options.activateRuntime || activateSillyTavernDirectiveRuntime;
   const host = hostFactory({
     context: ctx,
-    ui: { send: handleGameplayNotificationUiMessage }
+    ui: { send: handleDirectiveUiMessage }
   });
   configureDirectiveOverlayRoot({
     document: ctx.document || globalThis.document,
