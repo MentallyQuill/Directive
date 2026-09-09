@@ -269,6 +269,9 @@ export function createDirectiveGenerationRouter(host) {
   }
   return {
     getTimeoutMs,
+    reportValidationFailure(roleId, errors) {
+      host.logger?.warn?.(`[Directive] Model validation failed: ${JSON.stringify({ roleId, errors })}`);
+    },
     getMaxTokens(roleId, fallback) {
       const source = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.();
       return source ? normalizeDirectiveProviderSettings(source)[providerKindForRole(roleId)].maxTokens : fallback;
@@ -290,12 +293,12 @@ export function createDirectiveGenerationRouter(host) {
           }
         };
       } catch (error) {
-        host.logger?.warn?.('[Directive] Model request failed', {
+        host.logger?.warn?.('[Directive] Model request failed: ' + JSON.stringify({
           roleId,
           code: error?.code || 'DIRECTIVE_PROVIDER_FAILED',
           finishReason: error?.details?.finishReason || null,
           maxTokens: error?.details?.maxTokens || null,
-        });
+        }));
         return {
           ok: false,
           error: {
@@ -1353,10 +1356,10 @@ export function createDirectiveRuntimeApp({
     const time = mission?.time || null;
     const settlementBlocked = mission?.ok === false;
     if (updateRecovery && settlementBlocked) {
-      host.logger?.warn?.('[Directive] Turn preparation blocked', {
+      host.logger?.warn?.('[Directive] Turn preparation blocked: ' + JSON.stringify({
         reasonCode: mission.reasonCode,
         blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
-      });
+      }));
       acceptedPairRecovery = pairRetryRecovery({
         snapshot,
         ingressId,

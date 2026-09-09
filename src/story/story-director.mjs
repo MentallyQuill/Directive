@@ -433,16 +433,20 @@ export function createStoryDirector({
       };
     }
     const maxTokens = generationRouter?.getMaxTokens?.(STORY_DIRECTOR_ROLE_ID, 8192) ?? 8192;
+    const jsonSchema = createStoryDirectorSchema(request);
+    // Prompt JSON routes do not transmit jsonSchema as a native API constraint.
+    // They still need the same complete output contract in the model's context.
+    const systemPrompt = `${systemPromptFor(request)}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const payload = {
 
       kind: STORY_DIRECTOR_GENERATION_KIND,
       messages: [
-        { role: 'system', content: systemPromptFor(request) },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(request) },
       ],
-      systemPrompt: systemPromptFor(request),
-      prompt: `${systemPromptFor(request)}\n\n${JSON.stringify(request)}`,
-      jsonSchema: createStoryDirectorSchema(request),
+      systemPrompt,
+      prompt: `${systemPrompt}\n\n${JSON.stringify(request)}`,
+      jsonSchema,
       maxTokens,
       parameters: { temperature: 0.1, top_p: 0.9, max_tokens: maxTokens },
     };
@@ -485,6 +489,7 @@ export function createStoryDirector({
     }
     const parsed = parseStoryDirectorOutput(response, { request });
     if (!parsed.ok) {
+      generationRouter?.reportValidationFailure?.(STORY_DIRECTOR_ROLE_ID, parsed.errors);
       const overflow = parsed.errors.includes('director-output-overflow');
       return {
         ok: false,

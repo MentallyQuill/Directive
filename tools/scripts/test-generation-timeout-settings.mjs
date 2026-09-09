@@ -36,6 +36,8 @@ try {
   assert.equal((await direct({ request })).ok, true);
   assert.equal(calls.at(-1).options.timeoutMs, 1500000);
   assert.equal(calls.at(-1).payload.parameters.max_tokens, 16384);
+  assert.ok(calls.at(-1).payload.systemPrompt.includes(JSON.stringify(calls.at(-1).payload.jsonSchema)),
+    'Prompt JSON transports must receive the complete director output contract');
   assert.ok(timers.includes(1500000), 'outer director timer honors the configured wait');
   assert.ok(!timers.includes(1), 'old outer deadline cannot cancel a longer configured request');
   store.update('reasoning', { timeoutSeconds: 600 });

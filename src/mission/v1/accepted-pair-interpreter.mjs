@@ -650,6 +650,7 @@ export function createMissionAcceptedPairInterpreter({
         }
         const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext });
         if (!parsed.ok) {
+            generationRouter?.reportValidationFailure?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, parsed.errors);
             return {
                 ok: false,
                 status: 'rejected',
