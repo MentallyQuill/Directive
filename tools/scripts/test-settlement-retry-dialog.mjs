@@ -95,4 +95,14 @@ assert.equal(pendingEscapeReplay.overlay.isConnected, false, 'Escape must dismis
 releasePendingEscape({ ok: true });
 await pendingEscapeClick;
 
+for (const [reasonCode, expected] of [
+  ['provider_token_limit', /output token ceiling/i],
+  ['DIRECTIVE_GENERATION_TIMEOUT', /request timeout/i],
+]) {
+  const failure = showSettlementRetryDialog({ reasonCode, onRetry: async () => ({ ok: false, reasonCode }) });
+  assert.match(failure.dialog.querySelector('.directive-settlement-retry-detail').textContent, expected);
+  await failure.retry.listeners.get('click')[0]({ preventDefault() {} });
+  assert.match(failure.status.textContent, expected);
+  closeSettlementRetryDialog();
+}
 console.log('Settlement retry dialog tests passed.');

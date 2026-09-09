@@ -269,6 +269,10 @@ export function createDirectiveGenerationRouter(host) {
   }
   return {
     getTimeoutMs,
+    getMaxTokens(roleId, fallback) {
+      const source = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.();
+      return source ? normalizeDirectiveProviderSettings(source)[providerKindForRole(roleId)].maxTokens : fallback;
+    },
     async generate(roleId, request, options = {}) {
       try {
         const response = await host.generation.generate(roleId, request, {
@@ -286,6 +290,12 @@ export function createDirectiveGenerationRouter(host) {
           }
         };
       } catch (error) {
+        host.logger?.warn?.('[Directive] Model request failed', {
+          roleId,
+          code: error?.code || 'DIRECTIVE_PROVIDER_FAILED',
+          finishReason: error?.details?.finishReason || null,
+          maxTokens: error?.details?.maxTokens || null,
+        });
         return {
           ok: false,
           error: {
@@ -1343,6 +1353,10 @@ export function createDirectiveRuntimeApp({
     const time = mission?.time || null;
     const settlementBlocked = mission?.ok === false;
     if (updateRecovery && settlementBlocked) {
+      host.logger?.warn?.('[Directive] Turn preparation blocked', {
+        reasonCode: mission.reasonCode,
+        blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
+      });
       acceptedPairRecovery = pairRetryRecovery({
         snapshot,
         ingressId,

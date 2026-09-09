@@ -15,11 +15,13 @@ assert.equal(store.get('reasoning').timeoutSeconds, 1500);
 assert.equal(normalizeDirectiveProviderSettings({ utility: { timeoutSeconds: Infinity } }).utility.timeoutSeconds, 300);
 assert.equal(normalizeDirectiveProviderSettings({ utility: { timeoutSeconds: -1 } }).utility.timeoutSeconds, 1);
 const calls = [];
+store.update('reasoning', { maxTokens: 16384 });
+store.update('utility', { maxTokens: 16384 });
 const request = makeDirectorRequest();
 const router = createDirectiveGenerationRouter({
   providers: { getSettings: () => store.getAll() },
   generation: { async generate(role, payload, options) {
-    calls.push({ role, options });
+    calls.push({ role, payload, options });
     return { text: JSON.stringify(makeDirectorOutput(request)) };
   } },
 });
@@ -33,6 +35,7 @@ globalThis.setTimeout = (callback, ms, ...args) => {
 try {
   assert.equal((await direct({ request })).ok, true);
   assert.equal(calls.at(-1).options.timeoutMs, 1500000);
+  assert.equal(calls.at(-1).payload.parameters.max_tokens, 16384);
   assert.ok(timers.includes(1500000), 'outer director timer honors the configured wait');
   assert.ok(!timers.includes(1), 'old outer deadline cannot cancel a longer configured request');
   store.update('reasoning', { timeoutSeconds: 600 });
@@ -48,7 +51,13 @@ try {
   timers.length = 0;
   await createMissionAcceptedPairInterpreter({ generationRouter: router, timeoutMs: 1 })({});
   assert.equal(calls.at(-1).options.timeoutMs, 300000);
+  assert.equal(calls.at(-1).payload.parameters.max_tokens, 16384);
   assert.ok(timers.includes(300000), 'mission interpreter outer timer uses the Utility setting');
   assert.ok(!timers.includes(1));
 } finally { globalThis.setTimeout = original; }
+const failedRouter = createDirectiveGenerationRouter({
+  generation: { async generate() { throw Object.assign(new Error('truncated'), { code: 'provider_token_limit' }); } },
+});
+assert.equal((await createStoryDirector({ generationRouter: failedRouter })({ request })).reasonCode, 'provider_token_limit');
+assert.equal((await createMissionAcceptedPairInterpreter({ generationRouter: failedRouter })({})).reasonCode, 'provider_token_limit');
 console.log('Generation timeout settings passed.');

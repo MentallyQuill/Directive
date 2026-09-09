@@ -49,8 +49,11 @@ export function showSettlementRetryDialog({
   detail.textContent = reasonCode === 'persistence-failed'
     ? 'Retry recording this turn. Closing this dialog keeps narration paused.'
     : 'Retry to finish reviewing this turn and generate the reply. You can also close this dialog and press Generate.';
-  if (String(reasonCode).includes('timeout')) {
+  if (String(reasonCode).toLowerCase().includes('timeout')) {
     detail.textContent = 'The model request timed out. Increase Request timeout in Settings under Model Lanes, then retry to generate the reply.';
+  }
+  if (reasonCode === 'provider_token_limit') {
+    detail.textContent = 'The model hit its output token limit. Increase Output token ceiling in Settings under Model Lanes, then retry.';
   }
   if (reasonCode === 'narration-start-failed') {
     message.textContent = 'The narration request failed.';
@@ -92,7 +95,9 @@ export function showSettlementRetryDialog({
         ? 'SillyTavern is still busy. Wait for it to stop, then retry.'
         : result?.reasonCode === 'narration-start-failed'
           ? 'The reply could not start. Retry to generate it.'
-          : String(result?.reasonCode).includes('timeout')
+          : result?.reasonCode === 'provider_token_limit'
+            ? 'The model hit its output token limit. Increase Output token ceiling in Settings, then retry.'
+          : String(result?.reasonCode).toLowerCase().includes('timeout')
             ? 'The model request timed out. Increase Request timeout in Settings, then retry.'
             : 'Directive could not prepare or start the reply. You can retry.';
     } catch {

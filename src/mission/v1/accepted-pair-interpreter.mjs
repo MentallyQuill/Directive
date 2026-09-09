@@ -609,6 +609,8 @@ export function createMissionAcceptedPairInterpreter({
         const request = createMissionAcceptedPairInterpretationPrompt({
             candidatePacket, sourcePair, timeContext, peopleContext,
         });
+        request.maxTokens = generationRouter?.getMaxTokens?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, MISSION_EVIDENCE_MAX_TOKENS) ?? MISSION_EVIDENCE_MAX_TOKENS;
+        request.parameters.max_tokens = request.maxTokens;
         let generation = null;
         try {
             const result = await runWithTimeout(
@@ -632,7 +634,7 @@ export function createMissionAcceptedPairInterpreter({
             return {
                 ok: false,
                 status: 'unavailable',
-                reasonCode: 'provider-empty',
+                reasonCode: generation?.error?.code || 'provider-empty',
                 diagnostics: {
                     providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
                     latencyMs: generation?.diagnostics?.latencyMs ?? null,

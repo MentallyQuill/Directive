@@ -846,7 +846,7 @@ assert.equal(
   'normal Continue must not invoke the post-narration episode evaluator',
 );
 assert.equal(settled.mission.ok, false);
-assert.equal(settled.mission.reasonCode, 'provider-empty');
+assert.equal(settled.mission.reasonCode, 'DIRECTIVE_PROVIDER_FAILED');
 const failedPairSupport = JSON.parse((await app.exportSupportDiagnostics()).jsonText);
 assert.equal(
   failedPairSupport.runtime.acceptedPairCallBudgetEntries,
@@ -1499,7 +1499,7 @@ reportHeldInterpretationStarted = null;
 rejectMissionInterpretation = true;
 const blockedReplayAfterCancellation = await app.getChatTurnOrchestrator().interceptGeneration();
 assert.equal(blockedReplayAfterCancellation.abortDefaultGeneration, true);
-assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'provider-empty', 'Generate reports the new retry failure, not the earlier cancellation');
+assert.equal(blockedReplayAfterCancellation.settlementError.reasonCode, 'DIRECTIVE_PROVIDER_FAILED', 'Generate reports the new retry failure, not the earlier cancellation');
 assert.equal(blockedReplayAfterCancellation.settlementError.persistenceAttempts, 1);
 rejectMissionInterpretation = false;
 const retriedReplayAfterCancellation = await app.retryPendingAcceptedPairSettlement();

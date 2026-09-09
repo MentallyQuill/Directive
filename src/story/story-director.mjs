@@ -432,6 +432,7 @@ export function createStoryDirector({
         diagnostics: { errorCount: requestValidation.errors.length },
       };
     }
+    const maxTokens = generationRouter?.getMaxTokens?.(STORY_DIRECTOR_ROLE_ID, 8192) ?? 8192;
     const payload = {
 
       kind: STORY_DIRECTOR_GENERATION_KIND,
@@ -442,8 +443,8 @@ export function createStoryDirector({
       systemPrompt: systemPromptFor(request),
       prompt: `${systemPromptFor(request)}\n\n${JSON.stringify(request)}`,
       jsonSchema: createStoryDirectorSchema(request),
-      maxTokens: 8192,
-      parameters: { temperature: 0.1, top_p: 0.9, max_tokens: 8192 },
+      maxTokens,
+      parameters: { temperature: 0.1, top_p: 0.9, max_tokens: maxTokens },
     };
     const startedAt = readMonotonicNow();
     const attempted = await runOnce(
@@ -473,7 +474,7 @@ export function createStoryDirector({
     const detail = diagnostics(generation, measuredLatencyMs);
     const response = responsePayload(generation);
     if (generation?.ok !== true || (!object(response) && !String(response).trim())) {
-      return { ok: false, reasonCode: 'director-unavailable', diagnostics: detail };
+      return { ok: false, reasonCode: generation?.error?.code || 'director-unavailable', diagnostics: detail };
     }
     if (!signal?.aborted && typeof onPhase === 'function') {
       try {
