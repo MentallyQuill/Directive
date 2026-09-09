@@ -4,6 +4,8 @@ import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 export const CONTINUITY_EVENT_KIND = 'directive.continuityEvent.v1';
 export const STORY_DIRECTOR_RECEIPT_KIND = 'directive.storyDirectorReceipt.v1';
 export const PENDING_DOSSIER_KIND = 'directive.pendingDossier.v1';
+export const INFORMATION_ACCESS_MAX_RECIPIENTS = 16;
+export const INFORMATION_ACCESS_MAX_AUDIENCE_EVIDENCE = 2;
 
 export const CONTINUITY_CATEGORIES = Object.freeze(new Set([
     'obligation',
@@ -11,6 +13,7 @@ export const CONTINUITY_CATEGORIES = Object.freeze(new Set([
     'constraint',
     'resource-consequence',
     'unresolved-problem',
+    'information',
 ]));
 export const CONTINUITY_CLAIM_TYPES = Object.freeze(new Set([
     'narrated-fact',
@@ -24,7 +27,7 @@ const OPERATION_FIELDS = Object.freeze({
     open: new Set(['operation', 'localRef', 'title', 'category', 'sourceSlot', 'evidenceQuote']),
     addFact: new Set([
         'operation', 'threadRef', 'text', 'claimType', 'authoredRef', 'supersedesFactId',
-        'sourceSlot', 'evidenceQuote', 'linkedIds', 'deadlineElapsedSeconds',
+        'sourceSlot', 'evidenceQuote', 'linkedIds', 'deadlineElapsedSeconds', 'informationAccess',
     ]),
     setStatus: new Set(['operation', 'threadRef', 'status', 'sourceSlot', 'evidenceQuote']),
 });
@@ -34,7 +37,7 @@ const EVENT_FIELDS = new Set([
 ]);
 const EVENT_PAYLOAD_FIELDS = Object.freeze({
     open: new Set(['title', 'category']),
-    addFact: new Set(['text', 'claimType', 'authoredRef', 'supersedesFactId', 'linkedIds', 'deadlineElapsedSeconds']),
+    addFact: new Set(['text', 'claimType', 'authoredRef', 'supersedesFactId', 'linkedIds', 'deadlineElapsedSeconds', 'informationAccess']),
     setStatus: new Set(['status']),
 });
 const SOURCE_ANCHOR_FIELDS = new Set([
@@ -51,7 +54,40 @@ const PENDING_DOSSIER_FIELDS = new Set([
     'publicContext',
 ]);
 const PENDING_DOSSIER_STATUSES = new Set(['pending', 'in-flight', 'staged', 'failed']);
-const OPTIONAL_FACT_FIELDS = new Set(['linkedIds', 'deadlineElapsedSeconds']);
+const OPTIONAL_FACT_FIELDS = new Set(['linkedIds', 'deadlineElapsedSeconds', 'informationAccess']);
+
+function validateInformationAccess(access, errors, { persisted = false, sourcePair, knownLinkIds, limits, sources } = {}) {
+    if (access == null) return;
+    const prefix = 'continuity-information-access';
+    if (!plainObject(access)) { errors.push(`${prefix}-invalid`); return; }
+    const evidenceField = persisted ? 'audienceSources' : 'audienceEvidence';
+    unknownFields(access, new Set(['recipientIds', 'acquisition', evidenceField]), prefix, errors);
+    validateIdArray(access.recipientIds, `${prefix}-recipients`, errors, { nonEmpty: true });
+    if (access.recipientIds?.length > INFORMATION_ACCESS_MAX_RECIPIENTS) errors.push(`${prefix}-recipients-count-exceeded`);
+    if (knownLinkIds && Array.isArray(access.recipientIds)) for (const id of access.recipientIds) {
+        if (!knownLinkIds.has(id)) errors.push(`${prefix}-recipient-unknown:${id}`);
+    }
+    if (!['heard', 'observed', 'read'].includes(access.acquisition)) errors.push(`${prefix}-acquisition-invalid`);
+    const evidence = access[evidenceField];
+    if (!Array.isArray(evidence) || evidence.length < 1 || evidence.length > INFORMATION_ACCESS_MAX_AUDIENCE_EVIDENCE) {
+        errors.push(`${prefix}-audience-invalid`);
+        return;
+    }
+    for (const entry of evidence) {
+        if (persisted) {
+            errors.push(...validateContinuitySourceAnchor(entry, { prefix: `${prefix}-audience` }).errors);
+            // A single contribution can support distinct statement and audience quotes.
+            // Match custody by the immutable message identity, retaining both quotes.
+            if (!Array.isArray(sources) || !sources.some(source => source && entry
+                && source.messageId === entry.messageId && source.selectedSwipeId === entry.selectedSwipeId
+                && source.textHash === entry.textHash)) errors.push(`${prefix}-audience-custody-invalid`);
+        } else {
+            unknownFields(entry, new Set(['sourceSlot', 'evidenceQuote']), `${prefix}-audience`, errors);
+            try { requireSourceQuote(entry, sourcePair, limits); }
+            catch (error) { errors.push(error.message); }
+        }
+    }
+}
 
 function normalize(value) {
     return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -121,7 +157,8 @@ function validateAddFact(change, authoredIds, errors, limits = null) {
     if (change.authoredRef !== null && !authoredIds.has(change.authoredRef)) {
         errors.push(`continuity-authored-ref-unknown:${change.authoredRef}`);
     }
-    if (change.sourceSlot === 'currentPlayer' && change.claimType !== 'player-commitment') {
+    if (change.sourceSlot === 'currentPlayer' && change.claimType !== 'player-commitment'
+        && !(change.claimType === 'character-claim' && plainObject(change.informationAccess))) {
         errors.push('continuity-player-claim-type-invalid');
     }
     if (change.sourceSlot === 'previousAssistant' && change.claimType === 'player-commitment') {
@@ -200,6 +237,7 @@ export function validateContinuityChanges(changes, {
             localRefs.add(change.localRef);
         } else if (change.operation === 'addFact') {
             validateAddFact(change, authoredIdSet, errors, settings);
+            validateInformationAccess(change.informationAccess, errors, { sourcePair, knownLinkIds: knownLinkIdSet, limits: settings });
             if (Array.isArray(change.linkedIds)) for (const id of change.linkedIds) {
                 if (!authoredIdSet.has(id) && !existingThreadIds.has(id) && !knownLinkIdSet.has(id)) errors.push(`continuity-linked-id-unknown:${id}`);
             }
@@ -296,6 +334,7 @@ export function validateContinuityEvent(event, {
         }
         if (event.operation === 'open') validateOpen({ ...event.payload, localRef: 'event-local-ref' }, errors);
         if (event.operation === 'addFact') {
+            validateInformationAccess(event.payload.informationAccess, errors, { persisted: true, sources: event.sources });
             validateAddFact({
                 ...event.payload,
                 threadRef: event.threadId,

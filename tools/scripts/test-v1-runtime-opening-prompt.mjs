@@ -149,6 +149,8 @@ const packet = createV1RuntimePromptPacket({
     }
   }
 });
+assert.match(packet.text, /CHARACTER INFORMATION:/);
+assert.match(packet.text, /"characterInformation"/);
 // Casting guidance must reach narration without introducing people or private facts.
 const castingAssets = structuredClone(runtimeAssets);
 const castingReference = {

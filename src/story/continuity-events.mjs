@@ -54,6 +54,13 @@ function normalizeChange(change) {
             supersedesFactId: change.supersedesFactId,
             ...(Object.hasOwn(change, 'linkedIds') ? { linkedIds: clone(change.linkedIds) } : {}),
             ...(Object.hasOwn(change, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: change.deadlineElapsedSeconds } : {}),
+            ...(change.informationAccess != null ? { informationAccess: {
+                recipientIds: clone(change.informationAccess.recipientIds),
+                acquisition: change.informationAccess.acquisition,
+                audienceEvidence: change.informationAccess.audienceEvidence.map(entry => ({
+                    sourceSlot: entry.sourceSlot, evidenceQuote: normalize(entry.evidenceQuote),
+                })),
+            } } : {}),
         };
     }
     return {
@@ -63,7 +70,7 @@ function normalizeChange(change) {
     };
 }
 
-function payloadFor(change) {
+function payloadFor(change, sourcePair, limits) {
     if (change.operation === 'open') {
         return { title: change.title, category: change.category };
     }
@@ -75,6 +82,11 @@ function payloadFor(change) {
             supersedesFactId: change.supersedesFactId,
             ...(Object.hasOwn(change, 'linkedIds') ? { linkedIds: clone(change.linkedIds) } : {}),
             ...(Object.hasOwn(change, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: change.deadlineElapsedSeconds } : {}),
+            ...(change.informationAccess != null ? { informationAccess: {
+                recipientIds: clone(change.informationAccess.recipientIds),
+                acquisition: change.informationAccess.acquisition,
+                audienceSources: change.informationAccess.audienceEvidence.map(entry => requireSourceQuote(entry, sourcePair, limits)),
+            } } : {}),
         };
     }
     return { status: change.status };
@@ -86,15 +98,33 @@ function creationByThread(events) {
         .map((event) => [event.threadId, event]));
 }
 
-function compareChanges(left, right) {
+function compareChanges(left, right, sourcePair) {
     const rank = { open: 0, addFact: 1, setStatus: 2 };
-    return rank[left.operation] - rank[right.operation]
-        || canonicalJson(left).localeCompare(canonicalJson(right));
+    const operationOrder = rank[left.operation] - rank[right.operation];
+    if (operationOrder) return operationOrder;
+    if (left.operation === 'addFact') {
+        const leftAccess = left.informationAccess != null;
+        const rightAccess = right.informationAccess != null;
+        // Keep legacy facts in their own canonical bucket for a transitive order.
+        if (leftAccess !== rightAccess) return Number(leftAccess) - Number(rightAccess);
+        if (leftAccess) {
+            const slotRank = { previousAssistant: 0, currentPlayer: 1 };
+            const slotOrder = slotRank[left.sourceSlot] - slotRank[right.sourceSlot];
+            if (slotOrder) return slotOrder;
+            const text = normalize(sourcePair?.[left.sourceSlot]?.text);
+            const quoteOrder = text.indexOf(left.evidenceQuote) - text.indexOf(right.evidenceQuote);
+            if (quoteOrder) return quoteOrder;
+            // Repeated equivalent quotes cannot establish separate occasions or
+            // audience membership; extracting an unambiguous receipt is semantic.
+        }
+    }
+    return canonicalJson(left).localeCompare(canonicalJson(right));
 }
 
 function filteredAcceptedChanges(changes, assistantAccepted) {
     const accepted = changes.filter((change) => (
-        assistantAccepted || change.sourceSlot !== 'previousAssistant'
+        assistantAccepted || (change.sourceSlot !== 'previousAssistant'
+            && !change.informationAccess?.audienceEvidence.some(entry => entry.sourceSlot === 'previousAssistant'))
     ));
     const survivingLocalRefs = new Set(accepted
         .filter((change) => change.operation === 'open')
@@ -183,7 +213,7 @@ export async function materializeContinuityChanges({
         throw new TypeError(`continuity-changes-invalid:${validation.errors.join(',')}`);
     }
     const normalized = filteredAcceptedChanges(changes.map(normalizeChange), assistantAccepted === true)
-        .sort(compareChanges);
+        .sort((left, right) => compareChanges(left, right, sourcePair));
     if (normalized.length === 0) return clone(existingEvents);
 
     const result = clone(existingEvents);
@@ -247,15 +277,24 @@ export async function materializeContinuityChanges({
             dependencies.push(...(liveThread?.facts || []).map((fact) => fact.id));
         }
         const source = requireSourceQuote(change, sourcePair, limits);
+        const sourceContributionIds = [contributionIds[change.sourceSlot]];
+        const sources = [source];
+        for (const entry of change.informationAccess?.audienceEvidence || []) {
+            const id = contributionIds[entry.sourceSlot];
+            if (!sourceContributionIds.includes(id)) {
+                sourceContributionIds.push(id);
+                sources.push(requireSourceQuote(entry, sourcePair, limits));
+            }
+        }
         const event = {
             kind: CONTINUITY_EVENT_KIND,
             id: eventId,
             threadId,
             branchId,
             operation: change.operation,
-            payload: payloadFor(change),
-            sourceContributionIds: [contributionIds[change.sourceSlot]],
-            sources: [source],
+            payload: payloadFor(change, sourcePair, limits),
+            sourceContributionIds,
+            sources,
             dependsOnEventIds: unique(dependencies),
             settledAtRevision,
         };
@@ -324,6 +363,7 @@ export function projectContinuityThreads(events) {
                 authoredRef: event.payload.authoredRef,
                 ...(Object.hasOwn(event.payload, 'linkedIds') ? { linkedIds: clone(event.payload.linkedIds) } : {}),
                 ...(Object.hasOwn(event.payload, 'deadlineElapsedSeconds') ? { deadlineElapsedSeconds: event.payload.deadlineElapsedSeconds } : {}),
+                ...(Object.hasOwn(event.payload, 'informationAccess') ? { informationAccess: clone(event.payload.informationAccess) } : {}),
                 sourceContributionIds: clone(event.sourceContributionIds),
                 sources: clone(event.sources),
             });

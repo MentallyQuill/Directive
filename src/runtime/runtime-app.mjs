@@ -1,5 +1,6 @@
 import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
+import { createCharacterInformationProjection, CHARACTER_INFORMATION_POLICY } from '../story/character-information.mjs';
 import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
 import { createGenerationCancellation, generationAbortedError } from './generation-cancellation.mjs';
 import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
@@ -511,6 +512,14 @@ export function createV1RuntimePromptPacket({
     opening: { ...openingPromptProjection({ state, runtimeAssets, acceptedPairLineage, openingRecord }),
       ...(acceptedPairLineage.length === 0 && openingRecord && openingRecord.campaignId === state.campaign?.id ? { openingDirection: clone(openingRecord.direction), openingInputs: clone(openingRecord.inputs) } : {}) },
     acceptedStory: story,
+    characterInformation: createCharacterInformationProjection({
+      events: state.storySettlement?.continuityEvents || [],
+      personIds: [...new Set([
+        ...(projection.people?.people || []).map(person => person.id),
+        ...(runtimeAssets?.crewDataset?.officers || []).map(person => person.id),
+        ...(runtimeAssets?.crewDataset?.supportingCharacters || []).map(person => person.id),
+      ].filter(Boolean))],
+    }),
     workingStory: createV1WorkingStoryPromptProjection({ settlement: state.storySettlement }),
     pendingTransition: transitionPromptProjection(state, runtimeAssets),
     pendingDutyReport: director?.dutyReport || null,
@@ -520,6 +529,7 @@ export function createV1RuntimePromptPacket({
   payload.scenePacing = sceneDefinition ? createScenePacingContext({definition:sceneDefinition,state:state.mission.v1,receipts:state.storySettlement?.acceptedPairReceipts || []}) : null;
   const text = [
     'DIRECTIVE V1 CAMPAIGN CONTEXT',
+    CHARACTER_INFORMATION_POLICY,
     playerAuthority.narratorConstraint,
     narrationPolicy.instruction,
     'Continue a story-first command RPG from the accepted state below.',
