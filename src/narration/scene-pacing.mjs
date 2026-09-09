@@ -3,34 +3,34 @@ import { collectMissionPredicateRefs, evaluateMissionPredicate } from '../missio
 import { missionStateContext } from '../mission/v1/mission-state.mjs';
 const INTENTS = ['continue', 'resolve', 'leave', 'delegate', 'skip'];
 const DEPARTURES = ['leave', 'delegate', 'skip'];
-const text = value => typeof value === 'string' && value.length <= 240;
-const quoteIn = (quote, source) => text(quote) && quote.trim().length >= 4 && String(source || '').includes(quote);
+const text = (value, maximum = Infinity) => typeof value === 'string' && value.length <= maximum;
+const quoteIn = (quote, source, maximum = 240) => text(quote, maximum) && quote.trim().length >= 4 && String(source || '').includes(quote);
 
-export function createScenePacingSchema(context) {
-    const quote = {type:'string',maxLength:240};
+export function createScenePacingSchema(context, { limits = {} } = {}) {
+    const quote = {type:'string',maxLength:limits.scenePacingQuoteCharacters ?? 240};
     return {type:'object',additionalProperties:false,required:['objectiveId','intent','intentQuote','missionDepartureQuote','unresolved','participation'],properties:{
         objectiveId:{enum:[null,...context.objectives.map(item=>item.id)]},
-        intent:{type:'string',enum:INTENTS},intentQuote:quote,missionDepartureQuote:quote,unresolved:quote,
+        intent:{type:'string',enum:INTENTS},intentQuote:quote,missionDepartureQuote:quote,unresolved:{type:'string',maxLength:limits.scenePacingTextCharacters ?? 240},
         participation:{type:'array',maxItems:4,items:{type:'object',additionalProperties:false,required:['requirement','playerQuote','assistantQuote'],properties:{requirement:{type:'integer',minimum:0,maximum:3},playerQuote:quote,assistantQuote:quote}}},
     }};
 }
 
-export function pacingObservationErrors(observation, {objectives = [], sourcePair = {}} = {}) {
+export function pacingObservationErrors(observation, {objectives = [], sourcePair = {}, limits = {}} = {}) {
     if (!observation || typeof observation !== 'object' || Array.isArray(observation)) return ['pacing must be an object'];
     const errors = [];
     const keys = ['objectiveId', 'intent', 'intentQuote', 'unresolved', 'participation'];
     if (Object.keys(observation).some(key => ![...keys,'missionDepartureQuote'].includes(key)) || keys.some(key => !Object.hasOwn(observation,key))) errors.push('pacing fields must match the contract');
-    if (observation.missionDepartureQuote !== undefined && (!text(observation.missionDepartureQuote) || observation.missionDepartureQuote && (!quoteIn(observation.missionDepartureQuote,sourcePair.currentPlayer?.text) || !['leave','skip'].includes(observation.intent)))) errors.push('mission departure quote must be an explicit player departure');
+    if (observation.missionDepartureQuote !== undefined && (!text(observation.missionDepartureQuote, limits.scenePacingQuoteCharacters ?? 240) || observation.missionDepartureQuote && (!quoteIn(observation.missionDepartureQuote,sourcePair.currentPlayer?.text, limits.scenePacingQuoteCharacters ?? 240) || !['leave','skip'].includes(observation.intent)))) errors.push('mission departure quote must be an explicit player departure');
     const objective = objectives.find(item => item.id === observation.objectiveId);
     if (observation.objectiveId !== null && !objective) errors.push('pacing objective is not available');
     if (!INTENTS.includes(observation.intent)) errors.push('pacing intent is unknown');
-    if (!text(observation.unresolved) || !text(observation.intentQuote)) errors.push('pacing text exceeds bounds');
-    if (observation.intent !== 'continue' && !quoteIn(observation.intentQuote, sourcePair.currentPlayer?.text)) errors.push('pacing intent quote must come from the player');
+    if (!text(observation.unresolved, limits.scenePacingTextCharacters ?? 240) || !text(observation.intentQuote, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing text exceeds bounds');
+    if (observation.intent !== 'continue' && !quoteIn(observation.intentQuote, sourcePair.currentPlayer?.text, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing intent quote must come from the player');
     if (!Array.isArray(observation.participation) || observation.participation.length > 4) errors.push('pacing participation must be a bounded array');
     else for (const item of observation.participation) {
         if (!item || Object.keys(item).sort().join(',') !== 'assistantQuote,playerQuote,requirement'
             || !Number.isInteger(item.requirement) || !objective?.scenePacing?.requirements?.[item.requirement]) errors.push('pacing requirement is not authored');
-        if (!quoteIn(item?.playerQuote, sourcePair.currentPlayer?.text) || !quoteIn(item?.assistantQuote, sourcePair.previousAssistant?.text)) errors.push('pacing participation quote must match both speakers');
+        if (!quoteIn(item?.playerQuote, sourcePair.currentPlayer?.text, limits.scenePacingQuoteCharacters ?? 240) || !quoteIn(item?.assistantQuote, sourcePair.previousAssistant?.text, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing participation quote must match both speakers');
     }
     return errors;
 }
@@ -38,7 +38,7 @@ export function pacingObservationErrors(observation, {objectives = [], sourcePai
 export function settleScenePacing({definition, state, receipts = [], observation, sourcePair, assistantAccepted = false} = {}) {
     if (observation) {
         const objectives = definition.objectives.filter(item => ['visible','resolved'].includes(state?.objectives?.[item.id]?.visibility));
-        const errors = pacingObservationErrors(observation, {objectives, sourcePair});
+        const errors = pacingObservationErrors(observation, {objectives, sourcePair, limits: { scenePacingTextCharacters: Infinity, scenePacingQuoteCharacters: Infinity }});
         if (errors.length) throw new TypeError(errors.join('; '));
     }
     const last = receipts.at(-1)?.scenePacing;

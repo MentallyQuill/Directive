@@ -1,4 +1,5 @@
 import { projectContinuityThreads, pruneContinuityEvents } from './continuity-events.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
 // Revision distance is an inactivity heuristic, not elapsed turns or ship time.
 export const THREAD_INACTIVITY_REVISIONS = 12;
@@ -15,10 +16,15 @@ const size = value => [...JSON.stringify(value)].length;
  */
 export function retrieveContinuityThreads({
   events = [], missionId = null, referencedIds = [], queryText = '', currentRevision,
-  currentElapsedSeconds = null, deadlineLeadSeconds = 1800,
-  maxCharacters = THREAD_RETRIEVAL_MAX_CHARACTERS, maxThreads = 12, lookupOnly = false,
+  currentElapsedSeconds = null, deadlineLeadSeconds,
+  maxCharacters, maxThreads, maxFacts, lookupOnly = false, limits = {},
 } = {}) {
-  if (!Number.isInteger(maxCharacters) || maxCharacters < 1 || !Number.isInteger(maxThreads) || maxThreads < 1 || maxThreads > 12) throw new TypeError('director-context-overflow');
+  const settings = normalizeAnalysisLimits(limits);
+  maxCharacters ??= settings.threadContextCharacters;
+  maxThreads ??= lookupOnly ? settings.threadLookupMaxRecords : settings.threadMaxRecords;
+  maxFacts ??= settings.threadMaxFactsPerRecord;
+  deadlineLeadSeconds ??= settings.threadDeadlineLeadSeconds;
+  if (![maxCharacters, maxThreads, maxFacts].every(value => Number.isSafeInteger(value) && value >= 1)) throw new TypeError('director-context-overflow');
   const surviving = pruneContinuityEvents(events);
   const threads = projectContinuityThreads(surviving);
   const requested = new Set([missionId, ...referencedIds].filter(id => typeof id === 'string' && id));
@@ -37,7 +43,7 @@ export function retrieveContinuityThreads({
   const due = thread => !terminal.has(thread.status) && thread.facts.some(dueFact);
   const approachingFact = fact => dueFact(fact) && fact.deadlineElapsedSeconds >= currentElapsedSeconds;
   const approaching = thread => !terminal.has(thread.status) && thread.facts.some(approachingFact);
-  const eligible = threads.filter(thread => explicit(thread) || related(thread) > 0 || (!lookupOnly && (due(thread) || (thread.status === 'active' && (protectedThread(thread) || age(thread) < THREAD_INACTIVITY_REVISIONS)))));
+  const eligible = threads.filter(thread => explicit(thread) || related(thread) > 0 || (!lookupOnly && (due(thread) || (thread.status === 'active' && (protectedThread(thread) || age(thread) < settings.threadInactivityRevisions)))));
   const dependencyThreads = new Set();
   const eligibleIds = new Set(eligible.map(thread => thread.id));
   // Include transitive event dependencies of selected records, including cross-thread links.
@@ -71,7 +77,7 @@ export function retrieveContinuityThreads({
     // Reserve one leading fact for the attention trigger; otherwise explicit/query
     // matches could omit the very deadline that brought this thread into context.
     const attentionFact = due(thread) ? thread.facts.filter(dueFact).sort((a,b) => Number(approachingFact(b)) - Number(approachingFact(a)) || Math.abs(a.deadlineElapsedSeconds-currentElapsedSeconds) - Math.abs(b.deadlineElapsedSeconds-currentElapsedSeconds))[0] : null;
-    const facts = thread.facts.map((fact,index) => ({fact,index})).sort((a,b) => Number(b.fact===attentionFact) - Number(a.fact===attentionFact) || Number(explicitFact(b.fact)) - Number(explicitFact(a.fact)) || relevance(b.fact.text) - relevance(a.fact.text) || b.index - a.index).slice(0,6).map(({fact}) => structuredClone(fact));
+    const facts = thread.facts.map((fact,index) => ({fact,index})).sort((a,b) => (lookupOnly ? Number(explicitFact(b.fact)) - Number(explicitFact(a.fact)) : 0) || Number(b.fact===attentionFact) - Number(a.fact===attentionFact) || Number(explicitFact(b.fact)) - Number(explicitFact(a.fact)) || relevance(b.fact.text) - relevance(a.fact.text) || b.index - a.index).slice(0,maxFacts).map(({fact}) => structuredClone(fact));
     const record = { id:thread.id, title:thread.title, category:thread.category, status:thread.status, lastRelevantRevision:revisions.get(thread.id) ?? 0, inactiveRevisionCount:age(thread), facts, omittedFactCount:thread.facts.length - facts.length, sourceContributionIds:[...new Set(facts.flatMap(fact => fact.sourceContributionIds || []))] };
     records.push(record);
     while (size(projection()) > maxCharacters && record.facts.length) { record.facts.pop(); record.omittedFactCount++; record.sourceContributionIds = [...new Set(record.facts.flatMap(fact => fact.sourceContributionIds || []))]; }
@@ -83,5 +89,5 @@ export function retrieveContinuityThreads({
 /** One targeted follow-up lookup against the same captured snapshot. */
 export function lookupContinuityThreads(options = {}) {
   if (!(options.referencedIds?.length) && !String(options.queryText ?? '').trim()) throw new TypeError('continuity-lookup-query-required');
-  return retrieveContinuityThreads({...options, missionId:null, maxThreads:options.maxThreads ?? 6, lookupOnly:true});
+  return retrieveContinuityThreads({...options, missionId:null, lookupOnly:true});
 }

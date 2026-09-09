@@ -66,3 +66,12 @@ assert.equal((await bounded.run(args)).ok, false);
 assert.equal(attempts, 4);
 assert.equal(successes, 1);
 console.log('Focused coordinator concurrency, due gating, and retry tests passed.');
+
+const configuredAttempts = { interpreter: 0, director: 0 };
+const configurable = createParallelTurnAnalysis({
+  maxAttempts: role => role === 'director' ? 4 : 1,
+  interpret: async () => { configuredAttempts.interpreter++; return { ok: false }; },
+  direct: async () => { configuredAttempts.director++; return { ok: false }; },
+});
+await configurable.run(args);
+assert.deepEqual(configuredAttempts, { interpreter: 1, director: 4 }, 'role retry settings have no hidden two-attempt ceiling');

@@ -49,7 +49,7 @@ export const STORY_DIRECTOR_SYSTEM_PROMPT = [
 
 function systemPromptFor(request) {
   if (request?.episodeReview === null) return STORY_DIRECTOR_SYSTEM_PROMPT;
-  const episodePrompt = createEpisodeEvaluationPrompt({ request: request.episodeReview }).systemPrompt;
+  const episodePrompt = createEpisodeEvaluationPrompt({ request: request.episodeReview }).systemPrompt.split('\n\nOutput JSON schema:')[0];
   return [
     STORY_DIRECTOR_SYSTEM_PROMPT,
     'Apply the following established evaluator rules only to the episodeReview field and only to its committed snapshot:',
@@ -110,8 +110,9 @@ function validateSource(value, label, errors) {
 }
 
 function requestErrors(value) {
+  const limits = value?.analysisLimits || {};
   const errors = [];
-  if (!exactObject(value, REQUEST_FIELDS, 'director-request', errors)) return errors;
+  if (!exactObject(value, Object.hasOwn(value || {}, 'analysisLimits') ? new Set([...REQUEST_FIELDS, 'analysisLimits']) : REQUEST_FIELDS, 'director-request', errors)) return errors;
   if (value.kind !== STORY_DIRECTOR_REQUEST_KIND) errors.push('director-request-kind-invalid');
   validateEnvelope(value.envelope, errors, 'director-request-envelope');
   if (exactObject(value.pendingPair, SOURCE_PAIR_FIELDS, 'director-request-pendingPair', errors)) {
@@ -148,17 +149,17 @@ function requestErrors(value) {
       || Object.entries(value.authoredContext.deadlines).some(([id, seconds]) => !authoredIds(value).includes(id)
         || !Number.isInteger(seconds) || seconds < 0))) errors.push('director-request-deadlines-invalid');
     if (authoredFields.has('referenceIds') && (!Array.isArray(value.authoredContext.referenceIds)
-      || value.authoredContext.referenceIds.length > 64 || new Set(value.authoredContext.referenceIds).size !== value.authoredContext.referenceIds.length
+      || value.authoredContext.referenceIds.length > (limits.storyReferenceCount ?? 64) || new Set(value.authoredContext.referenceIds).size !== value.authoredContext.referenceIds.length
       || value.authoredContext.referenceIds.some(id => !stableId(id)))) errors.push('director-request-reference-ids-invalid');
     if (authoredFields.has('references')) {
       const references = value.authoredContext.references;
-      if (!Array.isArray(references) || references.length > 64) errors.push('director-request-references-invalid');
+      if (!Array.isArray(references) || references.length > (limits.storyReferenceCount ?? 64)) errors.push('director-request-references-invalid');
       else {
         const ids = new Set();
         for (const reference of references) {
           if (!exactObject(reference, new Set(['id', 'name', 'kind']), 'director-reference', errors)) continue;
           if (!Array.isArray(value.authoredContext.referenceIds) || !value.authoredContext.referenceIds.includes(reference.id)
-            || ids.has(reference.id) || !nonEmpty(reference.name) || reference.name.length > 160
+            || ids.has(reference.id) || !nonEmpty(reference.name) || reference.name.length > (limits.storyReferenceNameCharacters ?? 160)
             || !['person', 'location'].includes(reference.kind)) errors.push('director-reference-invalid');
           ids.add(reference.id);
         }
@@ -176,7 +177,7 @@ function requestErrors(value) {
     const review = validateEpisodeEvaluationRequest(value.episodeReview);
     if (!review.ok) errors.push(...review.errors.map((error) => `director-request-episodeReview:${error}`));
   }
-  if ([...JSON.stringify(value)].length > STORY_DIRECTOR_CONTEXT_MAX_CHARACTERS) {
+  if ([...JSON.stringify(value)].length > (limits.requestContextCharacters ?? STORY_DIRECTOR_CONTEXT_MAX_CHARACTERS)) {
     errors.push('director-context-overflow');
   }
   return errors;
@@ -194,9 +195,11 @@ export function createStoryDirectorRequest({
   continuity,
   currentScene = null,
   episodeReview = null,
+  analysisLimits = null,
 } = {}) {
   const request = {
     kind: STORY_DIRECTOR_REQUEST_KIND,
+    ...(analysisLimits ? { analysisLimits: clone(analysisLimits) } : {}),
     envelope: clone(envelope),
     pendingPair: clone(sourcePair),
     authoredContext: clone(authoredContext),
@@ -225,18 +228,18 @@ function envelopeSchema(envelope) {
   };
 }
 
-function changeSchemas() {
+function changeSchemas(limits = {}) {
   const source = {
     sourceSlot: { type: 'string', enum: ['previousAssistant', 'currentPlayer'] },
-    evidenceQuote: { type: 'string', minLength: 12, maxLength: 240 },
+    evidenceQuote: { type: 'string', minLength: 12, maxLength: limits.continuityEvidenceQuoteCharacters ?? 240 },
   };
   return [{
     type: 'object', additionalProperties: false,
     required: ['operation', 'sourceSlot', 'evidenceQuote', 'localRef', 'title', 'category'],
     properties: {
       operation: { type: 'string', const: 'open' }, ...source,
-      localRef: { type: 'string', minLength: 1, maxLength: 80 },
-      title: { type: 'string', minLength: 1, maxLength: 120 },
+      localRef: { type: 'string', minLength: 1, maxLength: limits.continuityMaxLocalRefCharacters ?? 80 },
+      title: { type: 'string', minLength: 1, maxLength: limits.continuityTitleCharacters ?? 120 },
       category: { type: 'string', enum: ['obligation', 'schedule', 'constraint', 'resource-consequence', 'unresolved-problem'] },
     },
   }, {
@@ -245,10 +248,10 @@ function changeSchemas() {
     properties: {
       operation: { type: 'string', const: 'addFact' }, ...source,
       threadRef: { type: 'string', minLength: 1 },
-      text: { type: 'string', minLength: 1, maxLength: 512 },
+      text: { type: 'string', minLength: 1, maxLength: limits.continuityFactCharacters ?? 512 },
       claimType: { type: 'string', enum: ['narrated-fact', 'character-claim', 'player-commitment'] },
       authoredRef: nullableString(), supersedesFactId: nullableString(),
-      linkedIds: { type: 'array', maxItems: 16, uniqueItems: true, items: { type: 'string', minLength: 1 } },
+      linkedIds: { type: 'array', maxItems: limits.continuityMaxLinkedIds ?? 16, uniqueItems: true, items: { type: 'string', minLength: 1 } },
       deadlineElapsedSeconds: { anyOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }] },
     },
   }, {
@@ -277,13 +280,14 @@ function suppliedConditionIds(request) {
 }
 
 export function createStoryDirectorSchema(request = {}) {
+  const limits = request.analysisLimits || {};
   const validation = validateStoryDirectorRequest(request);
   if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
   const targetIds = suppliedTargetIds(request);
   const conditionIds = suppliedConditionIds(request);
   const targetStringSchema = targetIds.length
-    ? { anyOf: [{ type: 'string', enum: targetIds }, { type: 'string', minLength: 1, maxLength: 300 }] }
-    : { type: 'string', minLength: 1, maxLength: 300 };
+    ? { anyOf: [{ type: 'string', enum: targetIds }, { type: 'string', minLength: 1, maxLength: limits.storyMaxTargetIdCharacters ?? 300 }] }
+    : { type: 'string', minLength: 1, maxLength: limits.storyMaxTargetIdCharacters ?? 300 };
   return {
     type: 'object',
     additionalProperties: false,
@@ -292,7 +296,7 @@ export function createStoryDirectorSchema(request = {}) {
       kind: { type: 'string', const: STORY_DIRECTOR_PROPOSAL_KIND },
       envelope: envelopeSchema(request.envelope),
       coverage: { type: 'string', enum: ['complete', 'overflow'] },
-      threadChanges: { type: 'array', maxItems: 16, items: { anyOf: changeSchemas().flatMap((schema) => {
+      threadChanges: { type: 'array', maxItems: limits.continuityMaxChanges ?? 16, items: { anyOf: changeSchemas(limits).flatMap((schema) => {
         if (schema.properties.operation.const !== 'addFact') return [schema];
         const legacy = clone(schema);
         delete legacy.properties.linkedIds;
@@ -307,7 +311,7 @@ export function createStoryDirectorSchema(request = {}) {
           targetRef: { anyOf: [targetStringSchema, { type: 'null' }] },
           newComplications: { type: 'string', enum: [...COMPLICATION_POLICIES] },
           requires: {
-            type: 'array', maxItems: 8, uniqueItems: true,
+            type: 'array', maxItems: limits.directionMaxRequires ?? 8, uniqueItems: true,
             items: conditionIds.length ? { type: 'string', enum: conditionIds } : { type: 'string' },
           },
         },
@@ -334,10 +338,11 @@ function authoredIds(request) {
 }
 
 function validateDirection(direction, request, changes, errors) {
+  const limits = request.analysisLimits || {};
   if (!exactObject(direction, DIRECTION_FIELDS, 'director-direction', errors)) return;
   if (!MOVES.has(direction.move)) errors.push('director-direction-move-invalid');
   if (!COMPLICATION_POLICIES.has(direction.newComplications)) errors.push('director-direction-complications-invalid');
-  if (!Array.isArray(direction.requires) || direction.requires.length > 8
+  if (!Array.isArray(direction.requires) || direction.requires.length > (limits.directionMaxRequires ?? 8)
     || new Set(direction.requires).size !== direction.requires.length
     || direction.requires.some((id) => !suppliedConditionIds(request).includes(id))) {
     errors.push('director-direction-requires-invalid');
@@ -386,6 +391,7 @@ export function parseStoryDirectorOutput(value, { request = {} } = {}) {
     authoredDeadlines: request.authoredContext.deadlines || {},
     knownLinkIds: request.authoredContext.referenceIds || [],
     temporalContext: request.authoredContext.temporalContext,
+    limits: request.analysisLimits || {},
   });
   if (!changes.ok) errors.push(...changes.errors);
   validateDirection(proposal.direction, request, proposal.threadChanges, errors);
@@ -474,6 +480,8 @@ export function createStoryDirector({
   const readMonotonicNow = typeof monotonicNow === 'function' ? monotonicNow : defaultMonotonicNow;
   return async function directStory({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
     const roleId = analysisProtocol?.roleId || STORY_DIRECTOR_ROLE_ID;
+    const limits = request.analysisLimits || generationRouter?.getAnalysisLimits?.() || {};
+    if (Object.keys(limits).length) request = { ...request, analysisLimits: limits };
     if (analysisProtocol) request = { ...request, kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
     const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(roleId, fallbackTimeoutMs) ?? fallbackTimeoutMs;
     if (signal?.aborted) return { ok: false, reasonCode: 'director-aborted', diagnostics: {} };
@@ -491,11 +499,19 @@ export function createStoryDirector({
       };
     }
     const configuredMaxTokens = generationRouter?.getMaxTokens?.(roleId, analysisProtocol?.maxTokens || 8192) ?? (analysisProtocol?.maxTokens || 8192);
-    const maxTokens = analysisProtocol ? Math.min(configuredMaxTokens, analysisProtocol.maxTokens) : configuredMaxTokens;
+    const maxTokens = configuredMaxTokens;
     const jsonSchema = analysisProtocol ? analysisProtocol.schema(request) : createStoryDirectorSchema(request);
     // Prompt JSON routes do not transmit jsonSchema as a native API constraint.
     // They still need the same complete output contract in the model's context.
-    const systemPrompt = `${analysisProtocol?.systemPrompt || systemPromptFor(request)}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
+    const boundedPrompt = (analysisProtocol?.systemPrompt || systemPromptFor(request))
+      .replaceAll('240 character', `${limits.continuityEvidenceQuoteCharacters ?? 240} character`)
+      .replaceAll('240 characters', `${limits.continuityEvidenceQuoteCharacters ?? 240} characters`)
+      .replaceAll('16-change', `${limits.continuityMaxChanges ?? 16}-change`)
+      .replace('at most eight threadIds', `at most ${limits.continuityLookupIds ?? 8} threadIds`)
+      .replace('at most 160 characters', `at most ${limits.continuityLookupQueryCharacters ?? 160} characters`)
+      .replace('one to three lookupRequests', `one to ${limits.continuityLookupRequests ?? 3} lookupRequests`)
+      .replace('within seven days', `within ${limits.continuityDeadlineHorizonSeconds ?? 604800} seconds`);
+    const systemPrompt = `${boundedPrompt}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const wireRequest = analysisProtocol ? { ...request, kind: `directive.${roleId}Request.v1` } : request;
     if (analysisProtocol) delete wireRequest.episodeReview;
     const payload = {
@@ -591,6 +607,7 @@ const FOCUSED_CONTINUITY_PROMPT = [
 ].join('\n');
 
 export function createFocusedStorySchema(request, roleId) {
+  const limits = request.analysisLimits || {};
   const base = createStoryDirectorSchema({ ...request, episodeReview: null });
   const continuity = roleId === CONTINUITY_ANALYST_ROLE_ID;
   const properties = {
@@ -599,11 +616,11 @@ export function createFocusedStorySchema(request, roleId) {
     ...(continuity ? {
       coverage: { type: 'string', enum: ['complete', 'overflow', 'lookup-needed'] },
       threadChanges: base.properties.threadChanges,
-      lookupRequests: { type: 'array', maxItems: 3, items: {
+      lookupRequests: { type: 'array', maxItems: limits.continuityLookupRequests ?? 3, items: {
         type: 'object', additionalProperties: false, required: ['threadIds', 'query'],
         properties: {
-          threadIds: { type: 'array', maxItems: 8, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 300 } },
-          query: { anyOf: [{ type: 'null' }, { type: 'string', minLength: 1, maxLength: 160 }] },
+          threadIds: { type: 'array', maxItems: limits.continuityLookupIds ?? 8, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: limits.storyMaxTargetIdCharacters ?? 300 } },
+          query: { anyOf: [{ type: 'null' }, { type: 'string', minLength: 1, maxLength: limits.continuityLookupQueryCharacters ?? 160 }] },
         },
       } },
     } : { direction: base.properties.direction }),
@@ -611,8 +628,8 @@ export function createFocusedStorySchema(request, roleId) {
   return { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
 }
 
-export function parseFocusedStoryOutput(value, { request, roleId } = {}) {
-  const normalized = { ...request, kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
+export function parseFocusedStoryOutput(value, { request, roleId, limits = request?.analysisLimits || {} } = {}) {
+  const normalized = { ...request, ...(Object.keys(limits).length ? { analysisLimits: limits } : {}), kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
   const validation = validateStoryDirectorRequest(normalized);
   if (!validation.ok) return validation;
   const parsed = parseObject(value);
@@ -628,13 +645,13 @@ export function parseFocusedStoryOutput(value, { request, roleId } = {}) {
   } catch { errors.push('analyst-envelope-invalid'); }
   if (continuity) {
     const lookups = proposal.lookupRequests;
-    if (!Array.isArray(lookups) || lookups.length > 3) errors.push('analyst-lookups-invalid');
+    if (!Array.isArray(lookups) || lookups.length > (limits.continuityLookupRequests ?? 3)) errors.push('analyst-lookups-invalid');
     else for (const lookup of lookups) {
       if (!exactObject(lookup, new Set(['threadIds', 'query']), 'analyst-lookup', errors)) continue;
-      if (!Array.isArray(lookup.threadIds) || lookup.threadIds.length > 8
+      if (!Array.isArray(lookup.threadIds) || lookup.threadIds.length > (limits.continuityLookupIds ?? 8)
         || new Set(lookup.threadIds).size !== lookup.threadIds.length
-        || lookup.threadIds.some((id) => !stableId(id) || id.length > 300)) errors.push('analyst-lookup-ids-invalid');
-      if (lookup.query !== null && (!nonEmpty(lookup.query) || lookup.query.length > 160)) errors.push('analyst-lookup-query-invalid');
+        || lookup.threadIds.some((id) => !stableId(id) || id.length > (limits.storyMaxTargetIdCharacters ?? 300))) errors.push('analyst-lookup-ids-invalid');
+      if (lookup.query !== null && (!nonEmpty(lookup.query) || lookup.query.length > (limits.continuityLookupQueryCharacters ?? 160))) errors.push('analyst-lookup-query-invalid');
       if (!lookup.threadIds?.length && !nonEmpty(lookup.query)) errors.push('analyst-lookup-empty');
     }
     if (proposal.coverage === 'lookup-needed') {
@@ -647,6 +664,7 @@ export function parseFocusedStoryOutput(value, { request, roleId } = {}) {
         authoredDeadlines: normalized.authoredContext.deadlines || {},
         knownLinkIds: normalized.authoredContext.referenceIds || [],
         temporalContext: normalized.authoredContext.temporalContext,
+        limits,
       });
       if (!changes.ok) errors.push(...changes.errors);
     }

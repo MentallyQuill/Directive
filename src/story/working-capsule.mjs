@@ -31,7 +31,7 @@ function uniqueStableIds(value, field, errors) {
         return [];
     }
     if (new Set(value).size !== value.length) errors.push(`${field} must be unique`);
-    if (value.length > 128) errors.push(`${field} must contain at most 128 ids`);
+
     for (const id of value) {
         if (!isStableId(id)) errors.push(`${field} contains an invalid id`);
     }
@@ -99,14 +99,13 @@ export function validateStoryWorkingCapsule(value, {
     if (value.kind !== STORY_WORKING_CAPSULE_KIND) {
         errors.push(`${episodeId} workingCapsule kind must be ${STORY_WORKING_CAPSULE_KIND}`);
     }
-    if (typeof value.summary !== 'string' || textLength(value.summary) > STORY_WORKING_CAPSULE_MAX_SUMMARY_CHARS) {
-        errors.push(`${episodeId} workingCapsule summary must be a string of at most ${STORY_WORKING_CAPSULE_MAX_SUMMARY_CHARS} characters`);
+    if (typeof value.summary !== 'string') {
+        errors.push(`${episodeId} workingCapsule summary must be a string`);
     }
     if (value.foregroundQuestion !== null
         && (typeof value.foregroundQuestion !== 'string'
-            || value.foregroundQuestion.length === 0
-            || textLength(value.foregroundQuestion) > STORY_WORKING_CAPSULE_MAX_QUESTION_CHARS)) {
-        errors.push(`${episodeId} workingCapsule foregroundQuestion must be null or a non-empty string of at most ${STORY_WORKING_CAPSULE_MAX_QUESTION_CHARS} characters`);
+            || value.foregroundQuestion.length === 0)) {
+        errors.push(`${episodeId} workingCapsule foregroundQuestion must be null or a non-empty string`);
     }
     const contributionIds = new Set((episode.contributions || []).map((item) => item.id));
     const activeEffectIds = new Set((episode.effects || []).filter((item) => item.status === 'active').map((item) => item.id));
@@ -127,9 +126,7 @@ export function validateStoryWorkingCapsule(value, {
     if (!Array.isArray(value.recentEvidence)) {
         errors.push(`${episodeId} workingCapsule recentEvidence must be an array`);
     } else {
-        if (value.recentEvidence.length > STORY_WORKING_CAPSULE_MAX_EXCERPTS) {
-            errors.push(`${episodeId} workingCapsule recentEvidence exceeds ${STORY_WORKING_CAPSULE_MAX_EXCERPTS} excerpts`);
-        }
+
         const evidenceIds = new Set();
         let totalExcerptChars = 0;
         for (const evidence of value.recentEvidence) {
@@ -157,16 +154,13 @@ export function validateStoryWorkingCapsule(value, {
                 errors.push(`${episodeId} workingCapsule evidence textHash is invalid`);
             }
             if (typeof evidence?.excerpt !== 'string'
-                || evidence.excerpt.length === 0
-                || textLength(evidence.excerpt) > STORY_WORKING_CAPSULE_MAX_EXCERPT_CHARS) {
-                errors.push(`${episodeId} workingCapsule evidence excerpt must be non-empty and at most ${STORY_WORKING_CAPSULE_MAX_EXCERPT_CHARS} characters`);
+                || evidence.excerpt.length === 0) {
+                errors.push(`${episodeId} workingCapsule evidence excerpt must be a non-empty string`);
             } else {
                 totalExcerptChars += textLength(evidence.excerpt);
             }
         }
-        if (totalExcerptChars > STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS) {
-            errors.push(`${episodeId} workingCapsule recentEvidence exceeds ${STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS} total characters`);
-        }
+
     }
     if (!Number.isInteger(value.observedContributionCount)
         || value.observedContributionCount < 0
@@ -200,6 +194,7 @@ export function appendStoryWorkingEvidence(capsule, {
     episode,
     observations = [],
     updatedAtRevision,
+    limits = {},
 } = {}) {
     assertValidCapsule(capsule, { episode, settlementRevision: updatedAtRevision });
     if (!Array.isArray(observations)) throw new TypeError('observations must be an array');
@@ -228,7 +223,7 @@ export function appendStoryWorkingEvidence(capsule, {
                 contributionId: observation.contributionId,
                 role: observation.role,
                 textHash: observation.textHash,
-                excerpt: truncateText(excerpt, STORY_WORKING_CAPSULE_MAX_EXCERPT_CHARS),
+                excerpt: truncateText(excerpt, Math.min(limits.episodeMaxEvidenceExcerptCharacters ?? STORY_WORKING_CAPSULE_MAX_EXCERPT_CHARS, limits.episodeMaxEvidenceCharacters ?? STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS)),
             },
         });
     }
@@ -245,8 +240,12 @@ export function appendStoryWorkingEvidence(capsule, {
         next.observedContributionCount,
         ...additions.map((item) => item.index + 1),
     );
-    while (next.recentEvidence.length > STORY_WORKING_CAPSULE_MAX_EXCERPTS
-        || next.recentEvidence.reduce((total, item) => total + textLength(item.excerpt), 0) > STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS) {
+    if (next.recentEvidence.length) {
+        const latest = next.recentEvidence.at(-1);
+        latest.excerpt = truncateText(latest.excerpt, limits.episodeMaxEvidenceCharacters ?? STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS);
+    }
+    while (next.recentEvidence.length > (limits.episodeMaxRecentEvidence ?? STORY_WORKING_CAPSULE_MAX_EXCERPTS)
+        || next.recentEvidence.reduce((total, item) => total + textLength(item.excerpt), 0) > (limits.episodeMaxEvidenceCharacters ?? STORY_WORKING_CAPSULE_MAX_TOTAL_EXCERPT_CHARS)) {
         next.recentEvidence.shift();
     }
     next.updatedAtRevision = updatedAtRevision;
@@ -262,20 +261,21 @@ export function replaceStoryWorkingSemantics(capsule, {
     needsReview = false,
     lastEvaluatedCheckpointSequence = capsule?.lastEvaluatedCheckpointSequence,
     updatedAtRevision,
+    limits = {},
 } = {}) {
     assertValidCapsule(capsule, { episode, settlementRevision: updatedAtRevision });
     assertUniqueIds(sourceContributionIds, 'working capsule sourceContributionIds');
     assertUniqueIds(effectIds, 'working capsule effectIds');
-    if (sourceContributionIds.length > 128) throw new TypeError('working capsule sourceContributionIds must contain at most 128 ids');
-    if (effectIds.length > 128) throw new TypeError('working capsule effectIds must contain at most 128 ids');
+    if (sourceContributionIds.length > (limits.episodeMaxSourceIds ?? 128)) throw new TypeError('working capsule sourceContributionIds exceeds configured maximum');
+    if (effectIds.length > (limits.episodeMaxVisibleEffects ?? 128)) throw new TypeError('working capsule effectIds exceeds configured maximum');
     if (typeof summary !== 'string') throw new TypeError('working capsule summary must be a string');
     if (foregroundQuestion !== null && typeof foregroundQuestion !== 'string') {
         throw new TypeError('working capsule foregroundQuestion must be null or a string');
     }
     const compactSummary = compactText(summary);
     const compactQuestion = foregroundQuestion === null ? null : compactText(foregroundQuestion);
-    if (textLength(compactSummary) > STORY_WORKING_CAPSULE_MAX_SUMMARY_CHARS) throw new TypeError('working capsule summary is too long');
-    if (compactQuestion !== null && (!compactQuestion || textLength(compactQuestion) > STORY_WORKING_CAPSULE_MAX_QUESTION_CHARS)) {
+    if (textLength(compactSummary) > (limits.episodeMaxContinueSummaryCharacters ?? STORY_WORKING_CAPSULE_MAX_SUMMARY_CHARS)) throw new TypeError('working capsule summary is too long');
+    if (compactQuestion !== null && (!compactQuestion || textLength(compactQuestion) > (limits.episodeMaxQuestionCharacters ?? STORY_WORKING_CAPSULE_MAX_QUESTION_CHARS))) {
         throw new TypeError('working capsule foregroundQuestion is invalid');
     }
     const acceptedIds = new Set((episode.contributions || []).map((item) => item.id));
@@ -303,6 +303,7 @@ export function repairStoryWorkingCapsule(capsule, {
     episode,
     invalidatedContributionIds = [],
     updatedAtRevision,
+    limits = {},
 } = {}) {
     if (!capsule) return null;
     const invalidated = new Set(invalidatedContributionIds);

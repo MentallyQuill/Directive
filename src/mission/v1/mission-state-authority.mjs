@@ -83,8 +83,8 @@ function validateEvidenceLog(definition, state, errors) {
             || new Set(entry.pacingSourceContributionIds).size !== entry.pacingSourceContributionIds.length)) errors.push('evidenceLog pacing dependencies must be bounded unique source ids');
         if (entry.evidenceQuote !== undefined) {
             const quote = String(entry.evidenceQuote);
-            if ([...quote].length < 12 || [...quote].length > 240) {
-                errors.push('evidenceLog evidenceQuote must contain 12 through 240 characters');
+            if ([...quote].length < 12) {
+                errors.push('evidenceLog evidenceQuote must contain at least 12 characters');
             }
             if (entry.evidenceQuoteHash !== evidenceQuoteHash(quote)) {
                 errors.push('evidenceLog evidenceQuoteHash does not match evidenceQuote');

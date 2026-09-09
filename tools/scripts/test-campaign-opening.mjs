@@ -41,3 +41,17 @@ const biographyNarration = createOpeningNarrationRequest({premise:makePremise('I
 assert.equal(JSON.parse(biographyNarration.messages[1].content).background[0].visibility,'player-known');
 assert.match(biographyNarration.messages[0].content,/player-known.*not.*NPC/i);
 console.log('PASS campaign opening bounded Director and narration contracts');
+
+const expandedPremise = { ...makePremise('Island'), sceneMaterial: ['one', 'two', 'three', 'four', 'five'] };
+const expandedPlayer = { dossier: { identitySummary: 'Identity', serviceSummary: 'Service', briefBiography: 'Biography', publicReputation: 'Reputation' } };
+const openingLimits = { openingMaxSceneReferences: 5, openingMaxBackgroundReferences: 4, openingNarrationMaxTokens: 10000 };
+const expandedRequest = createOpeningDirectorRequest({ premise: expandedPremise, player: expandedPlayer, limits: openingLimits });
+const expandedDirection = {
+ kind: 'directive.openingDirection.v1', emphasis: 'balanced',
+ sceneMaterialIds: expandedRequest.context.sceneReferences.map(item => item.id),
+ backgroundIds: expandedRequest.context.backgroundReferences.map(item => item.id),
+};
+assert.equal(expandedRequest.jsonSchema.properties.sceneMaterialIds.maxItems, 5);
+assert.equal(parseOpeningDirection(expandedDirection, { request: expandedRequest }).ok, true);
+assert.equal(parseOpeningDirection(expandedDirection, { request: createOpeningDirectorRequest({ premise: expandedPremise, player: expandedPlayer }) }).ok, false);
+assert.equal(createOpeningNarrationRequest({ premise: expandedPremise, player: expandedPlayer, limits: openingLimits, direction: expandedDirection }).parameters.max_tokens, 10000);

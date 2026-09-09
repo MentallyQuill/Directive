@@ -78,6 +78,23 @@ const MAX_RELATIONSHIP_TEXT_CHARS = 240;
 const MAX_MOMENT_TITLE_CHARS = 120;
 const MAX_MOMENT_SUMMARY_CHARS = 512;
 
+
+function episodeLimits(limits = {}) {
+    return {
+        MAX_VISIBLE_EFFECTS: limits.episodeMaxVisibleEffects ?? MAX_VISIBLE_EFFECTS,
+        MAX_REFERENCE_IDS: limits.episodeMaxReferenceIds ?? MAX_REFERENCE_IDS,
+        MAX_RECENT_SEALED_SUMMARIES: limits.episodeMaxRecentSummaries ?? MAX_RECENT_SEALED_SUMMARIES,
+        MAX_CONTINUE_SUMMARY_CHARS: limits.episodeMaxContinueSummaryCharacters ?? MAX_CONTINUE_SUMMARY_CHARS,
+        MAX_SEALED_SUMMARY_CHARS: limits.episodeMaxSealedSummaryCharacters ?? MAX_SEALED_SUMMARY_CHARS,
+        MAX_QUESTION_CHARS: limits.episodeMaxQuestionCharacters ?? MAX_QUESTION_CHARS,
+        MAX_PEOPLE_EVENTS: limits.episodeMaxPeopleEvents ?? MAX_PEOPLE_EVENTS,
+        MAX_RELATIONSHIPS: limits.episodeMaxRelationships ?? MAX_RELATIONSHIPS,
+        MAX_RELATIONSHIP_TEXT_CHARS: limits.episodeMaxRelationshipTextCharacters ?? MAX_RELATIONSHIP_TEXT_CHARS,
+        MAX_MOMENT_TITLE_CHARS: limits.episodeMaxMomentTitleCharacters ?? MAX_MOMENT_TITLE_CHARS,
+        MAX_MOMENT_SUMMARY_CHARS: limits.episodeMaxMomentSummaryCharacters ?? MAX_MOMENT_SUMMARY_CHARS,
+    };
+}
+
 function cloneJson(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
@@ -102,13 +119,11 @@ function activeEpisode(settlement) {
     return settlement.episodes.find((episode) => episode.id === settlement.activeEpisode) || null;
 }
 
-function projectedReferences(references = {}) {
+function projectedReferences(references = {}, limits = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const bounded = (value, field) => {
         const ids = [...new Set((Array.isArray(value) ? value : []).filter(isStableId))];
-        if (ids.length > MAX_REFERENCE_IDS) {
-            throw new TypeError(`episode evaluation ${field} exceeds ${MAX_REFERENCE_IDS} references`);
-        }
-        return ids;
+        return ids.slice(0, MAX_REFERENCE_IDS);
     };
     return {
         missionIds: bounded(references.missionIds, 'missionIds'),
@@ -118,19 +133,18 @@ function projectedReferences(references = {}) {
     };
 }
 
-function projectedVisibleEffects(episode, capsule) {
+function projectedVisibleEffects(episode, capsule, limits = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const visible = episode.effects.filter((effect) => (
         effect.status === 'active' && effect.playerVisibility === 'visible'
     ));
     const cited = new Set(capsule.effectIds);
     const citedEffects = visible.filter((effect) => cited.has(effect.id));
-    if (citedEffects.length > MAX_VISIBLE_EFFECTS) {
-        throw new TypeError(`working capsule cites more than ${MAX_VISIBLE_EFFECTS} visible effects`);
-    }
+
     const uncited = visible.filter((effect) => !cited.has(effect.id));
     const selected = [
-        ...citedEffects,
-        ...uncited.slice(-(MAX_VISIBLE_EFFECTS - citedEffects.length)),
+        ...citedEffects.slice(-MAX_VISIBLE_EFFECTS),
+        ...(MAX_VISIBLE_EFFECTS > citedEffects.length ? uncited.slice(-(MAX_VISIBLE_EFFECTS - citedEffects.length)) : []),
     ];
     return selected.map((effect) => ({
         id: effect.id,
@@ -141,11 +155,13 @@ function projectedVisibleEffects(episode, capsule) {
     }));
 }
 
-function projectedPeopleEvents(episode) {
+function projectedPeopleEvents(episode, limits = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     return cloneJson((episode.peopleEvents || []).slice(-MAX_PEOPLE_EVENTS));
 }
 
-function projectedCurrentRelationships(settlement, episode) {
+function projectedCurrentRelationships(settlement, episode, limits = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const byPerson = new Map();
     for (const candidate of [...selectCurrentStoryEpisodes(settlement), episode]) {
         for (const effect of candidate.effects || []) {
@@ -195,9 +211,10 @@ function requestIdArray(value, { label, maximum, errors }) {
     return value;
 }
 
-export function validateEpisodeEvaluationRequest(value = {}) {
+export function validateEpisodeEvaluationRequest(value = {}, { limits = value.analysisLimits || {} } = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const errors = [];
-    if (!objectFieldErrors(value, REQUEST_FIELDS, 'request', errors)) return { ok: false, errors };
+    if (!objectFieldErrors(value, Object.hasOwn(value, 'analysisLimits') ? new Set([...REQUEST_FIELDS, 'analysisLimits']) : REQUEST_FIELDS, 'request', errors)) return { ok: false, errors };
     if (value.kind !== EPISODE_EVALUATION_REQUEST_KIND) {
         errors.push(`request kind must be ${EPISODE_EVALUATION_REQUEST_KIND}`);
     }
@@ -213,28 +230,26 @@ export function validateEpisodeEvaluationRequest(value = {}) {
         }
     }
     requestIdArray(value.pendingSourceContributionIds, {
-        label: 'request pendingSourceContributionIds', maximum: 128, errors,
+        label: 'request pendingSourceContributionIds', maximum: Infinity, errors,
     });
     const capsuleOk = objectFieldErrors(value.workingCapsule, REQUEST_CAPSULE_FIELDS, 'request workingCapsule', errors);
     if (capsuleOk) {
         if (value.workingCapsule.kind !== 'directive.storyWorkingCapsule.v1') {
             errors.push('request workingCapsule kind is invalid');
         }
-        if (typeof value.workingCapsule.summary !== 'string'
-            || textLength(value.workingCapsule.summary) > MAX_CONTINUE_SUMMARY_CHARS) {
+        if (typeof value.workingCapsule.summary !== 'string') {
             errors.push('request workingCapsule summary is invalid');
         }
         if (value.workingCapsule.foregroundQuestion !== null
             && (typeof value.workingCapsule.foregroundQuestion !== 'string'
-                || !compactText(value.workingCapsule.foregroundQuestion)
-                || textLength(value.workingCapsule.foregroundQuestion) > MAX_QUESTION_CHARS)) {
+                || !compactText(value.workingCapsule.foregroundQuestion))) {
             errors.push('request workingCapsule foregroundQuestion is invalid');
         }
         requestIdArray(value.workingCapsule.sourceContributionIds, {
-            label: 'request workingCapsule sourceContributionIds', maximum: 128, errors,
+            label: 'request workingCapsule sourceContributionIds', maximum: Infinity, errors,
         });
         requestIdArray(value.workingCapsule.effectIds, {
-            label: 'request workingCapsule effectIds', maximum: MAX_VISIBLE_EFFECTS, errors,
+            label: 'request workingCapsule effectIds', maximum: Infinity, errors,
         });
         if (typeof value.workingCapsule.needsReview !== 'boolean') errors.push('request workingCapsule needsReview must be boolean');
         if (!Number.isInteger(value.workingCapsule.lastEvaluatedCheckpointSequence)
@@ -251,7 +266,7 @@ export function validateEpisodeEvaluationRequest(value = {}) {
     if (!Array.isArray(value.recentEvidence)) {
         errors.push('request recentEvidence must be an array');
     } else {
-        if (value.recentEvidence.length > 6) errors.push('request recentEvidence exceeds six excerpts');
+        if (value.recentEvidence.length > (limits.episodeMaxRecentEvidence ?? 6)) errors.push('request recentEvidence exceeds six excerpts');
         const evidenceIds = new Set();
         let totalChars = 0;
         for (const [index, evidence] of value.recentEvidence.entries()) {
@@ -266,13 +281,13 @@ export function validateEpisodeEvaluationRequest(value = {}) {
             }
             if (typeof evidence.excerpt !== 'string'
                 || !evidence.excerpt
-                || textLength(evidence.excerpt) > 240) {
+                || textLength(evidence.excerpt) > (limits.episodeMaxEvidenceExcerptCharacters ?? 240)) {
                 errors.push(`${label} excerpt is invalid`);
             } else {
                 totalChars += textLength(evidence.excerpt);
             }
         }
-        if (totalChars > 1200) errors.push('request recentEvidence exceeds 1200 characters');
+        if (totalChars > (limits.episodeMaxEvidenceCharacters ?? 1200)) errors.push('request recentEvidence exceeds 1200 characters');
     }
     if (!Array.isArray(value.visibleEffects)) {
         errors.push('request visibleEffects must be an array');
@@ -304,7 +319,7 @@ export function validateEpisodeEvaluationRequest(value = {}) {
                 errors.push(`${label} value must be a scalar`);
             }
             requestIdArray(effect.sourceContributionIds, {
-                label: `${label} sourceContributionIds`, maximum: 128, errors,
+                label: `${label} sourceContributionIds`, maximum: Infinity, errors,
             });
         }
         for (const effectId of value.workingCapsule?.effectIds || []) {
@@ -334,7 +349,7 @@ export function validateEpisodeEvaluationRequest(value = {}) {
             if (!Number.isInteger(entry.sealedAtRevision) || entry.sealedAtRevision < 0) {
                 errors.push(`${label} sealedAtRevision must be a non-negative integer`);
             }
-            if (typeof entry.summary !== 'string' || !compactText(entry.summary) || textLength(entry.summary) > MAX_SEALED_SUMMARY_CHARS) {
+            if (typeof entry.summary !== 'string' || !compactText(entry.summary)) {
                 errors.push(`${label} summary is invalid`);
             }
         }
@@ -373,17 +388,18 @@ export function validateEpisodeEvaluationRequest(value = {}) {
             for (const field of ['posture', 'openMatter']) {
                 if (relationship[field] !== null
                     && (typeof relationship[field] !== 'string'
-                        || !compactText(relationship[field])
-                        || textLength(relationship[field]) > MAX_RELATIONSHIP_TEXT_CHARS)) {
+                        || !compactText(relationship[field]))) {
                     errors.push(`${label} ${field} must be null or a non-empty bounded string`);
                 }
             }
         }
     }
+    if ([...JSON.stringify(value)].length > (limits.requestContextCharacters ?? 48000)) errors.push('episode-request-context-overflow');
     return { ok: errors.length === 0, errors };
 }
 
-export function createEpisodeEvaluationRequest({ settlement = {} } = {}) {
+export function createEpisodeEvaluationRequest({ settlement = {}, limits = {} } = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const validation = validateStorySettlement(settlement);
     if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
     const episode = activeEpisode(settlement);
@@ -404,6 +420,7 @@ export function createEpisodeEvaluationRequest({ settlement = {} } = {}) {
         }));
     const request = {
         kind: EPISODE_EVALUATION_REQUEST_KIND,
+        ...(Object.keys(limits).length ? { analysisLimits: cloneJson(limits) } : {}),
         envelope: {
             branchId: settlement.branchId,
             episodeId: episode.id,
@@ -421,14 +438,21 @@ export function createEpisodeEvaluationRequest({ settlement = {} } = {}) {
             lastEvaluatedCheckpointSequence: capsule.lastEvaluatedCheckpointSequence,
             updatedAtRevision: capsule.updatedAtRevision,
         },
-        recentEvidence: cloneJson(capsule.recentEvidence),
-        visibleEffects: projectedVisibleEffects(episode, capsule),
-        references: projectedReferences(episode.references),
+        recentEvidence: (() => {
+            let remaining = limits.episodeMaxEvidenceCharacters ?? 1200;
+            return cloneJson(capsule.recentEvidence).slice(-(limits.episodeMaxRecentEvidence ?? 6)).reverse().map(item => {
+                const excerpt = [...item.excerpt].slice(0, Math.min(remaining, limits.episodeMaxEvidenceExcerptCharacters ?? 240)).join('');
+                remaining -= [...excerpt].length;
+                return { ...item, excerpt };
+            }).filter(item => item.excerpt).reverse();
+        })(),
+        visibleEffects: projectedVisibleEffects(episode, capsule, limits),
+        references: projectedReferences(episode.references, limits),
         recentSealedSummaries,
-        peopleEvents: projectedPeopleEvents(episode),
-        currentRelationships: projectedCurrentRelationships(settlement, episode),
+        peopleEvents: projectedPeopleEvents(episode, limits),
+        currentRelationships: projectedCurrentRelationships(settlement, episode, limits),
     };
-    const requestValidation = validateEpisodeEvaluationRequest(request);
+    const requestValidation = validateEpisodeEvaluationRequest(request, { limits });
     if (!requestValidation.ok) throw new TypeError(requestValidation.errors.join('\n'));
     return request;
 }
@@ -465,7 +489,9 @@ function validateRelationshipUpdates(value, {
     allowedSourceIds,
     relationshipSourceIdsByPerson,
     errors,
+    limits = {},
 }) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     if (!Array.isArray(value)) {
         errors.push('relationshipUpdates must be an array');
         return [];
@@ -495,7 +521,7 @@ function validateRelationshipUpdates(value, {
         const sources = validateUniqueIds(update.sourceContributionIds, {
             field: `${label} sourceContributionIds`,
             allowed: allowedSourceIds,
-            maximum: 16,
+            maximum: limits.episodeMaxEntrySourceIds ?? 16,
             errors,
         });
         if (sources.length === 0) errors.push(`${label} relationship sourceContributionIds must be non-empty`);
@@ -512,7 +538,9 @@ function validateCharacterMoments(value, {
     allowedSourceIds,
     relationshipSourceIdsByPerson,
     errors,
+    limits = {},
 }) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     if (!Array.isArray(value)) {
         errors.push('characterMoments must be an array');
         return [];
@@ -541,7 +569,7 @@ function validateCharacterMoments(value, {
         const sources = validateUniqueIds(moment.sourceContributionIds, {
             field: `${label} sourceContributionIds`,
             allowed: allowedSourceIds,
-            maximum: 16,
+            maximum: limits.episodeMaxEntrySourceIds ?? 16,
             errors,
         });
         if (sources.length === 0) errors.push(`${label} sourceContributionIds must be non-empty`);
@@ -562,7 +590,8 @@ function allowedEvaluationSourceIds(request) {
     ])];
 }
 
-function proposalErrors(value, request) {
+function proposalErrors(value, request, limits = request.analysisLimits || {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const errors = [];
     for (const field of Object.keys(value)) {
         if (!PROPOSAL_FIELDS.has(field)) errors.push(`proposal contains unknown field: ${field}`);
@@ -584,7 +613,7 @@ function proposalErrors(value, request) {
     const sourceContributionIds = validateUniqueIds(value.sourceContributionIds, {
         field: 'sourceContributionIds',
         allowed: allowedSourceIds,
-        maximum: 128,
+        maximum: limits.episodeMaxSourceIds ?? 128,
         errors,
     });
     const effectIds = validateUniqueIds(value.effectIds, {
@@ -610,12 +639,14 @@ function proposalErrors(value, request) {
         allowedSourceIds,
         relationshipSourceIdsByPerson,
         errors,
+        limits,
     });
     const characterMoments = validateCharacterMoments(value.characterMoments, {
         allowedPeopleIds,
         allowedSourceIds,
         relationshipSourceIdsByPerson,
         errors,
+        limits,
     });
     if (!Array.isArray(value.significanceCriteria)) {
         errors.push('significanceCriteria must be an array');
@@ -687,14 +718,14 @@ function proposalErrors(value, request) {
     return errors;
 }
 
-export function parseEpisodeEvaluationProposal(value, { request = {} } = {}) {
-    const requestValidation = validateEpisodeEvaluationRequest(request);
+export function parseEpisodeEvaluationProposal(value, { request = {}, limits = request.analysisLimits || {} } = {}) {
+    const requestValidation = validateEpisodeEvaluationRequest(request, { limits });
     if (!requestValidation.ok) {
         return { ok: false, errors: requestValidation.errors.map((error) => `invalid request: ${error}`) };
     }
     const parsed = parseJsonObject(value);
     if (!parsed.ok) return parsed;
-    const errors = proposalErrors(parsed.value, request);
+    const errors = proposalErrors(parsed.value, request, limits);
     if (errors.length > 0) return { ok: false, errors };
     const normalized = cloneJson(parsed.value);
     if (typeof normalized.summary === 'string') normalized.summary = compactText(normalized.summary);
@@ -714,12 +745,14 @@ export function parseEpisodeEvaluationProposal(value, { request = {} } = {}) {
     return { ok: true, value: normalized };
 }
 
-export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
+export function createEpisodeEvaluationPrompt({ request = {}, limits = request.analysisLimits || {} } = {}) {
+    const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const validation = validateEpisodeEvaluationRequest(request);
     if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
     const systemPrompt = [
         'You are Directive V1 Episode Evaluator, a bounded Reasoning analysis role.',
-        'Compare recent accepted evidence with the current working capsule. Retain only new narrative understanding; replace the capsule summary instead of appending or repeating prior memory.',
+        'Compare recent accepted evidence with the current working capsule. Write one compact replacement summary of the current understanding: preserve necessary established context and incorporate only source-backed changes. Do not append an additional historical recap.',
+        'Cite the supplied sources supporting the replacement summary, including older allowed sources when retained context needs them. Do not assume the runtime will merge omitted citations. Choose the supported decision and return its JSON without repeatedly reconsidering equivalent phrasings.',
         'Recommend sealing only for lasting significance at an actual semantic boundary. A passing detail, routine acknowledgement, atmosphere, transient emotion, or one light flicker is not lasting significance.',
         'Treat one continuous encounter as one episode. No memory is a valid result when nothing durable changed.',
         'Never use topic, keyword, speaker, sentiment, token count, or elapsed time as boundary evidence.',
@@ -733,11 +766,12 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
         'A seal must cite at least one pendingSourceContributionId, directly or through a cited visible effect sourced by it. Do not seal by merely reinterpreting older reviewed history.',
         `Allowed boundaryReason values for seal: ${SOFT_BOUNDARY_REASONS.join(', ')}.`,
         `Allowed significanceCriteria values for seal: ${LASTING_SIGNIFICANCE_CRITERIA.join(', ')}.`,
-        'Return exactly one strict JSON object with no markdown, prose, rationale, or extra fields:',
-        '{"kind":"directive.episodeEvaluationProposal.v1","branchId":"exact","episodeId":"exact","baseRevision":0,"checkpointSequence":0,"decision":"continue|seal|abstain","boundaryReason":null,"significanceCriteria":[],"summary":"replacement or sealed summary","foregroundQuestion":null,"sourceContributionIds":[],"effectIds":[],"relationshipUpdates":[],"characterMoments":[]}',
+        `For continue: summary must be a string of at most ${MAX_CONTINUE_SUMMARY_CHARS} characters; foregroundQuestion may be null or a non-empty string of at most ${MAX_QUESTION_CHARS} characters. boundaryReason must be null, significanceCriteria must be [], and characterMoments must be []. Cite supporting evidence.`,
+        `For seal: provide a non-empty summary of at most ${MAX_SEALED_SUMMARY_CHARS} characters, one allowed boundaryReason, at least one significance criterion, and supporting pending evidence. For abstain: provide no new memory, relationships, or moments.`,
+        'Return exactly one strict JSON object matching the schema with no markdown, prose, rationale, or extra fields. Copy the four envelope fields exactly from the request. A summary cannot authorize objective completion, end supervision, or establish an outcome absent accepted evidence.',
     ].join('\n');
     const user = `Evaluate this bounded active episode snapshot:\n${JSON.stringify(request, null, 2)}`;
-    return {
+    const payload = {
         kind: 'directive.episodeEvaluationRequest.v1',
         prompt: `${systemPrompt}\n\n${user}`,
         systemPrompt,
@@ -769,12 +803,12 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
                     uniqueItems: true,
                     items: { type: 'string', enum: [...LASTING_SIGNIFICANCE_CRITERIA] },
                 },
-                summary: { anyOf: [{ type: 'string', maxLength: MAX_SEALED_SUMMARY_CHARS }, { type: 'null' }] },
+                summary: { anyOf: [{ type: 'string', maxLength: Math.max(MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS) }, { type: 'null' }] },
                 foregroundQuestion: {
                     anyOf: [{ type: 'string', maxLength: MAX_QUESTION_CHARS }, { type: 'null' }],
                 },
                 sourceContributionIds: {
-                    type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: 128,
+                    type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: limits.episodeMaxSourceIds ?? 128,
                 },
                 effectIds: {
                     type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: MAX_VISIBLE_EFFECTS,
@@ -796,7 +830,7 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
                                 ],
                             },
                             sourceContributionIds: {
-                                type: 'array', minItems: 1, maxItems: 16, uniqueItems: true, items: { type: 'string' },
+                                type: 'array', minItems: 1, maxItems: limits.episodeMaxEntrySourceIds ?? 16, uniqueItems: true, items: { type: 'string' },
                             },
                         },
                     },
@@ -813,7 +847,7 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
                             title: { type: 'string', minLength: 1, maxLength: MAX_MOMENT_TITLE_CHARS },
                             summary: { type: 'string', minLength: 1, maxLength: MAX_MOMENT_SUMMARY_CHARS },
                             sourceContributionIds: {
-                                type: 'array', minItems: 1, maxItems: 16, uniqueItems: true, items: { type: 'string' },
+                                type: 'array', minItems: 1, maxItems: limits.episodeMaxEntrySourceIds ?? 16, uniqueItems: true, items: { type: 'string' },
                             },
                         },
                     },
@@ -837,6 +871,13 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
             max_tokens: 1400,
         },
     };
+    // Prompt-JSON transports do not send jsonSchema as an API constraint.
+    // Keep their actual model context as explicit as the native-schema route.
+    const completeSystemPrompt = `${systemPrompt}\n\nOutput JSON schema:\n${JSON.stringify(payload.jsonSchema)}`;
+    payload.systemPrompt = completeSystemPrompt;
+    payload.messages[0].content = completeSystemPrompt;
+    payload.prompt = `${completeSystemPrompt}\n\n${user}`;
+    return payload;
 }
 
 function responsePayload(generation = {}) {
@@ -856,10 +897,6 @@ function responsePayload(generation = {}) {
         || '';
 }
 
-function boundedTimeout(timeoutMs) {
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return 8000;
-    return Math.min(Math.max(Math.floor(timeoutMs), 1), EPISODE_EVALUATOR_MAX_TIMEOUT_MS);
-}
 
 function timeoutResult(timeoutMs) {
     return {
@@ -917,18 +954,14 @@ async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
 
 export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000, mandatory = false, maxTokens = null } = {}) {
     return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
-        // Mandatory turn preparation has an explicit budget; the older background role
-        // default must not silently clamp it to ten seconds.
-        const effectiveTimeoutMs = mandatory
-            ? Math.max(1, Math.min(60000, Number(timeoutMs) || 60000))
-            : generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, boundedTimeout(timeoutMs)) ?? boundedTimeout(timeoutMs);
-        const configuredMaxTokens = maxTokens == null ? null
-            : generationRouter?.getMaxTokens?.(EPISODE_EVALUATOR_ROLE_ID, maxTokens) ?? maxTokens;
-        const outputBudget = maxTokens == null ? null : Math.min(maxTokens, configuredMaxTokens);
+        const limits = request.analysisLimits || generationRouter?.getAnalysisLimits?.() || {};
+        request = { ...request, ...(Object.keys(limits).length ? { analysisLimits: limits } : {}) };
+        const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, timeoutMs) ?? timeoutMs;
+        const outputBudget = generationRouter?.getMaxTokens?.(EPISODE_EVALUATOR_ROLE_ID, maxTokens ?? 4096) ?? (maxTokens ?? 4096);
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
-        const requestValidation = validateEpisodeEvaluationRequest(request);
+        const requestValidation = validateEpisodeEvaluationRequest(request, { limits });
         if (!requestValidation.ok) {
             return {
                 ok: false,
@@ -937,7 +970,7 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
                 diagnostics: { errorCount: requestValidation.errors.length },
             };
         }
-        const prompt = createEpisodeEvaluationPrompt({ request });
+        const prompt = createEpisodeEvaluationPrompt({ request, limits });
         if (outputBudget != null) {
             prompt.maxTokens = outputBudget;
             prompt.parameters = { ...(prompt.parameters || {}), max_tokens: outputBudget };
@@ -969,6 +1002,19 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
             model: generation?.diagnostics?.model || generation?.response?.model || null,
             latencyMs: Number.isFinite(generation?.diagnostics?.latencyMs) ? generation.diagnostics.latencyMs : null,
         };
+        if (generation?.ok !== true && generation?.error?.code) {
+            const details = generation.error.details || {};
+            return {
+                ok: false, status: 'unavailable', reasonCode: generation.error.code,
+                diagnostics: {
+                    ...diagnostics,
+                    ...(typeof details.finishReason === 'string' ? { finishReason: details.finishReason.slice(0, 40) } : {}),
+                    ...Object.fromEntries(['maxTokens', 'contentLength', 'reasoningLength']
+                        .filter(key => Number.isFinite(details[key]) && details[key] >= 0)
+                        .map(key => [key, details[key]])),
+                },
+            };
+        }
         if (generation?.ok !== true || (!isObject(payload) && !String(payload || '').trim())) {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-empty', diagnostics };
         }
@@ -981,6 +1027,9 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
         }
         const parsed = parseEpisodeEvaluationProposal(payload, { request });
         if (!parsed.ok) {
+            try {
+                Promise.resolve(generationRouter?.reportValidationFailure?.(EPISODE_EVALUATOR_ROLE_ID, parsed.errors)).catch(() => null);
+            } catch { /* Diagnostics must not change acceptance or failure. */ }
             return {
                 ok: false,
                 status: 'rejected',

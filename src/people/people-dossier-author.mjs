@@ -1,4 +1,5 @@
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
 export const PEOPLE_DOSSIER_ROLE_ID = 'peopleDossierAuthor';
 export const PEOPLE_DOSSIER_BATCH_KIND = 'directive.peopleDossierBatch.v1';
@@ -16,7 +17,6 @@ const DOSSIER_FIELDS = Object.freeze([
     'profileSummary',
 ]);
 const DOSSIER_FIELD_SET = new Set(DOSSIER_FIELDS);
-const MAX_INTRODUCTIONS = 8;
 
 function compact(value) {
     return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -48,7 +48,8 @@ function parsedObject(value) {
     return parseStructuredJsonText(value);
 }
 
-export function parsePeopleDossierBatchOutput(value, { introductions = [] } = {}) {
+export function parsePeopleDossierBatchOutput(value, { introductions = [], analysisLimits = {} } = {}) {
+    const limits = normalizeAnalysisLimits(analysisLimits);
     const parsed = parsedObject(value);
     if (!parsed.ok || !isObject(parsed.value)) {
         return { ok: false, errors: ['dossier output must contain one JSON object'] };
@@ -95,7 +96,7 @@ export function parsePeopleDossierBatchOutput(value, { introductions = [] } = {}
                 continue;
             }
             const text = compact(valueForField);
-            const maximum = field === 'profileSummary' ? 512 : 240;
+            const maximum = field === 'profileSummary' ? limits.dossierProfileCharacters : limits.dossierFieldCharacters;
             if (!text || [...text].length > maximum) errors.push(`${path} ${field} is invalid`);
             normalized[field] = text || null;
         }
@@ -107,9 +108,10 @@ export function parsePeopleDossierBatchOutput(value, { introductions = [] } = {}
     return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { kind: PEOPLE_DOSSIER_BATCH_KIND, dossiers } };
 }
 
-export function createPeopleDossierRequest({ introductions = [], campaignContext = {} } = {}) {
-    if (!Array.isArray(introductions) || introductions.length === 0 || introductions.length > MAX_INTRODUCTIONS) {
-        throw new TypeError(`People dossier author requires 1-${MAX_INTRODUCTIONS} introductions`);
+export function createPeopleDossierRequest({ introductions = [], campaignContext = {}, analysisLimits = {} } = {}) {
+    const limits = normalizeAnalysisLimits(analysisLimits);
+    if (!Array.isArray(introductions) || introductions.length === 0 || introductions.length > limits.dossierMaxIntroductions) {
+        throw new TypeError(`People dossier author requires 1-${limits.dossierMaxIntroductions} introductions`);
     }
     const nullableText = (maximum) => ({
         anyOf: [{ type: 'string', minLength: 1, maxLength: maximum }, { type: 'null' }],
@@ -121,14 +123,14 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
         properties: {
             personId: { type: 'string', const: introduction.personId },
             displayName: { type: 'string', const: introduction.name },
-            role: nullableText(240),
-            affiliation: nullableText(240),
-            species: nullableText(240),
-            age: nullableText(240),
-            birthplace: nullableText(240),
-            serviceBackground: nullableText(240),
-            assignmentHistory: nullableText(240),
-            profileSummary: nullableText(512),
+            role: nullableText(limits.dossierFieldCharacters),
+            affiliation: nullableText(limits.dossierFieldCharacters),
+            species: nullableText(limits.dossierFieldCharacters),
+            age: nullableText(limits.dossierFieldCharacters),
+            birthplace: nullableText(limits.dossierFieldCharacters),
+            serviceBackground: nullableText(limits.dossierFieldCharacters),
+            assignmentHistory: nullableText(limits.dossierFieldCharacters),
+            profileSummary: nullableText(limits.dossierProfileCharacters),
         },
     }));
     const systemPrompt = [
@@ -143,12 +145,12 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
         publicCampaignContext: {
             campaignTitle: compact(campaignContext.campaignTitle),
             shipName: compact(campaignContext.shipName),
-            shipSummary: compact(campaignContext.shipSummary).slice(0, 800),
+            shipSummary: compact(campaignContext.shipSummary).slice(0, limits.dossierShipSummaryCharacters),
         },
         introductions: introductions.map((introduction) => ({
             personId: introduction.personId,
             name: compact(introduction.name),
-            introductionSummary: compact(introduction.introductionSummary).slice(0, 512),
+            introductionSummary: compact(introduction.introductionSummary).slice(0, limits.dossierIntroductionSummaryCharacters),
         })),
     };
     return {
@@ -191,8 +193,9 @@ export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs =
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
         let request;
+        const analysisLimits = normalizeAnalysisLimits(generationRouter.getAnalysisLimits?.());
         try {
-            request = createPeopleDossierRequest({ introductions, campaignContext });
+            request = createPeopleDossierRequest({ introductions, campaignContext, analysisLimits });
         } catch {
             return { ok: false, status: 'rejected', reasonCode: 'invalid-request', diagnostics: {} };
         }
@@ -222,7 +225,7 @@ export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs =
                 // Progress observers must not affect generation or validation.
             }
         }
-        const parsed = parsePeopleDossierBatchOutput(responsePayload(generation), { introductions });
+        const parsed = parsePeopleDossierBatchOutput(responsePayload(generation), { introductions, analysisLimits });
         if (!parsed.ok) {
             return {
                 ok: false,

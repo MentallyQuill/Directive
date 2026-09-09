@@ -13,6 +13,7 @@ import {
 } from '../command/v1-command-bearing.mjs';
 import { createPlayerPortraitUpload } from '../media/player-portrait-assets.mjs';
 import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 import { normalizeDirectiveProviderSettings, providerKindForRole } from '../providers/directive-provider-settings.mjs';
 import {
   createV1PromptProjection,
@@ -264,23 +265,40 @@ function currentTime(state) {
 }
 
 export function createDirectiveGenerationRouter(host) {
-  function getTimeoutMs(roleId, fallback, providerKind = null) {
+  function getSettings() {
     const source = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.();
-    if (!source) return fallback;
-    return normalizeDirectiveProviderSettings(source)[providerKind || providerKindForRole(roleId)].timeoutSeconds * 1000;
+    return source ? normalizeDirectiveProviderSettings(source) : null;
+  }
+  function getRoleSettings(roleId, providerKind = null) {
+    const lane = getSettings()?.[providerKind || providerKindForRole(roleId)];
+    return lane ? { ...lane, ...Object.fromEntries(Object.entries(lane.roleLimits?.[roleId] || {}).filter(([, value]) => value != null)) } : null;
+  }
+  function getTimeoutMs(roleId, fallback, providerKind = null) {
+    const settings = getRoleSettings(roleId, providerKind);
+    return settings ? settings.timeoutSeconds * 1000 : fallback;
+  }
+  function getMaxTokens(roleId, fallback, providerKind = null) {
+    return getRoleSettings(roleId, providerKind)?.maxTokens ?? fallback;
   }
   return {
     getTimeoutMs,
+    getMaxTokens,
+    getMaxAttempts(roleId, fallback = 2) {
+      return getRoleSettings(roleId)?.maxAttempts ?? fallback;
+    },
+    getAnalysisLimits() {
+      return normalizeAnalysisLimits(getSettings()?.utility?.analysisLimits);
+    },
     reportValidationFailure(roleId, errors) {
       host.logger?.warn?.(`[Directive] Model validation failed: ${JSON.stringify({ roleId, errors })}`);
     },
-    getMaxTokens(roleId, fallback) {
-      const source = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.();
-      return source ? normalizeDirectiveProviderSettings(source)[providerKindForRole(roleId)].maxTokens : fallback;
-    },
     async generate(roleId, request, options = {}) {
       try {
-        const response = await host.generation.generate(roleId, request, {
+        const maxTokens = getMaxTokens(roleId, request?.parameters?.max_tokens, options.providerKind);
+        const configuredRequest = maxTokens == null ? request : {
+          ...request, parameters: { ...request?.parameters, max_tokens: maxTokens },
+        };
+        const response = await host.generation.generate(roleId, configuredRequest, {
           ...options,
           timeoutMs: getTimeoutMs(roleId, options.timeoutMs, options.providerKind),
         });
@@ -656,6 +674,7 @@ export function createDirectiveRuntimeApp({
   let fallbackNarrationSettings = normalizeNarrationSettings();
   const narrationSettings = () => normalizeNarrationSettings(host.narration?.getSettings?.() || fallbackNarrationSettings);
   const openingLifecycle = createOpeningLifecycle({
+    getAnalysisLimits: () => generationRouter.getAnalysisLimits(),
     chat: host.chat,
     getBinding: () => state?.campaignChatBinding || {},
     isCurrent: binding => currentChatIsBound() && ['campaignId', 'saveId', 'chatId'].every(key => binding[key] === state?.campaignChatBinding?.[key]),

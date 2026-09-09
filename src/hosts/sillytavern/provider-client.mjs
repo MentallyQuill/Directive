@@ -1,4 +1,5 @@
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
+import { normalizeAnalysisLimits } from '../../generation/analysis-limits.mjs';
 import {
   directiveProviderConfigFingerprint,
   directiveSourceConfigurationDigest,
@@ -617,13 +618,17 @@ export function createDirectiveProviderClient({
         { providerKind: kind }
       );
     }
+    const transportConfig = options.maxTokens == null ? config : { ...config, maxTokens: options.maxTokens };
+    const transportRequest = options.maxTokens == null ? request : {
+      ...request, parameters: { ...request.parameters, max_tokens: options.maxTokens },
+    };
     const sent = config.provider === 'profile'
-      ? await sendViaConnectionProfile(context, config, request, resolved, options.onAttempt)
-      : await sendViaCurrentModel(context, config, request, resolved, options.onAttempt);
+      ? await sendViaConnectionProfile(context, transportConfig, transportRequest, resolved, options.onAttempt)
+      : await sendViaCurrentModel(context, transportConfig, transportRequest, resolved, options.onAttempt);
     const response = normalizeSillyTavernResponse(sent.response);
     const text = extractText(response, {
       providerTitle: config.provider === 'profile' ? 'Connection profile' : 'SillyTavern',
-      maxTokens: requestMaxTokens(request, config),
+      maxTokens: requestMaxTokens(transportRequest, transportConfig),
       retried: options.retriedForVisibleOutput === true
     });
     return {
@@ -653,7 +658,14 @@ export function createDirectiveProviderClient({
       || settingsStore.getRoleProviderKind?.(roleId)
       || providerKindForRole(roleId);
     const config = settingsStore.get(kind);
-    const control = createGenerationControl(request, options);
+    const roleLimits = config.roleLimits?.[roleId] || {};
+    const maxTokens = roleLimits.maxTokens ?? config.maxTokens;
+    const timeoutSeconds = roleLimits.timeoutSeconds ?? config.timeoutSeconds;
+    const analysisLimits = normalizeAnalysisLimits(settingsStore.get('utility')?.analysisLimits);
+    const control = createGenerationControl(request, {
+      ...options,
+      ...(timeoutSeconds == null ? {} : { timeoutMs: timeoutSeconds * 1000 }),
+    });
     let result;
     let retriedForVisibleOutput = false;
     let attempt = 0;
@@ -666,18 +678,20 @@ export function createDirectiveProviderClient({
       }
     };
     const sendAttempt = (attemptRequest, transportOptions = {}) => control.run(sendTransport(
-      kind, config, attemptRequest, { ...transportOptions, onAttempt: onTransportAttempt }
+      kind, config, attemptRequest, { ...transportOptions, maxTokens, onAttempt: onTransportAttempt }
     ));
     try {
-      try {
-        result = await sendAttempt(control.request);
-      } catch (error) {
-        if (options.allowVisibleOutputRetry === false || !shouldRetryVisibleOutput(error)) throw error;
-        retriedForVisibleOutput = true;
-        result = await sendAttempt(
-          visibleOutputRetryRequest(control.request),
-          { retriedForVisibleOutput: true }
-        );
+      const attempts = options.allowVisibleOutputRetry === false ? 1 : analysisLimits.providerVisibleOutputAttempts;
+      for (let index = 0; index < attempts; index++) {
+        try {
+          result = await sendAttempt(index === 0 ? control.request : visibleOutputRetryRequest(control.request), {
+            retriedForVisibleOutput: index > 0,
+          });
+          break;
+        } catch (error) {
+          if (index + 1 >= attempts || !shouldRetryVisibleOutput(error)) throw error;
+          retriedForVisibleOutput = true;
+        }
       }
     } catch (error) {
       throw normalizeThrownError(error, kind);
@@ -701,30 +715,39 @@ export function createDirectiveProviderClient({
   async function test(kind) {
     const id = textValue(kind);
     const config = settingsStore.get(id);
+    const testMaxTokens = normalizeAnalysisLimits(settingsStore.get('utility')?.analysisLimits).providerTestMaxTokens;
     const context = contextFactory();
+    const sendProbe = async (request, options) => {
+      const control = createGenerationControl(request, { timeoutMs: config.timeoutSeconds * 1000 });
+      try {
+        return await control.run(sendTransport(id, config, control.request, options));
+      } finally {
+        control.cleanup();
+      }
+    };
     let identity;
     try {
       identity = providerIdentity(context, config);
       const configHash = directiveProviderConfigFingerprint({ kind: id, provider: config, ...identity });
-      await sendTransport(id, config, {
+      await sendProbe({
         systemPrompt: 'Connectivity test only. Return exactly DIRECTIVE_PROVIDER_OK.',
         prompt: 'Reply with DIRECTIVE_PROVIDER_OK.',
-        maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS
-      }, { forceStructuredOutput: 'prompt-json' });
+        maxTokens: testMaxTokens
+      }, { forceStructuredOutput: 'prompt-json', maxTokens: testMaxTokens });
 
       let structuredOutput = 'prompt-json';
       try {
-        const nativeProbe = await sendTransport(id, config, {
+        const nativeProbe = await sendProbe({
           systemPrompt: 'Native schema capability test.',
           prompt: 'Return the requested object.',
-          maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+          maxTokens: testMaxTokens,
           jsonSchema: {
             type: 'object',
             additionalProperties: false,
             required: ['ok'],
             properties: { ok: { type: 'boolean' } }
           }
-        }, { forceStructuredOutput: 'native-schema', allowUncertifiedNative: true });
+        }, { forceStructuredOutput: 'native-schema', allowUncertifiedNative: true, maxTokens: testMaxTokens });
         const parsed = JSON.parse(nativeProbe.text);
         if (
           !parsed
@@ -750,7 +773,7 @@ export function createDirectiveProviderClient({
         ok: true,
         kind: id,
         providerId: config.provider === 'profile' ? `sillytavern-profile:${config.profileId}` : 'sillytavern-current-model',
-        maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+        maxTokens: testMaxTokens,
         configHash,
         capabilities: { connectivity: true, structuredOutput }
       };
@@ -762,7 +785,7 @@ export function createDirectiveProviderClient({
       return {
         ok: false,
         kind: id,
-        maxTokens: DIRECTIVE_PROVIDER_TEST_MAX_TOKENS,
+        maxTokens: testMaxTokens,
         error: {
           code: safeError?.code || 'DIRECTIVE_PROVIDER_TEST_FAILED',
           message: safeError?.message || 'Provider test failed.',

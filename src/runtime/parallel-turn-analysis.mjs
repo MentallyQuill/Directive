@@ -4,7 +4,9 @@ export function createParallelTurnAnalysis({ interpret, direct, continuity, revi
   const flights = new Map();
   async function runRole(entry, role, task, request, signal) {
     if (entry[role]?.ok === true) return;
-    for (let attempt = 0; attempt < Math.max(1, Math.min(2, maxAttempts)); attempt++) {
+    const configured = Number(typeof maxAttempts === 'function' ? maxAttempts(role) : maxAttempts);
+    const attemptLimit = Number.isSafeInteger(configured) && configured > 0 ? configured : 1;
+    for (let attempt = 0; attempt < attemptLimit; attempt++) {
       if (signal?.aborted) return;
       try {
         entry[role] = await task({ request: structuredClone(request), signal });

@@ -122,7 +122,7 @@ const reviewed = createStoryDirector({
   },
 });
 assert.equal((await reviewed({ request: reviewRequest })).ok, true);
-assert.match(reviewCalls[0].systemPrompt, /Retain only new narrative understanding/);
+assert.match(reviewCalls[0].systemPrompt, /preserve necessary established context/);
 assert.match(reviewCalls[0].systemPrompt, /only to the episodeReview field/);
 assert.match(reviewCalls[0].systemPrompt, /complete allowed sourceContributionIds are: \[\]/);
 assert.match(reviewCalls[0].systemPrompt, /boundary marker, not evidence/);

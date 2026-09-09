@@ -161,6 +161,7 @@ export async function materializeContinuityChanges({
     authoredDeadlines = {},
     knownLinkIds = [],
     temporalContext = null,
+    limits = {},
 } = {}) {
     assertMaterializeInput({
         contributionIds, branchId, sourceRangeHash, settledAtRevision, existingEvents,
@@ -176,6 +177,7 @@ export async function materializeContinuityChanges({
         authoredDeadlines,
         knownLinkIds,
         temporalContext,
+        limits,
     });
     if (!validation.ok) {
         throw new TypeError(`continuity-changes-invalid:${validation.errors.join(',')}`);
@@ -244,7 +246,7 @@ export async function materializeContinuityChanges({
                 .find((thread) => thread.id === threadId);
             dependencies.push(...(liveThread?.facts || []).map((fact) => fact.id));
         }
-        const source = requireSourceQuote(change, sourcePair);
+        const source = requireSourceQuote(change, sourcePair, limits);
         const event = {
             kind: CONTINUITY_EVENT_KIND,
             id: eventId,

@@ -7,6 +7,8 @@ import {
 } from './runtime-ui-kit.js';
 import { buildCertifiedSettingsView } from './view-models/certified-settings-view.mjs';
 import { createConnectionProfilePicker } from './connection-profile-picker.js';
+import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs';
+import { ANALYSIS_LIMIT_DESCRIPTORS, MAX_TIMER_TIMEOUT_SECONDS, normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
 export const DIRECTIVE_PRESET_SETTINGS_TARGET = 'directive-preset';
 
@@ -19,7 +21,7 @@ const PROVIDER_TOOLTIPS = Object.freeze({
   structuredOutputMode: 'Auto uses Prompt JSON until this exact configuration passes native-schema certification. Native schema never silently downgrades.',
   temperature: 'Randomness used only when Samplers is set to Directive override.',
   topP: 'Nucleus sampling used only when Samplers is set to Directive override.',
-  maxTokens: 'Upper bound for Directive output. A request asking for fewer tokens keeps the smaller value.'
+  maxTokens: 'Default output budget for this lane. A per-role override replaces this value. The model provider may enforce its own context or output limit.'
 });
 
 let presetRequested = false;
@@ -102,7 +104,7 @@ function createNumber(value, { min, max, step }, controlName) {
   input.type = 'number';
   input.value = String(value);
   input.min = String(min);
-  input.max = String(max);
+  if (max !== undefined) input.max = String(max);
   input.step = String(step);
   input.dataset.settingsControl = controlName;
   return input;
@@ -217,8 +219,8 @@ function appendProviderCard(container, kind, configuration, actions) {
   ], `${kind}-structuredOutputMode`);
   const temperature = createNumber(settings.temperature ?? (kind === 'utility' ? 0.1 : 0.4), { min: 0, max: 2, step: 0.05 }, `${kind}-temperature`);
   const topP = createNumber(settings.topP ?? 0.95, { min: 0, max: 1, step: 0.05 }, `${kind}-topP`);
-  const maxTokens = createNumber(settings.maxTokens ?? 8192, { min: 64, max: 131072, step: 64 }, `${kind}-maxTokens`);
-  const timeoutSeconds = createNumber(settings.timeoutSeconds ?? 300, { min: 1, max: 86400, step: 1 }, `${kind}-timeoutSeconds`);
+  const maxTokens = createNumber(settings.maxTokens ?? 8192, { min: 1, step: 1 }, `${kind}-maxTokens`);
+  const timeoutSeconds = createNumber(settings.timeoutSeconds ?? 300, { min: 1, max: MAX_TIMER_TIMEOUT_SECONDS, step: 1 }, `${kind}-timeoutSeconds`);
 
   const grid = createElement('div', 'settings-field-grid');
   const profileField = createField('Connection Profile', profilePicker.wrapper, 'Search supported chat and text profiles.', PROVIDER_TOOLTIPS.profileId);
@@ -240,7 +242,7 @@ function appendProviderCard(container, kind, configuration, actions) {
     createField('Samplers', samplerMode, '', PROVIDER_TOOLTIPS.samplerMode),
     samplerOverrides,
     createField('Structured Output', structuredOutputMode, '', PROVIDER_TOOLTIPS.structuredOutputMode),
-    createField('Output token ceiling', maxTokens, '', PROVIDER_TOOLTIPS.maxTokens),
+    createField('Default output tokens', maxTokens, '', PROVIDER_TOOLTIPS.maxTokens),
     createField('Request timeout (seconds)', timeoutSeconds, 'Maximum wait per request. Increase this for slower local or thinking models. Default: 300 seconds (5 minutes).')
   );
   syncConditionalFields();
@@ -255,6 +257,7 @@ function appendProviderCard(container, kind, configuration, actions) {
   bindAutoSave({ control: topP, kind, key: 'topP', actions, feedback, state, transform: Number });
   bindAutoSave({ control: maxTokens, kind, key: 'maxTokens', actions, feedback, state, transform: Number });
   bindAutoSave({ control: timeoutSeconds, kind, key: 'timeoutSeconds', actions, feedback, state, transform: Number });
+  appendAnalysisControls(card, kind, settings, actions, feedback);
 
   const commands = createElement('div', 'settings-actions');
   commands.append(
@@ -276,6 +279,53 @@ function appendProviderCard(container, kind, configuration, actions) {
   );
   card.appendChild(commands);
   container.appendChild(card);
+}
+
+function appendAnalysisControls(card, kind, settings, actions, feedback) {
+  const save = async (patch) => {
+    feedback.textContent = 'Saving...';
+    try {
+      await actions.updateProviderSettings?.({ kind, patch });
+      feedback.textContent = 'Saved / applies to the next request';
+    } catch (error) { feedback.textContent = error?.message || 'Could not save'; }
+  };
+  const details = createElement('details', 'settings-role-limits');
+  const summary = createElement('summary'); summary.textContent = 'Per-role output, timeout, and retry limits';
+  details.appendChild(summary);
+  const description = createElement('p', 'settings-feedback');
+  description.textContent = 'Leave output tokens or timeout blank to inherit this lane. Attempts include the first call. Timeout cannot exceed 2,147,483 seconds because browser timers use signed 32-bit milliseconds.';
+  details.appendChild(description);
+  for (const role of createGenerationRoleRegistry().list().filter(role => role.providerKind === kind)) {
+    const heading = createElement('h4'); heading.textContent = role.label;
+    const grid = createElement('div', 'settings-field-grid');
+    const limits = settings.roleLimits?.[role.id] || {};
+    for (const [key, label] of [['maxTokens', 'Output tokens'], ['timeoutSeconds', 'Timeout (seconds)'], ['maxAttempts', 'Attempts']]) {
+      if (key === 'maxAttempts' && !['acceptedPairMissionEvidence', 'storyDirector', 'storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role.id)) continue;
+      const inherit = key !== 'maxAttempts';
+      const control = createNumber(limits[key] ?? (inherit ? '' : 2), { min: 1, ...(key === 'timeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `${kind}-${role.id}-${key}`);
+      if (inherit) control.placeholder = `Inherit lane (${settings[key] ?? (key === 'maxTokens' ? 8192 : 300)})`;
+      control.addEventListener('change', () => save({ roleLimits: { [role.id]: { [key]: inherit && control.value.trim() === '' ? null : Number(control.value) } } }));
+      grid.appendChild(createField(label, control));
+    }
+    details.append(heading, grid);
+  }
+  card.appendChild(details);
+  if (kind !== 'utility') return;
+  const content = createElement('details', 'settings-analysis-limits');
+  const title = createElement('summary'); title.textContent = 'Analysis context and response content limits';
+  content.appendChild(title);
+  const explanation = createElement('p', 'settings-feedback');
+  explanation.textContent = 'Shared by all analysis roles. These control how much context is selected and how much structured content a response may contain. They do not delete stored history.';
+  content.appendChild(explanation);
+  const grid = createElement('div', 'settings-field-grid');
+  const limits = normalizeAnalysisLimits(settings.analysisLimits);
+  for (const descriptor of ANALYSIS_LIMIT_DESCRIPTORS) {
+    const control = createNumber(limits[descriptor.key], { min: descriptor.min, ...(descriptor.key === 'hostNarrationTimeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `analysis-${descriptor.key}`);
+    control.addEventListener('change', () => save({ analysisLimits: { [descriptor.key]: Number(control.value) } }));
+    grid.appendChild(createField(descriptor.label, control));
+  }
+  content.appendChild(grid);
+  card.appendChild(content);
 }
 
 function appendInterface(container) {

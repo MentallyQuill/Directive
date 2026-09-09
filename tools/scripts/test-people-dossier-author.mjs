@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
     createPeopleDossierAuthor,
+    createPeopleDossierRequest,
     parsePeopleDossierBatchOutput,
 } from '../../src/people/people-dossier-author.mjs';
 
@@ -65,6 +66,26 @@ assert.equal(calls[0].request.jsonSchema.additionalProperties, false);
 assert.match(calls[0].request.systemPrompt, /public/i);
 assert.match(calls[0].request.systemPrompt, /secrets|private motives/i);
 assert.deepEqual(result.dossiers, output.dossiers);
+const expandedOutput = structuredClone(output);
+expandedOutput.dossiers[0].serviceBackground = 'R'.repeat(600);
+expandedOutput.dossiers[0].profileSummary = 'P'.repeat(900);
+assert.equal(parsePeopleDossierBatchOutput(expandedOutput, { introductions }).ok, false);
+const configured = { dossierFieldCharacters: 1000, dossierProfileCharacters: 1200, dossierShipSummaryCharacters: 1600, dossierIntroductionSummaryCharacters: 1400, dossierMaxIntroductions: 12 };
+let expandedRequest;
+const expandedAuthor = createPeopleDossierAuthor({ generationRouter: {
+    getAnalysisLimits: () => configured,
+    generate: async (_role, request) => { expandedRequest = request; return { ok: true, response: { text: JSON.stringify(expandedOutput) } }; },
+} });
+const expanded = await expandedAuthor({ introductions: introductions.map(person => ({ ...person, introductionSummary: 'I'.repeat(1200) })), campaignContext: { shipSummary: 'S'.repeat(1500) } });
+assert.equal(expanded.ok, true);
+const variant = expandedRequest.jsonSchema.properties.dossiers.items.oneOf[0];
+assert.equal(variant.properties.serviceBackground.anyOf[0].maxLength, 1000);
+assert.equal(variant.properties.profileSummary.anyOf[0].maxLength, 1200);
+assert.ok(expandedRequest.prompt.includes('S'.repeat(1500)));
+assert.ok(expandedRequest.prompt.includes('I'.repeat(1200)));
+const manyIntroductions = Array.from({ length: 10 }, (_, index) => ({ personId: `person.${index}`, name: `Person ${index}`, introductionSummary: 'An introduced person.' }));
+assert.throws(() => createPeopleDossierRequest({ introductions: manyIntroductions }));
+assert.equal(createPeopleDossierRequest({ introductions: manyIntroductions, analysisLimits: configured }).jsonSchema.properties.dossiers.maxItems, 10);
 
 const forbidden = structuredClone(output);
 forbidden.dossiers[0].privateMotive = 'Secretly planning a mutiny.';

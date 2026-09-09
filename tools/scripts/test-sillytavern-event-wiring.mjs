@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-adapter.mjs';
 import { createFakeEventAdapter } from '../../src/hosts/fake/fake-host.mjs';
 import {
   __directiveEventTestHooks,
@@ -490,5 +491,26 @@ assert.equal(passThroughAbortCalls, 0, 'successful Directive interception must n
 assert.equal(downstreamExtensionRuns, 1, 'normal downstream extension participation remains available');
 assert.deepEqual(hostNarration, [{ role: 'user', content: 'HOST_CHAT_CANARY' }], 'Directive must not rewrite host chat');
 clearSillyTavernDirectiveRuntimeBridge();
+
+// Exercise the real adapter default without waiting several seconds in the test.
+const narrationContext = { chat: [], extensionSettings: { directive: { providers: { utility: { analysisLimits: { hostNarrationTimeoutSeconds: 2 } } } } } };
+const narrationAdapter = createSillyTavernChatAdapter({ contextFactory: () => narrationContext, scriptModule: { Generate: async () => ({}) } });
+const realNow = Date.now;
+const realSetTimeout = globalThis.setTimeout;
+let clockMs = 0;
+try {
+  Date.now = () => clockMs;
+  globalThis.setTimeout = (callback, milliseconds, ...args) => { clockMs += milliseconds; queueMicrotask(() => callback(...args)); return 1; };
+  assert.equal((await narrationAdapter.continueHostGeneration()).ok, true);
+  assert.equal(clockMs, 2000, 'native narration observation honors configured wait');
+  narrationContext.extensionSettings.directive.providers.utility.analysisLimits.hostNarrationTimeoutSeconds = 7;
+  await narrationAdapter.continueHostGeneration();
+  assert.equal(clockMs, 9000, 'changed wait applies without rebuilding adapter');
+  await narrationAdapter.continueHostGeneration({ observationTimeoutMs: 1000 });
+  assert.equal(clockMs, 10000, 'explicit observation deadline remains available to callers');
+} finally {
+  Date.now = realNow;
+  globalThis.setTimeout = realSetTimeout;
+}
 
 console.log('PASS V1 SillyTavern event wiring');

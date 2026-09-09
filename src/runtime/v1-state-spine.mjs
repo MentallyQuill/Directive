@@ -1,4 +1,5 @@
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 import {
     awardV1CommandBearing,
     commitV1CommandBearingEdge,
@@ -111,7 +112,8 @@ export function createPendingEpisodeReviewToken(settlement = {}) {
     };
 }
 
-function deterministicEpisodeSummary(definition, settlement, transitionPacket = null) {
+function deterministicEpisodeSummary(definition, settlement, transitionPacket = null, settings = {}) {
+    const limits = normalizeAnalysisLimits(settings);
     const facts = new Map((definition.facts || []).map((item) => [item.id, item]));
     const events = new Map((definition.events || []).map((item) => [item.id, item]));
     const outcomes = new Map((definition.outcomes || []).map((item) => [item.id, item]));
@@ -130,15 +132,15 @@ function deterministicEpisodeSummary(definition, settlement, transitionPacket = 
             add(outcomes.get(effect.targetId)?.playerText?.summary);
         }
     }
-    return visibleSummaries.slice(0, 8).join(' ').slice(0, 1024)
-        || 'A material mission development was settled from accepted evidence.';
+    return (visibleSummaries.slice(0, limits.episodeMaxFallbackSummaries).join(' ')
+        || 'A material mission development was settled from accepted evidence.').slice(0, limits.episodeMaxSealedSummaryCharacters);
 }
 
-function deterministicEffectSummary(definition, effects = []) {
+function deterministicEffectSummary(definition, effects = [], limits = {}) {
     return deterministicEpisodeSummary(definition, {
         activeEpisode: 'episode.recovery-summary',
         episodes: [{ id: 'episode.recovery-summary', effects }],
-    });
+    }, null, limits);
 }
 
 function normalizedSourceContributions({ acceptedClaims = [], sourceContribution = null, sourceContributions = [] } = {}) {
@@ -506,6 +508,7 @@ function prepareMissionTransitionActivation({
 }
 
 export function createV1StateSpine({
+    getAnalysisLimits = () => ({}),
     getState,
     stateDeltaGateway,
     resolveSourceRef,
@@ -792,6 +795,7 @@ export function createV1StateSpine({
             const observations = normalizedSourceObservations(sourceObservations, contributions.supplied);
             storySettlement = acceptStoryContributions(storySettlement, contributions.supplied);
             storySettlement = observeStoryWorkingEvidence(storySettlement, {
+                limits: getAnalysisLimits(),
                 branchId: proposal.branchId,
                 observations,
             });
@@ -839,7 +843,7 @@ export function createV1StateSpine({
             storySettlement = sealStoryEpisode(storySettlement, {
                 boundaryReason: effectiveHardBoundary.code,
                 hardBoundary: effectiveHardBoundary,
-                summary: deterministicEpisodeSummary(definition, storySettlement, missionResult.transitionPacket),
+                summary: deterministicEpisodeSummary(definition, storySettlement, missionResult.transitionPacket, getAnalysisLimits()),
                 unresolvedConsequences: [],
             });
         } else if (storySettlement.activeEpisode !== null && contributions.supplied.length > 0) {
@@ -1157,7 +1161,7 @@ export function createV1StateSpine({
             const storySettlement = invalidateStorySources(receiptPrunedSettlement, {
                 contributionIds: [...invalidated],
                 reason,
-                summarizeEffects: (effects) => deterministicEffectSummary(definition, effects),
+                summarizeEffects: (effects) => deterministicEffectSummary(definition, effects, getAnalysisLimits()),
             });
             if (jsonEqual(currentStorySettlement, storySettlement)) {
                 return {
@@ -1287,12 +1291,12 @@ export function createV1StateSpine({
                 contributionIds: [...invalidated],
                 reason,
                 cutoffMissionId: matchedDefinition.id,
-                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects, getAnalysisLimits()),
             })
             : invalidateStorySources(receiptPrunedSettlement, {
                 contributionIds: [...invalidated],
                 reason,
-                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects, getAnalysisLimits()),
             });
         if (crossedClosure) {
             const descendantMissionContributionIds = runs
@@ -1321,7 +1325,7 @@ export function createV1StateSpine({
             ));
             storySettlement = pruneStoryEffects(storySettlement, {
                 effectIds: prunedEffectIds,
-                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects),
+                summarizeEffects: (effects) => deterministicEffectSummary(matchedDefinition, effects, getAnalysisLimits()),
             });
         }
 
@@ -1486,7 +1490,7 @@ export function createV1StateSpine({
         }
         let currentRequest;
         try {
-            currentRequest = createEpisodeEvaluationRequest({ settlement: currentSettlement });
+            currentRequest = createEpisodeEvaluationRequest({ settlement: currentSettlement, limits: request.analysisLimits || {} });
         } catch {
             throw staleEpisodeReview('the current episode is no longer reviewable');
         }
@@ -1512,6 +1516,7 @@ export function createV1StateSpine({
         let storySettlement;
         if (acceptedProposal.decision === 'continue') {
             storySettlement = applyStoryWorkingCapsuleReview(reviewSettlement, {
+                limits: request.analysisLimits || {},
                 checkpointSequence: reviewToken.checkpointSequence,
                 summary: acceptedProposal.summary,
                 foregroundQuestion: acceptedProposal.foregroundQuestion,

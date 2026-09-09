@@ -6,7 +6,7 @@ const visible = messages => messages.some(message => !message.isSystem && messag
 
 // Chat metadata travels with native branches and is removed with the chat. It is
 // presentation custody, not a second source of campaign state.
-export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance }) {
+export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance, getAnalysisLimits = () => ({}) }) {
   const flights = new Map();
   let status = null;
   let epoch = 0;
@@ -20,6 +20,7 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
     const key = JSON.stringify(binding);
     if (flights.has(key)) return flights.get(key);
     const captured = clone(input);
+    captured.limits = clone(getAnalysisLimits());
     const policy = createNarrationPolicy({ settings: captured.settings, player: captured.player });
     const assertCurrent = () => {
       if (generationEpoch !== epoch) throw Object.assign(new Error('Generation canceled.'), { code: 'DIRECTIVE_GENERATION_ABORTED' });

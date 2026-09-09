@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createStoryDirector, createStoryDirectionAnalyst, parseStoryDirectionOutput } from '../../src/story/story-director.mjs';
+import { createStoryDirector, createStoryDirectionAnalyst, parseStoryDirectionOutput, createFocusedStorySchema, validateStoryDirectorRequest } from '../../src/story/story-director.mjs';
 import { createContinuityAnalyst, parseContinuityAnalystOutput } from '../../src/story/continuity-analyst.mjs';
 import { makeDirectorRequest, makeDirectorOutput, makeEpisodeReviewRequest } from './director-contract-test-fixtures.mjs';
 
@@ -12,7 +12,7 @@ for (const [role, create, fields] of [
   let malformed = false;
   const run = create({ generationRouter: { getMaxTokens: () => 32768, generate: async (id, payload) => {
     assert.equal(id, role);
-    assert.equal(payload.maxTokens, role === 'continuityAnalyst' ? 6144 : 2048);
+    assert.equal(payload.maxTokens, 32768);
     const context = JSON.parse(payload.messages[1].content);
     assert.equal(Object.hasOwn(context, 'episodeReview'), false);
     assert.equal(payload.systemPrompt.includes('episodeReview'), false);
@@ -78,3 +78,25 @@ const review = await createEpisodeEvaluator({ generationRouter: {
 } })({ request: makeEpisodeReviewRequest() });
 assert.equal(review.ok, true, 'due episode review must work through the real fake transport');
 assert.equal(review.proposal.decision, 'abstain');
+
+const changedLimits = { continuityMaxChanges: 2, continuityTitleCharacters: 200, continuityFactCharacters: 900, continuityEvidenceQuoteCharacters: 300, continuityMaxLinkedIds: 25, continuityLookupRequests: 4, continuityLookupIds: 10, continuityLookupQueryCharacters: 250, directionMaxRequires: 10, requestContextCharacters: 100000 };
+const settingsRequest = { ...request, analysisLimits: changedLimits };
+const schemaSettings = createFocusedStorySchema(settingsRequest, 'continuityAnalyst');
+assert.equal(schemaSettings.properties.threadChanges.maxItems, 2);
+assert.equal(schemaSettings.properties.threadChanges.items.anyOf[0].properties.title.maxLength, 200);
+assert.equal(schemaSettings.properties.threadChanges.items.anyOf[1].properties.text.maxLength, 900);
+assert.equal(schemaSettings.properties.lookupRequests.maxItems, 4);
+assert.equal(schemaSettings.properties.lookupRequests.items.properties.query.anyOf[1].maxLength, 250);
+assert.equal(createFocusedStorySchema(settingsRequest, 'storyDirectionAnalyst').properties.direction.properties.requires.maxItems, 10);
+assert.equal(parseContinuityAnalystOutput(continuity, { request: { ...settingsRequest, analysisLimits: { ...changedLimits, continuityMaxChanges: 1 } } }).ok, false);
+assert.equal(validateStoryDirectorRequest({ ...settingsRequest, analysisLimits: { requestContextCharacters: 10 } }).ok, false);
+let configuredStoryCall;
+const configuredStory = createStoryDirectionAnalyst({ generationRouter: {
+    getMaxTokens: () => 48000, getTimeoutMs: () => 180000, getAnalysisLimits: () => changedLimits,
+    generate: async (_id, payload, options) => { configuredStoryCall = { payload, options }; return { ok: true, response: { json: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: { move: 'respond-to-player', targetRef: null, requires: [], newComplications: 'avoid' } } } }; },
+} });
+assert.equal((await configuredStory({ request })).ok, true);
+assert.equal(configuredStoryCall.payload.maxTokens, 48000);
+assert.equal(configuredStoryCall.options.timeoutMs, 180000);
+assert.equal(configuredStoryCall.payload.jsonSchema.properties.direction.properties.requires.maxItems, 10);
+console.log('Configured story schemas, validators, and uncapped profile budgets passed.');

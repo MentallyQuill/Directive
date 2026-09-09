@@ -337,6 +337,7 @@ export function appendStoryPeopleEvents(settlement, events = [], { knownPersonId
 export function observeStoryWorkingEvidence(settlement, {
     branchId,
     observations = [],
+    limits = {},
 } = {}) {
     assertValid(settlement);
     if (branchId !== settlement.branchId) throw new TypeError('working evidence branch does not match story settlement');
@@ -348,6 +349,7 @@ export function observeStoryWorkingEvidence(settlement, {
         episode,
         observations,
         updatedAtRevision,
+        limits,
     });
     if (episode.workingCapsule && JSON.stringify(workingCapsule) === JSON.stringify(episode.workingCapsule)) {
         return structuredClone(settlement);
@@ -385,6 +387,7 @@ export function applyStoryWorkingCapsuleReview(settlement, {
     foregroundQuestion = null,
     sourceContributionIds = [],
     effectIds = [],
+    limits = {},
 } = {}) {
     assertValid(settlement);
     const episode = activeEpisode(settlement);
@@ -404,6 +407,7 @@ export function applyStoryWorkingCapsuleReview(settlement, {
     const nextEpisode = activeEpisode(next);
     const reviewed = replaceStoryWorkingSemantics(nextEpisode.workingCapsule, {
         episode: nextEpisode,
+        limits,
         summary,
         foregroundQuestion,
         sourceContributionIds,
@@ -613,7 +617,6 @@ function replacementForEpisode(next, episode, invalidated, summarizeEffects) {
     const summary = String(summarizeEffects?.(structuredClone(survivorEffects), structuredClone(episode)) || '')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 1024)
         || 'A material story development remains after source recovery.';
     const boundary = createEpisodeHardBoundary({
         id: `boundary.source-recovery.${episode.id}.${next.revision}`,
@@ -673,7 +676,6 @@ function replacementForPrunedEffects(next, episode, survivorEffects, summarizeEf
     const summary = String(summarizeEffects?.(structuredClone(survivorEffects), structuredClone(episode)) || '')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 1024)
         || 'A material story development remains after dependent evidence was withdrawn.';
     const boundary = createEpisodeHardBoundary({
         id: `boundary.effect-prune.${episode.id}.${next.revision}`,

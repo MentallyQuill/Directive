@@ -1,5 +1,6 @@
 import { collectMissionPredicateRefs } from '../mission/v1/predicate-evaluator.mjs';
 import { retrieveContinuityThreads } from './thread-retrieval.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
 export const STORY_DIRECTOR_CONTEXT_MAX_CHARACTERS = 48000;
 export const STORY_DIRECTOR_MAX_DETAILED_THREADS = 12;
@@ -140,6 +141,7 @@ export function createDirectorAuthoredContext({
   shipMechanics = {},
   pendingTransition = null,
   pendingDutyReport = null,
+  limits = {},
 } = {}) {
   const constraints = shipConstraints(shipMechanics);
   const knownConstraintIds = new Set(constraints.map(({ id }) => id));
@@ -158,7 +160,7 @@ export function createDirectorAuthoredContext({
   if (transition) opportunities.push(transition);
   opportunities.sort((left, right) => left.id.localeCompare(right.id));
 
-  return assertBudget({ constraints, opportunities, coverage: 'partial' });
+  return assertBudget({ constraints, opportunities, coverage: 'partial' }, normalizeAnalysisLimits(limits).requestContextCharacters);
 }
 
 export function projectDirectorContinuity(options = {}) {

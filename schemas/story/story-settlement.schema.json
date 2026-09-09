@@ -69,7 +69,7 @@
         "messageId": { "type": "string", "minLength": 1, "maxLength": 300 },
         "selectedSwipeId": { "type": ["string", "null"], "minLength": 1, "maxLength": 300 },
         "textHash": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "evidenceQuote": { "type": "string", "minLength": 12, "maxLength": 240 }
+        "evidenceQuote": { "type": "string", "minLength": 12 }
       }
     },
     "continuityOpenPayload": {
@@ -77,7 +77,7 @@
       "additionalProperties": false,
       "required": ["title", "category"],
       "properties": {
-        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "title": { "type": "string", "minLength": 1 },
         "category": {
           "type": "string",
           "enum": ["obligation", "schedule", "constraint", "resource-consequence", "unresolved-problem"]
@@ -89,7 +89,7 @@
       "additionalProperties": false,
       "required": ["text", "claimType", "authoredRef", "supersedesFactId"],
       "properties": {
-        "text": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "text": { "type": "string", "minLength": 1 },
         "claimType": {
           "type": "string",
           "enum": ["narrated-fact", "character-claim", "player-commitment"]
@@ -103,7 +103,7 @@
           "pattern": "^[a-z0-9][a-z0-9._:-]*$"
         },
         "linkedIds": {
-          "type": "array", "maxItems": 16, "uniqueItems": true,
+          "type": "array", "uniqueItems": true,
           "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         },
         "deadlineElapsedSeconds": { "type": ["integer", "null"], "minimum": 0 }
@@ -201,7 +201,7 @@
           "items": { "$ref": "../common/common.schema.json#/$defs/id" },
           "uniqueItems": true
         },
-        "instruction": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "instruction": { "type": "string", "minLength": 1 },
         "dependencyIds": {
           "type": "array",
           "items": { "$ref": "../common/common.schema.json#/$defs/id" },
@@ -475,7 +475,8 @@
       "properties": {
         "id": { "$ref": "../common/common.schema.json#/$defs/id" },
         "characterId": { "$ref": "../common/common.schema.json#/$defs/id" },
-        "summary": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "summary": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
         "playerVisibility": { "type": "string", "enum": ["visible", "hidden"] },
         "sourceContributionIds": {
           "type": "array",
@@ -499,7 +500,7 @@
           "type": "string",
           "pattern": "^[a-f0-9]{32,128}$"
         },
-        "excerpt": { "type": "string", "minLength": 1, "maxLength": 240 }
+        "excerpt": { "type": "string", "minLength": 1 }
       }
     },
     "workingCapsule": {
@@ -519,23 +520,20 @@
       ],
       "properties": {
         "kind": { "const": "directive.storyWorkingCapsule.v1" },
-        "summary": { "type": "string", "maxLength": 768 },
-        "foregroundQuestion": { "type": ["string", "null"], "minLength": 1, "maxLength": 240 },
+        "summary": { "type": "string" },
+        "foregroundQuestion": { "type": ["string", "null"], "minLength": 1 },
         "sourceContributionIds": {
           "type": "array",
-          "maxItems": 128,
           "items": { "$ref": "../common/common.schema.json#/$defs/id" },
           "uniqueItems": true
         },
         "effectIds": {
           "type": "array",
-          "maxItems": 128,
           "items": { "$ref": "../common/common.schema.json#/$defs/id" },
           "uniqueItems": true
         },
         "recentEvidence": {
           "type": "array",
-          "maxItems": 6,
           "items": { "$ref": "#/$defs/workingEvidence" }
         },
         "observedContributionCount": { "type": "integer", "minimum": 0 },
@@ -577,7 +575,7 @@
         "openedAtRevision": { "type": "integer", "minimum": 0 },
         "sealedAtRevision": { "type": ["integer", "null"], "minimum": 0 },
         "boundaryReason": { "type": ["string", "null"], "maxLength": 128 },
-        "summary": { "type": ["string", "null"], "maxLength": 1024 },
+        "summary": { "type": ["string", "null"] },
         "contributions": {
           "type": "array",
           "items": { "$ref": "#/$defs/sourceContribution" }

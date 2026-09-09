@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { DEFAULT_ANALYSIS_LIMITS } from '../../src/generation/analysis-limits.mjs';
 
 import {
   DEFAULT_DIRECTIVE_PROVIDER_SETTINGS,
@@ -23,10 +24,11 @@ const expectedUtility = {
   topP: 0.95,
   maxTokens: 8192,
   timeoutSeconds: 300,
+  roleLimits: {},
   certification: { status: 'not-run' }
 };
 
-assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.utility, expectedUtility);
+assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.utility, { ...expectedUtility, analysisLimits: DEFAULT_ANALYSIS_LIMITS });
 assert.deepEqual(DEFAULT_DIRECTIVE_PROVIDER_SETTINGS.reasoning, {
   ...expectedUtility,
   temperature: 0.4
@@ -66,12 +68,14 @@ const normalized = normalizeDirectiveProviderSettings({
 
 assert.deepEqual(normalized.utility, {
   ...expectedUtility,
+  analysisLimits: DEFAULT_ANALYSIS_LIMITS,
+  roleLimits: normalizeDirectiveProviderSettings().utility.roleLimits,
   instructMode: 'on',
   samplerMode: 'directive',
   structuredOutputMode: 'prompt-json',
   temperature: 2,
   topP: 0,
-  maxTokens: 64
+  maxTokens: 12
 });
 assert.equal('baseUrl' in normalized.utility, false);
 assert.equal('model' in normalized.utility, false);
@@ -79,6 +83,7 @@ assert.equal('apiKey' in normalized.utility, false);
 assert.equal('apiKeySet' in normalized.utility, false);
 assert.deepEqual(normalized.reasoning, {
   ...expectedUtility,
+  roleLimits: normalizeDirectiveProviderSettings().reasoning.roleLimits,
   provider: 'profile',
   profileId: 'reasoner.local',
   presetMode: 'full-profile',
@@ -207,7 +212,7 @@ const context = {
   saveSettingsDebounced() { saveCalls += 1; }
 };
 const store = createSillyTavernProviderSettingsStore({ context });
-assert.deepEqual(store.get('utility'), expectedUtility);
+assert.deepEqual(store.get('utility'), normalizeDirectiveProviderSettings().utility);
 assert.equal(typeof store.getApiKey, 'undefined');
 assert.equal(typeof store.clearApiKey, 'undefined');
 store.update('utility', { provider: 'profile', profileId: 'utility.local' });
@@ -224,7 +229,7 @@ const fakeProvider = createFakeProviderAdapter({
     apiKeySet: true
   }
 });
-assert.deepEqual(fakeProvider.getSettings().utility, expectedUtility);
+assert.deepEqual(fakeProvider.getSettings().utility, normalizeDirectiveProviderSettings().utility);
 assert.equal(fakeProvider.status('utility').sourceLabel, 'Current Model');
 assert.equal(JSON.stringify(fakeProvider.getSettings()).includes('baseUrl'), false);
 assert.equal(JSON.stringify(fakeProvider.getSettings()).includes('apiKey'), false);

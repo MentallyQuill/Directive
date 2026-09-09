@@ -341,7 +341,11 @@ assert.equal(fixture.cases.find((item) => item.id === 'resolved-lasting-encounte
 assert.equal(fixture.cases.find((item) => item.id === 'no-lasting-development').proposal.summary, '');
 
 const prompt = createEpisodeEvaluationPrompt({ request });
-assert.match(prompt.systemPrompt, /retain only new narrative understanding/i);
+assert.match(prompt.systemPrompt, /preserve necessary established context/i);
+assert.match(prompt.systemPrompt, /continue: summary must be a string of at most 768 characters/i);
+assert.match(prompt.systemPrompt, /cite the supplied sources supporting the replacement summary/i);
+assert.deepEqual(JSON.parse(prompt.systemPrompt.split('Output JSON schema:\n')[1]), prompt.jsonSchema,
+    'plain JSON providers receive the same full contract as native schema providers');
 assert.match(prompt.systemPrompt, /lasting significance/i);
 assert.match(prompt.systemPrompt, /no memory/i);
 assert.match(prompt.systemPrompt, /relationship posture/i);
@@ -414,7 +418,7 @@ const cappedEvaluator = createEpisodeEvaluator({
     timeoutMs: 99999,
 });
 assert.equal((await cappedEvaluator({ request })).ok, true);
-assert.equal(cappedTimeout, 10000);
+assert.equal(cappedTimeout, 99999);
 
 let timeoutSignal = null;
 const timeoutEvaluator = createEpisodeEvaluator({
@@ -518,8 +522,53 @@ for (const configuredTokens of [1024, 8192]) {
         },
     });
     assert.equal((await mandatoryEvaluator({ request })).ok, true);
-    assert.equal(mandatoryInvocation.options.timeoutMs, 60000, 'mandatory analysis is not clamped to the legacy background timeout');
-    assert.equal(mandatoryInvocation.providerRequest.maxTokens, Math.min(4096, configuredTokens));
-    assert.equal(mandatoryInvocation.providerRequest.parameters.max_tokens, Math.min(4096, configuredTokens));
+    assert.equal(mandatoryInvocation.options.timeoutMs, 10000, 'configured role timeout overrides fallback');
+    assert.equal(mandatoryInvocation.providerRequest.maxTokens, configuredTokens);
+    assert.equal(mandatoryInvocation.providerRequest.parameters.max_tokens, configuredTokens);
 }
 console.log('Mandatory episode analysis budget tests passed.');
+
+const limited = await createEpisodeEvaluator({ generationRouter: { async generate() {
+    return { ok: false, error: { code: 'provider_token_limit', details: {
+        finishReason: 'length', maxTokens: 4096, contentLength: 0, reasoningLength: 12000,
+        secret: 'MUST_NOT_LEAK',
+    } } };
+} } })({ request });
+assert.equal(limited.reasonCode, 'provider_token_limit');
+assert.equal(limited.diagnostics.finishReason, 'length');
+assert.equal(limited.diagnostics.maxTokens, 4096);
+assert.equal(JSON.stringify(limited).includes('MUST_NOT_LEAK'), false);
+let reportedValidation;
+await createEpisodeEvaluator({ generationRouter: {
+    async generate() { return { ok: true, response: { text: '{}' } }; },
+    reportValidationFailure(role, errors) { reportedValidation = { role, errors }; },
+} })({ request });
+assert.equal(reportedValidation.role, 'episodeEvaluator');
+assert.ok(reportedValidation.errors.length > 0);
+
+const configuredLimits = { episodeMaxContinueSummaryCharacters: 1400, episodeMaxSealedSummaryCharacters: 1800, episodeMaxQuestionCharacters: 400, episodeMaxRelationships: 3, episodeMaxRelationshipTextCharacters: 600, episodeMaxEntrySourceIds: 22 };
+const configuredRequest = { ...request, analysisLimits: configuredLimits };
+const configuredPrompt = createEpisodeEvaluationPrompt({ request: configuredRequest });
+assert.equal(configuredPrompt.jsonSchema.properties.summary.anyOf[0].maxLength, 1800);
+assert.equal(configuredPrompt.jsonSchema.properties.foregroundQuestion.anyOf[0].maxLength, 400);
+assert.equal(configuredPrompt.jsonSchema.properties.relationshipUpdates.maxItems, 3);
+assert.equal(configuredPrompt.jsonSchema.properties.relationshipUpdates.items.properties.posture.maxLength, 600);
+assert.equal(configuredPrompt.jsonSchema.properties.relationshipUpdates.items.properties.sourceContributionIds.maxItems, 22);
+assert.ok(configuredPrompt.systemPrompt.includes('1400 characters'));
+const largerSummary = { ...proposalFor(), summary: 'Evidence-supported recap. '.repeat(45) };
+assert.equal(parseEpisodeEvaluationProposal(largerSummary, { request: configuredRequest }).ok, true);
+assert.equal(parseEpisodeEvaluationProposal({ ...largerSummary, summary: 'x'.repeat(1401) }, { request: configuredRequest }).ok, false);
+const loweredRequest = { ...configuredRequest, analysisLimits: { ...configuredLimits, episodeMaxContinueSummaryCharacters: 12 } };
+assert.equal(validateEpisodeEvaluationRequest(loweredRequest).ok, true, 'historical summary remains valid after reducing future output length');
+assert.equal(parseEpisodeEvaluationProposal(largerSummary, { request: loweredRequest }).ok, false);
+let roleSettingsInvocation;
+await createEpisodeEvaluator({ generationRouter: {
+    getMaxTokens: () => 24000, getTimeoutMs: () => 180000,
+    getAnalysisLimits: () => configuredLimits,
+    generate: async (_role, payload, options) => { roleSettingsInvocation = { payload, options }; return { ok: true, response: { json: proposalFor() } }; },
+} })({ request });
+assert.equal(roleSettingsInvocation.payload.maxTokens, 24000);
+assert.equal(roleSettingsInvocation.options.timeoutMs, 180000);
+console.log('Configurable episode schema, validation, and role budgets passed.');
+assert.equal(validateEpisodeEvaluationRequest({ ...request, analysisLimits: { requestContextCharacters: 100 } }).ok, false);
+assert.throws(() => createEpisodeEvaluationPrompt({ request: { ...request, analysisLimits: { requestContextCharacters: 100 } } }), /episode-request-context-overflow/);

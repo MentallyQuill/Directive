@@ -425,11 +425,11 @@ export function validateStorySettlement(value = {}) {
                         }
                         characterIds.add(moment?.characterId);
                         if (moment?.title !== undefined
-                            && (!isNonEmptyString(moment.title) || moment.title.length > 120)) {
-                            errors.push(`${momentId} title must be a non-empty string of at most 120 characters when present`);
+                            && !isNonEmptyString(moment.title)) {
+                            errors.push(`${momentId} title must be a non-empty string when present`);
                         }
-                        if (!isNonEmptyString(moment?.summary) || moment.summary.length > 512) {
-                            errors.push(`${momentId} summary must be a non-empty string of at most 512 characters`);
+                        if (!isNonEmptyString(moment?.summary)) {
+                            errors.push(`${momentId} summary must be a non-empty string`);
                         }
                         if (!new Set(['visible', 'hidden']).has(moment?.playerVisibility)) {
                             errors.push(`${momentId} playerVisibility is unknown`);

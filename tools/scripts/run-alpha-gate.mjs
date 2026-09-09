@@ -1,6 +1,10 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-analysis-limit-settings.mjs",
+  "test-configurable-continuity-limits.mjs",
+  "test-configurable-interpreter-limits.mjs",
+  "test-configured-generation-limits.mjs",
   "test-generation-cancellation.mjs",
   "test-continuity-events.mjs",
   "test-thread-retrieval.mjs",

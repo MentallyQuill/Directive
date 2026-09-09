@@ -1,4 +1,5 @@
 import { sha256Json } from '../storage/v1-state-delta-codec.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
 export const CONTINUITY_EVENT_KIND = 'directive.continuityEvent.v1';
 export const STORY_DIRECTOR_RECEIPT_KIND = 'directive.storyDirectorReceipt.v1';
@@ -83,14 +84,14 @@ function validateIdArray(value, prefix, errors, { nonEmpty = false } = {}) {
     if (value.some((id) => !isContinuityStableId(id))) errors.push(`${prefix}-invalid-id`);
 }
 
-export function requireSourceQuote(change, sourcePair) {
+export function requireSourceQuote(change, sourcePair, limits = {}) {
     if (!SOURCE_SLOTS.has(change?.sourceSlot)) {
         throw new TypeError('continuity-source-slot-invalid');
     }
     const source = sourcePair?.[change.sourceSlot];
     const quote = normalize(change?.evidenceQuote);
     if (!source?.messageId || !source.textHash || quote.length < 12
-        || quote.length > 240 || !normalize(source.text).includes(quote)) {
+        || quote.length > normalizeAnalysisLimits(limits).continuityEvidenceQuoteCharacters || !normalize(source.text).includes(quote)) {
         throw new TypeError('continuity-source-quote-invalid');
     }
     return {
@@ -101,19 +102,19 @@ export function requireSourceQuote(change, sourcePair) {
     };
 }
 
-function validateOpen(change, errors) {
-    if (!isContinuityStableId(change.localRef) || change.localRef.length > 80) {
+function validateOpen(change, errors, limits = null) {
+    if (!isContinuityStableId(change.localRef) || (limits && change.localRef.length > limits.continuityMaxLocalRefCharacters)) {
         errors.push('continuity-local-ref-invalid');
     }
     const title = normalize(change.title);
-    if (!title || title.length > 120) errors.push('continuity-title-invalid');
+    if (!title || (limits && title.length > limits.continuityTitleCharacters)) errors.push('continuity-title-invalid');
     if (!CONTINUITY_CATEGORIES.has(change.category)) errors.push('continuity-category-invalid');
 }
 
-function validateAddFact(change, authoredIds, errors) {
+function validateAddFact(change, authoredIds, errors, limits = null) {
     if (!isContinuityStableId(change.threadRef)) errors.push('continuity-thread-ref-invalid');
     const text = normalize(change.text);
-    if (!text || text.length > 512) errors.push('continuity-fact-text-invalid');
+    if (!text || (limits && text.length > limits.continuityFactCharacters)) errors.push('continuity-fact-text-invalid');
     if (!CONTINUITY_CLAIM_TYPES.has(change.claimType)) errors.push('continuity-claim-type-invalid');
     validateNullableStableId(change.authoredRef, 'continuity-authored-ref', errors);
     validateNullableStableId(change.supersedesFactId, 'continuity-supersedes-fact', errors);
@@ -128,7 +129,7 @@ function validateAddFact(change, authoredIds, errors) {
     }
     if (Object.hasOwn(change, 'linkedIds')) {
         validateIdArray(change.linkedIds, 'continuity-linked-ids', errors);
-        if (change.linkedIds?.length > 16) errors.push('continuity-linked-ids-count-exceeded');
+        if (limits && change.linkedIds?.length > limits.continuityMaxLinkedIds) errors.push('continuity-linked-ids-count-exceeded');
     }
     if (Object.hasOwn(change, 'deadlineElapsedSeconds') && change.deadlineElapsedSeconds !== null
         && (!Number.isSafeInteger(change.deadlineElapsedSeconds) || change.deadlineElapsedSeconds < 0)) {
@@ -154,10 +155,12 @@ export function validateContinuityChanges(changes, {
     authoredDeadlines = {},
     knownLinkIds = [],
     temporalContext = null,
+    limits = {},
 } = {}) {
+    const settings = normalizeAnalysisLimits(limits);
     const errors = [];
     if (!Array.isArray(changes)) return { ok: false, errors: ['continuity-changes-invalid'] };
-    if (changes.length > 16) errors.push('continuity-change-count-exceeded');
+    if (changes.length > settings.continuityMaxChanges) errors.push('continuity-change-count-exceeded');
     const threads = Array.isArray(existingThreads) ? existingThreads : [];
     const existingThreadIds = new Set(threads.map((thread) => thread?.id).filter(isContinuityStableId));
     const factThread = new Map();
@@ -187,16 +190,16 @@ export function validateContinuityChanges(changes, {
             if (!Object.hasOwn(change, field)) errors.push(`continuity-change-${index}-field-required:${field}`);
         }
         try {
-            requireSourceQuote(change, sourcePair);
+            requireSourceQuote(change, sourcePair, settings);
         } catch (error) {
             errors.push(error instanceof Error ? error.message : 'continuity-source-invalid');
         }
         if (change.operation === 'open') {
-            validateOpen(change, errors);
+            validateOpen(change, errors, settings);
             if (localRefs.has(change.localRef)) duplicateLocalRefs.add(change.localRef);
             localRefs.add(change.localRef);
         } else if (change.operation === 'addFact') {
-            validateAddFact(change, authoredIdSet, errors);
+            validateAddFact(change, authoredIdSet, errors, settings);
             if (Array.isArray(change.linkedIds)) for (const id of change.linkedIds) {
                 if (!authoredIdSet.has(id) && !existingThreadIds.has(id) && !knownLinkIdSet.has(id)) errors.push(`continuity-linked-id-unknown:${id}`);
             }
@@ -212,7 +215,7 @@ export function validateContinuityChanges(changes, {
                     && temporalContext.elapsedSeconds >= 0
                     && Number.isSafeInteger(temporalContext?.secondOfDay)
                     && temporalContext.secondOfDay >= 0 && temporalContext.secondOfDay < 86400
-                    && change.deadlineElapsedSeconds <= temporalContext.elapsedSeconds + 604800;
+                    && change.deadlineElapsedSeconds <= temporalContext.elapsedSeconds + settings.continuityDeadlineHorizonSeconds;
                 if (authored ? deadline !== change.deadlineElapsedSeconds : !temporalHint) {
                     errors.push('continuity-deadline-authority-invalid');
                 }
@@ -260,7 +263,7 @@ export function validateContinuitySourceAnchor(source, { prefix = 'continuity-so
         errors.push(`${prefix}-text-hash-invalid`);
     }
     const quote = normalize(source.evidenceQuote);
-    if (quote.length < 12 || quote.length > 240 || quote !== source.evidenceQuote) {
+    if (quote.length < 12 || quote !== source.evidenceQuote) {
         errors.push(`${prefix}-quote-invalid`);
     }
     return { ok: errors.length === 0, errors };
@@ -371,8 +374,7 @@ export function validateDirectorReceipt(receipt, {
             if (!knownContributionIds.has(id)) errors.push(`director-receipt-source-unknown:${id}`);
         }
     }
-    if (typeof receipt.instruction !== 'string' || !normalize(receipt.instruction)
-        || receipt.instruction.length > 4096) {
+    if (typeof receipt.instruction !== 'string' || !normalize(receipt.instruction)) {
         errors.push('director-receipt-instruction-invalid');
     }
     validateIdArray(receipt.dependencyIds, 'director-receipt-dependencies', errors);

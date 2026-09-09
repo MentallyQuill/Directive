@@ -50,6 +50,7 @@ import {
 } from '../story/story-director.mjs';
 import { parseContinuityAnalystOutput } from '../story/continuity-analyst.mjs';
 import { lookupContinuityThreads } from '../story/thread-retrieval.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 import { compileDirectorInstruction } from '../narration/director-instructions.mjs';
 import { createV1PlayerProjection } from '../projection/v1/player-projection.mjs';
 import {
@@ -814,7 +815,9 @@ export function captureAcceptedPairAnalysis({
     snapshot = {},
     generationType = 'normal',
     focused = false,
+    analysisLimits = {},
 } = {}) {
+    const limits = normalizeAnalysisLimits(analysisLimits);
     const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
     if (!resolved.ok) throw captureFailure(resolved.reasonCode || 'definition-unavailable');
     const { definition } = resolved;
@@ -899,18 +902,19 @@ export function captureAcceptedPairAnalysis({
         storySettlement: campaignState?.storySettlement || {},
     });
     const timeContext = timeContextFromSnapshot(campaignState, snapshot, runtimeAssets);
-    const interpreterInput = { candidatePacket, sourcePair, timeContext, peopleContext };
+    const interpreterInput = { candidatePacket, sourcePair, timeContext, peopleContext, limits };
     const interpreterRequest = createMissionAcceptedPairInterpretationPrompt(interpreterInput);
     let episodeReview = null;
     const reviewToken = createPendingEpisodeReviewToken(campaignState?.storySettlement);
     if (reviewToken) {
         try {
-            episodeReview = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement });
+            episodeReview = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement, limits });
         } catch {
             throw captureFailure('episode-review-invalid');
         }
     }
     const authoredContext = createDirectorAuthoredContext({
+        limits,
         definition,
         missionState,
         shipMechanics: runtimeAssets?.shipDataset?.mechanics || {},
@@ -925,16 +929,17 @@ export function captureAcceptedPairAnalysis({
             || person.name.split(/\s+/).some(part => part.length >= 3 && exchangeText.includes(part.toLowerCase())) })),
     ];
     authoredContext.referenceIds = [...new Set(referenceCandidates.filter(item => /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(item.id))
-        .sort((a, b) => Number(b.relevant) - Number(a.relevant) || a.id.localeCompare(b.id)).map(item => item.id))].slice(0, 64);
+        .sort((a, b) => Number(b.relevant) - Number(a.relevant) || a.id.localeCompare(b.id)).map(item => item.id))].slice(0, limits.storyReferenceCount);
     authoredContext.references = authoredContext.referenceIds.map(id => {
         const reference = referenceCandidates.find(item => item.id === id);
-        return { id, name: reference.name.slice(0, 160), kind: reference.kind };
+        return { id, name: reference.name.slice(0, limits.storyReferenceNameCharacters), kind: reference.kind };
     });
     authoredContext.temporalContext = {
         elapsedSeconds: timeContext.current.elapsedSeconds,
         secondOfDay: timeContext.current.secondOfDay,
     };
     const continuity = projectDirectorContinuity({
+        limits,
         events: campaignState?.storySettlement?.continuityEvents || [],
         missionId: definition.id,
         referencedIds: referenceCandidates.filter(item => item.relevant && authoredContext.referenceIds.includes(item.id)).map(item => item.id),
@@ -952,6 +957,7 @@ export function captureAcceptedPairAnalysis({
         }]),
     );
     const directorRequest = createStoryDirectorRequest({
+        analysisLimits: limits,
         envelope: {
             campaignId: compact(snapshot.envelope.campaignId),
             saveId: branchId,
@@ -1304,6 +1310,7 @@ export function createV1MissionRuntime({
             }
         }
         const spine = createV1StateSpine({
+            getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState,
             stateDeltaGateway,
             resolveSourceRef: () => null,
@@ -1908,6 +1915,7 @@ export function createV1MissionRuntime({
         ];
         const resolveSourceRef = (ref) => sources.find((source) => sourceMatchesRef(source, ref)) || null;
         const spine = createV1StateSpine({
+            getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState: prepareOnly ? () => campaignState : getState,
             stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef,
@@ -2120,27 +2128,32 @@ export function createV1MissionRuntime({
         if (directedAnalysis?.key !== turnKey) {
             const focused = typeof analyzeContinuity === 'function';
             const coordinator = createParallelTurnAnalysis({
-                maxAttempts: focused ? 2 : 1,
+                maxAttempts: role => generationRouter?.getMaxAttempts?.({
+                    interpreter: 'acceptedPairMissionEvidence', director: focused ? 'storyDirectionAnalyst' : 'storyDirector',
+                    continuity: 'continuityAnalyst', episode: 'episodeEvaluator',
+                }[role], focused ? 2 : 1) ?? (focused ? 2 : 1),
                 continuity: focused ? async ({ request, signal: roleSignal }) => runProgress(
                     'reviewing-continuity',
                     async ({ onAttempt, onPhase }) => {
                         let currentRequest = request;
-                        for (let pass = 0; pass < 2; pass++) {
+                        const lookupPasses = normalizeAnalysisLimits(request.analysisLimits).continuityLookupPasses;
+                        for (let pass = 0; pass < lookupPasses; pass++) {
                             const result = await analyzeContinuity({ request: currentRequest, signal: roleSignal, onAttempt, onPhase });
                             if (!result?.ok) return result;
                             const parsed = parseContinuityAnalystOutput(result.proposal, { request: currentRequest });
                             if (!parsed.ok) return { ok: false, reasonCode: 'continuity-invalid-output' };
                             if (parsed.value.coverage !== 'lookup-needed') return { ...result, proposal: parsed.value };
-                            if (pass === 1) return { ok: false, reasonCode: 'continuity-lookup-exhausted' };
+                            if (pass === lookupPasses - 1) return { ok: false, reasonCode: 'continuity-lookup-exhausted' };
                             const lookups = parsed.value.lookupRequests;
                             const lookup = lookupContinuityThreads({
+                                limits: request.analysisLimits,
                                 events: captured.campaignState.storySettlement.continuityEvents || [],
                                 referencedIds: lookups.flatMap(item => item.threadIds),
                                 queryText: lookups.map(item => item.query || '').join(' '),
                                 currentRevision: captured.campaignState.storySettlement.revision,
                                 currentElapsedSeconds: captured.campaignState.timeLedger?.elapsedSeconds,
                             });
-                            const records = new Map(request.continuity.records.map(record => [record.id, structuredClone(record)]));
+                            const records = new Map(currentRequest.continuity.records.map(record => [record.id, structuredClone(record)]));
                             for (const record of lookup.records) {
                                 const old = records.get(record.id);
                                 if (!old) { records.set(record.id, record); continue; }
@@ -2151,8 +2164,8 @@ export function createV1MissionRuntime({
                                 });
                             }
                             const merged = [...records.values()];
-                            currentRequest = { ...request, continuity: {
-                                index: [...new Map([...request.continuity.index, ...lookup.index].map(record => [record.id, record])).values()],
+                            currentRequest = { ...currentRequest, continuity: {
+                                index: [...new Map([...currentRequest.continuity.index, ...lookup.index].map(record => [record.id, record])).values()],
                                 records: merged,
                                 retrieval: { ...lookup.retrieval,
                                     coverage: 'partial',
@@ -2244,6 +2257,7 @@ export function createV1MissionRuntime({
         if (!captured.reviewToken) return structuredClone(captured.campaignState);
         const draft = structuredClone(captured.campaignState);
         const spine = createV1StateSpine({
+            getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState: () => draft,
             stateDeltaGateway,
             resolveSourceRef: () => null,
@@ -2270,6 +2284,7 @@ export function createV1MissionRuntime({
                 snapshot: input.snapshot,
                 generationType: input.generationType,
                 focused: typeof analyzeContinuity === 'function',
+                analysisLimits: generationRouter?.getAnalysisLimits?.() || {},
             });
         } catch (error) {
             return unavailable(error?.code || error?.message || 'turn-capture-invalid');
@@ -2453,6 +2468,7 @@ export function createV1MissionRuntime({
                 settledAtRevision: candidateState.storySettlement.revision,
                 authoredIds,
                 authoredDeadlines: captured.directorRequest.authoredContext.deadlines || {},
+                limits: captured.directorRequest.analysisLimits,
                 knownLinkIds: captured.directorRequest.authoredContext.referenceIds || [],
                 temporalContext: captured.directorRequest.authoredContext.temporalContext,
             });
@@ -2494,6 +2510,7 @@ export function createV1MissionRuntime({
                         opportunities: captured.directorRequest.authoredContext.opportunities.filter(item => targets.has(item.id)),
                     },
                     continuity: projectDirectorContinuity({
+                        limits: captured.directorRequest.analysisLimits,
                         events: continuityEvents,
                         missionId: captured.definition.id,
                         queryText: `${captured.sourcePair.previousAssistant.text} ${captured.sourcePair.currentPlayer.text}`,
@@ -2654,6 +2671,7 @@ export function createV1MissionRuntime({
         }
         const reason = safeReasonCode(eventType);
         const spine = createV1StateSpine({
+            getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState,
             stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef: () => null,
@@ -2837,7 +2855,7 @@ export function createV1MissionRuntime({
         reviewToken = attempt.token;
         let request;
         try {
-            request = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement });
+            request = createEpisodeEvaluationRequest({ settlement: campaignState.storySettlement, limits: generationRouter?.getAnalysisLimits?.() || {} });
         } catch {
             try {
                 await mutate(() => persistEpisodeReviewAttempt({
@@ -2884,6 +2902,7 @@ export function createV1MissionRuntime({
         }
 
         const spine = createV1StateSpine({
+            getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState,
             stateDeltaGateway: gatewayForProgressScope(progressScope),
             resolveSourceRef: () => null,

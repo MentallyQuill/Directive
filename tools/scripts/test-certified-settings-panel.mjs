@@ -86,7 +86,7 @@ assert.match(text, /Behavioral Preset/);
 assert.match(text, /Instruct Formatting/);
 assert.match(text, /Samplers/);
 assert.match(text, /Structured Output/);
-assert.match(text, /Output token ceiling/);
+assert.match(text, /Default output tokens/);
 assert.match(text, /Request timeout \(seconds\)/);
 for (const kind of ['utility', 'reasoning']) {
   const timeout = byControl(`${kind}-timeoutSeconds`);
@@ -96,6 +96,22 @@ for (const kind of ['utility', 'reasoning']) {
   assert.deepEqual(updates.at(-1), { kind, patch: { timeoutSeconds: 1500 } });
 }
 assert.match(text, /Model-Call Routing/);
+assert.match(text, /Analysis context and response content limits/);
+const roleTokens = byControl('reasoning-storyDirectionAnalyst-maxTokens');
+assert.equal(byControl('reasoning-peopleDossierAuthor-maxAttempts'), undefined);
+assert.equal(roleTokens.value, '');
+assert.match(roleTokens.placeholder, /Inherit lane/);
+roleTokens.value = '32000';
+await roleTokens.dispatch('change');
+assert.deepEqual(updates.at(-1), { kind: 'reasoning', patch: { roleLimits: { storyDirectionAnalyst: { maxTokens: 32000 } } } });
+roleTokens.value = '';
+await roleTokens.dispatch('change');
+assert.deepEqual(updates.at(-1), { kind: 'reasoning', patch: { roleLimits: { storyDirectionAnalyst: { maxTokens: null } } } });
+const factLimit = byControl('analysis-continuityFactCharacters');
+assert.equal(Number(byControl('analysis-hostNarrationTimeoutSeconds').max), 2147483);
+factLimit.value = '8192';
+await factLimit.dispatch('change');
+assert.deepEqual(updates.at(-1), { kind: 'utility', patch: { analysisLimits: { continuityFactCharacters: 8192 } } });
 assert.match(text, /Include Story Transcript/);
 assert.match(text, /upgraded 1 older V1 save/i);
 assert.match(text, /verified recovery copy/i);

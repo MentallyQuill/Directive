@@ -167,7 +167,7 @@ export function prepareV1AcceptedPairTimeAdvance({
 
   if (acceptedPairTimeDecisionErrors(timeDecision, snapshot.source, 'accepted', {
     scope: { countPreviousAssistant: !openingBaselineSnapshot(snapshot) }
-  }).length > 0) {
+  }, { timeReasonCharacters: Infinity, timeEvidenceQuoteCharacters: Infinity }).length > 0) {
     return unavailable(campaignState, 'time-interpretation-invalid');
   }
   if (timeDecision.decision === 'indeterminate') {

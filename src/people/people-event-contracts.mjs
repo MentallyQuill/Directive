@@ -88,8 +88,8 @@ export function validatePeopleEvent(event = {}, {
     if (!isStableId(event.personId)) errors.push('people event personId must be stable');
     if (event.evidenceQuote !== undefined) {
         const quote = compact(event.evidenceQuote);
-        if ([...quote].length < 12 || [...quote].length > 240) {
-            errors.push('people event evidenceQuote must contain 12 through 240 characters');
+        if ([...quote].length < 12) {
+            errors.push('people event evidenceQuote must contain at least 12 characters');
         }
         if (!/^[a-f0-9]{8}$/.test(String(event.evidenceQuoteHash || ''))) {
             errors.push('people event evidenceQuoteHash must be an 8-character lowercase hex digest');
@@ -103,11 +103,11 @@ export function validatePeopleEvent(event = {}, {
         for (const field of Object.keys(event)) {
             if (!INTRODUCTION_FIELDS.has(field)) errors.push(`people event contains unknown field: ${field}`);
         }
-        if (!compact(event.name) || [...compact(event.name)].length > 120) {
-            errors.push('person introduction name must contain at most 120 characters');
+        if (!compact(event.name)) {
+            errors.push('person introduction name must be non-empty');
         }
-        if (!compact(event.introductionSummary) || [...compact(event.introductionSummary)].length > 512) {
-            errors.push('person introduction summary must contain at most 512 characters');
+        if (!compact(event.introductionSummary)) {
+            errors.push('person introduction summary must be non-empty');
         }
         if (!isObject(event.publicFacts)) {
             errors.push('person introduction publicFacts must be an object');
@@ -115,7 +115,7 @@ export function validatePeopleEvent(event = {}, {
             for (const [field, value] of Object.entries(event.publicFacts)) {
                 if (!PUBLIC_PERSON_FACT_FIELDS.includes(field)) {
                     errors.push(`person introduction publicFacts contains unsupported field: ${field}`);
-                } else if (!compact(value) || [...compact(value)].length > (field === 'profileSummary' ? 512 : 240)) {
+                } else if (!compact(value)) {
                     errors.push(`person introduction publicFacts ${field} is invalid`);
                 }
             }
@@ -127,8 +127,7 @@ export function validatePeopleEvent(event = {}, {
         if (!PUBLIC_PERSON_FACT_FIELDS.includes(event.field)) {
             errors.push('public fact field is unsupported');
         }
-        const maximum = event.field === 'profileSummary' ? 512 : 240;
-        if (!compact(event.value) || [...compact(event.value)].length > maximum) {
+        if (!compact(event.value)) {
             errors.push('public fact value is invalid');
         }
         const known = knownPersonIds === null ? null : new Set(knownPersonIds || []);
@@ -137,7 +136,7 @@ export function validatePeopleEvent(event = {}, {
         for (const field of Object.keys(event)) {
             if (!RELATIONSHIP_EVIDENCE_FIELDS.has(field)) errors.push(`people event contains unknown field: ${field}`);
         }
-        if (!compact(event.summary) || [...compact(event.summary)].length > 512) {
+        if (!compact(event.summary)) {
             errors.push('relationship evidence summary is invalid');
         }
         const known = knownPersonIds === null ? null : new Set(knownPersonIds || []);

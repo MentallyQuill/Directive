@@ -42,3 +42,13 @@ const readyReceipt={...receipt,scenePacing:{...result,intent:'resolve',unresolve
 assert.equal(pacing.scenePacingPermissions(definition,[readyReceipt],correctedState).size,0,'reopening revokes prior readiness');
 assert.equal(pacing.gateScenePacingClaims({definition:shared,receipts:[readyReceipt],claims}).acceptedClaims.length,2,'a shared prerequisite must not deadlock the scene that earned it');
 console.log('Scene pacing participation guard passed.');
+
+const pacingLimits = { scenePacingTextCharacters: 500, scenePacingQuoteCharacters: 450 };
+assert.equal(pacing.createScenePacingSchema({ objectives: definition.objectives }, { limits: pacingLimits }).properties.unresolved.maxLength, 500);
+assert.equal(pacing.createScenePacingSchema({ objectives: definition.objectives }, { limits: pacingLimits }).properties.intentQuote.maxLength, 450);
+const extendedPair = { previousAssistant: { text: 'Assistant offered terms. '.repeat(14) }, currentPlayer: { text: 'Player discussed terms. '.repeat(14) } };
+const extendedObservation = { ...observation, unresolved: 'u'.repeat(400), participation: [{ requirement: 0, playerQuote: extendedPair.currentPlayer.text, assistantQuote: extendedPair.previousAssistant.text }] };
+assert.deepEqual(pacing.pacingObservationErrors(extendedObservation, { objectives: definition.objectives, sourcePair: extendedPair, limits: pacingLimits }), []);
+assert.ok(pacing.pacingObservationErrors(extendedObservation, { objectives: definition.objectives, sourcePair: extendedPair, limits: { scenePacingTextCharacters: 100, scenePacingQuoteCharacters: 100 } }).length);
+const extendedReceipt = pacing.settleScenePacing({ definition, state, receipts: [], observation: extendedObservation, sourcePair: extendedPair, assistantAccepted: true });
+assert.equal(extendedReceipt.unresolved.length, 400);

@@ -486,3 +486,12 @@ await invalidateV1AcceptedPairTimeByHostMessages({
 assert.equal(anchorInvalidated.timeLedger.elapsedSeconds, 7200, 'zero decision invalidation must preserve the historical anchor');
 
 console.log('V1 accepted-pair time custody tests passed.');
+
+const { createTimeInterpretationSchema, acceptedPairTimeDecisionErrors } = await import('../../src/time/accepted-time-interpretation.mjs');
+const timeContentLimits = { timeReasonCharacters: 400, timeEvidenceQuoteCharacters: 450 };
+assert.equal(createTimeInterpretationSchema({ limits: timeContentLimits }).properties.reason.maxLength, 400);
+assert.equal(createTimeInterpretationSchema({ limits: timeContentLimits }).properties.evidenceQuote.maxLength, 450);
+const longAction = 'Sam walked down the passage. '.repeat(12);
+const longerTimeDecision = { decision: 'advance', basis: 'implicitAction', elapsedSeconds: 10, reason: 'r'.repeat(300), confidence: 0.9, sourceSlot: 'currentPlayer', evidenceQuote: longAction.trim() };
+assert.deepEqual(acceptedPairTimeDecisionErrors(longerTimeDecision, { currentPlayer: { text: longAction } }, 'accepted', {}, timeContentLimits), []);
+assert.ok(acceptedPairTimeDecisionErrors(longerTimeDecision, { currentPlayer: { text: longAction } }, 'accepted', {}, { timeReasonCharacters: 100, timeEvidenceQuoteCharacters: 100 }).length);

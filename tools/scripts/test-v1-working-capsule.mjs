@@ -229,3 +229,25 @@ assert.match(validateStorySettlement(malformedOpen).errors.join('\n'), /workingC
 assert.throws(() => checkpointStoryEpisode(malformedOpen, { force: true }), /workingCapsule is required/);
 
 console.log('V1 working capsule tests passed.');
+
+const expandedCapsule = replaceStoryWorkingCapsule(contributed, {
+    summary: 'x'.repeat(1200), foregroundQuestion: 'q'.repeat(350), sourceContributionIds: ['contribution.alpha'],
+    limits: { episodeMaxContinueSummaryCharacters: 1400, episodeMaxQuestionCharacters: 400 },
+});
+assert.equal(expandedCapsule.episodes[0].workingCapsule.summary.length, 1200);
+assert.equal(validateStorySettlement(expandedCapsule).ok, true, 'stored expanded content is structurally valid without current generation settings');
+const expandedEvidence = observeStoryWorkingEvidence(expandedCapsule, {
+    branchId, limits: { episodeMaxEvidenceExcerptCharacters: 500, episodeMaxEvidenceCharacters: 5000, episodeMaxRecentEvidence: 10 },
+    observations: contributions.map(source => ({ contributionId: source.id, role: source.role, textHash: source.textHash, text: 'z'.repeat(450) })),
+});
+assert.equal(expandedEvidence.episodes[0].workingCapsule.recentEvidence.length, 8);
+assert.equal(expandedEvidence.episodes[0].workingCapsule.recentEvidence[0].excerpt.length, 450);
+assert.equal(expandedEvidence.episodes[0].workingCapsule.summary.length, 1200);
+console.log('Configurable persisted capsule summary and evidence retention passed.');
+const lowTotalEvidence = observeStoryWorkingEvidence(contributed, {
+    branchId, limits: { episodeMaxEvidenceExcerptCharacters: 240, episodeMaxEvidenceCharacters: 100 },
+    observations: contributions.map(source => ({ contributionId: source.id, role: source.role, textHash: source.textHash, text: 'n'.repeat(200) })),
+});
+assert.equal(lowTotalEvidence.episodes[0].workingCapsule.recentEvidence.length, 1);
+assert.equal(lowTotalEvidence.episodes[0].workingCapsule.recentEvidence[0].contributionId, contributions.at(-1).id);
+assert.equal(lowTotalEvidence.episodes[0].workingCapsule.recentEvidence[0].excerpt.length, 100);

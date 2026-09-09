@@ -19,11 +19,11 @@ function normalizedEvidenceText(value) {
     return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function evidenceQuoteErrors(value, sourcePair, path) {
+function evidenceQuoteErrors(value, sourcePair, path, limits = {}) {
     const quote = normalizedEvidenceText(value?.evidenceQuote);
     const errors = [];
-    if (quote.length < MIN_EVIDENCE_QUOTE_LENGTH || quote.length > MAX_EVIDENCE_QUOTE_LENGTH) {
-        errors.push(`${path}.evidenceQuote must contain 12 through 240 characters`);
+    if (quote.length < MIN_EVIDENCE_QUOTE_LENGTH || quote.length > (limits.timeEvidenceQuoteCharacters ?? MAX_EVIDENCE_QUOTE_LENGTH)) {
+        errors.push(`${path}.evidenceQuote must contain 12 through ${limits.timeEvidenceQuoteCharacters ?? 240} characters`);
         return errors;
     }
     const sourceText = normalizedEvidenceText(sourcePair?.[value?.sourceSlot]?.text);
@@ -34,7 +34,7 @@ function evidenceQuoteErrors(value, sourcePair, path) {
 }
 
 
-export function createTimeInterpretationSchema() {
+export function createTimeInterpretationSchema({ limits = {} } = {}) {
     return {
         type: 'object',
         additionalProperties: false,
@@ -43,22 +43,22 @@ export function createTimeInterpretationSchema() {
             decision: { type: 'string', enum: [...TIME_DECISION_VALUES] },
             basis: { type: 'string', enum: [...TIME_BASES] },
             sourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
-            evidenceQuote: { type: 'string', minLength: 1, maxLength: 240 },
+            evidenceQuote: { type: 'string', minLength: 1, maxLength: limits.timeEvidenceQuoteCharacters ?? 240 },
             elapsedSeconds: { type: 'integer', minimum: 0, maximum: MAX_TIME_ADVANCE_SECONDS },
-            reason: { type: 'string', minLength: 1, maxLength: 180 },
+            reason: { type: 'string', minLength: 1, maxLength: limits.timeReasonCharacters ?? 180 },
             confidence: { type: 'number', minimum: 0, maximum: 1 },
             durationSeconds: { type: 'integer', minimum: 1, maximum: MAX_TIME_ADVANCE_SECONDS },
             durationSourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
             durationEvidenceQuote: {
                 type: 'string',
                 minLength: MIN_EVIDENCE_QUOTE_LENGTH,
-                maxLength: MAX_EVIDENCE_QUOTE_LENGTH,
+                maxLength: limits.timeEvidenceQuoteCharacters ?? MAX_EVIDENCE_QUOTE_LENGTH,
             },
         },
     };
 }
 
-export function acceptedPairTimeDecisionErrors(value, sourcePair = {}, assistantAcceptance = 'accepted', timeContext = {}) {
+export function acceptedPairTimeDecisionErrors(value, sourcePair = {}, assistantAcceptance = 'accepted', timeContext = {}, limits = {}) {
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ['time must be an object'];
     for (const field of unknownFields(value, TIME_FIELDS)) errors.push(`time contains unknown field: ${field}`);
@@ -75,8 +75,8 @@ export function acceptedPairTimeDecisionErrors(value, sourcePair = {}, assistant
         if (value.decision !== 'advance') errors.push('time action evidence is allowed only for advance');
         if (!SOURCE_SLOTS.has(value.sourceSlot)) errors.push('time.sourceSlot is unknown');
         const quote = normalizedEvidenceText(value.evidenceQuote);
-        if (!quote || quote.length > 240 || !normalizedEvidenceText(sourcePair?.[value.sourceSlot]?.text).includes(quote)) {
-            errors.push('time.evidenceQuote must occur in its authorized source and contain 1 through 240 characters');
+        if (!quote || quote.length > (limits.timeEvidenceQuoteCharacters ?? 240) || !normalizedEvidenceText(sourcePair?.[value.sourceSlot]?.text).includes(quote)) {
+            errors.push(`time.evidenceQuote must occur in its authorized source and contain 1 through ${limits.timeEvidenceQuoteCharacters ?? 240} characters`);
         }
         if (value.sourceSlot === 'previousAssistant' && assistantAcceptance !== 'accepted') {
             errors.push('time cannot be sourced solely from unaccepted assistant events; use surviving passage established by the player');
@@ -93,8 +93,8 @@ export function acceptedPairTimeDecisionErrors(value, sourcePair = {}, assistant
     if (new Set(['unchanged', 'indeterminate']).has(value.decision) && value.elapsedSeconds !== 0) {
         errors.push(`time ${value.decision} requires zero elapsedSeconds`);
     }
-    if (typeof value.reason !== 'string' || !value.reason.trim() || value.reason.length > 180) {
-        errors.push('time.reason must be a nonempty string no longer than 180 characters');
+    if (typeof value.reason !== 'string' || !value.reason.trim() || value.reason.length > (limits.timeReasonCharacters ?? 180)) {
+        errors.push(`time.reason must be a nonempty string no longer than ${limits.timeReasonCharacters ?? 180} characters`);
     }
     if (!Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1) {
         errors.push('time.confidence must be between 0 and 1');
@@ -134,7 +134,7 @@ export function acceptedPairTimeDecisionErrors(value, sourcePair = {}, assistant
         errors.push(...evidenceQuoteErrors({
             sourceSlot: value.durationSourceSlot,
             evidenceQuote: value.durationEvidenceQuote,
-        }, sourcePair, 'time.duration'));
+        }, sourcePair, 'time.duration', limits));
         const durationEvidence = inspectEnactedDurationEvidence({
             sourceText: sourcePair?.[value.durationSourceSlot]?.text,
             evidenceQuote: value.durationEvidenceQuote,

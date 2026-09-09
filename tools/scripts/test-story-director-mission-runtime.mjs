@@ -737,3 +737,64 @@ assert.equal(conflictContinuityCalls, 1);
 assert.equal(conflictInterpreterCalls, 1);
 assert.equal(conflictWrites, 1);
 console.log('Focused director reconciliation tests passed.');
+
+// Configuring three analysis passes allows two distinct archive lookups to accumulate.
+let accumulatedState = structuredClone(focusedHarness.getState());
+const archivedOriginal = accumulatedState.storySettlement.continuityEvents;
+const archiveIds = ['continuity-thread.archive-polarstone', 'continuity-thread.archive-sapling'];
+accumulatedState.storySettlement.continuityEvents = archiveIds.flatMap((threadId, index) => archivedOriginal.map(event => ({
+    ...event,
+    id: `${event.id}.archive${index}`,
+    threadId,
+    dependsOnEventIds: event.dependsOnEventIds.map(id => `${id}.archive${index}`),
+    settledAtRevision: 0,
+    payload: event.operation === 'open'
+        ? { title: index === 0 ? 'Polarstone' : 'Sapling', category: 'unresolved-problem' }
+        : { ...event.payload, text: index === 0 ? 'Polarstone archive.' : 'Sapling archive.', authoredRef: null },
+})));
+accumulatedState.storySettlement.revision = 100;
+let accumulatedWrites = 0;
+const accumulatedGateway = createStateDeltaGateway({ getState: () => accumulatedState, setState: state => { accumulatedState = state; }, persist: async () => { accumulatedWrites++; } });
+let accumulatedCalls = 0;
+let accumulatedDirectorCalls = 0;
+let accumulatedInterpreterCalls = 0;
+let accumulatedEnvelope;
+const accumulatedRuntime = createV1MissionRuntime({
+    getState: () => accumulatedState,
+    stateDeltaGateway: accumulatedGateway,
+    generationRouter: { getAnalysisLimits: () => ({ continuityLookupPasses: 3 }) },
+    interpretAcceptedPair: input => { accumulatedInterpreterCalls++; const result = interpretedFor(input); result.interpretation.peopleEvents = []; return result; },
+    directStory: async ({ request }) => {
+        accumulatedDirectorCalls++;
+        return { ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } };
+    },
+    analyzeContinuity: async ({ request }) => {
+        accumulatedCalls++;
+        accumulatedEnvelope ??= structuredClone(request.envelope);
+        assert.deepEqual(request.envelope, accumulatedEnvelope, 'follow-up lookups retain the captured revision and source');
+        assert.equal(request.analysisLimits.continuityLookupPasses, 3);
+        if (accumulatedCalls === 1) assert.equal(request.continuity.records.length, 0);
+        if (accumulatedCalls === 2) assert.ok(request.continuity.records.some(record => record.id === archiveIds[0]));
+        if (accumulatedCalls === 3) {
+            for (const id of archiveIds) {
+                assert.ok(request.continuity.records.some(record => record.id === id), `third pass retains ${id}`);
+                assert.ok(request.continuity.index.some(record => record.id === id));
+            }
+        }
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope,
+            coverage: accumulatedCalls < 3 ? 'lookup-needed' : 'complete', threadChanges: [],
+            lookupRequests: accumulatedCalls < 3 ? [{ threadIds: [archiveIds[accumulatedCalls - 1]], query: null }] : [],
+        } };
+    },
+    evaluateEpisode: async () => { throw new Error('review is not due'); },
+});
+const accumulatedSnapshot = structuredClone(conflictSnapshot);
+accumulatedSnapshot.source.sourceRangeHash = 'range.accumulated-lookups';
+const accumulatedResult = await accumulatedRuntime.settleAcceptedPair({ runtimeAssets, snapshot: accumulatedSnapshot, generationType: 'normal' });
+assert.equal(accumulatedResult.ok, true, JSON.stringify(accumulatedResult));
+assert.equal(accumulatedCalls, 3);
+assert.equal(accumulatedDirectorCalls, 1);
+assert.equal(accumulatedInterpreterCalls, 1);
+assert.equal(accumulatedWrites, 1);
+assert.equal(accumulatedState.storySettlement.continuityEvents.length, 4, 'lookups never rewrite archive events');
+console.log('Configured three-pass continuity lookup accumulation passed.');

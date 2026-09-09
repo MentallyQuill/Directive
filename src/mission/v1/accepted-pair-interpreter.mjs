@@ -2,6 +2,7 @@ import { parseStructuredJsonText } from '../../providers/structured-output-parse
 import { createScenePacingSchema, pacingObservationErrors } from '../../narration/scene-pacing.mjs';
 import { createGenerationRoleRegistry } from '../../generation/generation-roles.mjs';
 import { acceptedPairTimeDecisionErrors, createTimeInterpretationSchema } from '../../time/accepted-time-interpretation.mjs';
+import { normalizeAnalysisLimits } from '../../generation/analysis-limits.mjs';
 
 export const MISSION_EVIDENCE_INTERPRETATION_KIND = 'directive.missionEvidenceInterpretation.v1';
 export const MISSION_EVIDENCE_INTERPRETER_ROLE_ID = 'acceptedPairMissionEvidence';
@@ -21,11 +22,7 @@ const PEOPLE_FACT_NAMES = new Set([
     'displayName', 'role', 'affiliation', 'species', 'age', 'birthplace',
     'serviceBackground', 'assignmentHistory', 'profileSummary',
 ]);
-const MAX_DURABLE_SELECTIONS = 4;
-const MAX_CLAIMS = MAX_DURABLE_SELECTIONS;
-const MAX_PEOPLE_EVENTS = 24;
 const MIN_EVIDENCE_QUOTE_LENGTH = 12;
-const MAX_EVIDENCE_QUOTE_LENGTH = 240;
 
 function cloneJson(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -62,11 +59,12 @@ function normalizedEvidenceText(value) {
     return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-function evidenceQuoteErrors(value, sourcePair, path) {
+function evidenceQuoteErrors(value, sourcePair, path, limits) {
+    const MAX_EVIDENCE_QUOTE_LENGTH = limits.interpreterEvidenceQuoteCharacters;
     const quote = normalizedEvidenceText(value?.evidenceQuote);
     const errors = [];
     if (quote.length < MIN_EVIDENCE_QUOTE_LENGTH || quote.length > MAX_EVIDENCE_QUOTE_LENGTH) {
-        errors.push(`${path}.evidenceQuote must contain 12 through 240 characters`);
+        errors.push(`${path}.evidenceQuote must contain 12 through ${MAX_EVIDENCE_QUOTE_LENGTH} characters`);
         return errors;
     }
     const sourceText = normalizedEvidenceText(sourcePair?.[value?.sourceSlot]?.text);
@@ -84,9 +82,10 @@ function constSchema(value) {
     return { const: cloneJson(value) };
 }
 
-function peopleEventSchema() {
+function peopleEventSchema(limits) {
+    const MAX_EVIDENCE_QUOTE_LENGTH = limits.interpreterEvidenceQuoteCharacters;
     const sourceSlot = { type: 'string', enum: [...SOURCE_SLOTS] };
-    const personRef = { type: 'string', minLength: 1, maxLength: 120 };
+    const personRef = { type: 'string', minLength: 1, maxLength: limits.interpreterPeopleRefCharacters };
     return {
         oneOf: [{
             type: 'object',
@@ -94,9 +93,9 @@ function peopleEventSchema() {
             required: ['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot', 'evidenceQuote'],
             properties: {
                 type: { type: 'string', const: 'personIntroduced' },
-                localRef: { type: 'string', pattern: '^[a-z0-9][a-z0-9._:-]*$', maxLength: 80 },
-                name: { type: 'string', minLength: 1, maxLength: 120 },
-                introductionSummary: { type: 'string', minLength: 1, maxLength: 512 },
+                localRef: { type: 'string', pattern: '^[a-z0-9][a-z0-9._:-]*$', maxLength: limits.interpreterPeopleLocalRefCharacters },
+                name: { type: 'string', minLength: 1, maxLength: limits.interpreterPeopleNameCharacters },
+                introductionSummary: { type: 'string', minLength: 1, maxLength: limits.interpreterPeopleSummaryCharacters },
                 sourceSlot: { type: 'string', const: 'previousAssistant' },
                 evidenceQuote: { type: 'string', minLength: MIN_EVIDENCE_QUOTE_LENGTH, maxLength: MAX_EVIDENCE_QUOTE_LENGTH },
             },
@@ -114,7 +113,7 @@ function peopleEventSchema() {
                         'serviceBackground', 'assignmentHistory', 'profileSummary',
                     ],
                 },
-                value: { type: 'string', minLength: 1, maxLength: 512 },
+                value: { type: 'string', minLength: 1, maxLength: Math.max(limits.interpreterPeopleProfileCharacters, limits.interpreterPeopleFactCharacters) },
                 sourceSlot,
                 evidenceQuote: { type: 'string', minLength: MIN_EVIDENCE_QUOTE_LENGTH, maxLength: MAX_EVIDENCE_QUOTE_LENGTH },
             },
@@ -125,7 +124,7 @@ function peopleEventSchema() {
             properties: {
                 type: { type: 'string', const: 'relationshipEvidence' },
                 personRef,
-                summary: { type: 'string', minLength: 1, maxLength: 512 },
+                summary: { type: 'string', minLength: 1, maxLength: limits.interpreterPeopleSummaryCharacters },
                 sourceSlot,
                 evidenceQuote: { type: 'string', minLength: MIN_EVIDENCE_QUOTE_LENGTH, maxLength: MAX_EVIDENCE_QUOTE_LENGTH },
             },
@@ -133,8 +132,9 @@ function peopleEventSchema() {
     };
 }
 
-function durableSelectionBudgetSchema(candidateSelectionCount) {
-    const maximumClaims = Math.min(MAX_CLAIMS, candidateSelectionCount);
+function durableSelectionBudgetSchema(candidateSelectionCount, limits) {
+    const MAX_DURABLE_SELECTIONS = limits.interpreterMaxDurableSelections;
+    const maximumClaims = Math.min(limits.interpreterMaxClaims, MAX_DURABLE_SELECTIONS, candidateSelectionCount);
     return {
         oneOf: Array.from({ length: maximumClaims + 1 }, (_, claimCount) => ({
             type: 'object',
@@ -153,7 +153,11 @@ function durableSelectionBudgetSchema(candidateSelectionCount) {
     };
 }
 
-export function createMissionAcceptedPairInterpretationSchema({ candidatePacket = {} } = {}) {
+export function createMissionAcceptedPairInterpretationSchema({ candidatePacket = {}, limits = {} } = {}) {
+    limits = normalizeAnalysisLimits(limits);
+    const MAX_CLAIMS = limits.interpreterMaxClaims;
+    const MAX_PEOPLE_EVENTS = limits.interpreterMaxPeopleEvents;
+    const MAX_EVIDENCE_QUOTE_LENGTH = limits.interpreterEvidenceQuoteCharacters;
     const candidateSelections = (candidatePacket.candidates || []).flatMap((candidate) => {
         const sourceSlots = candidate.sourceSlots || [];
         const values = Array.isArray(candidate.values) ? candidate.values.map((entry) => entry.value) : null;
@@ -183,7 +187,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
         type: 'object',
         additionalProperties: false,
         required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time', ...(candidatePacket.scenePacing ? ['scenePacing'] : [])],
-        allOf: [durableSelectionBudgetSchema(candidateSelections.length)],
+        allOf: [durableSelectionBudgetSchema(candidateSelections.length, limits)],
         properties: {
             kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
             assistantAcceptance: { type: 'string', enum: [...ASSISTANT_ACCEPTANCE_VALUES] },
@@ -196,16 +200,17 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
             peopleEvents: {
                 type: 'array',
                 maxItems: MAX_PEOPLE_EVENTS,
-                items: peopleEventSchema(),
+                items: peopleEventSchema(limits),
             },
-            time: createTimeInterpretationSchema(),
-            ...(candidatePacket.scenePacing ? {scenePacing:createScenePacingSchema(candidatePacket.scenePacing)} : {}),
+            time: createTimeInterpretationSchema({ limits }),
+            ...(candidatePacket.scenePacing ? {scenePacing:createScenePacingSchema(candidatePacket.scenePacing, { limits })} : {}),
         },
     };
 }
 
 
-function peopleEventErrors(value, peopleContext = {}, sourcePair = {}) {
+function peopleEventErrors(value, peopleContext = {}, sourcePair = {}, limits) {
+    const MAX_PEOPLE_EVENTS = limits.interpreterMaxPeopleEvents;
     const errors = [];
     if (!Array.isArray(value)) return ['peopleEvents must be an array'];
     if (value.length > MAX_PEOPLE_EVENTS) errors.push(`peopleEvents must contain no more than ${MAX_PEOPLE_EVENTS} observations`);
@@ -218,22 +223,22 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}) {
             continue;
         }
         if (!SOURCE_SLOTS.has(event.sourceSlot)) errors.push(`${path} sourceSlot is unknown`);
-        errors.push(...evidenceQuoteErrors(event, sourcePair, path));
+        errors.push(...evidenceQuoteErrors(event, sourcePair, path, limits));
         if (event.type === 'personIntroduced') {
             for (const field of unknownFields(event, PEOPLE_INTRODUCTION_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
             if (event.sourceSlot !== 'previousAssistant') errors.push(`${path} introduction must come from previousAssistant`);
-            if (typeof event.localRef !== 'string' || !/^[a-z0-9][a-z0-9._:-]*$/.test(event.localRef) || event.localRef.length > 80) {
+            if (typeof event.localRef !== 'string' || !/^[a-z0-9][a-z0-9._:-]*$/.test(event.localRef) || event.localRef.length > limits.interpreterPeopleLocalRefCharacters) {
                 errors.push(`${path} localRef must be stable and at most 80 characters`);
             } else if (localRefs.has(event.localRef)) {
                 errors.push(`${path} localRef is duplicated`);
             }
             localRefs.add(event.localRef);
-            if (typeof event.name !== 'string' || !event.name.trim() || event.name.length > 120) {
+            if (typeof event.name !== 'string' || !event.name.trim() || event.name.length > limits.interpreterPeopleNameCharacters) {
                 errors.push(`${path} name is invalid`);
             }
             if (typeof event.introductionSummary !== 'string'
                 || !event.introductionSummary.trim()
-                || event.introductionSummary.length > 512) {
+                || event.introductionSummary.length > limits.interpreterPeopleSummaryCharacters) {
                 errors.push(`${path} introductionSummary is invalid`);
             }
         } else if (event.type === 'publicFactLearned') {
@@ -241,12 +246,12 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}) {
             if (!PEOPLE_FACT_NAMES.has(event.field)) errors.push(`${path} public fact field is unsupported`);
             if (typeof event.value !== 'string'
                 || !event.value.trim()
-                || event.value.length > (event.field === 'profileSummary' ? 512 : 240)) {
+                || event.value.length > (event.field === 'profileSummary' ? limits.interpreterPeopleProfileCharacters : limits.interpreterPeopleFactCharacters)) {
                 errors.push(`${path} public fact value is invalid`);
             }
         } else if (event.type === 'relationshipEvidence') {
             for (const field of unknownFields(event, PEOPLE_RELATIONSHIP_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
-            if (typeof event.summary !== 'string' || !event.summary.trim() || event.summary.length > 512) {
+            if (typeof event.summary !== 'string' || !event.summary.trim() || event.summary.length > limits.interpreterPeopleSummaryCharacters) {
                 errors.push(`${path} relationship summary is invalid`);
             }
         } else {
@@ -255,7 +260,7 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}) {
     }
     for (const [index, event] of value.entries()) {
         if (!new Set(['publicFactLearned', 'relationshipEvidence']).has(event?.type)) continue;
-        if (typeof event.personRef !== 'string' || !event.personRef.trim() || event.personRef.length > 120) {
+        if (typeof event.personRef !== 'string' || !event.personRef.trim() || event.personRef.length > limits.interpreterPeopleRefCharacters) {
             errors.push(`peopleEvents[${index}] personRef is invalid`);
         } else if ((peopleContext.knownPeople || []).length > 0
             && !knownPersonIds.has(event.personRef)
@@ -266,7 +271,9 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}) {
     return errors;
 }
 
-function interpretationErrors(value, candidatePacket, peopleContext, sourcePair, timeContext) {
+function interpretationErrors(value, candidatePacket, peopleContext, sourcePair, timeContext, limits) {
+    const MAX_CLAIMS = limits.interpreterMaxClaims;
+    const MAX_DURABLE_SELECTIONS = limits.interpreterMaxDurableSelections;
     const errors = [];
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return ['interpretation output must be a JSON object'];
@@ -279,10 +286,10 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair,
         errors.push('assistantAcceptance is unknown');
     }
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
-    errors.push(...acceptedPairTimeDecisionErrors(value.time, sourcePair, value.assistantAcceptance, timeContext));
-    errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext, sourcePair));
+    errors.push(...acceptedPairTimeDecisionErrors(value.time, sourcePair, value.assistantAcceptance, timeContext, limits));
+    errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext, sourcePair, limits));
     // Older outputs may omit pacing; runtime treats omission as a hold, never permission.
-    if (value.scenePacing !== undefined) errors.push(...pacingObservationErrors(value.scenePacing, {...candidatePacket.scenePacing,sourcePair}));
+    if (value.scenePacing !== undefined) errors.push(...pacingObservationErrors(value.scenePacing, {...candidatePacket.scenePacing,sourcePair,limits}));
     if (!Array.isArray(value.claims)) {
         errors.push('claims must be an array');
         return errors;
@@ -310,7 +317,7 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair,
         if (!SOURCE_SLOTS.has(claim.sourceSlot) || !candidate.sourceSlots.includes(claim.sourceSlot)) {
             errors.push(`${path} sourceSlot is not authorized for ${claim.candidateId}`);
         }
-        errors.push(...evidenceQuoteErrors(claim, sourcePair, path));
+        errors.push(...evidenceQuoteErrors(claim, sourcePair, path, limits));
         if (candidate.corrections?.length && claim.materiallyNewEvidence !== true) errors.push(`${path} requires materially new evidence after the player correction`);
         if (claim.materiallyNewEvidence !== undefined && claim.materiallyNewEvidence !== true) errors.push(`${path} materiallyNewEvidence must be true when supplied`);
         const candidateValues = Array.isArray(candidate.values) ? candidate.values : null;
@@ -335,7 +342,9 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     sourcePair = {},
     peopleContext = {},
     timeContext = {},
+    limits = {},
 } = {}) {
+    limits = normalizeAnalysisLimits(limits);
     const parsed = typeof value === 'string'
         ? parseStructuredJsonText(value)
         : { ok: Boolean(value && typeof value === 'object' && !Array.isArray(value)), value };
@@ -344,13 +353,13 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     }
     const boundedValue = cloneJson(parsed.value);
     const claimCount = Array.isArray(boundedValue?.claims) ? boundedValue.claims.length : 0;
-    const peopleCapacity = Math.max(0, MAX_DURABLE_SELECTIONS - claimCount);
+    const peopleCapacity = Math.min(limits.interpreterMaxPeopleEvents, Math.max(0, limits.interpreterMaxDurableSelections - claimCount));
     const rawPeopleEventCount = Array.isArray(boundedValue?.peopleEvents) ? boundedValue.peopleEvents.length : 0;
     if (Array.isArray(boundedValue?.peopleEvents) && rawPeopleEventCount > peopleCapacity) {
         boundedValue.peopleEvents = boundedValue.peopleEvents.slice(0, peopleCapacity);
     }
     const discardedOverflowPeopleEventCount = Math.max(0, rawPeopleEventCount - peopleCapacity);
-    const errors = interpretationErrors(boundedValue, candidatePacket, peopleContext, sourcePair, timeContext);
+    const errors = interpretationErrors(boundedValue, candidatePacket, peopleContext, sourcePair, timeContext, limits);
     if (errors.length > 0) return { ok: false, errors };
     const discardedAssistantClaimCount = boundedValue.assistantAcceptance === 'accepted'
         ? 0
@@ -390,9 +399,10 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
 }
 
 export function createMissionAcceptedPairInterpretationPrompt({
-    candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {},
+    candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, limits = {},
 } = {}) {
-    const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket });
+    limits = normalizeAnalysisLimits(limits);
+    const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket, limits });
     const systemPrompt = [
         'Report what the supplied exchange supports. Select only supplied evidence candidates. Observe player intent and participation; do not choose a future plot or manufacture success.',
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
@@ -410,9 +420,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
-        'Every claim and People observation must include evidenceQuote: a verbatim 12–240 character excerpt from its selected source slot that directly proves the selection.',
+        `Every claim and People observation must include evidenceQuote: a verbatim 12–${limits.interpreterEvidenceQuoteCharacters} character excerpt from its selected source slot that directly proves the selection.`,
         'Copy one continuous excerpt exactly as written. Never join separated passages, insert ellipses, paraphrase, or repair the source inside evidenceQuote. Use a shorter intact excerpt when needed.',
-        'Return no more than four durable selections total across claims and People observations.',
+        `Return no more than ${limits.interpreterMaxDurableSelections} durable selections total across claims and People observations, at most ${limits.interpreterMaxClaims} claims and ${limits.interpreterMaxPeopleEvents} People observations.`,
         'abstained refers to mission claims only. If claims is nonempty, set abstained to false. Set it to true only when claims is empty; never return claims together with abstained:true.',
         'Observe People changes in the same response. A direct NPC encounter may create personIntroduced only when that NPC gives the player a usable name. A name merely mentioned by someone else does not create a person and must be omitted.',
         'Use a supplied known person ID whenever the subject matches the knownPeople directory. Never merge identities, invent a durable person ID, infer private information, or turn routine dialogue into relationship evidence.',
@@ -438,8 +448,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         ...(candidatePacket.scenePacing ? ['Also include scenePacing in the output: {"objectiveId":"the current authored objective id","intent":"continue","intentQuote":"","missionDepartureQuote":"","unresolved":"remaining question or empty string","participation":[]}. Populate participation only with real, relevant player and assistant quotations; missing pacing holds the scene.'] : []),
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"advance|unchanged|indeterminate","basis":"explicitDuration|implicitAction|sceneTransition|noPassage|unresolved","elapsedSeconds":0,"reason":"concise-visible-evidence","confidence":0.0}}',
         'Explicit-duration time example only: {"decision":"advance","basis":"explicitDuration","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
-    ].join('\n');
+    ].join('\n').replace('1–240 verbatim characters', `1–${limits.timeEvidenceQuoteCharacters} verbatim characters`).replace('time.reason within 180 characters', `time.reason within ${limits.timeReasonCharacters} characters`);
     const userPayload = {
+        analysisLimits: cloneJson(limits),
         envelope: {
             missionId: candidatePacket.missionId,
             definitionVersion: candidatePacket.definitionVersion,
@@ -455,6 +466,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         ...(candidatePacket.scenePacing ? {scenePacing:cloneJson(candidatePacket.scenePacing)} : {}),
         candidates: cloneJson(candidatePacket.candidates || []),
     };
+    if ([...JSON.stringify(userPayload)].length > limits.requestContextCharacters) {
+        throw new TypeError('interpreter-context-overflow');
+    }
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;
     return {
         kind: 'directive.missionEvidenceInterpretationRequest.v1',
@@ -599,16 +613,20 @@ export function createMissionAcceptedPairInterpreter({
     timeoutMs = MISSION_EVIDENCE_INTERPRETER_TIMEOUT_MS,
 } = {}) {
     return async function interpretMissionAcceptedPair({
-        candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null,
+        candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null, limits = null,
         onAttempt = null, onPhase = null,
     } = {}) {
+        limits = normalizeAnalysisLimits(limits || generationRouter?.getAnalysisLimits?.() || {});
         const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, timeoutMs) ?? timeoutMs;
         if (typeof generationRouter?.generate !== 'function') {
             return { ok: false, status: 'unavailable', reasonCode: 'provider-missing', diagnostics: {} };
         }
-        const request = createMissionAcceptedPairInterpretationPrompt({
-            candidatePacket, sourcePair, timeContext, peopleContext,
-        });
+        let request;
+        try {
+            request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, limits });
+        } catch (error) {
+            return { ok: false, status: 'rejected', reasonCode: error?.message || 'interpreter-request-invalid', diagnostics: {} };
+        }
         request.maxTokens = generationRouter?.getMaxTokens?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, MISSION_EVIDENCE_MAX_TOKENS) ?? MISSION_EVIDENCE_MAX_TOKENS;
         request.parameters.max_tokens = request.maxTokens;
         let generation = null;
@@ -648,7 +666,7 @@ export function createMissionAcceptedPairInterpreter({
                 // Progress observers must not affect generation or validation.
             }
         }
-        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext });
+        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext, limits });
         if (!parsed.ok) {
             generationRouter?.reportValidationFailure?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, parsed.errors);
             return {

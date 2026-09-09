@@ -187,11 +187,12 @@ assert.deepEqual(profileCalls[0], {
     extractData: true,
     includePreset: false,
     includeInstruct: false,
-    signal: undefined
+    signal: profileCalls[0].options.signal
   },
   payload: { temperature: 0.6, top_p: 0.9, top_k: 40, reasoning_effort: 'medium' }
 });
 assert.equal(utility.generationPolicy.structuredOutputMethod, 'prompt-json');
+assert.ok(profileCalls[0].options.signal instanceof AbortSignal, 'configured timeout supplies a cancellation signal');
 
 await profileClient.generate('episodeEvaluator', {
   messages: [{ role: 'user', content: 'Continue.' }],
@@ -200,13 +201,13 @@ await profileClient.generate('episodeEvaluator', {
 assert.deepEqual(profileCalls[1], {
   profileId: 'text.local',
   messages: [{ role: 'user', content: 'Continue.' }],
-  maxTokens: 500,
+  maxTokens: 700,
   options: {
     stream: false,
     extractData: true,
     includePreset: true,
     includeInstruct: true,
-    signal: undefined
+    signal: profileCalls[1].options.signal
   },
   payload: { temperature: 0.35, top_p: 0.8 }
 });
@@ -344,7 +345,7 @@ assert.deepEqual(currentCalls[0], {
   },
   options: { presetName: 'Current Preset' },
   extractData: true,
-  signal: undefined
+  signal: currentCalls[0].signal
 });
 
 const currentTextCalls = [];
@@ -391,12 +392,12 @@ assert.deepEqual(currentTextCalls[0], {
     stream: false,
     prompt: [{ role: 'user', content: 'Use native text completion.' }],
     model: 'llama-local',
-    max_tokens: 500,
+    max_tokens: 550,
     api_type: 'llamacpp'
   },
   options: { presetName: 'Text Preset', instructName: 'Alpaca' },
   extractData: true,
-  signal: undefined
+  signal: currentTextCalls[0].signal
 });
 
 const policyIncompleteContext = {
