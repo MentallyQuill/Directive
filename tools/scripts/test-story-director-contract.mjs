@@ -108,6 +108,7 @@ const fakeClientProposal = JSON.parse((await createFakeGenerationClient().genera
 assert.equal(parseStoryDirectorOutput(fakeClientProposal, { request }).ok, true);
 
 const reviewRequest = makeDirectorRequest({ episodeReview: makeEpisodeReviewRequest() });
+reviewRequest.episodeReview.pendingSourceContributionIds = ['contribution.pending-only'];
 const fakeReviewProposal = JSON.parse(createFakeStoryDirectorResponse({ context: reviewRequest }).text);
 assert.equal(fakeReviewProposal.episodeReview.decision, 'abstain');
 assert.equal(parseStoryDirectorOutput(fakeReviewProposal, { request: reviewRequest }).ok, true);
@@ -123,6 +124,9 @@ const reviewed = createStoryDirector({
 assert.equal((await reviewed({ request: reviewRequest })).ok, true);
 assert.match(reviewCalls[0].systemPrompt, /Retain only new narrative understanding/);
 assert.match(reviewCalls[0].systemPrompt, /only to the episodeReview field/);
+assert.match(reviewCalls[0].systemPrompt, /complete allowed sourceContributionIds are: \[\]/);
+assert.match(reviewCalls[0].systemPrompt, /boundary marker, not evidence/);
+assert.match(reviewCalls[0].systemPrompt, /same person/);
 
 const calls = [];
 const attempts = [];

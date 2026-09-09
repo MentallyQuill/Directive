@@ -553,6 +553,15 @@ function validateCharacterMoments(value, {
     return value;
 }
 
+function allowedEvaluationSourceIds(request) {
+    return [...new Set([
+        ...(request?.workingCapsule?.sourceContributionIds || []),
+        ...(request?.recentEvidence || []).map((item) => item.contributionId),
+        ...(request?.visibleEffects || []).flatMap((item) => item.sourceContributionIds || []),
+        ...(request?.peopleEvents || []).flatMap((item) => item.sourceContributionIds || []),
+    ])];
+}
+
 function proposalErrors(value, request) {
     const errors = [];
     for (const field of Object.keys(value)) {
@@ -570,12 +579,7 @@ function proposalErrors(value, request) {
         }
     }
     if (!DECISIONS.has(value.decision)) errors.push('decision is unknown');
-    const allowedSourceIds = new Set([
-        ...(request?.workingCapsule?.sourceContributionIds || []),
-        ...(request?.recentEvidence || []).map((item) => item.contributionId),
-        ...(request?.visibleEffects || []).flatMap((item) => item.sourceContributionIds || []),
-        ...(request?.peopleEvents || []).flatMap((item) => item.sourceContributionIds || []),
-    ]);
+    const allowedSourceIds = new Set(allowedEvaluationSourceIds(request));
     const allowedEffectIds = new Set((request?.visibleEffects || []).map((item) => item.id));
     const sourceContributionIds = validateUniqueIds(value.sourceContributionIds, {
         field: 'sourceContributionIds',
@@ -724,6 +728,8 @@ export function createEpisodeEvaluationPrompt({ request = {} } = {}) {
         'Preserve comprehensive relationship history through characterMoments only when sealing. A defining moment is a durable relationship turning point, not routine sentiment or every interaction. Emit at most one defining moment per person in this sealed episode; there is no lifetime limit.',
         'A continue decision may update relationship posture but must not create characterMoments. An abstain decision must leave both arrays empty.',
         'Use only sourceContributionIds and effectIds supplied in the request. Do not invent facts, IDs, objectives, trackers, consequences, rewards, hidden state, or narration.',
+        `The complete allowed sourceContributionIds are: ${JSON.stringify(allowedEvaluationSourceIds(request))}. A pendingSourceContributionId alone is a boundary marker, not evidence you may cite unless it is also in this allowed list.`,
+        `Each relationshipUpdates or characterMoments entry must cite at least one relationshipEvidence source for that same person. Available relationshipEvidence: ${JSON.stringify((request.peopleEvents || []).filter(event => event.type === 'relationshipEvidence').map(event => ({ personId: event.personId, sourceContributionIds: event.sourceContributionIds })))}. If none supports a change, leave the array empty.`,
         'A seal must cite at least one pendingSourceContributionId, directly or through a cited visible effect sourced by it. Do not seal by merely reinterpreting older reviewed history.',
         `Allowed boundaryReason values for seal: ${SOFT_BOUNDARY_REASONS.join(', ')}.`,
         `Allowed significanceCriteria values for seal: ${LASTING_SIGNIFICANCE_CRITERIA.join(', ')}.`,
