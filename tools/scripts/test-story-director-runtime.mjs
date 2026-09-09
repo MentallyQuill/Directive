@@ -3,6 +3,8 @@ import {createFakeDirectiveHost,createFakeGenerationClient,createFakePromptAdapt
 import {createDirectiveRuntimeApp} from '../../src/runtime/runtime-app.mjs';
 import {loadAshesRuntimeAssets} from './v1-test-fixtures.mjs';
 const deferred = () => {let resolve; return {promise:new Promise(r=>{resolve=r;}),resolve:value=>resolve(value)};};
+let sequence=0;
+for (const repeatedGenerates of [0, 6, 10]) {
 const directorStarted = deferred(); const interpreterStarted = deferred(); const gate = deferred();
 const defaults = createFakeGenerationClient();
 let directorCalls=0; let interpreterCalls=0; let failDirector=true; let failPrompt=false;
@@ -19,7 +21,6 @@ const generation=createFakeGenerationClient({responses:{
 }});
 const prompt=createFakePromptAdapter();
 const host=createFakeDirectiveHost({chatNative:true,generation,prompt:{...prompt,install:async request=>failPrompt?{ok:false}:prompt.install(request)}});
-let sequence=0;
 const app=createDirectiveRuntimeApp({host,packageLoader:async()=>loadAshesRuntimeAssets(),idFactory:prefix=>`${prefix}.${++sequence}`,now:()=> '2026-09-08T04:00:00.000Z'});
 await app.initialize(); await app.startCreatorDraft();
 await app.saveCreatorDraft({patch:{activeStep:'review',input:{
@@ -29,9 +30,11 @@ await app.saveCreatorDraft({patch:{activeStep:'review',input:{
   dossier:{briefBiography:'A command officer committed to reconstruction.',publicReputation:'An attentive command officer.'},
 }}});
 await app.acceptCreatorDraftAndStartCampaign();
-const prior=host.chat.pushPlayerMessage({text:'I ask about the resupply schedule.'});
-host.chat.pushAssistantMessage({text:'The fleet tender Ravenna offers a resupply transfer at fourteen hundred.',metadata:{promptingPlayerHostMessageId:prior.hostMessageId}});
+host.chat.pushPlayerMessage({text:'I ask about the resupply schedule.'});
+host.chat.pushAssistantMessage({text:'The fleet tender Ravenna offers a resupply transfer at fourteen hundred.'});
 host.chat.pushPlayerMessage({text:'What flexibility do we have with the transfer?'});
+const acceptingPlayer = await host.chat.getLatestPlayerMessage();
+for (let i = 0; i < repeatedGenerates; i++) host.chat.pushPlayerMessage({text:'Continue.'});
 const stateBefore=(await app.getCurrentView({tabId:'mission'})).campaignState;
 let handedOff=false;
 const pending=app.getChatTurnOrchestrator().interceptGeneration({type:'normal'}).then(r=>{handedOff=r.abortDefaultGeneration===false; return r;});
@@ -40,6 +43,7 @@ assert.equal(handedOff,false);
 assert.deepEqual((await app.getCurrentView({tabId:'mission'})).campaignState,stateBefore,'both analyses are read-only while director is pending');
 gate.resolve(); assert.equal((await pending).abortDefaultGeneration,true);
 assert.equal(interpreterCalls,1); assert.equal(directorCalls,1);
+host.chat.pushPlayerMessage({text:'Continue.'});
 assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({type:'normal'})).abortDefaultGeneration,true);
 assert.equal(directorCalls,2,'Generate retries the failed role once, without a retry loop');
 assert.equal(interpreterCalls,1,'Generate reuses the successful interpreter');
@@ -50,6 +54,8 @@ assert.equal(directorCalls,3);
 const committed=(await app.getCurrentView({tabId:'mission'})).campaignState;
 assert.equal(committed.stateCustody.revision,stateBefore.stateCustody.revision+1,'both results share one custody commit');
 assert.equal(committed.storySettlement.directorReceipts.length,1);
+assert.equal(committed.storySettlement.acceptedPairReceipts.at(-1).currentPlayer.messageId, acceptingPlayer.hostMessageId || acceptingPlayer.id,
+  'Repeated Generate messages retain the original accepting player source');
 failPrompt=true;
 await assert.rejects(()=>app.getChatTurnOrchestrator().interceptGeneration({type:'normal'}),/install/);
 failPrompt=false;
@@ -69,6 +75,7 @@ assert.equal(heldSignals.interpreter.aborted,true); assert.equal(heldSignals.dir
 assert.equal((await stopped).abortDefaultGeneration,true);
 assert.equal((await app.getCurrentView({tabId:'mission'})).campaignState.stateCustody.revision,committed.stateCustody.revision);
 console.log('Story director app gate, recovery and atomic commit tests passed.');
+}
 
 for (const mutation of ['source-edit', 'chat-switch']) {
   const starts = { interpreter: deferred(), director: deferred() };

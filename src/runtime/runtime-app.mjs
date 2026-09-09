@@ -1396,9 +1396,30 @@ export function createDirectiveRuntimeApp({
   }
 
   async function acceptedSnapshotForMessage(currentPlayerMessage, recentMessages, ingressId = null) {
+    // Failed host generations can append player messages without an assistant
+    // reply. Its first accepting player remains the source for settlement.
+    const findAcceptingPlayer = (messages) => {
+      let index = messages.findIndex(item => messageId(item, item) === messageId(currentPlayerMessage, currentPlayerMessage));
+      let player = currentPlayerMessage;
+      for (index -= 1; index >= 0; index -= 1) {
+        const item = messages[index];
+        if (item.isSystem || item.role === 'system') continue;
+        if (!isUserMessage(item)) return {
+          player,
+          reachedStart: !messages.slice(0, index).some(row => !row.isSystem && row.role !== 'system'),
+        };
+        player = item;
+      }
+      return { player, reachedStart: true };
+    };
+    let resolved = findAcceptingPlayer(recentMessages);
+    if (resolved.reachedStart && recentMessages.length >= V1_ACCEPTED_PAIR_SOURCE_WINDOW) {
+      recentMessages = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || recentMessages;
+      resolved = findAcceptingPlayer(recentMessages);
+    }
     return prepareV1AcceptedPairSnapshot({
       campaignState: state,
-      currentPlayerMessage,
+      currentPlayerMessage: resolved.player,
       recentMessages,
       requirePromptingPlayerAnchor: true,
       chatId: host.chat.getCurrentChatId?.(),
