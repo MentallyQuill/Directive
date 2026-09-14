@@ -403,6 +403,63 @@ assert.deepEqual(promptOnlyTest.capabilities, { connectivity: true, structuredOu
 assert.equal(promptOnlyCalls.length, 2);
 assert.equal(promptOnlyStore.get('utility').certification.structuredOutput, 'prompt-json');
 
+const optionalPlaceholderCalls = [];
+const optionalPlaceholderContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    async sendRequest(profileId, messages, maxTokens, options, payload) {
+      optionalPlaceholderCalls.push({ profileId, messages, maxTokens, options, payload });
+      if (!payload?.json_schema) {
+        return { choices: [{ message: { content: 'DIRECTIVE_PROVIDER_OK' }, finish_reason: 'stop' }] };
+      }
+      const properties = payload.json_schema.value?.properties || {};
+      const content = { ok: true };
+      if (Object.hasOwn(properties, 'durationSeconds')) content.durationSeconds = 0;
+      if (Object.hasOwn(properties, 'durationSourceSlot')) content.durationSourceSlot = 'previousAssistant';
+      if (Object.hasOwn(properties, 'durationEvidenceQuote')) content.durationEvidenceQuote = '';
+      return { choices: [{ message: { content: JSON.stringify(content) }, finish_reason: 'stop' }] };
+    }
+  }
+};
+const optionalPlaceholderStore = createSillyTavernProviderSettingsStore({ context: optionalPlaceholderContext });
+optionalPlaceholderStore.update('utility', {
+  provider: 'profile', profileId: 'chat.local', structuredOutputMode: 'native-schema',
+});
+const optionalPlaceholderClient = createDirectiveProviderClient({
+  contextFactory: () => optionalPlaceholderContext,
+  settingsStore: optionalPlaceholderStore,
+  now: () => '2026-08-10T12:00:00.000Z'
+});
+const optionalPlaceholderTest = await optionalPlaceholderClient.test('utility');
+assert.equal(optionalPlaceholderTest.ok, true);
+assert.deepEqual(
+  optionalPlaceholderTest.capabilities,
+  { connectivity: true, structuredOutput: 'prompt-json' },
+  'native certification rejects providers that materialize invalid placeholders for optional constrained fields',
+);
+assert.equal(optionalPlaceholderCalls.length, 2);
+const optionalProbeSchema = optionalPlaceholderCalls[1].payload.json_schema.value;
+assert.deepEqual(optionalProbeSchema.required, ['ok']);
+assert.deepEqual(optionalProbeSchema.properties.durationSeconds, {
+  type: 'integer', minimum: 1, maximum: 2678400,
+});
+assert.deepEqual(optionalProbeSchema.properties.durationSourceSlot, {
+  type: 'string', enum: ['previousAssistant', 'currentPlayer'],
+});
+assert.deepEqual(optionalProbeSchema.properties.durationEvidenceQuote, {
+  type: 'string', minLength: 12, maxLength: 240,
+});
+await assert.rejects(
+  optionalPlaceholderClient.generate('acceptedPairMissionEvidence', {
+    messages: [{ role: 'user', content: 'Do not silently downgrade an explicit native request.' }],
+    jsonSchema: schema,
+  }),
+  error => error?.code === 'DIRECTIVE_NATIVE_SCHEMA_UNCERTIFIED',
+);
+assert.equal(optionalPlaceholderCalls.length, 2, 'failed native certification blocks explicit native mode before transport');
+
 const nativeResult = await profileClient.generate('acceptedPairMissionEvidence', {
   messages: [{ role: 'user', content: 'Schema after certification.' }],
   jsonSchema: schema

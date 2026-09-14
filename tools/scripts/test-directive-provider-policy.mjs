@@ -184,6 +184,7 @@ const fingerprintInput = {
   completionMode: 'chat'
 };
 const fingerprint = directiveProviderConfigFingerprint(fingerprintInput);
+assert.match(fingerprint, /^directive-provider-v2:/, 'a changed certification contract invalidates legacy v1 capability results');
 assert.equal(fingerprint, directiveProviderConfigFingerprint({
   completionMode: 'chat',
   identity: 'current:nanogpt:zai-org/glm-5.1',

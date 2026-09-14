@@ -2,6 +2,7 @@ const PRESET_MODES = new Set(['isolated', 'full-profile']);
 const INSTRUCT_MODES = new Set(['auto', 'on', 'off']);
 const SAMPLER_MODES = new Set(['profile', 'directive']);
 const STRUCTURED_OUTPUT_MODES = new Set(['auto', 'native-schema', 'prompt-json']);
+const PROVIDER_CERTIFICATION_CONTRACT_VERSION = 2;
 
 function enumOr(value, allowed, fallback) {
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -50,7 +51,7 @@ function fnv1a(text) {
 }
 
 export function directiveProviderConfigFingerprint(input = {}) {
-  return `directive-provider-v1:${fnv1a(JSON.stringify(canonicalConfig(input)))}`;
+  return `directive-provider-v${PROVIDER_CERTIFICATION_CONTRACT_VERSION}:${fnv1a(JSON.stringify(canonicalConfig(input)))}`;
 }
 
 export function directiveSourceConfigurationDigest(value = {}) {

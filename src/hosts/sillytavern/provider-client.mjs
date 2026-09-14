@@ -950,14 +950,19 @@ export function createDirectiveProviderClient({
       let structuredOutput = 'prompt-json';
       try {
         const nativeProbe = await sendProbe({
-          systemPrompt: 'Native schema capability test.',
-          prompt: 'Return the requested object.',
+          systemPrompt: 'Native schema capability test. Obey every constraint and omit optional properties unless requested.',
+          prompt: 'Return exactly {"ok":true}. Omit every optional duration property.',
           maxTokens: testMaxTokens,
           jsonSchema: {
             type: 'object',
             additionalProperties: false,
             required: ['ok'],
-            properties: { ok: { type: 'boolean' } }
+            properties: {
+              ok: { type: 'boolean' },
+              durationSeconds: { type: 'integer', minimum: 1, maximum: 2678400 },
+              durationSourceSlot: { type: 'string', enum: ['previousAssistant', 'currentPlayer'] },
+              durationEvidenceQuote: { type: 'string', minLength: 12, maxLength: 240 }
+            }
           }
         }, { forceStructuredOutput: 'native-schema', allowUncertifiedNative: true, maxTokens: testMaxTokens });
         const parsed = JSON.parse(nativeProbe.text);
