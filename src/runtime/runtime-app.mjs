@@ -496,6 +496,7 @@ export function createV1RuntimePromptPacket({
   const payload = {
     player: {
       name: state.player?.name,
+      pronounsOrAddress: state.player?.pronounsOrAddress,
       rank: state.player?.rank,
       billet: state.player?.billet,
       role: state.player?.role,
@@ -531,6 +532,7 @@ export function createV1RuntimePromptPacket({
         id: officer.id,
         name: officer.name,
         billet: officer.billet,
+        ...(object(officer.service) ? { service: clone(officer.service) } : {}),
         ...clone(officer.narrationGuide)
       })),
       supportingCharacters: eligibleSupportingCharacterGuides({ state, projection, runtimeAssets }),

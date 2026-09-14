@@ -25,6 +25,7 @@ const runtimeAssets = {
 const state = {
   player: {
     name: 'Sam Vickers',
+    pronounsOrAddress: 'they/them',
     rank: 'Commander',
     billet: 'Executive Officer',
     role: 'Principal mission commander',
@@ -156,6 +157,7 @@ const packet = createV1RuntimePromptPacket({
 assert.match(packet.text, /CHARACTER INFORMATION:/);
 assert.match(packet.text, /"characterInformation"/);
 const openingPayload = JSON.parse(packet.text.slice(packet.text.indexOf('{\n')));
+assert.equal(openingPayload.player.pronounsOrAddress, 'they/them');
 assert.deepEqual(
   openingPayload.narrationGuidance.supportingCharacters.map(character => character.id),
   ['lysa-chen'],
@@ -163,6 +165,18 @@ assert.deepEqual(
 );
 assert.equal(openingPayload.narrationGuidance.crew.length, runtimeAssets.crewDataset.officers.length);
 assert.ok(openingPayload.narrationGuidance.crew.some(character => character.id === 'mara-whitaker'));
+const authoredNayar = runtimeAssets.crewDataset.officers.find(character => character.id === 'priya-nayar');
+const promptNayar = openingPayload.narrationGuidance.crew.find(character => character.id === 'priya-nayar');
+assert.deepEqual(promptNayar, {
+  id: authoredNayar.id,
+  name: authoredNayar.name,
+  billet: authoredNayar.billet,
+  service: authoredNayar.service,
+  ...authoredNayar.narrationGuide
+});
+assert.equal(Object.hasOwn(promptNayar, 'publicRecord'), false);
+assert.equal(Object.hasOwn(promptNayar, 'profileSummary'), false);
+assert.deepEqual(openingPayload.people.people, []);
 // Casting guidance must reach narration without introducing people or private facts.
 const castingAssets = structuredClone(runtimeAssets);
 const castingReference = {

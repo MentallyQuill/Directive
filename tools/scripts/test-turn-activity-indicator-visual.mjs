@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const port = 61000 + (process.pid % 3000);
+const available = createServer();
+await new Promise(resolve => available.listen(0, '127.0.0.1', resolve));
+const port = available.address().port;
+await new Promise(resolve => available.close(resolve));
 const baseUrl = `http://127.0.0.1:${port}`;
 
 async function waitForServer() {
@@ -189,6 +193,12 @@ try {
   const mobileCard = mobile.locator('#directive-turn-activity-indicator');
   for (const width of [390,320]) {
     await mobile.setViewportSize({width,height:780});
+    await mobile.waitForFunction(expectedWidth => {
+      const card = document.getElementById('directive-turn-activity-indicator');
+      if (innerWidth !== expectedWidth || !card) return false;
+      const rect = card.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= expectedWidth;
+    }, width, {timeout:2000});
     const box = await mobileCard.boundingBox();
     assert.ok(box.x >= 0 && box.x+box.width <= width, `card fits ${width}px`);
     assert.equal(await mobileCard.locator('.directive-turn-activity-label').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'long operation labels wrap');
