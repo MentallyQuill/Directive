@@ -226,3 +226,26 @@ The combined candidate patch `6909a9e3e82fcb7767cb93fb9fcee0420812ede2f5b545090a
 Evidence: `dossier-queued-without-request-verified.json`, `queued-dossier-reload-result.json`, and `dossier-recovery-live-verified.json`. Installed People and Mission visible-text checks separately preserved Halvard's introduction and omitted the checked undiscovered supporting names; the pre-recovery People detail showed the known introduction with the optional biography absent. This covers selected disclosure/UI assertions, not every hidden field or notification.
 
 Independent lifecycle review approved the repair. The combined full gate passed all 227 checks (`dossier-lifecycle-final-gate.log`, exit 0). No additional accepted pair is credited for the background retry. Rich synthetic-state performance work and remaining natural campaign/information journeys continue separately.
+
+## Rich controlled-state persistence, retrieval, and branch measurements
+
+Three standalone scripts provide a source-linked rich fixture, a measured runner, and an independent expected-state oracle. They exercise actual accepted-pair preparation, continuity materialization, contribution/episode/People settlement, segmented persistence, projection, prompt construction, retrieval, and branch reconstruction. They make no provider requests and do not import fabricated state into the live host. Every accepted pair is persisted through consecutive production revisions.
+
+The completed run used Node 24.16.0, one warm-up and five fixed-workload repetitions. Final evidence is `rich-campaign-offline.json`. Earlier packet-size results were withdrawn after a harness check found that the projection wrapper had been passed instead of its `.projection`; the final runner asserts successful projection, exact sealed-story/People counts, and nonempty accepted-story content before scoring bounds. The source oracle also rejects a count-preserving duplicate assistant source, rather than trusting only counts and valid hashes.
+
+| Workload | Small | Medium |
+| --- | ---: | ---: |
+| Accepted pairs / transcript rows | 15 / 31 | 500 / 1,001 |
+| Threads / sealed episodes / people | 5 / 2 / 4 | 100 / 50 / 20 |
+| Final state bytes | 46,734 | 1,000,083 |
+| Storage segments | 1 | 8 |
+| Runtime prompt packet characters | 58,739 | 63,128 |
+| Exact-ID lookup recall | 4/4 | 4/4 |
+| Lexical title lookup recall | 4/4 | 0/4 |
+| Paraphrased query recall | 0/4 | 0/4 |
+
+Both workloads passed exact storage round trips, correction/status/relationship retention, source and receipt custody, parent immutability, and four branch cuts. Medium median load was 266.6 ms, player projection 11.3 ms, prompt construction 4.11 ms, and pooled direct retrieval 5.56 ms. Maximum branch reconstruction among the exercised cuts was 3.80 seconds. These are synthetic in-memory-adapter measurements, not disk/network or browser latency, and the small sample does not establish population tail percentiles or a same-workload regression ratio.
+
+The crowded numeric-label retrieval misses remain scored failures. Exact IDs work, but the short numbered title discriminators are dropped by lexical tokenization; source tracing is in progress. Paraphrase results must not be represented as semantic retrieval capability. Omitted obligations remain stored, and none of these lookups mutates authoritative state.
+
+The defined 5,000-pair workload has not yet been executed. Runtime packet bounds also do not establish a full native-wire bound: actual narration request 169 contains 88,351 characters once the host combines transcript, preset, and Directive context. Natural long-play recall, model-selected lookup expansion, physical browser responsiveness, and long-workload performance remain open.

@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { buildRichCampaignFixture, RICH_CAMPAIGN_SIZES, assertRichCampaignOracle } from './rich-campaign-soak-fixture.mjs';
+import { runRichCampaignSoak } from './run-rich-campaign-soak.mjs';
+
+const fixture = await buildRichCampaignFixture({ size: 'small' });
+assert.equal(fixture.messages.length, 31, '15 source pairs plus their initial prompting-player anchor');
+assert.equal(fixture.state.storySettlement.acceptedPairReceipts.length, 15);
+assert.equal(fixture.state.storySettlement.episodes.filter(e => e.status === 'sealed').length, 2);
+assert.equal(fixture.oracle.threads.length, 5);
+assert.ok(fixture.state.storySettlement.episodes.find(e => e.status === 'open').workingCapsule.recentEvidence.length > 0, 'rich prompt fixture must include current working evidence');
+assert.deepEqual(RICH_CAMPAIGN_SIZES.long, { pairs: 5000, threads: 1000, sealedEpisodes: 500, people: 40 });
+assertRichCampaignOracle(fixture);
+const corrupted = structuredClone(fixture);
+corrupted.state.storySettlement.continuityEvents = [];
+assert.throws(() => assertRichCampaignOracle(corrupted), /thread/);
+const corruptReceipt = structuredClone(fixture);
+corruptReceipt.state.storySettlement.acceptedPairReceipts[0].previousAssistant.textHash = 'wrong-hash';
+assert.throws(() => assertRichCampaignOracle(corruptReceipt), /hash/);
+const duplicatedCurrentSource = structuredClone(fixture);
+const assistantSources = duplicatedCurrentSource.state.storySettlement.episodes.flatMap(e => e.contributions).filter(c => c.role === 'assistant');
+assistantSources[0].messageId = assistantSources[1].messageId;
+assistantSources[0].textHash = assistantSources[1].textHash;
+assert.throws(() => assertRichCampaignOracle(duplicatedCurrentSource), /exact current assistant source set/,
+  'equal source counts and individually valid hashes cannot conceal a missing current source');
+const report = await runRichCampaignSoak({ size: 'small', repetitions: 1 });
+assert.equal(report.integrity, 'passed');
+assert.equal(report.providerCalls, 0);
+assert.equal(report.branches.length, 4);
+assert.ok(report.retrieval.some(row => row.mode === 'paraphrase'));
+assert.equal(report.retrieval.filter(row => row.mode === 'exact-id').every(row => row.recall === 1), true);
+assert.equal(report.retrieval.every(row => row.obsoleteFactCount === 0), true);
+assert.equal(report.measurements.load.length, 1);
+console.log('Rich campaign soak fixture, oracle corruption controls, storage and branch checks passed.');
