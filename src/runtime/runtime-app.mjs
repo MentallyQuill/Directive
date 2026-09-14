@@ -27,6 +27,8 @@ import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mj
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
 import { createDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
+import { evaluateMissionPredicate } from '../mission/v1/predicate-evaluator.mjs';
+import { missionStateContext } from '../mission/v1/mission-state.mjs';
 import { createShipOperationalPacket } from '../ship/v1/ship-operational-packet.mjs';
 import {
   deleteV1PlayerPortrait,
@@ -431,6 +433,35 @@ function activeMissionDefinition(state, runtimeAssets) {
     .find((definition) => definition?.id === definitionId) || null;
 }
 
+function eligibleSupportingCharacterGuides({ state, projection, runtimeAssets }) {
+  const definition = activeMissionDefinition(state, runtimeAssets);
+  const activeMissionId = definition?.id || null;
+  const predicateContext = definition
+    ? missionStateContext(definition, state?.mission?.v1 || {})
+    : null;
+  const acceptedPersonIds = new Set([
+    ...(projection?.people?.people || []).map(person => person?.id),
+    ...(projection?.story?.entries || []).flatMap(entry => entry?.references?.participantIds || [])
+  ].filter(Boolean));
+  return (runtimeAssets?.crewDataset?.supportingCharacters || [])
+    .filter(character => {
+      if (acceptedPersonIds.has(character.id)) return true;
+      const matchingRules = Array.isArray(character?.guideEligibility)
+        ? character.guideEligibility.filter(candidate => candidate?.missionId === activeMissionId)
+        : [];
+      if (!predicateContext || matchingRules.length !== 1) return false;
+      const result = evaluateMissionPredicate(matchingRules[0].when, predicateContext);
+      return result.ok && result.value;
+    })
+    .map(character => ({
+      id: character.id,
+      name: character.name,
+      ...(compact(character.species) ? { species: character.species } : {}),
+      ...(object(character.service) ? { service: clone(character.service) } : {}),
+      ...clone(character.narrationGuide)
+    }));
+}
+
 export function createV1RuntimePromptPacket({
   state,
   projection,
@@ -495,18 +526,14 @@ export function createV1RuntimePromptPacket({
     } : null,
     narrationPolicy,
     narrationGuidance: {
-      characterReferencePolicy: 'Character references are out-of-world performance guidance. Borrow only their named qualities; the authored character voice and constraints govern dialogue ahead of generic prose flavor. Preserve each original character identity, profession, species, history, knowledge, and accepted relationships. Do not import reference-character events, powers, catchphrases, or plot outcomes, and do not mention the references in story prose. Supporting-character entries do not establish presence or authorize an introduction; use them only when the current scene independently calls for that person.',
+      characterReferencePolicy: 'Character references are out-of-world performance guidance. Borrow only their named qualities; the authored character voice and constraints govern dialogue ahead of generic prose flavor. Preserve each original character identity, profession, species, history, knowledge, and accepted relationships. Treat supplied service rank and department as authoritative. Do not import reference-character events, powers, catchphrases, or plot outcomes, and do not mention the references in story prose. Supporting-character entries do not establish presence or authorize an introduction; use them only when the current scene independently calls for that person.',
       crew: (runtimeAssets?.crewDataset?.officers || []).map((officer) => ({
         id: officer.id,
         name: officer.name,
         billet: officer.billet,
         ...clone(officer.narrationGuide)
       })),
-      supportingCharacters: (runtimeAssets?.crewDataset?.supportingCharacters || []).map((character) => ({
-        id: character.id,
-        name: character.name,
-        ...clone(character.narrationGuide)
-      })),
+      supportingCharacters: eligibleSupportingCharacterGuides({ state, projection, runtimeAssets }),
       ship: clone(runtimeAssets?.shipDataset?.profile || null)
     },
     opening: { ...openingPromptProjection({ state, runtimeAssets, acceptedPairLineage, openingRecord }),

@@ -2200,12 +2200,19 @@ export function createV1MissionRuntime({
                         }
                     }, progressScope,
                 ) : undefined,
-                review: focused ? async ({ request, signal: roleSignal }) => runProgress(
+                review: focused ? async ({ request, signal: roleSignal, validationErrors }) => runProgress(
                     'reviewing-episode', async ({ onAttempt, onPhase }) => {
-                        const result = await mandatoryEpisodeEvaluator({ request, signal: roleSignal, onAttempt, onPhase });
+                        const result = await mandatoryEpisodeEvaluator({ request, signal: roleSignal, onAttempt, onPhase, validationErrors });
                         if (!result?.ok) return result;
                         const parsed = parseEpisodeEvaluationProposal(result.proposal, { request });
-                        return parsed.ok ? { ...result, proposal: parsed.value } : { ok: false, reasonCode: 'episode-review-invalid' };
+                        return parsed.ok ? { ...result, proposal: parsed.value } : {
+                            ok: false,
+                            reasonCode: 'episode-review-invalid',
+                            diagnostics: {
+                                errorCount: parsed.errors.length,
+                                errors: boundedValidationErrors(parsed.errors),
+                            },
+                        };
                     }, progressScope,
                 ) : undefined,
                 interpret: async ({ signal: roleSignal, validationErrors }) => {

@@ -1130,6 +1130,19 @@ try {
     }
     assert.equal(campaign.heroOrbitEngaged, false, `${label} must not retain engaged state`);
   };
+  const waitForNeutralOrbit = async (page) => {
+    const names = Object.keys((await measureCampaignDashboard(page)).orbitVariables);
+    await page.waitForFunction((variables) => {
+      const hero = document.querySelector('.campaign-dashboard-hero');
+      const scene = hero?.querySelector('.directive-hero-scene');
+      if (!scene || hero.classList.contains('is-hero-orbit-engaged')) return false;
+      const style = getComputedStyle(scene);
+      return variables.every(name => {
+        const value = Number.parseFloat(style.getPropertyValue(name));
+        return Number.isFinite(value) && Math.abs(value) <= .001;
+      });
+    }, names, { timeout: 2000 });
+  };
 
   const desktopCampaignPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await desktopCampaignPage.goto(`${baseUrl}/production?route=campaign`);
@@ -1325,7 +1338,7 @@ try {
     path: path.join(artifactRoot, 'campaign-orbit-desktop-1440x900.png')
   });
   await desktopCampaignPage.mouse.move(1, 1);
-  await desktopCampaignPage.waitForTimeout(450);
+  await waitForNeutralOrbit(desktopCampaignPage);
   assertNeutralOrbit(await measureCampaignDashboard(desktopCampaignPage), 'desktop release');
   assert.ok(desktopCampaign.actionBoxes.every((box) => Math.abs(box.top - desktopCampaign.actionBoxes[0].top) < 1), 'desktop campaign actions must share one row');
   assert.ok(desktopCampaign.horizontalOverflow <= 1);
@@ -1455,7 +1468,7 @@ try {
     path: path.join(artifactRoot, 'campaign-orbit-phone-390x844.png')
   });
   await touchCdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await touchPage.waitForTimeout(450);
+  await waitForNeutralOrbit(touchPage);
   assertNeutralOrbit(await measureCampaignDashboard(touchPage), 'phone release');
   await touchPage.locator('.campaign-dashboard-hero').tap();
   await touchPage.waitForTimeout(220);
@@ -1799,6 +1812,18 @@ try {
   await bridgeDisclosure.click();
   assert.equal(await bridgeDisclosure.getAttribute('aria-expanded'), 'false');
   const bronnHandle = peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle');
+  await peoplePage.evaluate(() => {
+    globalThis.__directiveReorderKeyEvents = [];
+    document.addEventListener('keydown', event => {
+      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      globalThis.__directiveReorderKeyEvents.push({
+        key: event.key,
+        personId: event.target.closest('.collection-person-row')?.dataset.personId || null,
+        categoryId: event.target.closest('.collection-category')?.dataset.categoryId || null,
+      });
+      globalThis.__directiveReorderKeyEvents = globalThis.__directiveReorderKeyEvents.slice(-12);
+    }, true);
+  });
   await bronnHandle.focus();
   const bronnLocation = async () => peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"]').evaluate((row) => {
     const category = row.closest('.collection-category');
@@ -1806,13 +1831,39 @@ try {
   });
   let previousBronnLocation = await bronnLocation();
   for (let move = 0; move < 3; move += 1) {
-    await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
-    await peoplePage.waitForFunction(({ personId, previous }) => {
-      const row = document.querySelector(`.people-desktop-journal .collection-person-row[data-person-id="${personId}"]`);
-      const category = row?.closest('.collection-category');
-      const current = `${category?.dataset.categoryId}:${row ? [...row.parentElement.children].indexOf(row) : -1}`;
-      return current !== previous;
-    }, { personId: 'hadrik-bronn', previous: previousBronnLocation });
+    try {
+      // Reordering replaces the handle; restoration happens on the next frame.
+      await peoplePage.waitForFunction(() => document.activeElement === document.querySelector(
+        '.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle'
+      ));
+      await peoplePage.locator('.people-desktop-journal .collection-person-row[data-person-id="hadrik-bronn"] .collection-drag-handle').press('ArrowDown');
+      await peoplePage.waitForFunction(({ personId, previous }) => {
+        const row = document.querySelector(`.people-desktop-journal .collection-person-row[data-person-id="${personId}"]`);
+        const category = row?.closest('.collection-category');
+        if (!row || !category) return false;
+        const current = `${category.dataset.categoryId}:${[...row.parentElement.children].indexOf(row)}`;
+        return current !== previous;
+      }, { personId: 'hadrik-bronn', previous: previousBronnLocation });
+    } catch (error) {
+      const diagnostics = await peoplePage.evaluate(() => ({
+        focused: {
+          tag: document.activeElement?.tagName,
+          label: document.activeElement?.getAttribute('aria-label'),
+          personId: document.activeElement?.closest('.collection-person-row')?.dataset.personId || null,
+          categoryId: document.activeElement?.closest('.collection-category')?.dataset.categoryId || null,
+        },
+        keyEvents: globalThis.__directiveReorderKeyEvents,
+        categories: [...document.querySelectorAll('.people-desktop-journal .collection-category')].map(category => ({
+          id: category.dataset.categoryId,
+          expanded: category.querySelector('.collection-disclosure')?.getAttribute('aria-expanded'),
+          personIds: [...category.querySelectorAll('.collection-person-row')].map(row => row.dataset.personId),
+        })),
+      }));
+      await writeFile(path.join(artifactRoot, 'people-keyboard-failure.json'), JSON.stringify({
+        move, previousBronnLocation, error: error.message, ...diagnostics,
+      }, null, 2));
+      throw error;
+    }
     previousBronnLocation = await bronnLocation();
   }
   assert.equal(await bridgeCategory.locator('.collection-person-row[data-person-id="hadrik-bronn"]').count(), 1, 'keyboard boundary movement must cross categories');

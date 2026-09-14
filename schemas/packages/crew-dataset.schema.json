@@ -41,17 +41,7 @@
         "billet": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
         "categoryId": { "$ref": "../common/common.schema.json#/$defs/id" },
         "species": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-        "service": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["organization", "department", "rankCode", "rankLabel"],
-          "properties": {
-            "organization": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-            "department": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-            "rankCode": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
-            "rankLabel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
-          }
-        },
+        "service": { "$ref": "#/$defs/service" },
         "publicRecord": {
           "type": "object",
           "additionalProperties": false,
@@ -73,7 +63,34 @@
       "properties": {
         "id": { "$ref": "../common/common.schema.json#/$defs/id" },
         "name": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "species": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "service": { "$ref": "#/$defs/service" },
+        "guideEligibility": {
+          "description": "Source-bound mission predicates controlling when this narration guide may be supplied. Eligibility does not establish character presence or introduce a person.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["missionId", "when"],
+            "properties": {
+              "missionId": { "$ref": "../common/common.schema.json#/$defs/id" },
+              "when": { "$ref": "../mission/mission-v1.schema.json#/$defs/predicate" }
+            }
+          }
+        },
         "narrationGuide": { "$ref": "#/$defs/narrationGuide" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "department", "rankCode", "rankLabel"],
+      "properties": {
+        "organization": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "department": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "rankCode": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" },
+        "rankLabel": { "$ref": "../common/common.schema.json#/$defs/nonEmptyString" }
       }
     },
     "narrationGuide": {

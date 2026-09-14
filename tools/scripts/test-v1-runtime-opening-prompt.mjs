@@ -14,7 +14,11 @@ function json(relative) {
 const packageData = json('packages/bundled/breckenridge/ashes-of-peace.campaign-package.json');
 const runtimeAssets = {
   packageData,
-  missionDefinitions: [json('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json')],
+  missionDefinitions: [
+    json('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json'),
+    json('packages/bundled/breckenridge/v1/chapter-4-the-colony-that-stayed.mission-v1.json'),
+    json('packages/bundled/breckenridge/v1/epilogue-the-terms-we-keep.mission-v1.json')
+  ],
   crewDataset: json('packages/bundled/breckenridge/breckenridge-senior-staff.crew-dataset.json'),
   shipDataset: json('packages/bundled/breckenridge/breckenridge-intrepid-class.ship-dataset.json')
 };
@@ -151,6 +155,14 @@ const packet = createV1RuntimePromptPacket({
 });
 assert.match(packet.text, /CHARACTER INFORMATION:/);
 assert.match(packet.text, /"characterInformation"/);
+const openingPayload = JSON.parse(packet.text.slice(packet.text.indexOf('{\n')));
+assert.deepEqual(
+  openingPayload.narrationGuidance.supportingCharacters.map(character => character.id),
+  ['lysa-chen'],
+  'Prelude excludes future-stage Mira and undiscovered Rhee and Daro guides'
+);
+assert.equal(openingPayload.narrationGuidance.crew.length, runtimeAssets.crewDataset.officers.length);
+assert.ok(openingPayload.narrationGuidance.crew.some(character => character.id === 'mara-whitaker'));
 // Casting guidance must reach narration without introducing people or private facts.
 const castingAssets = structuredClone(runtimeAssets);
 const castingReference = {
@@ -159,22 +171,139 @@ const castingReference = {
   drawFrom: 'Steady authority and restrained warmth.',
   boundaries: 'Preserve the original character identity and knowledge.'
 };
-castingAssets.crewDataset.supportingCharacters = [{
-  id: 'helena-tolland', name: 'Helena Tolland',
-  profileSummary: 'PRIVATE UNREVEALED HISTORY',
-  narrationGuide: { voice: 'Measured and direct.', constraints: ['No automatic approval.'], characterReference: castingReference }
-}];
+castingAssets.crewDataset.supportingCharacters = [
+  {
+    id: 'lysa-chen', name: 'Lysa Chen',
+    guideEligibility: [{ missionId: 'mission.prelude-a-ship-underway', when: true }],
+    profileSummary: 'PRIVATE UNREVEALED HISTORY',
+    narrationGuide: { voice: 'Measured and direct.', constraints: ['No automatic approval.'], characterReference: castingReference }
+  },
+  {
+    id: 'mira-solenn', name: 'Mira Solenn',
+    guideEligibility: [{ missionId: 'mission.chapter-4-the-colony-that-stayed', when: true }],
+    narrationGuide: { voice: 'Technically specific.', constraints: ['Do not invent a billet.'], characterReference: castingReference }
+  },
+  {
+    id: 'unsafe-missing-stage', name: 'Unsafe Missing Stage',
+    narrationGuide: { voice: 'Should never be sent.', constraints: ['Fail closed.'], characterReference: castingReference }
+  },
+  {
+    id: 'unused-support', name: 'Unused Support',
+    guideEligibility: [],
+    narrationGuide: { voice: 'Should never be sent.', constraints: ['Fail closed.'], characterReference: castingReference }
+  },
+  {
+    id: 'invalid-rule', name: 'Invalid Rule',
+    guideEligibility: [{ missionId: 'mission.prelude-a-ship-underway', when: { factKnown: 'fact.unknown' } }],
+    narrationGuide: { voice: 'Should never be sent.', constraints: ['Fail closed.'], characterReference: castingReference }
+  },
+  {
+    id: 'false-rule', name: 'False Rule',
+    guideEligibility: [{ missionId: 'mission.prelude-a-ship-underway', when: false }],
+    narrationGuide: { voice: 'Should never be sent.', constraints: ['Fail closed.'], characterReference: castingReference }
+  },
+  {
+    id: 'duplicate-rule', name: 'Duplicate Rule',
+    guideEligibility: [
+      { missionId: 'mission.prelude-a-ship-underway', when: true },
+      { missionId: 'mission.prelude-a-ship-underway', when: false }
+    ],
+    narrationGuide: { voice: 'Should never be sent.', constraints: ['Fail closed.'], characterReference: castingReference }
+  }
+];
 const castingPacket = createV1RuntimePromptPacket({ state, projection, runtimeAssets: castingAssets });
 const castingPayload = JSON.parse(castingPacket.text.slice(castingPacket.text.indexOf('{\n')));
 assert.deepEqual(castingPayload.narrationGuidance.supportingCharacters, [{
-  id: 'helena-tolland', name: 'Helena Tolland',
+  id: 'lysa-chen', name: 'Lysa Chen',
   voice: 'Measured and direct.', constraints: ['No automatic approval.'], characterReference: castingReference
 }]);
 assert.doesNotMatch(castingPacket.text, /PRIVATE UNREVEALED HISTORY/);
+assert.doesNotMatch(castingPacket.text, /Mira Solenn|Unsafe Missing Stage|Unused Support|Invalid Rule|False Rule|Duplicate Rule/);
 const castingPeople = createPeoplePlayerProjection({ runtimeAssets: castingAssets });
 assert.equal(castingPeople.people.length, 7);
-assert.equal(castingPeople.people.some(person => person.id === 'helena-tolland'), false);
+assert.equal(castingPeople.people.some(person => person.id === 'lysa-chen'), false);
 assert.doesNotMatch(JSON.stringify(castingPeople), /George Hammond|characterReference/);
+
+const chapter4State = structuredClone(state);
+chapter4State.mission.activeMissionId = 'chapter-4-the-colony-that-stayed';
+chapter4State.mission.v1.definitionId = 'mission.chapter-4-the-colony-that-stayed';
+const chapter4Projection = structuredClone(projection);
+chapter4Projection.mission.missionId = 'chapter-4-the-colony-that-stayed';
+const chapter4Payload = JSON.parse(createV1RuntimePromptPacket({
+  state: chapter4State,
+  projection: chapter4Projection,
+  runtimeAssets: castingAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(
+  chapter4Payload.narrationGuidance.supportingCharacters.map(character => character.id),
+  ['mira-solenn']
+);
+
+const acceptedMiraProjection = structuredClone(projection);
+acceptedMiraProjection.people.people = [{ id: 'mira-solenn', name: 'Mira Solenn' }];
+const retainedMiraPayload = JSON.parse(createV1RuntimePromptPacket({
+  state,
+  projection: acceptedMiraProjection,
+  runtimeAssets: castingAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(
+  retainedMiraPayload.narrationGuidance.supportingCharacters.map(character => character.id),
+  ['lysa-chen', 'mira-solenn'],
+  'an exact accepted supporting-character ID retains its authored guide beyond the eligible stage'
+);
+const sameNameProjection = structuredClone(projection);
+sameNameProjection.people.people = [{ id: 'person.emergent.mira', name: 'Mira Solenn' }];
+const sameNamePayload = JSON.parse(createV1RuntimePromptPacket({
+  state,
+  projection: sameNameProjection,
+  runtimeAssets: castingAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(
+  sameNamePayload.narrationGuidance.supportingCharacters.map(character => character.id),
+  ['lysa-chen'],
+  'a matching name cannot bind an emergent person to authored supporting-character guidance'
+);
+
+const daroState = structuredClone(state);
+daroState.mission.v1.knownFacts = ['fact.prelude.redline.shortage-consequence'];
+const daroPayload = JSON.parse(createV1RuntimePromptPacket({
+  state: daroState, projection, runtimeAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(daroPayload.narrationGuidance.supportingCharacters.map(character => character.id), ['lysa-chen', 'daro-tem']);
+assert.deepEqual(daroPayload.narrationGuidance.supportingCharacters.find(character => character.id === 'daro-tem'), {
+  id: 'daro-tem', name: 'Daro Tem', species: 'Bajoran',
+  service: { organization: 'starfleet', department: 'propulsion maintenance', rankCode: 'crewman', rankLabel: 'Crewman' },
+  ...runtimeAssets.crewDataset.supportingCharacters.find(character => character.id === 'daro-tem').narrationGuide
+});
+const rheeState = structuredClone(state);
+rheeState.mission.v1.knownFacts = ['fact.prelude.redline.distribution-confirmed'];
+const rheePayload = JSON.parse(createV1RuntimePromptPacket({
+  state: rheeState, projection, runtimeAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+assert.deepEqual(rheePayload.narrationGuidance.supportingCharacters.map(character => character.id), ['lysa-chen', 'anika-rhee']);
+
+const epilogueState = structuredClone(state);
+epilogueState.mission.activeMissionId = 'epilogue-the-terms-we-keep';
+epilogueState.mission.v1.definitionId = 'mission.epilogue-the-terms-we-keep';
+epilogueState.mission.v1.entryContext = { capabilities: [
+  { id: 'capability.epilogue.rhee-lawful-custody' },
+  { id: 'capability.epilogue.daro-confidential-care' }
+] };
+const epilogueProjection = structuredClone(projection);
+epilogueProjection.mission.missionId = 'epilogue-the-terms-we-keep';
+const epilogueBeforeAftermath = JSON.parse(createV1RuntimePromptPacket({
+  state: epilogueState, projection: epilogueProjection, runtimeAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+for (const id of ['lysa-chen', 'anika-rhee', 'daro-tem']) {
+  assert.equal(epilogueBeforeAftermath.narrationGuidance.supportingCharacters.some(character => character.id === id), false);
+}
+epilogueState.mission.v1.knownFacts = ['fact.epilogue.aftermath-record'];
+const epilogueAfterAftermath = JSON.parse(createV1RuntimePromptPacket({
+  state: epilogueState, projection: epilogueProjection, runtimeAssets
+}).text.slice(castingPacket.text.indexOf('{\n')));
+for (const id of ['lysa-chen', 'anika-rhee', 'daro-tem']) {
+  assert.equal(epilogueAfterAftermath.narrationGuidance.supportingCharacters.some(character => character.id === id), true);
+}
 const authorityIndex = packet.text.indexOf('PLAYER CHARACTER AUTHORITY - ABSOLUTE.');
 assert(authorityIndex > packet.text.indexOf('DIRECTIVE V1 CAMPAIGN CONTEXT'));
 assert(authorityIndex < packet.text.indexOf('Continue a story-first command RPG'));

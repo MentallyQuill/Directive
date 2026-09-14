@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { validateMissionEvidenceProposal } from '../../src/mission/v1/evidence-contracts.mjs';
+import { indexMissionDefinition } from '../../src/mission/v1/mission-contracts.mjs';
 import { lintMissionPackage } from '../../src/mission/v1/mission-package-linter.mjs';
+import { validateMissionPredicate } from '../../src/mission/v1/predicate-evaluator.mjs';
 import {
   eligibleMissionCommandBearingAwards,
   reduceMissionEvidence
@@ -385,15 +387,38 @@ function assertScenarioResult(definition, scenario, result) {
 }
 
 const { packageData, crewDataset, shipDataset, missionDefinitions } = loadAshesRuntimeAssets();
+const crewDatasetSchema = JSON.parse(fs.readFileSync(
+  new URL('../../schemas/packages/crew-dataset.schema.json', import.meta.url),
+  'utf8'
+));
 assert.deepEqual(Object.keys(packageData).sort(), EXPECTED_PACKAGE_ROOTS);
 assert.equal(packageData.manifest.kind, 'directive.campaignPackage.v1');
 assert.equal(packageData.manifest.schemaVersion, 1);
 assert.deepEqual(Object.keys(crewDataset).sort(), ['manifest', 'officers', 'supportingCharacters']);
 assert.equal(crewDataset.manifest.kind, 'directive.crewDataset.v1');
 assert.equal(crewDataset.manifest.packageId, packageData.manifest.id);
-assert.equal(crewDataset.manifest.version, '1.2.0');
+assert.equal(crewDataset.manifest.version, '1.3.0');
 assert.equal(crewDataset.officers.length, 7);
 assert.equal(crewDataset.supportingCharacters.length, 20);
+assert.equal(
+  crewDatasetSchema.$defs.supportingCharacter.required.includes('guideEligibility'),
+  false,
+  'legacy V1 datasets remain schema-compatible while runtime omission fails closed'
+);
+assert.deepEqual(crewDatasetSchema.$defs.supportingCharacter.properties.guideEligibility, {
+  description: 'Source-bound mission predicates controlling when this narration guide may be supplied. Eligibility does not establish character presence or introduce a person.',
+  type: 'array',
+  uniqueItems: true,
+  items: {
+    type: 'object', additionalProperties: false, required: ['missionId', 'when'],
+    properties: {
+      missionId: { $ref: '../common/common.schema.json#/$defs/id' },
+      when: { $ref: '../mission/mission-v1.schema.json#/$defs/predicate' }
+    }
+  }
+});
+assert.deepEqual(crewDatasetSchema.$defs.supportingCharacter.properties.species, { $ref: '../common/common.schema.json#/$defs/nonEmptyString' });
+assert.deepEqual(crewDatasetSchema.$defs.supportingCharacter.properties.service, { $ref: '#/$defs/service' });
 const cast = [...crewDataset.officers, ...crewDataset.supportingCharacters];
 assert.equal(new Set(cast.map(character => character.id)).size, cast.length);
 const agreedReferences = {
@@ -411,8 +436,100 @@ for (const character of cast) {
   }
   if (agreedReferences[character.id]) assert.equal(reference.character, agreedReferences[character.id]);
 }
+// Authored eligibility evidence: include missions whose facts, evidence policies,
+// opening/transition requirements, or conditional codas give the person an active
+// story role. Mere attribution, future foreshadowing, and exclusion text do not qualify.
+const expectedSupportingCharacterMissionEligibility = {
+  'helena-tolland': ['mission.chapter-6-the-cost-of-knowing', 'mission.chapter-7-a-peace-of-their-own', 'mission.open-orders-3-before-the-lamps-go-out', 'mission.epilogue-the-terms-we-keep'],
+  'elias-rourke': ['mission.chapter-6-the-cost-of-knowing', 'mission.epilogue-the-terms-we-keep'],
+  'nia-kessler': ['mission.chapter-3-dead-letters', 'mission.chapter-6-the-cost-of-knowing', 'mission.chapter-7-a-peace-of-their-own', 'mission.chapter-8-the-last-directive', 'mission.open-orders-3-before-the-lamps-go-out', 'mission.epilogue-the-terms-we-keep'],
+  'darius-holt': ['mission.chapter-7-a-peace-of-their-own', 'mission.chapter-8-the-last-directive', 'mission.epilogue-the-terms-we-keep'],
+  'leona-marr': ['mission.chapter-4-the-colony-that-stayed', 'mission.epilogue-the-terms-we-keep'],
+  'mira-solenn': ['mission.chapter-4-the-colony-that-stayed', 'mission.epilogue-the-terms-we-keep'],
+  'asha-prel': ['mission.chapter-3-dead-letters', 'mission.chapter-8-the-last-directive', 'mission.open-orders-3-before-the-lamps-go-out', 'mission.epilogue-the-terms-we-keep'],
+  'nella-ivers': [
+    'mission.chapter-1-the-empty-convoy',
+    'mission.chapter-3-dead-letters',
+    'mission.chapter-5-old-lessons',
+    'mission.chapter-8-the-last-directive',
+    'mission.epilogue-the-terms-we-keep'
+  ],
+  'varrik-tonn': ['mission.open-orders-2-what-survives', 'mission.epilogue-the-terms-we-keep'],
+  'eren-vos': ['mission.open-orders-2-what-survives', 'mission.epilogue-the-terms-we-keep'],
+  'lysa-chen': ['mission.prelude-a-ship-underway', 'mission.epilogue-the-terms-we-keep'],
+  'anika-rhee': ['mission.prelude-a-ship-underway', 'mission.epilogue-the-terms-we-keep'],
+  'daro-tem': ['mission.prelude-a-ship-underway', 'mission.epilogue-the-terms-we-keep'],
+  'samira-nadi': ['mission.chapter-1-the-empty-convoy'],
+  'olan-brin': ['mission.chapter-1-the-empty-convoy'],
+  'tov-saren': ['mission.chapter-2-false-colors'],
+  'jexa-renn': ['mission.chapter-2-false-colors'],
+  'joelle-mercer': ['mission.chapter-7-a-peace-of-their-own', 'mission.chapter-8-the-last-directive', 'mission.open-orders-3-before-the-lamps-go-out', 'mission.epilogue-the-terms-we-keep'],
+  'ren-tal': ['mission.chapter-5-old-lessons'],
+  'shala-venn': ['mission.chapter-5-old-lessons']
+};
+const conditionalGuideEligibility = {
+  'anika-rhee': {
+    'mission.prelude-a-ship-underway': { factKnown: 'fact.prelude.redline.distribution-confirmed' },
+    'mission.epilogue-the-terms-we-keep': { all: [
+      { factKnown: 'fact.epilogue.aftermath-record' },
+      { any: [
+        { capabilityAvailable: 'capability.epilogue.rhee-lawful-custody' },
+        { capabilityAvailable: 'capability.epilogue.rhee-treatment-handoff' }
+      ] }
+    ] }
+  },
+  'daro-tem': {
+    'mission.prelude-a-ship-underway': { any: [
+      { factKnown: 'fact.prelude.redline.conflicting-explanations' },
+      { factKnown: 'fact.prelude.redline.inventory-drift' },
+      { factKnown: 'fact.prelude.redline.shortage-consequence' },
+      { factKnown: 'fact.prelude.redline.material-evidence' }
+    ] },
+    'mission.epilogue-the-terms-we-keep': { all: [
+      { factKnown: 'fact.epilogue.aftermath-record' },
+      { capabilityAvailable: 'capability.epilogue.daro-confidential-care' }
+    ] }
+  },
+  'lysa-chen': {
+    'mission.epilogue-the-terms-we-keep': { factKnown: 'fact.epilogue.aftermath-record' }
+  }
+};
+const missionDefinitionsById = new Map(missionDefinitions.map(definition => [definition.id, definition]));
 for (const character of crewDataset.supportingCharacters) {
-  assert.deepEqual(Object.keys(character).sort(), ['id', 'name', 'narrationGuide']);
+  const expectedKeys = character.id === 'daro-tem'
+    ? ['guideEligibility', 'id', 'name', 'narrationGuide', 'service', 'species']
+    : ['guideEligibility', 'id', 'name', 'narrationGuide'];
+  assert.deepEqual(Object.keys(character).sort(), expectedKeys);
+  assert.deepEqual(
+    character.guideEligibility.map(rule => rule.missionId),
+    expectedSupportingCharacterMissionEligibility[character.id],
+    `${character.id}: stage eligibility matches the authored V1 campaign sources`
+  );
+  assert.equal(new Set(character.guideEligibility.map(rule => rule.missionId)).size, character.guideEligibility.length);
+  for (const rule of character.guideEligibility) {
+    const definition = missionDefinitionsById.get(rule.missionId);
+    assert.ok(definition, `${character.id}: eligible mission ${rule.missionId} resolves`);
+    assert.deepEqual(rule.when, conditionalGuideEligibility[character.id]?.[rule.missionId] ?? true);
+    assert.equal(validateMissionPredicate(rule.when, indexMissionDefinition(definition)).ok, true,
+      `${character.id}: ${rule.missionId} guide predicate resolves against its mission`);
+  }
+}
+const daroGuide = crewDataset.supportingCharacters.find(character => character.id === 'daro-tem');
+assert.equal(daroGuide.species, 'Bajoran');
+assert.deepEqual(daroGuide.service, {
+  organization: 'starfleet', department: 'propulsion maintenance', rankCode: 'crewman', rankLabel: 'Crewman'
+});
+for (const definition of missionDefinitions) {
+  for (const route of definition.reportRoutes || []) {
+    for (const characterId of [...(route.preferredActorIds || []), ...(route.fallbackActorIds || [])]) {
+      const supportingCharacter = crewDataset.supportingCharacters.find(character => character.id === characterId);
+      if (!supportingCharacter) continue;
+      assert.ok(
+        supportingCharacter.guideEligibility.some(rule => rule.missionId === definition.id),
+        `${characterId}: report-route guidance is eligible in ${definition.id}`
+      );
+    }
+  }
 }
 const expectedCrewPublicRecords = {
   'mara-whitaker': {

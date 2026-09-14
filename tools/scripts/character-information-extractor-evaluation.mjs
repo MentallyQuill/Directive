@@ -17,9 +17,21 @@ export function createExtractionCases({ capacity = 1 } = {}) {
     ['private-call', `Sam privately hears Renwick say, "${staffing}"`, `Sam tells Nayar, "${fallback}"`, [['staffing', staffing, false, 'previousAssistant'], ['fallback', fallback, true, 'currentPlayer']]],
     ['late-arrival', `Renwick privately tells Sam, "${deadline}" The call ends. Nayar arrives afterward.`, `Sam tells Nayar, "${fallback}"`, [['deadline', deadline, false, 'previousAssistant'], ['fallback', fallback, true, 'currentPlayer']]],
     ['partial-document', `Sam privately reads a PADD: "${deadline} ${staffing}" Nayar cannot see the PADD.`, `Sam reads only this section aloud to Nayar: "${fallback}"`, [['deadline', deadline, false, 'previousAssistant'], ['staffing', staffing, false, 'previousAssistant'], ['fallback', fallback, true, 'currentPlayer']]],
-    ['reported-communication', 'Nayar meets an unidentified crewman.', `The crewman tells Nayar, "I heard someone claim that ${staffing}" Sam asks what was actually witnessed.`, [['reported-staffing', staffing, true, 'currentPlayer']]],
+    ['reported-communication', 'Nayar meets Sam after Sam returns from a private errand.', `Sam tells Nayar, "An unidentified crewman told me that ${staffing}" Sam asks what Nayar thinks.`, [['reported-staffing', staffing, true, 'currentPlayer']]],
     ['outdated-report', `Sam tells Nayar, "${earlier}"`, `Cross privately tells Sam, "${later}" Sam returns to Nayar without relaying the update.`, [['earlier', earlier, true, 'previousAssistant'], ['later', later, false, 'currentPlayer']]],
     ['explicit-briefing', 'Nayar waits for Sam in the cargo bay.', `Sam tells Nayar, "${fallback} ${staffing} ${deadline}"`, [['fallback', fallback, true, 'currentPlayer'], ['staffing', staffing, true, 'currentPlayer'], ['deadline', deadline, true, 'currentPlayer']]],
+    ['conditional-private-delivery-adaptation',
+      'Nayar and Sam are standing in a public engineering bay with other crew nearby.',
+      `Before they discuss the test, Sam asks Nayar to speak in her office with the door shut and no one else present. Once they are alone, Sam says quietly, "${fallback}"`,
+      [['conditional-fallback', fallback, false, 'currentPlayer']]],
+    ['player-enacted-private-delivery',
+      `Nayar and Sam are already inside Nayar's office.`,
+      `Sam closes the office door, then tells Nayar quietly, "${fallback}"`,
+      [['player-enacted-fallback', fallback, true, 'currentPlayer']]],
+    ['confirmed-private-delivery',
+      `Nayar closes the office door. Sam says quietly, "${fallback}" Nayar listens and repeats the fallback plan.`,
+      'Sam asks Nayar whether she agrees.',
+      [['confirmed-fallback', fallback, true, 'previousAssistant']]],
   ];
   return definitions.map(([id, assistant, player, facts]) => {
     const request = makeDirectorRequest();

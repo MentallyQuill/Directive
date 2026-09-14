@@ -18,6 +18,7 @@ import {
     createEpisodeEvaluator,
     EPISODE_EVALUATION_PROPOSAL_KIND,
     parseEpisodeEvaluationProposal,
+    SOFT_BOUNDARY_REASONS,
     validateEpisodeEvaluationRequest,
 } from '../../src/story/episode-evaluator.mjs';
 
@@ -359,6 +360,19 @@ assert.equal(prompt.jsonSchema.properties.kind.const, 'directive.episodeEvaluati
 assert.equal(prompt.jsonSchema.properties.branchId.const, request.envelope.branchId);
 assert.equal(prompt.jsonSchema.properties.episodeId.const, request.envelope.episodeId);
 assert.deepEqual(prompt.jsonSchema.properties.decision.enum, ['continue', 'seal', 'abstain']);
+assert.deepEqual(prompt.jsonSchema.properties.boundaryReason.anyOf[0].enum, SOFT_BOUNDARY_REASONS,
+    'native schema and semantic validator use the same closed boundary-reason set');
+const feedbackPrompt = createEpisodeEvaluationPrompt({
+    request,
+    validationErrors: Array.from({ length: 10 }, (_, index) => `episode-error-${index}:${'x'.repeat(260)}`),
+});
+const feedbackWireRequest = JSON.parse(feedbackPrompt.messages[1].content.slice(feedbackPrompt.messages[1].content.indexOf('{')));
+const { validationFeedback, ...feedbackSemanticRequest } = feedbackWireRequest;
+assert.deepEqual(feedbackSemanticRequest, request, 'validation feedback does not alter the semantic episode request');
+assert.equal(Object.hasOwn(request, 'validationFeedback'), false, 'prompt creation does not mutate the source request');
+assert.equal(validationFeedback.errors.length, 8);
+assert.ok(validationFeedback.errors.every(error => error.length <= 240));
+assert.match(feedbackPrompt.systemPrompt, /diagnostics.*not story evidence/i);
 for (const forbidden of ['HIDDEN-ACTIVE-CANARY', 'rawTranscript', 'providerDiagnostic']) {
     assert.equal(JSON.stringify(prompt).includes(forbidden), false, forbidden);
 }

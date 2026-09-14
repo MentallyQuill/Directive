@@ -18,6 +18,12 @@ export const LASTING_SIGNIFICANCE_CRITERIA = EPISODE_SIGNIFICANCE_CRITERIA;
 const DECISIONS = new Set(['continue', 'seal', 'abstain']);
 const BOUNDARY_REASONS = new Set(SOFT_BOUNDARY_REASONS);
 const SIGNIFICANCE_CRITERIA = new Set(LASTING_SIGNIFICANCE_CRITERIA);
+function boundedValidationErrors(errors) {
+    return (Array.isArray(errors) ? errors : [])
+        .filter((error) => typeof error === 'string' && error.trim())
+        .slice(0, 8)
+        .map((error) => error.slice(0, 240));
+}
 const PROPOSAL_FIELDS = new Set([
     'kind',
     'branchId',
@@ -745,10 +751,11 @@ export function parseEpisodeEvaluationProposal(value, { request = {}, limits = r
     return { ok: true, value: normalized };
 }
 
-export function createEpisodeEvaluationPrompt({ request = {}, limits = request.analysisLimits || {} } = {}) {
+export function createEpisodeEvaluationPrompt({ request = {}, limits = request.analysisLimits || {}, validationErrors = [] } = {}) {
     const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const validation = validateEpisodeEvaluationRequest(request);
     if (!validation.ok) throw new TypeError(validation.errors.join('\n'));
+    const feedbackErrors = boundedValidationErrors(validationErrors);
     const systemPrompt = [
         'You are Directive V1 Episode Evaluator, a bounded Reasoning analysis role.',
         'Compare recent accepted evidence with the current working capsule. Write one compact replacement summary of the current understanding: preserve necessary established context and incorporate only source-backed changes. Do not append an additional historical recap.',
@@ -768,9 +775,15 @@ export function createEpisodeEvaluationPrompt({ request = {}, limits = request.a
         `Allowed significanceCriteria values for seal: ${LASTING_SIGNIFICANCE_CRITERIA.join(', ')}.`,
         `For continue: summary must be a string of at most ${MAX_CONTINUE_SUMMARY_CHARS} characters; foregroundQuestion may be null or a non-empty string of at most ${MAX_QUESTION_CHARS} characters. boundaryReason must be null, significanceCriteria must be [], and characterMoments must be []. Cite supporting evidence.`,
         `For seal: provide a non-empty summary of at most ${MAX_SEALED_SUMMARY_CHARS} characters, one allowed boundaryReason, at least one significance criterion, and supporting pending evidence. For abstain: provide no new memory, relationships, or moments.`,
+        feedbackErrors.length
+            ? 'validationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add sources, effects, people, relationships, moments, IDs, or authority. Correct only the reported output defects using the unchanged request and supplied closed sets.'
+            : null,
         'Return exactly one strict JSON object matching the schema with no markdown, prose, rationale, or extra fields. Copy the four envelope fields exactly from the request. A summary cannot authorize objective completion, end supervision, or establish an outcome absent accepted evidence.',
-    ].join('\n');
-    const user = `Evaluate this bounded active episode snapshot:\n${JSON.stringify(request, null, 2)}`;
+    ].filter(Boolean).join('\n');
+    const wireRequest = feedbackErrors.length
+        ? { ...request, validationFeedback: { errors: feedbackErrors } }
+        : request;
+    const user = `Evaluate this bounded active episode snapshot:\n${JSON.stringify(wireRequest, null, 2)}`;
     const payload = {
         kind: 'directive.episodeEvaluationRequest.v1',
         prompt: `${systemPrompt}\n\n${user}`,
@@ -953,7 +966,7 @@ async function runWithTimeout(factory, timeoutMs, externalSignal = null) {
 }
 
 export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 8000, mandatory = false, maxTokens = null } = {}) {
-    return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
+    return async function evaluateEpisode({ request = {}, signal = null, onAttempt = null, onPhase = null, validationErrors = [] } = {}) {
         const limits = request.analysisLimits || generationRouter?.getAnalysisLimits?.() || {};
         request = { ...request, ...(Object.keys(limits).length ? { analysisLimits: limits } : {}) };
         const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(EPISODE_EVALUATOR_ROLE_ID, timeoutMs) ?? timeoutMs;
@@ -970,7 +983,7 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
                 diagnostics: { errorCount: requestValidation.errors.length },
             };
         }
-        const prompt = createEpisodeEvaluationPrompt({ request, limits });
+        const prompt = createEpisodeEvaluationPrompt({ request, limits, validationErrors });
         if (outputBudget != null) {
             prompt.maxTokens = outputBudget;
             prompt.parameters = { ...(prompt.parameters || {}), max_tokens: outputBudget };
@@ -1034,7 +1047,11 @@ export function createEpisodeEvaluator({ generationRouter = null, timeoutMs = 80
                 ok: false,
                 status: 'rejected',
                 reasonCode: 'invalid-output',
-                diagnostics: { ...diagnostics, errorCount: parsed.errors.length },
+                diagnostics: {
+                    ...diagnostics,
+                    errorCount: parsed.errors.length,
+                    errors: boundedValidationErrors(parsed.errors),
+                },
             };
         }
         return {

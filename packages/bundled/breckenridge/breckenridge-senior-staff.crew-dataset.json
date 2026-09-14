@@ -5,7 +5,7 @@
     "id": "breckenridge.senior-staff",
     "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
     "title": "U.S.S. Breckenridge Senior Staff and Campaign Cast",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "officers": [
     {
@@ -210,6 +210,7 @@
     {
       "id": "helena-tolland",
       "name": "Helena Tolland",
+      "guideEligibility": [{"missionId":"mission.chapter-6-the-cost-of-knowing","when":true},{"missionId":"mission.chapter-7-a-peace-of-their-own","when":true},{"missionId":"mission.open-orders-3-before-the-lamps-go-out","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Steady, measured, and direct. Ask for a disciplined case, listen, then state the decision and the obligations it carries.",
         "constraints": ["Her broader responsibilities create real limits; warmth does not imply automatic approval."],
@@ -223,6 +224,7 @@
     {
       "id": "elias-rourke",
       "name": "Elias Rourke",
+      "guideEligibility": [{"missionId":"mission.chapter-6-the-cost-of-knowing","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Calm, articulate, and professionally sincere. Acknowledge a specific objection before explaining which competing risk he is trying to contain.",
         "constraints": ["Do not signal villainy through ominous mannerisms or make a reasonable argument proof that he is right."],
@@ -236,6 +238,7 @@
     {
       "id": "nia-kessler",
       "name": "Nia Kessler",
+      "guideEligibility": [{"missionId":"mission.chapter-3-dead-letters","when":true},{"missionId":"mission.chapter-6-the-cost-of-knowing","when":true},{"missionId":"mission.chapter-7-a-peace-of-their-own","when":true},{"missionId":"mission.chapter-8-the-last-directive","when":true},{"missionId":"mission.open-orders-3-before-the-lamps-go-out","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Composed and practical in negotiation. Specify who participates, what they can decide, and how an agreement will work.",
         "constraints": ["She can compromise without accepting empty consultation; avoid generic political speeches."],
@@ -249,6 +252,7 @@
     {
       "id": "darius-holt",
       "name": "Darius Holt",
+      "guideEligibility": [{"missionId":"mission.chapter-7-a-peace-of-their-own","when":true},{"missionId":"mission.chapter-8-the-last-directive","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Controlled, forceful, and concrete about protection, dependence, and the cost of an unenforced promise.",
         "constraints": ["His manner establishes neither guilt nor righteousness; let evidence and conduct establish responsibility."],
@@ -262,6 +266,7 @@
     {
       "id": "leona-marr",
       "name": "Leona Marr",
+      "guideEligibility": [{"missionId":"mission.chapter-4-the-colony-that-stayed","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Quietly resolute and economical. Answer abstract judgments with the concrete needs of the people she represents.",
         "constraints": ["Do not make every disagreement a moral lecture or assume she is beyond compromise."],
@@ -275,6 +280,7 @@
     {
       "id": "mira-solenn",
       "name": "Mira Solenn",
+      "guideEligibility": [{"missionId":"mission.chapter-4-the-colony-that-stayed","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Practical, technically specific, and candid about what she can reproduce versus what she only suspects.",
         "constraints": ["Useful technical knowledge is bounded; demeanor does not reveal undiscovered actions."],
@@ -288,6 +294,7 @@
     {
       "id": "asha-prel",
       "name": "Asha Prel",
+      "guideEligibility": [{"missionId":"mission.chapter-3-dead-letters","when":true},{"missionId":"mission.chapter-8-the-last-directive","when":true},{"missionId":"mission.open-orders-3-before-the-lamps-go-out","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Observant, direct, and exact about civilian needs and whose interests a proposed procedure protects.",
         "constraints": ["Do not make her a species stereotype, a cryptic informant, or a mouthpiece for collective guilt."],
@@ -301,6 +308,7 @@
     {
       "id": "nella-ivers",
       "name": "Nella Ivers",
+      "guideEligibility": [{"missionId":"mission.chapter-1-the-empty-convoy","when":true},{"missionId":"mission.chapter-3-dead-letters","when":true},{"missionId":"mission.chapter-5-old-lessons","when":true},{"missionId":"mission.chapter-8-the-last-directive","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Plainspoken, self-possessed, and specific about her ships, crews, and obligations. Cooperate on clear practical terms.",
         "constraints": ["Respect for Starfleet competence does not surrender civilian authority or privacy."],
@@ -314,6 +322,7 @@
     {
       "id": "varrik-tonn",
       "name": "Varrik Tonn",
+      "guideEligibility": [{"missionId":"mission.open-orders-2-what-survives","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Clipped, combative, and rooted in operational experience. Name the vulnerability he believes others are dismissing.",
         "constraints": ["Age and experience do not make him automatically right or incapable of changing his mind."],
@@ -327,6 +336,7 @@
     {
       "id": "eren-vos",
       "name": "Eren Vos",
+      "guideEligibility": [{"missionId":"mission.open-orders-2-what-survives","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Engaged and clinically confident. Explain a proposed benefit, its uncertainty, and the patient's circumstances in concrete terms.",
         "constraints": ["Do not portray scientific enthusiasm as proof of recklessness or guarantee a treatment's success."],
@@ -340,6 +350,7 @@
     {
       "id": "lysa-chen",
       "name": "Lysa Chen",
+      "guideEligibility": [{"missionId":"mission.prelude-a-ship-underway","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":{"factKnown":"fact.epilogue.aftermath-record"}}],
       "narrationGuide": {
         "voice": "Careful, earnest, and increasingly direct when the details matter. Be an ordinary sociable junior officer outside work.",
         "constraints": ["A noticed discrepancy is not an accusation; she cannot know more than her records and observations support."],
@@ -353,6 +364,7 @@
     {
       "id": "anika-rhee",
       "name": "Anika Rhee",
+      "guideEligibility": [{"missionId":"mission.prelude-a-ship-underway","when":{"factKnown":"fact.prelude.redline.distribution-confirmed"}},{"missionId":"mission.epilogue-the-terms-we-keep","when":{"all":[{"factKnown":"fact.epilogue.aftermath-record"},{"any":[{"capabilityAvailable":"capability.epilogue.rhee-lawful-custody"},{"capabilityAvailable":"capability.epilogue.rhee-treatment-handoff"}]}]}}],
       "narrationGuide": {
         "voice": "Matter-of-fact and resourceful, comfortable explaining how a practical arrangement works. Keep friendliness ordinary and unforced.",
         "constraints": ["Do not use suspicious mannerisms, knowing smiles, or reference-character associations to reveal undiscovered conduct."],
@@ -366,6 +378,9 @@
     {
       "id": "daro-tem",
       "name": "Daro Tem",
+      "species": "Bajoran",
+      "service": {"organization":"starfleet","department":"propulsion maintenance","rankCode":"crewman","rankLabel":"Crewman"},
+      "guideEligibility": [{"missionId":"mission.prelude-a-ship-underway","when":{"any":[{"factKnown":"fact.prelude.redline.conflicting-explanations"},{"factKnown":"fact.prelude.redline.inventory-drift"},{"factKnown":"fact.prelude.redline.shortage-consequence"},{"factKnown":"fact.prelude.redline.material-evidence"}]}},{"missionId":"mission.epilogue-the-terms-we-keep","when":{"all":[{"factKnown":"fact.epilogue.aftermath-record"},{"capabilityAvailable":"capability.epilogue.daro-confidential-care"}]}}],
       "narrationGuide": {
         "voice": "Conscientious and hesitant about personal concerns, more assured when discussing a concrete maintenance task.",
         "constraints": ["Anxiety does not erase competence or make private medical information observable."],
@@ -379,6 +394,7 @@
     {
       "id": "samira-nadi",
       "name": "Samira Nadi",
+      "guideEligibility": [{"missionId":"mission.chapter-1-the-empty-convoy","when":true}],
       "narrationGuide": {
         "voice": "Warm, efficient, and firm about what patient care requires. Explain a confidentiality boundary without apologizing for it.",
         "constraints": ["Offer bounded cooperation; medical care and protected information are not bargaining chips."],
@@ -392,6 +408,7 @@
     {
       "id": "olan-brin",
       "name": "Olan Brin",
+      "guideEligibility": [{"missionId":"mission.chapter-1-the-empty-convoy","when":true}],
       "narrationGuide": {
         "voice": "Procedurally exact and service-minded. Walk through the actual record; become defensive through careful qualifications rather than evasive theatrics.",
         "constraints": ["His confidence in paperwork does not establish that an authorization was legitimate."],
@@ -405,6 +422,7 @@
     {
       "id": "tov-saren",
       "name": "Tov Saren",
+      "guideEligibility": [{"missionId":"mission.chapter-2-false-colors","when":true}],
       "narrationGuide": {
         "voice": "Forthright and proud, precise about what he witnessed and what would make a comparison credible.",
         "constraints": ["Distrust is not proof of irrationality or hidden allegiance; preserve the limits of firsthand observation."],
@@ -418,6 +436,7 @@
     {
       "id": "jexa-renn",
       "name": "Jexa Renn",
+      "guideEligibility": [{"missionId":"mission.chapter-2-false-colors","when":true}],
       "narrationGuide": {
         "voice": "Measured, exact, and unhurried. Separate observation, reconstruction, and conclusion without turning every answer into a lecture.",
         "constraints": ["Uncertainty is not exoneration; expertise does not identify an unseen actor."],
@@ -431,6 +450,7 @@
     {
       "id": "joelle-mercer",
       "name": "Joelle Mercer",
+      "guideEligibility": [{"missionId":"mission.chapter-7-a-peace-of-their-own","when":true},{"missionId":"mission.chapter-8-the-last-directive","when":true},{"missionId":"mission.open-orders-3-before-the-lamps-go-out","when":true},{"missionId":"mission.epilogue-the-terms-we-keep","when":true}],
       "narrationGuide": {
         "voice": "Brisk and disciplined. Specify readiness, verification, responsibilities, and the condition under which an order changes.",
         "constraints": ["Firm command is not gratuitous hostility; respond to a verifiable way to reduce danger."],
@@ -444,6 +464,7 @@
     {
       "id": "ren-tal",
       "name": "Ren Tal",
+      "guideEligibility": [{"missionId":"mission.chapter-5-old-lessons","when":true}],
       "narrationGuide": {
         "voice": "Plainspoken and stubborn about the people depending on his delivery. Engage with a concrete route that honors the obligation.",
         "constraints": ["Do not treat protection of a shipment as mere greed or an automatic refusal of safety measures."],
@@ -457,6 +478,7 @@
     {
       "id": "shala-venn",
       "name": "Shala Venn",
+      "guideEligibility": [{"missionId":"mission.chapter-5-old-lessons","when":true}],
       "narrationGuide": {
         "voice": "Terse, alert, and specific about how an instruction can be verified. Let dry humor be occasional.",
         "constraints": ["Skepticism can yield to a credible check; avoid reflexive obstruction or constant sarcasm."],

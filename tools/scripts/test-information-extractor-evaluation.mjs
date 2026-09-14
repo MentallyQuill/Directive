@@ -3,11 +3,27 @@ import { createExtractionCases, scoreExtractedAccess, runExtractionEvaluation } 
 
 const cases = createExtractionCases();
 const scenario = cases.find(item => item.id === 'private-call');
-const access = (evidenceQuote, recipientIds = ['person.nayar']) => ({ operation: 'addFact', sourceSlot: 'previousAssistant', evidenceQuote, informationAccess: { recipientIds } });
+const access = (evidenceQuote, recipientIds = ['person.nayar'], sourceSlot = 'previousAssistant') => ({ operation: 'addFact', sourceSlot, evidenceQuote, informationAccess: { recipientIds } });
 const scored = scoreExtractedAccess(scenario, [access(scenario.facts[0].quote)]);
 assert.equal(scored.unsupportedGrants, 1, 'private source receipt is an unsupported grant');
 assert.equal(scored.omissions, 1, 'omitting the actual briefing is scored independently');
 assert.equal(scoreExtractedAccess(scenario, [access('An unrelated claimed briefing.')]).unclassifiedAccessRecords, 1);
+const conditional = cases.find(item => item.id === 'conditional-private-delivery-adaptation');
+const playerEnacted = cases.find(item => item.id === 'player-enacted-private-delivery');
+const confirmed = cases.find(item => item.id === 'confirmed-private-delivery');
+assert.equal(scoreExtractedAccess(conditional, [access(conditional.facts[0].quote, ['person.nayar'], 'currentPlayer')]).unsupportedGrants, 1,
+  'conditional speech behind an unestablished private-meeting precondition is a false grant');
+assert.deepEqual(scoreExtractedAccess(conditional, []), {
+  unsupportedGrants: 0, omissions: 0, correctReceipts: 0, unclassifiedAccessRecords: 0,
+}, 'omitting unestablished conditional delivery is correct');
+assert.equal(scoreExtractedAccess(playerEnacted, [access(playerEnacted.facts[0].quote, ['person.nayar'], 'currentPlayer')]).correctReceipts, 1,
+  'player-enacted setup and direct speech establish receipt without an NPC precondition');
+assert.equal(scoreExtractedAccess(playerEnacted, []).omissions, 1,
+  'missing player-enacted direct delivery is an omission');
+assert.equal(scoreExtractedAccess(confirmed, [access(confirmed.facts[0].quote)]).correctReceipts, 1,
+  'assistant-enacted private delivery is a supported receipt');
+assert.equal(scoreExtractedAccess(confirmed, []).omissions, 1,
+  'missing an assistant-enacted private delivery is an omission');
 assert.equal((await runExtractionEvaluation()).status, 'unrun', 'No oracle fixture is labelled a model evaluation');
 
 for (const capacity of [0.5, 1, 5]) {
@@ -33,9 +49,9 @@ for (const capacity of [0.5, 1, 5]) {
       ],
     } } };
   } });
-  assert.equal(calls, 6);
+  assert.equal(calls, 9);
   assert.equal(evaluated.invalidCases, 0, JSON.stringify(evaluated));
-  assert.equal(evaluated.totals.unsupportedGrants, 5, 'Source-valid but private receipts remain semantic errors');
+  assert.equal(evaluated.totals.unsupportedGrants, 6, 'Source-valid but private or conditional receipts remain semantic errors');
   assert.equal(evaluated.totals.omissions, 0);
   assert.equal(evaluated.totals.unclassifiedAccessRecords, 0);
 }

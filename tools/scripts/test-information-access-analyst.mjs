@@ -32,6 +32,9 @@ const analyst = createContinuityAnalyst({ generationRouter: { generate: async (r
   assert.match(payload.systemPrompt, /private thoughts/);
   assert.match(payload.systemPrompt, /not proof of that earlier communication/);
   assert.match(payload.systemPrompt, /partial disclosure/);
+  assert.match(payload.systemPrompt, /conditional.*NPC response or environment change.*omit informationAccess/i);
+  assert.match(payload.systemPrompt, /direct player-controlled speech.*heard access/i);
+  assert.match(payload.systemPrompt, /environment change.*directly enacted by the player in currentPlayer.*omit informationAccess/i);
   return { ok: true, response: { json: proposal } };
 } } });
 assert.equal((await analyst({ request })).ok, true);

@@ -11,7 +11,7 @@ import {
     createNarrationGenerationTargetKey,
     createV1MissionRuntime,
 } from '../../src/runtime/v1-mission-runtime.mjs';
-import { createEpisodeEvaluationRequest } from '../../src/story/episode-evaluator.mjs';
+import { createEpisodeEvaluationRequest, createEpisodeEvaluator } from '../../src/story/episode-evaluator.mjs';
 import { createContinuityAnalyst } from '../../src/story/continuity-analyst.mjs';
 import { createStoryDirectionAnalyst } from '../../src/story/story-director.mjs';
 import { createEmptyStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
@@ -924,14 +924,26 @@ console.log('Production interpreter quote recovery passed.');
 
 // Production focused analysts retry strict validation against the identical captured source with bounded diagnostics.
 const focusedRecoveryHarness = createHarness();
-const focusedRecoveryPayloads = { storyDirectionAnalyst: [], continuityAnalyst: [] };
-const focusedRecoveryResults = { storyDirectionAnalyst: [], continuityAnalyst: [] };
+const focusedRecoveryPayloads = { storyDirectionAnalyst: [], continuityAnalyst: [], episodeEvaluator: [] };
+const focusedRecoveryResults = { storyDirectionAnalyst: [], continuityAnalyst: [], episodeEvaluator: [] };
 const focusedRecoveryRouter = {
-    getMaxAttempts: role => ['storyDirectionAnalyst', 'continuityAnalyst'].includes(role) ? 2 : 1,
+    getMaxAttempts: role => ['storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role) ? 2 : 1,
     generate: async (role, payload) => {
         focusedRecoveryPayloads[role].push(payload);
-        const sentRequest = JSON.parse(payload.messages[1].content);
+        const sentRequest = JSON.parse(payload.messages[1].content.slice(payload.messages[1].content.indexOf('{')));
         const feedback = sentRequest.validationFeedback?.errors || [];
+        if (role === 'episodeEvaluator') {
+            const { validationFeedback: _feedback, ...episodeRequest } = sentRequest;
+            const proposal = structuredClone(directorProposalFor({ episodeReview: episodeRequest }).episodeReview);
+            if (!feedback.some(error => error === 'seal boundaryReason is unsupported')
+                || !feedback.some(error => error === 'seal foregroundQuestion must be null')) {
+                proposal.decision = 'seal';
+                proposal.boundaryReason = 'commitment-created-or-resolved';
+                proposal.significanceCriteria = ['commitment-created-or-resolved'];
+                proposal.foregroundQuestion = 'Will the corrective commitment be completed?';
+            }
+            return { ok: true, response: { json: proposal } };
+        }
         if (role === 'continuityAnalyst') {
             const threadChanges = structuredClone(directorProposalFor(sentRequest).threadChanges);
             if (!feedback.some(error => error.includes('continuity-source-quote-invalid'))) {
@@ -959,6 +971,7 @@ const focusedRecoveryRouter = {
 };
 const productionDirection = createStoryDirectionAnalyst({ generationRouter: focusedRecoveryRouter });
 const productionContinuity = createContinuityAnalyst({ generationRouter: focusedRecoveryRouter });
+const productionEpisode = createEpisodeEvaluator({ generationRouter: focusedRecoveryRouter });
 const focusedRecoveryRuntime = createV1MissionRuntime({
     getState: focusedRecoveryHarness.getState,
     stateDeltaGateway: focusedRecoveryHarness.gateway,
@@ -974,7 +987,11 @@ const focusedRecoveryRuntime = createV1MissionRuntime({
         focusedRecoveryResults.continuityAnalyst.push(result);
         return result;
     },
-    evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+    evaluateEpisode: async input => {
+        const result = await productionEpisode(input);
+        focusedRecoveryResults.episodeEvaluator.push(result);
+        return result;
+    },
 });
 const focusedRecovered = await focusedRecoveryRuntime.settleAcceptedPair({
     runtimeAssets, snapshot: snapshotFor('range.focused-quote-recovery'), generationType: 'normal',
@@ -992,5 +1009,18 @@ for (const role of ['storyDirectionAnalyst', 'continuityAnalyst']) {
 }
 assert.ok(focusedRecoveryPayloads.continuityAnalyst[1].messages[1].content.includes('continuity-source-quote-invalid'));
 assert.ok(focusedRecoveryPayloads.storyDirectionAnalyst[1].messages[1].content.includes('director-direction-target-invalid'));
+assert.equal(focusedRecoveryResults.episodeEvaluator[0].ok, false, 'episode evaluator must strictly reject the captured invalid seal');
+assert.deepEqual(focusedRecoveryResults.episodeEvaluator[0].diagnostics.errors, [
+    'seal boundaryReason is unsupported',
+    'seal foregroundQuestion must be null',
+]);
+assert.equal(focusedRecoveryPayloads.episodeEvaluator.length, 2);
+const episodeSent = focusedRecoveryPayloads.episodeEvaluator.map(payload => (
+    JSON.parse(payload.messages[1].content.slice(payload.messages[1].content.indexOf('{')))
+));
+const { validationFeedback: episodeFeedback, ...episodeRetrySource } = episodeSent[1];
+assert.deepEqual(episodeRetrySource, episodeSent[0], 'episode retry preserves its semantic request and source identity');
+assert.deepEqual(episodeFeedback.errors, focusedRecoveryResults.episodeEvaluator[0].diagnostics.errors);
+assert.match(focusedRecoveryPayloads.episodeEvaluator[1].systemPrompt, /diagnostics.*not story evidence/i);
 assert.equal(focusedRecoveryHarness.persistCount, 1, 'focused validation retries commit only after every role validates');
 console.log('Production focused analyst validation recovery passed.');
