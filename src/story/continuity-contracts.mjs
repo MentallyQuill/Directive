@@ -138,6 +138,55 @@ export function requireSourceQuote(change, sourcePair, limits = {}) {
     };
 }
 
+// Positions are derived from the same normalized exact evidence we validate,
+// never from model-supplied timestamps or proposal order.
+export function sourceQuoteOccurrence(change, sourcePair) {
+    const text = normalize(sourcePair?.[change?.sourceSlot]?.text);
+    const quote = normalize(change?.evidenceQuote);
+    const start = quote ? text.indexOf(quote) : -1;
+    if (start < 0) return null;
+    return {
+        slot: change.sourceSlot === 'previousAssistant' ? 0 : 1,
+        start,
+        end: start + quote.length,
+        lastEnd: text.lastIndexOf(quote) + quote.length,
+        unique: text.indexOf(quote, start + 1) < 0,
+    };
+}
+
+export function informationAcquisitionOccurrence(change, sourcePair) {
+    if (!Array.isArray(change?.informationAccess?.audienceEvidence)) return null;
+    const occurrences = [change, ...change.informationAccess.audienceEvidence]
+        .map(entry => sourceQuoteOccurrence(entry, sourcePair));
+    if (occurrences.some(occurrence => !occurrence)) return null;
+    // Receipt requires both statement and audience evidence. Use passage ends:
+    // a longer disambiguating quote may begin before a preceding disclosure.
+    const compare = (left, right) => left.slot - right.slot || left.end - right.end;
+    const first = [...occurrences].sort(compare).at(-1);
+    const last = occurrences.map(occurrence => ({ ...occurrence, end: occurrence.lastEnd }))
+        .sort(compare).at(-1);
+    return { slot: first.slot, end: first.end, unique: compare(first, last) === 0 };
+}
+
+function validateStatusOrder(changes, sourcePair, errors) {
+    const statuses = changes.filter(change => change?.operation === 'setStatus');
+    for (let index = 0; index < statuses.length; index++) {
+        const left = statuses[index];
+        for (const right of statuses.slice(index + 1)) {
+            if (left.threadRef !== right.threadRef || left.status === right.status
+                || left.sourceSlot !== right.sourceSlot) continue;
+            const a = sourceQuoteOccurrence(left, sourcePair);
+            const b = sourceQuoteOccurrence(right, sourcePair);
+            // Repeated evidence is still ordered if every possible occurrence
+            // finishes before the other quote begins. Reject only overlapping
+            // or interleaved occurrence ranges, where the final status can vary.
+            if (a && b && a.start < b.lastEnd && b.start < a.lastEnd) {
+                errors.push(`continuity-status-occurrence-ambiguous:${left.threadRef}`);
+            }
+        }
+    }
+}
+
 function validateOpen(change, errors, limits = null) {
     if (!isContinuityStableId(change.localRef) || (limits && change.localRef.length > limits.continuityMaxLocalRefCharacters)) {
         errors.push('continuity-local-ref-invalid');
@@ -238,6 +287,8 @@ export function validateContinuityChanges(changes, {
         } else if (change.operation === 'addFact') {
             validateAddFact(change, authoredIdSet, errors, settings);
             validateInformationAccess(change.informationAccess, errors, { sourcePair, knownLinkIds: knownLinkIdSet, limits: settings });
+            const acquisition = informationAcquisitionOccurrence(change, sourcePair);
+            if (acquisition && !acquisition.unique) errors.push('continuity-information-access-occurrence-ambiguous');
             if (Array.isArray(change.linkedIds)) for (const id of change.linkedIds) {
                 if (!authoredIdSet.has(id) && !existingThreadIds.has(id) && !knownLinkIdSet.has(id)) errors.push(`continuity-linked-id-unknown:${id}`);
             }
@@ -263,6 +314,7 @@ export function validateContinuityChanges(changes, {
         }
     }
     for (const localRef of duplicateLocalRefs) errors.push(`continuity-local-ref-duplicate:${localRef}`);
+    validateStatusOrder(changes, sourcePair, errors);
 
     for (const change of changes) {
         if (!plainObject(change) || !new Set(['addFact', 'setStatus']).has(change.operation)) continue;

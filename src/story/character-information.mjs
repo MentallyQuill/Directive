@@ -28,7 +28,10 @@ export function createCharacterInformationProjection({
       });
     }
   }
-  // Newer records receive priority without treating older records as false or forgotten.
+  // The archive persists validated acquisition order within each settlement.
+  // Preserve it through pruning/rebind and reverse for the bounded view; sorting
+  // primary provenance here would misorder later deliveries of older statements.
+  // Legacy records retain their stored order without fabricated receipt positions.
   for (const statements of byPerson.values()) statements.reverse();
   const ordered = [...byPerson].sort((a, b) =>
     (b[1][0].recordedAtRevision ?? 0) - (a[1][0].recordedAtRevision ?? 0) || a[0].localeCompare(b[0]));

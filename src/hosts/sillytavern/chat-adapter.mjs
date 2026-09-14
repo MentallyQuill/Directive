@@ -2387,13 +2387,15 @@ export function createSillyTavernChatAdapter({
     onSettled = null,
     onHostGenerationObserved = null,
     onGenerationFailed = null,
+    onGenerationStarting = null,
     signal = null,
+    isActive = null,
     ingressId = null,
     turnId = null,
     outcomeId = null
   } = {}) {
     try {
-      if (signal?.aborted) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
+      if (signal?.aborted || isActive?.() === false) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
       const beforeContext = context();
       const extensionSettings = beforeContext?.extensionSettings || beforeContext?.extension_settings || globalThis.extension_settings;
       observationTimeoutMs ??= resolveAnalysisLimits(extensionSettings?.directive?.providers?.utility).hostNarrationTimeoutSeconds * 1000;
@@ -2402,7 +2404,7 @@ export function createSillyTavernChatAdapter({
       const script = scriptModule || (typeof importScript === 'function'
         ? await importScript()
         : await import('/script.js'));
-      if (signal?.aborted) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
+      if (signal?.aborted || isActive?.() === false) return { ok: false, skipped: true, reason: 'host-generation-stopped' };
       const generating = typeof script.isGenerating === 'function'
         ? script.isGenerating() === true
         : script.is_send_press === true;
@@ -2448,9 +2450,19 @@ export function createSillyTavernChatAdapter({
       const generationStartedAt = now();
       const observationId = `host-generation:${generationStartedAt}:${ingressId || turnId || outcomeId || reason}`;
       const callback = typeof onHostGenerationObserved === 'function' ? onHostGenerationObserved : onSettled;
-      const generationPromise = script.Generate(type || 'normal', {
-        automatic_trigger: automaticTrigger !== false
-      });
+      const releaseHandoff = onGenerationStarting?.();
+      let generationPromise;
+      try {
+        generationPromise = script.Generate(type || 'normal', {
+          automatic_trigger: automaticTrigger !== false
+        });
+      } catch (error) {
+        releaseHandoff?.();
+        throw error;
+      }
+      if (typeof releaseHandoff === 'function') {
+        Promise.resolve(generationPromise).then(releaseHandoff, releaseHandoff);
+      }
       if (typeof onGenerationFailed === 'function') {
         Promise.resolve(generationPromise).catch(error => scheduleHostGenerationSettlement(onGenerationFailed, {
           ok: false, status: 'failed', reason: 'narration-start-failed',

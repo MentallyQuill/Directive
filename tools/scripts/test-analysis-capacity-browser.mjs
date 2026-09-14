@@ -24,7 +24,7 @@ const initialize=async()=>{
     document.body.replaceChildren();
     const shell=createDirectiveExpandedShell({id:'directive-runtime-panel',routes:DIRECTIVE_PRIMARY_ROUTES,activeRouteId:'settings',onSelectRoute(){}});
     shell.classList.add('directive-screen'); document.body.appendChild(shell);
-    renderSettingsPanel(shell.querySelector('[data-directive-runtime-body="true"]'),{providerConfiguration:{settings:store.getAll(),profiles:[],status:{}}},{updateProviderSettings:async({kind,patch})=>({settings:store.update(kind,patch)})});
+    renderSettingsPanel(shell.querySelector('[data-directive-runtime-body="true"]'),{providerConfiguration:{settings:store.getAll(),profiles:[],status:{}}},{updateProviderSettings:async({kind,patch})=>{await window.capacityProof?.saveGate;return {settings:store.update(kind,patch)};}});
   };
   window.capacityProof={store,render,effective:()=>resolveAnalysisLimits(store.get('utility')),tokens:()=>resolveProviderMaxTokens(store.getAll(),'reasoning')};render();
 };
@@ -66,6 +66,14 @@ try {
     assert.equal(await page.evaluate(()=>capacityProof.store.get('utility').analysisCapacity),1.7);
     await page.locator('[data-settings-action="reset-analysis-capacity"]').click();await page.waitForFunction(()=>capacityProof.store.get('utility').analysisCapacity===1);
     await page.reload();await page.evaluate(initialize);assert.equal(await advanced.getAttribute('open'),null);assert.equal(await slider.inputValue(),'1');
+    await advanced.locator('summary').click();
+    await page.evaluate(()=>{capacityProof.saveGate=new Promise(resolve=>{capacityProof.releaseSave=resolve;});});
+    await fact.fill('850');await fact.press('Tab');
+    await tokens.fill('19000');
+    await page.evaluate(()=>capacityProof.releaseSave());
+    await page.waitForFunction(()=>capacityProof.effective().continuityFactCharacters===850);
+    assert.equal(await tokens.inputValue(),'19000','a delayed unrelated save preserves actual browser typing');
+    await tokens.press('Tab');await page.waitForFunction(()=>capacityProof.tokens()===19000);
     assert.deepEqual(errors,[]);await page.close();
   }
   console.log('Analysis capacity browser tests passed: desktop/mobile, .5x–5x, reload, inheritance, reset, and independent timings.');

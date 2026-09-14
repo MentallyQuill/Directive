@@ -340,6 +340,10 @@ const runtime = createV1MissionRuntime({
         const result = directorCalls === 1
             ? await directorGate.promise
             : { ok: true, proposal: directorProposalFor(request), diagnostics: {} };
+        if (directorCalls > 2) {
+            result.proposal.threadChanges[0].localRef = `legacy-transfer-${directorCalls}`;
+            result.proposal.threadChanges[1].threadRef = result.proposal.threadChanges[0].localRef;
+        }
         if (result?.ok) onPhase?.('validating-response');
         return result;
     },
@@ -442,6 +446,7 @@ assert.equal(directorCalls, 3, 'provider changes invalidate the postcommit direc
 assert.equal(harness.persistCount, 2);
 assert.equal(harness.getState().storySettlement.revision, providerRefreshSettlementRevision + 1);
 assert.equal(harness.getState().stateCustody.revision, providerRefreshCustodyRevision + 1);
+assert.equal(harness.getState().storySettlement.continuityEvents.length, 2, 'combined director refresh cannot append new extraction IDs');
 
 const swipeSettlementRevision = harness.getState().storySettlement.revision;
 const swipeCustodyRevision = harness.getState().stateCustody.revision;
@@ -457,6 +462,7 @@ assert.equal(directorCalls, 4, 'a changed narration type receives its own direct
 assert.equal(harness.persistCount, 3);
 assert.equal(harness.getState().storySettlement.revision, swipeSettlementRevision + 1);
 assert.equal(harness.getState().stateCustody.revision, swipeCustodyRevision + 1);
+assert.equal(harness.getState().storySettlement.continuityEvents.length, 2, 'combined director swipe preserves settled continuity');
 assert.equal(
     swipe.directorReceipt.generationTargetKey,
     'swipe:message.player.directed:range.directed',
@@ -798,3 +804,118 @@ assert.equal(accumulatedInterpreterCalls, 1);
 assert.equal(accumulatedWrites, 1);
 assert.equal(accumulatedState.storySettlement.continuityEvents.length, 4, 'lookups never rewrite archive events');
 console.log('Configured three-pass continuity lookup accumulation passed.');
+
+// Settled evidence has one durable extraction even when later valid outputs vary local IDs.
+for (const acceptance of ['accepted', 'rejected', 'legacy']) {
+    const replayHarness = createHarness();
+    let continuityCalls = 0;
+    let directionCalls = 0;
+    let fingerprint = 'provider.1';
+    const options = {
+        getState: replayHarness.getState,
+        stateDeltaGateway: replayHarness.gateway,
+        interpretAcceptedPair: async input => {
+            const result = interpretedFor(input);
+            if (acceptance === 'rejected') {
+                result.interpretation.assistantAcceptance = 'rejected';
+                result.interpretation.peopleEvents = [];
+            }
+            return result;
+        },
+        directStory: async ({ request }) => {
+            directionCalls++;
+            return { ok: true, proposal: {
+                kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope,
+                direction: directorProposalFor(request).direction,
+            } };
+        },
+        analyzeContinuity: async ({ request }) => {
+            continuityCalls++;
+            const threadChanges = directorProposalFor(request).threadChanges;
+            if (continuityCalls > 1) {
+                threadChanges[0].localRef = `transfer-schedule-${continuityCalls}`;
+                threadChanges[1].threadRef = threadChanges[0].localRef;
+                threadChanges[1].text = 'Ravenna transfer is still set for fourteen hundred.';
+            }
+            return { ok: true, proposal: {
+                kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope,
+                coverage: 'complete', threadChanges, lookupRequests: [],
+            } };
+        },
+        evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+        providerFingerprints: () => ({ continuity: fingerprint, director: fingerprint }),
+        now: () => '2026-09-13T04:00:00.000Z',
+    };
+    let replayRuntime = createV1MissionRuntime(options);
+    const replaySnapshot = snapshotFor(`range.replay-${acceptance}`);
+    const normalResult = await replayRuntime.settleAcceptedPair({ runtimeAssets, snapshot: replaySnapshot, generationType: 'normal' });
+    assert.equal(normalResult.ok, true, JSON.stringify(normalResult));
+    const normal = structuredClone(replayHarness.getState().storySettlement);
+    assert.equal(normal.continuityEvents.length, acceptance === 'rejected' ? 0 : 2);
+    if (acceptance === 'legacy') replayHarness.getState().storySettlement.acceptedPairReceipts = [];
+    for (const [generationType, refresh, reload] of [
+        ['swipe', false, false], ['swipe', false, false],
+        ['swipe', true, false], ['continue', false, true],
+    ]) {
+        if (refresh) fingerprint = 'provider.2';
+        if (reload) replayRuntime = createV1MissionRuntime(options);
+        const result = await replayRuntime.settleAcceptedPair({ runtimeAssets, snapshot: replaySnapshot, generationType });
+        assert.equal(result.ok, true, JSON.stringify(result));
+        const swipe = replayHarness.getState().storySettlement;
+        assert.equal(swipe.continuityEvents.length, normal.continuityEvents.length, `${acceptance}: ${generationType} must reuse settled continuity`);
+        assert.deepEqual(swipe.continuityEvents, normal.continuityEvents);
+        assert.equal(continuityCalls, 1);
+    }
+    assert.equal(directionCalls, 4, 'direction refreshes for swipe, changed provider, and reload target');
+}
+console.log('Settled continuity replay regressions passed.');
+
+// Exercise coordinator -> runtime -> production interpreter -> strict quote validator.
+const recoveryHarness = createHarness();
+const recoveryInputs = [];
+const recoveryRequests = [];
+const recoveryResults = [];
+const { createMissionAcceptedPairInterpreter } = await import('../../src/mission/v1/accepted-pair-interpreter.mjs');
+const recoveryRouter = {
+    getMaxAttempts: () => 2,
+    generate: async (_role, request) => {
+        recoveryRequests.push(request);
+        const response = interpretedFor(recoveryInputs.at(-1)).interpretation;
+        response.abstained = true;
+        if (recoveryRequests.length === 1) response.peopleEvents[0].evidenceQuote = 'Lieutenant Vale confirms a transfer to Mars.';
+        return { ok: true, response: { text: JSON.stringify(response) } };
+    },
+};
+const productionInterpreter = createMissionAcceptedPairInterpreter({ generationRouter: recoveryRouter });
+const recoveryRuntime = createV1MissionRuntime({
+    getState: recoveryHarness.getState,
+    stateDeltaGateway: recoveryHarness.gateway,
+    generationRouter: recoveryRouter,
+    interpretAcceptedPair: async input => {
+        const { signal, onAttempt, onPhase, ...plain } = input;
+        recoveryInputs.push(structuredClone(plain));
+        const result = await productionInterpreter(input);
+        recoveryResults.push(result);
+        assert.equal(recoveryHarness.persistCount, 0, 'rejected/retried interpretation never commits early');
+        return result;
+    },
+    directStory: async ({ request }) => ({ ok: true, proposal: directorProposalFor(request) }),
+    now: () => '2026-09-13T04:00:00.000Z',
+});
+const recovered = await recoveryRuntime.settleAcceptedPair({ runtimeAssets, snapshot: snapshotFor('range.quote-recovery'), generationType: 'normal' });
+assert.equal(recoveryResults[0].ok, false);
+assert.equal(recoveryResults[0].reasonCode, 'invalid-output');
+assert.equal(recovered.ok, true, JSON.stringify(recovered));
+assert.equal(recoveryInputs.length, 2);
+const [firstInput, secondInput] = recoveryInputs;
+assert.ok(secondInput.validationErrors?.length > 0, 'the second interpreter invocation receives exact-quote rejection diagnostics');
+assert.deepEqual(secondInput.sourcePair, firstInput.sourcePair);
+assert.deepEqual(secondInput.candidatePacket, firstInput.candidatePacket);
+const payload = request => JSON.parse(request.messages[1].content.slice(request.messages[1].content.indexOf('{')));
+const [firstPayload, secondPayload] = recoveryRequests.map(payload);
+assert.deepEqual(secondPayload.sourcePair, firstPayload.sourcePair);
+assert.deepEqual(secondPayload.candidates, firstPayload.candidates);
+assert.ok(secondPayload.validationFeedback.errors.some(error => error.includes('evidenceQuote must occur in its authorized source')));
+assert.match(recoveryRequests[1].systemPrompt, /diagnostics.*not story evidence/i);
+assert.equal(recoveryHarness.persistCount, 1);
+console.log('Production interpreter quote recovery passed.');

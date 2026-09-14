@@ -722,6 +722,7 @@ export function createDirectiveRuntimeApp({
     author: createPeopleDossierAuthor({ generationRouter }),
     stageResult: ({ job, outcome }) => {
       if (activeDossierJob?.job.id === job.id) {
+        activeDossierJob.terminal = true;
         stagedDossiers.set(job.id, { job, outcome, binding: activeDossierJob.binding });
       }
     },
@@ -734,6 +735,7 @@ export function createDirectiveRuntimeApp({
         ...activeDossierJob, outcome: { ok: false, reasonCode: 'dossier-canceled' },
       });
     }
+    if (activeDossierJob) activeDossierJob.terminal = true;
     dossierQueue.clear();
   }
 
@@ -747,6 +749,18 @@ export function createDirectiveRuntimeApp({
     return ['campaignId', 'saveId', 'chatId'].every(key => binding?.[key] === state?.campaignChatBinding?.[key]);
   }
 
+  // Call only inside the settlement queue so terminal outcomes precede retry selection.
+  async function reconcileStagedDossiers() {
+    for (const [id, staged] of stagedDossiers) {
+      if (!sameDossierBinding(staged.binding)) { stagedDossiers.delete(id); continue; }
+      const prepared = prepareDossierEnrichment({ campaignState: state, job: staged.job, outcome: staged.outcome });
+      const proposal = createTurnCommit({ before: state, after: prepared.candidateState,
+        turnKey: `dossier.merge.${id}.${state.stateCustody.revision}` });
+      if (proposal) await gateway.applyProposal(proposal);
+      if (stagedDossiers.get(id) === staged) stagedDossiers.delete(id);
+    }
+  }
+
   function scheduleIdleDossiers() {
     if (dossierDrain || !dossierIdle()) return;
     dossierDrain = (async () => {
@@ -754,14 +768,7 @@ export function createDirectiveRuntimeApp({
         let nextJob = null;
         await enqueueSettlement(async () => {
           if (!dossierIdle()) return;
-          for (const [id, staged] of stagedDossiers) {
-            if (!sameDossierBinding(staged.binding)) { stagedDossiers.delete(id); continue; }
-            const prepared = prepareDossierEnrichment({ campaignState: state, job: staged.job, outcome: staged.outcome });
-            const proposal = createTurnCommit({ before: state, after: prepared.candidateState,
-              turnKey: `dossier.merge.${id}.${state.stateCustody.revision}` });
-            if (proposal) await gateway.applyProposal(proposal);
-            stagedDossiers.delete(id);
-          }
+          await reconcileStagedDossiers();
           if (!dossierIdle()) return;
           const job = (state.storySettlement?.pendingDossiers || []).find(item => item.status === 'pending' && item.attemptCount === 0);
           if (!job) return;
@@ -1781,6 +1788,7 @@ export function createDirectiveRuntimeApp({
     subscribeTurnProgress: (listener) => turnProgress.subscribeTurnProgress(listener),
     resetTurnProgress: () => turnProgress.resetTurnProgress(),
     isCurrentChatBound: () => currentChatIsBound(),
+    getCurrentChatBinding: () => clone(state?.campaignChatBinding || null),
     async initialize() {
       if (initialized) return campaignViewEnvelope('campaign');
       if (initializing) {
@@ -2206,10 +2214,9 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       const result = await enqueueSettlement(async () => {
         if (!state || !currentChatIsBound()) return {ok:false, reasonCode:'inactive-or-unbound'};
-        const activeJobIds = [
-          ...(activeDossierJob?.job?.id ? [activeDossierJob.job.id] : []),
-          ...stagedDossiers.keys(),
-        ];
+        await reconcileStagedDossiers();
+        const activeJobIds = activeDossierJob && !activeDossierJob.terminal
+          ? [activeDossierJob.job.id] : [];
         const prepared = prepareDossierRetries({ campaignState: state, activeJobIds });
         const candidateState = prepared.candidateState;
         const queued = prepared.queuedJobIds.length;

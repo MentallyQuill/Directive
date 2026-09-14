@@ -558,3 +558,11 @@ for (const outcome of ['valid', 'malformed', 'failed', 'thrown']) {
   }
 }
 console.log('V1 accepted-pair interpreter tests passed.');
+
+const feedbackErrors = [null, false, {}, '', ...Array.from({ length: 10 }, (_, n) => `error ${n}: ${'x'.repeat(300)}`)];
+const feedbackPrompt = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, validationErrors: feedbackErrors });
+const feedbackPayload = JSON.parse(feedbackPrompt.messages[1].content.slice(feedbackPrompt.messages[1].content.indexOf('{')));
+assert.deepEqual(feedbackPayload.validationFeedback?.errors, feedbackErrors.filter(error => typeof error === 'string' && error.trim()).slice(0, 8).map(error => error.slice(0, 240)));
+assert.deepEqual(feedbackPayload.sourcePair, JSON.parse(prompt.messages[1].content.slice(prompt.messages[1].content.indexOf('{'))).sourcePair);
+assert.deepEqual(feedbackPayload.candidates, candidatePacket.candidates);
+console.log('Interpreter bounded feedback prompt passed.');

@@ -28,6 +28,12 @@ function cloneJson(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+function boundedValidationErrors(errors) {
+    return (Array.isArray(errors) ? errors : [])
+        .filter(error => typeof error === 'string' && error.trim())
+        .slice(0, 8).map(error => error.slice(0, 240));
+}
+
 function stableHash(value = '') {
     let hash = 0x811c9dc5;
     for (const character of String(value)) {
@@ -400,12 +406,17 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
 
 export function createMissionAcceptedPairInterpretationPrompt({
     candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, limits = {},
+    validationErrors = [],
 } = {}) {
     limits = normalizeAnalysisLimits(limits);
+    const feedbackErrors = boundedValidationErrors(validationErrors);
     const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket, limits });
     const systemPrompt = [
         'Report what the supplied exchange supports. Select only supplied evidence candidates. Observe player intent and participation; do not choose a future plot or manufacture success.',
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
+        ...(feedbackErrors.length ? [
+            'validationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add candidates. Correct these errors using the unchanged sourcePair and closed candidate set; preserve exact quoting and abstain when evidence is insufficient.',
+        ] : []),
         ...(candidatePacket.scenePacing ? [
             'Also observe scene participation in this same call. Use only supplied visible objectives and their authored scenePacing requirements. This observation controls the NEXT response, not permission to certify the previous response retroactively.',
             'A greeting, broad order, information request, or NPC monologue is not completed participation. Cite contiguous exact quotes from BOTH currentPlayer and previousAssistant for each requirement actually engaged. Do not invent agreement or treat narrated player conduct as player participation.',
@@ -465,6 +476,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         people: cloneJson(peopleContext),
         ...(candidatePacket.scenePacing ? {scenePacing:cloneJson(candidatePacket.scenePacing)} : {}),
         candidates: cloneJson(candidatePacket.candidates || []),
+        ...(feedbackErrors.length ? {
+            validationFeedback: { errors: feedbackErrors },
+        } : {}),
     };
     if ([...JSON.stringify(userPayload)].length > limits.requestContextCharacters) {
         throw new TypeError('interpreter-context-overflow');
@@ -615,6 +629,7 @@ export function createMissionAcceptedPairInterpreter({
     return async function interpretMissionAcceptedPair({
         candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, signal = null, limits = null,
         onAttempt = null, onPhase = null,
+        validationErrors = [],
     } = {}) {
         limits = normalizeAnalysisLimits(limits || generationRouter?.getAnalysisLimits?.() || {});
         const effectiveTimeoutMs = generationRouter?.getTimeoutMs?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, timeoutMs) ?? timeoutMs;
@@ -623,7 +638,7 @@ export function createMissionAcceptedPairInterpreter({
         }
         let request;
         try {
-            request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, limits });
+            request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, limits, validationErrors });
         } catch (error) {
             return { ok: false, status: 'rejected', reasonCode: error?.message || 'interpreter-request-invalid', diagnostics: {} };
         }
@@ -675,6 +690,7 @@ export function createMissionAcceptedPairInterpreter({
                 reasonCode: 'invalid-output',
                 diagnostics: {
                     errorCount: parsed.errors.length,
+                    errors: boundedValidationErrors(parsed.errors),
                     providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
                     latencyMs: generation?.diagnostics?.latencyMs ?? null,
                 },

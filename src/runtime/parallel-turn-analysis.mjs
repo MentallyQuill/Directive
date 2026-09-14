@@ -9,7 +9,11 @@ export function createParallelTurnAnalysis({ interpret, direct, continuity, revi
     for (let attempt = 0; attempt < attemptLimit; attempt++) {
       if (signal?.aborted) return;
       try {
-        entry[role] = await task({ request: structuredClone(request), signal });
+        const errors = entry[role]?.diagnostics?.errors;
+        const validationErrors = (Array.isArray(errors) ? errors : [])
+          .filter(error => typeof error === 'string' && error.trim())
+          .slice(0, 8).map(error => error.slice(0, 240));
+        entry[role] = await task({ request: structuredClone(request), signal, validationErrors });
       } catch (error) {
         entry[role] = { ok: false, reasonCode: error?.code || `${role}-failed` };
       }

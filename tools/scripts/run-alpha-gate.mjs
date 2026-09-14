@@ -1,6 +1,12 @@
 import { spawnSync } from 'node:child_process';
 
 const checks = [
+  "test-settings-draft-saves.mjs",
+  "test-information-extractor-evaluation.mjs",
+  "test-continuity-causal-order.mjs",
+  "test-information-acquisition-order.mjs",
+  "test-recovery-ownership.mjs",
+  "test-people-dossier-retry-runtime.mjs",
   "test-model-output-limit-emission.mjs",
   "test-model-output-limit-notification.mjs",
   "test-model-output-limit-browser.mjs",

@@ -3,7 +3,9 @@ import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 import {
     CONTINUITY_EVENT_KIND,
     isContinuityStableId,
+    informationAcquisitionOccurrence,
     requireSourceQuote,
+    sourceQuoteOccurrence,
     validateContinuityChanges,
 } from './continuity-contracts.mjs';
 
@@ -98,24 +100,36 @@ function creationByThread(events) {
         .map((event) => [event.threadId, event]));
 }
 
+function compareOccurrences(left, right) {
+    return left.slot - right.slot || left.start - right.start;
+}
+
 function compareChanges(left, right, sourcePair) {
     const rank = { open: 0, addFact: 1, setStatus: 2 };
     const operationOrder = rank[left.operation] - rank[right.operation];
     if (operationOrder) return operationOrder;
+    if (left.operation === 'setStatus') {
+        const a = sourceQuoteOccurrence(left, sourcePair);
+        const b = sourceQuoteOccurrence(right, sourcePair);
+        const occurrenceOrder = compareOccurrences(a, b);
+        if (occurrenceOrder) return occurrenceOrder;
+    }
     if (left.operation === 'addFact') {
         const leftAccess = left.informationAccess != null;
         const rightAccess = right.informationAccess != null;
         // Keep legacy facts in their own canonical bucket for a transitive order.
         if (leftAccess !== rightAccess) return Number(leftAccess) - Number(rightAccess);
         if (leftAccess) {
-            const slotRank = { previousAssistant: 0, currentPlayer: 1 };
-            const slotOrder = slotRank[left.sourceSlot] - slotRank[right.sourceSlot];
-            if (slotOrder) return slotOrder;
-            const text = normalize(sourcePair?.[left.sourceSlot]?.text);
-            const quoteOrder = text.indexOf(left.evidenceQuote) - text.indexOf(right.evidenceQuote);
-            if (quoteOrder) return quoteOrder;
-            // Repeated equivalent quotes cannot establish separate occasions or
-            // audience membership; extracting an unambiguous receipt is semantic.
+            const a = informationAcquisitionOccurrence(left, sourcePair);
+            const b = informationAcquisitionOccurrence(right, sourcePair);
+            const deliveryOrder = a.slot - b.slot || a.end - b.end;
+            if (deliveryOrder) return deliveryOrder;
+            // A shared receipt can convey several ordered statements together.
+            // Preserve their source sequence without inventing separate receipts.
+            const statementOrder = compareOccurrences(
+                sourceQuoteOccurrence(left, sourcePair), sourceQuoteOccurrence(right, sourcePair),
+            );
+            if (statementOrder) return statementOrder;
         }
     }
     return canonicalJson(left).localeCompare(canonicalJson(right));

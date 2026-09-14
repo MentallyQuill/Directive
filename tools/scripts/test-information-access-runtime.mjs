@@ -47,9 +47,16 @@ const fact = state.storySettlement.continuityEvents.find(e => e.payload?.informa
 assert.deepEqual(fact.payload.informationAccess.recipientIds, [recipientId]);
 assert.equal(fact.payload.claimType, 'character-claim');
 const installed = prompt.calls().filter(call => call.type === 'sync').at(-1).options.packet;
-assert.match(installed.text, /"characterInformation"/);
-assert.match(installed.text, /Sam says two Type-9s/);
-assert.match(installed.text, new RegExp(recipientId));
+const payloadStart = installed.text.lastIndexOf('\n\n{\n');
+assert.ok(payloadStart >= 0, 'the installed prompt includes its structured state payload');
+const payload = JSON.parse(installed.text.slice(payloadStart + 2));
+assert.equal(payload.characterInformation.kind, 'directive.characterInformationProjection.v1');
+const recipient = payload.characterInformation.characters.find(character => character.personId === recipientId);
+assert.ok(recipient, 'the named recipient receives an explicit characterInformation entry');
+assert.deepEqual(recipient.statements.map(statement => ({ id: statement.id, text: statement.text, acquisition: statement.acquisition })), [
+  { id: fact.id, text: fact.payload.text, acquisition: 'heard' },
+]);
+assert.ok(payload.characterInformation.characters.every(character => character.personId === recipientId), 'shared narrator context does not grant other characters access');
 assert.equal(continuityCalls, 1);
 await app.getChatTurnOrchestrator().interceptGeneration({ type: 'normal' });
 assert.equal(continuityCalls, 1, 'unchanged Generate reuses accepted analysis');

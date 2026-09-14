@@ -330,13 +330,13 @@ function appendAnalysisControls(container, configuration, actions) {
         override = settings[item.kind].outputTokenOverride;
         inherited = Math.round(8192 * Number(slider.value));
       }
-      item.control.value = override == null ? '' : String(override);
+      if (!item.dirty) item.control.value = override == null ? '' : String(override);
       item.control.placeholder = `Inherit (${inherited})`;
     }
     const count = controls.filter(item => item.control.value !== '').length;
     hint.textContent = count ? `${count} advanced override${count === 1 ? '' : 's'} active. These values stay fixed when capacity changes.` : 'No advanced overrides.';
   };
-  const performSave = async (kind, patch) => {
+  const performSave = async (kind, patch, draft = null) => {
     feedback.textContent = 'Saving...';
     try {
       const result = await actions.updateProviderSettings?.({ kind, patch });
@@ -353,15 +353,29 @@ function appendAnalysisControls(container, configuration, actions) {
         }
         settings[kind] = next;
       }
+      for (const entry of (Array.isArray(draft) ? draft : draft ? [draft] : [])) {
+        if (entry.item.version === entry.version) entry.item.dirty = false;
+      }
       refresh(); feedback.textContent = 'Saved / applies to the next request';
       return true;
     } catch (error) { feedback.textContent = error?.message || 'Could not save'; return false; }
   };
   let saves = Promise.resolve();
-  const save = (kind, patch) => {
-    const pending = saves.then(() => performSave(kind, patch));
+  const enqueueSave = (task) => {
+    const pending = saves.then(task);
     saves = pending.catch(() => false);
     return pending;
+  };
+  const save = (kind, patch, draft = null) => enqueueSave(() => performSave(kind, patch, draft));
+  const bindOverride = (item, kind, patch) => {
+    item.version = 0;
+    const edit = () => { item.dirty = true; item.version++; };
+    controls.push(item);
+    item.control.addEventListener('input', edit);
+    item.control.addEventListener('change', () => {
+      edit();
+      return save(kind, patch(), { item, version: item.version });
+    });
   };
   slider.addEventListener('input', () => { value.textContent = `${Number(slider.value).toFixed(1)}×`; slider.setAttribute('aria-valuetext', value.textContent); });
   slider.addEventListener('change', () => save('utility', { analysisCapacity: Number(slider.value) }));
@@ -373,8 +387,7 @@ function appendAnalysisControls(container, configuration, actions) {
     const heading = createElement('h4'); heading.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
     const laneGrid = createElement('div', 'settings-field-grid');
     const output = createNumber('', { min: 1, step: 1 }, `${kind}-maxTokens`);
-    controls.push({ control: output, kind });
-    output.addEventListener('change', () => save(kind, { outputTokenOverride: output.value.trim() === '' ? null : Number(output.value) }));
+    bindOverride({ control: output, kind }, kind, () => ({ outputTokenOverride: output.value.trim() === '' ? null : Number(output.value) }));
     laneGrid.appendChild(createField('Output tokens', output));
     advanced.append(heading, laneGrid);
     for (const role of roles.filter(role => role.providerKind === kind)) {
@@ -383,8 +396,7 @@ function appendAnalysisControls(container, configuration, actions) {
       for (const [key, label] of [['maxTokens', 'Output tokens'], ['timeoutSeconds', 'Timeout (seconds)'], ['maxAttempts', 'Attempts']]) {
         if (key === 'maxAttempts' && !['acceptedPairMissionEvidence', 'storyDirector', 'storyDirectionAnalyst', 'continuityAnalyst', 'episodeEvaluator'].includes(role.id)) continue;
         const control = createNumber('', { min: 1, ...(key === 'timeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `${kind}-${role.id}-${key}`);
-        controls.push({ control, kind, role, key });
-        control.addEventListener('change', () => save(kind, { roleLimits: { [role.id]: { [key]: control.value.trim() === '' ? null : Number(control.value) } } }));
+        bindOverride({ control, kind, role, key }, kind, () => ({ roleLimits: { [role.id]: { [key]: control.value.trim() === '' ? null : Number(control.value) } } }));
         grid.appendChild(createField(label, control));
       }
       advanced.append(roleTitle, grid);
@@ -394,13 +406,16 @@ function appendAnalysisControls(container, configuration, actions) {
   const sharedGrid = createElement('div', 'settings-field-grid');
   for (const descriptor of ANALYSIS_LIMIT_DESCRIPTORS) {
     const control = createNumber('', { min: descriptor.min, ...(descriptor.key === 'hostNarrationTimeoutSeconds' ? { max: MAX_TIMER_TIMEOUT_SECONDS } : {}), step: 1 }, `analysis-${descriptor.key}`);
-    controls.push({ control, descriptor });
-    control.addEventListener('change', () => save('utility', { analysisOverrides: { [descriptor.key]: control.value.trim() === '' ? null : Number(control.value) } }));
+    bindOverride({ control, descriptor }, 'utility', () => ({ analysisOverrides: { [descriptor.key]: control.value.trim() === '' ? null : Number(control.value) } }));
     sharedGrid.appendChild(createField(descriptor.label, control));
   }
   const reset = createButton({ label: 'Reset advanced overrides', className: 'settings-command', onClick: async () => {
-    if (!await save('utility', { analysisOverrides: null, outputTokenOverride: null, roleLimits: null })) return;
-    await save('reasoning', { outputTokenOverride: null, roleLimits: null });
+    const drafts = controls.map(item => ({ item, version: item.version }));
+    // Reserve both lanes together so a newer edit cannot slip between resets.
+    await enqueueSave(async () => {
+      if (!await performSave('utility', { analysisOverrides: null, outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind !== 'reasoning'))) return;
+      await performSave('reasoning', { outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind === 'reasoning'));
+    });
   } });
   reset.dataset.settingsAction = 'reset-analysis-overrides';
   advanced.append(sharedTitle, sharedGrid, reset);

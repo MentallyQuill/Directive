@@ -2132,7 +2132,17 @@ export function createV1MissionRuntime({
                     interpreter: 'acceptedPairMissionEvidence', director: focused ? 'storyDirectionAnalyst' : 'storyDirector',
                     continuity: 'continuityAnalyst', episode: 'episodeEvaluator',
                 }[role], focused ? 2 : 1) ?? (focused ? 2 : 1),
-                continuity: focused ? async ({ request, signal: roleSignal }) => runProgress(
+                continuity: focused ? async ({ request, signal: roleSignal }) => captured.pairAlreadySettled ? {
+                    ok: true,
+                    proposal: {
+                        kind: 'directive.continuityAnalystProposal.v1',
+                        envelope: request.envelope,
+                        coverage: 'complete',
+                        threadChanges: [],
+                        lookupRequests: [],
+                    },
+                    diagnostics: { reusedAcceptedPair: true },
+                } : runProgress(
                     'reviewing-continuity',
                     async ({ onAttempt, onPhase }) => {
                         let currentRequest = request;
@@ -2184,7 +2194,7 @@ export function createV1MissionRuntime({
                         return parsed.ok ? { ...result, proposal: parsed.value } : { ok: false, reasonCode: 'episode-review-invalid' };
                     }, progressScope,
                 ) : undefined,
-                interpret: async ({ signal: roleSignal }) => {
+                interpret: async ({ signal: roleSignal, validationErrors }) => {
                     if (captured.pairAlreadySettled) {
                         return {
                             ok: true,
@@ -2200,6 +2210,7 @@ export function createV1MissionRuntime({
                         'reviewing-events',
                         ({ onAttempt, onPhase }) => interpreter({
                             ...captured.interpreterInput,
+                            validationErrors,
                             signal: roleSignal,
                             onAttempt,
                             onPhase,
@@ -2248,6 +2259,11 @@ export function createV1MissionRuntime({
                 direction: analysis.director.proposal.direction,
                 episodeReview: analysis.episode?.proposal || null,
             };
+        }
+        if (analysis.ok && captured.pairAlreadySettled) {
+            // Settled contributions, including legacy pairs without receipts, are
+            // already authoritative. A new direction never backfills their evidence.
+            analysis.director.proposal.threadChanges = [];
         }
         directedAnalysis.lastAnalysis = analysis;
         return { analysis, turnKey };
@@ -2457,7 +2473,7 @@ export function createV1MissionRuntime({
                 ...captured.directorRequest.authoredContext.constraints,
                 ...captured.directorRequest.authoredContext.opportunities,
             ].map(({ id }) => id).filter(Boolean);
-            const continuityEvents = await materializeContinuityChanges({
+            const continuityEvents = captured.pairAlreadySettled ? priorEvents : await materializeContinuityChanges({
                 changes: analysis.director.proposal.threadChanges,
                 sourcePair: captured.directorRequest.pendingPair,
                 assistantAccepted: preparedPair.pair.assistantAccepted,

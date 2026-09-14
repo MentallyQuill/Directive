@@ -4,6 +4,7 @@ import { createPendingDossier } from '../../src/story/continuity-contracts.mjs';
 import { createEmptyStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
 import {
   acceptStoryContribution,
+  invalidateStorySource,
   appendStoryPeopleEvents,
   openStoryEpisode,
   recordPendingDossier,
@@ -186,5 +187,36 @@ assert.deepEqual(await queue.run({ ...activeJob, status: 'failed' }), {
   jobId: activeJob.id,
   reasonCode: 'attempt-unavailable',
 });
+
+const invalidatedState = {
+  storySettlement: invalidateStorySource(attempted.candidateState.storySettlement, {
+    contributionId: sourceContribution.id,
+  }),
+};
+for (const outcome of [staged[0].outcome, {ok:false,reasonCode:'dossier-canceled'}]) {
+  const discarded = prepareDossierEnrichment({ campaignState: invalidatedState, job: activeJob, outcome });
+  assert.equal(discarded.status, 'discarded', 'terminal results cannot revive invalidated introduction sources');
+  assert.deepEqual(discarded.candidateState, invalidatedState);
+  assert.deepEqual(prepareDossierRetries({campaignState: discarded.candidateState}).queuedJobIds, []);
+}
+
+const lateAuthors = [];
+const lateStages = [];
+const lateQueue = createPeopleDossierQueue({
+  author: () => new Promise(resolve => lateAuthors.push(resolve)),
+  stageResult: result => lateStages.push(result),
+});
+const oldFlight = lateQueue.run(activeJob);
+lateQueue.cancel(activeJob.id);
+await oldFlight;
+const replacementFlight = lateQueue.run(activeJob);
+lateAuthors[0]({ok:true,dossiers:[staged[0].outcome.generated]});
+await new Promise(resolve => setImmediate(resolve));
+assert.deepEqual(lateStages, [], 'late canceled author output is never staged');
+assert.equal(lateQueue.run(activeJob), replacementFlight, 'late cleanup cannot remove replacement flight ownership');
+lateAuthors[1]({ok:true,dossiers:[staged[0].outcome.generated]});
+await replacementFlight;
+assert.equal(lateAuthors.length, 2);
+assert.equal(lateStages.length, 1);
 
 console.log('People dossier queue tests passed.');

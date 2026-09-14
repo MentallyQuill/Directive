@@ -75,3 +75,21 @@ const configurable = createParallelTurnAnalysis({
 });
 await configurable.run(args);
 assert.deepEqual(configuredAttempts, { interpreter: 1, director: 4 }, 'role retry settings have no hidden two-attempt ceiling');
+
+const diagnosticInputs = [];
+const diagnosticErrors = [null, 42, {}, '', ...Array.from({ length: 12 }, (_, n) => `${n}: ${'x'.repeat(300)}`)];
+const feedbackAnalysis = createParallelTurnAnalysis({
+  maxAttempts: 2,
+  interpret: async input => {
+    diagnosticInputs.push(structuredClone(input));
+    return diagnosticInputs.length === 1
+      ? { ok: false, reasonCode: 'invalid-output', diagnostics: { errors: diagnosticErrors } }
+      : { ok: true };
+  },
+  direct: async () => ({ ok: true }),
+});
+assert.equal((await feedbackAnalysis.run(args)).ok, true);
+assert.deepEqual(diagnosticInputs[0].validationErrors, []);
+assert.deepEqual(diagnosticInputs[1].validationErrors, diagnosticErrors.filter(item => typeof item === 'string' && item.trim()).slice(0, 8).map(item => item.slice(0, 240)));
+assert.deepEqual(diagnosticInputs[1].request, diagnosticInputs[0].request);
+console.log('Bounded coordinator validation feedback passed.');

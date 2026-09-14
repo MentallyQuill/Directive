@@ -62,24 +62,22 @@ export function isDirectiveOwnedHostGeneration() {
   return Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 0) > 0;
 }
 
-async function withOwnedGeneration(task) {
-  globalThis[OWNED_GENERATION_DEPTH_KEY] = Number(globalThis[OWNED_GENERATION_DEPTH_KEY] || 0) + 1;
+async function withGenerationOwnership(key, task, signal) {
+  assertGenerationActive(signal);
+  globalThis[key] = Number(globalThis[key] || 0) + 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    globalThis[key] = Math.max(0, Number(globalThis[key] || 0) - 1);
+    signal?.removeEventListener('abort', release);
+  };
+  // Ownership ends with cancellation, even if native transport cleanup never settles.
+  signal?.addEventListener('abort', release, { once: true });
   try {
     return await task();
   } finally {
-    globalThis[OWNED_GENERATION_DEPTH_KEY] = Math.max(0, Number(globalThis[OWNED_GENERATION_DEPTH_KEY] || 1) - 1);
-  }
-}
-
-async function withOwnedHostGeneration(task) {
-  globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] = Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 0) + 1;
-  try {
-    return await task();
-  } finally {
-    globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] = Math.max(
-      0,
-      Number(globalThis[OWNED_HOST_GENERATION_DEPTH_KEY] || 1) - 1
-    );
+    release();
   }
 }
 
@@ -165,13 +163,13 @@ export function createSillyTavernGenerationClient({
     }
     const context = contextFactory();
     if (!context) throw providerUnavailable('SillyTavern context is not available for generation.');
-    const raw = await withOwnedHostGeneration(() => callSillyTavernGeneration(
+    const raw = await withGenerationOwnership(OWNED_HOST_GENERATION_DEPTH_KEY, () => callSillyTavernGeneration(
       context,
       options.signal ? { ...request, signal: options.signal } : request,
       {},
       options.onAttempt,
       options.allowVisibleOutputRetry !== false
-    ));
+    ), options.signal || request.signal);
     return {
       providerId: 'sillytavern-current-provider',
       text: normalizeText(raw),
@@ -180,7 +178,7 @@ export function createSillyTavernGenerationClient({
   }
 
   async function generate(roleId, request = {}, options = {}) {
-    return withOwnedGeneration(async () => {
+    return withGenerationOwnership(OWNED_GENERATION_DEPTH_KEY, async () => {
       let physicalAttempt = 0;
       const routedOptions = {
         ...options,
@@ -213,7 +211,7 @@ export function createSillyTavernGenerationClient({
         roleId,
         retriedForVisibleOutput
       };
-    });
+    }, options.signal || request.signal);
   }
 
   async function batch(requests = [], options = {}) {
@@ -232,7 +230,7 @@ export function createSillyTavernGenerationClient({
     id: 'sillytavern-generation-client',
     supportsIndependentBackgroundRequests: typeof providerClient?.generate === 'function',
     async generateNarration(request = {}) {
-      return withOwnedGeneration(async () => {
+      return withGenerationOwnership(OWNED_GENERATION_DEPTH_KEY, async () => {
         const context = contextFactory();
         if (!context) throw providerUnavailable('SillyTavern context is not available for narration.');
         // Main narration uses the selected chat model, never a structured utility/reasoning profile.
@@ -242,11 +240,12 @@ export function createSillyTavernGenerationClient({
           systemPrompt: [request.systemPrompt, ...messages.filter(message => message.role === 'system').map(message => message.content)].filter(Boolean).join('\n\n'),
           prompt: messages.filter(message => message.role !== 'system').map(message => message.content).join('\n\n')
         } : request;
-        const raw = await withOwnedHostGeneration(() => callSillyTavernGeneration(context, nativeRequest));
+        const raw = await withGenerationOwnership(OWNED_HOST_GENERATION_DEPTH_KEY, () => callSillyTavernGeneration(context, nativeRequest), request.signal);
+        assertGenerationActive(request.signal);
         const text = normalizeText(raw);
         if (!text || isReasoningOnly(text)) throw providerUnavailable('The narration model returned no visible opening.');
         return { text, providerId: 'sillytavern-current-provider', roleId: 'narration' };
-      });
+      }, request.signal);
     },
     generate,
     batch,

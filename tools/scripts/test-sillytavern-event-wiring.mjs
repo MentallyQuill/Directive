@@ -345,6 +345,8 @@ let initialRecoveryShown = false;
 let continuedGeneration = null;
 setSillyTavernDirectiveRuntimeBridge({
   app: {
+    isCurrentChatBound: () => true,
+    getCurrentChatBinding: () => ({campaignId:'campaign.retry',saveId:'save.retry',chatId:'chat.retry'}),
     async retryPendingAcceptedPairSettlement() {
       settlementRetryCalls += 1;
       return { ok: true };
@@ -367,10 +369,13 @@ setSillyTavernDirectiveRuntimeBridge({
   },
   directiveHost: {
     chat: {
+      getCurrentChatId: () => 'chat.retry',
       async continueHostGeneration(options) {
         continuedGeneration = options;
         // The production chat adapter calls SillyTavern Generate, which invokes the interceptor again.
-        await directiveGenerationInterceptor([], 8192, () => {}, options.type);
+        const releaseHandoff = options.onGenerationStarting?.();
+        try { await directiveGenerationInterceptor([], 8192, () => {}, options.type); }
+        finally { releaseHandoff?.(); }
         return { ok: true };
       }
     }
@@ -384,7 +389,9 @@ assert(retryButton, 'blocked settlement must expose manual Retry');
 await retryButton.listeners.get('click')[0]({ preventDefault() {} });
 assert.equal(settlementRetryCalls, 2, 'Retry prepares through the same interceptor that native Generate re-enters');
 assert.equal(typeof continuedGeneration.onGenerationFailed, 'function');
-const { onGenerationFailed, signal: continuationSignal, ...continuedOptions } = continuedGeneration;
+const { onGenerationFailed, onGenerationStarting, isActive, signal: continuationSignal, ...continuedOptions } = continuedGeneration;
+assert.equal(typeof onGenerationStarting, 'function', 'native reentry carries Retry operation ownership');
+assert.equal(typeof isActive, 'function', 'native handoff rechecks recovery binding');
 assert.ok(continuationSignal instanceof AbortSignal, 'Retry forwards cancellation through the native generation handoff');
 assert.deepEqual(continuedOptions, {
   reason: 'directive-settlement-retry',
@@ -404,6 +411,8 @@ let replayContinuationCount = 0;
 let replayPreparationCount = 0;
 setSillyTavernDirectiveRuntimeBridge({
   app: {
+    isCurrentChatBound: () => true,
+    getCurrentChatBinding: () => ({campaignId:'campaign.retry',saveId:'save.retry',chatId:'chat.retry'}),
     async retryPendingAcceptedPairSettlement() {
       return replayRetryPending;
     }
@@ -424,6 +433,7 @@ setSillyTavernDirectiveRuntimeBridge({
   },
   directiveHost: {
     chat: {
+      getCurrentChatId: () => 'chat.retry',
       async continueHostGeneration() {
         replayContinuationCount += 1;
         return { ok: true };
