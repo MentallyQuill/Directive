@@ -153,7 +153,7 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
             introductionSummary: compact(introduction.introductionSummary).slice(0, limits.dossierIntroductionSummaryCharacters),
         })),
     };
-    return {
+    const request = {
         kind: 'directive.peopleDossierBatchRequest.v1',
         systemPrompt,
         prompt: `${systemPrompt}\n\nAuthor this public dossier batch:\n${JSON.stringify(payload, null, 2)}`,
@@ -183,6 +183,13 @@ export function createPeopleDossierRequest({ introductions = [], campaignContext
         },
         parameters: { temperature: 0.35, top_p: 0.9, max_tokens: Math.max(1200, introductions.length * 700) },
     };
+    // Prompt-JSON transports do not send jsonSchema as an API constraint.
+    // Keep their actual model context identical to the native-schema contract.
+    const completeSystemPrompt = `${systemPrompt}\n\nOutput JSON schema:\n${JSON.stringify(request.jsonSchema)}`;
+    request.systemPrompt = completeSystemPrompt;
+    request.messages[0].content = completeSystemPrompt;
+    request.prompt = `${completeSystemPrompt}\n\n${request.messages[1].content}`;
+    return request;
 }
 
 export function createPeopleDossierAuthor({ generationRouter = null, timeoutMs = 30000 } = {}) {

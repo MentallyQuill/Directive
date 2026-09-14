@@ -70,9 +70,12 @@ const reloaded=createDirectiveRuntimeApp({host,packageLoader:async()=>loadAshesR
 await reloaded.initialize();
 const retry=await reloaded.retryPendingPeopleDossiers();
 assert.deepEqual(retry,{ok:true,queued:1},'explicit retry recovers one persisted orphaned in-flight job');
+assert.equal(await Promise.race([
+  enrichmentRequested.then(()=>true),
+  new Promise(resolve=>setTimeout(()=>resolve(false),2000)),
+]),true,'passive reload releases its dossier pause so explicit retry starts before any later GenerationEnded');
 host.chat.pushAssistantMessage({text:'Vale agrees to prioritize the medical transfer.',metadata:{promptingPlayerHostMessageId:third.hostMessageId}});
 await reloaded.handleHostGenerationEnded();
-await enrichmentRequested;
 const enrichmentDeadline=Date.now()+2000;
 while(Date.now()<enrichmentDeadline){
   state=(await reloaded.getCurrentView({tabId:'people'})).campaignState;

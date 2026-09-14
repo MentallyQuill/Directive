@@ -63,6 +63,13 @@ assert.equal(result.ok, true, JSON.stringify(result));
 assert.equal(calls.length, 1);
 assert.equal(calls[0].roleId, 'peopleDossierAuthor');
 assert.equal(calls[0].request.jsonSchema.additionalProperties, false);
+assert.deepEqual(
+    JSON.parse(calls[0].request.systemPrompt.split('Output JSON schema:\n')[1]),
+    calls[0].request.jsonSchema,
+    'prompt-JSON transports receive the exact declared dossier schema',
+);
+assert.equal(calls[0].request.messages[0].content, calls[0].request.systemPrompt);
+assert.ok(calls[0].request.prompt.includes(calls[0].request.systemPrompt));
 assert.match(calls[0].request.systemPrompt, /public/i);
 assert.match(calls[0].request.systemPrompt, /secrets|private motives/i);
 assert.deepEqual(result.dossiers, output.dossiers);

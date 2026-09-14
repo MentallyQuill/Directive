@@ -67,8 +67,27 @@ assert.deepEqual(await app.retryPendingPeopleDossiers(), {ok:true,queued:0},
   'a genuinely running biography is not duplicated');
 await app.handleHostGenerationStopped();
 if (drain) await new Promise(resolve => setImmediate(resolve));
+let releaseChatRead;
+let chatReadStarted;
+const chatReadGate = new Promise(resolve => { releaseChatRead = resolve; });
+const chatRead = new Promise(resolve => { chatReadStarted = resolve; });
+const originalGetBindingMetadata = host.chat.getBindingMetadata;
+host.chat.getBindingMetadata = async (...args) => {
+  chatReadStarted();
+  await chatReadGate;
+  return originalGetBindingMetadata.apply(host.chat, args);
+};
+const chatChange = app.handleHostChatChanged();
+await chatRead;
+app.handleHostGenerationStarted({type:'normal'});
+releaseChatRead();
+await chatChange;
+host.chat.getBindingMetadata = originalGetBindingMetadata;
 const retry = await app.retryPendingPeopleDossiers();
 assert.deepEqual(retry, {ok:true,queued:1}, 'the first explicit Retry includes the staged canceled outcome');
+await new Promise(resolve=>setTimeout(resolve,20));
+assert.equal(authorCalls,1,'older chat reconciliation cannot release a newer native generation pause');
+await app.handleHostGenerationEnded();
 const deadline=Date.now()+2000;
 while(Date.now()<deadline){
   state=(await app.getCurrentView({tabId:'people'})).campaignState;

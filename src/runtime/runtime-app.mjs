@@ -745,6 +745,7 @@ export function createDirectiveRuntimeApp({
   let activeAnalysisController = null;
   let activeAnalysisFingerprint = null;
   let nativeNarrationActive = false;
+  let dossierPauseSequence = 0;
   let dossierDrain = null;
   let activeDossierJob = null;
   const stagedDossiers = new Map();
@@ -759,6 +760,7 @@ export function createDirectiveRuntimeApp({
   });
 
   function pauseDossiers() {
+    const pauseId = ++dossierPauseSequence;
     nativeNarrationActive = true;
     if (activeDossierJob && !stagedDossiers.has(activeDossierJob.job.id)) {
       stagedDossiers.set(activeDossierJob.job.id, {
@@ -767,6 +769,22 @@ export function createDirectiveRuntimeApp({
     }
     if (activeDossierJob) activeDossierJob.terminal = true;
     dossierQueue.clear();
+    return pauseId;
+  }
+
+  function releaseDossierPause(pauseId) {
+    if (pauseId !== dossierPauseSequence || internalChatOpenDepth > 0) return false;
+    nativeNarrationActive = false;
+    scheduleIdleDossiers();
+    return true;
+  }
+
+  async function releaseDossierPauseAfter(pauseId, task) {
+    try {
+      return await task();
+    } finally {
+      releaseDossierPause(pauseId);
+    }
   }
 
   function dossierIdle() {
@@ -1928,6 +1946,7 @@ export function createDirectiveRuntimeApp({
       const generationType = compact(type) || 'normal';
       const manualRecoveryEligible = automaticTrigger !== true
         && !['quiet', 'impersonate'].includes(generationType);
+      pauseDossiers();
       activeHostGenerationGesture = {
         id: ++hostGenerationGestureSequence,
         manualRecoveryEligible,
@@ -2395,7 +2414,7 @@ export function createDirectiveRuntimeApp({
 
     async handleHostChatChanged(payload = {}) {
       activeHostGenerationGesture = null;
-      pauseDossiers();
+      const dossierPauseId = pauseDossiers();
       activeAnalysisController?.abort();
       if (internalChatOpenDepth > 0) {
         deferredInternalChatChange = clone(payload || {});
@@ -2408,6 +2427,7 @@ export function createDirectiveRuntimeApp({
           deferred: true
         };
       }
+      return releaseDossierPauseAfter(dossierPauseId, async () => {
       turnProgress.resetTurnProgress();
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
@@ -2483,6 +2503,7 @@ export function createDirectiveRuntimeApp({
       else await syncPrompt({ progressScope });
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
       }, { campaignLease: false });
+      });
     },
 
     async handleHostGenerationStopped() {
