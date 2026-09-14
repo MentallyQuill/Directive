@@ -48,11 +48,14 @@ const profileCalls = [];
 const profileService = {
   getSupportedProfiles: () => profiles,
   getProfile: (id) => profiles.find((profile) => profile.id === id) || null,
-  validateProfile: (profile) => ({ selected: profile?.api, source: 'nanogpt', type: 'llamacpp' }),
+  validateProfile: (profile) => ({ selected: profile?.api, source: profile?.source || 'nanogpt', type: 'llamacpp' }),
   async sendRequest(profileId, messages, maxTokens, options, payload) {
     profileCalls.push({ profileId, messages, maxTokens, options, payload });
-    if (payload?.json_schema) return { content: { ok: true }, reasoning: '' };
-    return { content: 'profile-visible-answer', reasoning: '' };
+    if (payload?.json_schema) {
+      return { choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }] };
+    }
+    if (profileId === 'text.local') return [{ content: 'profile-visible-answer' }];
+    return { choices: [{ message: { content: 'profile-visible-answer' }, finish_reason: 'stop' }] };
   }
 };
 const profileContext = {
@@ -145,6 +148,141 @@ const retryProfileResult = await retryProfileClient.generate('acceptedPairMissio
 assert.equal(retryProfileResult.text, 'visible retry result');
 assert.deepEqual(providerAttemptNumbers, [1, 2], 'provider retries report only transport attempts that start');
 
+const tokenLimitRawResponse = {
+  id: 'chatcmpl-live-boundary-fixture',
+  choices: [{
+    index: 0,
+    finish_reason: 'length',
+    message: {
+      role: 'assistant',
+      content: '',
+      reasoning: 'private reasoning exhausted the response budget'
+    }
+  }],
+  usage: {
+    prompt_tokens: 4692,
+    completion_tokens: 8192,
+    total_tokens: 12884
+  }
+};
+
+const nativeResponseToolsLoader = async () => ({
+  extractMessageFromData(data, mainApi) {
+    if (mainApi === 'textgenerationwebui') {
+      return data?.choices?.[0]?.text ?? data?.choices?.[0]?.message?.content ?? data?.content ?? data?.response ?? data?.[0]?.content ?? '';
+    }
+    return data?.content?.filter?.((part) => part.type === 'text').map((part) => part.text).join('\n\n')
+      ?? data?.choices?.[0]?.message?.content
+      ?? data?.choices?.[0]?.text
+      ?? '';
+  },
+  extractJsonFromData(data, { chatCompletionSource } = {}) {
+    if (chatCompletionSource === 'claude') {
+      return JSON.stringify(data?.content?.find((part) => part.type === 'tool_use')?.input ?? {});
+    }
+    return JSON.stringify(JSON.parse(this.extractMessageFromData(data, 'openai')));
+  },
+  extractReasoningFromData(data) {
+    return data?.choices?.[0]?.message?.reasoning ?? '';
+  },
+  getInstructStoppingSequences({ customInstruct } = {}) {
+    return [customInstruct?.stop_sequence, customInstruct?.input_sequence].filter(Boolean);
+  }
+});
+const tokenLimitCalls = [];
+const tokenLimitContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    async sendRequest(_profileId, _messages, _maxTokens, options) {
+      tokenLimitCalls.push(options);
+      return options.extractData === false
+        ? tokenLimitRawResponse
+        : {
+            content: tokenLimitRawResponse.choices[0].message.content,
+            reasoning: tokenLimitRawResponse.choices[0].message.reasoning
+          };
+    }
+  }
+};
+const tokenLimitStore = createSillyTavernProviderSettingsStore({ context: tokenLimitContext });
+tokenLimitStore.update('reasoning', {
+  provider: 'profile',
+  profileId: 'chat.local',
+  structuredOutputMode: 'prompt-json',
+  maxTokens: 8192
+});
+const tokenLimitClient = createDirectiveProviderClient({
+  contextFactory: () => tokenLimitContext,
+  settingsStore: tokenLimitStore
+});
+await assert.rejects(
+  tokenLimitClient.generate('continuityAnalyst', { prompt: 'Return bounded continuity JSON.' }),
+  (error) => {
+    assert.equal(error.code, 'provider_token_limit');
+    assert.equal(error.details.finishReason, 'length');
+    assert.equal(error.details.maxTokens, 8192);
+    return true;
+  }
+);
+assert.equal(tokenLimitCalls.length, 1, 'confirmed token-limit finishes do not trigger visible-output retry');
+
+const claudeProfile = {
+  id: 'chat.claude',
+  name: 'Claude Chat',
+  model: 'claude-sonnet',
+  api: 'openai',
+  source: 'claude',
+  preset: 'Local Chat Preset'
+};
+const claudeContext = {
+  ...profileContext,
+  extensionSettings: {},
+  ConnectionManagerRequestService: {
+    ...profileService,
+    getSupportedProfiles: () => [claudeProfile],
+    getProfile: (id) => id === claudeProfile.id ? claudeProfile : null,
+    validateProfile: () => ({ selected: 'openai', source: 'claude' }),
+    async sendRequest(_profileId, _messages, _maxTokens, _options, payload) {
+      if (!payload?.json_schema) {
+        return { choices: [{ message: { content: 'DIRECTIVE_PROVIDER_OK' }, finish_reason: 'stop' }] };
+      }
+      return {
+        content: [{
+          type: 'tool_use',
+          name: payload.json_schema.name,
+          input: { ok: true }
+        }],
+        stop_reason: 'tool_use'
+      };
+    }
+  }
+};
+const claudeStore = createSillyTavernProviderSettingsStore({ context: claudeContext });
+claudeStore.update('utility', {
+  provider: 'profile',
+  profileId: claudeProfile.id,
+  structuredOutputMode: 'auto'
+});
+const claudeClient = createDirectiveProviderClient({
+  contextFactory: () => claudeContext,
+  settingsStore: claudeStore,
+  nativeResponseToolsLoader
+});
+const claudeTest = await claudeClient.test('utility');
+assert.equal(claudeTest.capabilities.structuredOutput, 'native-schema');
+const claudeNativeResult = await claudeClient.generate('acceptedPairMissionEvidence', {
+  messages: [{ role: 'user', content: 'Use the forced schema tool.' }],
+  jsonSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ok'],
+    properties: { ok: { type: 'boolean' } }
+  }
+});
+assert.equal(claudeNativeResult.text, '{"ok":true}', 'Claude tool_use input survives raw metadata capture');
+
 assert.deepEqual(profileClient.status('utility'), {
   kind: 'utility',
   provider: 'profile',
@@ -184,7 +322,7 @@ assert.deepEqual(profileCalls[0], {
   maxTokens: 600,
   options: {
     stream: false,
-    extractData: true,
+    extractData: false,
     includePreset: false,
     includeInstruct: false,
     signal: profileCalls[0].options.signal
@@ -204,7 +342,7 @@ assert.deepEqual(profileCalls[1], {
   maxTokens: 700,
   options: {
     stream: false,
-    extractData: true,
+    extractData: false,
     includePreset: true,
     includeInstruct: true,
     signal: profileCalls[1].options.signal
@@ -344,7 +482,7 @@ assert.deepEqual(currentCalls[0], {
     max_tokens: 640
   },
   options: { presetName: 'Current Preset' },
-  extractData: true,
+  extractData: false,
   signal: currentCalls[0].signal
 });
 
@@ -356,13 +494,24 @@ const currentTextContext = {
   textCompletionSettings: { type: 'llamacpp', preset_settings: 'Text Preset' },
   power_user: { instruct: { preset: 'Alpaca' } },
   getPresetManager: (type) => ({
-    getCompletionPresetByName: (name) => ({ type, name, temperature: 0.55 })
+    getCompletionPresetByName: (name) => type === 'instruct'
+      ? {
+          name,
+          stop_sequence: '<STOP>',
+          input_sequence: '<USER>',
+          output_sequence: '<ASSISTANT>',
+          first_output_sequence: '<FIRST>',
+          last_output_sequence: '<LAST>'
+        }
+      : { type, name, temperature: 0.55 }
   }),
   TextCompletionService: {
     TYPE: 'textgenerationwebui',
     async processRequest(requestData, options, extractData, signal) {
       currentTextCalls.push({ requestData, options, extractData, signal });
-      return { content: 'current-text-visible-answer', reasoning: '' };
+      return currentTextCalls.length === 1
+        ? [{ content: '<ASSISTANT>{"ok":true}<LAST><USER>following user turn' }]
+        : [{ content: '{"ok":true}<ST' }];
     },
     async presetToGeneratePayload(_preset, _overrides, basePayload) {
       return { ...basePayload, temperature: 0.55, top_p: 0.92 };
@@ -380,13 +529,14 @@ currentTextStore.update('utility', {
 });
 const currentTextClient = createDirectiveProviderClient({
   contextFactory: () => currentTextContext,
-  settingsStore: currentTextStore
+  settingsStore: currentTextStore,
+  nativeResponseToolsLoader
 });
 const currentTextResult = await currentTextClient.generate('acceptedPairMissionEvidence', {
   messages: [{ role: 'user', content: 'Use native text completion.' }],
   maxTokens: 500
 });
-assert.equal(currentTextResult.text, 'current-text-visible-answer');
+assert.equal(currentTextResult.text, '{"ok":true}', 'llama.cpp arrays retain native instruct-marker cleanup');
 assert.deepEqual(currentTextCalls[0], {
   requestData: {
     stream: false,
@@ -396,9 +546,156 @@ assert.deepEqual(currentTextCalls[0], {
     api_type: 'llamacpp'
   },
   options: { presetName: 'Text Preset', instructName: 'Alpaca' },
-  extractData: true,
+  extractData: false,
   signal: currentTextCalls[0].signal
 });
+const currentTextPartialStop = await currentTextClient.generate('acceptedPairMissionEvidence', {
+  messages: [{ role: 'user', content: 'Trim a partial trailing stop string.' }],
+  maxTokens: 500
+});
+assert.equal(currentTextPartialStop.text, '{"ok":true}', 'partial trailing stop strings stay removed');
+
+const noInstructContext = {
+  ...currentTextContext,
+  extensionSettings: {},
+  power_user: {},
+  TextCompletionService: {
+    ...currentTextContext.TextCompletionService,
+    async processRequest() {
+      return [{ content: 'keep output GLOBAL_' }];
+    }
+  }
+};
+const noInstructStore = createSillyTavernProviderSettingsStore({ context: noInstructContext });
+noInstructStore.update('utility', {
+  provider: 'st',
+  presetMode: 'full-profile',
+  instructMode: 'off',
+  samplerMode: 'profile',
+  structuredOutputMode: 'prompt-json',
+  maxTokens: 550
+});
+const noInstructClient = createDirectiveProviderClient({
+  contextFactory: () => noInstructContext,
+  settingsStore: noInstructStore,
+  nativeResponseToolsLoader: async () => ({
+    ...(await nativeResponseToolsLoader()),
+    getInstructStoppingSequences: ({ customInstruct } = {}) => customInstruct ? ['<STOP>'] : ['GLOBAL_STOP']
+  })
+});
+const noInstructResult = await noInstructClient.generate('acceptedPairMissionEvidence', {
+  messages: [{ role: 'user', content: 'Do not apply global instruct cleanup.' }]
+});
+assert.equal(noInstructResult.text, 'keep output GLOBAL_', 'disabled instruct never inherits global stop strings');
+
+const presetStopContext = {
+  ...noInstructContext,
+  extensionSettings: {},
+  getPresetManager: (type) => ({
+    getCompletionPresetByName: () => type === 'textgenerationwebui'
+      ? { stopping_strings: ['<END>'] }
+      : null
+  }),
+  TextCompletionService: {
+    ...noInstructContext.TextCompletionService,
+    async processRequest() {
+      return [{ content: 'keep preset output<EN' }];
+    },
+    async presetToGeneratePayload(preset, _overrides, basePayload) {
+      return { ...basePayload, stopping_strings: preset.stopping_strings };
+    }
+  }
+};
+const presetStopStore = createSillyTavernProviderSettingsStore({ context: presetStopContext });
+presetStopStore.update('utility', {
+  provider: 'st',
+  presetMode: 'full-profile',
+  instructMode: 'off',
+  samplerMode: 'profile',
+  structuredOutputMode: 'prompt-json',
+  maxTokens: 550
+});
+const presetStopClient = createDirectiveProviderClient({
+  contextFactory: () => presetStopContext,
+  settingsStore: presetStopStore,
+  nativeResponseToolsLoader
+});
+const presetStopResult = await presetStopClient.generate('acceptedPairMissionEvidence', {
+  messages: [{ role: 'user', content: 'Apply the profile stopping strings.' }]
+});
+assert.equal(presetStopResult.text, 'keep preset output', 'full-profile text stopping strings retain native cleanup');
+
+const textLengthContext = {
+  ...noInstructContext,
+  extensionSettings: {},
+  TextCompletionService: {
+    ...noInstructContext.TextCompletionService,
+    async processRequest() {
+      return [{ content: '', finish_reason: 'length' }];
+    }
+  }
+};
+const textLengthStore = createSillyTavernProviderSettingsStore({ context: textLengthContext });
+textLengthStore.update('utility', {
+  provider: 'st',
+  presetMode: 'none',
+  instructMode: 'off',
+  samplerMode: 'directive',
+  structuredOutputMode: 'prompt-json',
+  maxTokens: 550
+});
+const textLengthClient = createDirectiveProviderClient({
+  contextFactory: () => textLengthContext,
+  settingsStore: textLengthStore,
+  nativeResponseToolsLoader
+});
+await assert.rejects(
+  textLengthClient.generate('acceptedPairMissionEvidence', {
+    messages: [{ role: 'user', content: 'Return bounded text JSON.' }]
+  }),
+  (error) => {
+    assert.equal(error.code, 'provider_token_limit');
+    assert.equal(error.details.finishReason, 'length');
+    return true;
+  }
+);
+
+const sourceRaceContext = {
+  extensionSettings: {},
+  mainApi: 'openai',
+  chatCompletionSettings: { chat_completion_source: 'claude' },
+  getChatCompletionModel: () => 'claude-sonnet',
+  ChatCompletionService: {
+    async processRequest() {
+      sourceRaceContext.chatCompletionSettings.chat_completion_source = 'nanogpt';
+      return { content: [{ type: 'thinking', thinking: 'private Claude reasoning' }], stop_reason: 'end_turn' };
+    }
+  }
+};
+const sourceRaceStore = createSillyTavernProviderSettingsStore({ context: sourceRaceContext });
+sourceRaceStore.update('utility', {
+  provider: 'st',
+  presetMode: 'none',
+  instructMode: 'off',
+  samplerMode: 'directive',
+  structuredOutputMode: 'prompt-json'
+});
+const sourceRaceClient = createDirectiveProviderClient({
+  contextFactory: () => sourceRaceContext,
+  settingsStore: sourceRaceStore,
+  nativeResponseToolsLoader: async () => ({
+    ...(await nativeResponseToolsLoader()),
+    extractReasoningFromData: (data, { chatCompletionSource } = {}) => chatCompletionSource === 'claude'
+      ? data?.content?.filter((part) => part.type === 'thinking').map((part) => part.thinking).join('\n\n') || ''
+      : ''
+  })
+});
+await assert.rejects(
+  sourceRaceClient.generate('acceptedPairMissionEvidence', { prompt: 'Preserve the sent source.' }, {
+    allowVisibleOutputRetry: false
+  }),
+  (error) => error.code === 'provider_reasoning_only'
+);
 
 const policyIncompleteContext = {
   extensionSettings: {},

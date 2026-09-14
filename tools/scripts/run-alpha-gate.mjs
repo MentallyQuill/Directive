@@ -60,6 +60,7 @@ const checks = [
   "test-objective-progress-action.mjs",
   "test-objective-progress-app.mjs",
   "test-objective-progress-app-race.mjs",
+  "test-objective-progress-app-recovery.mjs",
   "test-objective-progress-semantic.mjs",
   "test-objective-progress-notifications.mjs",
   "test-objective-progress-ui.mjs",

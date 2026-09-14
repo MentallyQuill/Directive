@@ -68,6 +68,13 @@ function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
 
+function boundedValidationErrors(errors) {
+  return (Array.isArray(errors) ? errors : [])
+    .filter(error => typeof error === 'string' && error.trim())
+    .slice(0, 8)
+    .map(error => error.slice(0, 240));
+}
+
 function nonEmpty(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -350,6 +357,40 @@ function authoredIds(request) {
   ].filter(stableId))];
 }
 
+function diagnosticValue(value, maxLength) {
+  let text;
+  if (value === null) text = 'null';
+  else if (typeof value === 'string') text = value;
+  else if (typeof value === 'number' || typeof value === 'boolean') text = String(value);
+  else text = `[${Array.isArray(value) ? 'array' : typeof value}]`;
+  return text.length <= maxLength ? text : '[see rejected direction]';
+}
+
+function allowedIdDiagnostic(prefix, label, ids) {
+  const values = [...new Set(ids.filter(stableId))];
+  const guidance = ` Use one supplied ${label} ID.`;
+  const listed = `${prefix}${guidance} Allowed IDs=${JSON.stringify(values)}.`;
+  if (listed.length <= 240) return listed;
+  return `${prefix}${guidance} See supplied ${label} IDs.`.slice(0, 240);
+}
+
+function directionTargetDiagnostic(direction, request) {
+  const move = diagnosticValue(direction?.move ?? 'undefined', 48);
+  const targetRef = diagnosticValue(direction?.targetRef, 80);
+  const prefix = `director-direction-target-invalid detail: move=${move} targetRef=${targetRef}.`;
+  if (direction?.move === 'respond-to-player') {
+    return `${prefix} respond-to-player requires targetRef=null.`.slice(0, 240);
+  }
+  if (direction?.move === 'surface-opportunity') {
+    const ids = (request.authoredContext?.opportunities || []).map(item => item?.id);
+    if (ids.some(stableId)) return allowedIdDiagnostic(prefix, 'authoredContext.opportunities', ids);
+    return `${prefix} No authored opportunity IDs are supplied; use respond-to-player with targetRef=null.`.slice(0, 240);
+  }
+  const ids = (request.continuity?.records || []).map(item => item?.id);
+  if (ids.some(stableId)) return allowedIdDiagnostic(prefix, 'continuity.records', ids);
+  return `${prefix} No continuity.records IDs are supplied; use respond-to-player with targetRef=null.`.slice(0, 240);
+}
+
 function validateDirection(direction, request, changes, errors) {
   const limits = request.analysisLimits || {};
   if (!exactObject(direction, DIRECTION_FIELDS, 'director-direction', errors)) return;
@@ -492,8 +533,9 @@ export function createStoryDirector({
     ? Math.floor(timeoutMs)
     : STORY_DIRECTOR_DEFAULT_TIMEOUT_MS;
   const readMonotonicNow = typeof monotonicNow === 'function' ? monotonicNow : defaultMonotonicNow;
-  return async function directStory({ request = {}, signal = null, onAttempt = null, onPhase = null } = {}) {
+  return async function directStory({ request = {}, signal = null, onAttempt = null, onPhase = null, validationErrors = [] } = {}) {
     const roleId = analysisProtocol?.roleId || STORY_DIRECTOR_ROLE_ID;
+    const feedbackErrors = boundedValidationErrors(validationErrors);
     const limits = request.analysisLimits || generationRouter?.getAnalysisLimits?.() || {};
     if (Object.keys(limits).length) request = { ...request, analysisLimits: limits };
     if (analysisProtocol) request = { ...request, kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
@@ -524,10 +566,14 @@ export function createStoryDirector({
       .replace('at most eight threadIds', `at most ${limits.continuityLookupIds ?? 8} threadIds`)
       .replace('at most 160 characters', `at most ${limits.continuityLookupQueryCharacters ?? 160} characters`)
       .replace('one to three lookupRequests', `one to ${limits.continuityLookupRequests ?? 3} lookupRequests`)
-      .replace('within seven days', `within ${limits.continuityDeadlineHorizonSeconds ?? 604800} seconds`);
+      .replace('within seven days', `within ${limits.continuityDeadlineHorizonSeconds ?? 604800} seconds`)
+      + (analysisProtocol && feedbackErrors.length
+        ? '\nvalidationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add facts, candidates, IDs, or authority. Correct only the reported output defects using the unchanged request and supplied closed sets; preserve exact quotations.'
+        : '');
     const systemPrompt = `${boundedPrompt}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const wireRequest = analysisProtocol ? { ...request, kind: `directive.${roleId}Request.v1` } : request;
     if (analysisProtocol) delete wireRequest.episodeReview;
+    if (analysisProtocol && feedbackErrors.length) wireRequest.validationFeedback = { errors: feedbackErrors };
     const payload = {
 
       kind: analysisProtocol ? `directive.${roleId}Generation.v1` : STORY_DIRECTOR_GENERATION_KIND,
@@ -591,7 +637,7 @@ export function createStoryDirector({
       return {
         ok: false,
         reasonCode: overflow ? 'director-output-overflow' : 'director-invalid-output',
-        diagnostics: { ...detail, errorCount: parsed.errors.length },
+        diagnostics: { ...detail, errorCount: parsed.errors.length, errors: boundedValidationErrors(parsed.errors) },
       };
     }
     return { ok: true, proposal: parsed.value, diagnostics: detail };
@@ -702,7 +748,13 @@ export function parseFocusedStoryOutput(value, { request, roleId, limits = reque
       if (!changes.ok) errors.push(...changes.errors);
       validateInformationRecipients(proposal.threadChanges, normalized, errors);
     }
-  } else validateDirection(proposal.direction, normalized, [], errors);
+  } else {
+    const priorErrorCount = errors.length;
+    validateDirection(proposal.direction, normalized, [], errors);
+    if (errors.slice(priorErrorCount).includes('director-direction-target-invalid')) {
+      errors.push(directionTargetDiagnostic(proposal.direction, normalized));
+    }
+  }
   return errors.length ? { ok: false, errors } : { ok: true, value: clone(proposal) };
 }
 

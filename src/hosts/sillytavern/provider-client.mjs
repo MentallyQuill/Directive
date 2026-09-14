@@ -7,7 +7,11 @@ import {
 } from '../../providers/generation-policy.mjs';
 import {
   PROVIDER_RESPONSE_ERROR_CODES,
-  assertProviderResponseText
+  assertProviderResponseText,
+  collectProviderResponseFinishReasons,
+  extractProviderResponseReasoning,
+  extractProviderResponseText,
+  isProviderResponseTokenLimitFinishReason
 } from '../../providers/provider-response-normalizer.mjs';
 import { projectSillyTavernSamplerPayload } from './profile-samplers.mjs';
 
@@ -289,10 +293,159 @@ function schemaContract(request = {}) {
   return { name, value: schema, strict: true };
 }
 
-function normalizeSillyTavernResponse(response) {
-  const content = response?.content;
-  if (!content || typeof content !== 'object' || Array.isArray(content)) return response;
-  try { return { ...response, content: JSON.stringify(content) }; } catch { return response; }
+let defaultNativeResponseToolsPromise = null;
+
+async function loadDefaultNativeResponseTools() {
+  if (typeof window === 'undefined') return {};
+  if (!defaultNativeResponseToolsPromise) {
+    defaultNativeResponseToolsPromise = Promise.all([
+      import('/script.js'),
+      import('/scripts/reasoning.js'),
+      import('/scripts/instruct-mode.js')
+    ]).then(([script, reasoning, instruct]) => ({
+      extractMessageFromData: script.extractMessageFromData,
+      extractJsonFromData: script.extractJsonFromData,
+      extractReasoningFromData: reasoning.extractReasoningFromData,
+      getInstructStoppingSequences: instruct.getInstructStoppingSequences
+    })).catch(() => ({}));
+  }
+  return defaultNativeResponseToolsPromise;
+}
+
+function stringifyContent(content) {
+  if (!content || typeof content !== 'object') return String(content ?? '');
+  try { return JSON.stringify(content); } catch { return ''; }
+}
+
+function fallbackNativeMessage(response, completionMode) {
+  const candidate = Array.isArray(response) ? response[0] : response;
+  if (completionMode === 'chat' && Array.isArray(response?.content)) {
+    return response.content.filter((part) => part?.type === 'text').map((part) => part.text || '').join('\n\n');
+  }
+  return extractProviderResponseText(candidate);
+}
+
+function fallbackNativeJson(response, chatCompletionSource, schema) {
+  if (chatCompletionSource === 'claude') {
+    const tools = Array.isArray(response?.content)
+      ? response.content.filter((part) => part?.type === 'tool_use')
+      : [];
+    const selected = tools.find((part) => part.name === schema?.name) || tools[0];
+    return stringifyContent(selected?.input ?? {});
+  }
+  const text = fallbackNativeMessage(response, 'chat');
+  try { return JSON.stringify(JSON.parse(text)); } catch { return '{}'; }
+}
+
+function fallbackStoppingStrings(instruct = null) {
+  if (!instruct || typeof instruct !== 'object') return [];
+  const values = [instruct.stop_sequence];
+  if (instruct.sequences_as_stop_strings) {
+    values.push(
+      instruct.input_sequence,
+      instruct.output_sequence,
+      instruct.first_output_sequence,
+      instruct.last_output_sequence,
+      instruct.system_sequence,
+      instruct.last_system_sequence
+    );
+  }
+  return values.flatMap((value) => String(value || '').split('\n')).filter((value) => value.trim());
+}
+
+function stringList(value) {
+  if (Array.isArray(value)) return value.map((entry) => String(entry || '')).filter(Boolean);
+  return typeof value === 'string' && value ? [value] : [];
+}
+
+async function materializeTextPresetStoppingStrings(context, preset, textCompletionType) {
+  if (!preset || typeof context?.TextCompletionService?.presetToGeneratePayload !== 'function') return [];
+  const payload = await context.TextCompletionService.presetToGeneratePayload(preset, {}, {
+    stream: false,
+    prompt: '',
+    max_tokens: 1,
+    api_type: textCompletionType
+  });
+  return stringList(payload?.stopping_strings);
+}
+
+function cleanTextCompletionContent(content, instruct = null, stoppingStrings = []) {
+  let message = String(content || '').replace(/[^\S\r\n]+$/gm, '');
+  for (const stoppingString of stoppingStrings) {
+    if (!stoppingString) continue;
+    for (let length = stoppingString.length; length > 0; length--) {
+      if (message.slice(-length) === stoppingString.slice(0, length)) {
+        message = message.slice(0, -length);
+        break;
+      }
+    }
+  }
+  for (const sequence of [instruct?.stop_sequence, instruct?.input_sequence]) {
+    if (!String(sequence || '').trim()) continue;
+    const index = message.indexOf(sequence);
+    if (index !== -1) message = message.substring(0, index);
+  }
+  for (const sequences of [instruct?.output_sequence, instruct?.last_output_sequence]) {
+    for (const sequence of String(sequences || '').split('\n').filter((line) => line.trim())) {
+      message = message.replaceAll(sequence, '');
+    }
+  }
+  return message;
+}
+
+async function normalizeSillyTavernResponse(response, {
+  context,
+  completionMode,
+  chatCompletionSource = '',
+  textCompletionType = '',
+  schema = null,
+  instructPreset = null,
+  presetStoppingStrings = [],
+  nativeResponseToolsLoader = loadDefaultNativeResponseTools
+} = {}) {
+  let loadedTools = {};
+  try { loadedTools = await nativeResponseToolsLoader(); } catch { /* use deterministic fallbacks */ }
+  const tools = {
+    ...loadedTools,
+    ...(typeof context?.extractMessageFromData === 'function'
+      ? { extractMessageFromData: context.extractMessageFromData }
+      : {})
+  };
+  const activeApi = completionMode === 'chat' ? 'openai' : 'textgenerationwebui';
+  let content;
+  if (schema && completionMode === 'chat') {
+    content = typeof tools.extractJsonFromData === 'function'
+      ? tools.extractJsonFromData(response, { mainApi: 'openai', chatCompletionSource })
+      : fallbackNativeJson(response, chatCompletionSource, schema);
+  } else {
+    content = typeof tools.extractMessageFromData === 'function'
+      ? tools.extractMessageFromData(response, activeApi)
+      : fallbackNativeMessage(response, completionMode);
+  }
+  if (completionMode === 'text') {
+    const stoppingStrings = instructPreset
+      ? (typeof tools.getInstructStoppingSequences === 'function'
+          ? tools.getInstructStoppingSequences({ customInstruct: instructPreset, useStopStrings: false })
+          : fallbackStoppingStrings(instructPreset))
+      : presetStoppingStrings;
+    content = cleanTextCompletionContent(content, instructPreset, stoppingStrings);
+  }
+  const metadataResponse = completionMode === 'text' && Array.isArray(response) ? response[0] : response;
+  const reasoning = typeof tools.extractReasoningFromData === 'function'
+    ? tools.extractReasoningFromData(metadataResponse, {
+        mainApi: activeApi,
+        textGenType: textCompletionType,
+        chatCompletionSource,
+        ignoreShowThoughts: true
+      })
+    : extractProviderResponseReasoning(metadataResponse);
+  const finishReasons = collectProviderResponseFinishReasons(metadataResponse);
+  const finishReason = finishReasons.find(isProviderResponseTokenLimitFinishReason) || finishReasons[0] || '';
+  return {
+    content: stringifyContent(content),
+    reasoning: String(reasoning || ''),
+    ...(finishReason ? { finish_reason: finishReason } : {})
+  };
 }
 
 function extractText(value, options = {}) {
@@ -480,6 +633,16 @@ function policyFor(kind, config, context, { forceStructuredOutput = null } = {})
 async function sendViaConnectionProfile(context, config, request, resolved, onAttempt) {
   const { service, profile, metadata, apiMap } = resolveProfile(context, config.profileId);
   const schema = resolved.policy.structuredOutputMethod === 'native-schema' ? schemaContract(request) : null;
+  const textCompletionType = textValue(apiMap.type).toLowerCase();
+  const instructPreset = metadata.completionMode === 'text' && resolved.policy.includeInstruct && metadata.instructName
+    ? cloneJson(presetSnapshot(context, 'instruct', metadata.instructName))
+    : null;
+  const textPreset = metadata.completionMode === 'text' && resolved.policy.includePreset && metadata.presetName
+    ? cloneJson(presetSnapshot(context, 'textgenerationwebui', metadata.presetName))
+    : null;
+  const presetStoppingStrings = !instructPreset
+    ? await materializeTextPresetStoppingStrings(context, textPreset, textCompletionType)
+    : [];
   let samplerPayload = resolved.policy.samplerOverrides || {};
   let samplerSource = resolved.policy.samplerMode;
   let samplerDiagnosticCode = '';
@@ -500,7 +663,7 @@ async function sendViaConnectionProfile(context, config, request, resolved, onAt
   const maxTokens = requestMaxTokens(request, config);
   const requestOptions = {
     stream: false,
-    extractData: true,
+    extractData: false,
     includePreset: resolved.policy.includePreset,
     includeInstruct: resolved.policy.includeInstruct,
     signal: request.signal
@@ -512,6 +675,12 @@ async function sendViaConnectionProfile(context, config, request, resolved, onAt
     response,
     providerId: `sillytavern-profile:${metadata.id}`,
     model: metadata.model || null,
+    completionMode: metadata.completionMode,
+    chatCompletionSource: textValue(apiMap.source).toLowerCase(),
+    textCompletionType,
+    schema,
+    instructPreset,
+    presetStoppingStrings,
     samplerSource,
     samplerDiagnosticCode
   };
@@ -523,6 +692,18 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
   const maxTokens = requestMaxTokens(request, config);
   const model = currentSillyTavernModelName(context);
   const presetName = currentPresetName(context, resolved.completionMode);
+  const chatCompletionSource = textValue(context?.chatCompletionSettings?.chat_completion_source).toLowerCase();
+  const textCompletionType = textValue(context?.textCompletionSettings?.type || context?.textGenType).toLowerCase();
+  const instructName = resolved.policy.includeInstruct ? currentInstructName(context) : '';
+  const instructPreset = resolved.completionMode === 'text' && instructName
+    ? cloneJson(presetSnapshot(context, 'instruct', instructName))
+    : null;
+  const textPreset = resolved.completionMode === 'text' && resolved.policy.includePreset && presetName
+    ? cloneJson(presetSnapshot(context, 'textgenerationwebui', presetName))
+    : null;
+  const presetStoppingStrings = !instructPreset
+    ? await materializeTextPresetStoppingStrings(context, textPreset, textCompletionType)
+    : [];
   let samplers = resolved.policy.samplerOverrides || {};
   let samplerSource = resolved.policy.samplerMode;
   let samplerDiagnosticCode = '';
@@ -545,7 +726,7 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
   assertRequestActive(request);
   let response;
   if (resolved.completionMode === 'chat' && typeof context?.ChatCompletionService?.processRequest === 'function') {
-    const source = textValue(context?.chatCompletionSettings?.chat_completion_source);
+    const source = chatCompletionSource;
     const appliedPresetName = resolved.policy.includePreset ? presetName : '';
     const payload = {
       stream: false,
@@ -557,10 +738,9 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
       ...(schema ? { json_schema: schema } : {})
     };
     onAttempt?.();
-    response = await context.ChatCompletionService.processRequest(payload, appliedPresetName ? { presetName: appliedPresetName } : {}, true, request.signal);
+    response = await context.ChatCompletionService.processRequest(payload, appliedPresetName ? { presetName: appliedPresetName } : {}, false, request.signal);
   } else if (resolved.completionMode === 'text' && typeof context?.TextCompletionService?.processRequest === 'function') {
     const appliedPresetName = resolved.policy.includePreset ? presetName : '';
-    const instructName = resolved.policy.includeInstruct ? currentInstructName(context) : '';
     const payload = {
       stream: false,
       prompt: messages,
@@ -575,7 +755,7 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
       ...(instructName ? { instructName } : {})
     };
     onAttempt?.();
-    response = await context.TextCompletionService.processRequest(payload, requestOptions, true, request.signal);
+    response = await context.TextCompletionService.processRequest(payload, requestOptions, false, request.signal);
   } else {
     throw providerError(
       'DIRECTIVE_PROVIDER_UNAVAILABLE',
@@ -586,6 +766,12 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
     response,
     providerId: 'sillytavern-current-model',
     model: model || null,
+    completionMode: resolved.completionMode,
+    chatCompletionSource,
+    textCompletionType,
+    schema,
+    instructPreset,
+    presetStoppingStrings,
     samplerSource,
     samplerDiagnosticCode
   };
@@ -595,7 +781,8 @@ export function createDirectiveProviderClient({
   contextFactory = () => globalThis.SillyTavern?.getContext?.() || null,
   settingsStore,
   onOutputLimit = null,
-  now = () => new Date().toISOString()
+  now = () => new Date().toISOString(),
+  nativeResponseToolsLoader = loadDefaultNativeResponseTools
 } = {}) {
   if (!settingsStore || typeof settingsStore.get !== 'function') {
     throw new Error('settingsStore with get(kind) is required');
@@ -636,7 +823,16 @@ export function createDirectiveProviderClient({
     const sent = config.provider === 'profile'
       ? await sendViaConnectionProfile(context, transportConfig, transportRequest, resolved, options.onAttempt)
       : await sendViaCurrentModel(context, transportConfig, transportRequest, resolved, options.onAttempt);
-    const response = normalizeSillyTavernResponse(sent.response);
+    const response = await normalizeSillyTavernResponse(sent.response, {
+      context,
+      completionMode: sent.completionMode,
+      chatCompletionSource: sent.chatCompletionSource,
+      textCompletionType: sent.textCompletionType,
+      schema: sent.schema,
+      instructPreset: sent.instructPreset,
+      presetStoppingStrings: sent.presetStoppingStrings,
+      nativeResponseToolsLoader
+    });
     const text = extractText(response, {
       providerTitle: config.provider === 'profile' ? 'Connection profile' : 'SillyTavern',
       maxTokens: requestMaxTokens(transportRequest, transportConfig),

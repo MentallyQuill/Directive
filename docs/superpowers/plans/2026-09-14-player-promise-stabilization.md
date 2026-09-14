@@ -1,0 +1,93 @@
+# Player Promise Stabilization Plan
+
+> **For agentic workers:** Use superpowers:subagent-driven-development for independent implementation and review. Execute bounded journeys in order; preserve the full goal across sessions.
+
+**Goal:** Verify and stabilize all six current player promises, including real-provider, installed-host soak evidence.
+
+**Architecture:** Retain accepted-pair authority, deterministic reducers, the state gateway, and player-safe projections. Locate failures through complete journeys and repair their owning boundaries. No new semantic store or mandatory model reviewer.
+
+**Tech Stack:** JavaScript ES modules, Node test scripts, Playwright, SillyTavern, configured model providers.
+
+**Spec:** The active user-approved goal in this task; current contracts in `docs/design/RELIABLE_OBJECTIVE_PROGRESS.md`, `docs/architecture/SEMANTIC_AUTHORITY.md`, `docs/architecture/FAIR_DISCOVERY.md`, and `docs/testing/V1_GAMEPLAY_ARCHITECTURE_TEST_PLAN.md`.
+
+## Global constraints
+
+- Start from verified published main; baseline is `1d4102db9695fcb90cc9976a5117267a8b255407`.
+- Preserve dirty checkouts and all personal host data; worktree is `.worktrees/player-promise-stabilization`.
+- Use a separate loopback test host and new data root if the existing host is unavailable. Copy only required disposable-account configuration; do not copy old campaigns or expose credentials in evidence.
+- Live testing is authorized by the goal. Existing personal host configuration and saves are outside the mutation scope.
+- Default first live batch: at most 30 generation requests or 30 minutes, whichever comes first. This bounds a batch, not the goal. Record results and choose the next targeted batch from evidence.
+- Never infer model accuracy from mocked interpretations or predicate fixtures.
+- Confirm source identity of the installed extension before each live build; preserve sanitized evidence in ignored `artifacts/stabilization-20260914/`.
+- Publish scoped fixes to main only after relevant tests and independent review. Preserve work-in-progress evidence across continuations.
+
+## Task 1: Baseline and disposable-host readiness
+
+**Files:** `tools/scripts/run-alpha-gate.mjs` (reuse), ignored `artifacts/stabilization-20260914/`, `docs/testing/PLAYER_PROMISE_STABILIZATION.md`.
+
+- [x] Verify GitHub main and create isolated worktree.
+- [x] Run `npm.cmd test`, save full output, and investigate any failures before attributing later failures to changes.
+- [x] Read existing host CLI/configuration and disposable account provider configuration without printing secrets.
+- [x] Start an isolated loopback host with fresh chats/saves and an exact production-file copy of Directive.
+- [x] Record host/source identities, installed hashes, fresh-state proof, and configured model identities.
+
+## Task 2: Objective correction and reload
+
+**Files to trace:** `src/runtime/runtime-app.mjs`, `src/runtime/v1-mission-runtime.mjs`, `src/mission/v1/objective-progress.mjs`, `src/runtime/state-delta-gateway.mjs`, `src/storage/v1-storage-repository.mjs`, existing `tools/scripts/test-objective-progress-*.mjs`.
+
+- [x] Trace actual correction APIs, source receipts, partial-progress preservation, reward reconciliation, and reload projection.
+- [x] Run existing app, race, core, runtime, and browser correction tests.
+- [ ] Add a focused failing regression only where a concrete unprotected boundary or defect is established; implement its owning-boundary fix and rerun impacted checks.
+- [ ] Create a fresh Ashes campaign in the real host. Play a partial-progress turn, exercise resolve/reopen controls, reload, and continue with a real provider.
+- [x] Separately delay a model result past a correction and interrupt a save; verify expected state and honest feedback (controlled production-path probe).
+- [x] Record natural interpretation separately from deliberate control-based fault setup.
+
+## Task 3: Selected swipe and timeline custody
+
+**Files to trace:** `src/runtime/v1-accepted-pair-source.mjs`, `src/runtime/timeline-transaction-service.mjs`, `src/runtime/native-branch-lineage.mjs`, `src/runtime/v1-branch-reconstruction.mjs`, timeline/storage/branch gate scripts.
+
+- [ ] Accept a selected alternative reply, create native branches at assistant and player endpoints, reload, and independently continue each timeline.
+- [ ] Exercise edit/delete invalidation, repeated checkpoint loads, stale session writes, and interruption boundaries.
+- [ ] Verify exact source/swipe bindings, accepted state, unchanged parent checkpoints, and absence of duplicate rewards.
+
+## Task 4: Private briefing and spoiler safety
+
+**Files to trace:** `src/story/continuity-analyst.mjs`, `src/story/character-information.mjs`, narration projection, existing character-information evaluation scripts.
+
+- [ ] Run the six extraction cases using real configured providers and separately adjudicate source meaning.
+- [ ] Extend to private briefing, late arrival, partial document, reported claim, and outdated information during continued narration.
+- [ ] Check all relevant player projections for unsupported disclosure and check false ignorance as well as knowledge leaks.
+
+## Task 5: Fair campaign journeys
+
+**Files to trace:** bundled Ashes definitions, `docs/testing/ashes-objective-support-matrix.json`, objective predicate/reducer and journey scripts.
+
+- [ ] Map all 13 missions and 50 objectives to relevant predicate and consequence coverage.
+- [ ] Exercise representative early/middle/late journeys including non-success dispositions, optional decline, varied order, corrections, transitions, rewards, and closure.
+- [ ] Identify explicit prerequisite/delivery paths for every observed blockage; do not silently fabricate narrative evidence to advance tests.
+- [ ] Distinguish controlled later-state fixtures from chapters reached naturally in live play.
+
+## Task 6: Rich long campaigns and recovery/coexistence
+
+**Files to trace:** thread retrieval, story settlement/projections, segmented storage, generation router/host bridge, existing scale/cancellation/preset tests.
+
+- [ ] Build representative rich saves at small, medium, and long history sizes; measure load/save, prompt construction, retrieval, and browser responsiveness.
+- [ ] Probe paraphrased obligations, dormant threads, obsolete facts, recurring relationships, and branch reconstruction.
+- [ ] Live-test provider failures, Stop/Retry, reload and provider changes, mobile controls, preset restoration, and a separate ordinary chat.
+- [ ] Check latency/call counts alongside semantic outcomes and record censored timeouts separately.
+
+## Predeclared acceptance and evidence rules
+
+- Deterministic integrity: zero wrong-timeline writes, lost committed corrections, duplicate rewards, invalid accepted sources, or false save-success acknowledgements in the exercised cases.
+- Core semantic corpus: zero false completed objectives on labelled partial/negated/attempt cases and zero unsupported recipient grants on labelled private-information cases. Every missed positive or unclassified response requires adjudication; structural rejection is not a semantic pass.
+- End-to-end narration: record unsupported knowledge, false ignorance, invented communication, player-agency violations, and disclosure violations for each response. Any material violation opens a defect/evaluation item; one favorable answer is insufficient proof of general quality.
+- Performance: compare identical rich workloads and configurations at declared sizes; flag greater than 2x regression at a fixed size and any unbounded growth in per-turn prompt input. Report actual measurements and sample sizes without claiming population percentiles from a tiny sample.
+- Live sessions: reach at least 20 accepted player/assistant pairs across at least three fresh or explicitly forked test timelines, including correction/reload, selected-swipe branching, and private-information continuation. This minimum does not close unexercised required scenarios or unresolved material failures.
+- Evidence distinguishes controlled state tests, real-provider synthetic evaluation, real-host fault injection, and natural live play.
+
+## Task 7: Publish and completion audit
+
+- [ ] Review each production fix independently, run relevant checks and the release gate, and publish only scoped files.
+- [ ] Verify remote main and the final installed build separately.
+- [ ] Update `docs/testing/PLAYER_PROMISE_STABILIZATION.md` with coverage, defects/fixes, live results, metrics, limitations, and exact evidence paths.
+- [ ] Audit every goal area and scenario; leave the goal active while required proof or fixes remain.

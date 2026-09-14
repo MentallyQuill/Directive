@@ -101,6 +101,13 @@ function compact(value) {
     return String(value ?? '').trim();
 }
 
+function boundedValidationErrors(errors) {
+    return (Array.isArray(errors) ? errors : [])
+        .filter(error => typeof error === 'string' && error.trim())
+        .slice(0, 8)
+        .map(error => error.slice(0, 240));
+}
+
 function safeReasonCode(value) {
     const reason = compact(value).slice(0, 120);
     return /^[a-z0-9][a-z0-9._:-]*$/i.test(reason) ? reason : 'source-invalidated';
@@ -2132,7 +2139,7 @@ export function createV1MissionRuntime({
                     interpreter: 'acceptedPairMissionEvidence', director: focused ? 'storyDirectionAnalyst' : 'storyDirector',
                     continuity: 'continuityAnalyst', episode: 'episodeEvaluator',
                 }[role], focused ? 2 : 1) ?? (focused ? 2 : 1),
-                continuity: focused ? async ({ request, signal: roleSignal }) => captured.pairAlreadySettled ? {
+                continuity: focused ? async ({ request, signal: roleSignal, validationErrors }) => captured.pairAlreadySettled ? {
                     ok: true,
                     proposal: {
                         kind: 'directive.continuityAnalystProposal.v1',
@@ -2148,10 +2155,17 @@ export function createV1MissionRuntime({
                         let currentRequest = request;
                         const lookupPasses = normalizeAnalysisLimits(request.analysisLimits).continuityLookupPasses;
                         for (let pass = 0; pass < lookupPasses; pass++) {
-                            const result = await analyzeContinuity({ request: currentRequest, signal: roleSignal, onAttempt, onPhase });
+                            const result = await analyzeContinuity({ request: currentRequest, signal: roleSignal, onAttempt, onPhase, validationErrors });
                             if (!result?.ok) return result;
                             const parsed = parseContinuityAnalystOutput(result.proposal, { request: currentRequest });
-                            if (!parsed.ok) return { ok: false, reasonCode: 'continuity-invalid-output' };
+                            if (!parsed.ok) return {
+                                ok: false,
+                                reasonCode: 'continuity-invalid-output',
+                                diagnostics: {
+                                    errorCount: parsed.errors.length,
+                                    errors: boundedValidationErrors(parsed.errors),
+                                },
+                            };
                             if (parsed.value.coverage !== 'lookup-needed') return { ...result, proposal: parsed.value };
                             if (pass === lookupPasses - 1) return { ok: false, reasonCode: 'continuity-lookup-exhausted' };
                             const lookups = parsed.value.lookupRequests;
@@ -2218,10 +2232,10 @@ export function createV1MissionRuntime({
                         progressScope,
                     );
                 },
-                direct: async ({ request, signal: roleSignal }) => runProgress(
+                direct: async ({ request, signal: roleSignal, validationErrors }) => runProgress(
                     'directing-story',
                     async ({ onAttempt, onPhase }) => {
-                        const result = await directStory({ request, signal: roleSignal, onAttempt, onPhase });
+                        const result = await directStory({ request, signal: roleSignal, onAttempt, onPhase, validationErrors });
                         if (!result?.ok) return result;
                         const parsed = focused
                             ? parseStoryDirectionOutput(result.proposal, { request })
@@ -2230,7 +2244,10 @@ export function createV1MissionRuntime({
                             return {
                                 ok: false,
                                 reasonCode: 'director-invalid-output',
-                                diagnostics: { errorCount: parsed.errors.length },
+                                diagnostics: {
+                                    errorCount: parsed.errors.length,
+                                    errors: boundedValidationErrors(parsed.errors),
+                                },
                             };
                         }
                         return { ...result, proposal: parsed.value };

@@ -54,7 +54,41 @@ for (const references of [
   [{ id: 'person.9a71fe02', name: 'Cross', kind: 'person', secret: true }],
   [{ id: 'person.9a71fe02', name: 'Cross', kind: 'person' }, { id: 'person.9a71fe02', name: 'Someone else', kind: 'person' }],
 ]) assert.equal(parseContinuityAnalystOutput(continuity, { request: { ...opaqueRequest, authoredContext: { ...opaqueRequest.authoredContext, references } } }).ok, false);
-assert.equal(parseStoryDirectionOutput({ kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: { ...legacy.direction, move: 'continue-thread', targetRef: 'rendezvous' } }, { request }).ok, false, 'direction cannot depend on a concurrently opened local thread');
+const invalidObjectiveDirection = parseStoryDirectionOutput({
+  kind: 'directive.storyDirectionAnalystProposal.v1',
+  envelope: request.envelope,
+  direction: { ...legacy.direction, move: 'continue-thread', targetRef: 'opportunity.assignment' },
+}, { request });
+assert.equal(invalidObjectiveDirection.ok, false, 'continue-thread cannot target an authored opportunity');
+assert.ok(invalidObjectiveDirection.errors.includes('director-direction-target-invalid'), 'stable error code remains available to consumers');
+const actionableTargetError = invalidObjectiveDirection.errors.find(error => error !== 'director-direction-target-invalid' && error.startsWith('director-direction-target-invalid'));
+assert.ok(actionableTargetError, 'invalid direction targets include an actionable diagnostic');
+assert.ok(actionableTargetError.length <= 240);
+assert.match(actionableTargetError, /move=continue-thread/);
+assert.match(actionableTargetError, /targetRef=opportunity\.assignment/);
+assert.match(actionableTargetError, /no continuity\.records IDs/i);
+assert.match(actionableTargetError, /respond-to-player.*targetRef=null/i);
+const longThreadId = `continuity-thread.${'x'.repeat(180)}`;
+const longIdRequest = { ...request, continuity: { ...request.continuity, records: [{ id: longThreadId }] } };
+const longIdDirection = parseStoryDirectionOutput({
+  kind: 'directive.storyDirectionAnalystProposal.v1',
+  envelope: request.envelope,
+  direction: { ...legacy.direction, move: 'continue-thread', targetRef: 'opportunity.assignment' },
+}, { request: longIdRequest });
+const longIdTargetError = longIdDirection.errors.find(error => error !== 'director-direction-target-invalid' && error.startsWith('director-direction-target-invalid'));
+assert.ok(longIdTargetError.length <= 240);
+assert.equal(longIdTargetError.includes('...'), false, 'diagnostics must never present a shortened identifier as an allowed choice');
+assert.match(longIdTargetError, /see supplied continuity\.records IDs/i);
+for (const direction of [
+  { ...legacy.direction, move: 'continue-thread', targetRef: { toString: null } },
+  { ...legacy.direction, move: { toString: null }, targetRef: 'opportunity.assignment' },
+]) {
+  const malformedDirection = parseStoryDirectionOutput({
+    kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction,
+  }, { request });
+  assert.equal(malformedDirection.ok, false, 'malformed direction values remain strict validation failures');
+  assert.ok(malformedDirection.errors.includes('director-direction-target-invalid'));
+}
 const sizes = {};
 const sizingRouter = { generate: async (role, payload) => {
   sizes[role] = payload.messages.reduce((total, message) => total + [...message.content].length, 0);
@@ -100,3 +134,24 @@ assert.equal(configuredStoryCall.payload.maxTokens, 48000);
 assert.equal(configuredStoryCall.options.timeoutMs, 180000);
 assert.equal(configuredStoryCall.payload.jsonSchema.properties.direction.properties.requires.maxItems, 10);
 console.log('Configured story schemas, validators, and uncapped profile budgets passed.');
+
+const feedbackErrors = [null, 42, {}, '', ...Array.from({ length: 12 }, (_, n) => `${n}: ${'x'.repeat(300)}`)];
+const expectedFeedbackErrors = feedbackErrors
+  .filter(error => typeof error === 'string' && error.trim())
+  .slice(0, 8)
+  .map(error => error.slice(0, 240));
+for (const [role, create, proposal] of [
+  ['storyDirectionAnalyst', createStoryDirectionAnalyst, { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: legacy.direction }],
+  ['continuityAnalyst', createContinuityAnalyst, continuity],
+]) {
+  let sentPayload;
+  const analyst = create({ generationRouter: { generate: async (_role, payload) => {
+    sentPayload = payload;
+    return { ok: true, response: { json: proposal } };
+  } } });
+  assert.equal((await analyst({ request, validationErrors: feedbackErrors })).ok, true);
+  const sentRequest = JSON.parse(sentPayload.messages[1].content);
+  assert.deepEqual(sentRequest.validationFeedback?.errors, expectedFeedbackErrors, `${role} must receive bounded role-local diagnostics`);
+  assert.match(sentPayload.systemPrompt, /diagnostics.*not story evidence/i);
+}
+console.log('Focused analyst validation feedback bounds passed.');
