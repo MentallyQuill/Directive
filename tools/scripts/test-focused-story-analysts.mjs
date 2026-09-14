@@ -29,6 +29,36 @@ for (const [role, create, fields] of [
 const continuity = { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: legacy.threadChanges, lookupRequests: [] };
 assert.equal(parseContinuityAnalystOutput({ ...continuity, threadChanges: [{ ...legacy.threadChanges[0], evidenceQuote: 'A fabricated evidence quote.' }] }, { request }).ok, false);
 assert.equal(parseContinuityAnalystOutput({ ...continuity, envelope: { ...request.envelope, baseRevision: 999 } }, { request }).ok, false);
+const quoteFailureCases = [{
+  label: 'length',
+  evidenceQuote: 'Rendezvous at 1400. '.repeat(13),
+  reason: 'length',
+}, {
+  label: 'not contiguous',
+  evidenceQuote: 'Rendezvous at 1500.',
+  reason: 'not-contiguous',
+}, {
+  label: 'hostile value',
+  evidenceQuote: { toString: null, valueOf: null },
+  reason: 'invalid-type',
+}];
+for (const testCase of quoteFailureCases) {
+  let parsed;
+  assert.doesNotThrow(() => {
+    parsed = parseContinuityAnalystOutput({
+      ...continuity,
+      threadChanges: [{ ...legacy.threadChanges[0], evidenceQuote: testCase.evidenceQuote }],
+    }, { request });
+  }, `${testCase.label}: hostile output must not escape validation`);
+  assert.equal(parsed.ok, false, `${testCase.label}: invalid quote is rejected`);
+  assert.ok(parsed.errors.includes('continuity-source-quote-invalid'), `${testCase.label}: stable error code remains available`);
+  const diagnostic = parsed.errors.find((error) => error.startsWith('continuity-source-quote-invalid detail:'));
+  assert.ok(diagnostic, `${testCase.label}: actionable diagnostic is included`);
+  assert.ok(diagnostic.length <= 240, `${testCase.label}: diagnostic remains bounded`);
+  assert.match(diagnostic, /changeIndex=0/);
+  assert.match(diagnostic, /sourceSlot=previousAssistant/);
+  assert.match(diagnostic, new RegExp(`reason=${testCase.reason}`));
+}
 const lookup = { ...continuity, coverage: 'lookup-needed', threadChanges: [], lookupRequests: [{ threadIds: [], query: 'Ravenna rendezvous' }] };
 assert.equal(parseContinuityAnalystOutput(lookup, { request }).ok, true);
 assert.equal(parseContinuityAnalystOutput({ ...lookup, threadChanges: legacy.threadChanges }, { request }).ok, false);

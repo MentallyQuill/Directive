@@ -104,6 +104,28 @@ assert.equal(schema.additionalProperties, false);
 assert.equal(schema.properties.envelope.additionalProperties, false);
 assert.equal(schema.properties.direction.additionalProperties, false);
 assert.equal(schema.properties.threadChanges.items.anyOf.every((entry) => entry.additionalProperties === false), true);
+const addFactSchemas = schema.properties.threadChanges.items.anyOf.filter((entry) => entry.properties?.operation?.const === 'addFact');
+assert.equal(addFactSchemas.length, 2, 'legacy and current addFact variants remain available');
+for (const addFactSchema of addFactSchemas) {
+  assert.deepEqual(addFactSchema.properties.authoredRef, {
+    anyOf: [{
+      type: 'string',
+      enum: ['condition.handover-complete', 'opportunity.assignment'],
+    }, { type: 'null' }],
+  }, 'every addFact schema closes authoredRef over request-authored IDs');
+}
+const noAuthoredIdsRequest = {
+  ...request,
+  authoredContext: {
+    ...request.authoredContext,
+    constraints: [],
+    opportunities: [],
+  },
+};
+const noAuthoredIdsSchema = createStoryDirectorSchema(noAuthoredIdsRequest);
+for (const addFactSchema of noAuthoredIdsSchema.properties.threadChanges.items.anyOf.filter((entry) => entry.properties?.operation?.const === 'addFact')) {
+  assert.deepEqual(addFactSchema.properties.authoredRef, { type: 'null' }, 'authoredRef must be null when no authored IDs are supplied');
+}
 assert.deepEqual(schema.properties.direction.properties.targetRef.anyOf[0].anyOf[0].enum, [
   'opportunity.assignment',
 ]);

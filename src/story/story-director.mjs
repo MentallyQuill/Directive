@@ -226,6 +226,13 @@ function nullableString(schema = { type: 'string' }) {
   return { anyOf: [schema, { type: 'null' }] };
 }
 
+function nullableAuthoredRef(ids = []) {
+  const values = [...new Set(ids.filter(stableId))];
+  return values.length
+    ? nullableString({ type: 'string', enum: values })
+    : { type: 'null' };
+}
+
 function envelopeSchema(envelope) {
   return {
     type: 'object',
@@ -238,7 +245,7 @@ function envelopeSchema(envelope) {
   };
 }
 
-function changeSchemas(limits = {}) {
+function changeSchemas(limits = {}, suppliedAuthoredIds = []) {
   const source = {
     sourceSlot: { type: 'string', enum: ['previousAssistant', 'currentPlayer'] },
     evidenceQuote: { type: 'string', minLength: 12, maxLength: limits.continuityEvidenceQuoteCharacters ?? 240 },
@@ -260,7 +267,7 @@ function changeSchemas(limits = {}) {
       threadRef: { type: 'string', minLength: 1 },
       text: { type: 'string', minLength: 1, maxLength: limits.continuityFactCharacters ?? 512 },
       claimType: { type: 'string', enum: ['narrated-fact', 'character-claim', 'player-commitment'] },
-      authoredRef: nullableString(), supersedesFactId: nullableString(),
+      authoredRef: nullableAuthoredRef(suppliedAuthoredIds), supersedesFactId: nullableString(),
       linkedIds: { type: 'array', maxItems: limits.continuityMaxLinkedIds ?? 16, uniqueItems: true, items: { type: 'string', minLength: 1 } },
       deadlineElapsedSeconds: { anyOf: [{ type: 'integer', minimum: 0 }, { type: 'null' }] },
       informationAccess: { anyOf: [{ type: 'null' }, {
@@ -341,7 +348,7 @@ export function createStoryDirectorSchema(request = {}) {
       kind: { type: 'string', const: STORY_DIRECTOR_PROPOSAL_KIND },
       envelope: envelopeSchema(request.envelope),
       coverage: { type: 'string', enum: ['complete', 'overflow'] },
-      threadChanges: { type: 'array', maxItems: limits.continuityMaxChanges ?? 16, items: { anyOf: changeSchemas(limits).flatMap((schema) => {
+      threadChanges: { type: 'array', maxItems: limits.continuityMaxChanges ?? 16, items: { anyOf: changeSchemas(limits, authoredIds(request)).flatMap((schema) => {
         if (schema.properties.operation.const !== 'addFact') return [schema];
         const legacy = clone(schema);
         delete legacy.properties.linkedIds;
@@ -411,6 +418,37 @@ function diagnosticValue(value, maxLength) {
   else if (typeof value === 'number' || typeof value === 'boolean') text = String(value);
   else text = `[${Array.isArray(value) ? 'array' : typeof value}]`;
   return text.length <= maxLength ? text : '[see rejected direction]';
+}
+
+function normalizedDiagnosticText(value) {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : null;
+}
+
+function quoteFailureDiagnostic(change, changeIndex, request, limits = {}) {
+  if (!['previousAssistant', 'currentPlayer'].includes(change?.sourceSlot)) return null;
+  const quote = normalizedDiagnosticText(change?.evidenceQuote);
+  const source = normalizedDiagnosticText(request?.pendingPair?.[change.sourceSlot]?.text);
+  const configuredMaximum = limits.continuityEvidenceQuoteCharacters;
+  const maximum = Number.isSafeInteger(configuredMaximum) && configuredMaximum > 0 ? configuredMaximum : 240;
+  let reason = null;
+  if (quote === null) reason = 'invalid-type';
+  else if (quote.length < 12 || quote.length > maximum) reason = 'length';
+  else if (source === null || !source.includes(quote)) reason = 'not-contiguous';
+  if (reason === null) return null;
+  const sourceSlot = diagnosticValue(change.sourceSlot, 48);
+  const length = quote === null ? '' : ` length=${quote.length} allowed=12..${maximum}`;
+  return `continuity-source-quote-invalid detail: changeIndex=${changeIndex} sourceSlot=${sourceSlot} reason=${reason}${length}.`.slice(0, 240);
+}
+
+function continuityErrorsWithQuoteDiagnostics(validationErrors, changes, request, limits = {}) {
+  const errors = [...validationErrors];
+  const diagnostics = (Array.isArray(changes) ? changes : [])
+    .map((change, index) => quoteFailureDiagnostic(change, index, request, limits))
+    .filter(Boolean);
+  if (!diagnostics.length) return errors;
+  if (!errors.includes('continuity-source-quote-invalid')) errors.push('continuity-source-quote-invalid');
+  errors.push(...diagnostics);
+  return errors;
 }
 
 function allowedIdDiagnostic(prefix, label, ids) {
@@ -511,7 +549,12 @@ export function parseStoryDirectorOutput(value, { request = {} } = {}) {
     temporalContext: request.authoredContext.temporalContext,
     limits: request.analysisLimits || {},
   });
-  if (!changes.ok) errors.push(...changes.errors);
+  if (!changes.ok) errors.push(...continuityErrorsWithQuoteDiagnostics(
+    changes.errors,
+    proposal.threadChanges,
+    request,
+    request.analysisLimits || {},
+  ));
   validateInformationRecipients(proposal.threadChanges, request, errors);
   validateDirection(proposal.direction, request, proposal.threadChanges, errors);
   if (request.episodeReview === null) {
@@ -809,7 +852,12 @@ export function parseFocusedStoryOutput(value, { request, roleId, limits = reque
         temporalContext: normalized.authoredContext.temporalContext,
         limits,
       });
-      if (!changes.ok) errors.push(...changes.errors);
+      if (!changes.ok) errors.push(...continuityErrorsWithQuoteDiagnostics(
+        changes.errors,
+        proposal.threadChanges,
+        normalized,
+        limits,
+      ));
       validateInformationRecipients(proposal.threadChanges, normalized, errors);
     }
   } else {
