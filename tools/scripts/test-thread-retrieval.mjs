@@ -93,4 +93,44 @@ assert.equal(projectDirectorContinuity({events:[...overdueBacklog,...approaching
 const crowdedDeadline = [...narrativeEvents,...Array.from({length:10},(_,i)=>({...narrativeEvents[1],id:`fact.crowded.${i}`,payload:{...narrativeEvents[1].payload,deadlineElapsedSeconds:null,text:`Cross related update ${i}.`}}))];
 const attention = projectDirectorContinuity({events:crowdedDeadline,queryText:'Cross related update',referencedIds:Array.from({length:10},(_,i)=>`fact.crowded.${i}`),currentElapsedSeconds:7500});
 assert.ok(attention.records[0].facts.some(fact=>fact.deadlineElapsedSeconds===9000),'attention hint survives six-fact selection even when many other facts explicitly match');
+// Short numbered places must remain distinct even when the requested record is
+// older than the lookup window. Build real source-bound events, not scored rows.
+async function placeEvents(titles) {
+  let result = [];
+  for (const [index, title] of titles.entries()) {
+    const quote = `Inspect ${title} before departure.`;
+    const placeInput = makeMaterializeInput({ sourceRangeHash: `place-pair.${index}`, existingEvents: result, settledAtRevision: index + 1 });
+    placeInput.sourcePair.previousAssistant = { ...placeInput.sourcePair.previousAssistant, messageId: `place.${index}`, text: quote };
+    placeInput.contributionIds.previousAssistant = `contribution.place.${index}`;
+    placeInput.changes = [
+      { operation: 'open', localRef: `place-${index}`, title, category: 'obligation', sourceSlot: 'previousAssistant', evidenceQuote: quote },
+      { operation: 'addFact', threadRef: `place-${index}`, text: quote, claimType: 'narrated-fact', authoredRef: null, supersedesFactId: null, sourceSlot: 'previousAssistant', evidenceQuote: quote },
+    ];
+    result = await materializeContinuityChanges(placeInput);
+  }
+  return result;
+}
+const places = await placeEvents([2, 23, 102, 'B7', 'B8', ...Array.from({ length: 12 }, (_, i) => 31 + i)].map(id => `Cargo bay ${id}`));
+const placesBefore = structuredClone(places);
+for (const anchor of ['2', '23', '102', 'B7']) {
+  for (const queryText of [`Inspect bay ${anchor}`, `Inspect bay ${anchor}.`, `Inspect bay ${anchor},`]) {
+    const result = lookupContinuityThreads({ events: places, queryText });
+    assert.equal(result.records[0]?.title, `Cargo bay ${anchor}`, `whole lexical anchor: ${queryText}`);
+    assert.ok(result.records.length <= 6);
+    assert.ok(JSON.stringify(result).length <= 12000);
+    assert.equal(result.retrieval.omittedThreadCount, 17 - result.records.length);
+  }
+}
+const numberedTeams = await placeEvents(['Team 7 inspection', ...Array.from({ length: 12 }, (_, i) => `Team ${70 + i} inspection`)]);
+assert.equal(lookupContinuityThreads({ events: numberedTeams, queryText: 'Where is team 7?' }).records[0].title, 'Team 7 inspection');
+const titledPlaces = await placeEvents(['Cargo bay 2', 'Bay 2 cargo']);
+assert.equal(lookupContinuityThreads({ events: titledPlaces, queryText: '  CARGO   BAY 2  ' }).records[0].title, 'Cargo bay 2', 'exact normalized title beats a newer reordered title');
+const reorderedId = projectContinuityThreads(titledPlaces).find(thread => thread.title === 'Bay 2 cargo').id;
+assert.equal(lookupContinuityThreads({ events: titledPlaces, queryText: 'Cargo bay 2', referencedIds: [reorderedId] }).records[0].id, reorderedId, 'explicit identity still outranks exact title');
+const punctuatedIds = await placeEvents(['Relay relay.phase-7', 'Relay phase-7', 'Relay relay.phase-8', 'Relay relay..phase--7']);
+assert.deepEqual(lookupContinuityThreads({ events: punctuatedIds, queryText: 'relay.phase-7.' }).records.map(t => t.title), ['Relay relay.phase-7'], 'internal dotted/hyphenated identity is preserved as a whole token');
+assert.deepEqual(lookupContinuityThreads({ events: punctuatedIds, queryText: 'relay..phase--7.' }).records.map(t => t.title), ['Relay relay..phase--7'], 'repeated internal ID separators remain exact');
+assert.equal(lookupContinuityThreads({ events: places, queryText: 'an of to' }).records.length, 0, 'short alphabetic noise stays excluded');
+assert.equal(lookupContinuityThreads({ events: places, queryText: 'What freight did we promise the outpost?' }).records.length, 0, 'no synonym or semantic inference without shared lexical anchors');
+assert.deepEqual(places, placesBefore, 'lexical scoring cannot mutate the authoritative archive');
 console.log('Thread lifecycle and retrieval tests passed.');

@@ -6,7 +6,11 @@ export const THREAD_INACTIVITY_REVISIONS = 12;
 export const THREAD_RETRIEVAL_MAX_CHARACTERS = 12000;
 const protectedCategories = new Set(['obligation', 'schedule', 'constraint']);
 const terminal = new Set(['resolved', 'expired']);
-const words = text => new Set(String(text ?? '').toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}.-]{2,}/gu) || []);
+// Retain whole numbered anchors (2, 23, B7) and internal ID separators, while
+// excluding sentence punctuation and the existing short alphabetic noise.
+const words = text => new Set((String(text ?? '').toLowerCase().match(/[\p{L}\p{N}]+(?:[.-]+[\p{L}\p{N}]+)*/gu) || [])
+  .filter(word => [...word].length >= 3 || /\p{N}/u.test(word)));
+const normalizedTitle = text => String(text ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
 const stopWords = new Set(['the', 'and', 'with', 'that', 'this', 'about', 'from', 'have', 'what', 'will', 'would', 'could', 'should', 'into', 'then', 'there', 'they', 'were', 'was', 'had', 'for', 'you', 'your', 'his', 'her', 'she', 'has', 'not', 'but']);
 const size = value => [...JSON.stringify(value)].length;
 
@@ -29,6 +33,8 @@ export function retrieveContinuityThreads({
   const threads = projectContinuityThreads(surviving);
   const requested = new Set([missionId, ...referencedIds].filter(id => typeof id === 'string' && id));
   const query = [...words(queryText)].filter(word => !stopWords.has(word));
+  const queryTitle = normalizedTitle(queryText);
+  const exactTitle = thread => Boolean(queryTitle) && normalizedTitle(thread.title) === queryTitle;
   const relevance = text => { const tokens = words(text); return query.filter(word => tokens.has(word)).length; };
   const explicitFact = fact => requested.has(fact.id) || requested.has(fact.authoredRef) || (fact.linkedIds || []).some(id => requested.has(id));
   const explicit = thread => requested.has(thread.id) || thread.facts.some(explicitFact);
@@ -57,7 +63,7 @@ export function retrieveContinuityThreads({
   }
   const candidates = threads.filter(thread => eligibleIds.has(thread.id));
   // An overdue backlog must not permanently crowd out the current conversation.
-  candidates.sort((a, b) => Number(explicit(b)) - Number(explicit(a)) || related(b) - related(a) || Number(approaching(b)) - Number(approaching(a)) || Number(dependencyThreads.has(b.id)) - Number(dependencyThreads.has(a.id)) || age(a) - age(b) || Number(due(b)) - Number(due(a)) || Number(protectedThread(b)) - Number(protectedThread(a)) || a.id.localeCompare(b.id));
+  candidates.sort((a, b) => Number(explicit(b)) - Number(explicit(a)) || related(b) - related(a) || Number(exactTitle(b)) - Number(exactTitle(a)) || Number(approaching(b)) - Number(approaching(a)) || Number(dependencyThreads.has(b.id)) - Number(dependencyThreads.has(a.id)) || age(a) - age(b) || Number(due(b)) - Number(due(a)) || Number(protectedThread(b)) - Number(protectedThread(a)) || a.id.localeCompare(b.id));
   const records = [];
   const projection = () => ({
     index: records.filter(thread => !terminal.has(thread.status)).map(({id,title,category,status}) => ({id,title,category,status})).sort((a,b) => a.id.localeCompare(b.id)),

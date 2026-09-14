@@ -17,6 +17,13 @@ for (const [role, create, fields] of [
     assert.equal(Object.hasOwn(context, 'episodeReview'), false);
     assert.equal(payload.systemPrompt.includes('episodeReview'), false);
     assert.equal(Object.hasOwn(payload.jsonSchema.properties, role === 'continuityAnalyst' ? 'direction' : 'threadChanges'), false);
+    if (role === 'continuityAnalyst') {
+      assert.match(payload.systemPrompt, /Every open localRef must also have an addFact.*same response/i);
+      assert.match(payload.systemPrompt, /currentPlayer obligation.*stand alone/i);
+      assert.match(payload.systemPrompt, /currentPlayer addFact must use player-commitment/i);
+      assert.match(payload.systemPrompt, /character-claim.*informationAccess/i);
+      assert.match(payload.systemPrompt, /previousAssistant addFact must never use player-commitment/i);
+    }
     return { ok: true, response: { json: { kind: `directive.${role}Proposal.v1`, envelope: request.envelope, ...fields, ...(malformed ? { extra: true } : {}) } } };
   } } });
   const result = await run({ request });
@@ -27,6 +34,73 @@ for (const [role, create, fields] of [
   assert.equal((await run({ request })).ok, false);
 }
 const continuity = { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: legacy.threadChanges, lookupRequests: [] };
+const partialNoteRequest = makeDirectorRequest({
+  pendingPair: {
+    previousAssistant: {
+      messageId: 'assistant.18', selectedSwipeId: '0', textHash: 'hash.assistant.18',
+      text: 'Halvard repeats that amber notebook means review only and no authorization to begin.',
+    },
+    currentPlayer: {
+      messageId: 'player.19', selectedSwipeId: null, textHash: 'hash.player.19',
+      text: 'On my own PADD I write: Violet lantern means I want a private conversation with the captain. I conceal that line from Halvard.',
+    },
+  },
+  continuity: { index: [], records: [{ id: 'continuity-thread.amber' }] },
+});
+const partialNoteProposal = {
+  kind: 'directive.continuityAnalystProposal.v1', envelope: partialNoteRequest.envelope,
+  coverage: 'complete', lookupRequests: [], threadChanges: [{
+    operation: 'open', sourceSlot: 'currentPlayer',
+    evidenceQuote: 'Violet lantern means I want a private conversation with the captain.',
+    localRef: 'violet-lantern-note', title: 'Private violet lantern note', category: 'information',
+  }],
+};
+const ungroundedPartialNote = parseContinuityAnalystOutput(partialNoteProposal, { request: partialNoteRequest });
+assert.equal(ungroundedPartialNote.ok, false, 'captured standalone information open remains structurally rejected');
+assert.ok(ungroundedPartialNote.errors.includes('continuity-open-ungrounded:violet-lantern-note'));
+const invalidCurrentPlayerFact = parseContinuityAnalystOutput({
+  ...partialNoteProposal,
+  threadChanges: [
+    ...partialNoteProposal.threadChanges,
+    {
+      operation: 'addFact', sourceSlot: 'currentPlayer',
+      evidenceQuote: 'Violet lantern means I want a private conversation with the captain.',
+      threadRef: 'violet-lantern-note', text: 'The player keeps a private violet lantern note.',
+      claimType: 'player-commitment', authoredRef: null, supersedesFactId: null,
+    },
+    {
+      operation: 'addFact', sourceSlot: 'currentPlayer',
+      evidenceQuote: 'I conceal that line from Halvard.',
+      threadRef: 'continuity-thread.amber', text: 'Halvard correctly understood the prior instruction.',
+      claimType: 'narrated-fact', authoredRef: null, supersedesFactId: null,
+    },
+  ],
+}, { request: partialNoteRequest });
+assert.equal(invalidCurrentPlayerFact.ok, false, 'captured retry cannot turn player text into narrated fact');
+assert.ok(invalidCurrentPlayerFact.errors.includes('continuity-player-claim-type-invalid'));
+const correctedPartialNote = parseContinuityAnalystOutput({
+  ...partialNoteProposal,
+  threadChanges: [
+    ...partialNoteProposal.threadChanges,
+    {
+      operation: 'addFact', sourceSlot: 'currentPlayer',
+      evidenceQuote: 'Violet lantern means I want a private conversation with the captain.',
+      threadRef: 'violet-lantern-note', text: 'The player keeps a private violet lantern note.',
+      claimType: 'player-commitment', authoredRef: null, supersedesFactId: null,
+    },
+    {
+      operation: 'addFact', sourceSlot: 'previousAssistant',
+      evidenceQuote: 'Halvard repeats that amber notebook means review only and no authorization to begin.',
+      threadRef: 'continuity-thread.amber', text: 'Halvard repeated the prior instruction.',
+      claimType: 'narrated-fact', authoredRef: null, supersedesFactId: null,
+    },
+  ],
+}, { request: partialNoteRequest });
+assert.equal(correctedPartialNote.ok, true, 'grounded private player note and assistant fact use their permitted claim types');
+assert.equal(parseContinuityAnalystOutput({
+  ...partialNoteProposal,
+  threadChanges: [{ ...partialNoteProposal.threadChanges[0], category: 'obligation' }],
+}, { request: partialNoteRequest }).ok, true, 'standalone currentPlayer obligation remains the deliberate grounding exception');
 assert.equal(parseContinuityAnalystOutput({ ...continuity, threadChanges: [{ ...legacy.threadChanges[0], evidenceQuote: 'A fabricated evidence quote.' }] }, { request }).ok, false);
 assert.equal(parseContinuityAnalystOutput({ ...continuity, envelope: { ...request.envelope, baseRevision: 999 } }, { request }).ok, false);
 const quoteFailureCases = [{

@@ -60,7 +60,8 @@ export async function runRichCampaignSoak({ size = 'small', repetitions = 5, onP
   const queries = fixture.oracle.threads.slice(0, Math.min(4, fixture.oracle.threads.length)).flatMap(thread => [
     { mode: 'exact-id', thread, options: { referencedIds: [thread.id] } },
     { mode: 'lexical', thread, options: { queryText: thread.title } },
-    { mode: 'paraphrase', thread, options: { queryText: `What freight did we promise the outpost numbered ${thread.title.split(' ').at(-1)}?` } },
+    { mode: 'anchored-paraphrase', thread, options: { queryText: `What freight did we promise the outpost numbered ${thread.title.split(' ').at(-1)}?` } },
+    { mode: 'unanchored-paraphrase', thread, options: { queryText: 'What freight did we promise the outpost?' } },
   ]);
   const retrieve = query => lookupContinuityThreads({ events: fixture.state.storySettlement.continuityEvents,
     currentRevision: fixture.state.storySettlement.revision, limits, ...query.options });
@@ -94,7 +95,7 @@ export async function runRichCampaignSoak({ size = 'small', repetitions = 5, onP
       const found = result.records.find(record => record.title === query.thread.title);
       const obsoleteFactCount = result.records.flatMap(record => record.facts).filter(fact => fixture.oracle.threads.some(t => t.initial === fact.text)).length;
       assert.equal(obsoleteFactCount, 0, 'superseded fact cannot return as current');
-      const recall = Number(found?.facts.some(fact => fact.text === query.thread.revised));
+      const recall = Number(Boolean(found?.facts.some(fact => fact.text === query.thread.revised)));
       if (query.mode === 'exact-id') assert.equal(recall, 1, 'explicit targeted lookup recalls current fact');
       if (i === 0) retrieval.push({ mode: query.mode, question: query.options.queryText || query.thread.id,
         expectedTitle: query.thread.title, expectedFact: query.thread.revised, recall, obsoleteFactCount,
@@ -132,6 +133,7 @@ export async function runRichCampaignSoak({ size = 'small', repetitions = 5, onP
       'Branch samples are one per distinct cut, not repeated timing estimates.',
       'No mission progression, rewards or accumulated time evidence is fabricated; the authored Prelude remains active.',
       'Lookup scoring is deterministic direct retrieval, not a model-selected lookup or live recall score.',
+      'Anchored paraphrases share a literal destination number; gains are lexical matching, not synonym or semantic understanding. Unanchored controls intentionally share no content tokens.',
       'Narration prompt sizes measure only createV1RuntimePromptPacket, not native transcript/preset/static context or full provider wire. Parent observed an 85,040-character installed narration wire at nine local pairs; these sizes do not contradict that observation.',
       'Narration packet sizes are measurements, not an assumed global cap; compare sizes/configurations before claiming bounded growth.'] };
 }

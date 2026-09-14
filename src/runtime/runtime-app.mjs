@@ -598,7 +598,7 @@ export function createV1RuntimePromptPacket({
     simulationPolicy.narratorConstraint,
     'Keep named crew identities and roles exact. Let an appropriate officer offer fair, in-world guidance when the player lacks necessary knowledge.',
     payload.campaign.currentTime
-      ? 'SHIP TIME: campaign.currentTime is the accepted current time at the start of this response. Directive displays accepted ship time in its interface. Use it only for chronology. Do not print a Stardate, ship-time header, footer, tracker, or timestamp.'
+      ? 'SHIP TIME: campaign.currentTime is the accepted current time at the start of this response. Directive displays accepted ship time in its interface. Use it only for chronology. For an event that occurred at or after campaign opening, do not describe it as more than campaign.currentTime.elapsedSeconds ago. When no prior timestamp supports an exact relative interval, use a qualitative callback instead. Do not print a Stardate, ship-time header, footer, tracker, or timestamp.'
       : '',
     JSON.stringify(payload, null, 2)
   ].filter(Boolean).join('\n\n');
