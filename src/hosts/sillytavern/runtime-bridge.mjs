@@ -126,7 +126,7 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     const retryAttempt = {};
     operation.retryAttempt = retryAttempt;
     const prepared = await retryOrchestrator.interceptGeneration({
-      chat, contextSize, abort, type, recoveryIntent: 'explicit',
+      chat, contextSize, abort, type, recoveryIntent: 'explicit', signal,
     });
     if (!retryActive()) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
     if (prepared?.abortDefaultGeneration !== false) {

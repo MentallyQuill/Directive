@@ -25,10 +25,16 @@ async function waitFor(check, message) {
   throw new Error(message);
 }
 
-async function createHarness({ holdFirstContinuity = false } = {}) {
+async function createHarness({ holdFirstContinuity = false, holdRetryContinuity = false } = {}) {
   const defaults = createFakeGenerationClient();
   const firstContinuityStarted = deferred();
   const releaseFirstContinuity = deferred();
+  const retryContinuityStarted = deferred();
+  const releaseRetryContinuity = deferred();
+  const freshContinuityStarted = deferred();
+  const releaseFreshContinuity = deferred();
+  let retrySignal;
+  let freshSignal;
   let continuityCalls = 0;
   let continuityMode = 'recover-on-third';
   const generation = createFakeGenerationClient({ responses: {
@@ -41,8 +47,21 @@ async function createHarness({ holdFirstContinuity = false } = {}) {
     }) }),
     storyDirectionAnalyst: ({ request }) => defaults.generate('storyDirectionAnalyst', request),
     episodeEvaluator: ({ request }) => defaults.generate('episodeEvaluator', request),
-    continuityAnalyst: async ({ request }) => {
+    continuityAnalyst: async ({ request, rawRequest, rawOptions }) => {
       continuityCalls += 1;
+      const callNumber = continuityCalls;
+      if (holdRetryContinuity && callNumber === 3) {
+        retrySignal = rawOptions.signal || rawRequest.signal;
+        retryContinuityStarted.resolve();
+        // Deliberately ignore abort; cancellation must release runtime ownership
+        // without accepting a late provider response.
+        await releaseRetryContinuity.promise;
+      }
+      if (holdRetryContinuity && callNumber === 4) {
+        freshSignal = rawOptions.signal || rawRequest.signal;
+        freshContinuityStarted.resolve();
+        await releaseFreshContinuity.promise;
+      }
       if (continuityCalls === 1) {
         firstContinuityStarted.resolve();
         if (holdFirstContinuity) await releaseFirstContinuity.promise;
@@ -106,6 +125,12 @@ async function createHarness({ holdFirstContinuity = false } = {}) {
     eventSource,
     firstContinuityStarted,
     releaseFirstContinuity,
+    retryContinuityStarted,
+    releaseRetryContinuity,
+    freshContinuityStarted,
+    releaseFreshContinuity,
+    retrySignal: () => retrySignal,
+    freshSignal: () => freshSignal,
     continuityCalls: () => continuityCalls,
     setContinuityMode: value => { continuityMode = value; },
     dispose() {
@@ -252,6 +277,52 @@ for (const generationStart of [
     assert.equal(stale.reasonCode, 'pending-source-stale');
     assert.equal(harness.continuityCalls(), callsBeforeRetry, 'changed source is rejected before manual model work');
   } finally {
+    harness.dispose();
+  }
+}
+
+for (const dismissal of ['close', 'escape', 'backdrop']) {
+  const harness = await createHarness({ holdRetryContinuity: true });
+  let narrationStarts = 0;
+  harness.host.chat.continueHostGeneration = async () => { narrationStarts++; return { ok: true }; };
+  try {
+    await bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+    const before = (await harness.app.getCurrentView({ tabId: 'mission' })).campaignState;
+    const beforeStorage = harness.host.storage.snapshot();
+    const dialog = __settlementRetryDialogTestHooks.active();
+    const retrying = dialog.retry.listeners.get('click')[0]({});
+    await harness.retryContinuityStarted.promise;
+    if (dismissal === 'close') await dialog.close.listeners.get('click')[0]({});
+    if (dismissal === 'escape') await dialog.dialog.dispatch('keydown', { key: 'Escape' });
+    if (dismissal === 'backdrop') await dialog.overlay.dispatch('click', { target: dialog.overlay });
+    assert.equal(harness.retrySignal()?.aborted, true, `${dismissal} must abort the active continuity transport`);
+    await retrying;
+    assert.equal(harness.continuityCalls(), 3, 'dismissal must not launch another provider attempt');
+    assert.equal(narrationStarts, 0);
+    assert.equal(__settlementRetryDialogTestHooks.active(), null);
+    assert.deepEqual((await harness.app.getCurrentView({ tabId: 'mission' })).campaignState, before,
+      `${dismissal} must not commit a canceled turn`);
+    assert.deepEqual(harness.host.storage.snapshot(), beforeStorage, 'canceled analysis must not persist any state');
+    // The old provider is still unresolved. A new explicit gesture must own an
+    // independent attempt, and the old result must not disturb its commit.
+    harness.eventSource.emit('generation-started', { type: 'normal', dryRun: false });
+    const fresh = bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+    await harness.freshContinuityStarted.promise;
+    harness.releaseRetryContinuity.resolve();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(harness.freshSignal().aborted, false, 'the stale response cannot cancel the new gesture');
+    assert.deepEqual((await harness.app.getCurrentView({ tabId: 'mission' })).campaignState, before);
+    harness.releaseFreshContinuity.resolve();
+    assert.equal((await fresh).abortDefaultGeneration, false);
+    const recovered = (await harness.app.getCurrentView({ tabId: 'mission' })).campaignState;
+    assert.equal(recovered.stateCustody.revision, before.stateCustody.revision + 1);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual((await harness.app.getCurrentView({ tabId: 'mission' })).campaignState, recovered);
+    assert.equal(narrationStarts, 0, 'late canceled Retry cannot start narration');
+    assert.equal(__settlementRetryDialogTestHooks.active(), null, 'late canceled Retry cannot reopen recovery');
+  } finally {
+    harness.releaseRetryContinuity.resolve();
+    harness.releaseFreshContinuity.resolve();
     harness.dispose();
   }
 }

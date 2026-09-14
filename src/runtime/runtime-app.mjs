@@ -677,7 +677,7 @@ export function createDirectiveRuntimeApp({
   const turnProgress = createTurnProgressReporter();
   let canceledThroughEpoch = -1;
   function assertTurnActive(scope) {
-    if (generationCancellation.stopped || (scope && scope.epoch <= canceledThroughEpoch)) {
+    if (scope?.signal?.aborted || generationCancellation.stopped || (scope && scope.epoch <= canceledThroughEpoch)) {
       throw generationAbortedError();
     }
   }
@@ -1379,6 +1379,7 @@ export function createDirectiveRuntimeApp({
       host.logger?.warn?.('[Directive] Could not capture the prior gameplay notification projection.', error);
     }
     const analysisController = typeof AbortController === 'function' ? new AbortController() : null;
+    const analysisSignal = AbortSignal.any([analysisController?.signal, progressScope?.signal].filter(Boolean));
     activeAnalysisController = analysisController;
     let mission = null;
     let persistenceAttempts = 0;
@@ -1396,14 +1397,14 @@ export function createDirectiveRuntimeApp({
           snapshot,
           generationType,
           acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
-          signal: analysisController?.signal || null,
+          signal: analysisSignal,
           allowModelCall: budgetReserved === true,
           progressScope,
         });
       } while (mission?.ok === false
         && mission.reasonCode === 'persistence-failed'
         && persistenceAttempts < 3
-        && analysisController?.signal?.aborted !== true);
+        && analysisSignal.aborted !== true);
     } finally {
       if (activeAnalysisController === analysisController) {
         activeAnalysisController = null;
@@ -1413,9 +1414,10 @@ export function createDirectiveRuntimeApp({
     }
     if (mission?.ok === true) {
       acceptedPairCallBudget.clear(fingerprint);
-    } else if (budgetReserved && mission?.attempted !== true) {
+    } else if (budgetReserved && (progressScope?.signal?.aborted || mission?.attempted !== true)) {
       acceptedPairCallBudget.release(fingerprint, budgetAttemptKind);
     }
+    if (progressScope?.signal?.aborted) throw generationAbortedError();
     const time = mission?.time || null;
     const settlementBlocked = mission?.ok === false;
     if (updateRecovery && settlementBlocked) {
@@ -1683,10 +1685,10 @@ export function createDirectiveRuntimeApp({
   }
 
   const orchestrator = {
-    async interceptGeneration({ type = 'normal', recoveryIntent = 'direct' } = {}) {
+    async interceptGeneration({ type = 'normal', recoveryIntent = 'direct', signal = null } = {}) {
       const generationGesture = activeHostGenerationGesture;
       const generationGestureId = generationGesture?.id ?? null;
-      if (recoveryIntent === 'native' && generationCancellation.stopped) {
+      if (signal?.aborted || (recoveryIntent === 'native' && generationCancellation.stopped)) {
         return {
           handled: true,
           abortDefaultGeneration: true,
@@ -1698,8 +1700,10 @@ export function createDirectiveRuntimeApp({
       pauseDossiers();
       const generationType = compact(type) || 'normal';
       let generationTargetKey = null;
-      const progressScope = turnProgress.createScope();
+      // A dialog dismissal cancels only this attempt, including queued work.
+      const progressScope = Object.freeze({ ...turnProgress.createScope(), signal });
       try {
+      assertTurnActive(progressScope);
       await ensureInitialized();
       await settlementQueue;
       assertTurnActive(progressScope);
@@ -1750,7 +1754,10 @@ export function createDirectiveRuntimeApp({
         }, { progressScope, generationType, syncPromptAfter:false });
         await settlementQueue;
       }
-      if (latestPlayerMessage) await enqueueSettlement(() => armPendingCommandBearingEdge(latestPlayerMessage));
+      if (latestPlayerMessage) await enqueueSettlement(() => {
+        assertTurnActive(progressScope);
+        return armPendingCommandBearingEdge(latestPlayerMessage);
+      });
       assertTurnActive(progressScope);
       if (acceptedPairRecovery.mode !== 'none' || acceptedPairReplay?.blocked === true) {
         return {
@@ -2288,6 +2295,7 @@ export function createDirectiveRuntimeApp({
       assertTurnActive(progressScope);
       await ensureInitialized();
       return enqueueSettlement(async () => {
+        assertTurnActive(progressScope);
         assertAcceptedPairRecovery(acceptedPairRecovery);
         if (dedupeRecoveryGesture
           && recoveryGestureId !== null
@@ -2324,6 +2332,7 @@ export function createDirectiveRuntimeApp({
         const prepared = current
           ? await acceptedSnapshotForMessage(current, recent, `retry.${messageId(current, current)}`)
           : null;
+        assertTurnActive(progressScope);
         if (!prepared?.ok
           || compact(prepared.snapshot?.source?.sourceRangeHash) !== compact(pending.snapshot?.source?.sourceRangeHash)) {
           acceptedPairRecovery = reconcileRequiredRecovery('pending-source-stale');
