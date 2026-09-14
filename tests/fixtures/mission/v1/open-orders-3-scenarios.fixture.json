@@ -73,17 +73,17 @@
     {
       "id": "name-and-signal-normal",
       "sequence": ["name-direct", "name-assessment", "name-asset", "signal-direct", "signal-assessment", "signal-asset", "readiness", "conclude-two"],
-      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "completed", "objective.open-orders3.signatures": "knowinglyDeclined" }, "outcomeDimensions": { "dimension.open-orders3.load": "normal-two", "dimension.open-orders3.name": "asset-earned", "dimension.open-orders3.signal": "asset-earned", "dimension.open-orders3.signatures": "declined" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "completed", "objective.open-orders3.signatures": "knowinglyDeclined" }, "outcomeDimensions": { "dimension.open-orders3.load": "normal-two", "dimension.open-orders3.name": "asset-earned", "dimension.open-orders3.signal": "asset-earned", "dimension.open-orders3.signatures": "declined" }, "commandBearingAwardIds": ["award.open-orders3.name", "award.open-orders3.signal"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "name-and-signatures-normal",
       "sequence": ["name-direct", "name-assessment", "name-asset", "signatures-direct", "signatures-assessment", "signatures-asset", "readiness", "conclude-two"],
-      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "knowinglyDeclined", "objective.open-orders3.signatures": "completed" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "knowinglyDeclined", "objective.open-orders3.signatures": "completed" }, "commandBearingAwardIds": ["award.open-orders3.name", "award.open-orders3.signatures"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "signal-and-signatures-normal",
       "sequence": ["signal-direct", "signal-assessment", "signal-asset", "signatures-direct", "signatures-assessment", "signatures-asset", "readiness", "conclude-two"],
-      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "knowinglyDeclined", "objective.open-orders3.signal": "completed", "objective.open-orders3.signatures": "completed" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "regionalCapabilityBuilt", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completed", "objective.open-orders3.name": "knowinglyDeclined", "objective.open-orders3.signal": "completed", "objective.open-orders3.signatures": "completed" }, "commandBearingAwardIds": ["award.open-orders3.signal", "award.open-orders3.signatures"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "broad-coverage-with-delegation",
@@ -98,17 +98,32 @@
     {
       "id": "overextended-with-informed-failure",
       "sequence": ["name-direct", "name-assessment", "name-failed", "signal-direct", "signal-assessment", "signal-asset", "signatures-direct", "signatures-assessment", "signatures-asset", "readiness", "conclude-overextended"],
-      "expected": { "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completedWithCost", "objective.open-orders3.name": "failedAfterInformedAction" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 15, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.conclusion": "completedWithCost", "objective.open-orders3.name": "failedAfterInformedAction" }, "commandBearingAwardIds": ["award.open-orders3.signal", "award.open-orders3.signatures"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "limited-mixed-results",
       "sequence": ["name-direct", "name-assessment", "name-limited", "signatures-delegated", "signatures-assessment", "signatures-asset", "readiness", "conclude-two"],
-      "expected": { "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.name": "completedWithCost", "objective.open-orders3.signatures": "completed" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.name": "completedWithCost", "objective.open-orders3.signatures": "completed" }, "commandBearingAwardIds": ["award.open-orders3.name", "award.open-orders3.signatures"], "transitionTargetId": "chapter-8-the-last-directive" }
+    },
+    {
+      "id": "signal-limited-remains-award-eligible",
+      "sequence": ["name-direct", "name-assessment", "name-asset", "signal-direct", "signal-assessment", "signal-limited", "readiness", "conclude-two"],
+      "expected": { "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "completedWithCost" }, "commandBearingAwardIds": ["award.open-orders3.name", "award.open-orders3.signal"], "transitionTargetId": "chapter-8-the-last-directive" }
+    },
+    {
+      "id": "signal-informed-failure-is-award-excluded",
+      "sequence": ["name-direct", "name-assessment", "name-asset", "signal-direct", "signal-assessment", "signal-failed", "readiness", "conclude-two"],
+      "expected": { "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.name": "completed", "objective.open-orders3.signal": "failedAfterInformedAction" }, "commandBearingAwardIds": ["award.open-orders3.name"], "transitionTargetId": "chapter-8-the-last-directive" }
+    },
+    {
+      "id": "signatures-limited-remains-award-eligible",
+      "sequence": ["signal-direct", "signal-assessment", "signal-asset", "signatures-direct", "signatures-assessment", "signatures-limited", "readiness", "conclude-two"],
+      "expected": { "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.signal": "completed", "objective.open-orders3.signatures": "completedWithCost" }, "commandBearingAwardIds": ["award.open-orders3.signal", "award.open-orders3.signatures"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "informed-assignment-failure",
       "sequence": ["signatures-direct", "signatures-assessment", "signatures-failed", "signal-direct", "signal-assessment", "signal-asset", "readiness", "conclude-two"],
-      "expected": { "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.signatures": "failedAfterInformedAction" }, "transitionTargetId": "chapter-8-the-last-directive" }
+      "expected": { "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 11, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.open-orders3.signatures": "failedAfterInformedAction" }, "commandBearingAwardIds": ["award.open-orders3.signal"], "transitionTargetId": "chapter-8-the-last-directive" }
     },
     {
       "id": "early-departure-after-readiness",

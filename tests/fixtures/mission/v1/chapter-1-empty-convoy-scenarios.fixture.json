@@ -262,6 +262,26 @@
         "value": "jointRecord",
         "sourceRole": "assistant"
       }
+    ],
+    "limited-shared-record": [
+      {
+        "claimId": "claim.chapter1.limited-shared-record",
+        "policyId": "policy.chapter1.incident-record",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.incident-record",
+        "value": "starfleetRecord",
+        "sourceRole": "assistant"
+      }
+    ],
+    "decline-shared-record": [
+      {
+        "claimId": "claim.chapter1.decline-shared-record",
+        "policyId": "policy.chapter1.incident-record",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter1.incident-record",
+        "value": "knowinglyDeclined",
+        "sourceRole": "assistant"
+      }
     ]
   },
   "scenarios": [
@@ -307,6 +327,42 @@
           "dimension.chapter1.authority": "lawful-starfleet",
           "dimension.chapter1.hardware": "secured-by-authority"
         },
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "limited-shared-record-does-not-block-closure",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "limited-shared-record", "authority-starfleet", "relief-safe", "hardware-starfleet"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed",
+          "objective.chapter1.shared-record": "completedWithCost"
+        },
+        "commandBearingAwardIds": ["award.chapter1.shared-record"],
+        "transitionTargetId": "chapter-2-false-colors"
+      }
+    },
+    {
+      "id": "declined-shared-record-does-not-block-closure",
+      "sequence": ["authority-report", "first-contact", "recovery-picture", "decline-shared-record", "authority-starfleet", "relief-safe", "hardware-starfleet"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter1.relief": "completed",
+          "objective.chapter1.authority": "completed",
+          "objective.chapter1.hardware": "completed",
+          "objective.chapter1.shared-record": "knowinglyDeclined"
+        },
+        "commandBearingAwardIds": [],
         "transitionTargetId": "chapter-2-false-colors"
       }
     },

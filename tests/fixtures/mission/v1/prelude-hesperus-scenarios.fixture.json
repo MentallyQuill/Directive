@@ -268,6 +268,42 @@
         "sourceRole": "user"
       }
     ],
+    "accountability-handoff": [
+      {
+        "claimId": "claim.hesperus-accountability-handoff-decision",
+        "policyId": "policy.hesperus.accountability-decision",
+        "claimType": "decisionRecorded",
+        "targetId": "outcome.hesperus.accountability-decision",
+        "value": "handOff",
+        "sourceRole": "user"
+      },
+      {
+        "claimId": "claim.hesperus-accountability-handoff-result",
+        "policyId": "policy.hesperus.accountability-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.accountability-result",
+        "value": "handedOff",
+        "sourceRole": "assistant"
+      }
+    ],
+    "accountability-evidence-lost": [
+      {
+        "claimId": "claim.hesperus-accountability-evidence-lost-decision",
+        "policyId": "policy.hesperus.accountability-decision",
+        "claimType": "decisionRecorded",
+        "targetId": "outcome.hesperus.accountability-decision",
+        "value": "proportionateAction",
+        "sourceRole": "user"
+      },
+      {
+        "claimId": "claim.hesperus-accountability-evidence-lost-result",
+        "policyId": "policy.hesperus.accountability-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.hesperus.accountability-result",
+        "value": "evidenceLost",
+        "sourceRole": "assistant"
+      }
+    ],
     "rescue-failed-informed": [
       {
         "claimId": "claim.hesperus-proceed-known-risk",
@@ -938,6 +974,44 @@
         "outcomeDimensions": {
           "dimension.hesperus.accountability": "knowingly-declined"
         },
+        "knownFactsIncludes": ["fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "confirmed-record-accountability-handed-off",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "records-through-confirmation", "accountability-handoff", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 26,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-accountability": "handedOff"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "handed-off"
+        },
+        "commandBearingAwardIds": ["award.prelude.hesperus-accountability"],
+        "knownFactsIncludes": ["fact.hesperus.record-falsified"],
+        "transitionTargetId": "chapter-1-the-empty-convoy"
+      }
+    },
+    {
+      "id": "confirmed-record-evidence-lost-after-informed-action",
+      "sequence": ["command-handover", "staff-readiness", "hesperus-open", "records-through-confirmation", "accountability-evidence-lost", "rescue-safe", "final-clean"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "primarySuccess",
+        "acceptedClaimCount": 26,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.prelude.hesperus-accountability": "failedAfterInformedAction"
+        },
+        "outcomeDimensions": {
+          "dimension.hesperus.accountability": "evidence-lost"
+        },
+        "commandBearingAwardIds": [],
         "knownFactsIncludes": ["fact.hesperus.record-falsified"],
         "transitionTargetId": "chapter-1-the-empty-convoy"
       }

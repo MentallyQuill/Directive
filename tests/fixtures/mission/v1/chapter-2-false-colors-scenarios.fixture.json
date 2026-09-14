@@ -218,6 +218,26 @@
         "value": "jointFramework",
         "sourceRole": "assistant"
       }
+    ],
+    "partnership-limited": [
+      {
+        "claimId": "claim.chapter2.partnership-limited",
+        "policyId": "policy.chapter2.partnership-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.partnership-result",
+        "value": "limitedFramework",
+        "sourceRole": "assistant"
+      }
+    ],
+    "partnership-declined": [
+      {
+        "claimId": "claim.chapter2.partnership-declined",
+        "policyId": "policy.chapter2.partnership-result",
+        "claimType": "outcomeObserved",
+        "targetId": "outcome.chapter2.partnership-result",
+        "value": "knowinglyDeclined",
+        "sourceRole": "assistant"
+      }
     ]
   },
   "scenarios": [
@@ -263,6 +283,42 @@
           "dimension.chapter2.attack-account": "independently-established",
           "dimension.chapter2.verification-security": "protected-with-credible-alternative"
         },
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "limited-joint-framework-does-not-block-closure",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "partnership-limited", "account-independent", "security-protected"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed",
+          "objective.chapter2.joint-framework": "completedWithCost"
+        },
+        "commandBearingAwardIds": ["award.chapter2.joint-framework"],
+        "transitionTargetId": "open-orders-1-work-worth-doing"
+      }
+    },
+    {
+      "id": "declined-joint-framework-does-not-block-closure",
+      "sequence": ["access-report", "independent-evidence", "counterfeit-route", "medical-stabilized", "partnership-declined", "account-independent", "security-protected"],
+      "expected": {
+        "status": "terminal",
+        "terminalDisposition": "credibleVindication",
+        "acceptedClaimCount": 9,
+        "rejectedReasonCodes": [],
+        "objectiveDispositions": {
+          "objective.chapter2.medical": "completed",
+          "objective.chapter2.attack-account": "completed",
+          "objective.chapter2.verification-security": "completed",
+          "objective.chapter2.joint-framework": "knowinglyDeclined"
+        },
+        "commandBearingAwardIds": [],
         "transitionTargetId": "open-orders-1-work-worth-doing"
       }
     },

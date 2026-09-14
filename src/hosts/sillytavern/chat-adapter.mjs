@@ -2400,7 +2400,12 @@ export function createSillyTavernChatAdapter({
       const extensionSettings = beforeContext?.extensionSettings || beforeContext?.extension_settings || globalThis.extension_settings;
       observationTimeoutMs ??= resolveAnalysisLimits(extensionSettings?.directive?.providers?.utility).hostNarrationTimeoutSeconds * 1000;
       const beforeChat = getChatArray(beforeContext);
+      const beforeChatId = contextChatId(beforeContext);
       const beforeIds = new Set(beforeChat.map((message, index) => normalizeMessageId(message, index)));
+      const swipeTarget = type === 'swipe' ? beforeChat.at(-1) : null;
+      const swipeSource = swipeTarget ? JSON.stringify({
+        text: messageText(swipeTarget), swipeId: swipeTarget.swipe_id, swipes: swipeTarget.swipes,
+      }) : null;
       const script = scriptModule || (typeof importScript === 'function'
         ? await importScript()
         : await import('/script.js'));
@@ -2440,7 +2445,25 @@ export function createSillyTavernChatAdapter({
           observedMessage: null
         };
       }
-      if (typeof script.Generate !== 'function') {
+      if (type === 'swipe') {
+        const currentContext = context();
+        if (!swipeTarget || swipeTarget.is_user === true || swipeTarget.role === 'user'
+          || swipeTarget.is_system === true || swipeTarget.role === 'system'
+          || contextChatId(currentContext) !== beforeChatId
+          || getChatArray(currentContext).at(-1) !== swipeTarget
+          || JSON.stringify({ text: messageText(swipeTarget), swipeId: swipeTarget.swipe_id, swipes: swipeTarget.swipes }) !== swipeSource) {
+          return { ok: false, skipped: true, reason: 'swipe-source-changed' };
+        }
+        if (typeof script.swipe !== 'function') {
+          return { ok: false, skipped: true, reason: 'swipe-api-unavailable' };
+        }
+        if (script.isSwipingAllowed?.() === false
+          || script.isMessageSwipeable?.(beforeChat.length - 1, swipeTarget) === false
+          || (typeof script.getOverswipeBehavior === 'function'
+            && script.getOverswipeBehavior(beforeChat.length - 1, swipeTarget) !== SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR)) {
+          return { ok: false, skipped: true, reason: 'host-swipe-unavailable' };
+        }
+      } else if (typeof script.Generate !== 'function') {
         return {
           ok: false,
           skipped: true,
@@ -2450,12 +2473,34 @@ export function createSillyTavernChatAdapter({
       const generationStartedAt = now();
       const observationId = `host-generation:${generationStartedAt}:${ingressId || turnId || outcomeId || reason}`;
       const callback = typeof onHostGenerationObserved === 'function' ? onHostGenerationObserved : onSettled;
+      const newSwipeIndex = swipeTarget ? swipeTarget.swipes?.length || 1 : null;
       const releaseHandoff = onGenerationStarting?.();
       let generationPromise;
       try {
-        generationPromise = script.Generate(type || 'normal', {
-          automatic_trigger: automaticTrigger !== false
-        });
+        // Generate('swipe') writes at the selected index. Native swipe owns the
+        // new-slot reservation and restores the prior selection on failure.
+        generationPromise = type === 'swipe'
+          ? script.swipe(null, 'right', {
+              message: swipeTarget,
+              forceSwipeId: newSwipeIndex,
+              forceDuration: 0,
+            })
+          : script.Generate(type || 'normal', {
+              automatic_trigger: automaticTrigger !== false
+            });
+        if (type === 'swipe') {
+          generationPromise = Promise.resolve(generationPromise).then(result => {
+            // Native endSwipe also resolves after a blocked generation and rollback.
+            // Report that as a failed handoff so the existing owner can retain Retry.
+            if (typeof swipeTarget.swipes?.[newSwipeIndex] !== 'string'
+              || !swipeTarget.swipes[newSwipeIndex].trim()) {
+              const error = new Error('The native swipe did not produce an alternative reply.');
+              error.code = 'DIRECTIVE_HOST_SWIPE_NOT_GENERATED';
+              throw error;
+            }
+            return result;
+          });
+        }
       } catch (error) {
         releaseHandoff?.();
         throw error;

@@ -139,7 +139,7 @@
     {
       "id": "peace-at-cost-nonlinear-quorum",
       "sequence": ["core-quorum", "civilians-cost", "executable-plan", "weapons-damage", "mesh-manual", "command-contested"],
-      "expected": { "status": "terminal", "terminalDisposition": "peaceAtCost", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "transitionTargetId": "epilogue-the-terms-we-keep" }
+      "expected": { "status": "terminal", "terminalDisposition": "peaceAtCost", "acceptedClaimCount": 16, "rejectedReasonCodes": [], "objectiveDispositions": { "objective.chapter8.mesh": "completedWithCost" }, "transitionTargetId": "epilogue-the-terms-we-keep" }
     },
     {
       "id": "starfleet-imposed-order",

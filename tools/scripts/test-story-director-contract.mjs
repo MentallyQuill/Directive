@@ -38,6 +38,40 @@ assert.equal(parseStoryDirectorOutput(JSON.stringify({
 }), { request }).ok, true);
 assert.equal(parseStoryDirectorOutput(JSON.stringify({
   ...output,
+  direction: {
+    ...output.direction,
+    move: 'surface-opportunity',
+    targetRef: 'opportunity.assignment',
+    requires: ['condition.handover-complete'],
+  },
+}), { request }).ok, true, 'an opportunity may require its own supplied conditions');
+const multipleOpportunityRequest = {
+  ...request,
+  authoredContext: {
+    ...request.authoredContext,
+    opportunities: [...request.authoredContext.opportunities, {
+      id: 'opportunity.sensor-check',
+      kind: 'objective',
+      playerSafeText: 'Review the sensor discrepancy.',
+      conditionIds: ['condition.sensor-corroborated'],
+    }],
+  },
+};
+assert.equal(parseStoryDirectorOutput(JSON.stringify({
+  ...output,
+  direction: {
+    ...output.direction,
+    move: 'surface-opportunity',
+    targetRef: 'opportunity.assignment',
+    requires: ['condition.sensor-corroborated'],
+  },
+}), { request: multipleOpportunityRequest }).ok, false, 'an opportunity cannot borrow another target condition');
+assert.equal(parseStoryDirectorOutput(JSON.stringify({
+  ...output,
+  direction: { ...output.direction, requires: ['condition.handover-complete'] },
+}), { request }).ok, false, 'respond-to-player has no selected target conditions');
+assert.equal(parseStoryDirectorOutput(JSON.stringify({
+  ...output,
   direction: { ...output.direction, requires: ['condition.not-supplied'] },
 }), { request }).ok, false);
 assert.equal(parseStoryDirectorOutput(JSON.stringify({ ...output, secretPlan: 'attack' }), { request }).ok, false);
@@ -60,6 +94,10 @@ const localDirection = makeDirectorOutput(request, {
   },
 });
 assert.equal(parseStoryDirectorOutput(localDirection, { request }).ok, true);
+assert.equal(parseStoryDirectorOutput({
+  ...localDirection,
+  direction: { ...localDirection.direction, requires: ['condition.handover-complete'] },
+}, { request }).ok, false, 'a newly opened continuity thread also requires an empty requires array');
 
 const schema = createStoryDirectorSchema(request);
 assert.equal(schema.additionalProperties, false);

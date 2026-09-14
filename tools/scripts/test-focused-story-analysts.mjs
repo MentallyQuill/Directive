@@ -79,6 +79,45 @@ const longIdTargetError = longIdDirection.errors.find(error => error !== 'direct
 assert.ok(longIdTargetError.length <= 240);
 assert.equal(longIdTargetError.includes('...'), false, 'diagnostics must never present a shortened identifier as an allowed choice');
 assert.match(longIdTargetError, /see supplied continuity\.records IDs/i);
+const threadTargetRequest = {
+  ...request,
+  authoredContext: {
+    ...request.authoredContext,
+    constraints: [...request.authoredContext.constraints, {
+      id: 'ship-constraint.sensor-corroboration-required',
+      kind: 'runtime-condition',
+      text: 'Corroborate uncertain sensor readings.',
+    }],
+  },
+  continuity: {
+    ...request.continuity,
+    records: [{ id: 'continuity-thread.handover', title: 'Command handover', status: 'active' }],
+  },
+};
+const invalidThreadRequires = parseStoryDirectionOutput({
+  kind: 'directive.storyDirectionAnalystProposal.v1',
+  envelope: request.envelope,
+  direction: {
+    move: 'continue-thread',
+    targetRef: 'continuity-thread.handover',
+    newComplications: 'avoid',
+    requires: ['ship-constraint.sensor-corroboration-required'],
+  },
+}, { request: threadTargetRequest });
+assert.equal(invalidThreadRequires.ok, false, 'continuity targets cannot claim unrelated global constraints as requirements');
+assert.ok(invalidThreadRequires.errors.includes('director-direction-requires-invalid'));
+const actionableRequiresError = invalidThreadRequires.errors.find(error => error.startsWith('director-direction-requires-invalid detail:'));
+assert.ok(actionableRequiresError, 'target-specific requirement rejection includes actionable feedback');
+assert.ok(actionableRequiresError.length <= 240);
+assert.match(actionableRequiresError, /move=continue-thread/);
+assert.match(actionableRequiresError, /targetRef=continuity-thread\.handover/);
+assert.match(actionableRequiresError, /requires=\[\]/);
+const focusedDirectionSchema = createFocusedStorySchema(threadTargetRequest, 'storyDirectionAnalyst').properties.direction;
+assert.equal(
+  focusedDirectionSchema.anyOf.some(branch => branch.properties?.requires?.maxItems === 0),
+  true,
+  'focused direction schema requires empty requirements for continuity moves',
+);
 for (const direction of [
   { ...legacy.direction, move: 'continue-thread', targetRef: { toString: null } },
   { ...legacy.direction, move: { toString: null }, targetRef: 'opportunity.assignment' },
@@ -133,6 +172,7 @@ assert.equal((await configuredStory({ request })).ok, true);
 assert.equal(configuredStoryCall.payload.maxTokens, 48000);
 assert.equal(configuredStoryCall.options.timeoutMs, 180000);
 assert.equal(configuredStoryCall.payload.jsonSchema.properties.direction.properties.requires.maxItems, 10);
+assert.match(configuredStoryCall.payload.systemPrompt, /requires \[\].*continuity thread targets/i);
 console.log('Configured story schemas, validators, and uncapped profile budgets passed.');
 
 const feedbackErrors = [null, 42, {}, '', ...Array.from({ length: 12 }, (_, n) => `${n}: ${'x'.repeat(300)}`)];

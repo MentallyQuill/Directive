@@ -183,12 +183,42 @@
       }
     },
     {
+      "id": "unwelcome-result-limited-remains-award-eligible",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "result-delegated", "result-assessment", "result-limited", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "responsibleInterval", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.last-watch": "completed", "objective.open-orders2.unwelcome-result": "completedWithCost" },
+        "commandBearingAwardIds": ["award.open-orders2.last-watch", "award.open-orders2.unwelcome-result"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "unwelcome-result-informed-failure-is-award-excluded",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "result-delegated", "result-assessment", "result-failed", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 13, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.last-watch": "completed", "objective.open-orders2.unwelcome-result": "failedAfterInformedAction" },
+        "commandBearingAwardIds": ["award.open-orders2.last-watch"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
       "id": "informed-assignment-failure",
       "sequence": ["watch-direct", "watch-assessment", "watch-failed", "opinion-direct", "opinion-assessment", "opinion-asset", "credentials", "conclude-two"],
       "expected": {
         "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
         "objectiveDispositions": { "objective.open-orders2.conclusion": "completed", "objective.open-orders2.last-watch": "failedAfterInformedAction", "objective.open-orders2.second-opinion": "completed" },
         "knownFactsIncludes": ["fact.open-orders2.current-starfleet-credential-path"],
+        "transitionTargetId": "chapter-6-the-cost-of-knowing"
+      }
+    },
+    {
+      "id": "second-opinion-informed-failure-is-award-excluded",
+      "sequence": ["watch-direct", "watch-assessment", "watch-asset", "opinion-direct", "opinion-assessment", "opinion-failed", "credentials", "conclude-two"],
+      "expected": {
+        "status": "terminal", "terminalDisposition": "limitedWorkForward", "acceptedClaimCount": 14, "rejectedReasonCodes": [],
+        "objectiveDispositions": { "objective.open-orders2.last-watch": "completed", "objective.open-orders2.second-opinion": "failedAfterInformedAction" },
+        "commandBearingAwardIds": ["award.open-orders2.last-watch"],
         "transitionTargetId": "chapter-6-the-cost-of-knowing"
       }
     },
