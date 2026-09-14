@@ -125,7 +125,9 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     if (!retryActive()) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
     const retryAttempt = {};
     operation.retryAttempt = retryAttempt;
-    const prepared = await retryOrchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    const prepared = await retryOrchestrator.interceptGeneration({
+      chat, contextSize, abort, type, recoveryIntent: 'explicit',
+    });
     if (!retryActive()) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
     if (prepared?.abortDefaultGeneration !== false) {
       return { ok: false, reasonCode: prepared?.settlementError?.reasonCode || 'turn-preparation-failed' };
@@ -156,7 +158,9 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
     return { ok: true };
   };
   try {
-    const result = await retryOrchestrator.interceptGeneration({ chat, contextSize, abort, type });
+    const result = await retryOrchestrator.interceptGeneration({
+      chat, contextSize, abort, type, recoveryIntent: 'native',
+    });
     if (boundAtStart && !ownsRecovery() && result?.responseStrategy !== 'cancelStaleTurn') {
       finishDirectiveTurnActivity(activityToken);
       abort?.(false);

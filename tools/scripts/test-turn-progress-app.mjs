@@ -96,6 +96,7 @@ host.chat.getLatestPlayerMessage = async (...args) => {
   await metadataGate.promise;
   return originalLatest.apply(host.chat, args);
 };
+hostEvents.handleGenerationStarted({ type: 'normal', automaticTrigger: false, dryRun: false });
 const oldMetadata = bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
 await enteredMetadata.promise;
 await hostEvents.handleGenerationStopped();

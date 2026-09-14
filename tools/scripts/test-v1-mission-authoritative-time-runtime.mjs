@@ -402,6 +402,80 @@ assert.equal(
     'retained restored branch authority cannot call the semantic provider',
 );
 
+const retainedTailMessages = [
+    {
+        id: mainSnapshot.source.previousAssistant.hostMessageId,
+        role: 'assistant',
+        mes: mainSnapshot.source.previousAssistant.text,
+    },
+    {
+        id: mainSnapshot.source.currentPlayer.hostMessageId,
+        role: 'user',
+        mes: mainSnapshot.source.currentPlayer.text,
+    },
+];
+const retainedTailSaveId = 'save.time.retained-tail-child';
+const retainedTailChatId = 'chat.time.retained-tail-child';
+const retainedTailBranch = await reconstructV1BranchState({
+    parentState: mainHarness.campaignState,
+    parentMessages: retainedTailMessages,
+    childMessages: retainedTailMessages,
+    targetSaveId: retainedTailSaveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: mainHarness.campaignState.campaign.id,
+        saveId: retainedTailSaveId,
+        chatId: retainedTailChatId,
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+assert.deepEqual(retainedTailBranch.discardedHostMessageIds, []);
+assert.deepEqual(
+    retainedTailBranch.campaignState.timeLedger,
+    mainHarness.campaignState.timeLedger,
+    'a native branch at the retained tail preserves accepted time authority',
+);
+assert.equal(retainedTailBranch.campaignState.campaignChatBinding.saveId, retainedTailSaveId);
+assert.equal(retainedTailBranch.campaignState.campaignChatBinding.chatId, retainedTailChatId);
+assert.equal(retainedTailBranch.campaignState.mission.v1.branchId, retainedTailSaveId);
+assert.equal(retainedTailBranch.campaignState.storySettlement.branchId, retainedTailSaveId);
+assert.equal(
+    retainedTailBranch.campaignState.stateCustody.revision,
+    mainHarness.campaignState.stateCustody.revision,
+    'custody rebinding does not invent a campaign mutation revision',
+);
+
+const truncatedTailSaveId = 'save.time.truncated-tail-child';
+const truncatedTailBranch = await reconstructV1BranchState({
+    parentState: mainHarness.campaignState,
+    parentMessages: retainedTailMessages,
+    childMessages: retainedTailMessages.slice(0, 1),
+    targetSaveId: truncatedTailSaveId,
+    targetChatBinding: {
+        kind: 'directive.campaignChatBinding.v1',
+        version: 1,
+        campaignId: mainHarness.campaignState.campaign.id,
+        saveId: truncatedTailSaveId,
+        chatId: 'chat.time.truncated-tail-child',
+        status: 'bound',
+    },
+    runtimeAssets: branchRuntimeAssets,
+});
+assert.deepEqual(
+    truncatedTailBranch.discardedHostMessageIds,
+    [mainSnapshot.source.currentPlayer.hostMessageId],
+);
+assert.equal(truncatedTailBranch.campaignState.timeLedger.elapsedSeconds, 0);
+assert.deepEqual(truncatedTailBranch.campaignState.timeLedger.entries, []);
+assert.deepEqual(truncatedTailBranch.campaignState.timeLedger.decisions, []);
+assert.equal(
+    truncatedTailBranch.campaignState.storySettlement.acceptedPairReceipts.length,
+    0,
+    'a truncated native branch still removes the discarded accepted-pair effects',
+);
+
 const discardedPlayerSnapshot = snapshot('discarded-player-parent');
 const discardedPlayerHarness = createHarness({
     definition,

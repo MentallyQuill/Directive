@@ -412,16 +412,16 @@ export async function reconstructV1BranchState({
     } catch (error) {
       throw reconstructionError('DIRECTIVE_BRANCH_MISSION_REBUILD_FAILED', 'Mission authority could not be reconstructed.', { message: error?.message, code: error?.code });
     }
+    const time = await invalidateV1AcceptedPairTimeByHostMessages({
+      campaignState,
+      hostMessageIds: discardedHostMessageIds,
+      packageData: runtimeAssets.packageData,
+      stateDeltaGateway: gateway,
+      now,
+      eventType: 'native-branch-discarded'
+    });
+    if (!time.ok) throw reconstructionError('DIRECTIVE_BRANCH_TIME_REBUILD_FAILED', 'Time authority could not be reconstructed.', time);
   }
-  const time = await invalidateV1AcceptedPairTimeByHostMessages({
-    campaignState,
-    hostMessageIds: discardedHostMessageIds,
-    packageData: runtimeAssets.packageData,
-    stateDeltaGateway: gateway,
-    now,
-    eventType: 'native-branch-discarded'
-  });
-  if (!time.ok) throw reconstructionError('DIRECTIVE_BRANCH_TIME_REBUILD_FAILED', 'Time authority could not be reconstructed.', time);
 
   campaignState.commandBearing = rebuildV1CommandBearingForLineage(campaignState.commandBearing, {
     retainedMessages: normalizedChild,

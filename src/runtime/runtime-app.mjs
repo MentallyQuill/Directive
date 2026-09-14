@@ -711,7 +711,10 @@ export function createDirectiveRuntimeApp({
   let storageDiagnostics = null;
   let settlementQueue = Promise.resolve();
   let acceptedPairRecovery = noAcceptedPairRecovery();
+  let acceptedPairRecoveryGestureId = null;
   const acceptedPairCallBudget = createAcceptedPairCallBudget();
+  let hostGenerationGestureSequence = 0;
+  let activeHostGenerationGesture = null;
   let activeAnalysisController = null;
   let activeAnalysisFingerprint = null;
   let nativeNarrationActive = false;
@@ -1348,6 +1351,7 @@ export function createDirectiveRuntimeApp({
     attemptKind = 'automatic',
     allowModelCall = true,
     updateRecovery = true,
+    recoveryGestureId = null,
     progressScope = turnProgress.createScope(),
   } = {}) {
     assertTurnActive(progressScope);
@@ -1428,10 +1432,12 @@ export function createDirectiveRuntimeApp({
         turnKey: mission.turnKey || mission.diagnostics?.turnKey || null,
         generationType,
       });
+      acceptedPairRecoveryGestureId = recoveryGestureId;
     } else if (updateRecovery && mission?.ok === true
       && (acceptedPairRecovery.mode !== 'pair-retry'
         || acceptedPairRecovery.pair?.fingerprint === fingerprint)) {
       acceptedPairRecovery = noAcceptedPairRecovery();
+      acceptedPairRecoveryGestureId = null;
     }
     const commandBearing = mission?.acceptedCommandBearingEdge || {
       applied: false,
@@ -1528,6 +1534,7 @@ export function createDirectiveRuntimeApp({
       const invalidated = await invalidateSourceAuthority(persistedId, 'source-missing-from-chat');
       if (invalidated.mission?.ok === false) {
         acceptedPairRecovery = reconcileRequiredRecovery('source-invalidation-persistence-failed');
+        acceptedPairRecoveryGestureId = null;
         return {
           replayed: 0,
           reconciled,
@@ -1562,6 +1569,7 @@ export function createDirectiveRuntimeApp({
       if (result.mission?.status !== 'already-settled') replayed += 1;
     }
     acceptedPairRecovery = noAcceptedPairRecovery();
+    acceptedPairRecoveryGestureId = null;
     await syncPrompt({ rebuild: true, progressScope });
     return {
       replayed,
@@ -1623,6 +1631,7 @@ export function createDirectiveRuntimeApp({
       const id = messageId(payload, normalized);
       if (!id) return { handled: false, reason: 'message-id-unavailable' };
       acceptedPairRecovery = reconcileRequiredRecovery(eventType);
+      acceptedPairRecoveryGestureId = null;
       const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType, progressScope);
       await syncPrompt({ rebuild: true, progressScope });
       const replay = {
@@ -1674,7 +1683,17 @@ export function createDirectiveRuntimeApp({
   }
 
   const orchestrator = {
-    async interceptGeneration({ type = 'normal' } = {}) {
+    async interceptGeneration({ type = 'normal', recoveryIntent = 'direct' } = {}) {
+      const generationGesture = activeHostGenerationGesture;
+      const generationGestureId = generationGesture?.id ?? null;
+      if (recoveryIntent === 'native' && generationCancellation.stopped) {
+        return {
+          handled: true,
+          abortDefaultGeneration: true,
+          responseStrategy: 'cancelStaleTurn',
+          reasonCode: 'host-generation-stopped',
+        };
+      }
       generationCancellation.resume();
       pauseDossiers();
       const generationType = compact(type) || 'normal';
@@ -1689,9 +1708,21 @@ export function createDirectiveRuntimeApp({
         return { handled: false, reason: 'inactive-or-unbound' };
       }
       assertAcceptedPairRecovery(acceptedPairRecovery);
-      if (acceptedPairRecovery.mode === 'pair-retry') {
+      const recoveryBelongsToCurrentGesture = recoveryIntent === 'native'
+        && generationGestureId !== null
+        && acceptedPairRecoveryGestureId === generationGestureId;
+      const mayRetryPendingRecovery = recoveryIntent === 'explicit'
+        || recoveryIntent === 'direct'
+        || (recoveryIntent === 'native'
+          && generationGesture?.manualRecoveryEligible === true
+          && !recoveryBelongsToCurrentGesture);
+      if (acceptedPairRecovery.mode === 'pair-retry' && mayRetryPendingRecovery) {
         // A fresh Generate gesture retries the failed analysis, just like the dialog.
-        await publicApi.retryPendingAcceptedPairSettlement({ progressScope });
+        await publicApi.retryPendingAcceptedPairSettlement({
+          progressScope,
+          recoveryGestureId: recoveryIntent === 'direct' ? null : generationGestureId,
+          dedupeRecoveryGesture: recoveryIntent === 'native',
+        });
       }
       assertTurnActive(progressScope);
       if (acceptedPairRecovery.mode === 'pair-retry') {
@@ -1744,6 +1775,7 @@ export function createDirectiveRuntimeApp({
           generationTargetKey = createNarrationGenerationTargetKey({snapshot:prepared.snapshot,generationType});
           const direction = await enqueueSettlement(() => settleSnapshot(prepared.snapshot, null, {
             syncPromptAfter:false, publishNotifications:false, progressScope, generationType,
+            recoveryGestureId:generationGestureId,
           }));
           assertTurnActive(progressScope);
           if (direction.settlementBlocked) return {
@@ -1856,6 +1888,19 @@ export function createDirectiveRuntimeApp({
     },
 
     getChatTurnOrchestrator: () => orchestrator,
+
+    handleHostGenerationStarted({ type = 'normal', automaticTrigger = false, dryRun = false } = {}) {
+      if (dryRun === true) return { handled: false, reason: 'dry-run' };
+      const generationType = compact(type) || 'normal';
+      const manualRecoveryEligible = automaticTrigger !== true
+        && !['quiet', 'impersonate'].includes(generationType);
+      activeHostGenerationGesture = {
+        id: ++hostGenerationGestureSequence,
+        manualRecoveryEligible,
+      };
+      if (manualRecoveryEligible) generationCancellation.resume();
+      return { handled: true, gestureId: activeHostGenerationGesture.id };
+    },
 
     async getCurrentView({ tabId = 'campaign' } = {}) {
       await ensureInitialized();
@@ -1989,6 +2034,7 @@ export function createDirectiveRuntimeApp({
       generationType = 'normal',
       syncPromptAfter = true,
     } = {}) {
+      const recoveryGestureId = activeHostGenerationGesture?.id ?? null;
       pauseDossiers();
       await ensureInitialized();
       const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
@@ -2047,13 +2093,16 @@ export function createDirectiveRuntimeApp({
         responseStrategy: 'injectAndContinue',
         abortDefaultGeneration: false,
           ...(acceptedPairReplay ? { acceptedPairReplay } : {}),
-          ...(await settleSnapshot(prepared.snapshot, ingressId, { progressScope, generationType, syncPromptAfter }))
+          ...(await settleSnapshot(prepared.snapshot, ingressId, {
+            progressScope, generationType, syncPromptAfter, recoveryGestureId,
+          }))
         };
       });
     },
 
     async handleHostGenerationEnded(payload = {}) {
       if (generationCancellation.stopped) return { handled: false, reason: 'host-generation-stopped' };
+      activeHostGenerationGesture = null;
       nativeNarrationActive = false;
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
@@ -2229,13 +2278,27 @@ export function createDirectiveRuntimeApp({
       return result;
     },
 
-    async retryPendingAcceptedPairSettlement({ progressScope = null } = {}) {
+    async retryPendingAcceptedPairSettlement({
+      progressScope = null,
+      recoveryGestureId = null,
+      dedupeRecoveryGesture = false,
+    } = {}) {
       if (!progressScope) generationCancellation.resume();
       progressScope ||= turnProgress.createScope();
       assertTurnActive(progressScope);
       await ensureInitialized();
       return enqueueSettlement(async () => {
         assertAcceptedPairRecovery(acceptedPairRecovery);
+        if (dedupeRecoveryGesture
+          && recoveryGestureId !== null
+          && acceptedPairRecovery.mode === 'pair-retry'
+          && acceptedPairRecoveryGestureId === recoveryGestureId) {
+          return {
+            ok: false,
+            reasonCode: acceptedPairRecovery.reasonCode,
+            settlementBlocked: true,
+          };
+        }
         if (acceptedPairRecovery.mode === 'none') {
           return { ok: false, reasonCode: 'no-pending-settlement', settlementBlocked: false };
         }
@@ -2264,6 +2327,7 @@ export function createDirectiveRuntimeApp({
         if (!prepared?.ok
           || compact(prepared.snapshot?.source?.sourceRangeHash) !== compact(pending.snapshot?.source?.sourceRangeHash)) {
           acceptedPairRecovery = reconcileRequiredRecovery('pending-source-stale');
+          acceptedPairRecoveryGestureId = null;
           return { ok: false, reasonCode: 'pending-source-stale', settlementBlocked: false };
         }
         // A new explicit gesture grants one failed-role attempt for this source.
@@ -2272,6 +2336,7 @@ export function createDirectiveRuntimeApp({
           generationType: pending.generationType || 'normal',
           attemptKind: 'manual',
           allowModelCall: true,
+          recoveryGestureId,
           progressScope,
         });
         return {
@@ -2293,6 +2358,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostChatChanged(payload = {}) {
+      activeHostGenerationGesture = null;
       pauseDossiers();
       activeAnalysisController?.abort();
       if (internalChatOpenDepth > 0) {
@@ -2368,6 +2434,7 @@ export function createDirectiveRuntimeApp({
         } catch (error) {
           if (!timelineFork) throw error;
           acceptedPairRecovery = reconcileRequiredRecovery('post-fork-replay-failed');
+          acceptedPairRecoveryGestureId = null;
           host.logger?.warn?.('[Directive] Post-fork accepted-pair replay failed after the new timeline was committed.', error);
           acceptedPairReplay = {
             replayed: 0,
@@ -2383,6 +2450,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
+      activeHostGenerationGesture = null;
       canceledThroughEpoch = turnProgress.createScope().epoch;
       generationCancellation.stop();
       openingLifecycle.cancel();

@@ -160,6 +160,20 @@ export function handlePlayerMessage(payload = {}) {
   return { handled: true, scheduled: true, abortDefaultGeneration: false };
 }
 
+export function handleGenerationStarted(type = 'normal', options = {}, dryRun = false) {
+  if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  if (type && typeof type === 'object') {
+    dryRun = type.dryRun === true;
+    options = type.options || type;
+    type = type.type || 'normal';
+  }
+  return app()?.handleHostGenerationStarted?.({
+    type,
+    automaticTrigger: options?.automatic_trigger === true || options?.automaticTrigger === true,
+    dryRun,
+  }) || { handled: false, reason: 'runtime-unavailable' };
+}
+
 export function handleMessageEdited(payload = {}) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
   markEditedUpdate(payload);
@@ -298,6 +312,7 @@ export function wireEvents(context) {
   register(adapter, [events.MESSAGE_UPDATED || 'MESSAGE_UPDATED'], handleMessageVisibilityChanged, disposers);
   register(adapter, [events.MESSAGE_SWIPED || 'MESSAGE_SWIPED'], handleMessageSelectedSwipeChanged, disposers);
   register(adapter, [events.MESSAGE_DELETED, events.MESSAGE_REMOVED, 'MESSAGE_DELETED'], handleMessageDeleted, disposers);
+  register(adapter, [events.GENERATION_STARTED || 'GENERATION_STARTED'], handleGenerationStarted, disposers);
   register(adapter, [events.GENERATION_STOPPED || 'GENERATION_STOPPED'], handleGenerationStopped, disposers);
   register(adapter, [events.GENERATION_ENDED || 'GENERATION_ENDED'], handleGenerationEnded, disposers);
   register(adapter, [events.STREAM_TOKEN_RECEIVED || 'STREAM_TOKEN_RECEIVED'], handleStreamTokenReceived, disposers);
@@ -320,6 +335,7 @@ export const __directiveEventTestHooks = Object.freeze({
   handleMessageVisibilityChanged,
   handleMessageDeleted,
   handleMessageSelectedSwipeChanged,
+  handleGenerationStarted,
   handleGenerationStopped,
   handleGenerationEnded,
   handleStreamTokenReceived,

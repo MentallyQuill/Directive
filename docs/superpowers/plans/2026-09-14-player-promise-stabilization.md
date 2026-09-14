@@ -37,7 +37,7 @@
 
 - [x] Trace actual correction APIs, source receipts, partial-progress preservation, reward reconciliation, and reload projection.
 - [x] Run existing app, race, core, runtime, and browser correction tests.
-- [ ] Add a focused failing regression only where a concrete unprotected boundary or defect is established; implement its owning-boundary fix and rerun impacted checks.
+- [x] Add a focused failing regression only where a concrete unprotected boundary or defect is established; implement its owning-boundary fix and rerun impacted checks.
 - [ ] Create a fresh Ashes campaign in the real host. Play a partial-progress turn, exercise resolve/reopen controls, reload, and continue with a real provider.
 - [x] Separately delay a model result past a correction and interrupt a save; verify expected state and honest feedback (controlled production-path probe).
 - [x] Record natural interpretation separately from deliberate control-based fault setup.
