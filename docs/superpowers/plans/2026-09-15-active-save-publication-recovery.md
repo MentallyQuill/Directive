@@ -87,7 +87,11 @@ assert.equal(adapter.writes, writes);
 
 - [x] Independently review each bounded implementation and the complete integrated diff, especially restart ownership and destructive failure cleanup.
 - [x] Run focused regressions, then full `npm.cmd test` on final source and scoped diff checks. Reuse valid checks until changes or findings justify reruns.
-- [ ] Record scoped results and remaining chronology/live limitations; stage only owned files, commit/push and verify main with network-enabled GitHub CLI.
-- [ ] Verify installed identity before subsequent native testing. Real-provider soak still requires NanoGPT reauthentication; offline evidence does not replace it.
+- [x] Record scoped results and remaining chronology/live limitations; stage only owned files, commit/push and verify main with network-enabled GitHub CLI.
+- [x] Verify installed identity before subsequent native testing. Real-provider soak still requires NanoGPT reauthentication; offline evidence does not replace it.
 
-Final implementation validation: all 238 gate checks passed after the chat compensation cleanup regression and independent approval. Native installation and controlled failure proof remain pending publication; the latest single provider connectivity attempt returned Unauthorized and supplies no semantic evidence.
+Final implementation validation: all 238 gate checks passed after the chat compensation cleanup regression and independent approval. Publication and subsequent native installation/fault results are recorded below; the latest single provider connectivity attempt returned Unauthorized and supplies no semantic evidence.
+
+Published and GitHub-verified main: 26f04d297ccee961c5c634a9715e6b995d7b7993. All 671 disposable installed production files match that commit; native reload and fault results are recorded below.
+
+Native installed/served identity and exact reload/reopen recovery passed against the preserved pre-reload baseline:671files,17checkpoints,31transcripts and11active rows unchanged. The separate controlled native save-fault probe passed: lost acknowledgement, verification uncertainty, candidate/resource retention, generation blocking and exact recovery without replay. Null portrait restored through ordinary removal, three manifest writes/revisions5→8, mission/time/report authority and protected data unchanged; zero provider dispatches. This completes this bounded integration plan; the parent six-area goal, chronology capture, natural journeys and real-provider soak remain unfinished.
