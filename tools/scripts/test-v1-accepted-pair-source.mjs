@@ -192,7 +192,11 @@ const longAssistantTwo = prepareV1AcceptedPairSnapshot({
   previousAssistantMessage: { id: 'assistant.long', role: 'assistant', text: `${longAssistantPrefix} second ending` },
   chatId: 'chat.ashes'
 });
-assert.equal(longAssistantOne.snapshot.source.previousAssistant.text.length, 7000);
+assert.equal(longAssistantOne.snapshot.source.previousAssistant.text, `${longAssistantPrefix} first ending`,
+  'the accepted assistant source must remain one complete contiguous narrative');
+assert.equal(longAssistantOne.snapshot.source.previousAssistant.selectedVariant.text, `${longAssistantPrefix} first ending`);
+assert.notEqual(longAssistantOne.snapshot.source.previousAssistant.textHash, longAssistantTwo.snapshot.source.previousAssistant.textHash,
+  'an edit after character 7000 must change the full source hash');
 assert.notEqual(longAssistantOne.snapshot.source.sourceRangeHash, longAssistantTwo.snapshot.source.sourceRangeHash);
 
 const longPlayerPrefix = 'P'.repeat(2600);
@@ -223,5 +227,6 @@ const lateFooter = prepareV1AcceptedPairSnapshot({
 });
 assert.equal(lateFooter.ok, true);
 assert.equal(lateFooter.snapshot.source.previousAssistant.timeFooter.secondOfDay, 30682);
+assert.equal(lateFooter.snapshot.source.previousAssistant.text, 'N'.repeat(7100), 'footer removal must preserve the entire narrative');
 
 console.log('V1 accepted-pair source tests passed.');

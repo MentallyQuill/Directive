@@ -7,7 +7,6 @@ function stripLegacyCampaignReplyHeader(text = '') {
   return String(text ?? '').replace(LEGACY_CAMPAIGN_REPLY_HEADER, '').trimStart();
 }
 
-const MAX_ASSISTANT_CHARS = 7000;
 const MAX_PLAYER_CHARS = 2500;
 export const V1_ACCEPTED_PAIR_SOURCE_WINDOW = 8;
 
@@ -27,7 +26,8 @@ function assistantSource(message = {}) {
   const extracted = extractShipTimeFooter(fullText);
   return {
     fullText,
-    text: extracted.narrativeText.slice(0, MAX_ASSISTANT_CHARS),
+    // Keep evidence contiguous; downstream request budgets reject overflow explicitly.
+    text: extracted.narrativeText,
     completeNarrativeText: extracted.narrativeText,
     timeFooter: extracted.footer
   };

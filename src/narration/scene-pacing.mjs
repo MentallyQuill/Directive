@@ -6,6 +6,25 @@ const DEPARTURES = ['leave', 'delegate', 'skip'];
 const text = (value, maximum = Infinity) => typeof value === 'string' && value.length <= maximum;
 const quoteIn = (quote, source, maximum = 240) => text(quote, maximum) && quote.trim().length >= 4 && String(source || '').includes(quote);
 
+function visiblePacingObjectives(definition, state) {
+    return (definition?.objectives || []).filter(objective => objective.scenePacing
+        && ['visible','resolved'].includes(state?.objectives?.[objective.id]?.visibility))
+        .map(objective => ({id:objective.id,title:objective.playerText.title,scenePacing:{requirements:objective.scenePacing.requirements},status:state.objectives[objective.id].state}));
+}
+
+function retainedSceneReceipt(definition, state, receipts, objectives) {
+    const last = receipts.at(-1)?.scenePacing;
+    const nextObjective = objectives.find(item=>item.status!=='terminal');
+    const lastObjective = (definition?.objectives || []).find(item=>item.id === last?.objectiveId && item.scenePacing);
+    const lastObjectiveState = state?.objectives?.[last?.objectiveId];
+    const lastObjectiveIsOpen = Boolean(lastObjective && lastObjectiveState && lastObjectiveState.state !== 'terminal');
+    const departureIsCurrent = DEPARTURES.includes(last?.intent)
+        && (last.correctionRevision || 0) === (state?.objectiveDecisions?.[last.objectiveId]?.revision || 0);
+    const retain = last?.missionId === definition.id
+        && (departureIsCurrent || lastObjectiveIsOpen || !nextObjective);
+    return {last:retain ? last : null,nextObjective};
+}
+
 export function createScenePacingSchema(context, { limits = {} } = {}) {
     const quote = {type:'string',maxLength:limits.scenePacingQuoteCharacters ?? 240};
     return {type:'object',additionalProperties:false,required:['objectiveId','intent','intentQuote','missionDepartureQuote','unresolved','participation'],properties:{
@@ -41,8 +60,7 @@ export function settleScenePacing({definition, state, receipts = [], observation
         const errors = pacingObservationErrors(observation, {objectives, sourcePair, limits: { scenePacingTextCharacters: Infinity, scenePacingQuoteCharacters: Infinity }});
         if (errors.length) throw new TypeError(errors.join('; '));
     }
-    const last = receipts.at(-1)?.scenePacing;
-    const previous = last?.missionId === definition.id ? last : null;
+    const {last:previous} = retainedSceneReceipt(definition,state,receipts,visiblePacingObjectives(definition,state));
     const displaced = previous?.objectiveId && !DEPARTURES.includes(previous.intent)
         && observation?.objectiveId !== previous.objectiveId;
     if (displaced || !observation) observation = {objectiveId:previous?.objectiveId || createScenePacingContext({definition,state,receipts})?.currentScene.objectiveId || null,intent:'continue',intentQuote:'',unresolved:previous?.unresolved || '',participation:[]};
@@ -131,13 +149,11 @@ function positiveOutcomeValue(predicate, id, value) {
 }
 
 export function createScenePacingContext({definition, state, receipts = []} = {}) {
-    const objectives = (definition?.objectives || []).filter(objective => objective.scenePacing
-        && ['visible','resolved'].includes(state?.objectives?.[objective.id]?.visibility))
-        .map(objective => ({id:objective.id,title:objective.playerText.title,scenePacing:{requirements:objective.scenePacing.requirements},status:state.objectives[objective.id].state}));
+    const objectives = visiblePacingObjectives(definition,state);
     if (!(definition?.objectives || []).some(objective=>objective.scenePacing)) return null;
-    const last = receipts.at(-1)?.scenePacing;
-    let currentScene = last?.missionId === definition.id ? last : {
-        missionId:definition.id,objectiveId:objectives.find(item=>item.status!=='terminal')?.id || null,
+    const {last,nextObjective} = retainedSceneReceipt(definition,state,receipts,objectives);
+    let currentScene = last || {
+        missionId:definition.id,objectiveId:nextObjective?.id || null,
         intent:'continue',unresolved:'',participation:[],ready:false,departMission:false,
     };
     if ((currentScene.correctionRevision || 0) !== (state?.objectiveDecisions?.[currentScene.objectiveId]?.revision || 0)) {

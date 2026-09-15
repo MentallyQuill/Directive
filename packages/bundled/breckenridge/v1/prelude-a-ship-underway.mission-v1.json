@@ -316,7 +316,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.operations-readiness-exchange",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with operations chief Priya Nayar.",
@@ -328,7 +328,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.security-readiness-exchange",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with tactical and security chief Hadrik Bronn.",
@@ -340,7 +340,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.science-readiness-exchange",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with science chief Rowan Saye.",
@@ -352,7 +352,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.medical-readiness-exchange",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with chief medical officer Miriam Sato.",
@@ -364,7 +364,7 @@
       "claimType": "eventOccurred",
       "targetId": "event.prelude.engineering-readiness-exchange",
       "sourceRoles": ["assistant", "runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" },
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } },
       "interpretation": {
         "evidenceStandard": "clearOutcome",
         "guidance": "Claim only when the new XO completes a substantive delegation and readiness exchange with chief engineer Imani Cross.",

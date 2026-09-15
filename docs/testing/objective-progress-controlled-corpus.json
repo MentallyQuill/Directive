@@ -3468,7 +3468,7 @@
       "id": "objective.prelude.command-handover.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.command-handover",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3532,7 +3532,7 @@
       "id": "objective.prelude.staff-readiness.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.staff-readiness",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3596,7 +3596,7 @@
       "id": "objective.prelude.hesperus-rescue.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3679,7 +3679,7 @@
       "id": "objective.prelude.final-readiness-arrival.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.final-readiness-arrival",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3791,7 +3791,7 @@
       "id": "objective.prelude.hesperus-accountability.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-accountability",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -3874,7 +3874,7 @@
       "id": "objective.prelude.rhee-apprehension.controlled",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.rhee-apprehension",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4063,7 +4063,7 @@
       "id": "hesperus-informed-failure",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {
@@ -4346,7 +4346,7 @@
       "id": "hesperus-handoff",
       "missionId": "mission.prelude-a-ship-underway",
       "objectiveId": "objective.prelude.hesperus-rescue",
-      "sourceHash": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sourceHash": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "language": "synthetic",
       "providerFixture": null,
       "initialAcceptedState": {

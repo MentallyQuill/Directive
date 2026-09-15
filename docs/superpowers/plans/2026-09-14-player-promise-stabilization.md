@@ -60,7 +60,7 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 - [x] A refusal marker may be saved only in the exact native child chat's metadata, carrying child/parent identity and the refusal reason, never campaign authority or permission to adopt a changed transcript. Verify the marker through an exact saved-child read; native save resolution is not a persistence acknowledgment. If saving is unverified, retain the current-session block and explain that reload protection was not saved. Close stale dialogs when changing chats, including ordinary chats and deferred refresh races.
 - [x] If an interrupted older operation reaches the new refusal, verify exact journal ownership, pre-switch stage, and active parent before any unwind. Preserve checkpoints and child chats. Never cancel a switched or unrelated operation.
 - [x] Red-green tests cover resolve/reopen/resume, archived controls, a control after an unaccepted draft, same-tail/no-control cases, parent immutability, no pending-operation deadlock, and successful checkpoint recovery after refusal.
-- [ ] Independent review, focused/full gate, installed native refusal and recovery proof, then publish the containment to main.
+- [x] Independent review, focused/full gate, installed native refusal and recovery proof, then publish the containment to main. Published `7c274d161`; all 667 installed files and exact parent reload verified.
 
 **Ruling:** This is integrity containment, not completion of fork-time decision inheritance. Full anchored history with reconstructible correction effects and mission-run rollback stays open in the goal. No blanket deletion or invented chronology is permitted.
 

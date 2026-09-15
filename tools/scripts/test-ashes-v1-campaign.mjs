@@ -11,6 +11,8 @@ import {
 } from '../../src/mission/v1/mission-reducer.mjs';
 import { createMissionPlayerProjection } from '../../src/mission/v1/player-projection.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { adjustMissionObjectiveProgress } from '../../src/mission/v1/objective-progress.mjs';
+import { createMissionInterpretationCandidatePacket } from '../../src/mission/v1/interpretation-candidates.mjs';
 import { validateShipMechanicsPackage } from '../../src/ship/v1/ship-mechanics-contracts.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 
@@ -636,6 +638,73 @@ function assertShipInteractionEvidence({ definition, policyId, targetId, capabil
 }
 
 const preludeDefinition = bySourceId.get('prelude-a-ship-underway');
+// A player-approved handover unlocks staff evidence without inventing its event.
+{
+  const objectiveId = 'objective.prelude.command-handover';
+  const staffPolicyIds = ['operations', 'security', 'science', 'medical', 'engineering']
+    .map(department => `policy.prelude.${department}-readiness-exchange`).sort();
+  const candidateIds = state => createMissionInterpretationCandidatePacket({
+    definition: preludeDefinition, state,
+  }).candidates.map(candidate => candidate.id);
+  const staffCandidates = state => candidateIds(state).filter(id => staffPolicyIds.includes(id));
+  const initial = createMissionState({ definition: preludeDefinition, branchId: 'staff.manual-handover' });
+  assert.deepEqual(staffCandidates(initial), []);
+  const manual = adjustMissionObjectiveProgress({
+    definition: preludeDefinition, state: initial, objectiveId, action: 'resolve', disposition: 'completed',
+  }).state;
+  assert.equal(manual.objectiveDecisions[objectiveId].mode, 'player_set');
+  assert.equal(manual.events.includes('event.prelude.command-handover-completed'), false);
+  assert.deepEqual(staffCandidates(manual), staffPolicyIds,
+    'Completed handover must permit the same five staff exchanges through player authority');
+  assert.equal(candidateIds(manual).includes('policy.prelude.staff-readiness-established'), false,
+    'Handover completion does not prove staff readiness');
+  let progressed = manual;
+  for (const [index, policyId] of staffPolicyIds.entries()) {
+    const source = { messageId: `message.staff.manual.${index}`, branchId: progressed.branchId,
+      accepted: true, selectedSwipeId: null, textHash: 'a'.repeat(64), role: 'assistant',
+      acceptedAtRevision: progressed.revision };
+    const evidence = validateMissionEvidenceProposal({
+      definition: preludeDefinition, state: progressed, resolveSourceRef: () => source,
+      proposal: { kind: 'directive.missionEvidenceProposal.v1', branchId: progressed.branchId,
+        missionId: preludeDefinition.id, baseRevision: progressed.revision, claims: [{
+          claimId: `claim.staff.manual.${index}`, policyId, claimType: 'eventOccurred',
+          targetId: policyId.replace('policy.', 'event.'),
+          sourceRef: { messageId: source.messageId, swipeId: source.selectedSwipeId, textHash: source.textHash },
+        }] },
+    });
+    assert.equal(evidence.acceptedClaims.length, 1);
+    progressed = reduceMissionEvidence({ definition: preludeDefinition, state: progressed,
+      acceptedClaims: evidence.acceptedClaims }).state;
+    assert.equal(candidateIds(progressed).includes('policy.prelude.staff-readiness-established'),
+      index === staffPolicyIds.length - 1, 'Aggregate eligibility requires all five actual exchanges');
+  }
+  assert.equal(progressed.events.includes('event.prelude.command-handover-completed'), false);
+  assert.equal(progressed.events.includes('event.prelude.staff-readiness-established'), false);
+  const reopenedAfterExchanges = adjustMissionObjectiveProgress({
+    definition: preludeDefinition, state: progressed, objectiveId, action: 'reopen',
+  }).state;
+  assert.equal(reopenedAfterExchanges.events.filter(id => id.endsWith('-readiness-exchange')).length, 0);
+  assert.equal(reopenedAfterExchanges.objectiveDecisions[objectiveId].rejectedEvidenceKeys.length, 5,
+    'Reopening withdraws dependent exchange events and preserves their rejected evidence');
+  const reopened = adjustMissionObjectiveProgress({
+    definition: preludeDefinition, state: manual, objectiveId, action: 'reopen',
+  }).state;
+  assert.deepEqual(staffCandidates(reopened), []);
+  const automatic = runScenario(preludeDefinition, {}, {
+    id: 'staff.automatic-handover', steps: ['command-handover-terms-settled', 'command-handover-completed']
+      .map((suffix, index) => ({ claimId: `claim.handover.${index}`, sourceRole: 'assistant',
+        policyId: `policy.prelude.${suffix}`, claimType: 'eventOccurred', targetId: `event.prelude.${suffix}` })),
+  });
+  assert.deepEqual(automatic.rejectedReasonCodes, []);
+  assert.equal(automatic.state.objectives[objectiveId].disposition, 'completed');
+  assert.deepEqual(staffCandidates(automatic.state), staffPolicyIds);
+  assert.equal(candidateIds(automatic.state).includes('policy.prelude.staff-readiness-established'), false);
+  const staffEstablished = preludeDefinition.evidencePolicies.find(policy => policy.id === 'policy.prelude.staff-readiness-established');
+  assert.deepEqual(staffEstablished.when, {
+    all: ['operations', 'security', 'science', 'medical', 'engineering']
+      .map(department => ({ eventOccurred: `event.prelude.${department}-readiness-exchange` })),
+  }, 'All five authored exchange events remain necessary for staff readiness');
+}
 assert.deepEqual(preludeDefinition.shipInteractions.map(({ capabilityId }) => capabilityId), [
   'ship-capability.segmented-isolation'
 ]);

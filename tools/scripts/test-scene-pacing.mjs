@@ -18,11 +18,46 @@ assert.equal(pacing.settleScenePacing({definition,state,receipts:[receipt],sourc
 assert.equal(pacing.settleScenePacing({definition,state,receipts:[receipt],sourcePair:secondPair,observation:second,assistantAccepted:false}).ready,false,'rejected assistant prose cannot establish participation');
 const correctedState={...state,objectiveDecisions:{'objective.test':{revision:1}}};
 assert.equal(pacing.settleScenePacing({definition,state:correctedState,receipts:[receipt],sourcePair:secondPair,observation:second,assistantAccepted:true}).ready,false,'pre-correction participation cannot complete the reopened scene');
+assert.deepEqual(
+    pacing.createScenePacingContext({definition,state:correctedState,receipts:[receipt]}).currentScene,
+    {...result,intent:'continue',unresolved:'The player reopened this objective.',participation:[],ready:false,departMission:false},
+    'a reopened nonterminal scene stays current while stale participation and departure are cleared',
+);
 assert.equal(pacing.settleScenePacing({definition,state,receipts:[receipt],sourcePair:secondPair,observation:{...second,intent:'continue',intentQuote:''},assistantAccepted:true}).ready,false,'meeting requirements never automatically ends the scene');
 const other = {...definition.objectives[0],id:'objective.other'};
 const expanded = {...definition,objectives:[...definition.objectives,other]};
 const expandedState = {objectives:{...state.objectives,[other.id]:{state:'available',visibility:'visible'}}};
 assert.equal(pacing.settleScenePacing({definition:expanded,state:expandedState,receipts:[receipt],sourcePair:secondPair,observation:{...second,objectiveId:other.id},assistantAccepted:true}).objectiveId,'objective.test','an unresolved scene cannot be displaced by a different available objective');
+const terminalFirstState = {
+    objectives:{'objective.test':{state:'terminal',visibility:'resolved',disposition:'completed'},[other.id]:{state:'available',visibility:'visible',disposition:null}},
+    objectiveDecisions:{'objective.test':{mode:'player_set',revision:5,disposition:'completed'}},
+};
+assert.deepEqual(
+    pacing.createScenePacingContext({definition:expanded,state:terminalFirstState,receipts:[receipt]}).currentScene,
+    {missionId:'mission.test',objectiveId:'objective.other',intent:'continue',unresolved:'',participation:[],ready:false,departMission:false},
+    'a terminal scene must yield to the next visible nonterminal objective',
+);
+assert.equal(
+    pacing.settleScenePacing({definition:expanded,state:terminalFirstState,receipts:[receipt],sourcePair:secondPair,observation:{...second,objectiveId:other.id,intent:'continue',intentQuote:''},assistantAccepted:true}).objectiveId,
+    other.id,
+    'a successor observation must not be displaced back to a terminal scene',
+);
+const allTerminalState = {objectives:{
+    'objective.test':{state:'terminal',visibility:'resolved',disposition:'completed'},
+    [other.id]:{state:'terminal',visibility:'resolved',disposition:'completed'},
+}};
+const missionDeparture = {...result,intent:'skip',departMission:true};
+const staleDepartureContext = pacing.createScenePacingContext({definition:expanded,state:terminalFirstState,receipts:[{scenePacing:missionDeparture}]});
+assert.equal(staleDepartureContext.currentScene.objectiveId,other.id,'a corrected terminal departure cannot keep its old scene ahead of a successor');
+assert.equal(staleDepartureContext.allowMissionDeparture,false);
+const currentMissionDeparture = {...missionDeparture,correctionRevision:5};
+const departureWithOptionalContext = pacing.createScenePacingContext({definition:expanded,state:terminalFirstState,receipts:[{scenePacing:currentMissionDeparture}]});
+assert.equal(departureWithOptionalContext.currentScene,currentMissionDeparture,'an explicit mission departure remains current across an unfinished optional successor');
+assert.equal(departureWithOptionalContext.allowMissionDeparture,true);
+const allTerminalContext = pacing.createScenePacingContext({definition:expanded,state:allTerminalState,receipts:[{scenePacing:missionDeparture}]});
+assert.equal(allTerminalContext.currentScene,missionDeparture,'the final departure receipt remains current when no nonterminal successor exists');
+assert.equal(allTerminalContext.allowDeparture,true);
+assert.equal(allTerminalContext.allowMissionDeparture,true);
 const gatedDefinition = {...definition,objectives:[{...definition.objectives[0],terminalWhen:[{when:{eventOccurred:'event.done'}}]}]};
 const claims = [{claimType:'eventOccurred',targetId:'event.done',claimId:'done',sourceRef:{role:'assistant'}},{claimType:'decisionRecorded',targetId:'outcome.choice',sourceRef:{role:'user'}}];
 assert.equal(typeof pacing.gateScenePacingClaims,'function');

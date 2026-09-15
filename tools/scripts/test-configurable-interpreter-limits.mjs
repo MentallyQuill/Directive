@@ -1,3 +1,6 @@
+import { createEmptyStorySettlement, validateStorySettlement } from '../../src/story/story-settlement-contracts.mjs';
+import { openStoryEpisode, acceptStoryContributions, observeStoryWorkingEvidence } from '../../src/story/story-settlement.mjs';
+import { prepareV1AcceptedPairSnapshot } from '../../src/runtime/v1-accepted-pair-source.mjs';
 import assert from 'node:assert/strict';
 import { createMissionAcceptedPairInterpretationSchema, createMissionAcceptedPairInterpretationPrompt, createMissionAcceptedPairInterpreter, parseMissionAcceptedPairInterpretationOutput, materializeMissionEvidenceProposal } from '../../src/mission/v1/accepted-pair-interpreter.mjs';
 import { materializeAcceptedPairPeopleEvents } from '../../src/people/accepted-pair-people.mjs';
@@ -42,4 +45,56 @@ assert.equal((await interpreter({candidatePacket,sourcePair})).ok,true);
 assert.equal(payload.jsonSchema.properties.claims.maxItems,6);
 assert.match(payload.systemPrompt,/no more than 8 durable selections/);
 assert.throws(()=>createMissionAcceptedPairInterpretationPrompt({candidatePacket,sourcePair,limits:{requestContextCharacters:10}}),/interpreter-context-overflow/);
+// Preserve decisive source evidence beyond the former 7000-character prefix;
+// the complete request budget, expressed in characters, remains authoritative.
+const medicalQuote = 'Medical completed its readiness report and recommends a 72-hour assessment before changing deployment tempo.';
+const completeAssistant = 'The department heads discuss readiness. '.repeat(260).slice(0, 9217 - medicalQuote.length) + medicalQuote;
+assert.equal(completeAssistant.length, 9217);
+const longSnapshot = prepareV1AcceptedPairSnapshot({
+  campaignState: { campaign: { id: 'campaign.long-source' }, campaignChatBinding: { saveId: 'save.test', chatId: 'chat.long-source' } },
+  currentPlayerMessage: { id: 'u.long', role: 'user', text: 'I acknowledge Medical and request the assessment.' },
+  previousAssistantMessage: { id: 'a.long', role: 'assistant', text: completeAssistant },
+  chatId: 'chat.long-source',
+});
+assert.equal(longSnapshot.ok, true);
+const longSourcePair = {
+  previousAssistant: { messageId: 'a.long', textHash: longSnapshot.snapshot.source.previousAssistant.textHash, text: longSnapshot.snapshot.source.previousAssistant.text },
+  currentPlayer: { messageId: 'u.long', textHash: longSnapshot.snapshot.source.currentPlayer.textHash, text: longSnapshot.snapshot.source.currentPlayer.text },
+};
+const medicalCandidates = { ...candidatePacket, candidates: [{ id: 'policy.medical-report', claimType: 'eventOccurred', targetId: 'event.medical-report', sourceSlots: ['previousAssistant'] }] };
+const longRequest = createMissionAcceptedPairInterpretationPrompt({ candidatePacket: medicalCandidates, sourcePair: longSourcePair, limits: { requestContextCharacters: 48000 } });
+const longPayload = JSON.parse(longRequest.messages.find(message => message.role === 'user').content.split('\n').slice(1).join('\n'));
+assert.equal(longPayload.sourcePair.previousAssistant.text, completeAssistant, 'the provider request must include the exact uninterrupted source and its decisive tail');
+assert.ok(longRequest.prompt.includes(medicalQuote));
+const medicalInterpretation = { ...interpretation, claims: [{ candidateId: 'policy.medical-report', sourceSlot: 'previousAssistant', evidenceQuote: medicalQuote }] };
+assert.equal(parseMissionAcceptedPairInterpretationOutput(medicalInterpretation, { candidatePacket: medicalCandidates, sourcePair: longSourcePair }).ok, true,
+  'an exact tail quote must validate against the supplied source');
+assert.throws(() => createMissionAcceptedPairInterpretationPrompt({ candidatePacket: medicalCandidates, sourcePair: longSourcePair, limits: { requestContextCharacters: 8000 } }), /interpreter-context-overflow/);
+let longGenerationCalls = 0;
+const longInterpreter = createMissionAcceptedPairInterpreter({ generationRouter: { generate: async () => {
+  longGenerationCalls += 1; return { ok: true, response: { text: JSON.stringify(medicalInterpretation) } };
+} } });
+const rejectedLongRequest = await longInterpreter({ candidatePacket: medicalCandidates, sourcePair: longSourcePair, limits: { requestContextCharacters: 8000 } });
+assert.equal(rejectedLongRequest.reasonCode, 'interpreter-context-overflow');
+assert.equal(longGenerationCalls, 0, 'request overflow must fail explicitly before any model call');
+assert.equal((await longInterpreter({ candidatePacket: medicalCandidates, sourcePair: longSourcePair, limits: { requestContextCharacters: 48000 } })).ok, true);
+assert.equal(longGenerationCalls, 1);
+// Full transient source observations remain compatible with bounded persisted
+// working evidence; contribution custody still retains the full-source hash.
+const longContribution = { id: 'contribution.long-assistant', messageId: 'a.long', swipeId: null,
+  role: 'assistant', textHash: longSourcePair.previousAssistant.textHash, acceptedAtRevision: 1 };
+const longEpisode = acceptStoryContributions(openStoryEpisode(createEmptyStorySettlement({ branchId: 'save.test' }),
+  { episodeId: 'episode.long-source', sceneId: 'scene.long-source' }), [longContribution]);
+const observedLongEpisode = observeStoryWorkingEvidence(longEpisode, { branchId: 'save.test',
+  observations: [{ contributionId: longContribution.id, role: 'assistant', textHash: longContribution.textHash, text: longSourcePair.previousAssistant.text }] });
+const persistedLongEpisode = JSON.parse(JSON.stringify(observedLongEpisode));
+assert.equal(validateStorySettlement(persistedLongEpisode).ok, true);
+assert.equal(persistedLongEpisode.episodes[0].workingCapsule.recentEvidence[0].textHash, longContribution.textHash);
+assert.equal(persistedLongEpisode.episodes[0].workingCapsule.recentEvidence[0].excerpt.length, 240,
+  'full input evidence does not expand the existing persisted excerpt limit');
+assert.deepEqual(observeStoryWorkingEvidence(persistedLongEpisode, { branchId: 'save.test',
+  observations: [{ contributionId: longContribution.id, role: 'assistant', textHash: longContribution.textHash, text: longSourcePair.previousAssistant.text }] }), persistedLongEpisode,
+  'replaying a longer observation remains idempotent');
+
+
 console.log('Configurable interpreter content limit tests passed.');

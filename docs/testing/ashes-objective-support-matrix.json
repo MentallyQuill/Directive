@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "directive.objectiveSupportInventory",
   "status": "authored-semantic-review-and-controlled-predicate-corpus",
-  "sourceRevision": "098ad51376d1f574d95e8b53f73bdcee0fbb617b",
+  "sourceRevision": "7c274d1619f32839e1857b8e1880b6ce20db32f9",
   "specification": "docs/design/RELIABLE_OBJECTIVE_PROGRESS.md",
   "regenerationPolicy": "Re-extract source snapshots; preserve reviewed annotations by mission/objective identity and flag changed hashes for review.",
   "missionCount": 13,
@@ -31420,7 +31420,7 @@
     },
     {
       "sourcePath": "packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json",
-      "sha256": "2db8e0104bfefb163ee7a2a3257e2b228dbb7acbfeb41567608903e1ee453e0a",
+      "sha256": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
       "missionId": "mission.prelude-a-ship-underway",
       "definitionVersion": "1.1.0",
       "playerText": {
@@ -31765,7 +31765,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           },
           "interpretation": {
             "evidenceStandard": "clearOutcome",
@@ -31785,7 +31788,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           },
           "interpretation": {
             "evidenceStandard": "clearOutcome",
@@ -31805,7 +31811,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           },
           "interpretation": {
             "evidenceStandard": "clearOutcome",
@@ -31825,7 +31834,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           },
           "interpretation": {
             "evidenceStandard": "clearOutcome",
@@ -31845,7 +31857,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           },
           "interpretation": {
             "evidenceStandard": "clearOutcome",
@@ -34454,7 +34469,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         },
         {
@@ -34528,7 +34543,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         },
         {
@@ -34709,7 +34724,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         },
         {
@@ -34934,7 +34949,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         },
         {
@@ -35081,7 +35096,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         },
         {
@@ -35260,7 +35275,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed structural pacing requirements, runtime authorization ownership, and report memberships. Existing lifecycle predicates and controlled-corpus expectations are unchanged; prelude disturbance now requires actual handover completion."
+            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
           }
         }
       ],
