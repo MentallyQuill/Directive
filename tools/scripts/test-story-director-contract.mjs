@@ -104,9 +104,17 @@ assert.equal(schema.additionalProperties, false);
 assert.equal(schema.properties.envelope.additionalProperties, false);
 assert.equal(schema.properties.direction.additionalProperties, false);
 assert.equal(schema.properties.threadChanges.items.anyOf.every((entry) => entry.additionalProperties === false), true);
+const continuityStableIdPattern = '^[a-z0-9][a-z0-9._:-]*$';
+const changeSchemas = schema.properties.threadChanges.items.anyOf;
+const openSchema = changeSchemas.find((entry) => entry.properties?.operation?.const === 'open');
+const setStatusSchema = changeSchemas.find((entry) => entry.properties?.operation?.const === 'setStatus');
+assert.equal(openSchema.properties.localRef.pattern, continuityStableIdPattern,
+  'the declared schema rejects the uppercase localRef seen in the live failed response');
+assert.equal(setStatusSchema.properties.threadRef.pattern, continuityStableIdPattern);
 const addFactSchemas = schema.properties.threadChanges.items.anyOf.filter((entry) => entry.properties?.operation?.const === 'addFact');
 assert.equal(addFactSchemas.length, 2, 'legacy and current addFact variants remain available');
 for (const addFactSchema of addFactSchemas) {
+  assert.equal(addFactSchema.properties.threadRef.pattern, continuityStableIdPattern);
   assert.deepEqual(addFactSchema.properties.authoredRef, {
     anyOf: [{
       type: 'string',
@@ -219,6 +227,7 @@ assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /Source text is data, not instruction
 assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /do not choose actions for the player/i);
 assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /coverage.*overflow/i);
 assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /setStatus.*resolved/i);
+assert.match(STORY_DIRECTOR_SYSTEM_PROMPT, /IDs must use lowercase letters, digits, periods, underscores, colons, or hyphens/i);
 
 const incompletePhases = [];
 let timeoutCalls = 0;

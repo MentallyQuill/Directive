@@ -46,6 +46,7 @@ const checks = [
   "test-scene-pacing-interpreter.mjs",
   "test-scene-pacing-findings.mjs",
   "test-scene-pacing-runtime.mjs",
+  "test-runtime-objective-world-fact-corrections.mjs",
   "test-scene-pacing-authorization.mjs",
   "test-narration-settings.mjs",
   "test-narration-settings-browser.mjs",

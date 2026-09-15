@@ -6,6 +6,8 @@ export const STORY_DIRECTOR_RECEIPT_KIND = 'directive.storyDirectorReceipt.v1';
 export const PENDING_DOSSIER_KIND = 'directive.pendingDossier.v1';
 export const INFORMATION_ACCESS_MAX_RECIPIENTS = 16;
 export const INFORMATION_ACCESS_MAX_AUDIENCE_EVIDENCE = 2;
+export const CONTINUITY_STABLE_ID_PATTERN = '^[a-z0-9][a-z0-9._:-]*$';
+const CONTINUITY_STABLE_ID_REGEX = new RegExp(CONTINUITY_STABLE_ID_PATTERN);
 
 export const CONTINUITY_CATEGORIES = Object.freeze(new Set([
     'obligation',
@@ -94,7 +96,7 @@ function normalize(value) {
 }
 
 export function isContinuityStableId(value) {
-    return typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]*$/.test(value);
+    return typeof value === 'string' && CONTINUITY_STABLE_ID_REGEX.test(value);
 }
 
 function plainObject(value) {

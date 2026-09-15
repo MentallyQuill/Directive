@@ -63,7 +63,7 @@ import {
 } from '../mission/v1/duty-report-planner.mjs';
 import { validateMissionStateAuthority } from '../mission/v1/mission-state-authority.mjs';
 import { missionStateContext } from '../mission/v1/mission-state.mjs';
-import { evaluateMissionPredicate } from '../mission/v1/predicate-evaluator.mjs';
+import { collectMissionPredicateRefs, evaluateMissionPredicate } from '../mission/v1/predicate-evaluator.mjs';
 import {
     createCampaignConclusionReceipt,
     inspectCampaignConclusionTarget,
@@ -484,6 +484,14 @@ function sourceResolutionRecord(
     };
 }
 
+function runtimeWorldFactDecisionBinding(policy, missionState) {
+    if (policy.claimType !== 'worldFactEstablished') return [];
+    return [...collectMissionPredicateRefs(policy.when).objectives].sort().flatMap((objectiveId) => {
+        const decision = missionState.objectiveDecisions?.[objectiveId];
+        return decision ? [[objectiveId, decision.mode, decision.revision, decision.disposition ?? null]] : [];
+    });
+}
+
 function materializeDeterministicRuntimeEvidence({
     definition = {},
     missionState = {},
@@ -518,12 +526,16 @@ function materializeDeterministicRuntimeEvidence({
     const records = eligible.map((policy) => {
         const pacingAuthorization = pacingOutcomes.get(policy.targetId);
         const pacingDependencies = pacingAuthorization?.dependencies || [];
+        // The predicate already passed against validated state. Bind only its
+        // referenced controls so a later authorized correction has fresh custody.
+        const decisionBinding = runtimeWorldFactDecisionBinding(policy, missionState);
+        const decisionIdentity = decisionBinding.length ? [`objective-decisions:${JSON.stringify(decisionBinding)}`] : [];
         const messageId = `runtime-policy:${definition.id}:${policy.id}`;
         const text = `Directive runtime policy ${policy.id} established ${policy.targetId}.`;
         const sourceInput = {
             messageId,
             selectedSwipeId: null,
-            textHash: stableHash([branchId, definition.id, policy.id, policy.targetId,pacingAuthorization?.value || '',pacingAuthorization ? missionState.revision : '',...pacingDependencies].join('|')),
+            textHash: stableHash([branchId, definition.id, policy.id, policy.targetId,pacingAuthorization?.value || '',pacingAuthorization ? missionState.revision : '',...pacingDependencies,...decisionIdentity].join('|')),
             text,
         };
         const contributionId = activeContributionId(campaignState, branchId, sourceInput);
@@ -550,7 +562,7 @@ function materializeDeterministicRuntimeEvidence({
                 text: 'Deterministic runtime authority changed behind the scenes.',
             },
             claim: {
-                claimId: `claim.runtime-policy.${stableHash([branchId, definition.id, policy.id,...(pacingAuthorization ? [sourceInput.textHash] : [])].join('|'))}`,
+                claimId: `claim.runtime-policy.${stableHash([branchId, definition.id, policy.id,...(pacingAuthorization || decisionBinding.length ? [sourceInput.textHash] : [])].join('|'))}`,
                 policyId: policy.id,
                 claimType: policy.claimType,
                 targetId: policy.targetId,

@@ -169,6 +169,7 @@ const settledDelivery = {
 };
 const evidenceState = {
     evidenceLog: [{
+        evidenceKey: 'evidence.report.1',
         claimType: 'factDisclosed',
         targetId: 'fact.hesperus-discrepancy-known',
         policyId: 'policy.hesperus-discrepancy-disclosed',
@@ -180,6 +181,18 @@ const evidenceState = {
 assert.deepEqual(deliveredDutyReportIds({ definition, state: evidenceState }), [
     'report.hesperus-discrepancy',
 ]);
+for (const decision of [
+    { rejectedEvidenceKeys: ['evidence.report.1'] },
+    { rejectedEvidenceKeys: [], proposal: { evidenceKeys: ['evidence.report.1'] } },
+]) {
+    const controlled = { ...evidenceState, objectiveDecisions: { 'objective.review': decision } };
+    const before = structuredClone(controlled);
+    assert.deepEqual(deliveredDutyReportIds({ definition, state: controlled }), []);
+    assert.deepEqual(controlled, before, 'ineffective delivery custody remains unchanged');
+}
+assert.deepEqual(deliveredDutyReportIds({ definition, state: {
+    ...evidenceState, objectiveDecisions: { 'objective.review': { rejectedEvidenceKeys: ['another.key'] } },
+} }), ['report.hesperus-discrepancy'], 'unrelated rejected evidence does not suppress a valid delivery');
 assert.deepEqual(deliveredDutyReportIds({
     definition,
     state: { ...evidenceState, invalidatedSourceContributionIds: ['contribution.1'] },

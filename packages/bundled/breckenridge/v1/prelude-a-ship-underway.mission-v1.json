@@ -171,7 +171,7 @@
       "claimType": "worldFactEstablished",
       "targetId": "fact.hesperus.distress-established",
       "sourceRoles": ["runtime", "adjudicator"],
-      "when": { "eventOccurred": "event.prelude.command-handover-completed" }
+      "when": { "objectiveDisposition": { "id": "objective.prelude.command-handover", "equals": "completed" } }
     },
     {
       "id": "policy.hesperus.distress-disclosed",

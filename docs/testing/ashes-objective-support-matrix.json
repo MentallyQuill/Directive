@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "directive.objectiveSupportInventory",
   "status": "authored-semantic-review-and-controlled-predicate-corpus",
-  "sourceRevision": "7c274d1619f32839e1857b8e1880b6ce20db32f9",
+  "sourceRevision": "583d9ac360c761424860a0326c1710cc75b6a1df",
   "specification": "docs/design/RELIABLE_OBJECTIVE_PROGRESS.md",
   "regenerationPolicy": "Re-extract source snapshots; preserve reviewed annotations by mission/objective identity and flag changed hashes for review.",
   "missionCount": 13,
@@ -31420,7 +31420,7 @@
     },
     {
       "sourcePath": "packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json",
-      "sha256": "5a3287fc3195adce3f1b326e16fe2df344a95073f02af2457ecd13635d4efec0",
+      "sha256": "5ab6671321a5d52ae33575bcecffc0585703bc6599a7446062945ff5b60cf365",
       "missionId": "mission.prelude-a-ship-underway",
       "definitionVersion": "1.1.0",
       "playerText": {
@@ -31532,7 +31532,10 @@
             "adjudicator"
           ],
           "when": {
-            "eventOccurred": "event.prelude.command-handover-completed"
+            "objectiveDisposition": {
+              "id": "objective.prelude.command-handover",
+              "equals": "completed"
+            }
           }
         },
         {
@@ -34451,7 +34454,8 @@
             ],
             "findings": [
               "Terminal predicate reviewed against player-facing objective and authored dispositions. Only accepted evidence reaches these predicates; a quotation alone cannot establish its truth.",
-              "Scene completion additionally requires runtime pacing authorization after two distinct substantive player replies and authored participation, or explicit delegation/compression. Findings remain available within their authored scenes. Reopen/replay owns the pacing authorization evidence. Covered by test-scene-pacing*.mjs; no live-model guarantee."
+              "Scene completion additionally requires runtime pacing authorization after two distinct substantive player replies and authored participation, or explicit delegation/compression. Findings remain available within their authored scenes. Reopen/replay owns the pacing authorization evidence. Covered by test-scene-pacing*.mjs; no live-model guarantee.",
+              "Completed handover permits deterministic Hesperus distress for automatic and player-authorized completion without fabricating the handover event or disclosing the report. Referenced objective controls distinguish fresh runtime evidence after correction; old evidence and delivery custody remain preserved while ineffective truth and knowledge are withdrawn. Canonical runtime tests cover manual and automatic re-completion and fresh owned report delivery."
             ],
             "dependencyFindings": [
               {
@@ -34464,12 +34468,13 @@
                   "evidencePolicies:policy.prelude.science-readiness-exchange",
                   "evidencePolicies:policy.prelude.medical-readiness-exchange",
                   "evidencePolicies:policy.prelude.engineering-readiness-exchange",
-                  "evidencePolicies:policy.prelude.final-load-reviewed"
+                  "evidencePolicies:policy.prelude.final-load-reviewed",
+                  "evidencePolicies:policy.hesperus.distress-established"
                 ],
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         },
         {
@@ -34543,7 +34548,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         },
         {
@@ -34691,7 +34696,8 @@
               "Terminal predicate reviewed against player-facing objective and authored dispositions. Only accepted evidence reaches these predicates; a quotation alone cannot establish its truth.",
               "Visibility/activation must be evaluated before exposing player controls; terminal predicate truth alone does not authorize revealing this objective.",
               "failedAfterOmittedReport maps to handedOff; failedInformed additionally requires known passenger risk and proceedKnownRisk.",
-              "Scene completion additionally requires runtime pacing authorization after two distinct substantive player replies and authored participation, or explicit delegation/compression. Findings remain available within their authored scenes. Reopen/replay owns the pacing authorization evidence. Covered by test-scene-pacing*.mjs; no live-model guarantee."
+              "Scene completion additionally requires runtime pacing authorization after two distinct substantive player replies and authored participation, or explicit delegation/compression. Findings remain available within their authored scenes. Reopen/replay owns the pacing authorization evidence. Covered by test-scene-pacing*.mjs; no live-model guarantee.",
+              "Completed handover permits deterministic Hesperus distress for automatic and player-authorized completion without fabricating the handover event or disclosing the report. Referenced objective controls distinguish fresh runtime evidence after correction; old evidence and delivery custody remain preserved while ineffective truth and knowledge are withdrawn. Canonical runtime tests cover manual and automatic re-completion and fresh owned report delivery."
             ],
             "dependencyFindings": [
               {
@@ -34724,7 +34730,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         },
         {
@@ -34949,7 +34955,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         },
         {
@@ -35096,7 +35102,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         },
         {
@@ -35275,7 +35281,7 @@
                 "note": "Shared evidence references are conservative dependency candidates, not proof that every effect should be retracted. Reconcile attributed effects and preserve unrelated evidence."
               }
             ],
-            "sourceChange": "Reviewed five staff-exchange prerequisites: completed handover disposition permits manual authority; objective lifecycle predicates and corpus expectations unchanged. Runtime correction regression retained in test-ashes-v1-campaign.mjs."
+            "sourceChange": "Hesperus world-fact eligibility now follows effective completed handover, including player corrections. Objective definitions and controlled predicate expectations are unchanged. Runtime correction, identity, and report-custody behavior is tested separately in test-runtime-objective-world-fact-corrections.mjs; no live-play claim."
           }
         }
       ],

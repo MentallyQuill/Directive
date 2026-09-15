@@ -49,9 +49,14 @@ function settledDeliveryMatchesRoute(entry, route) {
 export function deliveredDutyReportIds({ definition = {}, state = {} } = {}) {
     const routes = new Map((definition.reportRoutes || []).map((route) => [route.id, route]));
     const invalidated = asSet(state.invalidatedSourceContributionIds);
+    const ineffectiveEvidence = new Set(Object.values(state.objectiveDecisions || {}).flatMap(decision => [
+        ...(decision.rejectedEvidenceKeys || []),
+        ...(decision.proposal?.evidenceKeys || []),
+    ]));
     const delivered = [];
     for (const entry of Array.isArray(state.evidenceLog) ? state.evidenceLog : []) {
-        if (!entry?.sourceContributionId || invalidated.has(entry.sourceContributionId)) continue;
+        if (!entry?.sourceContributionId || invalidated.has(entry.sourceContributionId)
+            || ineffectiveEvidence.has(entry.evidenceKey)) continue;
         const route = routes.get(entry?.delivery?.reportId);
         if (route && settledDeliveryMatchesRoute(entry, route) && !delivered.includes(route.id)) {
             delivered.push(route.id);

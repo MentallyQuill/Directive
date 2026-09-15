@@ -18,6 +18,7 @@ for (const [role, create, fields] of [
     assert.equal(payload.systemPrompt.includes('episodeReview'), false);
     assert.equal(Object.hasOwn(payload.jsonSchema.properties, role === 'continuityAnalyst' ? 'direction' : 'threadChanges'), false);
     if (role === 'continuityAnalyst') {
+      assert.match(payload.systemPrompt, /IDs must use lowercase letters, digits, periods, underscores, colons, or hyphens, and must start with a lowercase letter or digit\./);
       assert.match(payload.systemPrompt, /Every open localRef must also have an addFact.*same response/i);
       assert.match(payload.systemPrompt, /currentPlayer obligation.*stand alone/i);
       assert.match(payload.systemPrompt, /currentPlayer addFact must use player-commitment/i);

@@ -27,10 +27,12 @@ function retainedSceneReceipt(definition, state, receipts, objectives) {
 
 export function createScenePacingSchema(context, { limits = {} } = {}) {
     const quote = {type:'string',maxLength:limits.scenePacingQuoteCharacters ?? 240};
+    const participationQuote = {...quote,minLength:4};
+    const maximumRequirement = Math.min(3,Math.max(0,...context.objectives.map(objective=>(objective.scenePacing?.requirements?.length || 0)-1)));
     return {type:'object',additionalProperties:false,required:['objectiveId','intent','intentQuote','missionDepartureQuote','unresolved','participation'],properties:{
         objectiveId:{enum:[null,...context.objectives.map(item=>item.id)]},
         intent:{type:'string',enum:INTENTS},intentQuote:quote,missionDepartureQuote:quote,unresolved:{type:'string',maxLength:limits.scenePacingTextCharacters ?? 240},
-        participation:{type:'array',maxItems:4,items:{type:'object',additionalProperties:false,required:['requirement','playerQuote','assistantQuote'],properties:{requirement:{type:'integer',minimum:0,maximum:3},playerQuote:quote,assistantQuote:quote}}},
+        participation:{type:'array',maxItems:4,items:{type:'object',additionalProperties:false,required:['requirement','playerQuote','assistantQuote'],properties:{requirement:{type:'integer',minimum:0,maximum:maximumRequirement,description:'Zero-based index in the selected objective scenePacing.requirements array.'},playerQuote:participationQuote,assistantQuote:participationQuote}}},
     }};
 }
 
@@ -46,10 +48,12 @@ export function pacingObservationErrors(observation, {objectives = [], sourcePai
     if (!text(observation.unresolved, limits.scenePacingTextCharacters ?? 240) || !text(observation.intentQuote, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing text exceeds bounds');
     if (observation.intent !== 'continue' && !quoteIn(observation.intentQuote, sourcePair.currentPlayer?.text, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing intent quote must come from the player');
     if (!Array.isArray(observation.participation) || observation.participation.length > 4) errors.push('pacing participation must be a bounded array');
-    else for (const item of observation.participation) {
+    else for (const [index,item] of observation.participation.entries()) {
         if (!item || Object.keys(item).sort().join(',') !== 'assistantQuote,playerQuote,requirement'
-            || !Number.isInteger(item.requirement) || !objective?.scenePacing?.requirements?.[item.requirement]) errors.push('pacing requirement is not authored');
-        if (!quoteIn(item?.playerQuote, sourcePair.currentPlayer?.text, limits.scenePacingQuoteCharacters ?? 240) || !quoteIn(item?.assistantQuote, sourcePair.previousAssistant?.text, limits.scenePacingQuoteCharacters ?? 240)) errors.push('pacing participation quote must match both speakers');
+            || !Number.isInteger(item.requirement) || !objective?.scenePacing?.requirements?.[item.requirement]) errors.push(`pacing requirement is not authored: participation[${index}].requirement must use a zero-based index from ${JSON.stringify((objective?.scenePacing?.requirements || []).map((_,requirement)=>requirement))}`);
+        for (const [field,slot] of [['playerQuote','currentPlayer'],['assistantQuote','previousAssistant']]) {
+            if (!quoteIn(item?.[field], sourcePair[slot]?.text, limits.scenePacingQuoteCharacters ?? 240)) errors.push(`pacing participation[${index}].${field} must be a 4-${limits.scenePacingQuoteCharacters ?? 240} character continuous excerpt from sourcePair.${slot}.text`);
+        }
     }
     return errors;
 }

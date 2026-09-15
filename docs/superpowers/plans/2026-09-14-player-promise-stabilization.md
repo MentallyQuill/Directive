@@ -42,6 +42,8 @@
 - [x] Separately delay a model result past a correction and interrupt a save; verify expected state and honest feedback (controlled production-path probe).
 - [x] Record natural interpretation separately from deliberate control-based fault setup.
 
+The correction-sensitive runtime trigger slice now has a canonical regression for manual and automatic completion after reopening, retained rejection custody, exact legacy identity, persisted-state roundtrips, and fresh report delivery. Independent review approved it together with interpreter and continuity schema alignment, including the final focused-prompt repair; the final 228-check gate and installed exact reload pass. Batch 17 preserved accepted state through two output-limited attempts. Batch 18 accepted the preserved delegation with a larger output allowance and established the hidden runtime distress fact; exact reload and provider-setting restoration pass. Twenty distinct accepted pairs are recorded, but three-timeline distribution, live trigger delivery and completed staff progression remain open. These bounded results do not close Task 2 or the broader goal.
+
 ## Task 3: Selected swipe and timeline custody
 
 **Files to trace:** `src/runtime/v1-accepted-pair-source.mjs`, `src/runtime/timeline-transaction-service.mjs`, `src/runtime/native-branch-lineage.mjs`, `src/runtime/v1-branch-reconstruction.mjs`, timeline/storage/branch gate scripts.
