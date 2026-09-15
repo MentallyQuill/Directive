@@ -12,6 +12,8 @@ import {
   loadV1CampaignSave,
   loadV1CreatorDraft,
   storeV1CampaignSave,
+  storeV1ActiveCampaignSaveWithOutcome,
+  V1_STORAGE_PATHS,
   storeV1CreatorDraft
 } from '../storage/v1-storage-repository.mjs';
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
@@ -136,7 +138,9 @@ export async function persistActiveCampaign({
   previousSave = null,
   campaignState,
   now,
-  name = null
+  name = null,
+  publicationOutcomes = false,
+  expectedActiveSaveId = null,
 }) {
   assertV1CampaignState(campaignState);
   const savedAt = stamp(now);
@@ -151,13 +155,21 @@ export async function persistActiveCampaign({
   } catch (error) {
     if (!/was not found/.test(String(error?.message || ''))) throw error;
   }
-  return storeV1CampaignSave(adapter, createV1CampaignSave({
+  const record = createV1CampaignSave({
     id: saveId,
     name: savedName || `${campaignState.player?.name || 'Commander'} - ${campaignState.campaign?.title || 'Campaign'}`,
     state: campaignState,
     createdAt,
     updatedAt: savedAt
-  }), { previousSave: existing });
+  });
+  if (publicationOutcomes) {
+    if (!existing) throw new Error('An explicit publication requires an existing active save.');
+    const expectedManifest = await adapter.readJson(V1_STORAGE_PATHS.save(saveId));
+    return storeV1ActiveCampaignSaveWithOutcome(adapter, record, {
+      previousSave: existing, expectedManifest, expectedActiveSaveId,
+    });
+  }
+  return storeV1CampaignSave(adapter, record, { previousSave: existing });
 }
 
 export async function createCampaignCheckpoint({

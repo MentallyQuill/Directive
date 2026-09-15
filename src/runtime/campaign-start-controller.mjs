@@ -23,6 +23,10 @@ import {
   loadActiveV1CampaignSave,
   loadV1CampaignDeletionResumeTarget,
   loadV1CampaignSave,
+  loadV1ActiveCampaignSavePublication,
+  resolveV1ActiveCampaignSavePublication,
+  acknowledgeV1ActiveCampaignSavePublication,
+  loadVerifiedV1ActiveCampaignAuthority,
   migrateMonolithicV1CampaignSaves,
   storeV1CampaignSave,
   verifyV1Storage
@@ -33,6 +37,8 @@ import {
 } from './v1-campaign-state.mjs';
 import { migrateV1MissionClockRemoval } from './v1-mission-clock-removal-migration.mjs';
 import { stableJsonStringify } from './v1-host-message-contracts.mjs';
+import { withCampaignTimelineLease } from './timeline-transaction-service.mjs';
+import { statePublicationError, isStatePublicationError } from './state-publication-errors.mjs';
 import {
   deleteTimelineOperation,
   loadTimelineOperation,
@@ -276,9 +282,89 @@ export function createCampaignStartController({
   let activeSave = null;
   let activeState = null;
   let activeDraftId = null;
+  let blockedActiveSaveId = null;
+  const publications = new Map();
+  const selectedSaveId = () => activeSave?.id || blockedActiveSaveId;
+  function assertSaveWritable(saveId = selectedSaveId()) {
+    if (saveId && publications.has(saveId)) throw statePublicationError(saveId, publications.get(saveId));
+  }
+  async function verifySaveWritable(saveId = selectedSaveId()) {
+    if (!saveId) return;
+    assertSaveWritable(saveId);
+    try {
+      const intent = await loadV1ActiveCampaignSavePublication(adapter, saveId);
+      if (intent) {
+        publications.set(saveId, { phase: 'uncertain', saveId, requestHash: intent.requestHash, intent });
+        throw statePublicationError(saveId, publications.get(saveId));
+      }
+      assertSaveWritable(saveId);
+    } catch (error) {
+      if (isStatePublicationError(error)) throw error;
+      publications.set(saveId, { phase: 'uncertain', saveId,
+        readBarrier: error.publicationIntentReadFailed === true,
+        error: { message: error.message, code: error.code } });
+      throw statePublicationError(saveId, publications.get(saveId));
+    }
+  }
+  async function recoverPublication(saveId, { adopt = true } = {}) {
+    const previous = publications.get(saveId);
+    if (previous?.phase === 'pending') throw statePublicationError(saveId, previous);
+    let result;
+    try {
+      const intent = await loadV1ActiveCampaignSavePublication(adapter, saveId);
+      if (!intent) {
+        if (previous) {
+          // A missing ticket is not an outcome. Retained evidence can still prove
+          // an exact known save after a pre-intent failure or lost cleanup readback.
+          const known = previous.phase === 'acknowledgement' ? previous.result?.save : previous.before;
+          const readBarrierOnly = previous.readBarrier === true && !previous.intent && !previous.requestHash && !previous.candidate;
+          if (!known && !readBarrierOnly) throw statePublicationError(saveId, previous);
+          const verified = await loadVerifiedV1ActiveCampaignAuthority(adapter, { saveId,
+            expectedSave: known || null,
+            expectedManifest: previous.phase === 'acknowledgement' ? previous.result?.manifest : null,
+          });
+          publications.delete(saveId);
+          if (adopt && selectedSaveId() === saveId) {
+            activeSave = clone(verified.save); activeState = clone(verified.save.state); blockedActiveSaveId = null;
+          }
+          return { publication: previous.phase === 'acknowledgement' ? previous.result.publication
+            : readBarrierOnly ? 'authority-loaded' : 'not-committed',
+          save: clone(verified.save), manifest: clone(verified.manifest), intent: null };
+        }
+        return { publication: 'none', intent: null };
+      }
+      if (previous?.requestHash && previous.requestHash !== intent.requestHash) {
+        throw statePublicationError(saveId, previous);
+      }
+      publications.set(saveId, { ...previous, phase: 'uncertain', readBarrier: false, saveId, requestHash: intent.requestHash, intent });
+      result = await resolveV1ActiveCampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
+      if (!['committed', 'not-committed'].includes(result.publication)) {
+        throw statePublicationError(saveId, publications.get(saveId));
+      }
+      const acknowledged = await acknowledgeV1ActiveCampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
+      if (acknowledged.publication !== result.publication) throw statePublicationError(saveId, publications.get(saveId));
+      if (acknowledged.acknowledged !== true) {
+        publications.set(saveId, { phase: 'acknowledgement', saveId, requestHash: intent.requestHash, intent, result });
+        throw statePublicationError(saveId, publications.get(saveId));
+      }
+      publications.delete(saveId);
+      if (adopt && selectedSaveId() === saveId) {
+        activeSave = clone(result.save);
+        activeState = clone(result.save.state);
+        blockedActiveSaveId = null;
+      }
+      return clone(result);
+    } catch (error) {
+      if (!publications.has(saveId)) publications.set(saveId, { phase: 'uncertain', saveId,
+        readBarrier: error.publicationIntentReadFailed === true && !previous });
+      if (isStatePublicationError(error)) throw error;
+      throw statePublicationError(saveId, publications.get(saveId));
+    }
+  }
 
   async function migrateLoadedSave(save, { makeActive = save?.slotType === 'active' } = {}) {
     if (!save) return null;
+    await verifySaveWritable(save.id);
     const migration = migrateV1MissionClockRemoval({
       campaignState: save.state,
       packageData,
@@ -318,6 +404,7 @@ export function createCampaignStartController({
   }
 
   async function requireCurrentActiveTimeline() {
+    await verifySaveWritable();
     const index = await initializeV1Storage(adapter, { now: currentTime() });
     if (!activeSave || index.activeSaveId !== activeSave.id) {
       const error = new Error('The active campaign timeline changed in another Directive runtime.');
@@ -345,14 +432,44 @@ export function createCampaignStartController({
 
   return {
     async initialize() {
-      await initializeV1Storage(adapter, { now: currentTime() });
-      await migrateMonolithicV1CampaignSaves(adapter);
+      const busy = [...publications.values()].find(value => value.phase === 'pending');
+      if (busy) throw statePublicationError(busy.saveId, busy);
+      const index = await initializeV1Storage(adapter, { now: currentTime() });
+      for (const summary of Object.values(index.saves)) {
+        await withCampaignTimelineLease(summary.campaignId, async () => {
+          try {
+            await recoverPublication(summary.id, { adopt: false });
+          } catch (error) {
+            if (!isStatePublicationError(error)) throw error;
+            if (summary.id === index.activeSaveId) blockedActiveSaveId = summary.id;
+          }
+        });
+      }
+      if (!publications.size) await migrateMonolithicV1CampaignSaves(adapter);
       const pendingCampaignDeletions = await listPendingV1CampaignDeletions(adapter);
-      await refreshActive();
+      if (blockedActiveSaveId && publications.has(blockedActiveSaveId)) {
+        activeSave = null;
+        activeState = null;
+      } else {
+        const refreshedIndex = await initializeV1Storage(adapter, { now: currentTime() });
+        const summary = refreshedIndex.saves[refreshedIndex.activeSaveId];
+        try {
+          if (summary) await withCampaignTimelineLease(summary.campaignId, refreshActive);
+          else await refreshActive();
+          blockedActiveSaveId = null;
+        } catch (error) {
+          if (!isStatePublicationError(error)) throw error;
+          blockedActiveSaveId = error.details?.saveId || summary?.id;
+          activeSave = null; activeState = null;
+        }
+      }
       return {
         recovered: Boolean(activeSave),
         activeSave: clone(activeSave),
         campaignState: clone(activeState),
+        ...(publications.size ? { publicationRecovery: [...publications.values()].map(value => ({
+          saveId: value.saveId, phase: value.phase, requestHash: value.requestHash || null,
+        })) } : {}),
         ...(pendingCampaignDeletions.length > 0 ? {
           pendingCampaignDeletions: clone(pendingCampaignDeletions),
         } : {}),
@@ -361,6 +478,17 @@ export function createCampaignStartController({
 
     getActiveCampaignState: () => clone(activeState),
     getActiveSave: () => clone(activeSave),
+    assertSaveWritable,
+    verifySaveWritable,
+    getSavePublicationStatus: (saveId = selectedSaveId()) => clone(publications.get(saveId) || null),
+    async recoverSavePublication({ saveId = selectedSaveId() } = {}) {
+      const id = required(saveId || selectedSaveId(), 'saveId');
+      if (publications.get(id)?.phase === 'pending') throw statePublicationError(id, publications.get(id));
+      const index = await initializeV1Storage(adapter, { now: currentTime() });
+      const summary = index.saves[id];
+      if (!summary) throw statePublicationError(id, publications.get(id));
+      return withCampaignTimelineLease(summary.campaignId, () => recoverPublication(id));
+    },
     assertActiveTimelineCurrent: () => requireCurrentActiveTimeline(),
     getActivePackage: () => clone(packageData),
     getActivePackageContext: () => createRuntimePackageContext(packageData),
@@ -373,15 +501,27 @@ export function createCampaignStartController({
       ]);
       const activeSaves = await Promise.all(saveSummaries
         .filter((save) => save.slotType === 'active')
-        .map(async (save) => migrateLoadedSave(
-          await loadV1CampaignSave(adapter, save.id),
-          { makeActive: save.id === index.activeSaveId },
-        )));
+        .map(async (save) => {
+          try {
+            await verifySaveWritable(save.id);
+            return await migrateLoadedSave(await loadV1CampaignSave(adapter, save.id),
+              { makeActive: save.id === index.activeSaveId });
+          } catch (error) {
+            if (!isStatePublicationError(error)) throw error;
+            // Index metadata keeps the existing Continue action available without
+            // projecting unverified campaign state or performing a migration.
+            return clone(save);
+          }
+        }));
       const saves = [
         ...activeSaves,
         ...saveSummaries.filter((save) => save.slotType !== 'active')
       ];
-      return createCampaignViewModel({ campaignLibrary, drafts, saves, activeSaveId: index.activeSaveId });
+      const view = createCampaignViewModel({ campaignLibrary, drafts, saves, activeSaveId: index.activeSaveId });
+      for (const campaign of view.campaigns) {
+        if (publications.has(campaign.activeTimeline.saveId)) campaign.canSaveGame = false;
+      }
+      return view;
     },
 
     async startCreatorDraft({ packageId: requestedPackageId = ASHES_V1_PACKAGE_ID } = {}) {
@@ -429,6 +569,7 @@ export function createCampaignStartController({
       draftId = activeDraftId,
       simulationMode = 'Command'
     } = {}) {
+      await verifySaveWritable();
       const result = await acceptCreatorDraftAndCreateFirstSave({
         adapter,
         packageData,
@@ -446,20 +587,55 @@ export function createCampaignStartController({
     },
 
     async persistActiveCampaign({ campaignState = activeState, saveId = activeSave?.id, name = null } = {}) {
-      const save = await persistActiveCampaign({
-        adapter,
-        saveId: required(saveId, 'saveId'),
-        previousSave: activeSave?.id === saveId ? activeSave : null,
-        campaignState: assertV1CampaignState(campaignState),
-        name,
-        now: currentTime()
-      });
-      activeSave = clone(save);
-      activeState = clone(save.state);
-      return clone(save);
+      const id = required(saveId, 'saveId');
+      await verifySaveWritable(id);
+      if (activeSave?.id !== id) throw new Error('An active save publication must own the selected save.');
+      const previousSave = clone(activeSave), candidate = clone(assertV1CampaignState(campaignState));
+      const pending = { phase: 'pending', saveId: id, before: previousSave, candidate };
+      publications.set(id, pending);
+      let result;
+      try {
+        result = await persistActiveCampaign({ adapter, saveId: id, previousSave,
+          campaignState: candidate, name, now: currentTime(), publicationOutcomes: true, expectedActiveSaveId: id });
+      } catch (error) {
+        // The explicit publisher normally returns a union. A transport or preflight
+        // exception without a verified outcome cannot authorize rollback.
+        publications.set(id, { ...pending, phase: 'uncertain', error: { message: error.message, code: error.code } });
+        throw statePublicationError(id, publications.get(id));
+      }
+      if (!['committed', 'not-committed'].includes(result?.publication)) {
+        publications.set(id, { ...pending, phase: 'uncertain', intent: clone(result?.intent),
+          requestHash: result?.intent?.requestHash || null, result: clone(result) });
+        throw statePublicationError(id, publications.get(id));
+      }
+      let acknowledged = result.intent === null;
+      if (result.intent) {
+        const ack = await acknowledgeV1ActiveCampaignSavePublication(adapter, { saveId: id, requestHash: result.intent.requestHash });
+        if (ack.publication !== result.publication) {
+          publications.set(id, { ...pending, phase: 'uncertain', intent: clone(result.intent),
+            requestHash: result.intent.requestHash, result: clone(ack) });
+          throw statePublicationError(id, publications.get(id));
+        }
+        acknowledged = ack.acknowledged === true && ack.publication === result.publication;
+      }
+      if (acknowledged) publications.delete(id);
+      else publications.set(id, { ...pending, phase: 'acknowledgement', intent: clone(result.intent),
+        requestHash: result.intent?.requestHash || null, result: clone(result) });
+      if (result.publication === 'not-committed') {
+        throw Object.assign(new Error('The saved-game update was not committed.'), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_FAILED' });
+      }
+      if (stableJsonStringify(activeSave) !== stableJsonStringify(previousSave)) {
+        throw Object.assign(new Error('The active save changed while publication was completing.'), {
+          code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
+        });
+      }
+      activeSave = clone(result.save);
+      activeState = clone(result.save.state);
+      return clone(result.save);
     },
 
     async createCheckpoint({ name, campaignState = activeState } = {}) {
+      await verifySaveWritable();
       if (!activeSave) throw new Error('No active V1 campaign is available.');
       await requireCurrentActiveTimeline();
       const checkpointId = nextId('checkpoint');
@@ -483,6 +659,8 @@ export function createCampaignStartController({
     },
 
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
+      await verifySaveWritable();
+      if (checkpointId) await verifySaveWritable(checkpointId);
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
       await requireCurrentActiveTimeline();
       const requestedName = required(name, 'name');
@@ -517,6 +695,8 @@ export function createCampaignStartController({
     },
 
     async persistInactiveTimeline({ save } = {}) {
+      await verifySaveWritable();
+      if (save?.id) await verifySaveWritable(save.id);
       const record = createV1CampaignSave({
         id: required(save?.id, 'save.id'),
         name: save?.name,
@@ -533,6 +713,8 @@ export function createCampaignStartController({
     },
 
     async activatePersistedTimeline({ expectedSaveId, nextSaveId } = {}) {
+      await verifySaveWritable(expectedSaveId);
+      await verifySaveWritable(nextSaveId);
       await compareAndSwapActiveV1CampaignSave(adapter, {
         expectedSaveId: required(expectedSaveId, 'expectedSaveId'),
         nextSaveId: required(nextSaveId, 'nextSaveId'),
@@ -543,6 +725,7 @@ export function createCampaignStartController({
     },
 
     async renameSavedGame({ savedGameId, name } = {}) {
+      await verifySaveWritable(savedGameId);
       const current = await migrateLoadedSave(
         await loadV1CampaignSave(adapter, required(savedGameId, 'savedGameId')),
         { makeActive: false },
@@ -562,22 +745,33 @@ export function createCampaignStartController({
     },
 
     async retireSupersededTimeline({ saveId } = {}) {
+      await verifySaveWritable(saveId);
       const id = required(saveId, 'saveId');
       const index = await initializeV1Storage(adapter, { now: currentTime() });
       if (index.activeSaveId === id) throw new Error('The active V1 timeline cannot be retired.');
       return deleteV1CampaignSave(adapter, id, { now: currentTime() });
     },
 
-    storeTimelineOperation: (operation) => storeTimelineOperation(adapter, operation),
+    storeTimelineOperation: async (operation) => {
+      await verifySaveWritable();
+      for (const id of [operation?.parentSaveId, operation?.childSaveId, operation?.checkpointId].filter(Boolean)) {
+        await verifySaveWritable(id);
+      }
+      return storeTimelineOperation(adapter, operation);
+    },
     loadTimelineOperation: ({ campaignId }) => loadTimelineOperation(adapter, required(campaignId, 'campaignId')),
-    deleteTimelineOperation: ({ campaignId }) => deleteTimelineOperation(adapter, required(campaignId, 'campaignId')),
-    loadSaveRecord: async ({ saveId }) => migrateLoadedSave(
-      await loadV1CampaignSave(adapter, required(saveId, 'saveId')),
-      { makeActive: false },
-    ),
+    deleteTimelineOperation: async ({ campaignId }) => {
+      await verifySaveWritable();
+      return deleteTimelineOperation(adapter, required(campaignId, 'campaignId'));
+    },
+    loadSaveRecord: async ({ saveId }) => {
+      await verifySaveWritable(saveId);
+      return migrateLoadedSave(await loadV1CampaignSave(adapter, required(saveId, 'saveId')), { makeActive: false });
+    },
     getStorageIndex: () => initializeV1Storage(adapter, { now: currentTime() }),
 
     async bindCheckpointChat({ checkpointId, binding } = {}) {
+      await verifySaveWritable(checkpointId);
       const checkpoint = await migrateLoadedSave(
         await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId')),
         { makeActive: false },
@@ -611,6 +805,8 @@ export function createCampaignStartController({
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
+      await verifySaveWritable();
+      await verifySaveWritable(checkpointId);
       const checkpoint = await migrateLoadedSave(
         await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId')),
         { makeActive: false },
@@ -643,6 +839,7 @@ export function createCampaignStartController({
 
     async deleteSave({ checkpointId = null, saveId = null } = {}) {
       const id = required(checkpointId || saveId, 'saveId');
+      await verifySaveWritable(id);
       if (id === activeSave?.id) throw new Error('The active V1 timeline cannot be deleted while it is open.');
       const save = await loadV1CampaignSave(adapter, id);
       const deletion = await deleteV1CampaignSave(adapter, id, { now: currentTime() });
@@ -660,6 +857,12 @@ export function createCampaignStartController({
     async prepareCampaignDeletion({ campaignId, saveId = null } = {}) {
       const expectedCampaignId = required(campaignId, 'campaignId');
       const expectedSaveId = saveId ? required(saveId, 'saveId') : null;
+      if (expectedSaveId) await verifySaveWritable(expectedSaveId);
+      for (const value of publications.values()) {
+        if (value.before?.campaignId === expectedCampaignId || value.intent?.expectedManifest?.saveMetadata?.campaignId === expectedCampaignId) {
+          assertSaveWritable(value.saveId);
+        }
+      }
       const [saves, index] = await Promise.all([
         listV1CampaignSaves(adapter),
         initializeV1Storage(adapter, { now: currentTime() })
@@ -676,7 +879,11 @@ export function createCampaignStartController({
           'The selected V1 campaign was not found.'
         );
       }
+      await verifySaveWritable(summary.id);
       const save = await loadV1CampaignSave(adapter, summary.id);
+      for (const affected of saves.filter(candidate => candidate.campaignId === expectedCampaignId)) {
+        await verifySaveWritable(affected.id);
+      }
       const binding = exactCampaignDeletionBinding(save);
       return {
         campaignId: save.campaignId,
@@ -730,6 +937,10 @@ export function createCampaignStartController({
 
     async resumeCampaignDeletion({ campaignId, deleteHostEntity } = {}) {
       const expectedCampaignId = required(campaignId, 'campaignId');
+      const index = await initializeV1Storage(adapter, { now: currentTime() });
+      for (const summary of Object.values(index.saves).filter(value => value.campaignId === expectedCampaignId)) {
+        await verifySaveWritable(summary.id);
+      }
       const target = await loadV1CampaignDeletionResumeTarget(adapter, expectedCampaignId);
       let hostDeletion = null;
       if (target.tombstone.status === 'prepared') {
@@ -755,6 +966,8 @@ export function createCampaignStartController({
     },
 
     async loadGame({ saveId } = {}) {
+      await verifySaveWritable();
+      await verifySaveWritable(saveId);
       const loaded = await loadV1CampaignSave(adapter, required(saveId, 'saveId'), {
         makeActive: true,
         now: currentTime()

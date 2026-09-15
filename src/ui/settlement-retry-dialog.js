@@ -26,6 +26,8 @@ export function showSettlementRetryDialog({
 } = {}) {
   if (activeDialog && !activeDialog.overlay.isConnected) closeDialog(activeDialog, 'removed');
   if (activeDialog) return activeDialog;
+  const publicationBlocked = ['state-publication-pending', 'state-publication-acknowledgement',
+    'state-publication-not-committed-acknowledgement', 'state-publication-writing'].includes(reasonCode);
   const opener = document.activeElement || null;
   const overlay = createElement('div', 'directive-settlement-retry-overlay');
   const dialog = createElement('section', 'directive-settlement-retry-dialog');
@@ -60,11 +62,25 @@ export function showSettlementRetryDialog({
     message.textContent = 'The narration request failed.';
     detail.textContent = 'Retry to generate the reply. Completed turn review will be reused.';
   }
+  if (publicationBlocked) {
+    const messages = {
+      'state-publication-acknowledgement': 'Your save was verified, but its finalization is still pending. Narration is paused.',
+      'state-publication-not-committed-acknowledgement': 'Your game was not changed, but save cleanup is still pending. Narration is paused.',
+      'state-publication-writing': 'Your game is still being written. Narration is paused.',
+      'state-publication-pending': 'Directive could not verify whether the latest save completed. Narration is paused.',
+    };
+    message.textContent = messages[reasonCode];
+    detail.textContent = reasonCode === 'state-publication-writing'
+      ? 'Wait for the save to finish before continuing.'
+      : 'Close this dialog, open Campaign, and choose Continue to verify the save before continuing.';
+    dialog.setAttribute('aria-label', 'Verify the saved game before continuing');
+  }
   const status = createElement('p', 'directive-settlement-retry-status');
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
   const retry = createButton({ label: 'Retry', className: 'campaign-command campaign-command-primary', icon: 'fa-solid fa-rotate-right' });
   retry.dataset.settlementRetryAction = 'retry';
+  retry.hidden = publicationBlocked;
   const close = createButton({ label: 'Close', className: 'campaign-command', icon: 'fa-solid fa-xmark' });
   close.dataset.settlementRetryAction = 'close';
   const actions = createElement('div', 'directive-settlement-retry-actions');
@@ -127,13 +143,13 @@ export function showSettlementRetryDialog({
   dialog.append(title, message, detail, status, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
-  instance.release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: retry, onDismiss: reason => closeDialog(instance, reason), dismissOnBackdrop: true,
+  instance.release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: publicationBlocked ? close : retry, onDismiss: reason => closeDialog(instance, reason), dismissOnBackdrop: true,
     onRelease: () => {
       if (activeDialog === instance) activeDialog = null;
       instance.retryController?.abort?.(new Error('settlement-retry-closed'));
     } });
   activeDialog = instance;
-  retry.focus?.({ preventScroll: true });
+  (publicationBlocked ? close : retry).focus?.({ preventScroll: true });
   return instance;
 }
 

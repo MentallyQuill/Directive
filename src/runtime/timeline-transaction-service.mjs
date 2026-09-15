@@ -97,6 +97,22 @@ export function createTimelineTransactionService({
   if (!controller || !chat || typeof getState !== 'function' || typeof setState !== 'function') {
     throw new TypeError('Timeline transactions require controller, chat, getState, and setState.');
   }
+  const guardEffect = (effect) => async (...args) => {
+    await controller.verifySaveWritable?.();
+    return effect(...args);
+  };
+  const guardedMethods = new Set(['prepareCampaignChatClone', 'cloneCampaignChat', 'openCampaignChat',
+    'updateBindingMetadata', 'storeNativeBranchRefusal', 'deleteCampaignChat']);
+  chat = new Proxy(chat, {
+    get(target, key) {
+      const value = Reflect.get(target, key);
+      return guardedMethods.has(key) && typeof value === 'function'
+        ? guardEffect(value.bind(target)) : value;
+    },
+  });
+  if (openCampaignChat) openCampaignChat = guardEffect(openCampaignChat);
+  if (cloneCampaignChat) cloneCampaignChat = guardEffect(cloneCampaignChat);
+
   let sequence = 0;
   let queue = Promise.resolve();
   const nextId = (prefix) => typeof idFactory === 'function'
@@ -823,6 +839,7 @@ export function createTimelineTransactionService({
     runExclusive({ campaignId = null, task } = {}) {
       const id = compact(campaignId || controller.getActiveSave()?.campaignId || getState()?.campaign?.id);
       return schedule(id, async () => {
+        await controller.verifySaveWritable?.();
         const operation = await controller.loadTimelineOperation({ campaignId: id });
         if (operation && operation.stage !== 'completed') {
           throw transactionError(

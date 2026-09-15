@@ -33,6 +33,7 @@ export const V1_STORAGE_PATHS = Object.freeze({
   index: 'v1/index.v1.json',
   draft: (draftId) => `v1/drafts/${safeId(draftId, 'draftId')}.v1.json`,
   save: (saveId) => `v1/saves/${safeId(saveId, 'saveId')}.v1.json`,
+  publicationIntent: (saveId) => `v1/operations/${safeId(saveId, 'saveId')}.publication.v1.json`,
   saveBase: V1_SEGMENTED_SAVE_PATHS.base,
   saveSegment: V1_SEGMENTED_SAVE_PATHS.segment,
   monolithicRecovery: (saveId) => `v1/recovery/${safeId(saveId, 'saveId')}.monolithic.v1.json`,
@@ -741,7 +742,7 @@ async function verifyCapturedSaveHead(adapter, manifest) {
   }
   captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) === canonicalJson(manifest),
     'Captured save changed during verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
-  return { save, history };
+  return { save, history, boundaries };
 }
 
 /**
@@ -837,6 +838,7 @@ export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}
     expected = clone(assertV1CampaignSaveManifest(options.expectedManifest, { saveId: record.id }));
     capture = structuredClone(options.capture);
     const previousSave = options.previousSave === undefined ? null : clone(assertV1CampaignSave(options.previousSave));
+    await assertNoActivePublication(adapter, record.id);
     const index = await loadIndex(adapter, { create: false });
     captureAssert(index && Object.hasOwn(index.saves, record.id), 'Captured publication requires an existing indexed save.');
     activePointer = index.activeSaveId;
@@ -1014,6 +1016,228 @@ async function prepareSaveStateUpdate(adapter, record, manifest, previous) {
   return { nextManifest, writes };
 }
 
+const ACTIVE_PUBLICATION_KIND = 'directive.activeSavePublication.v1';
+const publicationDiagnostic = error => ({ code: error?.code || 'DIRECTIVE_V1_SAVE_PUBLICATION_FAILED', message: error?.message || String(error),
+  ...(error?.publicationIntentReadFailed === true ? { publicationIntentReadFailed: true } : {}) });
+
+async function readPublicationIntent(adapter, saveId) {
+  let value;
+  try {
+    value = await adapter.readJson(V1_STORAGE_PATHS.publicationIntent(saveId));
+  } catch (error) {
+    if (missing(error)) return null;
+    throw Object.assign(new Error(error?.message || String(error)), {
+      code: error?.code || 'DIRECTIVE_V1_SAVE_PUBLICATION_FAILED', publicationIntentReadFailed: true,
+    });
+  }
+  captureAssert(value !== null && value !== undefined, 'Invalid empty active-save publication intent.');
+  return structuredClone(value);
+}
+
+async function assertNoActivePublication(adapter, saveId) {
+  if (await readPublicationIntent(adapter, saveId) !== null) {
+    throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_UNCERTAIN', 'An active-save publication must be recovered before this save can be changed.');
+  }
+}
+
+async function assertActivePublicationIntent(intent, saveId) {
+  const fields = ['kind', 'version', 'saveId', 'requestHash', 'expectedActiveSaveId', 'expectedManifest', 'attemptedManifest'];
+  captureAssert(object(intent) && Object.keys(intent).length === fields.length && fields.every(key => Object.hasOwn(intent, key))
+    && intent.kind === ACTIVE_PUBLICATION_KIND && intent.version === 1 && intent.saveId === saveId
+    && typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId && intent.expectedActiveSaveId === saveId,
+  'Invalid active-save publication intent.');
+  const before = assertV1CampaignSaveManifest(intent.expectedManifest, { saveId });
+  const after = assertV1CampaignSaveManifest(intent.attemptedManifest, { saveId });
+  captureAssert(!before.branchHistory && !after.branchHistory && before.saveMetadata.slotType === 'active'
+    && canonicalJson(immutableSaveMetadata(before.saveMetadata)) === canonicalJson(immutableSaveMetadata(after.saveMetadata))
+    && canonicalJson(before.base) === canonicalJson(after.base)
+    && canonicalJson(before) !== canonicalJson(after)
+    && ((before.currentStateHash === after.currentStateHash && before.currentRevision === after.currentRevision)
+      || (before.currentStateHash !== after.currentStateHash && after.currentRevision === before.currentRevision + 1)),
+  'Active-save publication ownership or revision differs.');
+  if (before.currentStateHash === after.currentStateHash) {
+    captureAssert(canonicalJson({ ...before, saveMetadata: after.saveMetadata, updatedAt: after.updatedAt }) === canonicalJson(after),
+      'An unchanged-state publication may only update metadata.');
+  }
+  const { requestHash, ...identity } = intent;
+  captureAssert(typeof requestHash === 'string' && SHA256.test(requestHash) && await sha256Json(identity) === requestHash,
+    'Active-save publication request hash differs.');
+  return intent;
+}
+
+export async function loadV1ActiveCampaignSavePublication(adapter, saveId) {
+  requireAdapter(adapter);
+  const id = safeId(saveId, 'saveId');
+  const intent = await readPublicationIntent(adapter, id);
+  return intent === null ? null : assertActivePublicationIntent(intent, id);
+}
+
+async function assertActivePublicationPointer(adapter, manifest) {
+  const index = await loadIndex(adapter, { create: false });
+  const summary = index?.saves?.[manifest.saveId];
+  captureAssert(index && Object.hasOwn(index.saves, manifest.saveId) && object(summary)
+    && index.activeSaveId === manifest.saveId
+    && ['id', 'kind', 'slotType', 'campaignId', 'packageId', 'packageVersion', 'parentSaveId', 'createdAt']
+      .every(key => summary[key] === manifest.saveMetadata[key]),
+  'Active-save publication index ownership changed.', 'DIRECTIVE_V1_SAVE_CONCURRENT_UPDATE');
+  return index;
+}
+
+async function verifyActivePublicationHead(adapter, manifest, intent) {
+  await assertActivePublicationPointer(adapter, manifest);
+  const verified = await verifyCapturedSaveHead(adapter, manifest);
+  if (intent && canonicalJson(manifest) === canonicalJson(intent.attemptedManifest)) {
+    captureAssert(verified.boundaries.get(intent.expectedManifest.currentRevision) === intent.expectedManifest.currentStateHash,
+      'Active-save publication does not extend the expected state boundary.');
+  }
+  await assertActivePublicationPointer(adapter, manifest);
+  captureAssert(canonicalJson(await readPublicationIntent(adapter, manifest.saveId)) === canonicalJson(intent),
+    'Active-save publication intent changed.', 'DIRECTIVE_V1_SAVE_CONCURRENT_UPDATE');
+  captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(manifest.saveId))) === canonicalJson(manifest),
+    'Active-save publication head changed.', 'DIRECTIVE_V1_SAVE_CONCURRENT_UPDATE');
+  return verified.save;
+}
+
+/** Read-only authority inspection under the caller's existing campaign lease. */
+export async function loadVerifiedV1ActiveCampaignAuthority(adapter, options = {}) {
+  const { saveId, expectedSave = null, expectedManifest = null } = structuredClone(options);
+  requireAdapter(adapter);
+  captureAssert(typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId,
+    'Verified active-save authority requires an exact save identity.');
+  await assertNoActivePublication(adapter, saveId);
+  const manifest = clone(assertV1CampaignSaveManifest(await adapter.readJson(V1_STORAGE_PATHS.save(saveId)), { saveId }));
+  captureAssert(manifest.saveMetadata.slotType === 'active', 'Verified authority requires an active save.');
+  if (expectedManifest !== null) {
+    assertV1CampaignSaveManifest(expectedManifest, { saveId });
+    captureAssert(canonicalJson(expectedManifest) === canonicalJson(manifest), 'Verified authority manifest differs from the expected head.');
+  }
+  const save = await verifyActivePublicationHead(adapter, manifest, null);
+  if (expectedSave !== null) {
+    assertV1CampaignSave(expectedSave);
+    captureAssert(canonicalJson(expectedSave) === canonicalJson(save), 'Verified authority save differs from the expected record.');
+  }
+  return { save, manifest };
+}
+
+/** Read-only; caller owns the campaign lease and all prior writes have settled. */
+export async function resolveV1ActiveCampaignSavePublication(adapter, options = {}) {
+  let intent = null;
+  try {
+    const { saveId, requestHash } = structuredClone(options);
+    requireAdapter(adapter);
+    captureAssert(typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId
+      && typeof requestHash === 'string' && SHA256.test(requestHash), 'Invalid active-save recovery identity.');
+    intent = await readPublicationIntent(adapter, saveId);
+    if (intent === null) return { publication: 'none', intent: null };
+    await assertActivePublicationIntent(intent, saveId);
+    captureAssert(intent.requestHash === requestHash, 'Another active-save publication owns this intent.');
+    const current = clone(await adapter.readJson(V1_STORAGE_PATHS.save(saveId)));
+    const committed = canonicalJson(current) === canonicalJson(intent.attemptedManifest);
+    captureAssert(committed || canonicalJson(current) === canonicalJson(intent.expectedManifest), 'Active-save publication found an unrelated head.');
+    const save = await verifyActivePublicationHead(adapter, current, intent);
+    return { publication: committed ? 'committed' : 'not-committed', save, manifest: current, intent, acknowledgement: null };
+  } catch (error) {
+    return { publication: 'uncertain', intent, expectedManifest: intent?.expectedManifest || null,
+      attemptedManifest: intent?.attemptedManifest || null, error: publicationDiagnostic(error) };
+  }
+}
+
+/** Remove only the exact verified intent, never campaign or state objects. */
+export async function acknowledgeV1ActiveCampaignSavePublication(adapter, options = {}) {
+  const identity = structuredClone(options);
+  const result = await resolveV1ActiveCampaignSavePublication(adapter, identity);
+  if (!['committed', 'not-committed'].includes(result.publication)) return { ...result, acknowledged: false };
+  try {
+    await verifyActivePublicationHead(adapter, result.manifest, result.intent);
+  } catch (error) {
+    return { publication: 'uncertain', intent: result.intent, acknowledged: false, error: publicationDiagnostic(error) };
+  }
+  try {
+    await remove(adapter, V1_STORAGE_PATHS.publicationIntent(identity.saveId));
+    captureAssert(await readPublicationIntent(adapter, identity.saveId) === null, 'Active-save publication intent deletion was not acknowledged.');
+    return { ...result, acknowledged: true };
+  } catch (error) {
+    try {
+      if (await readPublicationIntent(adapter, identity.saveId) === null) {
+        return { ...result, acknowledged: true, acknowledgement: publicationDiagnostic(error) };
+      }
+    } catch { /* A failed read cannot acknowledge intent removal. */ }
+    return { ...result, acknowledged: false, acknowledgement: publicationDiagnostic(error) };
+  }
+}
+
+/** Existing ordinary active saves only. Caller owns the campaign lease. */
+export async function storeV1ActiveCampaignSaveWithOutcome(adapter, save, options = {}) {
+  let intent = null, expected = null, attempted = null, record = null, priorVerified = false;
+  try {
+    record = structuredClone(save);
+    const detached = structuredClone(options);
+    expected = detached.expectedManifest;
+    requireAdapter(adapter);
+    assertV1CampaignSave(record);
+    captureAssert(canonicalJson(record) === canonicalJson({ ...campaignSaveMetadata(record), state: record.state }),
+      'Active-save candidate contains unpersisted fields.');
+    assertV1CampaignSaveManifest(expected, { saveId: record.id });
+    const previous = assertV1CampaignSave(detached.previousSave);
+    captureAssert(record.slotType === 'active' && detached.expectedActiveSaveId === record.id && !expected.branchHistory
+      && canonicalJson(immutableSaveMetadata(campaignSaveMetadata(record))) === canonicalJson(immutableSaveMetadata(expected.saveMetadata))
+      && canonicalJson(campaignSaveMetadata(previous)) === canonicalJson(expected.saveMetadata)
+      && previous.state.stateCustody.revision === expected.currentRevision && await sha256Json(previous.state) === expected.currentStateHash,
+    'Active-save publication requires the exact ordinary prior active save.');
+    const existing = await loadV1ActiveCampaignSavePublication(adapter, record.id);
+    if (existing) {
+      intent = existing;
+      captureAssert(canonicalJson(existing.expectedManifest) === canonicalJson(expected)
+        && canonicalJson(existing.attemptedManifest.saveMetadata) === canonicalJson(campaignSaveMetadata(record))
+        && existing.attemptedManifest.currentStateHash === await sha256Json(record.state)
+        && existing.attemptedManifest.currentRevision === record.state.stateCustody.revision,
+      'An unresolved differing active-save publication blocks this write.');
+      return resolveV1ActiveCampaignSavePublication(adapter, { saveId: record.id, requestHash: existing.requestHash });
+    }
+    await verifyActivePublicationHead(adapter, expected, null);
+    priorVerified = true;
+    const plan = await prepareSaveStateUpdate(adapter, record, expected, previous);
+    attempted = plan.nextManifest;
+    if (canonicalJson(expected) === canonicalJson(attempted)) {
+      const verifiedSave = await verifyActivePublicationHead(adapter, expected, null);
+      return { publication: 'committed', save: verifiedSave, manifest: expected, intent: null, acknowledgement: null };
+    }
+    const identity = { kind: ACTIVE_PUBLICATION_KIND, version: 1, saveId: record.id,
+      expectedActiveSaveId: record.id, expectedManifest: expected, attemptedManifest: attempted };
+    intent = { ...identity, requestHash: await sha256Json(identity) };
+    await assertActivePublicationIntent(intent, record.id);
+    await verifyActivePublicationHead(adapter, expected, null);
+    await verifiedWrite(adapter, V1_STORAGE_PATHS.publicationIntent(record.id), intent, value => value);
+    await verifyActivePublicationHead(adapter, expected, intent);
+    await writePreparedSegments(adapter, plan.writes, record.id);
+    await verifyActivePublicationHead(adapter, expected, intent);
+    await verifiedWrite(adapter, V1_STORAGE_PATHS.save(record.id), attempted, value => assertV1CampaignSaveManifest(value, { saveId: record.id }));
+    const verifiedSave = await verifyActivePublicationHead(adapter, attempted, intent);
+    let acknowledgement = null;
+    try {
+      const index = await assertActivePublicationPointer(adapter, attempted);
+      index.saves[record.id] = saveSummary(verifiedSave);
+      await writeIndex(adapter, index, record.updatedAt);
+    } catch (error) { acknowledgement = publicationDiagnostic(error); }
+    await verifyActivePublicationHead(adapter, attempted, intent);
+    return { publication: 'committed', save: verifiedSave, manifest: attempted, intent, acknowledgement };
+  } catch (error) {
+    if (priorVerified && record && expected) {
+      try {
+        const persisted = await readPublicationIntent(adapter, record.id);
+        if (intent && canonicalJson(persisted) === canonicalJson(intent)) {
+          const resolved = await resolveV1ActiveCampaignSavePublication(adapter, { saveId: record.id, requestHash: intent.requestHash });
+          if (['committed', 'not-committed'].includes(resolved.publication)) return { ...resolved, acknowledgement: publicationDiagnostic(error) };
+        } else if (persisted === null) {
+          const verifiedSave = await verifyActivePublicationHead(adapter, expected, null);
+          return { publication: 'not-committed', save: verifiedSave, manifest: expected, intent: null, acknowledgement: publicationDiagnostic(error) };
+        }
+      } catch { /* Unverifiable authority stays uncertain. */ }
+    }
+    return { publication: 'uncertain', intent, expectedManifest: expected, attemptedManifest: attempted, error: publicationDiagnostic(error) };
+  }
+}
+
 async function writePreparedSegments(adapter, writes, saveId) {
   for (const item of writes) await verifiedWrite(adapter, item.path, item.value,
     value => assertV1CampaignSaveSegment(value, { saveId }),
@@ -1026,6 +1250,7 @@ export async function storeV1CampaignSave(adapter, save, {
 } = {}) {
   requireAdapter(adapter);
   const record = clone(assertV1CampaignSave(save));
+  await assertNoActivePublication(adapter, record.id);
   const index = await loadIndex(adapter, { create: true, now: record.updatedAt });
   const manifestPath = V1_STORAGE_PATHS.save(record.id);
   const existing = await readOrNull(adapter, manifestPath);

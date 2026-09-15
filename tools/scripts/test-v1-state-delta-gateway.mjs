@@ -235,4 +235,22 @@ await assert.rejects(
 await new Promise((resolve) => setTimeout(resolve, 0));
 assert.deepEqual(asyncPreconditionState, state(), 'an asynchronous precondition cannot mutate state');
 
+{
+  let candidate = state();
+  const uncertainGateway = createStateDeltaGateway({ getState: () => candidate, setState: value => { candidate = value; },
+    persist: async () => { throw Object.assign(new Error('unknown save outcome'), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_UNCERTAIN' }); } });
+  await assert.rejects(uncertainGateway.applyProposal({ id: 'proposal.uncertain', baseRevision: 0,
+    domains: ['mission'], patch: { mission: { v1: { revision: 1 } } } }), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_UNCERTAIN' });
+  assert.equal(candidate.stateCustody.revision, 1, 'unknown publication cannot authorize rollback');
+}
+{
+  let candidate = state();
+  const newer = structuredClone(candidate);
+  newer.campaign.title = 'New selected state';
+  const delayedGateway = createStateDeltaGateway({ getState: () => candidate, setState: value => { candidate = value; },
+    persist: async () => { candidate = newer; } });
+  await assert.rejects(delayedGateway.applyProposal({ id: 'proposal.delayed', baseRevision: 0,
+    domains: ['mission'], patch: { mission: { v1: { revision: 1 } } } }), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT' });
+  assert.deepEqual(candidate, newer, 'a successful stale completion must not return a candidate for reassignment');
+}
 console.log('PASS V1 state delta gateway');

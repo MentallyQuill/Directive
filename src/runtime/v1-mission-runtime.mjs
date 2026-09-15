@@ -1,3 +1,4 @@
+import { isStatePublicationError } from './state-publication-errors.mjs';
 import { createScenePacingContext, gateScenePacingClaims, settleScenePacing, sceneAllowsReport, scenePacingPermissions, scenePacingDependencies } from '../narration/scene-pacing.mjs';
 import {
     createMissionAcceptedPairInterpretationPrompt,
@@ -688,6 +689,7 @@ function contributionIdsForHostMessage(campaignState = {}, hostMessageId = '') {
 }
 
 function errorReasonCode(error) {
+    if (isStatePublicationError(error)) return 'state-publication-pending';
     if (error?.code === 'DIRECTIVE_V1_STATE_REVISION_CONFLICT'
         || error?.code === 'DIRECTIVE_STATE_REVISION_CONFLICT') return 'state-revision-conflict';
     if (error?.code === 'DIRECTIVE_MISSION_EVIDENCE_STALE') return 'mission-revision-conflict';

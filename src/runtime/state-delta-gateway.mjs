@@ -244,7 +244,12 @@ export function createStateDeltaGateway({
     try {
       if (options?.progressScope) await persist(after, descriptor, options);
       else await persist(after, descriptor);
+      if (stableJson(getState()) !== stableJson(after)) {
+        throw gatewayError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
+          'V1 state persistence completed after state ownership changed.');
+      }
     } catch (cause) {
+      if (cause?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_UNCERTAIN') throw cause;
       const current = getState();
       if (stableJson(current) === stableJson(after)) {
         setState(before);

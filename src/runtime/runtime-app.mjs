@@ -1,3 +1,4 @@
+import { isStatePublicationError } from './state-publication-errors.mjs';
 import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import { createCharacterInformationProjection, CHARACTER_INFORMATION_POLICY } from '../story/character-information.mjs';
@@ -403,6 +404,7 @@ export function createDirectiveGenerationRouter(host) {
           }
         };
       } catch (error) {
+        if (isStatePublicationError(error)) throw error;
         host.logger?.warn?.('[Directive] Model request failed: ' + JSON.stringify({
           roleId,
           code: error?.code || 'DIRECTIVE_PROVIDER_FAILED',
@@ -788,7 +790,18 @@ export function createDirectiveRuntimeApp({
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
   const generationCancellation = createGenerationCancellation(host.generation);
-  host = { ...host, generation: generationCancellation.generation };
+  const guardedGeneration = { ...generationCancellation.generation };
+  for (const method of ['generate', 'generateNarration']) {
+    const generate = generationCancellation.generation?.[method];
+    if (typeof generate !== 'function') continue;
+    guardedGeneration[method] = async (...args) => {
+      await controller?.verifySaveWritable?.();
+      const result = await generate.apply(generationCancellation.generation, args);
+      await controller?.verifySaveWritable?.();
+      return result;
+    };
+  }
+  host = { ...host, generation: guardedGeneration };
   const turnProgress = createTurnProgressReporter();
   let canceledThroughEpoch = -1;
   function assertTurnActive(scope) {
@@ -902,6 +915,7 @@ export function createDirectiveRuntimeApp({
 
   function dossierIdle() {
     return host.generation?.supportsIndependentBackgroundRequests === true
+      && !controller?.getSavePublicationStatus?.()
       && !generationCancellation.stopped
       && !nativeNarrationActive && !activeAnalysisController && state && currentChatIsBound();
   }
@@ -974,6 +988,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function withInternalChatOpen(task) {
+    await controller?.verifySaveWritable?.();
     internalChatOpenDepth += 1;
     try {
       return await task();
@@ -1000,7 +1015,10 @@ export function createDirectiveRuntimeApp({
     gateway = createStateDeltaGateway({
       getState: () => state,
       setState,
-      beforeCommit: ({ before, options }) => assertAcceptedPairSourcePrecondition({ before, options, host }),
+      beforeCommit: ({ before, options }) => {
+        controller.assertSaveWritable?.();
+        assertAcceptedPairSourcePrecondition({ before, options, host });
+      },
       persist: async (next, _descriptor, { progressScope = null } = {}) => {
         await turnProgress.run('saving', () => (
           controller.persistActiveCampaign({ campaignState: next })
@@ -1135,6 +1153,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function syncBoundPrompt({ rebuild = false, progressScope = null, generationType = 'normal', generationTargetKey = undefined } = {}) {
+    await controller.verifySaveWritable?.();
     assertTurnActive(progressScope);
     if (typeof host.presets?.activateNarrationPreset === 'function') {
       await turnProgress.run('activating-preset', () => activateNarrationPreset(), { scope: progressScope });
@@ -1330,6 +1349,9 @@ export function createDirectiveRuntimeApp({
   }
 
   async function cleanupPlayerPortrait(portrait, reason) {
+    if (controller?.getSavePublicationStatus?.()) {
+      return { attempted: false, deleted: false, reason: 'state-publication-pending' };
+    }
     if (!portrait?.asset?.path) {
       return { attempted: false, deleted: false, reason: 'no-player-portrait' };
     }
@@ -1377,6 +1399,7 @@ export function createDirectiveRuntimeApp({
       source: 'v1CampaignStart'
     });
     setState(committed.campaignState);
+    await controller.verifySaveWritable?.();
     if (updateHostMetadata) await host.chat.updateBindingMetadata?.(exact);
     return exact;
   }
@@ -1421,9 +1444,11 @@ export function createDirectiveRuntimeApp({
       }));
       const exactBinding = await commitBinding(binding, { updateHostMetadata: false });
       await openExactCampaignChat(exactBinding);
+      await controller.verifySaveWritable?.();
       await host.chat.updateBindingMetadata?.(exactBinding);
       return exactBinding;
     } catch (error) {
+      if (isStatePublicationError(error)) throw error;
       if (!binding && error?.createdBinding?.createdByDirective === true) {
         binding = clone(error.createdBinding);
       }
@@ -1436,7 +1461,11 @@ export function createDirectiveRuntimeApp({
         setState(restored.state);
         configureStateRuntime();
       } catch (rollbackError) {
+        if (isStatePublicationError(rollbackError)) throw rollbackError;
         host.logger?.warn?.('[Directive] Could not restore the unbound campaign after chat binding failed.', rollbackError);
+        // A failed compensation is not evidence that the committed binding disappeared.
+        // Keep its host resources unless persistence positively restored the prior save.
+        throw error;
       }
       const currentRollbackChat = host.chat.getCurrentBinding?.() || {
         chatId: compact(host.chat.getCurrentChatId?.()) || null
@@ -1488,6 +1517,7 @@ export function createDirectiveRuntimeApp({
   }
 
   async function postOpeningIfEmpty(signal = generationCancellation.signal) {
+    await controller.verifySaveWritable?.();
     if (signal.aborted) return { ok: false, posted: false, reason: 'host-generation-stopped' };
     return openingLifecycle.generate({
       premise: records.packageData.campaign.openingPremise,
@@ -1496,13 +1526,17 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  function enqueueStateMutation(task, { campaignLease = true } = {}) {
+  function enqueueStateMutation(task, { campaignLease = true, publicationRecovery = false } = {}) {
+    const guardedTask = async () => {
+      if (!publicationRecovery) await controller?.verifySaveWritable?.();
+      return task();
+    };
     const execute = () => {
       const campaignId = compact(state?.campaign?.id);
       if (campaignLease && timelineTransactions && campaignId) {
-        return timelineTransactions.runExclusive({ campaignId, task });
+        return timelineTransactions.runExclusive({ campaignId, task: guardedTask });
       }
-      return task();
+      return guardedTask();
     };
     const next = settlementQueue.then(execute, execute);
     settlementQueue = next.catch(() => null);
@@ -1893,6 +1927,7 @@ export function createDirectiveRuntimeApp({
       assertTurnActive(progressScope);
       await ensureInitialized();
       await settlementQueue;
+      await controller.verifySaveWritable?.();
       assertTurnActive(progressScope);
       if (rejectedBranchMatchesCurrentChat()) {
         await host.prompt.clear?.({ reason: BRANCH_DECISION_HISTORY_UNAVAILABLE });
@@ -2022,6 +2057,7 @@ export function createDirectiveRuntimeApp({
           reasonCode: promptSync.reasonCode || 'prompt-target-changed',
         };
       }
+      await controller.verifySaveWritable?.();
       return {
         handled: true,
         abortDefaultGeneration: false,
@@ -2029,6 +2065,16 @@ export function createDirectiveRuntimeApp({
         acceptedPairReplay
       };
       } catch (error) {
+        if (isStatePublicationError(error)) {
+          const reasonCode = error.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_PENDING'
+            ? 'state-publication-writing'
+            : error.code === 'DIRECTIVE_V1_STATE_PUBLICATION_ACK_PENDING'
+              ? (error.details?.publication === 'not-committed'
+                ? 'state-publication-not-committed-acknowledgement' : 'state-publication-acknowledgement')
+              : 'state-publication-pending';
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',
+            reasonCode, settlementError: { code: error.code, reasonCode, message: error.message } };
+        }
         if (error?.code !== 'DIRECTIVE_GENERATION_ABORTED') throw error;
         return { handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: 'host-generation-stopped' };
       }
@@ -2099,7 +2145,10 @@ export function createDirectiveRuntimeApp({
         initialized = true;
         await host.ui?.mount?.();
         if (state) await publicApi.handleHostChatChanged();
-        storageDiagnostics = await controller.verifyStorage();
+        const publication = controller.getSavePublicationStatus?.();
+        storageDiagnostics = publication
+          ? { ok: false, publication: clone(publication), reasonCode: 'state-publication-pending' }
+          : await controller.verifyStorage();
         return campaignViewEnvelope('campaign');
       } finally {
         initializing = false;
@@ -2369,6 +2418,7 @@ export function createDirectiveRuntimeApp({
       }
       const hostMessageId = messageId(message, message);
       let timeFooterNormalization = null;
+      await controller.verifySaveWritable?.();
       if (hostMessageId && typeof host.chat.stripAssistantTimeFooter === 'function') {
         try {
           const sanitized = await host.chat.stripAssistantTimeFooter({ hostMessageId });
@@ -2469,6 +2519,7 @@ export function createDirectiveRuntimeApp({
       let metadataAttachment = null;
       if (typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
         try {
+          await controller.verifySaveWritable?.();
           await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
         } catch (error) {
           metadataAttachment = {
@@ -2826,11 +2877,13 @@ export function createDirectiveRuntimeApp({
 
     async importCampaignPlayerPortrait({ file, bytes, arrayBuffer, base64, mimeType, fileName } = {}) {
       await ensureInitialized();
+      await controller.verifySaveWritable?.();
       if (!state) throw new Error('No active V1 campaign is available.');
       const upload = await createPlayerPortraitUpload({
         file, bytes, arrayBuffer, base64, mimeType, fileName,
         ownerKind: 'campaign', ownerId: state.campaign.id, now
       });
+      await controller.verifySaveWritable?.();
       const portrait = await storeV1PlayerPortrait(host.storage, upload, {
         ownerKind: 'campaign', ownerId: state.campaign.id, now
       });
@@ -2849,7 +2902,7 @@ export function createDirectiveRuntimeApp({
           return { previous };
         });
       } catch (error) {
-        await cleanupPlayerPortrait(portrait, 'player-portrait-import-rollback-failed');
+        if (!isStatePublicationError(error)) await cleanupPlayerPortrait(portrait, 'player-portrait-import-rollback-failed');
         throw error;
       }
       const previous = mutation.previous;
@@ -2917,9 +2970,29 @@ export function createDirectiveRuntimeApp({
       return { result: clone(result), opening: clone(opening), view: await campaignViewEnvelope('mission') };
     },
 
+    async recoverSavePublication({ saveId = null } = {}) {
+      await ensureInitialized();
+      return enqueueStateMutation(async () => {
+        const result = await controller.recoverSavePublication({ saveId });
+        controller.assertSaveWritable?.(saveId || undefined);
+        setState(controller.getActiveSave()?.state || null);
+        configureStateRuntime();
+        acceptedPairRecovery = noAcceptedPairRecovery();
+        acceptedPairRecoveryGestureId = null;
+        preparedNarrationDutyReport = null;
+        return result;
+      }, { campaignLease: false, publicationRecovery: true });
+    },
+
+    getSavePublicationStatus: (saveId) => controller?.getSavePublicationStatus?.(saveId) || null,
+
     async openCampaignChat({ saveId = null } = {}) {
       const generationSignal = generationCancellation.signal;
       await ensureInitialized();
+      if (controller.getSavePublicationStatus?.(saveId || undefined)) {
+        await publicApi.recoverSavePublication({ saveId });
+      }
+      await controller.verifySaveWritable?.(saveId || undefined);
       if (saveId && saveId !== activeSave()?.id) {
         setState(await controller.loadGame({ saveId }));
         configureStateRuntime();
