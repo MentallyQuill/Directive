@@ -9,6 +9,8 @@ Hash a domain-tagged representation of each complete row and its position using 
 - [x] Implement focused RED/GREEN coverage for exact/reloaded snapshots, property order, append/prefix behavior, all source-changing edits, provenance changes, unsupported shapes, bounds, and mutation during hashing.
 - [x] Verify actual adapter footer removal and metadata/swipe attachment change identity; do not hide those changes through projection exclusions.
 - [x] Independently review the module and regressions; add the focused check to the release gate and run relevant checks.
-- [ ] Publish the scoped verified implementation and record its limited scope. Do not enable runtime capture or earlier branches in this step.
+- [x] Publish the scoped verified implementation and record its limited scope. Do not enable runtime capture or earlier branches in this step.
 
 Remaining integration requirements: finalize assistant annotations before authority capture, carry immutable operation and before/after state context through every writer, prevent foreign or intermediate writes, define explicit non-prefix edit handling, preserve inherited archive ownership, and reconstruct earlier native branches from verified history. The projector alone proves none of those behaviors.
+
+Published source: `12358e617f33023c0caad5ac1a8ea7ad64a0f7fd`. Full 241-check gate and independent review passed. All 672 installed files match; the exact served module passed read-only projection of the native 11-row late fixture with unchanged snapshot and provider count 368. JSON roundtrip equality is verified; no browser reload or live history write was performed.
