@@ -745,6 +745,66 @@ async function verifyCapturedSaveHead(adapter, manifest) {
 }
 
 /**
+ * Read-only recovery under the caller's existing campaign lease. Exact detached
+ * publication identities are required; the attempt must have settled with no
+ * outstanding writes. This does not retry or repair a write.
+ */
+export async function resolveV1CapturedPublication(adapter, options = {}) {
+  let expected = null, attempted = null, expectedActiveSaveId, operationId;
+  try {
+    // Preserve malformed but cloneable evidence too, before validation or awaits.
+    expected = structuredClone(options.expectedManifest);
+    attempted = structuredClone(options.attemptedManifest);
+    expectedActiveSaveId = structuredClone(options.expectedActiveSaveId);
+    operationId = structuredClone(options.operationId);
+    requireAdapter(adapter);
+    assertV1CampaignSaveManifest(expected);
+    const id = expected.saveId;
+    captureAssert(expectedActiveSaveId === null || (typeof expectedActiveSaveId === 'string'
+      && safeId(expectedActiveSaveId, 'expectedActiveSaveId') === expectedActiveSaveId),
+    'Captured recovery requires an explicit active save identity.');
+    captureAssert(typeof operationId === 'string' && operationId.length > 0 && operationId.length <= 180
+      && operationId.trim() === operationId, 'Captured recovery requires an exact operation identity.');
+    if (attempted !== null) {
+      assertV1CampaignSaveManifest(attempted, { saveId: id });
+      captureAssert(canonicalJson(expected) !== canonicalJson(attempted),
+        'Captured recovery prior and attempted heads must differ.');
+    }
+    async function assertPointer() {
+      const index = await loadIndex(adapter, { create: false });
+      const summary = index?.saves?.[id];
+      captureAssert(index && Object.hasOwn(index.saves, id) && object(summary)
+        && ['id', 'kind', 'slotType', 'campaignId', 'packageId', 'packageVersion', 'parentSaveId', 'createdAt']
+          .every(key => summary[key] === expected.saveMetadata[key])
+        && index.activeSaveId === expectedActiveSaveId,
+      'Captured recovery index ownership changed.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    }
+    await assertPointer();
+    const current = clone(assertV1CampaignSaveManifest(await adapter.readJson(V1_STORAGE_PATHS.save(id)), { saveId: id }));
+    const isAttempted = attempted !== null && canonicalJson(current) === canonicalJson(attempted);
+    captureAssert(isAttempted || canonicalJson(current) === canonicalJson(expected),
+      'Captured recovery found an unrelated head.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    const verified = await verifyCapturedSaveHead(adapter, current);
+    if (isAttempted) {
+      const latest = verified.history?.records.at(-1);
+      captureAssert(latest && latest.capture.operationId === operationId
+        && latest.expectedManifestHash === await sha256Json(expected),
+      'Captured recovery operation provenance differs.');
+    }
+    await assertPointer();
+    // The pointer read is asynchronous: the exact manifest read must be last.
+    captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) === canonicalJson(current),
+      'Captured recovery head changed after verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    return { publication: isAttempted ? 'committed' : 'not-committed', operationId,
+      save: verified.save, manifest: current, ...(isAttempted ? { captureHead: current.branchHistory } : {}) };
+  } catch (error) {
+    return { publication: 'uncertain', expectedManifest: expected, attemptedManifest: attempted,
+      expectedActiveSaveId, operationId,
+      error: { code: error?.code || 'DIRECTIVE_V1_CAPTURE_STORAGE_FAILED', message: error?.message || String(error) } };
+  }
+}
+
+/**
  * Disabled preparation API: callers must own the campaign lease and supply an
  * already detached logical-application anchor. No runtime/host capture or
  * activation occurs here. The result union must not feed legacy void persist.

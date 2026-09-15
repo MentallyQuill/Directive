@@ -132,6 +132,7 @@ const checks = [
   "test-v1-storage-repository.mjs",
   "test-v1-historical-state-hydration.mjs",
   "test-v1-captured-state-boundaries.mjs",
+  "test-v1-captured-publication-recovery.mjs",
   "test-native-branch-lineage.mjs",
   "test-v1-branch-reconstruction.mjs",
   "test-v1-timeline-storage.mjs",
