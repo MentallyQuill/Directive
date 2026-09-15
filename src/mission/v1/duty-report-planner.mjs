@@ -34,7 +34,7 @@ function settledDeliveryMatchesRoute(entry, route) {
         && entry?.targetId === route?.factId
         && entry?.policyId === route?.evidencePolicyId
         && delivery?.kind === 'directive.dutyReportDelivery.v1'
-        && delivery?.contractVersion === 1
+        && (delivery?.contractVersion === 1 || delivery?.contractVersion === 2)
         && delivery?.reportId === route?.id
         && delivery?.factId === route?.factId
         && delivery?.policyId === route?.evidencePolicyId

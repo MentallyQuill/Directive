@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
-import { createDutyReportManifest } from '../../src/mission/v1/duty-report-delivery.mjs';
+import { createDutyReportManifest, createDutyReportVisibleSegment, validateDutyReportManifest } from '../../src/mission/v1/duty-report-delivery.mjs';
 import { deliveredDutyReportIds } from '../../src/mission/v1/duty-report-planner.mjs';
 import { createInitialMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
 import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { validateMissionStateAuthority } from '../../src/mission/v1/mission-state-authority.mjs';
 import { createV1PlayerProjection } from '../../src/projection/v1/player-projection.mjs';
 import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
 import { createV1MissionRuntime } from '../../src/runtime/v1-mission-runtime.mjs';
@@ -53,12 +55,12 @@ function stateFor(definition) {
     return state;
 }
 
-function acceptedInterpretation(assistantAcceptance = 'accepted') {
+function acceptedInterpretation(assistantAcceptance = 'accepted', claims = []) {
     return JSON.stringify({
         kind: 'directive.missionEvidenceInterpretation.v1',
         assistantAcceptance,
-        claims: [],
-        abstained: true,
+        claims,
+        abstained: claims.length === 0,
         time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
     });
 }
@@ -119,8 +121,8 @@ function protectedStateRoots(state) {
     });
 }
 
-function snapshotFor({ preparation, definition, suffix = '1' }) {
-    const responseText = `The officer steps forward. ${preparation.segment.canonicalText} The bridge waits.`;
+function snapshotFor({ preparation, definition, suffix = '1', extraText = '' }) {
+    const responseText = `The officer steps forward. ${preparation.segment.canonicalText} The bridge waits.${extraText ? ` ${extraText}` : ''}`;
     const manifest = createDutyReportManifest({
         definition,
         packet: preparation.packet,
@@ -170,6 +172,93 @@ function snapshotFor({ preparation, definition, suffix = '1' }) {
             },
         },
     };
+}
+
+const historical = JSON.parse(fs.readFileSync('tools/scripts/fixtures/duty-report-v1-settled.json', 'utf8'));
+for (const item of historical.cases) {
+    const definition = definitionFor(item.reportId);
+    assert.equal(createHash('sha256').update(JSON.stringify(definition)).digest('hex'), item.definitionHash,
+        'historical fixture binds the exact baseline authored definition');
+    const runtimeAssets = assetsFor(definition);
+    assert.equal(validateMissionStateAuthority({ definition, state: item.state.mission.v1 }).ok, true);
+    const harness = createHarness({ definition, state: JSON.parse(JSON.stringify(item.state)),
+        outputs: [new Error('historical replay must not call a provider')] });
+    const replay = await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: item.snapshot });
+    assert.equal(replay.status, 'already-settled');
+    assert.equal(harness.generationCount, 0);
+    assert.equal(harness.persistCount, 0);
+    assert.deepEqual(harness.campaignState, item.state, 'old inadequate V1 accepted authority is preserved exactly');
+    assert.deepEqual(deliveredDutyReportIds({ definition, state: harness.campaignState.mission.v1 }), [item.reportId]);
+}
+
+// Historical V1 envelopes remain recognizable, but a notice announcing a report
+// cannot create new authority for the substance that it did not communicate.
+for (const [metadataMode, expectedReason] of [
+    ['legacy', 'legacy-report-substance-required'], ['invalid', 'manifest-invalid'],
+    ['unsupported', 'manifest-version-unsupported'], ['absent', null],
+]) {
+  for (const alias of [false, true]) {
+    const reportId = 'report.hesperus.distress';
+    const definition = definitionFor(reportId);
+    definition.reportRoutes.find(route => route.id === reportId).deliveryRequirement = 'optional';
+    const candidateId = alias ? 'policy.hesperus.distress-disclosed-alias' : 'policy.hesperus.distress-disclosed';
+    if (alias) definition.evidencePolicies.push({
+        ...structuredClone(definition.evidencePolicies.find(policy => policy.id === 'policy.hesperus.distress-disclosed')),
+        id: candidateId,
+    });
+    const runtimeAssets = assetsFor(definition);
+    const harness = createHarness({ definition, outputs: [acceptedInterpretation('accepted', [{
+        candidateId, sourceSlot: 'previousAssistant',
+        evidenceQuote: 'The officer steps forward.',
+    }])] });
+    const preparation = prepare(harness, runtimeAssets, reportId, metadataMode);
+    preparation.segment = createDutyReportVisibleSegment(preparation.packet, { contractVersion: 1 });
+    const provisional = snapshotFor({ preparation, definition, suffix: metadataMode });
+    const variant = provisional.snapshot.source.previousAssistant.selectedVariant;
+    if (metadataMode !== 'legacy') {
+        variant.dutyReportManifest = null;
+        variant.dutyReportCustodyOwned = false;
+        variant.dutyReportManifestStatus = metadataMode;
+    }
+    const result = await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: provisional.snapshot });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(harness.generationCount, 1, 'the actual interpreter candidate is valid without a repair pass');
+    assert.equal(result.diagnostics.rejectedDutyReportReasonCode, expectedReason, metadataMode);
+    assert.equal(harness.campaignState.mission.v1.knownFacts.includes(preparation.packet.factId), metadataMode === 'absent',
+        `${metadataMode}/${candidateId}: only ordinary metadata-absent optional prose may disclose without typed report custody`);
+  }
+}
+
+for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-risk']) {
+    const definition = definitionFor(reportId);
+    const runtimeAssets = assetsFor(definition);
+    const harness = createHarness({ definition, outputs: [acceptedInterpretation()] });
+    const preparation = prepare(harness, runtimeAssets, reportId, 'legacy');
+    preparation.segment = createDutyReportVisibleSegment(preparation.packet, { contractVersion: 1 });
+    const provisional = snapshotFor({ preparation, definition, suffix: 'legacy' });
+    const previous = provisional.snapshot.source.previousAssistant;
+    assert.equal(validateDutyReportManifest({ definition, manifest: provisional.manifest,
+        branchId: 'save.report', responseId: previous.selectedVariant.responseId, responseText: previous.text }).ok, true);
+    const settled = await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: provisional.snapshot });
+    assert.equal(settled.ok, true);
+    assert.equal(settled.diagnostics.acceptedDutyReportCount, 0, `${reportId}: V1 notice is not substantive disclosure`);
+    assert.equal(settled.diagnostics.rejectedDutyReportReasonCode, 'legacy-report-substance-required');
+    assert.equal(harness.campaignState.mission.v1.knownFacts.includes(preparation.packet.factId), false);
+    const fresh = prepare(harness, runtimeAssets, reportId, 'redelivery');
+    assert.equal(fresh.status, 'ready');
+    assert.equal(fresh.segment.contractVersion, 2);
+    assert.equal(fresh.segment.summary, definition.facts.find(fact => fact.id === fresh.packet.factId).playerText.summary);
+    const redelivery = snapshotFor({ preparation: fresh, definition, suffix: 'redelivery' });
+    const accepted = await harness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: redelivery.snapshot });
+    assert.equal(accepted.diagnostics.acceptedDutyReportCount, 1);
+    assert.equal(harness.campaignState.mission.v1.knownFacts.includes(fresh.packet.factId), true);
+
+    const adequateHarness = createHarness({ definition, outputs: [acceptedInterpretation()] });
+    const adequate = snapshotFor({ preparation, definition, suffix: 'adequate-legacy',
+        extraText: definition.facts.find(fact => fact.id === preparation.packet.factId).playerText.summary });
+    const acceptedLegacy = await adequateHarness.runtime.settleAcceptedPair({ runtimeAssets, snapshot: adequate.snapshot });
+    assert.equal(acceptedLegacy.diagnostics.acceptedDutyReportCount, 1, 'V1 that actually contains the full fact can still settle');
+    assert.equal(adequateHarness.campaignState.mission.v1.evidenceLog.find(entry => entry.delivery)?.delivery.contractVersion, 1);
 }
 
 for (const reportId of ['report.hesperus.distress', 'report.hesperus.passenger-risk']) {

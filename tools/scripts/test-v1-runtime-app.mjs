@@ -928,12 +928,14 @@ assert.match(host.prompt.inspect().blocks[0]?.text || '', /ship-constraint\.inte
 const dutyReportText = createDutyReportVisibleSegment({
   kind: 'directive.dutyReportPacket.v1',
   reportId: 'report.hesperus.distress',
+  factId: 'fact.hesperus.distress-established',
   reporterId: 'priya-nayar',
   urgency: 'urgent',
   confidence: 'confirmed',
   deliveryRequirement: 'required',
-  playerText: { summary: 'Operations has received a civilian distress call requiring command attention.' }
-}).canonicalText;
+  playerText: { summary: 'Operations has received a civilian distress call requiring command attention.' },
+  authorizedClaim: { claimType: 'factDisclosed', targetId: 'fact.hesperus.distress-established', policyId: 'policy.hesperus.distress-disclosed' },
+}, { definition: records.missionDefinitions[0], contractVersion: 2 }).canonicalText;
 const acceptedRevision = (await app.getCurrentView({ tabId: 'mission' })).campaignState.stateCustody.revision;
 assert.ok(acceptedRevision > 1);
 

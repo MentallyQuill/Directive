@@ -4,6 +4,11 @@ export const DUTY_REPORT_VISIBLE_SEGMENT_KIND = 'directive.dutyReportVisibleSegm
 export const DUTY_REPORT_MANIFEST_KIND = 'directive.dutyReportManifest.v1';
 export const DUTY_REPORT_DELIVERY_KIND = 'directive.dutyReportDelivery.v1';
 export const DUTY_REPORT_CONTRACT_VERSION = 1;
+export const DUTY_REPORT_SUBSTANTIVE_CONTRACT_VERSION = 2;
+
+function supportedVersion(version) {
+    return version === DUTY_REPORT_CONTRACT_VERSION || version === DUTY_REPORT_SUBSTANTIVE_CONTRACT_VERSION;
+}
 
 const MAX_SUMMARY_LENGTH = 500;
 const MAX_SEGMENT_LENGTH = 620;
@@ -142,7 +147,7 @@ export function parseDutyReportManifestEnvelope(value = {}) {
     if (!isObject(value)) return { ok: false, errors: ['manifest must be an object'] };
     for (const field of unknownFields(value, MANIFEST_FIELDS)) errors.push(`manifest contains unknown field: ${field}`);
     if (value.kind !== DUTY_REPORT_MANIFEST_KIND) errors.push(`manifest kind must be ${DUTY_REPORT_MANIFEST_KIND}`);
-    if (value.contractVersion !== DUTY_REPORT_CONTRACT_VERSION) errors.push('manifest contractVersion is unknown');
+    if (!supportedVersion(value.contractVersion)) errors.push('manifest contractVersion is unknown');
     for (const field of [
         'packageId',
         'packageVersion',
@@ -175,7 +180,9 @@ export function withoutProvisionalDutyReportManifest(metadata = {}) {
     return next;
 }
 
-export function createDutyReportVisibleSegment(packet = {}) {
+// The legacy renderer is immutable: historical manifests hash the route notice.
+// New runtime preparation explicitly selects V2 and supplies the authored definition.
+export function createDutyReportVisibleSegment(packet = {}, { definition = null, contractVersion = DUTY_REPORT_CONTRACT_VERSION } = {}) {
     const errors = [];
     if (!isObject(packet)) errors.push('packet must be an object');
     for (const field of unknownFields(packet, PACKET_FIELDS)) errors.push(`packet contains unknown field: ${field}`);
@@ -186,7 +193,11 @@ export function createDutyReportVisibleSegment(packet = {}) {
     if (!DELIVERY_REQUIREMENTS.has(packet?.deliveryRequirement)) {
         errors.push('packet deliveryRequirement is unknown');
     }
-    const summary = normalizeDutyReportVisibleText(packet?.playerText?.summary);
+    if (!supportedVersion(contractVersion)) errors.push('segment contractVersion is unknown');
+    if (contractVersion === DUTY_REPORT_SUBSTANTIVE_CONTRACT_VERSION) errors.push(...packetErrors(packet, definition));
+    const summary = normalizeDutyReportVisibleText(contractVersion === DUTY_REPORT_SUBSTANTIVE_CONTRACT_VERSION
+        ? definition?.facts?.find(fact => fact?.id === packet?.factId)?.playerText?.summary
+        : packet?.playerText?.summary);
     if (!summary || summary.length > MAX_SUMMARY_LENGTH) {
         errors.push(`packet playerText summary must contain 1-${MAX_SUMMARY_LENGTH} normalized characters`);
     }
@@ -198,7 +209,7 @@ export function createDutyReportVisibleSegment(packet = {}) {
     }
     return {
         kind: DUTY_REPORT_VISIBLE_SEGMENT_KIND,
-        contractVersion: DUTY_REPORT_CONTRACT_VERSION,
+        contractVersion,
         reportId: packet.reportId,
         reporterId: packet.reporterId,
         urgency: packet.urgency,
@@ -229,6 +240,7 @@ export function createDutyReportManifest({
     sourceTransactionId = null,
     responseText = '',
     segment = null,
+    contractVersion = segment?.contractVersion ?? DUTY_REPORT_CONTRACT_VERSION,
 } = {}) {
     const errors = packetErrors(packet, definition);
     if (!stableId(branchId)) errors.push('branchId must be a stable id');
@@ -240,7 +252,7 @@ export function createDutyReportManifest({
     }
     let expectedSegment = null;
     try {
-        expectedSegment = createDutyReportVisibleSegment(packet);
+        expectedSegment = createDutyReportVisibleSegment(packet, { definition, contractVersion });
     } catch (error) {
         errors.push(...(error?.details?.errors || ['segment is invalid']));
     }
@@ -254,7 +266,7 @@ export function createDutyReportManifest({
     const route = routeFor(definition, packet.reportId);
     return {
         kind: DUTY_REPORT_MANIFEST_KIND,
-        contractVersion: DUTY_REPORT_CONTRACT_VERSION,
+        contractVersion,
         packageId: definition.packageBinding.packageId,
         packageVersion: definition.packageBinding.packageVersion,
         missionId: definition.id,
@@ -314,7 +326,7 @@ export function validateDutyReportManifest({
                     targetId: route.factId,
                     policyId: route.evidencePolicyId,
                 },
-            });
+            }, { definition, contractVersion: manifest.contractVersion });
         } catch {
             errors.push('authored segment is invalid');
         }
@@ -342,7 +354,7 @@ export function validateDutyReportDeliveryReceipt({
     if (!isObject(delivery)) return { ok: false, errors: ['delivery must be an object'] };
     for (const field of unknownFields(delivery, DELIVERY_FIELDS)) errors.push(`delivery contains unknown field: ${field}`);
     if (delivery.kind !== DUTY_REPORT_DELIVERY_KIND) errors.push(`delivery kind must be ${DUTY_REPORT_DELIVERY_KIND}`);
-    if (delivery.contractVersion !== DUTY_REPORT_CONTRACT_VERSION) errors.push('delivery contractVersion is unknown');
+    if (!supportedVersion(delivery.contractVersion)) errors.push('delivery contractVersion is unknown');
     const route = routeFor(definition, delivery.reportId);
     if (!route) errors.push('delivery reportId is not authored');
     if (claim.claimType !== 'factDisclosed') errors.push('delivery requires a factDisclosed claim');
@@ -408,9 +420,16 @@ export function materializeAcceptedDutyReportClaim({
         };
     }
     const route = routeFor(definition, manifest.reportId);
+    if (manifest.contractVersion === DUTY_REPORT_CONTRACT_VERSION) {
+        const substance = normalizeDutyReportVisibleText(definition?.facts?.find(fact => fact?.id === route.factId)?.playerText?.summary);
+        if (!substance || !normalizeDutyReportVisibleText(source.text).includes(substance)) {
+            return { ok: false, status: 'rejected', reasonCode: 'legacy-report-substance-required',
+                errors: ['The legacy report notice did not include the complete authored fact; deliver a new substantive report.'] };
+        }
+    }
     const delivery = {
         kind: DUTY_REPORT_DELIVERY_KIND,
-        contractVersion: DUTY_REPORT_CONTRACT_VERSION,
+        contractVersion: manifest.contractVersion,
         reportId: route.id,
         factId: route.factId,
         reporterId: manifest.reporterId,

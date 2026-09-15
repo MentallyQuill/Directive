@@ -310,6 +310,7 @@ function sourcePairFromSnapshot(snapshot = {}) {
             directiveOwned: previousVariant.directiveOwned === true,
             dutyReportCustodyOwned: previousVariant.dutyReportCustodyOwned === true,
             dutyReportManifest: previousVariant.dutyReportManifest || null,
+            dutyReportManifestStatus: previousVariant.dutyReportManifestStatus || null,
         },
         currentPlayer: {
             messageId: compact(player.hostMessageId),
@@ -592,11 +593,16 @@ function requiredDutyReportPolicyIds(definition = {}) {
         .filter(Boolean));
 }
 
-function proposalWithDutyReportCustody({ definition, proposal, dutyReportResult } = {}) {
+function proposalWithDutyReportCustody({ definition, proposal, dutyReportResult, assistantSource } = {}) {
     const requiredPolicies = requiredDutyReportPolicyIds(definition);
+    const routedFacts = new Set((definition.reportRoutes || []).map(route => route.factId));
     const deliveryPolicyId = dutyReportResult?.ok ? dutyReportResult.claim.policyId : null;
     let strippedRequiredClaimCount = 0;
     const claims = (proposal?.claims || []).filter((claim) => {
+        // Refused metadata belongs to this selected assistant source, not the
+        // whole turn. Optional routes and alternate policies cannot bypass it.
+        if (dutyReportResult?.ok === false && claim.claimType === 'factDisclosed'
+            && routedFacts.has(claim.targetId) && sourceMatchesRef(assistantSource, claim.sourceRef)) return false;
         if (deliveryPolicyId && claim.policyId === deliveryPolicyId) return false;
         if (requiredPolicies.has(claim.policyId)) {
             strippedRequiredClaimCount += 1;
@@ -1448,7 +1454,7 @@ export function createV1MissionRuntime({
         }
         let segment;
         try {
-            segment = createDutyReportVisibleSegment(packet);
+            segment = createDutyReportVisibleSegment(packet, { definition: resolved.definition, contractVersion: 2 });
         } catch {
             return unavailable('duty-report-segment-invalid');
         }
@@ -1462,6 +1468,7 @@ export function createV1MissionRuntime({
             packet,
             segment,
             manifestInput: {
+                contractVersion: segment.contractVersion,
                 branchId,
                 responseId: normalizedResponseId,
                 sourceTransactionId: normalizedTransactionId,
@@ -1848,6 +1855,10 @@ export function createV1MissionRuntime({
                     reasonCode: 'assistant-not-accepted',
                     errors: [],
                 };
+        } else if (['invalid', 'unsupported'].includes(sourcePair.previousAssistant.dutyReportManifestStatus)) {
+            dutyReportResult = { ok: false, status: 'rejected',
+                reasonCode: sourcePair.previousAssistant.dutyReportManifestStatus === 'unsupported'
+                    ? 'manifest-version-unsupported' : 'manifest-invalid', errors: [] };
         }
         const interpretedMissionProposal = {
             ...interpreted.proposal,
@@ -1867,6 +1878,7 @@ export function createV1MissionRuntime({
             definition,
             proposal: interpretedMissionProposal,
             dutyReportResult,
+            assistantSource,
         });
         const deterministicRuntime = materializeDeterministicRuntimeEvidence({
             definition,

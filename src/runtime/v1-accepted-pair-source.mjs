@@ -105,6 +105,10 @@ function selectedAssistantVariant(message = {}) {
   const metadata = directiveMetadata(message);
   const runtimeMetadata = selectedSwipeRuntimeMetadata(message, index, swipes.length);
   const report = parseDutyReportManifestEnvelope(runtimeMetadata?.dutyReportManifest);
+  const reportPresent = Boolean(runtimeMetadata && Object.hasOwn(runtimeMetadata, 'dutyReportManifest'));
+  const reportStatus = !reportPresent ? 'absent' : report.ok ? 'valid'
+    : runtimeMetadata?.dutyReportManifest?.contractVersion !== undefined
+      && ![1, 2].includes(runtimeMetadata.dutyReportManifest.contractVersion) ? 'unsupported' : 'invalid';
   const directiveOwned = Boolean(
     message?.isDirectiveOwned === true
     || message?.directiveOwned === true
@@ -136,6 +140,7 @@ function selectedAssistantVariant(message = {}) {
       outcomeId: compact(metadata?.outcomeId, 180) || null,
       responseKind: compact(metadata?.responseKind, 80) || null,
       dutyReportManifest: report.ok ? report.value : null,
+      dutyReportManifestStatus: reportStatus,
       dutyReportCustodyOwned: report.ok === true,
       timeFooter: selected.timeFooter,
       text: selectedText
@@ -287,6 +292,8 @@ export function prepareV1AcceptedPairSnapshot({
     }
   };
 }
+
+export { selectedAssistantVariant as captureV1AssistantSourceVariant };
 
 export const __v1AcceptedPairSourceTestHooks = Object.freeze({
   stableHash,

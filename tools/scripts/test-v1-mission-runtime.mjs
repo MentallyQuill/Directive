@@ -911,7 +911,7 @@ function reportPacketAndSnapshot(definition, { manifestMode = 'valid', pairNumbe
         state,
         availableActors: [{ id: 'hadrik-bronn', capabilityRoles: ['engineering'] }],
     });
-    const segment = createDutyReportVisibleSegment(packet);
+    const segment = createDutyReportVisibleSegment(packet, { definition, contractVersion: 2 });
     const authoredText = `Bronn opens the reviewed file. ${segment.canonicalText} He waits for your direction.`;
     const responseId = `directive-response.report.${pairNumber}`;
     const manifest = createDutyReportManifest({
@@ -970,7 +970,7 @@ const reportEvidence = requiredReportHarness.campaignState.mission.v1.evidenceLo
 );
 assert.deepEqual(reportEvidence.delivery, {
     kind: 'directive.dutyReportDelivery.v1',
-    contractVersion: 1,
+    contractVersion: 2,
     reportId: 'report.hesperus-discrepancy',
     factId: 'fact.hesperus-discrepancy-known',
     reporterId: 'hadrik-bronn',
@@ -1082,7 +1082,7 @@ const optionalInvalid = await optionalInvalidHarness.runtime.settleAcceptedPair(
     snapshot: optionalInvalidSource.snapshot,
 });
 assert.equal(optionalInvalid.ok, true);
-assert.equal(optionalInvalidHarness.campaignState.mission.v1.knownFacts.length, 1);
+assert.equal(optionalInvalidHarness.campaignState.mission.v1.knownFacts.length, 0, 'invalid selected report custody cannot be bypassed by an optional prose claim');
 assert.equal(optionalInvalidHarness.campaignState.mission.v1.evidenceLog[0].delivery, undefined);
 assert.equal(optionalInvalid.diagnostics.acceptedDutyReportCount, 0);
 assert.equal(optionalInvalid.diagnostics.rejectedDutyReportReasonCode, 'manifest-invalid');

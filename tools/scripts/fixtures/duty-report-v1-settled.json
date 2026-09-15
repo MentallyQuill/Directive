@@ -1,0 +1,1123 @@
+{
+  "baseline": "a803859b76b505e35f4dd871cc620e94baaf2864",
+  "note": "Produced by baseline public mission runtime. Canonical Prelude routes and facts; immediate-interruption fixture isolates delivery custody. Historical inadequate V1 authority must survive reload unchanged.",
+  "cases": [
+    {
+      "reportId": "report.hesperus.distress",
+      "snapshot": {
+        "kind": "directive.acceptedPairSnapshot.v1",
+        "envelope": {
+          "campaignId": "campaign.ashes",
+          "saveId": "save.report",
+          "chatId": "chat.report",
+          "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+          "packageVersion": "0.3.0-pre-alpha.2",
+          "activeMissionId": "prelude-a-ship-underway"
+        },
+        "source": {
+          "sourceRangeHash": "range.report.historical",
+          "previousAssistant": {
+            "hostMessageId": "message.assistant.report.historical",
+            "text": "The officer steps forward. Duty Report — Operations has received a civilian distress call requiring command attention. Confidence: Confirmed. The bridge waits.",
+            "textHash": "a1b2c3d4",
+            "sourceIntegrity": "clean",
+            "selectedVariantId": "0",
+            "selectedVariant": {
+              "selectedVariantId": "0",
+              "selectedSwipeId": "0",
+              "selectedSwipeIndex": 0,
+              "selectedTextHash": "a1b2c3d4",
+              "sourceIntegrity": "clean",
+              "responseId": "response.report.historical",
+              "directiveOwned": true,
+              "dutyReportCustodyOwned": true,
+              "dutyReportManifest": {
+                "kind": "directive.dutyReportManifest.v1",
+                "contractVersion": 1,
+                "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+                "packageVersion": "0.3.0-pre-alpha.2",
+                "missionId": "mission.prelude-a-ship-underway",
+                "definitionVersion": "1.1.0",
+                "branchId": "save.report",
+                "reportId": "report.hesperus.distress",
+                "factId": "fact.hesperus.distress-established",
+                "reporterId": "priya-nayar",
+                "policyId": "policy.hesperus.distress-disclosed",
+                "responseId": "response.report.historical",
+                "sourceTransactionId": "transaction.report.historical",
+                "responseTextHash": "bd6d2b85fb6f4a5c",
+                "segmentTextHash": "c24279b54274d49f"
+              }
+            }
+          },
+          "currentPlayer": {
+            "hostMessageId": "message.player.report.historical",
+            "text": "Understood. Proceed.",
+            "textHash": "d4c3b2a1"
+          }
+        }
+      },
+      "state": {
+        "campaign": {
+          "id": "campaign.ashes",
+          "title": "Ashes of Peace",
+          "status": "active",
+          "createdAt": "2026-08-10T00:00:00.000Z",
+          "startedAt": "2026-08-10T00:00:00.000Z",
+          "characterCreatorDraftId": null,
+          "packageTitle": "Ashes of Peace",
+          "openingStardate": 53068.4,
+          "currentStardate": 53068.4,
+          "openingMinuteOfDay": 510,
+          "runtimeArchitecture": {
+            "kind": "directive.gameplayArchitecture.v1",
+            "contractVersion": 1,
+            "semanticAuthority": "storySettlement",
+            "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+            "packageVersion": "0.3.0-pre-alpha.2",
+            "createdForNewSave": true
+          }
+        },
+        "activeCampaignPackage": {
+          "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+          "packageVersion": "0.3.0-pre-alpha.2"
+        },
+        "player": {
+          "id": "player-commander",
+          "creationStatus": "complete",
+          "name": "Ren Okada",
+          "pronounsOrAddress": "he/him",
+          "rank": "Commander",
+          "billet": "Executive Officer",
+          "role": "Principal mission commander and coordinator of shipboard operations.",
+          "roleMode": "lockedRole",
+          "shipId": "uss-breckenridge",
+          "shipName": "U.S.S. Breckenridge",
+          "species": {
+            "id": "human",
+            "label": "Human",
+            "summary": ""
+          },
+          "ageBand": {
+            "id": "mid-career",
+            "label": "Mid-career",
+            "summary": ""
+          },
+          "appearance": "Attentive and deliberate.",
+          "firstImpression": "",
+          "service": {
+            "careerBackground": {
+              "id": "tactical-security",
+              "label": "Tactical and security",
+              "selectedLabel": "Tactical and security"
+            },
+            "formativeExperience": {
+              "id": "dominion-war-fleet-service",
+              "label": "Dominion War fleet service",
+              "selectedLabel": "Dominion War fleet service"
+            },
+            "assignmentReason": {
+              "id": "experienced-outsider-transfer",
+              "label": "Experienced outsider transfer",
+              "selectedLabel": "Experienced outsider transfer"
+            },
+            "mustBeTrueFact": ""
+          },
+          "personality": {
+            "traits": {
+              "insight": {
+                "id": "perceptive",
+                "label": "Perceptive",
+                "selectedLabel": "Perceptive"
+              },
+              "connection": {
+                "id": "candid",
+                "label": "Candid",
+                "selectedLabel": "Candid"
+              },
+              "execution": {
+                "id": "decisive",
+                "label": "Decisive",
+                "selectedLabel": "Decisive"
+              }
+            },
+            "flaw": {
+              "id": "impatient",
+              "label": "Impatient",
+              "summary": "Struggles when process, politics, or fear slow necessary action.",
+              "selectedLabel": "Impatient"
+            },
+            "additionalGenerationNote": ""
+          },
+          "dossier": {
+            "detailLevel": "Standard",
+            "generatedBy": "localFallback",
+            "identitySummary": "Ren Okada is a Human Commander.",
+            "serviceSummary": "Tactical and security; shaped by Dominion War fleet service.",
+            "briefBiography": "Ren Okada is a Human Starfleet Commander assigned as Executive Officer of the U.S.S. Breckenridge on stardate 53068.4. Their background in Tactical and security and formative experience with Dominion War fleet service made them a credible choice for the Asterion Reach mission. Their command style is shaped by Perceptive, Candid, and Decisive, while Impatient remains a pressure point they will need to manage in command.",
+            "traits": "Perceptive, Candid, Decisive; flaw: Impatient.",
+            "publicReputation": "Ren Okada is regarded as a capable Commander whose Tactical and security background makes the Breckenridge assignment plausible, though the crew is still learning what kind of XO they have received.",
+            "optionalOpenThread": "",
+            "editedByPlayer": false
+          },
+          "personalValues": [],
+          "creatorAcceptedAt": "2026-08-10T00:00:00.000Z",
+          "adjudicationProfile": {
+            "role": "Commander, Executive Officer",
+            "careerBackground": "Tactical and security",
+            "formativeExperience": "Dominion War fleet service",
+            "traits": [
+              "Perceptive",
+              "Candid",
+              "Decisive"
+            ],
+            "flaw": "Impatient",
+            "specialistBoundary": "Broad command competence; senior staff remain necessary experts in their departments."
+          }
+        },
+        "ship": {
+          "id": "uss-breckenridge",
+          "name": "U.S.S. Breckenridge",
+          "class": "Intrepid-class",
+          "registry": "NCC-74656",
+          "operationalOverview": {
+            "kind": "directive.shipOperationalOverview.v1",
+            "status": "serviceable",
+            "summary": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with upgraded systems still requiring integrated validation under sustained deployment conditions.",
+            "materialLimitations": [],
+            "history": []
+          }
+        },
+        "mission": {
+          "activeMissionId": "prelude-a-ship-underway",
+          "v1": {
+            "kind": "directive.missionState.v1",
+            "schemaVersion": 1,
+            "definitionId": "mission.prelude-a-ship-underway",
+            "definitionVersion": "1.1.0",
+            "packageBinding": {
+              "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+              "packageVersion": "0.3.0-pre-alpha.2",
+              "sourceId": "prelude-a-ship-underway"
+            },
+            "branchId": "save.report",
+            "revision": 1,
+            "status": "active",
+            "objectives": {
+              "objective.prelude.command-handover": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.staff-readiness": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.hesperus-rescue": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.final-readiness-arrival": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              },
+              "objective.prelude.hesperus-accountability": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              },
+              "objective.prelude.rhee-apprehension": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              }
+            },
+            "objectiveDecisions": {},
+            "knownFacts": [
+              "fact.hesperus.distress-established"
+            ],
+            "worldFacts": [
+              "fact.hesperus.distress-established",
+              "fact.hesperus.passenger-risk",
+              "fact.hesperus.injector-limit",
+              "fact.hesperus.record-inconsistency",
+              "fact.hesperus.record-discrepancy",
+              "fact.hesperus.record-falsified",
+              "fact.hesperus.owner-attribution-supported",
+              "fact.prelude.poker-invitation",
+              "fact.prelude.redline.conflicting-explanations",
+              "fact.prelude.redline.inventory-drift",
+              "fact.prelude.redline.shortage-consequence",
+              "fact.prelude.redline.composition-confirmed",
+              "fact.prelude.redline.distribution-confirmed",
+              "fact.prelude.redline.access-evidence",
+              "fact.prelude.redline.material-evidence",
+              "fact.prelude.redline.human-evidence"
+            ],
+            "events": [
+              "event.scene-pacing.prelude.active"
+            ],
+            "outcomes": {
+              "outcome.hesperus.rescue-risk-decision": "unmade",
+              "outcome.hesperus.rescue-result": "unresolved",
+              "outcome.hesperus.rescue-cost": "unassessed",
+              "outcome.hesperus.records-disposition": "unresolved",
+              "outcome.hesperus.accountability-decision": "unmade",
+              "outcome.hesperus.accountability-result": "unresolved",
+              "outcome.prelude.command-readiness": "unreviewed",
+              "outcome.prelude.arrival-condition": "enRoute",
+              "outcome.prelude.redline-evidence": "unresolved",
+              "outcome.prelude.redline-containment": "unresolved",
+              "outcome.prelude.daro-care": "unresolved",
+              "outcome.prelude.rhee-disposition": "unresolved",
+              "outcome.scene-pacing.prelude.command-handover.authorization": "held",
+              "outcome.scene-pacing.prelude.staff-readiness.authorization": "held",
+              "outcome.scene-pacing.prelude.hesperus-rescue.authorization": "held",
+              "outcome.scene-pacing.prelude.final-readiness-arrival.authorization": "held",
+              "outcome.scene-pacing.prelude.hesperus-accountability.authorization": "held",
+              "outcome.scene-pacing.prelude.rhee-apprehension.authorization": "held"
+            },
+            "outcomeDimensions": {},
+            "acceptedEvidenceKeys": [
+              "save.report|runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active|no-swipe|de78f5c4|eventOccurred|event.scene-pacing.prelude.active",
+              "save.report|message.assistant.report.historical|0|a1b2c3d4|factDisclosed|fact.hesperus.distress-established"
+            ],
+            "evidenceLog": [
+              {
+                "claimId": "claim.runtime-policy.31c4d592",
+                "policyId": "policy.scene-pacing.prelude.active",
+                "evidenceKey": "save.report|runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active|no-swipe|de78f5c4|eventOccurred|event.scene-pacing.prelude.active",
+                "claimType": "eventOccurred",
+                "targetId": "event.scene-pacing.prelude.active",
+                "value": null,
+                "sourceContributionId": "contribution.v1.aef6cbab",
+                "acceptedAtMissionRevision": 0
+              },
+              {
+                "claimId": "claim.62c9ee04af89a4e2",
+                "policyId": "policy.hesperus.distress-disclosed",
+                "evidenceKey": "save.report|message.assistant.report.historical|0|a1b2c3d4|factDisclosed|fact.hesperus.distress-established",
+                "claimType": "factDisclosed",
+                "targetId": "fact.hesperus.distress-established",
+                "value": null,
+                "sourceContributionId": "contribution.v1.9ea6f38d",
+                "acceptedAtMissionRevision": 0,
+                "delivery": {
+                  "kind": "directive.dutyReportDelivery.v1",
+                  "contractVersion": 1,
+                  "reportId": "report.hesperus.distress",
+                  "factId": "fact.hesperus.distress-established",
+                  "reporterId": "priya-nayar",
+                  "policyId": "policy.hesperus.distress-disclosed",
+                  "responseId": "response.report.historical",
+                  "hostMessageId": "message.assistant.report.historical",
+                  "selectedSwipeId": "0",
+                  "visibleTextHash": "a1b2c3d4",
+                  "segmentTextHash": "c24279b54274d49f",
+                  "sourceTransactionId": "transaction.report.historical"
+                }
+              }
+            ],
+            "invalidatedSourceContributionIds": [],
+            "terminalDisposition": null,
+            "transitionReceipt": null
+          },
+          "v1Journey": {
+            "kind": "directive.missionJourney.v1",
+            "contractVersion": 1,
+            "branchId": "save.report",
+            "revision": 0,
+            "activeRunId": "mission-run.5b45d5c677d6d0ee64bcf530"
+          },
+          "v1History": []
+        },
+        "storySettlement": {
+          "kind": "directive.storySettlement.v1",
+          "schemaVersion": 1,
+          "branchId": "save.report",
+          "revision": 7,
+          "activeEpisode": "episode.v1.152c24f0",
+          "episodes": [
+            {
+              "kind": "directive.storyEpisode.v1",
+              "id": "episode.v1.152c24f0",
+              "branchId": "save.report",
+              "sceneId": "scene.v1.152c24f0",
+              "status": "open",
+              "openedAtRevision": 1,
+              "sealedAtRevision": null,
+              "boundaryReason": null,
+              "summary": null,
+              "contributions": [
+                {
+                  "id": "contribution.v1.9ea6f38d",
+                  "messageId": "message.assistant.report.historical",
+                  "swipeId": "0",
+                  "role": "assistant",
+                  "textHash": "a1b2c3d4",
+                  "acceptedAtRevision": 0
+                },
+                {
+                  "id": "contribution.v1.b86563fc",
+                  "messageId": "message.player.report.historical",
+                  "swipeId": null,
+                  "role": "user",
+                  "textHash": "d4c3b2a1",
+                  "acceptedAtRevision": 0
+                },
+                {
+                  "id": "contribution.v1.aef6cbab",
+                  "messageId": "runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active",
+                  "swipeId": null,
+                  "role": "runtime",
+                  "textHash": "de78f5c4",
+                  "acceptedAtRevision": 0
+                }
+              ],
+              "effects": [
+                {
+                  "id": "effect.v1.c261f58508b291cba4884e43",
+                  "type": "mission.eventOccurred",
+                  "targetId": "event.scene-pacing.prelude.active",
+                  "value": null,
+                  "sourceContributionIds": [
+                    "contribution.v1.aef6cbab"
+                  ],
+                  "playerVisibility": "hidden",
+                  "status": "active"
+                },
+                {
+                  "id": "effect.v1.298e971f14d614088bcc34bc",
+                  "type": "mission.factDisclosed",
+                  "targetId": "fact.hesperus.distress-established",
+                  "value": null,
+                  "sourceContributionIds": [
+                    "contribution.v1.9ea6f38d"
+                  ],
+                  "playerVisibility": "visible",
+                  "status": "active"
+                }
+              ],
+              "unresolvedConsequences": [],
+              "boundaryState": {
+                "kind": "directive.episodeBoundaryState.v1",
+                "checkpointSequence": 0,
+                "lastReviewedAtRevision": 1,
+                "contributionCountAtLastReview": 0,
+                "effectCountAtLastReview": 0,
+                "decision": "continue",
+                "sourceContributionIds": []
+              },
+              "hardBoundary": null,
+              "references": {
+                "missionIds": [
+                  "mission.prelude-a-ship-underway"
+                ],
+                "questIds": [],
+                "participantIds": [],
+                "locationIds": []
+              },
+              "characterMoments": [],
+              "peopleEvents": [],
+              "workingCapsule": {
+                "kind": "directive.storyWorkingCapsule.v1",
+                "summary": "",
+                "foregroundQuestion": null,
+                "sourceContributionIds": [],
+                "effectIds": [],
+                "recentEvidence": [
+                  {
+                    "contributionId": "contribution.v1.9ea6f38d",
+                    "role": "assistant",
+                    "textHash": "a1b2c3d4",
+                    "excerpt": "The officer steps forward. Duty Report — Operations has received a civilian distress call requiring command attention. Confidence: Confirmed. The bridge waits."
+                  },
+                  {
+                    "contributionId": "contribution.v1.b86563fc",
+                    "role": "user",
+                    "textHash": "d4c3b2a1",
+                    "excerpt": "Understood. Proceed."
+                  },
+                  {
+                    "contributionId": "contribution.v1.aef6cbab",
+                    "role": "runtime",
+                    "textHash": "de78f5c4",
+                    "excerpt": "Deterministic runtime authority changed behind the scenes."
+                  }
+                ],
+                "observedContributionCount": 3,
+                "lastEvaluatedCheckpointSequence": 0,
+                "needsReview": false,
+                "updatedAtRevision": 5
+              }
+            }
+          ],
+          "receipts": [],
+          "acceptedPairReceipts": [
+            {
+              "kind": "directive.acceptedPairReceipt.v1",
+              "id": "accepted-pair.8efaae4ac87c7f34696bb679.accepted",
+              "branchId": "save.report",
+              "fingerprint": "8efaae4ac87c7f34696bb679",
+              "sourceRangeHash": "range.report.historical",
+              "previousAssistant": {
+                "messageId": "message.assistant.report.historical",
+                "selectedSwipeId": "0",
+                "textHash": "a1b2c3d4"
+              },
+              "currentPlayer": {
+                "messageId": "message.player.report.historical",
+                "selectedSwipeId": null,
+                "textHash": "d4c3b2a1"
+              },
+              "assistantAcceptance": "accepted",
+              "sourceContributionIds": [
+                "contribution.v1.9ea6f38d",
+                "contribution.v1.b86563fc"
+              ],
+              "settledAtRevision": 7,
+              "scenePacing": {
+                "missionId": "mission.prelude-a-ship-underway",
+                "objectiveId": "objective.prelude.command-handover",
+                "intent": "continue",
+                "unresolved": "",
+                "participation": [],
+                "ready": false,
+                "departMission": false,
+                "correctionRevision": 0
+              }
+            }
+          ],
+          "continuityEvents": [],
+          "directorReceipts": [],
+          "pendingDossiers": [],
+          "focus": null,
+          "episodeReviewAttempt": null
+        },
+        "commandBearing": {
+          "kind": "directive.commandBearing.v1",
+          "version": 1,
+          "balance": 3,
+          "capacity": 3,
+          "awards": {},
+          "spends": {}
+        },
+        "settings": {
+          "simulationMode": "Command",
+          "allowedSimulationModes": [
+            "Exploration",
+            "Command"
+          ]
+        },
+        "worldState": {
+          "kind": "directive.worldState.v1",
+          "version": 1,
+          "regionId": "asterion-reach",
+          "currentLocationId": "breckenridge-underway",
+          "currentStardate": 53068.4,
+          "openingMinuteOfDay": 510,
+          "elapsedSeconds": 0,
+          "elapsedMinutes": 0,
+          "visitedLocationIds": [
+            "breckenridge-underway"
+          ]
+        },
+        "timeLedger": {
+          "kind": "directive.timeLedger.v1",
+          "version": 1,
+          "openingMinuteOfDay": 510,
+          "elapsedSeconds": 0,
+          "elapsedMinutes": 0,
+          "stardate": 53068.4,
+          "shipClock": {
+            "secondOfDay": 30600,
+            "minuteOfDay": 510,
+            "display": "08:30:00 hours"
+          },
+          "entries": [],
+          "decisions": [],
+          "updatedAt": "2026-08-10T00:00:00.000Z"
+        },
+        "stateCustody": {
+          "kind": "directive.stateCustody.v1",
+          "version": 1,
+          "revision": 1,
+          "recentCommitIds": [
+            "v1-state.73617624"
+          ]
+        },
+        "campaignChatBinding": {
+          "kind": "directive.campaignChatBinding.v1",
+          "version": 1,
+          "campaignId": "campaign.ashes",
+          "saveId": "save.report",
+          "chatId": "chat.report",
+          "status": "bound"
+        }
+      },
+      "definitionHash": "18a5397eabc888c641cef0fc3f9f57e3f24d17438c09bf5a3e08373df62504f6"
+    },
+    {
+      "reportId": "report.hesperus.passenger-risk",
+      "snapshot": {
+        "kind": "directive.acceptedPairSnapshot.v1",
+        "envelope": {
+          "campaignId": "campaign.ashes",
+          "saveId": "save.report",
+          "chatId": "chat.report",
+          "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+          "packageVersion": "0.3.0-pre-alpha.2",
+          "activeMissionId": "prelude-a-ship-underway"
+        },
+        "source": {
+          "sourceRangeHash": "range.report.historical",
+          "previousAssistant": {
+            "hostMessageId": "message.assistant.report.historical",
+            "text": "The officer steps forward. Duty Report — Medical has a material passenger-risk assessment to report. Confidence: Credible. The bridge waits.",
+            "textHash": "a1b2c3d4",
+            "sourceIntegrity": "clean",
+            "selectedVariantId": "0",
+            "selectedVariant": {
+              "selectedVariantId": "0",
+              "selectedSwipeId": "0",
+              "selectedSwipeIndex": 0,
+              "selectedTextHash": "a1b2c3d4",
+              "sourceIntegrity": "clean",
+              "responseId": "response.report.historical",
+              "directiveOwned": true,
+              "dutyReportCustodyOwned": true,
+              "dutyReportManifest": {
+                "kind": "directive.dutyReportManifest.v1",
+                "contractVersion": 1,
+                "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+                "packageVersion": "0.3.0-pre-alpha.2",
+                "missionId": "mission.prelude-a-ship-underway",
+                "definitionVersion": "1.1.0",
+                "branchId": "save.report",
+                "reportId": "report.hesperus.passenger-risk",
+                "factId": "fact.hesperus.passenger-risk",
+                "reporterId": "miriam-sato",
+                "policyId": "policy.hesperus.passenger-risk-disclosed",
+                "responseId": "response.report.historical",
+                "sourceTransactionId": "transaction.report.historical",
+                "responseTextHash": "7c30fd012bca4e30",
+                "segmentTextHash": "f716c0354b41716d"
+              }
+            }
+          },
+          "currentPlayer": {
+            "hostMessageId": "message.player.report.historical",
+            "text": "Understood. Proceed.",
+            "textHash": "d4c3b2a1"
+          }
+        }
+      },
+      "state": {
+        "campaign": {
+          "id": "campaign.ashes",
+          "title": "Ashes of Peace",
+          "status": "active",
+          "createdAt": "2026-08-10T00:00:00.000Z",
+          "startedAt": "2026-08-10T00:00:00.000Z",
+          "characterCreatorDraftId": null,
+          "packageTitle": "Ashes of Peace",
+          "openingStardate": 53068.4,
+          "currentStardate": 53068.4,
+          "openingMinuteOfDay": 510,
+          "runtimeArchitecture": {
+            "kind": "directive.gameplayArchitecture.v1",
+            "contractVersion": 1,
+            "semanticAuthority": "storySettlement",
+            "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+            "packageVersion": "0.3.0-pre-alpha.2",
+            "createdForNewSave": true
+          }
+        },
+        "activeCampaignPackage": {
+          "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+          "packageVersion": "0.3.0-pre-alpha.2"
+        },
+        "player": {
+          "id": "player-commander",
+          "creationStatus": "complete",
+          "name": "Ren Okada",
+          "pronounsOrAddress": "he/him",
+          "rank": "Commander",
+          "billet": "Executive Officer",
+          "role": "Principal mission commander and coordinator of shipboard operations.",
+          "roleMode": "lockedRole",
+          "shipId": "uss-breckenridge",
+          "shipName": "U.S.S. Breckenridge",
+          "species": {
+            "id": "human",
+            "label": "Human",
+            "summary": ""
+          },
+          "ageBand": {
+            "id": "mid-career",
+            "label": "Mid-career",
+            "summary": ""
+          },
+          "appearance": "Attentive and deliberate.",
+          "firstImpression": "",
+          "service": {
+            "careerBackground": {
+              "id": "tactical-security",
+              "label": "Tactical and security",
+              "selectedLabel": "Tactical and security"
+            },
+            "formativeExperience": {
+              "id": "dominion-war-fleet-service",
+              "label": "Dominion War fleet service",
+              "selectedLabel": "Dominion War fleet service"
+            },
+            "assignmentReason": {
+              "id": "experienced-outsider-transfer",
+              "label": "Experienced outsider transfer",
+              "selectedLabel": "Experienced outsider transfer"
+            },
+            "mustBeTrueFact": ""
+          },
+          "personality": {
+            "traits": {
+              "insight": {
+                "id": "perceptive",
+                "label": "Perceptive",
+                "selectedLabel": "Perceptive"
+              },
+              "connection": {
+                "id": "candid",
+                "label": "Candid",
+                "selectedLabel": "Candid"
+              },
+              "execution": {
+                "id": "decisive",
+                "label": "Decisive",
+                "selectedLabel": "Decisive"
+              }
+            },
+            "flaw": {
+              "id": "impatient",
+              "label": "Impatient",
+              "summary": "Struggles when process, politics, or fear slow necessary action.",
+              "selectedLabel": "Impatient"
+            },
+            "additionalGenerationNote": ""
+          },
+          "dossier": {
+            "detailLevel": "Standard",
+            "generatedBy": "localFallback",
+            "identitySummary": "Ren Okada is a Human Commander.",
+            "serviceSummary": "Tactical and security; shaped by Dominion War fleet service.",
+            "briefBiography": "Ren Okada is a Human Starfleet Commander assigned as Executive Officer of the U.S.S. Breckenridge on stardate 53068.4. Their background in Tactical and security and formative experience with Dominion War fleet service made them a credible choice for the Asterion Reach mission. Their command style is shaped by Perceptive, Candid, and Decisive, while Impatient remains a pressure point they will need to manage in command.",
+            "traits": "Perceptive, Candid, Decisive; flaw: Impatient.",
+            "publicReputation": "Ren Okada is regarded as a capable Commander whose Tactical and security background makes the Breckenridge assignment plausible, though the crew is still learning what kind of XO they have received.",
+            "optionalOpenThread": "",
+            "editedByPlayer": false
+          },
+          "personalValues": [],
+          "creatorAcceptedAt": "2026-08-10T00:00:00.000Z",
+          "adjudicationProfile": {
+            "role": "Commander, Executive Officer",
+            "careerBackground": "Tactical and security",
+            "formativeExperience": "Dominion War fleet service",
+            "traits": [
+              "Perceptive",
+              "Candid",
+              "Decisive"
+            ],
+            "flaw": "Impatient",
+            "specialistBoundary": "Broad command competence; senior staff remain necessary experts in their departments."
+          }
+        },
+        "ship": {
+          "id": "uss-breckenridge",
+          "name": "U.S.S. Breckenridge",
+          "class": "Intrepid-class",
+          "registry": "NCC-74656",
+          "operationalOverview": {
+            "kind": "directive.shipOperationalOverview.v1",
+            "status": "serviceable",
+            "summary": "Returned to service after a four-month repair and modernization period at Utopia Planitia; certified for service with upgraded systems still requiring integrated validation under sustained deployment conditions.",
+            "materialLimitations": [],
+            "history": []
+          }
+        },
+        "mission": {
+          "activeMissionId": "prelude-a-ship-underway",
+          "v1": {
+            "kind": "directive.missionState.v1",
+            "schemaVersion": 1,
+            "definitionId": "mission.prelude-a-ship-underway",
+            "definitionVersion": "1.1.0",
+            "packageBinding": {
+              "packageId": "directive:campaign-package:breckenridge-ashes-of-peace",
+              "packageVersion": "0.3.0-pre-alpha.2",
+              "sourceId": "prelude-a-ship-underway"
+            },
+            "branchId": "save.report",
+            "revision": 1,
+            "status": "active",
+            "objectives": {
+              "objective.prelude.command-handover": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.staff-readiness": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.hesperus-rescue": {
+                "state": "available",
+                "visibility": "visible",
+                "disposition": null
+              },
+              "objective.prelude.final-readiness-arrival": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              },
+              "objective.prelude.hesperus-accountability": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              },
+              "objective.prelude.rhee-apprehension": {
+                "state": "inactive",
+                "visibility": "hidden",
+                "disposition": null
+              }
+            },
+            "objectiveDecisions": {},
+            "knownFacts": [
+              "fact.hesperus.distress-established",
+              "fact.hesperus.passenger-risk"
+            ],
+            "worldFacts": [
+              "fact.hesperus.distress-established",
+              "fact.hesperus.passenger-risk",
+              "fact.hesperus.injector-limit",
+              "fact.hesperus.record-inconsistency",
+              "fact.hesperus.record-discrepancy",
+              "fact.hesperus.record-falsified",
+              "fact.hesperus.owner-attribution-supported",
+              "fact.prelude.poker-invitation",
+              "fact.prelude.redline.conflicting-explanations",
+              "fact.prelude.redline.inventory-drift",
+              "fact.prelude.redline.shortage-consequence",
+              "fact.prelude.redline.composition-confirmed",
+              "fact.prelude.redline.distribution-confirmed",
+              "fact.prelude.redline.access-evidence",
+              "fact.prelude.redline.material-evidence",
+              "fact.prelude.redline.human-evidence"
+            ],
+            "events": [
+              "event.scene-pacing.prelude.active"
+            ],
+            "outcomes": {
+              "outcome.hesperus.rescue-risk-decision": "unmade",
+              "outcome.hesperus.rescue-result": "unresolved",
+              "outcome.hesperus.rescue-cost": "unassessed",
+              "outcome.hesperus.records-disposition": "unresolved",
+              "outcome.hesperus.accountability-decision": "unmade",
+              "outcome.hesperus.accountability-result": "unresolved",
+              "outcome.prelude.command-readiness": "unreviewed",
+              "outcome.prelude.arrival-condition": "enRoute",
+              "outcome.prelude.redline-evidence": "unresolved",
+              "outcome.prelude.redline-containment": "unresolved",
+              "outcome.prelude.daro-care": "unresolved",
+              "outcome.prelude.rhee-disposition": "unresolved",
+              "outcome.scene-pacing.prelude.command-handover.authorization": "held",
+              "outcome.scene-pacing.prelude.staff-readiness.authorization": "held",
+              "outcome.scene-pacing.prelude.hesperus-rescue.authorization": "held",
+              "outcome.scene-pacing.prelude.final-readiness-arrival.authorization": "held",
+              "outcome.scene-pacing.prelude.hesperus-accountability.authorization": "held",
+              "outcome.scene-pacing.prelude.rhee-apprehension.authorization": "held"
+            },
+            "outcomeDimensions": {},
+            "acceptedEvidenceKeys": [
+              "save.report|runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active|no-swipe|de78f5c4|eventOccurred|event.scene-pacing.prelude.active",
+              "save.report|message.assistant.report.historical|0|a1b2c3d4|factDisclosed|fact.hesperus.passenger-risk"
+            ],
+            "evidenceLog": [
+              {
+                "claimId": "claim.runtime-policy.31c4d592",
+                "policyId": "policy.scene-pacing.prelude.active",
+                "evidenceKey": "save.report|runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active|no-swipe|de78f5c4|eventOccurred|event.scene-pacing.prelude.active",
+                "claimType": "eventOccurred",
+                "targetId": "event.scene-pacing.prelude.active",
+                "value": null,
+                "sourceContributionId": "contribution.v1.aef6cbab",
+                "acceptedAtMissionRevision": 0
+              },
+              {
+                "claimId": "claim.4d47937a592a193c",
+                "policyId": "policy.hesperus.passenger-risk-disclosed",
+                "evidenceKey": "save.report|message.assistant.report.historical|0|a1b2c3d4|factDisclosed|fact.hesperus.passenger-risk",
+                "claimType": "factDisclosed",
+                "targetId": "fact.hesperus.passenger-risk",
+                "value": null,
+                "sourceContributionId": "contribution.v1.9ea6f38d",
+                "acceptedAtMissionRevision": 0,
+                "delivery": {
+                  "kind": "directive.dutyReportDelivery.v1",
+                  "contractVersion": 1,
+                  "reportId": "report.hesperus.passenger-risk",
+                  "factId": "fact.hesperus.passenger-risk",
+                  "reporterId": "miriam-sato",
+                  "policyId": "policy.hesperus.passenger-risk-disclosed",
+                  "responseId": "response.report.historical",
+                  "hostMessageId": "message.assistant.report.historical",
+                  "selectedSwipeId": "0",
+                  "visibleTextHash": "a1b2c3d4",
+                  "segmentTextHash": "f716c0354b41716d",
+                  "sourceTransactionId": "transaction.report.historical"
+                }
+              }
+            ],
+            "invalidatedSourceContributionIds": [],
+            "terminalDisposition": null,
+            "transitionReceipt": null
+          },
+          "v1Journey": {
+            "kind": "directive.missionJourney.v1",
+            "contractVersion": 1,
+            "branchId": "save.report",
+            "revision": 0,
+            "activeRunId": "mission-run.5b45d5c677d6d0ee64bcf530"
+          },
+          "v1History": []
+        },
+        "storySettlement": {
+          "kind": "directive.storySettlement.v1",
+          "schemaVersion": 1,
+          "branchId": "save.report",
+          "revision": 7,
+          "activeEpisode": "episode.v1.152c24f0",
+          "episodes": [
+            {
+              "kind": "directive.storyEpisode.v1",
+              "id": "episode.v1.152c24f0",
+              "branchId": "save.report",
+              "sceneId": "scene.v1.152c24f0",
+              "status": "open",
+              "openedAtRevision": 1,
+              "sealedAtRevision": null,
+              "boundaryReason": null,
+              "summary": null,
+              "contributions": [
+                {
+                  "id": "contribution.v1.9ea6f38d",
+                  "messageId": "message.assistant.report.historical",
+                  "swipeId": "0",
+                  "role": "assistant",
+                  "textHash": "a1b2c3d4",
+                  "acceptedAtRevision": 0
+                },
+                {
+                  "id": "contribution.v1.b86563fc",
+                  "messageId": "message.player.report.historical",
+                  "swipeId": null,
+                  "role": "user",
+                  "textHash": "d4c3b2a1",
+                  "acceptedAtRevision": 0
+                },
+                {
+                  "id": "contribution.v1.aef6cbab",
+                  "messageId": "runtime-policy:mission.prelude-a-ship-underway:policy.scene-pacing.prelude.active",
+                  "swipeId": null,
+                  "role": "runtime",
+                  "textHash": "de78f5c4",
+                  "acceptedAtRevision": 0
+                }
+              ],
+              "effects": [
+                {
+                  "id": "effect.v1.c261f58508b291cba4884e43",
+                  "type": "mission.eventOccurred",
+                  "targetId": "event.scene-pacing.prelude.active",
+                  "value": null,
+                  "sourceContributionIds": [
+                    "contribution.v1.aef6cbab"
+                  ],
+                  "playerVisibility": "hidden",
+                  "status": "active"
+                },
+                {
+                  "id": "effect.v1.23eeb2aded57adf05dba3add",
+                  "type": "mission.factDisclosed",
+                  "targetId": "fact.hesperus.passenger-risk",
+                  "value": null,
+                  "sourceContributionIds": [
+                    "contribution.v1.9ea6f38d"
+                  ],
+                  "playerVisibility": "visible",
+                  "status": "active"
+                }
+              ],
+              "unresolvedConsequences": [],
+              "boundaryState": {
+                "kind": "directive.episodeBoundaryState.v1",
+                "checkpointSequence": 0,
+                "lastReviewedAtRevision": 1,
+                "contributionCountAtLastReview": 0,
+                "effectCountAtLastReview": 0,
+                "decision": "continue",
+                "sourceContributionIds": []
+              },
+              "hardBoundary": null,
+              "references": {
+                "missionIds": [
+                  "mission.prelude-a-ship-underway"
+                ],
+                "questIds": [],
+                "participantIds": [],
+                "locationIds": []
+              },
+              "characterMoments": [],
+              "peopleEvents": [],
+              "workingCapsule": {
+                "kind": "directive.storyWorkingCapsule.v1",
+                "summary": "",
+                "foregroundQuestion": null,
+                "sourceContributionIds": [],
+                "effectIds": [],
+                "recentEvidence": [
+                  {
+                    "contributionId": "contribution.v1.9ea6f38d",
+                    "role": "assistant",
+                    "textHash": "a1b2c3d4",
+                    "excerpt": "The officer steps forward. Duty Report — Medical has a material passenger-risk assessment to report. Confidence: Credible. The bridge waits."
+                  },
+                  {
+                    "contributionId": "contribution.v1.b86563fc",
+                    "role": "user",
+                    "textHash": "d4c3b2a1",
+                    "excerpt": "Understood. Proceed."
+                  },
+                  {
+                    "contributionId": "contribution.v1.aef6cbab",
+                    "role": "runtime",
+                    "textHash": "de78f5c4",
+                    "excerpt": "Deterministic runtime authority changed behind the scenes."
+                  }
+                ],
+                "observedContributionCount": 3,
+                "lastEvaluatedCheckpointSequence": 0,
+                "needsReview": false,
+                "updatedAtRevision": 5
+              }
+            }
+          ],
+          "receipts": [],
+          "acceptedPairReceipts": [
+            {
+              "kind": "directive.acceptedPairReceipt.v1",
+              "id": "accepted-pair.8efaae4ac87c7f34696bb679.accepted",
+              "branchId": "save.report",
+              "fingerprint": "8efaae4ac87c7f34696bb679",
+              "sourceRangeHash": "range.report.historical",
+              "previousAssistant": {
+                "messageId": "message.assistant.report.historical",
+                "selectedSwipeId": "0",
+                "textHash": "a1b2c3d4"
+              },
+              "currentPlayer": {
+                "messageId": "message.player.report.historical",
+                "selectedSwipeId": null,
+                "textHash": "d4c3b2a1"
+              },
+              "assistantAcceptance": "accepted",
+              "sourceContributionIds": [
+                "contribution.v1.9ea6f38d",
+                "contribution.v1.b86563fc"
+              ],
+              "settledAtRevision": 7,
+              "scenePacing": {
+                "missionId": "mission.prelude-a-ship-underway",
+                "objectiveId": "objective.prelude.command-handover",
+                "intent": "continue",
+                "unresolved": "",
+                "participation": [],
+                "ready": false,
+                "departMission": false,
+                "correctionRevision": 0
+              }
+            }
+          ],
+          "continuityEvents": [],
+          "directorReceipts": [],
+          "pendingDossiers": [],
+          "focus": null,
+          "episodeReviewAttempt": null
+        },
+        "commandBearing": {
+          "kind": "directive.commandBearing.v1",
+          "version": 1,
+          "balance": 3,
+          "capacity": 3,
+          "awards": {},
+          "spends": {}
+        },
+        "settings": {
+          "simulationMode": "Command",
+          "allowedSimulationModes": [
+            "Exploration",
+            "Command"
+          ]
+        },
+        "worldState": {
+          "kind": "directive.worldState.v1",
+          "version": 1,
+          "regionId": "asterion-reach",
+          "currentLocationId": "breckenridge-underway",
+          "currentStardate": 53068.4,
+          "openingMinuteOfDay": 510,
+          "elapsedSeconds": 0,
+          "elapsedMinutes": 0,
+          "visitedLocationIds": [
+            "breckenridge-underway"
+          ]
+        },
+        "timeLedger": {
+          "kind": "directive.timeLedger.v1",
+          "version": 1,
+          "openingMinuteOfDay": 510,
+          "elapsedSeconds": 0,
+          "elapsedMinutes": 0,
+          "stardate": 53068.4,
+          "shipClock": {
+            "secondOfDay": 30600,
+            "minuteOfDay": 510,
+            "display": "08:30:00 hours"
+          },
+          "entries": [],
+          "decisions": [],
+          "updatedAt": "2026-08-10T00:00:00.000Z"
+        },
+        "stateCustody": {
+          "kind": "directive.stateCustody.v1",
+          "version": 1,
+          "revision": 1,
+          "recentCommitIds": [
+            "v1-state.76a9e45d"
+          ]
+        },
+        "campaignChatBinding": {
+          "kind": "directive.campaignChatBinding.v1",
+          "version": 1,
+          "campaignId": "campaign.ashes",
+          "saveId": "save.report",
+          "chatId": "chat.report",
+          "status": "bound"
+        }
+      },
+      "definitionHash": "28e751ea352dfd56d904a3670602d51a7abf512a1b4187f47d7aeb80f5afea52"
+    }
+  ]
+}

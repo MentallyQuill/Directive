@@ -47,6 +47,17 @@ assert.equal(prepared.snapshot.envelope.chatId, 'chat.ashes');
 assert.equal(prepared.snapshot.source.previousAssistant.text, 'Selected response');
 assert.equal(prepared.snapshot.source.previousAssistant.selectedVariant.selectedSwipeIndex, 1);
 assert.equal(prepared.snapshot.source.previousAssistant.sourceIntegrity, 'clean');
+assert.equal(prepared.snapshot.source.previousAssistant.selectedVariant.dutyReportManifestStatus, 'absent');
+for (const [manifest, status] of [[null, 'invalid'], [{ contractVersion: 99 }, 'unsupported'], [{ contractVersion: 1 }, 'invalid']]) {
+  const invalid = structuredClone(assistant);
+  invalid.raw.swipe_info = [{}, { extra: { runtimeMetadata: { dutyReportManifest: manifest } } }];
+  const captured = prepareV1AcceptedPairSnapshot({ campaignState, currentPlayerMessage: player,
+    recentMessages: [invalid, player], chatId: 'chat.ashes' });
+  assert.equal(captured.ok, true);
+  assert.equal(captured.snapshot.source.previousAssistant.selectedVariant.dutyReportManifestStatus, status);
+  assert.equal(captured.snapshot.source.previousAssistant.selectedVariant.dutyReportManifest, null);
+  assert.equal(captured.snapshot.source.previousAssistant.selectedVariant.dutyReportCustodyOwned, false);
+}
 assert.equal(prepared.snapshot.source.currentPlayer.text, player.text);
 assert.equal(typeof prepared.snapshot.source.sourceRangeHash, 'string');
 assert.equal(Object.hasOwn(prepared.snapshot, 'safety'), false);

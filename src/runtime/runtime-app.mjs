@@ -43,6 +43,7 @@ import {
 import { createStateDeltaGateway } from './state-delta-gateway.mjs';
 import {
   V1_ACCEPTED_PAIR_SOURCE_WINDOW,
+  captureV1AssistantSourceVariant,
   prepareV1AcceptedPairSnapshot,
 } from './v1-accepted-pair-source.mjs';
 import {
@@ -818,6 +819,7 @@ export function createDirectiveRuntimeApp({
   let state = null;
   let gateway = null;
   let missionRuntime = null;
+  let preparedNarrationDutyReport = null;
   let timelineTransactions = null;
   let rejectedNativeBranch = null;
 
@@ -1098,6 +1100,7 @@ export function createDirectiveRuntimeApp({
       return staleDirectivePromptResult('host-generation-stopped');
     }
     if (!state || !currentChatIsBound()) {
+      preparedNarrationDutyReport = null;
       if (cancelIfUnbound) return staleDirectivePromptResult('unbound');
       await restoreNarrationPreset();
       await host.prompt.clear?.({ reason: 'unbound-v1-chat' });
@@ -1180,7 +1183,9 @@ export function createDirectiveRuntimeApp({
             ? { packet: preparedDutyReport.packet, segment: preparedDutyReport.segment }
             : null
         };
-        return { projection: result.projection, acceptedPairLineage, director };
+        const dutyReportDefinition = clone((runtimeAssets?.missionDefinitions || []).map(entry => entry?.definition || entry)
+          .find(entry => entry?.id === preparedDutyReport?.definitionId));
+        return { projection: result.projection, acceptedPairLineage, director, preparedDutyReport, dutyReportDefinition };
       }, { scope: progressScope });
     } catch (error) {
       if (error?.code === 'DIRECTIVE_V1_PROJECTION_UNAVAILABLE') {
@@ -1222,6 +1227,13 @@ export function createDirectiveRuntimeApp({
       throw error;
     }
     assertTurnActive(progressScope);
+    if (currentDirectivePromptTargetStatus(promptTarget) === 'current') {
+      preparedNarrationDutyReport = {
+        target: promptTarget,
+        preparation: clone(context.preparedDutyReport),
+        definition: context.dutyReportDefinition,
+      };
+    }
     return installed;
   }
 
@@ -2099,6 +2111,7 @@ export function createDirectiveRuntimeApp({
 
     handleHostGenerationStarted({ type = 'normal', automaticTrigger = false, dryRun = false } = {}) {
       if (dryRun === true) return { handled: false, reason: 'dry-run' };
+      preparedNarrationDutyReport = null;
       const generationType = compact(type) || 'normal';
       const manualRecoveryEligible = automaticTrigger !== true
         && !['quiet', 'impersonate'].includes(generationType);
@@ -2326,6 +2339,9 @@ export function createDirectiveRuntimeApp({
 
     async handleHostGenerationEnded(payload = {}) {
       if (generationCancellation.stopped) return { handled: false, reason: 'host-generation-stopped' };
+      // Retain the exact version and authored segment installed for this response
+      // before any host reads await. Never reinterpret an earlier preparation.
+      const capturedDutyReport = preparedNarrationDutyReport;
       activeHostGenerationGesture = null;
       nativeNarrationActive = false;
       const progressScope = turnProgress.createScope();
@@ -2333,6 +2349,7 @@ export function createDirectiveRuntimeApp({
       if (!state || !currentChatIsBound()) {
         return { handled: false, reason: 'inactive-or-unbound' };
       }
+      const completionTarget = captureDirectivePromptTarget();
       let message = normalizeMessage(host, payload);
       const directId = messageId(payload, message);
       if (directId && (!object(message) || !compact(message.text || message.mes || message.content))) {
@@ -2393,6 +2410,21 @@ export function createDirectiveRuntimeApp({
         }) || [];
       }
       const assistantIndex = recent.findIndex((item) => messageId(item, item) === hostMessageId);
+      const completedSource = captureV1AssistantSourceVariant(message);
+      const currentMessage = typeof host.chat.getMessage === 'function'
+        ? await host.chat.getMessage(hostMessageId) : recent[assistantIndex];
+      if (generationCancellation.stopped || progressScope.epoch <= canceledThroughEpoch) {
+        return { handled: false, reason: 'host-generation-stopped' };
+      }
+      if (currentDirectivePromptTargetStatus(completionTarget) !== 'current') {
+        return { handled: false, reason: 'source-chat-changed' };
+      }
+      const currentSource = currentMessage && activeSourceRow(currentMessage)
+        ? captureV1AssistantSourceVariant(currentMessage) : null;
+      if (!completedSource.ok || !currentSource?.ok
+        || JSON.stringify(completedSource.value) !== JSON.stringify(currentSource.value)) {
+        return { handled: false, reason: 'assistant-source-changed' };
+      }
       const promptingPlayer = recent.slice(0, assistantIndex < 0 ? recent.length : assistantIndex)
         .reverse()
         .find((item) => isUserMessage(item) && activeSourceRow(item));
@@ -2400,21 +2432,16 @@ export function createDirectiveRuntimeApp({
         responseId,
         promptingPlayerHostMessageId: messageId(promptingPlayer, promptingPlayer) || null,
       };
-      const prepared = missionRuntime.preparePendingDutyReport({
-        runtimeAssets,
-        availableActors: availableDirectorActors(runtimeAssets),
-        responseId,
-        sourceTransactionId
-      });
+      const prepared = capturedDutyReport && capturedDutyReport === preparedNarrationDutyReport
+        && currentDirectivePromptTargetStatus(capturedDutyReport.target) === 'current'
+        ? capturedDutyReport.preparation : null;
       let dutyReport = {
         attached: false,
         reasonCode: prepared?.reasonCode || prepared?.status || 'no-pending-report',
       };
       if (prepared?.ok && prepared.status === 'ready'
         && typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
-        const definition = (runtimeAssets?.missionDefinitions || [])
-          .map((entry) => entry?.definition || entry)
-          .find((entry) => entry?.id === prepared.definitionId);
+        const definition = capturedDutyReport.definition;
         if (definition) {
           let manifest = null;
           try {
@@ -2426,6 +2453,7 @@ export function createDirectiveRuntimeApp({
               sourceTransactionId,
               responseText,
               segment: prepared.segment,
+              contractVersion: prepared.manifestInput.contractVersion ?? prepared.segment.contractVersion,
             });
           } catch {
             dutyReport = { attached: false, reasonCode: 'canonical-segment-not-delivered' };
@@ -2687,6 +2715,7 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
+      preparedNarrationDutyReport = null;
       activeHostGenerationGesture = null;
       canceledThroughEpoch = turnProgress.createScope().epoch;
       generationCancellation.stop();
@@ -2701,7 +2730,10 @@ export function createDirectiveRuntimeApp({
       return { ok: true, canceled: true, reason: 'directive-analysis-aborted' };
     },
 
-    clearDirectivePrompt: (options = {}) => host.prompt.clear?.(options),
+    clearDirectivePrompt: (options = {}) => {
+      preparedNarrationDutyReport = null;
+      return host.prompt.clear?.(options);
+    },
 
     async startCreatorDraft(options = {}) {
       await ensureInitialized();

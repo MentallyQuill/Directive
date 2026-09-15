@@ -204,6 +204,8 @@ const checks = [
   "test-ashes-v1-campaign.mjs",
   "test-host-contract-fake.mjs",
   "test-host-transcript-snapshot.mjs",
+  "test-v1-duty-report-substance.mjs",
+  "test-duty-report-generation-custody.mjs",
   "test-logical-storage-adapter.mjs",
   "test-logical-storage-paths.mjs",
   "test-sillytavern-generation-client.mjs",
