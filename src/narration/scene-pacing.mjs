@@ -161,7 +161,7 @@ export function createScenePacingContext({definition, state, receipts = []} = {}
         intent:'continue',unresolved:'',participation:[],ready:false,departMission:false,
     };
     if ((currentScene.correctionRevision || 0) !== (state?.objectiveDecisions?.[currentScene.objectiveId]?.revision || 0)) {
-        currentScene = {...currentScene,intent:'continue',participation:[],ready:false,departMission:false,unresolved:'The player reopened this objective.'};
+        currentScene = {...currentScene,intent:'continue',participation:[],ready:false,departMission:false,unresolved:"The player changed this objective's progress."};
     }
     return {objectives,currentScene,allowDeparture:['leave','skip'].includes(currentScene.intent),allowMissionDeparture:currentScene.departMission === true};
 }

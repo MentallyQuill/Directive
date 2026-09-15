@@ -20,7 +20,7 @@ const correctedState={...state,objectiveDecisions:{'objective.test':{revision:1}
 assert.equal(pacing.settleScenePacing({definition,state:correctedState,receipts:[receipt],sourcePair:secondPair,observation:second,assistantAccepted:true}).ready,false,'pre-correction participation cannot complete the reopened scene');
 assert.deepEqual(
     pacing.createScenePacingContext({definition,state:correctedState,receipts:[receipt]}).currentScene,
-    {...result,intent:'continue',unresolved:'The player reopened this objective.',participation:[],ready:false,departMission:false},
+    {...result,intent:'continue',unresolved:"The player changed this objective's progress.",participation:[],ready:false,departMission:false},
     'a reopened nonterminal scene stays current while stale participation and departure are cleared',
 );
 assert.equal(pacing.settleScenePacing({definition,state,receipts:[receipt],sourcePair:secondPair,observation:{...second,intent:'continue',intentQuote:''},assistantAccepted:true}).ready,false,'meeting requirements never automatically ends the scene');
@@ -32,6 +32,13 @@ const terminalFirstState = {
     objectives:{'objective.test':{state:'terminal',visibility:'resolved',disposition:'completed'},[other.id]:{state:'available',visibility:'visible',disposition:null}},
     objectiveDecisions:{'objective.test':{mode:'player_set',revision:5,disposition:'completed'}},
 };
+const correctedTerminalContext = pacing.createScenePacingContext({definition,state:terminalFirstState,receipts:[receipt]});
+assert.equal(correctedTerminalContext.objectives[0].status,'terminal');
+assert.doesNotMatch(correctedTerminalContext.currentScene.unresolved,/reopened/i,'a player-completed objective must not be described as reopened');
+assert.equal(correctedTerminalContext.currentScene.objectiveId,'objective.test','completion alone preserves the current conversation');
+assert.equal(correctedTerminalContext.allowDeparture,false,'a progress correction does not invent player departure');
+assert.equal(correctedTerminalContext.allowMissionDeparture,false);
+assert.deepEqual(correctedTerminalContext.currentScene.participation,[],'stale pre-correction participation remains invalid');
 assert.deepEqual(
     pacing.createScenePacingContext({definition:expanded,state:terminalFirstState,receipts:[receipt]}).currentScene,
     {missionId:'mission.test',objectiveId:'objective.other',intent:'continue',unresolved:'',participation:[],ready:false,departMission:false},
