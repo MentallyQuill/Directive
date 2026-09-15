@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+import { createInitialMissionJourney, validateMissionJourney } from '../../src/mission/v1/mission-journey.mjs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
 
 import {
   armV1CommandBearingEdge,
@@ -11,10 +15,15 @@ import {
 import { hashStableJson } from '../../src/runtime/v1-host-message-contracts.mjs';
 import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 import { reconstructV1BranchState } from '../../src/runtime/v1-branch-reconstruction.mjs';
+import { createStateDeltaGateway } from '../../src/runtime/state-delta-gateway.mjs';
+import { stableHash24, stableSha256Hex } from '../../src/runtime/v1-stable-hash.mjs';
+import { createV1StateSpine } from '../../src/runtime/v1-state-spine.mjs';
+import { prepareV1AcceptedPairTimeAdvance } from '../../src/runtime/v1-accepted-pair-time.mjs';
 import {
   acceptStoryContributions,
   openStoryEpisode,
   recordAcceptedPairReceipt,
+  settleInsignificantScene,
 } from '../../src/story/story-settlement.mjs';
 import {
   materializeContinuityChanges,
@@ -234,6 +243,258 @@ assert.equal(childDirectorReceipt.dependencyIds.every((id) => (
 const [childDossier] = continuityChild.campaignState.storySettlement.pendingDossiers;
 assert.notEqual(childDossier.id, continuityDossier.id);
 assert.equal(childDossier.introductionSourceContributionIds[0] === continuityDossier.introductionSourceContributionIds[0], false);
+
+// Exercise actual mission reduction, story/receipt custody and accepted time,
+// including the synthetic source prefix used by retained time-boundary evidence.
+{
+  let state = createAshesInitialState({ saveId: 'save.matcher-parent', chatId: 'chat.matcher-parent' });
+  const definition = runtimeAssets.missionDefinitions.find(item => item.id === state.mission.v1.definitionId);
+  const messages = [
+    { id: 'player.matcher-keep', role: 'user', mes: 'Begin the handover.' },
+    { id: 'assistant.matcher-keep', role: 'assistant', mes: 'The bridge is ready.' },
+    { id: 'player.matcher-accept', role: 'user', mes: 'Continue the handover.' },
+    { id: 'assistant.matcher-drop', role: 'assistant', mes: 'Whitaker settles the authority and escalation terms.' },
+    { id: 'player.matcher-drop', role: 'user', mes: 'I accept the terms and finish the one-minute briefing.' },
+    ...Array.from({ length: 32 }, (_, index) => ({
+      id: `unaccepted.matcher-${index}`, role: index % 2 ? 'user' : 'assistant', mes: `Unaccepted draft ${index}`,
+    })),
+  ];
+  const syntheticId = `time-boundary:${stableHash24(messages[4].id)}:accepted-elapsed`;
+  const contributions = [messages[1], messages[3], messages[4], {
+    id: syntheticId, role: 'runtime', mes: 'The accepted briefing boundary settles the handover terms.',
+  }].map((message, index) => ({
+    id: `contribution.matcher-${index}`, messageId: message.id, role: message.role,
+    swipeId: null, textHash: stableSha256Hex(message.mes), acceptedAtRevision: 0,
+  }));
+  const runtimeSource = contributions.at(-1);
+  const gateway = createStateDeltaGateway({ getState: () => state, setState: next => { state = next; } });
+  const spine = createV1StateSpine({
+    getState: () => state, stateDeltaGateway: gateway,
+    resolveSourceRef: ref => {
+      const contribution = contributions.find(item => item.messageId === ref.messageId);
+      return contribution ? {
+        ...contribution, contributionId: contribution.id, branchId: state.campaignChatBinding.saveId,
+        accepted: true, selectedSwipeId: contribution.swipeId,
+      } : null;
+    },
+    now: () => '2026-08-11T12:00:00.000Z',
+  });
+  const sourcePair = {
+    previousAssistant: { messageId: messages[3].id, textHash: contributions[1].textHash, selectedSwipeId: null },
+    currentPlayer: { messageId: messages[4].id, textHash: contributions[2].textHash, selectedSwipeId: null },
+  };
+  const preparedTime = prepareV1AcceptedPairTimeAdvance({
+    campaignState: state,
+    snapshot: {
+      envelope: { campaignId: state.campaign.id, saveId: state.campaignChatBinding.saveId, chatId: state.campaignChatBinding.chatId },
+      source: { sourceRangeHash: 'range.matcher',
+        previousAssistant: { hostMessageId: messages[3].id, text: messages[3].mes },
+        currentPlayer: { hostMessageId: messages[4].id, text: messages[4].mes },
+      },
+    },
+    packageData: runtimeAssets.packageData,
+    timeDecision: { decision: 'advance', basis: 'implicitAction', elapsedSeconds: 60,
+      sourceSlot: 'currentPlayer', evidenceQuote: messages[4].mes, reason: 'accepted-briefing', confidence: 1 },
+    now: () => '2026-08-11T12:00:00.000Z',
+  });
+  assert.equal(preparedTime.ok, true);
+  const settled = await spine.settleAcceptedPair({
+    definition, missionDefinitions: runtimeAssets.missionDefinitions,
+    proposal: {
+      kind: 'directive.missionEvidenceProposal.v1', branchId: state.campaignChatBinding.saveId,
+      missionId: definition.id, baseRevision: state.mission.v1.revision,
+      claims: [{ claimId: 'claim.matcher-handover', policyId: 'policy.prelude.command-handover-terms-settled',
+        claimType: 'eventOccurred', targetId: 'event.prelude.command-handover-terms-settled',
+        sourceRef: { messageId: runtimeSource.messageId, swipeId: null, textHash: runtimeSource.textHash } }],
+    },
+    sourceContributions: contributions,
+    sourceObservations: contributions.map(item => ({ contributionId: item.id, role: item.role,
+      textHash: item.textHash, text: item.role === 'runtime' ? 'The accepted briefing boundary settles the handover terms.' : messages.find(row => row.id === item.messageId).mes })),
+    acceptedPairReceipt: createV1AcceptedPairReceipt({ branchId: state.campaignChatBinding.saveId,
+      sourceRangeHash: 'range.matcher', sourcePair, assistantAcceptance: 'accepted',
+      sourceContributionIds: contributions.slice(1, 3).map(item => item.id) }),
+    authorityPatch: preparedTime.patch, authorityDomains: preparedTime.domains,
+    scene: { episodeId: 'episode.matcher', sceneId: 'scene.matcher', summary: 'The handover terms are settled.' },
+  });
+  assert.equal(settled.evidence.acceptedClaims.length, 1, 'real mission validator/reducer accepts the source-bound claim');
+  assert.ok(state.mission.v1.events.includes('event.prelude.command-handover-terms-settled'));
+  assert.equal(state.mission.v1.evidenceLog[0].sourceContributionId, runtimeSource.id);
+  assert.equal(state.timeLedger.elapsedSeconds, 60);
+  const original = structuredClone(state);
+  for (const retainedLength of [5, messages.length]) {
+    const kept = await reconstructV1BranchState({ parentState: state, parentMessages: messages,
+      childMessages: messages.slice(0, retainedLength), targetSaveId: 'save.matcher-retained',
+      targetChatBinding: { kind: 'directive.campaignChatBinding.v1', version: 1, campaignId: state.campaign.id,
+        saveId: 'save.matcher-retained', chatId: 'chat.matcher-retained', status: 'bound' }, runtimeAssets });
+    assert.ok(kept.campaignState.mission.v1.events.includes('event.prelude.command-handover-terms-settled'));
+    assert.equal(kept.campaignState.mission.v1.evidenceLog.length, 1);
+    assert.equal(kept.campaignState.timeLedger.elapsedSeconds, 60);
+    assert.deepEqual(state, original, 'retaining the native boundary preserves authority without mutating parent');
+  }
+  const discardedIds = new Set(messages.slice(3).map(message => message.id));
+  const encodeCounts = new Map();
+  const NativeTextEncoder = globalThis.TextEncoder;
+  // Observe existing hash inputs without exposing a production test/performance API.
+  globalThis.TextEncoder = class extends NativeTextEncoder {
+    encode(value) {
+      if (discardedIds.has(value)) encodeCounts.set(value, (encodeCounts.get(value) || 0) + 1);
+      return super.encode(value);
+    }
+  };
+  let child;
+  try {
+    child = await reconstructV1BranchState({ parentState: state, parentMessages: messages,
+      childMessages: messages.slice(0, 3), targetSaveId: 'save.matcher-child',
+      targetChatBinding: { kind: 'directive.campaignChatBinding.v1', version: 1, campaignId: state.campaign.id,
+        saveId: 'save.matcher-child', chatId: 'chat.matcher-child', status: 'bound' },
+      runtimeAssets, now: () => '2026-08-11T12:00:00.000Z' });
+  } finally {
+    globalThis.TextEncoder = NativeTextEncoder;
+  }
+  assert.deepEqual(state, original, 'mission/story/time parent remains immutable');
+  assert.equal(child.projection.ok, true);
+  assert.equal(child.modelCallCount, 0);
+  assert.deepEqual({
+    missionEventPresent: child.campaignState.mission.v1.events.includes('event.prelude.command-handover-terms-settled'),
+    missionEvidenceCount: child.campaignState.mission.v1.evidenceLog.length,
+    activeMissionEffects: child.campaignState.storySettlement.episodes
+      .filter(episode => episode.status !== 'invalidated')
+      .flatMap(episode => episode.effects).filter(effect => effect.targetId === 'event.prelude.command-handover-terms-settled' && effect.status !== 'invalidated').length,
+    syntheticContributions: child.campaignState.storySettlement.episodes
+      .filter(episode => episode.status !== 'invalidated')
+      .flatMap(episode => episode.contributions).filter(item => item.messageId === syntheticId).length,
+    acceptedReceipts: child.campaignState.storySettlement.acceptedPairReceipts.length,
+    elapsedSeconds: child.campaignState.timeLedger.elapsedSeconds,
+  }, {
+    missionEventPresent: false, missionEvidenceCount: 0, activeMissionEffects: 0,
+    syntheticContributions: 0, acceptedReceipts: 0, elapsedSeconds: 0,
+  }, 'discarded native anchor retracts its real mission evidence/effect and synthetic contribution alongside receipt/time');
+  assert.deepEqual(child.campaignState.storySettlement.acceptedPairReceipts, [], 'ordinary discarded accepted pair retracts receipt');
+  assert.equal(child.campaignState.timeLedger.elapsedSeconds, 0);
+  assert.deepEqual(child.campaignState.timeLedger.entries, []);
+  assert.deepEqual(child.campaignState.storySettlement.episodes.flatMap(episode => episode.contributions.map(item => item.messageId)),
+    [messages[1].id], 'retained ordinary story evidence survives while discarded ordinary and synthetic evidence retracts');
+  assert.ok([...encodeCounts.values()].every(count => count <= 1),
+    `discarded host IDs must be hashed at most once per reconstruction: ${JSON.stringify([...encodeCounts])}`);
+}
+
+
+// Exact IDs and hashed prefixes share one matcher. Embedded IDs, malformed
+// prefixes and case-changed hashes remain distinct; receipt-only custody works.
+{
+  const state = createAshesInitialState({ saveId: 'save.matcher-edges', chatId: 'chat.matcher-edges' });
+  const discardedId = 'message.matcher-discarded';
+  const boundary = `time-boundary:${stableHash24(discardedId)}`;
+  const messageIds = [discardedId, `${boundary}:`, `${boundary}:arbitrary:suffix`,
+    `embedded-${discardedId}`, `embedded-${boundary}:suffix`, boundary,
+    `${boundary}x:suffix`, `time-boundary:${stableHash24(discardedId).toUpperCase()}:suffix`];
+  const sources = messageIds.map((messageId, index) => ({ id: `contribution.matcher-edge-${index}`,
+    messageId, role: 'runtime', swipeId: null, textHash: stableSha256Hex(messageId), acceptedAtRevision: 0 }));
+  state.storySettlement = settleInsignificantScene(state.storySettlement, {
+    sceneId: 'scene.matcher-receipt-only', sourceContributions: [{ ...sources[0], id: 'contribution.matcher-receipt-only' }],
+  });
+  state.storySettlement = acceptStoryContributions(openStoryEpisode(state.storySettlement, {
+    episodeId: 'episode.matcher-edges', sceneId: 'scene.matcher-edges',
+  }), sources);
+  const original = structuredClone(state);
+  const messages = [{ id: 'message.matcher-kept', role: 'user', mes: 'Keep this.' },
+    { id: discardedId, role: 'assistant', mes: 'Discard this.' }];
+  const child = await reconstructV1BranchState({ parentState: state, parentMessages: messages,
+    childMessages: messages.slice(0, 1), targetSaveId: 'save.matcher-edges-child',
+    targetChatBinding: { kind: 'directive.campaignChatBinding.v1', version: 1, campaignId: state.campaign.id,
+      saveId: 'save.matcher-edges-child', chatId: 'chat.matcher-edges-child', status: 'bound' }, runtimeAssets });
+  assert.deepEqual(state, original);
+  assert.deepEqual(child.campaignState.storySettlement.episodes.flatMap(episode => episode.contributions.map(item => item.messageId)),
+    messageIds.slice(3));
+  const receipts = child.campaignState.storySettlement.receipts.filter(receipt => receipt.sceneId === 'scene.matcher-receipt-only');
+  assert.deepEqual(receipts.map(receipt => receipt.disposition), ['insignificant', 'invalidated'],
+    'receipt-only source gains an invalidation receipt while historical custody remains');
+}
+
+// A real terminal reduction archives the synthetic source before a second
+// source settles in its successor. Cuts must select the earliest affected run.
+{
+  const reference = JSON.parse(fs.readFileSync('tests/fixtures/mission/v1/v1-hesperus-reference.fixture.json', 'utf8'));
+  const definitions = ['a', 'b'].map((suffix) => {
+    const definition = structuredClone(reference);
+    definition.id = `mission.matcher-${suffix}`;
+    definition.packageBinding.sourceId = `matcher-${suffix}`;
+    if (suffix === 'a') definition.transitions[0].target = {
+      kind: 'mission', id: 'matcher-b', playerSafeSetup: 'Continue to the next rescue.',
+    };
+    return definition;
+  });
+  const assets = { ...runtimeAssets, missionDefinitions: definitions,
+    missionDefinitionsById: new Map(definitions.map(definition => [definition.id, definition])) };
+  let state = createAshesInitialState({ saveId: 'save.matcher-journey', chatId: 'chat.matcher-journey' });
+  const initial = createInitialMissionJourney({ definition: definitions[0], branchId: state.campaignChatBinding.saveId });
+  state.mission = { activeMissionId: definitions[0].packageBinding.sourceId,
+    v1: createMissionState({ definition: definitions[0], branchId: state.campaignChatBinding.saveId }),
+    v1Journey: initial.journey, v1History: initial.history };
+  const messages = Array.from({ length: 7 }, (_, index) => ({
+    id: `message.matcher-journey-${index}`, role: index % 2 ? 'assistant' : 'user', mes: `Rescue source ${index}.`,
+  }));
+  const sources = [2, 4].map(index => ({
+    id: `contribution.matcher-journey-${index}`,
+    messageId: `time-boundary:${stableHash24(messages[index].id)}:accepted-elapsed`,
+    role: 'runtime', swipeId: null, textHash: stableSha256Hex(messages[index].mes), acceptedAtRevision: 0,
+  }));
+  const gateway = createStateDeltaGateway({ getState: () => state, setState: next => { state = next; } });
+  const spine = createV1StateSpine({ getState: () => state, stateDeltaGateway: gateway,
+    resolveSourceRef: ref => {
+      const source = sources.find(item => item.messageId === ref.messageId);
+      return source ? { ...source, contributionId: source.id, branchId: state.campaignChatBinding.saveId,
+        accepted: true, selectedSwipeId: null } : null;
+    }, now: () => '2026-08-11T12:00:00.000Z' });
+  for (const [index, source] of sources.entries()) {
+    const terminal = index === 0;
+    const settled = await spine.settleAcceptedPair({
+      definition: definitions[index], missionDefinitions: definitions,
+      proposal: { kind: 'directive.missionEvidenceProposal.v1', branchId: state.campaignChatBinding.saveId,
+        missionId: definitions[index].id, baseRevision: state.mission.v1.revision,
+        claims: [{ claimId: `claim.matcher-journey-${index}`,
+          policyId: terminal ? 'policy.hesperus-survivors-transferred' : 'policy.hesperus-discrepancy-established',
+          claimType: terminal ? 'eventOccurred' : 'worldFactEstablished',
+          targetId: terminal ? 'event.hesperus-survivors-transferred' : 'fact.hesperus-discrepancy-known',
+          sourceRef: { messageId: source.messageId, swipeId: null, textHash: source.textHash } }] },
+      sourceContributions: [source],
+      sourceObservations: [{ contributionId: source.id, role: source.role, textHash: source.textHash,
+        text: messages[(index + 1) * 2].mes }],
+      scene: { episodeId: `episode.matcher-journey-${index}`, sceneId: `scene.matcher-journey-${index}` },
+    });
+    assert.equal(settled.evidence.acceptedClaims.length, 1);
+  }
+  assert.equal(state.mission.v1History.length, 1);
+  assert.equal(state.mission.v1History[0].state.evidenceLog[0].sourceContributionId, sources[0].id);
+  assert.equal(state.mission.v1.evidenceLog[0].sourceContributionId, sources[1].id);
+  const original = structuredClone(state);
+  for (const [retainedLength, expectedDefinition, historyLength, evidenceCount] of [
+    [7, definitions[1].id, 1, 1], // full tail
+    [5, definitions[1].id, 1, 1], // both anchors retained; only unaccepted draft removed
+    [3, definitions[1].id, 1, 0], // archived source retained, current source discarded
+    [1, definitions[0].id, 0, 0], // archived source discarded; successor rolls back causally
+  ]) {
+    const child = await reconstructV1BranchState({ parentState: state, parentMessages: messages,
+      childMessages: messages.slice(0, retainedLength), targetSaveId: 'save.matcher-journey-child',
+      targetChatBinding: { kind: 'directive.campaignChatBinding.v1', version: 1, campaignId: state.campaign.id,
+        saveId: 'save.matcher-journey-child', chatId: 'chat.matcher-journey-child', status: 'bound' },
+      runtimeAssets: assets, now: () => '2026-08-11T12:00:00.000Z' });
+    assert.deepEqual(state, original, `archived/current cut ${retainedLength} leaves full parent immutable`);
+    assert.equal(child.campaignState.mission.v1.definitionId, expectedDefinition);
+    assert.equal(child.campaignState.mission.v1History.length, historyLength);
+    assert.equal(child.campaignState.mission.v1.evidenceLog.length, evidenceCount);
+    assert.equal(child.campaignState.mission.v1.worldFacts.includes('fact.hesperus-discrepancy-known'), evidenceCount > 0);
+    assert.deepEqual(validateMissionJourney({ campaignState: child.campaignState, definitions }), { ok: true, errors: [] });
+    const activeEpisodes = child.campaignState.storySettlement.episodes.filter(episode => episode.status !== 'invalidated');
+    const keptIds = activeEpisodes.flatMap(episode => episode.contributions.map(source => source.messageId));
+    assert.deepEqual(keptIds, retainedLength >= 5 ? sources.map(source => source.messageId)
+      : retainedLength === 3 ? [sources[0].messageId] : []);
+    assert.equal(activeEpisodes.flatMap(episode => episode.effects).filter(effect => effect.status !== 'invalidated').length,
+      retainedLength >= 5 ? 2 : retainedLength === 3 ? 1 : 0);
+    assert.equal(child.projection.ok, true);
+    assert.equal(child.modelCallCount, 0);
+  }
+}
 
 let bearing = createV1CommandBearing({ capacity: 3 });
 bearing = awardV1CommandBearing(bearing, { awardId: 'award.keep.1', sourceId: 'objective.keep.1', reason: 'Kept one', now: '2026-08-11T01:00:00.000Z' }).commandBearing;

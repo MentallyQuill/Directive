@@ -78,7 +78,7 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 - [x] Reproduce silent swipe, text, visibility, ordering and binding changes while analysis is pending; verify the unchanged control and signaled cancellation separately.
 - [x] Capture the original source before asynchronous work and validate exact current binding/source synchronously before state application. Preserve consecutive Continue behavior through the existing full-history fallback. Focused review and the first 230-check gate pass.
 - [x] Close the installed native Send handoff gap: a stale-source rejection blocks another analysis pass from the same gesture, automatic/quiet gestures and a subsequent end event without a fresh start. A fresh explicit/manual gesture can reconcile the visible source. Ordinary no-event source-mutation reconciliation remains compatible.
-- [ ] Verify final installed silent-mutation containment, exact cleanup, relevant/full tests and independent review, then publish the scoped fix.
+- [x] Verify final installed silent-mutation containment, exact cleanup, relevant/full tests and independent review, then publish the scoped fix. Published 600e05af0; all 230 checks, 667 installed files, native silent-hide proof and exact 40-row published reload pass.
 
 ## Task 4: Private briefing and spoiler safety
 

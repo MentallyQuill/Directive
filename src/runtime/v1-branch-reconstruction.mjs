@@ -270,44 +270,54 @@ function eligibleObjectiveIds(campaignState, runtimeAssets) {
   });
 }
 
-function sourceMatchesDiscarded(sourceMessageId, discardedIds) {
-  const source = compact(sourceMessageId);
-  if (!source) return false;
-  for (const id of discardedIds) {
-    if (source === id || source.startsWith(`time-boundary:${stableHash24(id)}:`)) return true;
-  }
-  return false;
+function createDiscardedSourceMatcher(discardedIds) {
+  let boundaryHashes = null;
+  return (sourceMessageId) => {
+    const source = compact(sourceMessageId);
+    if (!source) return false;
+    if (discardedIds.has(source)) return true;
+    const boundary = /^time-boundary:([a-f0-9]{24}):/.exec(source);
+    if (!boundary) return false;
+    if (boundaryHashes === null) {
+      boundaryHashes = new Set([...discardedIds].map((id) => stableHash24(id)));
+    }
+    return boundaryHashes.has(boundary[1]);
+  };
 }
 
 function discardedContributionIds(campaignState, discardedIds) {
-  const runs = [
-    ...(campaignState.mission.v1History || []).map((archive, index) => ({ index, state: archive.state })),
-    { index: (campaignState.mission.v1History || []).length, state: campaignState.mission.v1 }
-  ];
-  const runMatches = runs.map((run) => ({
-    ...run,
-    ids: (run.state?.evidenceLog || [])
-      .filter((entry) => sourceMatchesDiscarded(entry?.sourceRef?.messageId, discardedIds))
-      .map((entry) => entry.sourceContributionId)
-      .filter(Boolean)
-  }));
-  const earliest = runMatches.find((run) => run.ids.length > 0) || null;
-  const missionIds = new Set(earliest?.ids || []);
-  const allMissionIds = new Set(runs.flatMap((run) => (run.state?.evidenceLog || []).map((entry) => entry.sourceContributionId)).filter(Boolean));
-  const storyIds = [];
+  const sourceMatchesDiscarded = createDiscardedSourceMatcher(discardedIds);
+  // Mission evidence retains contribution IDs; the original native source is
+  // held by episode contributions or aligned settlement receipt custody.
+  const matchedSourceIds = new Set();
   for (const episode of campaignState.storySettlement?.episodes || []) {
     for (const contribution of episode.contributions || []) {
-      if (sourceMatchesDiscarded(contribution?.messageId, discardedIds) && contribution?.id && !allMissionIds.has(contribution.id)) {
-        storyIds.push(contribution.id);
+      if (contribution?.id && sourceMatchesDiscarded(contribution.messageId)) {
+        matchedSourceIds.add(contribution.id);
       }
     }
   }
   for (const receipt of campaignState.storySettlement?.receipts || []) {
     for (const [index, messageId] of (receipt.sourceMessageIds || []).entries()) {
       const contributionId = receipt.sourceContributionIds?.[index];
-      if (sourceMatchesDiscarded(messageId, discardedIds) && contributionId && !allMissionIds.has(contributionId)) storyIds.push(contributionId);
+      if (contributionId && sourceMatchesDiscarded(messageId)) matchedSourceIds.add(contributionId);
     }
   }
+  const runs = [
+    ...(campaignState.mission.v1History || []).map((archive) => archive.state),
+    campaignState.mission.v1
+  ];
+  const runMatches = runs.map((state) => (state?.evidenceLog || [])
+    .filter((entry) => matchedSourceIds.has(entry.sourceContributionId)
+      || sourceMatchesDiscarded(entry?.sourceRef?.messageId))
+    .map((entry) => entry.sourceContributionId)
+    .filter(Boolean));
+  // The spine rebuilds from the earliest affected run and retracts descendants.
+  // Supplying direct IDs owned by multiple runs would instead be ambiguous.
+  const missionIds = runMatches.find((ids) => ids.length > 0) || [];
+  const allMissionIds = new Set(runs.flatMap((state) => (state?.evidenceLog || [])
+    .map((entry) => entry.sourceContributionId)).filter(Boolean));
+  const storyIds = [...matchedSourceIds].filter((id) => !allMissionIds.has(id));
   return [...new Set([...missionIds, ...storyIds])];
 }
 
