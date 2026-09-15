@@ -10,7 +10,9 @@ Verification reads also retain selection ownership: delayed successful or failed
 
 - [x] Reproduce caller-mutation publication with a failing controller regression.
 - [x] Implement gateway context and runtime/controller forwarding with focused regressions.
-- [ ] Independently review integrated behavior, run release gate, and publish verified scope.
-- [ ] Verify installed identity and a bounded native application through the runtime.
+- [x] Independently review integrated behavior, run release gate, and publish verified scope.
+- [x] Verify installed identity and a bounded native application through the runtime.
 
 This does not activate history capture. Assistant finalization still needs an exact generation-owner lifecycle and admission checks. A blanket queue wait would deadlock generation preparation, which itself commits state through that queue. Full capture also requires baseline/lifecycle enrollment, non-prefix edits, inherited ownership and the historical branch consumer.
+
+Published source `56398d23ae00821f2cb64c23deda58865d76cc62` passed independent integrated review and all 243 checks. Native reload/reopen and normal portrait import/remove passed with 672 installed/served files verified, custody 8 to 10, restored null portrait, owned resource cleanup, preserved campaign/checkpoint/transcript state and zero provider dispatch. Detailed scope and evidence are in the stabilization report.
