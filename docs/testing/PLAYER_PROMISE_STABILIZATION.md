@@ -1,5 +1,15 @@
 # Player promise stabilization evidence
 
+## Captured-history durable publication recovery
+
+The captured-history publisher now writes and verifies a strict tagged durable intent before any history, segment or manifest write. The intent binds the exact prior/attempted manifests, active pointer, operation and canonical captured request. Neutral load/resolve/acknowledgement APIs dispatch by validated intent kind; ordinary and captured writers mutually exclude unresolved publications through one same-save ticket path. Captured callers explicitly acknowledge a verified outcome before another publication.
+
+Committed recovery independently verifies the prior and attempted full state/history chains, exact operation/request provenance, and deterministic state/history plan reconstruction. Final pointer, ticket and manifest checks retain uncertainty when ownership changes. Resolution does not retry writes; acknowledgement deletes only the exact verified intent. A fresh controller uses the same quarantine and Continue recovery paths for both kinds, keeping corrupt or unreadable captured state unavailable and preserving a known outcome across lost acknowledgement.
+
+Independent integrated review approved the dormant-capture slice. Focused regressions cover baseline/subsequent restart, faults before/after intent/history/segment/manifest writes, malformed or rehashed identities, missing/corrupt prior/current state and history, pointer/head/ticket races, lost acknowledgement, explicit null/other/stale pointers, foreign-intent exclusion and detached inputs. The public objective-reopen fixture recovers the complete corrected state, including removed distress evidence and pruned story authority, without replaying a custody revision. Controller regressions cover corruption, missing observed tickets, retained known outcomes and unchanged ordinary recovery. The final expanded release gate passed all 240 checks, and scoped diff checks passed.
+
+This slice does not enable runtime chronology capture or earlier branching. Snapshot projection, immutable logical-application context, complete writer coverage, non-prefix edit rules, inherited archive ownership and historical branch consumers remain unfinished. A native browser-restart proof against isolated captured fixtures is being prepared; no installed/native result is claimed for this new slice yet. Plan: `docs/superpowers/plans/2026-09-15-captured-publication-durable-recovery.md`.
+
 ## Ordinary active-save recovery integration
 
 The current existing-active-save path records a verified durable intent before candidate writes. Lost write acknowledgements resolve against the complete prior or candidate state chain. Verified commitment remains successful; verified non-commitment permits rollback; uncertainty retains the candidate and blocks dependent writes, generation, timeline host effects and destructive cleanup. A controller-owned barrier survives gateway recreation, and startup examines persisted intents under campaign ownership before selecting state or migrating it.

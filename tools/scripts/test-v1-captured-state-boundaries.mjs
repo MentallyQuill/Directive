@@ -22,6 +22,7 @@ function memoryAdapter(seed = {}) {
       return structuredClone(files.get(path));
     },
     async writeJson(path, value) { writes++; files.set(path, structuredClone(value)); },
+    async deleteJson(path) { files.delete(path); },
     snapshot: () => structuredClone(Object.fromEntries(files)),
     set: (path, value) => files.set(path, structuredClone(value)),
     delete: path => files.delete(path),
@@ -92,6 +93,12 @@ await pair();
 
 
 const writeCaptured = storage.storeV1CampaignSaveWithCapture;
+async function acknowledgeCaptured(adapter, result) {
+  if (!result.intent) return;
+  const acknowledged = await storage.acknowledgeV1CampaignSavePublication(adapter, {
+    saveId: result.intent.saveId, requestHash: result.intent.requestHash });
+  assert.equal(acknowledged.acknowledged, true, JSON.stringify(acknowledged));
+}
 assert.equal(typeof writeCaptured, 'function', 'repository publishes exact state and captured transcript anchor together');
 const fingerprint = await sha256Json(assets.missionDefinitions);
 const rowHashes = await Promise.all(Array.from({ length: 10001 }, (_, i) => sha256Json({ row: i })));
@@ -122,6 +129,7 @@ assert.equal((await adapter.readJson(storage.V1_STORAGE_PATHS.index)).activeSave
 const retryWrites = adapter.writes;
 assert.equal((await writeCaptured(adapter, saveFor(initial), baselineInput)).publication, 'committed');
 assert.equal(adapter.writes, retryWrites, 'exact same operation retry writes neither delta nor acknowledgement');
+await acknowledgeCaptured(adapter, baseline);
 
 const baselineFiles = adapter.snapshot();
 // Independent review reproductions: rehashed metadata must not impersonate an
@@ -196,12 +204,22 @@ assert.notEqual((await writeCaptured(adapter, saveFor(next), changedRetry)).publ
 assert.equal(adapter.writes, commitWrites);
 
 let previous = next;
+await acknowledgeCaptured(adapter, committed);
 expectedManifest = committed.manifest;
 for (let i = 2; i < allStates.length; i++) {
   const value = allStates[i];
   const capture = await request(previous, value, rowHashes.slice(0, i < 4 ? 5 : 7), `operation.public-${i}`);
   const result = await writeCaptured(adapter, saveFor(value), { expectedManifest, previousSave: saveFor(previous), capture });
   assert.equal(result.publication, 'committed', JSON.stringify(result));
+  if (value.stateCustody.revision === afterReopen.stateCustody.revision) {
+    const restarted = memoryAdapter(adapter.snapshot());
+    const resolved = await storage.resolveV1CampaignSavePublication(restarted, { saveId, requestHash: result.intent.requestHash });
+    assert.equal(resolved.publication, 'committed');
+    assert.deepEqual(resolved.save.state, afterReopen, 'fresh captured-intent recovery preserves the complete public correction state');
+    await acknowledgeCaptured(restarted, resolved);
+    assert.equal(restarted.writes, 0, 'correction recovery never republishes its revision');
+  }
+  await acknowledgeCaptured(adapter, result);
   expectedManifest = result.manifest;
   previous = value;
 }
@@ -393,6 +411,7 @@ for (const variant of ['foreign-object-owner', 'foreign-origin', 'bad-vector-cou
   const page = await empty.readJson(result.manifest.branchHistory.page.path);
   assert.equal(page.records[0].capture.transcript.head, null);
   assert.equal(Object.keys(empty.snapshot()).filter(path => path.includes('history-vector')).length, 0);
+  await acknowledgeCaptured(empty, result);
   const nextCapture = await request(initial, next, rowHashes.slice(0, 3), 'operation.after-empty');
   assert.equal((await writeCaptured(empty, saveFor(next), { expectedManifest: result.manifest,
     previousSave: saveFor(initial), capture: nextCapture })).publication, 'committed');
@@ -402,7 +421,11 @@ for (const variant of ['foreign-object-owner', 'foreign-origin', 'bad-vector-cou
   const queued = memoryAdapter(Object.fromEntries(Object.entries(baselineFiles).filter(([path]) => !path.includes('.history-'))));
   queued.set(manifestPath, baselineInput.expectedManifest);
   const first = withCampaignTimelineLease(initial.campaign.id,
-    () => writeCaptured(queued, saveFor(initial), baselineInput), { lockManager: null });
+    async () => {
+      const result = await writeCaptured(queued, saveFor(initial), baselineInput);
+      await acknowledgeCaptured(queued, result);
+      return result;
+    }, { lockManager: null });
   const second = withCampaignTimelineLease(initial.campaign.id,
     () => storage.storeV1CampaignSave(queued, saveFor(next), { previousSave: saveFor(initial) }), { lockManager: null });
   assert.equal((await first).publication, 'committed');
@@ -482,6 +505,7 @@ for (let i = 0; i < 66; i++) {
   const capture = await request(previous, state, rowHashes.slice(0, 7), `operation.rollover-${i}`);
   const result = await writeCaptured(adapter, saveFor(state), { expectedManifest, previousSave: saveFor(previous), capture });
   assert.equal(result.publication, 'committed', JSON.stringify(result));
+  await acknowledgeCaptured(adapter, result);
   expectedManifest = result.manifest; previous = structuredClone(state);
 }
 assert.ok(expectedManifest.segments.length >= 2);

@@ -46,6 +46,7 @@ const baseline = await storage.storeV1CampaignSaveWithCapture(adapter, saveFor(s
   capture: await capture(state, state, 'operation.baseline', 'baseline'),
 });
 assert.equal(baseline.publication, 'committed');
+assert.equal((await storage.acknowledgeV1CampaignSavePublication(adapter, { saveId, requestHash: baseline.intent.requestHash })).acknowledged, true);
 const priorFiles = adapter.snapshot();
 const gateway = createStateDeltaGateway({ getState: () => state, setState: next => { state = next; } });
 await gateway.applyProposal({ id: 'operation.recovery', baseRevision: 0, domains: ['mission'],
@@ -56,6 +57,7 @@ const committed = await storage.storeV1CampaignSaveWithCapture(adapter, saveFor(
   capture: await capture(previousState, state, 'operation.recovery', 'commit'),
 });
 assert.equal(committed.publication, 'committed');
+assert.equal((await storage.acknowledgeV1CampaignSavePublication(adapter, { saveId, requestHash: committed.intent.requestHash })).acknowledged, true);
 const committedFiles = adapter.snapshot();
 const request = { expectedManifest: baseline.manifest, attemptedManifest: committed.manifest,
   expectedActiveSaveId: saveId, operationId: 'operation.recovery' };

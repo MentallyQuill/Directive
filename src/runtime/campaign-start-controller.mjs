@@ -23,9 +23,9 @@ import {
   loadActiveV1CampaignSave,
   loadV1CampaignDeletionResumeTarget,
   loadV1CampaignSave,
-  loadV1ActiveCampaignSavePublication,
-  resolveV1ActiveCampaignSavePublication,
-  acknowledgeV1ActiveCampaignSavePublication,
+  loadV1CampaignSavePublication,
+  resolveV1CampaignSavePublication,
+  acknowledgeV1CampaignSavePublication,
   loadVerifiedV1ActiveCampaignAuthority,
   migrateMonolithicV1CampaignSaves,
   storeV1CampaignSave,
@@ -292,7 +292,7 @@ export function createCampaignStartController({
     if (!saveId) return;
     assertSaveWritable(saveId);
     try {
-      const intent = await loadV1ActiveCampaignSavePublication(adapter, saveId);
+      const intent = await loadV1CampaignSavePublication(adapter, saveId);
       if (intent) {
         publications.set(saveId, { phase: 'uncertain', saveId, requestHash: intent.requestHash, intent });
         throw statePublicationError(saveId, publications.get(saveId));
@@ -311,7 +311,7 @@ export function createCampaignStartController({
     if (previous?.phase === 'pending') throw statePublicationError(saveId, previous);
     let result;
     try {
-      const intent = await loadV1ActiveCampaignSavePublication(adapter, saveId);
+      const intent = await loadV1CampaignSavePublication(adapter, saveId);
       if (!intent) {
         if (previous) {
           // A missing ticket is not an outcome. Retained evidence can still prove
@@ -337,11 +337,11 @@ export function createCampaignStartController({
         throw statePublicationError(saveId, previous);
       }
       publications.set(saveId, { ...previous, phase: 'uncertain', readBarrier: false, saveId, requestHash: intent.requestHash, intent });
-      result = await resolveV1ActiveCampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
+      result = await resolveV1CampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
       if (!['committed', 'not-committed'].includes(result.publication)) {
         throw statePublicationError(saveId, publications.get(saveId));
       }
-      const acknowledged = await acknowledgeV1ActiveCampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
+      const acknowledged = await acknowledgeV1CampaignSavePublication(adapter, { saveId, requestHash: intent.requestHash });
       if (acknowledged.publication !== result.publication) throw statePublicationError(saveId, publications.get(saveId));
       if (acknowledged.acknowledged !== true) {
         publications.set(saveId, { phase: 'acknowledgement', saveId, requestHash: intent.requestHash, intent, result });
@@ -610,7 +610,7 @@ export function createCampaignStartController({
       }
       let acknowledged = result.intent === null;
       if (result.intent) {
-        const ack = await acknowledgeV1ActiveCampaignSavePublication(adapter, { saveId: id, requestHash: result.intent.requestHash });
+        const ack = await acknowledgeV1CampaignSavePublication(adapter, { saveId: id, requestHash: result.intent.requestHash });
         if (ack.publication !== result.publication) {
           publications.set(id, { ...pending, phase: 'uncertain', intent: clone(result.intent),
             requestHash: result.intent.requestHash, result: clone(ack) });

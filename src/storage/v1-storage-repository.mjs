@@ -704,7 +704,7 @@ function immutableSaveMetadata(metadata) {
 
 // Capture verification is deliberately stricter than ordinary latest-save load:
 // every state boundary and the complete immutable history graph are verified.
-async function verifyCapturedSaveHead(adapter, manifest) {
+async function verifyCapturedSaveHead(adapter, manifest, { verifyCurrentHead = true } = {}) {
   const id = manifest.saveId;
   assertV1CampaignSaveManifest(manifest, { saveId: id });
   const limit = V1_BRANCH_HISTORY_LIMITS;
@@ -740,7 +740,7 @@ async function verifyCapturedSaveHead(adapter, manifest) {
       save: originalSave, capture: reconstructCapturedPayload(history) }) === latest.requestHash,
     'Persisted capture does not match its exact request identity.');
   }
-  captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) === canonicalJson(manifest),
+  if (verifyCurrentHead) captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) === canonicalJson(manifest),
     'Captured save changed during verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
   return { save, history, boundaries };
 }
@@ -811,25 +811,27 @@ export async function resolveV1CapturedPublication(adapter, options = {}) {
  * activation occurs here. The result union must not feed legacy void persist.
  */
 export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}) {
-  let record, expected, capture, activePointer, attempted = null;
+  let record, expected, capture, activePointer, attempted = null, intent = null, ticketAnchor = null, existingIntent = null;
   const diagnostic = error => ({ code: error?.code || 'DIRECTIVE_V1_CAPTURE_STORAGE_FAILED', message: error?.message || String(error) });
   async function assertPointer() {
     const index = await loadIndex(adapter, { create: false });
-    captureAssert(index && Object.hasOwn(index.saves, record.id) && index.activeSaveId === activePointer,
+    const summary = index?.saves?.[record.id];
+    captureAssert(index && Object.hasOwn(index.saves, record.id) && object(summary) && index.activeSaveId === activePointer
+      && ['id', 'kind', 'slotType', 'campaignId', 'packageId', 'packageVersion', 'parentSaveId', 'createdAt']
+        .every(key => summary[key] === expected.saveMetadata[key]),
       'Captured publication index ownership changed.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
     return index;
   }
   async function assertHead(manifest) {
     await assertPointer();
+    captureAssert(canonicalJson(await readPublicationIntent(adapter, record.id)) === canonicalJson(ticketAnchor),
+      'Captured publication intent ownership changed.');
     captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(record.id))) === canonicalJson(manifest),
       'Captured publication head changed.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
   }
   async function verified(manifest) {
     const result = await verifyCapturedSaveHead(adapter, manifest);
-    await assertPointer();
-    // Pointer verification is asynchronous too: the manifest check is last.
-    captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(record.id))) === canonicalJson(manifest),
-      'Captured publication head changed after verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    await assertHead(manifest);
     return result;
   }
   try {
@@ -838,10 +840,24 @@ export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}
     expected = clone(assertV1CampaignSaveManifest(options.expectedManifest, { saveId: record.id }));
     capture = structuredClone(options.capture);
     const previousSave = options.previousSave === undefined ? null : clone(assertV1CampaignSave(options.previousSave));
-    await assertNoActivePublication(adapter, record.id);
+    const suppliedPointer = structuredClone(options.expectedActiveSaveId);
     const index = await loadIndex(adapter, { create: false });
     captureAssert(index && Object.hasOwn(index.saves, record.id), 'Captured publication requires an existing indexed save.');
     activePointer = index.activeSaveId;
+    captureAssert(suppliedPointer === undefined || suppliedPointer === activePointer, 'Captured publication active pointer differs.');
+    existingIntent = await loadV1CampaignSavePublication(adapter, record.id);
+    if (existingIntent) {
+      intent = existingIntent;
+      assertAuthorityCapture(capture);
+      const expectedManifestHash = await sha256Json(expected);
+      captureAssert(existingIntent.kind === CAPTURED_PUBLICATION_KIND
+        && existingIntent.expectedActiveSaveId === activePointer
+        && canonicalJson(existingIntent.expectedManifest) === canonicalJson(expected)
+        && existingIntent.operationId === capture.operationId
+        && existingIntent.capturedRequestHash === await sha256Json({ expectedManifestHash, save: record, capture }),
+      'An unresolved differing publication blocks this captured write.');
+      return resolveV1CampaignSavePublication(adapter, { saveId: record.id, requestHash: existingIntent.requestHash });
+    }
     const current = clone(assertV1CampaignSaveManifest(await adapter.readJson(V1_STORAGE_PATHS.save(record.id)), { saveId: record.id }));
     const prior = await verified(current);
     assertAuthorityCapture(capture);
@@ -856,7 +872,7 @@ export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}
         && canonicalJson(reconstructCapturedPayload(prior.history)) === canonicalJson(capture)
         && canonicalJson(prior.save) === canonicalJson(record), 'Captured retry does not match the exact latest operation.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
       await verified(current);
-      return { publication: 'committed', save: record, manifest: current, captureHead: current.branchHistory, acknowledgement: null };
+      return { publication: 'committed', save: record, manifest: current, captureHead: current.branchHistory, intent: null, acknowledgement: null };
     }
     if (previousSave) captureAssert(canonicalJson(previousSave) === canonicalJson(prior.save), 'Previous save differs from exact captured head.');
     assertCaptureEntity(capture.origin, record.state.campaignChatBinding);
@@ -871,15 +887,31 @@ export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}
     'Capture does not describe the exact state update.');
     const historyPlan = await prepareBranchHistory({ manifest: current, capture, requestHash, expectedManifestHash, verifiedHistory: prior.history, saveMetadata: campaignSaveMetadata(record) });
     const statePlan = await prepareSaveStateUpdate(adapter, record, current, prior.save);
+    for (const item of historyPlan.writes) {
+      const existingObject = await readOrNull(adapter, item.ref.path);
+      captureAssert(existingObject === null || canonicalJson(existingObject) === canonicalJson(item.value),
+        'An immutable history path already contains different bytes.', 'DIRECTIVE_V1_CAPTURE_IMMUTABLE_CONFLICT');
+    }
     attempted = { ...statePlan.nextManifest, branchHistory: historyPlan.head };
     assertV1CampaignSaveManifest(attempted, { saveId: record.id });
+    const identity = { kind: CAPTURED_PUBLICATION_KIND, version: 1, saveId: record.id,
+      expectedActiveSaveId: activePointer, expectedManifest: expected, attemptedManifest: attempted,
+      operationId: capture.operationId, capturedRequestHash: requestHash };
+    intent = { ...identity, requestHash: await sha256Json(identity) };
+    await assertCapturedPublicationIntent(intent, record.id);
+    await assertHead(expected);
+    await verifiedWrite(adapter, V1_STORAGE_PATHS.publicationIntent(record.id), intent, value => value);
+    ticketAnchor = intent;
     await assertHead(expected);
     for (const item of historyPlan.writes) {
       const existingObject = await readOrNull(adapter, item.ref.path);
       if (existingObject !== null) {
         captureAssert(canonicalJson(existingObject) === canonicalJson(item.value),
           'An immutable history path already contains different bytes.', 'DIRECTIVE_V1_CAPTURE_IMMUTABLE_CONFLICT');
-      } else await verifiedWrite(adapter, item.ref.path, item.value, value => value);
+      } else {
+        await assertHead(expected);
+        await verifiedWrite(adapter, item.ref.path, item.value, value => value);
+      }
     }
     await assertHead(expected);
     await writePreparedSegments(adapter, statePlan.writes, record.id);
@@ -894,21 +926,30 @@ export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}
       await writeIndex(adapter, latestIndex, record.updatedAt);
     } catch (error) { acknowledgement = diagnostic(error); }
     await assertHead(attempted);
-    return { publication: 'committed', save: record, manifest: attempted, captureHead: attempted.branchHistory, acknowledgement };
+    return { publication: 'committed', save: record, manifest: attempted, captureHead: attempted.branchHistory, intent, acknowledgement };
   } catch (error) {
     try {
-      if (!record || !expected || activePointer === undefined) throw error;
+      if (!record || !expected || activePointer === undefined || existingIntent) throw error;
+      const storedIntent = await readPublicationIntent(adapter, record.id);
+      if (storedIntent !== null) {
+        captureAssert(intent && canonicalJson(storedIntent) === canonicalJson(intent), 'Captured recovery intent differs.');
+        const resolved = await resolveV1CampaignSavePublication(adapter, { saveId: record.id, requestHash: intent.requestHash });
+        if (['committed', 'not-committed'].includes(resolved.publication)) return { ...resolved, acknowledgement: diagnostic(error), error: diagnostic(error) };
+        throw error;
+      }
+      ticketAnchor = null;
       const current = await adapter.readJson(V1_STORAGE_PATHS.save(record.id));
       if (attempted && canonicalJson(current) === canonicalJson(attempted)) {
         await verified(attempted);
-        return { publication: 'committed', save: record, manifest: attempted, captureHead: attempted.branchHistory, acknowledgement: diagnostic(error) };
+        // A durable captured ticket must precede any attempted-head publication.
+        throw error;
       }
       if (canonicalJson(current) === canonicalJson(expected)) {
-        await verified(expected);
-        return { publication: 'not-committed', expectedManifest: expected, error: diagnostic(error) };
+        const prior = await verified(expected);
+        return { publication: 'not-committed', save: prior.save, manifest: expected, expectedManifest: expected, intent: null, error: diagnostic(error) };
       }
     } catch { /* Preserve ambiguous publication evidence; never repair or guess. */ }
-    return { publication: 'uncertain', expectedManifest: expected || null, attemptedManifest: attempted, error: diagnostic(error) };
+    return { publication: 'uncertain', expectedManifest: expected || null, attemptedManifest: attempted, intent, error: diagnostic(error) };
   }
 }
 
@@ -1017,6 +1058,7 @@ async function prepareSaveStateUpdate(adapter, record, manifest, previous) {
 }
 
 const ACTIVE_PUBLICATION_KIND = 'directive.activeSavePublication.v1';
+const CAPTURED_PUBLICATION_KIND = 'directive.capturedSavePublication.v1';
 const publicationDiagnostic = error => ({ code: error?.code || 'DIRECTIVE_V1_SAVE_PUBLICATION_FAILED', message: error?.message || String(error),
   ...(error?.publicationIntentReadFailed === true ? { publicationIntentReadFailed: true } : {}) });
 
@@ -1070,6 +1112,130 @@ export async function loadV1ActiveCampaignSavePublication(adapter, saveId) {
   const id = safeId(saveId, 'saveId');
   const intent = await readPublicationIntent(adapter, id);
   return intent === null ? null : assertActivePublicationIntent(intent, id);
+}
+
+async function assertCapturedPublicationIntent(intent, saveId) {
+  const fields = ['kind', 'version', 'saveId', 'requestHash', 'expectedActiveSaveId', 'expectedManifest', 'attemptedManifest', 'operationId', 'capturedRequestHash'];
+  captureAssert(object(intent) && Object.keys(intent).length === fields.length && fields.every(key => Object.hasOwn(intent, key))
+    && intent.kind === CAPTURED_PUBLICATION_KIND && intent.version === 1 && intent.saveId === saveId
+    && typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId
+    && (intent.expectedActiveSaveId === null || (typeof intent.expectedActiveSaveId === 'string'
+      && safeId(intent.expectedActiveSaveId, 'expectedActiveSaveId') === intent.expectedActiveSaveId))
+    && typeof intent.operationId === 'string' && intent.operationId.length > 0 && intent.operationId.length <= 180
+    && intent.operationId.trim() === intent.operationId && typeof intent.capturedRequestHash === 'string'
+    && SHA256.test(intent.capturedRequestHash), 'Invalid captured publication intent.');
+  const before = assertV1CampaignSaveManifest(intent.expectedManifest, { saveId });
+  const after = assertV1CampaignSaveManifest(intent.attemptedManifest, { saveId });
+  captureLimit(before.segments.length <= V1_BRANCH_HISTORY_LIMITS.segments && after.segments.length <= V1_BRANCH_HISTORY_LIMITS.segments
+    && captureBytes(intent) <= 16 * 1024 * 1024, 'Captured publication intent exceeds verification bounds.');
+  captureAssert(after.branchHistory && canonicalJson(before.base) === canonicalJson(after.base)
+    && canonicalJson(immutableSaveMetadata(before.saveMetadata)) === canonicalJson(immutableSaveMetadata(after.saveMetadata))
+    && after.branchHistory.recordCount === (before.branchHistory?.recordCount || 0) + 1,
+  'Captured publication intent ownership or history differs.');
+  if (before.branchHistory) {
+    captureAssert(after.currentRevision === before.currentRevision + 1
+      && after.branchHistory.floorRevision === before.branchHistory.floorRevision
+      && after.branchHistory.floorStateHash === before.branchHistory.floorStateHash,
+    'Captured publication intent does not extend the existing history.');
+  } else {
+    captureAssert(canonicalJson({ ...before, saveMetadata: after.saveMetadata, updatedAt: after.updatedAt, branchHistory: after.branchHistory }) === canonicalJson(after),
+      'Captured baseline must preserve the exact state chain.');
+  }
+  const { requestHash, ...identity } = intent;
+  captureAssert(typeof requestHash === 'string' && SHA256.test(requestHash) && await sha256Json(identity) === requestHash,
+    'Captured publication intent request hash differs.');
+  return intent;
+}
+
+/** Read-only tagged publication lookup; both protocols share one ownership path. */
+export async function loadV1CampaignSavePublication(adapter, saveId) {
+  requireAdapter(adapter);
+  const id = safeId(saveId, 'saveId');
+  const intent = await readPublicationIntent(adapter, id);
+  if (intent === null) return null;
+  return intent.kind === CAPTURED_PUBLICATION_KIND
+    ? assertCapturedPublicationIntent(intent, id) : assertActivePublicationIntent(intent, id);
+}
+
+async function assertCapturedIntentHead(adapter, intent, manifest) {
+  const index = await loadIndex(adapter, { create: false });
+  const summary = index?.saves?.[intent.saveId];
+  captureAssert(index && Object.hasOwn(index.saves, intent.saveId) && object(summary)
+    && index.activeSaveId === intent.expectedActiveSaveId
+    && ['id', 'kind', 'slotType', 'campaignId', 'packageId', 'packageVersion', 'parentSaveId', 'createdAt']
+      .every(key => summary[key] === intent.expectedManifest.saveMetadata[key]), 'Captured intent index ownership changed.');
+  captureAssert(canonicalJson(await readPublicationIntent(adapter, intent.saveId)) === canonicalJson(intent), 'Captured intent ownership changed.');
+  captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(intent.saveId))) === canonicalJson(manifest),
+    'Captured intent manifest changed.');
+}
+
+/** Read-only restart resolution under a caller-owned lease after writes settle. */
+export async function resolveV1CampaignSavePublication(adapter, options = {}) {
+  let intent = null;
+  try {
+    const { saveId, requestHash } = structuredClone(options);
+    captureAssert(typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId
+      && typeof requestHash === 'string' && SHA256.test(requestHash), 'Invalid publication recovery identity.');
+    requireAdapter(adapter);
+    intent = await readPublicationIntent(adapter, saveId);
+    if (intent === null) return { publication: 'none', intent: null };
+    if (intent.kind === CAPTURED_PUBLICATION_KIND) await assertCapturedPublicationIntent(intent, saveId);
+    else await assertActivePublicationIntent(intent, saveId);
+    captureAssert(intent.requestHash === requestHash, 'Another publication owns this intent.');
+    if (intent.kind === ACTIVE_PUBLICATION_KIND) return resolveV1ActiveCampaignSavePublication(adapter, { saveId, requestHash });
+    const result = await resolveV1CapturedPublication(adapter, intent);
+    if (result.publication === 'uncertain') return { ...result, intent };
+    if (result.publication === 'committed') {
+      const verified = await verifyCapturedSaveHead(adapter, result.manifest);
+      const latest = verified.history.records.at(-1);
+      captureAssert(latest.requestHash === intent.capturedRequestHash
+        && canonicalJson(latest.saveMetadata) === canonicalJson(intent.attemptedManifest.saveMetadata)
+        && latest.capture.before.revision === intent.expectedManifest.currentRevision
+        && latest.capture.before.stateHash === intent.expectedManifest.currentStateHash,
+      'Captured intent request or prior boundary differs.');
+      // A pending ticket protects the prior chain too. Verify it independently,
+      // then reproduce the exact state/history plans without publishing anything.
+      const priorVerified = await verifyCapturedSaveHead(adapter, intent.expectedManifest, { verifyCurrentHead: false });
+      const prior = priorVerified.history;
+      captureAssert(canonicalJson(verified.history.records.slice(0, -1)) === canonicalJson(prior?.records || []),
+        'Captured intent history prefix differs.');
+      const plan = await prepareBranchHistory({ manifest: intent.expectedManifest, capture: reconstructCapturedPayload(verified.history),
+        requestHash: latest.requestHash, expectedManifestHash: latest.expectedManifestHash, verifiedHistory: prior, saveMetadata: latest.saveMetadata });
+      captureAssert(canonicalJson(plan.head) === canonicalJson(intent.attemptedManifest.branchHistory), 'Captured intent history linkage differs.');
+      const statePlan = await prepareSaveStateUpdate(adapter, verified.save, intent.expectedManifest, priorVerified.save);
+      captureAssert(canonicalJson({ ...statePlan.nextManifest, branchHistory: plan.head }) === canonicalJson(intent.attemptedManifest),
+        'Captured intent state chain does not extend its exact prior manifest.');
+    }
+    await assertCapturedIntentHead(adapter, intent, result.manifest);
+    return { ...result, intent, acknowledgement: null };
+  } catch (error) {
+    return { publication: 'uncertain', intent, expectedManifest: intent?.expectedManifest || null,
+      attemptedManifest: intent?.attemptedManifest || null, error: publicationDiagnostic(error) };
+  }
+}
+
+/** Acknowledge a tagged exact verified outcome, deleting only its own ticket. */
+export async function acknowledgeV1CampaignSavePublication(adapter, options = {}) {
+  const identity = structuredClone(options);
+  let result = await resolveV1CampaignSavePublication(adapter, identity);
+  if (!['committed', 'not-committed'].includes(result.publication)) return { ...result, acknowledged: false };
+  if (result.intent.kind === ACTIVE_PUBLICATION_KIND) return acknowledgeV1ActiveCampaignSavePublication(adapter, identity);
+  const verifiedAgain = await resolveV1CampaignSavePublication(adapter, identity);
+  if (!['committed', 'not-committed'].includes(verifiedAgain.publication)
+    || canonicalJson(verifiedAgain.intent) !== canonicalJson(result.intent) || canonicalJson(verifiedAgain.manifest) !== canonicalJson(result.manifest)) {
+    return { publication: 'uncertain', intent: result.intent, acknowledged: false, error: publicationDiagnostic(new Error('Captured acknowledgement ownership changed.')) };
+  }
+  result = verifiedAgain;
+  try {
+    await remove(adapter, V1_STORAGE_PATHS.publicationIntent(identity.saveId));
+    captureAssert(await readPublicationIntent(adapter, identity.saveId) === null, 'Captured intent deletion was not acknowledged.');
+    return { ...result, acknowledged: true };
+  } catch (error) {
+    try {
+      if (await readPublicationIntent(adapter, identity.saveId) === null) return { ...result, acknowledged: true, acknowledgement: publicationDiagnostic(error) };
+    } catch { /* An unreadable ticket cannot confirm removal. */ }
+    return { ...result, acknowledged: false, acknowledgement: publicationDiagnostic(error) };
+  }
 }
 
 async function assertActivePublicationPointer(adapter, manifest) {
