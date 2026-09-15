@@ -1,3 +1,4 @@
+import { assertBranchHistoryHead } from './v1-branch-history-contracts.mjs';
 export const V1_CAMPAIGN_SAVE_MANIFEST_KIND = 'directive.campaignSaveManifest.v1';
 export const V1_CAMPAIGN_SAVE_BASE_KIND = 'directive.campaignSaveBase.v1';
 export const V1_CAMPAIGN_SAVE_SEGMENT_KIND = 'directive.campaignSaveSegment.v1';
@@ -12,7 +13,7 @@ const SAVE_METADATA_FIELDS = new Set([
 ]);
 const MANIFEST_FIELDS = new Set([
   'kind', 'version', 'saveId', 'saveMetadata', 'base', 'segments', 'currentRevision',
-  'currentStateHash', 'updatedAt',
+  'currentStateHash', 'updatedAt', 'branchHistory',
 ]);
 const BASE_FIELDS = new Set(['kind', 'version', 'saveId', 'revision', 'stateHash', 'state']);
 const SEGMENT_FIELDS = new Set(['kind', 'version', 'saveId', 'sequence', 'generation', 'slot', 'deltas']);
@@ -193,6 +194,7 @@ export function assertV1CampaignSaveManifest(manifest, { saveId = null } = {}) {
   const expectedRevision = manifest.segments.at(-1)?.afterRevision ?? manifest.base.revision;
   if (currentRevision !== expectedRevision) throw contractError('DIRECTIVE_V1_SAVE_MANIFEST_REJECTED', 'Campaign-save manifest revision is discontinuous.');
   hash(manifest.currentStateHash, 'manifest currentStateHash');
+  if (Object.hasOwn(manifest, 'branchHistory')) assertBranchHistoryHead(manifest.branchHistory, manifest);
   return manifest;
 }
 

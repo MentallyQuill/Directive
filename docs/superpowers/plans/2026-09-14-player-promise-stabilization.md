@@ -115,9 +115,20 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 - Live sessions: reach at least 20 accepted player/assistant pairs across at least three fresh or explicitly forked test timelines, including correction/reload, selected-swipe branching, and private-information continuation. This minimum does not close unexercised required scenarios or unresolved material failures.
 - Evidence distinguishes controlled state tests, real-provider synthetic evaluation, real-host fault injection, and natural live play.
 
+Minimum sample/distribution verified through batch 27: twenty-two wholly real distinct accepted pairs across at least three continued fresh/native-fork timelines; twenty-three natural-content pairs when including one injected-failure/real-recovery acceptance. Inherited receipts and repeated-source replay add no credit. Independent exact-tuple audit: `natural-timeline-distribution-audit.json/.md`. Both latest child turns preserve the full parent checkpoint and pass exact reload. This completes only the minimum sample/distribution requirement; the remaining scenario and semantic-quality work above stays open.
+
 ## Task 7: Publish and completion audit
 
 - [ ] Review each production fix independently, run relevant checks and the release gate, and publish only scoped files.
 - [ ] Verify remote main and the final installed build separately.
 - [ ] Update `docs/testing/PLAYER_PROMISE_STABILIZATION.md` with coverage, defects/fixes, live results, metrics, limitations, and exact evidence paths.
 - [ ] Audit every goal area and scenario; leave the goal active while required proof or fixes remain.
+
+## Captured-history storage preparation checkpoint
+
+- [x] Define and implement a disabled captured-save API with immutable bounded history, exact expected-head preflight, saved-binding checks, exact retries, and committed/not-committed/uncertain publication outcomes.
+- [x] Reproduce and fix independent review findings about persisted request identity and mismatched saved entity identity; freeze the corrected source and pass all 231 checks.
+- [x] Verify thirteen complete cases through installed browser modules and actual isolated host file storage; preserve the live campaign, parent, chat and settings and exact 45-row reload.
+- [ ] Integrate authoritative host snapshots and complete writer capture, recover uncertain publication, preserve inherited ownership, and verify chronological native branch reconstruction before changing the existing refusal.
+
+The 22-call candidate-completeness A/B failed its adoption gate and remains unadopted. Staff readiness was explicitly corrected using player controls and retained on reload; automatic interpretation and report delivery are not thereby proven. Rank fidelity is the next bounded real-provider comparison.

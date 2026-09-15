@@ -1,3 +1,5 @@
+import { V1_BRANCH_HISTORY_LIMITS, assertAuthorityCapture, captureAssert, captureBytes, captureError, captureLimit } from './v1-branch-history-contracts.mjs';
+import { prepareBranchHistory, readVerifiedBranchHistory } from './v1-branch-history-storage.mjs';
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
 import {
   applyV1StateDelta,
@@ -681,6 +683,283 @@ export async function migrateMonolithicV1CampaignSaves(adapter) {
   };
 }
 
+function assertCaptureEntity(origin, binding) {
+  for (const field of ['entityType', 'entityId']) {
+    if (binding?.[field] !== undefined) captureAssert(origin[field] === binding[field],
+      `Capture ${field} differs from the saved native binding.`);
+  }
+}
+
+function reconstructCapturedPayload(history) {
+  const latest = history.records.at(-1).capture;
+  const { head, ...transcript } = latest.transcript;
+  return { ...latest, transcript: { ...transcript, rowHashes: history.rows } };
+}
+
+function immutableSaveMetadata(metadata) {
+  const { name, updatedAt, ...immutable } = metadata;
+  return immutable;
+}
+
+// Capture verification is deliberately stricter than ordinary latest-save load:
+// every state boundary and the complete immutable history graph are verified.
+async function verifyCapturedSaveHead(adapter, manifest) {
+  const id = manifest.saveId;
+  assertV1CampaignSaveManifest(manifest, { saveId: id });
+  const limit = V1_BRANCH_HISTORY_LIMITS;
+  captureLimit(manifest.segments.length <= limit.segments
+    && manifest.segments.reduce((sum, ref) => sum + ref.deltaCount, 0) <= limit.deltas
+    && manifest.segments.reduce((sum, ref) => sum + ref.byteLength, 0) <= limit.segmentBytes,
+  'Captured state chain exceeds verification bounds.');
+  captureAssert(Number.isSafeInteger(manifest.base.revision) && Number.isSafeInteger(manifest.currentRevision), 'Unsafe captured state revision.');
+  const { base, deltas } = await readVerifiedSaveChain(adapter, manifest, id);
+  captureLimit(captureBytes(base.state) <= limit.baseBytes, 'Captured state base exceeds byte limit.');
+  let state = base.state;
+  const boundaries = new Map([[base.revision, base.stateHash]]);
+  for (const delta of deltas) {
+    captureAssert(Number.isSafeInteger(delta.beforeRevision) && Number.isSafeInteger(delta.afterRevision)
+      && delta.afterRevision > delta.beforeRevision, 'Unsafe captured delta revision.');
+    state = await applyV1StateDelta({ saveId: id, state, delta });
+    boundaries.set(delta.afterRevision, delta.afterHash);
+  }
+  captureAssert(state.stateCustody.revision === manifest.currentRevision
+    && await sha256Json(state) === manifest.currentStateHash, 'Captured save state hash differs.');
+  const save = assertV1CampaignSave({ ...manifest.saveMetadata, state });
+  const history = manifest.branchHistory ? await readVerifiedBranchHistory(adapter, manifest, boundaries) : null;
+  if (history) {
+    const origin = history.records.at(-1).capture.origin;
+    captureAssert(origin.saveId === state.campaignChatBinding?.saveId && origin.campaignId === save.campaignId
+      && origin.chatId === state.campaignChatBinding?.chatId, 'Captured origin differs from saved binding.');
+    assertCaptureEntity(origin, state.campaignChatBinding);
+    const latest = history.records.at(-1);
+    const originalSave = assertV1CampaignSave({ ...latest.saveMetadata, state });
+    captureAssert(canonicalJson(immutableSaveMetadata(latest.saveMetadata))
+      === canonicalJson(immutableSaveMetadata(manifest.saveMetadata)), 'Captured candidate metadata differs from saved ownership.');
+    captureAssert(await sha256Json({ expectedManifestHash: latest.expectedManifestHash,
+      save: originalSave, capture: reconstructCapturedPayload(history) }) === latest.requestHash,
+    'Persisted capture does not match its exact request identity.');
+  }
+  captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) === canonicalJson(manifest),
+    'Captured save changed during verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+  return { save, history };
+}
+
+/**
+ * Disabled preparation API: callers must own the campaign lease and supply an
+ * already detached logical-application anchor. No runtime/host capture or
+ * activation occurs here. The result union must not feed legacy void persist.
+ */
+export async function storeV1CampaignSaveWithCapture(adapter, save, options = {}) {
+  let record, expected, capture, activePointer, attempted = null;
+  const diagnostic = error => ({ code: error?.code || 'DIRECTIVE_V1_CAPTURE_STORAGE_FAILED', message: error?.message || String(error) });
+  async function assertPointer() {
+    const index = await loadIndex(adapter, { create: false });
+    captureAssert(index && Object.hasOwn(index.saves, record.id) && index.activeSaveId === activePointer,
+      'Captured publication index ownership changed.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    return index;
+  }
+  async function assertHead(manifest) {
+    await assertPointer();
+    captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(record.id))) === canonicalJson(manifest),
+      'Captured publication head changed.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+  }
+  async function verified(manifest) {
+    const result = await verifyCapturedSaveHead(adapter, manifest);
+    await assertPointer();
+    // Pointer verification is asynchronous too: the manifest check is last.
+    captureAssert(canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(record.id))) === canonicalJson(manifest),
+      'Captured publication head changed after verification.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    return result;
+  }
+  try {
+    requireAdapter(adapter);
+    record = clone(assertV1CampaignSave(save));
+    expected = clone(assertV1CampaignSaveManifest(options.expectedManifest, { saveId: record.id }));
+    capture = structuredClone(options.capture);
+    const previousSave = options.previousSave === undefined ? null : clone(assertV1CampaignSave(options.previousSave));
+    const index = await loadIndex(adapter, { create: false });
+    captureAssert(index && Object.hasOwn(index.saves, record.id), 'Captured publication requires an existing indexed save.');
+    activePointer = index.activeSaveId;
+    const current = clone(assertV1CampaignSaveManifest(await adapter.readJson(V1_STORAGE_PATHS.save(record.id)), { saveId: record.id }));
+    const prior = await verified(current);
+    assertAuthorityCapture(capture);
+    captureAssert(canonicalJson(record) === canonicalJson({ ...campaignSaveMetadata(record), state: record.state }),
+      'Captured candidate has unpersisted save fields.');
+    const expectedManifestHash = await sha256Json(expected);
+    const requestHash = await sha256Json({ expectedManifestHash, save: record, capture });
+    if (canonicalJson(current) !== canonicalJson(expected)) {
+      const latest = prior.history?.records.at(-1);
+      captureAssert(latest && latest.capture.operationId === capture.operationId && latest.requestHash === requestHash
+        && latest.expectedManifestHash === expectedManifestHash
+        && canonicalJson(reconstructCapturedPayload(prior.history)) === canonicalJson(capture)
+        && canonicalJson(prior.save) === canonicalJson(record), 'Captured retry does not match the exact latest operation.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+      await verified(current);
+      return { publication: 'committed', save: record, manifest: current, captureHead: current.branchHistory, acknowledgement: null };
+    }
+    if (previousSave) captureAssert(canonicalJson(previousSave) === canonicalJson(prior.save), 'Previous save differs from exact captured head.');
+    assertCaptureEntity(capture.origin, record.state.campaignChatBinding);
+    captureAssert(capture.origin.saveId === record.state.campaignChatBinding?.saveId && capture.origin.campaignId === record.campaignId
+      && capture.origin.chatId === record.state.campaignChatBinding?.chatId
+      && canonicalJson(record.state.campaignChatBinding) === canonicalJson(prior.save.state.campaignChatBinding)
+      && record.campaignId === prior.save.campaignId && record.packageId === prior.save.packageId
+      && record.packageVersion === prior.save.packageVersion && record.slotType === prior.save.slotType
+      && record.parentSaveId === prior.save.parentSaveId, 'Capture origin/save ownership differs.');
+    captureAssert(capture.before.revision === current.currentRevision && capture.before.stateHash === current.currentStateHash
+      && capture.after.revision === record.state.stateCustody.revision && capture.after.stateHash === await sha256Json(record.state),
+    'Capture does not describe the exact state update.');
+    const historyPlan = await prepareBranchHistory({ manifest: current, capture, requestHash, expectedManifestHash, verifiedHistory: prior.history, saveMetadata: campaignSaveMetadata(record) });
+    const statePlan = await prepareSaveStateUpdate(adapter, record, current, prior.save);
+    attempted = { ...statePlan.nextManifest, branchHistory: historyPlan.head };
+    assertV1CampaignSaveManifest(attempted, { saveId: record.id });
+    await assertHead(expected);
+    for (const item of historyPlan.writes) {
+      const existingObject = await readOrNull(adapter, item.ref.path);
+      if (existingObject !== null) {
+        captureAssert(canonicalJson(existingObject) === canonicalJson(item.value),
+          'An immutable history path already contains different bytes.', 'DIRECTIVE_V1_CAPTURE_IMMUTABLE_CONFLICT');
+      } else await verifiedWrite(adapter, item.ref.path, item.value, value => value);
+    }
+    await assertHead(expected);
+    await writePreparedSegments(adapter, statePlan.writes, record.id);
+    await assertHead(expected);
+    await verifiedWrite(adapter, V1_STORAGE_PATHS.save(record.id), attempted,
+      value => assertV1CampaignSaveManifest(value, { saveId: record.id }));
+    await verified(attempted);
+    let acknowledgement = null;
+    const latestIndex = await assertPointer();
+    try {
+      latestIndex.saves[record.id] = saveSummary(record);
+      await writeIndex(adapter, latestIndex, record.updatedAt);
+    } catch (error) { acknowledgement = diagnostic(error); }
+    await assertHead(attempted);
+    return { publication: 'committed', save: record, manifest: attempted, captureHead: attempted.branchHistory, acknowledgement };
+  } catch (error) {
+    try {
+      if (!record || !expected || activePointer === undefined) throw error;
+      const current = await adapter.readJson(V1_STORAGE_PATHS.save(record.id));
+      if (attempted && canonicalJson(current) === canonicalJson(attempted)) {
+        await verified(attempted);
+        return { publication: 'committed', save: record, manifest: attempted, captureHead: attempted.branchHistory, acknowledgement: diagnostic(error) };
+      }
+      if (canonicalJson(current) === canonicalJson(expected)) {
+        await verified(expected);
+        return { publication: 'not-committed', expectedManifest: expected, error: diagnostic(error) };
+      }
+    } catch { /* Preserve ambiguous publication evidence; never repair or guess. */ }
+    return { publication: 'uncertain', expectedManifest: expected || null, attemptedManifest: attempted, error: diagnostic(error) };
+  }
+}
+
+async function prepareSaveStateUpdate(adapter, record, manifest, previous) {
+  const writes = [];
+  const previousHash = await sha256Json(previous.state);
+  const nextHash = await sha256Json(record.state);
+  if (previous.state.stateCustody.revision !== manifest.currentRevision
+    || previousHash !== manifest.currentStateHash) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_SAVE_CONCURRENT_UPDATE',
+      'Campaign save changed before this update could be persisted.',
+    );
+  }
+  let nextManifest = {
+    ...clone(manifest),
+    saveMetadata: campaignSaveMetadata(record),
+    updatedAt: record.updatedAt,
+  };
+  if (nextHash !== previousHash) {
+    const beforeRevision = previous.state.stateCustody.revision;
+    const afterRevision = record.state.stateCustody.revision;
+    if (afterRevision !== beforeRevision + 1) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
+        'Campaign-save updates must advance exactly one state revision.',
+        { beforeRevision, afterRevision },
+      );
+    }
+    const delta = await encodeV1StateDelta({
+      saveId: record.id,
+      before: previous.state,
+      after: record.state,
+      changedRoots: changedStateRoots(previous.state, record.state),
+      createdAt: record.updatedAt,
+      source: 'v1-storage-repository',
+    });
+    const currentReference = manifest.segments.at(-1) || null;
+    let sequence = currentReference?.sequence || 1;
+    let generation = currentReference ? currentReference.generation + 1 : 1;
+    let slot = currentReference ? (currentReference.slot === 'a' ? 'b' : 'a') : 'a';
+    let deltas = currentReference
+      ? [...(await readVerifiedSegment(adapter, manifest, currentReference)).deltas, delta]
+      : [delta];
+    let segment = {
+      kind: V1_CAMPAIGN_SAVE_SEGMENT_KIND,
+      version: 1,
+      saveId: record.id,
+      sequence,
+      generation,
+      slot,
+      deltas,
+    };
+    if (deltas.length > V1_CAMPAIGN_SAVE_SEGMENT_MAX_DELTAS
+      || byteLength(segment) > V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES) {
+      sequence += 1;
+      generation = 1;
+      slot = 'a';
+      deltas = [delta];
+      segment = { ...segment, sequence, generation, slot, deltas };
+    }
+    const segmentBytes = byteLength(segment);
+    if (segmentBytes > V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES) {
+      throw saveStorageError(
+        'DIRECTIVE_V1_SAVE_DELTA_TOO_LARGE',
+        'A single campaign-state delta exceeds the active-segment byte limit.',
+        { byteLength: segmentBytes, limit: V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES },
+      );
+    }
+    const segmentPath = V1_STORAGE_PATHS.saveSegment(record.id, sequence, slot);
+    writes.push({ path: segmentPath, value: segment });
+    const reference = {
+      path: segmentPath,
+      sequence,
+      generation,
+      slot,
+      beforeRevision: deltas[0].beforeRevision,
+      afterRevision: deltas.at(-1).afterRevision,
+      deltaCount: deltas.length,
+      byteLength: segmentBytes,
+      contentHash: await sha256Json(segment),
+      sealed: false,
+    };
+    const rolledOver = currentReference && sequence !== currentReference.sequence;
+    const earlier = currentReference
+      ? manifest.segments.slice(0, -1)
+      : [];
+    nextManifest = {
+      ...nextManifest,
+      segments: currentReference
+        ? rolledOver
+          ? [...earlier, { ...currentReference, sealed: true }, reference]
+          : [...earlier, reference]
+        : [reference],
+      currentRevision: afterRevision,
+      currentStateHash: nextHash,
+    };
+  } else if (record.state.stateCustody.revision !== previous.state.stateCustody.revision) {
+    throw saveStorageError(
+      'DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
+      'Campaign-save revision changed without a corresponding state change.',
+    );
+  }
+
+  return { nextManifest, writes };
+}
+
+async function writePreparedSegments(adapter, writes, saveId) {
+  for (const item of writes) await verifiedWrite(adapter, item.path, item.value,
+    value => assertV1CampaignSaveSegment(value, { saveId }),
+    'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_VERIFICATION_FAILED', 'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_FAILED');
+}
+
 export async function storeV1CampaignSave(adapter, save, {
   makeActive = save?.slotType === 'active',
   previousSave = null,
@@ -705,112 +984,23 @@ export async function storeV1CampaignSave(adapter, save, {
     if (previous.id !== record.id) {
       throw saveStorageError('DIRECTIVE_V1_SAVE_PREVIOUS_MISMATCH', 'Previous campaign save belongs to another save.');
     }
-    const previousHash = await sha256Json(previous.state);
-    const nextHash = await sha256Json(record.state);
-    if (previous.state.stateCustody.revision !== manifest.currentRevision
-      || previousHash !== manifest.currentStateHash) {
-      throw saveStorageError(
-        'DIRECTIVE_V1_SAVE_CONCURRENT_UPDATE',
-        'Campaign save changed before this update could be persisted.',
-      );
+    if (manifest.branchHistory) {
+      if (canonicalJson(record.state) !== canonicalJson(previous.state)) {
+        throw captureError('DIRECTIVE_V1_CAPTURE_REQUIRED', 'A captured save requires explicit captured state publication.');
+      }
+      await verifyCapturedSaveHead(adapter, manifest);
+      captureAssert(canonicalJson(immutableSaveMetadata(campaignSaveMetadata(record)))
+        === canonicalJson(immutableSaveMetadata(manifest.saveMetadata)), 'Captured metadata updates may only rename or update acknowledgement time.');
     }
-    let nextManifest = {
-      ...clone(manifest),
-      saveMetadata: campaignSaveMetadata(record),
-      updatedAt: record.updatedAt,
-    };
-    if (nextHash !== previousHash) {
-      const beforeRevision = previous.state.stateCustody.revision;
-      const afterRevision = record.state.stateCustody.revision;
-      if (afterRevision !== beforeRevision + 1) {
-        throw saveStorageError(
-          'DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
-          'Campaign-save updates must advance exactly one state revision.',
-          { beforeRevision, afterRevision },
-        );
-      }
-      const delta = await encodeV1StateDelta({
-        saveId: record.id,
-        before: previous.state,
-        after: record.state,
-        changedRoots: changedStateRoots(previous.state, record.state),
-        createdAt: record.updatedAt,
-        source: 'v1-storage-repository',
-      });
-      const currentReference = manifest.segments.at(-1) || null;
-      let sequence = currentReference?.sequence || 1;
-      let generation = currentReference ? currentReference.generation + 1 : 1;
-      let slot = currentReference ? (currentReference.slot === 'a' ? 'b' : 'a') : 'a';
-      let deltas = currentReference
-        ? [...(await readVerifiedSegment(adapter, manifest, currentReference)).deltas, delta]
-        : [delta];
-      let segment = {
-        kind: V1_CAMPAIGN_SAVE_SEGMENT_KIND,
-        version: 1,
-        saveId: record.id,
-        sequence,
-        generation,
-        slot,
-        deltas,
-      };
-      if (deltas.length > V1_CAMPAIGN_SAVE_SEGMENT_MAX_DELTAS
-        || byteLength(segment) > V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES) {
-        sequence += 1;
-        generation = 1;
-        slot = 'a';
-        deltas = [delta];
-        segment = { ...segment, sequence, generation, slot, deltas };
-      }
-      const segmentBytes = byteLength(segment);
-      if (segmentBytes > V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES) {
-        throw saveStorageError(
-          'DIRECTIVE_V1_SAVE_DELTA_TOO_LARGE',
-          'A single campaign-state delta exceeds the active-segment byte limit.',
-          { byteLength: segmentBytes, limit: V1_CAMPAIGN_SAVE_SEGMENT_MAX_BYTES },
-        );
-      }
-      const segmentPath = V1_STORAGE_PATHS.saveSegment(record.id, sequence, slot);
-      await verifiedWrite(
-        adapter,
-        segmentPath,
-        segment,
-        (value) => assertV1CampaignSaveSegment(value, { saveId: record.id }),
-        'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_VERIFICATION_FAILED',
-        'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_FAILED',
-      );
-      const reference = {
-        path: segmentPath,
-        sequence,
-        generation,
-        slot,
-        beforeRevision: deltas[0].beforeRevision,
-        afterRevision: deltas.at(-1).afterRevision,
-        deltaCount: deltas.length,
-        byteLength: segmentBytes,
-        contentHash: await sha256Json(segment),
-        sealed: false,
-      };
-      const rolledOver = currentReference && sequence !== currentReference.sequence;
-      const earlier = currentReference
-        ? manifest.segments.slice(0, -1)
-        : [];
-      nextManifest = {
-        ...nextManifest,
-        segments: currentReference
-          ? rolledOver
-            ? [...earlier, { ...currentReference, sealed: true }, reference]
-            : [...earlier, reference]
-          : [reference],
-        currentRevision: afterRevision,
-        currentStateHash: nextHash,
-      };
-    } else if (record.state.stateCustody.revision !== previous.state.stateCustody.revision) {
-      throw saveStorageError(
-        'DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
-        'Campaign-save revision changed without a corresponding state change.',
-      );
-    }
+    const { nextManifest, writes } = await prepareSaveStateUpdate(adapter, record, manifest, previous);
     assertV1CampaignSaveManifest(nextManifest, { saveId: record.id });
+    await writePreparedSegments(adapter, writes, record.id);
+    if (manifest.branchHistory) {
+      const currentIndex = await loadIndex(adapter, { create: false });
+      captureAssert(currentIndex && currentIndex.activeSaveId === index.activeSaveId
+        && canonicalJson(await adapter.readJson(manifestPath)) === canonicalJson(manifest),
+      'Captured metadata ownership changed before publication.', 'DIRECTIVE_V1_CAPTURE_HEAD_CHANGED');
+    }
     await verifiedWrite(
       adapter,
       manifestPath,
