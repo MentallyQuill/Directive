@@ -56,6 +56,7 @@ import {
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { createTimelineTransactionService } from './timeline-transaction-service.mjs';
+import { BRANCH_DECISION_HISTORY_UNAVAILABLE, BRANCH_DECISION_HISTORY_MESSAGE, nativeBranchRefusalMatches } from './native-branch-refusal.mjs';
 import {
   acceptedPairFingerprint,
   assertAcceptedPairRecovery,
@@ -734,6 +735,30 @@ export function createDirectiveRuntimeApp({
   let gateway = null;
   let missionRuntime = null;
   let timelineTransactions = null;
+  let rejectedNativeBranch = null;
+
+  function rejectedBranchMatchesCurrentChat() {
+    if (!rejectedNativeBranch || currentChatIsBound()
+      || !['campaignId', 'saveId', 'chatId'].every(field =>
+        compact(rejectedNativeBranch.parentBinding?.[field]) === compact(state?.campaignChatBinding?.[field]))) return false;
+    const current = host.chat.getCurrentBinding?.();
+    return ['hostId', 'chatId', 'entityType', 'entityId', 'entityName'].every(field =>
+      compact(rejectedNativeBranch.childBinding?.[field]) === compact(current?.[field]));
+  }
+
+  function rejectedBranchResult(error, childBinding = null) {
+    if (error?.code !== BRANCH_DECISION_HISTORY_UNAVAILABLE) return null;
+    rejectedNativeBranch = {
+      status: 'blocked',
+      reasonCode: BRANCH_DECISION_HISTORY_UNAVAILABLE,
+      message: BRANCH_DECISION_HISTORY_MESSAGE + (error.details?.refusalPersistenceFailed
+        ? ' The block could not be saved for reload. Return to the original timeline before reloading.' : ''),
+      childBinding: clone(error.details?.childBinding || childBinding || host.chat.getCurrentBinding?.()),
+      parentBinding: clone(error.details?.parentBinding || state?.campaignChatBinding),
+    };
+    sendRuntimeUiMessage({ type: 'directive.nativeBranchRefusal.v1', payload: clone(rejectedNativeBranch) });
+    return clone(rejectedNativeBranch);
+  }
   let creatorView = null;
   let activeDraftId = null;
   let activeScreen = 'campaign';
@@ -921,15 +946,15 @@ export function createDirectiveRuntimeApp({
     return buildV1RuntimePlayerProjection({ campaignState: state, runtimeAssets });
   }
 
-  function sendGameplayNotificationMessage(message) {
+  function sendRuntimeUiMessage(message) {
     try {
       const result = host.ui?.send?.(message);
       Promise.resolve(result).catch((error) => {
-        host.logger?.warn?.('[Directive] Gameplay notification UI message failed.', error);
+        host.logger?.warn?.('[Directive] Runtime UI message failed.', error);
       });
       return true;
     } catch (error) {
-      host.logger?.warn?.('[Directive] Gameplay notification UI message failed.', error);
+      host.logger?.warn?.('[Directive] Runtime UI message failed.', error);
       return false;
     }
   }
@@ -1503,7 +1528,7 @@ export function createDirectiveRuntimeApp({
           })
           : [];
         if (notifications.length > 0) {
-          sendGameplayNotificationMessage({
+          sendRuntimeUiMessage({
             type: 'directive.gameplayNotifications.publish.v1',
             payload: { records: clone(notifications) }
           });
@@ -1754,6 +1779,11 @@ export function createDirectiveRuntimeApp({
       await ensureInitialized();
       await settlementQueue;
       assertTurnActive(progressScope);
+      if (rejectedBranchMatchesCurrentChat()) {
+        await host.prompt.clear?.({ reason: BRANCH_DECISION_HISTORY_UNAVAILABLE });
+        return { handled: true, abortDefaultGeneration: true,
+          responseStrategy: 'cancelStaleTurn', reasonCode: BRANCH_DECISION_HISTORY_UNAVAILABLE };
+      }
       if (!state || !currentChatIsBound()) {
         await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
         return { handled: false, reason: 'inactive-or-unbound' };
@@ -1875,6 +1905,7 @@ export function createDirectiveRuntimeApp({
     resetTurnProgress: () => turnProgress.resetTurnProgress(),
     isCurrentChatBound: () => currentChatIsBound(),
     getCurrentChatBinding: () => clone(state?.campaignChatBinding || null),
+    getRejectedNativeBranch: () => rejectedBranchMatchesCurrentChat() ? clone(rejectedNativeBranch) : null,
     async initialize() {
       if (initialized) return campaignViewEnvelope('campaign');
       if (initializing) {
@@ -1991,12 +2022,12 @@ export function createDirectiveRuntimeApp({
         }
         if (result.ok !== true) return result;
         const nextProjection = projectionResult()?.projection || null;
-        sendGameplayNotificationMessage({
+        sendRuntimeUiMessage({
           type: 'directive.gameplayNotifications.retire.v1',
           payload: { missionId: options.missionId, objectiveIds: [options.objectiveId] }
         });
         const notifications = deriveGameplayNotifications({ previousProjection, nextProjection });
-        if (notifications.length) sendGameplayNotificationMessage({
+        if (notifications.length) sendRuntimeUiMessage({
           type: 'directive.gameplayNotifications.publish.v1', payload: { records: clone(notifications) }
         });
         // The state is already committed: a prompt refresh failure must not invite a duplicate mutation.
@@ -2433,7 +2464,7 @@ export function createDirectiveRuntimeApp({
       turnProgress.resetTurnProgress();
       const progressScope = turnProgress.createScope();
       await ensureInitialized();
-      sendGameplayNotificationMessage({
+      sendRuntimeUiMessage({
         type: 'directive.gameplayNotifications.reset.v1',
         payload: { reason: 'chat-changed' }
       });
@@ -2447,15 +2478,23 @@ export function createDirectiveRuntimeApp({
         } catch (error) {
           await host.prompt.clear?.({ reason: 'timeline-recovery-incomplete' });
           return {
-            active: false,
-            chatId,
+            active: error?.code === BRANCH_DECISION_HISTORY_UNAVAILABLE && currentChatIsBound(),
+            chatId: compact(host.chat.getCurrentChatId?.()),
             acceptedPairReplay: null,
-            timelineFork: {
+            timelineFork: rejectedBranchResult(error) || {
               status: 'timeline-preparation-incomplete',
               reasonCode: error?.code || 'timeline-recovery-failed',
               message: error?.message || String(error)
             }
           };
+        }
+      }
+      if (!timelineFork && !currentChatIsBound()) {
+        const marker = await host.chat.getNativeBranchRefusal?.();
+        if (nativeBranchRefusalMatches(marker, { parentBinding: state?.campaignChatBinding, childBinding: host.chat.getCurrentBinding?.() })) {
+          await host.prompt.clear?.({ reason: BRANCH_DECISION_HISTORY_UNAVAILABLE });
+          return { active: false, chatId, acceptedPairReplay: null,
+            timelineFork: rejectedBranchResult({ code: BRANCH_DECISION_HISTORY_UNAVAILABLE, details: marker }) };
         }
       }
       if (!timelineFork && !currentChatIsBound() && state?.campaignChatBinding?.chatId
@@ -2473,7 +2512,7 @@ export function createDirectiveRuntimeApp({
               active: false,
               chatId,
               acceptedPairReplay: null,
-              timelineFork: {
+              timelineFork: rejectedBranchResult(error, lineage.childBinding) || {
                 status: 'timeline-preparation-incomplete',
                 reasonCode: error?.code || 'timeline-activation-failed',
                 message: error?.message || String(error)
@@ -2484,6 +2523,7 @@ export function createDirectiveRuntimeApp({
       }
       let acceptedPairReplay = null;
       if (currentChatIsBound()) {
+        rejectedNativeBranch = null;
         try {
           acceptedPairReplay = await timelineTransactions.runExclusive({
             campaignId: state.campaign.id,
@@ -2715,6 +2755,7 @@ export function createDirectiveRuntimeApp({
         configureStateRuntime();
       }
       const binding = await createOrRestoreCampaignChat();
+      if (currentChatIsBound()) rejectedNativeBranch = null;
       await syncPrompt({ rebuild: true });
       const opening = await postOpeningIfEmpty(generationSignal);
       if (currentChatIsBound()) await syncPrompt({ rebuild: true });
@@ -2777,6 +2818,7 @@ export function createDirectiveRuntimeApp({
       return enqueueStateMutation(async () => {
         const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
         const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
+        if (currentChatIsBound()) rejectedNativeBranch = null;
         return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
       }, { campaignLease: false });
     },

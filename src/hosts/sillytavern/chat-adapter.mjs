@@ -1,3 +1,4 @@
+import { createNativeBranchRefusal, nativeBranchRefusalMatches } from '../../runtime/native-branch-refusal.mjs';
 import {
   hashStableJson,
   normalizeV1HostMessageVisibility,
@@ -14,6 +15,7 @@ import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
+const DIRECTIVE_BRANCH_REFUSAL_KEY = 'directiveNativeBranchRefusal';
 const DIRECTIVE_CHARACTER_CREATOR = 'Directive';
 const DIRECTIVE_CHARACTER_CREATOR_NOTES = 'Created automatically by Directive so a campaign can start in its own SillyTavern character card and chat.';
 const SILLYTAVERN_REGENERATE_OVERSWIPE_BEHAVIOR = 'regenerate';
@@ -2601,6 +2603,45 @@ export function createSillyTavernChatAdapter({
     }
   }
 
+  function getNativeBranchRefusal() {
+    return cloneJson(readChatMetadataObject(context())?.[DIRECTIVE_BRANCH_REFUSAL_KEY] || null);
+  }
+
+  async function storeNativeBranchRefusal(marker) {
+    const ctx = context();
+    if (!nativeBranchRefusalMatches(marker, { parentBinding: marker?.parentBinding, childBinding: getCurrentBinding() })) {
+      throw new Error('The rejected child chat changed before its refusal could be saved.');
+    }
+    const record = createNativeBranchRefusal(marker);
+    const metadata = chatMetadataObject(ctx);
+    if (!metadata) throw new Error('Native branch refusal metadata is unavailable.');
+    const previous = metadata[DIRECTIVE_BRANCH_REFUSAL_KEY];
+    metadata[DIRECTIVE_BRANCH_REFUSAL_KEY] = record;
+    try {
+      await saveMetadata(ctx);
+      const assertCurrentChild = () => {
+        if (!nativeBranchRefusalMatches(record, { parentBinding: record.parentBinding, childBinding: getCurrentBinding() })) {
+          throw new Error('The rejected child chat changed while its refusal was being saved.');
+        }
+      };
+      assertCurrentChild();
+      // Native saveMetadata/saveChat can swallow failures. Read the exact saved
+      // child instead of treating a resolved native call or live metadata as proof.
+      const persisted = await loadCharacterChatSnapshot(ctx, { chatId: record.childBinding.chatId, entity: record.childBinding });
+      assertCurrentChild();
+      if (!nativeBranchRefusalMatches(persisted.metadata?.[DIRECTIVE_BRANCH_REFUSAL_KEY], record)) {
+        throw new Error('Native branch refusal metadata could not be saved.');
+      }
+    } catch (error) {
+      if (metadata[DIRECTIVE_BRANCH_REFUSAL_KEY] === record) {
+        if (previous === undefined) delete metadata[DIRECTIVE_BRANCH_REFUSAL_KEY];
+        else metadata[DIRECTIVE_BRANCH_REFUSAL_KEY] = previous;
+      }
+      throw error;
+    }
+    return true;
+  }
+
   async function updateBindingMetadata(binding) {
     const ctx = context();
     if (!ctx) return false;
@@ -2833,6 +2874,8 @@ export function createSillyTavernChatAdapter({
     continueHostGeneration,
     updateBindingMetadata,
     getBindingMetadata,
+    getNativeBranchRefusal,
+    storeNativeBranchRefusal,
     getOpeningRecord,
     setOpeningRecord,
     open,

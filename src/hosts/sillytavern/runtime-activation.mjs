@@ -2,9 +2,10 @@ import { exposeGlobalBridge } from '../../extension/global-bridge.js';
 import { refreshRuntimeSafely } from '../../extension/runtime-mount.js';
 import { installBlankSendContinue } from './blank-send-continue.js';
 import { installDirectiveLauncherButton } from './directive-launcher-button.js';
-import { wireEvents } from './shell-events.js';
+import { wireEvents, presentNativeBranchRefusal } from './shell-events.js';
 import {
   installDirectiveGenerationInterceptor,
+  getSillyTavernDirectiveRuntimeBridge,
   setSillyTavernDirectiveRuntimeEnabled
 } from './runtime-bridge.mjs';
 
@@ -25,5 +26,6 @@ export async function activateSillyTavernDirectiveRuntime({ context = null } = {
   installBlankSendContinue({ root: resolvedContext?.document || globalThis.document });
   installDirectiveLauncherButton();
   await refreshRuntimeSafely();
+  presentNativeBranchRefusal(getSillyTavernDirectiveRuntimeBridge().runtimeApp?.getRejectedNativeBranch?.());
   return { enabled: true };
 }

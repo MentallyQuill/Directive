@@ -3,6 +3,7 @@ import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-a
 import { createFakeEventAdapter } from '../../src/hosts/fake/fake-host.mjs';
 import {
   __directiveEventTestHooks,
+  handleNativeBranchRefusalUiMessage,
   disposeSillyTavernDirectiveEventLifecycle,
   wireEvents
 } from '../../src/hosts/sillytavern/shell-events.js';
@@ -522,5 +523,105 @@ try {
   Date.now = realNow;
   globalThis.setTimeout = realSetTimeout;
 }
+
+// A refused native child gets visible, deduplicated recovery without an ineffective Retry.
+installFakeDom();
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
+registerRuntimeAction('runtime.refresh', () => ({ refreshed: true }));
+const refusedParentBinding = { hostId: 'fake', campaignId: 'campaign.refused', saveId: 'save.parent', chatId: 'chat.parent', entityType: 'character', entityId: '7', entityName: 'Captain' };
+let refusedChildId = 'chat.refused-one';
+let parentOpens = 0;
+let ordinaryRefusalChat = false;
+setSillyTavernDirectiveRuntimeBridge({
+  app: {
+    getCurrentChatBinding: () => refusedParentBinding,
+    isCurrentChatBound: () => false,
+    async openCampaignChat() { parentOpens += 1; return { ok: true }; },
+    async handleHostChatChanged() { if (ordinaryRefusalChat) return { active: false, timelineFork: null }; return { active: false, timelineFork: {
+      status: 'blocked', reasonCode: 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE',
+      parentBinding: refusedParentBinding, childBinding: { ...refusedParentBinding, chatId: refusedChildId },
+      message: 'Directive cannot attach this earlier branch. Your original timeline is unchanged. Use Campaign Continue, or Campaign Load Game to choose an earlier checkpoint if one is available.'
+    } }; },
+  },
+  directiveHost: { chat: { getCurrentChatId: () => refusedChildId, getCurrentBinding: () => ({ ...refusedParentBinding, chatId: refusedChildId }) } },
+  turnOrchestrator: { async interceptGeneration() { return { handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE' }; } },
+});
+let refusalAborted = false;
+const refusalGeneration = await directiveGenerationInterceptor([], 4096, () => { refusalAborted = true; }, 'normal');
+assert.equal(refusalGeneration.abortDefaultGeneration, true);
+assert.equal(refusalAborted, true);
+await __directiveEventTestHooks.handleChatChanged();
+let refusalDialog = document.querySelector('.branch-history-dialog-overlay');
+assert.ok(refusalDialog, 'the dedicated refusal must be visible');
+const allRefusalNodes = root => [root, ...root.children.flatMap(allRefusalNodes)];
+assert.equal(refusalDialog.querySelector('.timeline-dialog').getAttribute('role'), 'dialog');
+assert.match(allRefusalNodes(refusalDialog).map(node => node.textContent).join(' '), /original timeline is unchanged/);
+assert.match(allRefusalNodes(refusalDialog).map(node => node.textContent).join(' '), /if one is available/);
+assert.ok(!allRefusalNodes(refusalDialog).some(node => /retry/i.test(node.textContent)));
+await __directiveEventTestHooks.handleChatChanged();
+assert.equal(document.querySelector('.branch-history-dialog-overlay'), refusalDialog, 'same exact parent/child identity is deduplicated');
+await refusalDialog.querySelector('.campaign-command-primary').click();
+assert.equal(parentOpens, 1);
+assert.equal(refusalDialog.isConnected, false);
+await __directiveEventTestHooks.handleChatChanged();
+assert.equal(document.querySelector('.branch-history-dialog-overlay'), null, 'dismissed duplicate remains deduplicated');
+refusedChildId = 'chat.refused-two';
+await __directiveEventTestHooks.handleChatChanged();
+assert.ok(document.querySelector('.branch-history-dialog-overlay'), 'a different rejected child has its own explanation');
+ordinaryRefusalChat = true;
+refusedChildId = 'chat.ordinary';
+await __directiveEventTestHooks.handleChatChanged();
+assert.equal(document.querySelector('.branch-history-dialog-overlay'), null, 'unrelated ordinary chat must not retain the focus-trapping refusal dialog');
+
+let releaseRefusalRefresh;
+let reportRefusalRefresh;
+const refusalRefreshStarted = new Promise(resolve => { reportRefusalRefresh = resolve; });
+const refusalRefreshHeld = new Promise(resolve => { releaseRefusalRefresh = resolve; });
+let holdRefusalRefresh = true;
+registerRuntimeAction('runtime.refresh', async () => {
+  if (holdRefusalRefresh) { holdRefusalRefresh = false; reportRefusalRefresh(); await refusalRefreshHeld; }
+  return { refreshed: true };
+}, { replace: true });
+ordinaryRefusalChat = false;
+refusedChildId = 'chat.delayed-refusal';
+const delayedRefusal = __directiveEventTestHooks.handleChatChanged();
+await refusalRefreshStarted;
+ordinaryRefusalChat = true;
+refusedChildId = 'chat.ordinary-after-delay';
+await __directiveEventTestHooks.handleChatChanged();
+releaseRefusalRefresh();
+await delayedRefusal;
+assert.equal(document.querySelector('.branch-history-dialog-overlay'), null, 'an older delayed refresh must not reopen the rejected-child dialog over another chat');
+ordinaryRefusalChat = false;
+refusedChildId = 'chat.visible-before-delay';
+await __directiveEventTestHooks.handleChatChanged();
+assert.ok(document.querySelector('.branch-history-dialog-overlay'));
+let releaseSilentRefresh;
+let reportSilentRefresh;
+const silentRefreshStarted = new Promise(resolve => { reportSilentRefresh = resolve; });
+const silentRefreshHeld = new Promise(resolve => { releaseSilentRefresh = resolve; });
+registerRuntimeAction('runtime.refresh', async () => {
+  reportSilentRefresh(); await silentRefreshHeld; return { refreshed: true };
+}, { replace: true });
+const silentSwitch = __directiveEventTestHooks.handleChatChanged();
+await silentRefreshStarted;
+refusedChildId = 'chat.changed-before-event-delivery';
+releaseSilentRefresh();
+await silentSwitch;
+assert.equal(Boolean(document.querySelector('.branch-history-dialog-overlay')), false,
+  'existing modal must close after host identity changes during refresh even before the next event is delivered');
+refusedChildId = 'chat.same-child-different-parent';
+const staleParentRefusal = { status: 'blocked', reasonCode: 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE',
+  parentBinding: structuredClone(refusedParentBinding), childBinding: { ...refusedParentBinding, chatId: refusedChildId }, message: 'Earlier branch unavailable.' };
+refusedParentBinding.saveId = 'save.different-active-parent';
+handleNativeBranchRefusalUiMessage({ type: 'directive.nativeBranchRefusal.v1', payload: staleParentRefusal });
+assert.equal(Boolean(document.querySelector('.branch-history-dialog-overlay')), false,
+  'delivered refusal for a different active parent must not show even when the child chat identity matches');
+
+
+
+disposeSillyTavernDirectiveEventLifecycle();
+clearSillyTavernDirectiveRuntimeBridge();
+__directiveRuntimeActionTestHooks.clearRuntimeActions();
 
 console.log('PASS V1 SillyTavern event wiring');

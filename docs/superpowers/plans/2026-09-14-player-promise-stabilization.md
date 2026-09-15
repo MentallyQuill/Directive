@@ -50,6 +50,20 @@
 - [ ] Exercise edit/delete invalidation, repeated checkpoint loads, stale session writes, and interruption boundaries.
 - [ ] Verify exact source/swipe bindings, accepted state, unchanged parent checkpoints, and absence of duplicate rewards.
 
+### Reproduced branch-history defect: bounded containment slice
+
+Native installed-host reproduction on `2ccc90b` proves that an earlier transcript branch retains a later manual objective correction. Current saves store neither correction chronology nor a complete restorable base for effects removed by corrections. A decision journal alone is therefore not yet a sufficient historical reconstruction design.
+
+- [x] Add a shared pure preflight for exact truncating branches with objective decisions in current or archived mission occurrences. Reject ambiguous history with `DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE`; preserve full-tail branches and untouched no-control truncations. Do not infer decision time from mission revisions.
+- [x] Run preflight under the timeline lease before storing an operation, preserving a checkpoint, or publishing a child save. Keep the same invariant in direct reconstruction. Existing completed operations and immutable checkpoint loads remain usable.
+- [x] Surface a specific deduplicated player-facing explanation: the native child exists but Directive cannot attach it; the original timeline is unchanged; return through Campaign Continue or load an available checkpoint. Do not offer an ineffective Retry. Add a narrowly scoped rejected-child generation blocker, re-detected after reload and cleared on valid recovery; only then may the UI say generation is paused. Unrelated ordinary chats remain usable.
+- [x] A refusal marker may be saved only in the exact native child chat's metadata, carrying child/parent identity and the refusal reason, never campaign authority or permission to adopt a changed transcript. Verify the marker through an exact saved-child read; native save resolution is not a persistence acknowledgment. If saving is unverified, retain the current-session block and explain that reload protection was not saved. Close stale dialogs when changing chats, including ordinary chats and deferred refresh races.
+- [x] If an interrupted older operation reaches the new refusal, verify exact journal ownership, pre-switch stage, and active parent before any unwind. Preserve checkpoints and child chats. Never cancel a switched or unrelated operation.
+- [x] Red-green tests cover resolve/reopen/resume, archived controls, a control after an unaccepted draft, same-tail/no-control cases, parent immutability, no pending-operation deadlock, and successful checkpoint recovery after refusal.
+- [ ] Independent review, focused/full gate, installed native refusal and recovery proof, then publish the containment to main.
+
+**Ruling:** This is integrity containment, not completion of fork-time decision inheritance. Full anchored history with reconstructible correction effects and mission-run rollback stays open in the goal. No blanket deletion or invented chronology is permitted.
+
 ## Task 4: Private briefing and spoiler safety
 
 **Files to trace:** `src/story/continuity-analyst.mjs`, `src/story/character-information.mjs`, narration projection, existing character-information evaluation scripts.

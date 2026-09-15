@@ -20,10 +20,12 @@ import {
   removeDirectiveGenerationInterceptor,
   setSillyTavernDirectiveRuntimeBridge,
 } from './runtime-bridge.mjs';
-import { disposeSillyTavernDirectiveEventLifecycle } from './shell-events.js';
+import { disposeSillyTavernDirectiveEventLifecycle, handleNativeBranchRefusalUiMessage } from './shell-events.js';
 import { removeGlobalBridge } from '../../extension/global-bridge.js';
 
 export function handleDirectiveUiMessage(message) {
+  const refusal = handleNativeBranchRefusalUiMessage(message);
+  if (refusal.handled) return refusal;
   const result = handleModelOutputLimitUiMessage(message, { onOpenSettings: openAnalysisCapacitySettings });
   return result.handled ? result : handleGameplayNotificationUiMessage(message);
 }

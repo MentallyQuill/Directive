@@ -1,7 +1,8 @@
+import { createNativeBranchRefusal } from './native-branch-refusal.mjs';
 import { createV1CampaignSave } from '../storage/v1-storage-repository.mjs';
 import { hashStableJson } from './v1-host-message-contracts.mjs';
 import { createNativeBranchTranscriptAttestation } from './native-branch-lineage.mjs';
-import { reconstructV1BranchState, rebindV1CampaignStateCustody } from './v1-branch-reconstruction.mjs';
+import { reconstructV1BranchState, rebindV1CampaignStateCustody, preflightV1BranchDecisionHistory, BRANCH_DECISION_HISTORY_UNAVAILABLE } from './v1-branch-reconstruction.mjs';
 import { V1_TIMELINE_OPERATION_STAGES } from './timeline-operation-journal.mjs';
 import { formatStardate } from '../time/ship-time.mjs';
 
@@ -174,6 +175,34 @@ export function createTimelineTransactionService({
     return cloned;
   }
 
+  async function retireRejectedNativeBranch(operation, parentState) {
+    const preSwitchStages = new Set(['detected', 'parent-preserved', 'child-derived', 'child-persisted', 'child-binding-written']);
+    const ownsParent = operation.operationType === 'native-branch'
+      && preSwitchStages.has(operation.stage)
+      && operation.parentSaveId === controller.getActiveSave()?.id
+      && operation.campaignId === parentState.campaign.id
+      && exactChatBindingMatches(operation.parentBinding, parentState.campaignChatBinding);
+    const verifyOwnership = async () => {
+      const index = await controller.getStorageIndex();
+      const current = await controller.loadTimelineOperation({ campaignId: operation.campaignId });
+      if (!ownsParent || index.activeSaveId !== operation.parentSaveId
+        || JSON.stringify(current) !== JSON.stringify(operation)) {
+        throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_POINTER_CONFLICT', 'The rejected branch operation no longer owns the active parent timeline.');
+      }
+      await controller.assertActiveTimelineCurrent?.();
+    };
+    await verifyOwnership();
+    const opened = typeof openCampaignChat === 'function'
+      ? await openCampaignChat(operation.parentBinding)
+      : await chat.openCampaignChat?.(operation.parentBinding);
+    if (opened === false || !exactChatBindingMatches(operation.parentBinding, chat.getCurrentBinding?.())) {
+      throw transactionError('DIRECTIVE_TIMELINE_RECOVERY_UNPROVEN', 'The original campaign chat could not be reopened exactly.');
+    }
+    await verifyOwnership();
+    // Only the exact, uncommitted journal is retired. Checkpoints and child data stay intact.
+    await controller.deleteTimelineOperation({ campaignId: operation.campaignId });
+  }
+
   async function executeNativeBranch(lineage) {
     await controller.assertActiveTimelineCurrent?.();
     const parentSave = controller.getActiveSave();
@@ -198,10 +227,27 @@ export function createTimelineTransactionService({
       lineageHash: lineage.lineageHash
     })}`;
     let operation = await controller.loadTimelineOperation({ campaignId: parentSave.campaignId });
-    if (operation?.operationId !== operationId) {
-      if (operation && operation.stage !== 'completed') {
-        throw transactionError('DIRECTIVE_TIMELINE_OPERATION_CONFLICT', 'Another timeline operation requires recovery.', { operationId: operation.operationId });
+    if (operation && operation.operationId !== operationId && operation.stage !== 'completed') {
+      throw transactionError('DIRECTIVE_TIMELINE_OPERATION_CONFLICT', 'Another timeline operation requires recovery.', { operationId: operation.operationId });
+    }
+    if (operation?.operationId !== operationId || !stageAtLeast(operation, 'active-pointer-switched')) {
+      try {
+        preflightV1BranchDecisionHistory({ parentState, parentMessages: lineage.parentMessages, childMessages: lineage.childMessages });
+      } catch (error) {
+        if (error?.code === BRANCH_DECISION_HISTORY_UNAVAILABLE) {
+          error.details = { ...error.details, childBinding: clone(lineage.childBinding) };
+          try {
+            const marker = createNativeBranchRefusal({ parentBinding: parentState.campaignChatBinding, childBinding: lineage.childBinding });
+            if (await chat.storeNativeBranchRefusal?.(marker) !== true) throw new Error('The host cannot save the branch refusal.');
+          } catch {
+            error.details.refusalPersistenceFailed = true;
+          }
+          if (operation?.operationId === operationId) await retireRejectedNativeBranch(operation, parentState);
+        }
+        throw error;
       }
+    }
+    if (operation?.operationId !== operationId) {
       const childSaveId = nextId('save');
       operation = {
         kind: 'directive.timelineOperation.v1',

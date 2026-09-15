@@ -1,3 +1,5 @@
+import { createNativeBranchRefusal, nativeBranchRefusalMatches } from '../../src/runtime/native-branch-refusal.mjs';
+import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-adapter.mjs';
 import assert from 'node:assert/strict';
 import {
   createNativeBranchLineage,
@@ -251,5 +253,72 @@ assert.equal(longLineage.ok, true);
 assert.equal(longLineage.normalizedParentMessages.length, 5000);
 assert.equal(longLineage.normalizedChildMessages.length, 3750);
 assert.equal(longLineage.endpointHostMessageId, 'long.3749');
+
+// Refusal metadata survives a host reload without becoming a campaign binding.
+const markerParent = { ...parentBinding, entityId: '0' };
+const markerChild = { ...markerParent, chatId: 'refused-child', saveId: null };
+const refusal = createNativeBranchRefusal({ parentBinding: markerParent, childBinding: markerChild });
+let persistedChildMetadata = null;
+let markerWrites = 0;
+let markerContext = {
+  chatId: markerChild.chatId, characterId: 0,
+  characters: [{ name: markerParent.entityName, avatar: 'captain.png', chat: markerChild.chatId }],
+  chat: [{ id: 'prefix', mes: 'Retained transcript.' }],
+  chatMetadata: { main_chat: markerParent.chatId, unrelated: { preserved: true } },
+  async saveMetadata() { markerWrites += 1; persistedChildMetadata = structuredClone(this.chatMetadata); },
+  async fetch(url, options) {
+    assert.equal(url, '/api/chats/get');
+    const request = JSON.parse(options.body);
+    assert.equal(request.file_name, markerChild.chatId);
+    assert.equal(request.ch_name, markerParent.entityName);
+    assert.equal(request.avatar_url, 'captain.png');
+    return { ok: true, async json() { return [{ chat_metadata: structuredClone(persistedChildMetadata || {}) }, ...transcriptBeforeMarker]; } };
+  },
+};
+const markerAdapter = createSillyTavernChatAdapter({ contextFactory: () => markerContext });
+const transcriptBeforeMarker = structuredClone(markerContext.chat);
+await markerAdapter.storeNativeBranchRefusal(refusal);
+assert.equal(markerWrites, 1);
+assert.equal(markerAdapter.getBindingMetadata(), null, 'refusal creates no campaign binding');
+assert.deepEqual(markerContext.chat, transcriptBeforeMarker, 'marker does not change transcript');
+assert.deepEqual(persistedChildMetadata.unrelated, { preserved: true });
+markerContext = { ...markerContext, chatMetadata: JSON.parse(JSON.stringify(persistedChildMetadata)),
+  chat: [...transcriptBeforeMarker, { id: 'new-user', is_user: true, mes: 'Continue this branch.' }] };
+const reloadedMarkerAdapter = createSillyTavernChatAdapter({ contextFactory: () => markerContext });
+assert.equal(nativeBranchRefusalMatches(reloadedMarkerAdapter.getNativeBranchRefusal(), {
+  parentBinding: markerParent, childBinding: reloadedMarkerAdapter.getCurrentBinding(),
+}), true);
+for (const differentParent of [{ ...markerParent, saveId: 'save.other' }, { ...markerParent, campaignId: 'campaign.other' }, { ...markerParent, chatId: 'chat.other-parent' }]) {
+  assert.equal(nativeBranchRefusalMatches(refusal, { parentBinding: differentParent, childBinding: markerChild }), false,
+    'refusal grants no control over another active parent timeline');
+}
+assert.equal(nativeBranchRefusalMatches({ ...refusal, version: 2 }, { parentBinding: markerParent, childBinding: markerChild }), false);
+markerContext.chatId = 'ordinary-chat';
+await assert.rejects(reloadedMarkerAdapter.storeNativeBranchRefusal(refusal), /rejected child chat changed/);
+assert.equal(markerWrites, 1, 'a moved host chat must not receive another child marker');
+assert.equal(nativeBranchRefusalMatches(refusal, { parentBinding: markerParent, childBinding: reloadedMarkerAdapter.getCurrentBinding() }), false);
+markerContext.chatId = markerChild.chatId;
+markerContext.chatMetadata = { main_chat: markerParent.chatId, unrelated: { preserved: true } };
+markerContext.chat_metadata = markerContext.chatMetadata;
+markerContext.saveMetadata = async () => { throw new Error('marker-write-failed'); };
+await assert.rejects(reloadedMarkerAdapter.storeNativeBranchRefusal(refusal), /marker-write-failed/);
+assert.equal(reloadedMarkerAdapter.getNativeBranchRefusal(), null, 'failed marker persistence rolls back the in-memory host metadata');
+assert.deepEqual(markerContext.chatMetadata, { main_chat: markerParent.chatId, unrelated: { preserved: true } });
+persistedChildMetadata = null;
+markerContext.saveMetadata = async () => {}; // Native ST may swallow timeout/network failures.
+await assert.rejects(reloadedMarkerAdapter.storeNativeBranchRefusal(refusal), /could not be saved/);
+assert.equal(reloadedMarkerAdapter.getNativeBranchRefusal(), null, 'a resolved no-op native save must not be called durable');
+const switchedMetadata = { main_chat: 'another-parent', unrelated: { changedChat: true } };
+markerContext.saveMetadata = async () => {
+  // Model a global native save that resumes after the host switched chats.
+  await Promise.resolve();
+  markerContext.chatId = 'switched-during-save';
+  markerContext.chatMetadata = switchedMetadata;
+  markerContext.chat_metadata = switchedMetadata;
+};
+await assert.rejects(reloadedMarkerAdapter.storeNativeBranchRefusal(refusal), /rejected child chat changed/);
+assert.deepEqual(switchedMetadata, { main_chat: 'another-parent', unrelated: { changedChat: true } },
+  'a save-time switch must not introduce the refusal marker into the new chat');
+assert.equal(reloadedMarkerAdapter.getNativeBranchRefusal(), null);
 
 console.log('native branch lineage tests passed');

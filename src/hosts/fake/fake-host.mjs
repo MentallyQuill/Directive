@@ -1,3 +1,4 @@
+import { createNativeBranchRefusal, nativeBranchRefusalMatches } from '../../runtime/native-branch-refusal.mjs';
 import {
   createHostCapabilities,
   createHostContractError,
@@ -226,6 +227,7 @@ export function createFakeChatAdapter({
   let currentChatId = chatId;
   let binding = null;
   const metadataByChatId = new Map();
+  const nativeBranchRefusals = new Map();
   const openingRecords = new Map();
   const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
@@ -748,6 +750,15 @@ export function createFakeChatAdapter({
         branchIntent
       });
     },
+    getNativeBranchRefusal() { return cloneJson(nativeBranchRefusals.get(String(currentChatId)) || null); },
+    async storeNativeBranchRefusal(marker) {
+      if (!nativeBranchRefusalMatches(marker, { parentBinding: marker.parentBinding, childBinding: this.getCurrentBinding() })) {
+        throw new Error('The rejected child chat changed before its refusal could be saved.');
+      }
+      nativeBranchRefusals.set(String(currentChatId), createNativeBranchRefusal(marker));
+      calls.push({ type: 'storeNativeBranchRefusal', chatId: currentChatId });
+      return true;
+    },
     async updateBindingMetadata(nextBinding) {
       storeBinding({
         ...cloneJson(nextBinding),
@@ -778,6 +789,7 @@ export function createFakeChatAdapter({
         return { deleted: false, reason: 'active-chat' };
       }
       metadataByChatId.delete(String(chatId));
+      nativeBranchRefusals.delete(String(chatId));
       openingRecords.delete(String(chatId));
       const deleted = chatsById.delete(String(chatId));
       calls.push({ type: 'deleteCampaignChat', chatId });
@@ -796,6 +808,7 @@ export function createFakeChatAdapter({
       const deletedChatIds = [...chatsById.keys()];
       chatsById.clear();
       metadataByChatId.clear();
+      nativeBranchRefusals.clear();
       openingRecords.clear();
       nativeMainChatByChatId.clear();
       binding = null;

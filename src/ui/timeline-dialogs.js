@@ -64,6 +64,42 @@ function appendDialogActions(dialog, { primaryLabel, primaryDisabled = false, on
   return { actions, cancel, primary };
 }
 
+export function createBranchHistoryUnavailableDialog({ message, onOpenParent, opener = null } = {}) {
+  const frame = createDialogFrame({ title: 'Earlier branch unavailable', className: 'branch-history-dialog-overlay', opener });
+  const explanation = createElement('p', 'timeline-dialog-copy');
+  explanation.textContent = message;
+  const error = createElement('p', 'timeline-dialog-error');
+  error.setAttribute('role', 'alert');
+  error.hidden = true;
+  frame.dialog.append(explanation, error);
+  let busy = false;
+  const controls = appendDialogActions(frame.dialog, {
+    primaryLabel: 'Open campaign timeline', close: frame.close,
+    onPrimary: async () => {
+      if (busy) return;
+      busy = true;
+      error.hidden = true;
+      const restore = setButtonBusy(controls.primary, true, { label: 'Opening...' });
+      try {
+        const opened = await onOpenParent();
+        if (opened?.ok === false) throw new Error('The original timeline could not be opened. Use Campaign Continue to return to it.');
+        frame.close('parent-opened');
+      } catch (cause) {
+        if (frame.isOpen()) {
+          error.textContent = cause?.message || 'The original timeline could not be opened.';
+          error.hidden = false;
+        }
+      } finally {
+        busy = false;
+        restore();
+      }
+    },
+  });
+  controls.cancel.textContent = 'Close';
+  controls.primary.focus?.({ preventScroll: true });
+  return { ...frame, ...controls, error };
+}
+
 export function createSaveGameDialog({ campaign, opener = null, onSave = null, onSaved = null } = {}) {
   const frame = createDialogFrame({ title: 'Save Game', className: 'save-game-dialog-overlay', opener });
   const explanation = createElement('p', 'timeline-dialog-copy');

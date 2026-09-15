@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { adjustMissionObjectiveProgress } from '../../src/mission/v1/objective-progress.mjs';
+import { reconstructV1BranchState, preflightV1BranchDecisionHistory } from '../../src/runtime/v1-branch-reconstruction.mjs';
 
 import {
   createFakeChatAdapter,
@@ -58,7 +60,7 @@ releaseFirstLease();
 await Promise.all([firstLease, secondLease]);
 assert.deepEqual(leaseOrder, ['first-enter', 'first-exit', 'second-enter']);
 
-async function harness({ afterStage = null } = {}) {
+async function harness({ afterStage = null, controlAction = null, endpointIndex = 0 } = {}) {
   const storage = createFakeJsonStorage();
   const parentState = createAshesInitialState({
     campaignId: 'campaign.branch',
@@ -72,6 +74,14 @@ async function harness({ afterStage = null } = {}) {
     entityId: '7',
     entityName: 'Ashes of Peace - Sam Vickers'
   };
+  if (controlAction) {
+    const definition = assets.missionDefinitions.find(item => item.id === parentState.mission.v1.definitionId);
+    const objective = definition.objectives.find(item => parentState.mission.v1.objectives[item.id].visibility !== 'hidden');
+    parentState.mission.v1 = adjustMissionObjectiveProgress({
+      definition, state: parentState.mission.v1, objectiveId: objective.id,
+      action: controlAction, disposition: objective.terminalWhen[0].disposition,
+    }).state;
+  }
   const parentSave = createV1CampaignSave({
     id: 'save.parent',
     name: 'Sam Vickers - Ashes of Peace',
@@ -89,7 +99,7 @@ async function harness({ afterStage = null } = {}) {
     ]
   });
   await chat.updateBindingMetadata(parentState.campaignChatBinding);
-  chat.createNativeBranch({ endpointIndex: 0, childChatId: 'renamed-native-child' });
+  chat.createNativeBranch({ endpointIndex, childChatId: 'renamed-native-child' });
   const lineage = await chat.inspectNativeBranchCandidate({ parentBinding: parentState.campaignChatBinding });
   assert.equal(lineage.ok, true);
   const controller = createCampaignStartController({
@@ -118,6 +128,96 @@ async function harness({ afterStage = null } = {}) {
   });
   return { storage, parentState, chat, lineage, controller, prompt, service, getState: () => state };
 }
+
+// Latest control revisions have no transcript chronology, even after unaccepted drafts.
+const historyUnavailable = error => error?.code === 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE';
+for (const controlAction of ['resolve', 'reopen', 'resume']) {
+  const test = await harness({ controlAction });
+  const beforeState = structuredClone(test.getState());
+  const beforeStorage = test.storage.snapshot();
+  let writes = 0;
+  const writeJson = test.storage.writeJson;
+  test.storage.writeJson = async (...args) => { writes += 1; return writeJson(...args); };
+  await assert.rejects(test.service.adoptNativeBranch(test.lineage), historyUnavailable, controlAction);
+  assert.equal(writes, 0, 'refusal precedes journal/checkpoint/child/pointer writes');
+  assert.deepEqual(test.storage.snapshot(), beforeStorage);
+  assert.deepEqual(test.getState(), beforeState);
+  assert.equal(await test.controller.loadTimelineOperation({ campaignId: 'campaign.branch' }), null);
+  await assert.rejects(reconstructV1BranchState({
+    parentState: beforeState, parentMessages: test.lineage.parentMessages,
+    childMessages: test.lineage.childMessages, targetSaveId: 'save.direct-child',
+    targetChatBinding: { ...beforeState.campaignChatBinding, saveId: 'save.direct-child', chatId: 'chat.direct-child' },
+    runtimeAssets: assets,
+  }), historyUnavailable, 'direct callers cannot bypass preflight');
+  const fullTail = await harness({ controlAction, endpointIndex: 1 });
+  const fullTailResult = await fullTail.service.adoptNativeBranch(fullTail.lineage);
+  assert.equal(fullTailResult.status, 'activated');
+  assert.deepEqual(fullTail.getState().mission.v1.objectiveDecisions, beforeState.mission.v1.objectiveDecisions);
+}
+
+const archivedControl = await harness({ controlAction: 'resume' });
+const archivedState = structuredClone(archivedControl.getState());
+archivedState.mission.v1History = [{ state: structuredClone(archivedState.mission.v1) }];
+archivedState.mission.v1.objectiveDecisions = {};
+assert.throws(() => preflightV1BranchDecisionHistory({ parentState: archivedState,
+  parentMessages: archivedControl.lineage.parentMessages, childMessages: archivedControl.lineage.childMessages }),
+  historyUnavailable, 'archived controls also lack fork chronology');
+
+const blockedAppTest = await harness({ controlAction: 'reopen' });
+await blockedAppTest.controller.prepareTimelineCheckpoint({ checkpointId: 'checkpoint.before-refusal', name: 'Available checkpoint', campaignState: blockedAppTest.getState() });
+const blockedHost = createFakeDirectiveHost({ chatNative: true, chat: blockedAppTest.chat, storage: blockedAppTest.storage });
+let blockedId = 0;
+const newBlockedApp = () => createDirectiveRuntimeApp({ host: blockedHost,
+  packageLoader: async () => structuredClone(records),
+  idFactory: prefix => `${prefix}.blocked.${++blockedId}`, now: () => fixedNow });
+const blockedApp = newBlockedApp();
+await blockedApp.initialize();
+const refused = await blockedApp.handleHostChatChanged();
+assert.equal(refused.timelineFork.status, 'blocked');
+assert.equal(refused.timelineFork.reasonCode, 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE');
+assert.equal(refused.timelineFork.childBinding.chatId, 'renamed-native-child');
+assert.equal(refused.timelineFork.parentBinding.saveId, 'save.parent');
+assert.equal(refused.active, false);
+const blockedGeneration = await blockedApp.getChatTurnOrchestrator().interceptGeneration();
+assert.equal(blockedGeneration.handled, true);
+assert.equal(blockedGeneration.abortDefaultGeneration, true);
+assert.equal(blockedGeneration.reasonCode, refused.timelineFork.reasonCode);
+blockedAppTest.chat.pushPlayerMessage({ text: 'Continue from this branch.', hostMessageId: 'unaccepted.player.draft' });
+const reloadedBlockedApp = newBlockedApp();
+await reloadedBlockedApp.initialize();
+assert.equal((await reloadedBlockedApp.getChatTurnOrchestrator().interceptGeneration()).abortDefaultGeneration, true,
+  'reload retains refusal after an appended player draft without adopting the changed transcript');
+blockedAppTest.chat.setCurrentChatId('chat.unrelated');
+assert.equal((await reloadedBlockedApp.getChatTurnOrchestrator().interceptGeneration()).handled, false,
+  'ordinary unrelated chat still passes through');
+blockedAppTest.chat.setCurrentChatId('renamed-native-child');
+await reloadedBlockedApp.openCampaignChat();
+assert.equal(blockedAppTest.chat.getCurrentChatId(), 'chat.parent', 'Campaign Continue opens the authoritative parent');
+assert.equal((await reloadedBlockedApp.handleHostChatChanged()).active, true);
+blockedAppTest.chat.setCurrentChatId('renamed-native-child');
+assert.equal((await reloadedBlockedApp.handleHostChatChanged()).timelineFork.status, 'blocked');
+const recoveredCheckpoint = await reloadedBlockedApp.loadGame({ savedGameId: 'checkpoint.before-refusal' });
+assert.equal(recoveredCheckpoint.transaction.status, 'activated', 'checkpoint recovery is not deadlocked by refusal');
+assert.equal(reloadedBlockedApp.isCurrentChatBound(), true);
+assert.deepEqual(recoveredCheckpoint.timeline.state.mission.v1.objectiveDecisions, blockedAppTest.parentState.mission.v1.objectiveDecisions);
+blockedAppTest.chat.setCurrentChatId('renamed-native-child');
+assert.equal((await reloadedBlockedApp.handleHostChatChanged()).timelineFork, null, 'marker for the old parent does not govern the newly loaded timeline');
+assert.equal((await reloadedBlockedApp.getChatTurnOrchestrator().interceptGeneration()).handled, false);
+
+const failedRefusalMarker = await harness({ controlAction: 'resume' });
+failedRefusalMarker.chat.storeNativeBranchRefusal = async () => { throw new Error('marker-storage-unavailable'); };
+const failedMarkerApp = createDirectiveRuntimeApp({
+  host: createFakeDirectiveHost({ chatNative: true, chat: failedRefusalMarker.chat, storage: failedRefusalMarker.storage }),
+  packageLoader: async () => structuredClone(records), now: () => fixedNow,
+});
+await failedMarkerApp.initialize();
+const failedMarkerResult = await failedMarkerApp.handleHostChatChanged();
+assert.equal(failedMarkerResult.timelineFork.status, 'blocked');
+assert.match(failedMarkerResult.timelineFork.message, /block could not be saved for reload/);
+assert.equal((await failedMarkerApp.getChatTurnOrchestrator().interceptGeneration()).abortDefaultGeneration, true,
+  'marker write failure must still block the current rejected child');
+assert.equal(await failedRefusalMarker.controller.loadTimelineOperation({ campaignId: 'campaign.branch' }), null);
+
 
 const stages = [
   'detected', 'parent-preserved', 'child-derived', 'child-persisted',
@@ -161,6 +261,60 @@ for (const failedStage of stages) {
   const summaries = await listV1CampaignSaves(test.storage);
   assert.equal(summaries.filter((save) => save.slotType === 'checkpoint').length, 1);
 }
+
+// Simulate an operation journal created by the earlier build, before this guard existed.
+for (const pendingStage of ['detected', 'parent-preserved', 'child-derived', 'child-persisted', 'child-binding-written']) {
+  let legacyInterrupted = false;
+  const legacyPending = await harness({ afterStage(stage) {
+    if (!legacyInterrupted && stage === pendingStage) { legacyInterrupted = true; throw new Error('legacy-pending-stop'); }
+  } });
+  await assert.rejects(legacyPending.service.adoptNativeBranch(legacyPending.lineage), /legacy-pending-stop/);
+  const controlledParent = (await harness({ controlAction: 'resume' })).parentState;
+  controlledParent.stateCustody.revision += 1;
+  controlledParent.stateCustody.recentCommitIds.push('legacy.control');
+  Object.assign(legacyPending.getState(), structuredClone(controlledParent));
+  await legacyPending.controller.persistActiveCampaign({ campaignState: controlledParent });
+  const operationBefore = await legacyPending.controller.loadTimelineOperation({ campaignId: 'campaign.branch' });
+  const parentBefore = await loadV1CampaignSave(legacyPending.storage, 'save.parent');
+  const recordsBeforeRetirement = legacyPending.storage.snapshot();
+  await assert.rejects(legacyPending.service.recoverActiveOperation({ campaignId: 'campaign.branch' }), historyUnavailable);
+  assert.equal(await legacyPending.controller.loadTimelineOperation({ campaignId: 'campaign.branch' }), null,
+    `${pendingStage}: exactly owned pre-switch journal must retire without pretending completion`);
+  assert.equal(legacyPending.chat.getCurrentChatId(), 'chat.parent');
+  const withoutJournal = snapshot => Object.fromEntries(Object.entries(snapshot).filter(([, value]) => value.kind !== 'directive.timelineOperation.v1'));
+  assert.deepEqual(withoutJournal(legacyPending.storage.snapshot()), withoutJournal(recordsBeforeRetirement),
+    'retirement must preserve every checkpoint, child save, and other storage record');
+  assert.deepEqual(await loadV1CampaignSave(legacyPending.storage, 'save.parent'), parentBefore);
+  if (pendingStage !== 'detected') {
+    assert.ok(await loadV1CampaignSave(legacyPending.storage, operationBefore.checkpointId), 'preserved checkpoint remains available');
+    const loaded = await legacyPending.service.loadGame({ savedGameId: operationBefore.checkpointId });
+    assert.equal(loaded.status, 'activated');
+  }
+}
+
+const ownershipRace = await harness({ afterStage(stage) {
+  if (stage === 'detected') throw new Error('ownership-race-stop');
+} });
+await assert.rejects(ownershipRace.service.adoptNativeBranch(ownershipRace.lineage), /ownership-race-stop/);
+const raceParent = (await harness({ controlAction: 'reopen' })).parentState;
+raceParent.stateCustody.revision += 1;
+raceParent.stateCustody.recentCommitIds.push('race.control');
+Object.assign(ownershipRace.getState(), structuredClone(raceParent));
+await ownershipRace.controller.persistActiveCampaign({ campaignState: raceParent });
+const openBeforeRace = ownershipRace.chat.openCampaignChat.bind(ownershipRace.chat);
+ownershipRace.chat.openCampaignChat = async binding => {
+  const result = await openBeforeRace(binding);
+  if (binding.chatId === 'chat.parent') {
+    const journal = await ownershipRace.controller.loadTimelineOperation({ campaignId: 'campaign.branch' });
+    journal.diagnostics = { changedByAnotherOwner: true };
+    await ownershipRace.controller.storeTimelineOperation(journal);
+  }
+  return result;
+};
+await assert.rejects(ownershipRace.service.recoverActiveOperation({ campaignId: 'campaign.branch' }),
+  error => error?.code === 'DIRECTIVE_TIMELINE_RECOVERY_POINTER_CONFLICT');
+assert.equal((await ownershipRace.controller.loadTimelineOperation({ campaignId: 'campaign.branch' })).diagnostics.changedByAnotherOwner, true,
+  'a journal changed while reopening the parent must not be deleted');
 
 let pendingOperationInjected = false;
 const pendingOperation = await harness({

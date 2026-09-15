@@ -1,3 +1,4 @@
+import { BRANCH_DECISION_HISTORY_UNAVAILABLE, BRANCH_DECISION_HISTORY_MESSAGE } from './native-branch-refusal.mjs';
 import { rebuildV1CommandBearingForLineage } from '../command/v1-command-bearing.mjs';
 import { eligibleMissionCommandBearingAwards } from '../mission/v1/mission-reducer.mjs';
 import { initialMissionRunId, successorMissionRunId } from '../mission/v1/mission-journey.mjs';
@@ -360,6 +361,34 @@ export function rebindV1CampaignStateCustody({
   return { campaignState: clone(next), projection };
 }
 
+export { BRANCH_DECISION_HISTORY_UNAVAILABLE, BRANCH_DECISION_HISTORY_MESSAGE } from './native-branch-refusal.mjs';
+
+// Current controls (including resumed automatic tracking) are snapshots, not history.
+// Until complete chronology and restorable effects exist, no shorter transcript can
+// establish which controls belonged to that point in any current or archived run.
+export function preflightV1BranchDecisionHistory({ parentState, parentMessages = [], childMessages = [] } = {}) {
+  const normalizedParent = parentMessages.map(normalizeNativeBranchMessage);
+  const normalizedChild = childMessages.map(normalizeNativeBranchMessage);
+  if (normalizedChild.length > normalizedParent.length) {
+    throw reconstructionError('DIRECTIVE_BRANCH_LINEAGE_INVALID', 'The child transcript is longer than its parent.');
+  }
+  for (let index = 0; index < normalizedChild.length; index += 1) {
+    if (!sameLineageMessage(normalizedParent[index], normalizedChild[index])) {
+      throw reconstructionError('DIRECTIVE_BRANCH_LINEAGE_INVALID', 'The child transcript is not an exact retained parent prefix.', { index });
+    }
+  }
+
+  const runs = [parentState?.mission?.v1, ...(parentState?.mission?.v1History || []).map(archive => archive?.state)];
+  if (normalizedChild.length < normalizedParent.length
+    && runs.some(run => Object.keys(run?.objectiveDecisions || {}).length > 0)) {
+    throw reconstructionError(BRANCH_DECISION_HISTORY_UNAVAILABLE, BRANCH_DECISION_HISTORY_MESSAGE, {
+      parentSaveId: parentState?.campaignChatBinding?.saveId,
+      parentBinding: parentState?.campaignChatBinding,
+    });
+  }
+  return { normalizedParent, normalizedChild };
+}
+
 export async function reconstructV1BranchState({
   parentState,
   parentMessages = [],
@@ -375,16 +404,9 @@ export async function reconstructV1BranchState({
   if (!saveId || targetChatBinding?.saveId !== saveId) {
     throw reconstructionError('DIRECTIVE_BRANCH_TARGET_INVALID', 'Branch reconstruction requires one exact target save binding.');
   }
-  const normalizedParent = parentMessages.map(normalizeNativeBranchMessage);
-  const normalizedChild = childMessages.map(normalizeNativeBranchMessage);
-  if (normalizedChild.length > normalizedParent.length) {
-    throw reconstructionError('DIRECTIVE_BRANCH_LINEAGE_INVALID', 'The child transcript is longer than its parent.');
-  }
-  for (let index = 0; index < normalizedChild.length; index += 1) {
-    if (!sameLineageMessage(normalizedParent[index], normalizedChild[index])) {
-      throw reconstructionError('DIRECTIVE_BRANCH_LINEAGE_INVALID', 'The child transcript is not an exact retained parent prefix.', { index });
-    }
-  }
+  const { normalizedParent, normalizedChild } = preflightV1BranchDecisionHistory({
+    parentState, parentMessages, childMessages,
+  });
 
   let campaignState = clone(parentState);
   const gateway = createStateDeltaGateway({

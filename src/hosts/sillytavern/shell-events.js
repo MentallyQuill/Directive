@@ -4,7 +4,7 @@ import { removeGlobalBridge } from '../../extension/global-bridge.js';
 import { closeAllDirectiveOverlays } from '../../ui/directive-overlay-root.js';
 import { closeSettlementRetryDialog } from '../../ui/settlement-retry-dialog.js';
 import { resetGameplayNotifications } from '../../ui/gameplay-notification-center.js';
-import { createPreviousTimelineNameDialog } from '../../ui/timeline-dialogs.js';
+import { createPreviousTimelineNameDialog, createBranchHistoryUnavailableDialog } from '../../ui/timeline-dialogs.js';
 import { createSillyTavernEventAdapter } from './events-adapter.mjs';
 import { disposeBlankSendContinue } from './blank-send-continue.js';
 import { disposeDirectiveLauncherButton } from './directive-launcher-button.js';
@@ -27,6 +27,31 @@ let lifecycle = null;
 let deleteIntent = null;
 let nativeBranchIntent = null;
 let deleteCapture = null;
+let rejectedBranchDialog = null;
+let rejectedBranchIdentity = null;
+let rejectedBranchHostIdentity = null;
+let chatChangeSequence = 0;
+
+function branchBindingIdentity(binding) {
+  return ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName']
+    .map(field => String(binding?.[field] ?? ''));
+}
+function branchHostIdentity(binding) {
+  return JSON.stringify(['hostId', 'chatId', 'entityType', 'entityId', 'entityName']
+    .map(field => String(binding?.[field] ?? '')));
+}
+
+function currentHostIdentity() {
+  return branchHostIdentity(getSillyTavernDirectiveRuntimeBridge().host?.chat?.getCurrentBinding?.());
+}
+
+function closeRejectedBranchDialog(reason) {
+  rejectedBranchDialog?.close(reason);
+  rejectedBranchDialog = null;
+  rejectedBranchIdentity = null;
+  rejectedBranchHostIdentity = null;
+}
+
 const editedUpdateMarkers = new Map();
 const EDITED_UPDATE_MARKER_TTL_MS = 10000;
 
@@ -233,7 +258,50 @@ export function handleGenerationEnded(payload = {}) {
   );
 }
 
+export function presentNativeBranchRefusal(fork) {
+  if (rejectedBranchHostIdentity && rejectedBranchHostIdentity !== currentHostIdentity()) {
+    closeRejectedBranchDialog('another-chat');
+  }
+  if (!enabled() || !app()) return { handled: true, shown: false };
+  if (fork?.status === 'blocked' && fork.reasonCode === 'DIRECTIVE_BRANCH_DECISION_HISTORY_UNAVAILABLE'
+    && branchHostIdentity(fork.childBinding) === currentHostIdentity()
+    && JSON.stringify(branchBindingIdentity(fork.parentBinding))
+      === JSON.stringify(branchBindingIdentity(app()?.getCurrentChatBinding?.()))) {
+    const identity = JSON.stringify([branchBindingIdentity(fork.parentBinding), branchBindingIdentity(fork.childBinding)]);
+    if (identity !== rejectedBranchIdentity) {
+      rejectedBranchDialog?.close('another-branch');
+      rejectedBranchIdentity = identity;
+      rejectedBranchHostIdentity = branchHostIdentity(fork.childBinding);
+      rejectedBranchDialog = createBranchHistoryUnavailableDialog({
+        message: fork.message,
+        onOpenParent: async () => {
+          const runtime = app();
+          if (JSON.stringify(branchBindingIdentity(runtime?.getCurrentChatBinding?.()))
+            !== JSON.stringify(branchBindingIdentity(fork.parentBinding))) {
+            throw new Error('The active campaign timeline changed. Close this message and use Campaign Continue.');
+          }
+          if (typeof runtime?.openCampaignChat !== 'function') throw new Error('Campaign Continue is unavailable.');
+          const opened = await runtime.openCampaignChat();
+          await runRuntimeAction('runtime.refresh');
+          return opened;
+        },
+      });
+    }
+    return { handled: true, shown: true };
+  }
+  return { handled: true, shown: false };
+}
+
+export function handleNativeBranchRefusalUiMessage(message) {
+  if (message?.type !== 'directive.nativeBranchRefusal.v1') return { handled: false };
+  return presentNativeBranchRefusal(message.payload);
+}
+
 export async function handleChatChanged(payload = {}) {
+  const changeSequence = ++chatChangeSequence;
+  if (rejectedBranchHostIdentity && rejectedBranchHostIdentity !== currentHostIdentity()) {
+    closeRejectedBranchDialog('another-chat');
+  }
   resetDirectiveTurnProgress();
   cancelActiveDirectiveTurnActivities();
   if (!enabled()) return { refreshed: false, reason: 'extension-disabled' };
@@ -245,6 +313,14 @@ export async function handleChatChanged(payload = {}) {
   } catch (error) {
     report('Runtime refresh after chat change failed', error);
     refreshResult = { refreshed: false, error: error?.message || String(error) };
+  }
+  if (rejectedBranchHostIdentity && rejectedBranchHostIdentity !== currentHostIdentity()) {
+    closeRejectedBranchDialog('another-chat');
+  }
+  if (changeSequence !== chatChangeSequence) return { ...refreshResult, timelineFork: fork || null, stale: true };
+  presentNativeBranchRefusal(fork);
+  if (changed?.active && app()?.isCurrentChatBound?.() === true) {
+    closeRejectedBranchDialog('valid-timeline');
   }
   if (fork && new Set(['activated', 'recovered']).has(fork.status) && fork.savedGameId && fork.suggestedName) {
     createPreviousTimelineNameDialog({
@@ -264,6 +340,8 @@ export async function handleChatChanged(payload = {}) {
 }
 
 export function disposeSillyTavernDirectiveEventLifecycle() {
+  chatChangeSequence += 1;
+  closeRejectedBranchDialog('disposed');
   resetDirectiveTurnProgress();
   disposeDirectiveTurnActivity();
   lifecycle?.dispose?.();
