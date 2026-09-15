@@ -1,5 +1,13 @@
 # Player promise stabilization evidence
 
+## Complete transcript identity for history capture
+
+A dormant pure projector now converts the complete versioned host snapshot into domain-tagged canonical SHA256 row hashes and the existing storage-compatible vector hash. Every row and persistable field remains represented, including hidden/system rows, identity aliases, footers, all swipe variants, report metadata and unknown extension fields. No bookkeeping exclusions are introduced. Native chat/binding provenance and a complete snapshot hash remain separate from comparable row hashes.
+
+The input is validated and detached synchronously before hashing; unsupported shapes and exceeded host-snapshot limits return no partial projection. Independent review approved the module and regressions. The final expanded release gate passed all 241 checks; native installed projection verification remains pending publication. Tests use an independent Node crypto oracle, actual adapter footer removal and metadata attachment, append-prefix checks, persisted JSON/property-order and approved Date normalization, source mutations, provenance changes, malformed metadata preservation, bounds and mutation during asynchronous work. This establishes data equality, not accepted-source validity or complete chronology coverage.
+
+Runtime capture and earlier branching remain disabled. The writer trace identifies unfinished integration across gateway applications, binding/compensation, startup and hidden migrations, checkpoint/new-child lifecycles, and assistant/opening finalization. Finalized transcript admission must precede captures; non-prefix edits and inherited ownership require explicit protocols. Plan: `docs/superpowers/plans/2026-09-15-history-transcript-projection.md`.
+
 ## Captured-history durable publication recovery
 
 The captured-history publisher now writes and verifies a strict tagged durable intent before any history, segment or manifest write. The intent binds the exact prior/attempted manifests, active pointer, operation and canonical captured request. Neutral load/resolve/acknowledgement APIs dispatch by validated intent kind; ordinary and captured writers mutually exclude unresolved publications through one same-save ticket path. Captured callers explicitly acknowledge a verified outcome before another publication.

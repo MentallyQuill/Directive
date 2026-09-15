@@ -210,6 +210,7 @@ const checks = [
   "test-ashes-v1-campaign.mjs",
   "test-host-contract-fake.mjs",
   "test-host-transcript-snapshot.mjs",
+  "test-v1-branch-history-transcript.mjs",
   "test-v1-duty-report-substance.mjs",
   "test-duty-report-generation-custody.mjs",
   "test-logical-storage-adapter.mjs",
