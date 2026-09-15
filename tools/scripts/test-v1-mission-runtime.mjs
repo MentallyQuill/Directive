@@ -156,6 +156,7 @@ function createHarness({
     outputs = [],
     generation = null,
     checkpointEveryContributions = 8,
+    beforeCommit = null,
 } = {}) {
     let campaignState = structuredClone(state);
     let persistCount = 0;
@@ -164,6 +165,7 @@ function createHarness({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
         persist: async () => { persistCount += 1; },
+        beforeCommit,
         now: () => '2026-08-09T14:00:00.000Z',
     });
     const generationRouter = generation || {
@@ -258,8 +260,12 @@ assert.equal(resolveActiveV1MissionDefinition({
 }).reasonCode, 'package-version-mismatch');
 
 const settlementState = campaignStateWithCommandTerms();
+let legacyAcceptedPairPrecondition = null;
 const settlementHarness = createHarness({
     state: settlementState,
+    beforeCommit: ({ options }) => {
+        legacyAcceptedPairPrecondition = structuredClone(options.acceptedPairSourcePrecondition || null);
+    },
     outputs: [interpretationOutput({
         claims: [{
             candidateId: 'policy.prelude.command-handover-completed',
@@ -271,12 +277,17 @@ const stateBefore = structuredClone(settlementHarness.campaignState);
 const settlement = await settlementHarness.runtime.settleAcceptedPair({
     runtimeAssets: settlementHarness.assets,
     snapshot: snapshotFor(),
+    acceptedPairSourcePrecondition: { kind: 'test.acceptedPairSourcePrecondition', sourceRangeHash: 'range.10' },
 });
 assert.equal(settlement.ok, true, JSON.stringify(settlement));
 assert.equal(settlement.attempted, true);
 assert.equal(settlement.status, 'settled');
 assert.deepEqual(settlement.committedRoots, ['mission', 'storySettlement']);
 assert.equal(settlementHarness.persistCount, 1);
+assert.deepEqual(legacyAcceptedPairPrecondition, {
+    kind: 'test.acceptedPairSourcePrecondition',
+    sourceRangeHash: 'range.10',
+}, 'legacy accepted-pair settlement transports its immutable application precondition');
 assert.equal(
     settlementHarness.campaignState.mission.v1.worldFacts.includes('fact.hesperus.distress-established'),
     true,

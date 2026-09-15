@@ -213,10 +213,14 @@ function applyPatch(state, patch, domains) {
 export function createStateDeltaGateway({
   getState,
   setState,
-  persist = null
+  persist = null,
+  beforeCommit = null,
 } = {}) {
   if (typeof getState !== 'function') throw new TypeError('getState must be a function');
   if (typeof setState !== 'function') throw new TypeError('setState must be a function');
+  if (beforeCommit !== null && typeof beforeCommit !== 'function') {
+    throw new TypeError('beforeCommit must be a function');
+  }
 
   function currentState() {
     const state = getState();
@@ -225,6 +229,16 @@ export function createStateDeltaGateway({
   }
 
   async function persistCommit(before, after, descriptor, options = {}) {
+    if (beforeCommit) {
+      const result = beforeCommit({ before, after, descriptor, options });
+      if (result && typeof result.then === 'function') {
+        Promise.resolve(result).catch(() => {});
+        throw gatewayError(
+          'DIRECTIVE_V1_STATE_PRECONDITION_ASYNC',
+          'A V1 state precondition must complete synchronously.'
+        );
+      }
+    }
     setState(after);
     if (typeof persist !== 'function' || descriptor?.persist === false) return;
     try {

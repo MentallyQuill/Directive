@@ -183,4 +183,56 @@ await assert.rejects(
 );
 assert.deepEqual(rollbackState, state());
 
+let preconditionState = state();
+let preconditionObserved = false;
+let preconditionCalls = 0;
+const preconditionGateway = createStateDeltaGateway({
+  getState: () => preconditionState,
+  setState: (next) => {
+    assert.equal(preconditionObserved, true, 'the precondition runs immediately before state replacement');
+    preconditionState = next;
+  },
+  beforeCommit: ({ before, after, descriptor, options }) => {
+    preconditionCalls += 1;
+    assert.equal(preconditionState.stateCustody.revision, 0);
+    assert.equal(before.stateCustody.revision, 0);
+    assert.equal(after.stateCustody.revision, 1);
+    assert.equal(descriptor.id, 'proposal.precondition');
+    assert.deepEqual(options.acceptedPairSourcePrecondition, { sourceRangeHash: 'captured' });
+    preconditionObserved = true;
+  },
+});
+await preconditionGateway.applyProposal({
+  id: 'proposal.precondition', baseRevision: 0, domains: ['mission'], patch: { mission: { v1: { revision: 1 } } },
+}, { acceptedPairSourcePrecondition: { sourceRangeHash: 'captured' } });
+assert.equal(preconditionObserved, true);
+assert.equal(preconditionCalls, 1);
+const duplicatePrecondition = await preconditionGateway.applyProposal({
+  id: 'proposal.precondition', baseRevision: 0, domains: ['mission'], patch: { mission: { v1: { revision: 1 } } },
+}, { acceptedPairSourcePrecondition: { sourceRangeHash: 'captured' } });
+assert.equal(duplicatePrecondition.noChange, true);
+assert.equal(preconditionCalls, 1, 'already-committed proposals do not run application preconditions');
+await assert.rejects(
+  preconditionGateway.applyProposal({
+    id: 'proposal.precondition-stale', baseRevision: 0, domains: ['mission'], patch: { mission: { v1: { revision: 2 } } },
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_REVISION_CONFLICT',
+);
+assert.equal(preconditionCalls, 1, 'revision-invalid proposals do not run application preconditions');
+
+let asyncPreconditionState = state();
+const asyncPreconditionGateway = createStateDeltaGateway({
+  getState: () => asyncPreconditionState,
+  setState: (next) => { asyncPreconditionState = next; },
+  beforeCommit: () => Promise.reject(new Error('must not escape as an unhandled rejection')),
+});
+await assert.rejects(
+  asyncPreconditionGateway.applyProposal({
+    id: 'proposal.async-precondition', baseRevision: 0, domains: ['mission'], patch: { mission: { v1: { revision: 1 } } },
+  }),
+  (error) => error?.code === 'DIRECTIVE_V1_STATE_PRECONDITION_ASYNC',
+);
+await new Promise((resolve) => setTimeout(resolve, 0));
+assert.deepEqual(asyncPreconditionState, state(), 'an asynchronous precondition cannot mutate state');
+
 console.log('PASS V1 state delta gateway');

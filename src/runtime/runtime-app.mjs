@@ -23,7 +23,7 @@ import {
 import { createPeoplePromptProjection } from '../projection/v1/people-projection.mjs';
 import { deriveGameplayNotifications } from '../projection/v1/gameplay-notifications.mjs';
 import { createPlayerAuthorityPolicy } from './player-authority-policy.mjs';
-import { normalizeV1HostMessageVisibility } from './v1-host-message-contracts.mjs';
+import { normalizeV1HostMessageVisibility, stableJsonStringify } from './v1-host-message-contracts.mjs';
 import { createSimulationModePolicy } from '../simulation/simulation-mode-policy.mjs';
 import { createMissionTransitionNarrationPacket } from '../mission/v1/mission-transition-narration.mjs';
 import { createDutyReportManifest } from '../mission/v1/duty-report-delivery.mjs';
@@ -171,6 +171,90 @@ function activeSourceRow(message = {}) {
     && visibility.sourceRowExists !== false
     && visibility.hiddenByHost !== true
     && visibility.sourceMutation !== true;
+}
+
+function acceptedPairSourceAuthority(snapshot = {}) {
+  const envelope = snapshot?.envelope || {};
+  return {
+    envelope: {
+      campaignId: envelope.campaignId || null,
+      saveId: envelope.saveId || null,
+      chatId: envelope.chatId || null,
+      packageId: envelope.packageId || null,
+      packageVersion: envelope.packageVersion || null,
+      activeMissionId: envelope.activeMissionId || null,
+    },
+    source: clone(snapshot?.source || null),
+  };
+}
+
+function acceptedPairHostMessageId(message = {}) {
+  return compact(message?.hostMessageId || message?.id || String(message?.index ?? '')).slice(0, 180) || null;
+}
+
+function acceptedPairSourceStale(reason) {
+  const error = new Error(`The accepted-pair source changed before its state commit (${reason}).`);
+  error.code = 'DIRECTIVE_ACCEPTED_PAIR_SOURCE_STALE';
+  error.details = { reason };
+  return error;
+}
+
+function assertAcceptedPairSourcePrecondition({ before, options, host }) {
+  const precondition = options?.acceptedPairSourcePrecondition;
+  if (!precondition) return;
+  if (precondition.kind !== 'directive.acceptedPairSourcePrecondition.v1'
+    || !object(precondition.binding)
+    || !object(precondition.snapshot)) {
+    throw acceptedPairSourceStale('precondition-invalid');
+  }
+  const currentBinding = host.chat?.getCurrentBinding?.();
+  if (currentBinding && typeof currentBinding.then === 'function') {
+    Promise.resolve(currentBinding).catch(() => {});
+    throw acceptedPairSourceStale('binding-read-async');
+  }
+  if (!directiveBindingMatches(precondition.binding, before?.campaignChatBinding)
+    || !directiveBindingMatches(precondition.binding, currentBinding)) {
+    throw acceptedPairSourceStale('binding-changed');
+  }
+  const expectedPlayerId = acceptedPairHostMessageId(precondition.snapshot?.source?.currentPlayer);
+  const expectedAuthority = stableJsonStringify(acceptedPairSourceAuthority(precondition.snapshot));
+  const readRows = (limit) => {
+    const rows = host.chat?.getRecentMessages?.({ limit, playerSafeOnly: false });
+    if (rows && typeof rows.then === 'function') {
+      Promise.resolve(rows).catch(() => {});
+      throw acceptedPairSourceStale('source-read-async');
+    }
+    if (!Array.isArray(rows)) throw acceptedPairSourceStale('source-read-unavailable');
+    return rows;
+  };
+  const inspectRows = (rows) => {
+    const activeRows = rows.filter(activeSourceRow);
+    const playerMatches = activeRows
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => isUserMessage(player) && acceptedPairHostMessageId(player) === expectedPlayerId);
+    if (!expectedPlayerId || playerMatches.length !== 1) return 'player-source-missing';
+    const { player, index: playerIndex } = playerMatches[0];
+    if (activeRows.slice(playerIndex + 1).some((row) => !isUserMessage(row))) {
+      return 'player-source-not-current';
+    }
+    const prepared = prepareV1AcceptedPairSnapshot({
+      campaignState: before,
+      currentPlayerMessage: player,
+      recentMessages: activeRows,
+      requirePromptingPlayerAnchor: true,
+      chatId: currentBinding.chatId,
+    });
+    if (!prepared.ok) return prepared.reason || 'source-invalid';
+    return stableJsonStringify(acceptedPairSourceAuthority(prepared.snapshot)) === expectedAuthority
+      ? null
+      : 'source-authority-changed';
+  };
+  const recent = readRows(V1_ACCEPTED_PAIR_SOURCE_WINDOW);
+  let staleReason = inspectRows(recent);
+  if (staleReason && recent.length >= V1_ACCEPTED_PAIR_SOURCE_WINDOW) {
+    staleReason = inspectRows(readRows(Number.MAX_SAFE_INTEGER));
+  }
+  if (staleReason) throw acceptedPairSourceStale(staleReason);
 }
 
 function persistedAcceptedSourceMessageIds(campaignState = {}) {
@@ -914,6 +998,7 @@ export function createDirectiveRuntimeApp({
     gateway = createStateDeltaGateway({
       getState: () => state,
       setState,
+      beforeCommit: ({ before, options }) => assertAcceptedPairSourcePrecondition({ before, options, host }),
       persist: async (next, _descriptor, { progressScope = null } = {}) => {
         await turnProgress.run('saving', () => (
           controller.persistActiveCampaign({ campaignState: next })
@@ -1427,6 +1512,11 @@ export function createDirectiveRuntimeApp({
     progressScope = turnProgress.createScope(),
   } = {}) {
     assertTurnActive(progressScope);
+    const acceptedPairSourcePrecondition = {
+      kind: 'directive.acceptedPairSourcePrecondition.v1',
+      binding: clone(state?.campaignChatBinding),
+      snapshot: clone(snapshot),
+    };
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
       campaignId: state?.campaign?.id || null,
@@ -1471,6 +1561,7 @@ export function createDirectiveRuntimeApp({
           acceptedCommandBearingEdge: acceptedCommandBearingEdgeForSnapshot(snapshot),
           signal: analysisSignal,
           allowModelCall: budgetReserved === true,
+          acceptedPairSourcePrecondition,
           progressScope,
         });
       } while (mission?.ok === false
@@ -1497,16 +1588,22 @@ export function createDirectiveRuntimeApp({
         reasonCode: mission.reasonCode,
         blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
       }));
-      acceptedPairRecovery = pairRetryRecovery({
-        snapshot,
-        ingressId,
-        reasonCode: mission.reasonCode,
-        persistenceAttempts,
-        blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
-        turnKey: mission.turnKey || mission.diagnostics?.turnKey || null,
-        generationType,
-      });
-      acceptedPairRecoveryGestureId = recoveryGestureId;
+      if (mission.reasonCode === 'accepted-pair-source-stale') {
+        acceptedPairCallBudget.clear(fingerprint);
+        acceptedPairRecovery = reconcileRequiredRecovery(mission.reasonCode);
+        acceptedPairRecoveryGestureId = recoveryGestureId;
+      } else {
+        acceptedPairRecovery = pairRetryRecovery({
+          snapshot,
+          ingressId,
+          reasonCode: mission.reasonCode,
+          persistenceAttempts,
+          blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
+          turnKey: mission.turnKey || mission.diagnostics?.turnKey || null,
+          generationType,
+        });
+        acceptedPairRecoveryGestureId = recoveryGestureId;
+      }
     } else if (updateRecovery && mission?.ok === true
       && (acceptedPairRecovery.mode !== 'pair-retry'
         || acceptedPairRecovery.pair?.fingerprint === fingerprint)) {
@@ -1554,29 +1651,35 @@ export function createDirectiveRuntimeApp({
   async function acceptedSnapshotForMessage(currentPlayerMessage, recentMessages, ingressId = null) {
     // Failed host generations can append player messages without an assistant
     // reply. Its first accepting player remains the source for settlement.
+    if (!activeSourceRow(currentPlayerMessage)) {
+      return { ok: false, reason: 'player-source-inactive', snapshot: null };
+    }
     const findAcceptingPlayer = (messages) => {
-      let index = messages.findIndex(item => messageId(item, item) === messageId(currentPlayerMessage, currentPlayerMessage));
+      const activeMessages = messages.filter(activeSourceRow);
+      let index = activeMessages.findIndex(item => messageId(item, item) === messageId(currentPlayerMessage, currentPlayerMessage));
+      if (index < 0) return { player: null, messages: activeMessages, reachedStart: true, reason: 'player-source-inactive' };
       let player = currentPlayerMessage;
       for (index -= 1; index >= 0; index -= 1) {
-        const item = messages[index];
-        if (item.isSystem || item.role === 'system') continue;
+        const item = activeMessages[index];
         if (!isUserMessage(item)) return {
           player,
-          reachedStart: !messages.slice(0, index).some(row => !row.isSystem && row.role !== 'system'),
+          messages: activeMessages,
+          reachedStart: index === 0,
         };
         player = item;
       }
-      return { player, reachedStart: true };
+      return { player, messages: activeMessages, reachedStart: true };
     };
     let resolved = findAcceptingPlayer(recentMessages);
     if (resolved.reachedStart && recentMessages.length >= V1_ACCEPTED_PAIR_SOURCE_WINDOW) {
       recentMessages = await host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false }) || recentMessages;
       resolved = findAcceptingPlayer(recentMessages);
     }
+    if (!resolved.player) return { ok: false, reason: resolved.reason, snapshot: null };
     return prepareV1AcceptedPairSnapshot({
       campaignState: state,
       currentPlayerMessage: resolved.player,
-      recentMessages,
+      recentMessages: resolved.messages,
       requirePromptingPlayerAnchor: true,
       chatId: host.chat.getCurrentChatId?.(),
       ingressId
@@ -1797,6 +1900,26 @@ export function createDirectiveRuntimeApp({
         || (recoveryIntent === 'native'
           && generationGesture?.manualRecoveryEligible === true
           && !recoveryBelongsToCurrentGesture);
+      // A passive interceptor can arrive without a generation-start event and
+      // may retain ordinary source-mutation reconciliation. A rejected commit
+      // requires a new manual gesture because its replay may need model work.
+      const mayReconcilePendingRecovery = mayRetryPendingRecovery
+        || (recoveryIntent === 'native'
+          && generationGestureId === null
+          && acceptedPairRecovery.reasonCode !== 'accepted-pair-source-stale');
+      if (acceptedPairRecovery.mode === 'reconcile-required' && !mayReconcilePendingRecovery) {
+        return {
+          handled: true,
+          abortDefaultGeneration: true,
+          responseStrategy: 'blockAndRetry',
+          settlementError: {
+            code: 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED',
+            reasonCode: acceptedPairRecovery.reasonCode,
+            blockedRoles: [],
+            persistenceAttempts: 0,
+          },
+        };
+      }
       if (acceptedPairRecovery.mode === 'pair-retry' && mayRetryPendingRecovery) {
         // A fresh Generate gesture retries the failed analysis, just like the dialog.
         await publicApi.retryPendingAcceptedPairSettlement({
@@ -2120,7 +2243,8 @@ export function createDirectiveRuntimeApp({
       generationType = 'normal',
       syncPromptAfter = true,
     } = {}) {
-      const recoveryGestureId = activeHostGenerationGesture?.id ?? null;
+      const recoveryGesture = activeHostGenerationGesture;
+      const recoveryGestureId = recoveryGesture?.id ?? null;
       pauseDossiers();
       await ensureInitialized();
       const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
@@ -2131,6 +2255,20 @@ export function createDirectiveRuntimeApp({
           return { handled: false, reason: 'source-chat-changed' };
         }
         let acceptedPairReplay = null;
+        const recoveryBelongsToCurrentGesture = recoveryGestureId !== null
+          && acceptedPairRecoveryGestureId === recoveryGestureId;
+        const mayReconcileRecovery = recoveryGestureId === null
+          || (recoveryGesture?.manualRecoveryEligible === true && !recoveryBelongsToCurrentGesture);
+        if (acceptedPairRecovery.mode === 'reconcile-required' && !mayReconcileRecovery) {
+          return {
+            handled: false,
+            reason: acceptedPairRecovery.reasonCode,
+            responseStrategy: 'blockAndRetry',
+            abortDefaultGeneration: true,
+            settlementBlocked: true,
+            campaignState: clone(state),
+          };
+        }
         if (acceptedPairRecovery.mode === 'reconcile-required') {
           acceptedPairReplay = await rebuildAcceptedStateFromChat({ progressScope });
           if (acceptedPairReplay.blocked === true) {

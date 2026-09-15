@@ -73,6 +73,13 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 - [x] Publish the reviewed and verified historical-state foundation. Published fe7f05971; all 667 installed Git blobs and exact 40-row reload verified.
 - [ ] Add complete mutation capture, transcript anchors, immutable inherited history ownership, source-version reconciliation, and transactional branch integration. Retain existing refusal until those boundaries are proven together; revision restoration alone does not locate a native transcript cut.
 
+### Accepted-source commit boundary
+
+- [x] Reproduce silent swipe, text, visibility, ordering and binding changes while analysis is pending; verify the unchanged control and signaled cancellation separately.
+- [x] Capture the original source before asynchronous work and validate exact current binding/source synchronously before state application. Preserve consecutive Continue behavior through the existing full-history fallback. Focused review and the first 230-check gate pass.
+- [x] Close the installed native Send handoff gap: a stale-source rejection blocks another analysis pass from the same gesture, automatic/quiet gestures and a subsequent end event without a fresh start. A fresh explicit/manual gesture can reconcile the visible source. Ordinary no-event source-mutation reconciliation remains compatible.
+- [ ] Verify final installed silent-mutation containment, exact cleanup, relevant/full tests and independent review, then publish the scoped fix.
+
 ## Task 4: Private briefing and spoiler safety
 
 **Files to trace:** `src/story/continuity-analyst.mjs`, `src/story/character-information.mjs`, narration projection, existing character-information evaluation scripts.

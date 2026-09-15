@@ -138,6 +138,7 @@ const checks = [
   "test-v1-state-delta-gateway.mjs",
   "test-v1-state-delta-codec.mjs",
   "test-accepted-pair-recovery-state.mjs",
+  "test-accepted-pair-source-commit-runtime.mjs",
   "test-episode-review-scheduler.mjs",
   "test-v1-scalability-contract.mjs",
   "test-v1-runtime-app.mjs",

@@ -695,6 +695,7 @@ function errorReasonCode(error) {
     if (error?.code === 'DIRECTIVE_EPISODE_REVIEW_INVALID') return 'episode-review-invalid';
     if (error?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_FAILED') return 'persistence-failed';
     if (error?.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT') return 'persistence-rollback-conflict';
+    if (error?.code === 'DIRECTIVE_ACCEPTED_PAIR_SOURCE_STALE') return 'accepted-pair-source-stale';
     return 'settlement-failed';
 }
 
@@ -1081,18 +1082,19 @@ export function createV1MissionRuntime({
             : task({ onAttempt: null, onPhase: null });
     }
 
-    function gatewayForProgressScope(progressScope) {
-        if (!progressScope) return stateDeltaGateway;
+    function gatewayForProgressScope(progressScope, applicationOptions = {}) {
+        if (!progressScope && Object.keys(applicationOptions).length === 0) return stateDeltaGateway;
         return {
             revision: () => stateDeltaGateway.revision(),
             applyProposal: (proposal, options = {}) => stateDeltaGateway.applyProposal(proposal, {
                 ...options,
+                ...applicationOptions,
                 progressScope,
             }),
             commit: (campaignState, delta, options = {}) => stateDeltaGateway.commit?.(
                 campaignState,
                 delta,
-                { ...options, progressScope },
+                { ...options, ...applicationOptions, progressScope },
             ),
         };
     }
@@ -1531,6 +1533,7 @@ export function createV1MissionRuntime({
         preparedCampaignState = null,
         prepareOnly = false,
         queuePeopleDossiers = false,
+        acceptedPairSourcePrecondition = null,
     } = {}) {
         let campaignState = preparedCampaignState || getState();
         const resolved = resolveActiveV1MissionDefinition({ campaignState, runtimeAssets });
@@ -1936,7 +1939,9 @@ export function createV1MissionRuntime({
         const spine = createV1StateSpine({
             getAnalysisLimits: () => generationRouter?.getAnalysisLimits?.() || {},
             getState: prepareOnly ? () => campaignState : getState,
-            stateDeltaGateway: gatewayForProgressScope(progressScope),
+            stateDeltaGateway: gatewayForProgressScope(progressScope, {
+                acceptedPairSourcePrecondition,
+            }),
             resolveSourceRef,
             now,
             checkpointEveryContributions,
@@ -2638,7 +2643,9 @@ export function createV1MissionRuntime({
             const commitProposal = createTurnCommit({ before: baseState, after: candidateState, turnKey });
             if (!commitProposal) throw captureFailure('turn-commit-empty');
             if (input.signal?.aborted) throw captureFailure('provider-aborted');
-            const committed = await gatewayForProgressScope(input.progressScope).applyProposal(commitProposal);
+            const committed = await gatewayForProgressScope(input.progressScope, {
+                acceptedPairSourcePrecondition: input.acceptedPairSourcePrecondition,
+            }).applyProposal(commitProposal);
             clearDirectedAnalysis();
             const pairResult = preparedPair;
             return {
