@@ -16,6 +16,6 @@ The native global activity flag remains active between group members. Read the s
 - [x] Implement exact runtime owner and finalization/admission behavior with public-runtime deferred mutation tests.
 - [x] Implement and verify synchronous host activity observation and fake-host control, with a separate per-reply status for group-member gaps.
 - [x] Independently review integrated lifecycle, Stop/retry, selection and deadlock behavior; run relevant tests and full release gate (246 checks).
-- [ ] Publish verified changes, verify installed provenance and bounded native lifecycle behavior without provider-soak claims.
+- [x] Publish verified changes, verify installed provenance and bounded native reload/idle behavior without provider-soak claims (c69a8a584; 673 installed/served files).
 
 Runtime capture, baseline enrollment, non-prefix mutation protocol, inherited archive ownership and historical branch reconstruction remain required. This step must not relax branch refusal or claim completed chronology.
