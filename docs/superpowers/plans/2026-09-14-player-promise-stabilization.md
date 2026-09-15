@@ -70,7 +70,7 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 
 - [x] Add a read-only repository API that restores complete states at actual saved custody-revision boundaries, verifies the entire captured chain and exact current head, returns provenance and coverage, and rejects corrupt, missing, stale, or unavailable history. Independent review and the expanded 229-check gate pass.
 - [x] Verify the installed reader against independently retained real-campaign snapshots. Revisions 31 and 32 match complete saved snapshots; exact 40-row reload and read-only state/manifest/chat preservation pass on candidate 1ba34e8a.
-- [ ] Publish the reviewed and verified historical-state foundation.
+- [x] Publish the reviewed and verified historical-state foundation. Published fe7f05971; all 667 installed Git blobs and exact 40-row reload verified.
 - [ ] Add complete mutation capture, transcript anchors, immutable inherited history ownership, source-version reconciliation, and transactional branch integration. Retain existing refusal until those boundaries are proven together; revision restoration alone does not locate a native transcript cut.
 
 ## Task 4: Private briefing and spoiler safety

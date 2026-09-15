@@ -489,8 +489,66 @@ console.log('V1 accepted-pair time custody tests passed.');
 
 const { createTimeInterpretationSchema, acceptedPairTimeDecisionErrors } = await import('../../src/time/accepted-time-interpretation.mjs');
 const timeContentLimits = { timeReasonCharacters: 400, timeEvidenceQuoteCharacters: 450 };
-assert.equal(createTimeInterpretationSchema({ limits: timeContentLimits }).properties.reason.maxLength, 400);
-assert.equal(createTimeInterpretationSchema({ limits: timeContentLimits }).properties.evidenceQuote.maxLength, 450);
+const generatedTimeSchema = createTimeInterpretationSchema({ limits: timeContentLimits });
+assert.equal(generatedTimeSchema.properties.reason.maxLength, 400);
+assert.equal(generatedTimeSchema.properties.evidenceQuote.maxLength, 450);
+const durationFields = ['durationSeconds', 'durationSourceSlot', 'durationEvidenceQuote'];
+const anchoredDurationBranch = generatedTimeSchema.oneOf.find((branch) => durationFields.every((field) => branch.required?.includes(field)));
+const unanchoredDurationBranch = generatedTimeSchema.oneOf.find((branch) => branch.properties?.elapsedSeconds?.maximum === 300);
+assert.ok(anchoredDurationBranch, 'generated schema has a complete-duration-evidence branch');
+assert.ok(unanchoredDurationBranch, 'generated schema has a five-minute unanchored branch');
+assert.deepEqual(anchoredDurationBranch.required.slice(-durationFields.length), durationFields);
+assert.ok(durationFields.every((field) => Object.hasOwn(anchoredDurationBranch.properties, field)));
+assert.ok(durationFields.every((field) => !Object.hasOwn(unanchoredDurationBranch.properties, field)), 'unanchored branch excludes every duration field so partial triplets match neither branch');
+function durationBranchMatches(branch, value) {
+  if ((branch.required || []).some((field) => !Object.hasOwn(value, field))) return false;
+  if (branch.additionalProperties === false && Object.keys(value).some((field) => !Object.hasOwn(branch.properties, field))) return false;
+  const maximum = branch.properties?.elapsedSeconds?.maximum;
+  return maximum === undefined || value.elapsedSeconds <= maximum;
+}
+function matchesExactlyOneDurationBranch(value) {
+  return generatedTimeSchema.oneOf.filter((branch) => durationBranchMatches(branch, value)).length === 1;
+}
+const commonTimeShape = { decision: 'advance', basis: 'implicitAction', reason: 'source-bound-action', confidence: 0.9 };
+assert.equal(matchesExactlyOneDurationBranch({ ...commonTimeShape, elapsedSeconds: 300 }), true, 'unanchored five-minute boundary remains declared');
+assert.equal(matchesExactlyOneDurationBranch({ ...commonTimeShape, elapsedSeconds: 301 }), false, 'unanchored advance above five minutes is excluded');
+assert.equal(matchesExactlyOneDurationBranch({ ...commonTimeShape, elapsedSeconds: 420 }), false, 'actual Batch20 unanchored value is excluded');
+assert.equal(matchesExactlyOneDurationBranch({ ...commonTimeShape, elapsedSeconds: 600, durationSeconds: 600, durationSourceSlot: 'currentPlayer', durationEvidenceQuote: 'I wait ten minutes.' }), true, 'complete anchored passage remains declared');
+for (const partialDuration of [
+  { durationSeconds: 600 },
+  { durationSourceSlot: 'currentPlayer' },
+  { durationEvidenceQuote: 'I wait ten minutes.' },
+  { durationSeconds: 600, durationSourceSlot: 'currentPlayer' },
+  { durationSeconds: 600, durationEvidenceQuote: 'I wait ten minutes.' },
+  { durationSourceSlot: 'currentPlayer', durationEvidenceQuote: 'I wait ten minutes.' },
+]) {
+  assert.equal(matchesExactlyOneDurationBranch({ ...commonTimeShape, elapsedSeconds: 300, ...partialDuration }), false, 'partial duration evidence is excluded');
+}
+const schemaBoundarySource = {
+  currentPlayer: { text: 'I complete the readiness briefing and return to the bridge. I wait exactly ten minutes before entering.' },
+};
+const semanticUnanchoredBoundary = {
+  ...commonTimeShape,
+  sourceSlot: 'currentPlayer',
+  evidenceQuote: 'I complete the readiness briefing and return to the bridge.',
+  elapsedSeconds: 300,
+};
+assert.deepEqual(acceptedPairTimeDecisionErrors(semanticUnanchoredBoundary, schemaBoundarySource), []);
+assert.ok(acceptedPairTimeDecisionErrors({ ...semanticUnanchoredBoundary, elapsedSeconds: 301 }, schemaBoundarySource).includes('time advance beyond five minutes requires duration evidence'));
+const semanticAnchoredPassage = {
+  decision: 'advance',
+  basis: 'explicitDuration',
+  elapsedSeconds: 600,
+  reason: 'explicit-wait',
+  confidence: 0.9,
+  durationSeconds: 600,
+  durationSourceSlot: 'currentPlayer',
+  durationEvidenceQuote: 'I wait exactly ten minutes before entering.',
+};
+assert.deepEqual(acceptedPairTimeDecisionErrors(semanticAnchoredPassage, schemaBoundarySource), []);
+const partialSemanticPassage = { ...semanticAnchoredPassage };
+delete partialSemanticPassage.durationEvidenceQuote;
+assert.ok(acceptedPairTimeDecisionErrors(partialSemanticPassage, schemaBoundarySource).includes('time duration evidence requires durationSeconds, durationSourceSlot, and durationEvidenceQuote together'));
 const longAction = 'Sam walked down the passage. '.repeat(12);
 const longerTimeDecision = { decision: 'advance', basis: 'implicitAction', elapsedSeconds: 10, reason: 'r'.repeat(300), confidence: 0.9, sourceSlot: 'currentPlayer', evidenceQuote: longAction.trim() };
 assert.deepEqual(acceptedPairTimeDecisionErrors(longerTimeDecision, { currentPlayer: { text: longAction } }, 'accepted', {}, timeContentLimits), []);

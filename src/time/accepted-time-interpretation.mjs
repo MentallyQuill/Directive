@@ -35,26 +35,48 @@ function evidenceQuoteErrors(value, sourcePair, path, limits = {}) {
 
 
 export function createTimeInterpretationSchema({ limits = {} } = {}) {
+    const durationFields = ['durationSeconds', 'durationSourceSlot', 'durationEvidenceQuote'];
+    const commonProperties = {
+        decision: { type: 'string', enum: [...TIME_DECISION_VALUES] },
+        basis: { type: 'string', enum: [...TIME_BASES] },
+        sourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
+        evidenceQuote: { type: 'string', minLength: 1, maxLength: limits.timeEvidenceQuoteCharacters ?? 240 },
+        elapsedSeconds: { type: 'integer', minimum: 0, maximum: MAX_TIME_ADVANCE_SECONDS },
+        reason: { type: 'string', minLength: 1, maxLength: limits.timeReasonCharacters ?? 180 },
+        confidence: { type: 'number', minimum: 0, maximum: 1 },
+    };
+    const durationProperties = {
+        durationSeconds: { type: 'integer', minimum: 1, maximum: MAX_TIME_ADVANCE_SECONDS },
+        durationSourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
+        durationEvidenceQuote: {
+            type: 'string',
+            minLength: MIN_EVIDENCE_QUOTE_LENGTH,
+            maxLength: limits.timeEvidenceQuoteCharacters ?? MAX_EVIDENCE_QUOTE_LENGTH,
+        },
+    };
+    const properties = { ...commonProperties, ...durationProperties };
     return {
         type: 'object',
         additionalProperties: false,
         required: ['decision', 'basis', 'elapsedSeconds', 'reason', 'confidence'],
-        properties: {
-            decision: { type: 'string', enum: [...TIME_DECISION_VALUES] },
-            basis: { type: 'string', enum: [...TIME_BASES] },
-            sourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
-            evidenceQuote: { type: 'string', minLength: 1, maxLength: limits.timeEvidenceQuoteCharacters ?? 240 },
-            elapsedSeconds: { type: 'integer', minimum: 0, maximum: MAX_TIME_ADVANCE_SECONDS },
-            reason: { type: 'string', minLength: 1, maxLength: limits.timeReasonCharacters ?? 180 },
-            confidence: { type: 'number', minimum: 0, maximum: 1 },
-            durationSeconds: { type: 'integer', minimum: 1, maximum: MAX_TIME_ADVANCE_SECONDS },
-            durationSourceSlot: { type: 'string', enum: [...SOURCE_SLOTS] },
-            durationEvidenceQuote: {
-                type: 'string',
-                minLength: MIN_EVIDENCE_QUOTE_LENGTH,
-                maxLength: limits.timeEvidenceQuoteCharacters ?? MAX_EVIDENCE_QUOTE_LENGTH,
+        oneOf: [
+            {
+                type: 'object',
+                additionalProperties: false,
+                required: ['decision', 'basis', 'elapsedSeconds', 'reason', 'confidence', ...durationFields],
+                properties,
             },
-        },
+            {
+                type: 'object',
+                additionalProperties: false,
+                required: ['decision', 'basis', 'elapsedSeconds', 'reason', 'confidence'],
+                properties: {
+                    ...commonProperties,
+                    elapsedSeconds: { type: 'integer', minimum: 0, maximum: 300 },
+                },
+            },
+        ],
+        properties,
     };
 }
 
