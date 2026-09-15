@@ -131,4 +131,14 @@ Minimum sample/distribution verified through batch 27: twenty-two wholly real di
 - [x] Verify thirteen complete cases through installed browser modules and actual isolated host file storage; preserve the live campaign, parent, chat and settings and exact 45-row reload.
 - [ ] Integrate authoritative host snapshots and complete writer capture, recover uncertain publication, preserve inherited ownership, and verify chronological native branch reconstruction before changing the existing refusal.
 
-The 22-call candidate-completeness A/B failed its adoption gate and remains unadopted. Staff readiness was explicitly corrected using player controls and retained on reload; automatic interpretation and report delivery are not thereby proven. Rank fidelity is the next bounded real-provider comparison.
+The 22-call candidate-completeness A/B and eight-call rank-fidelity A/B both failed adoption and remain unadopted. Staff readiness was explicitly corrected using player controls and retained on reload; automatic interpretation is not thereby proven. Through closed batch 30, 291 real requests yielded twenty-five wholly real distinct accepted pairs (twenty-six natural-content identities including one mixed-failure acceptance), across at least three continued timelines. The authored report mechanism delivered its packet, but notice text omitted the substantive fact granted by acceptance; this is a material disclosure failure, not a semantic pass.
+
+## Host snapshot and substantive report checkpoint
+
+- [x] Review optional complete host-snapshot preparation; verify native selection, full metadata, narrow media/Date compatibility, immutable detachment, explicit bounds and refusal cases.
+- [x] Install the four frozen host files over a803859b7, verify all 670 inventory files, and prove actual 51-row JSON equality before/after native reload with identical snapshot hash and unchanged save, both checkpoints and settings. Controlled detached fresh-Date rows also equal their persisted ISO representation. No provider calls or acceptance occurred.
+- [x] Pass expanded full release gate in an isolated published-baseline copy containing only the frozen host snapshot source/test/gate overlay: all 232 checks passed.
+- [ ] Publish host-snapshot preparation. No production caller or earlier-branch permission is enabled by this preparation.
+- [ ] Version new Duty Reports to include the full authored routed fact, preserve settled V1 authority/replay, conservatively refuse insufficient pending V1 disclosure and redeliver V2 through ordinary narration. Retain preparation identity across generation and close invalid-manifest/direct-interpreter bypasses.
+- [ ] Independently review and validate report repair, then exercise the existing provisional Medical V1 report on the installed host before continuing this timeline.
+- [ ] Prepare and validate source-bound controlled middle/late campaign starts with explicit synthetic-prefix provenance, then conduct bounded real-provider journeys. Fixture setup receives no natural-play credit.

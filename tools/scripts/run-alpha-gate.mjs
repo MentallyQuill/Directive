@@ -203,6 +203,7 @@ const checks = [
   "test-sam-vickers-pending-pair-repair.mjs",
   "test-ashes-v1-campaign.mjs",
   "test-host-contract-fake.mjs",
+  "test-host-transcript-snapshot.mjs",
   "test-logical-storage-adapter.mjs",
   "test-logical-storage-paths.mjs",
   "test-sillytavern-generation-client.mjs",

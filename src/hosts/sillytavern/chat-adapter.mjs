@@ -12,6 +12,12 @@ import {
 } from '../../runtime/native-branch-lineage.mjs';
 import { createDirectiveMobileComposerFocusGuard } from './mobile-composer-focus-guard.js';
 import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
+import {
+  captureHostTranscriptSnapshot,
+  readTranscriptSnapshotDataProperty,
+  unsupportedTranscriptSnapshot,
+  HOST_TRANSCRIPT_SNAPSHOT_LIMITS,
+} from '../transcript-snapshot-contract.mjs';
 
 const DIRECTIVE_MESSAGE_METADATA_KEY = 'directive';
 const DIRECTIVE_CHAT_METADATA_KEY = 'directiveCampaignBinding';
@@ -1264,6 +1270,47 @@ export function createSillyTavernChatAdapter({
         || ctx?.chatMetadata?.name
       ) || null
     };
+  }
+
+  function captureCurrentTranscriptSnapshot() {
+    try {
+      const ctx = contextFactory();
+      const read = readTranscriptSnapshotDataProperty;
+      const nativeId = value => typeof value === 'string' ? value
+        : (Number.isSafeInteger(value) && value >= 0 ? String(value) : null);
+      const chatId = nativeId(read(ctx, 'chatId'));
+      const groupId = read(ctx, 'groupId');
+      let entityId, entityType, selectedChatId;
+      if (groupId !== null && groupId !== undefined && groupId !== '') {
+        entityType = 'group'; entityId = nativeId(groupId);
+        const groups = read(ctx, 'groups');
+        if (!Array.isArray(groups) || groups.length > HOST_TRANSCRIPT_SNAPSHOT_LIMITS.rows) return unsupportedTranscriptSnapshot();
+        let matches = 0;
+        for (let index = 0; index < groups.length; index++) {
+          const descriptor = Object.getOwnPropertyDescriptor(groups, String(index));
+          if (!descriptor || !Object.hasOwn(descriptor, 'value')) return unsupportedTranscriptSnapshot();
+          if (nativeId(read(descriptor.value, 'id')) === entityId) {
+            matches++;
+            selectedChatId = nativeId(read(descriptor.value, 'chat_id'));
+          }
+        }
+        if (matches !== 1) return unsupportedTranscriptSnapshot();
+      } else {
+        entityType = 'character'; entityId = nativeId(read(ctx, 'characterId'));
+        const characters = read(ctx, 'characters');
+        if (!entityId || !/^(0|[1-9][0-9]*)$/.test(entityId) || !Array.isArray(characters)) return unsupportedTranscriptSnapshot();
+        const descriptor = Object.getOwnPropertyDescriptor(characters, entityId);
+        if (!descriptor || !Object.hasOwn(descriptor, 'value')) return unsupportedTranscriptSnapshot();
+        selectedChatId = nativeId(read(descriptor.value, 'chat'));
+      }
+      if (!chatId || selectedChatId !== chatId) return unsupportedTranscriptSnapshot();
+      const metadata = read(ctx, 'chatMetadata');
+      const declaredBinding = metadata === null || metadata === undefined ? null
+        : read(metadata, DIRECTIVE_CHAT_METADATA_KEY) ?? null;
+      return captureHostTranscriptSnapshot({ hostId: 'sillytavern',
+        nativeIdentity: { entityType, entityId, chatId }, directiveBinding: declaredBinding,
+        rows: read(ctx, 'chat') });
+    } catch (error) { return unsupportedTranscriptSnapshot(error); }
   }
 
   async function createOrBindCampaignChat({
@@ -2853,6 +2900,7 @@ export function createSillyTavernChatAdapter({
     id: 'sillytavern-chat-adapter',
     getCurrentChatId: () => contextChatId(context()),
     getCurrentBinding,
+    captureCurrentTranscriptSnapshot,
     createOrBindCampaignChat,
     cloneCampaignChat,
     prepareCampaignChatClone,

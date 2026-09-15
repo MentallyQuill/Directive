@@ -15,6 +15,7 @@ import {
   verifyNativeBranchTranscriptAttestation
 } from '../../runtime/native-branch-lineage.mjs';
 import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
+import { captureHostTranscriptSnapshot } from '../transcript-snapshot-contract.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -286,6 +287,13 @@ export function createFakeChatAdapter({
     },
     getCurrentBinding() {
       return this.getCurrentChatIdentity();
+    },
+    captureCurrentTranscriptSnapshot() {
+      return captureHostTranscriptSnapshot({ hostId: 'fake',
+        nativeIdentity: { entityType: 'character', entityId, chatId: currentChatId },
+        directiveBinding: metadataByChatId.get(String(currentChatId)) || binding,
+        rows: chatsById.get(String(currentChatId)),
+      });
     },
     async createOrBindCampaignChat(options = {}) {
       const requestedChatId = typeof options.existingChatId === 'string' && options.existingChatId.trim()
