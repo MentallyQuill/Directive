@@ -66,6 +66,13 @@ Native installed-host reproduction on `2ccc90b` proves that an earlier transcrip
 
 **Ruling:** This is integrity containment, not completion of fork-time decision inheritance. Full anchored history with reconstructible correction effects and mission-run rollback stays open in the goal. No blanket deletion or invented chronology is permitted.
 
+### Historical-state foundation
+
+- [x] Add a read-only repository API that restores complete states at actual saved custody-revision boundaries, verifies the entire captured chain and exact current head, returns provenance and coverage, and rejects corrupt, missing, stale, or unavailable history. Independent review and the expanded 229-check gate pass.
+- [x] Verify the installed reader against independently retained real-campaign snapshots. Revisions 31 and 32 match complete saved snapshots; exact 40-row reload and read-only state/manifest/chat preservation pass on candidate 1ba34e8a.
+- [ ] Publish the reviewed and verified historical-state foundation.
+- [ ] Add complete mutation capture, transcript anchors, immutable inherited history ownership, source-version reconciliation, and transactional branch integration. Retain existing refusal until those boundaries are proven together; revision restoration alone does not locate a native transcript cut.
+
 ## Task 4: Private briefing and spoiler safety
 
 **Files to trace:** `src/story/continuity-analyst.mjs`, `src/story/character-information.mjs`, narration projection, existing character-information evaluation scripts.

@@ -1,5 +1,6 @@
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
 import {
+  applyV1StateDelta,
   applyV1StateDeltaChain,
   canonicalJson,
   encodeV1StateDelta,
@@ -246,7 +247,7 @@ async function readVerifiedSegment(adapter, manifest, reference) {
   return segment;
 }
 
-async function hydrateManifest(adapter, manifestRecord, saveId) {
+async function readVerifiedSaveChain(adapter, manifestRecord, saveId) {
   const manifest = assertV1CampaignSaveManifest(manifestRecord, { saveId });
   const base = assertV1CampaignSaveBase(await adapter.readJson(manifest.base.path), { saveId });
   if (base.revision !== manifest.base.revision
@@ -269,6 +270,11 @@ async function hydrateManifest(adapter, manifestRecord, saveId) {
     }
     deltas.push(...segment.deltas);
   }
+  return { manifest, base, deltas };
+}
+
+async function hydrateManifest(adapter, manifestRecord, saveId) {
+  const { manifest, base, deltas } = await readVerifiedSaveChain(adapter, manifestRecord, saveId);
   const applied = await applyV1StateDeltaChain({
     saveId,
     state: base.state,
@@ -875,6 +881,86 @@ export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, 
     await writeIndex(adapter, index, now || save.updatedAt);
   }
   return save;
+}
+
+/**
+ * Read an exact storage/stateCustody revision from a captured save manifest.
+ * This is revision coverage only: it provides no transcript chronology, ancestry
+ * retention, or branch authorization. The captured manifest must still be current
+ * before and after verification; its mutable active segment is not an archive.
+ * No index lookup, repair, activation, or storage write occurs.
+ */
+export async function loadV1CampaignStateAtRevision(adapter, saveId, { expectedManifest, revision } = {}) {
+  const id = safeId(saveId, 'saveId');
+  if (!adapter || typeof adapter.readJson !== 'function'
+    || !Number.isInteger(revision) || revision < 0) {
+    throw saveStorageError('DIRECTIVE_V1_HISTORY_REQUEST_INVALID',
+      'Historical state requires a readable adapter and a nonnegative state-custody revision.');
+  }
+  const capturedManifest = clone(assertV1CampaignSaveManifest(expectedManifest, { saveId: id }));
+  const capturedJson = canonicalJson(capturedManifest);
+  async function assertCapturedHead() {
+    const current = await readOrNull(adapter, V1_STORAGE_PATHS.save(id));
+    if (!current || canonicalJson(current) !== capturedJson) {
+      throw saveStorageError('DIRECTIVE_V1_HISTORY_HEAD_CHANGED',
+        'The captured campaign-save head is no longer current.', { saveId: id });
+    }
+  }
+  await assertCapturedHead();
+  const { manifest, base, deltas } = await readVerifiedSaveChain(adapter, capturedManifest, id);
+  let state = base.state;
+  let selectedState = revision === base.revision ? clone(state) : null;
+  let selectedHash = selectedState ? base.stateHash : null;
+  const availableRevisions = [base.revision];
+  for (const delta of deltas) {
+    if (!Number.isInteger(delta.afterRevision) || delta.afterRevision <= delta.beforeRevision) {
+      throw saveStorageError('DIRECTIVE_V1_SAVE_REVISION_DISCONTINUITY',
+        'Historical state deltas must advance to a later revision.');
+    }
+    // Verify every intermediate state, including the suffix after the requested
+    // boundary. A later overwriting delta must not hide an earlier corrupt state.
+    state = await applyV1StateDelta({ saveId: id, state, delta });
+    availableRevisions.push(delta.afterRevision);
+    if (delta.afterRevision === revision) {
+      selectedState = clone(state);
+      selectedHash = delta.afterHash;
+    }
+  }
+  if (state.stateCustody.revision !== manifest.currentRevision
+    || await sha256Json(state) !== manifest.currentStateHash) {
+    throw saveStorageError('DIRECTIVE_V1_SAVE_MANIFEST_INTEGRITY_FAILED',
+      'Historical state verification did not reach the captured campaign-save head.');
+  }
+  assertV1CampaignSave({ ...manifest.saveMetadata, state });
+  const manifestHash = await sha256Json(manifest);
+  await assertCapturedHead();
+  if (!selectedState) {
+    throw saveStorageError('DIRECTIVE_V1_HISTORY_REVISION_UNAVAILABLE',
+      'The requested state-custody revision is not a saved base or delta boundary.',
+      { revision, baseRevision: base.revision, headRevision: manifest.currentRevision });
+  }
+  assertV1CampaignState(selectedState);
+  return {
+    state: selectedState,
+    stateHash: selectedHash,
+    revision,
+    origin: {
+      saveId: id,
+      campaignId: selectedState.campaign.id,
+      packageId: selectedState.activeCampaignPackage.packageId,
+      packageVersion: selectedState.activeCampaignPackage.packageVersion,
+      slotType: manifest.saveMetadata.slotType,
+      parentSaveId: manifest.saveMetadata.parentSaveId,
+      branchId: selectedState.mission.v1.branchId,
+    },
+    coverage: { baseRevision: base.revision, headRevision: manifest.currentRevision, availableRevisions },
+    provenance: {
+      manifestHash,
+      headStateHash: manifest.currentStateHash,
+      base: clone(manifest.base),
+      segments: clone(manifest.segments),
+    },
+  };
 }
 
 export async function listV1CampaignSaves(adapter) {
