@@ -993,6 +993,9 @@ assert.equal(
   'footer-save failure must not block response metadata custody',
 );
 assert.equal(runtimeWarnings.some((warning) => /time footer normalization failed/i.test(warning[0] || '')), true);
+assert.equal(app.getTranscriptFinalizationStatus().phase, 'failed');
+await app.handleHostGenerationEnded({ message: stripFailureAssistant });
+assert.equal(app.getTranscriptFinalizationStatus(), null, 'recover the failed reply before producing another reply');
 
 const metadataCallsBeforeStripUnavailable = chat.calls().filter((call) => call.type === 'attachAssistantRuntimeMetadata').length;
 const stripUnavailableAssistant = chat.pushAssistantMessage({
@@ -1012,6 +1015,9 @@ assert.equal(
   metadataCallsBeforeStripUnavailable + 1,
   'an unavailable normalizer target must not block response metadata custody',
 );
+assert.equal(app.getTranscriptFinalizationStatus().phase, 'failed');
+await app.handleHostGenerationEnded({ message: stripUnavailableAssistant });
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 chat.setMessagesForChat(chat.getCurrentChatId(), messagesBeforeStripDiagnostics);
 const hostedReportMessage = chat.messages().find((message) => message.hostMessageId === 'assistant.provisional');
 assert.equal(hostedReportMessage.isDirectiveOwned, false, 'Duty Report custody must not take ownership of host narration');
@@ -1397,6 +1403,10 @@ const queuedEditResult = await queuedEditReconciliation;
 assert.equal(queuedEditResult.handled, true);
 const generationAfterQueuedEdit = await generationBehindQueuedEdit;
 assert.equal(generationAfterQueuedEdit.abortDefaultGeneration, false);
+// This fixture prepares generation without producing a reply. End that native
+// lifecycle before exercising a separate source-deletion transaction.
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 host.storage.writeJson = retryWriteJson;
 
 const beforeAtomicInvalidationFailure = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
@@ -1465,7 +1475,10 @@ assert.notEqual(
   episodeQueueTimeout,
   'a narration-ended event must not schedule a model call ahead of Continue',
 );
+const ownerBeforeDuplicateEnd = app.getTranscriptFinalizationStatus();
 const duplicateNarrationEndReview = await app.handleHostGenerationEnded({ message: cancellationAssistant });
+assert.deepEqual(app.getTranscriptFinalizationStatus(), ownerBeforeDuplicateEnd,
+  'a duplicate completion must not replace the current generation owner');
 assert.equal(firstNarrationEndReview.episodeReview.attempted, false);
 assert.deepEqual(firstNarrationEndReview.metadataAttachment, {
   attached: false,
@@ -1476,12 +1489,14 @@ assert.equal(
   true,
   'metadata attachment failure must remain diagnosable without aborting post-narration analysis',
 );
-assert.equal(duplicateNarrationEndReview.episodeReview.status, 'deferred-to-director');
+assert.deepEqual(duplicateNarrationEndReview, { handled: false, reason: 'stale-generation-ended' });
 assert.equal(
   generation.calls().filter((call) => call.role === 'episodeEvaluator').length,
   episodeCallsBeforeNarrationEnd + 1,
   'Continue runs the due review once; the duplicate generation-ended event does not repeat it',
 );
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 const cancellationPlayer = chat.pushPlayerMessage({
   text: 'Hold that thought.',
   hostMessageId: 'player.analysis-cancel'
@@ -1522,6 +1537,8 @@ const replayAfterCancellation = await app.getChatTurnOrchestrator().interceptGen
 assert.equal(replayAfterCancellation.abortDefaultGeneration, false);
 assert.equal(replayAfterCancellation.responseStrategy, 'injectAndContinue');
 assert.equal(replayAfterCancellation.acceptedPairReplay, null);
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 
 const beforeCampaignDeletion = await app.getCurrentView({ tabId: 'campaign' });
 const deletionCampaignId = beforeCampaignDeletion.campaignState.campaign.id;

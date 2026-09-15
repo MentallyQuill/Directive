@@ -223,7 +223,9 @@ export function createFakeChatAdapter({
   chatId = 'fake-chat-1',
   entityId = 'fake-character-1',
   entityName = 'Fake Character',
-  messages = []
+  messages = [],
+  isGenerating = () => false,
+  isReplyGenerating = isGenerating
 } = {}) {
   let currentChatId = chatId;
   let binding = null;
@@ -233,6 +235,17 @@ export function createFakeChatAdapter({
   const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
   const calls = [];
+  function getGenerationActivity() {
+    const read = callback => {
+      try {
+        const active = typeof callback === 'function' ? callback() : undefined;
+        if (active === true || active === false) return active ? 'active' : 'idle';
+        if (active && typeof active.then === 'function') Promise.resolve(active).catch(() => {});
+      } catch { /* Match native unsupported activity semantics. */ }
+      return 'unsupported';
+    };
+    return Object.freeze({ status: read(isGenerating), replyStatus: read(isReplyGenerating) });
+  }
   function messagesForChat(id = currentChatId) {
     const key = String(id || '');
     if (!chatsById.has(key)) chatsById.set(key, []);
@@ -288,6 +301,8 @@ export function createFakeChatAdapter({
     getCurrentBinding() {
       return this.getCurrentChatIdentity();
     },
+    prepareGenerationActivity: async () => getGenerationActivity(),
+    getGenerationActivity,
     captureCurrentTranscriptSnapshot() {
       return captureHostTranscriptSnapshot({ hostId: 'fake',
         nativeIdentity: { entityType: 'character', entityId, chatId: currentChatId },

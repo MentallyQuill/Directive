@@ -32,3 +32,29 @@ assert.equal((await lifecycle.generate(input)).ok, true, 'explicit retry starts 
 let lateMessages=[],writes=0;
 const late=createOpeningLifecycle({chat:{getRecentMessages:async()=>lateMessages,getOpeningRecord:()=>null,setOpeningRecord:async()=>{if(++writes===2)lateMessages.push({role:'user',text:'Wait.'})},postAssistantMessage:async r=>{lateMessages.push({role:'assistant',text:r.text});return {posted:true}}},getBinding:()=>({campaignId:'late',saveId:'late',chatId:'late'}),isCurrent:()=>true,generateDirector:async()=>({text:JSON.stringify({kind:'directive.openingDirection.v1',sceneMaterialIds:['scene:0'],backgroundIds:['background:serviceSummary'],emphasis:'setting'})}),generateNarration:async()=>({text:'Opening.'}),getProseGuidance:async()=>''});
 await late.generate(input);assert.equal(lateMessages.length,1,'user message during metadata persistence prevents opening append');assert.notEqual(late.currentStatus()?.status,'generating');
+
+let serializedOptions = null, directPosts = 0, releasePost;
+const postHeld = new Promise(resolve => { releasePost = resolve; });
+const ownedOptions = {
+ chat: { getRecentMessages: async () => [], getOpeningRecord: () => null, setOpeningRecord: async () => {},
+  postAssistantMessage: async () => { directPosts++; return { posted: true }; } },
+ getBinding: () => ({ campaignId: 'owned', saveId: 'owned', chatId: 'owned' }), isCurrent: () => true,
+ generateDirector: async () => ({ text: JSON.stringify({ kind: 'directive.openingDirection.v1', sceneMaterialIds: ['scene:0'], backgroundIds: ['background:serviceSummary'], emphasis: 'setting' }) }),
+ generateNarration: async () => ({ text: 'Owned opening.' }), getProseGuidance: async () => '',
+ postOpening: async options => { serializedOptions = options; await postHeld; return { posted: true, hostMessageId: 'owned.row' }; },
+};
+const owned = createOpeningLifecycle(ownedOptions);
+const ownedFlight = owned.generate(input);
+for (let attempt = 0; attempt < 20 && !serializedOptions; attempt++) await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(directPosts, 0, 'the runtime posting boundary must own the actual append');
+assert.equal(serializedOptions?.requireEmpty, true);
+assert.equal(serializedOptions?.expectedBinding.saveId, 'owned');
+owned.cancel();
+releasePost();
+assert.equal((await ownedFlight).ok, false, 'completion after Stop cannot report the opening ready');
+assert.notEqual(owned.currentStatus()?.status, 'ready');
+const refusedPost = createOpeningLifecycle({ ...ownedOptions,
+ postOpening: async () => ({ ok: false, posted: false, reason: 'native-post-failed' }),
+});
+assert.equal((await refusedPost.generate(input)).ok, false, 'a refused post must not be converted into success');
+assert.equal(refusedPost.currentStatus()?.status, 'failed');

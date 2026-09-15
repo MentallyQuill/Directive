@@ -159,6 +159,8 @@ export function assertDirectiveChatAdapter(chat, path = 'host.chat') {
     'setOpeningRecord',
     'getRecentMessages',
     'captureCurrentTranscriptSnapshot',
+    'prepareGenerationActivity',
+    'getGenerationActivity',
     'getLatestPlayerMessage',
     'getMessage',
     'open'

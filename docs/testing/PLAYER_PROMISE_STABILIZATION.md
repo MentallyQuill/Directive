@@ -1,5 +1,15 @@
 # Player promise stabilization evidence
 
+## Owned reply finalization and lifecycle admission
+
+Runtime tickets reserve the exact native chat/entity and campaign/save while preparing, producing and finalizing a reply. Interceptor preparation carries its own admission; unrelated campaign and dossier writes fail promptly and recheck at application. Native player insertion, group-member starts and exact regenerate-tail deletion follow their actual host order. The shell claims completion synchronously without making native listeners await the finalizer. Complete source checks precede footer and metadata mutation; Stop cannot release an unresolved host operation. Missing or failed finalization remains recoverable without selecting an arbitrary older assistant. Completed blocked preparation retains its existing Retry result and call budget.
+
+Opening posting uses the same serialized boundary and verifies exact text and idempotency identity. Refused posts remain failures, late Stop cannot report ready, and retry cannot append a second opening. Portrait conversion waits for successful Load Game and checks admission before upload. Load Game reserves execution across the timeline lease and rechecks before mutation. Independent review reproduced a generation start during the lease wait; the corrected case refuses with zero storage writes. Interruptions after cloning preserve the existing recovery journal, leave parent authority unchanged and permit a verified retry. Source edits cancel pending preparation before queued reconciliation; asynchronous binding failures are contained.
+
+Independent integrated review approved the final source. The standard release gate passed all 246 checks with exit zero (`transcript-finalization-reviewed-final-gate.log`). Earlier failures exposed real Load Game and Retry ownership defects plus fixtures that omitted native lifecycle boundaries; the latter were updated without removing their source, retry-budget, timing or progress assertions. Evidence includes `transcript-finalization-implementation-freeze.md`, `transcript-finalization-review-fixes-freeze.md`, and `transcript-finalization-independent-review.md` in the stabilization artifact directory.
+
+This proves deterministic ownership and in-memory finalization. Native activity flags do not establish event identity or durable native chat-save completion. Complete history capture remains disabled; writer enrollment, non-prefix mutation handling, inherited history and historical branch reconstruction remain unfinished. The prepared installed reload/idle proof and mandatory real-provider soak are separate verification steps.
+
 ## State application ownership through publication
 
 The gateway now supplies a detached frozen application context with exact before/after states, resolved proposal ID, normalized domains, allowed descriptor data and accepted-source preconditions. Services remain outside that evidence. Persistence options are forwarded with or without a progress scope. The runtime carries the context into the controller, which validates it against the selected prior save and candidate.

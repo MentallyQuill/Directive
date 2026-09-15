@@ -100,7 +100,15 @@ async function runCase({
     ? host.chat.messages().find((row) => row.hostMessageId === player.hostMessageId)
     : player;
   if (nativeRecovery) app.handleHostGenerationStarted({ type: 'normal', automaticTrigger: false });
-  const pending = app.observeHostPlayerMessage({ message: observedPlayer });
+  const observation = app.observeHostPlayerMessage({ message: observedPlayer });
+  let pending = observation;
+  if (nativeRecovery) {
+    const deferred = await observation;
+    assert.equal(deferred.deferred, true, `${name}: native MESSAGE_SENT waits for owned preparation`);
+    assert.equal(deferred.reason, 'generation-preparation-pending');
+    assert.equal(interpretationCalls, 0, `${name}: observation does not analyze before interceptor ownership`);
+    pending = app.getChatTurnOrchestrator().interceptGeneration({ type: 'normal', recoveryIntent: 'native' });
+  }
   if (mutateBeforeObserve) {
     await new Promise((resolve) => setImmediate(resolve));
     if (interpretationCalls > 0) releaseFirstInterpretation();
@@ -159,9 +167,16 @@ async function runCase({
     assert.deepEqual(afterState, beforeState, `${name}: in-memory authority remains unchanged`);
     assert.deepEqual(afterSave.state, beforeSave.state, `${name}: stored authority remains unchanged`);
   } else {
-    assert.equal(settlement.mission.ok, false, `${name}: changed source rejects settlement`);
-    assert.equal(settlement.mission.reasonCode, expected === 'signaled' ? 'provider-aborted' : 'accepted-pair-source-stale', `${name}: rejection is typed`);
-    assert.equal(settlement.settlementBlocked, true, `${name}: narration remains blocked`);
+    if (nativeRecovery) {
+      assert.equal(settlement.handled, true);
+      assert.equal(settlement.abortDefaultGeneration, true, `${name}: stale owned preparation blocks native narration`);
+      assert.equal(settlement.settlementError?.code, 'DIRECTIVE_ACCEPTED_PAIR_SETTLEMENT_BLOCKED');
+      assert.equal(settlement.settlementError?.reasonCode, 'accepted-pair-source-stale');
+    } else {
+      assert.equal(settlement.mission.ok, false, `${name}: changed source rejects settlement`);
+      assert.equal(settlement.mission.reasonCode, expected === 'signaled' ? 'provider-aborted' : 'accepted-pair-source-stale', `${name}: rejection is typed`);
+      assert.equal(settlement.settlementBlocked, true, `${name}: narration remains blocked`);
+    }
     assert.deepEqual(afterState, beforeState, `${name}: in-memory authority remains unchanged`);
     assert.deepEqual(afterSave.state, beforeSave.state, `${name}: stored authority remains unchanged`);
   }

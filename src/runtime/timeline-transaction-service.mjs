@@ -513,7 +513,9 @@ export function createTimelineTransactionService({
     };
   }
 
-  async function executeLoadGame(savedGameId) {
+  async function executeLoadGame(savedGameId, { assertExecution = null } = {}) {
+    const checkExecution = () => assertExecution?.({ phase: 'pre-publication' });
+    checkExecution();
     await controller.assertActiveTimelineCurrent?.();
     const parentSave = controller.getActiveSave();
     const parentState = clone(getState());
@@ -575,6 +577,7 @@ export function createTimelineTransactionService({
       selectedSavedGameId: selected.id, selectedUpdatedAt: selected.updatedAt
     })}`;
     let operation = await controller.loadTimelineOperation({ campaignId: parentSave.campaignId });
+    checkExecution();
     if (operation?.operationId !== operationId) {
       if (operation && operation.stage !== 'completed') {
         throw transactionError('DIRECTIVE_TIMELINE_OPERATION_CONFLICT', 'Another timeline operation requires recovery.', { operationId: operation.operationId });
@@ -593,6 +596,7 @@ export function createTimelineTransactionService({
         createdAt, updatedAt: createdAt, diagnostics: { selectedSavedGameId: selected.id }
       };
       await prompt?.clear?.({ reason: 'preparing-load-game-timeline' });
+      checkExecution();
       await controller.storeTimelineOperation(operation);
       if (typeof afterStage === 'function') await afterStage('detected', clone(operation));
     } else {
@@ -600,6 +604,7 @@ export function createTimelineTransactionService({
     }
 
     const suggestedName = suggestPreviousTimelineName(parentState, runtimeAssets);
+    checkExecution();
     if (!operation.parentCheckpointBinding?.chatId) {
       if (typeof chat.cloneCampaignChat !== 'function') {
         throw transactionError('DIRECTIVE_LOAD_GAME_PARENT_CLONE_UNAVAILABLE', 'The host cannot preserve the current timeline chat before loading another save.');
@@ -615,9 +620,11 @@ export function createTimelineTransactionService({
         }),
         updatedAt: now()
       };
+      checkExecution();
       await controller.storeTimelineOperation(operation);
     }
     if (!stageAtLeast(operation, 'parent-preserved')) {
+      checkExecution();
       const clonedParent = await clonePlannedCampaignChat({
         sourceChatId: parentState.campaignChatBinding.chatId,
         targetName: `${parentState.campaign.title} - ${suggestedName} save`,
@@ -637,6 +644,7 @@ export function createTimelineTransactionService({
         },
         updatedAt: now()
       };
+      checkExecution();
       await controller.storeTimelineOperation(nextOperation);
       operation = nextOperation;
       const checkpointState = rebindV1CampaignStateCustody({
@@ -645,12 +653,15 @@ export function createTimelineTransactionService({
         targetChatBinding: operation.parentCheckpointBinding,
         runtimeAssets
       }).campaignState;
+      checkExecution();
       const saved = await controller.prepareTimelineCheckpoint({
         checkpointId: operation.checkpointId, name: suggestedName, campaignState: checkpointState
       });
+      checkExecution();
       operation = await checkpointStage(operation, 'parent-preserved', { suggestedName: saved.name });
     }
     if (!stageAtLeast(operation, 'child-chat-cloned')) {
+      checkExecution();
       if (typeof chat.cloneCampaignChat !== 'function') {
         throw transactionError('DIRECTIVE_LOAD_GAME_CLONE_UNAVAILABLE', 'The host cannot clone the selected saved game chat.');
       }
@@ -666,8 +677,10 @@ export function createTimelineTransactionService({
           }),
           updatedAt: now()
         };
+        checkExecution();
         await controller.storeTimelineOperation(operation);
       }
+      checkExecution();
       const cloned = await clonePlannedCampaignChat({
         sourceChatId,
         targetName: `${selected.state.campaign.title} - ${selected.name} continuation`,
@@ -686,6 +699,7 @@ export function createTimelineTransactionService({
           chatId: compact(cloned.chatId), status: 'bound', boundAt: now()
         }
       };
+      checkExecution();
       operation = await checkpointStage(operation, 'child-chat-cloned');
     }
     const selectedAttestation = selected.state.campaignChatBinding?.transcriptAttestation;
@@ -698,6 +712,7 @@ export function createTimelineTransactionService({
     }
     let childSave;
     if (!stageAtLeast(operation, 'child-persisted')) {
+      checkExecution();
       const rebound = rebindV1CampaignStateCustody({
         campaignState: selected.state,
         targetSaveId: operation.childSaveId,
@@ -712,11 +727,14 @@ export function createTimelineTransactionService({
         createdAt,
         updatedAt: operation.updatedAt
       });
+      checkExecution();
       await controller.persistInactiveTimeline({ save: childSave });
+      checkExecution();
       operation = await checkpointStage(operation, 'child-persisted');
     } else childSave = await controller.loadSaveRecord({ saveId: operation.childSaveId });
 
     if (!stageAtLeast(operation, 'child-binding-written')) {
+      checkExecution();
       // cloneCampaignChat persisted this exact binding inside the unopened child snapshot.
       operation = await checkpointStage(operation, 'child-binding-written');
     }
@@ -733,12 +751,15 @@ export function createTimelineTransactionService({
       }
       await verifyPreservedParent(operation);
       const index = await controller.getStorageIndex();
+      checkExecution();
       await controller.activatePersistedTimeline({
         expectedSaveId: index.activeSaveId === operation.childSaveId ? operation.childSaveId : operation.parentSaveId,
         nextSaveId: operation.childSaveId
       });
+      assertExecution?.({ phase: 'committed' });
       operation = await checkpointStage(operation, 'active-pointer-switched');
     }
+    assertExecution?.({ phase: 'committed' });
     childSave = await controller.loadSaveRecord({ saveId: operation.childSaveId });
     setState(childSave.state);
     configureRuntime?.();
@@ -824,9 +845,9 @@ export function createTimelineTransactionService({
       const campaignId = compact(lineage?.parentBinding?.campaignId || controller.getActiveSave()?.campaignId);
       return schedule(campaignId, () => executeNativeBranch(lineage));
     },
-    loadGame({ savedGameId } = {}) {
+    loadGame({ savedGameId, assertExecution = null } = {}) {
       const campaignId = compact(controller.getActiveSave()?.campaignId || getState()?.campaign?.id);
-      return schedule(campaignId, () => executeLoadGame(compact(savedGameId)));
+      return schedule(campaignId, () => executeLoadGame(compact(savedGameId), { assertExecution }));
     },
     saveGame({ name } = {}) {
       const campaignId = compact(controller.getActiveSave()?.campaignId || getState()?.campaign?.id);

@@ -140,12 +140,17 @@ async function createHarness({ holdFirstContinuity = false, holdRetryContinuity 
   };
 }
 
-async function beginObservedGeneration(harness) {
+async function beginObservedGeneration(harness, { waitForSettlement = true } = {}) {
   harness.eventSource.emit('generation-started', { type: 'normal', dryRun: false });
   harness.eventSource.emit('message-sent', { message: harness.currentPlayer });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(harness.continuityCalls(), 0, 'native MESSAGE_SENT defers analysis to owned interceptor');
+  const interception = bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+  if (waitForSettlement) assert.equal((await interception).abortDefaultGeneration, true);
+  return { interception };
 }
 
-// A fast observer failure can settle before the same native Generate reaches its interceptor.
+// A fast owned preparation failure settles before a duplicate interceptor for the same native gesture.
 {
   const harness = await createHarness();
   try {
@@ -169,15 +174,16 @@ async function beginObservedGeneration(harness) {
   }
 }
 
-// An interceptor already waiting behind the observer has the same ownership and cannot steal Retry.
+// A duplicate interceptor waiting behind slow owned preparation cannot steal Retry.
 {
   const harness = await createHarness({ holdFirstContinuity: true });
   try {
-    await beginObservedGeneration(harness);
+    const initial = await beginObservedGeneration(harness, { waitForSettlement: false });
     await harness.firstContinuityStarted.promise;
     const interception = bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
     harness.releaseFirstContinuity.resolve();
     const blocked = await interception;
+    assert.equal((await initial.interception).abortDefaultGeneration, true);
     assert.equal(blocked.abortDefaultGeneration, true);
     assert.equal(harness.continuityCalls(), 2, 'the in-flight observer owns the original gesture attempt budget');
     harness.eventSource.emit('generation-started', { type: 'normal', dryRun: false });
@@ -262,8 +268,11 @@ for (const generationStart of [
   const harness = await createHarness();
   try {
     harness.eventSource.emit('generation-started', { type: 'normal', dryRun: false });
-    const failed = await harness.app.observeHostPlayerMessage({ message: harness.currentPlayer });
-    assert.equal(failed.settlementBlocked, true);
+    const observed = await harness.app.observeHostPlayerMessage({ message: harness.currentPlayer });
+    assert.equal(observed.deferred, true);
+    assert.equal(harness.continuityCalls(), 0);
+    const failed = await bridge.directiveGenerationInterceptor([], 8192, () => {}, 'normal');
+    assert.equal(failed.abortDefaultGeneration, true);
     const originalLatest = harness.host.chat.getLatestPlayerMessage.bind(harness.host.chat);
     const originalRecent = harness.host.chat.getRecentMessages.bind(harness.host.chat);
     harness.host.chat.getLatestPlayerMessage = () => ({ ...originalLatest(), text: 'Changed after the failed observation.' });

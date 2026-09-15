@@ -56,6 +56,8 @@ assert.equal(committed.stateCustody.revision,stateBefore.stateCustody.revision+1
 assert.equal(committed.storySettlement.directorReceipts.length,1);
 assert.equal(committed.storySettlement.acceptedPairReceipts.at(-1).currentPlayer.messageId, acceptingPlayer.hostMessageId || acceptingPlayer.id,
   'Repeated Generate messages retain the original accepting player source');
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null, 'close the prepared no-output reply before a separate prompt retry');
 failPrompt=true;
 await assert.rejects(()=>app.getChatTurnOrchestrator().interceptGeneration({type:'normal'}),/install/);
 failPrompt=false;

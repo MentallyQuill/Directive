@@ -187,6 +187,7 @@ export function handlePlayerMessage(payload = {}) {
 
 export function handleGenerationStarted(type = 'normal', options = {}, dryRun = false) {
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
+  if (isDirectiveOwnedHostGeneration()) return { handled: false, reason: 'directive-owned-generation' };
   if (type && typeof type === 'object') {
     dryRun = type.dryRun === true;
     options = type.options || type;
@@ -195,6 +196,7 @@ export function handleGenerationStarted(type = 'normal', options = {}, dryRun = 
   return app()?.handleHostGenerationStarted?.({
     type,
     automaticTrigger: options?.automatic_trigger === true || options?.automaticTrigger === true,
+    quietToLoud: options?.quietToLoud === true,
     dryRun,
   }) || { handled: false, reason: 'runtime-unavailable' };
 }
@@ -245,6 +247,8 @@ export async function handleGenerationStopped(payload = {}) {
 
 export function handleStreamTokenReceived(text) {
   if (!enabled() || isDirectiveOwnedHostGeneration() || typeof text !== 'string' || text.length === 0) return;
+  try { app()?.handleHostStreamTokenReceived?.(); }
+  catch (error) { report('Native transcript activity observation failed', error); }
   receiveDirectiveHostGenerationChunk();
 }
 
@@ -252,10 +256,13 @@ export function handleGenerationEnded(payload = {}) {
   if (isDirectiveOwnedHostGeneration()) return { handled: false, reason: 'directive-owned-generation' };
   finishDirectiveHostGenerationActivities();
   if (!enabled()) return { handled: false, reason: 'extension-disabled' };
-  return scheduleReconciliation(
-    'Post-narration Directive work failed',
-    () => app()?.handleHostGenerationEnded?.(payload)
-  );
+  // Claim runtime finalization synchronously, but never make the native event
+  // emitter wait for chat persistence or downstream Directive work.
+  try {
+    Promise.resolve(app()?.handleHostGenerationEnded?.(payload))
+      .catch(error => report('Post-narration Directive work failed', error));
+  } catch (error) { report('Post-narration Directive work failed', error); }
+  return { handled: true, scheduled: true, abortDefaultGeneration: false };
 }
 
 export function presentNativeBranchRefusal(fork) {

@@ -840,6 +840,8 @@ assert.deepEqual(generationAfterReplayFailure.acceptedPairReplay, {
   blockedAtMessageId: null,
   retryPending: false
 }, 'generation must retry a post-fork accepted-pair replay failure before continuing');
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null, 'finish the no-output generation before testing timeline loading');
 assert.equal((await app.handleHostChatChanged()).timelineFork, null, 'duplicate chat event is idempotent');
 
 const selectedSavedGameBefore = await loadV1CampaignSave(appStorage, changed.timelineFork.savedGameId);

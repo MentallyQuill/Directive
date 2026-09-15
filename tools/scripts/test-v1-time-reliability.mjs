@@ -309,6 +309,8 @@ test('the app blocks narration on unresolved timing and Generate retries the exa
   assert.equal(retried.abortDefaultGeneration, false);
   assert.equal(calls, 2);
   assert.equal((await app.getCurrentView({ tabId: 'mission' })).campaignState.timeLedger.elapsedSeconds, 600);
+  await app.handleHostGenerationEnded();
+  assert.equal(app.getTranscriptFinalizationStatus(), null);
   assert.equal((await app.getChatTurnOrchestrator().interceptGeneration()).abortDefaultGeneration, false);
   assert.equal(calls, 2);
 });

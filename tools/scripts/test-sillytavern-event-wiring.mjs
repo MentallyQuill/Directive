@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-adapter.mjs';
+import { createSillyTavernGenerationClient } from '../../src/hosts/sillytavern/generation-client.mjs';
 import { createFakeEventAdapter } from '../../src/hosts/fake/fake-host.mjs';
 import {
   __directiveEventTestHooks,
@@ -274,8 +275,11 @@ setSillyTavernDirectiveRuntimeBridge({
   }
 });
 const endedCallbackTimeout = Symbol('ended-callback-timeout');
+const immediateEndedResult = __directiveEventTestHooks.handleGenerationEnded({ messageId: 'assistant.42' });
+assert.deepEqual(endedPayload, { messageId: 'assistant.42' },
+  'runtime must acquire finalization ownership before the next native listener can run');
 const endedCallbackResult = await Promise.race([
-  __directiveEventTestHooks.handleGenerationEnded({ messageId: 'assistant.42' }),
+  immediateEndedResult,
   new Promise((resolve) => setTimeout(() => resolve(endedCallbackTimeout), 25)),
 ]);
 assert.notEqual(
@@ -291,6 +295,29 @@ assert.deepEqual(endedCallbackResult, {
 assert.deepEqual(endedPayload, { messageId: 'assistant.42' });
 releaseEndedReview({ handled: true });
 await heldEndedReview;
+clearSillyTavernDirectiveRuntimeBridge();
+
+const lifecycleStarts = [];
+let streamSignals = 0;
+setSillyTavernDirectiveRuntimeBridge({ app: {
+  handleHostGenerationStarted: payload => { lifecycleStarts.push(payload); return { handled: true }; },
+  handleHostStreamTokenReceived: () => { streamSignals++; },
+} });
+__directiveEventTestHooks.handleGenerationStarted('quiet', { quietToLoud: true });
+assert.equal(lifecycleStarts[0].quietToLoud, true, 'visible quiet generation preserves its lifecycle intent');
+__directiveEventTestHooks.handleStreamTokenReceived('Visible output');
+assert.equal(streamSignals, 1, 'stream observation reaches runtime synchronously');
+const ownedClient = createSillyTavernGenerationClient({ contextFactory: () => ({
+  generateRaw: async () => {
+    const start = __directiveEventTestHooks.handleGenerationStarted('normal');
+    assert.equal(start.reason, 'directive-owned-generation');
+    __directiveEventTestHooks.handleStreamTokenReceived('Owned output');
+    return 'Owned narration.';
+  },
+}) });
+await ownedClient.generateNarration({ prompt: 'Opening' });
+assert.equal(lifecycleStarts.length, 1, 'owned generation cannot reserve an unpaired native lifecycle');
+assert.equal(streamSignals, 1);
 clearSillyTavernDirectiveRuntimeBridge();
 
 installFakeDom();

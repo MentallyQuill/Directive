@@ -83,11 +83,13 @@ app.handleHostGenerationStarted({type:'normal'});
 releaseChatRead();
 await chatChange;
 host.chat.getBindingMetadata = originalGetBindingMetadata;
-const retry = await app.retryPendingPeopleDossiers();
-assert.deepEqual(retry, {ok:true,queued:1}, 'the first explicit Retry includes the staged canceled outcome');
+await assert.rejects(app.retryPendingPeopleDossiers(), {code:'DIRECTIVE_TRANSCRIPT_NOT_READY'},
+  'a staged retry cannot change authority while native generation owns the transcript');
 await new Promise(resolve=>setTimeout(resolve,20));
 assert.equal(authorCalls,1,'older chat reconciliation cannot release a newer native generation pause');
 await app.handleHostGenerationEnded();
+const retry = await app.retryPendingPeopleDossiers();
+assert.deepEqual(retry, {ok:true,queued:1}, 'the first admitted Retry includes the staged canceled outcome');
 const deadline=Date.now()+2000;
 while(Date.now()<deadline){
   state=(await app.getCurrentView({tabId:'people'})).campaignState;

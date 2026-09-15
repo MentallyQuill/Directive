@@ -1240,6 +1240,42 @@ export function createSillyTavernChatAdapter({
   scriptModule = null,
   importScript = null
 } = {}) {
+  let generationActivityModule = null;
+  let generationActivityPreparation = null;
+  function getGenerationActivity() {
+    let status = 'unsupported', replyStatus = 'unsupported';
+    try {
+      // Native isGenerating reads is_send_press OR is_group_generating, including
+      // non-streaming requests. A missing streaming processor cannot prove idle.
+      const active = typeof generationActivityModule?.isGenerating === 'function'
+        ? generationActivityModule.isGenerating() : undefined;
+      if (active === true || active === false) status = active ? 'active' : 'idle';
+      if (active && typeof active.then === 'function') Promise.resolve(active).catch(() => {});
+    } catch { /* Activity must remain unknown when native inspection fails. */ }
+    try {
+      // Live reply flag can be idle between group members while global activity
+      // remains active. It conveys neither event ownership nor save durability.
+      const reply = generationActivityModule?.is_send_press;
+      if (reply === true || reply === false) replyStatus = reply ? 'active' : 'idle';
+      if (reply && typeof reply.then === 'function') Promise.resolve(reply).catch(() => {});
+    } catch { /* Missing/non-boolean reply activity is never inferred. */ }
+    return Object.freeze({ status, replyStatus });
+  }
+  async function prepareGenerationActivity() {
+    if (generationActivityModule) return getGenerationActivity();
+    if (!generationActivityPreparation) {
+      generationActivityPreparation = (async () => {
+        try {
+          generationActivityModule = scriptModule || (typeof importScript === 'function'
+            ? await importScript() : await import('/script.js'));
+        } catch { generationActivityModule = null; }
+      })();
+    }
+    const preparation = generationActivityPreparation;
+    await preparation;
+    if (generationActivityPreparation === preparation) generationActivityPreparation = null;
+    return getGenerationActivity();
+  }
   function context() {
     return contextFactory?.() || null;
   }
@@ -2900,6 +2936,8 @@ export function createSillyTavernChatAdapter({
     id: 'sillytavern-chat-adapter',
     getCurrentChatId: () => contextChatId(context()),
     getCurrentBinding,
+    prepareGenerationActivity,
+    getGenerationActivity,
     captureCurrentTranscriptSnapshot,
     createOrBindCampaignChat,
     cloneCampaignChat,

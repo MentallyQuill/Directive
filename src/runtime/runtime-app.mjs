@@ -3,6 +3,7 @@ import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import { createCharacterInformationProjection, CHARACTER_INFORMATION_POLICY } from '../story/character-information.mjs';
 import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
+import { createTranscriptFinalizationLane, transcriptNotReady } from './transcript-finalization-lane.mjs';
 import { createGenerationCancellation, generationAbortedError } from './generation-cancellation.mjs';
 import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
@@ -812,6 +813,88 @@ export function createDirectiveRuntimeApp({
   const generationRouter = createDirectiveGenerationRouter(host);
   let fallbackNarrationSettings = normalizeNarrationSettings();
   const narrationSettings = () => normalizeNarrationSettings(host.narration?.getSettings?.() || fallbackNarrationSettings);
+  const transcriptLane = createTranscriptFinalizationLane();
+  let executingTranscriptOwner = null;
+  const finalizationFlights = new Map();
+  const failedFinalizations = new Map();
+  const openingPublications = new Map();
+  let activeTimelineLoad = null;
+  function transcriptKey() {
+    const binding = host.chat.getCurrentBinding?.();
+    if (binding && typeof binding.then === 'function') {
+      Promise.resolve(binding).catch(() => {});
+      return null;
+    }
+    if (!binding?.chatId) return null;
+    return JSON.stringify([...['hostId', 'entityType', 'entityId', 'chatId'].map(key => String(binding[key] ?? '')),
+      String(state?.campaign?.id ?? ''), String(state?.campaignChatBinding?.saveId ?? '')]);
+  }
+  function assertTranscriptWritable(owner = null) {
+    if (activeTimelineLoad) throw transcriptNotReady('timeline-load-pending');
+    const previous = transcriptLane.current(transcriptKey());
+    if (!owner && previous?.phase === 'failed' && !failedFinalizations.has(transcriptKey()) && !openingPublications.has(transcriptKey())) {
+      releaseUnchangedTranscript(previous);
+    }
+    transcriptLane.assertWritable(transcriptKey(), owner);
+    if (!owner && typeof host.chat.getGenerationActivity === 'function') {
+      const activity = host.chat.getGenerationActivity();
+      if (activity?.status !== 'idle') throw transcriptNotReady(activity?.status === 'active' ? 'native-generation-active' : 'native-generation-unknown');
+    }
+  }
+  function transcriptObservation() {
+    const sampled = host.chat.captureCurrentTranscriptSnapshot?.();
+    return sampled?.status === 'captured' ? JSON.stringify(sampled.snapshot.rows) : null;
+  }
+  function beginTranscriptPreparation() {
+    const owner = transcriptLane.begin(transcriptKey());
+    if (owner) owner.baseline = transcriptObservation();
+    return owner;
+  }
+  function claimTranscriptPreparation(owner) {
+    if (owner.preparationStarted) throw transcriptNotReady('preparation-already-running');
+    owner.preparationStarted = true;
+    owner.preparationFinished = new Promise(resolve => { owner.finishPreparation = resolve; });
+  }
+  function releaseUnchangedTranscript(owner) {
+    const activity = host.chat.getGenerationActivity?.();
+    const observed = transcriptObservation();
+    let noAssistantOutput = owner?.baseline === observed;
+    if (owner?.baseline && observed && !noAssistantOutput && !openingPublications.has(owner.key)) {
+      const before = JSON.parse(owner.baseline), after = JSON.parse(observed);
+      const tail = after.at(-1);
+      noAssistantOutput = after.length === before.length + 1 && isUserMessage(tail)
+        && before.every((row, index) => JSON.stringify(row) === JSON.stringify(after[index]));
+    }
+    if (owner && !owner.running && owner.baseline !== null && owner.baseline !== undefined
+      && noAssistantOutput && (!activity || activity.status === 'idle')) {
+      transcriptLane.releaseUnchanged(owner);
+      return true;
+    }
+    return false;
+  }
+  function changedAssistantOutput(owner) {
+    if (!owner || owner.running || !owner.baseline) return null;
+    const sampled = host.chat.captureCurrentTranscriptSnapshot?.();
+    if (sampled?.status !== 'captured') return null;
+    const before = JSON.parse(owner.baseline), after = sampled.snapshot.rows;
+    if (![before.length, before.length + 1].includes(after.length) || !after.length) return null;
+    const prefixLength = after.length === before.length ? after.length - 1 : before.length;
+    if (before.slice(0, prefixLength).some((row, index) => JSON.stringify(row) !== JSON.stringify(after[index]))) return null;
+    const tail = after.at(-1);
+    if (tail.is_user === true || tail.isUser === true || ['user', 'system'].includes(tail.role) || tail.is_system === true || tail.isSystem === true) return null;
+    if (JSON.stringify(after) === owner.baseline) return null;
+    const recent = host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
+    if (!Array.isArray(recent) || recent.length !== 1) return null;
+    const message = recent[0];
+    if (!captureV1AssistantSourceVariant(message).ok) return null;
+    return { payload: { message: clone(message) },
+      expectedTranscript: JSON.stringify(after), capturedDutyReport: preparedNarrationDutyReport,
+      completionTarget: captureDirectivePromptTarget() };
+  }
+  function rememberStoppedOutput(owner) {
+    const output = changedAssistantOutput(owner);
+    if (output) failedFinalizations.set(owner.key, output);
+  }
   const openingLifecycle = createOpeningLifecycle({
     getAnalysisLimits: () => generationRouter.getAnalysisLimits(),
     chat: host.chat,
@@ -822,7 +905,8 @@ export function createDirectiveRuntimeApp({
       if (!host.generation.generateNarration) throw new Error('The host does not support opening narration.');
       return host.generation.generateNarration(request);
     },
-    getProseGuidance: () => host.presets?.getProseGuidance?.() || ''
+    getProseGuidance: () => host.presets?.getProseGuidance?.() || '',
+    postOpening: options => postFinalizedOpening(options)
   });
   let initialized = false;
   let initializing = false;
@@ -915,6 +999,8 @@ export function createDirectiveRuntimeApp({
 
   function dossierIdle() {
     return host.generation?.supportsIndependentBackgroundRequests === true
+      && !transcriptLane.current(transcriptKey())
+      && (typeof host.chat.getGenerationActivity !== 'function' || host.chat.getGenerationActivity()?.status === 'idle')
       && !controller?.getSavePublicationStatus?.()
       && !generationCancellation.stopped
       && !nativeNarrationActive && !activeAnalysisController && state && currentChatIsBound();
@@ -938,6 +1024,7 @@ export function createDirectiveRuntimeApp({
 
   function scheduleIdleDossiers() {
     if (dossierDrain || !dossierIdle()) return;
+    let admissionDeferred = false;
     dossierDrain = (async () => {
       while (dossierIdle()) {
         let nextJob = null;
@@ -963,8 +1050,13 @@ export function createDirectiveRuntimeApp({
         try { await dossierQueue.run(nextJob.job); }
         finally { activeDossierJob = null; }
       }
-    })().catch(error => host.logger?.warn?.('[Directive] Optional biography enrichment was deferred.', error))
-      .finally(() => { dossierDrain = null; });
+    })().catch(error => {
+      admissionDeferred = error?.code === 'DIRECTIVE_TRANSCRIPT_NOT_READY';
+      if (!admissionDeferred) host.logger?.warn?.('[Directive] Optional biography enrichment was deferred.', error);
+    }).finally(() => {
+      dossierDrain = null;
+      if (admissionDeferred && dossierIdle()) scheduleIdleDossiers();
+    });
   }
   let internalChatOpenDepth = 0;
   let deferredInternalChatChange = null;
@@ -1017,6 +1109,7 @@ export function createDirectiveRuntimeApp({
       setState,
       beforeCommit: ({ before, options }) => {
         controller.assertSaveWritable?.();
+        assertTranscriptWritable(executingTranscriptOwner);
         assertAcceptedPairSourcePrecondition({ before, options, host });
       },
       persist: async (next, _descriptor, { progressScope = null, applicationContext = null } = {}) => {
@@ -1516,9 +1609,62 @@ export function createDirectiveRuntimeApp({
     }
   }
 
+  async function postFinalizedOpening(options) {
+    const key = transcriptKey(), scope = turnProgress.createScope();
+    if (finalizationFlights.has(key)) throw transcriptNotReady('finalization-running');
+    assertTranscriptWritable();
+    const { owner } = transcriptLane.finalize(key);
+    owner.baseline = transcriptObservation();
+    openingPublications.set(key, { owner, options: clone(options) });
+    const target = captureDirectivePromptTarget();
+    const check = () => {
+      assertTurnActive(scope);
+      transcriptLane.assertOwner(owner, transcriptKey());
+      if (currentDirectivePromptTargetStatus(target) !== 'current') throw transcriptNotReady('opening-target-changed');
+    };
+    const flight = enqueueStateMutation(async () => {
+      check();
+      const posted = await host.chat.postAssistantMessage(options);
+      check();
+      if (posted?.posted === true || posted?.duplicate === true) {
+        const message = await host.chat.getMessage?.(posted.hostMessageId);
+        check();
+        const metadata = message?.metadata || message?.raw?.extra?.directive || message?.raw?.metadata?.directive;
+        if (!message || metadata?.idempotencyKey !== options.idempotencyKey
+          || String(message.text || message.mes || message.content || '') !== String(options.text).trim()) {
+          throw transcriptNotReady('opening-readback-mismatch');
+        }
+      } else if (posted?.reason !== 'chat-not-empty') throw transcriptNotReady('opening-post-unconfirmed');
+      return posted;
+    }, { transcriptOwner: owner });
+    finalizationFlights.set(key, flight);
+    try { const result = await flight; transcriptLane.finish(owner, true); openingPublications.delete(key); return result; }
+    catch (error) { transcriptLane.finish(owner, false); throw error; }
+    finally { if (finalizationFlights.get(key) === flight) finalizationFlights.delete(key); }
+  }
+
   async function postOpeningIfEmpty(signal = generationCancellation.signal) {
     await controller.verifySaveWritable?.();
     if (signal.aborted) return { ok: false, posted: false, reason: 'host-generation-stopped' };
+    const openingKey = transcriptKey();
+    const pendingOpening = openingPublications.get(openingKey);
+    if (pendingOpening && !pendingOpening.owner.running) {
+      const activity = host.chat.getGenerationActivity?.();
+      if (activity && activity.status !== 'idle') throw transcriptNotReady('opening-recovery-active');
+      if (!releaseUnchangedTranscript(pendingOpening.owner)) {
+        const observed = transcriptObservation();
+        if (!observed || !pendingOpening.owner.baseline) throw transcriptNotReady('opening-recovery-unverified');
+        const before = JSON.parse(pendingOpening.owner.baseline), after = JSON.parse(observed);
+        if (after.length !== before.length + 1
+          || before.some((row, index) => JSON.stringify(row) !== JSON.stringify(after[index]))) throw transcriptNotReady('opening-recovery-unverified');
+        const messages = host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
+        const posted = Array.isArray(messages) && messages.find(message => (message.metadata || message.raw?.extra?.directive)?.idempotencyKey === pendingOpening.options.idempotencyKey);
+        if (!posted || String(posted.text || '') !== String(pendingOpening.options.text).trim()) throw transcriptNotReady('opening-recovery-unverified');
+        if (signal.aborted || transcriptKey() !== openingKey) throw transcriptNotReady('opening-target-changed');
+        transcriptLane.releaseUnchanged(pendingOpening.owner);
+      }
+      openingPublications.delete(openingKey);
+    }
     return openingLifecycle.generate({
       premise: records.packageData.campaign.openingPremise,
       player: clone(state.player),
@@ -1526,10 +1672,22 @@ export function createDirectiveRuntimeApp({
     });
   }
 
-  function enqueueStateMutation(task, { campaignLease = true, publicationRecovery = false } = {}) {
+  function enqueueStateMutation(task, { campaignLease = true, publicationRecovery = false, transcriptOwner = null, transcriptRecovery = false } = {}) {
+    const precedingLoad = !publicationRecovery && !transcriptRecovery ? activeTimelineLoad : null;
+    if (!publicationRecovery && !transcriptRecovery && !activeTimelineLoad) {
+      try { assertTranscriptWritable(transcriptOwner); } catch (error) { return Promise.reject(error); }
+    }
     const guardedTask = async () => {
+      if (precedingLoad) {
+        const completion = await precedingLoad.finished;
+        if (completion.error) throw completion.error;
+      }
       if (!publicationRecovery) await controller?.verifySaveWritable?.();
-      return task();
+      if (!publicationRecovery && !transcriptRecovery) assertTranscriptWritable(transcriptOwner);
+      const previousOwner = executingTranscriptOwner;
+      executingTranscriptOwner = transcriptOwner;
+      try { return await task(); }
+      finally { executingTranscriptOwner = previousOwner; }
     };
     const execute = () => {
       const campaignId = compact(state?.campaign?.id);
@@ -1543,8 +1701,8 @@ export function createDirectiveRuntimeApp({
     return next;
   }
 
-  function enqueueSettlement(task) {
-    return enqueueStateMutation(task);
+  function enqueueSettlement(task, options) {
+    return enqueueStateMutation(task, options);
   }
 
   async function settleSnapshot(snapshot, ingressId = null, {
@@ -1839,10 +1997,45 @@ export function createDirectiveRuntimeApp({
     pauseDossiers();
     const progressScope = turnProgress.createScope();
     const sourceChatId = compact(payload?.chatId || payload?.message?.chatId || host.chat.getCurrentChatId?.());
+    const key = transcriptKey();
+    const preparing = transcriptLane.current(key);
+    if (preparing?.phase === 'preparing' && preparing.preparationStarted
+      && currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))) {
+      // Cancellation completion is awaited outside the settlement queue: the
+      // interceptor itself may need that queue to unwind its owned preparation.
+      transcriptLane.cancel(key);
+      activeAnalysisController?.abort();
+      await preparing.preparationFinished;
+      if (transcriptKey() !== key) return { handled: false, reason: 'source-chat-changed' };
+    }
+    const failedOwner = transcriptLane.current(key);
+    let preparingOwner = null, preparingTranscript = null;
+    if (eventType === 'message-deleted' && failedOwner?.phase === 'preparing'
+      && !failedOwner.preparationStarted && failedOwner.generationType === 'regenerate'
+      && messageId(payload, normalizeMessage(host, payload)) === failedOwner.regenerateSourceId
+      && failedOwner.baseline) {
+      const baseline = JSON.parse(failedOwner.baseline);
+      const current = transcriptObservation();
+      if (baseline.length && current === JSON.stringify(baseline.slice(0, -1))) {
+        preparingOwner = failedOwner;
+        preparingTranscript = current;
+      }
+    }
+    if (failedOwner?.phase === 'failed' && !failedOwner.running && !finalizationFlights.has(key)
+      && host.chat.getGenerationActivity?.()?.status === 'idle'
+      && currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))
+      && messageId(payload, normalizeMessage(host, payload))) {
+      // An explicit idle source mutation abandons the failed generation's old
+      // annotation obligation. Its retained retry must never rewrite that row.
+      transcriptLane.releaseUnchanged(failedOwner);
+      failedFinalizations.delete(key);
+      openingPublications.delete(key);
+    }
     if (currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))) {
       activeAnalysisController?.abort();
     }
     return enqueueSettlement(async () => {
+      if (preparingOwner && transcriptObservation() !== preparingTranscript) throw transcriptNotReady('regenerate-source-changed');
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
       if (sourceChatId && sourceChatId !== compact(state.campaignChatBinding?.chatId)) {
         return { handled: false, reason: 'source-chat-changed' };
@@ -1856,6 +2049,7 @@ export function createDirectiveRuntimeApp({
       acceptedPairRecovery = reconcileRequiredRecovery(eventType);
       acceptedPairRecoveryGestureId = null;
       const { mission, time, commandBearing } = await invalidateSourceAuthority(id, eventType, progressScope);
+      if (preparingOwner && transcriptObservation() === preparingTranscript) preparingOwner.baseline = preparingTranscript;
       await syncPrompt({ rebuild: true, progressScope });
       const replay = {
         replayed: 0,
@@ -1864,7 +2058,7 @@ export function createDirectiveRuntimeApp({
         reasonCode: acceptedPairRecovery.reasonCode,
       };
       return { handled: true, mission, time, commandBearing, replay };
-    });
+    }, { transcriptOwner: preparingOwner });
   }
 
   async function campaignViewEnvelope(tabId) {
@@ -1907,6 +2101,8 @@ export function createDirectiveRuntimeApp({
 
   const orchestrator = {
     async interceptGeneration({ type = 'normal', recoveryIntent = 'direct', signal = null } = {}) {
+      if (activeTimelineLoad) return { handled: true, abortDefaultGeneration: true,
+        responseStrategy: 'cancelStaleTurn', reasonCode: 'timeline-load-pending' };
       const generationGesture = activeHostGenerationGesture;
       const generationGestureId = generationGesture?.id ?? null;
       if (signal?.aborted || (recoveryIntent === 'native' && generationCancellation.stopped)) {
@@ -1921,11 +2117,34 @@ export function createDirectiveRuntimeApp({
       pauseDossiers();
       const generationType = compact(type) || 'normal';
       let generationTargetKey = null;
+      let transcriptOwner = generationGesture?.transcriptOwner || null;
+      // A completed blocked attempt released its preparation; the gesture still
+      // owns the existing retry budget, not a running transcript reservation.
+      if (transcriptOwner?.preparationReleased && transcriptLane.current(transcriptKey()) !== transcriptOwner) transcriptOwner = null;
+      let narrationPermitted = false;
+      let preparationClaimed = false;
       // A dialog dismissal cancels only this attempt, including queued work.
       const progressScope = Object.freeze({ ...turnProgress.createScope(), signal });
       try {
       assertTurnActive(progressScope);
+      if (transcriptOwner) {
+        claimTranscriptPreparation(transcriptOwner);
+        preparationClaimed = true;
+      }
       await ensureInitialized();
+      if (transcriptLane.current(transcriptKey())?.phase === 'failed') {
+        if (finalizationFlights.has(transcriptKey())) throw transcriptNotReady('finalization-running');
+        const prior = failedFinalizations.get(transcriptKey());
+        if (prior) await publicApi.handleHostGenerationEnded(prior.payload, prior);
+        else releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
+        if (transcriptLane.current(transcriptKey())) throw transcriptNotReady('finalization-failed');
+        transcriptOwner = null;
+      }
+      if (currentChatIsBound() && !transcriptOwner) {
+        transcriptOwner = beginTranscriptPreparation();
+        claimTranscriptPreparation(transcriptOwner);
+        preparationClaimed = true;
+      }
       await settlementQueue;
       await controller.verifySaveWritable?.();
       assertTurnActive(progressScope);
@@ -1973,6 +2192,7 @@ export function createDirectiveRuntimeApp({
           progressScope,
           recoveryGestureId: recoveryIntent === 'direct' ? null : generationGestureId,
           dedupeRecoveryGesture: recoveryIntent === 'native',
+          transcriptOwner,
         });
       }
       assertTurnActive(progressScope);
@@ -1993,18 +2213,18 @@ export function createDirectiveRuntimeApp({
       assertTurnActive(progressScope);
       let acceptedPairReplay = null;
       if (acceptedPairRecovery.mode === 'reconcile-required') {
-        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat({ progressScope }));
+        acceptedPairReplay = await enqueueSettlement(() => rebuildAcceptedStateFromChat({ progressScope }), { transcriptOwner });
       } else if (latestPlayerMessage) {
         await publicApi.observeHostPlayerMessage({
           message: latestPlayerMessage,
           source: 'v1-generation-boundary'
-        }, { progressScope, generationType, syncPromptAfter:false });
+        }, { progressScope, generationType, syncPromptAfter:false, transcriptOwner });
         await settlementQueue;
       }
       if (latestPlayerMessage) await enqueueSettlement(() => {
         assertTurnActive(progressScope);
         return armPendingCommandBearingEdge(latestPlayerMessage);
-      });
+      }, { transcriptOwner });
       assertTurnActive(progressScope);
       if (acceptedPairRecovery.mode !== 'none' || acceptedPairReplay?.blocked === true) {
         return {
@@ -2030,7 +2250,7 @@ export function createDirectiveRuntimeApp({
           const direction = await enqueueSettlement(() => settleSnapshot(prepared.snapshot, null, {
             syncPromptAfter:false, publishNotifications:false, progressScope, generationType,
             recoveryGestureId:generationGestureId,
-          }));
+          }), { transcriptOwner });
           assertTurnActive(progressScope);
           if (direction.settlementBlocked) return {
             handled:true, abortDefaultGeneration:true, responseStrategy:'blockAndRetry',
@@ -2058,6 +2278,12 @@ export function createDirectiveRuntimeApp({
         };
       }
       await controller.verifySaveWritable?.();
+      if (transcriptOwner) {
+        transcriptLane.assertOwner(transcriptOwner, transcriptKey());
+        transcriptOwner.baseline = transcriptObservation();
+        transcriptLane.producing(transcriptOwner);
+      }
+      narrationPermitted = true;
       return {
         handled: true,
         abortDefaultGeneration: false,
@@ -2065,6 +2291,10 @@ export function createDirectiveRuntimeApp({
         acceptedPairReplay
       };
       } catch (error) {
+        if (error?.code === 'DIRECTIVE_TRANSCRIPT_NOT_READY') return {
+          handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: error.reasonCode,
+          settlementError: { code: error.code, reasonCode: error.reasonCode, message: error.message },
+        };
         if (isStatePublicationError(error)) {
           const reasonCode = error.code === 'DIRECTIVE_V1_STATE_PERSISTENCE_PENDING'
             ? 'state-publication-writing'
@@ -2077,6 +2307,12 @@ export function createDirectiveRuntimeApp({
         }
         if (error?.code !== 'DIRECTIVE_GENERATION_ABORTED') throw error;
         return { handled: true, abortDefaultGeneration: true, responseStrategy: 'cancelStaleTurn', reasonCode: 'host-generation-stopped' };
+      } finally {
+        if (preparationClaimed && !narrationPermitted && transcriptOwner?.phase === 'preparing') {
+          transcriptLane.finish(transcriptOwner, true);
+          transcriptOwner.preparationReleased = true;
+        }
+        if (preparationClaimed) transcriptOwner?.finishPreparation?.();
       }
     }
   };
@@ -2096,6 +2332,7 @@ export function createDirectiveRuntimeApp({
       }
       initializing = true;
       try {
+        await host.chat.prepareGenerationActivity?.();
         records = await packageLoader();
         runtimeAssets = indexRuntimeAssets(records).get(records.packageData.manifest.id);
         controller = createCampaignStartController({
@@ -2158,20 +2395,48 @@ export function createDirectiveRuntimeApp({
 
     getChatTurnOrchestrator: () => orchestrator,
 
-    handleHostGenerationStarted({ type = 'normal', automaticTrigger = false, dryRun = false } = {}) {
+    handleHostGenerationStarted({ type = 'normal', automaticTrigger = false, dryRun = false, quietToLoud = false } = {}) {
       if (dryRun === true) return { handled: false, reason: 'dry-run' };
+      if (type === 'impersonate' || (type === 'quiet' && !quietToLoud)) return { handled: false, reason: 'non-narration-generation' };
+      if (activeTimelineLoad) {
+        activeTimelineLoad.interrupted = true;
+        return { handled: true, reason: 'timeline-load-pending' };
+      }
+      if (!activeAnalysisController) releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
       preparedNarrationDutyReport = null;
       const generationType = compact(type) || 'normal';
       const manualRecoveryEligible = automaticTrigger !== true
         && !['quiet', 'impersonate'].includes(generationType);
       pauseDossiers();
+      const priorOwner = transcriptLane.current(transcriptKey());
+      const preparingOwner = priorOwner?.phase === 'preparing' && !priorOwner.preparationStarted ? priorOwner : null;
       activeHostGenerationGesture = {
         id: ++hostGenerationGestureSequence,
         manualRecoveryEligible,
+        transcriptOwner: preparingOwner || (currentChatIsBound() && !priorOwner ? beginTranscriptPreparation() : null),
       };
+      if (activeHostGenerationGesture.transcriptOwner) {
+        const owner = activeHostGenerationGesture.transcriptOwner;
+        owner.generationType = generationType;
+        if (generationType === 'regenerate') {
+          const recent = host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
+          const tail = Array.isArray(recent) ? recent.at(-1) : null;
+          owner.regenerateSourceId = tail && !isUserMessage(tail) && activeSourceRow(tail) ? messageId(tail, tail) : null;
+        }
+      }
       if (manualRecoveryEligible) generationCancellation.resume();
       return { handled: true, gestureId: activeHostGenerationGesture.id };
     },
+
+    handleHostStreamTokenReceived() {
+      if (activeTimelineLoad) { activeTimelineLoad.interrupted = true; return { handled: false, reason: 'timeline-load-pending' }; }
+      if (!currentChatIsBound()) return { handled: false };
+      const owner = transcriptLane.current(transcriptKey()) || beginTranscriptPreparation();
+      if (owner.phase === 'preparing') transcriptLane.producing(owner);
+      return { handled: true };
+    },
+
+    getTranscriptFinalizationStatus: () => activeTimelineLoad ? { phase: 'loading', running: true } : transcriptLane.status(transcriptKey()),
 
     async getCurrentView({ tabId = 'campaign' } = {}) {
       await ensureInitialized();
@@ -2304,7 +2569,11 @@ export function createDirectiveRuntimeApp({
       progressScope = turnProgress.createScope(),
       generationType = 'normal',
       syncPromptAfter = true,
+      transcriptOwner = null,
     } = {}) {
+      if (!transcriptOwner && transcriptLane.current(transcriptKey())?.phase === 'preparing') {
+        return { handled: true, deferred: true, reason: 'generation-preparation-pending' };
+      }
       const recoveryGesture = activeHostGenerationGesture;
       const recoveryGestureId = recoveryGesture?.id ?? null;
       pauseDossiers();
@@ -2383,56 +2652,125 @@ export function createDirectiveRuntimeApp({
             progressScope, generationType, syncPromptAfter, recoveryGestureId,
           }))
         };
-      });
+      }, { transcriptOwner });
     },
 
-    async handleHostGenerationEnded(payload = {}) {
+    async handleHostGenerationEnded(payload = {}, retryInput = null) {
+      if (activeTimelineLoad) return { handled: false, reason: 'timeline-load-pending' };
       if (generationCancellation.stopped) return { handled: false, reason: 'host-generation-stopped' };
+      if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
+      if (retryInput && failedFinalizations.get(transcriptKey()) !== retryInput) throw transcriptNotReady('unknown-finalization-retry');
+      const key = transcriptKey();
+      if (finalizationFlights.has(key)) return finalizationFlights.get(key);
+      const previousOwner = transcriptLane.current(key);
+      const explicitMessage = typeof payload === 'object' && payload !== null
+        && (payload.message || payload.hostMessageId || payload.messageId || payload.id);
+      const retained = failedFinalizations.get(key);
+      if (!retryInput && previousOwner?.phase === 'failed' && retained && explicitMessage
+        && messageId(payload, normalizeMessage(host, payload)) === messageId(retained.payload, normalizeMessage(host, retained.payload))) {
+        retryInput = retained;
+      }
+      const activity = host.chat.getGenerationActivity?.();
+      if (activity && activity.replyStatus !== 'idle' && Object.hasOwn(activity, 'replyStatus')) {
+        return { handled: false, reason: 'native-reply-not-ended' };
+      }
+      if (!retryInput && previousOwner) {
+        const output = changedAssistantOutput(previousOwner);
+        if (!output) {
+          if (!explicitMessage && releaseUnchangedTranscript(previousOwner)) { nativeNarrationActive = false; scheduleIdleDossiers(); }
+          return { handled: false, reason: 'no-owned-assistant-output' };
+        }
+        const suppliedId = explicitMessage ? messageId(payload, normalizeMessage(host, payload)) : null;
+        if (suppliedId && suppliedId !== messageId(output.payload.message, output.payload.message)) return { handled: false, reason: 'stale-generation-ended' };
+        payload = output.payload;
+      } else if (!retryInput && !explicitMessage) {
+        return { handled: false, reason: 'unowned-generation-ended' };
+      }
+      if (!retryInput) {
+        const observed = object(payload?.message) ? payload.message : normalizeMessage(host, payload);
+        const current = host.chat.getMessage?.(messageId(payload, observed));
+        const supplied = captureV1AssistantSourceVariant(observed);
+        const actual = current && activeSourceRow(current) ? captureV1AssistantSourceVariant(current) : null;
+        if (!supplied.ok || !actual?.ok || JSON.stringify(supplied.value) !== JSON.stringify(actual.value)) {
+          return { handled: false, reason: 'stale-generation-ended' };
+        }
+      }
       // Retain the exact version and authored segment installed for this response
       // before any host reads await. Never reinterpret an earlier preparation.
-      const capturedDutyReport = preparedNarrationDutyReport;
+      const capturedDutyReport = retryInput ? retryInput.capturedDutyReport : preparedNarrationDutyReport;
+      const { owner } = transcriptLane.finalize(key);
       activeHostGenerationGesture = null;
-      nativeNarrationActive = false;
+      nativeNarrationActive = true;
       const progressScope = turnProgress.createScope();
+      const completionTarget = retryInput?.completionTarget || captureDirectivePromptTarget();
+      const assertFinalizationOwner = () => {
+        assertTurnActive(progressScope);
+        transcriptLane.assertOwner(owner, transcriptKey());
+        if (currentDirectivePromptTargetStatus(completionTarget) !== 'current') throw transcriptNotReady('source-chat-changed');
+      };
+      const flight = (async () => {
       await ensureInitialized();
+      return enqueueStateMutation(async () => {
+      assertFinalizationOwner();
+      if (retryInput?.expectedTranscript && transcriptObservation() !== retryInput.expectedTranscript) throw transcriptNotReady('stopped-output-changed');
       if (!state || !currentChatIsBound()) {
         return { handled: false, reason: 'inactive-or-unbound' };
       }
-      const completionTarget = captureDirectivePromptTarget();
-      let message = normalizeMessage(host, payload);
+      // Host observations are already normalized. Wrapping their raw payload a
+      // second time loses selected-swipe metadata in adapters that normalize once.
+      let message = object(payload?.message) ? payload.message : normalizeMessage(host, payload);
       const directId = messageId(payload, message);
       if (directId && (!object(message) || !compact(message.text || message.mes || message.content))) {
         message = await host.chat.getMessage?.(directId);
       }
       let recent = [];
       if (!object(message) || isUserMessage(message) || message.isSystem === true || message.is_system === true) {
-        recent = await host.chat.getRecentMessages?.({ limit: 20, playerSafeOnly: false }) || [];
-        message = [...recent].reverse().find((item) => (
-          object(item)
-          && !isUserMessage(item)
-          && item.isSystem !== true
-          && item.is_system !== true
-          && activeSourceRow(item)
-          && compact(item.text || item.mes || item.content)
-        )) || null;
+        return { handled: false, reason: 'assistant-message-unavailable' };
       }
       const hostMessageId = messageId(message, message);
+      if (!hostMessageId || !activeSourceRow(message)) return { handled: false, reason: 'assistant-message-unavailable' };
+      const beforeMutation = await host.chat.getMessage?.(hostMessageId);
+      assertFinalizationOwner();
+      const suppliedSource = captureV1AssistantSourceVariant(message);
+      const actualSource = beforeMutation && activeSourceRow(beforeMutation) ? captureV1AssistantSourceVariant(beforeMutation) : null;
+      if (!actualSource?.ok || (!retryInput && (!suppliedSource.ok
+        || JSON.stringify(actualSource.value) !== JSON.stringify(suppliedSource.value)))) {
+        throw transcriptNotReady('assistant-source-changed');
+      }
+      message = beforeMutation;
+      const assertCurrentSource = expected => {
+        assertFinalizationOwner();
+        const current = host.chat.getMessage?.(hostMessageId);
+        const observed = current && activeSourceRow(current) ? captureV1AssistantSourceVariant(current) : null;
+        const source = captureV1AssistantSourceVariant(expected);
+        if (!source.ok || !observed?.ok || JSON.stringify(source.value) !== JSON.stringify(observed.value)) throw transcriptNotReady('assistant-source-changed');
+      };
       let timeFooterNormalization = null;
       await controller.verifySaveWritable?.();
+      assertCurrentSource(message);
       if (hostMessageId && typeof host.chat.stripAssistantTimeFooter === 'function') {
         try {
+          assertCurrentSource(message);
           const sanitized = await host.chat.stripAssistantTimeFooter({ hostMessageId });
-          if (sanitized?.ok === false) {
+          assertFinalizationOwner();
+          if (sanitized?.ok !== true) {
             timeFooterNormalization = {
               attempted: true,
               stripped: false,
-              reasonCode: compact(sanitized.reason) || 'assistant-time-footer-normalization-unavailable',
+              reasonCode: compact(sanitized?.reason) || 'assistant-time-footer-normalization-unavailable',
             };
             host.logger?.warn?.('Directive assistant time footer normalization was unavailable.', sanitized);
           } else if (object(sanitized?.message)) {
+            const prior = captureV1AssistantSourceVariant(message);
+            const after = captureV1AssistantSourceVariant(sanitized.message);
+            if (!prior.ok || !after.ok || after.value.timeFooter || prior.value.text !== after.value.text
+              || prior.value.hostMessageId !== after.value.hostMessageId
+              || prior.value.selectedSwipeIndex !== after.value.selectedSwipeIndex) throw new Error('Assistant footer readback differs.');
+            assertCurrentSource(sanitized.message);
             message = sanitized.message;
-          }
+          } else throw new Error('Assistant footer readback unavailable.');
         } catch (error) {
+          if (error?.code === 'DIRECTIVE_TRANSCRIPT_NOT_READY' || error?.code === 'DIRECTIVE_GENERATION_ABORTED') throw error;
           timeFooterNormalization = {
             attempted: true,
             stripped: false,
@@ -2443,12 +2781,9 @@ export function createDirectiveRuntimeApp({
       }
       const responseText = compact(message?.text || message?.mes || message?.content);
       if (!hostMessageId || !responseText) {
-        const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
-        scheduleIdleDossiers();
         return {
-          handled: episodeReview.attempted === true,
+          handled: false,
           reason: 'assistant-message-unavailable',
-          episodeReview,
         };
       }
       const responseId = `host-response.${hostMessageId}`;
@@ -2463,6 +2798,7 @@ export function createDirectiveRuntimeApp({
       const completedSource = captureV1AssistantSourceVariant(message);
       const currentMessage = typeof host.chat.getMessage === 'function'
         ? await host.chat.getMessage(hostMessageId) : recent[assistantIndex];
+      assertFinalizationOwner();
       if (generationCancellation.stopped || progressScope.epoch <= canceledThroughEpoch) {
         return { handled: false, reason: 'host-generation-stopped' };
       }
@@ -2482,7 +2818,7 @@ export function createDirectiveRuntimeApp({
         responseId,
         promptingPlayerHostMessageId: messageId(promptingPlayer, promptingPlayer) || null,
       };
-      const prepared = capturedDutyReport && capturedDutyReport === preparedNarrationDutyReport
+      const prepared = capturedDutyReport && (retryInput || capturedDutyReport === preparedNarrationDutyReport)
         && currentDirectivePromptTargetStatus(capturedDutyReport.target) === 'current'
         ? capturedDutyReport.preparation : null;
       let dutyReport = {
@@ -2520,8 +2856,27 @@ export function createDirectiveRuntimeApp({
       if (typeof host.chat.attachAssistantRuntimeMetadata === 'function') {
         try {
           await controller.verifySaveWritable?.();
-          await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
+          assertCurrentSource(message);
+          const attached = await host.chat.attachAssistantRuntimeMetadata({ hostMessageId, runtimeMetadata });
+          assertFinalizationOwner();
+          if (attached?.ok !== true) throw new Error('Assistant runtime metadata attachment was not confirmed.');
+          const verified = await host.chat.getMessage?.(hostMessageId);
+          assertFinalizationOwner();
+          const verifiedSource = captureV1AssistantSourceVariant(verified);
+          if (!verifiedSource.ok || verifiedSource.value.hostMessageId !== completedSource.value.hostMessageId
+            || verifiedSource.value.selectedResponseHash !== completedSource.value.selectedResponseHash
+            || (completedSource.value.selectedSwipeIndex !== null
+              && verifiedSource.value.selectedSwipeIndex !== completedSource.value.selectedSwipeIndex)) {
+            throw new Error('Assistant selected source changed during metadata attachment.');
+          }
+          const raw = verified?.raw || verified;
+          const selectedIndex = raw?.swipe_id ?? raw?.swipeId ?? raw?.swipeIndex;
+          const stored = raw?.swipe_info?.[selectedIndex]?.extra?.runtimeMetadata || raw?.extra?.runtimeMetadata;
+          if (!stored || Object.entries(runtimeMetadata).some(([field, value]) => JSON.stringify(stored[field]) !== JSON.stringify(value))) {
+            throw new Error('Assistant runtime metadata readback differs.');
+          }
         } catch (error) {
+          if (error?.code === 'DIRECTIVE_TRANSCRIPT_NOT_READY' || error?.code === 'DIRECTIVE_GENERATION_ABORTED') throw error;
           metadataAttachment = {
             attached: false,
             reasonCode: 'assistant-runtime-metadata-attachment-failed',
@@ -2535,8 +2890,8 @@ export function createDirectiveRuntimeApp({
           host.logger?.warn?.('Directive assistant runtime metadata attachment failed.', error);
         }
       }
-      const episodeReview = await scheduleEpisodeReviewFlight({ automatic: true, progressScope });
-      scheduleIdleDossiers();
+      assertFinalizationOwner();
+      const episodeReview = { ok: true, attempted: false, status: 'deferred-to-director', reasonCode: null };
       return {
         handled: dutyReport.attached || episodeReview.attempted === true,
         status: dutyReport.attached ? 'duty-report-custody-attached' : 'generation-ended-reviewed',
@@ -2547,6 +2902,25 @@ export function createDirectiveRuntimeApp({
         ...(timeFooterNormalization ? { timeFooterNormalization } : {}),
         episodeReview,
       };
+      }, { transcriptOwner: owner });
+      })();
+      finalizationFlights.set(key, flight);
+      try {
+        const result = await flight;
+        const success = Boolean(result?.hostMessageId && !result.timeFooterNormalization && !result.metadataAttachment);
+        transcriptLane.finish(owner, success);
+        if (success) failedFinalizations.delete(key);
+        else failedFinalizations.set(key, { payload: clone(payload), capturedDutyReport, completionTarget, expectedTranscript: transcriptObservation() });
+        return result;
+      } catch (error) {
+        transcriptLane.finish(owner, false);
+        failedFinalizations.set(key, { payload: clone(payload), capturedDutyReport, completionTarget, expectedTranscript: transcriptObservation() });
+        if (error?.code === 'DIRECTIVE_GENERATION_ABORTED') return { handled: false, reason: 'host-generation-stopped' };
+        throw error;
+      } finally {
+        if (finalizationFlights.get(key) === flight) finalizationFlights.delete(key);
+        if (transcriptKey() === key && !transcriptLane.current(key)) { nativeNarrationActive = false; scheduleIdleDossiers(); }
+      }
     },
 
     async schedulePendingEpisodeReview(options = {}) {
@@ -2585,6 +2959,7 @@ export function createDirectiveRuntimeApp({
       progressScope = null,
       recoveryGestureId = null,
       dedupeRecoveryGesture = false,
+      transcriptOwner = null,
     } = {}) {
       if (!progressScope) generationCancellation.resume();
       progressScope ||= turnProgress.createScope();
@@ -2649,7 +3024,7 @@ export function createDirectiveRuntimeApp({
           ok: settled.mission?.ok === true,
           settlementBlocked: settled.settlementBlocked === true
         };
-      });
+      }, { transcriptOwner });
     },
 
     handleHostMessageEdited: (payload = {}) => invalidateSource(payload, 'message-edited'),
@@ -2663,6 +3038,8 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostChatChanged(payload = {}) {
+      // Revoke earlier chat work before waiting for any queue/host operation.
+      for (const key of finalizationFlights.keys()) if (key !== transcriptKey()) transcriptLane.cancel(key);
       activeHostGenerationGesture = null;
       const dossierPauseId = pauseDossiers();
       activeAnalysisController?.abort();
@@ -2761,11 +3138,13 @@ export function createDirectiveRuntimeApp({
       }
       else await syncPrompt({ progressScope });
       return { active: currentChatIsBound(), chatId, acceptedPairReplay, timelineFork };
-      }, { campaignLease: false });
+      }, { campaignLease: false, transcriptRecovery: true });
       });
     },
 
     async handleHostGenerationStopped() {
+      rememberStoppedOutput(transcriptLane.current(transcriptKey()));
+      transcriptLane.cancel(transcriptKey());
       preparedNarrationDutyReport = null;
       activeHostGenerationGesture = null;
       canceledThroughEpoch = turnProgress.createScope().epoch;
@@ -2877,13 +3256,20 @@ export function createDirectiveRuntimeApp({
 
     async importCampaignPlayerPortrait({ file, bytes, arrayBuffer, base64, mimeType, fileName } = {}) {
       await ensureInitialized();
+      if (activeTimelineLoad) {
+        const completion = await activeTimelineLoad.finished;
+        if (completion.error) throw completion.error;
+      }
+      assertTranscriptWritable();
       await controller.verifySaveWritable?.();
+      assertTranscriptWritable();
       if (!state) throw new Error('No active V1 campaign is available.');
       const upload = await createPlayerPortraitUpload({
         file, bytes, arrayBuffer, base64, mimeType, fileName,
         ownerKind: 'campaign', ownerId: state.campaign.id, now
       });
       await controller.verifySaveWritable?.();
+      assertTranscriptWritable();
       const portrait = await storeV1PlayerPortrait(host.storage, upload, {
         ownerKind: 'campaign', ownerId: state.campaign.id, now
       });
@@ -3059,11 +3445,43 @@ export function createDirectiveRuntimeApp({
     async loadGame({ savedGameId = null, checkpointId = null } = {}) {
       await ensureInitialized();
       return enqueueStateMutation(async () => {
-        const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId') });
-        const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
-        if (currentChatIsBound()) rejectedNativeBranch = null;
-        return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
-      }, { campaignLease: false });
+        const activity = host.chat.getGenerationActivity?.();
+        if (finalizationFlights.size || (activity && activity.status !== 'idle')) throw transcriptNotReady('recovery-transcript-active');
+        const reservation = { key: transcriptKey(), campaignId: state?.campaign?.id, baseline: transcriptObservation(), interrupted: false, committed: false };
+        reservation.finished = new Promise(resolve => { reservation.finish = resolve; });
+        let loadError = null;
+        activeTimelineLoad = reservation;
+        const assertExecution = ({ phase } = {}) => {
+          if (phase === 'committed') reservation.committed = true;
+          if (reservation.committed) return; // Complete the journaled switch; never invent rollback after publication.
+          const currentActivity = host.chat.getGenerationActivity?.();
+          if (activeTimelineLoad !== reservation || reservation.interrupted || transcriptKey() !== reservation.key
+            || transcriptObservation() !== reservation.baseline || finalizationFlights.size
+            || (currentActivity && currentActivity.status !== 'idle')) throw transcriptNotReady('timeline-load-source-changed');
+        };
+        try {
+          const transaction = await timelineTransactions.loadGame({ savedGameId: required(savedGameId || checkpointId, 'savedGameId'), assertExecution });
+          const timeline = await controller.loadSaveRecord({ saveId: transaction.childSaveId });
+          if (currentChatIsBound()) rejectedNativeBranch = null;
+          return { transaction: clone(transaction), timeline: clone(timeline), view: await campaignViewEnvelope('mission') };
+        } catch (error) {
+          loadError = error;
+          if (error?.code === 'DIRECTIVE_TRANSCRIPT_NOT_READY') {
+            try {
+              const operation = await controller.loadTimelineOperation({ campaignId: reservation.campaignId });
+              if (operation?.operationType === 'load-game' && operation.stage !== 'completed') {
+                error.details = { ...error.details, timelineRecoveryRequired: true,
+                  operationId: operation.operationId, stage: operation.stage };
+                error.message = 'Loading the saved game was interrupted. Its recovery record has been preserved. Retry Load Game after generation stops.';
+              }
+            } catch { /* Preserve the original conflict if recovery diagnostics cannot be read. */ }
+          }
+          throw error;
+        } finally {
+          if (activeTimelineLoad === reservation) activeTimelineLoad = null;
+          reservation.finish({ error: loadError });
+        }
+      }, { campaignLease: false, transcriptRecovery: true });
     },
 
     async loadCheckpoint({ checkpointId } = {}) {

@@ -72,6 +72,8 @@ assert.equal(result.responseStrategy, 'injectAndContinue');
 assert.equal(snapshot().presentation.title, 'Waiting for the reply...');
 assert.equal(progressEvents.find(event => event.type === 'finish' && event.stage === 'installing-prompt').outcome, 'complete');
 assert.equal(progressEvents.some(event => event.stage === 'reviewing-events'), false, 'no previous accepted exchange means no fabricated model stage');
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 activity.finishDirectiveHostGenerationActivities();
 
 installGate = deferred();
@@ -111,6 +113,8 @@ assert.equal(progressEvents.slice(afterMetadataStop).some(event => event.type ==
 assert.equal(snapshot().presentation.title, 'Processing the turn...');
 activity.finishDirectiveTurnActivity(newerToken);
 host.chat.getLatestPlayerMessage = originalLatest;
+await app.handleHostGenerationEnded();
+assert.equal(app.getTranscriptFinalizationStatus(), null);
 const queuedEdit = app.handleHostMessageEdited({hostMessageId: 'nonexistent-progress-source'});
 app.resetTurnProgress();
 const afterEditReset = progressEvents.length;

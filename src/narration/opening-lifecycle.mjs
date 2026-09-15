@@ -6,7 +6,9 @@ const visible = messages => messages.some(message => !message.isSystem && messag
 
 // Chat metadata travels with native branches and is removed with the chat. It is
 // presentation custody, not a second source of campaign state.
-export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance, getAnalysisLimits = () => ({}) }) {
+export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance, getAnalysisLimits = () => ({}), postOpening = null }) {
+  if (postOpening !== null && typeof postOpening !== 'function') throw new TypeError('postOpening must be a function');
+  const post = postOpening || (options => chat.postAssistantMessage(options));
   const flights = new Map();
   let status = null;
   let epoch = 0;
@@ -61,7 +63,9 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
         assertCurrent();
         if (visible(await chat.getRecentMessages({ limit: 4 }))) { status = { ...binding, status: 'ready', message: null }; return { ok: true, posted: false, reason: 'chat-not-empty' }; }
         assertCurrent();
-        const result = await chat.postAssistantMessage({ requireEmpty: true, expectedBinding: binding, text, campaignId: binding.campaignId, turnId: 'opening', outcomeId: 'opening', responseKind: 'narration', idempotencyKey: `directive.v1.opening.${binding.saveId}` });
+        const result = await post({ requireEmpty: true, expectedBinding: binding, text, campaignId: binding.campaignId, turnId: 'opening', outcomeId: 'opening', responseKind: 'narration', idempotencyKey: `directive.v1.opening.${binding.saveId}` });
+        assertCurrent();
+        if (result?.ok === false) throw Object.assign(new Error('The opening could not be posted.'), { code: 'DIRECTIVE_OPENING_POST_FAILED' });
         status = { ...binding, status: 'ready', message: null };
         return { ...result, ok: true };
       } catch (error) {

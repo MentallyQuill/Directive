@@ -25,6 +25,7 @@ for (const mode of ['unchanged', 'install-definition', 'prepared-definition', 'c
     await app.startCreatorDraft();
     await app.saveCreatorDraft({ patch: { activeStep: 'review', input: playerInput } });
     await app.acceptCreatorDraftAndStartCampaign();
+    host.chat.pushPlayerMessage({ text: 'Please report.', hostMessageId: 'report.prompt' });
     app.handleHostGenerationStarted({ type: 'normal' });
     const originalDefinition = structuredClone(definition);
     if (mode === 'install-definition') {
@@ -42,19 +43,18 @@ for (const mode of ['unchanged', 'install-definition', 'prepared-definition', 'c
         playerText: route.playerText, authorizedClaim: { claimType: 'factDisclosed', targetId: route.factId, policyId: route.evidencePolicyId } };
     const segment = createDutyReportVisibleSegment(packet, { definition: originalDefinition, contractVersion: 2 });
     assert.ok(host.prompt.inspect().blocks.some(block => block.text.includes(segment.canonicalText)));
-    host.chat.pushPlayerMessage({ text: 'Please report.', hostMessageId: 'report.prompt' });
     const message = host.chat.pushAssistantMessage({ hostMessageId: 'report.response', text: segment.canonicalText,
         swipes: [segment.canonicalText, 'The officer has not delivered that report.'], swipeId: 0 });
     const before = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
     const originalChatId = host.chat.getCurrentChatId();
-    const originalRecent = host.chat.getRecentMessages;
+    const originalStrip = host.chat.stripAssistantTimeFooter.bind(host.chat);
     let entered;
     let release;
     const waiting = new Promise(resolve => { entered = resolve; });
-    host.chat.getRecentMessages = async options => {
+    host.chat.stripAssistantTimeFooter = async options => {
         entered();
         await new Promise(resolve => { release = resolve; });
-        return originalRecent(options);
+        return originalStrip(options);
     };
     const pending = app.handleHostGenerationEnded({ message });
     await waiting;
@@ -70,12 +70,21 @@ for (const mode of ['unchanged', 'install-definition', 'prepared-definition', 'c
     if (mode === 'selected-swipe') host.chat.setMessagesForChat(originalChatId, host.chat.messages().map(row => row.hostMessageId === message.hostMessageId
         ? { ...row, text: row.swipes[1], mes: row.swipes[1], swipe_id: 1 } : row));
     release();
-    const result = await pending;
-    host.chat.getRecentMessages = originalRecent;
+    let result;
+    try { result = await pending; } catch (error) {
+        assert.equal(mode, 'changed-chat', `${mode}: unexpected rejection`);
+        assert.equal(error.code, 'DIRECTIVE_TRANSCRIPT_NOT_READY');
+        assert.equal(error.reasonCode, 'transcript-owner-changed');
+        result = { rejected: true, code: error.code, reasonCode: error.reasonCode };
+    }
+    host.chat.stripAssistantTimeFooter = originalStrip;
     host.chat.setCurrentChatId(originalChatId);
     const storedMessage = host.chat.getMessage(message.hostMessageId);
     const shouldAttach = ['unchanged', 'install-definition', 'prepared-definition'].includes(mode);
     assert.equal(Boolean(storedMessage.extra?.runtimeMetadata?.dutyReportManifest), shouldAttach, `${mode}: ${JSON.stringify(result)}`);
+    if (['stop', 'stop-resume', 'changed-chat', 'selected-swipe'].includes(mode)) {
+        assert.equal(storedMessage.extra?.runtimeMetadata, undefined, `${mode}: stale completion attaches no runtime metadata`);
+    }
     if (shouldAttach) assert.equal(storedMessage.extra.runtimeMetadata.dutyReportManifest.contractVersion, 2);
     assert.deepEqual((await app.getCurrentView({ tabId: 'mission' })).campaignState, before, `${mode}: generation is provisional`);
     assert.deepEqual((await loadV1CampaignSave(host.storage, before.campaignChatBinding.saveId)).state, before);
