@@ -136,6 +136,8 @@ const checks = [
   "test-v1-active-save-publication.mjs",
   "test-controller-publication-recovery.mjs",
   "test-controller-captured-publication-recovery.mjs",
+  "test-controller-application-ownership.mjs",
+  "test-v1-state-application-context.mjs",
   "test-v1-captured-publication-intent.mjs",
   "test-v1-runtime-publication-guards.mjs",
   "test-native-branch-lineage.mjs",

@@ -97,12 +97,12 @@ function createHarness({
     const baseGateway = createStateDeltaGateway({
         getState: () => campaignState,
         setState: (next) => { campaignState = next; },
-        persist: async (...args) => {
+        persist: async (next, proposal, options) => {
             persistCount += 1;
-            await persist(...args, {
+            await persist(next, proposal, {
                 getState: () => campaignState,
                 setState: (next) => { campaignState = next; },
-            });
+            }, options);
         },
         now: () => '2026-08-09T18:00:00.000Z',
     });

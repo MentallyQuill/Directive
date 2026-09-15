@@ -11,6 +11,52 @@ function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+// Application evidence is JSON data, never a service or a live caller object.
+// Reject unsupported data instead of invoking getters/toJSON or erasing evidence.
+function frozenApplicationData(value, ancestors = new Set()) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const array = Array.isArray(value);
+  if (!value || typeof value !== 'object'
+    || !(array ? Object.getPrototypeOf(value) === Array.prototype
+      : [Object.prototype, null].includes(Object.getPrototypeOf(value))) || ancestors.has(value)) {
+    throw gatewayError('DIRECTIVE_V1_STATE_APPLICATION_DATA_INVALID', 'State application evidence must contain only JSON data.');
+  }
+  ancestors.add(value);
+  const copy = array ? [] : {};
+  const keys = Reflect.ownKeys(value);
+  if (array && keys.length !== value.length + 1) {
+    throw gatewayError('DIRECTIVE_V1_STATE_APPLICATION_DATA_INVALID', 'State application arrays must be contiguous.');
+  }
+  let index = 0;
+  for (const key of keys) {
+    if (array && key === 'length') continue;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== 'string' || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')
+      || (array && key !== String(index++))) {
+      throw gatewayError('DIRECTIVE_V1_STATE_APPLICATION_DATA_INVALID', 'State application evidence contains an unsupported property.');
+    }
+    Object.defineProperty(copy, key, { value: frozenApplicationData(descriptor.value, ancestors), enumerable: true });
+  }
+  ancestors.delete(value);
+  return Object.freeze(copy);
+}
+
+function createApplicationContext(before, after, descriptor, options, id, domains) {
+  const data = { id, baseRevision: before.stateCustody.revision, domains };
+  for (const key of ['source', 'reason', 'metadata', 'persist']) {
+    const property = Object.getOwnPropertyDescriptor(descriptor, key);
+    if (!property) continue;
+    if (!Object.hasOwn(property, 'value')) {
+      throw gatewayError('DIRECTIVE_V1_STATE_APPLICATION_DATA_INVALID', 'State application descriptor contains an accessor.');
+    }
+    if (property.value !== undefined) data[key] = property.value;
+  }
+  return frozenApplicationData({ kind: 'directive.stateApplicationContext.v1', version: 1,
+    proposalId: id, domains, before, after, descriptor: data,
+    acceptedPairSourcePrecondition: options?.acceptedPairSourcePrecondition ?? null });
+}
+
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -228,7 +274,7 @@ export function createStateDeltaGateway({
     return state;
   }
 
-  async function persistCommit(before, after, descriptor, options = {}) {
+  async function persistCommit(before, after, descriptor, options = {}, id, domains) {
     if (beforeCommit) {
       const result = beforeCommit({ before, after, descriptor, options });
       if (result && typeof result.then === 'function') {
@@ -239,11 +285,11 @@ export function createStateDeltaGateway({
         );
       }
     }
+    const applicationContext = createApplicationContext(before, after, descriptor, options, id, domains);
     setState(after);
     if (typeof persist !== 'function' || descriptor?.persist === false) return;
     try {
-      if (options?.progressScope) await persist(after, descriptor, options);
-      else await persist(after, descriptor);
+      await persist(after, descriptor, { ...options, applicationContext });
       if (stableJson(getState()) !== stableJson(after)) {
         throw gatewayError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
           'V1 state persistence completed after state ownership changed.');
@@ -289,7 +335,7 @@ export function createStateDeltaGateway({
     }
     const after = withCustodyCommit(candidate, id);
     assertV1CampaignState(after);
-    await persistCommit(before, after, proposal, options);
+    await persistCommit(before, after, proposal, options, id, domains);
     return {
       campaignState: cloneJson(after),
       noChange: false,
@@ -310,7 +356,7 @@ export function createStateDeltaGateway({
     if (!changed.length) return before;
     const after = withCustodyCommit(candidate, id);
     assertV1CampaignState(after);
-    await persistCommit(before, after, { ...delta, persist: options.persist ?? delta.persist }, options);
+    await persistCommit(before, after, { ...delta, persist: options.persist ?? delta.persist }, options, id, domains);
     return cloneJson(after);
   }
 

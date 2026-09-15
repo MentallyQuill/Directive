@@ -1,5 +1,15 @@
 # Player promise stabilization evidence
 
+## State application ownership through publication
+
+The gateway now supplies a detached frozen application context with exact before/after states, resolved proposal ID, normalized domains, allowed descriptor data and accepted-source preconditions. Services remain outside that evidence. Persistence options are forwarded with or without a progress scope. The runtime carries the context into the controller, which validates it against the selected prior save and candidate.
+
+A regression reproduced a caller mutation during the controller's asynchronous intent check entering the saved candidate. The controller now detaches the candidate and prior save before that wait, then rechecks both publication and selected-save ownership before starting a write. Regressions cover the reproduced mutation, mismatched/falsy evidence, a real gateway-to-controller application and concurrent admission with one successful publisher. Gateway tests cover immutable evidence, exact/generated IDs, preconditions, no-change/duplicate behavior and existing rollback/uncertainty semantics. Independent integrated review approved the changes. The final expanded release gate passed all 243 checks; installed-runtime verification remains pending publication. The earlier gate stopped on a test harness that assumed persistence had only two arguments; its private controls now use explicit argument positions, preserving the original rollback-conflict assertion.
+
+Concurrency review also reproduced delayed successful/failed intent reads replacing an active publication's pending status with uncertainty. That incorrectly allowed recovery to delete the still-active publisher's intent. A read held until after completion could similarly quarantine an already-acknowledged save using obsolete evidence. Verification now rechecks both publication ownership and the original selected-save identity before adopting either a read result or a read failure. Regressions exercise pending and completed publications; recovery cannot steal an active ticket.
+
+This is application ownership, not complete history capture. Assistant/opening finalization, lifecycle admission, non-prefix edits and historical branch reconstruction remain unfinished. The finalization trace rules out a blanket queue wait because generation preparation itself commits through that queue. Plan: `docs/superpowers/plans/2026-09-15-state-application-ownership.md`.
+
 ## Complete transcript identity for history capture
 
 A dormant pure projector now converts the complete versioned host snapshot into domain-tagged canonical SHA256 row hashes and the existing storage-compatible vector hash. Every row and persistable field remains represented, including hidden/system rows, identity aliases, footers, all swipe variants, report metadata and unknown extension fields. No bookkeeping exclusions are introduced. Native chat/binding provenance and a complete snapshot hash remain separate from comparable row hashes.

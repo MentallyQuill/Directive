@@ -1019,9 +1019,9 @@ export function createDirectiveRuntimeApp({
         controller.assertSaveWritable?.();
         assertAcceptedPairSourcePrecondition({ before, options, host });
       },
-      persist: async (next, _descriptor, { progressScope = null } = {}) => {
+      persist: async (next, _descriptor, { progressScope = null, applicationContext = null } = {}) => {
         await turnProgress.run('saving', () => (
-          controller.persistActiveCampaign({ campaignState: next })
+          controller.persistActiveCampaign({ campaignState: next, applicationContext })
         ), { scope: progressScope });
       }
     });

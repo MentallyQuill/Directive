@@ -291,8 +291,18 @@ export function createCampaignStartController({
   async function verifySaveWritable(saveId = selectedSaveId()) {
     if (!saveId) return;
     assertSaveWritable(saveId);
+    const selectedAtRead = activeSave;
+    const assertReadOwner = () => {
+      assertSaveWritable(saveId);
+      if (activeSave !== selectedAtRead) {
+        throw Object.assign(new Error('The active save changed while its publication status was being read.'), {
+          code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
+        });
+      }
+    };
     try {
       const intent = await loadV1CampaignSavePublication(adapter, saveId);
+      assertReadOwner();
       if (intent) {
         publications.set(saveId, { phase: 'uncertain', saveId, requestHash: intent.requestHash, intent });
         throw statePublicationError(saveId, publications.get(saveId));
@@ -300,6 +310,7 @@ export function createCampaignStartController({
       assertSaveWritable(saveId);
     } catch (error) {
       if (isStatePublicationError(error)) throw error;
+      assertReadOwner();
       publications.set(saveId, { phase: 'uncertain', saveId,
         readBarrier: error.publicationIntentReadFailed === true,
         error: { message: error.message, code: error.code } });
@@ -586,12 +597,29 @@ export function createCampaignStartController({
       return clone(result);
     },
 
-    async persistActiveCampaign({ campaignState = activeState, saveId = activeSave?.id, name = null } = {}) {
+    async persistActiveCampaign({ campaignState = activeState, saveId = activeSave?.id, name = null, applicationContext = null } = {}) {
       const id = required(saveId, 'saveId');
-      await verifySaveWritable(id);
       if (activeSave?.id !== id) throw new Error('An active save publication must own the selected save.');
       const previousSave = clone(activeSave), candidate = clone(assertV1CampaignState(campaignState));
-      const pending = { phase: 'pending', saveId: id, before: previousSave, candidate };
+      const application = applicationContext === null ? null : clone(applicationContext);
+      if (application !== null && (application?.kind !== 'directive.stateApplicationContext.v1' || application.version !== 1
+        || stableJsonStringify(application.before) !== stableJsonStringify(previousSave.state)
+        || stableJsonStringify(application.after) !== stableJsonStringify(candidate)
+        || application.proposalId !== candidate.stateCustody.recentCommitIds.at(-1))) {
+        throw Object.assign(new Error('The state application does not match the selected save and candidate.'), {
+          code: 'DIRECTIVE_V1_STATE_APPLICATION_MISMATCH',
+        });
+      }
+      await verifySaveWritable(id);
+      // The read barrier is asynchronous. Neither caller aliases nor another
+      // publication/selection may replace this invocation's application.
+      assertSaveWritable(id);
+      if (stableJsonStringify(activeSave) !== stableJsonStringify(previousSave)) {
+        throw Object.assign(new Error('The active save changed before publication began.'), {
+          code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
+        });
+      }
+      const pending = { phase: 'pending', saveId: id, before: previousSave, candidate, applicationContext: application };
       publications.set(id, pending);
       let result;
       try {
