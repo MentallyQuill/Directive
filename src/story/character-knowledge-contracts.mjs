@@ -73,7 +73,24 @@ function references(values, allowed, maximum, path) {
   if (values.some(value => !allowed.has(value))) invalid(path);
 }
 
+/** Persisted syntax only; this parser does not establish knowledge or audience authority. */
+export function parseCharacterContributionRecord(value) {
+  const keys = ['id', 'personId', 'kind', 'mode', 'text', 'basisIds', 'recipientIds', 'dependsOnIds'];
+  object(value, keys, keys, 'contribution');
+  id(value.id, 'contribution.id'); id(value.personId, 'contribution.personId');
+  choice(value.kind, ['speech', 'action'], 'contribution.kind');
+  choice(value.mode, ['recall', 'inference', 'question', 'ordinary', 'deception'], 'contribution.mode');
+  text(value.text, 4000, 'contribution.text');
+  for (const [key, maximum] of [['basisIds', 32], ['recipientIds', 16], ['dependsOnIds', 16]]) {
+    list(value[key], maximum, `contribution.${key}`); uniqueIds(value[key], `contribution.${key}`);
+  }
+  if (['recall', 'inference'].includes(value.mode) && value.basisIds.length === 0) invalid('contribution.basisIds');
+  if (value.dependsOnIds.includes(value.id)) invalid('contribution.selfDependency');
+  return structuredClone(value);
+}
+
 export function parseCharacterContribution(value, { packet, playerId, audienceIds, priorContributionIds } = {}) {
+  value = parseCharacterContributionRecord(value);
   const checkedPacket = parseCharacterKnowledgePacket(packet);
   object(value, ['id', 'personId', 'kind', 'mode', 'text', 'basisIds', 'recipientIds', 'dependsOnIds'],
     ['id', 'personId', 'kind', 'mode', 'text', 'basisIds', 'recipientIds', 'dependsOnIds'], 'contribution');

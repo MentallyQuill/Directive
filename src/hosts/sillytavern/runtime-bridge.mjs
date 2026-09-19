@@ -129,6 +129,9 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
       chat, contextSize, abort, type, recoveryIntent: 'explicit', signal,
     });
     if (!retryActive()) return { ok: false, reasonCode: 'settlement-retry-dismissed' };
+    if (prepared?.handled === true && prepared?.abortDefaultGeneration === true && prepared?.responseStrategy === 'protectedScenePublished' && prepared.publication?.persisted === true) {
+      return { ok: true, publication: prepared.publication };
+    }
     if (prepared?.abortDefaultGeneration !== false) {
       return { ok: false, reasonCode: prepared?.settlementError?.reasonCode || 'turn-preparation-failed' };
     }
@@ -171,6 +174,11 @@ export async function directiveGenerationInterceptor(chat, contextSize, abort, t
       && result?.abortDefaultGeneration === true
       && result?.responseStrategy === 'cancelStaleTurn'
     ) {
+      finishDirectiveTurnActivity(activityToken);
+      abort?.(false);
+      return result;
+    }
+    if (result?.handled === true && result?.abortDefaultGeneration === true && result?.responseStrategy === 'protectedScenePublished' && result.publication?.persisted === true) {
       finishDirectiveTurnActivity(activityToken);
       abort?.(false);
       return result;

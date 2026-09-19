@@ -1,3 +1,6 @@
+import { captureV1AssistantSourceVariant } from '../../runtime/v1-accepted-pair-source.mjs';
+import { assertGenerationActive } from '../../runtime/generation-cancellation.mjs';
+import { canonicalJson } from '../../storage/v1-state-delta-codec.mjs';
 import { createNativeBranchRefusal, nativeBranchRefusalMatches } from '../../runtime/native-branch-refusal.mjs';
 import { readPersistedTranscriptSnapshot } from './persisted-transcript-snapshot.mjs';
 import {
@@ -2041,6 +2044,102 @@ export function createSillyTavernChatAdapter({
     return null;
   }
 
+  let protectedPublicationQueue = Promise.resolve();
+  const publicationFields = ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'];
+  function publicationError(code, publicationId) {
+    return Object.assign(new Error('Protected scene publication could not be confirmed.'), { code, publicationId });
+  }
+  function publicationSource(message, index, swipeIndex) {
+    const text = message.swipes?.[swipeIndex] ?? message.mes;
+    const captured = captureV1AssistantSourceVariant({ ...message, hostMessageId: normalizeMessageId(message, index), mes: text, swipe_id: swipeIndex });
+    if (!captured.ok) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID');
+    return { messageId: captured.value.hostMessageId, selectedSwipeId: captured.value.selectedVariantId, textHash: captured.value.selectedTextHash };
+  }
+  function publicationMetadata(publication, source) {
+    const value = publication.createMetadata(structuredClone(source));
+    if (!value || typeof value.then === 'function' || value.kind !== 'directive.characterScenePublication.v1'
+      || value.publicationId !== publication.id || canonicalJson(value.source) !== canonicalJson(source)) {
+      if (value?.then) Promise.resolve(value).catch(() => null);
+      throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', publication.id);
+    }
+    return cloneJson(value);
+  }
+  function findPublication(rows, publicationId) {
+    const found = [];
+    rows.forEach((message, index) => (message.swipe_info || []).forEach((info, swipeIndex) => {
+      const metadata = info?.extra?.runtimeMetadata?.characterScenePublication;
+      if (metadata?.publicationId === publicationId) found.push({ message, index, swipeIndex, metadata });
+    }));
+    if (found.length > 1) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
+    return found[0] || null;
+  }
+  function publishProtectedScene({ publicationId, text, expectedBinding, assertCurrent, createMetadata, hostMessageId = null, requireEmpty = false, signal, extra = {} } = {}) {
+    const execute = async () => {
+      assertGenerationActive(signal);
+      if (!/^[a-z0-9][a-z0-9._:-]{0,179}$/.test(publicationId || '') || typeof text !== 'string' || !text.trim()
+        || typeof assertCurrent !== 'function' || typeof createMetadata !== 'function'
+        || !expectedBinding || publicationFields.some(key => typeof expectedBinding[key] !== 'string' || !expectedBinding[key])) {
+        throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', publicationId);
+      }
+      const ctx = context(), chat = getChatArray(ctx);
+      const publication = { id: publicationId, createMetadata, signal, guard(phase, source = null, persistedSnapshot = null) {
+        assertGenerationActive(signal);
+        if (getChatArray(context()) !== chat || publicationFields.some(key => getCurrentBinding()?.[key] !== expectedBinding[key])) {
+          throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE', publicationId);
+        }
+        const accepted = assertCurrent({ phase, publicationId, source: source ? structuredClone(source) : null, ...(persistedSnapshot ? { persistedSnapshot } : {}) });
+        if (accepted !== true) {
+          if (accepted?.then) Promise.resolve(accepted).catch(() => null);
+          throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE', publicationId);
+        }
+        assertGenerationActive(signal);
+        if (getChatArray(context()) !== chat || publicationFields.some(key => getCurrentBinding()?.[key] !== expectedBinding[key])) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE', publicationId);
+      } };
+      let mutated = false;
+      try {
+        let existing = findPublication(chat, publicationId);
+        publication.guard(existing ? 'reconcile' : 'before-mutation', existing ? publicationSource(existing.message, existing.index, existing.swipeIndex) : null);
+        if (existing) {
+          if (hostMessageId !== null && normalizeMessageId(existing.message, existing.index) !== String(hostMessageId)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
+          const source = publicationSource(existing.message, existing.index, existing.swipeIndex);
+          if (existing.message.swipes?.[existing.swipeIndex] !== text || existing.message.swipe_id !== existing.swipeIndex
+            || canonicalJson(existing.metadata) !== canonicalJson(publicationMetadata(publication, source))) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
+          if (!await saveChat(ctx)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
+        } else {
+          if (chat.some(message => directiveMetadata(message)?.idempotencyKey === publicationId)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
+          if (hostMessageId === null) await postAssistantMessage({ text, campaignId: expectedBinding.campaignId, responseKind: 'protected-scene', idempotencyKey: publicationId, expectedBinding, requireEmpty, extra, publication });
+          else await appendAssistantMessageSwipe({ hostMessageId, text, campaignId: expectedBinding.campaignId, responseKind: null, allowUnownedAssistant: true, extra, publication });
+        }
+        const live = findPublication(chat, publicationId);
+        if (!live) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
+        mutated = true;
+        const source = publicationSource(live.message, live.index, live.swipeIndex);
+        publication.guard('reconcile', source);
+        const persisted = await readPersistedTranscriptSnapshot(contextFactory, expectedBinding, { signal });
+        publication.guard('reconcile', source);
+        if (persisted.status === 'captured') publication.guard('persisted', source, persisted.snapshot);
+        const saved = persisted.status === 'captured' ? findPublication(persisted.snapshot.rows, publicationId) : null;
+        if (!saved || normalizeMessageId(saved.message, saved.index) !== source.messageId || saved.message.swipe_id !== saved.swipeIndex
+          || saved.message.swipes?.[saved.swipeIndex] !== text || canonicalJson(saved.metadata) !== canonicalJson(publicationMetadata(publication, publicationSource(saved.message, saved.index, saved.swipeIndex)))) {
+          throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
+        }
+        const displayUpdated = await refreshMessageDisplay(ctx, live.index, live.message);
+        publication.guard('reconcile', source);
+        return { ok: true, persisted: true, duplicate: Boolean(existing), publicationId, hostMessageId: source.messageId,
+          index: live.index, swipeIndex: live.swipeIndex, source, displayUpdated, metadata: cloneJson(saved.metadata) };
+      } catch (error) {
+        mutated ||= Boolean(findPublication(chat, publicationId));
+        if (mutated && !['DIRECTIVE_GENERATION_ABORTED', 'DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT'].includes(error?.code)) {
+          throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
+        }
+        throw error;
+      }
+    };
+    const result = protectedPublicationQueue.then(execute, execute);
+    protectedPublicationQueue = result.catch(() => null);
+    return result;
+  }
+
   async function postAssistantMessage({
     text,
     campaignId = null,
@@ -2050,11 +2149,12 @@ export function createSillyTavernChatAdapter({
     idempotencyKey,
     requireEmpty = false,
     expectedBinding = null,
-    extra = {}
+    extra = {},
+    publication = null
   } = {}) {
     const ctx = context();
     if (!ctx) throw new Error('SillyTavern context is unavailable for message posting.');
-    const normalizedText = String(text || '').trim();
+    const normalizedText = publication ? String(text || '') : String(text || '').trim();
     if (!normalizedText) throw new Error('Assistant message text must be non-empty.');
     const key = nonEmptyString(idempotencyKey)
       || `${campaignId || 'campaign'}:${turnId || outcomeId || Date.now()}:${responseKind}`;
@@ -2109,6 +2209,13 @@ export function createSillyTavernChatAdapter({
       }],
       extra: messageExtra
     };
+    if (publication) {
+      const source = publicationSource(message, chat.length, 0);
+      const metadata = publicationMetadata(publication, source);
+      message.extra.runtimeMetadata = { ...message.extra.runtimeMetadata, characterScenePublication: metadata };
+      message.swipe_info[0].extra = swipeInfoExtra(message.extra);
+      publication.guard('before-mutation', source);
+    }
     chat.push(message);
     const index = chat.length - 1;
     const add = ctx.addOneMessage || globalThis.addOneMessage;
@@ -2247,12 +2354,13 @@ export function createSillyTavernChatAdapter({
     responseKind = 'narration',
     extra = {},
     select = true,
-    allowUnownedAssistant = false
+    allowUnownedAssistant = false,
+    publication = null
   } = {}) {
     const ctx = context();
     if (!ctx) throw new Error('SillyTavern context is unavailable for message swipe updates.');
-    const normalizedText = normalizeSwipeText(text);
-    if (!normalizedText) throw new Error('Assistant swipe text must be non-empty.');
+    const normalizedText = publication ? String(text || '') : normalizeSwipeText(text);
+    if (!normalizedText.trim()) throw new Error('Assistant swipe text must be non-empty.');
     const chat = getChatArray(ctx);
     const id = nonEmptyString(hostMessageId);
     let index = Number(id);
@@ -2264,6 +2372,7 @@ export function createSillyTavernChatAdapter({
     }
     const message = chat[index];
     const assistantMessage = message?.is_user !== true && message?.role !== 'user' && message?.is_system !== true && message?.role !== 'system';
+    if (publication && !assistantMessage) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', publication.id);
     const metadata = directiveMetadata(message);
     if (!metadata) {
       if (!allowUnownedAssistant || !assistantMessage) {
@@ -2281,8 +2390,19 @@ export function createSillyTavernChatAdapter({
       throw new Error('Directive swipe response kind does not match the target message.');
     }
 
-    const swipes = ensureMessageSwipes(message);
-    let swipeIndex = swipes.findIndex((entry) => entry === normalizedText);
+    let protectedSwipes = null, protectedMetadata = null;
+    if (publication) {
+      protectedSwipes = Array.isArray(message.swipes) ? [...message.swipes] : [String(message.mes || '')];
+      if (!captureV1AssistantSourceVariant({ ...message, hostMessageId: normalizeMessageId(message, index) }).ok || !protectedSwipes.length || protectedSwipes.some(value => typeof value !== 'string' || !value.trim())) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', publication.id);
+      const projected = { ...message, swipes: [...protectedSwipes, normalizedText], mes: normalizedText, swipe_id: protectedSwipes.length };
+      const source = publicationSource(projected, index, protectedSwipes.length);
+      protectedMetadata = publicationMetadata(publication, source);
+      publication.guard('before-mutation', source);
+      message.swipes = protectedSwipes;
+      ensureMessageSwipeInfo(message);
+    }
+    const swipes = protectedSwipes || ensureMessageSwipes(message);
+    let swipeIndex = publication ? -1 : swipes.findIndex((entry) => entry === normalizedText);
     const duplicate = swipeIndex >= 0;
     if (swipeIndex < 0) {
       swipeIndex = swipes.length;
@@ -2294,6 +2414,7 @@ export function createSillyTavernChatAdapter({
       : {};
     delete extraPatch.directive;
     delete extraPatch[DIRECTIVE_MESSAGE_METADATA_KEY];
+    if (publication) extraPatch.runtimeMetadata = { ...extraPatch.runtimeMetadata, characterScenePublication: protectedMetadata };
     const swipeInfo = ensureMessageSwipeInfo(message);
     const selected = select !== false;
     if (selected) {
@@ -2309,7 +2430,8 @@ export function createSillyTavernChatAdapter({
         selectedSwipeIndex: swipeIndex,
         selectedSwipeAt,
         swipeCount: swipes.length,
-        ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {})
+        ...(extra?.directive || extra?.[DIRECTIVE_MESSAGE_METADATA_KEY] || {}),
+        ...(publication ? { idempotencyKey: publication.id, responseKind: 'protected-scene' } : {})
       });
     } else {
       swipeMetadata = setDirectiveMetadata(message, {
@@ -2956,6 +3078,7 @@ export function createSillyTavernChatAdapter({
     getMessage,
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
+    publishProtectedScene,
     stripAssistantTimeFooter,
     attachAssistantRuntimeMetadata,
     appendAssistantMessageSwipe,

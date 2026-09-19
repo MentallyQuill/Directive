@@ -217,3 +217,27 @@ try {
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(__settlementRetryDialogTestHooks.active(), null, 'late rejection after Stop must not reopen recovery');
 } finally { clearSillyTavernDirectiveRuntimeBridge(); }
+// Protected publication owns the reply and must never hand off to native prose.
+for (const firstAttemptBlocked of [false, true]) {
+  let attempts = 0, nativeStarts = 0, aborts = 0;
+  const published = { handled: true, abortDefaultGeneration: true, responseStrategy: 'protectedScenePublished', publication: { publicationId: 'publication.test', persisted: true } };
+  setSillyTavernDirectiveRuntimeBridge({
+    app: { isCurrentChatBound: () => true },
+    turnOrchestrator: { async interceptGeneration() { attempts++; return firstAttemptBlocked && attempts === 1 ? { handled: true, abortDefaultGeneration: true, settlementError: { reasonCode: 'protected-review-rejected' } } : published; } },
+    directiveHost: { chat: { async continueHostGeneration() { nativeStarts++; return { ok: true }; } } },
+  });
+  try {
+    const result = await directiveGenerationInterceptor([], 100, () => { aborts++; }, 'normal');
+    if (firstAttemptBlocked) {
+      const dialog = __settlementRetryDialogTestHooks.active();
+      await dialog.retry.listeners.get('click')[0]({});
+      assert.equal(dialog.overlay.isConnected, false, 'a successfully published Retry closes recovery');
+    } else {
+      assert.equal(result.responseStrategy, 'protectedScenePublished');
+      assert.equal(__settlementRetryDialogTestHooks.active() === null, true, 'owned success is not a retry error');
+    }
+    assert.equal(aborts, 1);
+    assert.equal(nativeStarts, 0);
+  } finally { clearSillyTavernDirectiveRuntimeBridge(); }
+}
+console.log('PASS protected publication suppresses native generation on first attempt and Retry');

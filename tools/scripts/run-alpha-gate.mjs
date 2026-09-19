@@ -10,6 +10,8 @@ const checks = [
   "test-character-scene-coordinator.mjs",
   "test-character-scene-narration.mjs",
   "test-character-knowledge-review.mjs",
+  "test-character-scene-publication.mjs",
+  "test-character-knowledge-replay.mjs",
   "test-settings-draft-saves.mjs",
   "test-information-extractor-evaluation.mjs",
   "test-continuity-causal-order.mjs",
