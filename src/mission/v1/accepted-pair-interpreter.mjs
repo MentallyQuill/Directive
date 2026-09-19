@@ -1,3 +1,6 @@
+import { createEvidencePassageCatalog, createEvidenceReferenceSchema, evidencePassagePromptEntries, hydrateEvidenceReferences, EVIDENCE_REFERENCE_INSTRUCTIONS, canUseEvidencePassages } from '../../story/evidence-passages.mjs';
+import { canonicalJson } from '../../storage/v1-state-delta-codec.mjs';
+import { stableSha256Hex } from '../../runtime/v1-stable-hash.mjs';
 import { parseStructuredJsonText } from '../../providers/structured-output-parser.mjs';
 import { createScenePacingSchema, pacingObservationErrors } from '../../narration/scene-pacing.mjs';
 import { createGenerationRoleRegistry } from '../../generation/generation-roles.mjs';
@@ -349,6 +352,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     peopleContext = {},
     timeContext = {},
     limits = {},
+    evidenceCatalog = null,
 } = {}) {
     limits = normalizeAnalysisLimits(limits);
     const parsed = typeof value === 'string'
@@ -357,7 +361,9 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     if (!parsed.ok) {
         return { ok: false, errors: ['interpretation output must contain valid JSON'] };
     }
-    const boundedValue = cloneJson(parsed.value);
+    let boundedValue;
+    try { boundedValue = evidenceCatalog ? hydrateEvidenceReferences({ value: parsed.value, catalog: evidenceCatalog, sourcePair }) : cloneJson(parsed.value); }
+    catch (error) { return { ok: false, errors: [error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' ? error.message : 'evidence-reference-invalid'] }; }
     const claimCount = Array.isArray(boundedValue?.claims) ? boundedValue.claims.length : 0;
     const peopleCapacity = Math.min(limits.interpreterMaxPeopleEvents, Math.max(0, limits.interpreterMaxDurableSelections - claimCount));
     const rawPeopleEventCount = Array.isArray(boundedValue?.peopleEvents) ? boundedValue.peopleEvents.length : 0;
@@ -406,12 +412,16 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
 
 export function createMissionAcceptedPairInterpretationPrompt({
     candidatePacket = {}, sourcePair = {}, timeContext = {}, peopleContext = {}, limits = {},
-    validationErrors = [],
+    validationErrors = [], evidenceReferences = false,
 } = {}) {
     limits = normalizeAnalysisLimits(limits);
     const feedbackErrors = boundedValidationErrors(validationErrors);
-    const jsonSchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket, limits });
+    const evidenceCatalog = evidenceReferences ? createEvidencePassageCatalog({ sourcePair, limits,
+        requestId: `interpreter.${stableSha256Hex(canonicalJson({ candidatePacket, sourcePair, timeContext, peopleContext, limits }))}` }) : null;
+    const legacySchema = createMissionAcceptedPairInterpretationSchema({ candidatePacket, limits });
+    const jsonSchema = evidenceCatalog ? createEvidenceReferenceSchema(legacySchema) : legacySchema;
     const systemPrompt = [
+        ...(evidenceCatalog ? [EVIDENCE_REFERENCE_INSTRUCTIONS] : []),
         'Report what the supplied exchange supports. Select only supplied evidence candidates. Observe player intent and participation; do not choose a future plot or manufacture success.',
         'You are Directive V1 Mission Evidence Interpreter, a bounded Utility analysis role.',
         ...(feedbackErrors.length ? [
@@ -467,8 +477,9 @@ export function createMissionAcceptedPairInterpretationPrompt({
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"unchanged","basis":"noPassage","elapsedSeconds":0,"reason":"no-fictional-time-passage","confidence":0.9}}',
         'Implicit-action time example only: {"decision":"advance","basis":"implicitAction","sourceSlot":"currentPlayer","evidenceQuote":"I answer the captain directly.","elapsedSeconds":8,"reason":"brief-spoken-reply","confidence":0.9}',
         'Explicit-duration time example only: {"decision":"advance","basis":"explicitDuration","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
-    ].join('\n').replace('1–240 verbatim characters', `1–${limits.timeEvidenceQuoteCharacters} verbatim characters`).replace('time.reason within 180 characters', `time.reason within ${limits.timeReasonCharacters} characters`);
+    ].filter(line => !evidenceCatalog || (!line.includes('example only:') && !line.startsWith('{"kind"') && !line.startsWith('Also include scenePacing in the output:'))).join('\n').replace('1–240 verbatim characters', `1–${limits.timeEvidenceQuoteCharacters} verbatim characters`).replace('time.reason within 180 characters', `time.reason within ${limits.timeReasonCharacters} characters`);
     const userPayload = {
+        ...(evidenceCatalog ? { evidencePassages: evidencePassagePromptEntries(evidenceCatalog) } : {}),
         analysisLimits: cloneJson(limits),
         envelope: {
             missionId: candidatePacket.missionId,
@@ -494,6 +505,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
     const user = `Interpret this accepted-pair source against the closed candidate set:\n${JSON.stringify(userPayload, null, 2)}`;
     return {
         kind: 'directive.missionEvidenceInterpretationRequest.v1',
+        evidenceCatalog,
         prompt: `${systemPrompt}\n\n${user}`,
         systemPrompt,
         maxTokens: MISSION_EVIDENCE_MAX_TOKENS,
@@ -646,7 +658,7 @@ export function createMissionAcceptedPairInterpreter({
         }
         let request;
         try {
-            request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, limits, validationErrors });
+            request = createMissionAcceptedPairInterpretationPrompt({ candidatePacket, sourcePair, timeContext, peopleContext, limits, validationErrors, evidenceReferences: canUseEvidencePassages(sourcePair) });
         } catch (error) {
             return { ok: false, status: 'rejected', reasonCode: error?.message || 'interpreter-request-invalid', diagnostics: {} };
         }
@@ -689,7 +701,7 @@ export function createMissionAcceptedPairInterpreter({
                 // Progress observers must not affect generation or validation.
             }
         }
-        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext, limits });
+        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext, limits, evidenceCatalog: request.evidenceCatalog });
         if (!parsed.ok) {
             generationRouter?.reportValidationFailure?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, parsed.errors);
             return {

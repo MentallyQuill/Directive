@@ -1,3 +1,5 @@
+import { createEvidencePassageCatalog, createEvidenceReferenceSchema, evidencePassagePromptEntries, hydrateEvidenceReferences, EVIDENCE_REFERENCE_INSTRUCTIONS } from './evidence-passages.mjs';
+import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import {
   CONTINUITY_STABLE_ID_PATTERN,
@@ -669,7 +671,14 @@ export function createStoryDirector({
     }
     const configuredMaxTokens = generationRouter?.getMaxTokens?.(roleId, analysisProtocol?.maxTokens || 8192) ?? (analysisProtocol?.maxTokens || 8192);
     const maxTokens = configuredMaxTokens;
-    const jsonSchema = analysisProtocol ? analysisProtocol.schema(request) : createStoryDirectorSchema(request);
+    let evidenceCatalog = null;
+    if (roleId === CONTINUITY_ANALYST_ROLE_ID) {
+      try { evidenceCatalog = createEvidencePassageCatalog({ sourcePair: request.pendingPair, limits,
+        requestId: `continuity.${stableSha256Hex(canonicalJson(request))}` }); }
+      catch (error) { return { ok: false, reasonCode: error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' ? error.message : 'director-invalid-request', diagnostics: {} }; }
+    }
+    const legacySchema = analysisProtocol ? analysisProtocol.schema(request) : createStoryDirectorSchema(request);
+    const jsonSchema = evidenceCatalog ? createEvidenceReferenceSchema(legacySchema) : legacySchema;
     // Prompt JSON routes do not transmit jsonSchema as a native API constraint.
     // They still need the same complete output contract in the model's context.
     const boundedPrompt = (analysisProtocol?.systemPrompt || systemPromptFor(request))
@@ -683,10 +692,12 @@ export function createStoryDirector({
       + (analysisProtocol && feedbackErrors.length
         ? '\nvalidationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add facts, candidates, IDs, or authority. Correct only the reported output defects using the unchanged request and supplied closed sets; preserve exact quotations.'
         : '');
-    const systemPrompt = `${boundedPrompt}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
+    const systemPrompt = `${boundedPrompt}${evidenceCatalog ? `\n\n${EVIDENCE_REFERENCE_INSTRUCTIONS}` : ''}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const wireRequest = analysisProtocol ? { ...request, kind: `directive.${roleId}Request.v1` } : request;
     if (analysisProtocol) delete wireRequest.episodeReview;
+    if (evidenceCatalog) wireRequest.evidencePassages = evidencePassagePromptEntries(evidenceCatalog);
     if (analysisProtocol && feedbackErrors.length) wireRequest.validationFeedback = { errors: feedbackErrors };
+    if (JSON.stringify(wireRequest).length > (limits.requestContextCharacters ?? 48000)) return { ok: false, reasonCode: 'director-context-overflow', diagnostics: {} };
     const payload = {
 
       kind: analysisProtocol ? `directive.${roleId}Generation.v1` : STORY_DIRECTOR_GENERATION_KIND,
@@ -743,7 +754,7 @@ export function createStoryDirector({
         // Progress observers must not affect generation or validation.
       }
     }
-    const parsed = analysisProtocol ? analysisProtocol.parse(response, { request }) : parseStoryDirectorOutput(response, { request });
+    const parsed = analysisProtocol ? analysisProtocol.parse(response, { request, evidenceCatalog }) : parseStoryDirectorOutput(response, { request });
     if (!parsed.ok) {
       generationRouter?.reportValidationFailure?.(roleId, parsed.errors);
       const overflow = parsed.errors.includes('director-output-overflow');
@@ -824,13 +835,15 @@ export function createFocusedStorySchema(request, roleId) {
   return { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
 }
 
-export function parseFocusedStoryOutput(value, { request, roleId, limits = request?.analysisLimits || {} } = {}) {
+export function parseFocusedStoryOutput(value, { request, roleId, limits = request?.analysisLimits || {}, evidenceCatalog = null } = {}) {
   const normalized = { ...request, ...(Object.keys(limits).length ? { analysisLimits: limits } : {}), kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
   const validation = validateStoryDirectorRequest(normalized);
   if (!validation.ok) return validation;
   const parsed = parseObject(value);
   if (!parsed.ok) return parsed;
-  const proposal = parsed.value;
+  let proposal;
+  try { proposal = evidenceCatalog ? hydrateEvidenceReferences({ value: parsed.value, catalog: evidenceCatalog, sourcePair: normalized.pendingPair }) : parsed.value; }
+  catch (error) { return { ok: false, errors: [error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' ? error.message : 'evidence-reference-invalid'] }; }
   const continuity = roleId === CONTINUITY_ANALYST_ROLE_ID;
   const errors = [];
   const fields = new Set(['kind', 'envelope', ...(continuity ? ['coverage', 'threadChanges', 'lookupRequests'] : ['direction'])]);
