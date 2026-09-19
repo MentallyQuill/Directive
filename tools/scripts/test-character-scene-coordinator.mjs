@@ -130,3 +130,14 @@ console.log('PASS in-flight replacement rejects late completion and missing disc
 assert.throws(() => coordinator.createFlight({ ...args, budget: createTurnAttemptBudget(), participants: [{ ...participants[0], audience: [{ personId: 'person.unknown', acquisition: 'heard' }] }, participants[1]], plan: [plan[0]] }), { code: 'DIRECTIVE_CHARACTER_SCENE_INVALID' });
 assert.equal(new Set(mixedDraft.disclosures.map(item => item.order)).size, mixedDraft.disclosures.length, 'disclosure positions are unique and ordered for receipts');
 console.log('PASS unknown recipients reject and receipt disclosure positions are unique');
+const repeatedPackets = [];
+const repeatedActor = createCharacterSceneCoordinator({ responder: { async respond(input) {
+  input.budget.claim(); repeatedPackets.push({ id: input.contributionId, packet: structuredClone(input.packet) });
+  return { contribution: { ...baseContribution(input), text: input.contributionId === 'line.a' ? 'My first report.' : 'Next report.' } };
+} } }).createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [plan[0], { ...plan[1], dependsOnIds: [] }, { id: 'line.a2', personId: 'person.a', dependsOnIds: ['line.b'] }] });
+const repeatedDraft = await repeatedActor.run();
+assert.ok(repeatedDraft.contributions.find(item => item.id === 'line.a2').dependsOnIds.includes('line.a'), 'an actor cannot forget its own earlier contribution in the same flight');
+assert.ok(repeatedPackets.find(item => item.id === 'line.a2').packet.information.some(item => item.text === 'My first report.'));
+assert.deepEqual(repeatedActor.invalidate('line.a'), ['line.a', 'line.a2']);
+repeatedActor.dispose();
+console.log('PASS repeated actors retain their own earlier contribution and invalidation dependency');

@@ -32,19 +32,23 @@ function graph(plan, participants, playerId, limits) {
     }
     people.set(person.personId, { ...person, audience });
   }
-  const nodes = new Map();
+  const nodes = new Map(), previousByPerson = new Map();
   for (const node of plan) {
     const person = people.get(node?.personId);
     if (!node || Object.keys(node).some(key => !['id', 'personId', 'dependsOnIds'].includes(key)) || !validId(node.id)
       || nodes.has(node.id) || node.personId === playerId || !person || !Array.isArray(node.dependsOnIds)
       || new Set(node.dependsOnIds).size !== node.dependsOnIds.length
       || (!(person.present === true && person.conscious === true) && person.reactionPathValidated !== true)) fail();
-    nodes.set(node.id, { ...node, audience: person.audience });
+    const previous = previousByPerson.get(node.personId);
+    const dependencies = [...node.dependsOnIds];
+    if (previous && !dependencies.includes(previous)) dependencies.push(previous);
+    nodes.set(node.id, { ...node, dependsOnIds: dependencies, audience: person.audience });
+    previousByPerson.set(node.personId, node.id);
   }
   if (new Set(plan.map(node => node.personId)).size > limits.maxActors) fail('DIRECTIVE_CHARACTER_SCENE_CAPACITY');
   for (const node of nodes.values()) for (const id of node.dependsOnIds) {
     const source = nodes.get(id);
-    if (!source || id === node.id || !source.audience.has(node.personId)) fail();
+    if (!source || id === node.id || (source.personId !== node.personId && !source.audience.has(node.personId))) fail();
   }
   const rounds = [], visited = new Set();
   while (visited.size < nodes.size) {
@@ -116,10 +120,12 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
         const candidates = base.information.map(item => ({ ...item, recipientIds: [node.personId], sourceIds: [compiled.digest], learnedAt: -1 }));
         for (const id of node.dependsOnIds) {
           const entry = cache.get(id);
-          if (!entry || !entry.contribution.recipientIds.includes(node.personId)) fail();
-          const exposure = entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
+          const own = entry?.contribution.personId === node.personId;
+          if (!entry || (!own && !entry.contribution.recipientIds.includes(node.personId))) fail();
+          const exposure = own ? { id: `self-contribution.${digest(id).slice(0, 24)}`, text: entry.contribution.text }
+            : entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
           if (!exposure) fail();
-          const acquisition = nodes.get(id).audience.get(node.personId);
+          const acquisition = own ? 'observed' : nodes.get(id).audience.get(node.personId);
           sourceIds.add(entry.contributionDigest);
           candidates.push({ id: exposure.id, text: exposure.text, claimType: 'character-claim', acquisition,
             status: 'current', recipientIds: [node.personId], sourceIds: [entry.contributionDigest], learnedAt: entry.order });
@@ -173,7 +179,11 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                   // The runtime graph owns causal order even when model output omits an edge.
                   contribution.dependsOnIds = [...node.dependsOnIds];
                   const contributionDigest = digest(contribution);
-                  const dependencyExposures = node.dependsOnIds.map(id => cache.get(id).disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure.id);
+                  const dependencyExposures = node.dependsOnIds.flatMap(id => {
+                    const source = cache.get(id);
+                    if (source.contribution.personId === node.personId) return [];
+                    return [source.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure.id];
+                  });
                   if (dependencyExposures.some(id => !id)) fail();
                   const disclosures = contribution.recipientIds.map((recipientId, recipientIndex) => {
                     const acquisition = node.audience.get(recipientId);
