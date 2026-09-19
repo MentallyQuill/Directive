@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { characterNarrativeDigest } from '../../src/narration/character-scene-narrator.mjs';
 import { createSillyTavernChatAdapter } from '../../src/hosts/sillytavern/chat-adapter.mjs';
 const binding = { kind: 'directive.campaignChatBinding.v1', version: 1, hostId: 'sillytavern', campaignId: 'campaign.test', saveId: 'save.test', chatId: 'test.chat', entityType: 'character', entityId: '0', entityName: 'Narrator', entityAvatar: 'Narrator.png', status: 'bound' };
 function rig() {
@@ -13,7 +14,14 @@ function rig() {
 }
 function request(id, extra = {}) {
   return { publicationId: id, text: 'A reviewed scene.', expectedBinding: binding, assertCurrent: () => true,
-    createMetadata: source => ({ kind: 'directive.characterScenePublication.v1', publicationId: id, source, marker: id }), ...extra };
+    createMetadata: source => {
+      const segments = [{ kind: 'prose', id: 'segment.1', text: 'A reviewed scene.' }];
+      const candidateDigest = characterNarrativeDigest({ segments, text: 'A reviewed scene.' });
+      const supportDigest = 'b'.repeat(64);
+      return { kind: 'directive.characterScenePublication.v1', publicationId: id, source, segments, contributions: [],
+        receipt: { kind: 'directive.characterSceneReceipt.v1', publicationId: id, flightDigest: 'a'.repeat(64), source, candidateDigest, supportDigest,
+          packetDigests: [], contributionDigests: [], disclosures: [], review: { kind: 'directive.characterKnowledgeReview.v1', candidateDigest, supportDigest, verdict: 'pass', findings: [] } } };
+    }, ...extra };
 }
 const a = rig();
 assert.equal(typeof a.adapter.publishProtectedScene, 'function');
@@ -71,3 +79,8 @@ const hiddenDisplay = rig();
 hiddenDisplay.context.updateMessage = async () => { throw new Error('display unavailable'); };
 assert.equal((await hiddenDisplay.adapter.publishProtectedScene(request('publication.display'))).displayUpdated, false);
 console.log('PASS serialized publication, stale queued owner, saved-row verification and truthful display status');
+
+const badReceipt = rig();
+await assert.rejects(badReceipt.adapter.publishProtectedScene(request('publication.bad-receipt', { createMetadata: source => ({ kind: 'directive.characterScenePublication.v1', publicationId: 'publication.bad-receipt', source }) })), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_INVALID' });
+assert.equal(badReceipt.context.chat.length, 0);
+console.log('PASS final host boundary requires a complete valid review receipt');

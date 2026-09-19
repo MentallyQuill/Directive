@@ -1,3 +1,4 @@
+import { readCharacterScenePublication } from '../../story/character-scene-publication.mjs';
 import { captureV1AssistantSourceVariant } from '../../runtime/v1-accepted-pair-source.mjs';
 import { assertGenerationActive } from '../../runtime/generation-cancellation.mjs';
 import { canonicalJson } from '../../storage/v1-state-delta-codec.mjs';
@@ -2064,6 +2065,13 @@ export function createSillyTavernChatAdapter({
     }
     return cloneJson(value);
   }
+  function verifyPublicationMetadata(message, index, swipeIndex, metadata) {
+    const swipeInfo = [];
+    swipeInfo[swipeIndex] = { extra: { runtimeMetadata: { characterScenePublication: metadata } } };
+    const candidate = { ...message, hostMessageId: normalizeMessageId(message, index), swipe_id: swipeIndex,
+      mes: message.swipes?.[swipeIndex] ?? message.mes, swipe_info: swipeInfo };
+    if (readCharacterScenePublication(candidate).status !== 'valid') throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', metadata?.publicationId);
+  }
   function findPublication(rows, publicationId) {
     const found = [];
     rows.forEach((message, index) => (message.swipe_info || []).forEach((info, swipeIndex) => {
@@ -2102,6 +2110,7 @@ export function createSillyTavernChatAdapter({
         if (existing) {
           if (hostMessageId !== null && normalizeMessageId(existing.message, existing.index) !== String(hostMessageId)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
           const source = publicationSource(existing.message, existing.index, existing.swipeIndex);
+          verifyPublicationMetadata(existing.message, existing.index, existing.swipeIndex, existing.metadata);
           if (existing.message.swipes?.[existing.swipeIndex] !== text || existing.message.swipe_id !== existing.swipeIndex
             || canonicalJson(existing.metadata) !== canonicalJson(publicationMetadata(publication, source))) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
           if (!await saveChat(ctx)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
@@ -2212,6 +2221,7 @@ export function createSillyTavernChatAdapter({
     if (publication) {
       const source = publicationSource(message, chat.length, 0);
       const metadata = publicationMetadata(publication, source);
+      verifyPublicationMetadata(message, chat.length, 0, metadata);
       message.extra.runtimeMetadata = { ...message.extra.runtimeMetadata, characterScenePublication: metadata };
       message.swipe_info[0].extra = swipeInfoExtra(message.extra);
       publication.guard('before-mutation', source);
@@ -2397,6 +2407,7 @@ export function createSillyTavernChatAdapter({
       const projected = { ...message, swipes: [...protectedSwipes, normalizedText], mes: normalizedText, swipe_id: protectedSwipes.length };
       const source = publicationSource(projected, index, protectedSwipes.length);
       protectedMetadata = publicationMetadata(publication, source);
+      verifyPublicationMetadata(projected, index, protectedSwipes.length, protectedMetadata);
       publication.guard('before-mutation', source);
       message.swipes = protectedSwipes;
       ensureMessageSwipeInfo(message);
