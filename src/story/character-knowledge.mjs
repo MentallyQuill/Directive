@@ -47,8 +47,10 @@ function sameSource(left, right) {
 
 /** Snapshot is captured by the runtime from accepted state and its source lineage.
  * It is not a model response. Only source-admitted archive entries reach the wire.
+ * finalizePacket is a pure runtime-only compiler for mandatory scene/causal context;
+ * retrieval tests every optional closure against that final serialized packet.
  */
-export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair = {}, provisionalExposures = [], beforeOrder = 0, limits = {} } = {}) {
+export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair = {}, provisionalExposures = [], beforeOrder = 0, limits = {}, finalizePacket = packet => packet } = {}) {
   try {
     const settlement = snapshot?.state?.storySettlement;
     const identity = snapshot?.characters instanceof Map && snapshot.characters.get(personId);
@@ -88,17 +90,18 @@ export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair 
     if (!Array.isArray(perceptionIds) || Array.from(perceptionIds).some(id => !eligibleById.has(id))) fail('knowledge_perception_invalid');
     const focus = snapshot.focusByPerson?.get(personId) ?? {};
     if (!Array.isArray(focus.requiredIds ?? [])) fail('knowledge_reference_unavailable');
-    const selected = selectCharacterRecords(candidates, { ...focus, requiredIds: [...(focus.requiredIds ?? []), ...perceptionIds] }, limits.maxRecords ?? 128, authoredInformation);
     const publicSituation = perceptionIds.length
       ? `Current admitted context:\n${perceptionIds.map(id => eligibleById.get(id).text).join('\n')}`
       : 'Respond to the current scene using only your admitted information and professional competence.';
-    const packet = compileCharacterPacket({
+    const compileSelected = selected => finalizePacket(compileCharacterPacket({
       personId, identity, candidates: selected, beforeOrder, authoredInformation,
       publicSituation,
       validSourceIds: new Set([...snapshot.sourceIdentities.keys(), ...pending.sourceIds].filter(id => !invalidSources.has(id))),
       maxCharacters: limits.maxCharacters ?? 12000, maxEstimatedTokens: limits.maxEstimatedTokens ?? 12000,
-    });
-    return { ok: true, packet, digest: stableSha256Hex(canonicalJson(packet)), diagnostics: { eligibleCount: candidates.length, includedCount: packet.information.length, omittedCount: candidates.length - packet.information.length, coverage: candidates.length === packet.information.length ? 'complete' : 'partial' } };
+    }));
+    const selected = selectCharacterRecords(candidates, { ...focus, requiredIds: [...(focus.requiredIds ?? []), ...perceptionIds] }, limits.maxRecords ?? 128, authoredInformation, compileSelected);
+    const packet = compileSelected(selected);
+    return { ok: true, packet, digest: stableSha256Hex(canonicalJson(packet)), diagnostics: { eligibleCount: candidates.length, includedCount: selected.length, omittedCount: candidates.length - selected.length, coverage: candidates.length === selected.length ? 'complete' : 'partial' } };
   } catch (error) {
     if (!['DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID', 'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET'].includes(error?.code)) throw error;
     return { ok: false, reason: error.message, code: error.code };
@@ -106,7 +109,7 @@ export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair 
 }
 
 
-function selectCharacterRecords(candidates, focus = {}, maxRecords, authoredInformation) {
+function selectCharacterRecords(candidates, focus = {}, maxRecords, authoredInformation, compileSelected) {
   if (!Number.isSafeInteger(maxRecords) || maxRecords < 1 || maxRecords > 128) fail('knowledge_retrieval_invalid');
   const byId = new Map(candidates.map(item => [item.id, item]));
   if (byId.size !== candidates.length) fail('knowledge_record_duplicate');
@@ -136,11 +139,16 @@ function selectCharacterRecords(candidates, focus = {}, maxRecords, authoredInfo
   }
   let selected = closure([...required, ...queryIds]);
   if (selected.size > maxRecords) fail('knowledge_packet_budget');
+  const records = ids => candidates.filter(item => ids.has(item.id));
+  // Required facts and their correction/dependency closure must fit intact.
+  compileSelected(records(selected));
   const ranked = candidates.map((item, index) => ({ item, index, score: score(item) }))
     .sort((a, b) => b.score - a.score || b.index - a.index);
   for (const { item } of ranked) {
     const expanded = closure([...selected, item.id]);
-    if (expanded.size <= maxRecords) selected = expanded;
+    if (expanded.size > maxRecords || expanded.size === selected.size) continue;
+    try { compileSelected(records(expanded)); selected = expanded; }
+    catch (error) { if (error?.code !== 'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET') throw error; }
   }
   return candidates.filter(item => selected.has(item.id));
 }

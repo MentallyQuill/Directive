@@ -763,6 +763,11 @@ function providerConfiguration(host) {
 
 const GENERATION_ROUTING = createGenerationRoleRegistry().list();
 
+function protectedProviderConfiguration(host) {
+  return { ...providerConfiguration(host), fingerprints: Object.fromEntries(['utility', 'reasoning', 'narration']
+    .map(kind => [kind, host.providers?.configurationFingerprint?.(kind) ?? null])) };
+}
+
 function diagnosticsConfiguration(host) {
   return { transcriptAvailable: typeof host.chat?.getRecentMessages === 'function' };
 }
@@ -1732,7 +1737,7 @@ export function createDirectiveRuntimeApp({
           assertTurnActive(ownership.scope); transcriptLane.assertOwner(ownership.owner, transcriptKey());
           return { bindingKey: transcriptKey(), branchId: state.campaignChatBinding.saveId, sourceDigest,
             stateDigest: stableSha256Hex(stableJsonStringify(state)),
-            settingsDigest: stableSha256Hex(stableJsonStringify({ providers: providerConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })), epoch: ownership.scope.epoch };
+            settingsDigest: stableSha256Hex(stableJsonStringify({ providers: protectedProviderConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })), epoch: ownership.scope.epoch };
         };
         const identity = readIdentity();
         const publicationId = `directive.v1.opening.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
@@ -2255,7 +2260,7 @@ export function createDirectiveRuntimeApp({
         transcriptLane.assertOwner(ownership.owner, transcriptKey());
         return { bindingKey: transcriptKey(), branchId: state.campaignChatBinding.saveId, sourceDigest,
           stateDigest: stableSha256Hex(stableJsonStringify(state)),
-          settingsDigest: stableSha256Hex(stableJsonStringify({ providers: providerConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })),
+          settingsDigest: stableSha256Hex(stableJsonStringify({ providers: protectedProviderConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })),
           epoch: ownership.scope.epoch };
       };
       const identity = readIdentity();

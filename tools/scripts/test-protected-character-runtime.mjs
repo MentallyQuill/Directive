@@ -5,7 +5,7 @@ import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 const defaults = createFakeGenerationClient();
 let enabled = false, sequence = 0, protectedCalls = 0, published = 0;
 const sceneOnlySources = [];
-let mutateSceneSource = false;
+let mutateSceneSource = false, mutateRoute = false, routeFingerprint = 'route.original';
 const generation = createFakeGenerationClient({ responses: {
   acceptedPairMissionEvidence: async () => ({ text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true, time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 } }) }),
   continuityAnalyst: async ({ request }) => {
@@ -24,11 +24,12 @@ const generation = createFakeGenerationClient({ responses: {
     if (!context.currentScene?.characterKnowledge) return defaults.generate('continuityAnalyst', request);
     return { text: JSON.stringify({ kind: 'directive.continuityAnalystProposal.v1', envelope: context.envelope, coverage: 'complete', lookupRequests: [], threadChanges: [], characterScene: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: context.pendingPair.currentPlayer.text }] } }) };
   },
-  sceneNarrator: async ({ rawOptions }) => { protectedCalls++; rawOptions.attemptBudget.claim(); return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The console remains quiet.' }] }) }; },
+  sceneNarrator: async ({ rawOptions }) => { if (mutateRoute) { mutateRoute = false; routeFingerprint = 'route.changed'; } protectedCalls++; rawOptions.attemptBudget.claim(); return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The console remains quiet.' }] }) }; },
   characterKnowledgeReviewer: async ({ request, rawOptions }) => { protectedCalls++; rawOptions.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content); return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [] }) }; },
 } });
 const host = createFakeDirectiveHost({ chatNative: true, generation });
 host.chat.publishProtectedScene = async () => { published++; throw Object.assign(new Error('Synthetic save failure before mutation'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' }); };
+host.providers.configurationFingerprint = () => routeFingerprint;
 const app = createDirectiveRuntimeApp({ host, packageLoader: async () => loadAshesRuntimeAssets(), idFactory: prefix => `${prefix}.${++sequence}`, getCharacterKnowledgeSettings: () => enabled ? { mode: 'protected' } : null });
 await app.initialize(); await app.startCreatorDraft();
 await app.saveCreatorDraft({ patch: { activeStep: 'review', input: {
@@ -177,3 +178,10 @@ assert.equal(protectedCalls, callsBeforeEdit, 'source changes prevent responder/
 assert.equal(host.chat.messages().length, rowsBeforeEdit.length);
 assert.equal(host.chat.messages().at(-1).swipes.length, rowsBeforeEdit.at(-1).swipes.length);
 console.log('PASS edited Continue source blocks publication before protected generation');
+
+const beforeRouteRows = host.chat.messages();
+mutateRoute = true;
+const changedRoute = await orchestrator.interceptGeneration({ type: 'regenerate' });
+assert.notEqual(changedRoute.responseStrategy, 'protectedScenePublished', 'native source changes must invalidate the reviewed flight');
+assert.deepEqual(host.chat.messages(), beforeRouteRows);
+console.log('PASS changed native route fingerprint blocks stale protected publication');

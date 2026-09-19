@@ -122,32 +122,36 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
       };
       signal?.addEventListener('abort', dispose, { once: true });
       function packetFor(node, order) {
+        // Fit optional archive history against the final packet, including
+        // mandatory current perceptions and causal same-reply contributions.
         const compiled = createCharacterKnowledgePacket({ snapshot: captured, sourcePair: capturedPair, provisionalExposures: capturedExposures,
-          personId: node.personId, beforeOrder: Number.MAX_SAFE_INTEGER, limits });
+          personId: node.personId, beforeOrder: Number.MAX_SAFE_INTEGER, limits, finalizePacket: base => {
+          const sourceIds = new Set(['archive.packet']);
+          const candidates = base.information.map(item => ({ ...item, recipientIds: [node.personId], sourceIds: ['archive.packet'], learnedAt: -1 }));
+          const perceptions = scenePerceptions.get(node.personId) || [];
+          if (perceptions.length) {
+            const sourceId = digest(capturedSceneEvidence);
+            sourceIds.add(sourceId);
+            for (const item of perceptions) candidates.push({ ...item, recipientIds: [node.personId], sourceIds: [sourceId], learnedAt: -1 });
+          }
+          for (const id of node.dependsOnIds) {
+            const entry = cache.get(id);
+            const own = entry?.contribution.personId === node.personId;
+            if (!entry || (!own && !entry.contribution.recipientIds.includes(node.personId))) fail();
+            const exposure = own ? { id: `self-contribution.${digest(id).slice(0, 24)}`, text: entry.contribution.text }
+              : entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
+            if (!exposure) fail();
+            const acquisition = own ? 'observed' : nodes.get(id).audience.get(node.personId);
+            sourceIds.add(entry.contributionDigest);
+            candidates.push({ id: exposure.id, text: exposure.text, claimType: 'character-claim', acquisition,
+              status: 'current', recipientIds: [node.personId], sourceIds: [entry.contributionDigest], learnedAt: entry.order });
+          }
+          return compileCharacterPacket({ personId: node.personId, identity: base.identity, publicSituation: perceptions.length ? `Current source-admitted perceptions:\n${perceptions.map(item => item.text).join('\n')}` : base.situation,
+            authoredInformation: base.authoredInformation, candidates, validSourceIds: sourceIds, beforeOrder: order,
+            maxCharacters: limits.maxCharacters ?? 12000, maxEstimatedTokens: limits.maxEstimatedTokens ?? 12000 });
+        } });
         if (!compiled.ok) fail(compiled.code);
-        const base = compiled.packet, sourceIds = new Set([compiled.digest]);
-        const candidates = base.information.map(item => ({ ...item, recipientIds: [node.personId], sourceIds: [compiled.digest], learnedAt: -1 }));
-        const perceptions = scenePerceptions.get(node.personId) || [];
-        if (perceptions.length) {
-          const sourceId = digest(capturedSceneEvidence);
-          sourceIds.add(sourceId);
-          for (const item of perceptions) candidates.push({ ...item, recipientIds: [node.personId], sourceIds: [sourceId], learnedAt: -1 });
-        }
-        for (const id of node.dependsOnIds) {
-          const entry = cache.get(id);
-          const own = entry?.contribution.personId === node.personId;
-          if (!entry || (!own && !entry.contribution.recipientIds.includes(node.personId))) fail();
-          const exposure = own ? { id: `self-contribution.${digest(id).slice(0, 24)}`, text: entry.contribution.text }
-            : entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
-          if (!exposure) fail();
-          const acquisition = own ? 'observed' : nodes.get(id).audience.get(node.personId);
-          sourceIds.add(entry.contributionDigest);
-          candidates.push({ id: exposure.id, text: exposure.text, claimType: 'character-claim', acquisition,
-            status: 'current', recipientIds: [node.personId], sourceIds: [entry.contributionDigest], learnedAt: entry.order });
-        }
-        return compileCharacterPacket({ personId: node.personId, identity: base.identity, publicSituation: perceptions.length ? `Current source-admitted perceptions:\n${perceptions.map(item => item.text).join('\n')}` : base.situation,
-          authoredInformation: base.authoredInformation, candidates, validSourceIds: sourceIds, beforeOrder: order,
-          maxCharacters: limits.maxCharacters ?? 12000, maxEstimatedTokens: limits.maxEstimatedTokens ?? 12000 });
+        return compiled.packet;
       }
       return {
         get revision() { return version; },

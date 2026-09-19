@@ -798,6 +798,13 @@ export function createDirectiveProviderClient({
     throw new Error('settingsStore with get(kind) is required');
   }
 
+  function configurationFingerprint(kind) {
+    try {
+      const config = settingsStore.get(kind);
+      return directiveProviderConfigFingerprint({ kind, provider: config, ...providerIdentity(contextFactory(), config) });
+    } catch { return null; }
+  }
+
   function notifyOutputLimit(roleId, utilitySettings, hasOutputOverride) {
     try {
       Promise.resolve(onOutputLimit?.({
@@ -882,6 +889,7 @@ export function createDirectiveProviderClient({
     const kind = protectedRole ? providerKindForRole(roleId) : (requestedKind
       || settingsStore.getRoleProviderKind?.(roleId)
       || providerKindForRole(roleId));
+    const pinnedFingerprint = protectedRole ? configurationFingerprint(kind) : null;
     const savedConfig = settingsStore.get(kind);
     const config = protectedRole ? { ...savedConfig, presetMode: 'isolated', instructMode: 'off', samplerMode: 'directive' } : savedConfig;
     if (protectedRole && roleId === 'sceneNarrator' && (config.provider !== 'profile' || !config.profileId)) throw isolationError();
@@ -898,6 +906,9 @@ export function createDirectiveProviderClient({
     let retriedForVisibleOutput = false;
     let attempt = 0;
     const onTransportAttempt = () => {
+      if (protectedRole && configurationFingerprint(kind) !== pinnedFingerprint) {
+        throw providerError('DIRECTIVE_CHARACTER_SCENE_STALE', 'Protected generation configuration changed.');
+      }
       options.attemptBudget?.claim({ reservation: options.attemptReservation ?? null });
       attempt += 1;
       try {
@@ -1096,6 +1107,7 @@ export function createDirectiveProviderClient({
     generate,
     test,
     status,
+    configurationFingerprint,
     listProfiles: () => listSillyTavernConnectionProfiles(contextFactory()),
     currentProfile: () => {
       const context = contextFactory();

@@ -94,3 +94,15 @@ context.ConnectionManagerRequestService.sendRequest = async () => {
 await assert.rejects(client.generate('characterResponder', isolated, { signal: stopped.signal, attemptBudget: createTurnAttemptBudget({ limit: 2, signal: stopped.signal }) }), { code: 'DIRECTIVE_GENERATION_ABORTED' });
 assert.equal(calls.length, beforeStop + 1);
 console.log('PASS narration route, bounded trusted continuation, observer failures and Stop');
+
+// Visible-output retries must not silently follow a changed native profile source.
+let routeSource = 'nanogpt';
+context.ConnectionManagerRequestService.validateProfile = () => ({ selected: 'openai', source: routeSource });
+let routeSends = 0;
+context.ConnectionManagerRequestService.sendRequest = async () => {
+  routeSends++; routeSource = 'openai';
+  return { choices: [{ message: { content: '', reasoning_content: 'thinking' }, finish_reason: 'stop' }] };
+};
+await assert.rejects(client.generate('characterResponder', isolated, { attemptBudget: createTurnAttemptBudget() }), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
+assert.equal(routeSends, 1, 'changed route cannot receive a retry');
+console.log('PASS source changes block physical retry before dispatch');

@@ -208,6 +208,7 @@ export function createSillyTavernDirectiveHost({
       validate: (kind = null) => providerSettings.validate(kind),
       test: (kind) => providerClient.test(kind),
       status: (kind) => providerClient.status(kind),
+      configurationFingerprint: kind => providerClient.configurationFingerprint(kind),
       listProfiles: () => providerClient.listProfiles(),
       currentProfile: () => providerClient.currentProfile()
     },

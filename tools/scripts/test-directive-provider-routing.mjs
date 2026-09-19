@@ -886,3 +886,18 @@ console.log('PASS Directive native provider lanes and generation-role routing');
 
 assert.equal(normalizeProviderResponseUsage({}), null);
 assert.deepEqual(normalizeProviderResponseUsage({ usage: { input_tokens: 0, output_tokens: -1, total_tokens: '17' } }), { input_tokens: 0, output_tokens: null, total_tokens: null });
+
+// Same display profile/model can resolve to a different native endpoint/source.
+let mutableSource = 'openai';
+const routeContext = { ...profileContext, ConnectionManagerRequestService: { ...profileService, validateProfile: () => ({ selected: 'openai', source: mutableSource }) } };
+const routeStore = createSillyTavernProviderSettingsStore({ context: routeContext });
+routeStore.update('narration', { provider: 'profile', profileId: 'chat.local', presetMode: 'isolated' });
+const routeClient = createDirectiveProviderClient({ contextFactory: () => routeContext, settingsStore: routeStore });
+assert.equal(typeof routeClient.configurationFingerprint, 'function');
+const oldFingerprint = routeClient.configurationFingerprint('narration');
+const oldStatus = routeClient.status('narration');
+mutableSource = 'nanogpt';
+assert.deepEqual(routeClient.status('narration'), oldStatus, 'display and unset certification do not identify source changes');
+assert.notEqual(routeClient.configurationFingerprint('narration'), oldFingerprint);
+assert.ok(!routeClient.configurationFingerprint('narration').includes('nanogpt'));
+console.log('PASS configuration custody detects native source changes independently of certification');

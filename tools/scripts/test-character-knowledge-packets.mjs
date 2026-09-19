@@ -130,3 +130,31 @@ conflicting.event.sources = conflicting.event.sources.map(anchor => anchor.messa
 const conflictedSourcePair = { ...archiveInput.sourcePair, previousAssistant: { ...archiveInput.sourcePair.previousAssistant, textHash: 'new-hash' } };
 assert.equal(knowledge.createCharacterKnowledgePacket({ ...duringReply, sourcePair: conflictedSourcePair, provisionalExposures: [conflicting], beforeOrder: 3 }).ok, false);
 console.log('PASS provisional source IDs cannot alias a different accepted source');
+
+const longHistory = Array.from({ length: 40 }, (_, i) => ({ ...structuredClone(oldFact), id: `fact.long.${i}`, payload: { ...structuredClone(oldFact.payload), text: i === 0 ? 'The cooling system needs repair.' : `Unrelated report ${i}: ` + 'A routine engineering status report. '.repeat(10) } }));
+const longSnapshot = { ...snapshot, state: { storySettlement: { ...snapshot.state.storySettlement, continuityEvents: [events[0], ...longHistory] } }, focusByPerson: new Map([['person.bronn', { requiredIds: ['fact.long.0'], queryIds: ['fact.long.0'] }]]) };
+const boundedHistory = knowledge.createCharacterKnowledgePacket({ snapshot: longSnapshot, personId: 'person.bronn' });
+assert.equal(boundedHistory.ok, true, 'optional history must fit the serialized budget');
+assert.ok(boundedHistory.packet.information.some(item => item.id === 'fact.long.0'));
+assert.equal(boundedHistory.diagnostics.coverage, 'partial');
+assert.ok(JSON.stringify(boundedHistory.packet).length <= 12000);
+const allRequired = { ...longSnapshot, focusByPerson: new Map([['person.bronn', { requiredIds: longHistory.map(item => item.id) }]]) };
+assert.equal(knowledge.createCharacterKnowledgePacket({ snapshot: allRequired, personId: 'person.bronn' }).code, 'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET');
+const unicodeSnapshot = structuredClone(longSnapshot);
+for (const item of unicodeSnapshot.state.storySettlement.continuityEvents) if (item.operation === 'addFact' && item.id !== 'fact.long.0') item.payload.text = String.fromCodePoint(0x5de5, 0x7a0b).repeat(150);
+const unicodePacket = knowledge.createCharacterKnowledgePacket({ snapshot: unicodeSnapshot, personId: 'person.bronn' });
+assert.equal(unicodePacket.ok, true);
+assert.ok(new TextEncoder().encode(JSON.stringify(unicodePacket.packet)).length <= 12000);
+const { createCharacterSceneCoordinator } = await import('../../src/runtime/character-scene-coordinator.mjs');
+const { createTurnAttemptBudget } = await import('../../src/generation/turn-attempt-budget.mjs');
+const latePackets = [], longSpeech = 'An engineering report. '.repeat(120);
+const lateFlight = createCharacterSceneCoordinator({ responder: { async respond(input) {
+  input.budget.claim(); latePackets.push(input.packet);
+  return { contribution: { id: input.contributionId, personId: 'person.bronn', kind: 'speech', mode: 'ordinary', text: longSpeech, basisIds: [], recipientIds: ['person.player'], dependsOnIds: [...input.priorContributionIds] } };
+} } }).createFlight({ snapshot: longSnapshot, playerId: 'person.player', participants: [{ personId: 'person.bronn', present: true, conscious: true, audience: [{ personId: 'person.player', acquisition: 'heard' }] }], plan: [{ id: 'line.first', personId: 'person.bronn', dependsOnIds: [] }, { id: 'line.second', personId: 'person.bronn', dependsOnIds: ['line.first'] }], identity: { bindingKey: 'test', branchId: 'save.test', sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 }, budget: createTurnAttemptBudget(), isCurrent: () => true });
+await lateFlight.run();
+assert.equal(latePackets.length, 2);
+assert.ok(latePackets[1].information.some(item => item.text === longSpeech));
+assert.ok(latePackets[1].information.some(item => item.id === 'fact.long.0'));
+lateFlight.dispose();
+console.log('PASS budgeted archive retrieval retains required facts and causal context');
