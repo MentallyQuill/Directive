@@ -23,6 +23,8 @@ const checks = [
   "test-character-scene-publication.mjs",
   "test-character-knowledge-replay.mjs",
   "test-character-publication-acceptance.mjs",
+  "test-character-knowledge-end-to-end.mjs",
+  "test-character-knowledge-host.mjs",
   "test-character-knowledge-settings.mjs",
   "test-character-knowledge-settings-browser.mjs",
   "test-settings-draft-saves.mjs",
