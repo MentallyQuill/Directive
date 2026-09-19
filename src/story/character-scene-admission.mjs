@@ -5,7 +5,7 @@ export const CHARACTER_KNOWLEDGE_PLAYER_ID = 'person.directive-player';
 const SLOTS = ['previousAssistant', 'currentPlayer'];
 const validId = value => typeof value === 'string' && value.length <= 180 && /^[a-z0-9][a-z0-9._:-]*$/.test(value);
 const hash = value => stableSha256Hex(canonicalJson(value));
-function invalid() { throw Object.assign(new Error('Character scene evidence is invalid.'), { code: 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID' }); }
+function invalid(feedback = null) { throw Object.assign(new Error('Character scene evidence is invalid.'), { code: 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID', ...(feedback ? { feedback: feedback.slice(0, 240) } : {}) }); }
 function fields(value, names) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))
     || Object.keys(value).some(key => !names.includes(key)) || names.some(key => !Object.hasOwn(value, key))) invalid();
@@ -43,10 +43,12 @@ function validateProposal(proposal, { playerId, people, sourcePair = null, expli
     if (recipientId && explicit && !explicit.has(recipientId)) invalid();
   };
   const participants = new Map();
-  for (const person of proposal.participants) {
+  for (const [index, person] of proposal.participants.entries()) {
     fields(person, ['personId', 'presence', 'evidence', 'audience', 'perception']);
-    if (!validId(person.personId) || !people.has(person.personId) || person.personId === playerId || participants.has(person.personId)
-      || !['present', 'remote'].includes(person.presence)) invalid();
+    if (!validId(person.personId) || !people.has(person.personId) || person.personId === playerId) {
+      invalid(`characterScene.participants[${index}].personId: use an evidenced NPC ID from the supplied schema; the player is currentScene.playerId and cannot be a participant.`);
+    }
+    if (participants.has(person.personId) || !['present', 'remote'].includes(person.presence)) invalid();
     array(person.perception, 4);
     for (const item of person.perception) {
       fields(item, ['acquisition', 'evidence']);
@@ -68,7 +70,12 @@ function validateProposal(proposal, { playerId, people, sourcePair = null, expli
   const previousByPerson = new Map();
   for (const [index, reaction] of proposal.reactions.entries()) {
     fields(reaction, ['personId', 'after']);
-    if (!participants.has(reaction.personId) || !participants.get(reaction.personId).has(playerId)) invalid();
+    if (!participants.has(reaction.personId)) {
+      invalid(`characterScene.reactions[${index}].personId: must name an evidenced participant; omit unsupported reactions.`);
+    }
+    if (!participants.get(reaction.personId).has(playerId)) {
+      invalid(`characterScene.reactions[${index}]: the reacting participant needs an evidenced outgoing audience route to currentScene.playerId; omit the reaction if that route is unsupported.`);
+    }
     array(reaction.after, 3);
     if (new Set(reaction.after).size !== reaction.after.length || reaction.after.some(value => !Number.isSafeInteger(value) || value < 0 || value >= proposal.reactions.length || value === index)) invalid();
     const dependencies = [...reaction.after];
@@ -90,6 +97,8 @@ function validateProposal(proposal, { playerId, people, sourcePair = null, expli
 
 export const CHARACTER_SCENE_ANALYSIS_POLICY = [
   'When currentScene.characterKnowledge is protected, also propose characterScene using the supplied schema. Establish only people who can presently react and the exact communication/perception audience; known people are not automatically present, awake or listening.',
+  'The player is always currentScene.playerId; never substitute a similarly named NPC ID or include the player in participants or reactions. Ground each NPC identity in its own source evidence.',
+  'A participant audience lists outgoing routes: who can hear, observe or read that participant response, not whom the participant perceives. Every reaction requires its participant audience to include the player ID with source evidence supporting that route. Omit unsupported reactions; never invent an audience edge to satisfy validation.',
   'Every presence and audience edge needs exact source evidence. Remote participants need an established live channel. Do not treat a future plan, attempted connection, private thought, mention, unconscious person or departed person as a present reacting recipient. Explicit host audience restrictions take precedence.',
   'Choose only necessary reactions: at most three actors, four responses and two causal rounds. Respect smaller currentScene.limits ceilings; with one round, each actor can respond only once. reactions.after names zero-based reaction indices, never invented character IDs. Dependent recipients can react only after the proposed source character has contributed. Independent characters may run together. Do not write dialogue.',
   'Each participant perception contains only the source excerpts they can currently hear, observe or read. Include a spoken player request when audible to that person, but never private player thoughts, hidden narration or offscreen events. Preserve speech as a claim and attempted player actions as attempts. Presence alone does not grant access to the whole source.',

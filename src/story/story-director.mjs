@@ -873,7 +873,12 @@ export function parseFocusedStoryOutput(value, { request, roleId, limits = reque
             knownPersonIds: new Set((normalized.authoredContext.references || []).filter(ref => ref.kind === 'person').map(ref => ref.id)),
             explicitAudience: new Map(Object.entries(normalized.currentScene.explicitAudience || {}).map(([slot, ids]) => [slot, new Set(ids)])),
           });
-        } catch { errors.push('character-scene-admission-invalid'); }
+        } catch (error) {
+          errors.push('character-scene-admission-invalid');
+          if (error?.code === 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID' && typeof error.feedback === 'string') {
+            errors.push(error.feedback.slice(0, 240));
+          }
+        }
       }
     }
     const lookups = proposal.lookupRequests;
