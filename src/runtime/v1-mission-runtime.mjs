@@ -1013,7 +1013,7 @@ export function captureAcceptedPairAnalysis({
         sourcePair: directorSourcePair,
         authoredContext,
         continuity,
-        currentScene: protectedScene || publicationDisclosures ? { ...(protectedScene ? { characterKnowledge: 'protected', playerId: CHARACTER_KNOWLEDGE_PLAYER_ID, explicitAudience: {} } : {}), ...(publicationDisclosures ? { publicationDisclosures } : {}) } : null,
+        currentScene: protectedScene || publicationDisclosures ? { ...(protectedScene ? { characterKnowledge: 'protected', playerId: CHARACTER_KNOWLEDGE_PLAYER_ID, explicitAudience: {}, limits: structuredClone(characterKnowledge) } : {}), ...(publicationDisclosures ? { publicationDisclosures } : {}) } : null,
         episodeReview: focused ? null : episodeReview,
     });
     return {

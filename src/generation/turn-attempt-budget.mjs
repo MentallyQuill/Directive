@@ -7,7 +7,7 @@ function exhausted() {
 }
 
 /** One object per turn. Claims are synchronous so concurrent roles cannot race. */
-export function createTurnAttemptBudget({ limit = 10, signal } = {}) {
+export function createTurnAttemptBudget({ limit = 10, signal, onClaim } = {}) {
   if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError('turn-attempt-limit-invalid');
   assertGenerationActive(signal);
   let used = 0;
@@ -35,6 +35,7 @@ export function createTurnAttemptBudget({ limit = 10, signal } = {}) {
         if (entry.remaining === 0) reservations.delete(reservation);
       } else if (used + reserved() >= limit) exhausted();
       used++;
+      try { Promise.resolve(onClaim?.(used)).catch(() => {}); } catch { /* Observers cannot alter the budget. */ }
       return used;
     },
     release(reservation) {

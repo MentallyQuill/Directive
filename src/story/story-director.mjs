@@ -828,7 +828,7 @@ export function createFocusedStorySchema(request, roleId) {
       coverage: { type: 'string', enum: ['complete', 'overflow', 'lookup-needed'] },
       threadChanges: base.properties.threadChanges,
       ...(request.currentScene?.characterKnowledge === 'protected' ? { characterScene: { anyOf: [
-        createCharacterSceneAdmissionSchema({ personIds: (request.authoredContext.references || []).filter(ref => ref.kind === 'person').map(ref => ref.id), playerId: request.currentScene.playerId }),
+        createCharacterSceneAdmissionSchema({ limits: request.currentScene?.limits, personIds: (request.authoredContext.references || []).filter(ref => ref.kind === 'person').map(ref => ref.id), playerId: request.currentScene.playerId }),
         { type: 'null' },
       ] } } : {}),
       lookupRequests: { type: 'array', maxItems: limits.continuityLookupRequests ?? 3, items: {

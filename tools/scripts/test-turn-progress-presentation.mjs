@@ -94,3 +94,21 @@ assert.equal(snapshot().history.length, 0, 'new turn does not inherit canceled h
 activity.finishDirectiveTurnActivity(newer);
 bridge.clearSillyTavernDirectiveRuntimeBridge();
 console.log('PASS truthful turn progress presentation and host ownership');
+
+const protectedToken = activity.markDirectiveTurnActivity({ hostGeneration: true });
+activity.recordDirectiveTurnProgress(start('protected-scene-test', 'protected-scene'));
+activity.recordDirectiveTurnProgress({ type: 'update', operationId: 'protected-scene-test', phase: 'review', phaseStartedAt: performance.now(), attempt: 2 });
+assert.equal(snapshot().active.find(item => item.operationId === 'protected-scene-test').phases.at(-1).phase, 'review');
+activity.recordDirectiveTurnProgress(finish('protected-scene-test'));
+activity.finishDirectiveTurnActivity(protectedToken);
+activity.disposeDirectiveTurnActivity();
+console.log('PASS protected review phases reach the existing host activity presentation');
+
+let protectedStops = 0;
+bridge.setSillyTavernDirectiveRuntimeBridge({ app: { subscribeTurnProgress: () => () => {}, resetTurnProgress() {}, async handleHostGenerationStopped() { protectedStops++; } } });
+await activity.requestDirectiveProtectedStop();
+assert.equal(protectedStops, 1);
+bridge.clearSillyTavernDirectiveRuntimeBridge();
+await activity.requestDirectiveProtectedStop();
+assert.equal(protectedStops, 1, 'detached host cannot receive a stale Stop');
+console.log('PASS protected activity Stop invokes runtime cancellation and detaches safely');

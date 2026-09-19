@@ -1,3 +1,4 @@
+import { normalizeProviderResponseUsage } from '../../src/providers/provider-response-normalizer.mjs';
 import assert from 'node:assert/strict';
 
 import { GENERATION_ROLE_IDS } from '../../src/generation/generation-roles.mjs';
@@ -58,7 +59,7 @@ const profileService = {
       return { choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }] };
     }
     if (profileId === 'text.local') return [{ content: 'profile-visible-answer' }];
-    return { choices: [{ message: { content: 'profile-visible-answer' }, finish_reason: 'stop' }] };
+    return { choices: [{ message: { content: 'profile-visible-answer' }, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17, privateField: 'PRIVATE_USAGE' } };
   }
 };
 const profileContext = {
@@ -319,6 +320,7 @@ const utility = await profileClient.generate('acceptedPairMissionEvidence', {
 });
 assert.equal(utility.text, 'profile-visible-answer');
 assert.equal(utility.providerKind, 'utility');
+assert.deepEqual(utility.usage, { input_tokens: 12, output_tokens: 5, total_tokens: 17 });
 assert.deepEqual(profileCalls[0], {
   profileId: 'chat.local',
   messages: [{ role: 'user', content: 'Return bounded JSON.' }],
@@ -881,3 +883,6 @@ assert.equal(routedResult.error.code, 'DIRECTIVE_GENERATION_ABORTED');
 assert.equal(routedResult.diagnostics.providerKind, 'utility');
 
 console.log('PASS Directive native provider lanes and generation-role routing');
+
+assert.equal(normalizeProviderResponseUsage({}), null);
+assert.deepEqual(normalizeProviderResponseUsage({ usage: { input_tokens: 0, output_tokens: -1, total_tokens: '17' } }), { input_tokens: 0, output_tokens: null, total_tokens: null });

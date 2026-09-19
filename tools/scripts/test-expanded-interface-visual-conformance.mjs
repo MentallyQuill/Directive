@@ -465,10 +465,10 @@ try {
           return {
             navigationCount: document.querySelectorAll('.settings-navigation').length,
             contentWidthRatio: contentBox.width / layoutBox.width,
-            cardsStacked: cards.length === 2
-              && Math.abs(cards[0].left - cards[1].left) <= .5
-              && Math.abs(cards[0].width - cards[1].width) <= .5
-              && cards[1].top > cards[0].bottom,
+            cardsStacked: cards.length === 3
+              && cards.every((card, index) => Math.abs(cards[0].left - card.left) <= .5
+                && Math.abs(cards[0].width - card.width) <= .5
+                && (index === 0 || card.top > cards[index - 1].bottom)),
             cardWithinContent: cards.every((card) => card.left >= contentBox.left - .5 && card.right <= contentBox.right + .5)
           };
         });

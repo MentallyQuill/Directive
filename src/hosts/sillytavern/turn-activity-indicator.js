@@ -2,9 +2,12 @@ import { PROGRESS_STAGES as STAGES, PROGRESS_PHASES, createProgressMenuRows, ret
 import {renderProgressView, updateProgressClocks, clearProgressView} from './turn-progress-view.js';
 
 const DEFAULT_LABEL = 'Processing the turn...';
-const MODEL_STAGES = new Set(['reviewing-events', 'reviewing-continuity', 'directing-story', 'reviewing-episode', 'updating-characters']);
+const MODEL_STAGES = new Set(['protected-scene', 'reviewing-events', 'reviewing-continuity', 'directing-story', 'reviewing-episode', 'updating-characters']);
 const OUTCOMES = Object.freeze({ complete: 'Finished', failed: 'Failed', canceled: 'Canceled' });
 let nextActivityId = 0;
+let stopHandler = null;
+export function setDirectiveProtectedStopHandler(handler) { stopHandler = typeof handler === 'function' ? handler : null; }
+export function requestDirectiveProtectedStop() { return stopHandler?.(); }
 const activeActivities = new Map();
 const operations = new Map();
 let history = [];
@@ -47,7 +50,7 @@ function duration(start, end = clock()) {
 function viewModel() {
   const current = presentation();
   if (!current) return {current: null, rows: lastLog?.rows || [], total: lastLog?.total || '0:00'};
-  return {current, rows: createProgressMenuRows([...archivedContext.values(), ...history]), total: duration(sessionStartedAt), stageDuration: duration(current.startedAt)};
+  return {current, onStop: [...operations.values()].some(item => item.stage === 'protected-scene') && stopHandler ? requestDirectiveProtectedStop : null, rows: createProgressMenuRows([...archivedContext.values(), ...history]), total: duration(sessionStartedAt), stageDuration: duration(current.startedAt)};
 }
 
 function renderClock() {

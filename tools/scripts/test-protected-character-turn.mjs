@@ -14,7 +14,7 @@ let current = true, calls = 0;
 const guard = createCharacterPublicationGuard({ publicationId: 'publication.turn', identity, baselineRows: messages, readRows: () => messages, readIdentity: () => current ? identity : null });
 const generation = { async generate(role, request, options) {
   calls++; options.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content);
-  if (role === 'sceneNarrator') return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The quiet holds.' }] }) };
+  if (role === 'sceneNarrator') return { usage: { input_tokens: 12, output_tokens: 5, total_tokens: 17 }, text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The quiet holds.' }] }) };
   assert.equal(role, 'characterKnowledgeReviewer');
   return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [] }) };
 } };
@@ -27,5 +27,12 @@ await assert.rejects(turn.publish(publish), { code: 'DIRECTIVE_CHARACTER_PUBLICA
 assert.equal((await turn.publish(publish)).persisted, true);
 assert.equal(calls, 2, 'uncertain publication retry does not regenerate or review');
 assert.equal(turn.attempts, 2);
+assert.equal(turn.diagnostics.outcome, 'complete');
+assert.equal(turn.diagnostics.attempts, 2);
+assert.deepEqual(turn.diagnostics.roleCalls[0].tokens, { input: 12, output: 5, total: 17 });
+assert.equal(turn.diagnostics.roleCalls[1].tokens.total, null);
+assert.equal(turn.diagnostics.tokenUsageComplete, false);
+assert.ok(turn.diagnostics.phases.some(item => item.phase === 'publication'));
+assert.ok(!JSON.stringify(turn.diagnostics).includes('The quiet holds.'));
 assert.deepEqual(state, before);
 console.log('PASS protected turn assembly, bounded physical calls and publication-only recovery');

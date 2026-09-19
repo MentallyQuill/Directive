@@ -91,27 +91,28 @@ function validateProposal(proposal, { playerId, people, sourcePair = null, expli
 export const CHARACTER_SCENE_ANALYSIS_POLICY = [
   'When currentScene.characterKnowledge is protected, also propose characterScene using the supplied schema. Establish only people who can presently react and the exact communication/perception audience; known people are not automatically present, awake or listening.',
   'Every presence and audience edge needs exact source evidence. Remote participants need an established live channel. Do not treat a future plan, attempted connection, private thought, mention, unconscious person or departed person as a present reacting recipient. Explicit host audience restrictions take precedence.',
-  'Choose only necessary reactions: at most three actors, four responses and two causal rounds. reactions.after names zero-based reaction indices, never invented character IDs. Dependent recipients can react only after the proposed source character has contributed. Independent characters may run together. Do not write dialogue.',
+  'Choose only necessary reactions: at most three actors, four responses and two causal rounds. Respect smaller currentScene.limits ceilings; with one round, each actor can respond only once. reactions.after names zero-based reaction indices, never invented character IDs. Dependent recipients can react only after the proposed source character has contributed. Independent characters may run together. Do not write dialogue.',
   'Each participant perception contains only the source excerpts they can currently hear, observe or read. Include a spoken player request when audible to that person, but never private player thoughts, hidden narration or offscreen events. Preserve speech as a claim and attempted player actions as attempts. Presence alone does not grant access to the whole source.',
   'playerContext contains only source excerpts available to the player, including the player\'s own supplied actions and thoughts. Never select another character\'s private thoughts or an omniscient explanation as player context. Quote enough context to establish each claim. Short sources may be quoted in full.',
   'When currentScene.sceneOnly is true, update only characterScene. Return coverage complete, threadChanges [] and lookupRequests []; the exchange is already interpreted and no new facts may be extracted.',
   'characterScene is preparation evidence, not world truth or accepted knowledge. On lookup-needed return characterScene null. On complete return a fully supported scene even if no NPC needs to respond; ambiguity must remain absent, not fabricated.',
 ].join('\n');
 
-export function createCharacterSceneAdmissionSchema({ personIds = [], playerId = CHARACTER_KNOWLEDGE_PLAYER_ID } = {}) {
+export function createCharacterSceneAdmissionSchema({ personIds = [], playerId = CHARACTER_KNOWLEDGE_PLAYER_ID, limits = {} } = {}) {
   const actors = personIds.filter(id => id !== playerId);
+  const maxActors = Math.min(3, limits.maxActors ?? 3), maxResponses = Math.min(4, limits.maxCharacterCalls ?? 4, maxActors * (limits.maxRounds ?? 2));
   const evidence = { type: 'object', additionalProperties: false, required: ['sourceSlot', 'evidenceQuote'], properties: {
     sourceSlot: { enum: SLOTS }, evidenceQuote: { type: 'string', minLength: 1, maxLength: 320 } } };
   const evidenceList = { type: 'array', minItems: 1, maxItems: 2, items: evidence };
   return { type: 'object', additionalProperties: false, required: ['participants', 'reactions', 'playerContext'], properties: {
-    participants: { type: 'array', maxItems: actors.length ? 3 : 0, items: { type: 'object', additionalProperties: false, required: ['personId', 'presence', 'evidence', 'audience', 'perception'], properties: {
+    participants: { type: 'array', maxItems: actors.length ? maxActors : 0, items: { type: 'object', additionalProperties: false, required: ['personId', 'presence', 'evidence', 'audience', 'perception'], properties: {
       perception: { type: 'array', maxItems: 4, items: { type: 'object', additionalProperties: false, required: ['acquisition', 'evidence'], properties: { acquisition: { enum: ['heard', 'observed', 'read'] }, evidence } } },
       personId: actors.length ? { enum: actors } : { type: 'string' }, presence: { enum: ['present', 'remote'] }, evidence: evidenceList,
       audience: { type: 'array', maxItems: 4, items: { type: 'object', additionalProperties: false, required: ['personId', 'acquisition', 'evidence'], properties: {
         personId: { enum: [...new Set([...personIds, playerId])] }, acquisition: { enum: ['heard', 'observed', 'read'] }, evidence: evidenceList } } },
     } } },
-    reactions: { type: 'array', maxItems: actors.length ? 4 : 0, items: { type: 'object', additionalProperties: false, required: ['personId', 'after'], properties: {
-      personId: actors.length ? { enum: actors } : { type: 'string' }, after: { type: 'array', maxItems: 3, uniqueItems: true, items: { type: 'integer', minimum: 0, maximum: 3 } } } } },
+    reactions: { type: 'array', maxItems: actors.length ? maxResponses : 0, items: { type: 'object', additionalProperties: false, required: ['personId', 'after'], properties: {
+      personId: actors.length ? { enum: actors } : { type: 'string' }, after: { type: 'array', maxItems: limits.maxRounds === 1 ? 0 : 3, uniqueItems: true, items: { type: 'integer', minimum: 0, maximum: 3 } } } } },
     playerContext: { type: 'array', minItems: 1, maxItems: 8, items: evidence },
   } };
 }

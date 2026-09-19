@@ -1,3 +1,4 @@
+import { createCharacterSceneDiagnostics } from './character-scene-diagnostics.mjs';
 import { createCharacterRuntimeSnapshot } from './character-runtime-snapshot.mjs';
 import { createCharacterSceneCoordinator } from './character-scene-coordinator.mjs';
 import { materializeCharacterSceneAdmission } from '../story/character-scene-admission.mjs';
@@ -12,7 +13,7 @@ import { assertGenerationActive } from './generation-cancellation.mjs';
  * supplies the existing serialized host publication operation to publish(). */
 export async function prepareProtectedCharacterTurn({ generation, campaignState, crewDataset, messages,
   sourcePair, admission, sourceContributionIds = [], identity, guard, publicationId, expectedBinding,
-  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, scenePolicy = null, limits = {}, onPhase } = {}) {
+  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, scenePolicy = null, limits = {}, onPhase, onAttempt, onDiagnostics } = {}) {
   assertGenerationActive(signal);
   continuation = parseCharacterContinuation(continuation, sourcePair);
   if (!guard?.isCurrent?.()) throw Object.assign(new Error('Protected turn is stale.'), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
@@ -22,15 +23,26 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
   const scenePacket = { kind: 'directive.playerScenePacket.v1', player: { personId: admission.playerId, name: campaignState.player?.name || 'Player' },
     situation: scenePolicy?.situation || 'Respond within the supplied player-accessible scene. Leave the player free to act.', information: admitted.playerInformation,
     constraints: scenePolicy?.constraints || [], visiblePersonIds: [...new Set([admission.playerId, ...admitted.participants.flatMap(person => [person.personId, ...person.audience.map(route => route.personId)])])] };
-  const budget = createTurnAttemptBudget({ limit: limits.maxAttempts ?? 10, signal });
+  const trace = createCharacterSceneDiagnostics({ identity, publicationId, onUpdate: onDiagnostics });
+  const phase = value => { trace.phase(value); try { onPhase?.(value); } catch {} };
+  const measuredGeneration = { async generate(roleId, request, options) {
+    const started = performance.now();
+    try {
+      const result = await generation.generate(roleId, request, options);
+      trace.response({ roleId, durationMs: performance.now() - started, usage: result?.response?.usage ?? result?.usage ?? result?.diagnostics?.usage,
+        errorCode: result?.ok === false ? result.error?.code || 'generation-failed' : null });
+      return result;
+    } catch (error) { trace.response({ roleId, durationMs: performance.now() - started, errorCode: error?.code || 'generation-failed' }); throw error; }
+  } };
+  const budget = createTurnAttemptBudget({ limit: limits.maxAttempts ?? 10, signal, onClaim: used => { trace.attempt(used); try { onAttempt?.(used); } catch {} } });
   let flight;
   try {
-    flight = createCharacterSceneCoordinator({ responder: createCharacterResponder({ generation }), limits }).createFlight({
+    flight = createCharacterSceneCoordinator({ responder: createCharacterResponder({ generation: measuredGeneration }), limits }).createFlight({
       snapshot, sourcePair, participants: admitted.participants, plan: admitted.plan, playerId: admission.playerId,
       sceneEvidence: { admission, sourcePair }, identity, budget, signal, isCurrent: guard.isCurrent,
     });
-    const pipeline = createReviewedCharacterScene({ narrator: createCharacterSceneNarrator({ generation }), reviewer: createCharacterKnowledgeReviewer({ generation }) });
-    const approved = await pipeline.generate({ flight, scenePacket, budget, signal, settings, pacing, continuation, onPhase });
+    const pipeline = createReviewedCharacterScene({ narrator: createCharacterSceneNarrator({ generation: measuredGeneration }), reviewer: createCharacterKnowledgeReviewer({ generation: measuredGeneration }) });
+    const approved = await pipeline.generate({ flight, scenePacket, budget, signal, settings, pacing, continuation, onPhase: phase });
     let disposed = false;
     const dispose = () => { if (!disposed) { disposed = true; flight.dispose(); budget.dispose(); } };
     async function publish(publisher, publicationSignal, recovery) {
@@ -39,6 +51,7 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
         if ((recovery ? !guard.hasPublished || !guard.reauthorizePublished() : disposed) || !guard.isCurrent()) {
           throw Object.assign(new Error('Protected turn is stale.'), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
         }
+        phase('publication');
         const result = await publisher({ publicationId, text: approved.candidate.text, expectedBinding, hostMessageId, requireEmpty, signal: publicationSignal,
           assertCurrent: input => {
             if (!guard.assertPublication(input)) return false;
@@ -50,16 +63,17 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
           createMetadata: source => createCharacterScenePublicationMetadata({ approved, scenePacket, pacing, continuation, publicationId, source }),
         });
         if (result?.persisted !== true) throw Object.assign(new Error('Protected publication is pending.'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' });
-        dispose(); return result;
+        trace.finish('complete'); dispose(); return result;
       } catch (error) {
+        trace.finish(error?.code === 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' ? 'pending' : signal?.aborted ? 'canceled' : 'failed', error?.code);
         if (error?.code !== 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING') dispose();
         throw error;
       }
     }
     return {
-      publicationId, get attempts() { return budget.used; }, get hasPublished() { return guard.hasPublished; }, dispose,
+      publicationId, get diagnostics() { return trace.snapshot(); }, get attempts() { return budget.used; }, get hasPublished() { return guard.hasPublished; }, dispose,
       publish: publisher => publish(publisher, signal, false),
       recoverPublished: (publisher, { signal: recoverySignal } = {}) => publish(publisher, recoverySignal, true),
     };
-  } catch (error) { flight?.dispose(); budget.dispose(); throw error; }
+  } catch (error) { trace.finish(signal?.aborted ? 'canceled' : 'failed', error?.code); flight?.dispose(); budget.dispose(); throw error; }
 }

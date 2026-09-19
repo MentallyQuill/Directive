@@ -8,6 +8,7 @@ import {
 } from '../../providers/generation-policy.mjs';
 import {
   PROVIDER_RESPONSE_ERROR_CODES,
+  normalizeProviderResponseUsage,
   assertProviderResponseText,
   collectProviderResponseFinishReasons,
   extractProviderResponseReasoning,
@@ -850,6 +851,7 @@ export function createDirectiveProviderClient({
     return {
       text,
       raw: sent.response,
+      usage: normalizeProviderResponseUsage(sent.response),
       providerId: sent.providerId,
       model: sent.model,
       generationPolicy: {
@@ -1095,6 +1097,11 @@ export function createDirectiveProviderClient({
     test,
     status,
     listProfiles: () => listSillyTavernConnectionProfiles(contextFactory()),
+    currentProfile: () => {
+      const context = contextFactory();
+      const selected = context?.extensionSettings?.connectionManager?.selectedProfile ?? context?.extension_settings?.connectionManager?.selectedProfile;
+      return listSillyTavernConnectionProfiles(context).find(profile => profile.id === selected) || null;
+    },
     settings: () => settingsStore.getAll?.() || null
   };
 }

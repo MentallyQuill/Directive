@@ -266,3 +266,15 @@ export function assertProviderResponseText(value = '', options = {}) {
   if (failure) throw createProviderResponseError(failure);
   return extractProviderResponseText(value);
 }
+
+// Preserve reported counts only; missing usage is not a zero-cost response.
+export function normalizeProviderResponseUsage(response) {
+  const usage = response?.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null;
+  const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+  return {
+    input_tokens: count(usage.input_tokens ?? usage.prompt_tokens),
+    output_tokens: count(usage.output_tokens ?? usage.completion_tokens),
+    total_tokens: count(usage.total_tokens),
+  };
+}

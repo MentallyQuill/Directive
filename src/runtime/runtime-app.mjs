@@ -1,3 +1,4 @@
+import { normalizeCharacterKnowledgeSettings, validateCharacterKnowledgeSettings } from '../providers/character-knowledge-settings.mjs';
 import { createCharacterRuntimeSnapshot } from './character-runtime-snapshot.mjs';
 import { prepareProtectedCharacterTurn } from './protected-character-turn.mjs';
 import { createCharacterPublicationGuard } from './character-publication-guard.mjs';
@@ -726,8 +727,8 @@ function providerConfiguration(host) {
     host.providers?.getSettings?.() || host.providers?.settings?.getAll?.() || {}
   );
   const status = {};
-  for (const kind of ['utility', 'reasoning']) {
-    const source = host.providers?.status?.(kind) || { ready: true, label: 'Current SillyTavern model' };
+  for (const kind of ['utility', 'reasoning', 'narration']) {
+    const source = host.providers?.status?.(kind) || { ready: kind !== 'narration', label: kind === 'narration' ? 'Select a profile' : 'Current SillyTavern model' };
     status[kind] = {
       kind,
       provider: source.provider === 'profile' ? 'profile' : 'st',
@@ -833,7 +834,16 @@ export function createDirectiveRuntimeApp({
   const protectedOpenings = new Map();
   const pendingProtectedTurns = new Map();
   const pendingProtectedFinalizations = new Map();
-  const characterKnowledgeSettings = () => getCharacterKnowledgeSettings?.() ?? state?.settings?.characterKnowledge ?? null;
+  let lastCharacterSceneDiagnostics = null;
+  let fallbackCharacterKnowledgeSettings = normalizeCharacterKnowledgeSettings();
+  const characterKnowledgeSettings = () => normalizeCharacterKnowledgeSettings(getCharacterKnowledgeSettings?.() ?? host.characterKnowledge?.getSettings?.() ?? fallbackCharacterKnowledgeSettings);
+  function prepareTrackedCharacterTurn(options, scope) {
+    return turnProgress.run('protected-scene', ({ onAttempt, onPhase }) => prepareProtectedCharacterTurn({ ...options, onAttempt, onPhase,
+      onDiagnostics: diagnostics => { lastCharacterSceneDiagnostics = diagnostics; } }), { scope });
+  }
+  function publishTrackedCharacterScene(task, owner, scope) {
+    return turnProgress.run('saving', () => enqueueStateMutation(task, { transcriptOwner: owner }), { scope });
+  }
   let activeTimelineLoad = null;
   function transcriptKey() {
     const binding = host.chat.getCurrentBinding?.();
@@ -1683,14 +1693,14 @@ export function createDirectiveRuntimeApp({
       const premise = input.premise;
       const scenePolicy = { situation: `Establish the campaign opening and stop at this boundary: ${premise.firstPlayableScene}. Leave the next action to the player.`,
         constraints: [premise.continuitySummary, ...premise.requiredContext].map((text, index) => ({ id: `opening.required.${index}`, text })) };
-      retained.turn = await prepareProtectedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
+      retained.turn = await prepareTrackedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
         messages: retained.messages, sourcePair: request.context.characterKnowledge.sourcePair, admission, scenePolicy,
         identity: retained.identity, guard: retained.guard, publicationId: retained.publicationId, expectedBinding,
-        requireEmpty: true, signal: retained.signal, settings: narrationSettings() });
+        requireEmpty: true, signal: retained.signal, settings: narrationSettings(), limits: characterKnowledgeSettings() }, retained.ownership.scope);
     }
-    const result = await enqueueStateMutation(() => retained.turn.hasPublished
+    const result = await publishTrackedCharacterScene(() => retained.turn.hasPublished
       ? retained.turn.recoverPublished(options => host.chat.publishProtectedScene(options), { signal: retained.signal })
-      : retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner: retained.ownership.owner });
+      : retained.turn.publish(options => host.chat.publishProtectedScene(options)), retained.ownership.owner, retained.ownership.scope);
     assertCurrent();
     return result;
   }
@@ -1734,7 +1744,7 @@ export function createDirectiveRuntimeApp({
         protectedOpenings.set(key, retained);
       }
       const result = await openingLifecycle.generate({ premise: records.packageData.campaign.openingPremise, player: clone(state.player),
-        settings: narrationSettings(), characterKnowledge: { mode: 'protected', people: retained.people } });
+        settings: narrationSettings(), characterKnowledge: { ...characterKnowledgeSettings(), people: retained.people } });
       success = result?.ok === true;
       if (success) { retained.turn?.dispose(); protectedOpenings.delete(key); }
       else if (!retained.turn?.hasPublished && result?.error?.code !== 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING') {
@@ -2209,6 +2219,8 @@ export function createDirectiveRuntimeApp({
         playerPortraitImportSupported: playerPortraitImportSupported(host)
       },
       narrationSettings: narrationSettings(),
+      characterKnowledgeSettings: characterKnowledgeSettings(),
+      characterKnowledgeDiagnostics: clone(lastCharacterSceneDiagnostics),
       openingGeneration: bound ? (openingLifecycle.currentStatus() || ((await host.chat.getRecentMessages({ limit: 4 })).some(message => !message.isSystem && message.role !== 'system') ? null : {status: 'pending', message: 'Your character is ready. Generate the opening scene to begin.'})) : null,
       providerConfiguration: providerConfiguration(host),
       directivePreset: presetConfiguration(host),
@@ -2277,17 +2289,17 @@ export function createDirectiveRuntimeApp({
         admission = createCharacterSceneAdmission({ proposal: parsed.value.characterScene, sourcePair,
           playerId: request.currentScene.playerId, knownPersonIds: new Set(request.authoredContext.references.filter(ref => ref.kind === 'person').map(ref => ref.id)), explicitAudience: new Map() });
       }
-      const turn = await prepareProtectedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
+      const turn = await prepareTrackedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
         messages, sourcePair, admission, continuation, sourceContributionIds: direction.mission.directorReceipt.sourceContributionIds,
         identity, guard, publicationId, expectedBinding: clone(state.campaignChatBinding), hostMessageId: target ? messageId(target, target) : null,
-        signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)), settings: narrationSettings(), pacing });
+        signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)), settings: narrationSettings(), pacing, limits: characterKnowledgeSettings() }, progressScope);
       retained = { turn, ownership, targetKey: generationTargetKey, publicationBaseline: JSON.stringify(rows), preparation: { preparedSnapshot, direction, generationType, generationTargetKey } };
       pendingProtectedTurns.set(key, retained);
     }
     try {
-      const publication = await enqueueStateMutation(() => recoverPublished
+      const publication = await publishTrackedCharacterScene(() => recoverPublished
         ? retained.turn.recoverPublished(options => host.chat.publishProtectedScene(options), { signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)) })
-        : retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner });
+        : retained.turn.publish(options => host.chat.publishProtectedScene(options)), transcriptOwner, progressScope);
       pendingProtectedTurns.delete(key);
       transcriptOwner.baseline = retained.publicationBaseline;
       transcriptLane.producing(transcriptOwner);
@@ -3847,6 +3859,7 @@ export function createDirectiveRuntimeApp({
         routing: clone(GENERATION_ROUTING),
         runtime: {
           acceptedPairCallBudgetEntries: acceptedPairCallBudget.entryCount(),
+          characterScene: clone(lastCharacterSceneDiagnostics),
         },
         stateEnvelope: state ? {
           campaignId: state.campaign.id,
@@ -3881,6 +3894,18 @@ export function createDirectiveRuntimeApp({
     },
 
     refreshDirectivePresetStatus: async () => presetConfiguration(host),
+    async updateCharacterKnowledgeSettings(patch = {}) {
+      const providerSettings = host.providers?.getSettings?.() || host.providers?.settings?.getAll?.() || {};
+      const checked = validateCharacterKnowledgeSettings({ ...characterKnowledgeSettings(), ...patch }, { narration: providerSettings.narration, ready: host.providers?.status?.('narration')?.ready === true });
+      if (!checked.ok) throw Object.assign(new Error(checked.errors.join(' ')), { code: 'DIRECTIVE_CHARACTER_SETTINGS_INVALID' });
+      fallbackCharacterKnowledgeSettings = host.characterKnowledge?.updateSettings ? await host.characterKnowledge.updateSettings(checked.settings) : checked.settings;
+      return { characterKnowledgeSettings: characterKnowledgeSettings() };
+    },
+    async adoptCurrentNarrationProfile() {
+      const profile = host.providers?.currentProfile?.();
+      if (!profile?.id) throw Object.assign(new Error('Select a SillyTavern connection profile first, then adopt it for Narration.'), { code: 'DIRECTIVE_CHARACTER_NARRATION_PROFILE_REQUIRED' });
+      return publicApi.updateProviderSettings({ kind: 'narration', patch: { provider: 'profile', profileId: profile.id, presetMode: 'isolated' } });
+    },
     async updateNarrationSettings(patch = {}) {
       const next = normalizeNarrationSettings({ ...narrationSettings(), ...patch });
       fallbackNarrationSettings = host.narration?.updateSettings ? await host.narration.updateSettings(next) : next;

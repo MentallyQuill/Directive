@@ -1,5 +1,6 @@
 import {
   cancelActiveDirectiveTurnActivities,
+  setDirectiveProtectedStopHandler,
   finishDirectiveTurnActivity,
   markDirectiveTurnActivity,
   recordDirectiveTurnProgress,
@@ -29,6 +30,7 @@ export function resetDirectiveTurnProgress() {
 }
 
 function detachProgress() {
+  setDirectiveProtectedStopHandler(null);
   unsubscribeProgress?.();
   unsubscribeProgress = null;
   resetDirectiveTurnProgress();
@@ -52,6 +54,12 @@ export function setSillyTavernDirectiveRuntimeBridge({
   }
   if (enabled && runtimeApp?.subscribeTurnProgress) {
     const source = runtimeApp;
+    setDirectiveProtectedStopHandler(async () => {
+      if (!enabled || runtimeApp !== source) return;
+      resetDirectiveTurnProgress();
+      await source.handleHostGenerationStopped?.();
+      cancelActiveDirectiveTurnActivities();
+    });
     unsubscribeProgress = source.subscribeTurnProgress(event => {
       if (enabled && runtimeApp === source) recordDirectiveTurnProgress(event);
     });

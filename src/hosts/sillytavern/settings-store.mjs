@@ -1,3 +1,4 @@
+import { normalizeCharacterKnowledgeSettings, validateCharacterKnowledgeSettings } from '../../providers/character-knowledge-settings.mjs';
 import { normalizeNarrationSettings } from '../../narration/narration-policy.mjs';
 export const DIRECTIVE_SILLYTAVERN_SETTINGS_NAMESPACE = 'directive';
 export const DIRECTIVE_SILLYTAVERN_PRESET_AUTO_CHECK_SETTING = 'presetAutoCheckOnStartup';
@@ -83,4 +84,16 @@ export function updateSillyTavernDirectiveNarrationSettings(patch, context = nul
   settings.narration = normalizeNarrationSettings({ ...normalizeNarrationSettings(settings.narration), ...patch });
   saveSettings(context);
   return { ...settings.narration };
+}
+
+export function getSillyTavernCharacterKnowledgeSettings(context = null) {
+  return normalizeCharacterKnowledgeSettings(getSillyTavernDirectiveSettings(context).characterKnowledge);
+}
+export function updateSillyTavernCharacterKnowledgeSettings(patch, context = null, route = {}) {
+  const settings = getSillyTavernDirectiveSettings(context);
+  const checked = validateCharacterKnowledgeSettings({ ...getSillyTavernCharacterKnowledgeSettings(context), ...patch }, route);
+  if (!checked.ok) throw Object.assign(new Error(checked.errors.join(' ')), { code: 'DIRECTIVE_CHARACTER_SETTINGS_INVALID' });
+  settings.characterKnowledge = checked.settings;
+  saveSettings(context);
+  return structuredClone(checked.settings);
 }

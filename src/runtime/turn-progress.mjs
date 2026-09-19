@@ -1,4 +1,5 @@
 export const TURN_PROGRESS_STAGES = Object.freeze([
+  'protected-scene',
   'reviewing-events',
   'reviewing-continuity',
   'directing-story',
@@ -12,7 +13,7 @@ export const TURN_PROGRESS_STAGES = Object.freeze([
 ]);
 
 const STAGES = new Set(TURN_PROGRESS_STAGES);
-const PHASES = new Set(['waiting-model', 'validating-response']);
+const PHASES = new Set(['waiting-model', 'validating-response', 'characters', 'narration', 'review', 'repair', 'publication']);
 const CANCELED_REASON_CODES = new Set([
   'provider-aborted',
   'director-aborted',
@@ -120,7 +121,7 @@ export function createTurnProgressReporter({
       if (!scopeIsCurrent(scope) || active.get(operationId) !== operation) return;
       if (!Number.isInteger(attempt) || attempt < 1 || attempt <= (operation.attempt || 0)) return;
       operation.attempt = attempt;
-      operation.phase = 'waiting-model';
+      operation.phase = stage === 'protected-scene' && PHASES.has(operation.phase) ? operation.phase : 'waiting-model';
       operation.phaseStartedAt = readClock(startedAt);
       publish({
         type: 'update', operationId, stage, startedAt,
@@ -130,7 +131,7 @@ export function createTurnProgressReporter({
 
     const onPhase = (phase) => {
       if (!scopeIsCurrent(scope) || active.get(operationId) !== operation) return;
-      if (!PHASES.has(phase) || phase !== 'validating-response') return;
+      if (!PHASES.has(phase)) return;
       operation.phase = phase;
       operation.phaseStartedAt = readClock(startedAt);
       publish({

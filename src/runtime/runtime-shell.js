@@ -248,6 +248,8 @@ function createRuntimeActions() {
     testProvider: (options) => callApp('testProvider', options),
     refreshDirectivePresetStatus: () => callApp('refreshDirectivePresetStatus'),
     updateNarrationSettings: (options) => callApp('updateNarrationSettings', options),
+    updateCharacterKnowledgeSettings: options => callApp('updateCharacterKnowledgeSettings', options),
+    adoptCurrentNarrationProfile: () => callApp('adoptCurrentNarrationProfile'),
     retryOpening: () => callApp('retryOpening'),
     updateDirectivePresetAutoCheck: (options) => callApp('updateDirectivePresetAutoCheck', options),
     installDirectivePreset: async () => {

@@ -1,3 +1,4 @@
+import { CHARACTER_KNOWLEDGE_LIMITS } from '../providers/character-knowledge-settings.mjs';
 import {
   addTooltip,
   areDirectiveTooltipsDisabled,
@@ -120,7 +121,7 @@ function createNumber(value, { min, max, step }, controlName) {
 
 function createProfilePicker(kind, value, profiles, { onSelect = null } = {}) {
   const input = createElement('button', 'settings-control settings-profile-picker');
-  let selectedId = String(value || '');
+  let selectedId = String(value || ''), version = 0;
   const syncLabel = () => {
     const selected = profiles.find((profile) => profile.id === selectedId) || null;
     input.textContent = selected?.label || selected?.name || selectedId || 'Choose a profile';
@@ -133,15 +134,15 @@ function createProfilePicker(kind, value, profiles, { onSelect = null } = {}) {
     selectedId,
     opener: input,
     onSelect: async (profileId) => {
+      const selectionVersion = ++version;
       await onSelect?.(profileId);
-      selectedId = String(profileId || '');
-      syncLabel();
+      if (selectionVersion === version) { selectedId = String(profileId || ''); syncLabel(); }
     }
   }));
   syncLabel();
   const wrapper = createElement('span', 'settings-profile-picker-wrap');
   wrapper.appendChild(input);
-  return { input, wrapper };
+  return { input, wrapper, version: () => version, setValue(value, expectedVersion = version) { if (expectedVersion !== version) return; version++; selectedId = String(value || ''); syncLabel(); } };
 }
 
 function updateProviderState(element, status = {}) {
@@ -173,7 +174,7 @@ function bindAutoSave({ control, kind, key, actions, feedback, state, transform 
 }
 
 function appendProviderCard(container, kind, configuration, actions, onSettingsSaved = null) {
-  const settings = configuration.settings?.[kind] || {};
+  const settings = configuration.settings?.[kind] || (kind === 'narration' ? { provider: 'profile', presetMode: 'isolated' } : {});
   const status = configuration.status?.[kind] || {};
   const profiles = configuration.profiles || [];
   const card = createElement('article', 'settings-provider-card');
@@ -181,9 +182,9 @@ function appendProviderCard(container, kind, configuration, actions, onSettingsS
   const header = createElement('header');
   const copy = createElement('div');
   const kicker = createElement('span');
-  kicker.textContent = kind === 'utility' ? 'Fast structured analysis' : 'Deep Directive analysis and creation';
+  kicker.textContent = kind === 'utility' ? 'Fast structured analysis' : kind === 'narration' ? 'Reviewed scene writing' : 'Deep Directive analysis and creation';
   const title = createElement('h3');
-  title.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
+  title.textContent = kind === 'utility' ? 'Utility lane' : kind === 'narration' ? 'Narration lane' : 'Reasoning lane';
   copy.append(kicker, title);
   const state = createElement('span', `settings-provider-state${status.ready ? ' is-ready' : ''}`);
   updateProviderState(state, status);
@@ -283,6 +284,21 @@ function appendProviderCard(container, kind, configuration, actions, onSettingsS
     }),
     feedback
   );
+  if (kind === 'narration') {
+    const adopt = createButton({ label: 'Use selected SillyTavern profile', className: 'settings-command', disabled: typeof actions.adoptCurrentNarrationProfile !== 'function', onClick: async () => {
+      const version = profilePicker.version(), priorProvider = provider.value, priorPreset = presetMode.value;
+      feedback.textContent = 'Selecting the saved profile...';
+      try {
+        const result = await actions.adoptCurrentNarrationProfile();
+        profilePicker.setValue(result?.settings?.profileId, version);
+        if (provider.value === priorProvider) provider.value = 'profile';
+        if (presetMode.value === priorPreset) presetMode.value = 'isolated';
+        if (result?.status) updateProviderState(state, result.status);
+        onSettingsSaved?.(kind, {}, result); syncConditionalFields(); feedback.textContent = 'Narration profile selected. Protected mode remains a separate choice.';
+      } catch (error) { feedback.textContent = error?.message || 'Could not select profile'; }
+    } });
+    adopt.dataset.settingsAction = 'adopt-narration-profile'; commands.appendChild(adopt);
+  }
   card.appendChild(commands);
   container.appendChild(card);
 }
@@ -291,8 +307,9 @@ function appendAnalysisControls(container, configuration, actions) {
   const settings = structuredClone(configuration.settings || {});
   settings.utility ||= {};
   settings.reasoning ||= {};
+  settings.narration ||= {};
   settings.utility.analysisOverrides = readAnalysisOverrides(settings.utility);
-  for (const kind of ['utility', 'reasoning']) settings[kind].outputTokenOverride = normalizeOutputTokenOverride(settings[kind]);
+  for (const kind of ['utility', 'reasoning', 'narration']) settings[kind].outputTokenOverride = normalizeOutputTokenOverride(settings[kind]);
   const card = createElement('article', 'settings-provider-card settings-capacity-card');
   const title = createElement('h3'); title.textContent = 'Analysis capacity';
   const description = createElement('p', 'settings-feedback');
@@ -383,8 +400,8 @@ function appendAnalysisControls(container, configuration, actions) {
   capacityReset.dataset.settingsAction = 'reset-analysis-capacity';
   const capacityActions = createElement('div', 'settings-actions'); capacityActions.append(value, capacityReset);
   card.append(title, description, createField('Capacity (0.5×–5×)', slider), capacityActions, hint);
-  for (const kind of ['utility', 'reasoning']) {
-    const heading = createElement('h4'); heading.textContent = kind === 'utility' ? 'Utility lane' : 'Reasoning lane';
+  for (const kind of ['utility', 'reasoning', 'narration']) {
+    const heading = createElement('h4'); heading.textContent = kind === 'utility' ? 'Utility lane' : kind === 'narration' ? 'Narration lane' : 'Reasoning lane';
     const laneGrid = createElement('div', 'settings-field-grid');
     const output = createNumber('', { min: 1, step: 1 }, `${kind}-maxTokens`);
     bindOverride({ control: output, kind }, kind, () => ({ outputTokenOverride: output.value.trim() === '' ? null : Number(output.value) }));
@@ -411,10 +428,11 @@ function appendAnalysisControls(container, configuration, actions) {
   }
   const reset = createButton({ label: 'Reset advanced overrides', className: 'settings-command', onClick: async () => {
     const drafts = controls.map(item => ({ item, version: item.version }));
-    // Reserve both lanes together so a newer edit cannot slip between resets.
+    // Reserve all lanes together so a newer edit cannot slip between resets.
     await enqueueSave(async () => {
-      if (!await performSave('utility', { analysisOverrides: null, outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind !== 'reasoning'))) return;
-      await performSave('reasoning', { outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind === 'reasoning'));
+      if (!await performSave('utility', { analysisOverrides: null, outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind === 'utility'))) return;
+      if (!await performSave('reasoning', { outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind === 'reasoning'))) return;
+      await performSave('narration', { outputTokenOverride: null, roleLimits: null }, drafts.filter(({ item }) => item.kind === 'narration'));
     });
   } });
   reset.dataset.settingsAction = 'reset-analysis-overrides';
@@ -486,12 +504,12 @@ function appendPreset(container, preset, actions) {
 }
 
 function appendRouting(container, routing = []) {
-  const section = createSection('Runtime map', 'Model-Call Routing', 'Read-only V1 role bindings for the Utility and Reasoning lanes.');
+  const section = createSection('Runtime map', 'Model-Call Routing', 'Read-only role bindings for Utility, Reasoning and Narration.');
   const list = createElement('div', 'settings-routing-list');
   for (const role of routing) {
     const row = createElement('div', 'settings-routing-row');
     const label = createElement('span'); label.textContent = role.label || role.id;
-    const lane = createElement('strong'); lane.textContent = role.providerKind === 'reasoning' ? 'Reasoning lane' : 'Utility lane';
+    const lane = createElement('strong'); lane.textContent = role.providerKind === 'reasoning' ? 'Reasoning lane' : role.providerKind === 'narration' ? 'Narration lane' : 'Utility lane';
     row.append(label, lane);
     list.appendChild(row);
   }
@@ -574,6 +592,41 @@ function appendDiagnostics(container, support, actions) {
   container.appendChild(details);
 }
 
+function appendCharacterKnowledge(container, settings, actions) {
+  const section = createSection('Character knowledge', 'Knowledge boundaries', 'Protected mode prepares characters separately and reviews the scene before showing it. This uses additional model calls and can take longer. It reduces unsupported knowledge but cannot guarantee perfect story behavior.');
+  const feedback = createElement('span', 'settings-feedback'); feedback.setAttribute('role', 'status');
+  const mode = createSelect(settings.mode, [{ value: 'legacy', label: 'Legacy' }, { value: 'protected', label: 'Protected' }], 'character-knowledge-mode');
+  let saves = Promise.resolve();
+  function bind(control, key, numeric = false) {
+    let version = 0, savedValue = control.value;
+    control.addEventListener('input', () => { version++; });
+    control.addEventListener('change', () => {
+      const captured = ++version, value = numeric ? Number(control.value) : control.value;
+      const run = async () => {
+        feedback.textContent = 'Saving...';
+        try {
+          const result = await actions.updateCharacterKnowledgeSettings?.({ [key]: value });
+          savedValue = String(result?.characterKnowledgeSettings?.[key] ?? value);
+          if (version === captured) control.value = savedValue;
+          feedback.textContent = 'Saved / applies to the next scene';
+        } catch (error) {
+          if (version === captured && !numeric) control.value = savedValue;
+          feedback.textContent = error?.message || 'Could not save';
+        }
+      };
+      const pending = saves.then(run); saves = pending.catch(() => {}); return pending;
+    });
+  }
+  bind(mode, 'mode'); section.appendChild(createField('Mode', mode, 'Protected mode requires an available isolated Narration connection profile.'));
+  const advanced = createElement('details', 'settings-character-advanced');
+  const summary = createElement('summary'); summary.textContent = 'Advanced'; advanced.appendChild(summary);
+  for (const [key, label] of [['maxActors', 'Characters per scene'], ['maxRounds', 'Reaction rounds'], ['maxCharacterCalls', 'Character responses'], ['maxAttempts', 'Total protected attempts']]) {
+    const control = createNumber(settings[key], { min: 1, max: CHARACTER_KNOWLEDGE_LIMITS[key], step: 1 }, `character-knowledge-${key}`);
+    bind(control, key, true); advanced.appendChild(createField(label, control));
+  }
+  section.append(advanced, feedback); container.appendChild(section);
+}
+
 export function renderSettingsPanel(body, view, actions = {}) {
   const model = buildCertifiedSettingsView(view);
   const surface = createElement('div', 'directive-expanded-settings settings-layout');
@@ -582,11 +635,12 @@ export function renderSettingsPanel(body, view, actions = {}) {
 
   appendInterface(content);
   const providerSection = sectionById(model, 'providers');
-  const providers = createSection('Generation', 'Model Lanes', 'Configure the current V1 Utility and Reasoning routes through SillyTavern.');
+  const providers = createSection('Generation', 'Model Lanes', 'Choose Utility, Reasoning and protected Narration routes through SillyTavern.');
   const syncAnalysisSettings = appendAnalysisControls(providers, providerSection.providerConfiguration || {}, actions);
   const providerGrid = createElement('div', 'settings-provider-grid');
   appendProviderCard(providerGrid, 'utility', providerSection.providerConfiguration || {}, actions, syncAnalysisSettings);
   appendProviderCard(providerGrid, 'reasoning', providerSection.providerConfiguration || {}, actions, syncAnalysisSettings);
+  appendProviderCard(providerGrid, 'narration', providerSection.providerConfiguration || {}, actions, syncAnalysisSettings);
   providers.appendChild(providerGrid);
   content.appendChild(providers);
 
@@ -603,6 +657,7 @@ export function renderSettingsPanel(body, view, actions = {}) {
     narration.appendChild(createField(label, control));
   }
   content.appendChild(narration);
+  appendCharacterKnowledge(content, sectionById(model, 'character-knowledge').settings, actions);
   appendPreset(content, sectionById(model, 'preset').directivePreset || {}, actions);
   appendRouting(content, sectionById(model, 'routing').generationRouting || []);
   appendDiagnostics(content, sectionById(model, 'diagnostics').support || {}, actions);

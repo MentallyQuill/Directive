@@ -23,6 +23,7 @@ const view = {
 assert.deepEqual(buildCertifiedSettingsView(view), {
   sections: [
     { id: 'interface', label: 'Interface' },
+    { id: 'character-knowledge', label: 'Character knowledge', settings: { mode: 'legacy', maxActors: 3, maxRounds: 2, maxCharacterCalls: 4, maxAttempts: 10 } },
     { id: 'narration', label: 'Narration', narrationSettings: { pov: 'third-person-limited', tense: 'past' } },
     { id: 'providers', label: 'Model Lanes', providerConfiguration: view.providerConfiguration },
     { id: 'preset', label: 'Directive Preset', directivePreset: view.directivePreset },
@@ -34,6 +35,7 @@ assert.deepEqual(buildCertifiedSettingsView(view), {
         activeSaveId: 'save.current',
         transcriptAvailable: false,
         storage: view.storageDiagnostics,
+        characterScene: null,
       }
     }
   ]

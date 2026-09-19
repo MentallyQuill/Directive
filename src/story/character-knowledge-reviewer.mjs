@@ -113,6 +113,7 @@ export function createReviewedCharacterScene({ narrator, reviewer } = {}) {
           if (review.verdict === 'pass') return { draft, candidate, review, reviewContext: context };
           if (cycle === 1) fail('DIRECTIVE_CHARACTER_KNOWLEDGE_REJECTED');
           if (budget.available < 2) fail('DIRECTIVE_TURN_ATTEMPT_LIMIT');
+          notify('repair');
           repairReservations = { narration: budget.reserve(`repair.narration.${draft.flightDigest}`, 1), review: null };
           repairReservations.review = budget.reserve(`repair.review.${draft.flightDigest}`, 1);
           const characterIds = new Set(draft.contributions.map(item => item.id));

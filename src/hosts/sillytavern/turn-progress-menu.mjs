@@ -1,4 +1,5 @@
 export const PROGRESS_STAGES = Object.freeze({
+  'protected-scene': 'Preparing a protected scene',
   'reviewing-events': 'Reviewing recent events',
   'reviewing-continuity': 'Reviewing story threads',
   'directing-story': 'Preparing story direction',
@@ -11,6 +12,7 @@ export const PROGRESS_STAGES = Object.freeze({
   'installing-prompt': 'Installing reply context',
 });
 export const PROGRESS_PHASES = Object.freeze({
+  characters: 'Preparing character responses', narration: 'Writing the scene', review: 'Checking character knowledge', repair: 'Revising the scene', publication: 'Saving the reviewed scene',
   'waiting-model': 'Wait for model response',
   'validating-response': 'Validate model response',
 });
@@ -21,6 +23,7 @@ const LOCAL_LABELS = Object.freeze({
   'installing-prompt': 'Install reply context',
 });
 const MODEL_LABELS = Object.freeze({
+  'protected-scene': 'Prepare and review the scene',
   'reviewing-events': 'Interpret recent exchange',
   'reviewing-continuity': 'Update story threads',
   'directing-story': 'Plan story direction',

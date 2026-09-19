@@ -77,7 +77,9 @@ const text = nodes.map((node) => node.textContent || '').join(' ');
 assert.equal(byClass('settings-layout').length, 1);
 assert.equal(byClass('settings-navigation').length, 0);
 assert.equal(nodes.filter((node) => node.dataset.directiveScrollOwner === 'true').length, 1);
-assert.equal(byClass('settings-provider-card').length, 3);
+assert.equal(byClass('settings-provider-card').length, 4);
+assert.ok(byControl('narration-profileId'));
+assert.ok(byControl('character-knowledge-mode'));
 assert.equal(byClass('settings-routing-row').length, 3);
 assert.equal(byClass('settings-diagnostics').length, 1);
 assert.match(text, /Interface/);
@@ -125,15 +127,16 @@ await capacity.dispatch('change');
 assert.deepEqual(updates.at(-1),{kind:'utility',patch:{analysisCapacity:2.5}});
 assert.equal(factLimit.placeholder,'Inherit (1280)');
 await nodes.find(node=>node.dataset.settingsAction==='reset-analysis-overrides').click();
-assert.deepEqual(updates.slice(-2),[{kind:'utility',patch:{analysisOverrides:null,outputTokenOverride:null,roleLimits:null}},{kind:'reasoning',patch:{outputTokenOverride:null,roleLimits:null}}]);
+assert.deepEqual(updates.slice(-3),[{kind:'utility',patch:{analysisOverrides:null,outputTokenOverride:null,roleLimits:null}},{kind:'reasoning',patch:{outputTokenOverride:null,roleLimits:null}},{kind:'narration',patch:{outputTokenOverride:null,roleLimits:null}}]);
 assert.match(text, /Include Story Transcript/);
 assert.match(text, /upgraded 1 older V1 save/i);
 assert.match(text, /verified recovery copy/i);
 assert.doesNotMatch(text, /OpenAI-compatible|Base URL|API key|Tutorial Prompts|Startup Tips|Help & Tutorials/i);
 
 const providerControls = nodes.filter((node) => node.dataset.settingsControl?.endsWith('-provider'));
-assert.equal(providerControls.length, 2);
+assert.equal(providerControls.length, 3);
 assert.deepEqual(providerControls.map((control) => control.children.map((option) => option.value)), [
+  ['st', 'profile'],
   ['st', 'profile'],
   ['st', 'profile']
 ]);

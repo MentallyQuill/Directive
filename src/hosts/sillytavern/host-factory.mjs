@@ -1,4 +1,4 @@
-import { getSillyTavernDirectiveNarrationSettings, updateSillyTavernDirectiveNarrationSettings } from './settings-store.mjs';
+import { getSillyTavernDirectiveNarrationSettings, updateSillyTavernDirectiveNarrationSettings, getSillyTavernCharacterKnowledgeSettings, updateSillyTavernCharacterKnowledgeSettings } from './settings-store.mjs';
 import {
   createHostCapabilities,
   normalizeDirectiveHost
@@ -194,6 +194,10 @@ export function createSillyTavernDirectiveHost({
       getSettings: () => getSillyTavernDirectiveNarrationSettings(getContext()),
       updateSettings: (patch) => updateSillyTavernDirectiveNarrationSettings(patch, getContext())
     },
+    characterKnowledge: {
+      getSettings: () => getSillyTavernCharacterKnowledgeSettings(getContext()),
+      updateSettings: patch => updateSillyTavernCharacterKnowledgeSettings(patch, getContext(), { narration: providerSettings.get('narration'), ready: providerClient.status('narration').ready })
+    },
     providers: {
       settings: providerSettings,
       client: providerClient,
@@ -204,7 +208,8 @@ export function createSillyTavernDirectiveHost({
       validate: (kind = null) => providerSettings.validate(kind),
       test: (kind) => providerClient.test(kind),
       status: (kind) => providerClient.status(kind),
-      listProfiles: () => providerClient.listProfiles()
+      listProfiles: () => providerClient.listProfiles(),
+      currentProfile: () => providerClient.currentProfile()
     },
     chat,
     prompt,

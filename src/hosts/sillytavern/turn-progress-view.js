@@ -127,11 +127,14 @@ export function renderProgressView(model) {
     const footer = node('div', 'directive-progress-footer');
     const fullLog = button('View full log', showLog);
     fullLog.classList.add('directive-progress-full-log');
-    footer.append(earlier, fullLog);
+    const stop = button('Stop', () => { Promise.resolve(latest?.onStop?.()).catch(() => {}); });
+    stop.classList.add('directive-progress-stop');
+    footer.append(earlier, fullLog, stop);
     copy.append(header, announcement, list('directive-progress-active'), list('directive-progress-recent'), footer);
     card.append(copy);
     acquireDirectiveNotificationSurface('activity').activitySlot.append(card);
   }
+  card.querySelector('.directive-progress-stop').hidden = typeof model.onStop !== 'function';
   card.dataset.directiveTurnActivity = 'active';
   card.dataset.directiveTurnActivityPhase = model.current.phase;
   text(card.querySelector('.directive-notification-category'), model.current.category);

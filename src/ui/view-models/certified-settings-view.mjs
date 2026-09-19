@@ -1,3 +1,4 @@
+import { normalizeCharacterKnowledgeSettings } from '../../providers/character-knowledge-settings.mjs';
 import { normalizeNarrationSettings } from '../../narration/narration-policy.mjs';
 const clone = (value) => value === undefined
   ? undefined
@@ -7,6 +8,7 @@ export function buildCertifiedSettingsView(view = {}) {
   return {
     sections: [
       { id: 'interface', label: 'Interface' },
+      { id: 'character-knowledge', label: 'Character knowledge', settings: normalizeCharacterKnowledgeSettings(view.characterKnowledgeSettings) },
       { id: 'narration', label: 'Narration', narrationSettings: normalizeNarrationSettings(view.narrationSettings) },
       {
         id: 'providers',
@@ -30,6 +32,7 @@ export function buildCertifiedSettingsView(view = {}) {
           activeSaveId: view.activeSaveId || null,
           transcriptAvailable: view.diagnostics?.transcriptAvailable === true,
           storage: clone(view.storageDiagnostics || null),
+          characterScene: clone(view.characterKnowledgeDiagnostics || null),
         }
       }
     ]
