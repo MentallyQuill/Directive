@@ -879,7 +879,17 @@ export function createDirectiveRuntimeApp({
     const before = JSON.parse(owner.baseline), after = sampled.snapshot.rows;
     if (![before.length, before.length + 1].includes(after.length) || !after.length) return null;
     const prefixLength = after.length === before.length ? after.length - 1 : before.length;
-    if (before.slice(0, prefixLength).some((row, index) => JSON.stringify(row) !== JSON.stringify(after[index]))) return null;
+    if (before.slice(0, prefixLength).some((row, index) => {
+      if (JSON.stringify(row) === JSON.stringify(after[index])) return false;
+      // Native saveReply initializes empty reasoning on the preceding user row
+      // before appending its assistant. Accept only that exact normalization;
+      // earlier rows, visible text, and all other metadata remain immutable.
+      if (after.length !== before.length + 1 || index !== before.length - 1 || !isUserMessage(row)
+        || (row.extra != null && (typeof row.extra !== 'object' || Array.isArray(row.extra)))
+        || row.extra?.reasoning) return true;
+      const normalized = {...row, extra:{...row.extra, reasoning:''}};
+      return JSON.stringify(normalized) !== JSON.stringify(after[index]);
+    })) return null;
     const tail = after.at(-1);
     if (tail.is_user === true || tail.isUser === true || ['user', 'system'].includes(tail.role) || tail.is_system === true || tail.isSystem === true) return null;
     if (JSON.stringify(after) === owner.baseline) return null;

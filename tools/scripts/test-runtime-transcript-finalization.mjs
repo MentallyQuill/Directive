@@ -61,6 +61,35 @@ for (const heldMethod of ['stripAssistantTimeFooter', 'attachAssistantRuntimeMet
 
 console.log('PASS public runtime transcript finalization admission');
 
+for (const variant of ['missing-extra', 'empty-extra', 'native-extra', 'null-extra', 'null-reasoning', 'false-reasoning', 'text-change', 'metadata-change', 'reasoning-change', 'reasoning-erased', 'earlier-row', 'assistant-before', 'user-tail', 'no-output', 'unchanged-no-output']) {
+  const r = await rig();
+  r.chat.pushPlayerMessage({hostMessageId:'player.earlier',text:'Earlier instruction.'});
+  r.chat.pushPlayerMessage({hostMessageId:'player.native',text:'Keep the current course.'});
+  const before = r.chat.messages();
+  if (variant !== 'missing-extra') before[1].extra = variant === 'null-reasoning' ? {reasoning:null} : {};
+  if (variant === 'null-extra') before[1].extra = null;
+  if (variant === 'native-extra') before[1].extra = {isSmallSys:false};
+  if (variant === 'false-reasoning') before[1].extra.reasoning = false;
+  if (variant === 'reasoning-erased') before[1].extra.reasoning = 'Meaningful reasoning';
+  if (variant === 'assistant-before') { before[1].isUser = false; before[1].role = 'assistant'; }
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), before);
+  r.app.handleHostGenerationStarted();
+  r.app.handleHostStreamTokenReceived();
+  const changed = r.chat.messages();
+  if (variant !== 'unchanged-no-output') changed[1].extra = {...changed[1].extra, reasoning:''};
+  if (variant === 'text-change') changed[1].text = 'Different instruction.';
+  if (variant === 'metadata-change') changed[1].extra.authority = 'changed';
+  if (variant === 'reasoning-change') changed[1].extra.reasoning = 'Meaningful reasoning';
+  if (variant === 'earlier-row') changed[0].extra = {reasoning:''};
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), changed);
+  if (variant === 'user-tail') r.chat.pushPlayerMessage({hostMessageId:'player.wrong-tail',text:'Another instruction.'});
+  else if (!['no-output','unchanged-no-output'].includes(variant)) r.chat.pushAssistantMessage({hostMessageId:'assistant.native',text:'Course maintained.'});
+  const result = await r.app.handleHostGenerationEnded();
+  const allowed = ['missing-extra','empty-extra','native-extra','null-extra','null-reasoning','false-reasoning'].includes(variant);
+  assert.equal(r.app.getTranscriptFinalizationStatus() === null, allowed || variant === 'unchanged-no-output', `${variant}: only native empty reasoning normalization admits finalization`);
+  if (!allowed) assert.equal(result.reason, 'no-owned-assistant-output');
+}
+
 {
   const r = await rig();
   r.app.handleHostGenerationStarted();
