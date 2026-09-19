@@ -43,8 +43,12 @@ for (const mode of ['unchanged', 'install-definition', 'prepared-definition', 'c
         playerText: route.playerText, authorizedClaim: { claimType: 'factDisclosed', targetId: route.factId, policyId: route.evidencePolicyId } };
     const segment = createDutyReportVisibleSegment(packet, { definition: originalDefinition, contractVersion: 2 });
     assert.ok(host.prompt.inspect().blocks.some(block => block.text.includes(segment.canonicalText)));
-    const message = host.chat.pushAssistantMessage({ hostMessageId: 'report.response', text: segment.canonicalText,
-        swipes: [segment.canonicalText, 'The officer has not delivered that report.'], swipeId: 0 });
+    const installedPrompt = host.prompt.inspect().blocks.map(block => block.text).join('\n');
+    assert.ok(installedPrompt.includes('as a separate written report shown to the player by the named reporter, outside quoted dialogue'));
+    assert.ok(!installedPrompt.includes('naturally spoken or presented'));
+    const reportResponse = `The officer turns the report display toward you.\n\n${segment.canonicalText}\n\n"I can discuss the next steps when you are ready."`;
+    const message = host.chat.pushAssistantMessage({ hostMessageId: 'report.response', text: reportResponse,
+        swipes: [reportResponse, 'The officer has not delivered that report.'], swipeId: 0 });
     const before = (await app.getCurrentView({ tabId: 'mission' })).campaignState;
     const originalChatId = host.chat.getCurrentChatId();
     const originalStrip = host.chat.stripAssistantTimeFooter.bind(host.chat);

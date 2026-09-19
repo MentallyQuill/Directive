@@ -330,7 +330,7 @@ assert.match(packet.text, /"workingStory"/);
 assert.match(packet.text, /Whitaker and the commander are establishing their working tone/);
 assert.match(packet.text, /I answer her plainly/);
 assert.doesNotMatch(packet.text, /SECRET RUNTIME AUTHORITY/);
-assert.match(packet.text, /DUTY REPORT: Deliver pendingDutyReport\.segment\.canonicalText verbatim exactly once/);
+assert.match(packet.text, /DUTY REPORT: Present pendingDutyReport\.segment\.canonicalText verbatim exactly once/);
 assert.match(packet.text, /Duty Report â€” A distress signal has been confirmed/);
 assert.match(packet.text, /"phase": "unanswered"/);
 assert.doesNotMatch(packet.text, /"canonicalOpeningMessage":/);

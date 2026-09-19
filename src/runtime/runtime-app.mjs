@@ -681,7 +681,7 @@ export function createV1RuntimePromptPacket({
       ? 'MISSION TRANSITION: Realize pendingTransition in this response. Include every mustNarrate beat, honor next.playerSafeSetup and knownOutcomes, and reveal nothing prohibited by mustNotReveal. Do not invent an additional transition or alter its disposition.'
       : '',
     payload.pendingDutyReport
-      ? 'DUTY REPORT: Deliver pendingDutyReport.segment.canonicalText verbatim exactly once in this response, naturally spoken or presented by the named reporter. Do not paraphrase the canonical segment, expose internal identifiers, or add facts beyond the player-safe segment.'
+      ? 'DUTY REPORT: Present pendingDutyReport.segment.canonicalText verbatim exactly once as a separate written report shown to the player by the named reporter, outside quoted dialogue. The canonical segment is report text, not words for a character to speak; surrounding dialogue should remain natural. Do not paraphrase the canonical segment, expose internal identifiers, or add facts beyond the player-safe segment.'
       : '',
     payload.shipMechanics
       ? 'SHIP OPERATIONAL MECHANICS: Apply shipMechanics only when the player or scene invokes the named system. Active capabilities permit the listed authored routes but never guarantee success. Active constraints block unsupported shortcuts. Use interactions as exact mission-specific affordances and honor every listed limit.'

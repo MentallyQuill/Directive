@@ -921,7 +921,7 @@ assert.equal(
 );
 assert.equal((await app.getCurrentView({ tabId: 'people' })).campaignState.commandBearing.spends[reserved.spendId].status, 'armed');
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /COMMAND BEARING EDGE IS ARMED/);
-assert.match(host.prompt.inspect().blocks[0]?.text || '', /DUTY REPORT: Deliver pendingDutyReport/);
+assert.match(host.prompt.inspect().blocks[0]?.text || '', /DUTY REPORT: Present pendingDutyReport/);
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /SHIP OPERATIONAL MECHANICS/);
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /ship-system\.systems-integration/);
 assert.match(host.prompt.inspect().blocks[0]?.text || '', /ship-constraint\.integration-cascade-risk/);
