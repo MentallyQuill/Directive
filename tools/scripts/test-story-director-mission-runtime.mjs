@@ -1024,3 +1024,56 @@ assert.deepEqual(episodeFeedback.errors, focusedRecoveryResults.episodeEvaluator
 assert.match(focusedRecoveryPayloads.episodeEvaluator[1].systemPrompt, /diagnostics.*not story evidence/i);
 assert.equal(focusedRecoveryHarness.persistCount, 1, 'focused validation retries commit only after every role validates');
 console.log('Production focused analyst validation recovery passed.');
+const protectedHarness = createHarness();
+let protectedMode = 'protected';
+let sceneCalls = 0, protectedInterpretations = 0;
+const protectedRuntime = createV1MissionRuntime({
+    getState: protectedHarness.getState, stateDeltaGateway: protectedHarness.gateway,
+    getCharacterKnowledgeSettings: () => ({ mode: protectedMode }),
+    interpretAcceptedPair: input => { protectedInterpretations++; const result = interpretedFor(input); result.interpretation.peopleEvents = []; return result; },
+    directStory: async ({ request }) => ({ ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } }),
+    analyzeContinuity: async ({ request }) => {
+        sceneCalls++;
+        assert.equal(request.currentScene.characterKnowledge, 'protected');
+        assert.ok(request.authoredContext.references.some(ref => ref.id === request.currentScene.playerId && ref.kind === 'person'));
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: [], lookupRequests: [],
+            characterScene: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: request.pendingPair.currentPlayer.text }] } } };
+    },
+    evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+});
+const protectedSnapshot = snapshotFor('range.protected');
+const protectedFirst = await protectedRuntime.settleAcceptedPair({ runtimeAssets, snapshot: protectedSnapshot, generationType: 'normal' });
+assert.equal(protectedFirst.ok, true, JSON.stringify(protectedFirst));
+assert.ok(protectedFirst.directorReceipt.characterScene);
+assert.equal(sceneCalls, 1);
+const protectedAgain = await protectedRuntime.settleAcceptedPair({ runtimeAssets, snapshot: protectedSnapshot, generationType: 'regenerate' });
+assert.equal(protectedAgain.ok, true, JSON.stringify(protectedAgain));
+assert.deepEqual(protectedAgain.directorReceipt.characterScene, protectedFirst.directorReceipt.characterScene);
+assert.equal(sceneCalls, 1, 'regeneration reuses source-validated scene admission');
+assert.equal(protectedInterpretations, 1, 'regeneration never reinterprets settled events');
+const settingsKey = await createNarrationDirectionReuseKey({ campaignState: protectedHarness.getState(), runtimeAssets, snapshot: protectedSnapshot, characterKnowledge: { mode: 'protected' } });
+assert.notEqual(settingsKey, await createNarrationDirectionReuseKey({ campaignState: protectedHarness.getState(), runtimeAssets, snapshot: protectedSnapshot }));
+console.log('Protected scene admission persistence and settled-pair regeneration passed.');
+const introducedHarness = createHarness();
+let introducedCalls = 0;
+const introducedRuntime = createV1MissionRuntime({
+    getState: introducedHarness.getState, stateDeltaGateway: introducedHarness.gateway,
+    getCharacterKnowledgeSettings: () => ({ mode: 'protected' }),
+    interpretAcceptedPair: interpretedFor,
+    directStory: async ({ request }) => ({ ok: true, proposal: { kind: 'directive.storyDirectionAnalystProposal.v1', envelope: request.envelope, direction: directorProposalFor(request).direction } }),
+    analyzeContinuity: async ({ request }) => {
+        introducedCalls++;
+        if (introducedCalls === 2) {
+            assert.equal(request.currentScene.sceneOnly, true);
+            assert.ok(request.authoredContext.references.some(ref => ref.name === 'Lieutenant Vale'));
+        }
+        return { ok: true, proposal: { kind: 'directive.continuityAnalystProposal.v1', envelope: request.envelope, coverage: 'complete', threadChanges: [], lookupRequests: [],
+            characterScene: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: request.pendingPair.currentPlayer.text }] } } };
+    },
+    evaluateEpisode: async ({ request }) => ({ ok: true, proposal: directorProposalFor({ episodeReview: request }).episodeReview }),
+});
+const introducedResult = await introducedRuntime.settleAcceptedPair({ runtimeAssets, snapshot: snapshotFor('range.scene-introduction'), generationType: 'normal' });
+assert.equal(introducedResult.ok, true, JSON.stringify(introducedResult));
+assert.equal(introducedCalls, 2, 'newly admitted People get one bounded scene-only refresh');
+assert.equal(introducedHarness.persistCount, 1, 'scene refresh precedes the single atomic settlement');
+console.log('Newly admitted person scene refresh passed.');

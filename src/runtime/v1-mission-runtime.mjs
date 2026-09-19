@@ -1,3 +1,4 @@
+import { CHARACTER_KNOWLEDGE_PLAYER_ID, createCharacterSceneAdmission, materializeCharacterSceneAdmission } from '../story/character-scene-admission.mjs';
 import { isStatePublicationError } from './state-publication-errors.mjs';
 import { createScenePacingContext, gateScenePacingClaims, settleScenePacing, sceneAllowsReport, scenePacingPermissions, scenePacingDependencies } from '../narration/scene-pacing.mjs';
 import {
@@ -791,6 +792,7 @@ export async function createNarrationDirectionReuseKey({
     snapshot = {},
     generationType = 'normal',
     providerFingerprints = {},
+    characterKnowledge = null,
 } = {}) {
     const acceptedState = structuredClone(campaignState || {});
     delete acceptedState.stateCustody;
@@ -810,6 +812,7 @@ export async function createNarrationDirectionReuseKey({
         contract: 'directive.narrationDirectionReuse.v1',
         directorRequestContract: 'directive.storyDirectorRequest.v1',
         instructionContract: 'directive.directorInstruction.v1',
+        ...(characterKnowledge?.mode === 'protected' ? { characterKnowledge: structuredClone(characterKnowledge) } : {}),
         generationType: narrationGenerationType(generationType),
         source: {
             envelope: {
@@ -843,6 +846,7 @@ export function captureAcceptedPairAnalysis({
     snapshot = {},
     generationType = 'normal',
     focused = false,
+    characterKnowledge = null,
     analysisLimits = {},
 } = {}) {
     const limits = normalizeAnalysisLimits(analysisLimits);
@@ -949,15 +953,18 @@ export function captureAcceptedPairAnalysis({
         pendingTransition: null,
         pendingDutyReport: null,
     });
+    const protectedScene = characterKnowledge?.mode === 'protected';
+    if (protectedScene && !focused) throw captureFailure('character-scene-analysis-unavailable');
     const exchangeText = `${sourcePair.previousAssistant.text} ${sourcePair.currentPlayer.text}`.toLowerCase();
     const currentEpisode = (campaignState.storySettlement.episodes || []).find(episode => episode.id === campaignState.storySettlement.activeEpisode);
     const referenceCandidates = [
+        ...(protectedScene ? [{ id: CHARACTER_KNOWLEDGE_PLAYER_ID, name: compact(campaignState.player?.name) || 'Player', kind: 'person', relevant: true }] : []),
         ...(currentEpisode?.references?.locationIds || []).map(id => ({ id, name: id, kind: 'location', relevant: true })),
         ...peopleContext.knownPeople.map(person => ({ id: person.id, name: person.name, kind: 'person', relevant: exchangeText.includes(person.name.toLowerCase())
             || person.name.split(/\s+/).some(part => part.length >= 3 && exchangeText.includes(part.toLowerCase())) })),
     ];
     authoredContext.referenceIds = [...new Set(referenceCandidates.filter(item => /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(item.id))
-        .sort((a, b) => Number(b.relevant) - Number(a.relevant) || a.id.localeCompare(b.id)).map(item => item.id))].slice(0, limits.storyReferenceCount);
+        .sort((a, b) => Number(b.id === CHARACTER_KNOWLEDGE_PLAYER_ID) - Number(a.id === CHARACTER_KNOWLEDGE_PLAYER_ID) || Number(b.relevant) - Number(a.relevant) || a.id.localeCompare(b.id)).map(item => item.id))].slice(0, limits.storyReferenceCount);
     authoredContext.references = authoredContext.referenceIds.map(id => {
         const reference = referenceCandidates.find(item => item.id === id);
         return { id, name: reference.name.slice(0, limits.storyReferenceNameCharacters), kind: reference.kind };
@@ -1001,7 +1008,7 @@ export function captureAcceptedPairAnalysis({
         sourcePair: directorSourcePair,
         authoredContext,
         continuity,
-        currentScene: null,
+        currentScene: protectedScene ? { characterKnowledge: 'protected', playerId: CHARACTER_KNOWLEDGE_PLAYER_ID, explicitAudience: {} } : null,
         episodeReview: focused ? null : episodeReview,
     });
     return {
@@ -1019,6 +1026,7 @@ export function captureAcceptedPairAnalysis({
         interpreterInput,
         interpreterRequest,
         directorRequest,
+        characterKnowledge: structuredClone(characterKnowledge),
         episodeReviewRequest: episodeReview,
         reviewToken,
         generationType: type,
@@ -1061,6 +1069,7 @@ export function createV1MissionRuntime({
     directStory = null,
     analyzeContinuity = null,
     providerFingerprints = () => ({}),
+    getCharacterKnowledgeSettings = () => null,
 } = {}) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
     if (typeof stateDeltaGateway?.revision !== 'function'
@@ -2170,7 +2179,7 @@ export function createV1MissionRuntime({
                     interpreter: 'acceptedPairMissionEvidence', director: focused ? 'storyDirectionAnalyst' : 'storyDirector',
                     continuity: 'continuityAnalyst', episode: 'episodeEvaluator',
                 }[role], focused ? 2 : 1) ?? (focused ? 2 : 1),
-                continuity: focused ? async ({ request, signal: roleSignal, validationErrors }) => captured.pairAlreadySettled ? {
+                continuity: focused ? async ({ request, signal: roleSignal, validationErrors }) => captured.pairAlreadySettled && (request.currentScene?.characterKnowledge !== 'protected' || captured.retainedCharacterScene) ? {
                     ok: true,
                     proposal: {
                         kind: 'directive.continuityAnalystProposal.v1',
@@ -2178,6 +2187,7 @@ export function createV1MissionRuntime({
                         coverage: 'complete',
                         threadChanges: [],
                         lookupRequests: [],
+                        ...(captured.retainedCharacterScene ? { characterScene: structuredClone(captured.retainedCharacterScene.proposal) } : {}),
                     },
                     diagnostics: { reusedAcceptedPair: true },
                 } : runProgress(
@@ -2355,6 +2365,7 @@ export function createV1MissionRuntime({
                 snapshot: input.snapshot,
                 generationType: input.generationType,
                 focused: typeof analyzeContinuity === 'function',
+                characterKnowledge: getCharacterKnowledgeSettings(),
                 analysisLimits: generationRouter?.getAnalysisLimits?.() || {},
             });
         } catch (error) {
@@ -2374,6 +2385,7 @@ export function createV1MissionRuntime({
                 snapshot: captured.snapshot,
                 generationType: captured.generationType,
                 providerFingerprints: resolvedProviderFingerprints,
+                characterKnowledge: captured.characterKnowledge,
             });
         } catch (error) {
             return unavailable(errorReasonCode(error));
@@ -2397,7 +2409,22 @@ export function createV1MissionRuntime({
                 ...captured,
                 runtimeAssets: input.runtimeAssets,
             }).has(candidateReceipt.dependencyIds[0]);
-        if (existingReceipt && receiptTargetStillEligible) {
+        const protectedScene = captured.directorRequest.currentScene?.characterKnowledge === 'protected';
+        const validScene = receipt => {
+            if (!receipt?.characterScene) return false;
+            try {
+                materializeCharacterSceneAdmission(receipt.characterScene, {
+                    sourcePair: captured.directorRequest.pendingPair,
+                    knownPersonIds: new Set(captured.directorRequest.authoredContext.references.filter(ref => ref.kind === 'person').map(ref => ref.id)),
+                });
+                return receipt.characterScene.playerId === captured.directorRequest.currentScene.playerId;
+            } catch { return false; }
+        };
+        if (protectedScene) {
+            captured.retainedCharacterScene = [...(baseState.storySettlement.directorReceipts || [])].reverse()
+                .find(receipt => receipt.branchId === captured.branchId && validScene(receipt))?.characterScene || null;
+        }
+        if (existingReceipt && receiptTargetStillEligible && (!protectedScene || validScene(existingReceipt))) {
             return {
                 ok: true,
                 attempted: false,
@@ -2514,6 +2541,34 @@ export function createV1MissionRuntime({
                 }
             }
 
+            // The parallel continuity pass cannot reference opaque IDs that the
+            // interpreter has only just introduced. Refresh scene preparation once,
+            // without re-extracting facts or committing the candidate early.
+            if (protectedScene && preparedPair.pair.introductions?.length) {
+                const introducedIds = new Set(preparedPair.pair.introductions.map(person => person.personId));
+                const known = createPeopleInterpretationContext({ crewDataset: captured.runtimeAssets?.crewDataset || {}, storySettlement: preparedPair.candidateState.storySettlement }).knownPeople;
+                const references = [...captured.directorRequest.authoredContext.references];
+                for (const person of known) if (introducedIds.has(person.id) && !references.some(ref => ref.id === person.id)) {
+                    references.push({ id: person.id, name: person.name.slice(0, captured.directorRequest.analysisLimits.storyReferenceNameCharacters), kind: 'person' });
+                }
+                if (references.length > captured.directorRequest.analysisLimits.storyReferenceCount) throw captureFailure('character-scene-context-overflow');
+                const request = { ...captured.directorRequest,
+                    authoredContext: { ...captured.directorRequest.authoredContext, references, referenceIds: references.map(ref => ref.id) },
+                    currentScene: { ...captured.directorRequest.currentScene, sceneOnly: true },
+                };
+                const refreshKey = await sha256Json(request);
+                let refreshed = directedAnalysis.sceneRefresh?.key === refreshKey ? directedAnalysis.sceneRefresh.value : null;
+                if (!refreshed) {
+                    const result = await runProgress('reviewing-continuity', ({ onAttempt, onPhase }) => analyzeContinuity({ request, signal: input.signal, onAttempt, onPhase }), input.progressScope);
+                    const parsed = result?.ok ? parseContinuityAnalystOutput(result.proposal, { request }) : null;
+                    if (!parsed?.ok || parsed.value.coverage !== 'complete' || parsed.value.threadChanges.length) throw captureFailure(result?.reasonCode || 'character-scene-refresh-invalid');
+                    refreshed = parsed.value;
+                    directedAnalysis.sceneRefresh = { key: refreshKey, value: structuredClone(refreshed) };
+                }
+                if (input.signal?.aborted || stateDeltaGateway.revision() !== captured.campaignState.stateCustody.revision) throw captureFailure(input.signal?.aborted ? 'provider-aborted' : 'state-revision-conflict');
+                captured.directorRequest = request;
+                analysis.continuity.proposal.characterScene = structuredClone(refreshed.characterScene);
+            }
             let candidateState = structuredClone(preparedPair.candidateState);
             if (candidateReceipt && (
                 !existingReceipt
@@ -2631,6 +2686,7 @@ export function createV1MissionRuntime({
                 snapshot: captured.snapshot,
                 generationType: captured.generationType,
                 providerFingerprints: resolvedProviderFingerprints,
+                characterKnowledge: captured.characterKnowledge,
             });
             const sourceContributionIds = preparedPair.pair.acceptedPairReceipt?.sourceContributionIds
                 || [
@@ -2650,6 +2706,12 @@ export function createV1MissionRuntime({
                 instruction,
                 dependencyIds: target?.dependencyIds || [],
                 settledAtRevision: candidateState.storySettlement.revision,
+                ...(protectedScene ? { characterScene: createCharacterSceneAdmission({
+                    proposal: analysis.continuity.proposal.characterScene,
+                    sourcePair: captured.directorRequest.pendingPair,
+                    playerId: captured.directorRequest.currentScene.playerId,
+                    knownPersonIds: new Set(captured.directorRequest.authoredContext.references.filter(ref => ref.kind === 'person').map(ref => ref.id)),
+                }) } : {}),
                 reuseKey,
             });
             candidateState.storySettlement = recordDirectorReceipt(candidateState.storySettlement, receipt);

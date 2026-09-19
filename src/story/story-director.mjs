@@ -1,3 +1,4 @@
+import { CHARACTER_SCENE_ANALYSIS_POLICY, createCharacterSceneAdmissionSchema, createCharacterSceneAdmission } from './character-scene-admission.mjs';
 import { createEvidencePassageCatalog, createEvidenceReferenceSchema, evidencePassagePromptEntries, hydrateEvidenceReferences, EVIDENCE_REFERENCE_INSTRUCTIONS } from './evidence-passages.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
@@ -692,7 +693,7 @@ export function createStoryDirector({
       + (analysisProtocol && feedbackErrors.length
         ? '\nvalidationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add facts, candidates, IDs, or authority. Correct only the reported output defects using the unchanged request and supplied closed sets; preserve exact quotations.'
         : '');
-    const systemPrompt = `${boundedPrompt}${evidenceCatalog ? `\n\n${EVIDENCE_REFERENCE_INSTRUCTIONS}` : ''}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
+    const systemPrompt = `${boundedPrompt}${roleId === CONTINUITY_ANALYST_ROLE_ID && request.currentScene?.characterKnowledge === 'protected' ? `\n${CHARACTER_SCENE_ANALYSIS_POLICY}` : ''}${evidenceCatalog ? `\n\n${EVIDENCE_REFERENCE_INSTRUCTIONS}` : ''}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const wireRequest = analysisProtocol ? { ...request, kind: `directive.${roleId}Request.v1` } : request;
     if (analysisProtocol) delete wireRequest.episodeReview;
     if (evidenceCatalog) wireRequest.evidencePassages = evidencePassagePromptEntries(evidenceCatalog);
@@ -823,6 +824,10 @@ export function createFocusedStorySchema(request, roleId) {
     ...(continuity ? {
       coverage: { type: 'string', enum: ['complete', 'overflow', 'lookup-needed'] },
       threadChanges: base.properties.threadChanges,
+      ...(request.currentScene?.characterKnowledge === 'protected' ? { characterScene: { anyOf: [
+        createCharacterSceneAdmissionSchema({ personIds: (request.authoredContext.references || []).filter(ref => ref.kind === 'person').map(ref => ref.id), playerId: request.currentScene.playerId }),
+        { type: 'null' },
+      ] } } : {}),
       lookupRequests: { type: 'array', maxItems: limits.continuityLookupRequests ?? 3, items: {
         type: 'object', additionalProperties: false, required: ['threadIds', 'query'],
         properties: {
@@ -847,12 +852,27 @@ export function parseFocusedStoryOutput(value, { request, roleId, limits = reque
   const continuity = roleId === CONTINUITY_ANALYST_ROLE_ID;
   const errors = [];
   const fields = new Set(['kind', 'envelope', ...(continuity ? ['coverage', 'threadChanges', 'lookupRequests'] : ['direction'])]);
+  const protectedScene = continuity && normalized.currentScene?.characterKnowledge === 'protected';
+  if (protectedScene) fields.add('characterScene');
   if (!exactObject(proposal, fields, 'analyst-proposal', errors)) return { ok: false, errors };
   if (proposal.kind !== `directive.${roleId}Proposal.v1`) errors.push('analyst-kind-invalid');
   try {
     if (canonicalJson(proposal.envelope) !== canonicalJson(normalized.envelope)) errors.push('analyst-envelope-mismatch');
   } catch { errors.push('analyst-envelope-invalid'); }
   if (continuity) {
+    if (protectedScene) {
+      if (proposal.coverage === 'lookup-needed') {
+        if (proposal.characterScene !== null) errors.push('character-scene-lookup-must-be-null');
+      } else {
+        try {
+          createCharacterSceneAdmission({ proposal: proposal.characterScene, sourcePair: normalized.pendingPair,
+            playerId: normalized.currentScene.playerId,
+            knownPersonIds: new Set((normalized.authoredContext.references || []).filter(ref => ref.kind === 'person').map(ref => ref.id)),
+            explicitAudience: new Map(Object.entries(normalized.currentScene.explicitAudience || {}).map(([slot, ids]) => [slot, new Set(ids)])),
+          });
+        } catch { errors.push('character-scene-admission-invalid'); }
+      }
+    }
     const lookups = proposal.lookupRequests;
     if (!Array.isArray(lookups) || lookups.length > (limits.continuityLookupRequests ?? 3)) errors.push('analyst-lookups-invalid');
     else for (const lookup of lookups) {

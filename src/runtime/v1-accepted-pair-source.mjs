@@ -301,3 +301,18 @@ export const __v1AcceptedPairSourceTestHooks = Object.freeze({
   previousAssistantFromRecent,
   promptingPlayerBeforeAssistant
 });
+
+/** Capture a selected, non-streaming story source using accepted-pair hashing. */
+export function captureV1StorySource(message = {}) {
+  if (isSystem(message) || !messageId(message)) return { ok: false, reason: 'story-source-invalid' };
+  const unsafe = unsafeAssistantReason(message);
+  if (unsafe) return { ok: false, reason: unsafe };
+  if (isUser(message)) {
+    const text = sourceText(message);
+    if (!text) return { ok: false, reason: 'player-source-empty' };
+    return { ok: true, value: { messageId: messageId(message), selectedSwipeId: null, textHash: stableHash(text), text, role: 'user' } };
+  }
+  const selected = selectedAssistantVariant(message);
+  return selected.ok ? { ok: true, value: { messageId: selected.value.hostMessageId,
+    selectedSwipeId: selected.value.selectedVariantId, textHash: selected.value.selectedTextHash, text: selected.value.text, role: 'assistant' } } : selected;
+}

@@ -1,3 +1,4 @@
+import { validateCharacterSceneAdmissionRecord } from './character-scene-admission.mjs';
 import { sha256Json } from '../storage/v1-state-delta-codec.mjs';
 import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 
@@ -48,7 +49,7 @@ const SOURCE_ANCHOR_FIELDS = new Set([
 const DIRECTOR_RECEIPT_FIELDS = new Set([
     'kind', 'id', 'branchId', 'packageId', 'packageVersion', 'missionId', 'generationType',
     'generationTargetKey', 'requestKey', 'reuseKey', 'sourceRangeHash', 'sourceContributionIds',
-    'instruction', 'dependencyIds', 'settledAtRevision',
+    'instruction', 'dependencyIds', 'settledAtRevision', 'characterScene',
 ]);
 const DIRECTOR_GENERATION_TYPES = new Set(['normal', 'continue', 'swipe', 'regenerate']);
 const PENDING_DOSSIER_FIELDS = new Set([
@@ -441,6 +442,7 @@ export function validateDirectorReceipt(receipt, {
     const errors = [];
     if (!plainObject(receipt)) return { ok: false, errors: ['director-receipt-invalid'] };
     unknownFields(receipt, DIRECTOR_RECEIPT_FIELDS, 'director-receipt', errors);
+    if (Object.hasOwn(receipt, 'characterScene') && !validateCharacterSceneAdmissionRecord(receipt.characterScene).ok) errors.push('director-receipt-character-scene-invalid');
     if (receipt.kind !== STORY_DIRECTOR_RECEIPT_KIND) errors.push('director-receipt-kind-invalid');
     if (!isContinuityStableId(receipt.id)) errors.push('director-receipt-id-invalid');
     if (!isContinuityStableId(receipt.branchId) || (branchId !== null && receipt.branchId !== branchId)) {
@@ -481,6 +483,7 @@ export function validateDirectorReceipt(receipt, {
 export async function createDirectorReceipt(input = {}) {
     const value = {
         kind: STORY_DIRECTOR_RECEIPT_KIND,
+        ...(Object.hasOwn(input, 'characterScene') ? { characterScene: structuredClone(input.characterScene) } : {}),
         branchId: input.branchId,
         packageId: input.packageId,
         packageVersion: input.packageVersion,
