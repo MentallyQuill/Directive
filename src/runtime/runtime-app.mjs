@@ -2309,8 +2309,9 @@ export function createDirectiveRuntimeApp({
       transcriptOwner.baseline = retained.publicationBaseline;
       transcriptLane.producing(transcriptOwner);
       const message = await host.chat.getMessage?.(publication.hostMessageId);
-      pendingProtectedFinalizations.set(key, { publication, attempts: retained.turn.attempts });
-      const finalization = await publicApi.handleHostGenerationEnded({ message });
+      const protectedCompletion = { publication, attempts: retained.turn.attempts };
+      pendingProtectedFinalizations.set(key, protectedCompletion);
+      const finalization = await publicApi.handleHostGenerationEnded({ message }, null, protectedCompletion);
       if (!finalization?.hostMessageId || finalization.metadataAttachment || finalization.timeFooterNormalization) {
         if (!failedFinalizations.has(key)) {
           transcriptLane.finish(transcriptOwner, false);
@@ -2380,7 +2381,7 @@ export function createDirectiveRuntimeApp({
         const prior = failedFinalizations.get(transcriptKey());
         if (prior) {
           const protectedCompletion = pendingProtectedFinalizations.get(transcriptKey());
-          const finalization = await publicApi.handleHostGenerationEnded(prior.payload, prior);
+          const finalization = await publicApi.handleHostGenerationEnded(prior.payload, prior, protectedCompletion);
           if (protectedCompletion && finalization?.hostMessageId && !finalization.metadataAttachment && !finalization.timeFooterNormalization) {
             pendingProtectedFinalizations.delete(transcriptKey());
             return { handled: true, abortDefaultGeneration: true, responseStrategy: 'protectedScenePublished', ...protectedCompletion,
@@ -2951,7 +2952,7 @@ export function createDirectiveRuntimeApp({
       }, { transcriptOwner });
     },
 
-    async handleHostGenerationEnded(payload = {}, retryInput = null) {
+    async handleHostGenerationEnded(payload = {}, retryInput = null, protectedCompletion = null) {
       if (activeTimelineLoad) return { handled: false, reason: 'timeline-load-pending' };
       if (generationCancellation.stopped) return { handled: false, reason: 'host-generation-stopped' };
       if (!state || !currentChatIsBound()) return { handled: false, reason: 'inactive-or-unbound' };
@@ -2967,7 +2968,14 @@ export function createDirectiveRuntimeApp({
         retryInput = retained;
       }
       const activity = host.chat.getGenerationActivity?.();
-      if (activity && activity.replyStatus !== 'idle' && Object.hasOwn(activity, 'replyStatus')) {
+      // Protected output is already reviewed, written and read back while native
+      // Generate is still awaiting its interceptor. Only the private completion
+      // retained by that publication may finalize before the native reply ends.
+      const ownsProtectedCompletion = protectedCompletion !== null
+        && pendingProtectedFinalizations.get(key) === protectedCompletion
+        && protectedCompletion.publication?.persisted === true
+        && protectedCompletion.publication.hostMessageId === messageId(payload, normalizeMessage(host, payload));
+      if (!ownsProtectedCompletion && activity && activity.replyStatus !== 'idle' && Object.hasOwn(activity, 'replyStatus')) {
         return { handled: false, reason: 'native-reply-not-ended' };
       }
       if (!retryInput && previousOwner) {

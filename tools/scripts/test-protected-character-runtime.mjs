@@ -83,7 +83,12 @@ host.chat.publishProtectedScene = async options => {
   assert.equal(options.assertCurrent({ phase: 'persisted', publicationId: options.publicationId, source, persistedSnapshot: snapshot }), true);
   return { ok: true, persisted: true, hostMessageId: row.id, publicationId: options.publicationId, displayUpdated: true };
 };
+const originalGenerationActivity = host.chat.getGenerationActivity;
+// Native Generate keeps is_send_press true until the protected interceptor returns.
+host.chat.getGenerationActivity = () => ({ status: 'active', replyStatus: 'active' });
+assert.equal((await app.handleHostGenerationEnded({ message: host.chat.messages().findLast(row => row.role === 'assistant') }, null, { publication: { persisted: true } })).reason, 'native-reply-not-ended', 'public callers cannot bypass native reply ownership with a forged protected completion');
 const completed = await orchestrator.interceptGeneration({ type: 'normal' });
+host.chat.getGenerationActivity = originalGenerationActivity;
 assert.equal(completed.responseStrategy, 'protectedScenePublished', JSON.stringify(completed));
 assert.equal(completed.abortDefaultGeneration, true);
 assert.equal(host.chat.messages().length, beforeRows + 1);
@@ -110,7 +115,9 @@ assert.equal(pendingFinalization.responseStrategy, 'blockAndRetry');
 assert.equal(pendingFinalization.settlementError.reasonCode, 'DIRECTIVE_CHARACTER_FINALIZATION_PENDING');
 const callsBeforeFinalizationRetry = protectedCalls;
 const rowsBeforeFinalizationRetry = host.chat.messages().length;
+host.chat.getGenerationActivity = () => ({ status: 'active', replyStatus: 'active' });
 const finalized = await orchestrator.interceptGeneration({ type: 'normal' });
+host.chat.getGenerationActivity = originalGenerationActivity;
 assert.equal(finalized.responseStrategy, 'protectedScenePublished', JSON.stringify(finalized));
 assert.equal(protectedCalls, callsBeforeFinalizationRetry);
 assert.equal(host.chat.messages().length, rowsBeforeFinalizationRetry);
