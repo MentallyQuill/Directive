@@ -23,7 +23,7 @@ import {
 } from '../ui/directive-routes.mjs';
 import { applyDirectiveTheme, getDirectiveThemePack } from '../theme/directive-theme-packs.mjs';
 import { appendEmpty, appendSectionTitle, clearElement } from '../ui/runtime-ui-kit.js';
-import { showPresetUpdateNotification } from '../ui/preset-update-notification.js';
+import { resetPresetUpdateNotification, showPresetUpdateNotification } from '../ui/preset-update-notification.js';
 
 export const DIRECTIVE_RUNTIME_PANEL_ID = 'directive-runtime-panel';
 export const DIRECTIVE_RUNTIME_TABS = Object.freeze(DIRECTIVE_PRIMARY_ROUTES.map((route) => ({
@@ -250,7 +250,11 @@ function createRuntimeActions() {
     updateNarrationSettings: (options) => callApp('updateNarrationSettings', options),
     retryOpening: () => callApp('retryOpening'),
     updateDirectivePresetAutoCheck: (options) => callApp('updateDirectivePresetAutoCheck', options),
-    installDirectivePreset: () => callApp('installDirectivePreset'),
+    installDirectivePreset: async () => {
+      const result = await callApp('installDirectivePreset');
+      if (result?.ok === true) resetPresetUpdateNotification('preset-installed');
+      return result;
+    },
     reserveCommandBearingEdge: () => callApp('reserveCommandBearingEdge'),
     cancelCommandBearingEdge: () => callApp('cancelCommandBearingEdge'),
     reserveCohesionRelief: (options) => callApp('reserveCohesionRelief', options),

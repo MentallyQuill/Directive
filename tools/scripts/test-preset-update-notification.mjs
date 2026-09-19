@@ -55,4 +55,61 @@ showPresetUpdateNotification(reminder, handlers);
 assert.deepEqual(resetPresetUpdateNotification('test-reset'), { reset: true, reason: 'test-reset' });
 assert.equal(document.getElementById('directive-notifications'), null);
 
+const createElement = document.createElement.bind(document);
+document.createElement = (...args) => {
+  const element = createElement(...args);
+  element.style.setProperty = (key, value) => { element.style[key] = value; };
+  return element;
+};
+document.documentElement.style.setProperty = () => {};
+globalThis.localStorage = { getItem: () => null, setItem() {} };
+
+// Exercise the Settings action through the runtime shell, where installs are wired.
+const {
+  setDirectiveRuntimeApp,
+  openDirectivePresetSettings,
+} = await import('../../src/runtime/runtime-shell.js');
+let installResult = { ok: true };
+let installError = null;
+let finishInstall;
+setDirectiveRuntimeApp({
+  getCurrentView: async () => ({
+    directivePreset: {
+      status: { state: 'behind', canInstall: true, actionLabel: 'Update Preset' },
+      autoCheck: { enabled: true },
+    },
+  }),
+  installDirectivePreset: async () => {
+    await new Promise((resolve) => { finishInstall = resolve; });
+    if (installError) throw installError;
+    return installResult;
+  },
+});
+await openDirectivePresetSettings({ highlight: false });
+const installButton = () => document.documentElement.querySelectorAll('button').find((button) => button.children.some((child) => child.textContent === 'Update Preset'));
+assert.ok(installButton(), 'Settings exposes the preset update action');
+
+showPresetUpdateNotification(reminder, handlers);
+let installing = installButton().click();
+assert.equal(cards().length, 1, 'pending installation keeps the reminder visible');
+finishInstall();
+await installing;
+assert.equal(cards().length, 0, 'successful Settings installation retires the stale reminder');
+assert.equal(document.getElementById('directive-notifications'), null, 'successful installation releases the notification surface');
+
+installResult = { ok: false };
+showPresetUpdateNotification(reminder, handlers);
+installing = installButton().click();
+finishInstall();
+await installing;
+assert.equal(cards().length, 1, 'unsuccessful installation keeps the reminder visible');
+
+installError = new Error('Preset save failed');
+installing = installButton().click();
+finishInstall();
+await assert.rejects(installing, /Preset save failed/);
+assert.equal(cards().length, 1, 'rejected installation keeps the reminder visible');
+resetPresetUpdateNotification('test-cleanup');
+setDirectiveRuntimeApp(null);
+
 console.log('Preset update notification tests passed.');
