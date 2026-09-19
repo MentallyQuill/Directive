@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { createTurnAttemptBudget } from '../../src/generation/turn-attempt-budget.mjs';
+const budget = createTurnAttemptBudget({ limit: 4 });
+const finalization = budget.reserve('finalization', 2);
+assert.equal(budget.claim(), 1);
+assert.equal(budget.claim(), 2);
+assert.throws(() => budget.claim(), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
+assert.equal(budget.claim({ reservation: finalization }), 3);
+assert.equal(budget.claim({ reservation: finalization }), 4);
+assert.equal(budget.used, 4);
+assert.equal(budget.remaining, 0);
+assert.throws(() => budget.claim(), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
+console.log('PASS shared physical-attempt budget preserves reserved finalization slots');
+
+const controller = new AbortController();
+const canceledBudget = createTurnAttemptBudget({ limit: 4, signal: controller.signal });
+const reserved = canceledBudget.reserve('actor', 2);
+controller.abort();
+assert.throws(() => canceledBudget.claim({ reservation: reserved }), { code: 'DIRECTIVE_GENERATION_ABORTED' });
+assert.equal(canceledBudget.release(reserved), 0);
+assert.equal(canceledBudget.used, 0);
+console.log('PASS Stop cancels claims and releases unused reservations');
+
+const parallelBudget = createTurnAttemptBudget({ limit: 3 });
+const outcomes = await Promise.allSettled(Array.from({ length: 8 }, () => Promise.resolve().then(() => parallelBudget.claim())));
+assert.equal(outcomes.filter(item => item.status === 'fulfilled').length, 3);
+assert.equal(parallelBudget.used, 3);
+const ownershipBudget = createTurnAttemptBudget({ limit: 4 });
+const ownerA = ownershipBudget.reserve('a', 2);
+const ownerB = ownershipBudget.reserve('b', 1);
+assert.throws(() => ownershipBudget.claim({ reservation: { owner: 'a' } }), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
+assert.equal(ownershipBudget.release(ownerA), 2);
+assert.equal(ownershipBudget.release(ownerA), 0);
+assert.equal(ownershipBudget.claim({ reservation: ownerB }), 1);
+ownershipBudget.dispose();
+assert.throws(() => ownershipBudget.claim(), { code: 'DIRECTIVE_GENERATION_ABORTED' });
+console.log('PASS concurrent claims, reservation ownership and terminal budget cleanup');

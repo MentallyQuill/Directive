@@ -5,7 +5,7 @@ import { createGenerationRoleRegistry } from '../generation/generation-roles.mjs
 import { DEFAULT_ANALYSIS_LIMITS, MAX_TIMER_TIMEOUT_SECONDS, normalizeAnalysisLimits, normalizeAnalysisCapacity, readAnalysisOverrides, normalizeOutputTokenOverride } from '../generation/analysis-limits.mjs';
 
 const PROVIDER_TYPES = Object.freeze(['st', 'profile']);
-const PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
+const PROVIDER_KINDS = Object.freeze(['utility', 'reasoning', 'narration']);
 const PRESET_MODES = new Set(['isolated', 'full-profile']);
 const INSTRUCT_MODES = new Set(['auto', 'on', 'off']);
 const SAMPLER_MODES = new Set(['profile', 'directive']);
@@ -30,7 +30,8 @@ const DEFAULT_PROVIDER = Object.freeze({
 
 export const DEFAULT_DIRECTIVE_PROVIDER_SETTINGS = Object.freeze({
   utility: Object.freeze({ ...DEFAULT_PROVIDER, analysisCapacity: 1, analysisOverrides: Object.freeze({}), analysisLimits: DEFAULT_ANALYSIS_LIMITS }),
-  reasoning: Object.freeze({ ...DEFAULT_PROVIDER, temperature: 0.4 })
+  reasoning: Object.freeze({ ...DEFAULT_PROVIDER, temperature: 0.4 }),
+  narration: Object.freeze({ ...DEFAULT_PROVIDER, provider: 'profile', temperature: 0.6 })
 });
 
 const DEFAULT_GENERATION_ROLE_REGISTRY = createGenerationRoleRegistry();
@@ -130,6 +131,7 @@ export function validateDirectiveProviderSettings(settings, kind = null) {
       throw new Error(`Unknown Directive provider kind "${providerKind}"`);
     }
     const config = normalized[providerKind];
+    if (providerKind === 'narration' && kind === null && !config.profileId) continue;
     if (config.provider === 'profile' && !config.profileId) {
       diagnostics.push({
         kind: providerKind,

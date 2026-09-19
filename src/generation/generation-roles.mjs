@@ -6,12 +6,24 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'continuityAnalyst',
   'episodeEvaluator',
   'peopleDossierAuthor',
-  'characterCreatorSectionDraft'
+  'characterCreatorSectionDraft',
+  'characterResponder',
+  'sceneNarrator',
+  'characterKnowledgeReviewer'
 ]);
 
-export const GENERATION_PROVIDER_KINDS = Object.freeze(['utility', 'reasoning']);
+export const GENERATION_PROVIDER_KINDS = Object.freeze(['utility', 'reasoning', 'narration']);
 
 const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
+  ...Object.fromEntries([
+    ['characterResponder', 'Character response', 'reasoning'],
+    ['sceneNarrator', 'Protected scene narration', 'narration'],
+    ['characterKnowledgeReviewer', 'Character knowledge review', 'utility'],
+  ].map(([id, label, providerKind]) => [id, Object.freeze({
+    id, label, providerKind, blocking: true, output: 'structured-json',
+    timeoutMs: 300000, structuredOutput: true, mayProposeState: false,
+    mayInjectPrompt: false, mayRunDuringMainGeneration: false, fallback: 'fail-closed',
+  })])),
   openingSceneDirector: Object.freeze({
     id: 'openingSceneDirector', label: 'Opening scene direction',
     providerKind: 'reasoning', blocking: true, output: 'structured-json',
@@ -121,7 +133,7 @@ export function normalizeGenerationRoleDefinition(definition = {}) {
   const defaults = DEFAULT_ROLE_DEFINITIONS[id];
   const providerKind = required(definition.providerKind ?? defaults.providerKind, `generation role ${id} providerKind`);
   if (!GENERATION_PROVIDER_KINDS.includes(providerKind)) {
-    throw new Error(`generation role ${id} providerKind must be utility or reasoning`);
+    throw new Error(`generation role ${id} providerKind must be utility, reasoning or narration`);
   }
   return {
     ...clone(defaults),

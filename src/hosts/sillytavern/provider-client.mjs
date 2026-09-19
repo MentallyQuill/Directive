@@ -1,3 +1,4 @@
+import { isProtectedGenerationRole, isolationError, assertIsolatedGenerationRequest, assertIsolatedTransport, createIsolatedGenerationRequest } from '../../generation/isolated-request.mjs';
 import { providerKindForRole } from '../../providers/directive-provider-settings.mjs';
 import { resolveAnalysisLimits, resolveProviderMaxTokens, normalizeAnalysisCapacity, normalizeOutputTokenOverride, readAnalysisOverrides } from '../../generation/analysis-limits.mjs';
 import {
@@ -477,6 +478,7 @@ function isTransportError(error) {
 }
 
 function normalizeThrownError(error, providerKind) {
+  if (['DIRECTIVE_CONTEXT_ISOLATION', 'DIRECTIVE_TURN_ATTEMPT_LIMIT'].includes(error?.code)) return providerError(error.code, error.message);
   if (error?.[SAFE_PROVIDER_ERROR] === true) {
     error.providerKind = providerKind;
     return error;
@@ -569,6 +571,10 @@ function createGenerationControl(request = {}, options = {}) {
 }
 
 function visibleOutputRetryRequest(request = {}) {
+  if (request.isolatedContext) {
+    assertIsolatedGenerationRequest(request);
+    return createIsolatedGenerationRequest({ ...request, messages: [...request.messages, { role: 'user', content: FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE }] });
+  }
   if (Array.isArray(request.messages) && request.messages.length) {
     return { ...request, messages: [...request.messages, { role: 'user', content: FINAL_VISIBLE_OUTPUT_RETRY_MESSAGE }] };
   }
@@ -669,6 +675,7 @@ async function sendViaConnectionProfile(context, config, request, resolved, onAt
     signal: request.signal
   };
   assertRequestActive(request);
+  assertIsolatedTransport(request, messages, resolved.policy, payload);
   onAttempt?.();
   const response = await service.sendRequest(config.profileId, messages, maxTokens, requestOptions, payload);
   return {
@@ -737,6 +744,7 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
       ...samplers,
       ...(schema ? { json_schema: schema } : {})
     };
+    assertIsolatedTransport(request, messages, resolved.policy, samplers);
     onAttempt?.();
     response = await context.ChatCompletionService.processRequest(payload, appliedPresetName ? { presetName: appliedPresetName } : {}, false, request.signal);
   } else if (resolved.completionMode === 'text' && typeof context?.TextCompletionService?.processRequest === 'function') {
@@ -754,6 +762,7 @@ async function sendViaCurrentModel(context, config, request, resolved, onAttempt
       ...(appliedPresetName ? { presetName: appliedPresetName } : {}),
       ...(instructName ? { instructName } : {})
     };
+    assertIsolatedTransport(request, messages, resolved.policy, samplers);
     onAttempt?.();
     response = await context.TextCompletionService.processRequest(payload, requestOptions, false, request.signal);
   } else {
@@ -857,14 +866,23 @@ export function createDirectiveProviderClient({
   }
 
   async function generate(roleId, request = {}, options = {}) {
+    const protectedRole = isProtectedGenerationRole(roleId);
+    if (protectedRole) {
+      assertIsolatedGenerationRequest(request);
+      request = createIsolatedGenerationRequest(request);
+      if (typeof options.attemptBudget?.claim !== 'function') throw isolationError();
+      if (options.providerKind && options.providerKind !== providerKindForRole(roleId)) throw isolationError();
+    }
     const requestedKind = textValue(options?.providerKind);
-    if (requestedKind && !['utility', 'reasoning'].includes(requestedKind)) {
+    if (requestedKind && !['utility', 'reasoning', 'narration'].includes(requestedKind)) {
       throw providerError('DIRECTIVE_PROVIDER_CONFIGURATION', `Unknown Directive provider kind "${requestedKind}".`);
     }
-    const kind = requestedKind
+    const kind = protectedRole ? providerKindForRole(roleId) : (requestedKind
       || settingsStore.getRoleProviderKind?.(roleId)
-      || providerKindForRole(roleId);
-    const config = settingsStore.get(kind);
+      || providerKindForRole(roleId));
+    const savedConfig = settingsStore.get(kind);
+    const config = protectedRole ? { ...savedConfig, presetMode: 'isolated', instructMode: 'off', samplerMode: 'directive' } : savedConfig;
+    if (protectedRole && roleId === 'sceneNarrator' && (config.provider !== 'profile' || !config.profileId)) throw isolationError();
     const roleLimits = config.roleLimits?.[roleId] || {};
     const utilitySettings = settingsStore.get('utility');
     const maxTokens = resolveProviderMaxTokens({ utility: utilitySettings, [kind]: config }, kind, roleId);
@@ -878,6 +896,7 @@ export function createDirectiveProviderClient({
     let retriedForVisibleOutput = false;
     let attempt = 0;
     const onTransportAttempt = () => {
+      options.attemptBudget?.claim({ reservation: options.attemptReservation ?? null });
       attempt += 1;
       try {
         Promise.resolve(options.onAttempt?.(attempt)).catch(() => null);

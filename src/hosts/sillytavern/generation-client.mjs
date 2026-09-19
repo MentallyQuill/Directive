@@ -1,3 +1,4 @@
+import { isProtectedGenerationRole, isolationError } from '../../generation/isolated-request.mjs';
 import { assertGenerationActive } from '../../runtime/generation-cancellation.mjs';
 
 const OWNED_GENERATION_DEPTH_KEY = '__directiveOwnedGenerationDepth';
@@ -161,6 +162,7 @@ export function createSillyTavernGenerationClient({
     if (providerClient?.generate) {
       return providerClient.generate(roleId, request, options);
     }
+    if (isProtectedGenerationRole(roleId)) throw isolationError();
     const context = contextFactory();
     if (!context) throw providerUnavailable('SillyTavern context is not available for generation.');
     const raw = await withGenerationOwnership(OWNED_HOST_GENERATION_DEPTH_KEY, () => callSillyTavernGeneration(
@@ -195,7 +197,7 @@ export function createSillyTavernGenerationClient({
       };
       let response = await performAttempt(request);
       let retriedForVisibleOutput = false;
-      if (options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {
+      if (!isProtectedGenerationRole(roleId) && options.allowVisibleOutputRetry !== false && isReasoningOnly(normalizeText(response))) {
         response = await performAttempt(retryRequest(request));
         retriedForVisibleOutput = true;
       }
