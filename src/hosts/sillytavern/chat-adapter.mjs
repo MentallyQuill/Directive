@@ -1,4 +1,5 @@
 import { createNativeBranchRefusal, nativeBranchRefusalMatches } from '../../runtime/native-branch-refusal.mjs';
+import { readPersistedTranscriptSnapshot } from './persisted-transcript-snapshot.mjs';
 import {
   hashStableJson,
   normalizeV1HostMessageVisibility,
@@ -2939,6 +2940,7 @@ export function createSillyTavernChatAdapter({
     prepareGenerationActivity,
     getGenerationActivity,
     captureCurrentTranscriptSnapshot,
+    readPersistedTranscriptSnapshot: (binding, options) => readPersistedTranscriptSnapshot(contextFactory, binding, options),
     createOrBindCampaignChat,
     cloneCampaignChat,
     prepareCampaignChatClone,

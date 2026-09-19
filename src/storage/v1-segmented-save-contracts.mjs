@@ -13,7 +13,7 @@ const SAVE_METADATA_FIELDS = new Set([
 ]);
 const MANIFEST_FIELDS = new Set([
   'kind', 'version', 'saveId', 'saveMetadata', 'base', 'segments', 'currentRevision',
-  'currentStateHash', 'updatedAt', 'branchHistory',
+  'currentStateHash', 'updatedAt', 'branchHistory', 'historyInheritance',
 ]);
 const BASE_FIELDS = new Set(['kind', 'version', 'saveId', 'revision', 'stateHash', 'state']);
 const SEGMENT_FIELDS = new Set(['kind', 'version', 'saveId', 'sequence', 'generation', 'slot', 'deltas']);
@@ -169,6 +169,31 @@ function assertSegmentRef(reference, saveId, expectedSequence, isCurrent) {
   }
 }
 
+/** Provenance is bound to the immutable base, not the evolving head. */
+export function assertV1HistoryInheritance(edge, manifest) {
+  const require = (ok) => { if (!ok) throw contractError('DIRECTIVE_V1_HISTORY_INHERITANCE_REJECTED', 'Invalid captured history inheritance.'); };
+  const exact = (value, fields) => object(value) && Object.keys(value).length === fields.length && fields.every(key => Object.hasOwn(value, key));
+  const id = value => typeof value === 'string' && value.length > 0 && value.length <= 180 && SAFE_ID.test(value);
+  const sha = value => typeof value === 'string' && HASH.test(value);
+  const integer = (value, max = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= 0 && value <= max;
+  require(exact(edge, ['kind','version','archive','source','cut','target','derivationVersion'])
+    && edge.kind === 'directive.capturedHistoryInheritance.v1' && edge.version === 1 && edge.derivationVersion === 1);
+  require(exact(edge.archive, ['path','contentHash']) && sha(edge.archive.contentHash)
+    && edge.archive.path === `v1/history-archives/archive-${edge.archive.contentHash}.json`);
+  const source = edge.source, cut = edge.cut, target = edge.target;
+  require(exact(source, ['saveId','manifestHash','recordIndex','operationId','revision','stateHash','vectorHash','rowCount'])
+    && id(source.saveId) && sha(source.manifestHash) && integer(source.recordIndex, 16383)
+    && typeof source.operationId === 'string' && source.operationId.length > 0 && source.operationId.length <= 180 && source.operationId.trim() === source.operationId
+    && integer(source.revision) && sha(source.stateHash) && sha(source.vectorHash) && integer(source.rowCount, 20000));
+  require(exact(cut, ['rowCount','vectorHash']) && integer(cut.rowCount, 20000) && sha(cut.vectorHash) && cut.rowCount >= source.rowCount);
+  require(exact(target, ['saveId','slotType','baselineRevision','baselineStateHash','bindingHash'])
+    && id(target.saveId) && target.saveId !== source.saveId && ['active','checkpoint'].includes(target.slotType)
+    && integer(target.baselineRevision) && sha(target.baselineStateHash) && sha(target.bindingHash));
+  if (manifest) require(target.saveId === manifest.saveId && target.slotType === manifest.saveMetadata.slotType
+    && target.baselineRevision === manifest.base.revision && target.baselineStateHash === manifest.base.stateHash);
+  return edge;
+}
+
 export function assertV1CampaignSaveManifest(manifest, { saveId = null } = {}) {
   if (!exactFields(manifest, MANIFEST_FIELDS)
     || manifest.kind !== V1_CAMPAIGN_SAVE_MANIFEST_KIND
@@ -195,6 +220,7 @@ export function assertV1CampaignSaveManifest(manifest, { saveId = null } = {}) {
   if (currentRevision !== expectedRevision) throw contractError('DIRECTIVE_V1_SAVE_MANIFEST_REJECTED', 'Campaign-save manifest revision is discontinuous.');
   hash(manifest.currentStateHash, 'manifest currentStateHash');
   if (Object.hasOwn(manifest, 'branchHistory')) assertBranchHistoryHead(manifest.branchHistory, manifest);
+  if (Object.hasOwn(manifest, 'historyInheritance')) assertV1HistoryInheritance(manifest.historyInheritance, manifest);
   return manifest;
 }
 

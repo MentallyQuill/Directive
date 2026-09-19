@@ -6,6 +6,7 @@ import {
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const MAX_OPERATIONS = 16;
+const observePromise = Promise.prototype.then;
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -261,11 +262,15 @@ export function createStateDeltaGateway({
   setState,
   persist = null,
   beforeCommit = null,
+  captureApplication = null,
 } = {}) {
   if (typeof getState !== 'function') throw new TypeError('getState must be a function');
   if (typeof setState !== 'function') throw new TypeError('setState must be a function');
   if (beforeCommit !== null && typeof beforeCommit !== 'function') {
     throw new TypeError('beforeCommit must be a function');
+  }
+  if (captureApplication !== null && typeof captureApplication !== 'function') {
+    throw new TypeError('captureApplication must be a function');
   }
 
   function currentState() {
@@ -285,7 +290,19 @@ export function createStateDeltaGateway({
         );
       }
     }
-    const applicationContext = createApplicationContext(before, after, descriptor, options, id, domains);
+    let applicationContext = createApplicationContext(before, after, descriptor, options, id, domains);
+    if (captureApplication) {
+      const capture = captureApplication(applicationContext);
+      if (capture instanceof Promise) {
+        observePromise.call(capture, undefined, () => {});
+        throw gatewayError('DIRECTIVE_V1_STATE_CAPTURE_ASYNC',
+          'State application capture must complete synchronously.');
+      }
+      // Detach before setState or persistence can change the observed source.
+      // This also runs for non-persisted changes so enrolled writers can refuse
+      // an application that would otherwise bypass captured publication.
+      applicationContext = Object.freeze({ ...applicationContext, capture: frozenApplicationData(capture) });
+    }
     setState(after);
     if (typeof persist !== 'function' || descriptor?.persist === false) return;
     try {

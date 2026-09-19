@@ -1,3 +1,4 @@
+import { detachInheritanceJson, inheritanceAssert, verifyV1HistoryInheritance } from './v1-captured-history-inheritance.mjs';
 import { V1_BRANCH_HISTORY_LIMITS, assertAuthorityCapture, captureAssert, captureBytes, captureError, captureLimit } from './v1-branch-history-contracts.mjs';
 import { prepareBranchHistory, readVerifiedBranchHistory } from './v1-branch-history-storage.mjs';
 import { assertV1CampaignState } from '../runtime/v1-campaign-state.mjs';
@@ -1093,6 +1094,7 @@ async function assertActivePublicationIntent(intent, saveId) {
   captureAssert(!before.branchHistory && !after.branchHistory && before.saveMetadata.slotType === 'active'
     && canonicalJson(immutableSaveMetadata(before.saveMetadata)) === canonicalJson(immutableSaveMetadata(after.saveMetadata))
     && canonicalJson(before.base) === canonicalJson(after.base)
+    && canonicalJson(before.historyInheritance ?? null) === canonicalJson(after.historyInheritance ?? null)
     && canonicalJson(before) !== canonicalJson(after)
     && ((before.currentStateHash === after.currentStateHash && before.currentRevision === after.currentRevision)
       || (before.currentStateHash !== after.currentStateHash && after.currentRevision === before.currentRevision + 1)),
@@ -1129,6 +1131,7 @@ async function assertCapturedPublicationIntent(intent, saveId) {
   captureLimit(before.segments.length <= V1_BRANCH_HISTORY_LIMITS.segments && after.segments.length <= V1_BRANCH_HISTORY_LIMITS.segments
     && captureBytes(intent) <= 16 * 1024 * 1024, 'Captured publication intent exceeds verification bounds.');
   captureAssert(after.branchHistory && canonicalJson(before.base) === canonicalJson(after.base)
+    && canonicalJson(before.historyInheritance ?? null) === canonicalJson(after.historyInheritance ?? null)
     && canonicalJson(immutableSaveMetadata(before.saveMetadata)) === canonicalJson(immutableSaveMetadata(after.saveMetadata))
     && after.branchHistory.recordCount === (before.branchHistory?.recordCount || 0) + 1,
   'Captured publication intent ownership or history differs.');
@@ -1410,6 +1413,104 @@ async function writePreparedSegments(adapter, writes, saveId) {
     'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_VERIFICATION_FAILED', 'DIRECTIVE_V1_SAVE_SEGMENT_WRITE_FAILED');
 }
 
+/** Creation only: the caller owns the campaign lease and its durable timeline journal.
+ * Authority commitment and index discoverability are deliberately separate outcomes.
+ * Every partial object is retained for an exact retry; this function never activates.
+ */
+export async function storeV1CampaignSaveWithInheritance(adapter, save, options = {}) {
+  requireAdapter(adapter);
+  const record = detachInheritanceJson(save);
+  const detachedOptions = detachInheritanceJson(options, 0, true);
+  const inheritance = detachedOptions.inheritance;
+  const expectedActiveSaveId = detachedOptions.expectedActiveSaveId;
+  const runtimeAssets = detachedOptions.runtimeAssets;
+  assertV1CampaignSave(record);
+  inheritanceAssert(canonicalJson(record) === canonicalJson({ ...campaignSaveMetadata(record), state: record.state }), 'Inherited candidate contains unpersisted fields.');
+  inheritanceAssert(expectedActiveSaveId === null || (typeof expectedActiveSaveId === 'string'
+    && safeId(expectedActiveSaveId, 'expectedActiveSaveId') === expectedActiveSaveId), 'An exact expected active pointer is required.');
+  inheritanceAssert(record.id !== expectedActiveSaveId, 'Inheritance creates only inactive targets.');
+  const manifestPath = V1_STORAGE_PATHS.save(record.id), basePath = V1_STORAGE_PATHS.saveBase(record.id);
+  const MISSING = Symbol('missing inherited target');
+  async function optional(path) {
+    try { return await adapter.readJson(path); }
+    catch (error) {
+      if (error?.code === 'ENOENT' || error?.code === 'DIRECTIVE_FAKE_HOST_FILE_MISSING'
+        || error?.name === 'NotFoundError' || error?.status === 404) return MISSING;
+      throw error;
+    }
+  }
+  async function pointer() {
+    await assertNoActivePublication(adapter, record.id);
+    if (expectedActiveSaveId !== null) await assertNoActivePublication(adapter, expectedActiveSaveId);
+    const index = assertV1StorageIndex(await adapter.readJson(V1_STORAGE_PATHS.index));
+    inheritanceAssert(index.activeSaveId === expectedActiveSaveId, 'Active pointer changed during inherited creation.');
+    if (Object.hasOwn(index.saves, record.id)) {
+      const row = index.saves[record.id];
+      inheritanceAssert(row && ['id','kind','slotType','campaignId','packageId','packageVersion','parentSaveId','createdAt']
+        .every(key => row[key] === record[key]), 'Existing index membership conflicts with inherited target.');
+    }
+    return index;
+  }
+  await pointer();
+  await verifyV1HistoryInheritance(adapter, record, inheritance, runtimeAssets, detachedOptions.sourceSnapshot);
+  const stateHash = await sha256Json(record.state);
+  const base = createV1CampaignSaveBase({ saveId: record.id, state: record.state, stateHash });
+  const attemptedManifest = { ...createV1CampaignSaveManifest({ save: record, stateHash }), historyInheritance: inheritance };
+  assertV1CampaignSaveManifest(attemptedManifest, { saveId: record.id });
+  const same = (a, b) => a !== MISSING && b !== MISSING && canonicalJson(a) === canonicalJson(b);
+  async function objects() {
+    const currentBase = await optional(basePath), currentManifest = await optional(manifestPath);
+    inheritanceAssert(currentBase === MISSING || same(currentBase, base), 'Existing target base conflicts with inherited creation.');
+    inheritanceAssert(currentManifest === MISSING || same(currentManifest, attemptedManifest), 'Existing target manifest conflicts with inherited creation.');
+    inheritanceAssert(currentManifest === MISSING || currentBase !== MISSING, 'Existing target manifest has no verified base.');
+    return { currentBase, currentManifest };
+  }
+  const initialObjects = await objects();
+  const initialIndex = await pointer();
+  inheritanceAssert(initialObjects.currentManifest !== MISSING || !Object.hasOwn(initialIndex.saves, record.id), 'Indexed target has no verified manifest.');
+  let phase = 'base', error = null;
+  try {
+    let existing = await objects();
+    if (existing.currentBase === MISSING) {
+      await pointer();
+      await adapter.writeJson(basePath, base);
+    }
+    inheritanceAssert(same(await adapter.readJson(basePath), base), 'Inherited base readback differs.');
+    phase = 'manifest';
+    existing = await objects();
+    await pointer();
+    if (existing.currentManifest === MISSING) await adapter.writeJson(manifestPath, attemptedManifest);
+    inheritanceAssert(same(await adapter.readJson(manifestPath), attemptedManifest), 'Inherited manifest readback differs.');
+    phase = 'index';
+    const index = await pointer();
+    inheritanceAssert(same(await adapter.readJson(basePath), base)
+      && same(await adapter.readJson(manifestPath), attemptedManifest), 'Inherited authority changed before index publication.');
+    const summary = saveSummary(record);
+    if (!Object.hasOwn(index.saves, record.id) || !same(index.saves[record.id], summary)) {
+      index.saves[record.id] = summary;
+      // Refresh pointer at the last asynchronous boundary before index dispatch.
+      const fresh = await pointer();
+      inheritanceAssert(same({ ...fresh, saves: { ...fresh.saves, [record.id]: summary } }, index), 'Index changed during inherited creation.');
+      await writeIndex(adapter, index, record.updatedAt);
+    }
+  } catch (caught) { error = caught; }
+  const evidence = { attemptedManifest: clone(attemptedManifest), inheritance: clone(inheritance), phase, ...(error ? { error } : {}) };
+  try {
+    const currentBase = await optional(basePath), currentManifest = await optional(manifestPath);
+    if (currentManifest === MISSING) return { ...evidence, publication: 'not-committed', indexPending: true };
+    if (!same(currentManifest, attemptedManifest) || !same(currentBase, base)) return { ...evidence, publication: 'uncertain', indexPending: true };
+    let indexPending = true;
+    try {
+      const index = assertV1StorageIndex(await adapter.readJson(V1_STORAGE_PATHS.index));
+      indexPending = index.activeSaveId !== expectedActiveSaveId || !Object.hasOwn(index.saves, record.id) || !same(index.saves[record.id], saveSummary(record));
+    } catch (caught) { if (!error) evidence.error = caught; }
+    inheritanceAssert(same(await adapter.readJson(manifestPath), attemptedManifest), 'Inherited head changed during outcome verification.');
+    return { ...evidence, publication: 'committed', indexPending, save: clone(record) };
+  } catch (caught) {
+    return { ...evidence, publication: 'uncertain', indexPending: true, error: error || caught };
+  }
+}
+
 export async function storeV1CampaignSave(adapter, save, {
   makeActive = save?.slotType === 'active',
   previousSave = null,
@@ -1601,6 +1702,135 @@ export async function loadV1CampaignStateAtRevision(adapter, saveId, { expectedM
       base: clone(manifest.base),
       segments: clone(manifest.segments),
     },
+  };
+}
+
+// Detach request data without invoking accessors, toJSON, or caller prototypes.
+// The request contains only a manifest and a bounded transcript hash vector.
+function detachTranscriptCutRequest(value, depth = 0, budget = { slots: 0, chars: 0 }) {
+  captureLimit(depth <= 64 && ++budget.slots <= V1_BRANCH_HISTORY_LIMITS.segments * 32 + V1_BRANCH_HISTORY_LIMITS.rows,
+    'Transcript cut request exceeds traversal bounds.');
+  if (value === null || typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    budget.chars += value.length;
+    captureLimit(budget.chars <= V1_BRANCH_HISTORY_LIMITS.historyBytes, 'Transcript cut request exceeds byte bounds.');
+    return value;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const array = Array.isArray(value);
+  captureAssert(value && typeof value === 'object'
+    && (array ? Object.getPrototypeOf(value) === Array.prototype
+      : [Object.prototype, null].includes(Object.getPrototypeOf(value))),
+  'Transcript cut request must contain plain JSON data.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+  const copy = array ? [] : {}, keys = Reflect.ownKeys(value);
+  captureAssert(!array || keys.length === value.length + 1, 'Transcript cut arrays must be contiguous.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+  let index = 0;
+  for (const key of keys) {
+    if (array && key === 'length') continue;
+    const property = Object.getOwnPropertyDescriptor(value, key);
+    captureAssert(typeof key === 'string' && property.enumerable && Object.hasOwn(property, 'value')
+      && (!array || key === String(index++)), 'Transcript cut request contains an unsupported property.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+    Object.defineProperty(copy, key, { value: detachTranscriptCutRequest(property.value, depth + 1, budget), enumerable: true });
+  }
+  return copy;
+}
+
+/**
+ * Restore the latest captured authority whose entire observed vector existed at
+ * this cut. Same-vector corrections select the latest record. This read-only
+ * dependency proves stored state/vector identity, not host lineage or admission.
+ */
+export async function loadV1CampaignStateAtTranscriptCut(adapter, saveId, options = {}) {
+  const request = detachTranscriptCutRequest(options);
+  captureLimit(captureBytes(request) <= V1_BRANCH_HISTORY_LIMITS.historyBytes, 'Transcript cut request exceeds byte bounds.');
+  captureAssert(typeof saveId === 'string' && safeId(saveId, 'saveId') === saveId
+    && adapter && typeof adapter.readJson === 'function'
+    && Object.keys(request).length === 3 && ['expectedManifest', 'transcript', 'retainedRowCount'].every(key => Object.hasOwn(request, key)),
+  'Transcript cut requires exact save, manifest, vector and count.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+  const id = saveId, { transcript, retainedRowCount } = request;
+  captureAssert(object(transcript) && Object.keys(transcript).length === 4
+    && ['projectionVersion', 'rowCount', 'rowHashes', 'vectorHash'].every(key => Object.hasOwn(transcript, key))
+    && transcript.projectionVersion === 1 && Number.isSafeInteger(transcript.rowCount) && transcript.rowCount >= 0
+    && Array.isArray(transcript.rowHashes) && transcript.rowHashes.length === transcript.rowCount
+    && transcript.rowHashes.every(hash => typeof hash === 'string' && SHA256.test(hash))
+    && typeof transcript.vectorHash === 'string' && SHA256.test(transcript.vectorHash)
+    && Number.isSafeInteger(retainedRowCount) && retainedRowCount >= 0 && retainedRowCount <= transcript.rowCount,
+  'Transcript cut projection/count is invalid.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+  const limit = V1_BRANCH_HISTORY_LIMITS;
+  captureLimit(transcript.rowCount <= limit.rows, 'Transcript cut row limit exceeded.');
+  const manifest = assertV1CampaignSaveManifest(request.expectedManifest, { saveId: id });
+  captureAssert(manifest.branchHistory, 'This save has no captured transcript history.', 'DIRECTIVE_V1_HISTORY_CAPTURE_UNAVAILABLE');
+  captureLimit(manifest.segments.length <= limit.segments
+    && manifest.segments.reduce((sum, ref) => sum + ref.deltaCount, 0) <= limit.deltas
+    && manifest.segments.reduce((sum, ref) => sum + ref.byteLength, 0) <= limit.segmentBytes,
+  'Captured state chain exceeds verification bounds.');
+  captureAssert(Number.isSafeInteger(manifest.base.revision) && Number.isSafeInteger(manifest.currentRevision), 'Unsafe captured state revision.');
+  const expectedJson = canonicalJson(manifest);
+  async function assertHead() {
+    captureAssert(canonicalJson(await readOrNull(adapter, V1_STORAGE_PATHS.save(id))) === expectedJson,
+      'Captured transcript-cut head changed.', 'DIRECTIVE_V1_HISTORY_HEAD_CHANGED');
+  }
+  await assertHead();
+  captureAssert(await sha256Json(transcript.rowHashes) === transcript.vectorHash,
+    'Supplied transcript vector hash differs.', 'DIRECTIVE_V1_HISTORY_REQUEST_INVALID');
+  const { base, deltas } = await readVerifiedSaveChain(adapter, manifest, id);
+  captureLimit(captureBytes(base.state) <= limit.baseBytes, 'Captured state base exceeds byte limit.');
+  const boundaries = new Map([[base.revision, base.stateHash]]);
+  for (const delta of deltas) {
+    captureAssert(Number.isSafeInteger(delta.beforeRevision) && Number.isSafeInteger(delta.afterRevision)
+      && delta.afterRevision > delta.beforeRevision, 'Unsafe captured delta revision.');
+    boundaries.set(delta.afterRevision, delta.afterHash);
+  }
+  await assertHead();
+  const history = await readVerifiedBranchHistory(adapter, manifest, boundaries);
+  await assertHead();
+  captureAssert(transcript.rowCount >= history.rows.length
+    && history.rows.every((hash, index) => transcript.rowHashes[index] === hash),
+  'The complete parent transcript does not extend captured history.', 'DIRECTIVE_V1_CAPTURE_TRANSCRIPT_NONPREFIX');
+  let selectedIndex = -1;
+  history.records.forEach((record, index) => { if (record.capture.transcript.rowCount <= retainedRowCount) selectedIndex = index; });
+  let state = base.state, selectedState = null, recordIndex = 0;
+  async function verifyBoundary() {
+    const record = history.records[recordIndex];
+    if (!record || record.capture.after.revision !== state.stateCustody.revision) return;
+    const { capture } = record;
+    const originalSave = assertV1CampaignSave({ ...record.saveMetadata, state });
+    captureAssert(canonicalJson(immutableSaveMetadata(record.saveMetadata)) === canonicalJson(immutableSaveMetadata(manifest.saveMetadata))
+      && capture.origin.saveId === state.campaignChatBinding?.saveId && capture.origin.campaignId === state.campaign.id
+      && capture.origin.chatId === state.campaignChatBinding?.chatId, 'Historical capture ownership differs from its saved state.');
+    assertCaptureEntity(capture.origin, state.campaignChatBinding);
+    const { head, ...projected } = capture.transcript;
+    const payload = { ...capture, transcript: { ...projected, rowHashes: history.rows.slice(0, projected.rowCount) } };
+    captureAssert(await sha256Json({ expectedManifestHash: record.expectedManifestHash, save: originalSave, capture: payload }) === record.requestHash,
+      'Historical capture does not match its exact request identity.');
+    if (recordIndex === selectedIndex) selectedState = clone(state);
+    recordIndex++;
+  }
+  await verifyBoundary();
+  for (const delta of deltas) {
+    state = await applyV1StateDelta({ saveId: id, state, delta });
+    await verifyBoundary();
+  }
+  captureAssert(recordIndex === history.records.length && state.stateCustody.revision === manifest.currentRevision
+    && await sha256Json(state) === manifest.currentStateHash, 'Captured transcript-cut verification did not reach the complete head.');
+  assertV1CampaignSave({ ...manifest.saveMetadata, state });
+  const manifestHash = await sha256Json(manifest);
+  const cutHash = await sha256Json(transcript.rowHashes.slice(0, retainedRowCount));
+  await assertHead();
+  captureAssert(selectedState, 'The retained transcript predates the captured coverage floor.', 'DIRECTIVE_V1_HISTORY_CUT_UNAVAILABLE');
+  const selected = history.records[selectedIndex].capture, floor = history.records[0].capture;
+  return {
+    state: selectedState, stateHash: selected.after.stateHash, revision: selected.after.revision,
+    packageFingerprint: selected.packageFingerprint,
+    origin: { saveId: id, campaignId: selectedState.campaign.id,
+      packageId: selectedState.activeCampaignPackage.packageId, packageVersion: selectedState.activeCampaignPackage.packageVersion,
+      slotType: manifest.saveMetadata.slotType, parentSaveId: manifest.saveMetadata.parentSaveId, branchId: selectedState.mission.v1.branchId },
+    coverage: { baseRevision: base.revision, headRevision: manifest.currentRevision, availableRevisions: [...boundaries.keys()] },
+    provenance: { manifestHash, headStateHash: manifest.currentStateHash, base: clone(manifest.base), segments: clone(manifest.segments) },
+    capture: { floor: { ...floor.after, rowCount: floor.transcript.rowCount, vectorHash: floor.transcript.vectorHash },
+      selected: { index: selectedIndex, operationId: selected.operationId, writerKind: selected.writerKind,
+        rowCount: selected.transcript.rowCount, vectorHash: selected.transcript.vectorHash },
+      parent: { rowCount: transcript.rowCount, vectorHash: transcript.vectorHash }, cut: { rowCount: retainedRowCount, vectorHash: cutHash } },
   };
 }
 
