@@ -6,7 +6,7 @@ const visible = messages => messages.some(message => !message.isSystem && messag
 
 // Chat metadata travels with native branches and is removed with the chat. It is
 // presentation custody, not a second source of campaign state.
-export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance, getAnalysisLimits = () => ({}), postOpening = null }) {
+export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDirector, generateNarration, getProseGuidance, getAnalysisLimits = () => ({}), postOpening = null, publishProtectedOpening = null }) {
   if (postOpening !== null && typeof postOpening !== 'function') throw new TypeError('postOpening must be a function');
   const post = postOpening || (options => chat.postAssistantMessage(options));
   const flights = new Map();
@@ -31,12 +31,21 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
     const run = async () => {
       try {
         assertCurrent();
+        if (captured.characterKnowledge?.mode === 'protected' && typeof publishProtectedOpening === 'function') {
+          const recovered = await publishProtectedOpening({ recoveryOnly: true, expectedBinding: binding, assertCurrent });
+          if (recovered) {
+            assertCurrent();
+            if (recovered.ok !== true || recovered.persisted !== true) throw new Error('Protected opening recovery is pending.');
+            status = { ...binding, status: 'ready', message: null }; return recovered;
+          }
+        }
         const messages = await chat.getRecentMessages({ limit: 4 });
         assertCurrent();
         if (visible(messages)) { status = { ...binding, status: 'ready', message: null }; return { ok: true, posted: false, reason: 'chat-not-empty' }; }
         status = { ...binding, status: 'generating', message: 'Preparing the opening scene.' };
         const directorRequest = createOpeningDirectorRequest({ ...captured, narrationPolicy: policy });
-        const inputs = { premise: captured.premise, player: directorRequest.context.playerIdentity, background: directorRequest.context.backgroundReferences };
+        const inputs = { premise: captured.premise, player: directorRequest.context.playerIdentity, background: directorRequest.context.backgroundReferences, ...(directorRequest.context.characterKnowledge ? { characterKnowledge: directorRequest.context.characterKnowledge } : {}) };
+        if (captured.characterKnowledge?.mode === 'protected' && typeof publishProtectedOpening !== 'function') throw new Error('Protected opening publication is unavailable.');
         const sourceKey = JSON.stringify(inputs);
         let record = chat.getOpeningRecord();
         if (record?.kind !== 'directive.openingRecord.v1' || record.campaignId !== binding.campaignId || record.sourceKey !== sourceKey) record = null;
@@ -49,6 +58,15 @@ export function createOpeningLifecycle({ chat, getBinding, isCurrent, generateDi
           record = { kind: 'directive.openingRecord.v1', campaignId: binding.campaignId, sourceKey, inputs, direction: parsed.value };
           await chat.setOpeningRecord(record);
           assertCurrent();
+        }
+        if (directorRequest.context.characterKnowledge) {
+          const parsed = parseOpeningDirection(record.direction, { request: directorRequest });
+          const result = await publishProtectedOpening({ input: captured, request: directorRequest, admission: parsed.characterScene,
+            expectedBinding: binding, requireEmpty: true, assertCurrent });
+          assertCurrent();
+          if (result?.ok !== true || result?.persisted !== true) throw new Error('Protected opening publication is pending.');
+          status = { ...binding, status: 'ready', message: null };
+          return result;
         }
         const proseGuidance = await getProseGuidance();
         assertCurrent();

@@ -1,3 +1,4 @@
+import { createCharacterRuntimeSnapshot } from './character-runtime-snapshot.mjs';
 import { prepareProtectedCharacterTurn } from './protected-character-turn.mjs';
 import { createCharacterPublicationGuard } from './character-publication-guard.mjs';
 import { stableSha256Hex } from './v1-stable-hash.mjs';
@@ -829,6 +830,7 @@ export function createDirectiveRuntimeApp({
   const finalizationFlights = new Map();
   const failedFinalizations = new Map();
   const openingPublications = new Map();
+  const protectedOpenings = new Map();
   const pendingProtectedTurns = new Map();
   const pendingProtectedFinalizations = new Map();
   const characterKnowledgeSettings = () => getCharacterKnowledgeSettings?.() ?? state?.settings?.characterKnowledge ?? null;
@@ -927,13 +929,14 @@ export function createDirectiveRuntimeApp({
     chat: host.chat,
     getBinding: () => state?.campaignChatBinding || {},
     isCurrent: binding => currentChatIsBound() && ['campaignId', 'saveId', 'chatId'].every(key => binding[key] === state?.campaignChatBinding?.[key]),
-    generateDirector: request => host.generation.generate('openingSceneDirector', request, { allowVisibleOutputRetry: false }),
+    generateDirector: request => host.generation.generate('openingSceneDirector', request, { allowVisibleOutputRetry: false, signal: generationCancellation.signal }),
     generateNarration: request => {
       if (!host.generation.generateNarration) throw new Error('The host does not support opening narration.');
       return host.generation.generateNarration(request);
     },
     getProseGuidance: () => host.presets?.getProseGuidance?.() || '',
-    postOpening: options => postFinalizedOpening(options)
+    postOpening: options => postFinalizedOpening(options),
+    publishProtectedOpening: input => publishProtectedOpening(input)
   });
   let initialized = false;
   let initializing = false;
@@ -1671,9 +1674,83 @@ export function createDirectiveRuntimeApp({
     finally { if (finalizationFlights.get(key) === flight) finalizationFlights.delete(key); }
   }
 
+  async function publishProtectedOpening({ recoveryOnly = false, request, admission, input, expectedBinding, assertCurrent }) {
+    const retained = protectedOpenings.get(transcriptKey());
+    if (!retained || (recoveryOnly && !retained.turn)) return null;
+    assertCurrent();
+    if (!retained.turn) {
+      if (!retained.guard.isCurrent()) throw Object.assign(new Error('Opening source changed.'), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
+      const premise = input.premise;
+      const scenePolicy = { situation: `Establish the campaign opening and stop at this boundary: ${premise.firstPlayableScene}. Leave the next action to the player.`,
+        constraints: [premise.continuitySummary, ...premise.requiredContext].map((text, index) => ({ id: `opening.required.${index}`, text })) };
+      retained.turn = await prepareProtectedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
+        messages: retained.messages, sourcePair: request.context.characterKnowledge.sourcePair, admission, scenePolicy,
+        identity: retained.identity, guard: retained.guard, publicationId: retained.publicationId, expectedBinding,
+        requireEmpty: true, signal: retained.signal, settings: narrationSettings() });
+    }
+    const result = await enqueueStateMutation(() => retained.turn.hasPublished
+      ? retained.turn.recoverPublished(options => host.chat.publishProtectedScene(options), { signal: retained.signal })
+      : retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner: retained.ownership.owner });
+    assertCurrent();
+    return result;
+  }
+
+  async function runProtectedOpening(signal) {
+    const key = transcriptKey();
+    let retained = protectedOpenings.get(key);
+    const prior = transcriptLane.current(key);
+    if (prior?.running) throw transcriptNotReady('opening-running');
+    if (retained && prior) transcriptLane.releaseUnchanged(prior);
+    assertTranscriptWritable();
+    const owner = beginTranscriptPreparation(); owner.running = true;
+    const scope = turnProgress.createScope();
+    const combinedSignal = AbortSignal.any([signal, scope.signal].filter(Boolean));
+    let success = false;
+    try {
+      if (typeof host.chat.publishProtectedScene !== 'function') throw new Error('Protected opening publication is unavailable.');
+      if (retained) {
+        retained.ownership.owner = owner; retained.ownership.scope = scope; retained.signal = combinedSignal;
+      } else {
+        await host.prompt.clear?.({ reason: 'protected-character-opening' });
+        assertTurnActive(scope);
+        const captured = host.chat.captureCurrentTranscriptSnapshot?.();
+        const messages = host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false });
+        if (captured?.status !== 'captured' || !Array.isArray(messages)) throw new Error('Opening transcript capture is unavailable.');
+        const rows = captured.snapshot.rows, ownership = { owner, scope };
+        const sourceDigest = stableSha256Hex(stableJsonStringify(rows));
+        const readIdentity = () => {
+          assertTurnActive(ownership.scope); transcriptLane.assertOwner(ownership.owner, transcriptKey());
+          return { bindingKey: transcriptKey(), branchId: state.campaignChatBinding.saveId, sourceDigest,
+            stateDigest: stableSha256Hex(stableJsonStringify(state)),
+            settingsDigest: stableSha256Hex(stableJsonStringify({ providers: providerConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })), epoch: ownership.scope.epoch };
+        };
+        const identity = readIdentity();
+        const publicationId = `character-opening.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
+        const guard = createCharacterPublicationGuard({ publicationId, identity, baselineRows: rows, readIdentity,
+          readRows: () => { const current = host.chat.captureCurrentTranscriptSnapshot?.(); return current?.status === 'captured' ? current.snapshot.rows : null; } });
+        const snapshot = createCharacterRuntimeSnapshot({ campaignState: state, crewDataset: runtimeAssets.crewDataset, messages });
+        retained = { ownership, signal: combinedSignal, identity, publicationId, guard, messages, turn: null,
+          people: [...snapshot.characters].map(([id, person]) => ({ id, name: person.name })) };
+        protectedOpenings.set(key, retained);
+      }
+      const result = await openingLifecycle.generate({ premise: records.packageData.campaign.openingPremise, player: clone(state.player),
+        settings: narrationSettings(), characterKnowledge: { mode: 'protected', people: retained.people } });
+      success = result?.ok === true;
+      if (success) { retained.turn?.dispose(); protectedOpenings.delete(key); }
+      else if (!retained.turn?.hasPublished && result?.error?.code !== 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING') {
+        retained.turn?.dispose(); protectedOpenings.delete(key);
+      }
+      return result;
+    } finally {
+      transcriptLane.finish(owner, success);
+      if (!success && !retained?.turn?.hasPublished) releaseUnchangedTranscript(owner);
+    }
+  }
+
   async function postOpeningIfEmpty(signal = generationCancellation.signal) {
     await controller.verifySaveWritable?.();
     if (signal.aborted) return { ok: false, posted: false, reason: 'host-generation-stopped' };
+    if (characterKnowledgeSettings()?.mode === 'protected') return runProtectedOpening(signal);
     const openingKey = transcriptKey();
     const pendingOpening = openingPublications.get(openingKey);
     if (pendingOpening && !pendingOpening.owner.running) {
@@ -2071,6 +2148,8 @@ export function createDirectiveRuntimeApp({
     if (currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))) {
       pendingProtectedTurns.get(key)?.turn.dispose();
       pendingProtectedTurns.delete(key);
+      protectedOpenings.get(key)?.turn?.dispose();
+      protectedOpenings.delete(key);
       activeAnalysisController?.abort();
     }
     return enqueueSettlement(async () => {
@@ -3352,7 +3431,7 @@ export function createDirectiveRuntimeApp({
       // change at Stop, then require exact stability before a fresh busy gesture.
       if (stoppedOwner) stoppedOwner.stoppedTranscript = unchangedTranscriptObservation(stoppedOwner);
       const protectedWrite = pendingProtectedTurns.get(transcriptKey());
-      if (!protectedWrite?.turn.hasPublished) rememberStoppedOutput(stoppedOwner);
+      if (!protectedWrite?.turn.hasPublished && !protectedOpenings.get(transcriptKey())?.turn?.hasPublished) rememberStoppedOutput(stoppedOwner);
       if (protectedWrite && !protectedWrite.turn.hasPublished) {
         protectedWrite.turn.dispose(); pendingProtectedTurns.delete(transcriptKey());
       }

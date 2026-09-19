@@ -12,7 +12,7 @@ import { assertGenerationActive } from './generation-cancellation.mjs';
  * supplies the existing serialized host publication operation to publish(). */
 export async function prepareProtectedCharacterTurn({ generation, campaignState, crewDataset, messages,
   sourcePair, admission, sourceContributionIds = [], identity, guard, publicationId, expectedBinding,
-  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, limits = {}, onPhase } = {}) {
+  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, scenePolicy = null, limits = {}, onPhase } = {}) {
   assertGenerationActive(signal);
   continuation = parseCharacterContinuation(continuation, sourcePair);
   if (!guard?.isCurrent?.()) throw Object.assign(new Error('Protected turn is stale.'), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
@@ -20,8 +20,8 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
   const admitted = materializeCharacterSceneAdmission(admission, { sourcePair, knownPersonIds: new Set(snapshot.characters.keys()),
     explicitAudience: new Map(Object.entries(admission.hostAudience).map(([slot, ids]) => [slot, new Set(ids)])) });
   const scenePacket = { kind: 'directive.playerScenePacket.v1', player: { personId: admission.playerId, name: campaignState.player?.name || 'Player' },
-    situation: 'Respond within the supplied player-accessible scene. Leave the player free to act.', information: admitted.playerInformation,
-    constraints: [], visiblePersonIds: [...new Set([admission.playerId, ...admitted.participants.flatMap(person => [person.personId, ...person.audience.map(route => route.personId)])])] };
+    situation: scenePolicy?.situation || 'Respond within the supplied player-accessible scene. Leave the player free to act.', information: admitted.playerInformation,
+    constraints: scenePolicy?.constraints || [], visiblePersonIds: [...new Set([admission.playerId, ...admitted.participants.flatMap(person => [person.personId, ...person.audience.map(route => route.personId)])])] };
   const budget = createTurnAttemptBudget({ limit: limits.maxAttempts ?? 10, signal });
   let flight;
   try {
