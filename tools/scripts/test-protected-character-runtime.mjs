@@ -5,13 +5,17 @@ import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 const defaults = createFakeGenerationClient();
 let enabled = false, sequence = 0, protectedCalls = 0, published = 0;
 const sceneOnlySources = [];
-let mutateSceneSource = false, mutateRoute = false, routeFingerprint = 'route.original';
+let mutateSceneSource = false, mutateRetryPrefix = false, mutateRoute = false, routeFingerprint = 'route.original';
 const generation = createFakeGenerationClient({ responses: {
   acceptedPairMissionEvidence: async () => ({ text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true, time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 } }) }),
   continuityAnalyst: async ({ request }) => {
     const context = JSON.parse(request.messages[1].content);
     if (context.currentScene?.sceneOnly) {
       sceneOnlySources.push(context.pendingPair.previousAssistant.text);
+      if (mutateRetryPrefix) {
+        mutateRetryPrefix = false;
+        host.chat.setMessagesForChat(host.chat.getCurrentChatId(), host.chat.messages().map(row => row.text === 'Continue.' ? { ...row, text: 'Changed consecutive retry.' } : row));
+      }
       if (mutateSceneSource) {
         mutateSceneSource = false;
         const rows = host.chat.messages();
@@ -41,7 +45,8 @@ await app.saveCreatorDraft({ patch: { activeStep: 'review', input: {
 await app.acceptCreatorDraftAndStartCampaign();
 host.chat.pushPlayerMessage({ text: 'I enter the bridge.' });
 host.chat.pushAssistantMessage({ text: 'The bridge console is quiet.' });
-host.chat.pushPlayerMessage({ text: 'I wait by the console.' });
+const acceptingPlayer = host.chat.pushPlayerMessage({ text: 'I wait by the console.' });
+host.chat.pushPlayerMessage({ text: 'Continue.' });
 enabled = true;
 const orchestrator = app.getChatTurnOrchestrator();
 const first = await orchestrator.interceptGeneration({ type: 'normal' });
@@ -151,6 +156,13 @@ assert.equal(protectedCalls, callsAfterInterruptedSave);
 assert.equal(host.chat.messages().length, rowsAfterInterruptedSave);
 console.log('PASS Stop during the host save drains ownership and requires a fresh recovery gesture');
 
+const beforeSwipe = host.chat.messages();
+const receiptsBeforeReplacement = structuredClone((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.acceptedPairReceipts);
+const swiped = await orchestrator.interceptGeneration({ type: 'swipe' });
+assert.equal(swiped.responseStrategy, 'protectedScenePublished', JSON.stringify(swiped));
+assert.equal(host.chat.messages().length, beforeSwipe.length);
+assert.equal(host.chat.messages().at(-1).swipes.length, beforeSwipe.at(-1).swipes.length + 1);
+assert.deepEqual((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.acceptedPairReceipts, receiptsBeforeReplacement, 'replacement preserves the original accepting player and its receipt');
 const beforeContinue = host.chat.messages();
 const continuedSource = beforeContinue.at(-1);
 const continued = await orchestrator.interceptGeneration({ type: 'continue' });
@@ -202,6 +214,16 @@ assert.equal(afterRegenerate.swipes.length, beforeRegenerate.at(-1).swipes.lengt
 assert.deepEqual(afterRegenerate.swipe_info.slice(0, -1), beforeRegenerate.at(-1).swipe_info);
 assert.equal(afterRegenerate.text, 'The console remains quiet.', 'Regenerate replaces rather than extends the selected response');
 console.log('PASS native Regenerate retains prior swipes and their publication provenance');
+assert.deepEqual((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.acceptedPairReceipts, receiptsBeforeReplacement, 'Swipe, Continue and native Regenerate do not accept the retry player or replacement response');
+const callsBeforeRetryEdit = protectedCalls;
+const beforeRetryEdit = host.chat.messages();
+mutateRetryPrefix = true;
+const retryEdited = await orchestrator.interceptGeneration({ type: 'continue' });
+assert.equal(retryEdited.responseStrategy, 'blockAndRetry');
+assert.equal(protectedCalls, callsBeforeRetryEdit, 'editing the captured consecutive-player tail prevents narrator/reviewer work');
+assert.deepEqual(host.chat.messages().at(-1), beforeRetryEdit.at(-1), 'tail edits cannot publish or replace the assistant');
+host.chat.setMessagesForChat(host.chat.getCurrentChatId(), beforeRetryEdit);
+console.log('PASS captured consecutive-player retry tail changes invalidate replacement');
 
 const callsBeforeEdit = protectedCalls;
 const rowsBeforeEdit = host.chat.messages();
@@ -220,3 +242,12 @@ const changedRoute = await orchestrator.interceptGeneration({ type: 'regenerate'
 assert.notEqual(changedRoute.responseStrategy, 'protectedScenePublished', 'native source changes must invalidate the reviewed flight');
 assert.deepEqual(host.chat.messages(), beforeRouteRows);
 console.log('PASS changed native route fingerprint blocks stale protected publication');
+
+const priorLatestPlayer = host.chat.getLatestPlayerMessage;
+host.chat.pushPlayerMessage({ text: 'A different turn after the response.' });
+host.chat.getLatestPlayerMessage = () => acceptingPlayer;
+const callsBeforeLaterPlayer = protectedCalls;
+await assert.rejects(orchestrator.interceptGeneration({ type: 'swipe' }), error => error.code === 'DIRECTIVE_ACCEPTED_PAIR_SOURCE_STALE' && error.details?.reason === 'player-source-not-current');
+assert.equal(protectedCalls, callsBeforeLaterPlayer, 'a later player after the assistant cannot be enrolled into an older replacement');
+host.chat.getLatestPlayerMessage = priorLatestPlayer;
+console.log('PASS replacement rejects a later player after an assistant');

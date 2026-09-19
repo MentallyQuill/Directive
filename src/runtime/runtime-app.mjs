@@ -173,6 +173,18 @@ function isUserMessage(message = {}) {
   return message.isUser === true || message.is_user === true || message.role === 'user';
 }
 
+// Failed native sends may leave consecutive player rows before one response.
+// They retain the first accepting player's authority; a player after a response
+// starts a different turn and cannot be enrolled as its replacement tail.
+function hasPlayerAfterAssistant(rows) {
+  let assistantSeen = false;
+  return rows.some(row => {
+    if (isUserMessage(row)) return assistantSeen;
+    assistantSeen = true;
+    return false;
+  });
+}
+
 function activeSourceRow(message = {}) {
   const inferred = normalizeV1HostMessageVisibility(message.raw || message);
   const visibility = object(message.visibility)
@@ -248,7 +260,7 @@ function assertAcceptedPairSourcePrecondition({ before, options, host }) {
     const { player, index: playerIndex } = playerMatches[0];
     const trailingRows = activeRows.slice(playerIndex + 1);
     if (precondition.replacementTail) {
-      if (trailingRows.some(isUserMessage) || stableJsonStringify(trailingRows) !== stableJsonStringify(precondition.replacementTail)) return 'replacement-source-changed';
+      if (hasPlayerAfterAssistant(trailingRows) || stableJsonStringify(trailingRows) !== stableJsonStringify(precondition.replacementTail)) return 'replacement-source-changed';
     } else if (trailingRows.some((row) => !isUserMessage(row))) {
       return 'player-source-not-current';
     }
@@ -1846,7 +1858,7 @@ export function createDirectiveRuntimeApp({
       if (!Array.isArray(rows)) throw acceptedPairSourceStale('source-read-unavailable');
       const active = rows.filter(activeSourceRow);
       const index = active.findIndex(row => isUserMessage(row) && acceptedPairHostMessageId(row) === acceptedPairHostMessageId(snapshot?.source?.currentPlayer));
-      if (index < 0 || active.slice(index + 1).some(isUserMessage)) throw acceptedPairSourceStale('player-source-not-current');
+      if (index < 0 || hasPlayerAfterAssistant(active.slice(index + 1))) throw acceptedPairSourceStale('player-source-not-current');
       acceptedPairSourcePrecondition.replacementTail = clone(active.slice(index + 1));
     }
     const envelope = snapshot?.envelope || {};
