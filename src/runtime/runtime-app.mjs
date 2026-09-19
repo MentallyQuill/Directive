@@ -3057,7 +3057,12 @@ export function createDirectiveRuntimeApp({
     },
 
     handleHostMessageEdited: (payload = {}) => invalidateSource(payload, 'message-edited'),
-    handleHostMessageDeleted: (payload = {}) => invalidateSource(payload, 'message-deleted'),
+    // Native deletes first and emits the removed numeric index. Preserve that
+    // identity even though the host can no longer normalize the missing row.
+    handleHostMessageDeleted: (payload = {}) => invalidateSource(
+      Number.isSafeInteger(payload) && payload >= 0 ? {hostMessageId:String(payload)} : payload,
+      'message-deleted'
+    ),
     handleHostMessageSelectedSwipeChanged: (payload = {}) => invalidateSource(payload, 'selected-swipe-changed'),
     async handleHostMessageVisibilityChanged(payload = {}) {
       const explicit = typeof payload.visible === 'boolean'

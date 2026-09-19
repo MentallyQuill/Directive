@@ -4,6 +4,7 @@ import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { createV1CampaignSave, storeV1CampaignSave, loadV1CampaignSave } from '../../src/storage/v1-storage-repository.mjs';
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 import { withCampaignTimelineLease } from '../../src/runtime/timeline-transaction-service.mjs';
+import { normalizeSillyTavernMessagePayload } from '../../src/hosts/sillytavern/chat-adapter.mjs';
 
 const assets = loadAshesRuntimeAssets();
 const now = '2026-09-16T12:00:00.000Z';
@@ -294,6 +295,44 @@ console.log('PASS generation preparation, repeated start, Stop, failed finalizat
   const assistant = r.chat.pushAssistantMessage({ hostMessageId: 'assistant.native-send', text: 'The report is ready.' });
   await r.app.handleHostGenerationEnded({ message: assistant });
   assert.equal(r.app.getTranscriptFinalizationStatus(), null, 'native START precedes player append; output baseline belongs to completed preparation');
+}
+
+for (const numeric of [false, true]) {
+  const r = await rig();
+  r.chat.pushPlayerMessage({hostMessageId:'0',text:'Removed earlier instruction.'});
+  r.chat.pushPlayerMessage({hostMessageId:'1',text:'Retained instruction.'});
+  r.chat.normalizeMessagePayload = payload => normalizeSillyTavernMessagePayload({chat:r.chat.messages()}, payload);
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), r.chat.messages().slice(1));
+  const result = await r.app.handleHostMessageDeleted(numeric ? 0 : {hostMessageId:'0'});
+  assert.equal(result.handled, true, 'idle numeric non-tail deletion retains explicit-ID reconciliation');
+  assert.equal(result.replay.deferred, true);
+  assert.equal(r.app.getTranscriptFinalizationStatus(), null);
+}
+
+for (const variant of ['native-tail', 'wrong-index', 'changed-prefix']) {
+  const r = await rig();
+  r.chat.pushPlayerMessage({hostMessageId:'0',text:'Current instruction.'});
+  r.chat.pushAssistantMessage({hostMessageId:'1',text:'Provisional reply.'});
+  r.chat.normalizeMessagePayload = payload => normalizeSillyTavernMessagePayload({chat:r.chat.messages()}, payload);
+  r.setNativeActive(true);
+  r.app.handleHostGenerationStarted({type:'regenerate'});
+  const remaining = r.chat.messages().slice(0, -1);
+  if (variant === 'changed-prefix') remaining[0].text = 'Changed instruction.';
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), remaining);
+  // Native removes the assistant first, then emits its now-missing numeric index.
+  const deletion = r.app.handleHostMessageDeleted(variant === 'wrong-index' ? 2 : 1);
+  if (variant !== 'native-tail') {
+    await assert.rejects(deletion, {code:'DIRECTIVE_TRANSCRIPT_NOT_READY'});
+    assert.deepEqual(await r.state(), r.before);
+    continue;
+  }
+  assert.equal((await deletion).handled, true);
+  const prepared = await r.app.getChatTurnOrchestrator().interceptGeneration({type:'regenerate',recoveryIntent:'native'});
+  assert.equal(prepared.abortDefaultGeneration, false);
+  const assistant = r.chat.pushAssistantMessage({hostMessageId:'1',text:'Replacement reply.'});
+  r.setNativeActive(false);
+  await r.app.handleHostGenerationEnded({message:assistant});
+  assert.equal(r.app.getTranscriptFinalizationStatus(), null);
 }
 
 {
