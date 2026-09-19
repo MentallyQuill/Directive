@@ -35,7 +35,7 @@ function uniqueIds(values, path) {
 
 /** A wire contract, not an access grant. The compiler must establish source custody. */
 export function parseCharacterKnowledgePacket(value) {
-  object(value, ['kind', 'personId', 'identity', 'situation', 'information'],
+  object(value, ['kind', 'personId', 'identity', 'situation', 'information', 'authoredInformation'],
     ['kind', 'personId', 'identity', 'situation', 'information'], 'packet');
   choice(value.kind, ['directive.characterPacket.v1'], 'packet.kind');
   id(value.personId, 'packet.personId');
@@ -53,7 +53,16 @@ export function parseCharacterKnowledgePacket(value) {
     choice(item.acquisition, ['heard', 'observed', 'read'], 'packet.information.acquisition');
     choice(item.status, ['current', 'superseded'], 'packet.information.status');
   }
-  uniqueIds(value.information.map(item => item.id), 'packet.information.ids');
+  if (value.authoredInformation !== undefined) {
+    list(value.authoredInformation, 32, 'packet.authoredInformation');
+    for (const item of value.authoredInformation) {
+      object(item, ['id', 'type', 'text'], ['id', 'type', 'text'], 'packet.authoredInformation.item');
+      id(item.id, 'packet.authoredInformation.id');
+      choice(item.type, ['competence', 'background'], 'packet.authoredInformation.type');
+      text(item.text, 2000, 'packet.authoredInformation.text');
+    }
+  }
+  uniqueIds([...value.information, ...(value.authoredInformation || [])].map(item => item.id), 'packet.information.ids');
   return structuredClone(value);
 }
 
@@ -74,7 +83,7 @@ export function parseCharacterContribution(value, { packet, playerId, audienceId
   choice(value.kind, ['speech', 'action'], 'contribution.kind');
   choice(value.mode, ['recall', 'inference', 'question', 'ordinary', 'deception'], 'contribution.mode');
   text(value.text, 4000, 'contribution.text');
-  references(value.basisIds, new Set(checkedPacket.information.map(item => item.id)), 32, 'contribution.basisIds');
+  references(value.basisIds, new Set([...checkedPacket.information, ...(checkedPacket.authoredInformation || [])].map(item => item.id)), 32, 'contribution.basisIds');
   if (['recall', 'inference'].includes(value.mode) && value.basisIds.length === 0) invalid('contribution.basisIds');
   references(value.recipientIds, audienceIds, 16, 'contribution.recipientIds');
   references(value.dependsOnIds, priorContributionIds, 16, 'contribution.dependsOnIds');
