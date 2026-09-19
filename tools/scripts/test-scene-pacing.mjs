@@ -152,4 +152,39 @@ const prompt = createMissionAcceptedPairInterpretationPrompt({sourcePair:resolut
 assert.match(prompt.systemPrompt,/Scope unresolved to material questions or objections about the selected objective/);
 assert.match(prompt.systemPrompt,/a player request to enact or confirm the concrete final decision or authority transfer may be resolve/);
 assert.match(prompt.systemPrompt,/leaving alone never proves objective completion/);
+assert.match(prompt.systemPrompt,/When the authored objective is to establish an agreement, delegation, or procedure/);
+assert.match(prompt.systemPrompt,/pending execution alone is not unresolved unless the authored objective requires that execution/);
 console.log('Captured handover resolution, prior-only completion, and departure contract passed (model behavior not asserted).');
+
+// Captured staff-round excerpts; these modeled observations test the downstream
+// contract, not whether a provider will classify the scene correctly.
+const staffId = 'objective.prelude.staff-readiness';
+const staffState = structuredClone(handoverState);
+staffState.events.push(...['operations','engineering','science','medical','security'].map(role=>`event.prelude.${role}-readiness-exchange`));
+const staffDiscussionPair = {
+    previousAssistant:{text:'Two officers per window, passive internal scan on the test decks only, evacuation routes confirmed clear by Nayar and Cross, closed personnel lists, and four stop conditions that are mine to call.'},
+    currentPlayer:{messageId:'36',text:'Two officers covering the test-deck corridor and Deck 5 Sickbay, passive internal scans on Decks 8 and 11, and normal coverage elsewhere gives us a clear baseline.'},
+};
+const staffDiscussion = pacing.settleScenePacing({definition:ashes,state:staffState,sourcePair:staffDiscussionPair,assistantAccepted:true,
+    observation:{objectiveId:staffId,intent:'continue',intentQuote:'',unresolved:'Set bridge-watch authority.',participation:[
+        {requirement:0,playerQuote:staffDiscussionPair.currentPlayer.text,assistantQuote:staffDiscussionPair.previousAssistant.text}]}});
+const staffHistory = [{currentPlayer:staffDiscussionPair.currentPlayer,assistantAcceptance:'accepted',scenePacing:staffDiscussion}];
+const staffResolutionPair = {
+    previousAssistant:{text:'Have you thought about who briefs the bridge watch, and when, and what authority they have to override the quiet period'},
+    currentPlayer:{messageId:'38',text:"I'll brief the incoming bridge watch personally before 1900. The watch may pause or interrupt for a navigational or tactical need without waiting for permission. With those tracks assigned and visible, I'm asking authorization for the proposed windows, subject to the listed engineering, medical, science, security, and bridge-watch conditions."},
+};
+const staffObservation = {objectiveId:staffId,intent:'resolve',intentQuote:"I'm asking authorization for the proposed windows",unresolved:'',participation:[
+    {requirement:1,playerQuote:'The watch may pause or interrupt for a navigational or tactical need without waiting for permission.',assistantQuote:staffResolutionPair.previousAssistant.text}]};
+const staffResolution = pacing.settleScenePacing({definition:ashes,state:staffState,receipts:staffHistory,sourcePair:staffResolutionPair,assistantAccepted:true,observation:staffObservation});
+assert.equal(staffResolution.ready,true,'a procedure can be agreed before its scheduled work is executed');
+const staffHeld = pacing.settleScenePacing({definition:ashes,state:staffState,receipts:staffHistory,sourcePair:staffResolutionPair,assistantAccepted:true,
+    observation:{...staffObservation,unresolved:'Bridge-watch interrupt authority remains disputed.'}});
+assert.equal(staffHeld.ready,false,'an unresolved term of the procedure still holds completion');
+const staffClaim = {claimId:'staff-agreed',evidenceKey:'staff-agreed',claimType:'eventOccurred',targetId:'event.prelude.staff-readiness-established',sourceRef:{role:'assistant'},evidenceQuote:'Authorized.'};
+assert.equal(pacing.gateScenePacingClaims({definition:ashes,state:staffState,receipts:staffHistory,claims:[staffClaim]}).acceptedClaims.length,0,'current evidence cannot bypass the prior-receipt gate');
+staffHistory.push({currentPlayer:staffResolutionPair.currentPlayer,assistantAcceptance:'accepted',scenePacing:staffResolution});
+const staffAuthorized = pacing.gateScenePacingClaims({definition:ashes,state:staffState,receipts:staffHistory,claims:[staffClaim]});
+const staffReduced = reduceMissionEvidence({definition:ashes,state:staffState,acceptedClaims:staffAuthorized.acceptedClaims}).state;
+assert.equal(staffReduced.objectives[staffId].disposition,'completed');
+assert.notEqual(staffReduced.objectives['objective.prelude.final-readiness-arrival'].state,'terminal','agreeing procedures never completes final readiness execution');
+console.log('Staff procedure scope and prior-only completion contract passed (model behavior not asserted).');
