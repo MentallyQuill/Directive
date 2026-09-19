@@ -603,6 +603,39 @@ async function saveChatSnapshot(context, { chatName, withMetadata, chatData } = 
   throw error;
 }
 
+async function saveExactCharacterChatSnapshot(context, entity, { chatName, withMetadata, chatData }) {
+  const target = exactCharacterEntity(context, entity)?.target;
+  if (!target?.character) {
+    const error = new Error('The bound SillyTavern character changed while Directive was preparing the checkpoint clone.');
+    error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_DRIFT';
+    throw error;
+  }
+  const fetchFn = context?.fetch || globalThis.fetch;
+  if (!target?.character || typeof fetchFn !== 'function') {
+    const error = new Error('SillyTavern exact checkpoint saving is unavailable.');
+    error.code = 'DIRECTIVE_CHAT_CLONE_UNAVAILABLE';
+    throw error;
+  }
+  const getHeaders = context?.getRequestHeaders || globalThis.SillyTavern?.getContext?.()?.getRequestHeaders;
+  const response = await fetchFn('/api/chats/save', {
+    method: 'POST',
+    cache: 'no-cache',
+    headers: typeof getHeaders === 'function' ? getHeaders.call(context) : {},
+    body: JSON.stringify({
+      ch_name: target.character.name,
+      file_name: chatName,
+      avatar_url: target.character.avatar,
+      chat: [{ chat_metadata: withMetadata, user_name: 'unused', character_name: 'unused' }, ...chatData],
+      force: false
+    })
+  });
+  if (!response?.ok) {
+    const error = new Error(`SillyTavern could not save checkpoint chat "${chatName}".`);
+    error.code = 'DIRECTIVE_CHAT_SNAPSHOT_SAVE_FAILED';
+    throw error;
+  }
+}
+
 async function loadCharacterChatSnapshot(context, { chatId, entity } = {}) {
   const target = characterForEntity(context, entity);
   const fetchFn = context?.fetch || globalThis.fetch;
@@ -1684,7 +1717,8 @@ export function createSillyTavernChatAdapter({
     const entity = inferredEntity && {
       entityType: inferredEntity.entityType,
       entityId: inferredEntity.entityId,
-      entityName: inferredEntity.entityName
+      entityName: inferredEntity.entityName,
+      entityAvatar: inferredEntity.entityAvatar
     };
     if (!entity) {
       const error = new Error('Directive checkpoints require a character-bound SillyTavern chat.');
@@ -1695,18 +1729,9 @@ export function createSillyTavernChatAdapter({
       throw error;
     }
 
-    if (!currentEntityMatches(ctx, entity)) {
-      const selectCharacter = ctx.selectCharacterById || globalThis.selectCharacterById;
-      if (typeof selectCharacter === 'function') {
-        await selectCharacter.call(ctx, Number(entity.entityId), { switchMenu: false });
-        ctx = context();
-      }
-    }
-    if (!currentEntityMatches(ctx, entity)) {
-      const error = new Error(`Directive could not select the exact bound character "${entity.entityName}" for cloning.`);
-      error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_MISMATCH';
-      throw error;
-    }
+    // An unopened clone must not navigate: Load Game owns the visible transcript
+    // until its durable active-pointer switch. Inactive sources use exact file custody.
+    const sourceEntityWasCurrent = currentEntityMatches(ctx, entity);
 
     const sourceIsCurrent = sourceChatId === contextChatId(ctx) && currentEntityMatches(ctx, entity);
     const sourceSnapshot = sourceIsCurrent
@@ -1785,19 +1810,21 @@ export function createSillyTavernChatAdapter({
         throw error;
       }
     }
-    if (!currentEntityMatches(context(), entity)) {
+    if (sourceEntityWasCurrent && !currentEntityMatches(context(), entity)) {
       const error = new Error('The active SillyTavern character changed while Directive was preparing the checkpoint clone.');
       error.code = 'DIRECTIVE_CHAT_CLONE_ENTITY_DRIFT';
       throw error;
     }
-    await saveChatSnapshot(ctx, {
+    const snapshot = {
       chatName: branchChatName,
       withMetadata: {
         ...cloneJson(sourceSnapshot.metadata || {}),
         [DIRECTIVE_CHAT_METADATA_KEY]: cloneJson(branchBinding)
       },
       chatData: branchMessages
-    });
+    };
+    if (sourceEntityWasCurrent) await saveChatSnapshot(ctx, snapshot);
+    else await saveExactCharacterChatSnapshot(ctx, entity, snapshot);
     if (shouldOpen) {
       const opened = await open({
         chatId: branchChatName,

@@ -351,6 +351,14 @@ const exactContext = {
         : { id: 'b1', is_user: false, mes: 'Other character transcript.' };
       return { ok: true, async json() { return [{ chat_metadata: {} }, message]; } };
     }
+    if (url === '/api/chats/save') {
+      assert.equal(body.ch_name, 'Bound Character');
+      assert.equal(body.force, false);
+      exactSaved.set(`${body.avatar_url}:${body.file_name}`, {
+        chatName: body.file_name, withMetadata: body.chat[0].chat_metadata, chatData: body.chat.slice(1)
+      });
+      return { ok: true };
+    }
     if (url === '/api/chats/delete') {
       exactDeletes.push(body);
       return { ok: true, async json() { return {}; } };
@@ -367,14 +375,37 @@ const exactClone = await exactAdapter.cloneCampaignChat({
   sourceChatId: 'shared-chat', sourceBinding: boundBinding,
   campaignId: 'campaign-exact', saveId: 'save-exact', targetName: 'Exact Clone', open: false
 });
+assert.equal(exactCharacterId, 1, 'an unopened clone must not switch the selected character and invalidate Load Game custody');
+assert.equal(exactMessages[0].mes, 'Other character transcript.', 'an unopened clone must preserve the visible transcript');
 assert.equal(
   exactSaved.get('bound.png:Exact Clone').chatData[0].mes,
   'Bound character transcript.',
   'clone custody must follow the supplied binding rather than an ambient same-named chat'
 );
-exactCharacterId = 1;
-exactCharacterName = 'Other Character';
-exactMessages = [{ id: 'b1', is_user: false, mes: 'Other character transcript.' }];
+const exactSuccessfulFetch = exactContext.fetch;
+exactContext.fetch = async (url, options) => url === '/api/chats/save'
+  ? { ok: false, status: 409 }
+  : exactSuccessfulFetch.call(exactContext, url, options);
+await assert.rejects(exactAdapter.cloneCampaignChat({
+  sourceChatId: 'shared-chat', sourceBinding: boundBinding,
+  campaignId: 'campaign-exact', saveId: 'save-exact', targetName: 'Rejected Clone', open: false
+}), error => error.code === 'DIRECTIVE_CHAT_SNAPSHOT_SAVE_FAILED');
+assert.equal(exactCharacterId, 1, 'failed exact snapshot writes must also preserve the current character');
+assert.equal(exactSaved.has('bound.png:Rejected Clone'), false);
+exactContext.fetch = async (url, options) => {
+  if (url === '/api/characters/chats') exactCharacters.reverse();
+  return exactSuccessfulFetch.call(exactContext, url, options);
+};
+try {
+  await assert.rejects(exactAdapter.cloneCampaignChat({
+    sourceChatId: 'shared-chat', sourceBinding: boundBinding,
+    campaignId: 'campaign-exact', saveId: 'save-exact', targetName: 'Reordered Clone', open: false
+  }), error => error.code === 'DIRECTIVE_CHAT_CLONE_ENTITY_DRIFT');
+  assert.equal(exactSaved.has('other.png:Reordered Clone'), false, 'character array reordering must never redirect a clone write');
+} finally {
+  exactCharacters.reverse();
+  exactContext.fetch = exactSuccessfulFetch;
+}
 await exactAdapter.deleteCampaignChat(exactClone);
 assert.deepEqual(exactDeletes.at(-1), {
   chatfile: 'Exact Clone.jsonl',
