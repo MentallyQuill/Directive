@@ -855,8 +855,7 @@ export function createDirectiveRuntimeApp({
     owner.preparationStarted = true;
     owner.preparationFinished = new Promise(resolve => { owner.finishPreparation = resolve; });
   }
-  function releaseUnchangedTranscript(owner) {
-    const activity = host.chat.getGenerationActivity?.();
+  function unchangedTranscriptObservation(owner) {
     const observed = transcriptObservation();
     let noAssistantOutput = owner?.baseline === observed;
     if (owner?.baseline && observed && !noAssistantOutput && !openingPublications.has(owner.key)) {
@@ -865,8 +864,12 @@ export function createDirectiveRuntimeApp({
       noAssistantOutput = after.length === before.length + 1 && isUserMessage(tail)
         && before.every((row, index) => JSON.stringify(row) === JSON.stringify(after[index]));
     }
-    if (owner && !owner.running && owner.baseline !== null && owner.baseline !== undefined
-      && noAssistantOutput && (!activity || activity.status === 'idle')) {
+    return owner?.baseline != null && noAssistantOutput ? observed : null;
+  }
+  function releaseUnchangedTranscript(owner) {
+    const activity = host.chat.getGenerationActivity?.();
+    if (owner && !owner.running && unchangedTranscriptObservation(owner) !== null
+      && (!activity || activity.status === 'idle')) {
       transcriptLane.releaseUnchanged(owner);
       return true;
     }
@@ -2428,7 +2431,7 @@ export function createDirectiveRuntimeApp({
         && !finalizationFlights.has(stoppedOwner.key) && !failedFinalizations.has(stoppedOwner.key)
         && !openingPublications.has(stoppedOwner.key) && currentChatIsBound()
         && ['idle', 'active'].includes(host.chat.getGenerationActivity?.()?.status)
-        && stoppedOwner.baseline != null && stoppedOwner.baseline === transcriptObservation()) {
+        && stoppedOwner.stoppedTranscript != null && stoppedOwner.stoppedTranscript === transcriptObservation()) {
         transcriptLane.releaseUnchanged(stoppedOwner);
       }
       if (!activeAnalysisController) releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
@@ -3169,7 +3172,11 @@ export function createDirectiveRuntimeApp({
     },
 
     async handleHostGenerationStopped() {
-      rememberStoppedOutput(transcriptLane.current(transcriptKey()));
+      const stoppedOwner = transcriptLane.current(transcriptKey());
+      // Start precedes the native user append. Capture that permitted single-row
+      // change at Stop, then require exact stability before a fresh busy gesture.
+      if (stoppedOwner) stoppedOwner.stoppedTranscript = unchangedTranscriptObservation(stoppedOwner);
+      rememberStoppedOutput(stoppedOwner);
       transcriptLane.cancel(transcriptKey());
       preparedNarrationDutyReport = null;
       activeHostGenerationGesture = null;

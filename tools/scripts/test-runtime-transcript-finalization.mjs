@@ -147,19 +147,35 @@ for (const variant of ['missing-extra', 'empty-extra', 'native-extra', 'null-ext
   assert.deepEqual(await r.state(), r.before);
 }
 
-for (const drained of [false, true]) {
+for (const variant of ['draining', 'drained', 'post-stop-edit', 'post-stop-append', 'changed-prefix', 'partial-output']) {
   const r = await rig(), entered = deferred(), release = deferred();
+  r.chat.pushPlayerMessage({hostMessageId:'player.prior',text:'Prior instruction.'});
   const install = r.host.prompt.install.bind(r.host.prompt);
   r.host.prompt.install = async (...args) => { entered.resolve(); await release.promise; return install(...args); };
   r.app.handleHostGenerationStarted();
+  // Normal native generation announces start before inserting its player row.
+  r.chat.pushPlayerMessage({hostMessageId:'player.pending-stop',text:'Begin the readiness review.'});
   const preparing = r.app.getChatTurnOrchestrator().interceptGeneration({recoveryIntent:'native'});
   await entered.promise;
+  if (variant === 'changed-prefix') {
+    const messages = r.chat.messages();
+    messages[0].text = 'Changed prior reply.';
+    r.chat.setMessagesForChat(r.chat.getCurrentChatId(), messages);
+  }
+  if (variant === 'partial-output') r.chat.pushAssistantMessage({hostMessageId:'assistant.partial-stop',text:'Partial reply.'});
   await r.app.handleHostGenerationStopped();
+  const drained = variant !== 'draining';
   if (drained) { release.resolve(); await preparing; }
+  if (variant === 'post-stop-edit') {
+    const messages = r.chat.messages();
+    messages.at(-1).text = 'Changed pending instruction.';
+    r.chat.setMessagesForChat(r.chat.getCurrentChatId(), messages);
+  }
+  if (variant === 'post-stop-append') r.chat.pushPlayerMessage({hostMessageId:'player.after-stop',text:'Another instruction.'});
   r.setNativeActive(true);
   r.app.handleHostGenerationStarted({type:'regenerate'});
   const retry = await r.app.getChatTurnOrchestrator().interceptGeneration({type:'regenerate',recoveryIntent:'native'});
-  assert.equal(retry.abortDefaultGeneration, !drained, 'fresh Regenerate waits for canceled preparation to settle');
+  assert.equal(retry.abortDefaultGeneration, variant !== 'drained', `${variant}: native ordered Stop recovery requires drained preparation and exact captured no-output transcript`);
   if (!drained) { release.resolve(); await preparing; }
 }
 
