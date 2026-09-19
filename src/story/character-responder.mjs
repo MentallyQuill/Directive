@@ -18,7 +18,7 @@ function referenceSchema(ids, maximum) {
 export function createCharacterResponder({ generation } = {}) {
   if (typeof generation?.generate !== 'function') throw new TypeError('character-responder-generation-required');
   return {
-    async respond({ packet, playerId, contributionId, audienceIds, priorContributionIds = new Set(), signal, budget, reservation = null, maxAttempts = 1 } = {}) {
+    async respond({ packet, playerId, contributionId, audienceIds, priorContributionIds = new Set(), signal, budget, reservation = null, maxAttempts = 1, repair = false } = {}) {
       assertGenerationActive(signal);
       const checkedPacket = parseCharacterKnowledgePacket(packet);
       if (!(audienceIds instanceof Set) || !(priorContributionIds instanceof Set) || typeof budget?.claim !== 'function'
@@ -44,7 +44,7 @@ export function createCharacterResponder({ generation } = {}) {
         assertGenerationActive(signal);
         const request = createIsolatedGenerationRequest({ signal, jsonSchema: schema, messages: [
           { role: 'system', content: INSTRUCTIONS },
-          { role: 'user', content: JSON.stringify({ packet: checkedPacket, schema, ...(attempt ? { validationFeedback: FEEDBACK } : {}) }) },
+          { role: 'user', content: JSON.stringify({ packet: checkedPacket, schema, ...((attempt || repair === true) ? { validationFeedback: FEEDBACK } : {}) }) },
         ] });
         const result = await generation.generate('characterResponder', request, { signal, attemptBudget: budget, attemptReservation: reservation });
         assertGenerationActive(signal);

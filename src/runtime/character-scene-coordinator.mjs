@@ -96,7 +96,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
       const narration = budget.reserve(`narration.${baseDigest}`, 1);
       let review;
       try { review = budget.reserve(`review.${baseDigest}`, 1); } catch (error) { budget.release(narration); throw error; }
-      const cache = new Map();
+      const cache = new Map(), invalidated = new Set();
       let version = 0, closed = false, running = false, candidate = null, controller = new AbortController();
       const check = expected => {
         assertGenerationActive(signal);
@@ -104,7 +104,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
         if (!isCurrent(structuredClone(frozenIdentity))) fail('DIRECTIVE_CHARACTER_SCENE_STALE');
       };
       const dispose = () => {
-        closed = true; candidate = null; cache.clear(); controller.abort();
+        closed = true; candidate = null; cache.clear(); invalidated.clear(); controller.abort();
         budget.release(narration); budget.release(review); signal?.removeEventListener('abort', dispose);
       };
       signal?.addEventListener('abort', dispose, { once: true });
@@ -146,7 +146,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
             for (const node of nodes.values()) if (!affected.has(node.id) && node.dependsOnIds.some(id => affected.has(id))) { affected.add(node.id); changed = true; }
           }
           version++; candidate = null; controller.abort(); controller = new AbortController();
-          affected.forEach(id => cache.delete(id));
+          affected.forEach(id => { cache.delete(id); invalidated.add(id); });
           return [...affected];
         },
         dispose,
@@ -166,7 +166,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                   const cacheKey = digest({ baseDigest, node, packetDigest, dependencies: node.dependsOnIds.map(id => cache.get(id)?.contributionDigest) });
                   if (cache.get(node.id)?.cacheKey === cacheKey) return;
                   const result = await abortable(Promise.resolve(responder.respond({ packet, playerId, contributionId: node.id,
-                    audienceIds: new Set(node.audience.keys()), priorContributionIds: new Set(node.dependsOnIds), signal: runSignal, budget })), runSignal);
+                    audienceIds: new Set(node.audience.keys()), priorContributionIds: new Set(node.dependsOnIds), signal: runSignal, budget, repair: invalidated.has(node.id) })), runSignal);
                   check(runVersion); assertGenerationActive(runSignal);
                   const contribution = parseCharacterContribution(result?.contribution, { packet, playerId, audienceIds: new Set(node.audience.keys()), priorContributionIds: new Set(node.dependsOnIds) });
                   if (contribution.id !== node.id) fail();
@@ -187,6 +187,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                     });
                     return { exposure, order: order * 16 + recipientIndex, contributionDigest };
                   });
+                  invalidated.delete(node.id);
                   cache.set(node.id, { cacheKey, order, packet, packetDigest, contribution, contributionDigest, disclosures });
                 }));
                 check(runVersion);

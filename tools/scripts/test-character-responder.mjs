@@ -51,3 +51,8 @@ assert.deepEqual((await routed.respond(args)).contribution, base);
 const routeFailure = createCharacterResponder({ generation: { async generate() { return { ok: false, error: { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT', message: 'limit' } }; } } });
 await assert.rejects(routeFailure.respond(args), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
 console.log('PASS shared generation router envelopes retain normalized failures');
+answer = base;
+await respond({ ...args, repair: true });
+assert.ok(JSON.stringify(calls.at(-1)).includes('validationFeedback'));
+assert.ok(!JSON.stringify(calls.at(-1)).includes('SECRET_ACTOR_FEEDBACK'));
+console.log('PASS actor repair uses fixed scoped feedback');

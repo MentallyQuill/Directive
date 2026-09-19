@@ -8,6 +8,8 @@ const checks = [
   "test-turn-attempt-budget.mjs",
   "test-character-responder.mjs",
   "test-character-scene-coordinator.mjs",
+  "test-character-scene-narration.mjs",
+  "test-character-knowledge-review.mjs",
   "test-settings-draft-saves.mjs",
   "test-information-extractor-evaluation.mjs",
   "test-continuity-causal-order.mjs",
