@@ -1,3 +1,4 @@
+import { captureCharacterPublicationProposals } from '../story/character-scene-publication.mjs';
 import { parseDutyReportManifestEnvelope } from '../mission/v1/duty-report-delivery.mjs';
 import { extractShipTimeFooter } from '../time/ship-time.mjs';
 
@@ -226,6 +227,7 @@ export function prepareV1AcceptedPairSnapshot({
   const selected = selectedAssistantVariant(resolved.message);
   if (!selected.ok) return { ok: false, reason: selected.reason, snapshot: null };
 
+  const characterPublication = captureCharacterPublicationProposals(resolved.message);
   const previousText = selected.value.text;
   const completePlayerText = sourceText(currentPlayerMessage);
   const playerText = completePlayerText.slice(0, MAX_PLAYER_CHARS);
@@ -279,7 +281,8 @@ export function prepareV1AcceptedPairSnapshot({
           textHash: previousTextHash,
           text: previousText,
           timeFooter: selected.value.timeFooter ? { ...selected.value.timeFooter } : null,
-          selectedVariant: selected.value
+          selectedVariant: selected.value,
+          ...(characterPublication.status !== 'absent' ? { characterPublication } : {})
         },
         currentPlayer: {
           hostMessageId: playerId,

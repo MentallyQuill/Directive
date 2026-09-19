@@ -1077,3 +1077,17 @@ assert.equal(introducedResult.ok, true, JSON.stringify(introducedResult));
 assert.equal(introducedCalls, 2, 'newly admitted People get one bounded scene-only refresh');
 assert.equal(introducedHarness.persistCount, 1, 'scene refresh precedes the single atomic settlement');
 console.log('Newly admitted person scene refresh passed.');
+
+const proposalSnapshot = snapshotFor('range.publication-proposal');
+const proposalSource = proposalSnapshot.source.previousAssistant;
+const sourceProposals = { kind: 'directive.characterPublicationProposals.v1', publicationId: 'publication.selected',
+  source: { messageId: proposalSource.hostMessageId, selectedSwipeId: proposalSource.selectedVariantId ?? proposalSource.selectedVariant?.selectedSwipeId ?? proposalSource.selectedVariant?.selectedVariantId ?? null, textHash: proposalSource.textHash },
+  disclosures: [{ id: 'disclosure.selected', speakerId: 'person.example', recipientIds: ['person.directive-player'], acquisition: 'heard', claimType: 'character-claim', text: proposalSource.text, order: 0 }] };
+proposalSource.characterPublication = { status: 'valid', value: sourceProposals };
+const proposalCapture = captureAcceptedPairAnalysis({ campaignState: createHarness().getState(), runtimeAssets, snapshot: proposalSnapshot, focused: true });
+assert.deepEqual(proposalCapture.directorRequest.currentScene.publicationDisclosures, sourceProposals);
+assert.equal(JSON.stringify(proposalCapture.interpreterRequest).includes('publication.selected'), false, 'disclosure suggestions never enter mission interpretation');
+const invalidProposalSnapshot = structuredClone(proposalSnapshot);
+invalidProposalSnapshot.source.previousAssistant.characterPublication.value.source.textHash = 'stale';
+assert.throws(() => captureAcceptedPairAnalysis({ campaignState: createHarness().getState(), runtimeAssets, snapshot: invalidProposalSnapshot, focused: true }));
+console.log('PASS source-bound publication proposals reach continuity only and stale metadata is refused');

@@ -1,3 +1,4 @@
+import { validateCharacterPublicationProposals } from '../story/character-scene-publication.mjs';
 import { CHARACTER_KNOWLEDGE_PLAYER_ID, createCharacterSceneAdmission, materializeCharacterSceneAdmission } from '../story/character-scene-admission.mjs';
 import { isStatePublicationError } from './state-publication-errors.mjs';
 import { createScenePacingContext, gateScenePacingClaims, settleScenePacing, sceneAllowsReport, scenePacingPermissions, scenePacingDependencies } from '../narration/scene-pacing.mjs';
@@ -954,13 +955,17 @@ export function captureAcceptedPairAnalysis({
         pendingDutyReport: null,
     });
     const protectedScene = characterKnowledge?.mode === 'protected';
+    const capturedPublication = snapshot.source.previousAssistant.characterPublication;
+    const publicationDisclosures = capturedPublication?.status === 'valid' ? structuredClone(capturedPublication.value) : null;
+    if (publicationDisclosures && !validateCharacterPublicationProposals(publicationDisclosures, sourcePair.previousAssistant).ok) throw captureFailure('character-publication-proposals-invalid');
+    const disclosurePeople = new Set((publicationDisclosures?.disclosures || []).flatMap(item => [item.speakerId, ...item.recipientIds]));
     if (protectedScene && !focused) throw captureFailure('character-scene-analysis-unavailable');
     const exchangeText = `${sourcePair.previousAssistant.text} ${sourcePair.currentPlayer.text}`.toLowerCase();
     const currentEpisode = (campaignState.storySettlement.episodes || []).find(episode => episode.id === campaignState.storySettlement.activeEpisode);
     const referenceCandidates = [
-        ...(protectedScene ? [{ id: CHARACTER_KNOWLEDGE_PLAYER_ID, name: compact(campaignState.player?.name) || 'Player', kind: 'person', relevant: true }] : []),
+        ...((protectedScene || publicationDisclosures) ? [{ id: CHARACTER_KNOWLEDGE_PLAYER_ID, name: compact(campaignState.player?.name) || 'Player', kind: 'person', relevant: true }] : []),
         ...(currentEpisode?.references?.locationIds || []).map(id => ({ id, name: id, kind: 'location', relevant: true })),
-        ...peopleContext.knownPeople.map(person => ({ id: person.id, name: person.name, kind: 'person', relevant: exchangeText.includes(person.name.toLowerCase())
+        ...peopleContext.knownPeople.map(person => ({ id: person.id, name: person.name, kind: 'person', relevant: disclosurePeople.has(person.id) || exchangeText.includes(person.name.toLowerCase())
             || person.name.split(/\s+/).some(part => part.length >= 3 && exchangeText.includes(part.toLowerCase())) })),
     ];
     authoredContext.referenceIds = [...new Set(referenceCandidates.filter(item => /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(item.id))
@@ -1008,7 +1013,7 @@ export function captureAcceptedPairAnalysis({
         sourcePair: directorSourcePair,
         authoredContext,
         continuity,
-        currentScene: protectedScene ? { characterKnowledge: 'protected', playerId: CHARACTER_KNOWLEDGE_PLAYER_ID, explicitAudience: {} } : null,
+        currentScene: protectedScene || publicationDisclosures ? { ...(protectedScene ? { characterKnowledge: 'protected', playerId: CHARACTER_KNOWLEDGE_PLAYER_ID, explicitAudience: {} } : {}), ...(publicationDisclosures ? { publicationDisclosures } : {}) } : null,
         episodeReview: focused ? null : episodeReview,
     });
     return {

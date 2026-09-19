@@ -22,6 +22,7 @@ const checks = [
   "test-character-knowledge-review.mjs",
   "test-character-scene-publication.mjs",
   "test-character-knowledge-replay.mjs",
+  "test-character-publication-acceptance.mjs",
   "test-settings-draft-saves.mjs",
   "test-information-extractor-evaluation.mjs",
   "test-continuity-causal-order.mjs",

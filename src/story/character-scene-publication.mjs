@@ -79,7 +79,7 @@ export function readCharacterScenePublication(message) {
     }
     const extension = segments.map(item => item.kind === 'character' ? byId.get(item.id).text : item.text).join('\n\n');
     const text = continuation ? `${continuation.text}\n\n${extension}` : extension;
-    if (text !== raw.mes || text.length > 24000 || characterNarrativeDigest({ segments, text }) !== metadata.receipt.candidateDigest) invalid();
+    if (text !== captureV1AssistantSourceVariant(message).value?.text || text.length > 24000 || characterNarrativeDigest({ segments, text }) !== metadata.receipt.candidateDigest) invalid();
     const receipt = metadata.receipt;
     const contributionDigests = new Map(contributions.map(item => [item.id, digest(item)]));
     if (!Array.isArray(receipt.packetDigests) || receipt.packetDigests.length > 16 || !Array.isArray(receipt.disclosures) || receipt.disclosures.length > 32) invalid();
@@ -102,4 +102,34 @@ export function readCharacterScenePublication(message) {
   } catch {
     return { status: 'invalid', reasonCode: 'DIRECTIVE_CHARACTER_PUBLICATION_INVALID' };
   }
+}
+
+/** Read-only, untrusted suggestions for the next accepted-pair continuity pass. */
+export function captureCharacterPublicationProposals(message) {
+  const read = readCharacterScenePublication(message);
+  if (read.status !== 'valid') return { status: read.status };
+  const value = { kind: 'directive.characterPublicationProposals.v1', publicationId: read.publicationId, source: read.source,
+    disclosures: read.receipt.disclosures.map(({ exposure, position }) => ({ id: exposure.id, speakerId: exposure.speakerId,
+      recipientIds: [...exposure.recipientIds], acquisition: exposure.acquisition, claimType: exposure.claimType, text: exposure.text, order: position.order })) };
+  return { status: 'valid', value };
+}
+
+export function validateCharacterPublicationProposals(value, source) {
+  try {
+    const exact = (item, keys) => item && typeof item === 'object' && !Array.isArray(item) && Object.keys(item).length === keys.length && keys.every(key => Object.hasOwn(item, key));
+    const id = value => typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]{0,179}$/.test(value);
+    if (!exact(value, ['kind', 'publicationId', 'source', 'disclosures']) || value.kind !== 'directive.characterPublicationProposals.v1'
+      || !id(value.publicationId) || !exact(value.source, ['messageId', 'selectedSwipeId', 'textHash'])
+      || canonicalJson(value.source) !== canonicalJson({ messageId: source.messageId, selectedSwipeId: source.selectedSwipeId, textHash: source.textHash })
+      || !Array.isArray(value.disclosures) || value.disclosures.length > 32 || JSON.stringify(value).length > 96000) invalid();
+    const ids = new Set();
+    for (const [index, item] of value.disclosures.entries()) {
+      if (!exact(item, ['id', 'speakerId', 'recipientIds', 'acquisition', 'claimType', 'text', 'order']) || !id(item.id) || ids.has(item.id) || !id(item.speakerId)
+        || !Array.isArray(item.recipientIds) || !item.recipientIds.length || item.recipientIds.length > 8 || item.recipientIds.some(person => !id(person)) || new Set(item.recipientIds).size !== item.recipientIds.length
+        || !['heard', 'read', 'observed'].includes(item.acquisition) || item.claimType !== 'character-claim'
+        || typeof item.text !== 'string' || !item.text.trim() || item.text.length > 6000 || !source.text.includes(item.text) || item.order !== index) invalid();
+      ids.add(item.id);
+    }
+    return { ok: true };
+  } catch { return { ok: false, errors: ['character-publication-proposals-invalid'] }; }
 }

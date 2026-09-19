@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createCharacterScenePublicationMetadata, readCharacterScenePublication } from '../../src/story/character-scene-publication.mjs';
+import { createCharacterScenePublicationMetadata, readCharacterScenePublication, captureCharacterPublicationProposals, validateCharacterPublicationProposals } from '../../src/story/character-scene-publication.mjs';
 import { createCharacterReviewInput } from '../../src/story/character-knowledge-reviewer.mjs';
 import { characterNarrativeDigest } from '../../src/narration/character-scene-narrator.mjs';
 import { canonicalJson } from '../../src/storage/v1-state-delta-codec.mjs';
@@ -50,3 +50,24 @@ assert.notEqual(metadata2.receipt.packetDigests[0].digest, metadata.receipt.pack
 const message2 = { ...message, mes: candidate2.text, swipes: [candidate2.text], swipe_info: [{ extra: { runtimeMetadata: { characterScenePublication: metadata2 } } }] };
 assert.equal(readCharacterScenePublication(message2).status, 'valid');
 console.log('PASS publication retains both packet identities when one actor responds twice');
+
+const proposals = captureCharacterPublicationProposals(message);
+assert.equal(proposals.status, 'valid');
+assert.equal(proposals.value.disclosures[0].claimType, 'character-claim');
+assert.deepEqual(proposals.value.disclosures[0].recipientIds, ['person.player']);
+assert.equal(validateCharacterPublicationProposals(proposals.value, { ...source, text: candidate.text }).ok, true);
+assert.equal(validateCharacterPublicationProposals(proposals.value, { ...source, textHash: 'changed', text: candidate.text }).ok, false);
+assert.equal(captureCharacterPublicationProposals(edited).status, 'invalid');
+assert.equal(captureCharacterPublicationProposals(switched).status, 'absent');
+assert.equal(JSON.stringify(proposals).includes('packetDigests'), false);
+const { prepareV1AcceptedPairSnapshot } = await import('../../src/runtime/v1-accepted-pair-source.mjs');
+const playerMessage = { id: 'player.2', mes: 'I listen.', is_user: true };
+const pair = prepareV1AcceptedPairSnapshot({ campaignState: { campaign: { id: 'campaign.test' }, campaignChatBinding: { saveId: 'save.test', chatId: 'chat.test' } }, currentPlayerMessage: playerMessage, recentMessages: [message, playerMessage], chatId: 'chat.test' });
+assert.equal(pair.ok, true);
+assert.deepEqual(pair.snapshot.source.previousAssistant.characterPublication, proposals);
+console.log('PASS selected publication proposals enter source custody without granting access');
+
+const finalized = structuredClone(message);
+finalized.mes = finalized.swipes[0] = message.mes + '\n\n*Stardate 53068.4 | 08:30:47 hours*';
+assert.equal(readCharacterScenePublication(finalized).status, 'valid', 'runtime time footer does not erase reviewed narrative provenance');
+assert.deepEqual(captureCharacterPublicationProposals(finalized), proposals);

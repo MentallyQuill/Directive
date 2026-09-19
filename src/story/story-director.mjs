@@ -1,3 +1,4 @@
+import { validateCharacterPublicationProposals } from './character-scene-publication.mjs';
 import { CHARACTER_SCENE_ANALYSIS_POLICY, createCharacterSceneAdmissionSchema, createCharacterSceneAdmission } from './character-scene-admission.mjs';
 import { createEvidencePassageCatalog, createEvidenceReferenceSchema, evidencePassagePromptEntries, hydrateEvidenceReferences, EVIDENCE_REFERENCE_INSTRUCTIONS } from './evidence-passages.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
@@ -192,6 +193,7 @@ function requestErrors(value) {
     }
   }
   if (value.currentScene !== null && !object(value.currentScene)) errors.push('director-request-currentScene-invalid');
+  if (value.currentScene?.publicationDisclosures && !validateCharacterPublicationProposals(value.currentScene.publicationDisclosures, value.pendingPair?.previousAssistant).ok) errors.push('director-publication-disclosures-invalid');
   if (value.episodeReview !== null) {
     const review = validateEpisodeEvaluationRequest(value.episodeReview);
     if (!review.ok) errors.push(...review.errors.map((error) => `director-request-episodeReview:${error}`));
@@ -781,6 +783,7 @@ const FOCUSED_DIRECTION_PROMPT = [
 ].join('\n');
 
 export const INFORMATION_ACCESS_ANALYSIS_POLICY = [
+  'Published currentScene.publicationDisclosures are source-bound proposals, not accepted facts, audience evidence, or permission to grant access. Consider their exact text and named recipients only as suggestions for consequential continuity extraction. Validate each statement and its audience using actual pendingPair passages; omit access if receipt is not supported there. A character claim may be mistaken or deceptive and must never become world truth merely because it was reviewed. Unknown people are not eligible recipients. Do not copy publication, review or packet identifiers into accepted fact evidence. Existing addFact and informationAccess rules still apply.',
   'INFORMATION ACCESS: Extend the existing addFact only for consequential statements actually heard, observed, or read by identified people in this exchange. Use an existing appropriate thread, or category information for a disclosure without another consequence. Do not duplicate all background knowledge or create a belief simulator.',
   'Optional informationAccess is null or {recipientIds, acquisition, audienceEvidence}. recipientIds must name supplied authoredContext.references with kind person. A linked or mentioned person is not automatically a recipient. acquisition is heard, observed, or read. Each audienceEvidence entry supplies sourceSlot and an exact evidenceQuote from pendingPair establishing the audience. The main addFact evidenceQuote supports the particular statement. Include every needed audience passage within the two-entry bound; omit informationAccess when access cannot be established from supplied source passages. Never fabricate audience evidence to avoid uncertainty.',
   'Direct player-controlled speech may establish heard access when the player enacts its delivery in currentPlayer. If delivery is conditional on an NPC response or environment change that is neither already established in previousAssistant nor directly enacted by the player in currentPlayer, such as proposed movement, privacy, a connection, or arrival, retain any supported player speech, intent, or commitment but omit informationAccess. A future or conditional plan is not receipt; a later accepted source may establish delivery.',

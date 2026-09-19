@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { createFakeDirectiveHost, createFakeGenerationClient } from '../../src/hosts/fake/fake-host.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
-import { captureV1StorySource } from '../../src/runtime/v1-accepted-pair-source.mjs';
+import { captureAcceptedPairAnalysis } from '../../src/runtime/v1-mission-runtime.mjs';
+import { prepareV1AcceptedPairSnapshot, captureV1StorySource } from '../../src/runtime/v1-accepted-pair-source.mjs';
 let sequence = 0, calls = 0, directors = 0, legacy = 0, mutateThenFail = true, stopDuringPublish = false, stopBeforeNarration = false, editDuringDirector = false;
 const generation = createFakeGenerationClient({ responses: {
  openingSceneDirector: async ({ request }) => { directors++; if (editDuringDirector) { editDuringDirector = false; host.chat.pushPlayerMessage({ text: 'I change the opening source.' }); } const context = JSON.parse(request.messages.at(-1).content); return { text: JSON.stringify({ kind: 'directive.openingDirection.v1', sceneMaterialIds: context.sceneReferences.map(item => item.id).slice(0,1), backgroundIds: context.backgroundReferences.map(item => item.id).slice(0,1), emphasis: 'setting', characterScene: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'previousAssistant', evidenceQuote: context.premise.firstPlayableScene.slice(0, 320) }] } }) }; },
@@ -63,6 +64,14 @@ assert.equal(legacy, 0);
 assert.deepEqual(recovered.view.campaignState, stateBeforeRetry, 'opening publication never commits campaign outcomes');
 assert.equal(recovered.view.openingGeneration.status, 'ready');
 console.log('PASS protected runtime opening, private context containment, and Stop save-only recovery');
+const firstPlayer = host.chat.pushPlayerMessage({ text: 'I greet the crew.' });
+const firstPair = prepareV1AcceptedPairSnapshot({ campaignState: recovered.view.campaignState, currentPlayerMessage: firstPlayer, recentMessages: host.chat.getRecentMessages({ limit: 8, playerSafeOnly: false }), chatId: host.chat.getCurrentChatId(), requirePromptingPlayerAnchor: true });
+assert.equal(firstPair.ok, true);
+const openingAnalysis = captureAcceptedPairAnalysis({ campaignState: recovered.view.campaignState, runtimeAssets: loadAshesRuntimeAssets(), snapshot: firstPair.snapshot, focused: true, characterKnowledge: { mode: 'protected' } });
+assert.equal(openingAnalysis.interpreterInput.timeContext.scope.previousAssistantTiming, 'opening-baseline');
+assert.equal(openingAnalysis.interpreterInput.timeContext.scope.countPreviousAssistant, false);
+console.log('PASS protected opening retains the authored time baseline on first accepted pair');
+
 
 host.chat.setMessagesForChat(host.chat.getCurrentChatId(), []);
 stopBeforeNarration = true;

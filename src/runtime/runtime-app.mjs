@@ -1725,7 +1725,7 @@ export function createDirectiveRuntimeApp({
             settingsDigest: stableSha256Hex(stableJsonStringify({ providers: providerConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })), epoch: ownership.scope.epoch };
         };
         const identity = readIdentity();
-        const publicationId = `character-opening.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
+        const publicationId = `directive.v1.opening.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
         const guard = createCharacterPublicationGuard({ publicationId, identity, baselineRows: rows, readIdentity,
           readRows: () => { const current = host.chat.captureCurrentTranscriptSnapshot?.(); return current?.status === 'captured' ? current.snapshot.rows : null; } });
         const snapshot = createCharacterRuntimeSnapshot({ campaignState: state, crewDataset: runtimeAssets.crewDataset, messages });
@@ -2268,8 +2268,9 @@ export function createDirectiveRuntimeApp({
         sourcePair = { ...sourcePair, previousAssistant };
         continuation = { source: { messageId: previousAssistant.messageId, selectedSwipeId: previousAssistant.selectedSwipeId, textHash: previousAssistant.textHash }, text: previousAssistant.text };
         const analysis = captureAcceptedPairAnalysis({ campaignState: state, runtimeAssets, snapshot: preparedSnapshot, generationType, focused: true, characterKnowledge: characterKnowledgeSettings() });
+        const { publicationDisclosures: priorDisclosures, ...continuationScene } = analysis.directorRequest.currentScene;
         const request = { ...analysis.directorRequest, pendingPair: sourcePair,
-          currentScene: { ...analysis.directorRequest.currentScene, sceneOnly: true } };
+          currentScene: { ...continuationScene, sceneOnly: true } };
         const result = await createContinuityAnalyst({ generationRouter })({ request, signal: progressScope.signal });
         const parsed = result?.ok ? parseContinuityAnalystOutput(result.proposal, { request }) : null;
         if (!parsed?.ok || parsed.value.coverage !== 'complete' || parsed.value.threadChanges.length || !guard.isCurrent()) throw Object.assign(new Error('Continuation scene preparation is unavailable.'), { code: 'DIRECTIVE_CHARACTER_SCENE_PREPARATION_UNAVAILABLE' });
