@@ -10,7 +10,9 @@ This is a boundary-enforcement implementation, not evidence of perfect model jud
 
 ## Automated evidence
 
-At implementation commit `262a784b4`, `npm.cmd test` passed **279 checks**, including the settings browser checks and the expanded visual suite (25 route/viewport combinations). The final gate adds the two integrated checks below; its final count/result will be recorded after completion.
+Final post-review verification at implementation commit `729cc7052`: `npm.cmd test` passed **281 checks** (exit 0), including the two integrated fixtures, settings browser checks and the expanded visual suite (25 route/viewport combinations). The earlier task-9 gate passed 279 checks at `262a784b4`. Both integrated fixtures were rerun successfully after the final gate.
+
+Independent whole-branch review found two reliability/custody defects. Both were reproduced with failing tests and fixed: optional archive retrieval now fits the final serialized packet while retaining required dependencies and same-reply context; native route fingerprints now invalidate changed-source flights and prevent changed-route transport retries. The post-fix full gate passed. No minor findings were deferred.
 
 | Requirement | Evidence |
 | --- | --- |
@@ -47,3 +49,8 @@ Use only approved NanoGPT profiles, preserving existing credentials and Claude c
 Record exact denominators for attempted/completed scenes, visible-response success, critical leaks, custody failures, positive controls, reviewer false rejections, latency p50/p95, physical attempts, repairs and reported tokens. Missing token counts remain unknown. Generated failures and reviewer rejections are separate outcomes. Compare narrative usefulness as well as leak prevention.
 
 Release thresholds remain: zero observed critical leaks/custody failures, at least 95% visible-response and positive-control success, at most 10% reviewer false rejection. A pass is measured evidence for those scenarios, not a guarantee. Any failure keeps opt-in status and requires a demonstrated fix and relevant rerun. Existing saves always require explicit enablement; no failure silently switches modes or erases accepted knowledge.
+
+## Implementation decisions
+
+- Paid evaluation and default rollout are follow-up gates. Ship the complete implementation opt-in without consuming an expired soak budget. The cost is unproven live quality until that evaluation runs.
+- Protected Continue/Regenerate/swipe preparation accepts an exact captured trailing assistant response, then revalidates it alongside existing accepted-pair authority. This permits replacement/continuation without interpreting trailing prose as accepted outcomes. If this boundary is wrong, stale direction could commit; source-change and commit-custody regressions cover it.
