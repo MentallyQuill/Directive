@@ -1600,7 +1600,9 @@ export async function storeV1CampaignSave(adapter, save, {
   return clone(record);
 }
 
-export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, now = null } = {}) {
+export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, now = null, expectedSave = null, expectedManifest = null } = {}) {
+  const expected = expectedSave === null ? null : clone(assertV1CampaignSave(expectedSave));
+  const expectedHead = expectedManifest === null ? null : clone(expectedManifest);
   const id = safeId(saveId, 'saveId');
   const manifestRecord = await readOrNull(requireAdapter(adapter), V1_STORAGE_PATHS.save(id));
   if (!manifestRecord) throw new Error(`V1 campaign save "${id}" was not found.`);
@@ -1610,6 +1612,10 @@ export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, 
     throw error;
   }
   const { save } = await hydrateManifest(adapter, manifestRecord, id);
+  if ((expected && canonicalJson(save) !== canonicalJson(expected))
+    || (expectedHead && canonicalJson(manifestRecord) !== canonicalJson(expectedHead))) {
+    throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT', 'The selected target changed before activation.');
+  }
   const index = await loadIndex(adapter, { create: true, now: now || save.updatedAt });
   const summary = saveSummary(save);
   const publishedSummary = index.saves[id] ?? null;
@@ -1620,6 +1626,9 @@ export async function loadV1CampaignSave(adapter, saveId, { makeActive = false, 
     index.activeSaveId = id;
   }
   if (summaryStale || makeActive) {
+    if ((expected || expectedHead) && canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(id))) !== canonicalJson(manifestRecord)) {
+      throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT', 'The selected target changed during activation.');
+    }
     await writeIndex(adapter, index, now || save.updatedAt);
   }
   return save;
@@ -1849,11 +1858,15 @@ export async function loadActiveV1CampaignSave(adapter) {
 export async function compareAndSwapActiveV1CampaignSave(adapter, {
   expectedSaveId,
   nextSaveId,
-  now = new Date().toISOString()
+  now = new Date().toISOString(),
+  expectedTargetSave = null,
+  expectedTargetManifest = null,
 } = {}) {
+  const expectedTarget = expectedTargetSave === null ? null : clone(assertV1CampaignSave(expectedTargetSave));
+  const expectedHead = expectedTargetManifest === null ? null : clone(expectedTargetManifest);
   const expectedId = safeId(expectedSaveId, 'expectedSaveId');
   const nextId = safeId(nextSaveId, 'nextSaveId');
-  const index = await loadIndex(requireAdapter(adapter), { create: true, now });
+  let index = await loadIndex(requireAdapter(adapter), { create: true, now });
   if (index.activeSaveId !== expectedId) {
     const error = new Error(`The active V1 save changed from "${expectedId}" before the timeline could be activated.`);
     error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_MISMATCH';
@@ -1862,12 +1875,32 @@ export async function compareAndSwapActiveV1CampaignSave(adapter, {
   }
   const [expected, next] = await Promise.all([
     loadV1CampaignSave(adapter, expectedId),
-    loadV1CampaignSave(adapter, nextId)
+    loadV1CampaignSave(adapter, nextId, { expectedSave: expectedTarget, expectedManifest: expectedHead })
   ]);
   if (expected.slotType !== 'active' || next.slotType !== 'active' || expected.campaignId !== next.campaignId) {
     const error = new Error('The timeline activation records are not compatible active saves from one campaign.');
     error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_TARGET_INVALID';
     throw error;
+  }
+  if (expectedTarget || expectedHead) {
+    const currentHead = await adapter.readJson(V1_STORAGE_PATHS.save(nextId));
+    if (expectedHead && canonicalJson(currentHead) !== canonicalJson(expectedHead)) {
+      throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT', 'The timeline target changed before activation.');
+    }
+    if (expectedTarget && canonicalJson((await hydrateManifest(adapter, currentHead, nextId)).save) !== canonicalJson(expectedTarget)) {
+      throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT', 'The timeline target state changed before activation.');
+    }
+    if (canonicalJson(await adapter.readJson(V1_STORAGE_PATHS.save(nextId))) !== canonicalJson(currentHead)) {
+      throw saveStorageError('DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT', 'The timeline target changed during activation.');
+    }
+    // Target verification yields; preserve any newer selection and unrelated index entries.
+    index = await loadIndex(adapter, { create: true, now });
+    if (index.activeSaveId !== expectedId) {
+      const error = new Error(`The active V1 save changed from "${expectedId}" during timeline verification.`);
+      error.code = 'DIRECTIVE_V1_ACTIVE_SAVE_CAS_MISMATCH';
+      error.details = { expectedSaveId: expectedId, actualSaveId: index.activeSaveId, nextSaveId: nextId };
+      throw error;
+    }
   }
   index.activeSaveId = nextId;
   await writeIndex(adapter, index, now);

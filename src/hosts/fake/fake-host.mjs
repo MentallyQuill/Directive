@@ -15,7 +15,7 @@ import {
   verifyNativeBranchTranscriptAttestation
 } from '../../runtime/native-branch-lineage.mjs';
 import { stripGeneratedShipTimeFooter } from '../../time/ship-time.mjs';
-import { captureHostTranscriptSnapshot } from '../transcript-snapshot-contract.mjs';
+import { captureHostTranscriptSnapshot, readTranscriptSnapshotDataProperty } from '../transcript-snapshot-contract.mjs';
 
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -234,6 +234,9 @@ export function createFakeChatAdapter({
   const openingRecords = new Map();
   const nativeMainChatByChatId = new Map();
   const chatsById = new Map([[String(chatId || ''), messages.map(cloneJson)]]);
+  // Explicit test-controlled disk state. Live row mutations never imply a save.
+  const persistedSnapshots = new Map();
+  const persistedKey = identity => JSON.stringify([identity.entityType, identity.entityId, identity.chatId]);
   const calls = [];
   function getGenerationActivity() {
     const read = callback => {
@@ -303,6 +306,44 @@ export function createFakeChatAdapter({
     },
     prepareGenerationActivity: async () => getGenerationActivity(),
     getGenerationActivity,
+    setPersistedTranscriptSnapshot(input) {
+      const captured = captureHostTranscriptSnapshot(input);
+      if (captured.status === 'captured') persistedSnapshots.set(persistedKey(captured.snapshot.nativeIdentity), captured.snapshot);
+      return captured;
+    },
+    persistCurrentTranscriptSnapshot() {
+      const captured = this.captureCurrentTranscriptSnapshot();
+      if (captured.status === 'captured') persistedSnapshots.set(persistedKey(captured.snapshot.nativeIdentity), captured.snapshot);
+      return captured;
+    },
+    async readPersistedTranscriptSnapshot(requestedBinding, options = {}) {
+      const unsupported = suffix => Object.freeze({ status: 'unsupported', reasonCode: `DIRECTIVE_HOST_PERSISTED_TRANSCRIPT_${suffix}` });
+      try {
+        const read = readTranscriptSnapshotDataProperty;
+        const signal = read(options, 'signal');
+        if (signal !== undefined && !(signal instanceof AbortSignal)) return unsupported('INVALID');
+        if (signal?.aborted) return unsupported('ABORTED');
+        const nativeIdentity = Object.fromEntries(['entityType', 'entityId', 'chatId'].map(key => [key, read(requestedBinding, key)]));
+        const request = captureHostTranscriptSnapshot({ hostId: read(requestedBinding, 'hostId'), nativeIdentity, directiveBinding: requestedBinding, rows: [] });
+        if (request.status !== 'captured' || request.snapshot.hostId !== 'fake') return unsupported('INVALID');
+        const saved = persistedSnapshots.get(persistedKey(nativeIdentity));
+        if (!saved) return unsupported('UNAVAILABLE');
+        const fields = ['hostId', 'campaignId', 'saveId', 'chatId', 'entityType', 'entityId', 'entityName'];
+        const validBinding = value => fields.every(key => typeof value?.[key] === 'string' && value[key].length > 0
+          && value[key].length <= 512 && value[key].trim() === value[key])
+          && (value.kind === undefined || value.kind === 'directive.campaignChatBinding.v1')
+          && (value.version === undefined || value.version === 1);
+        if (!validBinding(request.snapshot.directiveBinding) || !validBinding(saved.directiveBinding)
+          || !fields.every(key => request.snapshot.directiveBinding[key]
+          && request.snapshot.directiveBinding[key] === saved.directiveBinding?.[key])
+          || saved.hostId !== 'fake'
+          || (request.snapshot.directiveBinding.entityAvatar !== undefined
+            && request.snapshot.directiveBinding.entityAvatar !== null
+            && request.snapshot.directiveBinding.entityAvatar !== saved.directiveBinding.entityAvatar)
+          || !['entityType', 'entityId', 'chatId'].every(key => saved.nativeIdentity[key] === nativeIdentity[key])) return unsupported('INVALID');
+        return captureHostTranscriptSnapshot(saved);
+      } catch { return unsupported('INVALID'); }
+    },
     captureCurrentTranscriptSnapshot() {
       return captureHostTranscriptSnapshot({ hostId: 'fake',
         nativeIdentity: { entityType: 'character', entityId, chatId: currentChatId },

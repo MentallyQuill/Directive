@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import { createFakeChatAdapter } from '../../src/hosts/fake/fake-host.mjs';
+import { assertDirectiveChatAdapter } from '../../src/hosts/host-contract.mjs';
+
+const chat = createFakeChatAdapter({ chatId: 'saved.chat', entityId: '7', messages: [{ mes: 'Saved row' }] });
+const binding = { hostId: 'fake', campaignId: 'campaign.saved', saveId: 'save.saved', chatId: 'saved.chat', entityType: 'character', entityId: '7', entityName: 'Fake Character' };
+await chat.updateBindingMetadata(binding);
+assert.equal(typeof chat.readPersistedTranscriptSnapshot, 'function');
+assert.equal((await chat.readPersistedTranscriptSnapshot(binding)).status, 'unsupported');
+assert.equal(chat.persistCurrentTranscriptSnapshot().status, 'captured');
+const saved = await chat.readPersistedTranscriptSnapshot(binding);
+chat.setMessagesForChat(binding.chatId, [{ mes: 'New memory, unsaved' }]);
+assert.notDeepEqual(chat.captureCurrentTranscriptSnapshot().snapshot.rows, saved.snapshot.rows);
+assert.deepEqual(await chat.readPersistedTranscriptSnapshot(binding), saved);
+chat.setCurrentChatId('other.chat');
+assert.deepEqual(await chat.readPersistedTranscriptSnapshot(binding), saved, 'named saved read ignores selection');
+assert.equal(chat.getCurrentChatId(), 'other.chat');
+assert.equal((await chat.readPersistedTranscriptSnapshot({ ...binding, saveId: 'foreign' })).status, 'unsupported');
+const controller = new AbortController(); controller.abort();
+assert.equal((await chat.readPersistedTranscriptSnapshot(binding, { signal: controller.signal })).reasonCode, 'DIRECTIVE_HOST_PERSISTED_TRANSCRIPT_ABORTED');
+let getters = 0;
+const invalid = { ...binding }; Object.defineProperty(invalid, 'chatId', { get() { getters++; return binding.chatId; }, enumerable: true });
+assert.equal((await chat.readPersistedTranscriptSnapshot(invalid)).status, 'unsupported');
+assert.equal(getters, 0);
+const input = structuredClone(saved.snapshot);
+assert.equal(chat.setPersistedTranscriptSnapshot(input).status, 'captured');
+input.rows[0].mes = 'Caller mutation';
+assert.deepEqual(await chat.readPersistedTranscriptSnapshot(binding), saved);
+assert.equal(chat.setPersistedTranscriptSnapshot({ ...input, rows: [undefined] }).status, 'unsupported');
+assert.deepEqual(await chat.readPersistedTranscriptSnapshot(binding), saved, 'invalid seed preserves saved proof');
+const groupBinding = { ...binding, entityType: 'group', entityId: 'group.1', entityName: 'Bridge', chatId: 'group.chat' };
+const groupSnapshot = { ...structuredClone(saved.snapshot), directiveBinding: groupBinding,
+  nativeIdentity: { entityType: 'group', entityId: 'group.1', chatId: 'group.chat' } };
+assert.equal(chat.setPersistedTranscriptSnapshot(groupSnapshot).status, 'captured');
+assert.deepEqual((await chat.readPersistedTranscriptSnapshot(groupBinding)).snapshot.directiveBinding, groupBinding);
+chat.setCurrentChatId(binding.chatId);
+assert.equal(chat.persistCurrentTranscriptSnapshot().status, 'captured');
+assert.equal((await chat.readPersistedTranscriptSnapshot(binding)).snapshot.rows[0].mes, 'New memory, unsaved');
+assert.throws(() => assertDirectiveChatAdapter({ readPersistedTranscriptSnapshot: false }));
+for (const patch of [{ campaignId: ' ' }, { kind: 'wrong' }, { version: 99 }]) {
+  const malformed = { ...structuredClone(saved.snapshot), directiveBinding: { ...binding, ...patch } };
+  chat.setPersistedTranscriptSnapshot(malformed);
+  assert.equal((await chat.readPersistedTranscriptSnapshot(malformed.directiveBinding)).status, 'unsupported');
+}
+chat.setPersistedTranscriptSnapshot(saved.snapshot);
+const otherEntity = structuredClone(saved.snapshot);
+otherEntity.nativeIdentity.entityId = '8'; otherEntity.directiveBinding.entityId = '8'; otherEntity.rows[0].mes = 'Other entity';
+chat.setPersistedTranscriptSnapshot(otherEntity);
+assert.deepEqual(await chat.readPersistedTranscriptSnapshot(binding), saved);
+assert.equal((await chat.readPersistedTranscriptSnapshot(otherEntity.directiveBinding)).snapshot.rows[0].mes, 'Other entity');
+const withAvatar = structuredClone(saved.snapshot);
+withAvatar.directiveBinding.entityAvatar = 'crew.png';
+chat.setPersistedTranscriptSnapshot(withAvatar);
+assert.equal((await chat.readPersistedTranscriptSnapshot({ ...binding, entityAvatar: 'crew.png' })).status, 'captured');
+assert.equal((await chat.readPersistedTranscriptSnapshot({ ...binding, entityAvatar: 'other.png' })).status, 'unsupported');
+assert.equal((await chat.readPersistedTranscriptSnapshot(binding)).status, 'captured', 'omitted avatar does not demand a stored match');
+console.log('PASS fake persisted snapshots: explicit saved state, named reads, divergence, identity, abort and detachment');

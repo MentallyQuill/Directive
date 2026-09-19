@@ -3,6 +3,8 @@ import {
   createCampaignCheckpoint,
   discardCharacterCreatorDraft,
   persistActiveCampaign,
+  readCampaignSaveHistoryStatus,
+  assertOrdinaryCampaignHistory,
   resumeCharacterCreatorDraft,
   saveCharacterCreatorDraftProgress,
   startCharacterCreatorDraft
@@ -285,6 +287,41 @@ export function createCampaignStartController({
   let blockedActiveSaveId = null;
   const publications = new Map();
   const selectedSaveId = () => activeSave?.id || blockedActiveSaveId;
+  const historyModes = new Map();
+  const historyReads = new Map();
+  let selectionEpoch = 0;
+  let selectionPending = null;
+  async function withHistorySelection(task) {
+    if (selectionPending !== null) throw Object.assign(new Error('Another saved-game selection is still in progress.'), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT' });
+    const token = ++selectionEpoch;
+    selectionPending = token;
+    try { return await task(); }
+    finally { if (selectionPending === token) selectionPending = null; }
+  }
+  async function discoverHistory(saveId, options) {
+    const selectedAtRead = activeSave, epoch = selectionEpoch, token = {};
+    historyReads.set(saveId, token);
+    historyModes.set(saveId, { saveId, mode: 'unknown' });
+    try {
+      const status = await readCampaignSaveHistoryStatus(adapter, saveId, options);
+      if (selectedAtRead !== activeSave || epoch !== selectionEpoch || historyReads.get(saveId) !== token) {
+        throw Object.assign(new Error('Saved-game selection changed while history mode was being read.'), { code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT' });
+      }
+      historyModes.set(saveId, status);
+      return status;
+    } finally { if (historyReads.get(saveId) === token) historyReads.delete(saveId); }
+  }
+  async function requireOrdinaryHistory(saveId = selectedSaveId(), options) {
+    if (!saveId) return;
+    assertSaveWritable(saveId);
+    if (selectionPending !== null) throw Object.assign(new Error('Saved-game selection is still in progress.'), { code: 'DIRECTIVE_V1_CAPTURE_MODE_UNAVAILABLE' });
+    const known = historyModes.get(saveId);
+    if (known?.mode === 'captured' || (known?.mode === 'unknown' && historyReads.has(saveId))) assertOrdinaryCampaignHistory(known);
+    const status = await discoverHistory(saveId, options);
+    assertSaveWritable(saveId);
+    assertOrdinaryCampaignHistory(status);
+    return status;
+  }
   function assertSaveWritable(saveId = selectedSaveId()) {
     if (saveId && publications.has(saveId)) throw statePublicationError(saveId, publications.get(saveId));
   }
@@ -337,6 +374,7 @@ export function createCampaignStartController({
           publications.delete(saveId);
           if (adopt && selectedSaveId() === saveId) {
             activeSave = clone(verified.save); activeState = clone(verified.save.state); blockedActiveSaveId = null;
+            historyModes.set(saveId, { saveId, mode: verified.manifest.branchHistory ? 'captured' : 'ordinary', manifest: clone(verified.manifest) });
           }
           return { publication: previous.phase === 'acknowledgement' ? previous.result.publication
             : readBarrierOnly ? 'authority-loaded' : 'not-committed',
@@ -362,6 +400,7 @@ export function createCampaignStartController({
       if (adopt && selectedSaveId() === saveId) {
         activeSave = clone(result.save);
         activeState = clone(result.save.state);
+        historyModes.set(saveId, { saveId, mode: result.manifest.branchHistory ? 'captured' : 'ordinary', manifest: clone(result.manifest) });
         blockedActiveSaveId = null;
       }
       return clone(result);
@@ -376,6 +415,7 @@ export function createCampaignStartController({
   async function migrateLoadedSave(save, { makeActive = save?.slotType === 'active' } = {}) {
     if (!save) return null;
     await verifySaveWritable(save.id);
+    const history = await discoverHistory(save.id);
     const migration = migrateV1MissionClockRemoval({
       campaignState: save.state,
       packageData,
@@ -389,6 +429,7 @@ export function createCampaignStartController({
       throw error;
     }
     if (!migration.migrated) return clone(save);
+    assertOrdinaryCampaignHistory(history);
     const timestamp = currentTime();
     const migratedState = advanceStateCustody(
       migration.campaignState,
@@ -401,16 +442,17 @@ export function createCampaignStartController({
       updatedAt: timestamp,
       state: migratedState,
     };
-    return storeV1CampaignSave(adapter, migratedSave, {
-      makeActive,
-      previousSave: save,
-    });
+    const stored = await storeV1CampaignSave(adapter, migratedSave, { makeActive, previousSave: save });
+    await discoverHistory(save.id);
+    return stored;
   }
 
   async function refreshActive() {
-    activeSave = await loadActiveV1CampaignSave(adapter);
-    if (activeSave) activeSave = await migrateLoadedSave(activeSave, { makeActive: true });
-    activeState = activeSave ? assertV1CampaignState(clone(activeSave.state)) : null;
+    let selected = await loadActiveV1CampaignSave(adapter);
+    if (selected) selected = await migrateLoadedSave(selected, { makeActive: true });
+    const selectedState = selected ? assertV1CampaignState(clone(selected.state)) : null;
+    activeSave = selected;
+    activeState = selectedState;
     return activeSave;
   }
 
@@ -443,52 +485,58 @@ export function createCampaignStartController({
 
   return {
     async initialize() {
-      const busy = [...publications.values()].find(value => value.phase === 'pending');
-      if (busy) throw statePublicationError(busy.saveId, busy);
-      const index = await initializeV1Storage(adapter, { now: currentTime() });
-      for (const summary of Object.values(index.saves)) {
-        await withCampaignTimelineLease(summary.campaignId, async () => {
+      return withHistorySelection(async () => {
+        const busy = [...publications.values()].find(value => value.phase === 'pending');
+        if (busy) throw statePublicationError(busy.saveId, busy);
+        const index = await initializeV1Storage(adapter, { now: currentTime() });
+        for (const summary of Object.values(index.saves)) {
+          await withCampaignTimelineLease(summary.campaignId, async () => {
+            try {
+              await recoverPublication(summary.id, { adopt: false });
+            } catch (error) {
+              if (!isStatePublicationError(error)) throw error;
+              if (summary.id === index.activeSaveId) blockedActiveSaveId = summary.id;
+            }
+          });
+        }
+        if (!publications.size) await migrateMonolithicV1CampaignSaves(adapter);
+        const pendingCampaignDeletions = await listPendingV1CampaignDeletions(adapter);
+        if (blockedActiveSaveId && publications.has(blockedActiveSaveId)) {
+          activeSave = null;
+          activeState = null;
+        } else {
+          const refreshedIndex = await initializeV1Storage(adapter, { now: currentTime() });
+          const summary = refreshedIndex.saves[refreshedIndex.activeSaveId];
           try {
-            await recoverPublication(summary.id, { adopt: false });
+            if (summary) await withCampaignTimelineLease(summary.campaignId, refreshActive);
+            else await refreshActive();
+            blockedActiveSaveId = null;
           } catch (error) {
             if (!isStatePublicationError(error)) throw error;
-            if (summary.id === index.activeSaveId) blockedActiveSaveId = summary.id;
+            blockedActiveSaveId = error.details?.saveId || summary?.id;
+            activeSave = null; activeState = null;
           }
-        });
-      }
-      if (!publications.size) await migrateMonolithicV1CampaignSaves(adapter);
-      const pendingCampaignDeletions = await listPendingV1CampaignDeletions(adapter);
-      if (blockedActiveSaveId && publications.has(blockedActiveSaveId)) {
-        activeSave = null;
-        activeState = null;
-      } else {
-        const refreshedIndex = await initializeV1Storage(adapter, { now: currentTime() });
-        const summary = refreshedIndex.saves[refreshedIndex.activeSaveId];
-        try {
-          if (summary) await withCampaignTimelineLease(summary.campaignId, refreshActive);
-          else await refreshActive();
-          blockedActiveSaveId = null;
-        } catch (error) {
-          if (!isStatePublicationError(error)) throw error;
-          blockedActiveSaveId = error.details?.saveId || summary?.id;
-          activeSave = null; activeState = null;
         }
-      }
-      return {
-        recovered: Boolean(activeSave),
-        activeSave: clone(activeSave),
-        campaignState: clone(activeState),
-        ...(publications.size ? { publicationRecovery: [...publications.values()].map(value => ({
-          saveId: value.saveId, phase: value.phase, requestHash: value.requestHash || null,
-        })) } : {}),
-        ...(pendingCampaignDeletions.length > 0 ? {
-          pendingCampaignDeletions: clone(pendingCampaignDeletions),
-        } : {}),
-      };
+        return {
+          recovered: Boolean(activeSave),
+          activeSave: clone(activeSave),
+          campaignState: clone(activeState),
+          ...(publications.size ? { publicationRecovery: [...publications.values()].map(value => ({
+            saveId: value.saveId, phase: value.phase, requestHash: value.requestHash || null,
+          })) } : {}),
+          ...(pendingCampaignDeletions.length > 0 ? {
+            pendingCampaignDeletions: clone(pendingCampaignDeletions),
+          } : {}),
+        };
+      });
     },
 
     getActiveCampaignState: () => clone(activeState),
     getActiveSave: () => clone(activeSave),
+    getSaveHistoryStatus: (saveId = selectedSaveId()) => {
+      const status = historyModes.get(saveId);
+      return status ? { saveId, mode: selectionPending === null ? status.mode : 'unknown' } : (saveId ? { saveId, mode: 'unknown' } : null);
+    },
     assertSaveWritable,
     verifySaveWritable,
     getSavePublicationStatus: (saveId = selectedSaveId()) => clone(publications.get(saveId) || null),
@@ -610,6 +658,11 @@ export function createCampaignStartController({
           code: 'DIRECTIVE_V1_STATE_APPLICATION_MISMATCH',
         });
       }
+      assertSaveWritable(id);
+      if (selectionPending !== null) assertOrdinaryCampaignHistory({ saveId: id, mode: 'unknown' });
+      const knownHistory = historyModes.get(id);
+      if (knownHistory) assertOrdinaryCampaignHistory(knownHistory);
+      else await requireOrdinaryHistory(id);
       await verifySaveWritable(id);
       // The read barrier is asynchronous. Neither caller aliases nor another
       // publication/selection may replace this invocation's application.
@@ -619,6 +672,7 @@ export function createCampaignStartController({
           code: 'DIRECTIVE_V1_STATE_PERSISTENCE_CONFLICT',
         });
       }
+      assertOrdinaryCampaignHistory(historyModes.get(id));
       const pending = { phase: 'pending', saveId: id, before: previousSave, candidate, applicationContext: application };
       publications.set(id, pending);
       let result;
@@ -626,6 +680,12 @@ export function createCampaignStartController({
         result = await persistActiveCampaign({ adapter, saveId: id, previousSave,
           campaignState: candidate, name, now: currentTime(), publicationOutcomes: true, expectedActiveSaveId: id });
       } catch (error) {
+        if (error.code === 'DIRECTIVE_V1_CAPTURE_REQUIRED' && publications.get(id) === pending) {
+          // The service's fresh mode guard runs before any publication write.
+          historyModes.set(id, { saveId: id, mode: 'captured' });
+          publications.delete(id);
+          throw error;
+        }
         // The explicit publisher normally returns a union. A transport or preflight
         // exception without a verified outcome cannot authorize rollback.
         publications.set(id, { ...pending, phase: 'uncertain', error: { message: error.message, code: error.code } });
@@ -663,6 +723,7 @@ export function createCampaignStartController({
     },
 
     async createCheckpoint({ name, campaignState = activeState } = {}) {
+      await requireOrdinaryHistory();
       await verifySaveWritable();
       if (!activeSave) throw new Error('No active V1 campaign is available.');
       await requireCurrentActiveTimeline();
@@ -677,6 +738,7 @@ export function createCampaignStartController({
           now: currentTime()
         });
       } catch (error) {
+        if (error.code === 'DIRECTIVE_V1_CAPTURE_REQUIRED' || error.code === 'DIRECTIVE_V1_CAPTURE_MODE_UNAVAILABLE') throw error;
         try {
           await deleteV1CampaignSave(adapter, checkpointId, { now: currentTime() });
         } catch (cleanupError) {
@@ -687,6 +749,7 @@ export function createCampaignStartController({
     },
 
     async prepareTimelineCheckpoint({ name, checkpointId = null, campaignState = activeState } = {}) {
+      await requireOrdinaryHistory();
       await verifySaveWritable();
       if (checkpointId) await verifySaveWritable(checkpointId);
       if (!activeSave || activeSave.slotType !== 'active') throw new Error('No active V1 timeline is available.');
@@ -723,6 +786,8 @@ export function createCampaignStartController({
     },
 
     async persistInactiveTimeline({ save } = {}) {
+      await requireOrdinaryHistory();
+      if (save?.id) await requireOrdinaryHistory(save.id, { allowMissing: true });
       await verifySaveWritable();
       if (save?.id) await verifySaveWritable(save.id);
       const record = createV1CampaignSave({
@@ -741,15 +806,23 @@ export function createCampaignStartController({
     },
 
     async activatePersistedTimeline({ expectedSaveId, nextSaveId } = {}) {
-      await verifySaveWritable(expectedSaveId);
-      await verifySaveWritable(nextSaveId);
-      await compareAndSwapActiveV1CampaignSave(adapter, {
-        expectedSaveId: required(expectedSaveId, 'expectedSaveId'),
-        nextSaveId: required(nextSaveId, 'nextSaveId'),
-        now: currentTime()
+      return withHistorySelection(async () => {
+        await verifySaveWritable(expectedSaveId);
+        await verifySaveWritable(nextSaveId);
+        const target = await migrateLoadedSave(await loadV1CampaignSave(adapter, required(nextSaveId, 'nextSaveId')), { makeActive: false });
+        const targetState = assertV1CampaignState(clone(target.state));
+        const targetManifest = clone(historyModes.get(target.id)?.manifest);
+        await compareAndSwapActiveV1CampaignSave(adapter, {
+          expectedSaveId: required(expectedSaveId, 'expectedSaveId'),
+          nextSaveId: required(nextSaveId, 'nextSaveId'),
+          expectedTargetSave: target,
+          expectedTargetManifest: targetManifest,
+          now: currentTime()
       });
-      await refreshActive();
+      activeSave = clone(target);
+      activeState = targetState;
       return { activeSave: clone(activeSave), campaignState: clone(activeState) };
+      });
     },
 
     async renameSavedGame({ savedGameId, name } = {}) {
@@ -799,6 +872,7 @@ export function createCampaignStartController({
     getStorageIndex: () => initializeV1Storage(adapter, { now: currentTime() }),
 
     async bindCheckpointChat({ checkpointId, binding } = {}) {
+      await requireOrdinaryHistory(checkpointId);
       await verifySaveWritable(checkpointId);
       const checkpoint = await migrateLoadedSave(
         await loadV1CampaignSave(adapter, required(checkpointId, 'checkpointId')),
@@ -833,6 +907,8 @@ export function createCampaignStartController({
     },
 
     async loadCheckpoint({ checkpointId } = {}) {
+      await requireOrdinaryHistory();
+      await requireOrdinaryHistory(checkpointId);
       await verifySaveWritable();
       await verifySaveWritable(checkpointId);
       const checkpoint = await migrateLoadedSave(
@@ -994,17 +1070,18 @@ export function createCampaignStartController({
     },
 
     async loadGame({ saveId } = {}) {
-      await verifySaveWritable();
-      await verifySaveWritable(saveId);
-      const loaded = await loadV1CampaignSave(adapter, required(saveId, 'saveId'), {
-        makeActive: true,
-        now: currentTime()
+      return withHistorySelection(async () => {
+        await verifySaveWritable();
+        await verifySaveWritable(saveId);
+        const loaded = await loadV1CampaignSave(adapter, required(saveId, 'saveId'));
+        const save = await migrateLoadedSave(loaded, { makeActive: false });
+        if (save.slotType !== 'active') throw new Error('Load checkpoints through loadCheckpoint.');
+        const selected = await loadV1CampaignSave(adapter, save.id, { makeActive: true, now: currentTime(),
+          expectedSave: save, expectedManifest: historyModes.get(save.id)?.manifest });
+        activeSave = clone(selected);
+        activeState = clone(selected.state);
+        return clone(save.state);
       });
-      const save = await migrateLoadedSave(loaded, { makeActive: true });
-      if (save.slotType !== 'active') throw new Error('Load checkpoints through loadCheckpoint.');
-      activeSave = clone(save);
-      activeState = clone(save.state);
-      return clone(save.state);
     },
 
     verifyStorage: () => verifyV1Storage(adapter)

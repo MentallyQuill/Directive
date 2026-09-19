@@ -1,5 +1,7 @@
 # Stabilization wrap-up — September 18, 2026
 
+Follow-up: the user subsequently resumed completion of the three preserved code drafts. See [the draft completion record](STABILIZATION_DRAFT_COMPLETION.md) for that scoped work; the broader live-soak goal remains unfinished.
+
 The user requested wrap-up because model access is unavailable. Stop expansion, provider calls and soak batches. The original six-area stabilization objective remains incomplete; resume only on a new user request.
 
 ## Publication scope

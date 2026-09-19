@@ -1,3 +1,4 @@
+import { assertV1CampaignSaveManifest, V1_CAMPAIGN_SAVE_MANIFEST_KIND } from '../storage/v1-segmented-save-contracts.mjs';
 import {
   acceptCharacterCreatorDraftRecord,
   createCharacterCreatorDraftRecord,
@@ -132,6 +133,33 @@ export async function acceptCreatorDraftAndCreateFirstSave({
   }
 }
 
+/** Read-only layout discovery. Absence is allowed only for explicit new targets. */
+export async function readCampaignSaveHistoryStatus(adapter, saveId, { allowMissing = false } = {}) {
+  let manifest;
+  try { manifest = await adapter.readJson(V1_STORAGE_PATHS.save(saveId)); }
+  catch (error) {
+    if (allowMissing && (error?.code === 'ENOENT' || error?.code === 'DIRECTIVE_FAKE_HOST_FILE_MISSING'
+      || error?.name === 'NotFoundError' || error?.status === 404)) return { saveId, mode: 'ordinary', manifest: null };
+    throw error;
+  }
+  if (manifest?.kind === V1_CAMPAIGN_SAVE_MANIFEST_KIND) {
+    assertV1CampaignSaveManifest(manifest, { saveId });
+    return { saveId, mode: manifest.branchHistory ? 'captured' : 'ordinary', manifest: structuredClone(manifest) };
+  }
+  // Existing monolithic migration remains supported; it has no captured catalog.
+  if (manifest?.kind === 'directive.campaignSave.v1' && manifest.version === 1 && manifest.id === saveId) {
+    return { saveId, mode: 'ordinary', manifest: structuredClone(manifest) };
+  }
+  throw Object.assign(new Error('The saved-game history mode could not be verified.'), { code: 'DIRECTIVE_V1_CAPTURE_MODE_UNAVAILABLE' });
+}
+
+export function assertOrdinaryCampaignHistory(status) {
+  if (status?.mode !== 'ordinary') throw Object.assign(new Error('This saved game requires captured-history publication; this operation is not enrolled.'), {
+    code: status?.mode === 'captured' ? 'DIRECTIVE_V1_CAPTURE_REQUIRED' : 'DIRECTIVE_V1_CAPTURE_MODE_UNAVAILABLE',
+    details: { saveId: status?.saveId || null, mode: status?.mode || 'unknown' },
+  });
+}
+
 export async function persistActiveCampaign({
   adapter,
   saveId,
@@ -164,11 +192,14 @@ export async function persistActiveCampaign({
   });
   if (publicationOutcomes) {
     if (!existing) throw new Error('An explicit publication requires an existing active save.');
-    const expectedManifest = await adapter.readJson(V1_STORAGE_PATHS.save(saveId));
+    const status = await readCampaignSaveHistoryStatus(adapter, saveId);
+    assertOrdinaryCampaignHistory(status);
+    const expectedManifest = status.manifest;
     return storeV1ActiveCampaignSaveWithOutcome(adapter, record, {
       previousSave: existing, expectedManifest, expectedActiveSaveId,
     });
   }
+  assertOrdinaryCampaignHistory(await readCampaignSaveHistoryStatus(adapter, saveId, { allowMissing: !existing }));
   return storeV1CampaignSave(adapter, record, { previousSave: existing });
 }
 
@@ -181,6 +212,8 @@ export async function createCampaignCheckpoint({
   now
 }) {
   assertV1CampaignState(campaignState);
+  assertOrdinaryCampaignHistory(await readCampaignSaveHistoryStatus(adapter, activeSaveId));
+  assertOrdinaryCampaignHistory(await readCampaignSaveHistoryStatus(adapter, checkpointId, { allowMissing: true }));
   const createdAt = stamp(now);
   return storeV1CampaignSave(adapter, createV1CampaignSave({
     id: required(checkpointId, 'checkpointId'),
