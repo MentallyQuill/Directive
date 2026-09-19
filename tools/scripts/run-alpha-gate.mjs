@@ -6,6 +6,7 @@ const checks = [
   "test-evidence-passages.mjs",
   "test-character-isolated-transport.mjs",
   "test-turn-attempt-budget.mjs",
+  "test-character-responder.mjs",
   "test-settings-draft-saves.mjs",
   "test-information-extractor-evaluation.mjs",
   "test-continuity-causal-order.mjs",
