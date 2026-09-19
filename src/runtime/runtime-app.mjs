@@ -1,3 +1,7 @@
+import { prepareProtectedCharacterTurn } from './protected-character-turn.mjs';
+import { createCharacterPublicationGuard } from './character-publication-guard.mjs';
+import { stableSha256Hex } from './v1-stable-hash.mjs';
+import { createProtectedNarrationPacing } from '../narration/character-scene-narrator.mjs';
 import { isStatePublicationError } from './state-publication-errors.mjs';
 import { normalizeNarrationSettings, createNarrationPolicy } from '../narration/narration-policy.mjs';
 import { createScenePacingContext } from '../narration/scene-pacing.mjs';
@@ -787,7 +791,8 @@ export function createDirectiveRuntimeApp({
   host,
   packageLoader = loadBundledCampaignPackageRecords,
   now = () => new Date().toISOString(),
-  idFactory = null
+  idFactory = null,
+  getCharacterKnowledgeSettings = null
 } = {}) {
   if (!host?.storage || !host?.chat || !host?.prompt) throw new Error('Directive V1 requires storage, chat, and prompt host adapters.');
   const generationCancellation = createGenerationCancellation(host.generation);
@@ -818,6 +823,9 @@ export function createDirectiveRuntimeApp({
   const finalizationFlights = new Map();
   const failedFinalizations = new Map();
   const openingPublications = new Map();
+  const pendingProtectedTurns = new Map();
+  const pendingProtectedFinalizations = new Map();
+  const characterKnowledgeSettings = () => getCharacterKnowledgeSettings?.() ?? state?.settings?.characterKnowledge ?? null;
   let activeTimelineLoad = null;
   function transcriptKey() {
     const binding = host.chat.getCurrentBinding?.();
@@ -1135,6 +1143,7 @@ export function createDirectiveRuntimeApp({
       getState: () => state,
       stateDeltaGateway: gateway,
       generationRouter,
+      getCharacterKnowledgeSettings: characterKnowledgeSettings,
       directStory: createStoryDirectionAnalyst({ generationRouter }),
       analyzeContinuity: createContinuityAnalyst({ generationRouter }),
       providerFingerprints: () => providerConfiguration(host),
@@ -2043,8 +2052,11 @@ export function createDirectiveRuntimeApp({
       transcriptLane.releaseUnchanged(failedOwner);
       failedFinalizations.delete(key);
       openingPublications.delete(key);
+      pendingProtectedFinalizations.delete(key);
     }
     if (currentChatIsBound() && (!sourceChatId || sourceChatId === compact(state?.campaignChatBinding?.chatId))) {
+      pendingProtectedTurns.get(key)?.turn.dispose();
+      pendingProtectedTurns.delete(key);
       activeAnalysisController?.abort();
     }
     return enqueueSettlement(async () => {
@@ -2112,8 +2124,84 @@ export function createDirectiveRuntimeApp({
     };
   }
 
+  async function publishProtectedGeneration({ preparedSnapshot, direction, generationType, generationTargetKey, transcriptOwner, progressScope }) {
+    const key = transcriptKey();
+    const pending = pendingProtectedTurns.get(key);
+    if (pending && pending.targetKey !== generationTargetKey) throw Object.assign(new Error('The prior protected publication must be recovered first.'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' });
+    if (!['normal', 'swipe', 'regenerate'].includes(generationType) || !preparedSnapshot || !direction?.mission?.directorReceipt?.characterScene) {
+      throw Object.assign(new Error('Protected scene preparation is unavailable for this source.'), { code: 'DIRECTIVE_CHARACTER_SCENE_PREPARATION_UNAVAILABLE' });
+    }
+    if (typeof host.chat.publishProtectedScene !== 'function') throw Object.assign(new Error('Protected publication is unavailable.'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_UNAVAILABLE' });
+    let retained = pending;
+    if (retained) {
+      retained.ownership.owner = transcriptOwner;
+      retained.ownership.scope = progressScope;
+    } else {
+      await host.prompt.clear?.({ reason: 'protected-character-scene' });
+      assertTurnActive(progressScope);
+      const sampled = host.chat.captureCurrentTranscriptSnapshot?.();
+      const messages = host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false });
+      if (sampled?.status !== 'captured' || !Array.isArray(messages)) throw Object.assign(new Error('Transcript capture is unavailable.'), { code: 'DIRECTIVE_CHARACTER_SNAPSHOT_INVALID' });
+      const rows = sampled.snapshot.rows;
+      const ownership = { owner: transcriptOwner, scope: progressScope };
+      const sourceDigest = stableSha256Hex(stableJsonStringify(rows));
+      const readIdentity = () => {
+        assertTurnActive(ownership.scope);
+        transcriptLane.assertOwner(ownership.owner, transcriptKey());
+        return { bindingKey: transcriptKey(), branchId: state.campaignChatBinding.saveId, sourceDigest,
+          stateDigest: stableSha256Hex(stableJsonStringify(state)),
+          settingsDigest: stableSha256Hex(stableJsonStringify({ providers: providerConfiguration(host), narration: narrationSettings(), knowledge: characterKnowledgeSettings() })),
+          epoch: ownership.scope.epoch };
+      };
+      const identity = readIdentity();
+      const publicationId = `character-scene.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
+      const guard = createCharacterPublicationGuard({ publicationId, identity, baselineRows: rows, readIdentity,
+        readRows: () => { const current = host.chat.captureCurrentTranscriptSnapshot?.(); return current?.status === 'captured' ? current.snapshot.rows : null; } });
+      const sourcePair = Object.fromEntries(['previousAssistant', 'currentPlayer'].map(slot => {
+        const source = preparedSnapshot.source[slot];
+        return [slot, { messageId: source.hostMessageId, selectedSwipeId: slot === 'previousAssistant' ? source.selectedVariantId ?? source.selectedVariant?.selectedVariantId ?? null : null,
+          textHash: source.textHash, text: source.text }];
+      }));
+      const definition = (runtimeAssets?.missionDefinitions || []).map(entry => entry.definition || entry).find(entry => entry.id === state.mission?.v1?.definitionId);
+      const pacing = createProtectedNarrationPacing(definition ? createScenePacingContext({ definition, state: state.mission.v1, receipts: state.storySettlement?.acceptedPairReceipts || [] }) : {});
+      const target = generationType === 'normal' ? null : [...messages].reverse().find(message => activeSourceRow(message) && !isUserMessage(message) && !message.isSystem && !message.is_system);
+      if (generationType !== 'normal' && !target) throw Object.assign(new Error('The selected response is unavailable.'), { code: 'DIRECTIVE_CHARACTER_SNAPSHOT_INVALID' });
+      const turn = await prepareProtectedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
+        messages, sourcePair, admission: direction.mission.directorReceipt.characterScene, sourceContributionIds: direction.mission.directorReceipt.sourceContributionIds,
+        identity, guard, publicationId, expectedBinding: clone(state.campaignChatBinding), hostMessageId: target ? messageId(target, target) : null,
+        signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)), settings: narrationSettings(), pacing });
+      retained = { turn, ownership, targetKey: generationTargetKey, publicationBaseline: JSON.stringify(rows) };
+      pendingProtectedTurns.set(key, retained);
+    }
+    try {
+      const publication = await enqueueStateMutation(() => retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner });
+      pendingProtectedTurns.delete(key);
+      transcriptOwner.baseline = retained.publicationBaseline;
+      transcriptLane.producing(transcriptOwner);
+      const message = await host.chat.getMessage?.(publication.hostMessageId);
+      pendingProtectedFinalizations.set(key, { publication, attempts: retained.turn.attempts });
+      const finalization = await publicApi.handleHostGenerationEnded({ message });
+      if (!finalization?.hostMessageId || finalization.metadataAttachment || finalization.timeFooterNormalization) {
+        if (!failedFinalizations.has(key)) {
+          transcriptLane.finish(transcriptOwner, false);
+          failedFinalizations.set(key, { payload: { message: clone(message) }, capturedDutyReport: null,
+            completionTarget: captureDirectivePromptTarget(), expectedTranscript: transcriptObservation() });
+        }
+        throw Object.assign(new Error('Protected scene finalization is pending.'), { code: 'DIRECTIVE_CHARACTER_FINALIZATION_PENDING' });
+      }
+      pendingProtectedFinalizations.delete(key);
+      return { publication, finalization, displayRefreshRequired: publication.displayUpdated === false, attempts: retained.turn.attempts };
+    } catch (error) {
+      if (error?.code !== 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING') {
+        retained.turn.dispose(); pendingProtectedTurns.delete(key);
+      }
+      throw error;
+    }
+  }
+
   const orchestrator = {
     async interceptGeneration({ type = 'normal', recoveryIntent = 'direct', signal = null } = {}) {
+      if (characterKnowledgeSettings()?.mode === 'protected' && ['quiet', 'impersonate'].includes(compact(type))) return { handled: false, reason: 'non-story-generation' };
       if (activeTimelineLoad) return { handled: true, abortDefaultGeneration: true,
         responseStrategy: 'cancelStaleTurn', reasonCode: 'timeline-load-pending' };
       const generationGesture = activeHostGenerationGesture;
@@ -2130,6 +2218,7 @@ export function createDirectiveRuntimeApp({
       pauseDossiers();
       const generationType = compact(type) || 'normal';
       let generationTargetKey = null;
+      let protectedPreparation = null;
       let transcriptOwner = generationGesture?.transcriptOwner || null;
       // A completed blocked attempt released its preparation; the gesture still
       // owns the existing retry budget, not a running transcript reservation.
@@ -2148,7 +2237,15 @@ export function createDirectiveRuntimeApp({
       if (transcriptLane.current(transcriptKey())?.phase === 'failed') {
         if (finalizationFlights.has(transcriptKey())) throw transcriptNotReady('finalization-running');
         const prior = failedFinalizations.get(transcriptKey());
-        if (prior) await publicApi.handleHostGenerationEnded(prior.payload, prior);
+        if (prior) {
+          const protectedCompletion = pendingProtectedFinalizations.get(transcriptKey());
+          const finalization = await publicApi.handleHostGenerationEnded(prior.payload, prior);
+          if (protectedCompletion && finalization?.hostMessageId && !finalization.metadataAttachment && !finalization.timeFooterNormalization) {
+            pendingProtectedFinalizations.delete(transcriptKey());
+            return { handled: true, abortDefaultGeneration: true, responseStrategy: 'protectedScenePublished', ...protectedCompletion,
+              finalization, displayRefreshRequired: protectedCompletion.publication.displayUpdated === false };
+          }
+        }
         else releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
         if (transcriptLane.current(transcriptKey())) throw transcriptNotReady('finalization-failed');
         transcriptOwner = null;
@@ -2264,6 +2361,7 @@ export function createDirectiveRuntimeApp({
             syncPromptAfter:false, publishNotifications:false, progressScope, generationType,
             recoveryGestureId:generationGestureId,
           }), { transcriptOwner });
+          protectedPreparation = { preparedSnapshot: prepared.snapshot, direction };
           assertTurnActive(progressScope);
           if (direction.settlementBlocked) return {
             handled:true, abortDefaultGeneration:true, responseStrategy:'blockAndRetry',
@@ -2274,6 +2372,16 @@ export function createDirectiveRuntimeApp({
           const error = new Error('The selected story sources could not be verified for narration.');
           error.code = 'DIRECTIVE_TURN_SOURCE_INVALID';
           throw error;
+        }
+      }
+      if (characterKnowledgeSettings()?.mode === 'protected') {
+        try {
+          const result = await publishProtectedGeneration({ ...protectedPreparation, generationType, generationTargetKey, transcriptOwner, progressScope });
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'protectedScenePublished', ...result };
+        } catch (error) {
+          if (error?.code === 'DIRECTIVE_GENERATION_ABORTED') throw error;
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',
+            settlementError: { code: error?.code || 'DIRECTIVE_CHARACTER_SCENE_FAILED', reasonCode: error?.code || 'DIRECTIVE_CHARACTER_SCENE_FAILED', blockedRoles: [], persistenceAttempts: 0 } };
         }
       }
       const promptSync = await syncPrompt({

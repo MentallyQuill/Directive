@@ -2090,12 +2090,12 @@ export function createSillyTavernChatAdapter({
         throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_INVALID', publicationId);
       }
       const ctx = context(), chat = getChatArray(ctx);
-      const publication = { id: publicationId, createMetadata, signal, guard(phase, source = null, persistedSnapshot = null) {
+      const publication = { id: publicationId, createMetadata, signal, guard(phase, source = null, persistedSnapshot = null, mutatedRows = null) {
         assertGenerationActive(signal);
         if (getChatArray(context()) !== chat || publicationFields.some(key => getCurrentBinding()?.[key] !== expectedBinding[key])) {
           throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE', publicationId);
         }
-        const accepted = assertCurrent({ phase, publicationId, source: source ? structuredClone(source) : null, ...(persistedSnapshot ? { persistedSnapshot } : {}) });
+        const accepted = assertCurrent({ phase, publicationId, source: source ? structuredClone(source) : null, ...(persistedSnapshot ? { persistedSnapshot } : {}), ...(mutatedRows ? { mutatedRows: cloneJson(mutatedRows) } : {}) });
         if (accepted !== true) {
           if (accepted?.then) Promise.resolve(accepted).catch(() => null);
           throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE', publicationId);
@@ -2228,6 +2228,7 @@ export function createSillyTavernChatAdapter({
     }
     chat.push(message);
     const index = chat.length - 1;
+    if (publication) publication.guard('mutated', publicationSource(message, index, 0), null, chat);
     const add = ctx.addOneMessage || globalThis.addOneMessage;
     if (typeof add === 'function') {
       try {
@@ -2453,6 +2454,7 @@ export function createSillyTavernChatAdapter({
       sendDate: selectedSwipeAt,
       extra: selected ? message.extra : extraPatch
     });
+    if (publication) publication.guard('mutated', publicationSource(message, index, swipeIndex), null, chat);
     await refreshMessageDisplay(ctx, index, message);
     await saveChat(ctx);
     return {
